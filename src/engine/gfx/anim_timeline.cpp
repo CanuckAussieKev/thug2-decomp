@@ -70,7 +70,7 @@ void AnimTimeline::tick_frame() { ongoing_ = static_cast<float>(next_time()); }
 // 0x00481430 (start: the smaller of the two - `to` when they're equal or NaN; end: the other)
 void AnimTimeline::play_anim(uint32_t anim, float from, float to, int loop_type, float /*blendPeriod*/, float speed)
 {
-    bool forwards = from < to;
+    const bool forwards = from < to;
     outset_ = forwards ? from : to;
     ongoing_ = from;
     finish_ = forwards ? to : from;
@@ -112,7 +112,7 @@ double AnimTimeline::next_time()
     if (repeat_mode_ == kHold)
         return 0.0;
     if (direction_ == 0) {
-        double next = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_ + ongoing_;
+        const double next = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_ + ongoing_;
         stepped = static_cast<float>(next);
         complete_ = next > finish_;
         if (outset_ == finish_) {
@@ -126,7 +126,7 @@ double AnimTimeline::next_time()
             bound = finish_;
         }
     } else if (direction_ == -1) {
-        double next = ongoing_ - frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_;
+        const double next = ongoing_ - frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * speed_;
         stepped = static_cast<float>(next);
         complete_ = next < outset_;
         if (outset_ == finish_) {
@@ -156,7 +156,7 @@ double AnimTimeline::next_time()
 // 0x004816B0
 void AnimTimeline::advance_clock(float frames)
 {
-    float speed = speed_;
+    const float speed = speed_;
     speed_ = 0.0f;
     ongoing_ = static_cast<float>(static_cast<double>(frames) + ongoing_);
     ongoing_ = static_cast<float>(next_time());

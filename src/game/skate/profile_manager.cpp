@@ -207,7 +207,7 @@ RiderIdentity* ProfileRoster::get_template(uint32_t name) { return templates_.ge
 // 0x0057B800
 void ProfileRoster::reset_templates()
 {
-    uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         templates_.get_by_index(static_cast<int>(i), &key)->get_reset(nullptr);
@@ -217,7 +217,7 @@ void ProfileRoster::reset_templates()
 // 0x0057B840
 void ProfileRoster::write_pros(script::Struct* save)
 {
-    uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
@@ -225,14 +225,14 @@ void ProfileRoster::write_pros(script::Struct* save)
             profile->write_to_save(save);
     }
     save->add_component_of_type(kCurrentSkater, script::kQbvalName, profiles_[cursor_pos_]->fetch_title());
-    text::Chars display_name(profiles_[cursor_pos_]->fetch_shown_name());
+    const text::Chars display_name(profiles_[cursor_pos_]->fetch_shown_name());
     save->append_word(kDisplayName, script::kQbvalString, display_name.c_str());
 }
 
 // 0x0057B920
 void ProfileRoster::write_custom_skaters(script::Struct* save)
 {
-    uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
@@ -265,7 +265,7 @@ void ProfileRoster::set_current_skater(uint32_t name)
 void ProfileRoster::read_pros(script::Struct* save)
 {
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
-    uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num_;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
@@ -309,7 +309,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     profile->set_appearance(appearance, true);
     if (void* face = face_of(profile)) {
         script::Struct* texture = nullptr;
-        bool found = custom->read_sub_struct(kFaceTexture, &texture, 0);
+        const bool found = custom->read_sub_struct(kFaceTexture, &texture, 0);
         if (found) {
             static_cast<gfx::FaceSkin*>(face)->load_from_structure(texture);
             debug::printf("Face texture found\n");
@@ -323,7 +323,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     int stats[10];
     for (int i = 0; i < 10; ++i)
         stats[i] = profile->fetch_tally(kStats[i]);
-    int max_specials = profile->get_max_specials();
+    const int max_specials = profile->get_max_specials();
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* specials = memory ? new (memory) script::Struct : nullptr;
     specials->append_structure_if_any(profile->get_specials());

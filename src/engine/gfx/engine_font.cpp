@@ -51,7 +51,7 @@ void unload_font(const char* name)
         if (++index >= kFontSlots)
             return;
     }
-    uint32_t key = checksums::hash_from_text(name);
+    const uint32_t key = checksums::hash_from_text(name);
     font_table().erase_entry(key);
     unload_pc_font(reinterpret_cast<PcFont*>(slots[index].font));
     slots[index].font = nullptr;

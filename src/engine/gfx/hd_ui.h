@@ -30,7 +30,7 @@ constexpr uint32_t kFormatDxt1 = 0x31545844;
 // The scale an image header's +0x14 marks (1: not an upscaled image).
 inline uint32_t image_scale(uint32_t field)
 {
-    uint32_t scale = field & 0xFF;
+    const uint32_t scale = field & 0xFF;
     return (field & 0xFFFFFF00) == kImageMarker && (scale == 2 || scale == 4) ? scale : 1;
 }
 

@@ -89,7 +89,7 @@ inline void debug_draw_box(const void*, const void*, const float*, int, int, int
 bool objects_from_table(script::Struct* params, const uint32_t* table)
 {
     params->put_int(kVersion, static_cast<int>(table[0]));
-    int count = static_cast<int>(table[1]);
+    const int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
     script::Array* memory = script::alloc_script_array();
     script::Array* objects = memory ? new (memory) script::Array : nullptr;
@@ -101,7 +101,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
         object->put_name_key(kModel, entry[1]);
         object->put_name_key(kSkeleton, entry[2]);
         object->put_name_key(kAnim, entry[3]);
-        uint32_t flags = entry[4];
+        const uint32_t flags = entry[4];
         if (flags >> 30 & 1)
             object->put_name_key(kUnnamed, kIsSkaterMarker);
         if (flags >> 31 & 1)
@@ -120,7 +120,7 @@ void CinematicTable::update_time(int /*unused*/)
         clock_ = static_cast<float>(g_cutscene_fixed_frame * static_cast<double>(kFrame));
     } else if (unknown3474_) {
         // a fixed step a frame (looping back at the end)
-        double time = static_cast<double>(unknown3470_) * kStep + clock_;
+        const double time = static_cast<double>(unknown3470_) * kStep + clock_;
         clock_ = static_cast<float>(time);
         if (unknown348c_ > 0.0f && !(time < unknown348c_) && !std::isnan(time)) {
             clock_ = *reinterpret_cast<float*>(&unknown3488_);
@@ -129,14 +129,14 @@ void CinematicTable::update_time(int /*unused*/)
             script::launch_script(kEndScript2, nullptr, nullptr, false, nullptr);
         }
     } else {
-        int rate = game_config::g_frame_rate;
-        uint64_t vblanks = frame_clock::fetch_retrace_count() - vblanks_ - paused_vblanks_;
+        const int rate = game_config::g_frame_rate;
+        const uint64_t vblanks = frame_clock::fetch_retrace_count() - vblanks_ - paused_vblanks_;
         clock_ = vblank_seconds(vblanks, rate);
     }
     if (!flag_34b_0_)
         return;
     // the camera and object animations come in parts: the next part when this one's over
-    float length = *static_cast<float*>(camera_anim_);
+    const float length = *static_cast<float*>(camera_anim_);
     if (!(clock_ >= static_cast<double>(kPartEnd) + length)) { // (unordered too)
         camera_start_ = static_cast<float>(clock_ / (static_cast<double>(length) + kFrame) * kFrame);
         return;
@@ -145,7 +145,7 @@ void CinematicTable::update_time(int /*unused*/)
     camera_start_ = 0.0f;
     if (camera_part_ < camera_parts_) {
         ++camera_part_;
-        uint32_t name = hash_of_name("_CAM", camera_part_); // (the game's string 0x00647914)
+        const uint32_t name = hash_of_name("_CAM", camera_part_); // (the game's string 0x00647914)
         if (camera_source_)
             delete_source(camera_source_);
         camera_source_ = new_anim_source();
@@ -155,7 +155,7 @@ void CinematicTable::update_time(int /*unused*/)
     }
     if (object_part_ < object_parts_) {
         ++object_part_;
-        uint32_t name = hash_of_name("_OBA", object_part_); // (the game's string 0x0064790C)
+        const uint32_t name = hash_of_name("_OBA", object_part_); // (the game's string 0x0064790C)
         if (object_source_)
             delete_source(object_source_);
         object_source_ = new_anim_source();
@@ -169,7 +169,7 @@ void CinematicTable::update_time(int /*unused*/)
             delete_source(entry.animation->source);
             entry.animation->source = nullptr;
         }
-        uint32_t anim = entry.name + entry.part * 10;
+        const uint32_t anim = entry.name + entry.part * 10;
         entry.animation = nullptr;
         for (int j = 0; j < animation_count_; ++j) {
             if (animations_[j].name == anim) {
@@ -231,7 +231,7 @@ void CinematicTable::update_object_transforms()
                              static_cast<int>(reinterpret_cast<uint32_t>(object_source_)));
     // the animated objects of the level (not the cutscene's own)
     for (int j = 0; j < *reinterpret_cast<int*>(get_bytes(anim_list_) + 8); ++j) {
-        uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
+        const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
         bool own = false;
         for (int k = object_count_ - 1; k >= 0; --k) {
             if (entities_[k].name == name)
@@ -249,7 +249,7 @@ void CinematicTable::update_object_transforms()
         std::memcpy(&object->at_point_, get_translations() + 4 * j, 16);
     }
     for (int i = 0; i < object_count_; ++i) {
-        ObjectEntry& entry = entities_[i];
+        const ObjectEntry& entry = entities_[i];
         GameEntity* object = entry.object;
         if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860

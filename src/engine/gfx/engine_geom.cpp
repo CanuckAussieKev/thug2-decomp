@@ -98,7 +98,7 @@ void Geom::choose_tri_source(void* faces) { hit_triangles_ = faces; }
 // 0x0048E150
 void Geom::fetch_tints(uint32_t* out)
 {
-    uint32_t count = fetch_vertex_tally();
+    const uint32_t count = fetch_vertex_tally();
     if (!render_colours_) {
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->front_end_heap_);

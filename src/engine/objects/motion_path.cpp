@@ -95,7 +95,7 @@ void MotionPathMembers::update_path_speed()
             velocity_ = 0.0f;
             return;
         }
-        double t = static_cast<double>(covered) / stop_distance_;
+        const double t = static_cast<double>(covered) / stop_distance_;
         velocity_ = static_cast<float>((1.0 - t) * stop_start_velocity_ + t * min_stop_velocity_);
         return;
     }
@@ -105,7 +105,7 @@ void MotionPathMembers::update_path_speed()
             velocity_ = path_velocity_;
             return;
         }
-        double velocity = static_cast<double>(step_seconds_) * acceleration_ + velocity_;
+        const double velocity = static_cast<double>(step_seconds_) * acceleration_ + velocity_;
         velocity_ = static_cast<float>(velocity);
         if (velocity > path_velocity_)
             velocity_ = path_velocity_;
@@ -118,7 +118,7 @@ void MotionPathMembers::update_path_speed()
         velocity_ = path_velocity_;
         return;
     }
-    double velocity = velocity_ - static_cast<double>(step_seconds_) * slowdown_rate_;
+    const double velocity = velocity_ - static_cast<double>(step_seconds_) * slowdown_rate_;
     velocity_ = static_cast<float>(velocity);
     if (velocity < path_velocity_)
         velocity_ = path_velocity_;

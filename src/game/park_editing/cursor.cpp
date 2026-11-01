@@ -35,7 +35,7 @@ void free_clipboard(Clipboard* clipboard) { Clipboard::dealloc(clipboard); }
 // the clipboard (0x0058D6D0).
 bool editor_allows_copy(int w, int l)
 {
-    bool allowed = ParkBuilderMode::fabricate(false)->main_heap_has_room(w, l);
+    const bool allowed = ParkBuilderMode::fabricate(false)->main_heap_has_room(w, l);
     ParkBuilderMode::get_release();
     return allowed;
 }
@@ -59,7 +59,7 @@ memory::MemSource* editor_arena() { return get_main_heap(); }
 // Swap the box's w and l (a quarter turn).
 void swap_width_and_length(CellBox& area)
 {
-    uint8_t w = area.w;
+    const uint8_t w = area.w;
     area.w = area.l;
     area.l = w;
 }
@@ -74,7 +74,7 @@ void BuildPointer::glow_overlapping_pieces(int on)
             clipboard_->glow_overlapping_pieces(this, on);
         return;
     }
-    MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
+    const MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
     if (metas.list) {
         for (MapListNode* node = metas.list; node; node = node->following_)
             node->get_placed_piece()->spotlight(on, 0);
@@ -92,7 +92,7 @@ bool BuildPointer::is_over_gap()
 void BuildPointer::shift_by(int dx, int dz)
 {
     clamp_to_park();
-    CellBox old = cell_footprint_;
+    const CellBox old = cell_footprint_;
     cell_footprint_.x = static_cast<uint8_t>(cell_footprint_.x + dx);
     cell_footprint_.z = static_cast<uint8_t>(cell_footprint_.z + dz);
     clamp_to_park();
@@ -106,8 +106,8 @@ void BuildPointer::shift_by(int dx, int dz)
             cell_footprint_.y = 0;
         }
     } else {
-        int here = park_owner_->get_ground_level(cell_footprint_, nullptr);
-        int before = park_owner_->get_ground_level(old, nullptr);
+        const int here = park_owner_->get_ground_level(cell_footprint_, nullptr);
+        const int before = park_owner_->get_ground_level(old, nullptr);
         cell_footprint_.y = static_cast<int8_t>(here > before ? here : before);
     }
 
@@ -119,7 +119,7 @@ void BuildPointer::shift_by(int dx, int dz)
     if (metas.list) {
         CellBox pos = metas.list->get_placed_piece()->cell_footprint_;
         int half = 0;
-        if (GapDetails* gap = park_owner_->get_gap_info(&pos, &half)) {
+        if (const GapDetails* gap = park_owner_->get_gap_info(&pos, &half)) {
             if (gap_.halves_placed_ != 1)
                 gap_ = *gap;
             mode = kModeGapAdjust;
@@ -148,7 +148,7 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
     // and the box turns with it.
     // (the sums are kept at double precision past the stores, as the x87 code does)
     if (turn_step > 0) {
-        double angle = static_cast<double>(target_angle_) + kQuarterTurn;
+        const double angle = static_cast<double>(target_angle_) + kQuarterTurn;
         quarter_turns_ = (quarter_turns_ + 1) & 3;
         target_angle_ = static_cast<float>(angle);
         if (angle > kFullTurn) {
@@ -157,7 +157,7 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
         }
         swap_width_and_length(cell_footprint_);
     } else if (turn_step < 0) {
-        double angle = static_cast<double>(target_angle_) - kQuarterTurn;
+        const double angle = static_cast<double>(target_angle_) - kQuarterTurn;
         quarter_turns_ = (quarter_turns_ - 1) & 3;
         target_angle_ = static_cast<float>(angle);
         if (angle < 0.0) {
@@ -168,8 +168,8 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
     }
 
     // Stepping: one cell along the stick's main axis (both when it's diagonal), once the last step has slid in.
-    float xx = offset_cell_x * offset_cell_x;
-    float zz = offset_cell_z * offset_cell_z;
+    const float xx = offset_cell_x * offset_cell_x;
+    const float zz = offset_cell_z * offset_cell_z;
     if (!(xx > kDeadZone || zz > kDeadZone) || !(move_time_ <= 0.0f)) {
         shift_by(0, 0);
     } else if (static_cast<double>(xx) * kAxisDominance < zz) {
@@ -187,7 +187,7 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
     // The target: the middle of the box (on the floor), and the slide towards it.
     maths::Vec4 corner;
     maths::Vec4 size;
-    maths::Vec4* world = park_owner_->grid_dims_to_world(&corner, &cell_footprint_, &size);
+    const maths::Vec4* world = park_owner_->grid_dims_to_world(&corner, &cell_footprint_, &size);
     aim_point_ = *world;
     aim_point_.x = static_cast<float>(static_cast<double>(size.x) * 0.5 + aim_point_.x);
     aim_point_.z = static_cast<float>(static_cast<double>(size.z) * 0.5 + aim_point_.z);
@@ -200,7 +200,7 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
         at_point_.z = static_cast<float>((static_cast<double>(aim_point_.z) - at_point_.z) / move_time_ * kSlideStep +
                                          at_point_.z);
         at_point_.y = aim_point_.y;
-        double time = static_cast<double>(move_time_) - kSlideStep;
+        const double time = static_cast<double>(move_time_) - kSlideStep;
         move_time_ = static_cast<float>(time);
         if (time < 0.0)
             move_time_ = 0.0f;
@@ -208,22 +208,22 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
 
     // The shown angle turns towards the target angle.
     if (angle_ < target_angle_) {
-        double angle = static_cast<double>(angle_) + kTurnStep;
+        const double angle = static_cast<double>(angle_) + kTurnStep;
         angle_ = static_cast<float>(angle);
         if (angle > target_angle_)
             angle_ = target_angle_;
     } else if (angle_ > target_angle_) {
-        double angle = static_cast<double>(angle_) - kTurnStep;
+        const double angle = static_cast<double>(angle_) - kTurnStep;
         angle_ = static_cast<float>(angle);
         if (angle < target_angle_)
             angle_ = target_angle_;
     }
 
     // Show the paste, or the piece (the rail tool shows none), a little in from the corner.
-    maths::Vec4 shown = {static_cast<float>(static_cast<double>(at_point_.x) - kShowInset),
-                         static_cast<float>(static_cast<double>(at_point_.y) + kShowInset),
-                         static_cast<float>(static_cast<double>(at_point_.z) - kShowInset),
-                         static_cast<float>(static_cast<double>(at_point_.w) + 1.0)};
+    const maths::Vec4 shown = {static_cast<float>(static_cast<double>(at_point_.x) - kShowInset),
+                               static_cast<float>(static_cast<double>(at_point_.y) + kShowInset),
+                               static_cast<float>(static_cast<double>(at_point_.z) - kShowInset),
+                               static_cast<float>(static_cast<double>(at_point_.w) + 1.0)};
     if (mode_sel_ == kModePaste) {
         if (clipboard_)
             clipboard_->preview_pieces(shown, angle_, clipboard_height_);
@@ -266,17 +266,17 @@ bool BuildPointer::copy_area_to_clipboard()
     // Not if its rails wouldn't fit in what's left of the rail budget (the original asks the global manager).
     maths::Vec4 corner;
     maths::Vec4 size;
-    maths::Vec4* world = ParkLayout::sole()->grid_dims_to_world(&corner, &area, &size);
-    float x0 = world->x;
-    float z0 = world->z;
+    const maths::Vec4* world = ParkLayout::sole()->grid_dims_to_world(&corner, &area, &size);
+    const float x0 = world->x;
+    const float z0 = world->z;
     auto x1 = static_cast<float>(static_cast<double>(size.x) + x0);
     auto z1 = static_cast<float>(static_cast<double>(size.z) + z0);
-    int rails = count_rail_points(x0, z0, x1, z1);
+    const int rails = count_rail_points(x0, z0, x1, z1);
     if (rails > free_rail_points())
         return false;
 
     int count = 0;
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
         ++count;
     if (count == kClipboardLimit)
         remove_oldest_clipboard();
@@ -346,7 +346,7 @@ void BuildPointer::destroy_cursor_meta()
 void BuildPointer::switch_to_clipboard()
 {
     int count = 0;
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
         ++count;
     if (count == 0)
         return;
@@ -354,7 +354,7 @@ void BuildPointer::switch_to_clipboard()
     // The clipboard set (its menu index counts the sets with menus before it). Without one, the original
     // writes through a null set.
     PieceFamily* set = nullptr;
-    int sets = park_owner_->num_sets_;
+    const int sets = park_owner_->num_sets_;
     for (int i = 0; i < sets; ++i) {
         int menu_index = 0;
         for (int j = 0; j < i; ++j) {
@@ -402,7 +402,7 @@ void BuildPointer::change_piece(uint32_t checksum)
     }
     drop_area_marquee();
 
-    uint32_t flags = source->flag_bits_;
+    const uint32_t flags = source->flag_bits_;
     if (flags & PieceGroup::kGap) {
         if (mode_sel_ != kModeGap) {
             mode_sel_ = kModeGap;
@@ -435,7 +435,7 @@ BuildPointer::BuildPointer()
     gap_.cancel_flags_ = 0;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     park_owner_ = ParkLayout::sole();
-    PieceFamily* set = park_owner_->get_piece_family(0, &menu_index_);
+    const PieceFamily* set = park_owner_->get_piece_family(0, &menu_index_);
     change_piece(set->entries_[set->selected_].checksum);
     gap_counter_ = 1;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)

@@ -66,7 +66,7 @@ bool cfunc_time_greater_than(Struct* params, Script*)
 {
     float seconds = 0.0f;
     params->fetch_float(0u, &seconds, 0);
-    uint32_t elapsed = frame_clock::get_time() - timer_start();
+    const uint32_t elapsed = frame_clock::get_time() - timer_start();
     return static_cast<double>(seconds) * 1000.0 < static_cast<double>(elapsed);
 }
 

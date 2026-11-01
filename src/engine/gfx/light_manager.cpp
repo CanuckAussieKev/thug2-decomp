@@ -56,7 +56,7 @@ int* near_indexes() { return g_near_light_indexes; }
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
 float get_scaled(float brightness, float low, float high)
 {
-    double range = brightness <= 0.5f ? low : high;
+    const double range = brightness <= 0.5f ? low : high;
     return static_cast<float>((static_cast<double>(brightness) * 2.0 - 1.0) * range + 1.0);
 }
 
@@ -222,12 +222,12 @@ bool set_world_brightness(float target)
     light_gain_goal() = target;
     float& brightness = get_brightness();
     if (brightness < target) {
-        double moved = static_cast<double>(brightness) + kStep; // (compared before it's rounded)
+        const double moved = static_cast<double>(brightness) + kStep; // (compared before it's rounded)
         brightness = static_cast<float>(moved);
         if (moved > target)
             brightness = target;
     } else if (brightness > target) {
-        double moved = static_cast<double>(brightness) - kStep;
+        const double moved = static_cast<double>(brightness) - kStep;
         brightness = static_cast<float>(moved);
         if (moved < target)
             brightness = target;
@@ -260,7 +260,7 @@ void delete_dynamic_lights()
 DynamicLightBase** find_dynamic_light(uint32_t owner)
 {
     for (int i = 0; i < dynamic_light_count(); ++i) {
-        DynamicLightBase* light = dynamic_lights()[i];
+        const DynamicLightBase* light = dynamic_lights()[i];
         if (light && light->owner == owner)
             return &dynamic_lights()[i];
     }
@@ -277,15 +277,15 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
         DynamicLightBase* light = dynamic_lights()[i]; // (not checked for null, as the original)
         if (!(light->intensity > 0.0f) || !light->owner)
             continue;
-        double dx = static_cast<double>(position->x) - light->pos[0];
-        double dy = static_cast<double>(position->y) - light->pos[1];
-        double dz = static_cast<double>(position->z) - light->pos[2];
-        double distance_squared = dz * dz + dy * dy + dx * dx;
-        double radius = light->radius;
+        const double dx = static_cast<double>(position->x) - light->pos[0];
+        const double dy = static_cast<double>(position->y) - light->pos[1];
+        const double dz = static_cast<double>(position->z) - light->pos[2];
+        const double distance_squared = dz * dz + dy * dy + dx * dx;
+        const double radius = light->radius;
         if (distance_squared > radius * radius) // (NaN: within reach)
             continue;
         auto distance = static_cast<float>(std::sqrt(static_cast<double>(static_cast<float>(distance_squared))));
-        double falloff = call_falloff(light, distance);
+        const double falloff = call_falloff(light, distance);
         if (count == 0) {
             falloffs[0] = static_cast<float>(falloff);
             indexes[0] = i;
@@ -304,10 +304,10 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
                     DynamicLightBase* l = out[k];
                     out[k] = out[k - 1];
                     out[k - 1] = l;
-                    float f = falloffs[k];
+                    const float f = falloffs[k];
                     falloffs[k] = falloffs[k - 1];
                     falloffs[k - 1] = f;
-                    int n = indexes[k];
+                    const int n = indexes[k];
                     indexes[k] = indexes[k - 1];
                     indexes[k - 1] = n;
                 }
@@ -347,9 +347,9 @@ DynamicLightBase* create_dynamic_light(int type)
 // 0x0048FB80
 DynamicLightBase* new_dynamic_light(int type)
 {
-    int count = dynamic_light_count();
+    const int count = dynamic_light_count();
     for (int i = 0; i < count; ++i) {
-        DynamicLightBase* light = dynamic_lights()[i];
+        const DynamicLightBase* light = dynamic_lights()[i];
         if (!light) {
             dynamic_lights()[i] = create_dynamic_light(type);
             return dynamic_lights()[i];

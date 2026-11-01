@@ -27,7 +27,7 @@ std::atomic<unsigned> g_tail_count{0};
 
 const char* keep_tail(const char* fmt, va_list args)
 {
-    unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
+    const unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
     vsnprintf(g_tail[slot], kTailWidth, fmt, args);
     return g_tail[slot];
 }
@@ -64,7 +64,7 @@ void log_open()
     // allow_multiple_instances - this one writes thug2-decomp-2.log, -3, ...)
     if (fopen_s(&g_log, game_folder_path("thug2-decomp.log").c_str(), "w") != 0) {
         for (int copy = 2; copy <= 9 && !g_log; ++copy) {
-            std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
+            const std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
             if (fopen_s(&g_log, game_folder_path(name.c_str()).c_str(), "w") != 0)
                 g_log = nullptr;
         }
@@ -110,7 +110,7 @@ void set_log_listener(void (*listener)(const char* line)) { g_listener = listene
 
 std::vector<std::string> get_log_tail(size_t lines)
 {
-    unsigned count = g_tail_count.load();
+    const unsigned count = g_tail_count.load();
     auto n = std::min<size_t>({lines, count, kTailLines});
     std::vector<std::string> out;
     out.reserve(n);

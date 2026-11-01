@@ -105,7 +105,7 @@ AnimTrack* AnimTrack::teardown(uint8_t flags)
 void AnimTrack::insert_controller(AnimDriver* controller, int priority)
 {
     // (no room check: six at most by the callers)
-    int count = controller_count_;
+    const int count = controller_count_;
     int at = 0;
     if (count > 0) {
         while (at < controller_count_ && priority <= controller_list_[at]->rank_)
@@ -138,7 +138,7 @@ void AnimTrack::tick_frame()
         // unrounded result)
         double step = frame_clock::get_slomo_frame_seconds() * 60.0;
         step *= fade_rate_;
-        double left = static_cast<double>(fade_left_) - step;
+        const double left = static_cast<double>(fade_left_) - step;
         fade_left_ = static_cast<float>(left);
         if (left <= 0.0 || left * fade_scale_ < 0.0)
             cur_phase_ = kOff;
@@ -189,7 +189,7 @@ void AnimTrack::load_events(uint32_t anim)
     objects::ObjectModule* component = owner_object_->fetch_module(kAnimBlender);
     if (!component)
         return;
-    uint32_t table_name = static_cast<objects::AnimBlenderComponent*>(component)->get_first_channel58();
+    const uint32_t table_name = static_cast<objects::AnimBlenderComponent*>(component)->get_first_channel58();
     if (!table_name)
         return;
     Struct* table = script::read_sub_struct(table_name);
@@ -198,7 +198,7 @@ void AnimTrack::load_events(uint32_t anim)
     script::Array* list = nullptr;
     if (!table->fetch_list(anim, &list, 0))
         return;
-    uint32_t count = list->extent_;
+    const uint32_t count = list->extent_;
     event_count_ = count;
     if (!count)
         return;
@@ -227,11 +227,11 @@ void AnimTrack::fire_events(float from, float to)
     if (!events_on_ || cur_phase_ != kPlaying)
         return;
     // (frames: compared unrounded, passed on as floats)
-    double first = static_cast<double>(from) * 60.0;
-    double last = static_cast<double>(to) * 60.0;
+    const double first = static_cast<double>(from) * 60.0;
+    const double last = static_cast<double>(to) * 60.0;
     auto first_frame = static_cast<float>(first);
     auto last_frame = static_cast<float>(last);
-    bool looped = direction_ == 0 ? first > last : last > first;
+    const bool looped = direction_ == 0 ? first > last : last > first;
     if (looped) {
         arm_events();
         first_frame = outset_; // (as the original: the start itself, not in frames)
@@ -302,7 +302,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         float duration = 0.0f;
         std::memcpy(&duration, &params, sizeof(duration)); // (the argument's own slot, as above)
         params->fetch_float(kDuration, &duration, 1);
-        bool sync = params->has_bare_flag(kSync);
+        const bool sync = params->has_bare_flag(kSync);
         anim_ = anim;
         delete_events();
         load_events(anim_);
@@ -318,7 +318,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         advance_clock(current);
     }
     for (int i = 0; i < controller_count_; ++i) {
-        int result = controller_list_[i]->invoke_method_by_name(name, params, script);
+        const int result = controller_list_[i]->invoke_method_by_name(name, params, script);
         if (result != kNotMine)
             return result;
     }

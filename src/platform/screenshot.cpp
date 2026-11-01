@@ -182,15 +182,16 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     sections.push_back(build);
 
     Section game{"game", {}};
-    uint32_t load = current_load_state();
-    bool in_level = load && load != kLoadMainMenu;
-    bool loading = loading_screen_up();
+    const uint32_t load = current_load_state();
+    const bool in_level = load && load != kLoadMainMenu;
+    const bool loading = loading_screen_up();
     game.fields.push_back({"where", !load ? "starting up" : in_level ? "level" : "front end"});
     game.fields.push_back({"level load script", load ? get_name_of(load) : ""});
-    uint32_t scene = frontend::level_editor::scenery::world_scene_key(frontend::level_editor::scenery::main_scene());
+    const uint32_t scene =
+        frontend::level_editor::scenery::world_scene_key(frontend::level_editor::scenery::main_scene());
     game.fields.push_back({"scene", scene ? get_name_of(scene) : ""});
     game.fields.push_back({"game mode", active_ruleset_label()});
-    modules::FrontEnd* front_end = the_front_end();
+    const modules::FrontEnd* front_end = the_front_end();
     game.fields.push_back({"paused", front_end ? (front_end->is_halted_ ? "yes" : "no") : ""});
     game.fields.push_back({"loading screen", loading ? "yes" : "no"});
     game.fields.push_back({"level editor", frontend::level_editor::live_now() ? "open" : "closed"});
@@ -199,11 +200,11 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
 
     Section skater{"skater", {}};
     if (in_level && !loading) {
-        if (objects::GameEntity* s = local_skater()) {
+        if (const objects::GameEntity* s = local_skater()) {
             float pos[3] = {s->at_point_.x, s->at_point_.y, s->at_point_.z};
             skater.fields.push_back({"position", vec(pos)});
             const maths::Vec4& at = s->basis_frame_.row[2];
-            double heading =
+            const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             std::snprintf(text, sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
             skater.fields.push_back({"heading", text});
@@ -272,7 +273,7 @@ void emit_out(const std::shared_ptr<Job>& job)
     LARGE_INTEGER start, end, frequency;
     QueryPerformanceCounter(&start);
     std::vector<uint8_t> rgb, png;
-    bool read = to_rgb(job->frame, &rgb);
+    const bool read = to_rgb(job->frame, &rgb);
     if (read)
         mark_cursor(&rgb, job->frame.width, job->frame.height, job->mouse_x_, job->mouse_y_,
                     std::max(12, job->frame.height / 60));
@@ -282,14 +283,15 @@ void emit_out(const std::shared_ptr<Job>& job)
         job->error = "the PNG couldn't be made";
     } else {
         auto write_new = [](const std::string& path, const void* data, size_t size) {
-            util::UniqueHandle file(
+            const util::UniqueHandle file(
                 CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
             if (!file)
                 return false;
             DWORD written = 0;
             return WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
         };
-        std::string png_path = job->folder + job->png, txt_path = job->folder + job->txt;
+        const std::string png_path = job->folder + job->png;
+        const std::string txt_path = job->folder + job->txt;
         if (!write_new(png_path, png.data(), png.size()))
             job->error = "couldn't write " + png_path + " (error " + std::to_string(GetLastError()) + ")";
         else if (!write_new(txt_path, job->sidecar.data(), job->sidecar.size()))
@@ -316,7 +318,7 @@ std::string folder_path()
         folder.pop_back();
     if (folder.empty())
         folder = "Screenshots";
-    bool absolute = folder.size() >= 2 && (folder[1] == ':' || (folder[0] == '\\' && folder[1] == '\\'));
+    const bool absolute = folder.size() >= 2 && (folder[1] == ':' || (folder[0] == '\\' && folder[1] == '\\'));
     if (!absolute)
         folder = game_folder_path(folder.c_str());
     for (char& c : folder)
@@ -333,7 +335,7 @@ std::string get_folder()
     std::string folder = folder_path();
     std::error_code error;
     std::filesystem::create_directories(std::filesystem::path(folder), error);
-    DWORD attributes = GetFileAttributesA(folder.c_str());
+    const DWORD attributes = GetFileAttributesA(folder.c_str());
     if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
         get_log("screenshot: can't make the folder %s", folder.c_str());
         return {};
@@ -360,8 +362,8 @@ void get_take()
     std::time_t now = std::time(nullptr);
     std::tm local = {};
     localtime_s(&local, &now);
-    Stamp stamp{local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec};
-    std::string png = pick_name(file_stem(stamp), [&folder](const std::string& name) {
+    const Stamp stamp{local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec};
+    const std::string png = pick_name(file_stem(stamp), [&folder](const std::string& name) {
         return GetFileAttributesA((folder + name).c_str()) != INVALID_FILE_ATTRIBUTES;
     });
     if (png.empty()) {
@@ -420,7 +422,7 @@ std::string g_series_result = "none";
 
 bool write_new_file(const std::string& path, const void* data, size_t size)
 {
-    util::UniqueHandle file(
+    const util::UniqueHandle file(
         CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
     if (!file)
         return false;
@@ -432,7 +434,7 @@ void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& 
 {
     std::vector<uint8_t> rgb, png;
     std::string error;
-    std::string path = series->folder + series_frame_name(number);
+    const std::string path = series->folder + series_frame_name(number);
     if (!to_rgb(frame, &rgb))
         error = "frame " + std::to_string(number) + ": the pixels couldn't be read";
     else if (!encode_png(rgb.data(), frame.width, frame.height, &png))
@@ -442,7 +444,7 @@ void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& 
     if (error.empty()) {
         ++series->written;
     } else {
-        std::scoped_lock lock(series->mutex);
+        const std::scoped_lock lock(series->mutex);
         if (series->error.empty())
             series->error = error;
     }
@@ -452,11 +454,11 @@ void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& 
 // The series' frame (from before_present, rendering).
 void take_series_frame()
 {
-    std::shared_ptr<Series> series = g_series;
+    const std::shared_ptr<Series> series = g_series;
     TickCycle frame;
     std::string error;
     if (!gfx::screenshot_capture::capture_back_buffer(&frame, &error)) {
-        std::scoped_lock lock(series->mutex);
+        const std::scoped_lock lock(series->mutex);
         if (series->error.empty())
             series->error = "frame " + std::to_string(series->taken + 1) + " not taken - " + error;
         series->taken = series->total; // (no more)
@@ -479,7 +481,7 @@ void take_series_frame()
     while (series->in_flight_ >= kSeriesInFlight)
         Sleep(1);
     ++series->in_flight_;
-    int number = ++series->taken;
+    const int number = ++series->taken;
     char line[96];
     std::snprintf(line, sizeof(line), "%5d  %10u  %10llu  %10u\n", number, frame_loop::frames_run(),
                   static_cast<unsigned long long>(frame_clock::fetch_retrace_count()), frame_clock::get_time());
@@ -490,7 +492,7 @@ void take_series_frame()
 // Once a frame: the next frame of a series taken; a finished series' result logged.
 void tick_series(bool rendering)
 {
-    std::shared_ptr<Series> series = g_series;
+    const std::shared_ptr<Series> series = g_series;
     if (!series)
         return;
     if (series->taken < series->total) {
@@ -503,7 +505,7 @@ void tick_series(bool rendering)
     std::string text = series->sidecar + "\n[frames]\nframe  game frame     vblanks  clock (ms)\n" + series->times;
     write_new_file(series->folder + kSeriesSidecar, text.data(), text.size());
     {
-        std::scoped_lock lock(series->mutex);
+        const std::scoped_lock lock(series->mutex);
         if (series->error.empty())
             g_series_result = "ok: " + std::to_string(series->written.load()) + " frames in " + series->folder;
         else
@@ -532,7 +534,7 @@ bool get_snipping_takes_print_screen()
 
 bool is_switched_on()
 {
-    static bool on = config_int("features", "screenshots", 1) != 0;
+    static const bool on = config_int("features", "screenshots", 1) != 0;
     return on;
 }
 
@@ -544,10 +546,10 @@ void prepare_all()
         get_log("screenshot key: off ([features] screenshots=0)");
         return;
     }
-    bool snipping = get_snipping_takes_print_screen();
+    const bool snipping = get_snipping_takes_print_screen();
     char setting[64] = "";
     build_info::fetch_text(build_info::kKeybinds, "Screenshot", "", setting, sizeof(setting));
-    int fallback = default_key(snipping);
+    const int fallback = default_key(snipping);
     auto by_name = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
     g_key = parse_key(setting, fallback, by_name);
     if (setting[0] && parse_key(setting, 0, by_name) == 0)
@@ -572,8 +574,8 @@ void before_present(bool rendering)
     if (!g_key && !g_requested && !g_job && g_message.empty()) // (key off: only request_event_shot's and show_notice's)
         return;
     if (g_job && g_job->done) {
-        std::shared_ptr<Job> job = std::move(g_job);
-        std::string note = job->note.empty() ? "" : " for " + job->note;
+        const std::shared_ptr<Job> job = std::move(g_job);
+        const std::string note = job->note.empty() ? "" : " for " + job->note;
         if (job->ok) {
             get_log("screenshot: saved %s%s (and %s) in %.0f ms%s", job->folder.c_str(), job->png.c_str(),
                     job->txt.c_str(), job->milliseconds, note.c_str());
@@ -602,7 +604,7 @@ std::string start_series(int frames, const std::string& folder)
         return "a series is running";
     if (frames < 1 || frames > kMaxSeriesFrames)
         return "1 to " + std::to_string(kMaxSeriesFrames) + " frames";
-    std::string base = get_folder();
+    const std::string base = get_folder();
     if (base.empty())
         return "no screenshot folder (see the log)";
     std::string path = folder;
@@ -616,14 +618,14 @@ std::string start_series(int frames, const std::string& folder)
         path = series_folder_name(
             {local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec});
     }
-    bool absolute = path.size() >= 2 && (path[1] == ':' || (path[0] == '\\' && path[1] == '\\'));
+    const bool absolute = path.size() >= 2 && (path[1] == ':' || (path[0] == '\\' && path[1] == '\\'));
     if (!absolute)
         path = base + path;
     if (path.back() != '\\')
         path += '\\';
     std::error_code error;
     std::filesystem::create_directories(std::filesystem::path(path), error);
-    DWORD attributes = GetFileAttributesA(path.c_str());
+    const DWORD attributes = GetFileAttributesA(path.c_str());
     if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY))
         return "can't make the folder " + path;
     auto series = std::make_shared<Series>();

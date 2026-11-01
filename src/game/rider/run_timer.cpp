@@ -89,10 +89,10 @@ void RiderRunClock::fetch_diagnostics(script::Struct* params)
 void RiderRunClock::tick_frame()
 {
     if (cur_phase_ == kClockTicking) {
-        int walk_state = reinterpret_cast<const objects::FootMovement*>(walk_)->state_;
+        const int walk_state = reinterpret_cast<const objects::FootMovement*>(walk_)->state_;
         double elapsed = 0.0;
         if (walk_state >= 2 && walk_state <= 4) {
-            float adjustment = script::fetch_float(kHangSpeedAdjustment);
+            const float adjustment = script::fetch_float(kHangSpeedAdjustment);
             elapsed = frame_clock::get_slomo_frame_seconds() * adjustment;
         } else {
             elapsed = frame_clock::get_slomo_frame_seconds();
@@ -121,9 +121,9 @@ void RiderRunClock::get_resume()
     if (cur_phase_ == kClockIdle)
         return;
     cur_phase_ = seconds_remaining_ > 0.0f ? kClockTicking : kActiveTimeUp;
-    int16_t resumes = resumes_;
+    const int16_t resumes = resumes_;
     if (resumes < kMaxResumes) {
-        double cap = physics_value(entity_, kDuration) * (kMaxResumes - resumes) * kResumeShare;
+        const double cap = physics_value(entity_, kDuration) * (kMaxResumes - resumes) * kResumeShare;
         if (!(seconds_remaining_ < cap))
             seconds_remaining_ = static_cast<float>(cap);
     }

@@ -100,12 +100,13 @@ int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, c
         depth[i] = -get_dot(in[i] - camera_pos, frame.back);
     int count = 0;
     for (int i = 0; i < 3; ++i) {
-        int j = (i + 1) % 3;
-        bool in_i = depth[i] >= near_z, in_j = depth[j] >= near_z;
+        const int j = (i + 1) % 3;
+        const bool in_i = depth[i] >= near_z;
+        const bool in_j = depth[j] >= near_z;
         if (in_i)
             out[count++] = in[i];
         if (in_i != in_j) {
-            float s = (near_z - depth[i]) / (depth[j] - depth[i]);
+            const float s = (near_z - depth[i]) / (depth[j] - depth[i]);
             out[count++] = in[i] + (in[j] - in[i]) * s;
         }
     }
@@ -115,7 +116,9 @@ int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, c
 float distance_to_box(V3 point, V3 min, V3 max)
 {
     auto axis = [](float p, float lo, float hi) { return p < lo ? lo - p : p > hi ? p - hi : 0.0f; };
-    float dx = axis(point.x, min.x, max.x), dy = axis(point.y, min.y, max.y), dz = axis(point.z, min.z, max.z);
+    const float dx = axis(point.x, min.x, max.x);
+    const float dy = axis(point.y, min.y, max.y);
+    const float dz = axis(point.z, min.z, max.z);
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -131,16 +134,18 @@ bool HiddenSet::append_one(uint32_t id)
 
 void add_dashed(std::vector<ui::Seg>* lines, const ui::Seg& line, float dash, float gap)
 {
-    float dx = line.bx - line.ax, dy = line.by - line.ay;
-    float length = std::sqrt(dx * dx + dy * dy);
+    const float dx = line.bx - line.ax;
+    const float dy = line.by - line.ay;
+    const float length = std::sqrt(dx * dx + dy * dy);
     if (!(length > 0.0f) || !(dash > 0.0f) || gap < 0.0f)
         return;
-    float ux = dx / length, uy = dy / length;
+    const float ux = dx / length;
+    const float uy = dy / length;
     // (at most 256 dashes an edge: a face seen from very near)
-    float period = std::max(dash + gap, length / 256.0f);
+    const float period = std::max(dash + gap, length / 256.0f);
     // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
     for (float at = 0.0f; at < length; at += period) {
-        float end = std::min(length, at + dash);
+        const float end = std::min(length, at + dash);
         ui::Seg piece = line;
         piece.ax = line.ax + ux * at;
         piece.ay = line.ay + uy * at;
@@ -155,7 +160,7 @@ uint32_t get_faded(uint32_t argb) { return (argb & 0x00FFFFFF) | (std::min<uint3
 FaceStyle style_of(const FaceFacts& facts)
 {
     FaceStyle style;
-    bool wall = facts.collision_only_ && !facts.companion;
+    const bool wall = facts.collision_only_ && !facts.companion;
     if ((facts.flags & 0x40) && facts.trigger_colour_)
         style.fill = (facts.trigger_colour_ & 0x00FFFFFFu) | 0x78000000u;
     else
@@ -182,7 +187,7 @@ FaceStyle style_of(const FaceFacts& facts)
 std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep)
 {
     std::vector<uint32_t> others;
-    for (uint32_t id : all) {
+    for (const uint32_t id : all) {
         if (std::find(keep.begin(), keep.end(), id) == keep.end() &&
             std::find(others.begin(), others.end(), id) == others.end())
             others.push_back(id);
@@ -201,7 +206,7 @@ render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; 
 // switch, level_editor_walls.h).
 render::TriMeshSource* any_tri_data_of(render::WorldCell* sector, bool* off)
 {
-    render::HitMesh* coll = coll_of(sector);
+    const render::HitMesh* coll = coll_of(sector);
     if (!render::is_static_collider(coll))
         return nullptr;
     if (off)
@@ -243,16 +248,17 @@ std::unordered_map<uint32_t, Cached> g_cache;
 
 const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const render::TriMeshSource* tri)
 {
-    V3 min = to_v3(tri->lower_limit_), max = to_v3(tri->upper_limit_);
+    const V3 min = to_v3(tri->lower_limit_);
+    const V3 max = to_v3(tri->upper_limit_);
     V3 first = {}, last = {};
     if (tri->vertices_ && tri->num_vertices_) {
         first = to_v3(tri->read_stored_vertex(0));
         last = to_v3(tri->read_stored_vertex(tri->num_vertices_ - 1));
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
-    bool collision_only = geom_of(sector) == nullptr;
+    const bool collision_only = geom_of(sector) == nullptr;
     Cached& c = g_cache[checksum];
-    uint32_t generation = shared_collision::get_generation();
+    const uint32_t generation = shared_collision::get_generation();
     if (c.sector == sector && c.tri == tri && c.faces == tri->tri_count_ && c.collision_only_ == collision_only &&
         c.generation == generation && same(c.min, min) && same(c.max, max) && same(c.first, first) &&
         same(c.last, last))
@@ -276,7 +282,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
         bool ok = true;
         V3 p[3];
         for (int k = 0; k < 3; ++k) {
-            uint32_t index = tri->face_vertex(f, k);
+            const uint32_t index = tri->face_vertex(f, k);
             if (index >= tri->num_vertices_) {
                 ok = false;
                 break;
@@ -407,7 +413,7 @@ void tick()
 {
     // (the model's suspend pass turns its geometries on when its decision changes: off again)
     for (size_t i = 0; i < g_concealed_records.size();) {
-        HiddenObjectRec& rec = g_concealed_records[i];
+        const HiddenObjectRec& rec = g_concealed_records[i];
         objects::GameEntity* object = live_object(rec.id);
         if (!object) {
             g_concealed_records.erase(g_concealed_records.begin() + static_cast<long>(i));
@@ -461,15 +467,16 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             render::TriMeshSource* tri = drawn_tri_data_of(checksum, sector, &off);
             if (!tri || tri->tri_count_ == 0 || hidden_sector(checksum))
                 return;
-            bool wall = geom_of(sector) == nullptr;
-            V3 min = to_v3(tri->lower_limit_), max = to_v3(tri->upper_limit_);
-            float distance = distance_to_box(w->camera, min, max);
+            const bool wall = geom_of(sector) == nullptr;
+            const V3 min = to_v3(tri->lower_limit_);
+            const V3 max = to_v3(tri->upper_limit_);
+            const float distance = distance_to_box(w->camera, min, max);
             if (distance > (wall ? kWallRadius : kRadius) && checksum != g_wall)
                 return;
             // (wholly behind the camera: left out)
             bool front = false;
             for (int i = 0; i < 8 && !front; ++i) {
-                V3 corner = {(i & 1) ? max.x : min.x, (i & 2) ? max.y : min.y, (i & 4) ? max.z : min.z};
+                const V3 corner = {(i & 1) ? max.x : min.x, (i & 2) ? max.y : min.y, (i & 4) ? max.z : min.z};
                 front = -get_dot(corner - w->camera, w->frame->back) >= w->near_z_;
             }
             if (!front)
@@ -491,7 +498,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
     // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
     auto add_face = [&](const V3* p, const FaceFacts& facts) {
         V3 clipped[4];
-        int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped);
+        const int count = clip_triangle_to_near(camera_pos, frame, near_z, p, clipped);
         if (!count)
             return false;
         Polygon poly = {};
@@ -513,12 +520,12 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         if (left || right || below || above)
             return false;
         poly.depth = depth / static_cast<float>(count);
-        FaceStyle style = style_of(facts);
-        uint32_t argb = style.fill;
+        const FaceStyle style = style_of(facts);
+        const uint32_t argb = style.fill;
         // (shaded by the face's facing: the shape reads through the colour)
-        V3 normal = perpendicular(p[1] - p[0], p[2] - p[0]);
-        float length = std::sqrt(get_dot(normal, normal));
-        float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
+        const V3 normal = perpendicular(p[1] - p[0], p[2] - p[0]);
+        const float length = std::sqrt(get_dot(normal, normal));
+        const float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
         auto r = static_cast<uint32_t>(static_cast<float>((argb >> 16) & 0xFF) * shade);
         auto g = static_cast<uint32_t>(static_cast<float>((argb >> 8) & 0xFF) * shade);
         auto b = static_cast<uint32_t>(static_cast<float>(argb & 0xFF) * shade);
@@ -526,8 +533,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         polygons.push_back(poly);
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
-                int n = (k + 1) % count;
-                ui::Seg line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
+                const int n = (k + 1) % count;
+                const ui::Seg line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
                 if (style.dashed)
                     add_dashed(lines, line, 6.0f, 5.0f);
                 else
@@ -595,7 +602,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             V3 p[3];
             bool ok = true;
             for (int k = 0; k < 3 && ok; ++k) {
-                uint32_t index = tri.face_vertex(f, k);
+                const uint32_t index = tri.face_vertex(f, k);
                 ok = index < tri.num_vertices_;
                 if (ok)
                     p[k] = entry.second->get_vertex(static_cast<int>(index));
@@ -603,7 +610,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             FaceFacts facts;
             facts.flags = *reinterpret_cast<const uint16_t*>(tri.faces_ + f * (tri.small_faces_ ? 8 : 10));
             facts.companion = true;
-            bool drawn = ok && add_face(p, facts);
+            const bool drawn = ok && add_face(p, facts);
             if (drawn)
                 g_drawn.push_back({entry.first, false, p[0], p[1], p[2], f, true});
             any = drawn || any;
@@ -670,7 +677,7 @@ void clear_wall() { g_wall = 0; }
 std::string describe_wall(uint32_t checksum)
 {
     render::WorldCell* sector = scenery::sector_of(checksum);
-    render::TriMeshSource* tri = sector ? any_tri_data_of(sector, nullptr) : nullptr;
+    const render::TriMeshSource* tri = sector ? any_tri_data_of(sector, nullptr) : nullptr;
     if (!tri)
         return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
@@ -716,9 +723,9 @@ bool hidden_object(uint32_t id)
 int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
 {
     int hidden = 0;
-    for (uint32_t checksum : sectors)
+    for (const uint32_t checksum : sectors)
         hidden += hide_sector(checksum) ? 1 : 0;
-    for (uint32_t id : objects)
+    for (const uint32_t id : objects)
         hidden += hide_object(id) ? 1 : 0;
     if (debug_enabled())
         get_log("level editor: view - hid %d (%d sectors, %d objects hidden in all)", hidden,

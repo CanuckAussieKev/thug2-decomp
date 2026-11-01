@@ -55,7 +55,7 @@ void RiderStoryProgress::un_set_goal(int goal, int level)
 {
     if (level == -1)
         level = level_;
-    uint32_t mask = ~get_bit(goal);
+    const uint32_t mask = ~get_bit(goal);
     goal_words()[level * 8 + get_word(goal)] &= mask;
     start_goals_[get_word(goal)] &= mask;
 }
@@ -122,7 +122,7 @@ void RiderStoryProgress::un_set_flag(int flag, int level)
 {
     if (level == -1)
         level = level_;
-    uint32_t mask = ~get_bit(flag);
+    const uint32_t mask = ~get_bit(flag);
     flag_words()[level * 8 + get_word(flag)] &= mask;
     start_flags_[get_word(flag)] &= mask;
 }
@@ -209,7 +209,7 @@ bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
     // A flag and the goal of the same number cleared (and their level-start copies).
     auto clear = [this](int bit, int level) {
         un_set_flag(bit, level);
-        uint32_t mask = ~get_bit(bit);
+        const uint32_t mask = ~get_bit(bit);
         goal_words()[level * 8 + get_word(bit)] &= mask;
         start_goals_[get_word(bit)] &= mask;
     };
@@ -254,7 +254,7 @@ bool RiderStoryProgress::reset_part(uint32_t part)
 bool RiderStoryProgress::all_gaps_got()
 {
     script::Array* levels = script::fetch_list(0xEB1A4BC9);
-    uint32_t count = levels->extent_;
+    const uint32_t count = levels->extent_;
     for (int level = 0; level < kLevels; ++level) {
         uint32_t i = 0;
         for (; i < count; ++i) {
@@ -286,8 +286,8 @@ void RiderStoryProgress::begin_level(int level)
 // 0x00584CC0
 bool RiderStoryProgress::is_code_on(uint32_t name)
 {
-    int flag = script::fetch_int_value(name);
-    bool on = (global_flags_[get_word(flag)] & get_bit(flag)) != 0;
+    const int flag = script::fetch_int_value(name);
+    const bool on = (global_flags_[get_word(flag)] & get_bit(flag)) != 0;
     online::g_cheat_flag = on;
     return on;
 }
@@ -396,7 +396,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
                 continue;
             script::Array* list = nullptr;
             entry->fetch_list(kGapList, &list, 0);
-            int count = static_cast<int>(list->extent_);
+            const int count = static_cast<int>(list->extent_);
             for (int i = 0; i < count; ++i) {
                 auto* gap = reinterpret_cast<script::Struct*>(list->fetch_part(i));
                 const char* name = nullptr;
@@ -445,7 +445,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
         // An older save: the total from the counters (+0x5EF 0x8C once it passes it).
         total_counter_ = 0;
         flag_5e_f_ = 0x82;
-        for (unsigned char level : counter_) {
+        for (const unsigned char level : counter_) {
             total_counter_ = static_cast<uint8_t>(total_counter_ + level);
             if (total_counter_ > flag_5e_f_)
                 flag_5e_f_ = 0x8C;
@@ -503,7 +503,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
             entry->put_int(kGapsBuilt, 0);
         } else {
             entry->put_int(kGapsBuilt, 1);
-            int count = checklist->total_of();
+            const int count = checklist->total_of();
             script::Array* list = alloc_script_array(static_cast<uint32_t>(count), script::kQbvalStruct);
             for (int i = 0; i < count; ++i) {
                 script::Struct* gap = spawn_param_table();

@@ -25,7 +25,7 @@ const char* s_gamestats_host = nullptr;
 // `format` with the domain in place of its %s (other % signs are doubled in `format`). Never freed.
 char* get_host_name(const char* format, const char* domain)
 {
-    size_t size = std::strlen(format) + std::strlen(domain) + 1; // (enough)
+    const size_t size = std::strlen(format) + std::strlen(domain) + 1; // (enough)
     // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
     auto* name = static_cast<char*>(std::malloc(size));
     std::snprintf(name, size, format, domain);
@@ -43,7 +43,7 @@ void set_up_online_hosts()
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineDomain", "openspy.net", domain, sizeof(domain));
 
     // gamestats: also the game's own top stats request (NetLink::RetrieveTopStats reads gamestats_host)
-    char* gamestats = get_host_name("gamestats.%s", domain);
+    const char* gamestats = get_host_name("gamestats.%s", domain);
     s_gamestats_host = gamestats;
     game_spy::set_online_domain(domain);
 }

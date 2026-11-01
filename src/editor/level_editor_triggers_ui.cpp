@@ -51,7 +51,7 @@ void update_lists()
         script::Struct* s = nodes::struct_of(node);
         uint32_t script = 0;
         if (s && s->read_hash_value(kTriggerScript, &script, 0) && script) {
-            std::string name = get_name_of(script);
+            const std::string name = get_name_of(script);
             if (std::find(g_scripts.begin(), g_scripts.end(), name) == g_scripts.end())
                 g_scripts.push_back(name);
         }
@@ -80,7 +80,7 @@ bool name_combo(const char* label, std::string* value, const std::vector<std::st
     bool changed = false;
     if (ImGui::BeginCombo(label, value->empty() ? "(none)" : value->c_str(), ImGuiComboFlags_HeightLarge)) {
         for (const std::string& name : names) {
-            bool chosen = name == *value;
+            const bool chosen = name == *value;
             if (ImGui::Selectable(name.c_str(), chosen)) {
                 *value = name;
                 changed = true;
@@ -208,8 +208,8 @@ void level_trigger_details(const LevelTrigger& l)
     ImGui::TextDisabled("TriggerScript: %s", l.script ? nodes::caption(l.script).c_str() : "(none)");
     ImGui::TextDisabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", l.min.x, l.min.y, l.min.z, l.max.x, l.max.y,
                         l.max.z);
-    uint32_t sector = l.sector;
-    bool switchable = l.wall || l.all_trigger_;
+    const uint32_t sector = l.sector;
+    const bool switchable = l.wall || l.all_trigger_;
     if (l.off)
         ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.4f, 1.0f), "Disabled");
     ImGui::BeginDisabled(!switchable);
@@ -305,7 +305,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
             if ((a.spec.kind == Kind::kGapStart || a.spec.kind == Kind::kGapEnd) && !a.spec.text.empty())
                 text += std::string("  - ") + play_test::gap_note(clean_text(a.spec.text)); // (landed in a test run?)
             ImGui::PushStyleColor(ImGuiCol_Text, get_colour(a.problem ? 0xFFA0A0A0u : kind_colour(a.spec.kind)));
-            uint32_t name = node_create::name_hash(a.spec.name);
+            const uint32_t name = node_create::name_hash(a.spec.name);
             if (ImGui::Selectable((text + "##a" + a.spec.name).c_str(), false))
                 get_queue([name] { select_node_named(name); });
             ImGui::PopStyleColor();
@@ -314,10 +314,11 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         for (const LevelTrigger& l : level_triggers()) {
             if (++shown > 400)
                 break;
-            std::string text = nodes::caption(l.sector) + "  " + describe_level_trigger(l) + (l.off ? "  (off)" : "");
+            const std::string text =
+                nodes::caption(l.sector) + "  " + describe_level_trigger(l) + (l.off ? "  (off)" : "");
             ImGui::PushStyleColor(ImGuiCol_Text, get_colour(l.off ? 0xFFA0A0A0u : kind_colour(l.kind)));
-            uint32_t sector = l.sector;
-            bool has_node = l.has_node_;
+            const uint32_t sector = l.sector;
+            const bool has_node = l.has_node_;
             if (ImGui::Selectable((text + "##l" + std::to_string(l.sector)).c_str(), l.sector == inspected_sector()))
                 get_queue([sector, has_node] {
                     inspect(sector);
@@ -342,7 +343,7 @@ void inspector_section(int index)
     const std::vector<nodes::Elem>& all = nodes::get_all();
     if (index < 0 || index >= static_cast<int>(all.size()))
         return;
-    uint32_t name = all[index].name;
+    const uint32_t name = all[index].name;
     if (const LevelTrigger* l = level_named(name)) {
         ImGui::Spacing();
         ImGui::SeparatorText("Trigger Volume");
@@ -359,7 +360,7 @@ void inspector_section(int index)
     ImGui::Spacing();
     ImGui::SeparatorText("Trigger Volume");
     Spec s = a->spec;
-    std::string key = s.name;
+    const std::string key = s.name;
     bool changed = false;
     if (s.kind == Kind::kBreak) {
         // (a breakable: its piece and sound - its box is the piece's)
@@ -374,7 +375,7 @@ void inspector_section(int index)
     const Kind kinds[] = {Kind::kKill,   Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
                           Kind::kGapEnd, Kind::kBoost,  Kind::kViewCam};
     if (ImGui::BeginCombo("Kind", kind_name(s.kind))) {
-        for (Kind k : kinds) {
+        for (const Kind k : kinds) {
             if (ImGui::Selectable(kind_name(k), k == s.kind) && k != s.kind) {
                 s.kind = k;
                 if ((k == Kind::kGapStart || k == Kind::kGapEnd) && s.gap.empty())
@@ -417,7 +418,7 @@ void inspector_section(int index)
         ImGui::TextDisabled("Gap %s (%s)", s.gap.c_str(), s.kind == Kind::kGapStart ? "StartGap here" : "EndGap here");
         if (!s.text.empty()) {
             // (validated by skating - level_editor_playtest.h)
-            bool landed = play_test::gap_landed(clean_text(s.text));
+            const bool landed = play_test::gap_landed(clean_text(s.text));
             ImGui::TextColored(landed ? ImVec4(0.25f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.25f, 1.0f), "%s",
                                landed ? "Landed in a test run" : "Not yet landed in a test run");
         }
@@ -513,7 +514,7 @@ void scenery_section(uint32_t sector)
     if (!a)
         return;
     Spec s = a->spec;
-    std::string key = s.name;
+    const std::string key = s.name;
     if (sound_combo(&s.sound))
         get_queue([key, s] { set_spec(key, s, true); });
     if (a->broken)

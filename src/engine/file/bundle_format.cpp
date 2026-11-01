@@ -6,10 +6,10 @@ bool read_bundle_table(util::ByteReader& reader, Entry* out, int capacity, int* 
 {
     *count = 0;
     reader.u32(); // the version
-    uint32_t entries = reader.u32();
+    const uint32_t entries = reader.u32();
     if (!reader.ok() || entries > static_cast<uint32_t>(capacity))
         return false;
-    size_t file_size = reader.size();
+    const size_t file_size = reader.size();
     for (uint32_t i = 0; i < entries; ++i) {
         Entry& entry = out[i];
         entry.offset = reader.u32();

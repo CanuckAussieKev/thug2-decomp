@@ -158,10 +158,10 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     delete_params(tags);
 
     // In the object's colour.
-    render::RenderModel* mine = get_model_data(entity_);
+    const render::RenderModel* mine = get_model_data(entity_);
     render::RenderModel* its = get_model_data(item);
     if (mine && its) {
-        maths::Vec4 colour = mine->size_factor_;
+        const maths::Vec4 colour = mine->size_factor_;
         its->change_scale(&colour); // (0x00492EE0: four words set)
     }
     return item;
@@ -211,7 +211,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         int slot = 0;
         if (params->fetch_int_value(kIndex, &slot, 0))
             return items_[slot] != nullptr;
-        for (GameEntity* item : items_)
+        for (const GameEntity* item : items_)
             if (item)
                 return 1;
         return 0;

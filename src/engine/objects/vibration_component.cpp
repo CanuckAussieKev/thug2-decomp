@@ -83,9 +83,9 @@ void PadRumbleModule::update_timers()
         Stopwatch& timer = timers_[i];
         if (!timer.running)
             continue;
-        int start = timer.start;
-        int clock = frame_clock::game_clock_elapsed();
-        uint32_t elapsed =
+        const int start = timer.start;
+        const int clock = frame_clock::game_clock_elapsed();
+        const uint32_t elapsed =
             static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start));
         if (elapsed >= timer.duration) {
             pad_dev_->fire_actuator(i, 0);
@@ -160,7 +160,7 @@ bool PadRumbleModule::vibrate(script::Struct* params, script::Script*)
     if (params->fetch_float(kDuration, &duration, 0)) {
         timers_[actuator].running = true;
         timers_[actuator].duration = static_cast<uint32_t>(ftol(static_cast<double>(duration) * kMilliseconds));
-        int clock = frame_clock::game_clock_elapsed();
+        const int clock = frame_clock::game_clock_elapsed();
         timers_[actuator].start = clock + g_clock_offset;
     } else {
         timers_[actuator].running = false;

@@ -145,8 +145,8 @@ void once_every_draw()
 void update_frame_length()
 {
     const int (&h)[4] = get_history();
-    int clamped = get_clamped(h[0]) + get_clamped(h[1]) + get_clamped(h[2]) + get_clamped(h[3]);
-    int raw = static_cast<int>(static_cast<uint32_t>(h[0]) + h[1] + h[2] + h[3]); // (wraps, as the original)
+    const int clamped = get_clamped(h[0]) + get_clamped(h[1]) + get_clamped(h[2]) + get_clamped(h[3]);
+    const int raw = static_cast<int>(static_cast<uint32_t>(h[0]) + h[1] + h[2] + h[3]); // (wraps, as the original)
     get_slomo() = next_slomo();
     get_frame_length() = static_cast<float>(clamped) * 0.25f;
     if (clamped * 0.25 < 1.0)
@@ -157,7 +157,7 @@ void update_frame_length()
 // 0x005BE920
 void wait_for_vblank()
 {
-    uint64_t start = elapsed_refreshes();
+    const uint64_t start = elapsed_refreshes();
     while (elapsed_refreshes() == start) {
         // the idle function (0x0048C1C0 reads it from 0x006FA7D8)
         if (render::engine::get_idle_function())
@@ -174,7 +174,8 @@ uint64_t get_draw_frame() { return render_frame(); }
 // 0x005BE970 (x87: 1000 / rate * the low 32 bits, truncated through 64 bits)
 uint32_t get_time()
 {
-    double milliseconds = (1000.0 / vblanks_per_second()) * static_cast<double>(static_cast<uint32_t>(get_vblanks()));
+    const double milliseconds =
+        (1000.0 / vblanks_per_second()) * static_cast<double>(static_cast<uint32_t>(get_vblanks()));
     return static_cast<uint32_t>(static_cast<int64_t>(milliseconds));
 }
 

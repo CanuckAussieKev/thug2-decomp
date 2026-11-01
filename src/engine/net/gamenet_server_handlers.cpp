@@ -178,7 +178,7 @@ int handle_game_ended_report(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     util::ByteReader reader(context->body_, context->body_size_);
-    uint8_t game = reader.u8();
+    const uint8_t game = reader.u8();
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return kDone;
     if (!player)
@@ -187,7 +187,7 @@ int handle_game_ended_report(net::InboundMsgCtx* context)
     if ((player->flag_bits_ & kFlagReady) || game != manager->get_game_id())
         return kDone;
     player->flag_bits_ |= kFlagReady;
-    for (PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
+    for (const PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
          other = step_roster_sweep(manager, &search, false)) {
         if (!(other->flag_bits_ & kFlagReady))
             return kContinue; // someone is still playing
@@ -215,7 +215,7 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
     uint8_t msg[2];
     if (!reader.bytes(msg, sizeof(msg)))
         return kDone;
-    PlayerRecord* player = find_player_slot_by_obj(manager, msg);
+    const PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (!player || !player_skater(player))
         return kDone;
     if (get_game_type() != kNetLobby && !manager->has_match_ended())
@@ -266,7 +266,7 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
     };
     if (is_squad_match()) {
         // Already done by the sender's team: nothing.
-        for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
+        for (const PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
              p = step_roster_sweep(manager, &search, false)) {
             if (player_team(sender) == player_team(p) && goal_done_by(goal, get_skater_id(player_skater(p))))
                 return kContinue;
@@ -303,7 +303,7 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
         return kDone;
     if (!get_goal(objective_board(), report.goal) || !is_squad_match())
         return kContinue;
-    PlayerRecord* sender = find_player_by_sender(manager, context->sender_conn_);
+    const PlayerRecord* sender = find_player_by_sender(manager, context->sender_conn_);
     if (!player_skater(sender))
         return kContinue;
     PlayerSearch search;
@@ -333,7 +333,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
     if (PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_)) {
         if (!is_own_player(player)) {
             objects::Entity* skater = player_skater(player);
-            bool observer = is_observer(player);
+            const bool observer = is_observer(player);
             manager->evict_player(player, 0); // the player out of the game
             if (!observer)
                 static_cast<modules::Skate*>(skate)->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
@@ -373,7 +373,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         if (!player || !player->is_carrying_flag())
             return kContinue;
         desc = net::NetMessageInfo();
-        int team = player->get_flag_team();
+        const int team = player->get_flag_team();
         char name[64];
         team_name_key(name, team);
         script::Struct* params = new_params();
@@ -407,7 +407,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         return kContinue;
     desc = net::NetMessageInfo();
     player->give_crown(false);
-    int spot = maths::rnd(10);
+    const int spot = maths::rnd(10);
     manager->crown_start_ = spot;
     auto message = static_cast<uint8_t>(spot);
     desc.content_ = &message;
@@ -424,7 +424,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
 int handle_checksum_response(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     if ((message_word(context, 0) ^ 0xDEADFACE) == message_word(context, 4) || manager->cheating_noted())
         return kContinue;
     script::Struct* params = new_params();

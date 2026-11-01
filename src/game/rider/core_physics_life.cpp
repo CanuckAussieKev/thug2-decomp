@@ -74,7 +74,7 @@ void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b)
 // 0x004FC3C0
 bool SkaterPhysicsModule::projectile_button_pressed()
 {
-    uint32_t button = script::get_symbol_value(kProjectileControl); // (the game's string)
+    const uint32_t button = script::get_symbol_value(kProjectileControl); // (the game's string)
     if (!trick_of(this)->check_release_press(button, false, true))
         return false;
     projectile_input_ = -1;
@@ -84,7 +84,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 // 0x004FC440
 int SkaterPhysicsModule::is_sides_swapped()
 {
-    uint8_t flipped = state_of(this)->flag(PoseFlag::kFlipped).on;
+    const uint8_t flipped = state_of(this)->flag(PoseFlag::kFlipped).on;
     if (static_cast<objects::Rider*>(entity_)->goofy_)
         return flipped;
     return flipped ? 0 : 1;
@@ -242,7 +242,8 @@ namespace maths {
 // 0x004FC370
 Vec4& Vec4::clamp_tiny_to_nothing(float length)
 {
-    double length_squared = (static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z;
+    const double length_squared =
+        (static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z;
     if (length_squared < static_cast<double>(length) * length)
         *this = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
     return *this;

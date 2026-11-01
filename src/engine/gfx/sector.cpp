@@ -231,7 +231,7 @@ void WorldCell::change_facing(const maths::Mat4* orientation)
 // 0x0049E760 (the difference's remainder as C's: (turns - rot_y_ + 4) % 4 may be negative)
 void WorldCell::spin_around_up(int turns)
 {
-    int delta = (turns - rot_y_ + 4) % 4;
+    const int delta = (turns - rot_y_ + 4) % 4;
     if (hit_body_) {
         const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_absolute_point();
         hit_body_->rotate_y(about, delta);

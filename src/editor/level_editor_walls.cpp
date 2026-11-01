@@ -38,13 +38,13 @@ Step step_between(const Placement& from, const Placement& to)
 
 void step_collision(render::TriMeshSource* tri, const Placement& from, const Placement& to)
 {
-    Step step = step_between(from, to);
+    const Step step = step_between(from, to);
     if (step.turns) {
-        maths::Vec4 centre = {step.centre.x, step.centre.y, step.centre.z, 0.0f};
+        const maths::Vec4 centre = {step.centre.x, step.centre.y, step.centre.z, 0.0f};
         tri->rotate_y(&centre, step.turns);
     }
     if (step.delta.x != 0.0f || step.delta.y != 0.0f || step.delta.z != 0.0f) {
-        maths::Vec4 delta = {step.delta.x, step.delta.y, step.delta.z, 0.0f};
+        const maths::Vec4 delta = {step.delta.x, step.delta.y, step.delta.z, 0.0f};
         tri->get_slide(&delta);
     }
 }
@@ -77,7 +77,7 @@ int get_combined(const std::vector<bool>& offs)
     if (offs.empty())
         return -1;
     bool any_off = false, any_on = false;
-    for (bool off : offs)
+    for (const bool off : offs)
         (off ? any_off : any_on) = true;
     return any_off && any_on ? 2 : any_off ? 0 : 1;
 }
@@ -123,10 +123,10 @@ bool at_hand(uint32_t checksum, const Track& t)
 {
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
-    render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
+    const render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return false;
-    bool wall = geom_of(sector) == nullptr;
+    const bool wall = geom_of(sector) == nullptr;
     // (a drawn piece's collision box moves with the piece - Scenery's moves: only its pointers checked)
     return t.sector == sector && t.coll == coll && t.tri == tri && t.wall == wall &&
            (!wall || (same_v(t.min, tri->lower_limit_) && same_v(t.max, tri->upper_limit_)));
@@ -139,7 +139,7 @@ Track* track_of(uint32_t checksum)
     render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return nullptr;
-    bool wall = geom_of(sector) == nullptr;
+    const bool wall = geom_of(sector) == nullptr;
     auto it = g_tracks.find(checksum);
     if (it != g_tracks.end()) {
         if (at_hand(checksum, it->second))
@@ -203,7 +203,7 @@ bool cuboid(uint32_t checksum, V3* min, V3* max)
 {
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
-    render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
+    const render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return false;
     *min = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
@@ -260,7 +260,7 @@ bool disengaged(uint32_t checksum)
 {
     auto it = g_tracks.find(checksum);
     if (it != g_tracks.end()) {
-        Track* t = track_of(checksum);
+        const Track* t = track_of(checksum);
         if (t)
             return t->off;
     }
@@ -283,8 +283,8 @@ void finalise() { scenery::finalise(); }
 std::vector<WallState> store_away(const std::vector<uint32_t>& checksums)
 {
     std::vector<WallState> states;
-    for (uint32_t checksum : checksums) {
-        if (Track* t = track_of(checksum))
+    for (const uint32_t checksum : checksums) {
+        if (const Track* t = track_of(checksum))
             states.push_back({checksum, t->placement, t->off});
     }
     return states;
@@ -334,7 +334,7 @@ void reset_all()
 void tick()
 {
     for (auto& entry : g_tracks) {
-        Track& t = entry.second;
+        const Track& t = entry.second;
         if (t.wall || !t.off || !at_hand(entry.first, t))
             continue;
         render::PcGeom* geom = geom_of(t.sector);
@@ -345,9 +345,9 @@ void tick()
 
 std::string describe_state(uint32_t checksum)
 {
-    bool off = disengaged(checksum);
+    const bool off = disengaged(checksum);
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
-    bool moved = get_moved(checksum, &placement);
+    const bool moved = get_moved(checksum, &placement);
     char text[192];
     if (moved)
         std::snprintf(text, sizeof(text), "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s",

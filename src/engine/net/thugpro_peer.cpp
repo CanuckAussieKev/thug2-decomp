@@ -101,7 +101,7 @@ uint32_t read_machine_id()
 // with 0xFE in a debug build - on the wire).
 void copy_field(char* out, size_t size, const char* in)
 {
-    size_t length = in ? strnlen(in, size - 1) : 0;
+    const size_t length = in ? strnlen(in, size - 1) : 0;
     if (length)
         std::memcpy(out, in, length);
     out[length] = '\0';
@@ -141,7 +141,7 @@ bool peer_mode()
 {
     if (g_override >= 0)
         return g_override != 0;
-    static bool mode = read_peer_mode();
+    static const bool mode = read_peer_mode();
     return mode;
 }
 
@@ -149,7 +149,7 @@ void set_peer_mode_override(int mode) { g_override = mode; }
 
 uint32_t get_machine_id()
 {
-    static uint32_t id = read_machine_id();
+    static const uint32_t id = read_machine_id();
     return id;
 }
 
@@ -278,7 +278,7 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     // The level options: THUGPRO only ever sets its SERVER_LEVEL_CHANGE_0n_ON flags from this message (the level's
     // own setup sets its default ones), then runs each toggle by its flag - so an option not set here stays as the
     // level's setup made it (our ports run the defaults in their setup scripts).
-    uint8_t options = get_level_options(info);
+    const uint8_t options = get_level_options(info);
     if (level_prefix && *level_prefix) {
         for (int n = 1; n <= 8; ++n) {
             if (!(options & (1 << (n - 1))))
@@ -291,7 +291,7 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
     // The pro sets: in THUGPRO's THPS4 levels and New York all eight toggled by their flags (THUGPRO's
     // HandleProtrickObjects at each start).
     if (pro_set_level(level_load)) {
-        uint8_t sets = get_pro_sets(info);
+        const uint8_t sets = get_pro_sets(info);
         for (int i = 0; i < 8; ++i)
             apply_pro_set(i, (sets >> i) & 1, level_load, effects);
     }
@@ -455,14 +455,14 @@ void apply_session()
 uint32_t get_word(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
-    uint32_t value = reader.u32();
+    const uint32_t value = reader.u32();
     return reader.ok() ? value : 0;
 }
 
 // Server info for `app`'s connection `handle`, before THUG2's start info.
 void send_server_info(net::AppHost* app, int handle)
 {
-    HostListing info = host_server_info();
+    const HostListing info = host_server_info();
     uint8_t bytes[kServerInfoSize];
     util::ByteWriter writer(bytes, sizeof(bytes));
     write_server_info(writer, info);
@@ -623,8 +623,8 @@ void tick_frame()
         g_session = Session();
         return;
     }
-    uint32_t now = frame_clock::get_time();
-    bool loaded = g_session.last_time_ != 0 && now - g_session.last_time_ > kLoadGapMs;
+    const uint32_t now = frame_clock::get_time();
+    const bool loaded = g_session.last_time_ != 0 && now - g_session.last_time_ > kLoadGapMs;
     g_session.last_time_ = now;
     void* skater = objects::find_object(kSkater);
     if (loaded || !skater || manager->level_ == kLoadMainMenu || manager->level_ != g_session.level ||
@@ -650,8 +650,8 @@ void tick_frame()
 HostListing host_server_info()
 {
     HostListing info = {gfx::kAfternoon, g_host.weather, make_flags(g_host.level_options_, g_host.pro_sets_)};
-    if (gfx::CtodManager* manager = gfx::tod_manager()) {
-        uint32_t state = manager->current_state();
+    if (const gfx::CtodManager* manager = gfx::tod_manager()) {
+        const uint32_t state = manager->current_state();
         if (is_time_of_day(state))
             info.time_of_day_ = state;
     }
@@ -689,12 +689,12 @@ bool handle_chat_command(const char* text)
     if (!peer_mode() || text[0] != '/')
         return false;
     char command[16] = {}, first[24] = {}, second[8] = {};
-    int words = sscanf_s(text, "/%15s %23s %7s", command, static_cast<unsigned>(sizeof(command)), first,
-                         static_cast<unsigned>(sizeof(first)), second, static_cast<unsigned>(sizeof(second)));
+    const int words = sscanf_s(text, "/%15s %23s %7s", command, static_cast<unsigned>(sizeof(command)), first,
+                               static_cast<unsigned>(sizeof(first)), second, static_cast<unsigned>(sizeof(second)));
     if (words < 1)
         return false;
     Hub* manager = net_session_slot();
-    bool client = is_client_of_net_game(manager);
+    const bool client = is_client_of_net_game(manager);
     char line[160];
     if (_stricmp(command, "thugpro") == 0) {
         const HostListing& info = g_session.info;
@@ -708,10 +708,10 @@ bool handle_chat_command(const char* text)
         get_say(line);
         return true;
     }
-    bool tod = _stricmp(command, "tod") == 0;
-    bool weather = _stricmp(command, "weather") == 0;
-    bool option = _stricmp(command, "option") == 0;
-    bool pro_set = _stricmp(command, "proset") == 0;
+    const bool tod = _stricmp(command, "tod") == 0;
+    const bool weather = _stricmp(command, "weather") == 0;
+    const bool option = _stricmp(command, "option") == 0;
+    const bool pro_set = _stricmp(command, "proset") == 0;
     if (!tod && !weather && !option && !pro_set)
         return false;
     if (client) {
@@ -722,7 +722,7 @@ bool handle_chat_command(const char* text)
     if (tod || weather) {
         static const char* const kTimes[] = {"morning", "afternoon", "evening", "night"};
         static const char* const kWeathers[] = {"default", "clear", "rain", "snow"};
-        uint32_t state = tod ? state_named(first, kTimes, 4) : state_named(first, kWeathers, 4);
+        const uint32_t state = tod ? state_named(first, kTimes, 4) : state_named(first, kWeathers, 4);
         if (words < 2 || !state) {
             get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
                         : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
@@ -743,25 +743,25 @@ bool handle_chat_command(const char* text)
     }
     // /option n on|off, /proset n on|off: here now, to the players with the next game's server info (THUGPRO
     // changes them in a game through its own flag broadcast, which THUG2's scripts don't have).
-    int n = std::atoi(first);
+    const int n = std::atoi(first);
     bool on = false;
     if (words < 3 || n < 1 || n > 8 || !on_off(second, &on)) {
         get_say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");
         return true;
     }
     auto bit = static_cast<uint8_t>(1 << (n - 1));
-    uint32_t load = manager ? manager->level_ : 0;
+    const uint32_t load = manager ? manager->level_ : 0;
     if (option) {
         g_host.level_options_ = static_cast<uint8_t>(on ? g_host.level_options_ | bit : g_host.level_options_ & ~bit);
         const char* prefix = current_level_prefix();
         char name[96];
         std::snprintf(name, sizeof(name), "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
-        bool ran = prefix && effects.launch_script(checksums::hash_from_text(name), on);
+        const bool ran = prefix && effects.launch_script(checksums::hash_from_text(name), on);
         std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
                       ran ? "" : " (this level has no such option)");
     } else {
         g_host.pro_sets_ = static_cast<uint8_t>(on ? g_host.pro_sets_ | bit : g_host.pro_sets_ & ~bit);
-        bool here = pro_set_level(load);
+        const bool here = pro_set_level(load);
         if (here)
             apply_pro_set(n - 1, on, load, effects);
         std::snprintf(line, sizeof(line), "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",

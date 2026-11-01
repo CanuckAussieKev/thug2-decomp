@@ -75,7 +75,7 @@ bool controller_pressed(const void* controller, uint32_t button)
     auto* input = *reinterpret_cast<PadInputSample* const*>(static_cast<const uint8_t*>(controller) + 0x18);
     if (!input)
         return false;
-    int index = glyph_for_button_tag(button);
+    const int index = glyph_for_button_tag(button);
     if (debounce_times()[index] > frame_clock::get_time())
         return false;
     switch (button) {
@@ -130,9 +130,9 @@ bool cfunc_controller_debounce(script::Struct* params, script::Script*)
     params->fetch_float(kTime, &time, 0);
     uint32_t button = 0;
     if (params->read_hash_value(0u, &button, 0)) {
-        int index = glyph_for_button_tag(button);
+        const int index = glyph_for_button_tag(button);
         // x87: the unsigned clock + time * 1000, truncated through 64 bits
-        double until = static_cast<double>(frame_clock::get_time()) + static_cast<double>(time) * 1000.0;
+        const double until = static_cast<double>(frame_clock::get_time()) + static_cast<double>(time) * 1000.0;
         debounce_times()[index] = static_cast<uint32_t>(static_cast<int64_t>(until));
     }
     return true;
@@ -154,10 +154,10 @@ bool cfunc_fake_lights(script::Struct* params, script::Script*)
     if (!params->hash_from_name_or_text(kPrefix, &prefix, 0))
         return false;
     uint32_t count = 0; // a 16-bit count in a zeroed 32-bit slot
-    bool is_prefix = !params->has_bare_flag(kFakeLightsExact);
+    const bool is_prefix = !params->has_bare_flag(kFakeLightsExact);
     // (the original passes is_prefix too: 0x0045BF90 takes two arguments and ignores it)
     (void)is_prefix;
-    uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
+    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
     render::queue_scene_lights(nodes, static_cast<uint16_t>(count), time, params);
     return true;
 }
@@ -254,8 +254,8 @@ bool cfunc_spawn_script(script::Struct* params, script::Script* script)
     params->read_hash_value(kCallback, &callback, 0);
     script::Struct* callback_params = nullptr;
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
-    bool replicate_flag = params->has_bare_flag(kOnlineFlag);
-    bool permanent = params->has_bare_flag(kPermanent);
+    const bool replicate_flag = params->has_bare_flag(kOnlineFlag);
+    const bool permanent = params->has_bare_flag(kPermanent);
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
     script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_,
@@ -307,8 +307,8 @@ bool cfunc_display_loading_screen(script::Struct* params, script::Script*)
 {
     const char* image = "images\\xxxxx"; // "images\xxxxx"
     params->fetch_text(0u, &image, 0);
-    bool blank = params->has_bare_flag(kBlank);
-    bool freeze = params->has_bare_flag(kFreeze);
+    const bool blank = params->has_bare_flag(kBlank);
+    const bool freeze = params->has_bare_flag(kFreeze);
     render::display_loading_screen(image, freeze, blank);
     gfx::loading_console::screen_shown(freeze, blank); // not original: the loading console (gfx/loading_console.h)
     float seconds = 0.0f;                              // (the original leaves it unset - unused then)

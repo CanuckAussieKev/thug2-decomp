@@ -96,7 +96,7 @@ void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { las
 // 0x00434D90
 void ActivationZoneModule::tick_frame()
 {
-    GameEntity* object = entity_;
+    const GameEntity* object = entity_;
     const maths::Vec4& pos = object->at_point_;
     // (not a number counts as moved, as the original's FUCOMPP)
     if (last_pos_.x == pos.x && last_pos_.y == pos.y && last_pos_.z == pos.z && last_pos_.w == pos.w)
@@ -193,8 +193,8 @@ bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, sc
     if (events[2])
         recorded += 1u << (events[2] & 31);
     Entity* object = entity_;
-    bool permanent = node->has_bare_flag(kPermanent);
-    bool replicate_flag = node->has_bare_flag(kOnlineFlag);
+    const bool permanent = node->has_bare_flag(kPermanent);
+    const bool replicate_flag = node->has_bare_flag(kOnlineFlag);
     object->start_script_task(script, static_cast<int>(name), replicate_flag, permanent, params);
     return true;
 }
@@ -208,7 +208,7 @@ bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRa
         // A movable object's face, while it's being tested: through its own nodes.
         auto* owner = reinterpret_cast<GameEntity*>(feeler->get_tested_owner());
         script::Array* nodes = node_array_of(owner);
-        uint32_t name = feeler->hit_.object_checksum_;
+        const uint32_t name = feeler->hit_.object_checksum_;
         return get_trigger_node(events, name, nodes, owner);
     }
     if (!feeler->hit_object_alive()) // (which clears the name when the object is gone)
@@ -216,7 +216,7 @@ bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRa
     if (!feeler->get_hit_object())
         return false;
     script::Array* nodes = node_array_of(feeler->get_hit_object());
-    uint32_t name = feeler->hit_.object_checksum_;
+    const uint32_t name = feeler->hit_.object_checksum_;
     return get_trigger_node(events, name, nodes, feeler->get_hit_object());
 }
 
@@ -228,9 +228,9 @@ void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProb
     for (int i = count - 1; i >= 0; --i) {
         if (!hits.hits[i].face_flag40_)
             continue;
-        uint32_t name = hits.hits[i].checksum;
+        const uint32_t name = hits.hits[i].checksum;
         // (the count is read again: get_trigger_node may run scripts)
-        int total = hits.count;
+        const int total = hits.count;
         int later = i + 1;
         while (later < total && name != hits.hits[later].checksum)
             ++later;

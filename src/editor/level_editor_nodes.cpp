@@ -38,7 +38,7 @@ const char* family_name(Family family)
     static const char* const kNames[kFamilies] = {"Spawns",    "Crowns",   "Flags",   "Rails",  "Ladders",
                                                   "Paths",     "Objects",  "Scenery", "Lights", "Sounds",
                                                   "Particles", "Triggers", "Other"};
-    int i = static_cast<int>(family);
+    const int i = static_cast<int>(family);
     return i >= 0 && i < kFamilies ? kNames[i] : "?";
 }
 
@@ -63,7 +63,7 @@ Family get_classify(uint32_t cls, uint32_t type)
     if (cls == kGenericNode)
         return type == kCrown ? Family::kCrown : type == kEditorTrigger ? Family::kFireOff : Family::kOther;
     if (cls == kGameObject) {
-        for (uint32_t flag : kFlags) {
+        for (const uint32_t flag : kFlags) {
             if (type == flag)
                 return Family::kBitMark;
         }
@@ -142,7 +142,7 @@ uint32_t team_colour(const char* text)
     auto has = [&](const char* colour) {
         // (a whole word: _red, _red_base, _red01 - not "_reduce")
         for (size_t at = lower.find(colour); at != std::string::npos; at = lower.find(colour, at + 1)) {
-            size_t end = at + std::strlen(colour);
+            const size_t end = at + std::strlen(colour);
             if (end == lower.size() || lower[end] == '_' || (lower[end] >= '0' && lower[end] <= '9'))
                 return true;
         }
@@ -195,7 +195,7 @@ uint32_t g_generation;
 std::vector<uint32_t> get_signature()
 {
     std::vector<uint32_t> signature;
-    level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager)
         return signature;
     for (uint32_t i = 0; i < manager->num_ && i < level_nodes::NodeManager::kMaxArrays; ++i) {
@@ -223,10 +223,10 @@ V3 get_heading_of(V3 angles)
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Vec4 vector = {angles.x, angles.y, angles.z, 1.0f};
+    const maths::Vec4 vector = {angles.x, angles.y, angles.z, 1.0f};
     matrix.init_from_angles(vector);
-    V3 at = {matrix.row[2].x, 0.0f, matrix.row[2].z};
-    float length = std::sqrt(at.x * at.x + at.z * at.z);
+    const V3 at = {matrix.row[2].x, 0.0f, matrix.row[2].z};
+    const float length = std::sqrt(at.x * at.x + at.z * at.z);
     return length > 1e-4f ? V3{at.x / length, 0.0f, at.z / length} : V3{0.0f, 0.0f, 1.0f};
 }
 
@@ -235,7 +235,7 @@ void get_scan()
     g_nodes.clear();
     g_by_name.clear();
     std::memset(g_counts, 0, sizeof(g_counts));
-    level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager)
         return;
     static const uint32_t kRestartTypes = name_hash("restart_types"), kColor = name_hash("Color"),
@@ -295,7 +295,7 @@ void get_scan()
                 node.colour = 0xFFFFC233;
                 break;
             case Family::kBitMark: {
-                uint32_t team = team_colour(object_edit::get_name_of(node.type));
+                const uint32_t team = team_colour(object_edit::get_name_of(node.type));
                 node.colour = team ? team : team_colour(name);
                 if (!node.colour)
                     node.colour = 0xFFE0E0E0;
@@ -321,8 +321,9 @@ void get_scan()
                 script::Array* colour = nullptr;
                 if (s->fetch_list(kColor, &colour, 0) && colour && colour->extent_ >= 3) {
                     auto c = [&](uint32_t k) {
-                        int value = colour->kind_tag_ == script::kQbvalFloat ? static_cast<int>(colour->fetch_float(k))
-                                                                             : static_cast<int>(colour->fetch_part(k));
+                        const int value = colour->kind_tag_ == script::kQbvalFloat
+                                              ? static_cast<int>(colour->fetch_float(k))
+                                              : static_cast<int>(colour->fetch_part(k));
                         return static_cast<uint32_t>(std::max(0, std::min(255, value)));
                     };
                     node.colour = 0xFF000000u | (c(0) << 16) | (c(1) << 8) | c(2);
@@ -403,7 +404,7 @@ void sync_rails()
 
 void get_refresh()
 {
-    std::vector<uint32_t> signature = get_signature();
+    const std::vector<uint32_t> signature = get_signature();
     if (signature != g_signature) {
         g_signature = signature;
         get_scan();
@@ -474,7 +475,7 @@ int get_find(uint32_t name)
 
 script::Struct* struct_of(const Elem& node)
 {
-    level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->num_)
         return nullptr;
     return get_node_at(manager->arrays_[node.array].node_entries_, static_cast<uint32_t>(node.index));
@@ -507,7 +508,7 @@ void reread(int index)
 
 uint32_t get_array_name(const Elem& node)
 {
-    level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
+    const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager || node.array < 0 || static_cast<uint32_t>(node.array) >= manager->num_)
         return 0;
     return manager->arrays_[node.array].label_;
@@ -533,7 +534,7 @@ std::string array_text(script::Array* array, int depth)
     if (!array)
         return "[]";
     std::string text = "[";
-    uint32_t shown = std::min<uint32_t>(array->extent_, 12);
+    const uint32_t shown = std::min<uint32_t>(array->extent_, 12);
     for (uint32_t i = 0; i < shown; ++i) {
         if (i)
             text += " ";
@@ -621,7 +622,7 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
         if (c->name == 0 && c->kind_tag() == script::kQbvalName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            script::SymbolTableEntry* symbol = script::resolve_symbol(c->checksum);
+            const script::SymbolTableEntry* symbol = script::resolve_symbol(c->checksum);
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             if (symbol && symbol->type == script::kQbvalStruct && symbol->structure) {
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
@@ -647,10 +648,10 @@ std::vector<Prop> get_fields(const Elem& node)
 
 bool level_is_shared(const char** game)
 {
-    modules::Skate* skate = modules::g_skate_module; // the skate module
+    const modules::Skate* skate = modules::g_skate_module; // the skate module
     if (!skate)
         return false;
-    uint32_t level = skate->level_; // its level's load script
+    const uint32_t level = skate->level_; // its level's load script
     if (!level)
         return false;
     static const struct {
@@ -688,24 +689,27 @@ int pick_nearest(const std::vector<Pickable>& pickables, float x, float y, float
     float best_distance = 0.0f, best_depth = 0.0f;
     bool best_point = false;
     for (const Pickable& p : pickables) {
-        float d = p.segment ? distance_to_segment(x, y, p.ax, p.ay, p.bx, p.by)
-                            : std::sqrt((x - p.ax) * (x - p.ax) + (y - p.ay) * (y - p.ay));
+        const float d = p.segment ? distance_to_segment(x, y, p.ax, p.ay, p.bx, p.by)
+                                  : std::sqrt((x - p.ax) * (x - p.ax) + (y - p.ay) * (y - p.ay));
         if (d > radius)
             continue;
         if (occluder.blocked) {
             // (where a segment passes nearest: its depth there, perspective-correct - 1 / depth is linear on screen)
             float depth = p.depth;
             if (p.segment && p.depth_a_ > 0.0f && p.depth_b_ > 0.0f) {
-                float dx = p.bx - p.ax, dy = p.by - p.ay, length2 = dx * dx + dy * dy;
-                float s = length2 > 0.0f ? std::max(0.0f, std::min(1.0f, ((x - p.ax) * dx + (y - p.ay) * dy) / length2))
-                                         : 0.0f;
+                const float dx = p.bx - p.ax;
+                const float dy = p.by - p.ay;
+                const float length2 = dx * dx + dy * dy;
+                const float s = length2 > 0.0f
+                                    ? std::max(0.0f, std::min(1.0f, ((x - p.ax) * dx + (y - p.ay) * dy) / length2))
+                                    : 0.0f;
                 depth = 1.0f / ((1.0f - s) / p.depth_a_ + s / p.depth_b_);
             }
             if (!picking::gizmo_in_front(depth, true, occluder.depth,
                                          picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels)))
                 continue;
         }
-        bool point = !p.segment;
+        const bool point = !p.segment;
         bool better = false;
         if (best < 0)
             better = true;

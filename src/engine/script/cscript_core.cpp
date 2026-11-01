@@ -175,14 +175,14 @@ void Script::reset_script_state()
 // 0x00473880
 void Script::run_on_exit_scripts()
 {
-    if (uint32_t name = on_exit_script_) {
+    if (const uint32_t name = on_exit_script_) {
         on_exit_script_ = 0;
         preempt(name, nullptr);
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
     for (int i = call_depth_; i; --i) {
         uint32_t& on_exit = frame_records_[i - 1].on_exit_script_ptr_;
-        if (uint32_t name = on_exit) {
+        if (const uint32_t name = on_exit) {
             on_exit = 0;
             preempt(name, nullptr);
         }
@@ -311,7 +311,7 @@ bool Script::has_attached_script() { return pc_ != nullptr; }
 // 0x00472F90
 void Script::set_spawner_file(Script* spawner)
 {
-    uint32_t name = spawner->call_depth_ ? spawner->frame_records_[0].script_id_ : spawner->script_title_;
+    const uint32_t name = spawner->call_depth_ ? spawner->frame_records_[0].script_id_ : spawner->script_title_;
     spawner_file_ = find_symbol(name)->unknown8; // (no check that it is still defined)
 }
 

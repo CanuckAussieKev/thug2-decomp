@@ -53,7 +53,7 @@ const char* stats_file(int index)
 // 0x0054DCB0
 bool retrieve_top_stats(script::Struct* params, script::Script*)
 {
-    online::Hub* manager = online::g_online_hub;
+    const online::Hub* manager = online::g_online_hub;
     online::RankingsManager* stats = manager->rating_service_.get();
     int& current = stats->top_file_;
     int index = 0;

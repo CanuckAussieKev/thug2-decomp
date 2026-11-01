@@ -87,8 +87,8 @@ bool is_array(uint32_t type) { return type == kQbvalArray || type == kEsymboltyp
 // Two strings joined (at most 200 characters with the terminator), or null if too long.
 bool join_strings(const char* a, const char* b, QbValueKind type)
 {
-    size_t length_a = std::strlen(a);
-    size_t length_b = std::strlen(b);
+    const size_t length_a = std::strlen(a);
+    const size_t length_b = std::strlen(b);
     if (length_a + length_b + 1 > 200)
         return false;
     char joined[200];
@@ -172,7 +172,7 @@ void resolved_value(const Component* component, uint32_t* type, uint32_t* value)
     *type = component->kind_tag();
     *value = component->raw;
     if (*type == kQbvalName) {
-        if (SymbolTableEntry* symbol = resolve_symbol(*value)) {
+        if (const SymbolTableEntry* symbol = resolve_symbol(*value)) {
             *value = symbol->raw;
             *type = symbol->type;
         }
@@ -361,7 +361,7 @@ void ValueResolver::intake(int op)
 {
     if (has_operators_) {
         while (operators_[operator_top_].open_parentheses_ == 0) {
-            int pending = operators_[operator_top_].op;
+            const int pending = operators_[operator_top_].op;
             if (op != pending && precedence(op) > precedence(pending))
                 break;
             execute();
@@ -426,7 +426,7 @@ void ValueResolver::execute()
         fault_ = "Non-zero parentheses count"; // "Non-zero parentheses count"
         return;
     }
-    int op = operators_[operator_top_].op;
+    const int op = operators_[operator_top_].op;
     if (op == kOperatorNone) {
         get_clear();
         fault_ = "Tried to execute with no operator"; // "Tried to execute with no operator"
@@ -544,15 +544,15 @@ void ValueResolver::execute()
             array = array ? new (array) script::Array : nullptr;
             set_result_type(kQbvalArray);
             result.array = array;
-            uint32_t size_a = a->array->extent_;
-            uint32_t size_b = b->array->extent_;
+            const uint32_t size_a = a->array->extent_;
+            const uint32_t size_b = b->array->extent_;
             if (size_a == 0) {
                 duplicate_array(array, b->array);
             } else if (size_b == 0) {
                 duplicate_array(array, a->array);
             } else {
                 // (the elements are all taken to be of the first array's type)
-                QbValueKind type = a->array->kind_tag_;
+                const QbValueKind type = a->array->kind_tag_;
                 array->configure_size_kind(size_a + size_b, type);
                 copy_array_elements(array->find_array_value(), a->array->find_array_value(), size_a, type);
                 copy_array_elements(array->find_array_value() + size_a, b->array->find_array_value(), size_b, type);
@@ -836,7 +836,7 @@ void ValueResolver::execute()
         case kQbvalStructRef:
             // A structure's member: copied (a referenced structure's members are referred to).
             if (type_b == kQbvalName) {
-                if (Component* member = a->structure->find_last_component(b->checksum))
+                if (const Component* member = a->structure->find_last_component(b->checksum))
                     duplicate_component(&result, member, type_a == kQbvalStructRef);
             } else {
                 error(

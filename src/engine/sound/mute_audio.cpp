@@ -28,7 +28,7 @@ namespace {
 template <typename F>
 bool with_session_volume(F use)
 {
-    HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     bool ok = false;
     {
         // (released in the reverse order, before COM is shut down)
@@ -53,7 +53,7 @@ bool with_session_volume(F use)
 
 bool set_audio_session_muted(bool muted)
 {
-    bool ok = with_session_volume(
+    const bool ok = with_session_volume(
         [muted](ISimpleAudioVolume* volume) { return SUCCEEDED(volume->SetMute(muted ? TRUE : FALSE, nullptr)); });
     get_log("mute_audio: audio session %s%s (thug2-decomp.ini [features] mute_audio)", muted ? "muted" : "unmuted",
             ok ? "" : " - FAILED (no playback device?); the game's volume paths are silenced anyway");
@@ -63,7 +63,8 @@ bool set_audio_session_muted(bool muted)
 bool audio_session_muted()
 {
     BOOL muted = FALSE;
-    bool ok = with_session_volume([&muted](ISimpleAudioVolume* volume) { return SUCCEEDED(volume->GetMute(&muted)); });
+    const bool ok =
+        with_session_volume([&muted](ISimpleAudioVolume* volume) { return SUCCEEDED(volume->GetMute(&muted)); });
     return ok && muted;
 }
 

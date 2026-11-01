@@ -11,7 +11,7 @@ bool partial_bits_size(uintptr_t at, uintptr_t end, uintptr_t* size)
 {
     if (at > end || end - at < 4)
         return false;
-    int32_t count = util::ByteReader(reinterpret_cast<const void*>(at), 4).i32();
+    const int32_t count = util::ByteReader(reinterpret_cast<const void*>(at), 4).i32();
     if (count < 0)
         return false;
     *size = static_cast<uintptr_t>(((count - 1) / 32) * 4 + 8);
@@ -24,12 +24,12 @@ bool fits(uintptr_t at, uint64_t length, uintptr_t end) { return at <= end && le
 
 bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, AnimLayout* layout)
 {
-    bool known = size != 0 && size != util::ByteReader::kUnknownSize;
+    const bool known = size != 0 && size != util::ByteReader::kUnknownSize;
     util::ByteReader reader(base, known ? size : util::ByteReader::kUnknownSize);
     header->version = reader.u32();
     header->flags = reader.u32();
     header->duration = reader.u32();
-    bool float_keys = (header->flags & kFloatKeys) != 0;
+    const bool float_keys = (header->flags & kFloatKeys) != 0;
     if (!float_keys && !(header->flags & kCompressed))
         return false;
     header->bone_count = reader.u32();
@@ -48,9 +48,9 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
     if (static_cast<int32_t>(header->bone_count) < 0 || rotations < 0 || translations < 0 ||
         static_cast<int16_t>(header->custom_key_count) < 0)
         return false;
-    uintptr_t end = known ? reinterpret_cast<uintptr_t>(base) + size : ~static_cast<uintptr_t>(0);
-    uint32_t flags = header->flags;
-    uint64_t bones = header->bone_count;
+    const uintptr_t end = known ? reinterpret_cast<uintptr_t>(base) + size : ~static_cast<uintptr_t>(0);
+    const uint32_t flags = header->flags;
+    const uint64_t bones = header->bone_count;
     *layout = {};
     layout->end = end;
     layout->keys_header = reinterpret_cast<uintptr_t>(base) + kHeaderSize;
@@ -71,11 +71,11 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
             p += bits;
         }
         layout->key_counts = p;
-        uint64_t counts = bones * ((flags & kWideCounts) ? 4 : 2);
+        const uint64_t counts = bones * ((flags & kWideCounts) ? 4 : 2);
         if (!fits(p, counts, end))
             return false;
         p = align4(p + static_cast<uintptr_t>(counts));
-        uint64_t key_size = (flags & kWideKeys) || (flags & kBoneNames) ? 16 : 8;
+        const uint64_t key_size = (flags & kWideKeys) || (flags & kBoneNames) ? 16 : 8;
         layout->rotation_keys = p;
         layout->translation_keys = p + static_cast<uintptr_t>(rotations * key_size);
         p = layout->translation_keys + static_cast<uintptr_t>(translations * key_size);
@@ -103,7 +103,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
         }
         p = align4(p);
         if (!(flags & kWideKeys) && !(flags & kBoneNames)) {
-            uint64_t keys = static_cast<uint64_t>(header->rotation_size) + header->translation_size;
+            const uint64_t keys = static_cast<uint64_t>(header->rotation_size) + header->translation_size;
             if (!fits(p, keys, end))
                 return false;
             layout->rotation_keys = p;
@@ -120,12 +120,12 @@ bool check_bone_keys(const AnimHeader& header, const AnimLayout& layout)
     uint64_t rotations = 0;
     uint64_t translations = 0;
     if (header.flags & kFloatKeys) {
-        bool wide = (header.flags & kWideCounts) != 0;
+        const bool wide = (header.flags & kWideCounts) != 0;
         util::ByteReader counts(reinterpret_cast<const void*>(layout.key_counts),
                                 static_cast<size_t>(header.bone_count) * (wide ? 4 : 2));
         for (uint32_t i = 0; i < header.bone_count; ++i) {
-            int rotation = wide ? counts.i16() : counts.u8();
-            int translation = wide ? counts.i16() : counts.u8();
+            const int rotation = wide ? counts.i16() : counts.u8();
+            const int translation = wide ? counts.i16() : counts.u8();
             if (rotation < 0 || translation < 0)
                 return false;
             rotations += static_cast<uint64_t>(rotation);

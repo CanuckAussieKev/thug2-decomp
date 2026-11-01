@@ -134,7 +134,7 @@ script::Struct* results_of(script::Script* script) { return script->args_; }
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
 uint32_t time_aloft(SkaterPhysicsModule* component)
 {
-    int state = component->state_->cur_phase_;
+    const int state = component->state_->cur_phase_;
     if (state == 1 || state == 2)
         return get_since(component->air_start_);
     return component->air_end_ - component->air_start_;
@@ -148,14 +148,14 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
     double x = facing.x;
     double y = facing.y;
     float z = facing.z;
-    double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
+    const double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         x *= inverse;
         y *= inverse;
         z = static_cast<float>(z * inverse);
     }
-    maths::Vec4& start = feeler.line_.start;
+    const maths::Vec4& start = feeler.line_.start;
     maths::Vec4& end = feeler.line_.end;
     end.x = static_cast<float>(x * distance + start.x);
     end.y = static_cast<float>(y * distance + start.y);
@@ -461,7 +461,7 @@ int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*)
 // 0x004FC7A0
 int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
 {
-    bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
+    const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
     if (static_cast<objects::Rider*>(entity_)->goofy_)
         return flipped ? 1 : 0;
     return flipped ? 0 : 1;
@@ -582,19 +582,19 @@ int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*)
 // 0x004FC880
 int SkaterPhysicsModule::air_time_less_than(script::Struct* params, script::Script*)
 {
-    uint32_t time = time_aloft(this);
+    const uint32_t time = time_aloft(this);
     return time < static_cast<uint32_t>(air_time_threshold(params)) ? 1 : 0;
 }
 // 0x004FC8E0
 int SkaterPhysicsModule::air_time_greater_than(script::Struct* params, script::Script*)
 {
-    uint32_t time = time_aloft(this);
+    const uint32_t time = time_aloft(this);
     return static_cast<uint32_t>(air_time_threshold(params)) < time ? 1 : 0;
 }
 // 0x004FC940
 int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 {
-    uint32_t time = time_aloft(this);
+    const uint32_t time = time_aloft(this);
     auto seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
     results_of(script)->push_float(kAirtime, seconds);
     return 1;
@@ -603,7 +603,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 // 0x004FC9C0
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
-    int profile = static_cast<objects::Rider*>(entity_)->view_slot_;
+    const int profile = static_cast<objects::Rider*>(entity_)->view_slot_;
     auto* profiles = reinterpret_cast<uint8_t*>(modules::g_skate_module);
     auto_kick_ = profiles[profile * 8 + 0x395];
     return 1;
@@ -625,19 +625,19 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
         const maths::Vec4& facing = object->basis_frame_.row[2];
         direction = maths::Vec4(facing.x, 0.0f, facing.z, facing.w);
-        double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
+        const double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
         if (flat < kStillSquared)
             direction = maths::Vec4(1.0f, 0.0f, 1.0f, 1.0f);
     }
-    double length =
+    const double length =
         std::sqrt(static_cast<double>(direction.z) * direction.z + static_cast<double>(direction.x) * direction.x);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         direction.x = static_cast<float>(direction.x * inverse);
         direction.y = static_cast<float>(0.0 * inverse);
         direction.z = static_cast<float>(direction.z * inverse);
     }
-    double boost = tuning_float_lookup(kCarPlantForwardBoost, object);
+    const double boost = tuning_float_lookup(kCarPlantForwardBoost, object);
     auto y = static_cast<float>(direction.y * boost);
     auto z = static_cast<float>(direction.z * boost);
     auto w = static_cast<float>(direction.w * boost);
@@ -654,7 +654,7 @@ int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script*)
 {
     uint32_t sound = 0;
     params->read_hash_value(0u, &sound, 1);
-    bool slide = sound == kSlide;
+    const bool slide = sound == kSlide;
     set_timed_flag(this, PoseFlag::kSlide, slide ? 1 : 0);
     sound_->sliding_ = slide ? 1 : 0;
     return 1;
@@ -675,13 +675,13 @@ int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Scrip
 int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script*)
 {
     if (params->has_bare_flag(kBackside)) {
-        bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
-        bool backside = last_spin_backside_ != 0;
+        const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
+        const bool backside = last_spin_backside_ != 0;
         return (flipped ? !backside : backside) ? 1 : 0;
     }
     if (params->has_bare_flag(kFrontside)) {
-        bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
-        bool backside = last_spin_backside_ != 0;
+        const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
+        const bool backside = last_spin_backside_ != 0;
         return (flipped ? backside : !backside) ? 1 : 0;
     }
     return 1;
@@ -692,8 +692,10 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
 {
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& velocity = object->vel_;
-    double x = velocity.x, y = velocity.y, z = velocity.z;
-    double length_squared = (x * x + y * y) + z * z;
+    const double x = velocity.x;
+    const double y = velocity.y;
+    const double z = velocity.z;
+    const double length_squared = (x * x + y * y) + z * z;
     if (length_squared < kStillSquared)
         return 1;
     maths::Vec4& right = object->basis_frame_.row[0];
@@ -702,8 +704,8 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     facing = object->vel_;
     facing.make_unit();
     // right = up x facing
-    double rx = static_cast<double>(facing.z) * up.y - static_cast<double>(facing.y) * up.z;
-    double ry = static_cast<double>(facing.x) * up.z - static_cast<double>(facing.z) * up.x;
+    const double rx = static_cast<double>(facing.z) * up.y - static_cast<double>(facing.y) * up.z;
+    const double ry = static_cast<double>(facing.x) * up.z - static_cast<double>(facing.z) * up.x;
     right.w = 0.0f;
     auto rz = static_cast<float>(static_cast<double>(facing.y) * up.x - static_cast<double>(facing.x) * up.y);
     right.z = rz;
@@ -711,8 +713,8 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     right.y = static_cast<float>(ry);
     right.make_unit();
     // up = facing x right
-    double ux = static_cast<double>(right.z) * facing.y - static_cast<double>(right.y) * facing.z;
-    double uy = static_cast<double>(right.x) * facing.z - static_cast<double>(right.z) * facing.x;
+    const double ux = static_cast<double>(right.z) * facing.y - static_cast<double>(right.y) * facing.z;
+    const double uy = static_cast<double>(right.x) * facing.z - static_cast<double>(right.z) * facing.x;
     up.w = 0.0f;
     auto uz = static_cast<float>(static_cast<double>(right.y) * facing.x - static_cast<double>(right.x) * facing.y);
     up.z = uz;
@@ -764,7 +766,7 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
     script::Array* frictions = nullptr;
     params->fetch_list(0u, &frictions, 0);
     int& index = special_friction_index_;
-    int count = static_cast<int>(frictions->extent_); // (no array: the original reads through null too)
+    const int count = static_cast<int>(frictions->extent_); // (no array: the original reads through null too)
     if (index >= count)
         index = count - 1;
     rolling_friction_ = frictions->fetch_float(static_cast<uint32_t>(index));

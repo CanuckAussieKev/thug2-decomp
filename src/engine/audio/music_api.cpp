@@ -178,7 +178,7 @@ bool prime_music_track(uint32_t name)
     platform_stop_music();
     if (!music_on())
         return false;
-    bool loading = start_track_playback(name);
+    const bool loading = start_track_playback(name);
     if (loading)
         music_channel_kind() = kMusicStreamPreload;
     return loading;
@@ -222,7 +222,7 @@ void halt_stream(uint32_t id_or_name)
     if (!streams_on())
         return;
     uint32_t id = id_or_name;
-    int index = find_playing_stream(id_or_name);
+    const int index = find_playing_stream(id_or_name);
     if (index >= 0) {
         platform_stop_stream(index);
         id = stream_at(index)->id;
@@ -245,7 +245,7 @@ void halt_stream(uint32_t id_or_name)
 bool change_stream_loudness(uint32_t id_or_name, void* volume)
 {
     if (streams_on()) {
-        int index = find_playing_stream(id_or_name);
+        const int index = find_playing_stream(id_or_name);
         if (index < 0)
             return false;
         platform_set_stream_volume(volume, index);
@@ -257,7 +257,7 @@ bool change_stream_loudness(uint32_t id_or_name, void* volume)
 bool set_stream_pitch(uint32_t id_or_name, float /*pitch*/)
 {
     if (streams_on()) {
-        int index = find_playing_stream(id_or_name);
+        const int index = find_playing_stream(id_or_name);
         if (index < 0)
             return false;
         stubs::return_true(); // (the platform's set pitch, 0x005B9760: nothing on PC)
@@ -270,7 +270,7 @@ bool pre_load_stream_done(uint32_t id_or_name)
 {
     if (!streams_on())
         return false;
-    int index = find_playing_stream(id_or_name);
+    const int index = find_playing_stream(id_or_name);
     if (index < 0)
         return false;
     return stream_preload_done(index);
@@ -281,7 +281,7 @@ bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pitch, int
 {
     if (!streams_on())
         return false;
-    int index = find_playing_stream(id_or_name);
+    const int index = find_playing_stream(id_or_name);
     if (index < 0)
         return false;
     stream_at(index)->priority = priority;
@@ -317,7 +317,7 @@ bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
         return true;
     for (int i = 1; i < stream->queue_count_; ++i)
         stream->queue[i - 1] = stream->queue[i];
-    int count = --stream->queue_count_;
+    const int count = --stream->queue_count_;
     // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
     if (stream->queue_position_ >= 0 && --stream->queue_position_ < 0) {
         stream->queue_position_ = count - 1;
@@ -333,7 +333,7 @@ bool update_stream_volume(int slot)
     if (!streams_on())
         return false;
     uint8_t* owner = get_owners()[slot];
-    uint32_t id = owner_ids(owner)[slot];
+    const uint32_t id = owner_ids(owner)[slot];
     int index = 0;
     while (index < kStreams && stream_at(index)->id != id)
         ++index;
@@ -356,7 +356,7 @@ bool update_stream_volume(int slot)
             if (component->get_stream_extent(object, &extent))
                 extent_or_null = &extent;
             maths::Vec4 position{};
-            maths::Vec4* where = component->get_stream_position(&position, object);
+            const maths::Vec4* where = component->get_stream_position(&position, object);
             manager->fetch_loudness(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloff_curve_,
                                     object, extent_or_null);
         } else {

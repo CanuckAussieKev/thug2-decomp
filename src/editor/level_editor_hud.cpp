@@ -35,7 +35,7 @@ void change_caption(const std::string& id, const std::string& full)
 {
     if (!g_elements)
         return;
-    std::string text = full.size() > kMaxText ? full.substr(0, kMaxText) : full;
+    const std::string text = full.size() > kMaxText ? full.substr(0, kMaxText) : full;
     auto it = g_shown.find(id);
     if (it != g_shown.end() && it->second == text)
         return;
@@ -90,7 +90,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     if (!g_panel || g_panel_x != x || g_panel_y != y || g_panel_width != width || g_panel_lines != lines.size()) {
         alignas(4) uint8_t memory[8];
         auto* params = new (memory) script::Struct;
-        float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
+        const float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
         params->insert_pair(checksums::hash_from_text("pos"), x, y);
         params->insert_pair(checksums::hash_from_text("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
         params->put_int(checksums::hash_from_text("lines"), static_cast<int>(lines.size()));

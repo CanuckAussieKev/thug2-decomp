@@ -117,7 +117,7 @@ void ParkTile::set_length(float length)
     uint8_t* sector = scene::look_up_sector(sector_);
     const bool across = (quarter_turns_ & 1) != 0;
     // (w is a stack leftover in the original)
-    maths::Vec4 scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
+    const maths::Vec4 scale = {across ? 1.0f : length, 1.0f, across ? length : 1.0f, 1.0f};
     scene::change_scale(sector, &scale);
 }
 

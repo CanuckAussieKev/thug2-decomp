@@ -183,7 +183,7 @@ bool cfunc_set_player_face_texture(script::Struct* params, script::Script*)
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
     params->fetch_text(kTexture, &texture, 1);
-    bool full_path = params->has_bare_flag(kPathIsComplete);
+    const bool full_path = params->has_bare_flag(kPathIsComplete);
     static_cast<gfx::FaceSkin*>(face_of(profile))->load_image_file(texture, full_path);
     return true;
 }

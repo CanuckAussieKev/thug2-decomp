@@ -113,7 +113,7 @@ void update_pad_sticks(const void* pad, const uint8_t* data)
     if (!data && !get_pads().count(pad))
         return;
     PadSticks& sticks = sticks_of(pad);
-    uint32_t bits = data ? stick_directions(data) : 0;
+    const uint32_t bits = data ? stick_directions(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
     for (int i = 0; i < 8; ++i)
         sticks.buttons[i].tick_frame((bits >> i) & 1 ? 0xFF : 0);
@@ -152,17 +152,17 @@ void update_trick_sticks(void* trick_component)
     BikeState* state = core ? state_of(core, false) : nullptr;
     if (!state)
         return;
-    bool riding = live_now(core);
+    const bool riding = live_now(core);
     uint32_t bits = 0;
     if (riding) {
-        PadSticks& sticks = sticks_of(trick_pad(trick));
+        const PadSticks& sticks = sticks_of(trick_pad(trick));
         for (int i = 0; i < 8; ++i)
             if (sticks.buttons[i].held_down_)
                 bits |= 1u << i;
     }
     for (int s = 0; s < 2; ++s) {
-        int was = state->trick_stick_[s];
-        int now = stick_direction(bits, s == 1);
+        const int was = state->trick_stick_[s];
+        const int now = stick_direction(bits, s == 1);
         if (now == was)
             continue;
         state->trick_stick_[s] = now;

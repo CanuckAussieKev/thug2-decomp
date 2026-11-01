@@ -21,12 +21,12 @@ namespace {
 
 bool is_folder(const std::string& path)
 {
-    DWORD attributes = GetFileAttributesA(path.c_str());
+    const DWORD attributes = GetFileAttributesA(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 bool is_file(const std::string& path)
 {
-    DWORD attributes = GetFileAttributesA(path.c_str());
+    const DWORD attributes = GetFileAttributesA(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
@@ -70,9 +70,9 @@ int search_folders(bool anteara, bool front_end, const char* (&folders)[4])
 bool anteara_mod()
 {
     static const bool kOn = [] {
-        bool setting = config_int("features", "anteara_mod", 0) != 0;
+        const bool setting = config_int("features", "anteara_mod", 0) != 0;
         if (setting) {
-            std::string folder = get_folder() + "\\anteara";
+            const std::string folder = get_folder() + "\\anteara";
             get_log(is_folder(folder)
                         ? "anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)"
                         : "anteara_mod: on, but %s not found - run tools/pipeline/menu_level/make_menu_level.ts; the "
@@ -95,14 +95,15 @@ bool get_overlay_path(const char* name, char (&path)[260])
     // First, while [features] hd_ui is on: the upscaled menu images and fonts (engine/gfx/hd_ui.h), in the hd_ui folder
     // under the same names (also the ones inside the .prx packs, which the overlay serves by name).
     if (kOverlay && render::hd_ui::is_switched_on()) {
-        std::string candidate = get_folder() + "\\hd_ui\\" + relative;
+        const std::string candidate = get_folder() + "\\hd_ui\\" + relative;
         if (is_file(candidate))
             full = candidate;
     }
     const char* folders[4];
-    int count = kOverlay && full.empty() ? search_folders(anteara_mod(), new_frontend::is_switched_on(), folders) : 0;
+    const int count =
+        kOverlay && full.empty() ? search_folders(anteara_mod(), new_frontend::is_switched_on(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
-        std::string candidate = get_folder() + "\\" + folders[i] + relative;
+        const std::string candidate = get_folder() + "\\" + folders[i] + relative;
         if (is_file(candidate))
             full = candidate;
     }

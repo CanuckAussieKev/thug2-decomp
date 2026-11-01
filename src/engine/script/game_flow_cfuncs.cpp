@@ -169,7 +169,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     debug::printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->unload_all_assets(false);
     debug::printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"
-    if (script::SymbolTableEntry* qb = script::find_symbol(kQbSymbol))
+    if (const script::SymbolTableEntry* qb = script::find_symbol(kQbSymbol))
         unload_qb_file(qb->unknown8);
     for (int i = 0; i < kLevelQbFiles; ++i) {
         unload_qb_file(level_qb_files()[i]);
@@ -201,7 +201,8 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     MEMORYSTATUS memory;
     GlobalMemoryStatus(&memory);
     char text[0x400];
-    int length = wsprintfA(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10); // "%4d total kb..."
+    const int length =
+        wsprintfA(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);          // "%4d total kb..."
     wsprintfA(text + length, "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);     // "%4d  free kb..."
     OutputDebugStringA(text);
     if (skate_module()->in_net_game_level())
@@ -283,7 +284,8 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     if (!params->fetch_text(kPrefix, &prefix, 0))
         return false;
     uint16_t count = 0;
-    uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count); // (the original passes a third argument, 1)
+    const uint32_t* nodes =
+        level_nodes::collect_nodes_by_prefix(prefix, &count); // (the original passes a third argument, 1)
     command.value = value;
     command.action = action;
     command.found = false;
@@ -347,7 +349,7 @@ bool cfunc_make_skater_gosub(script::Struct* params, script::Script* script)
 // script without an object: SpawnScript.
 bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
 {
-    objects::Entity* object = script->entity_.get_pull();
+    const objects::Entity* object = script->entity_.get_pull();
     if (!object)
         return cfunc_spawn_script(params, script);
     uint32_t name = 0;
@@ -366,7 +368,7 @@ bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
 // 0x005A0520: PauseSkater <n> [hide]: skater n paused (vtable +0x2C) and hidden or shown.
 bool cfunc_pause_skater(script::Struct* params, script::Script*)
 {
-    bool hide = params->has_bare_flag("hide"); // "hide"
+    const bool hide = params->has_bare_flag("hide"); // "hide"
     int index = 0;                             // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0u, &index, true);
     if (objects::Rider* skater = get_rider_at(index)) {
@@ -535,7 +537,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 // (+0x380, 0x16A0B364) in the script's parameters.
 bool cfunc_get_current_level(script::Struct*, script::Script* script)
 {
-    uint8_t* skate = get_skate();
+    const uint8_t* skate = get_skate();
     script->args_->add_component_of_type(0x651533EC, script::kQbvalName, modules::g_skate_module->pending_level_);
     script->args_->put_name_key(0x16A0B364, modules::g_skate_module->level_params_);
     return true;
@@ -604,7 +606,7 @@ void update_score_display(objects::Rider* skater)
 bool cfunc_clear_omnigons(script::Struct*, script::Script*)
 {
     objects::RiderStoryProgress* career = modules::g_skate_module->career_.get();
-    for (uint32_t flag : kOmnigonFlags)
+    for (const uint32_t flag : kOmnigonFlags)
         career->un_set_global_flag(script::fetch_int_value(flag));
     return true;
 }
@@ -613,11 +615,11 @@ bool cfunc_clear_omnigons(script::Struct*, script::Script*)
 // sent to every remote connection (message 0x7F, 8 bytes: the Omnigon and the flag; sequenced, group 8).
 bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
 {
-    online::Hub* game_net = online_hub_handle();
+    const online::Hub* game_net = online_hub_handle();
     net::ConnSearch search;
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kOmnigon, &omnigon, true);
-    bool flag = params->has_entry_named(kOmnigonFlag);
+    const bool flag = params->has_entry_named(kOmnigonFlag);
     last_broadcasted_omnigon() = omnigon;
     net::AppHost* server = game_net->host_;
     for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search)) {
@@ -660,12 +662,12 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
 {
     for (uint32_t i = 0; i < 8; ++i) {
-        objects::Rider* skater = get_rider_at(static_cast<int>(i));
+        const objects::Rider* skater = get_rider_at(static_cast<int>(i));
         if (skater && skater->is_local_skater_)
             debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", 0x16C0); // "cfuncs %d: SUTUBBBED..."
     }
-    int mode = game_mode_object()->get_view_layout();
-    int current = render::get_view_layout();
+    const int mode = game_mode_object()->get_view_layout();
+    const int current = render::get_view_layout();
     if (!((mode == 1 && current == 2) || (mode == 2 && current == 1)))
         render::set_screen_mode(mode);
     for (uint32_t i = 0; i < 8; ++i) {
@@ -707,12 +709,12 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
         checksum = checksums::hash_from_text(buffer);
     }
     THUG2_MSVC_WARNING(pop)
-    uint32_t c1 = checksums::hash_from_text(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
-    uint32_t c2 = checksums::hash_from_text(buffer) ^ static_cast<uint32_t>(sum);
+    const uint32_t c1 = checksums::hash_from_text(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
+    const uint32_t c2 = checksums::hash_from_text(buffer) ^ static_cast<uint32_t>(sum);
     debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2,
                   text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
     script::Array* cheats = script::fetch_list(kCheatList);
-    int count = static_cast<int>(cheats->extent_);
+    const int count = static_cast<int>(cheats->extent_);
     bool found = false;
     for (int i = 0; i < count; ++i) {
         auto* cheat = reinterpret_cast<script::Struct*>(cheats->fetch_part(static_cast<uint32_t>(i)));

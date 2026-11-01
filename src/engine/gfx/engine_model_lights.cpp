@@ -34,7 +34,7 @@ void get_stub(const char* message) { debug::printf(message); }
 // 2b - 1 times a range, plus 1 (the bright range above 0.5 - or NaN -, the dark one at and below).
 float get_scaled(float brightness, float dark, float bright)
 {
-    double range = brightness <= 0.5f ? dark : bright;
+    const double range = brightness <= 0.5f ? dark : bright;
     return static_cast<float>((static_cast<double>(brightness) * 2.0 - 1.0) * range + 1.0);
 }
 
@@ -61,7 +61,7 @@ ModelLights::~ModelLights()
 // 0x0048E450
 bool ModelLights::change_ambient_tint(const uint32_t* color)
 {
-    bool result = put_ambient_light_tint(color);
+    const bool result = put_ambient_light_tint(color);
     apply_light_brightness(true, false);
     return result;
 }
@@ -69,7 +69,7 @@ bool ModelLights::change_ambient_tint(const uint32_t* color)
 // 0x0048E480
 bool ModelLights::change_diffuse_hue(int light, const uint32_t* color)
 {
-    bool result = put_diffuse_light_tint(light, color);
+    const bool result = put_diffuse_light_tint(light, color);
     apply_light_brightness(false, true);
     return result;
 }
@@ -100,12 +100,12 @@ bool ModelLights::move_brightness(float target, float step)
 {
     intensity_goal_ = target;
     if (brightness_ < target) {
-        double moved = static_cast<double>(step) + brightness_; // (compared before it's rounded)
+        const double moved = static_cast<double>(step) + brightness_; // (compared before it's rounded)
         brightness_ = static_cast<float>(moved);
         if (moved > target)
             brightness_ = target;
     } else if (brightness_ > target) {
-        double moved = static_cast<double>(brightness_) - step;
+        const double moved = static_cast<double>(brightness_) - step;
         brightness_ = static_cast<float>(moved);
         if (moved < target)
             brightness_ = target;

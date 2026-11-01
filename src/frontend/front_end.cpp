@@ -221,9 +221,9 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
     if (device_index == 0 && event == 0 && get_keyboard_on_screen()) {
         // The PC keyboard's arrows: the first one typed (the keys are left for the others to read).
         char keys[256];
-        int count = sio::get_keyboard_chars(keys);
+        const int count = sio::get_keyboard_chars(keys);
         for (int i = 0; i < count; ++i) {
-            char key = keys[i];
+            const char key = keys[i];
             if (key == kKeyLeft) {
                 event = kPadLeft;
                 break;
@@ -313,8 +313,8 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
         return;
     for (uint32_t i = 0; i < mappings->extent_; ++i) {
         auto* pair = reinterpret_cast<script::Array*>(mappings->fetch_part(i));
-        uint32_t pad_button_label = pair->fetch_part(0);
-        uint32_t event = pair->fetch_part(1);
+        const uint32_t pad_button_label = pair->fetch_part(0);
+        const uint32_t event = pair->fetch_part(1);
         uint32_t button = 0;
         for (; button < 18; ++button) {
             if (pad_button_label == checksums::hash_from_text(kXboxButtonNames[button]) || pad_button_label == kNull)
@@ -346,8 +346,8 @@ bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*
     script::Pair times;
     params->fetch_pair(0, &times, true);
     FrontEnd* front_end = front_end_instance();
-    int rate = ftol(static_cast<double>(times.y) * 1000.0);
-    int delay = ftol(static_cast<double>(times.x) * 1000.0);
+    const int rate = ftol(static_cast<double>(times.y) * 1000.0);
+    const int delay = ftol(static_cast<double>(times.x) * 1000.0);
     front_end->auto_repeat_rate_ = rate;
     front_end->hold_repeat_ms_ = delay;
     return true;
@@ -360,7 +360,7 @@ bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*scrip
     params->fetch_list(0u, &mappings, 1);
     FrontEnd* front_end = front_end_instance();
     for (int i = 0; i < 2; ++i) {
-        uint32_t mapping = mappings->fetch_part(i);
+        const uint32_t mapping = mappings->fetch_part(i);
         uint32_t value = 0; // inactive, or anything else
         if (mapping != kInactive) {
             if (mapping == kActive)
@@ -388,11 +388,11 @@ bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*s
 // 0x0054F200
 void FrontEnd::keyboard_task(FrontEndTask* task)
 {
-    FrontEnd* front_end = task->content_;
+    const FrontEnd* front_end = task->content_;
     char keys[256];
-    int count = sio::get_keyboard_chars(keys);
+    const int count = sio::get_keyboard_chars(keys);
     for (int i = 0; i < count; ++i) {
-        char key = keys[i];
+        const char key = keys[i];
         // Printable (and the high half), Enter and Backspace.
         if (!(key >= 0x20 || key < 0 || key == kKeyEnter || key == kKeyBackspace))
             continue;
@@ -415,7 +415,7 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
 // 0x0054F380
 void FrontEnd::tick_frame(bool game_paused)
 {
-    uint8_t* skate = skate_bytes();
+    const uint8_t* skate = skate_bytes();
     bool in_skateshop = modules::g_skate_module->pending_level_ == 0xE92ECAFE; // (the level / game mode)
     if (skateshop_override())
         in_skateshop = false;
@@ -463,7 +463,7 @@ void FrontEnd::tick_frame(bool game_paused)
 // 0x0054F600
 uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_index, uint32_t held)
 {
-    for (PadPressRecord& entry : pad_event_queue_) {
+    for (const PadPressRecord& entry : pad_event_queue_) {
         if ((makes & (1u << (entry.button_ & 31))) && entry.incident_ != 0 && --index < 0)
             return entry.incident_;
     }
@@ -478,9 +478,9 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
     // The PC keyboard, while the on-screen keyboard is up.
     char keys[256];
     uint32_t event = 0;
-    int count = sio::get_keyboard_chars(keys);
+    const int count = sio::get_keyboard_chars(keys);
     for (int i = 0; i < count; ++i) {
-        char key = keys[i];
+        const char key = keys[i];
         if (key == kKeyEscape) {
             script::Struct* params = new_params();
             event = anchor_exists(params, kCurrentMenuAnchor, false) ? kPadBack : kPadStart;
@@ -582,18 +582,18 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
             if (front_end->check_startup_script_) {
                 front_end->startup_script_on_ = script::fetch_int_value(0x756FB186u) != 0;
                 if (front_end->startup_script_on_) {
-                    script::Script* script =
+                    const script::Script* script =
                         script::spawn_script(0xDCE60A74u, nullptr, 0, nullptr, 0, 0, false, false, false, false);
                     front_end->startup_script_id_ = script->unique_id_;
                 }
                 front_end->check_startup_script_ = false;
             }
-            uint32_t repeated = front_end->auto_repeat(handler->control_data_->buttons_, handler->ordinal_);
+            const uint32_t repeated = front_end->auto_repeat(handler->control_data_->buttons_, handler->ordinal_);
             if (repeated)
                 event = repeated;
         }
-        uint32_t pressed = front_end->grab_control_event(handler->control_data_->makes_, index, handler->ordinal_,
-                                                         handler->control_data_->buttons_);
+        const uint32_t pressed = front_end->grab_control_event(handler->control_data_->makes_, index, handler->ordinal_,
+                                                               handler->control_data_->buttons_);
         if (pressed)
             event = pressed;
         if (!event)
@@ -621,7 +621,7 @@ void FrontEnd::front_end_tick(FrontEndTask* task)
 // 0x0054FD00
 void FrontEnd::update_input_mappings()
 {
-    InputManagerRef input;
+    const InputManagerRef input;
     for (int i = 0; i < 2; ++i) {
         debug::printf("m_device_server_map[%i] = %i\n", i, device_server_map_[i]); // "m_device_server_map[%i] = %i\n"
         FrontEndInputHandler* handler = pad_listeners_[i].get();

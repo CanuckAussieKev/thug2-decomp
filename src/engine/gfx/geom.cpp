@@ -219,7 +219,7 @@ SceneRef* PcGeom::create_mesh_list()
 // 0x004B58C0
 Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
 {
-    bool share = static_cast<uint8_t>(instance_flag) != 0;
+    const bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto* new_scene = static_cast<uint8_t*>(scene_bytes);
     auto* geom = new PcGeom;
     // (no check: a failed allocation writes through null, as the original)
@@ -235,7 +235,7 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
         geom->scene = new_scene;
         for (int i = 0; i < list->mesh_count_; ++i)
             kept[i] = list->meshes[i];
-        int kept_count = list->mesh_count_;
+        const int kept_count = list->mesh_count_;
         memory::Hub::get_pull()->dealloc(list->meshes);
         list->meshes = nullptr;
         list->mesh_total(static_cast<int>(mesh_count_), meshes); // (this one's)
@@ -261,7 +261,7 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
 // 0x004B5B80
 Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
 {
-    bool share = static_cast<uint8_t>(instance_flag) != 0;
+    const bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto* model = static_cast<uint8_t*>(model_bytes);
     auto scene_owner = std::make_unique<PcScene>(10); // (only for the copy)
     auto* temp_scene = reinterpret_cast<uint8_t*>(scene_owner.get());
@@ -282,7 +282,7 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
     geom->scene = nullptr;
     geom->change_live(true);
     // bones: the model's count (room for one more), each the identity
-    int bone_count = *reinterpret_cast<int*>(model + 8);
+    const int bone_count = *reinterpret_cast<int*>(model + 8);
     auto* bones = static_cast<maths::Mat4*>(memory::alloc((bone_count + 1) * sizeof(maths::Mat4)));
     for (int i = 0; i < bone_count; ++i)
         get_identity(&bones[i]);
@@ -299,7 +299,7 @@ bool PcGeom::plat_init_instance(void* mesh_bytes, void* model_bytes, int /*unuse
 {
     auto* mesh = static_cast<uint8_t*>(mesh_bytes);
     auto* model = static_cast<uint8_t*>(model_bytes);
-    int bone_count = *reinterpret_cast<int*>(model + 8);
+    const int bone_count = *reinterpret_cast<int*>(model + 8);
     source = mesh;
     maths::Mat4 identity{};
     get_identity(&identity);
@@ -328,7 +328,9 @@ void PcGeom::clean_instance_strips()
 // 0x004B48B0
 void PcGeom::change_tint(uint32_t rgba)
 {
-    uint8_t r = rgba & 0xFF, g = (rgba >> 8) & 0xFF, b = (rgba >> 16) & 0xFF;
+    const uint8_t r = rgba & 0xFF;
+    const uint8_t g = (rgba >> 8) & 0xFF;
+    const uint8_t b = (rgba >> 16) & 0xFF;
     if ((r == 0x80 || r == 0x81) && g == 0x80 && b == 0x80) {
         wipe_tint();
         return;
@@ -340,7 +342,9 @@ void PcGeom::change_tint(uint32_t rgba)
     }
     if (!meshes)
         return;
-    float red = channel_to_float(r), green = channel_to_float(g), blue = channel_to_float(b);
+    const float red = channel_to_float(r);
+    const float green = channel_to_float(g);
+    const float blue = channel_to_float(b);
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
         mesh_tint_ptr(mesh)[0] = red;
@@ -394,7 +398,7 @@ bool PcGeom::change_material_tint(uint32_t checksum, int pass, uint32_t rgba)
         MaterialRef* material = material_of(scene_meshes(instance->scene)[i]);
         if (!material)
             continue;
-        int index = pass_from_checksum(material, checksum, pass);
+        const int index = pass_from_checksum(material, checksum, pass);
         if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_)
             continue;
         if (static_cast<int8_t>(material->pass_flags_[index] & 0xFF) < 0) // (the colour is fixed)
@@ -455,7 +459,7 @@ void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
 maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 {
     if (instance && instance->scene) {
-        SceneRef* list = instance->scene;
+        const SceneRef* list = instance->scene;
         *out = {list->centre[0], list->centre[1], list->centre[2], list->radius};
     } else {
         *out = {0.0f, 0.0f, 0.0f, 10000.0f};
@@ -466,7 +470,7 @@ maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 // 0x004B55D0
 void PcGeom::place_at_absolute_point(const maths::Vec4* position)
 {
-    maths::Vec4 pos = {position->x, position->y, position->z, 1.0f};
+    const maths::Vec4 pos = {position->x, position->y, position->z, 1.0f};
     if (instance) {
         instance->transform.row[3] = pos;
         return;
@@ -550,7 +554,7 @@ void PcGeom::change_scale(const maths::Vec4* new_scale)
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride) {
             auto* p = reinterpret_cast<float*>(vertex);
             for (int k = 0; k < 3; ++k) {
-                double c = (&centre.x)[k];
+                const double c = (&centre.x)[k];
                 p[k] = static_cast<float>((static_cast<double>(p[k]) - c) * (&new_scale->x)[k] + c);
             }
         }
@@ -642,19 +646,19 @@ void PcGeom::set_vertices(const maths::Vec4* in)
         }
         get_unlock(get_vertex_buffer(mesh, 0));
         // the sphere around the box (x87: the half sizes and the centre's z kept in double where the original does)
-        double dx = static_cast<double>(box.max.x) - box.min.x;
-        double dy = static_cast<double>(box.max.y) - box.min.y;
+        const double dx = static_cast<double>(box.max.x) - box.min.x;
+        const double dy = static_cast<double>(box.max.y) - box.min.y;
         auto dz = static_cast<float>(static_cast<double>(box.max.z) - box.min.z);
         auto half_x = static_cast<float>(dx * 0.5);
         auto cx = static_cast<float>(static_cast<double>(box.min.x) + half_x);
         auto cy = static_cast<float>(dy * 0.5 + box.min.y);
-        double cz = static_cast<double>(dz) * 0.5 + box.min.z;
+        const double cz = static_cast<double>(dz) * 0.5 + box.min.z;
         mesh->centre[0] = cx;
         mesh->centre[1] = cy;
         mesh->centre[2] = static_cast<float>(cz);
-        double ex = static_cast<double>(box.max.x) - cx;
-        double ey = static_cast<double>(box.max.y) - cy;
-        double ez = static_cast<double>(box.max.z) - cz;
+        const double ex = static_cast<double>(box.max.x) - cx;
+        const double ey = static_cast<double>(box.max.y) - cy;
+        const double ez = static_cast<double>(box.max.z) - cz;
         mesh->radius = static_cast<float>(std::sqrt(ez * ez + ey * ey + ex * ex));
     }
 }
@@ -666,7 +670,7 @@ void PcGeom::plat_get_render_colors(uint8_t* out)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
-        uint8_t* color = get_lock(get_vertex_buffer(mesh, 0), kReadOnly) + color_offset(mesh);
+        const uint8_t* color = get_lock(get_vertex_buffer(mesh, 0), kReadOnly) + color_offset(mesh);
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v, color += mesh->stride, out += 4) {
             out[0] = color[2];
             out[1] = color[1];
@@ -706,7 +710,7 @@ void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float 
     if (!meshes)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
-        MaterialRef* material = material_of(meshes[i]);
+        const MaterialRef* material = material_of(meshes[i]);
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->pass_count_; ++p) {
@@ -747,7 +751,7 @@ void PcGeom::set_uv_wibble_offsets(float u, float v)
     if (!meshes)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
-        MaterialRef* material = material_of(meshes[i]);
+        const MaterialRef* material = material_of(meshes[i]);
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->pass_count_; ++p) {
@@ -771,7 +775,7 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         MaterialRef* material = material_of(mesh);
         if (!material)
             continue;
-        int index = pass_from_checksum(material, checksum, pass);
+        const int index = pass_from_checksum(material, checksum, pass);
         if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_)
             continue;
         if (!material->uv_wibble_[index]) {
@@ -806,7 +810,7 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
         MaterialRef* material = material_of(scene_meshes(instance->scene)[i]);
         if (!material)
             continue;
-        int index = pass_from_checksum(material, checksum, pass);
+        const int index = pass_from_checksum(material, checksum, pass);
         if (index < 0 || static_cast<uint32_t>(index) >= material->pass_count_ || material->uv_wibble_[index])
             continue;
         material->uv_wibble_[index] = new_uv_wibble();

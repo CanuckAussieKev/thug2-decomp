@@ -54,9 +54,12 @@ void VelocityTrackerModule::tick_frame()
         return;
     const maths::Vec4& vel = entity_->vel_;
     // Half the velocity (each rounded), the position as it was.
-    float half_x = vel.x * kHalf, half_y = vel.y * kHalf, half_z = vel.z * kHalf, half_w = vel.w * kHalf;
-    maths::Vec4 pos = entity_->at_point_;
-    double frame = frame_clock::get_slomo_frame_seconds();
+    const float half_x = vel.x * kHalf;
+    const float half_y = vel.y * kHalf;
+    const float half_z = vel.z * kHalf;
+    const float half_w = vel.w * kHalf;
+    const maths::Vec4 pos = entity_->at_point_;
+    const double frame = frame_clock::get_slomo_frame_seconds();
     // Each step rounded, then added - but w's step isn't rounded.
     auto step_x = static_cast<float>(half_x * frame);
     auto step_y = static_cast<float>(half_y * frame);

@@ -81,10 +81,10 @@ void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const 
             fraction = 0.0f;
             return;
         }
-        double t0 = keyframe_time(key);
+        const double t0 = keyframe_time(key);
         if (!(t0 <= time))
             continue;
-        double t1 = keyframe_time(key + 8);
+        const double t1 = keyframe_time(key + 8);
         if (!(t1 >= time))
             continue;
         from = key;
@@ -100,11 +100,11 @@ void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const 
 bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4* translations, void*, float weight,
                                      const FrameSource* mask)
 {
-    uint8_t* rot_keys = quat_keys_;
-    uint8_t* trans_keys = trans_keys_;
-    uint16_t* rot_sizes = quat_sizes_;
-    uint16_t* trans_sizes = trans_sizes_;
-    uint32_t mask_bit = mask && mask->resume_ ? 1u << (mask->mask_bit_ & 31) : 0u;
+    const uint8_t* rot_keys = quat_keys_;
+    const uint8_t* trans_keys = trans_keys_;
+    const uint16_t* rot_sizes = quat_sizes_;
+    const uint16_t* trans_sizes = trans_sizes_;
+    const uint32_t mask_bit = mask && mask->resume_ ? 1u << (mask->mask_bit_ & 31) : 0u;
     for (int i = 0; i < bone_count_; ++i) {
         bool skip = mask_bit ? (mask->bone_masks_[i] & mask_bit) != 0 : false;
         if (flag_bits_ & kBoneBits)
@@ -120,16 +120,16 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 added *= *reinterpret_cast<maths::QuatRotation*>(decoded + 4);
                 maths::QuatRotation to = added;
                 float blended[4];
-                float* result = interpolate_rotation(blended, &rotation.x, &to.x, weight);
+                const float* result = interpolate_rotation(blended, &rotation.x, &to.x, weight);
                 rotation = {result[0], result[1], result[2], result[3]};
             }
-            uint32_t flags = flag_bits_;
+            const uint32_t flags = flag_bits_;
             if (!(flags & kTranslationKeys) || *trans_sizes) {
                 maths::Vec4& translation = translations[i];
                 uint8_t key[8];
                 decode_translation(trans_keys, key, flags);
                 const auto* values = reinterpret_cast<const int16_t*>(key + 2);
-                double x = values[0] * static_cast<double>(kKeyScale);
+                const double x = values[0] * static_cast<double>(kKeyScale);
                 auto y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
                 auto z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
                 maths::Vec4 target{};
@@ -178,9 +178,9 @@ void JointClipFrames::build_cache(int format)
         last_cache_vblank() = frame_clock::fetch_retrace_count();
     }
     ClipStore* manager = ClipStore::get_pull();
-    uint32_t size = manager->fetch_record_bytes(bone_count_, static_cast<int>(quat_key_count_),
-                                                static_cast<int>(trans_key_count_), format);
-    int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
+    const uint32_t size = manager->fetch_record_bytes(bone_count_, static_cast<int>(quat_key_count_),
+                                                      static_cast<int>(trans_key_count_), format);
+    const int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
     if (manager->num_ == 0x32 || ClipStore::heap_available() < size) {
         if (manager->free_oldest(priority, size))
             cache_slot_ = nullptr;
@@ -193,9 +193,9 @@ void JointClipFrames::build_cache(int format)
         return;
     auto* rot_offsets = entry->get_rotation_offsets();
     auto* trans_offsets = entry->get_translation_offsets();
-    uint32_t rot_size = entry->get_rotation_key_size();
-    uint32_t trans_size = entry->get_translation_key_size();
-    int bones = bone_count_;
+    const uint32_t rot_size = entry->get_rotation_key_size();
+    const uint32_t trans_size = entry->get_translation_key_size();
+    const int bones = bone_count_;
     uint8_t* rot_data = entry->get_rotation_keys(0);
     uint8_t* trans_data = entry->get_translation_keys(0);
     // (one buffer for a rotation key and a converted translation: the latter's bytes 2-3 are the former's)
@@ -205,7 +205,7 @@ void JointClipFrames::build_cache(int format)
     alignas(4) uint8_t translation[8];
 
     // The rotations: each bone's keys one after another, the bones' starts in rot_offsets
-    uint16_t* sizes = quat_sizes_;
+    const uint16_t* sizes = quat_sizes_;
     const uint8_t* cursor = quat_keys_;
     const uint8_t* end = cursor + *sizes;
     uint32_t offset = 0;
@@ -301,8 +301,8 @@ bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
     // counts and sizes said).
     anim_format::AnimHeader header;
     anim_format::AnimLayout layout;
-    bool valid = anim_format::lay_out_animation(data, size, &header, &layout) &&
-                 (size == 0 || anim_format::check_bone_keys(header, layout));
+    const bool valid = anim_format::lay_out_animation(data, size, &header, &layout) &&
+                       (size == 0 || anim_format::check_bone_keys(header, layout));
     util::ByteReader words(data, 0xC);
     words.u32();
     flag_bits_ = words.u32();
@@ -323,14 +323,14 @@ bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
 bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* translations, uint8_t* arg2, float time,
                                  int arg4, void* arg5)
 {
-    uint32_t flags = flag_bits_;
+    const uint32_t flags = flag_bits_;
     if (flags & kCompressed) {
         if (!(flags & kNoAutoCache) && !cache_slot_)
             build_cache(cache_format(cache_manager()));
         return fetch_pose(reinterpret_cast<float*>(rotations), reinterpret_cast<float*>(translations), arg2, time, arg4,
                           static_cast<FrameSource*>(arg5));
     }
-    float frame = time * kFramesPerSecond;
+    const float frame = time * kFramesPerSecond;
     uint8_t* rot_keys = quat_keys_;
     uint8_t* trans_keys = trans_keys_;
     uint8_t* rot_from = rot_keys;

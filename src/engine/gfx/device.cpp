@@ -227,7 +227,7 @@ static_assert(sizeof(D3DADAPTER_IDENTIFIER9) == 0x44C, "zeroed as 0x113 dwords")
 // 0x004D7C20 (not a function in Ghidra: DirectSoundEnumerateA's callback)
 BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const char* /*module*/, void* /*context*/)
 {
-    size_t length = std::strlen(description);
+    const size_t length = std::strlen(description);
     if (length > 200)
         std::memcpy(sound_device_name(), description, 199); // (strncpy: not terminated, the 200th byte stays)
     else
@@ -248,9 +248,11 @@ HRESULT create_device(int width, int height, bool hardware_vertices, bool multis
         pp.MultiSampleQuality = multisample ? graphics_options::chosen_quality() : 0;
     }
     pp.BackBufferWidth = width;
-    DWORD flags = (hardware_vertices ? D3DCREATE_HARDWARE_VERTEXPROCESSING : D3DCREATE_SOFTWARE_VERTEXPROCESSING) |
-                  D3DCREATE_MULTITHREADED;
-    HRESULT result = direct_3d()->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, pane(), flags, &pp, &input_port());
+    const DWORD flags =
+        (hardware_vertices ? D3DCREATE_HARDWARE_VERTEXPROCESSING : D3DCREATE_SOFTWARE_VERTEXPROCESSING) |
+        D3DCREATE_MULTITHREADED;
+    const HRESULT result =
+        direct_3d()->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, pane(), flags, &pp, &input_port());
     D3DADAPTER_IDENTIFIER9& id = adapter_identifier();
     std::memset(&id, 0, sizeof(id));
     direct_3d()->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &id);
@@ -294,7 +296,7 @@ void create_render_targets()
     create_dynamic_index_buffer(0x1000);
     // The screen copies: full size twice, then quarter, eighth and sixteenth sizes.
     static const uint32_t kDivisors[9] = {1, 1, 4, 4, 4, 8, 8, 16, 16};
-    D3DPRESENT_PARAMETERS& pp = present_parameters();
+    const D3DPRESENT_PARAMETERS& pp = present_parameters();
     for (int i = 0; i < 9; ++i) {
         input_port()->CreateTexture(pp.BackBufferWidth / kDivisors[i], pp.BackBufferHeight / kDivisors[i], 1,
                                     D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &screen_textures()[i],

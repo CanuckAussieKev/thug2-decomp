@@ -73,7 +73,7 @@ float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y
     xform(view, v, &g_view_matrix);
     xform(clip, view, &g_projection_matrix);
     if (clip[3] != 0.0f) {
-        double inverse = 1.0f / static_cast<double>(clip[3]);
+        const double inverse = 1.0f / static_cast<double>(clip[3]);
         clip[0] = static_cast<float>(clip[0] * inverse);
         clip[1] = static_cast<float>(clip[1] * inverse);
         clip[2] = static_cast<float>(inverse * clip[2]);
@@ -82,7 +82,8 @@ float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y
     *y = static_cast<float>((1.0f - static_cast<double>(clip[1])) * 0.5f * g_virtual_screen_height);
     if (!(clip[2] < 1.0f))
         return -1.0f;
-    float most = g_scale_2d_in_3d_max, least = g_scale_2d_in_3d_min;
+    const float most = g_scale_2d_in_3d_max;
+    const float least = g_scale_2d_in_3d_min;
     double factor = view[2] == 0.0f ? most : -1.0f / static_cast<double>(view[2]) * g_scale_2d_in_3d_numerator;
     if (factor > most)
         factor = most;
@@ -141,7 +142,7 @@ uint32_t occlusion_pixels()
     if (radeon8500())
         return 0;
     DWORD pixels = 0;
-    HRESULT result = os_layer::get_occlusion_result(g_occlusion_requests[0].slot, &pixels);
+    const HRESULT result = os_layer::get_occlusion_result(g_occlusion_requests[0].slot, &pixels);
     if (result == S_OK) {
         g_occlusion_slots[g_occlusion_requests[0].slot] = 0;
         pop_occlusion_request(); // (the requests moved on)

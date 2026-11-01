@@ -58,7 +58,7 @@ bool AssetBundle::get_split(int /*unused*/, int size)
     util::ByteReader reader(loaded_data_, size > 0 ? static_cast<size_t>(size) : 0);
     bundle_format::Entry table[kBundleCapacity];
     int count = 0;
-    bool ok = bundle_format::read_bundle_table(reader, table, kBundleCapacity, &count);
+    const bool ok = bundle_format::read_bundle_table(reader, table, kBundleCapacity, &count);
     num_ = 0;
     if (!ok)
         return false;
@@ -69,8 +69,8 @@ bool AssetBundle::get_split(int /*unused*/, int size)
     for (int i = 0; i < num_; ++i)
         assets_[i] = loaded_data_ + entries_[i].offset;
     for (int i = num_ - 1; i >= 0; --i) {
-        uint32_t asset_size = entries_[i].size;
-        void* source = assets_[i];
+        const uint32_t asset_size = entries_[i].size;
+        const void* source = assets_[i];
         memory::enter_heap_scope(asset_heap_);
         assets_[i] = memory::alloc_block(asset_size);
         std::memcpy(assets_[i], source, asset_size);

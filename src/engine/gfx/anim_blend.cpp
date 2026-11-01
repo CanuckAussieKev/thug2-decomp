@@ -63,15 +63,15 @@ float* interpolate_rotation(float* out, const float* from, float* to, float t)
         for (int i = 0; i < 4; ++i)
             to[i] = -to[i];
     }
-    double x = (static_cast<double>(to[0]) - from[0]) * t + from[0];
-    double y = (static_cast<double>(to[1]) - from[1]) * t + from[1];
+    const double x = (static_cast<double>(to[0]) - from[0]) * t + from[0];
+    const double y = (static_cast<double>(to[1]) - from[1]) * t + from[1];
     auto z = static_cast<float>((static_cast<double>(to[2]) - from[2]) * t + from[2]);
-    double w_unrounded = (static_cast<double>(to[3]) - from[3]) * t + from[3];
+    const double w_unrounded = (static_cast<double>(to[3]) - from[3]) * t + from[3];
     auto w = static_cast<float>(w_unrounded);
     double length = w_unrounded * w + static_cast<double>(z) * z;
     length += y * y;
     length += x * x;
-    double inverse = 1.0f / std::sqrt(length);
+    const double inverse = 1.0f / std::sqrt(length);
     auto rounded = static_cast<float>(inverse);
     to[0] = static_cast<float>(inverse * x);
     to[1] = static_cast<float>(rounded * y);
@@ -92,14 +92,14 @@ void mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count)
     // from the top down: each pose taken into the next lower one with a weight
     float taken = 0.0f;
     for (int i = count - 1; i > 0; --i) {
-        float weight = weights[i];
+        const float weight = weights[i];
         if (weight == 0.0f) // (NaN goes on)
             continue;
-        double above = static_cast<double>(weight) + taken;
+        const double above = static_cast<double>(weight) + taken;
         int j = i - 1;
         while (!(weights[j] > 0.0f) && !std::isnan(weights[j]) && j > 0)
             --j;
-        double below = weights[j];
+        const double below = weights[j];
         taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
         auto t = static_cast<float>(1.0f - below / (below + above));
         blend_bones(poses[j], poses[i], bones, t, false);
@@ -121,19 +121,19 @@ void blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int b
     weights[0] = static_cast<float>(1.0f - others);
     float taken = 0.0f;
     for (int i = count - 1; i > 0; --i) {
-        float weight = weights[i];
+        const float weight = weights[i];
         if (!(weight >= kMinWeight) || ids[i] != id)
             continue;
-        double above = static_cast<double>(weight) + taken;
+        const double above = static_cast<double>(weight) + taken;
         // the next pose down with a weight and the id (below the first, any weight; as the original, nothing
         // stops the search past the first pose)
         int j = i - 1;
         for (;; --j) {
-            bool weighted = weights[j] > kMinWeight || std::isnan(weights[j]);
+            const bool weighted = weights[j] > kMinWeight || std::isnan(weights[j]);
             if ((weighted || j <= 0) && ids[j] == id)
                 break;
         }
-        double below = weights[j];
+        const double below = weights[j];
         taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
         auto t = static_cast<float>(1.0f - below / (below + above));
         blend_bones(poses[j], poses[i], bones, t, true);

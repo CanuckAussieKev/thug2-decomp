@@ -140,9 +140,9 @@ void InputPort::fire_actuator(int actuator, int percent)
     if (actuator < 0 || actuator >= rumble_motor_count_)
         return;
     // (x87: max * percent * 0.01f, truncated for the level; the same value * 256 for the motor)
-    double level = static_cast<double>(rumble_cap_[actuator]) * percent * static_cast<double>(0.01f);
+    const double level = static_cast<double>(rumble_cap_[actuator]) * percent * static_cast<double>(0.01f);
     rumble_raw_[actuator] = static_cast<uint8_t>(static_cast<int>(level));
-    int motor = static_cast<int>(level * 256.0) & 0xFFFF;
+    const int motor = static_cast<int>(level * 256.0) & 0xFFFF;
     if (actuator == 0)
         set_actuators(port_no_, motor, rumble_raw_[1] << 8);
     else
@@ -247,7 +247,7 @@ void read_keyboard()
     if (!keyboard)
         return;
     keyboard_buffer() = keyboard_buffer() == 0 ? 1 : 0;
-    HRESULT result = keyboard->GetDeviceState(256, keyboard_state()[keyboard_buffer()]);
+    const HRESULT result = keyboard->GetDeviceState(256, keyboard_state()[keyboard_buffer()]);
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
     if (SUCCEEDED(keyboard_device()->Acquire()))
@@ -463,8 +463,8 @@ int play_key(int button)
 // 0x005BCD50
 const char* get_button_key_name(int button)
 {
-    bool menu = menu_active() || in_menu();
-    bool typing = keyboard_typing();
+    const bool menu = menu_active() || in_menu();
+    const bool typing = keyboard_typing();
     bool piece_menu = false;
     frontend::ElementPtr element;
     frontend::fetch_part(&element, checksums::hash_from_text("select_skater_hmenu"));
@@ -486,8 +486,8 @@ const char* get_button_key_name(int button)
     if (element)
         element->is_concealed(); // (the result isn't used)
 
-    bool menu_keys = !piece_menu && menu && !typing;
-    int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);
+    const bool menu_keys = !piece_menu && menu && !typing;
+    const int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);
     convert_key_name(code);
     std::snprintf(key_name_result(), sizeof(key_name_result()), "%s", name_buffer());
     if (button == 0x12) {
@@ -495,7 +495,7 @@ const char* get_button_key_name(int button)
         convert_key_name(key_binding(16));
         std::snprintf(key_name_result(), sizeof(key_name_result()), "%s+", name_buffer());
         convert_key_name(key_binding(17));
-        size_t used = std::strlen(key_name_result()); // (the original's strcat is unbounded)
+        const size_t used = std::strlen(key_name_result()); // (the original's strcat is unbounded)
         size_t length = std::strlen(name_buffer());
         if (length > sizeof(key_name_result()) - 1 - used)
             length = sizeof(key_name_result()) - 1 - used;
@@ -504,8 +504,8 @@ const char* get_button_key_name(int button)
     }
     if (menu_keys && (button == 0x14 || button == 0x13)) {
         // the two keys' characters: "S/X" or "Z/C" on a QWERTY keyboard
-        char first = key_char(button == 0x14 ? 0x1F : 0x2C);
-        char second = key_char(button == 0x14 ? 0x2D : 0x2E);
+        const char first = key_char(button == 0x14 ? 0x1F : 0x2C);
+        const char second = key_char(button == 0x14 ? 0x2D : 0x2E);
         key_name_result()[0] = first;
         key_name_result()[1] = '/';
         key_name_result()[2] = second;
@@ -610,8 +610,8 @@ void InputPort::pull_data(int)
 {
     if (quit_requested())
         return;
-    bool menu = menu_active() || in_menu();
-    bool typing = keyboard_typing();
+    const bool menu = menu_active() || in_menu();
+    const bool typing = keyboard_typing();
     bool select_skater_shown = false;
     bool piece_menu_shown = false;
     bool playing = false;
@@ -642,7 +642,7 @@ void InputPort::pull_data(int)
     }
 
     // In menus only the port the front end listens to (or port 0, or both on the skater select) reads.
-    int menu_port = get_menu_port();
+    const int menu_port = get_menu_port();
     set_default_enter_control(0);  // (the pressure button 0)
     set_default_escape_control(1); // (the pressure button 1)
     if (typing) {
@@ -678,8 +678,8 @@ void InputPort::pull_data(int)
     PadSnapshot pad;
     read_pad_state(port_no_, &pad);
     const uint8_t* p = pad.pressure;
-    uint16_t buttons = pad.buttons;
-    bool keyboard_menu = keyboard_control_ && menu_mode; // (the keyboard drives the menus: some buttons ignored)
+    const uint16_t buttons = pad.buttons;
+    const bool keyboard_menu = keyboard_control_ && menu_mode; // (the keyboard drives the menus: some buttons ignored)
     is_usable_ = 1;
     is_connected_ = true;
     // Two bytes of button bits, each set while the button is up.
@@ -692,7 +692,7 @@ void InputPort::pull_data(int)
     if (!keyboard_menu)
         second ^= p[0] >= 0x20 ? 0x40 : 0;
     second ^= p[2] >= 0x20 ? 0x80 : 0;
-    uint8_t buttons_so_far = second;
+    const uint8_t buttons_so_far = second;
     auto* level = reinterpret_cast<LevelInfo*>(park_editing::g_park_editor);
     if (level && level->checksum == kParkEditorLevel) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
@@ -745,7 +745,7 @@ void InputPort::pull_data(int)
     bool enter_typed = false;
     if (typing) {
         char typed[256];
-        int count = get_keyboard_chars(typed);
+        const int count = get_keyboard_chars(typed);
         for (int i = 0; i < count; ++i) {
             if (typed[i] == 0x19) {
                 enter_typed = true;
@@ -784,8 +784,8 @@ Hub::Hub()
 Hub::~Hub()
 {
     lists::Hunt<InputPort> search;
-    for (InputPort* device = search.head_element(&devs_); device;) {
-        InputPort* next = search.following_item();
+    for (const InputPort* device = search.head_element(&devs_); device;) {
+        const InputPort* next = search.following_item();
         delete device;
         device = next;
     }

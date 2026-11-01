@@ -69,7 +69,7 @@ void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position)
 {
     if (compressed_) {
-        double x = static_cast<double>(position->x) - lower_limit_.x;
+        const double x = static_cast<double>(position->x) - lower_limit_.x;
         auto y = static_cast<float>(static_cast<double>(position->y) - lower_limit_.y);
         auto z = static_cast<float>(static_cast<double>(position->z) - lower_limit_.z);
         uint16_t* v = static_cast<uint16_t*>(vertices_) + 3 * index;
@@ -103,22 +103,22 @@ void TriMeshSource::choose_raw_verts(const maths::Vec4* positions)
 // 0x00414D80 (one of the edge's z kept unrounded for the normal's x, as the original's x87 code does)
 maths::Vec4 TriMeshSource::get_triangle_normal(int face) const
 {
-    maths::Vec4 v0 = read_stored_vertex(static_cast<int>(face_vertex(face, 0)));
-    maths::Vec4 v1 = read_stored_vertex(static_cast<int>(face_vertex(face, 1)));
-    maths::Vec4 v2 = read_stored_vertex(static_cast<int>(face_vertex(face, 2)));
+    const maths::Vec4 v0 = read_stored_vertex(static_cast<int>(face_vertex(face, 0)));
+    const maths::Vec4 v1 = read_stored_vertex(static_cast<int>(face_vertex(face, 1)));
+    const maths::Vec4 v2 = read_stored_vertex(static_cast<int>(face_vertex(face, 2)));
     auto ax = static_cast<float>(static_cast<double>(v1.x) - v0.x);
     auto ay = static_cast<float>(static_cast<double>(v1.y) - v0.y);
     auto az = static_cast<float>(static_cast<double>(v1.z) - v0.z);
     auto bx = static_cast<float>(static_cast<double>(v2.x) - v0.x);
     auto by = static_cast<float>(static_cast<double>(v2.y) - v0.y);
-    double bz_exact = static_cast<double>(v2.z) - v0.z;
+    const double bz_exact = static_cast<double>(v2.z) - v0.z;
     auto bz = static_cast<float>(bz_exact);
     double nx = bz_exact * ay - static_cast<double>(by) * az;
     double ny = static_cast<double>(az) * bx - static_cast<double>(bz) * ax;
     double nz = static_cast<double>(by) * ax - static_cast<double>(ay) * bx;
-    double length = std::sqrt((nz * nz + ny * ny) + nx * nx);
+    const double length = std::sqrt((nz * nz + ny * ny) + nx * nx);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         nx *= inverse;
         ny *= inverse;
         nz *= inverse;
@@ -140,9 +140,9 @@ TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) co
         return nullptr;
     void* memory = memory::alloc(sizeof(TriMeshSource));
     TriMeshSource* copy = memory ? static_cast<TriMeshSource*>(memory)->copy_from(this) : nullptr;
-    uint32_t vertex_size = num_vertices_ * (compressed_ ? 6u : 12u);
+    const uint32_t vertex_size = num_vertices_ * (compressed_ ? 6u : 12u);
     copy->vertices_ = memory::alloc(vertex_size);
-    uint32_t face_size = tri_count_ * (small_faces_ ? 8u : 10u);
+    const uint32_t face_size = tri_count_ * (small_faces_ ? 8u : 10u);
     copy->faces_ = static_cast<uint8_t*>(memory::alloc(face_size));
     if (!copy->vertices_ || !copy->faces_)
         return nullptr;
@@ -212,8 +212,8 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
                            static_cast<float>(static_cast<double>(p.z) + delta->z),
                            static_cast<float>(static_cast<double>(p.w) + delta->w)};
     };
-    maths::Vec4 min = moved(lower_limit_);
-    maths::Vec4 max = moved(upper_limit_);
+    const maths::Vec4 min = moved(lower_limit_);
+    const maths::Vec4 max = moved(upper_limit_);
     lower_limit_ = min;
     upper_limit_ = max;
 }
@@ -222,7 +222,7 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
 // original; the array's element constructor, 0x005902E0, does nothing)
 void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
 {
-    maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+    const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
     get_slide(&back);
     if (bsp_)
         bsp_->rotate_y(centre, quarter_turns, false);
@@ -267,7 +267,7 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
 // 0x00416730 (a failed allocation crashes, as in RotateY)
 void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale)
 {
-    maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+    const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
     get_slide(&back);
     if (bsp_)
         bsp_->scale_tool(centre, scale, false);
@@ -333,42 +333,47 @@ void TriMeshSource::add_occlusion_polys()
             if (matches != 2)
                 continue;
             // both normals ((v1 - v0) x (v2 - v0)), rounded where the original's x87 code stores them
-            maths::Vec4 a = read_stored_vertex(static_cast<int>(face_vertex(i, 0)));
-            maths::Vec4 b = read_stored_vertex(static_cast<int>(face_vertex(i, 1)));
-            maths::Vec4 c = read_stored_vertex(static_cast<int>(face_vertex(i, 2)));
-            double cx = static_cast<double>(c.x) - a.x;
-            double cy = static_cast<double>(c.y) - a.y;
-            double cz = static_cast<double>(c.z) - a.z;
+            const maths::Vec4 a = read_stored_vertex(static_cast<int>(face_vertex(i, 0)));
+            const maths::Vec4 b = read_stored_vertex(static_cast<int>(face_vertex(i, 1)));
+            const maths::Vec4 c = read_stored_vertex(static_cast<int>(face_vertex(i, 2)));
+            const double cx = static_cast<double>(c.x) - a.x;
+            const double cy = static_cast<double>(c.y) - a.y;
+            const double cz = static_cast<double>(c.z) - a.z;
             auto bx = static_cast<float>(static_cast<double>(b.x) - a.x);
             auto by = static_cast<float>(static_cast<double>(b.y) - a.y);
-            double bz = static_cast<double>(b.z) - a.z;
+            const double bz = static_cast<double>(b.z) - a.z;
             auto n1x = static_cast<float>(by * cz - bz * cy);
             auto n1y = static_cast<float>(bz * cx - cz * bx);
             auto n1z = static_cast<float>(cy * bx - by * cx);
-            maths::Vec4 a2 = read_stored_vertex(static_cast<int>(face_vertex(j, 0)));
-            maths::Vec4 b2 = read_stored_vertex(static_cast<int>(face_vertex(j, 1)));
-            maths::Vec4 c2 = read_stored_vertex(static_cast<int>(face_vertex(j, 2)));
+            const maths::Vec4 a2 = read_stored_vertex(static_cast<int>(face_vertex(j, 0)));
+            const maths::Vec4 b2 = read_stored_vertex(static_cast<int>(face_vertex(j, 1)));
+            const maths::Vec4 c2 = read_stored_vertex(static_cast<int>(face_vertex(j, 2)));
             points[0] = a2;
             points[1] = b2;
             points[2] = c2;
             auto difference = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
-            float cx2 = difference(c2.x, a2.x), cy2 = difference(c2.y, a2.y), cz2 = difference(c2.z, a2.z);
-            float bx2 = difference(b2.x, a2.x), by2 = difference(b2.y, a2.y), bz2 = difference(b2.z, a2.z);
+            const float cx2 = difference(c2.x, a2.x);
+            const float cy2 = difference(c2.y, a2.y);
+            const float cz2 = difference(c2.z, a2.z);
+            const float bx2 = difference(b2.x, a2.x);
+            const float by2 = difference(b2.y, a2.y);
+            const float bz2 = difference(b2.z, a2.z);
             double n2x = static_cast<double>(by2) * cz2 - static_cast<double>(bz2) * cy2;
             auto n2y = static_cast<float>(static_cast<double>(bz2) * cx2 - static_cast<double>(cz2) * bx2);
             auto n2z = static_cast<float>(static_cast<double>(cy2) * bx2 - static_cast<double>(by2) * cx2);
             double unit1x = n1x;
-            double length1 =
+            const double length1 =
                 std::sqrt((unit1x * n1x + static_cast<double>(n1z) * n1z) + static_cast<double>(n1y) * n1y);
             if (length1 > 0.0) {
-                double inverse = 1.0 / length1;
+                const double inverse = 1.0 / length1;
                 unit1x = n1x * inverse;
                 n1y = static_cast<float>(n1y * inverse);
                 n1z = static_cast<float>(n1z * inverse);
             }
-            double length2 = std::sqrt((n2x * n2x + static_cast<double>(n2z) * n2z) + static_cast<double>(n2y) * n2y);
+            const double length2 =
+                std::sqrt((n2x * n2x + static_cast<double>(n2z) * n2z) + static_cast<double>(n2y) * n2y);
             if (length2 > 0.0) {
-                double inverse = 1.0 / length2;
+                const double inverse = 1.0 / length2;
                 n2x *= inverse;
                 n2y = static_cast<float>(n2y * inverse);
                 n2z = static_cast<float>(n2z * inverse);
@@ -438,7 +443,7 @@ uint16_t* TriMeshSource::get_faces_in_box(const maths::BBox* box, int* count, ui
 void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box)
 {
     while (!node->is_end_node()) {
-        int axis = node->get_axis();
+        const int axis = node->get_axis();
         auto split = static_cast<float>(node->get_split() * static_cast<double>(kSixteenth));
         if (get_component(&box->min, axis) < split)
             gather_faces(node->less_child(), box);
@@ -446,7 +451,7 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
             return;
         node = node->greater_child();
     }
-    uint32_t n = node->leaf_face_count();
+    const uint32_t n = node->leaf_face_count();
     uint16_t* out = s_face_buffer + s_face_count;
     s_face_count += static_cast<int>(n);
     if (s_face_count > tri_count_) {
@@ -478,15 +483,15 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
             return true;
         return count_faces_behind(node->less_child(), point, unused);
     }
-    uint32_t n = node->leaf_face_count();
+    const uint32_t n = node->leaf_face_count();
     for (uint32_t i = 0; i < n; ++i) {
-        int face = node->get_leaf_faces()[i];
-        maths::Vec4 normal = get_triangle_normal(face);
-        maths::Vec4 corner = read_stored_vertex(static_cast<int>(face_vertex(node->get_leaf_faces()[i], 0)));
+        const int face = node->get_leaf_faces()[i];
+        const maths::Vec4 normal = get_triangle_normal(face);
+        const maths::Vec4 corner = read_stored_vertex(static_cast<int>(face_vertex(node->get_leaf_faces()[i], 0)));
         auto dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
-        double dy = static_cast<double>(point->y) - corner.y;
-        double dz = static_cast<double>(point->z) - corner.z;
-        double distance = (normal.z * dz + dy * normal.y) + static_cast<double>(dx) * normal.x;
+        const double dy = static_cast<double>(point->y) - corner.y;
+        const double dz = static_cast<double>(point->z) - corner.z;
+        const double distance = (normal.z * dz + dy * normal.y) + static_cast<double>(dx) * normal.x;
         if (distance > 0.0)
             break;
         ++s_face_count;
@@ -502,7 +507,7 @@ int HitTreeNode::tally_nodes() const
 {
     if (is_end_node())
         return 1;
-    int greater = greater_child()->tally_nodes();
+    const int greater = greater_child()->tally_nodes();
     return greater + less_child()->tally_nodes() + 1;
 }
 
@@ -511,7 +516,7 @@ int HitTreeNode::count_faces() const
 {
     if (is_end_node())
         return leaf_face_count();
-    int greater = greater_child()->count_faces();
+    const int greater = greater_child()->count_faces();
     return less_child()->count_faces() + greater;
 }
 
@@ -530,7 +535,7 @@ void HitTreeNode::get_slide(const maths::Vec4* delta)
 {
     HitTreeNode* node = this;
     while (!node->is_end_node()) {
-        double at = node->get_split() * static_cast<double>(kSixteenth) + get_component(delta, node->get_axis());
+        const double at = node->get_split() * static_cast<double>(kSixteenth) + get_component(delta, node->get_axis());
         node->set_split(truncate(at * kSixteen));
         node->less_child()->get_slide(delta);
         node = node->greater_child();
@@ -541,13 +546,13 @@ void HitTreeNode::get_slide(const maths::Vec4* delta)
 void HitTreeNode::rotate_y(const maths::Vec4* centre, int quarter_turns, bool move_to_centre)
 {
     if (move_to_centre) {
-        maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+        const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
         get_slide(&back);
     }
     if (!is_end_node()) {
-        int axis = get_axis();
+        const int axis = get_axis();
         if (axis != 1) {
-            int swapped = axis == 0 ? 2 : 0;
+            const int swapped = axis == 0 ? 2 : 0;
             auto negate = [this]() {
                 set_split(-get_split());
                 chain_link_ ^= 1; // the sides swap
@@ -581,11 +586,11 @@ void HitTreeNode::rotate_y(const maths::Vec4* centre, int quarter_turns, bool mo
 void HitTreeNode::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale, bool move_to_centre)
 {
     if (move_to_centre) {
-        maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+        const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
         get_slide(&back);
     }
     if (!is_end_node()) {
-        double at = static_cast<double>(get_split()) * get_component(scale, get_axis()) * kSixteenth;
+        const double at = static_cast<double>(get_split()) * get_component(scale, get_axis()) * kSixteenth;
         set_split(truncate(at * kSixteen));
         less_child()->scale_tool(centre, scale, false);
         greater_child()->scale_tool(centre, scale, false);
@@ -610,11 +615,11 @@ bool HitTreeNode::relocate(HitTreeNode* node, uint32_t node_base, uint32_t face_
 // 0x00416A10 (a failed allocation crashes, as in the original)
 HitTreeNode* HitTreeNode::replicate(int) const
 {
-    int nodes = tally_nodes();
-    int faces = count_faces();
+    const int nodes = tally_nodes();
+    const int faces = count_faces();
     if (nodes <= 0)
         return nullptr;
-    uint16_t* old_faces = first_face_list();
+    const uint16_t* old_faces = first_face_list();
     // new HitTreeNode[nodes]: the count, then the nodes
     auto* memory = static_cast<uint32_t*>(memory::alloc(nodes * 8 + 4));
     HitTreeNode* copy = nullptr;
@@ -627,8 +632,8 @@ HitTreeNode* HitTreeNode::replicate(int) const
     auto* new_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
     std::memcpy(copy, this, nodes * 8);
     std::memcpy(new_faces, old_faces, faces * 2);
-    uint32_t node_delta = reinterpret_cast<uint32_t>(copy) - reinterpret_cast<uint32_t>(this);
-    uint32_t face_delta = reinterpret_cast<uint32_t>(new_faces) - reinterpret_cast<uint32_t>(old_faces);
+    const uint32_t node_delta = reinterpret_cast<uint32_t>(copy) - reinterpret_cast<uint32_t>(this);
+    const uint32_t face_delta = reinterpret_cast<uint32_t>(new_faces) - reinterpret_cast<uint32_t>(old_faces);
     for (int i = 0; i < nodes; ++i) {
         HitTreeNode& node = copy[i];
         if (node.is_end_node())

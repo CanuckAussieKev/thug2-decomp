@@ -126,11 +126,11 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
     CollGrid** grids = grids_along(line);
     if (!grids)
         return false;
-    uint32_t* scenes = grid_scenes();
+    const uint32_t* scenes = grid_scenes();
     hit->scene = 0;
     for (; *grids; ++grids, ++scenes) {
         int count = 0;
-        for (HitMesh** objects = (*grids)->objects_along_line(line, &count); *objects; ++objects) {
+        for (HitMesh* const* objects = (*grids)->objects_along_line(line, &count); *objects; ++objects) {
             if (may_touch(*objects, &query.box) &&
                 collide_with_line(*objects, line, &query.direction, hit, &query.box)) {
                 any = true;
@@ -146,7 +146,7 @@ bool collide_with_statics_farthest(const maths::Seg* line, CollisionHit* hit, Co
                                    HitMeshCache* cache)
 {
     g_want_farthest = true;
-    bool any = collide_with_statics(line, hit, callback, cache);
+    const bool any = collide_with_statics(line, hit, callback, cache);
     g_want_farthest = false;
     return any;
 }
@@ -168,7 +168,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
         }
         return owner;
     }
-    for (memory::ListNode* node = g_movables.next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = g_movables.next; node->data != reinterpret_cast<void*>(-1) && node;
          node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
         if (object && !(object->flag_bits_ & 6) && may_touch(object, &query.box))

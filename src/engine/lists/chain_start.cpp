@@ -29,7 +29,7 @@ void insert_after(memory::ListNode* prev, memory::ListNode* node)
 // 0x0045A540
 void Foremost::append_vertex(memory::ListNode* node)
 {
-    int priority = node->priority;
+    const int priority = node->priority;
     for (memory::ListNode* next = list_link_.next;; next = next->next) {
         if (next->data == reinterpret_cast<void*>(-1) || !next)
             break;
@@ -44,7 +44,7 @@ void Foremost::append_vertex(memory::ListNode* node)
 // 0x0045AEB0
 bool Foremost::insert_by_unique_order(memory::ListNode* node)
 {
-    int priority = node->priority;
+    const int priority = node->priority;
     for (memory::ListNode* next = list_link_.next;; next = next->next) {
         if (next->data == reinterpret_cast<void*>(-1) || !next)
             break;
@@ -62,7 +62,7 @@ bool Foremost::insert_by_unique_order(memory::ListNode* node)
 // 0x00457350
 void Foremost::append_node(memory::ListNode* node)
 {
-    int priority = node->priority;
+    const int priority = node->priority;
     for (memory::ListNode* prev = list_link_.prev;; prev = prev->prev) {
         if (prev->data == reinterpret_cast<void*>(-1) || !prev)
             break;

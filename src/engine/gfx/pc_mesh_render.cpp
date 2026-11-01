@@ -187,7 +187,7 @@ void MeshRef::render()
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
         sphere_in_view(reinterpret_cast<const maths::Vec4*>(centre), radius);
-        float distance = last_sphere_distance();
+        const float distance = last_sphere_distance();
         for (; level < 8; ++level) {
             if (!index_buffers_[level]) {
                 if (level > 0)
@@ -199,7 +199,7 @@ void MeshRef::render()
         }
     }
     input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(index_buffer_at(this, level)->buffer));
-    uint32_t primitives = index_count_at(this, level) - 2u;
+    const uint32_t primitives = index_count_at(this, level) - 2u;
     if (pixel_shaders()) {
         count_draw(primitives);
         input_port()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,

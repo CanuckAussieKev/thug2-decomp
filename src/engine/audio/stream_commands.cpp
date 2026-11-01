@@ -189,7 +189,7 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
     uint32_t oldest = get_streams()[0].begin_frame_;
     int lowest = get_streams()[0].priority;
     int channel = 0;
-    uint32_t id = free_stream_id(name);
+    const uint32_t id = free_stream_id(name);
     int free = -1;
     for (int i = 0; i < kStreams; ++i) {
         if (channel_status(i) == 1) {
@@ -236,7 +236,7 @@ uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int opt
     if (!id)
         id = checksum;
     stream_id_finished(id); // (its answer unused)
-    int channel = start_stream(checksum, volume, pitch, option, priority, id, false);
+    const int channel = start_stream(checksum, volume, pitch, option, priority, id, false);
     if (channel == -1)
         return 0;
     Stream& stream = get_streams()[channel];
@@ -255,7 +255,7 @@ uint32_t prime_stream(uint32_t checksum, int priority)
     construct_volume(&volume);
     change_muted(&volume);
     uint32_t id = 0;
-    int channel = start_stream(checksum, &volume, 0.0f, 0, priority, checksum, true);
+    const int channel = start_stream(checksum, &volume, 0.0f, 0, priority, checksum, true);
     if (channel != -1) {
         Stream& stream = get_streams()[channel];
         set_up_stream(stream, checksum, 0);
@@ -288,7 +288,7 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner)
             return false;
     }
     Stream& playing = get_streams()[found];
-    int n = playing.name_count_++;
+    const int n = playing.name_count_++;
     playing.names[n].checksum = name;
     playing.names[n].frame_amp_ = fetch_stream_amp_curve(name);
     return true;
@@ -305,7 +305,7 @@ uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff
     construct_volume(&stream_volume);
     change_muted(&stream_volume);
     if (use_pos_info) {
-        objects::GameEntity* object = static_cast<objects::ObjectModule*>(component)->entity_;
+        const objects::GameEntity* object = static_cast<objects::ObjectModule*>(component)->entity_;
         void* emitter = nearest_emitter(&object->at_point_.x);
         bool audible = true;
         if (emitter) {
@@ -328,9 +328,9 @@ uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff
         std::memcpy(&stream_volume.lanes_[0], &volume, 4);
         std::memcpy(&stream_volume.lanes_[1], &volume, 4);
     }
-    uint32_t playing = play_stream(checksum, &stream_volume, pitch, option, priority, id);
+    const uint32_t playing = play_stream(checksum, &stream_volume, pitch, option, priority, id);
     if (playing) {
-        int last = last_stream();
+        const int last = last_stream();
         if (get_owners()[last]) {
             owner_id(get_owners()[last], last) = 0;
             get_owners()[last] = nullptr;

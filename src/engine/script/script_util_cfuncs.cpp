@@ -119,7 +119,7 @@ bool cfunc_get_random_value(Struct* params, Script* script)
         params->fetch_int_value(kA, &a, 0);
         params->fetch_int_value(kB, &b, 0);
         if (a > b) {
-            int swap = a;
+            const int swap = a;
             a = b;
             b = swap;
         }
@@ -132,7 +132,7 @@ bool cfunc_get_random_value(Struct* params, Script* script)
     float b = 0.0f;
     params->fetch_float(kA, &a, 0);
     params->fetch_float(kB, &b, 0);
-    int step = maths::rnd(resolution);
+    const int step = maths::rnd(resolution);
     // x87 at 53 bits: step * (b - a), / (resolution - 1), + a, each rounded to double; then to float
     double value = static_cast<double>(step) * (static_cast<double>(b) - static_cast<double>(a));
     value /= static_cast<double>(resolution - 1);
@@ -146,7 +146,7 @@ bool cfunc_size_of(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
-    uint32_t size = array ? array->extent_ : 0;
+    const uint32_t size = array ? array->extent_ : 0;
     script->args_->add_component_of_type(kArraySize, script::kQbvalInteger, size);
     return true;
 }
@@ -165,7 +165,7 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
     script->args_->erase_module(kElement);
     if (!array)
         return false;
-    uint32_t size = array->extent_;
+    const uint32_t size = array->extent_;
     if (index < 0) {
         index = 0;
         if (size == 0)
@@ -218,7 +218,7 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
     params->fetch_list(0u, &array, 0);
     if (!array || array->extent_ == 0)
         return false;
-    int index = maths::rnd(static_cast<int>(array->extent_));
+    const int index = maths::rnd(static_cast<int>(array->extent_));
     script->args_->put_int(kIndex, index);
     Struct* own = script->args_;
     switch (array->kind_tag_) {
@@ -273,7 +273,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
     params->fetch_list(0u, &array, 0);
     if (array && array->extent_ && array->kind_tag_ == script::kQbvalName) {
         objects::Entity* object = script_object(script);
-        uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent_)));
+        const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent_)));
         script->bind_script(name, nullptr, object);
     }
     return true;
@@ -346,7 +346,7 @@ bool cfunc_append_suffix(Struct* params, Script* script)
 {
     const char* text = ""; // ""
     params->fetch_text(kText, &text, 0);
-    size_t text_length = std::strlen(text);
+    const size_t text_length = std::strlen(text);
     struct {
         char number[20];
         char result[100];
@@ -357,7 +357,7 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     int suffix = 1;
     params->fetch_int_value(kSuffix, &suffix, 0);
     get_sprintf(buffers.number, " %d", suffix); // " %d"
-    int number_length = static_cast<int>(std::strlen(buffers.number));
+    const int number_length = static_cast<int>(std::strlen(buffers.number));
     if (number_length + static_cast<int>(text_length) > max_length)
         reinterpret_cast<char*>(&buffers)[sizeof(buffers.number) + max_length - number_length] = '\0';
     copy_text(buffers.result + std::strlen(buffers.result), buffers.number);
@@ -454,7 +454,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
     params->fetch_list("Array", &source, 0); // "Array"
     if (!source)
         return false;
-    bool make_copy = !params->has_bare_flag("PermuteSource"); // "PermuteSource"
+    const bool make_copy = !params->has_bare_flag("PermuteSource"); // "PermuteSource"
     uint32_t new_name = 0;
     Array* copy = nullptr;
     Array* array = source;
@@ -468,21 +468,21 @@ bool cfunc_permute_array(Struct* params, Script* script)
         copy = array;
         script::duplicate_array(array, source);
     }
-    int size = static_cast<int>(array->extent_);
+    const int size = static_cast<int>(array->extent_);
     if (size) {
         uint32_t* elements = array->find_array_value();
-        uint32_t old_last = elements[size - 1];
+        const uint32_t old_last = elements[size - 1];
         for (int swaps = size * 10; swaps > 0; --swaps) {
-            int a = maths::rnd(size);
-            int b = maths::rnd(size);
-            uint32_t swap = elements[a];
+            const int a = maths::rnd(size);
+            const int b = maths::rnd(size);
+            const uint32_t swap = elements[a];
             elements[a] = elements[b];
             elements[b] = swap;
         }
         if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && elements[0] == old_last) {
             // "MakeNewFirstDifferFromOldLast"
-            int other = maths::rnd(size - 1) + 1;
-            uint32_t swap = elements[0];
+            const int other = maths::rnd(size - 1) + 1;
+            const uint32_t swap = elements[0];
             elements[0] = elements[other];
             elements[other] = swap;
         }

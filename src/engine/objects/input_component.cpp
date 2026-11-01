@@ -194,7 +194,7 @@ void PadInputModule::update_pad(const uint8_t* data)
     if (entity_->composite_flags_ & kCompositeFlagPaused)
         return;
     update_events(data);
-    bool blocked = is_input_blocked();
+    const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
         pad_primary_.tick_frame(data);
         return;
@@ -209,7 +209,7 @@ void PadInputModule::update_pad2(const uint8_t* data)
 {
     if (entity_->composite_flags_ & kCompositeFlagPaused)
         return;
-    bool blocked = is_input_blocked();
+    const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
         pad_secondary_.tick_frame(data);
         return;
@@ -266,7 +266,7 @@ void PadInputModule::read_button_state(const uint8_t* data, int index, uint32_t 
         if (frame_clock::get_time() < locked_until)
             return;
     }
-    bool events_on = input_events_ && !disabled_ && !net_disabled_;
+    const bool events_on = input_events_ && !disabled_ && !net_disabled_;
     if (data[index]) {
         if (!(last_events_ & bit) && events_on)
             entity_->post_own_event(down, nullptr);
@@ -280,7 +280,7 @@ void PadInputModule::read_button_state(const uint8_t* data, int index, uint32_t 
 void PadInputModule::lock_button(uint32_t name, float seconds, bool release)
 {
     ControlButton* button = pad_primary_.read_button(name);
-    uint32_t now = frame_clock::get_time();
+    const uint32_t now = frame_clock::get_time();
     auto time = static_cast<double>(static_cast<int32_t>(now));
     if (static_cast<int32_t>(now) < 0)
         time += kTwoTo32;

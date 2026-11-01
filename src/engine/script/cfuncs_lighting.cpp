@@ -343,7 +343,7 @@ bool cfunc_reset_texture_anim(Struct* params, Script*)
 bool cfunc_start_texture_anim(Struct* params, Script*)
 {
     render::WorldCell* sector = named_sector(params);
-    bool reset = params->has_bare_flag(kReset);
+    const bool reset = params->has_bare_flag(kReset);
     sector->start_texture_anim(reset);
     return true;
 }

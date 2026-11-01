@@ -115,8 +115,8 @@ const char* no_value(char*) { return nullptr; }
 // A rating's rank (as the lobby's: rating * 1/3500 * 10, truncated, at most 10).
 int rank_of(int rating)
 {
-    double rank = static_cast<double>(rating) * g_rank_scale * render::g_float_ten;
-    int shown = static_cast<int>(rank);
+    const double rank = static_cast<double>(rating) * g_rank_scale * render::g_float_ten;
+    const int shown = static_cast<int>(rank);
     return shown > kMaxRank ? kMaxRank : shown;
 }
 
@@ -138,7 +138,7 @@ void read_server_keys(HostListing* server, void* sb)
 void read_server_players(HostListing* server, void* sb)
 {
     for (int i = 0; i < server->num_players_; ++i) {
-        int rating = game_spy::server_get_player_int_value(sb, i, "rating", 0);              // (a player's integer key)
+        const int rating = game_spy::server_get_player_int_value(sb, i, "rating", 0);        // (a player's integer key)
         const char* name = game_spy::server_get_player_string_value(sb, i, "player", "..."); // (a player's string key)
         server->enroll_player(name, rating);
     }
@@ -217,7 +217,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
     get_run(kUpdatePlayerTitle, title);
     delete_params(title);
     for (int i = 0; i < server->num_players_; ++i) {
-        int rank = rank_of(server->get_entrant_rank(i));
+        const int rank = rank_of(server->get_entrant_rank(i));
         script::Struct* player = new_params();
         std::sprintf(value, "%d:", i + 1);
         player->put_int(kRank, rank);
@@ -364,7 +364,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         server->ping_ = game_spy::server_get_ping(sb); // (its ping)
         bool same_network = false;
         if (game_spy::server_direct_connect(sb)) {                             // (it answered directly)
-            uint32_t ours = game_spy::peer_get_public_ip(peer);                // (our public address)
+            const uint32_t ours = game_spy::peer_get_public_ip(peer);          // (our public address)
             if (game_spy::server_get_public_address(sb) == ours) {             // (its public address)
                 server->remote_ip_ = game_spy::server_get_private_address(sb); // (its private address)
                 server->port_no_ = kPort;
@@ -372,7 +372,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
             }
         }
         if (!same_network) {
-            bool has_private = game_spy::server_has_private_address(sb) != 0; // (it has a private address)
+            const bool has_private = game_spy::server_has_private_address(sb) != 0; // (it has a private address)
             server->remote_ip_ = game_spy::server_get_public_address(sb);
             auto port = static_cast<uint16_t>(game_spy::server_get_public_query_port(sb)); // (its public port)
             if (!has_private) {
@@ -386,7 +386,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         memory::ListNode* list = &manager->servers_;
         get_append(list, server);
         if (game_spy::server_has_basic_keys(sb)) {                                       // (it has its basic keys)
-            int index = reinterpret_cast<gfx::AnimListHead*>(list)->tally_entries() - 1; // (the list's count)
+            const int index = reinterpret_cast<gfx::AnimListHead*>(list)->tally_entries() - 1; // (the list's count)
             manager->show_server_in_menu(server, index);
             get_run(kUpdateServerList);
             server->in_list_ = true;

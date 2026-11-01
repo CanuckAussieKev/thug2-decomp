@@ -62,7 +62,7 @@ int get_now(int clock) { return static_cast<int>(static_cast<uint32_t>(clock) + 
 // An unsigned millisecond difference as a double (the original's FILD and its 2^32 fix for negatives).
 double as_unsigned(uint32_t difference)
 {
-    int value = static_cast<int>(difference);
+    const int value = static_cast<int>(difference);
     return value < 0 ? value + kTwoTo32 : value;
 }
 
@@ -164,7 +164,7 @@ void EngineAudioModule::read_settings()
 void EngineAudioModule::tick_engine()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    DrivableModule* vehicle = vehicle_ptr_;
+    const DrivableModule* vehicle = vehicle_ptr_;
     // The slowest driven wheel (always four looked at, the last first).
     float slowest = kNoWheel;
     for (int i = 3; i >= 0; --i) {
@@ -181,22 +181,22 @@ void EngineAudioModule::tick_engine()
 
     // The speed eased towards the wheels', each step limited by the rates (as the original compares them, a step
     // the wrong way is kept and one the right way isn't).
-    double follow = get_rate(0x02A7095B) * static_cast<double>(frame);
-    double eased = (static_cast<double>(speed_) - speed) * follow + speed;
+    const double follow = get_rate(0x02A7095B) * static_cast<double>(frame);
+    const double eased = (static_cast<double>(speed_) - speed) * follow + speed;
     speed_ = static_cast<float>(eased);
     if (eased < speed) {
-        double step = static_cast<double>(get_rate(0xCA5EFD91)) * frame + speed_;
+        const double step = static_cast<double>(get_rate(0xCA5EFD91)) * frame + speed_;
         if (!(step > speed_))
             speed_ = static_cast<float>(step);
     } else {
-        double step = static_cast<double>(speed_) - static_cast<double>(get_rate(0x77C8E7C8)) * frame;
+        const double step = static_cast<double>(speed_) - static_cast<double>(get_rate(0x77C8E7C8)) * frame;
         if (!(step < speed_))
             speed_ = static_cast<float>(step);
     }
 
     // The gear: shifted at the gear's speeds while a wheel touches; back to the first after a while in the air.
     if (vehicle_ptr_->wheels_in_contact_ != 0) {
-        int gear = gear_;
+        const int gear = gear_;
         if (gear < gear_count_ - 1 && speed_ > gear_steps_[gear].up_at_) {
             gear_ = gear + 1;
             shift_time_ = get_now(frame_clock::game_clock_elapsed());
@@ -205,42 +205,42 @@ void EngineAudioModule::tick_engine()
             shift_time_ = get_now(frame_clock::game_clock_elapsed());
         }
     } else {
-        float delay = get_rate(0xC0F451D4);
+        const float delay = get_rate(0xC0F451D4);
         if (vehicle_ptr_->air_time_ > delay)
             gear_ = 0;
     }
 
     // Just after a shift the engine is quieter (from 0xBFA32092 of full, back to full over 0xFB6BD20E ms).
-    float shift_time = get_rate(0xFB6BD20E);
-    int shifted = shift_time_;
-    uint32_t since_shift = get_since(frame_clock::game_clock_elapsed(), shifted);
-    float quietest = get_rate(0xBFA32092);
-    double recovery = as_unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
-    float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
+    const float shift_time = get_rate(0xFB6BD20E);
+    const int shifted = shift_time_;
+    const uint32_t since_shift = get_since(frame_clock::game_clock_elapsed(), shifted);
+    const float quietest = get_rate(0xBFA32092);
+    const double recovery = as_unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
+    const float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
 
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
     // pitch range; eased.
-    int gear = gear_;
-    double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
-    double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
+    const int gear = gear_;
+    const double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
+    const double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
     auto target =
         static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
                            gear_steps_[gear].low_rpm_);
-    double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
+    const double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
     rpm_ = static_cast<float>((static_cast<double>(target) - rpm_) * ease + rpm_);
-    float high_rpm = get_setting(settings_, 0x95DF9449);
-    float low_rpm = get_setting(settings_, 0x05AC84A3);
-    float rpm = get_fraction((static_cast<double>(rpm_) - low_rpm) / (static_cast<double>(high_rpm) - low_rpm));
+    const float high_rpm = get_setting(settings_, 0x95DF9449);
+    const float low_rpm = get_setting(settings_, 0x05AC84A3);
+    const float rpm = get_fraction((static_cast<double>(rpm_) - low_rpm) / (static_cast<double>(high_rpm) - low_rpm));
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
                         nullptr);
-    float loudest = get_setting(settings_, 0x288B029D);
-    float quiet = get_setting(settings_, 0xB8F81277);
+    const float loudest = get_setting(settings_, 0x288B029D);
+    const float quiet = get_setting(settings_, 0xB8F81277);
     volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
-    float high_pitch = get_setting(settings_, 0x9F46344A);
-    float low_pitch = get_setting(settings_, 0x2660AF3B);
+    const float high_pitch = get_setting(settings_, 0x9F46344A);
+    const float low_pitch = get_setting(settings_, 0x2660AF3B);
     auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
     if (!engine_sound_)
         engine_sound_ = audio_mixer_handle()->emit_sound(engine_sound_name_, &volume, pitch, 0, nullptr, 0);
@@ -254,12 +254,12 @@ void EngineAudioModule::update_skid()
 {
     // The fastest slip of a sliding wheel (always four looked at, the last first), while braking.
     float slip = 0.0f;
-    DrivableModule* vehicle = vehicle_ptr_;
+    const DrivableModule* vehicle = vehicle_ptr_;
     if (vehicle->brake_ || vehicle->handbrake_) {
         for (int i = 3; i >= 0; --i) {
             const DrivableModule::Wheel& wheel = vehicle->wheels_[i];
-            int state = wheel.state;
-            bool sliding =
+            const int state = wheel.state;
+            const bool sliding =
                 state == DrivableModule::kWheelStaticToDynamic || state == DrivableModule::kWheelDynamic ||
                 ((state == DrivableModule::kWheelHandbrakeLocked || state == DrivableModule::kWheelHandbrakeThrottle) &&
                  wheel.slip > wheel.max_static_grip_vel_);
@@ -267,20 +267,20 @@ void EngineAudioModule::update_skid()
                 slip = wheel.slip;
         }
     }
-    float rate = get_rate(0x95FBE774);
-    double ease = frame_clock::get_slomo_frame_seconds() * rate;
+    const float rate = get_rate(0x95FBE774);
+    const double ease = frame_clock::get_slomo_frame_seconds() * rate;
     skid_ = static_cast<float>((static_cast<double>(slip) - skid_) * ease + skid_);
-    float full_slip = get_setting(settings_, 0x28F1AAD0);
-    float level = get_fraction(static_cast<double>(skid_) / full_slip);
+    const float full_slip = get_setting(settings_, 0x28F1AAD0);
+    const float level = get_fraction(static_cast<double>(skid_) / full_slip);
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
-    float loudest = get_setting(settings_, 0x42EA5746);
-    float quiet = get_setting(settings_, 0x43E6CDF2);
+    const float loudest = get_setting(settings_, 0x42EA5746);
+    const float quiet = get_setting(settings_, 0x43E6CDF2);
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
-    float high_pitch = get_setting(settings_, 0xE68BE784);
-    float low_pitch = get_setting(settings_, 0x76F8F76E);
+    const float high_pitch = get_setting(settings_, 0xE68BE784);
+    const float low_pitch = get_setting(settings_, 0x76F8F76E);
     auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
     if (!volume.is_audio_off()) {
         if (!skid_sound_)
@@ -296,14 +296,14 @@ void EngineAudioModule::update_skid()
 // 0x0043D090
 void EngineAudioModule::update_collide_sound()
 {
-    int last = collide_time_;
-    float delay = get_rate(0x71B4B9FE);
-    uint32_t since = get_since(frame_clock::game_clock_elapsed(), last);
+    const int last = collide_time_;
+    const float delay = get_rate(0x71B4B9FE);
+    const uint32_t since = get_since(frame_clock::game_clock_elapsed(), last);
     if (as_unsigned(since) < delay)
         return;
-    float full_collision = get_setting(settings_, 0xCEA59D0B);
+    const float full_collision = get_setting(settings_, 0xCEA59D0B);
     auto strength = static_cast<float>(static_cast<double>(vehicle_ptr_->collision_impulse_) / full_collision);
-    float cutoff = get_rate(0xF6981837);
+    const float cutoff = get_rate(0xF6981837);
     if (!(strength > cutoff))
         return;
     collide_sound_->push_float(0x9E497FC6, static_cast<float>(strength * kPercent));
@@ -313,7 +313,7 @@ void EngineAudioModule::update_collide_sound()
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* event = memory ? new (memory) script::Struct : nullptr;
-    float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
+    const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->push_float(0x29461E27, level);
     vehicle_ptr_->rider_ref_->post_own_event(0xC4A60423, event);
     if (event) {

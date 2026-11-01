@@ -196,9 +196,9 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 // 0x00521E50
 void MoveExecutor::update_buttons()
 {
-    uint32_t mask = input_->events_;
+    const uint32_t mask = input_->events_;
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
-    int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
+    const int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
     for (int i = 1; i <= 8; ++i)
         set_button(this, i, direction == i);
     static const struct {
@@ -220,14 +220,14 @@ double MoveExecutor::get_bash_speed()
     auto period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
     for_recent_events(this, period, [&](TrickEvent* event) {
-        int kind = event->type;
+        const int kind = event->type;
         if ((kind == 1 || kind == 2) && event->button != kTriangle) {
             ++mashes;
             event->flags = 0xFFFFFFFF;
         }
     });
     auto speed = static_cast<float>(static_cast<double>(script::fetch_float(kBashSpeedupFactor)) * mashes);
-    double most = static_cast<double>(script::fetch_float(kBashMaxPercentSpeedup)) * kPercent;
+    const double most = static_cast<double>(script::fetch_float(kBashMaxPercentSpeedup)) * kPercent;
     return (speed > most ? most : speed) + 1.0f;
 }
 
@@ -237,7 +237,7 @@ double MoveExecutor::count_triangle_bashes()
     auto period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
     for_recent_events(this, period, [&](TrickEvent* event) {
-        int kind = event->type;
+        const int kind = event->type;
         if ((kind == 1 || kind == 2) && event->button == kTriangle) {
             ++mashes;
             event->flags = 0xFFFFFFFF;
@@ -261,7 +261,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 // 0x005222F0
 int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script)
 {
-    uint32_t endpose = bail_endpose_;
+    const uint32_t endpose = bail_endpose_;
     script->args_->put_name_key(kCurrentBailEndpose, endpose ? endpose : kNone);
     return 1;
 }
@@ -308,7 +308,7 @@ void MoveExecutor::reset_trick_objects()
 uint32_t MoveExecutor::end_trick_objects(uint32_t a, uint32_t b)
 {
     HitClusterLog& list = trick_objects_;
-    uint32_t result = list.copy_cluster_names(reinterpret_cast<uint32_t*>(a), b);
+    const uint32_t result = list.copy_cluster_names(reinterpret_cast<uint32_t*>(a), b);
     trick_objects_on_ = false;
     list.get_clear();
     return result;
@@ -320,7 +320,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     uint32_t script = 0;
     trick->read_hash_value(kScr, &script, 0);
     if (script == kGrind) {
-        GrindPoint* rail = core_physics_->rail_node_;
+        const GrindPoint* rail = core_physics_->rail_node_;
         if (!rail || !rail->label_)
             return false;
     }
@@ -360,8 +360,8 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     uint32_t array = 0;
     uint32_t index = 0;
     for (;;) {
-        int entry = head;
-        QueuedTrick* queued = &queue_[entry];
+        const int entry = head;
+        const QueuedTrick* queued = &queue_[entry];
         array = queued->list;
         index = static_cast<uint32_t>(queued->index);
         starting_special_ = queued->flag;
@@ -485,7 +485,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
             mapped->fetch_text(kPrefix, &prefix, 0);
         }
     }
-    uint32_t which = (a ? 1 : 0) | (b ? 2 : 0) | (c ? 4 : 0) | (d ? 8 : 0);
+    const uint32_t which = (a ? 1 : 0) | (b ? 2 : 0) | (c ? 4 : 0) | (d ? 8 : 0);
     uint32_t script = 0;
     if (scripts) {
         script = scripts->fetch_part(which);
@@ -512,7 +512,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 // 0x00521BA0
 void MoveExecutor::update_manual_tricks()
 {
-    uint32_t special = manual_.special_;
+    const uint32_t special = manual_.special_;
     if (special && score_->special_active_) {
         check_manual_tricks(this, special, -5, true);
         if (manual_.pending_)
@@ -528,7 +528,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
     script::Array* tricks = script::fetch_list(array);
     if (!tricks)
         return;
-    int count = static_cast<int>(tricks->extent_);
+    const int count = static_cast<int>(tricks->extent_);
     for (int i = 0; i < count; ++i) {
         auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(i));
         if (!trick_has_script(this, trick))
@@ -551,7 +551,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
 // 0x00521D20
 void MoveExecutor::update_extra_grind_tricks()
 {
-    uint32_t special = grind_.special_;
+    const uint32_t special = grind_.special_;
     if (special && score_->special_active_)
         check_extra_grind_tricks(special, true);
     for (int i = 0; i < grind_.count_; ++i)
@@ -562,7 +562,7 @@ void MoveExecutor::update_extra_grind_tricks()
 uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
 {
     script::Array* tricks = script::fetch_list(array);
-    int count = static_cast<int>(tricks->extent_); // (the original doesn't check the array exists)
+    const int count = static_cast<int>(tricks->extent_); // (the original doesn't check the array exists)
     uint32_t mask = 0;
     for (int i = 0; i < count; ++i) {
         if (matches_ignore(this, reinterpret_cast<script::Struct*>(tricks->fetch_part(i)), ignore))
@@ -576,7 +576,7 @@ void MoveExecutor::ignore_tricks(uint32_t ignore)
 {
     for (int i = 0; i < extra_.count_; ++i)
         extra_.masks_[i] |= fetch_skip_mask(extra_.arrays_[i], ignore);
-    if (uint32_t special = extra_.special_)
+    if (const uint32_t special = extra_.special_)
         extra_.special_mask_ |= fetch_skip_mask(special, ignore);
 }
 
@@ -587,7 +587,7 @@ bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
     script::Array* tricks = script::fetch_list(array);
     if (!tricks)
         return false;
-    int count = static_cast<int>(tricks->extent_);
+    const int count = static_cast<int>(tricks->extent_);
     for (int i = 0; i < count; ++i) {
         if (skip & (1u << i))
             continue;
@@ -629,7 +629,7 @@ void MoveExecutor::update_extra_tricks()
         extra_.on_ = false;
         return;
     }
-    if (uint32_t special = extra_.special_) {
+    if (const uint32_t special = extra_.special_) {
         if (score_->special_active_) {
             starting_special_ = true;
             if (!try_extra_tricks(special, extra_.special_mask_))
@@ -685,7 +685,7 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     }
     script::Array* ignored = nullptr;
     if (params->fetch_list(kIgnore, &ignored, 0)) {
-        int n = static_cast<int>(ignored->extent_);
+        const int n = static_cast<int>(ignored->extent_);
         for (int i = 0; i < n; ++i)
             ignore_tricks(reinterpret_cast<uint32_t>(ignored->fetch_text(i)));
     }

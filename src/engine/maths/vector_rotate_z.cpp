@@ -10,9 +10,9 @@ namespace maths {
 // 0x004882D0
 Vec4& Vec4::rotate_about_z(float angle)
 {
-    double s = std::sin(static_cast<double>(angle));
-    double c = std::cos(static_cast<double>(angle));
-    double old_x = x;
+    const double s = std::sin(static_cast<double>(angle));
+    const double c = std::cos(static_cast<double>(angle));
+    const double old_x = x;
     x = static_cast<float>(c * x - s * y);
     y = static_cast<float>(old_x * s + c * y);
     return *this;

@@ -219,10 +219,10 @@ void WindowedList::tick_frame()
         selected.assign_value(menu_->find_child_at_slot(0));
     if (!selected)
         return;
-    int count = menu_->child_total();
+    const int count = menu_->child_total();
     if (!(regular_space_ < 0.0f)) {
         // keep the selection in the middle of the shown items when it can be
-        int half = num_items_to_show_ / 2;
+        const int half = num_items_to_show_ / 2;
         if (index >= half)
             // NOLINTNEXTLINE(bugprone-integer-division): as the original
             before = static_cast<float>(static_cast<double>((num_items_to_show_ - 1) / 2) * regular_space_);
@@ -243,7 +243,7 @@ void WindowedList::tick_frame()
     }
     if (static_cast<double>(before) + window_start_ > place) {
         // scroll back (by scroll_speed), not past the item's margin
-        double start = static_cast<double>(window_start_) - scroll_speed_;
+        const double start = static_cast<double>(window_start_) - scroll_speed_;
         window_start_ = static_cast<float>(start);
         if (start < place)
             window_start_ = static_cast<float>(static_cast<double>(place) - before);
@@ -251,7 +251,7 @@ void WindowedList::tick_frame()
     } else {
         auto end = static_cast<float>(static_cast<double>(place) + length);
         if (static_cast<double>(window_length_) + window_start_ - after < end) {
-            double start = static_cast<double>(scroll_speed_) + window_start_;
+            const double start = static_cast<double>(scroll_speed_) + window_start_;
             window_start_ = static_cast<float>(start);
             if (start + window_length_ > end)
                 window_start_ = static_cast<float>(static_cast<double>(end) - window_length_ + after);
@@ -260,7 +260,7 @@ void WindowedList::tick_frame()
     }
     if (!rearrange_)
         return;
-    float shift = -window_start_;
+    const float shift = -window_start_;
     if (vertical_)
         menu_->change_location(menu_x, shift, 1);
     else
@@ -278,8 +278,8 @@ void WindowedList::tick_frame()
             length = regular_space_;
             place = static_cast<float>(static_cast<double>(index) * regular_space_);
         }
-        bool inside = !(place < window_start_) &&
-                      !(static_cast<double>(window_length_) + window_start_ < static_cast<double>(place) + length);
+        const bool inside = !(place < window_start_) && !(static_cast<double>(window_length_) + window_start_ <
+                                                          static_cast<double>(place) + length);
         item->change_opacity(inside ? 1.0f : 0.0f, 1);
         item.assign_value(item->following_.owner_object_);
         ++index;

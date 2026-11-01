@@ -109,7 +109,7 @@ void add_node_components(GameEntity* object, script::Struct* node)
     if (!motion)
         add_motion_components(object); // (sic: not looked up again - the motion stays null below)
     static_cast<KinematicsModule*>(motion)->face_node(node);
-    if (uint32_t name = level_nodes::get_node_name(node))
+    if (const uint32_t name = level_nodes::get_node_name(node))
         object->change_serial(name);
     uint32_t script = 0;
     if (node->read_hash_value(kTriggerScript, &script, 0)) {
@@ -214,9 +214,9 @@ void CrownObject::own_update()
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame_);
     maths::Mat4 turn;
     maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
-    maths::Vec4 raise = {0.0f, 0.0f, -18.0f, 0.0f};
+    const maths::Vec4 raise = {0.0f, 0.0f, -18.0f, 0.0f};
     basis_frame_.offset_local(raise);
-    maths::Vec4 offset = basis_frame_.row[3];
+    const maths::Vec4 offset = basis_frame_.row[3];
     basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::get_multiply(basis_frame_, basis_frame_, skater_->basis_frame_);
     maths::Vec4 moved;

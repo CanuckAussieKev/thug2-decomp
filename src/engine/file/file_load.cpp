@@ -87,7 +87,7 @@ void make_disk_path(char (&path)[256], const char* name)
     path[length] = '\0';
 
     char* end = path + length;
-    char last = end[-1];
+    const char last = end[-1];
     if (last == 'x' && end[-2] == 'e' && end[-3] == 't')
         end[-2] = 'x'; // .tex -> .txx
     if (last == 'e' && end[-2] == 'r' && end[-3] == 'p')
@@ -110,7 +110,7 @@ Hdl open_on_disk(const char* name)
     if (file != INVALID_HANDLE_VALUE)
         return file;
 
-    DWORD error = GetLastError();
+    const DWORD error = GetLastError();
     if (error != ERROR_FILE_NOT_FOUND) {
         debug::printf("FatalFileError: %x %s\n", error, path);
         fatal_file_error(static_cast<DWORD>(-1));
@@ -149,7 +149,7 @@ Hdl unseal(const char* name, const char* mode)
 int shut(Hdl file)
 {
     if (archives_active()) {
-        int result = archive_close(file);
+        const int result = archive_close(file);
         if (handled_by_archive())
             return result;
     }
@@ -161,13 +161,13 @@ int shut(Hdl file)
 int get_take_in(void* buffer, int size, int count, Hdl file)
 {
     if (archives_active()) {
-        int result = archive_read(buffer, size, count, file);
+        const int result = archive_read(buffer, size, count, file);
         if (handled_by_archive())
             return result;
     }
     DWORD bytes_read = 0;
     if (!ReadFile(file, buffer, static_cast<DWORD>(size) * static_cast<DWORD>(count), &bytes_read, nullptr)) {
-        DWORD error = GetLastError();
+        const DWORD error = GetLastError();
         if (error != ERROR_HANDLE_EOF)
             fatal_file_error(error);
     }
@@ -178,7 +178,7 @@ int get_take_in(void* buffer, int size, int count, Hdl file)
 int emit_out(const void* buffer, int size, int count, Hdl file)
 {
     if (archives_active()) {
-        int result = archive_write(buffer, size, count, file);
+        const int result = archive_write(buffer, size, count, file);
         if (handled_by_archive())
             return result;
     }
@@ -189,11 +189,11 @@ int emit_out(const void* buffer, int size, int count, Hdl file)
 uint32_t seek_to(Hdl file, int offset, int origin)
 {
     if (archives_active()) {
-        uint32_t result = archive_seek(file, offset, origin);
+        const uint32_t result = archive_seek(file, offset, origin);
         if (handled_by_archive())
             return result;
     }
-    DWORD method = origin == 1 ? FILE_CURRENT : origin != 0 ? FILE_END : FILE_BEGIN;
+    const DWORD method = origin == 1 ? FILE_CURRENT : origin != 0 ? FILE_END : FILE_BEGIN;
     return SetFilePointer(file, offset, nullptr, method);
 }
 
@@ -201,7 +201,7 @@ uint32_t seek_to(Hdl file, int offset, int origin)
 uint32_t get_file_size(Hdl file)
 {
     if (archives_active()) {
-        uint32_t result = archive_get_file_size(file);
+        const uint32_t result = archive_get_file_size(file);
         if (handled_by_archive())
             return result;
     }
@@ -218,7 +218,7 @@ bool is_present(const char* name)
     if (frontend::data_overlay::get_overlay_path(name, overlay))
         return true;
     if (archives_active()) {
-        bool result = archive_exist(name);
+        const bool result = archive_exist(name);
         if (handled_by_archive())
             return result;
     }

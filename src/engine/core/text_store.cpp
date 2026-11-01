@@ -65,7 +65,7 @@ int Chars::last_index(const char* text)
 {
     if (!text)
         return 0;
-    int last = static_cast<int>(std::strlen(text)) - 1;
+    const int last = static_cast<int>(std::strlen(text)) - 1;
     return last < 0 ? 0 : last;
 }
 

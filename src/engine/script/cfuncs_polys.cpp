@@ -241,7 +241,7 @@ bool cfunc_spawn_poly(Struct* params, Script*)
 void compress_scene_vertex_colours(uint8_t* scene, float target, float factor, uint32_t light_group)
 {
     for_each_sector_geometry(scene, light_group, [&](void* geometry) {
-        int count = get_vertex_count(geometry);
+        const int count = get_vertex_count(geometry);
         if (!count)
             return;
         // (the original runs an empty constructor over the array: 0x005902E0)
@@ -288,7 +288,7 @@ bool cfunc_compress_vc(Struct* params, Script*)
 void nudge_scene_vertex_colours(uint8_t* scene, float amount)
 {
     for_each_sector_geometry(scene, 0, [&](void* geometry) {
-        int count = get_vertex_count(geometry);
+        const int count = get_vertex_count(geometry);
         if (!count)
             return;
         // (the original runs an empty constructor over both arrays: 0x005902E0)
@@ -306,7 +306,7 @@ void nudge_scene_vertex_colours(uint8_t* scene, float amount)
             auto scale = static_cast<float>(static_cast<double>(hash) * (1.0 / 32768.0) * amount * 2.0 + 1.0 - amount);
             auto red = static_cast<float>(colour[0] * static_cast<double>(scale));
             auto green = static_cast<float>(colour[1] * static_cast<double>(scale));
-            double blue = colour[2] * static_cast<double>(scale);
+            const double blue = colour[2] * static_cast<double>(scale);
             colour[0] = channel_byte(red);
             colour[1] = channel_byte(green);
             colour[2] = channel_byte(blue);
@@ -345,15 +345,15 @@ bool cfunc_set_light_direction(Struct* params, Script*)
     if (params->fetch_vec(kDirection, &direction, 0)) {
         direction.w = 0.0f;
     } else if (params->fetch_float(kHeading, &heading, 0) && params->fetch_float(kPitch, &pitch, 0)) {
-        double p = static_cast<double>(pitch) * kRadiansPerDegree;
-        float y = direction.y;
-        float z = direction.z;
+        const double p = static_cast<double>(pitch) * kRadiansPerDegree;
+        const float y = direction.y;
+        const float z = direction.z;
         direction.y = static_cast<float>(std::cos(p) * y - std::sin(p) * z);
-        double turned_z = std::cos(p) * z + std::sin(p) * y;
-        double h = static_cast<double>(heading) * kRadiansPerDegree;
+        const double turned_z = std::cos(p) * z + std::sin(p) * y;
+        const double h = static_cast<double>(heading) * kRadiansPerDegree;
         auto s = static_cast<float>(std::sin(h));
         auto c = static_cast<float>(std::cos(h));
-        float x = direction.x;
+        const float x = direction.x;
         direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turned_z * c);
         direction.x = static_cast<float>(turned_z * s + static_cast<double>(c) * x);
     }

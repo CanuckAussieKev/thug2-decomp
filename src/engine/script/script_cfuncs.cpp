@@ -85,7 +85,7 @@ inline void set_script_debug(script::Script* /*script*/) {}
 // `text` appended at `out`; returns the new end.
 char* get_append(char* out, const char* text)
 {
-    size_t length = std::strlen(text);
+    const size_t length = std::strlen(text);
     std::memcpy(out, text, length + 1);
     return out + length;
 }
@@ -163,7 +163,7 @@ int format_text(script::Struct* results, script::Struct* params)
         // a parameter: "%x" or "%%name"
         char name[0x2C];
         char* n = name;
-        char key = p[1];
+        const char key = p[1];
         p += 2;
         if (key == '%') {
             while ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_')
@@ -259,7 +259,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
     if (!old || old->type == script::kQbvalScriptBody || old->type == script::kQbvalNativeFunc ||
         old->type == script::kQbvalNativeMethod)
         return false;
-    uint32_t kept = old->unknown8;
+    const uint32_t kept = old->unknown8;
     script::clean_up_and_remove_symbol(old);
     SymbolTableEntry* entry = script::create_symbol(name);
     entry->unknown8 = kept;
@@ -312,7 +312,7 @@ bool cfunc_wait(script::Struct* params, script::Script* script)
 {
     float value = 0.0f;
     params->fetch_float(0u, &value, 0);
-    bool real_time = params->has_bare_flag(kRealTime);
+    const bool real_time = params->has_bare_flag(kRealTime);
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
         wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::g_thousand)); // 1000
     } else if (params->has_bare_flag(kGameFrame) || params->has_bare_flag(kGameFrames) ||
@@ -356,7 +356,7 @@ bool cfunc_string_equals(script::Struct* params, script::Script*)
     const char* b = "";
     params->fetch_text(kA, &a, 1);
     params->fetch_text(kB, &b, 1);
-    uint32_t checksum_b = checksums::hash_from_text(b);
+    const uint32_t checksum_b = checksums::hash_from_text(b);
     return checksums::hash_from_text(a) == checksum_b;
 }
 
@@ -380,7 +380,7 @@ bool cfunc_global_exists(script::Struct* params, script::Script*)
     params->read_hash_value(kName, &name, 0);
     uint32_t type_name = 0;
     params->read_hash_value(kType, &type_name, 0);
-    script::QbValueKind type = type_from_name(type_name);
+    const script::QbValueKind type = type_from_name(type_name);
     SymbolTableEntry* entry = script::find_symbol(name);
     return entry && entry->type == type;
 }
@@ -483,7 +483,7 @@ bool cfunc_set_event_handler(script::Struct* params, script::Script* script)
     params->read_hash_value(kScr, &handler, 1);
     uint32_t group = kDefaultGroup;
     params->read_hash_value(kGroup, &group, 0);
-    bool exception = params->has_bare_flag(kException);
+    const bool exception = params->has_bare_flag(kException);
     script::Struct* handler_params = nullptr;
     params->read_sub_struct(kParams, &handler_params, 0);
     script->set_event_handler(event_type, handler, group, exception, handler_params);

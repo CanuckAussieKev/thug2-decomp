@@ -97,7 +97,7 @@ bool cfunc_play_skater_cam_anim(script::Struct* params, script::Script*)
         camera_movies()->clear_movies();
         return true;
     }
-    uint32_t name = movie_key_from_params(params, 0);
+    const uint32_t name = movie_key_from_params(params, 0);
     script::launch_script(kDisableSkaterScaling, nullptr, nullptr, false, nullptr);
     camera_movies()->add_movie(name, params, kSkaterCamAnim);
     return true;
@@ -109,7 +109,7 @@ bool cfunc_set_skater_cam_anim_skippable(script::Struct* params, script::Script*
 {
     objects::Entity* skater = named_skater(params);
     if (skater && is_host_local(skater)) {
-        uint32_t name = movie_key_from_params(params, 0);
+        const uint32_t name = movie_key_from_params(params, 0);
         int skippable = 0;
         params->fetch_int_value(kSkippable, &skippable, 0);
         camera_movies()->movie_call_468f_40(name, skippable != 0);
@@ -121,7 +121,7 @@ bool cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Scri
 {
     objects::Entity* skater = named_skater(params);
     if (skater && is_host_local(skater)) {
-        uint32_t name = movie_key_from_params(params, 0);
+        const uint32_t name = movie_key_from_params(params, 0);
         int pause = 0;
         params->fetch_int_value(kShouldPause, &pause, 0);
         camera_movies()->movie_call_468f_50(name, pause != 0);
@@ -133,7 +133,7 @@ bool cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Scri
 // false).
 bool cfunc_get_current_skater_cam_anim_name(script::Struct*, script::Script* script)
 {
-    uint32_t name = camera_movies()->get_playing_name();
+    const uint32_t name = camera_movies()->get_playing_name();
     if (name) {
         script->args_->put_name_key(kCurrentAnimName, name);
         return true;
@@ -146,7 +146,7 @@ bool cfunc_get_current_skater_cam_anim_name(script::Struct*, script::Script* scr
 // script's (a local skater; false without them).
 bool cfunc_get_skater_cam_anim_params(script::Struct* params, script::Script* script)
 {
-    uint32_t name = movie_key_from_params(params, 0);
+    const uint32_t name = movie_key_from_params(params, 0);
     objects::Entity* skater = named_skater(params);
     if (!skater || !is_host_local(skater))
         return false;
@@ -222,7 +222,7 @@ bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
     camera_movies()->clear_movies();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->debug_heap_);
-    bool result = assets::asset_manager()->refresh_resource(name, file, 0);
+    const bool result = assets::asset_manager()->refresh_resource(name, file, 0);
     memory::Hub::get_pull()->leave_heap_scope();
     return result;
 }
@@ -255,7 +255,7 @@ bool cfunc_pause_cutscene(script::Struct* params, script::Script*)
 {
     int value = 1;
     params->fetch_int_value(0u, &value, 0);
-    bool pause = value == 1;
+    const bool pause = value == 1;
     if (params->has_bare_flag(kToggle))
         camera_movies()->playing_2c();
     else
@@ -283,7 +283,7 @@ bool cfunc_play_object_anim(script::Struct* params, script::Script*)
 // should_pause=<0/1>.
 bool cfunc_set_object_anim_skippable(script::Struct* params, script::Script*)
 {
-    uint32_t name = movie_key_from_params(params, 0);
+    const uint32_t name = movie_key_from_params(params, 0);
     int skippable = 0;
     params->fetch_int_value(kSkippable, &skippable, 0);
     object_movies()->movie_call_468f_40(name, skippable != 0);
@@ -292,7 +292,7 @@ bool cfunc_set_object_anim_skippable(script::Struct* params, script::Script*)
 
 bool cfunc_set_object_anim_should_pause(script::Struct* params, script::Script*)
 {
-    uint32_t name = movie_key_from_params(params, 0);
+    const uint32_t name = movie_key_from_params(params, 0);
     int pause = 0;
     params->fetch_int_value(kShouldPause, &pause, 0);
     object_movies()->movie_call_468f_50(name, pause != 0);

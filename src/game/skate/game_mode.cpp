@@ -86,7 +86,7 @@ Objective* get_goal(void* manager, uint32_t id, int assert)
 uint32_t count_conditions(MatchRules::ConditionNode* head)
 {
     uint32_t count = 0;
-    MatchRules::ConditionNode* node = head->succ_;
+    const MatchRules::ConditionNode* node = head->succ_;
     if (node->condition_ == kHeadMarker || !node)
         return 0;
     do {
@@ -249,10 +249,10 @@ bool MatchRules::finish_rules_reached()
 {
     int elimiskate = 0;
     args_.fetch_int_value(kIsElimiskate, &elimiskate, 0);
-    bool is_elimiskate = elimiskate == 1;
+    const bool is_elimiskate = elimiskate == 1;
     int scavenger = 0;
     args_.fetch_int_value(kIsScavengerHunt, &scavenger, 0);
-    bool is_scavenger_hunt = scavenger == 1;
+    const bool is_scavenger_hunt = scavenger == 1;
     if (uses_countdown() && !is_elimiskate && !is_scavenger_hunt) {
         void* manager = objective_board();
         if (count_goals(manager, 1) > 0) {
@@ -279,7 +279,7 @@ bool MatchRules::finish_rules_reached()
 int MatchRules::get_first_condition_value()
 {
     for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
-        WinRule* condition = condition_at(&conditions_, i)->condition_;
+        const WinRule* condition = condition_at(&conditions_, i)->condition_;
         if (condition)
             return condition->target_value();
     }
@@ -533,7 +533,7 @@ bool MatchRules::uses_countdown()
 {
     // (the name looked up again for each of the first four)
     uint32_t name = 0;
-    for (uint32_t clockless : {kKing, kNetKing, kScoreChallenge, kNetScoreChallenge}) {
+    for (const uint32_t clockless : {kKing, kNetKing, kScoreChallenge, kNetScoreChallenge}) {
         name = 0;
         args_.read_hash_value(kName, &name, 0);
         if (name == clockless)

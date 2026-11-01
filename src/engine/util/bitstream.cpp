@@ -48,7 +48,7 @@ void PackedBitBuffer::write_bits(uint32_t value, int count)
     bits_used_ += count;
     if (count > free_bits_in_word_) {
         // Fill the rest of the current word, write it out, and continue with the remaining bits.
-        int used = 32 - free_bits_in_word_;
+        const int used = 32 - free_bits_in_word_;
         octets_ = (octets_ & ((1u << used) - 1)) | (value << used);
         *cursor_++ = octets_;
         // Arithmetic shift (SAR in the original): a value with its top bit set carries ones into the next word.
@@ -57,7 +57,7 @@ void PackedBitBuffer::write_bits(uint32_t value, int count)
         octets_ = 0;
         free_bits_in_word_ = 32;
     }
-    int used = 32 - free_bits_in_word_;
+    const int used = 32 - free_bits_in_word_;
     free_bits_in_word_ -= count;
     octets_ = (octets_ & ((1u << used) - 1)) | (value << used);
     if (free_bits_in_word_ == 0) {
@@ -76,10 +76,10 @@ uint32_t PackedBitBuffer::read_bits(int count)
         free_bits_in_word_ = 32;
     }
 
-    int available = free_bits_in_word_;
+    const int available = free_bits_in_word_;
     if (count <= available) {
         free_bits_in_word_ = available - count;
-        uint32_t bits = octets_;
+        const uint32_t bits = octets_;
         if (count == 32)
             return bits;
         octets_ = bits >> count;
@@ -87,9 +87,9 @@ uint32_t PackedBitBuffer::read_bits(int count)
     }
 
     // The value straddles two words: low bits from this one, the rest from the next.
-    uint32_t low = octets_;
-    uint32_t next = *cursor_++;
-    int rest = count - available;
+    const uint32_t low = octets_;
+    const uint32_t next = *cursor_++;
+    const int rest = count - available;
     octets_ = next >> rest;
     free_bits_in_word_ = 32 - rest;
     return (low & ((1u << available) - 1)) | ((next & ((1u << rest) - 1)) << available);

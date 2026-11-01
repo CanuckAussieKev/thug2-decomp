@@ -126,8 +126,9 @@ int ViewRegion::fetch_shown(int)
 // 0x004A0D20
 float ViewRegion::fetch_width_over_height() const
 {
-    float width = span_, height = level_y_;
-    double aspect = fetch_view_ratio();
+    const float width = span_;
+    const float height = level_y_;
+    const double aspect = fetch_view_ratio();
     return static_cast<float>(aspect * (static_cast<double>(width) / height));
 }
 
@@ -173,7 +174,7 @@ void create_viewports()
 // 0x004A0950
 gfx::ViewCam* obtain_active_lens(int view)
 {
-    int index = mode_map()[view];
+    const int index = mode_map()[view];
     if (index == -1)
         return nullptr;
     return get_viewport(index)->viewer_.get_pull();
@@ -182,7 +183,7 @@ gfx::ViewCam* obtain_active_lens(int view)
 // 0x004A0970
 void choose_camera(int view, gfx::ViewCam* camera)
 {
-    int index = mode_map()[view];
+    const int index = mode_map()[view];
     if (index == -1)
         return;
     ViewRegion* viewport = get_viewport(index);
@@ -200,7 +201,7 @@ gfx::ViewCam* fetch_live_camera(int n)
 // 0x004A09E0
 gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
 {
-    int count = mode_viewport_count(screen_mode());
+    const int count = mode_viewport_count(screen_mode());
     gfx::ViewCam* closest = nullptr;
     float best = -1.0f; // (squared)
     for (int i = 0; i < count; ++i) {
@@ -209,10 +210,10 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
         if (!camera)
             continue;
         const maths::Vec4* at = camera->fetch_location();
-        double dx = static_cast<double>(position->x) - at->x;
-        double dy = static_cast<double>(position->y) - at->y;
-        double dz = static_cast<double>(position->z) - at->z;
-        double squared = dx * dx + dy * dy + dz * dz;
+        const double dx = static_cast<double>(position->x) - at->x;
+        const double dy = static_cast<double>(position->y) - at->y;
+        const double dz = static_cast<double>(position->z) - at->z;
+        const double squared = dx * dx + dy * dy + dz * dz;
         if (best < 0.0f || squared < best) {
             best = static_cast<float>(squared);
             closest = camera;
@@ -255,7 +256,7 @@ void set_screen_field_of_view(float degrees)
     g_angle_factor = static_cast<float>(std::tan(static_cast<double>(degrees) * g_half_degree_radians) /
                                         std::tan(static_cast<double>(g_base_fov_angle) * g_half_degree_radians));
     for (int i = 0; i < active_viewport_count(); ++i) {
-        ViewRegion* viewport = current_view_slot(i);
+        const ViewRegion* viewport = current_view_slot(i);
         if (viewport && viewport->viewer_.get_pull())
             viewport->viewer_.get_pull()->refresh_effective_h_fov();
     }

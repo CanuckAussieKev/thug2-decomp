@@ -24,7 +24,7 @@ void init_pc_setup()
 {
     using debug_log::StageMap;
     build_info::prepare_all();
-    bool debug = build_info::fetch_flag(build_info::kMiscellaneous, "Debug", false);
+    const bool debug = build_info::fetch_flag(build_info::kMiscellaneous, "Debug", false);
     debug_log::configure(debug);
     if (debug) {
         AllocConsole();

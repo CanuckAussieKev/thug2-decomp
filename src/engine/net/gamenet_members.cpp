@@ -195,7 +195,7 @@ void Hub::set_max_players_preference(int count)
     char num_name[32];
     char ui_string[32];
     std::sprintf(num_name, "num_%d", count);
-    uint32_t checksum = checksums::hash_from_text(num_name);
+    const uint32_t checksum = checksums::hash_from_text(num_name);
     std::sprintf(ui_string, "%d %s", count, script::fetch_text(kStrPlayers));
     set_count_preference(this, kNumPlayers, ui_string, checksum);
 }
@@ -206,7 +206,7 @@ void Hub::set_max_observers_preference(int count)
     char num_name[32];
     char ui_string[32];
     std::sprintf(num_name, "num_%d", count);
-    uint32_t checksum = checksums::hash_from_text(num_name);
+    const uint32_t checksum = checksums::hash_from_text(num_name);
     if (count == 0)
         std::sprintf(ui_string, script::fetch_text(kStrNoObservers)); // (the text is the format, as in the original)
     else if (count == 1)
@@ -276,7 +276,7 @@ void Hub::destroy_match_client()
 bool Hub::send_custom_tag_texture()
 {
     net::ConnSearch search;
-    bool on_server = (flag_bits_ & kFlagsServer) != 0;
+    const bool on_server = (flag_bits_ & kFlagsServer) != 0;
     auto* skate = detail::get_skate();
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
         return false;

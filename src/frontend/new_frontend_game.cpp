@@ -65,7 +65,7 @@ std::string active_ruleset_label()
     void* mode = reinterpret_cast<void*>(goals::g_game_mode);
     if (!mode)
         return {};
-    uint32_t name = static_cast<goals::MatchRules*>(mode)->get_name_key();
+    const uint32_t name = static_cast<goals::MatchRules*>(mode)->get_name_key();
     static const char* const kNames[] = {"singlesession", "freeskate", "career",       "classic",   "creategoals",
                                          "net",           "netlobby",  "freeskate_2p", "parkeditor"};
     for (const char* known : kNames)
@@ -98,7 +98,7 @@ UiWidget* get_find(uint32_t id)
 
 Anchor at_hand(modules::FrontEnd* front_end)
 {
-    uint32_t level = current_load_state();
+    const uint32_t level = current_load_state();
     if (!level || net_session() || level_editor::live_now())
         return Anchor::kNone;
     if (level == kLoadMainMenu) {
@@ -114,7 +114,7 @@ Anchor at_hand(modules::FrontEnd* front_end)
     }
     if (!get_paused(front_end) || !get_find(name_hash("pause_vmenu")) || !get_find(name_hash("menu_continue")))
         return Anchor::kNone;
-    std::string mode = active_ruleset_label();
+    const std::string mode = active_ruleset_label();
     if (mode != "singlesession" && mode != "freeskate" && mode != "career" && mode != "classic")
         return Anchor::kNone;
     return Anchor::kFreeze;

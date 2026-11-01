@@ -208,7 +208,7 @@ _OVERLAPPED* new_overlapped()
     for (;;) {
         // (loops for ever if all 256 are in use)
         OVERLAPPED* overlapped = &get_overlapped()[next_overlapped()];
-        int next = next_overlapped() + 1;
+        const int next = next_overlapped() + 1;
         next_overlapped() = next >= kOverlapSlots ? 0 : next;
         if (uses_overlapped(music_slot(), overlapped))
             continue;
@@ -236,7 +236,7 @@ void init_platform()
         // Not original - the index read whole and through stream_index_format.h: a count past the entries the file
         // holds is cut to them (the original took it as it came and read short, the rest of the table left as it
         // was), and an entry outside pcm.wad is dropped (it would be streamed from past the file).
-        DWORD size = GetFileSize(index, nullptr);
+        const DWORD size = GetFileSize(index, nullptr);
         std::vector<uint8_t> contents(size == INVALID_FILE_SIZE ? 0 : size);
         DWORD read = 0;
         if (!contents.empty() && !ReadFile(index, contents.data(), size, &read, nullptr))
@@ -272,7 +272,7 @@ void init_platform()
     for (uint32_t i = 0; i < wad_entry_count(); ++i) {
         for (uint32_t j = i + 1; j < wad_entry_count(); ++j) {
             if (entries[i].checksum > entries[j].checksum) {
-                WadEntry swap = entries[i];
+                const WadEntry swap = entries[i];
                 entries[i] = entries[j];
                 entries[j] = swap;
             }
@@ -293,8 +293,8 @@ int find_wad_entry(uint32_t checksum)
     int low = 0;
     int high = static_cast<int>(wad_entry_count()) - 1;
     while (low <= high) {
-        int middle = (low + high) / 2;
-        uint32_t found = wad_entries()[middle].checksum;
+        const int middle = (low + high) / 2;
+        const uint32_t found = wad_entries()[middle].checksum;
         if (found < checksum)
             low = middle + 1;
         else if (found == checksum)
@@ -321,8 +321,8 @@ int music_status() { return music_slot().get_playing() ? 2 : 1; }
 // 0x00453270
 int stream_status(int slot)
 {
-    int first = slot == -1 ? 0 : slot;
-    int end = slot == -1 ? kStreamSlots : slot + 1;
+    const int first = slot == -1 ? 0 : slot;
+    const int end = slot == -1 ? kStreamSlots : slot + 1;
     for (int i = first; i < end; ++i)
         if (!stream_slots()[i].get_playing())
             return 1;

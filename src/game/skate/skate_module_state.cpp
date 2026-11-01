@@ -118,7 +118,7 @@ Skate* Skate::spawn_occurrence(bool create)
     if (!skate && create) {
         skate = new Skate;
         if (skate) {
-            int refs = get_refs() + 1;
+            const int refs = get_refs() + 1;
             g_skate_module = skate;
             get_refs() = refs;
             return skate;
@@ -325,7 +325,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
     if (level == kFromSettingsMarker)
         level = net->get_level_preference();
     net->change_arena(level);
-    bool show_warning = params->has_entry_named(kShowWarning);
+    const bool show_warning = params->has_entry_named(kShowWarning);
     audio::stop_music();
     PlayerSearch search;
     net::AppHost* server = net->host_; // (0x005480C0)
@@ -360,7 +360,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         if (!static_cast<uint8_t>(info->is_own_player()) && net->has_created_goals()) {
             net->prepare_created_goals(level);
             void* goals = net->get_created_goals_message();
-            uint32_t size = net->get_created_goals_size();
+            const uint32_t size = net->get_created_goals_size();
             server->send_bulk_message(info->get_link_handle(), kMsgCreatedGoals, static_cast<uint16_t>(size), goals,
                                       "goals data", kGroupGame, false, true); // "goals data"
         }

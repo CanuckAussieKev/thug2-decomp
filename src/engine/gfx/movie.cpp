@@ -70,11 +70,11 @@ void set_movie_texture(int stage, void* texture, int unknown)
 
 void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
-    uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
-    uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
+    const uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
+    const uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
-    float target_aspect = 4.0f / 3.0f;
-    float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
+    const float target_aspect = 4.0f / 3.0f;
+    const float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
     auto width = static_cast<float>(back_buffer_width);
     auto height = static_cast<float>(back_buffer_height);
     float offset_x = 0.0f;
@@ -142,7 +142,8 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     set_movie_texture(0, texture, 0);
 
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
-    uint32_t color = static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255)) << 24 | 0x808080;
+    const uint32_t color =
+        static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255)) << 24 | 0x808080;
     MovieVertex vertices[4];
     vertices[0] = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
     vertices[1] = vertices[0];
@@ -270,7 +271,7 @@ void* begin_movie(uint32_t width, uint32_t height)
     g_movie_back_buffer_height = static_cast<float>(g_back_buffer_height);
     IDirect3DTexture9* texture = nullptr;
     // one level, no usage
-    HRESULT result =
+    const HRESULT result =
         g_d3d_device->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     if (FAILED(result))
         return nullptr;
@@ -339,14 +340,14 @@ void play_movie_file(const char* name)
     if (!bink_set_sound_system(bink_open_direct_sound(), audio::g_sound_device))
         debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
     create_sound_manager();
-    float music = current_music_volume();
-    float effects = sound_volume();
-    float volume = music > effects ? music : effects;
+    const float music = current_music_volume();
+    const float effects = sound_volume();
+    const float volume = music > effects ? music : effects;
 
     // data\movies\bik\ + the name after its last backslash + .bik (the original only looks for a backslash
     // from the end down to the second character)
     char path[256] = R"(data\movies\bik\)";
-    size_t length = std::strlen(name);
+    const size_t length = std::strlen(name);
     size_t start = 0;
     for (size_t i = length; i != 0; --i) {
         if (name[i] == '\\') {
@@ -370,7 +371,7 @@ void play_movie_file(const char* name)
     UINT screen_saver_timeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
     uint32_t screen_saver_frames = 0;
-    bool fog = reinterpret_cast<int&>(g_fog_active) != 0;
+    const bool fog = reinterpret_cast<int&>(g_fog_active) != 0;
     toggle_fog(false);
     if (texture) {
         sio::Hub* input = sio::create_manager(false);
@@ -464,7 +465,7 @@ bool is_intro_movie(const char* name)
         if (*c == '\\' || *c == '/')
             base = c + 1;
     for (const char* intro : {"ATVI", "Beenox_Shift", "Dolby_Digital", "Intel_intro", "NSlogo", "intro", "introf"}) {
-        size_t length = std::strlen(intro);
+        const size_t length = std::strlen(intro);
         if (_strnicmp(base, intro, length) == 0 && (base[length] == '\0' || base[length] == '.'))
             return true;
     }

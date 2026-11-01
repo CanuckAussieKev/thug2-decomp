@@ -85,7 +85,7 @@ uint32_t get_goal_name(script::Struct* params)
 }
 Objective* name_then_goal(script::Struct* params)
 {
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     return get_objective_board()->goals_.get_pull(name);
 }
 // The goal Name names - none without Name (0x00476EC0, the assert passed as a bool).
@@ -149,7 +149,7 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
     }
     if (!params->has_bare_flag(kSpecialFlag))
         return false;
-    int slots = profile->get_max_specials();
+    const int slots = profile->get_max_specials();
     for (int i = 0; i < slots; ++i) {
         objects::RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
@@ -184,8 +184,8 @@ bool cfunc_goal_manager_unlock_goal(script::Struct* params, script::Script*)
 // 0x0055AA40
 bool cfunc_goal_manager_quick_start_goal(script::Struct* params, script::Script*)
 {
-    uint32_t name = get_goal_name(params);
-    bool dont_assert = params->has_bare_flag(kDontAssert);
+    const uint32_t name = get_goal_name(params);
+    const bool dont_assert = params->has_bare_flag(kDontAssert);
     return get_objective_board()->begin_objective_at_once(name, dont_assert);
 }
 
@@ -212,7 +212,7 @@ bool cfunc_goal_manager_expire_goal(script::Struct* params, script::Script*)
 // 0x0055AB90: the unnamed integer's seconds added to the goal's time.
 bool cfunc_goal_manager_add_time(script::Struct* params, script::Script*)
 {
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     int seconds = 0;
     params->fetch_int_value(0u, &seconds, 1);
     get_objective_board()->goals_.get_pull(name)->advance_clock(seconds);
@@ -222,7 +222,7 @@ bool cfunc_goal_manager_add_time(script::Struct* params, script::Script*)
 // 0x0055ABF0
 bool cfunc_goal_manager_get_number_collected(script::Struct* params, script::Script* script)
 {
-    int collected = name_then_goal(params)->count_picked_up();
+    const int collected = name_then_goal(params)->count_picked_up();
     script->args_->put_int(kNumberCollected, collected);
     return true;
 }
@@ -230,7 +230,7 @@ bool cfunc_goal_manager_get_number_collected(script::Struct* params, script::Scr
 // 0x0055AC50: false if the goal has no flags to win (-1).
 bool cfunc_goal_manager_get_number_of_flags(script::Struct* params, script::Script* script)
 {
-    int flags = name_then_goal(params)->get_num_flags_to_win();
+    const int flags = name_then_goal(params)->get_num_flags_to_win();
     if (flags == -1)
         return false;
     script->args_->put_int(kNumberOfFlags, flags);
@@ -250,8 +250,8 @@ bool cfunc_goal_manager_reset_goal_flags(script::Struct* params, script::Script*
 // 0x0055AD10: the goal's trick objects in `skater`'s colour (its player number + 1) - or cleared.
 bool cfunc_goal_manager_color_trick_objects(script::Struct* params, script::Script*)
 {
-    uint32_t name = get_goal_name(params);
-    bool clear = params->has_bare_flag(kClear);
+    const uint32_t name = get_goal_name(params);
+    const bool clear = params->has_bare_flag(kClear);
     int skater = 0;
     params->fetch_int_value(kSkater, &skater, 0);
     get_objective_board()->goals_.get_pull(name)->tint_tagged_props(skater + 1, clear);
@@ -261,7 +261,7 @@ bool cfunc_goal_manager_color_trick_objects(script::Struct* params, script::Scri
 // 0x0055AD90
 bool cfunc_goal_manager_get_number_of_times_goal_started(script::Struct* params, script::Script* script)
 {
-    int started = name_then_goal(params)->get_times_started();
+    const int started = name_then_goal(params)->get_times_started();
     script->args_->put_int(kTimesStarted, started);
     return true;
 }
@@ -285,7 +285,7 @@ bool cfunc_goal_manager_set_can_start_goal(script::Struct* params, script::Scrip
 // 0x0055AE70: the last goal as the script's goal_id. False if there's none.
 bool cfunc_goal_manager_get_last_goal_id(script::Struct*, script::Script* script)
 {
-    uint32_t last = get_objective_board()->previous_objective_;
+    const uint32_t last = get_objective_board()->previous_objective_;
     if (!last)
         return false;
     script->args_->put_name_key(kGoalIdChecksum, last);
@@ -329,7 +329,7 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
 // 0x0055AFB0: Goal_EndOfRun (the goal's own: 0), EndOfRun (1, also without any) or none (2).
 bool cfunc_goal_manager_set_end_run_type(script::Struct* params, script::Script*)
 {
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     int type = 1;
     if (params->has_bare_flag(kGoalEndOfRun))
         type = 0;
@@ -344,11 +344,11 @@ bool cfunc_goal_manager_set_end_run_type(script::Struct* params, script::Script*
 // 0x0055B040: the unnamed integer.
 bool cfunc_goal_manager_set_should_deactivate_on_expire(script::Struct* params, script::Script*)
 {
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     int deactivate = 0;
     params->fetch_int_value(0u, &deactivate, 1);
     GoalManager* manager = get_objective_board();
-    bool on = deactivate != 0;
+    const bool on = deactivate != 0;
     manager->goals_.get_pull(name)->change_ends_on_timeout(on);
     return true;
 }
@@ -499,8 +499,8 @@ bool cfunc_goal_manager_set_team_member(script::Struct* params, script::Script*)
     GoalManager* manager = get_objective_board();
     uint32_t pro = 0;
     params->read_hash_value(kPro, &pro, 1);
-    bool remove = params->has_bare_flag(kRemove);
-    bool mark_used = params->has_bare_flag(kFlagAsUsed);
+    const bool remove = params->has_bare_flag(kRemove);
+    const bool mark_used = params->has_bare_flag(kFlagAsUsed);
     if (remove)
         manager->team_->erase_module(pro);
     else
@@ -595,7 +595,7 @@ bool cfunc_goal_manager_get_active_reward_points(script::Struct*, script::Script
     int total = 0;
     for (int i = 0; i < manager->goals_.num_; ++i) {
         Objective* goal = manager->goals_.get_by_index(i);
-        int points = goal->get_reward_points();
+        const int points = goal->get_reward_points();
         if (goal->has_won())
             won += points;
         total += points;

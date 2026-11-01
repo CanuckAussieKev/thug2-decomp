@@ -148,7 +148,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
     if (sectors) {
         sectors->iter_bucket_ = -1;
         sectors->iter_item_ = nullptr;
-        for (bool more = sectors->step_iterator(); more && sectors->iter_item_;) {
+        for (const bool more = sectors->step_iterator(); more && sectors->iter_item_;) {
             auto* sector = static_cast<uint8_t*>(sectors->iter_item_->value);
             if (!sector)
                 break;
@@ -158,7 +158,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
                 if (as_sector(sector)->is_operative()) // active
                     geometry = static_cast<uint8_t*>(as_sector(sector)->geom_handle_);
                 auto* geom = reinterpret_cast<render::Geom*>(geometry);
-                int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
+                const int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
                 if (count) {
                     if (!memory::g_manager_ready) // (the memory manager set up, if it isn't)
                         memory::ensure_manager();
@@ -187,10 +187,10 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
     centre.y = static_cast<float>((static_cast<double>(hi.y) + lo.y) * half);
     centre.z = static_cast<float>(static_cast<float>(static_cast<double>(hi.z) + lo.z) * half);
     centre.w = static_cast<float>(static_cast<float>(static_cast<double>(hi.w) + lo.w) * half);
-    double dx = static_cast<double>(hi.x) - lo.x;
-    double dy = static_cast<double>(hi.y) - lo.y;
-    double dz = static_cast<double>(hi.z) - lo.z;
-    double size = std::sqrt(dz * dz + dy * dy + dx * dx);
+    const double dx = static_cast<double>(hi.x) - lo.x;
+    const double dy = static_cast<double>(hi.y) - lo.y;
+    const double dz = static_cast<double>(hi.z) - lo.z;
+    const double size = std::sqrt(dz * dz + dy * dy + dx * dx);
     auto distance = static_cast<float>(size);
     if (size < gfx::g_thousand) // (1000)
         distance = 1000.0f;
@@ -209,7 +209,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
     turn(&maths::make_pitch_matrix, angle_x);
     turn(&maths::make_yaw_matrix, angle_y);
     turn(&maths::make_roll_matrix, angle_z);
-    double back = static_cast<double>(distance) * scale * scale;
+    const double back = static_cast<double>(distance) * scale * scale;
     const float* at = &m.row[2].x;
     auto bx = static_cast<float>(back * at[0]);
     auto by = static_cast<float>(back * at[1]);
@@ -251,7 +251,7 @@ bool cfunc_center_camera(script::Struct* params, script::Script*)
 // objects. False for any other class (triggers too).
 bool create_from_node(script::Struct* node)
 {
-    uint32_t name = level_nodes::get_node_name(node);
+    const uint32_t name = level_nodes::get_node_name(node);
     if (skips_node(node))
         return true;
     uint32_t node_class = 0;
@@ -554,13 +554,13 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
         } else {
             if (node_class == kClassProximNode) {
                 memory::push_mem_profile("Proximity Nodes");        // "Proximity Nodes"
-                bool active = node->has_bare_flag(kCreatedAtStart); // (asked before the name, as in the original)
+                const bool active = node->has_bare_flag(kCreatedAtStart); // (asked before the name, as in the original)
                 objects::nearby_zone_add_node(level_nodes::get_node_name(node), active);
                 memory::pop_mem_profile();
             }
             if (node_class == kClassEmitterObject) {
                 memory::push_mem_profile("Emitter Objects");        // "Emitter Objects"
-                bool active = node->has_bare_flag(kCreatedAtStart); // (asked before the name, as in the original)
+                const bool active = node->has_bare_flag(kCreatedAtStart); // (asked before the name, as in the original)
                 objects::emitter_add_node(level_nodes::get_node_name(node), active);
                 memory::pop_mem_profile();
             }
@@ -608,7 +608,7 @@ bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
     cfunc_node_array_man_load(file, script);
     script::load_qb_file(loaded_node_list, 0);
     level_nodes::get_last_node_array();
-    uint32_t last = node_manager->get_last_node_array_name();
+    const uint32_t last = node_manager->get_last_node_array_name();
     node_manager->remove_node_array(last);
     node_manager->add_node_array(last, true);
     mem_manager()->leave_heap_scope();
@@ -679,8 +679,8 @@ bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
     uint8_t* sector = find_scene_sector(section_id);
-    uint32_t mask = as_sector(sector)->fetch_shown(); // (not checked for null)
-    uint32_t bit = second_viewport == 1 ? 2u : 1u;
+    const uint32_t mask = as_sector(sector)->fetch_shown(); // (not checked for null)
+    const uint32_t bit = second_viewport == 1 ? 2u : 1u;
     toggle_shown(sector, hide ? mask & ~bit : mask | bit);
     return true;
 }
@@ -720,8 +720,8 @@ bool set_node_color(uint32_t name, script::Struct* params)
 {
     int value = 0x808080;
     params->fetch_int_value(kColor, &value, true);
-    uint32_t rgba = (static_cast<uint32_t>(value) & 0xFF) | (static_cast<uint32_t>(value) >> 8 & 0xFF) << 8 |
-                    (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80u << 24;
+    const uint32_t rgba = (static_cast<uint32_t>(value) & 0xFF) | (static_cast<uint32_t>(value) >> 8 & 0xFF) << 8 |
+                          (static_cast<uint32_t>(value) >> 16 & 0xFF) << 16 | 0x80u << 24;
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
@@ -832,9 +832,9 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
     uint32_t prefix = 0;
     if (params->hash_from_name_or_text(0x6C4E7971u, &prefix, 0)) { // "prefix"
         uint32_t count = 0;                                        // (a 16-bit count in a zeroed 32-bit slot)
-        bool is_prefix = !params->has_bare_flag(0x80804991u);
+        const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
-        uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
+        const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
         for (int i = 0; i < static_cast<uint16_t>(count); ++i) {
             if (node_command(nodes[i], action, script, params) && action == 5)
                 break;

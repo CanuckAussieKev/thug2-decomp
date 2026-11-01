@@ -115,7 +115,7 @@ bool cfunc_stop_sound(Struct* params, Script*)
     uint32_t sound = 0; // (uninitialised in the original: only read when found)
     if (!params->read_hash_value(0u, &sound, 0))
         return false;
-    bool stopped = audio_mixer_handle()->stop_sound(sound);
+    const bool stopped = audio_mixer_handle()->stop_sound(sound);
     if (!stopped)
         script::fetch_int_value(kDebugSoundFx); // (a compiled-out report: the global is read, not used)
     return stopped;
@@ -200,7 +200,7 @@ bool cfunc_set_sfx_reverb(Struct* params, Script*)
     if (level > 100.0f) // (0x006463D4; a NaN is kept)
         level = 100.0f;
     params->fetch_int_value(kMode, &mode, 0);
-    bool instant = params->has_bare_flag(kInstant);
+    const bool instant = params->has_bare_flag(kInstant);
     audio_mixer_handle()->print_sounds(std::bit_cast<int>(level), mode, instant);
     return true;
 }
@@ -231,8 +231,8 @@ bool cfunc_set_global_pitch_modulation(Struct* params, Script*)
     float pitch = 1.0f;
     params->fetch_float(0u, &pitch, 0);
     sound::AudioMixer* manager = audio_mixer_handle();
-    bool a = params->has_bare_flag(kPitchFlagA);
-    bool b = params->has_bare_flag(kPitchFlagB);
+    const bool a = params->has_bare_flag(kPitchFlagA);
+    const bool b = params->has_bare_flag(kPitchFlagB);
     manager->set_pitch(pitch, b, a);
     return true;
 }

@@ -183,16 +183,16 @@ void change_phase(int state, uint32_t value)
     case kAddressMode0 + 1:
     case kAddressMode0 + 2:
     case kAddressMode0 + 3: {
-        int sampler = state - kAddressMode0;
+        const int sampler = state - kAddressMode0;
         uint32_t& cached = address_modes()[sampler];
-        uint32_t u = value & 0xFFFF;
+        const uint32_t u = value & 0xFFFF;
         if (u != (cached & 0xFFFF)) {
             DWORD address = 0;
             if (address_value(u, &address))
                 set_sampler(sampler, D3DSAMP_ADDRESSU, address);
             cached = (cached & 0xFFFF0000) | u;
         }
-        uint32_t v = value & 0xFFFF0000;
+        const uint32_t v = value & 0xFFFF0000;
         if (v == (cached & 0xFFFF0000))
             return;
         DWORD address = 0;
@@ -205,7 +205,7 @@ void change_phase(int state, uint32_t value)
     case kMipLodBias0 + 1:
     case kMipLodBias0 + 2:
     case kMipLodBias0 + 3: {
-        int sampler = state - kMipLodBias0;
+        const int sampler = state - kMipLodBias0;
         if (value != mip_lod_biases()[sampler]) {
             set_sampler(sampler, D3DSAMP_MIPMAPLODBIAS, value);
             mip_lod_biases()[sampler] = value;
@@ -261,14 +261,14 @@ void change_phase(int state, uint32_t value)
     case kFilter0 + 1:
     case kFilter0 + 2:
     case kFilter0 + 3: {
-        int sampler = state - kFilter0;
+        const int sampler = state - kFilter0;
         uint32_t& cached = filters()[sampler];
-        uint32_t mag = value & 0xFFFF0000;
+        const uint32_t mag = value & 0xFFFF0000;
         if (mag != (cached & 0xFFFF0000)) {
             set_sampler(sampler, D3DSAMP_MAGFILTER, (value & 0x10000) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
             cached = (cached & 0xFFFF) | mag;
         }
-        uint32_t min = value & 0xFFFF;
+        const uint32_t min = value & 0xFFFF;
         if (min != (cached & 0xFFFF)) {
             // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic in place of linear.
             // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
@@ -310,10 +310,10 @@ void set_texture(int stage, void* texture)
 // 0x004DA760
 void choose_blend_mode(uint32_t mode)
 {
-    uint32_t wanted = forced_blend() ? forced_blend() : mode;
+    const uint32_t wanted = forced_blend() ? forced_blend() : mode;
     if (wanted == get_blend_mode())
         return;
-    uint32_t kind = wanted & 0xFFFFFF;
+    const uint32_t kind = wanted & 0xFFFFFF;
     if (kind != (get_blend_mode() & 0xFFFFFF)) {
         // Fog goes black under the additive and subtractive modes (1-4).
         if (get_fog()) {
@@ -506,9 +506,9 @@ void set_fixed_function_stages_for_material(void* shader, const void* material)
         return;
     }
     const auto* color = reinterpret_cast<const float*>(static_cast<const uint8_t*>(material) + 0x40);
-    uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(color[0]) * k255));
-    uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(color[1]) * k255));
-    uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(color[2]) * k255));
+    const uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(color[0]) * k255));
+    const uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(color[1]) * k255));
+    const uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(color[2]) * k255));
     set_fixed_function_stages(shader, (((r | 0xFFFFFF00) << 8 | g) << 8) | b);
 }
 
@@ -662,13 +662,13 @@ void apply_render_state()
         input_port()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic minification on every
         // sampler at the chosen taps. (Off: the original's below.)
-        if (int taps = graphics_options::active_anisotropy()) {
+        if (const int taps = graphics_options::active_anisotropy()) {
             input_port()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             input_port()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
         } else if (sampler == 0 && g_back_buffer_height <= 480) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
             input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            uint32_t anisotropy = g_max_anisotropy;
+            const uint32_t anisotropy = g_max_anisotropy;
             input_port()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
         } else {
             input_port()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
@@ -676,7 +676,7 @@ void apply_render_state()
         input_port()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
         input_port()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
     }
-    D3DMATERIAL9 material = {};
+    const D3DMATERIAL9 material = {};
     input_port()->SetMaterial(&material);
     input_port()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
     input_port()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);

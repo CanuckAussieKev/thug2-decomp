@@ -103,7 +103,7 @@ void ParagraphWidget::change_typeface(uint32_t font)
     font_name_ = font;
     float width = 0.0f, height = 0.0f;
     read_string_param(get_font(font), sizing_text(), &width, &height);
-    int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
+    const int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
     line_capacity_ = get_truncated(level_y_) / line_height;
     object_flags_ |= kVisibleNow;
 }
@@ -121,7 +121,7 @@ void ParagraphWidget::add_words(const char* text)
         float width = 0.0f, height = 0.0f;
         read_string_param(font, word, &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
-        bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span_;
+        const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span_;
         if (full || previous == 1 || std::strlen(word) + static_cast<size_t>(line_length_) >= kLineChars) {
             char* last = lines_[line_] + line_length_ - 1;
             if (*last == ' ')
@@ -184,10 +184,10 @@ void ParagraphWidget::change_caption(const char** texts, int count)
             // the block grows to the lines' height and they are made again
             float width = 0.0f, height = 0.0f;
             read_string_param(get_font(font_name_), sizing_text(), &width, &height);
-            double line_height = static_cast<double>(line_spacing_) * internal_scale_ * height;
-            double total = static_cast<double>(num_lines_) * line_height;
+            const double line_height = static_cast<double>(line_spacing_) * internal_scale_ * height;
+            const double total = static_cast<double>(num_lines_) * line_height;
             level_y_ = static_cast<float>(total);
-            int max_lines = get_truncated(total) / get_truncated(line_height);
+            const int max_lines = get_truncated(total) / get_truncated(line_height);
             line_length_ = 0;
             num_lines_ = 0;
             line_ = 0;
@@ -275,7 +275,7 @@ int ParagraphWidget::fetch_magnitude()
 // 0x004B14A0
 bool ParagraphWidget::backspace()
 {
-    int length = fetch_magnitude();
+    const int length = fetch_magnitude();
     if (length == 0)
         return false;
     char text[0x200];
@@ -362,7 +362,7 @@ void ParagraphWidget::change_traits(Struct* params)
     if (params->fetch_text(kText, &texts[0], 0)) {
         change_caption(texts, 1);
     } else if (params->fetch_list(kText, &array, 0)) {
-        int count = static_cast<int>(array->extent_);
+        const int count = static_cast<int>(array->extent_);
         for (int i = 0; i < count && i < kMaxTexts; ++i)
             texts[i] = array->fetch_text(static_cast<uint32_t>(i));
         change_caption(texts, count < kMaxTexts ? count : kMaxTexts);
@@ -411,7 +411,7 @@ void ParagraphWidget::blend_towards(Struct* params)
     if (blur_) {
         tick_frame();
         int ms = 0;
-        SmearEffect::Settings* target = blur_->set_from_params(params, &ms);
+        const SmearEffect::Settings* target = blur_->set_from_params(params, &ms);
         ElementPtr child;
         child.assign_value(eldest_.owner_object_);
         while (child) {
@@ -420,7 +420,7 @@ void ParagraphWidget::blend_towards(Struct* params)
             float x = 0.0f, y = 0.0f;
             child->fetch_location(&x, &y);
             y = static_cast<float>(static_cast<double>(child->level_y_) * get_half() + y);
-            double offset = static_cast<double>(level_y_) * get_half() - y;
+            const double offset = static_cast<double>(level_y_) * get_half() - y;
             settings.max_displacement_[1] =
                 static_cast<float>(offset * target->bottom_scales_[1] - offset + settings.max_displacement_[1]);
             as_text(child.owner_object_)->blur_->set_target(&settings, ms);

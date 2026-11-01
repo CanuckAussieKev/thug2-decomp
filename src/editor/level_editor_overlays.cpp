@@ -30,10 +30,10 @@ std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing
     if (!(spacing > 0.0f) || !(radius > 0.0f) || radius / spacing > 200.0f)
         return lines;
     // (the lines on multiples of the spacing, within the square round the centre)
-    long first[2] = {static_cast<long>(std::ceil((centre.x - radius) / spacing)),
-                     static_cast<long>(std::ceil((centre.z - radius) / spacing))};
-    long last[2] = {static_cast<long>(std::floor((centre.x + radius) / spacing)),
-                    static_cast<long>(std::floor((centre.z + radius) / spacing))};
+    const long first[2] = {static_cast<long>(std::ceil((centre.x - radius) / spacing)),
+                           static_cast<long>(std::ceil((centre.z - radius) / spacing))};
+    const long last[2] = {static_cast<long>(std::floor((centre.x + radius) / spacing)),
+                          static_cast<long>(std::floor((centre.z + radius) / spacing))};
     for (long i = first[0]; i <= last[0]; ++i) {
         float x = static_cast<float>(i) * spacing;
         lines.push_back({{x, y, centre.z - radius}, {x, y, centre.z + radius}, i % 5 == 0});
@@ -83,7 +83,7 @@ void get_take_in()
     if (g_read)
         return;
     g_read = true;
-    int value = config_int("editor", "overlays", -1);
+    const int value = config_int("editor", "overlays", -1);
     g_bits = parse_bits(value, value >= 0);
 }
 
@@ -100,7 +100,7 @@ bool get_shown(uint32_t bit) { return (at_hand() & bit) != 0; }
 void assign_value(uint32_t bit, bool on)
 {
     get_take_in();
-    uint32_t bits = on ? g_bits | bit : g_bits & ~bit;
+    const uint32_t bits = on ? g_bits | bit : g_bits & ~bit;
     if (bits == g_bits)
         return;
     g_bits = bits & kAllBits;
@@ -182,7 +182,7 @@ void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) co
 
 float Painter::span_to(V3 p) const
 {
-    V3 d = p - camera;
+    const V3 d = p - camera;
     return std::sqrt(level_editor::get_dot(d, d));
 }
 
@@ -209,7 +209,8 @@ bool get_ground_y(V3 from, float* y)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {from.x, from.y - 5000.0f, from.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     *y = ray->hit_.point.y;
@@ -225,21 +226,21 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         static V3 g_last_from = {1e30f, 0.0f, 0.0f};
         static float g_ground_y = 0.0f;
         static bool g_have_ground = false;
-        V3 from = have_selection ? selection_base + V3{0.0f, 2.0f, 0.0f} : painter.camera;
-        V3 d = from - g_last_from;
+        const V3 from = have_selection ? selection_base + V3{0.0f, 2.0f, 0.0f} : painter.camera;
+        const V3 d = from - g_last_from;
         if (get_dot(d, d) > 25.0f * 25.0f) {
             g_last_from = from;
             g_have_ground = get_ground_y(from, &g_ground_y);
         }
         if (g_have_ground) {
-            V3 centre = {std::round(from.x / 100.0f) * 100.0f, g_ground_y, std::round(from.z / 100.0f) * 100.0f};
+            const V3 centre = {std::round(from.x / 100.0f) * 100.0f, g_ground_y, std::round(from.z / 100.0f) * 100.0f};
             for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5f, 1500.0f, 100.0f))
                 painter.get_seg(line.a, line.b, line.major ? 0x70E0E8F0u : 0x38C0C8D0u, line.major ? 1.25f : 1.0f);
         }
     }
     if (get_shown(kCarryHints) && moving) {
         constexpr uint32_t kCarried = 0xE060F080;
-        for (uint32_t id : carry::carried_objects()) {
+        for (const uint32_t id : carry::carried_objects()) {
             auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
             OrientedBox box{};
             if (!object || (object->object_flags_ & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
@@ -252,8 +253,8 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
                 painter.get_seg(corners[e[0]], corners[e[1]], kCarried, 1.25f);
         }
         const std::vector<nodes::Elem>& all = nodes::get_all();
-        for (uint32_t name : carry::carried_nodes()) {
-            int index = nodes::get_find(name);
+        for (const uint32_t name : carry::carried_nodes()) {
+            const int index = nodes::get_find(name);
             if (index < 0 || !all[index].has_pos_)
                 continue;
             painter.get_dot(all[index].pos, 5.0f, kCarried, false);

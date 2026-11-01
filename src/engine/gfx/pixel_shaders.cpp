@@ -148,7 +148,7 @@ void compile_pixel_shaders()
 // 0x004DD2C0
 void* generated_pixel_shader(const void* material)
 {
-    uint32_t passes = pass_count(material);
+    const uint32_t passes = pass_count(material);
     uint32_t present = 0;
     uint32_t modes[4];
     for (uint32_t pass = 0; pass < passes; ++pass) {
@@ -159,11 +159,12 @@ void* generated_pixel_shader(const void* material)
     uint32_t key = passes - 1;
     for (uint32_t pass = 0; pass < passes; ++pass)
         key |= modes[pass] << (2 + 5 * pass);
-    uint32_t alpha_flags = pass_alpha_flags(material);
+    const uint32_t alpha_flags = pass_alpha_flags(material);
     key |= (present * 8 | alpha_flags) << 22;
     // In the cache? (the first item with the key and a shader)
     lists::KeyMap& cache = get_cache();
-    for (lists::KeyMap::Item* item = cache.buckets_ + (key & ((1u << cache.bits_) - 1)); item; item = item->next) {
+    for (const lists::KeyMap::Item* item = cache.buckets_ + (key & ((1u << cache.bits_) - 1)); item;
+         item = item->next) {
         if (item->key == key && item->value)
             return item->value;
     }
@@ -190,11 +191,11 @@ void* generated_pixel_shader(const void* material)
     static const char kRegisters[5][3] = {"r0", "t1", "t2", "t3", "r1"};
     uint32_t reg = 0;
     for (int pass = 1; pass < static_cast<int>(passes); ++pass) {
-        uint32_t mode = modes[pass];
-        bool brighten = mode == 0xC || mode == 0xD;
-        uint32_t previous = reg;
+        const uint32_t mode = modes[pass];
+        const bool brighten = mode == 0xC || mode == 0xD;
+        const uint32_t previous = reg;
         reg = 4;
-        uint32_t bit = 1u << pass;
+        const uint32_t bit = 1u << pass;
         if (present & bit) {
             text.append_one("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {
@@ -287,7 +288,7 @@ void material_pixel_shader(const void* material, void** shader)
         *shader = hdl(kPixelShader95c);
         return;
     }
-    uint32_t alpha_flags = pass_alpha_flags(material);
+    const uint32_t alpha_flags = pass_alpha_flags(material);
     if (get_blend_mode(material, 0) == 9)
         *shader = hdl(alpha_flags ? kPixelShader940 : kPixelShader944);
     else

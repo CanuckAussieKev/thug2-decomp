@@ -326,7 +326,7 @@ bool cfunc_fcfs_request_toggle_goal_selection(Struct* params, Script*)
 // {flag = <its number>} as script_flag_bits_ has its bit.
 bool cfunc_reset_pro_set_flags(Struct*, Script*)
 {
-    Hub* manager = net_link();
+    const Hub* manager = net_link();
     for (int bit = 0; bit < kProSetCount; ++bit) {
         Struct* params = new_params();
         params->put_int(kFlag, script::fetch_int_value(kFirstProSetFlag) + bit);

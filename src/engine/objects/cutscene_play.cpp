@@ -183,7 +183,7 @@ bool CinematicTable::is_loaded()
 // 0x00467BA0
 void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
 {
-    bool fixed = script::fetch_int_value(kFixedTime) != 0;
+    const bool fixed = script::fetch_int_value(kFixedTime) != 0;
     if (!flag_34b_0_) {
         unknown3478_ = *reinterpret_cast<uint32_t*>(&clock_);
         clock_ = static_cast<float>(frame_clock::get_frame_seconds() + clock_);
@@ -196,7 +196,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             paused_vblanks_ = frame_clock::fetch_retrace_count();
             fixed_frame() = 0;
         }
-        int rate = game_config::g_frame_rate;
+        const int rate = game_config::g_frame_rate;
         audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
         update_time(reinterpret_cast<int>(camera));
         check_skip();
@@ -210,7 +210,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         return;
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
         script::Struct* info = make_struct();
-        int frame = fixed_frame();
+        const int frame = fixed_frame();
         char line[128];
         std::snprintf(line, sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
         info->append_word("line1", line);

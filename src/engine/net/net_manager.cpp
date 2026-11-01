@@ -138,10 +138,10 @@ uint32_t Hub::get_local_address()
 // 0x00454910
 const char* Hub::fetch_own_address()
 {
-    hostent* localhost = gethostbyname("localhost");
+    const hostent* localhost = gethostbyname("localhost");
     if (!localhost)
         return "<Unknown>";
-    hostent* host = gethostbyname(localhost->h_name);
+    const hostent* host = gethostbyname(localhost->h_name);
     // (Without the host, localhost's address - read from Winsock's per-thread hostent after the second lookup
     // has used it, as the original does.)
     if (!host)

@@ -101,7 +101,7 @@ bool cfunc_join_server(script::Struct* params, script::Script*)
     script::launch_script(kJoinScript, nullptr, nullptr, false, nullptr);
     script::process_pending_symbols();
     if (game_net->get_on_server()) {
-        uint32_t players = game_mode_players();
+        const uint32_t players = game_mode_players();
         for (uint32_t i = 0; i < players; ++i) {
             net::AppHost* client = game_net->start_client_session(false, true, true, static_cast<int>(i));
             game_net->join_server(0, 0, static_cast<int>(i));
@@ -158,7 +158,7 @@ bool cfunc_use_network_preferences(script::Struct*, script::Script*)
 bool cfunc_test_net_setup(script::Struct* params, script::Script*)
 {
     net::Hub* net = net_session_slot();
-    bool ok = stubs::return_true(); // (the net manager's setup test, a shared stub)
+    const bool ok = stubs::return_true(); // (the net manager's setup test, a shared stub)
     if (ok) {
         uint32_t script = 0; // (unset in the original when missing - an asserted parameter)
         params->read_hash_value("success_script", &script, true); // "success_script"
@@ -263,9 +263,9 @@ bool cfunc_is_observing(script::Struct*, script::Script*)
     online::detail::NewPlayerSearch search;
     if (online::PlayerRecord* player = game_net->get_own_player())
         return player->is_observer() != 0;
-    for (online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
+    for (const online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
          player = game_net->step_joiner_walk(&search)) {
-        uint32_t flags = player->flag_bits_;
+        const uint32_t flags = player->flag_bits_;
         if ((flags & 1) && (flags & 4))
             return true;
     }
@@ -528,7 +528,7 @@ void* get_host_by_name(const char* name) { return crt::get_host_by_name(name); }
 // tried from now on.
 bool cfunc_try_join_internet_game(script::Struct*, script::Script*)
 {
-    uint32_t server = online::g_command_line_server;
+    const uint32_t server = online::g_command_line_server;
     if (server != 0xFFFFFFFF)
         online_hub_handle()->find_server_at(server);
     trying_to_join() = true;

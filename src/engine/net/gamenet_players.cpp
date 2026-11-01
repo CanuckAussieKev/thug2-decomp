@@ -160,7 +160,7 @@ void Hub::spectate_player(PlayerRecord* player)
     set_camera_skater(skater_camera, skater);
     set_walk_camera_skater(walk_camera, skater);
     static_cast<objects::FootView*>(walk_camera)->instant_frames_ = 3;
-    objects::RiderPoseState* state = static_cast<objects::RiderBoardPhysics*>(control)->pose_;
+    const objects::RiderPoseState* state = static_cast<objects::RiderBoardPhysics*>(control)->pose_;
     if (!state->in_vehicle_ && state->physics_mode_ == 0) {
         skater_camera->hold_off(false);
         walk_camera->hold_off(true);
@@ -214,14 +214,14 @@ int Hub::reserve_obj_id_for_player()
     for (int id = 0; id < kMaxObjectIds; ++id) {
         bool used = false;
         PlayerSearch search;
-        for (PlayerRecord* player = start_roster_sweep(this, &search, false); player && !used;
+        for (const PlayerRecord* player = start_roster_sweep(this, &search, false); player && !used;
              player = step_roster_sweep(this, &search, false))
             used = static_cast<int>(get_skater_id(player_skater(player))) ==
                    id; // (a player without a skater: read at 0x14)
         NewPlayerSearch new_search;
-        for (JoinerRecord* info = first_new_player(this, &new_search); info && !used;
+        for (const JoinerRecord* info = first_new_player(this, &new_search); info && !used;
              info = next_new_player(this, &new_search)) {
-            uint32_t flags = info->flag_bits_;
+            const uint32_t flags = info->flag_bits_;
             if ((flags & kNewPlayerObserver) && !(flags & kNewPlayerPending))
                 continue; // (an observer joining takes no id)
             used = static_cast<int8_t>(info->entity_key_) == id;
@@ -249,7 +249,7 @@ PlayerRecord* Hub::find_player_slot_by_obj(uint16_t id)
     PlayerSearch search;
     for (PlayerRecord* player = start_roster_sweep(this, &search, false); player;
          player = step_roster_sweep(this, &search, false)) {
-        objects::Entity* skater = player_skater(player);
+        const objects::Entity* skater = player_skater(player);
         if (skater && get_skater_id(skater) == id)
             return player;
     }
@@ -319,7 +319,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         remove_player_record(player);
         return;
     }
-    net::Conn* conn = player->conn_;
+    const net::Conn* conn = player->conn_;
     game_spy::cd_key_disconnect_user(kGameSpyGameId, static_cast<int>(conn->ident_)); // gcd_disconnect_user
     if (!is_observer(player)) {
         PlayerSearch search;
@@ -356,9 +356,9 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         player->conn_->mark_stale();
         player->conn_->drop_queued_traffic();
     }
-    uint32_t text = reason >= 0 && reason < static_cast<int>(sizeof(kDropTexts) / sizeof(kDropTexts[0]))
-                        ? kDropTexts[reason]
-                        : kNetMessagePlayerTimedOut;
+    const uint32_t text = reason >= 0 && reason < static_cast<int>(sizeof(kDropTexts) / sizeof(kDropTexts[0]))
+                              ? kDropTexts[reason]
+                              : kNetMessagePlayerTimedOut;
     if (!is_own_player(player))
         build_net_notice(true, text, name, nullptr, nullptr, nullptr, false, kPanelTime);
     if (reason == kDropObserving) {
@@ -370,7 +370,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         if (player->is_carrying_flag())
             flag_returned(player);
     } else {
-        bool fcfs = player->is_host_player() != 0;
+        const bool fcfs = player->is_host_player() != 0;
         remove_player_record(player);
         if (fcfs) { // it was to serve next: someone else
             assign_first_come_first_served();
@@ -380,7 +380,8 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     }
     // Every player still playing has finished: game over (message 0x5A to every one).
     PlayerSearch search;
-    for (PlayerRecord* p = start_roster_sweep(this, &search, false); p; p = step_roster_sweep(this, &search, false))
+    for (const PlayerRecord* p = start_roster_sweep(this, &search, false); p;
+         p = step_roster_sweep(this, &search, false))
         if (!(p->flag_bits_ & kPlayerGameEnded))
             return;
     net::NetMessageInfo desc;
@@ -493,7 +494,7 @@ void Hub::update_lobby_server()
 // (inline in remove_player_record / evict_player)
 void Hub::flag_returned(PlayerRecord* player)
 {
-    int team = player->get_flag_team(); // the flag's team
+    const int team = player->get_flag_team(); // the flag's team
     char key[64];
     team_name_key(key, team);
     script::Struct* params = new_params();
@@ -524,7 +525,7 @@ void Hub::enter_observe_mode()
             crown_->take_off();
     }
     if (local->is_carrying_flag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
-        int team = local->get_flag_team();
+        const int team = local->get_flag_team();
         char key[64];
         team_name_key(key, team);
         script::Struct* params = new_params();

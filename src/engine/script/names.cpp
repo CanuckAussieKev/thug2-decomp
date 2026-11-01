@@ -37,7 +37,7 @@ HashedLabel* get_bucket(uint32_t checksum) { return name_table() + (checksum & 0
 // A hex digit's value (anything else counts as its character code, as in the original).
 int hex_digit(char c)
 {
-    int value = c;
+    const int value = c;
     if (value >= '0' && value <= '9')
         return value - '0';
     if (value >= 'a' && value <= 'f')
@@ -92,7 +92,7 @@ const char* look_up_hash_name(uint32_t checksum)
 {
     if (!checksum_names_enabled())
         return nullptr;
-    HashedLabel* entry = get_bucket(checksum);
+    const HashedLabel* entry = get_bucket(checksum);
     for (uint32_t i = 0; i < kBucketSize && entry->name; ++i, ++entry) {
         if (entry->checksum == checksum)
             return entry->name;
@@ -152,7 +152,7 @@ void load_checksum_names(const char* file)
 void install_script_functions(const NativeCommand* functions, uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t checksum = checksums::hash_from_text(functions[i].name);
+        const uint32_t checksum = checksums::hash_from_text(functions[i].name);
         register_name_hash(checksum, functions[i].name);
         SymbolTableEntry* symbol = create_symbol(checksum);
         symbol->type = kQbvalNativeFunc;
@@ -164,7 +164,7 @@ void install_script_functions(const NativeCommand* functions, uint32_t count)
 void publish_method_table(const char* const* names, uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t checksum = checksums::hash_from_text(names[i]);
+        const uint32_t checksum = checksums::hash_from_text(names[i]);
         register_name_hash(checksum, names[i]);
         create_symbol(checksum)->type = kQbvalNativeMethod;
     }

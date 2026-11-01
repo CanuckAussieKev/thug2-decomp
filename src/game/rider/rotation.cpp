@@ -148,8 +148,8 @@ void SkaterPhysicsModule::get_spin()
         if (queued != 0.0f) {
             spinning = true;
             speed = queued < 0.0f ? -1.0f : 1.0f;
-            double turn = stat_value(object, kTapSpinSpeed) * speed;
-            double step = turn * frame_length();
+            const double turn = stat_value(object, kTapSpinSpeed) * speed;
+            const double step = turn * frame_length();
             if (std::fabs(queued) < std::fabs(step))
                 queued = 0.0f;
             else
@@ -200,8 +200,8 @@ void SkaterPhysicsModule::get_spin()
                 clear_flag(this, PoseFlag::kSpin);
         }
         auto start = static_cast<float>(tuning_float_lookup(kSpinRampStart, 1, object));
-        double end = tuning_float_lookup(kSpinRampEnd, 1, object);
-        double t = held;
+        const double end = tuning_float_lookup(kSpinRampEnd, 1, object);
+        const double t = held;
         if (t <= start)
             speed = 0.0f;
         if (t < end)
@@ -212,7 +212,7 @@ void SkaterPhysicsModule::get_spin()
         // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
         flags = state_;
         if (flags->flag(PoseFlag::kVertAir).on && flags->flag(PoseFlag::kSpin).on) {
-            float tilt = maths::confine(object->basis_frame_.row[2].y, -1.0f, 1.0f);
+            const float tilt = maths::confine(object->basis_frame_.row[2].y, -1.0f, 1.0f);
             auto angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
             if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
                 clear_flag(this, PoseFlag::kSpin);
@@ -220,7 +220,7 @@ void SkaterPhysicsModule::get_spin()
                 auto off = static_cast<float>(maths::get_turn_around_axis(object->basis_frame_.row[2], vert_facing_,
                                                                           object->basis_frame_.row[1]));
                 auto rate = static_cast<float>(tuning_float_lookup(kFaceRampSpeed, 1, object));
-                double turn = static_cast<double>(maths::get_sign(off)) * rate;
+                const double turn = static_cast<double>(maths::get_sign(off)) * rate;
                 speed = static_cast<float>(turn);
                 if (std::fabs(off) < std::fabs(turn * frame_length())) {
                     // (the last bit: exactly what's left)
@@ -244,7 +244,7 @@ void SkaterPhysicsModule::get_spin()
     flags = state_;
     if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on) {
         auto size = static_cast<float>(std::fabs(static_cast<double>(total)));
-        double snap = 360.0f - tuning_float_lookup(kRotationSnap, 1, object) + 0.1f;
+        const double snap = 360.0f - tuning_float_lookup(kRotationSnap, 1, object) + 0.1f;
         if (!(snap <= size))
             return;
     }
@@ -267,11 +267,11 @@ void SkaterPhysicsModule::break_vert(bool force)
     // held (THAW's LEFTUP, not left / right) instead of the d-pad's, and R1 with the stick up or down (the tire tap's
     // buttons), or a tire tap looked for in vert, takes the second path (a spine transfer, else pushed off the wall)
     // instead of falling away from it.
-    bool bike = thaw_bmx::live_now(this);
+    const bool bike = thaw_bmx::live_now(this);
     if (bike) {
         jump_held = thaw_bmx::vert_push_held(this, tuning_int_lookup(kBreakVertJumpTime, 1, object));
     } else if (pad->up_dir_.held_down_) {
-        int limit = tuning_int_lookup(kBreakVertJumpTime, 1, object);
+        const int limit = tuning_int_lookup(kBreakVertJumpTime, 1, object);
         jump_held = get_held_time(&pad->up_dir_) > limit && !pad->left_side_.held_down_ &&
                     !pad->right_side_.held_down_ && !pad->button_box_.held_down_ && !pad->button_round_.held_down_;
     }
@@ -300,7 +300,8 @@ void SkaterPhysicsModule::break_vert(bool force)
     double length_sqr = static_cast<double>(velocity[0]) * velocity[0] + static_cast<double>(velocity[1]) * velocity[1];
     length_sqr += static_cast<double>(velocity[2]) * velocity[2];
     auto length_sqr_stored = static_cast<float>(length_sqr);
-    double slow = tuning_float_lookup(kBreakVertSlow, 1, object) * std::sqrt(static_cast<double>(length_sqr_stored));
+    const double slow =
+        tuning_float_lookup(kBreakVertSlow, 1, object) * std::sqrt(static_cast<double>(length_sqr_stored));
     velocity[0] = static_cast<float>(velocity[0] - slow * drawn_normal_.x);
     velocity[2] = static_cast<float>(velocity[2] - slow * drawn_normal_.z);
     velocity[1] = static_cast<float>(tuning_float_lookup(kBreakVertUpScale, 1, object) * velocity[1]);

@@ -28,7 +28,7 @@ constexpr int kMethodLzss = 2;
 // 0x00454A60
 int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
 {
-    uint8_t* start = out;
+    const uint8_t* start = out;
     if (size == 0)
         return 0;
     // The two bytes in hand: `current` and `next` (both taken from the input).
@@ -103,7 +103,7 @@ int rle_decompress(const uint8_t* in, int size, uint8_t* out, int* out_size)
 {
     int written = 0;
     while (size != 0) {
-        uint8_t code = *in++;
+        const uint8_t code = *in++;
         --size;
         if (code < kRunCode) {
             // code + 1 bytes as they are. (A code longer than what's left reads on past the end, as the
@@ -118,7 +118,7 @@ int rle_decompress(const uint8_t* in, int size, uint8_t* out, int* out_size)
                 ++copied;
             } while (copied <= code);
         } else {
-            int count = (code & 0x7F) + 2;
+            const int count = (code & 0x7F) + 2;
             uint8_t copied = 0;
             do {
                 if (written >= *out_size)
@@ -144,14 +144,14 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     if (method == kMethodLzss && online::thugpro::peer_mode())
         method = static_cast<char>(lzham::kMethod);
     // The whole message - id, length, data - is compressed.
-    int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
+    const int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
     int compressed_size = 0;
     auto* message = static_cast<uint8_t*>(memory::alloc(size));
     message[0] = *msg_id;
     std::memcpy(message + 1, length, 2);
     std::memcpy(message + 3, data, *length);
     debug::printf("*** Sending compressed message %d. Old size : %d ", *msg_id, *length);
-    int max_size = size * 4 / 3 + size;
+    const int max_size = size * 4 / 3 + size;
     auto* compressed = static_cast<uint8_t*>(memory::alloc(max_size + 3));
     compressed[0] = static_cast<uint8_t>(method);
     auto expanded_size = static_cast<uint16_t>(size);
@@ -164,7 +164,7 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
         debug::printf("LZSS : New payload len : %d, New size : %d\n", size, compressed_size);
     } else if (method == lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11). A stream that fails or doesn't fit counts as "no smaller".
-        size_t lzham =
+        const size_t lzham =
             lzham::compress(message, static_cast<size_t>(size), compressed + 3, static_cast<size_t>(max_size));
         compressed_size = lzham != 0 ? static_cast<int>(lzham) : size;
         debug::printf("LZHAM : New payload len : %d, New size : %d\n", size, compressed_size);

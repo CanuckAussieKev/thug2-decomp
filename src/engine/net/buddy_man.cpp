@@ -394,7 +394,7 @@ void FriendsManager::cancel_add_buddy()
 bool FriendsManager::is_buddy(int profile)
 {
     lists::Hunt<Buddy> search;
-    for (Buddy* buddy = search.head_element(&friends_); buddy; buddy = search.following_item()) {
+    for (const Buddy* buddy = search.head_element(&friends_); buddy; buddy = search.following_item()) {
         if (buddy->account_ == profile)
             return true;
     }
@@ -424,7 +424,7 @@ void FriendsManager::fill_prospective_buddy_list()
     push_top_down();
     for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, true); player;
          player = detail::step_roster_sweep(manager, &search, true)) {
-        int profile = player->profile_id_;
+        const int profile = player->profile_id_;
         if (detail::is_own_player(player) || profile == 0 || is_buddy(profile))
             continue;
         const char* name = detail::player_name(player);
@@ -616,11 +616,11 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
     if (total_of(&man->messages_) > kMaxMessages)
         return;
     push_top_down();
-    size_t length = std::strlen(arg->message);
+    const size_t length = std::strlen(arg->message);
     void* memory = memory::alloc_zeroed(sizeof(FriendNote));
     FriendNote* message = memory ? new (memory) FriendNote : nullptr;
     message->account_ = arg->profile;
-    char* text = text_tools::get_token(arg->message, "\n");
+    const char* text = text_tools::get_token(arg->message, "\n");
     if (length == std::strlen(text)) {
         // One line: from a buddy (else dropped). (A nick of 16 or more characters runs into the text, as in the
         // original.)
@@ -711,7 +711,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
 // 0x00548940: the unique_id preference: the time now (ms) as text.
 bool set_unique_id(script::Struct*, script::Script*)
 {
-    uint32_t now = frame_clock::get_time();
+    const uint32_t now = frame_clock::get_time();
     prefs::Preferences* prefs = net_session_slot()->get_online_settings();
     script::Struct* params = new_params();
     char text[32];
@@ -728,7 +728,7 @@ bool set_unique_id(script::Struct*, script::Script*)
 bool join_buddy(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
-    bool observe = params->has_bare_flag("observe");
+    const bool observe = params->has_bare_flag("observe");
     const char* location = nullptr;
     int ip = 0, private_ip = 0, port = 0;
     params->fetch_text("location", &location, 1);
@@ -803,9 +803,9 @@ bool profile_log_off(script::Struct*, script::Script*)
 // 0x00549D20: FillBuddyList [clear_list] [allow_join] [allow_remove]
 bool fill_buddy_list(script::Struct* params, script::Script*)
 {
-    bool clear = params->has_bare_flag("clear_list");
-    bool allow_join = params->has_bare_flag("allow_join");
-    bool allow_remove = params->has_bare_flag("allow_remove");
+    const bool clear = params->has_bare_flag("clear_list");
+    const bool allow_join = params->has_bare_flag("allow_join");
+    const bool allow_remove = params->has_bare_flag("allow_remove");
     get_buddies()->fill_buddy_list(clear, allow_join, allow_remove);
     return true;
 }

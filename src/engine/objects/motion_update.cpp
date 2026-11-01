@@ -44,11 +44,11 @@ void update_path_speed(KinematicsModule* motion) { reinterpret_cast<MotionPathMe
 void set_step_velocity(GameEntity* object, const float back[4], float frame_time)
 {
     const maths::Vec4& pos = object->at_point_;
-    double x = static_cast<double>(back[0]) + pos.x;
+    const double x = static_cast<double>(back[0]) + pos.x;
     auto y = static_cast<float>(static_cast<double>(back[1]) + pos.y);
     auto z = static_cast<float>(static_cast<double>(back[2]) + pos.z);
     auto w = static_cast<float>(static_cast<double>(back[3]) + pos.w);
-    double inverse = 1.0 / static_cast<double>(frame_time);
+    const double inverse = 1.0 / static_cast<double>(frame_time);
     auto rounded = static_cast<float>(inverse);
     maths::Vec4& vel = object->vel_;
     vel.z = static_cast<float>(static_cast<double>(z) * rounded);
@@ -114,11 +114,11 @@ void KinematicsModule::tick_frame()
     if (!(std::fabs(ground_offset_) > 0.0f)) {
         ground_speed_ = 0.0f;
     } else {
-        bool up = ground_offset_ > 0.0f;
-        float acceleration = up ? 384.0f : -384.0f;
+        const bool up = ground_offset_ > 0.0f;
+        const float acceleration = up ? 384.0f : -384.0f;
         if (up != (ground_speed_ > 0.0f))
             ground_speed_ = 0.0f;
-        double change = static_cast<double>(acceleration) * step_seconds_;
+        const double change = static_cast<double>(acceleration) * step_seconds_;
         auto step = static_cast<float>((0.5 * change + ground_speed_) * step_seconds_);
         ground_speed_ = static_cast<float>(change + ground_speed_);
         // (past the offset: the rest of it, and no more speed; a NaN step goes as it is)
@@ -139,14 +139,14 @@ bool KinematicsModule::update_move_to()
     float back[4];
     get_back(entity_, back);
     if (!(move_acceleration_ == 0.0f)) {
-        double speed = frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_ + move_speed_;
+        const double speed = frame_clock::get_slomo_frame_seconds() * 60.0 * move_acceleration_ + move_speed_;
         move_speed_ = static_cast<float>(speed);
         if (speed >= move_max_speed_) { // (not with a NaN)
             move_speed_ = move_max_speed_;
             move_acceleration_ = 0.0f;
         }
     }
-    double done = static_cast<double>(move_speed_) * step_seconds_ + move_done_;
+    const double done = static_cast<double>(move_speed_) * step_seconds_ + move_done_;
     move_done_ = static_cast<float>(done);
     maths::Vec4& pos = entity_->at_point_;
     if (done >= move_distance_) {
@@ -157,8 +157,8 @@ bool KinematicsModule::update_move_to()
         return true;
     }
     // (the fraction of the way rounded to a float; x and y through rounded products, z through an unrounded one)
-    double dx = static_cast<double>(move_target_.x) - move_start_.x;
-    double dy = static_cast<double>(move_target_.y) - move_start_.y;
+    const double dx = static_cast<double>(move_target_.x) - move_start_.x;
+    const double dy = static_cast<double>(move_target_.y) - move_start_.y;
     auto dz = static_cast<float>(static_cast<double>(move_target_.z) - move_start_.z);
     auto dw = static_cast<float>(static_cast<double>(move_target_.w) - move_start_.w);
     auto t = static_cast<float>(done / move_distance_);
@@ -201,7 +201,7 @@ void KinematicsModule::update_path()
                 matrix.row[2].make_unit();
             }
         }
-        float height = entity_->at_point_.y;
+        const float height = entity_->at_point_.y;
         entity_->at_point_ = path_follower_->at_point_;
         if (motion_flags2_ & kMotion2StickToGround) {
             entity_->at_point_.y = height;
@@ -217,7 +217,7 @@ void KinematicsModule::update_path()
 void KinematicsModule::update_follow_leader()
 {
     trail_->tick_frame();
-    float height = entity_->at_point_.y;
+    const float height = entity_->at_point_.y;
     trail_->fetch_place(&entity_->at_point_, &entity_->basis_frame_);
     if (leave_y_unaffected_)
         entity_->at_point_.y = height;
@@ -257,8 +257,8 @@ void KinematicsModule::arrive_at_node(uint32_t node)
 // 0x00424180
 void KinematicsModule::follow_path_linked(script::Struct* params, script::Script*)
 {
-    uint32_t node = params->has_bare_flag(kOriginalNode) ? own_node_name_ : list_link_;
-    uint32_t links = level_nodes::get_link_count(node);
+    const uint32_t node = params->has_bare_flag(kOriginalNode) ? own_node_name_ : list_link_;
+    const uint32_t links = level_nodes::get_link_count(node);
     if (!links)
         return;
     uint32_t next = 0;
@@ -275,7 +275,7 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
 {
     if (!path_group_)
         return nullptr;
-    SharedRef<Entity>* slot = path_group_->slots_;
+    const SharedRef<Entity>* slot = path_group_->slots_;
     int count = path_group_->extent_;
     GameEntity* nearest = nullptr;
     float nearest_distance = 0.0f; // (only read once there is a nearest)
@@ -286,13 +286,13 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
         const maths::Vec4& at = entity_->basis_frame_.row[2];
         const maths::Vec4& other_at = other->basis_frame_.row[2];
         // (facing the same way, and ahead)
-        double facing = (static_cast<double>(at.z) * other_at.z + static_cast<double>(at.y) * other_at.y) +
-                        static_cast<double>(at.x) * other_at.x;
+        const double facing = (static_cast<double>(at.z) * other_at.z + static_cast<double>(at.y) * other_at.y) +
+                              static_cast<double>(at.x) * other_at.x;
         if (!(facing >= 0.0))
             continue;
-        double ahead = ((static_cast<double>(other->at_point_.z) - entity_->at_point_.z) * at.z +
-                        (static_cast<double>(other->at_point_.y) - entity_->at_point_.y) * at.y) +
-                       (static_cast<double>(other->at_point_.x) - entity_->at_point_.x) * at.x;
+        const double ahead = ((static_cast<double>(other->at_point_.z) - entity_->at_point_.z) * at.z +
+                              (static_cast<double>(other->at_point_.y) - entity_->at_point_.y) * at.y) +
+                             (static_cast<double>(other->at_point_.x) - entity_->at_point_.x) * at.x;
         if (!(ahead >= 0.0))
             continue;
         // (both on the same segment: headed for the same node - and if that's the same, from the same one)
@@ -302,10 +302,10 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
             if (path_last_node(other_motion) != path_last_node(this))
                 continue;
         }
-        double dx = static_cast<double>(entity_->at_point_.x) - other->at_point_.x;
-        double dy = static_cast<double>(entity_->at_point_.y) - other->at_point_.y;
-        double dz = static_cast<double>(entity_->at_point_.z) - other->at_point_.z;
-        double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
+        const double dx = static_cast<double>(entity_->at_point_.x) - other->at_point_.x;
+        const double dy = static_cast<double>(entity_->at_point_.y) - other->at_point_.y;
+        const double dz = static_cast<double>(entity_->at_point_.z) - other->at_point_.z;
+        const double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
         if (!(distance <= range))
             continue;
         if (nearest && !(distance < nearest_distance))
@@ -355,7 +355,7 @@ bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::
     params->fetch_float(kRange, &range, 0);
     range = static_cast<float>(static_cast<double>(range) * 12.0f); // (feet)
     script->args_->erase_module(kOb);
-    if (GameEntity* next = get_next_obj_on_path(range))
+    if (const GameEntity* next = get_next_obj_on_path(range))
         script->args_->put_name_key(kOb, next->ident_);
     return true;
 }

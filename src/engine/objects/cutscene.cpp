@@ -86,7 +86,7 @@ void CinematicTable::check_skip()
 {
     if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0f)
         return;
-    modules::FrontEndInputHandler* handler = modules::front_end_instance()->pad_listeners_[0].get();
+    const modules::FrontEndInputHandler* handler = modules::front_end_instance()->pad_listeners_[0].get();
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return;

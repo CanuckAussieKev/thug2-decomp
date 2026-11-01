@@ -198,10 +198,10 @@ void ParkAssembler::sample_light_colour(const maths::Vec4* position, uint8_t* rg
 
 void ParkAssembler::light_piece(ParkTile* p)
 {
-    DuplicatedTile* piece = get_cloned(p);
+    const DuplicatedTile* piece = get_cloned(p);
     void* geometry = fetch_shape(look_up_sector(piece->sector_));
     void* source_geometry = fetch_shape(look_up_sector(piece->blend_source_->sector_));
-    int count = get_vertex_count(geometry);
+    const int count = get_vertex_count(geometry);
     if (count) {
         // (new[] of vectors and colours: their constructors do nothing)
         auto* positions = static_cast<maths::Vec4*>(memory::alloc(count * sizeof(maths::Vec4)));
@@ -215,13 +215,13 @@ void ParkAssembler::light_piece(ParkTile* p)
         memory::dealloc(colours);
     }
     // the collision's vertex intensities, from the source's (grey)
-    render::TriMeshSource* collision = get_hit_shape(geometry);
-    render::TriMeshSource* source_collision = get_hit_shape(source_geometry);
-    int vertices = collision->num_vertices_;
+    const render::TriMeshSource* collision = get_hit_shape(geometry);
+    const render::TriMeshSource* source_collision = get_hit_shape(source_geometry);
+    const int vertices = collision->num_vertices_;
     for (int i = 0; i < vertices; ++i) {
-        uint8_t grey = source_collision->vertex_bytes_[i];
+        const uint8_t grey = source_collision->vertex_bytes_[i];
         uint8_t rgba[4] = {grey, grey, grey, 0xFF};
-        maths::Vec4 position = collision->read_stored_vertex(i);
+        const maths::Vec4 position = collision->read_stored_vertex(i);
         sample_light_colour(&position, rgba);
         collision->vertex_bytes_[i] = static_cast<uint8_t>((rgba[0] + rgba[1] + rgba[2]) / 3);
     }
@@ -325,7 +325,7 @@ void ParkAssembler::destroy_pieces(int keep_rails)
 void ParkAssembler::destroy_piece(void* p)
 {
     auto* piece = static_cast<DuplicatedTile*>(p);
-    uint32_t flags = piece->flag_bits_;
+    const uint32_t flags = piece->flag_bits_;
     piece->flag_bits_ = flags | DuplicatedTile::kDestroy;
     if (flags & DuplicatedTile::kDestroyNow)
         destroy_piece_now(this, piece, 0);
@@ -354,8 +354,8 @@ void ParkAssembler::unload_pieces()
         flag_bits_ &= ~(ParkAssembler::kPiecesCreated | ParkAssembler::kHasPieces);
         delete_marked_sectors(scene_handle_);
     }
-    for (TemplateTile* source = sources_; source;) {
-        TemplateTile* next = source->following_;
+    for (const TemplateTile* source = sources_; source;) {
+        const TemplateTile* next = source->following_;
         delete source;
         source = next;
     }
@@ -371,7 +371,7 @@ void ParkAssembler::add_piece_to_scene(ParkTile* p)
     piece->sector_ = park_editing::duplicate_scene_sector(source_world_, piece->blend_source_->sector_, scene_handle_,
                                                           cursor, !cursor);
     void* sector = look_up_sector(piece->sector_);
-    maths::Vec4 position = piece->at_point_;
+    const maths::Vec4 position = piece->at_point_;
     place_at_absolute_point(sector, &position);
     spin_around_up(sector, piece->quarter_turns_);
     if (piece->flag_bits_ & DuplicatedTile::kGap)
@@ -382,7 +382,7 @@ void ParkAssembler::add_piece_to_scene(ParkTile* p)
 void ParkAssembler::rebuild_all()
 {
     scene_updates() = false;
-    for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_)
+    for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following_)
         park_editing::remove_scene_sector(scene_handle_, piece->sector_);
     rail_editor_remove_a();
     rail_editor_remove_b();
@@ -404,7 +404,7 @@ void ParkAssembler::rebuild_all()
 void ParkAssembler::rebuild_marked()
 {
     scene_updates() = false;
-    for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
+    for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
         if (piece->blend_source_->flag_bits_ & TemplateTile::kRebuilt) {
             park_editing::remove_scene_sector(scene_handle_, piece->sector_);
             if (scene_updates())

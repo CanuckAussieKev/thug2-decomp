@@ -147,7 +147,7 @@ Hub::LabeledZone* Hub::find_named_heap(uint32_t name)
 // 0x005BAF50
 Arena* Hub::fetch_heap_by_key(uint32_t name, int /*unused*/)
 {
-    LabeledZone* named = find_named_heap(name);
+    const LabeledZone* named = find_named_heap(name);
     return named ? named->heap : nullptr;
 }
 
@@ -200,7 +200,7 @@ enum HeapName : uint32_t {
 // 0x005BB310
 Arena* Hub::get_memory_pool(uint32_t name)
 {
-    if (LabeledZone* named = find_named_heap(name))
+    if (const LabeledZone* named = find_named_heap(name))
         return named->heap;
     switch (name) {
     case kTopDownHeap:
@@ -249,7 +249,7 @@ Arena* Hub::get_memory_pool(uint32_t name)
         break;
     }
     // (looked up again, as in the original)
-    LabeledZone* named = find_named_heap(name);
+    const LabeledZone* named = find_named_heap(name);
     return named ? named->heap : nullptr;
 }
 
@@ -487,7 +487,7 @@ Hub::Hub()
     g_heap_block_start = block;
     g_heap_block_end = block + block_size;
     g_heap_block_limit = block + block_size;
-    uint8_t* end = g_heap_block_limit;
+    const uint8_t* end = g_heap_block_limit;
     void* region = get_clear(sizeof(Zone), kMainRegionStorage);
     primary_zone_ = region ? new (region)
                                  Zone(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
@@ -506,8 +506,8 @@ Hub::Hub()
     auto code_start = g_text_seg_base;
     auto data_start = g_data_start;
     auto data_end = g_data_end;
-    uint32_t data_k = static_cast<uint32_t>(data_end - data_start) >> 10;
-    uint32_t code_k = static_cast<uint32_t>(data_start - code_start) >> 10;
+    const uint32_t data_k = static_cast<uint32_t>(data_end - data_start) >> 10;
+    const uint32_t code_k = static_cast<uint32_t>(data_start - code_start) >> 10;
     debug::printf("code [%p - %p] (%dK) + data [%p - %p] (%dK) = %dK \n", code_start, data_start, code_k, data_start,
                   data_end, data_k, data_k + code_k);
 

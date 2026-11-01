@@ -139,9 +139,9 @@ int game_main(int argc, char** argv)
         objects::create_tracker(true);
         frame_loop::Hub* mlp = frame_loop::create_manager(true);
         modules::Hub* mdl = modules::create_manager(true);
-        sio::Hub* sio = sio::create_manager(true);
+        const sio::Hub* sio = sio::create_manager(true);
         save_cards::create_manager(true);
-        pad_input::Hub* input = pad_input::create_manager(true);
+        const pad_input::Hub* input = pad_input::create_manager(true);
         file::AsyncLoaderModule* async_loader = file::create_async_loader_module(true);
         memory::pop_mem_profile();
         pad_input::g_input_manager->change_pad_follows_stick(true); // (+0x10C)

@@ -75,7 +75,7 @@ PrefixTable::~PrefixTable()
         PrefixNodes* next = nullptr;
         if (slot_table_->step_iterator() && slot_table_->iter_item_)
             next = static_cast<PrefixNodes*>(slot_table_->iter_item_->value);
-        uint32_t prefix = nodes->name_prefix_;
+        const uint32_t prefix = nodes->name_prefix_;
         if (nodes->indices_)
             memory::free_malloc(nodes->indices_);
         memory::Hub::get_pull()->dealloc(nodes);
@@ -133,7 +133,7 @@ void PrefixTables::add_node_array(uint32_t name)
     first_ptr_ = table;
     table->node_array_ = name;
     Array* nodes = script::fetch_list(name);
-    uint32_t count = nodes->extent_;
+    const uint32_t count = nodes->extent_;
     for (uint32_t i = 0; i < count; ++i) {
         auto* node = reinterpret_cast<Struct*>(nodes->fetch_part(i));
         uint32_t node_name = 0;
@@ -149,7 +149,7 @@ void PrefixTables::add_node_array(uint32_t name)
         for (const char* p = text; *p; ++p) {
             char* at = buffer + (p - text);
             *at = *p;
-            char c = *p;
+            const char c = *p;
             if (c < '0' || c > '9')
                 digits = nullptr;
             else if (!digits)
@@ -166,7 +166,7 @@ void PrefixTables::add_node_array(uint32_t name)
         }
         if (digits) {
             *digits = '\0';
-            uint32_t prefix = checksums::hash_from_text(buffer);
+            const uint32_t prefix = checksums::hash_from_text(buffer);
             table->append_one(prefix, static_cast<uint16_t>(i));
             script::register_name_hash(prefix, buffer);
         }
@@ -199,8 +199,8 @@ uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
 {
     uint32_t* names = node_names();
     int found = 0;
-    for (PrefixTable* table = first_ptr_; table; table = table->following_) {
-        PrefixNodes* nodes = get_find(table->slot_table_, prefix);
+    for (const PrefixTable* table = first_ptr_; table; table = table->following_) {
+        const PrefixNodes* nodes = get_find(table->slot_table_, prefix);
         if (!nodes)
             continue;
         auto n = static_cast<uint16_t>(nodes->num_);
@@ -243,7 +243,7 @@ uint32_t* collect_nodes_by_prefix(uint32_t prefix, uint16_t* count)
 uint32_t* collect_nodes_by_prefix(const char* prefix, uint16_t* count)
 {
     char buffer[100];
-    size_t length = std::strlen(prefix);
+    const size_t length = std::strlen(prefix);
     if (length && prefix[length - 1] == '_') {
         std::memcpy(buffer, prefix, length + 1); // (unchecked: the original's too)
         buffer[length - 1] = '\0';

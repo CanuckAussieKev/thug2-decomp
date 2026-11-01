@@ -68,10 +68,10 @@ Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
 void show_connection_metrics(net::Conn* conn, int index)
 {
-    int lag = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
-    int sent = conn->send_metrics_.get_throughput();
-    int received = conn->receive_metrics_.get_throughput();
-    int resends = conn->get_highest_resend_count();
+    const int lag = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
+    const int sent = conn->send_metrics_.get_throughput();
+    const int received = conn->receive_metrics_.get_throughput();
+    const int resends = conn->get_highest_resend_count();
     char line[1024];
     std::sprintf(line, "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
     script::Struct* params = new_params();
@@ -117,7 +117,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     net::Hub* net = net::Hub::sole();
-    int state = net->get_dialup_status();
+    const int state = net->get_dialup_status();
     int& shown = manager->modem_state_shown_; // the state shown last
     if (state == shown && state != 8) {
         shown = state;
@@ -180,7 +180,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
 // 0x00533B50 (each list is shown twice: the original's loop)
 void net_metrics_task(tasks::Task<Hub>* task)
 {
-    Hub* manager = task_manager(task);
+    const Hub* manager = task_manager(task);
     for (int pass = 0; pass < 2; ++pass) {
         if (net::AppHost* client = manager->client_app_; client && !client->is_host_local())
             show_app_metrics(client);
@@ -192,7 +192,7 @@ void net_metrics_task(tasks::Task<Hub>* task)
 // 0x00533ED0
 void join_deadline_tick(tasks::Task<Hub>* task)
 {
-    Hub* manager = task_manager(task);
+    const Hub* manager = task_manager(task);
     if (manager->join_phase_ == 8 ||
         frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at_) <= kJoinTimeout)
         return;
@@ -208,10 +208,10 @@ void key_list_callback(int type, void* keys, void*)
 {
     auto add = [keys](int key) { game_spy::qr2_key_buffer_add(keys, key); };
     if (type == 0) { // the server's
-        for (int key : {1, 2, 4, 5, 6, 8, 0x14, 0xA, 0xB, 0x13})
+        for (const int key : {1, 2, 4, 5, 6, 8, 0x14, 0xA, 0xB, 0x13})
             add(key);
     } else if (type == 1) { // the players'
-        for (int key : {0x15, 0x18, 0x19})
+        for (const int key : {0x15, 0x18, 0x19})
             add(key);
     }
 }

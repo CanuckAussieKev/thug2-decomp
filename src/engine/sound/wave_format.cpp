@@ -9,8 +9,8 @@ bool read_wave(util::ByteReader& reader, Wave* out)
     *out = Wave{};
     reader.skip(12); // "RIFF", its size, "WAVE"
     while (reader.ok() && reader.remaining() >= 8) {
-        uint32_t id = reader.u32();
-        uint32_t size = reader.u32();
+        const uint32_t id = reader.u32();
+        const uint32_t size = reader.u32();
         const uint8_t* body = reader.cursor();
         if (!reader.skip(size))
             return false;

@@ -159,7 +159,7 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
 // 0x00599960
 void ParkLayout::highlight_metas_within_area(CellBox area, int on)
 {
-    MapListHolder metas(collect_pieces_in_region(area));
+    const MapListHolder metas(collect_pieces_in_region(area));
     for (MapListNode* node = metas.list; node; node = node->following_) {
         PieceGroup* meta = node->get_piece_group();
         if (meta && (meta->flag_bits_ & PieceGroup::kFlag1) && meta->fits_inside_region(&area))
@@ -180,7 +180,7 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
         drop_gap_entry(gap_registry_->get_gap_info(gap, &half));
     }
     // A change to the park the player made: the compressed map is out of date.
-    uint32_t meta_flags = meta->flag_bits_;
+    const uint32_t meta_flags = meta->flag_bits_;
     if (!(meta_flags & PieceGroup::kFence) && (meta_flags & PieceGroup::kInPark) &&
         !(meta_flags & PieceGroup::kBuiltShell))
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
@@ -228,9 +228,9 @@ void ParkLayout::destroy_concrete_metas(int keep_rails)
 PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int dz)
 {
     CellBox pos = meta->cell_footprint_;
-    uint32_t checksum = meta->name_key_;
-    int rot = meta->quarter_turns_;
-    uint32_t flags = meta->flag_bits_;
+    const uint32_t checksum = meta->name_key_;
+    const int rot = meta->quarter_turns_;
+    const uint32_t flags = meta->flag_bits_;
     // The gap it's an end of goes with it (the lookup shrinks `pos` to 1x1x1, which the move ignores).
     bool had_gap = false;
     int half = 0;

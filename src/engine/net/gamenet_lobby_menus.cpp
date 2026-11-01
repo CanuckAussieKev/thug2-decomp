@@ -142,7 +142,7 @@ void RoomManager::room_message_callback(void*, int, const char* nick, const char
 // 0x00540E00
 bool cfunc_send_message(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    const Hub* manager = net_session_slot();
     const char* message = nullptr;
     if (!params->fetch_text(kText, &message, 0))
         return true;
@@ -174,7 +174,7 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
         std::sprintf(text, "%s - %d/%d", room->label_, room->num_players_, room->max_players_);
     script::Struct* params = new_params();
     params->append_word(kText, text);
-    bool available = !room->full_ && !room->out_of_range_;
+    const bool available = !room->full_ && !room->out_of_range_;
     if (available) {
         params->put_name_key(kPadChooseScript, kChooseSelectedLobby);
         params->put_name_key(kFocusScript, kRegionsMenuSetFocus);
@@ -195,7 +195,7 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
 // 0x005411E0
 void RoomManager::add_player_list_item(LobbyPlayer* player)
 {
-    Hub* manager = net_session_slot();
+    const Hub* manager = net_session_slot();
     push_internet_heap();
     script::Struct* choose = new_params();
     script::Struct* params = new_params();
@@ -280,10 +280,10 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
     auto server_int = [server](const char* key, int fallback) {
         return game_spy::server_get_int_value(server, key, fallback);
     };
-    int lobby = server_int("lobby_num", 0);
+    const int lobby = server_int("lobby_num", 0);
     if (lobby) {
         uint32_t size = 0;
-        void* data = manager->get_pending_data(&size);
+        const void* data = manager->get_pending_data(&size);
         if (static_cast<uint32_t>(lobby) ==
             checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size)))
             found = true;

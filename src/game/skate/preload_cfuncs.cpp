@@ -137,7 +137,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
         node->read_hash_value(kType, &type, 0);
         if (!is_multiplayer()) {
             bool flag = false;
-            for (uint32_t flag_type : kFlagTypes)
+            for (const uint32_t flag_type : kFlagTypes)
                 flag = flag || type == flag_type;
             if (flag)
                 continue;
@@ -168,7 +168,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
                 get_base_name(file, name);
                 std::memcpy(name + std::strlen(name), ".col", 5);
                 assets::ResourceRegistry* assets = assets::asset_manager();
-                bool permanent = assets->get_permanent_by_default();
+                const bool permanent = assets->get_permanent_by_default();
                 assets->fetch_or_load_resource(name, 8, 0, checksums::hash_from_text(file), false, false, permanent,
                                                nullptr, 0);
             }
@@ -178,7 +178,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
             get_base_name(path.c_str(), script);
             std::memcpy(script + std::strlen(script), ".qb", 4);
             assets::ResourceRegistry* assets = assets::asset_manager();
-            bool permanent = assets->get_permanent_by_default();
+            const bool permanent = assets->get_permanent_by_default();
             assets->fetch_or_load_resource(script, 0xA, 0, 0, false, false, permanent, nullptr, 0);
         }
         delete_model(nx_model);
@@ -199,7 +199,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         return false;
     memory::push_mem_profile("Random Ped Parts");
     if (!params->has_bare_flag(kNoRandom)) {
-        for (uint32_t list : kPedPartLists)
+        for (const uint32_t list : kPedPartLists)
             preload_part_list(list);
     }
     memory::pop_mem_profile();
@@ -260,8 +260,8 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     uint32_t part = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
     script::Array* list = script::fetch_list(part);
-    uint32_t size = list->extent_;
-    uint32_t level = modules::Skate::sole()->pending_level_; // (the level the parts are chosen for)
+    const uint32_t size = list->extent_;
+    const uint32_t level = modules::Skate::sole()->pending_level_; // (the level the parts are chosen for)
     for (uint32_t i = 0; i < size; ++i) {
         script::Struct* option = get_element(list, i);
         option->erase_module(kPickPermitted);

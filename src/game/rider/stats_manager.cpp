@@ -113,8 +113,9 @@ int count_tricks(void* score, uint32_t trick, int a, int b, int c)
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
 double span_to(const maths::Vec4& a, const maths::Vec4& b)
 {
-    double dx = static_cast<double>(a.x) - b.x, dy = static_cast<double>(a.y) - b.y,
-           dz = static_cast<double>(a.z) - b.z;
+    const double dx = static_cast<double>(a.x) - b.x;
+    const double dy = static_cast<double>(a.y) - b.y;
+    const double dz = static_cast<double>(a.z) - b.z;
     return std::sqrt((dz * dz + dx * dx) + dy * dy);
 }
 
@@ -191,7 +192,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
         raise_stats_ = true;
 
     script::Array* goals = script::fetch_list(0x4E46CC28u);
-    int count = static_cast<int>(goals->extent_);
+    const int count = static_cast<int>(goals->extent_);
     for (int i = 0; i < count; ++i) {
         auto* source = reinterpret_cast<script::Struct*>(goals->fetch_part(static_cast<uint32_t>(i)));
         Goal& goal = goals_[i];
@@ -312,7 +313,7 @@ void AttributeTracker::announce_met_goals()
             launch_script(0x750BCF49);
             announced = true;
         }
-        uint32_t stat = goal.attr_key_;
+        const uint32_t stat = goal.attr_key_;
         goal.cur_standing_ = 1;
         // The stat's name (a global string per stat).
         uint32_t text = 0;
@@ -402,13 +403,13 @@ void AttributeTracker::tick_frame()
     }
     auto* score = static_cast<modules::PointTally*>(point_tally(skater_));
     points_held_ = truncate(score->pot_ * static_cast<double>(score->multiplier_));
-    float multiplier = score->multiplier_;
+    const float multiplier = score->multiplier_;
     multiplier_ = multiplier;
     path_vertices_ = multiplier == 0.0f ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
 
-    int physics_state = skater_state_->cur_phase_;
+    const int physics_state = skater_state_->cur_phase_;
     cur_phase_ = kStateOther;
-    RiderPoseState* control_state = physics_control_->pose_;
+    const RiderPoseState* control_state = physics_control_->pose_;
     const maths::Vec4& pos = entity_->at_point_;
     if (!control_state->in_vehicle_ && control_state->physics_mode_ == 0) {
         if (skater_state_->flag(PoseFlag::kVertAir).on) {
@@ -422,7 +423,7 @@ void AttributeTracker::tick_frame()
                 debug::printf("vert_start_score = %i\n", points_held_); // "vert_start_score = %i"
                 air_best_ = 0;
             } else {
-                double height = static_cast<double>(pos.y) - air_start_.y;
+                const double height = static_cast<double>(pos.y) - air_start_.y;
                 if (height > air_height_)
                     air_height_ = static_cast<float>(height);
                 air_score_ = truncate((static_cast<double>(multiplier) - air_start_multiplier_) *
@@ -433,8 +434,8 @@ void AttributeTracker::tick_frame()
         } else if (last_state_ == kStateLaunched) {
             if (air_phase_ == 1) {
                 air_end_ = pos;
-                double gained = static_cast<double>(multiplier_) - air_start_multiplier_;
-                int air_score = truncate(get_minus(path_vertices_, air_start_points_) * gained);
+                const double gained = static_cast<double>(multiplier_) - air_start_multiplier_;
+                const int air_score = truncate(get_minus(path_vertices_, air_start_points_) * gained);
                 air_score_ = air_score;
                 air_phase_ = 2;
                 if (gained > 1.0f && air_score != 0)
@@ -468,7 +469,7 @@ void AttributeTracker::tick_frame()
     // The open goals.
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
-        Goal& goal = goals_[i];
+        const Goal& goal = goals_[i];
         if (goal.cur_standing_ != 0 || goal.met_)
             continue;
         bool meets = false;
@@ -509,21 +510,21 @@ void AttributeTracker::tick_frame()
             meets = count_a84_ >= goal.aim_point_;
             break;
         case kTrickCount: {
-            int target = goal.aim_point_;
-            uint32_t trick = goal.trick_;
+            const int target = goal.aim_point_;
+            const uint32_t trick = goal.trick_;
             if (count_tricks(score, trick, 0, 0, static_cast<int>(goal.value20_)) >= target) {
                 meets = true;
             } else if (trick == kManual) {
-                int manuals = count_tricks(score, trick, 0, 0, 1);
+                const int manuals = count_tricks(score, trick, 0, 0, 1);
                 meets = manuals + count_tricks(score, 0x89B7DBE4, 0, 0, 1) >= target;
             }
             break;
         }
         case kLeapReach:
             if (jump_phase_ == 2) {
-                maths::Vec4 start = {jump_start_.x, 0.0f, jump_start_.z, 1.0f};
-                maths::Vec4 end = {jump_end_.x, 0.0f, jump_end_.z, 1.0f};
-                double distance = span_to(end, start);
+                const maths::Vec4 start = {jump_start_.x, 0.0f, jump_start_.z, 1.0f};
+                const maths::Vec4 end = {jump_end_.x, 0.0f, jump_end_.z, 1.0f};
+                const double distance = span_to(end, start);
                 meets = goal.aim_point_ * static_cast<double>(kFeet) <= distance;
             }
             break;
@@ -532,7 +533,7 @@ void AttributeTracker::tick_frame()
                 auto target = static_cast<float>(goal.aim_point_);
                 air_end_.y = 0.0f;
                 air_start_.y = 0.0f;
-                double distance = span_to(air_end_, air_start_);
+                const double distance = span_to(air_end_, air_start_);
                 meets = target * static_cast<double>(kFeet) <= distance;
             }
             break;
@@ -564,10 +565,10 @@ void AttributeTracker::check_balance_time(uint32_t trick_type, float time, int)
         return;
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
-        Goal& goal = goals_[i];
+        const Goal& goal = goals_[i];
         if (goal.cur_standing_ != 0 || goal.met_)
             continue;
-        int target = goal.aim_point_;
+        const int target = goal.aim_point_;
         uint32_t kind = 0;
         if (trick_type == kSlide || trick_type == kGrind)
             kind = kGrindTime;

@@ -357,7 +357,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
     ghttp_think();
     pop_heap();
 
-    int transfer = vault->transfer_;
+    const int transfer = vault->transfer_;
     if (vault->progress_ < 100) {
         if (transfer == kDownload || transfer == kDownload6) {
             char text[16];
@@ -403,7 +403,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         }
         push_bottom_up();
         // (an empty list leaves the transfer as it is: it's read again next time)
-        char* line = text_tools::get_token(vault->octets_, "\r\n");
+        const char* line = text_tools::get_token(vault->octets_, "\r\n");
         if (line) {
             do {
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
@@ -530,15 +530,15 @@ unsigned long __stdcall VaultMan::list_thread(void* param)
 // 0x0054A860
 unsigned long __stdcall VaultMan::download_thread(void* url)
 {
-    Hub* manager = net_session_slot();
+    const Hub* manager = net_session_slot();
     VaultMan* vault = get_vault();
     get_stall(vault->semaphore_);
     push_bottom_up();
-    uint32_t size = vault->buffer_size_;
+    const uint32_t size = vault->buffer_size_;
     auto* buffer = static_cast<char*>(memory::alloc(size));
     vault->octets_ = buffer;
-    int request = ghttp_get_ex(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
-                               reinterpret_cast<const void*>(&on_progress), vault->callback_, vault);
+    const int request = ghttp_get_ex(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
+                                     reinterpret_cast<const void*>(&on_progress), vault->callback_, vault);
     manager->vault_man_->req_ = request;
     pop_heap();
     get_release(manager->vault_man_->semaphore_);
@@ -566,7 +566,7 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
         size = script::measure_buffer_bytes(vault->content_, kListBufferSize);
         buffer = static_cast<char*>(memory::alloc(size));
         script::emit_into_buffer(vault->content_, reinterpret_cast<uint8_t*>(buffer), size, 1, nullptr);
-        uint32_t checksum = checksums::generate_crc_caseless(buffer, static_cast<int>(size));
+        const uint32_t checksum = checksums::generate_crc_caseless(buffer, static_cast<int>(size));
         text_tools::dup_from(file_name, vault->source_path_);
         return checksum;
     };
@@ -588,13 +588,13 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
             ghttp_post_add_string(post, "filetype", "cag");
             add_number("num_goals", vault->num_goals_);
         }
-        uint32_t checksum = write_data();
+        const uint32_t checksum = write_data();
         ghttp_post_add_string(post, "player", network_id);
         add_number("checksum", static_cast<int>(checksum));
         break;
     }
     case kVaultParks: {
-        uint32_t checksum = write_data();
+        const uint32_t checksum = write_data();
         ghttp_post_add_string(post, "player", network_id);
         add_number("width", vault->span_);
         add_number("height", vault->byte_count_);
@@ -754,9 +754,9 @@ bool cancel_file_transfer(script::Struct*, script::Script*)
 // the uploads list, as an "Uploads" category).
 bool download_directory_list(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    const Hub* manager = net_session_slot();
     VaultMan* vault = manager->vault_man_.get();
-    FriendsManager* buddies = manager->presence_service_.get();
+    const FriendsManager* buddies = manager->presence_service_.get();
     params->read_hash_value(0u, &vault->kind_tag_, 1);
     if (const char* folder = type_folder(vault->kind_tag_)) // (an unknown type keeps the folder)
         std::snprintf(vault->folder_, sizeof(vault->folder_), "%s", folder);
@@ -792,7 +792,7 @@ bool free_directory_listing(script::Struct*, script::Script*)
 // its details as parameters, choosing it gets the file.
 bool fill_vault_menu(script::Struct*, script::Script*)
 {
-    VaultMan* vault = get_vault();
+    const VaultMan* vault = get_vault();
     push_top_down();
     for (memory::ListNode* node = get_next_node(&vault->category_->items_); node; node = get_next_node(node)) {
         auto* item = static_cast<VaultItem*>(node->data);

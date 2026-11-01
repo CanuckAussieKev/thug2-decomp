@@ -67,7 +67,8 @@ bool get_hit(Point from, Point to, Point* at)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* feeler = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!feeler->get_collision_along(&start, &end, false))
         return false;
     if (at)
@@ -98,7 +99,7 @@ Kickoff find_start_spot(Point pos, float heading)
 
 script::Struct* level_params_ref()
 {
-    uint32_t name = modules::Skate::sole()->level_params_;
+    const uint32_t name = modules::Skate::sole()->level_params_;
     return name ? script::read_sub_struct(name) : nullptr;
 }
 
@@ -139,7 +140,7 @@ objects::GameEntity* object_of(script::Struct* params)
 // The skater put at `pos` facing `heading` (standing upright), its drawn matrix and the core physics' with it.
 void place_skater(objects::Rider* skater, Point pos, float heading)
 {
-    double h = static_cast<double>(heading) * kPi / 180.0;
+    const double h = static_cast<double>(heading) * kPi / 180.0;
     auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
         m->row[0] = {c, 0.0f, -s, 0.0f};
@@ -175,11 +176,12 @@ bool cfunc_home_spot(script::Struct*, script::Script* script)
 bool cfunc_walk_to_bike(script::Struct* params, script::Script*)
 {
     objects::Rider* skater = local_skater();
-    objects::GameEntity* bike = object_of(params);
+    const objects::GameEntity* bike = object_of(params);
     if (!skater || !bike)
         return true;
-    Point from = point_of(skater->at_point_), to = point_of(bike->at_point_);
-    float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
+    const Point from = point_of(skater->at_point_);
+    const Point to = point_of(bike->at_point_);
+    const float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
     Point next{};
     if (step_toward(from, to, kWalkStep, &next)) {
         place_skater(skater, to, get_heading_of(bike->basis_frame_.row[2].x, bike->basis_frame_.row[2].z));
@@ -196,14 +198,14 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script*)
 // ThawBmx_BikeReachable id=<object>
 bool cfunc_bike_reachable(script::Struct* params, script::Script*)
 {
-    objects::Rider* skater = local_skater();
-    objects::GameEntity* bike = object_of(params);
+    const objects::Rider* skater = local_skater();
+    const objects::GameEntity* bike = object_of(params);
     return skater && bike && get_clear(point_of(skater->at_point_), point_of(bike->at_point_));
 }
 
 void launch_script(const char* name)
 {
-    uint32_t checksum = name_hash(name);
+    const uint32_t checksum = name_hash(name);
     if (script::script_exists(checksum))
         script::launch_script(checksum, nullptr, nullptr, false, name);
 }
@@ -212,13 +214,14 @@ void launch_script(const char* name)
 
 bool step_toward(Point from, Point to, float step, Point* out)
 {
-    float dx = to.x - from.x, dz = to.z - from.z;
-    float distance = std::sqrt(dx * dx + dz * dz);
+    const float dx = to.x - from.x;
+    const float dz = to.z - from.z;
+    const float distance = std::sqrt(dx * dx + dz * dz);
     if (distance <= step) {
         *out = to;
         return true;
     }
-    float t = step / distance;
+    const float t = step / distance;
     *out = {from.x + dx * t, from.y + (to.y - from.y) * t, from.z + dz * t};
     return false;
 }
@@ -231,7 +234,7 @@ bool turn_toward(float heading, float target, float max_step, float* out)
             a += 360.0f;
         return a - 180.0f;
     };
-    float difference = wrap(target - heading);
+    const float difference = wrap(target - heading);
     if (std::fabs(difference) <= max_step) {
         *out = wrap(target);
         return true;
@@ -249,9 +252,10 @@ float get_heading_of(float x, float z)
 
 void start_spot_candidates(Point pos, float heading, float distance, Point out[4])
 {
-    double h = static_cast<double>(heading) * kPi / 180.0;
+    const double h = static_cast<double>(heading) * kPi / 180.0;
     auto ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h));  // (at)
-    float rx = az, rz = -ax;                                                          // (right: up x at)
+    const float rx = az;
+    const float rz = -ax; // (right: up x at)
     out[0] = {pos.x + rx * distance, pos.y, pos.z + rz * distance};
     out[1] = {pos.x - rx * distance, pos.y, pos.z - rz * distance};
     out[2] = {pos.x - ax * distance, pos.y, pos.z - az * distance};
@@ -272,8 +276,8 @@ void update_parked(modules::FrontEnd* front_end)
 {
     if ((front_end && front_end->is_halted_) || frontend::level_editor::live_now())
         return;
-    objects::Rider* skater = local_skater();
-    uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params_ : 0;
+    const objects::Rider* skater = local_skater();
+    const uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params_ : 0;
     if (!skater || !structure || render::current_level() == 0) {
         g_level.frames = 0;
         return;
@@ -287,8 +291,8 @@ void update_parked(modules::FrontEnd* front_end)
         if (g_level.frames < kSettleFrames)
             return;
         // (where the skater is now: where the level started it)
-        Point pos = point_of(skater->at_point_);
-        float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
+        const Point pos = point_of(skater->at_point_);
+        const float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
         g_level.start = find_start_spot(pos, heading);
         g_level.noted = true;
         if (!g_level.start.valid)

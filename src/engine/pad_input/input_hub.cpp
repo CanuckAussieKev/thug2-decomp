@@ -53,7 +53,7 @@ bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
 int span_to(uint8_t value)
 {
-    int distance = 0x80 - value;
+    const int distance = 0x80 - value;
     return distance < 0 ? -distance : distance;
 }
 // Within the dead zone: no more than 50 from the centre.
@@ -63,7 +63,7 @@ bool get_centred(uint8_t value) { return span_to(value) <= 0x32; }
 void set_buttons(Payload& data, uint32_t buttons)
 {
     data.previous_ = data.ongoing_;
-    uint32_t changes = data.previous_ ^ buttons;
+    const uint32_t changes = data.previous_ ^ buttons;
     data.ongoing_ = buttons;
     data.changes_ = changes;
     data.buttons_ = buttons;
@@ -87,8 +87,8 @@ void Payload::block_stick_input(uint32_t mask)
     for (int i = 0; i < kQueueCapacity; ++i) {
         if (!(mask & (1u << i)))
             continue;
-        bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX || i == kRawRightY ||
-                     i == kRawLeftX || i == kRawLeftY;
+        const bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
+                           i == kRawRightY || i == kRawLeftX || i == kRawLeftY;
         incident_[i] = stick ? 0x80 : 0;
     }
 }
@@ -122,7 +122,7 @@ void Payload::pad_follows_stick()
 {
     if (buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft))
         return;
-    uint8_t x = incident_[kLeftX];
+    const uint8_t x = incident_[kLeftX];
     if (x > 0x80) {
         incident_[kPadRight] = static_cast<uint8_t>(x + 0x80);
         buttons_ |= kButtonRight;
@@ -130,7 +130,7 @@ void Payload::pad_follows_stick()
         incident_[kPadLeft] = static_cast<uint8_t>(span_to(x));
         buttons_ |= kButtonLeft;
     }
-    uint8_t y = incident_[kLeftY];
+    const uint8_t y = incident_[kLeftY];
     if (y < 0x80) {
         incident_[kPadUp] = static_cast<uint8_t>(y + 0x80); // (not the distance from the centre, as the others)
         buttons_ |= kReleaseEdge;
@@ -170,8 +170,8 @@ void HostEnd::poll_input_sinks()
     const uint8_t* control = device->control_data_;
     if (control[0] != 0) // no pad
         return;
-    int type = control[1] >> 4;
-    uint32_t buttons = ((control[2] << 8) | control[3]) ^ 0xFFFF; // (the bits are 0 when down)
+    const int type = control[1] >> 4;
+    const uint32_t buttons = ((control[2] << 8) | control[3]) ^ 0xFFFF; // (the bits are 0 when down)
     set_buttons(content_, buttons | (static_cast<uint32_t>(control[0x14]) << 16));
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
     switch (type) {

@@ -64,7 +64,7 @@ int get_combined(const std::vector<uint16_t>& flags, uint16_t bit)
     if (flags.empty())
         return -1;
     size_t on = 0;
-    for (uint16_t f : flags)
+    for (const uint16_t f : flags)
         on += (f & bit) ? 1 : 0;
     return on == 0 ? 0 : on == flags.size() ? 1 : 2;
 }
@@ -110,8 +110,8 @@ bool read_record(std::istringstream& in, SectorFaces* out)
     if (!(in >> checksum >> list) || checksum.size() != 8)
         return false;
     uint32_t value = 0;
-    for (char c : checksum) {
-        int d = hex_digit(c);
+    for (const char c : checksum) {
+        const int d = hex_digit(c);
         if (d < 0)
             return false;
         value = value << 4 | static_cast<uint32_t>(d);
@@ -119,9 +119,9 @@ bool read_record(std::istringstream& in, SectorFaces* out)
     s.checksum = value;
     size_t at = 0;
     while (at <= list.size()) {
-        size_t comma = list.find(',', at);
+        const size_t comma = list.find(',', at);
         std::string item = list.substr(at, comma == std::string::npos ? std::string::npos : comma - at);
-        size_t colon = item.find(':');
+        const size_t colon = item.find(':');
         if (colon == std::string::npos || colon == 0 || colon + 1 >= item.size() || item.size() - colon - 1 > 4)
             return false;
         uint32_t face = 0;
@@ -134,7 +134,7 @@ bool read_record(std::istringstream& in, SectorFaces* out)
             return false;
         uint32_t flags = 0;
         for (size_t i = colon + 1; i < item.size(); ++i) {
-            int d = hex_digit(item[i]);
+            const int d = hex_digit(item[i]);
             if (d < 0)
                 return false;
             flags = flags << 4 | static_cast<uint32_t>(d);
@@ -186,8 +186,8 @@ std::vector<std::function<void()>> g_queue;
 // The sector's collision geometry (its StaticCollider's), null for none.
 render::TriMeshSource* get_geometry(uint32_t checksum)
 {
-    render::WorldCell* sector = scenery::sector_of(checksum);
-    render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
+    const render::WorldCell* sector = scenery::sector_of(checksum);
+    const render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
     if (!render::is_static_collider(coll))
         return nullptr;
     auto* tri = coll->geometry_;
@@ -219,7 +219,7 @@ bool emit_out(FaceKey key, uint16_t flags)
 // The face's corners where the skater meets it (a taken face: its companion's).
 bool get_corners(FaceKey key, V3 out[3])
 {
-    render::TriMeshSource* tri = get_geometry(key.checksum);
+    const render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count_ || !tri->vertices_)
         return false;
     uint32_t piece = 0;
@@ -229,7 +229,7 @@ bool get_corners(FaceKey key, V3 out[3])
         if (!companion || index >= companion->face_count())
             return false;
         for (int k = 0; k < 3; ++k) {
-            uint32_t v = companion->get_geometry().face_vertex(index, k);
+            const uint32_t v = companion->get_geometry().face_vertex(index, k);
             if (v >= static_cast<uint32_t>(companion->get_vertex_count()))
                 return false;
             out[k] = companion->get_vertex(static_cast<int>(v));
@@ -237,7 +237,7 @@ bool get_corners(FaceKey key, V3 out[3])
         return true;
     }
     for (int k = 0; k < 3; ++k) {
-        uint32_t v = tri->face_vertex(key.face, k);
+        const uint32_t v = tri->face_vertex(key.face, k);
         if (v >= tri->num_vertices_)
             return false;
         maths::Vec4 p{};
@@ -372,7 +372,7 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
         hud::get_message("Limit: 8192 faces");
         return false;
     }
-    bool selected = get_click(&g_selection, key, add);
+    const bool selected = get_click(&g_selection, key, add);
     uint16_t flags = 0;
     get_take_in(key, &flags);
     char text[160];
@@ -399,7 +399,7 @@ bool select_piece(uint32_t checksum, bool add)
     std::vector<FaceKey> faces;
     if (scenery::is_clone(checksum))
         return false;
-    if (render::TriMeshSource* tri = get_geometry(checksum)) {
+    if (const render::TriMeshSource* tri = get_geometry(checksum)) {
         for (int f = 0; f < tri->tri_count_ && faces.size() < kMostSelected; ++f)
             faces.push_back({checksum, static_cast<uint16_t>(f)});
     }
@@ -439,14 +439,14 @@ bool set_flag(uint16_t bit, bool on)
 {
     if (g_selection.empty())
         return false;
-    std::shared_ptr<Step> before = get_capture(g_selection);
+    const std::shared_ptr<Step> before = get_capture(g_selection);
     bool changed = false;
     int faces = 0;
     for (const FaceKey& key : g_selection) {
         uint16_t flags = 0;
         if (!get_take_in(key, &flags))
             continue;
-        uint16_t now = on ? get_applied(flags, bit, 0) : get_applied(flags, 0, bit);
+        const uint16_t now = on ? get_applied(flags, bit, 0) : get_applied(flags, 0, bit);
         if (now != flags && emit_out(key, now)) {
             changed = true;
             ++faces;
@@ -468,7 +468,7 @@ bool home_selection()
 {
     if (g_selection.empty())
         return false;
-    std::shared_ptr<Step> before = get_capture(g_selection);
+    const std::shared_ptr<Step> before = get_capture(g_selection);
     int faces = 0;
     for (const FaceKey& key : g_selection) {
         auto origin = g_origins.find(key);
@@ -624,13 +624,13 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     ImGui::PopFont();
     for (int i = 0; i < kFlagCount; ++i) {
         const FlagInfo& info = kFlags[i];
-        int state = get_combined(flags, info.bit);
+        const int state = get_combined(flags, info.bit);
         bool on = state == 1;
         char label[64];
         std::snprintf(label, sizeof(label), "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
         if (ImGui::Checkbox(label, &on)) {
-            uint16_t bit = info.bit;
-            bool set = state != 1; // (mixed or clear: set on all; all set: clear)
+            const uint16_t bit = info.bit;
+            const bool set = state != 1; // (mixed or clear: set on all; all set: clear)
             g_queue.emplace_back([bit, set] { set_flag(bit, set); });
         }
         if (ImGui::IsItemHovered())
@@ -641,8 +641,8 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     ImGui::SameLine();
     if (ImGui::Button("Drop selection##faces"))
         g_queue.emplace_back([] { clear_selection(); });
-    uint32_t piece = g_selection.back().checksum;
-    std::string all_label = "All faces of " + piece_label(piece);
+    const uint32_t piece = g_selection.back().checksum;
+    const std::string all_label = "All faces of " + piece_label(piece);
     if (ImGui::Button(all_label.c_str()))
         g_queue.emplace_back([piece] {
             if (select_piece(piece, false))
@@ -654,9 +654,9 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         ImGui::SameLine();
         if (ImGui::Button("Select All Faces"))
             g_queue.emplace_back([] {
-                std::vector<uint32_t> sectors = scenery::get_selection();
+                const std::vector<uint32_t> sectors = scenery::get_selection();
                 bool any = false;
-                for (unsigned int sector : sectors)
+                for (const unsigned int sector : sectors)
                     any = select_piece(sector, any) || any;
                 hud::get_message(any ? "Selected all faces" : "Selection has no collision");
             });

@@ -25,14 +25,15 @@ bool get_digit(char c) { return c >= '0' && c <= '9'; }
 // How far a point (x, z) is from a footprint (0: on it).
 float footprint_distance(float x, float z, V3 min, V3 max)
 {
-    float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0f);
-    float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0f);
+    const float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0f);
+    const float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0f);
     return std::sqrt(dx * dx + dz * dz);
 }
 
 float centre_distance(float x, float z, V3 min, V3 max)
 {
-    float dx = x - (min.x + max.x) * 0.5f, dz = z - (min.z + max.z) * 0.5f;
+    const float dx = x - (min.x + max.x) * 0.5f;
+    const float dz = z - (min.z + max.z) * 0.5f;
     return std::sqrt(dx * dx + dz * dz);
 }
 
@@ -46,7 +47,7 @@ std::vector<std::string> owner_names(const char* name)
     std::string text = get_lower(name);
     // The last "shad", its tail a suffix: letters, then optionally "_" and a number, then optionally a letter (an earlier
     // "shad" has this one in its tail: it can't be the suffix if this isn't).
-    size_t at = text.rfind("shad");
+    const size_t at = text.rfind("shad");
     if (at == std::string::npos || at == 0)
         return owners;
     size_t i = at + 4;
@@ -83,31 +84,35 @@ bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
     if (shadow_max.y - shadow_min.y > kFlat || std::fabs(shadow_max.y - group_min.y) > kGap ||
         group_max.y - group_min.y <= kFlat)
         return false;
-    float width = shadow_max.x - shadow_min.x, depth = shadow_max.z - shadow_min.z;
+    const float width = shadow_max.x - shadow_min.x;
+    const float depth = shadow_max.z - shadow_min.z;
     if (std::max(width, depth) > kMaxSpan)
         return false;
-    float caster_area = std::max(group_max.x - group_min.x, 1.0f) * std::max(group_max.z - group_min.z, 1.0f);
+    const float caster_area = std::max(group_max.x - group_min.x, 1.0f) * std::max(group_max.z - group_min.z, 1.0f);
     if (std::max(width, 1.0f) * std::max(depth, 1.0f) < kMinCover * caster_area)
         return false;
-    float margin = kMarginBase + kMarginPerHeight * (group_max.y - group_min.y);
-    float x0 = std::max(shadow_min.x, group_min.x - margin), x1 = std::min(shadow_max.x, group_max.x + margin);
-    float z0 = std::max(shadow_min.z, group_min.z - margin), z1 = std::min(shadow_max.z, group_max.z + margin);
+    const float margin = kMarginBase + kMarginPerHeight * (group_max.y - group_min.y);
+    const float x0 = std::max(shadow_min.x, group_min.x - margin);
+    const float x1 = std::min(shadow_max.x, group_max.x + margin);
+    const float z0 = std::max(shadow_min.z, group_min.z - margin);
+    const float z1 = std::min(shadow_max.z, group_max.z + margin);
     if (x1 < x0 || z1 < z0)
         return false;
     // (a thin shadow - a rail's line - counted as at least a unit wide, so its share is measured along it)
-    float area = std::max(width, 1.0f) * std::max(depth, 1.0f);
-    float inside = (width < 1.0f ? 1.0f : x1 - x0) * (depth < 1.0f ? 1.0f : z1 - z0);
+    const float area = std::max(width, 1.0f) * std::max(depth, 1.0f);
+    const float inside = (width < 1.0f ? 1.0f : x1 - x0) * (depth < 1.0f ? 1.0f : z1 - z0);
     return inside >= kInside * area;
 }
 
 bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max,
                       const std::vector<std::pair<V3, V3>>& others)
 {
-    float x = (shadow_min.x + shadow_max.x) * 0.5f, z = (shadow_min.z + shadow_max.z) * 0.5f;
-    float mine = footprint_distance(x, z, group_min, group_max);
-    float mine_centre = centre_distance(x, z, group_min, group_max);
+    const float x = (shadow_min.x + shadow_max.x) * 0.5f;
+    const float z = (shadow_min.z + shadow_max.z) * 0.5f;
+    const float mine = footprint_distance(x, z, group_min, group_max);
+    const float mine_centre = centre_distance(x, z, group_min, group_max);
     for (const auto& other : others) {
-        float theirs = footprint_distance(x, z, other.first, other.second);
+        const float theirs = footprint_distance(x, z, other.first, other.second);
         if (theirs < mine)
             return false;
         if (theirs == mine && centre_distance(x, z, other.first, other.second) < mine_centre)
@@ -118,7 +123,7 @@ bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max,
 
 bool get_beside(V3 shadow_min, V3 shadow_max, V3 caster_min, V3 caster_max)
 {
-    float margin = kMarginBase + kMarginPerHeight * (caster_max.y - caster_min.y);
+    const float margin = kMarginBase + kMarginPerHeight * (caster_max.y - caster_min.y);
     return shadow_min.x <= caster_max.x + margin && shadow_max.x >= caster_min.x - margin &&
            shadow_min.z <= caster_max.z + margin && shadow_max.z >= caster_min.z - margin &&
            shadow_min.y <= caster_max.y + margin && shadow_max.y >= caster_min.y - margin;
@@ -132,7 +137,7 @@ namespace frontend::level_editor::members {
 
 int drop_target(const std::vector<bool>& passed, const std::vector<bool>& selected)
 {
-    size_t count = std::min(passed.size(), selected.size());
+    const size_t count = std::min(passed.size(), selected.size());
     for (size_t i = 0; i < count; ++i) {
         if (selected[i])
             return static_cast<int>(i);

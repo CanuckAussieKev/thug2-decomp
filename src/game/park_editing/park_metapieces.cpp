@@ -77,7 +77,7 @@ int PieceGroup::count_pieces()
     int count = 0;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         auto name = reinterpret_cast<uint32_t>(get_descriptor(static_cast<int>(i))->piece);
-        PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
+        const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
         if (entry->flag_bits_ & kSector) // a single piece
             ++count;
         else
@@ -101,7 +101,7 @@ void PieceGroup::set_quarter_turns(int rot)
     const int turn = (rot - quarter_turns_) & 3;
     quarter_turns_ = rot;
     if (turn & 1) { // a quarter turn: width and length swap
-        uint8_t w = cell_footprint_.w;
+        const uint8_t w = cell_footprint_.w;
         cell_footprint_.w = cell_footprint_.l;
         cell_footprint_.l = w;
     }
@@ -117,9 +117,9 @@ void PieceGroup::set_quarter_turns(int rot)
         uint8_t across = 0;
         uint8_t along = 0;
         if (flag_bits_ & kAbstract) {
-            PieceGroup* entry =
+            const PieceGroup* entry =
                 ParkLayout::singleton()->fetch_meta_template(reinterpret_cast<uint32_t>(from->piece), nullptr);
-            CellBox size = entry->cell_footprint_;
+            const CellBox size = entry->cell_footprint_;
             if (from->rot & 1) {
                 along = size.w;
                 across = size.l;

@@ -21,8 +21,8 @@ int get_nearest(const std::vector<V3>& points, V3 to)
     int best = -1;
     float best_d = 0.0f;
     for (size_t i = 0; i < points.size(); ++i) {
-        V3 d = points[i] - to;
-        float dd = get_dot(d, d);
+        const V3 d = points[i] - to;
+        const float dd = get_dot(d, d);
         if (best < 0 || dd < best_d) {
             best = static_cast<int>(i);
             best_d = dd;
@@ -40,7 +40,7 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
         float px = 0.0f, py = 0.0f;
         if (!project(points[i], &px, &py))
             continue;
-        float dd = (px - x) * (px - x) + (py - y) * (py - y);
+        const float dd = (px - x) * (px - x) + (py - y) * (py - y);
         if (best < 0 || dd < best_d) {
             best = static_cast<int>(i);
             best_d = dd;
@@ -51,10 +51,10 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
 
 bool align_rows(V3 rows[3], V3 normal)
 {
-    float n2 = get_dot(normal, normal);
+    const float n2 = get_dot(normal, normal);
     if (n2 < 1e-8f)
         return false;
-    V3 up = normal * (1.0f / std::sqrt(n2));
+    const V3 up = normal * (1.0f / std::sqrt(n2));
     float lengths[3];
     for (int i = 0; i < 3; ++i)
         lengths[i] = std::sqrt(get_dot(rows[i], rows[i]));
@@ -62,11 +62,11 @@ bool align_rows(V3 rows[3], V3 normal)
         return false;
     // (the at row's heading kept: its part across the surface)
     V3 at = rows[2] * (1.0f / lengths[2]);
-    V3 flat = at - up * get_dot(at, up);
+    const V3 flat = at - up * get_dot(at, up);
     if (get_dot(flat, flat) < 1e-6f)
         return false;
     at = make_unit(flat);
-    V3 right = perpendicular(up, at); // (right = up x at, as the game's rows are)
+    const V3 right = perpendicular(up, at); // (right = up x at, as the game's rows are)
     rows[0] = right * lengths[0];
     rows[1] = up * lengths[1];
     rows[2] = at * lengths[2];
@@ -82,7 +82,8 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* normal = &ray->hit_.normal.x;
@@ -98,7 +99,7 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
 bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& skip, SurfaceHit* hit)
 {
     V3 from = origin;
-    V3 end = origin + dir * max_t;
+    const V3 end = origin + dir * max_t;
     // (the selection's own collision met first: the ray goes on from just past it - a few times at most)
     for (int tries = 0; tries < 8; ++tries) {
         SurfaceHit h;
@@ -118,18 +119,18 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
 std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
 {
     std::vector<V3> out;
-    render::PcGeom* geom = scenery::sector_geometry(checksum);
+    const render::PcGeom* geom = scenery::sector_geometry(checksum);
     if (!geom)
         return out;
     // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's ray_meshes reads them: each vertex's
     // position its first 12 bytes, where the sector is now)
-    auto** meshes = geom->meshes;
-    uint32_t count = geom->mesh_count_;
+    auto* const* meshes = geom->meshes;
+    const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096 && out.size() < limit; ++i) {
-        render::MeshRef* mesh = meshes[i];
+        const render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
         if (!vertices || !vertices->data || mesh->stride < 12)
             continue;
         for (uint32_t v = 0; v < mesh->vertex_count_ && out.size() < limit; ++v) {

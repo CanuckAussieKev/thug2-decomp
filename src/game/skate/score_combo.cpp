@@ -120,7 +120,7 @@ void reset_robot(PointTally* score, bool run)
 // The log's tricks freed and the combo emptied (Land and Bail; the pot itself is the caller's).
 void clear_combo(PointTally* score)
 {
-    int count = score->log_.num_;
+    const int count = score->log_.num_;
     for (int i = 0; i < count; ++i)
         memory::dealloc(score->log_.items_[i]);
     score->log_.num_ = 0;
@@ -146,12 +146,12 @@ void PointTally::bank_combo_score()
     int spin = 2;
     for (int i = 0; i < tricks_; ++i) {
         TrickLog* trick = get_trick(i);
-        uint32_t flags = trick->flag_bits_;
+        const uint32_t flags = trick->flag_bits_;
         if (flags & kTrickNoSpin)
             spin = 2;
         else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin))
             spin = ((flags >> 8) & 1) ? trick->twist_rate_ + 1 : spin_multiplier(trick->twist_rate_);
-        int reduction = get_reduction(trick->repeats_);
+        const int reduction = get_reduction(trick->repeats_);
         int points = reduction * spin * trick->points_held_ / 200; // (percent times half the multiplier)
         if (trick->kind_)
             points = points * 120 / 100;
@@ -165,7 +165,7 @@ void PointTally::bank_combo_score()
     if (verbose_print_)
         debug::printf("   total %d\n", pot_); // "   total %d\n"
     if (script::fetch_int_value(kNewSpecial)) {
-        double points = static_cast<double>(pot_) * multiplier_;
+        const double points = static_cast<double>(pot_) * multiplier_;
         auto counted = static_cast<double>(pot_special_);
         if (points > counted) {
             special_ += ftol(points - counted);
@@ -217,17 +217,17 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     }
     meter->write_hash_tag(kTagMode, manual ? kManual : kBalance);
     // The arrow between the two arrow positions the lean falls between.
-    double size = std::fabs(static_cast<double>(lean));
-    double steps = 1.0 / arrow_step_;
-    int index = ftol(steps * size);
-    double part = size - index * static_cast<double>(arrow_step_);
+    const double size = std::fabs(static_cast<double>(lean));
+    const double steps = 1.0 / arrow_step_;
+    const int index = ftol(steps * size);
+    const double part = size - index * static_cast<double>(arrow_step_);
     const script::Pair& from = arrows_[index];
     const script::Pair& to = arrows_[index + 1];
     meter_offset_.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
     meter_offset_.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -45.0);
     auto* arrow = static_cast<frontend::ImageWidget*>(meter->eldest_.owner_object_);
-    bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
+    const bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
     double x = 0.0;
     double y = 0.0;
     if (manual) {
@@ -284,7 +284,7 @@ void PointTally::tick_frame()
 {
     if (special_) {
         auto special = static_cast<float>(special_);
-        double rate = special_active_ ? static_cast<double>(0.2f) : static_cast<double>(0.05f);
+        const double rate = special_active_ ? static_cast<double>(0.2f) : static_cast<double>(0.05f);
         special_ = ftol(special - frame_clock::get_slomo_frame_seconds() * rate);
         if (special_ <= 0) {
             set_special_active(false);
@@ -309,11 +309,11 @@ void PointTally::tick_frame()
     {
         frontend::ElementPtr found;
         objects::Rider* skater = rider_for_slot(rider_no_);
-        uint32_t id =
+        const uint32_t id =
             skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->get_skater_number()) : kTheSpecialBarSprite;
         bar = *frontend::UiTree::sole()->fetch_part(&found, id, 0);
     }
-    double full = static_cast<double>(special_) * static_cast<double>(1.0f / 3000.0f); // (0x0064E334)
+    const double full = static_cast<double>(special_) * static_cast<double>(1.0f / 3000.0f); // (0x0064E334)
     auto size = static_cast<float>(full);
     if (full > 1.0)
         size = 1.0f;
@@ -324,10 +324,10 @@ void PointTally::tick_frame()
     uint8_t rgba[4];
     std::memcpy(rgba, bar_colors_[0], 4);
     if (special_active_) {
-        double flash = (std::cos(static_cast<double>(special_phase_)) + 1.0) * 0.5;
+        const double flash = (std::cos(static_cast<double>(special_phase_)) + 1.0) * 0.5;
         special_phase_ = static_cast<float>(static_cast<double>(special_rate_) + special_phase_);
         for (int c = 0; c < 4; ++c) {
-            int from = bar_colors_[1][c];
+            const int from = bar_colors_[1][c];
             rgba[c] = static_cast<uint8_t>(ftol((bar_colors_[2][c] - from) * flash + from));
         }
     }
@@ -339,7 +339,7 @@ void PointTally::tick_frame()
 // 0x00563990
 void PointTally::fire_off(const char* text, int score, uint32_t flags)
 {
-    bool unnamed = !text[0];
+    const bool unnamed = !text[0];
     objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater)
         return;
@@ -349,8 +349,8 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         trick_component->bailed_ = true;
     auto* physics = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = static_cast<objects::Rider*>(physics->entity_);
-    uint8_t flipped = physics->state_->flag(objects::PoseFlag::kFlipped).on;
-    int stance = physics_skater->goofy_ ? flipped : !flipped;
+    const uint8_t flipped = physics->state_->flag(objects::PoseFlag::kFlipped).on;
+    const int stance = physics_skater->goofy_ ? flipped : !flipped;
     stats->set10(static_cast<int>(reinterpret_cast<uintptr_t>(text)), score, stance);
     if (tricks_ > 249) {
         trim_log();
@@ -366,8 +366,8 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         }
     }
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    uint32_t name = checksums::hash_from_text(text);
-    int kind = static_cast<int>((flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6);
+    const uint32_t name = checksums::hash_from_text(text);
+    const int kind = static_cast<int>((flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6);
     if (log_.num_ < 250) {
         log_.append_one(memory::alloc(sizeof(TrickLog)));
         newest_logged_trick()->points_held_ = 0;
@@ -394,7 +394,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         // The trick before it (the last one named, not "...") gets the " + " joining them.
         for (int i = log_.num_ - 2; i >= 0; --i) {
             char* shown = get_trick(i)->shown_;
-            size_t length = std::strlen(shown);
+            const size_t length = std::strlen(shown);
             if (shown[0] == '.' || !length)
                 continue;
             if (shown[length - 1] == ' ')
@@ -427,15 +427,15 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     }
     ++tricks_;
     if (!unnamed) {
-        float old_multiplier = multiplier_;
-        int degrade_start = script::fetch_int_value(kTrickMultDegradeStart);
+        const float old_multiplier = multiplier_;
+        const int degrade_start = script::fetch_int_value(kTrickMultDegradeStart);
         ++combo_tricks_;
         bool add_one = true;
         if (multiplier_ != 0.0f && !not_counted) {
-            int times = seen->landed_[kind + 4];
+            const int times = seen->landed_[kind + 4];
             if (times >= degrade_start) {
                 add_one = false;
-                double added = 1.0 - (times - degrade_start + 1) * 0.5;
+                const double added = 1.0 - (times - degrade_start + 1) * 0.5;
                 auto added_f = static_cast<float>(added);
                 if (added > 0.0 && !(flags & kTrickNoMultiplier))
                     multiplier_ = static_cast<float>(static_cast<double>(added_f) + multiplier_);
@@ -479,7 +479,7 @@ void PointTally::change_spin_degrees(int degrees)
     if (!tricks_ || spin_trick_ < 0)
         return;
     objects::Rider* skater = rider_for_slot(rider_no_);
-    bool flipped =
+    const bool flipped =
         static_cast<objects::AnimBlenderComponent*>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
     int size = degrees;
     const char* side = nullptr;
@@ -489,9 +489,9 @@ void PointTally::change_spin_degrees(int degrees)
     } else {
         side = flipped ? "FS" : "BS";
     }
-    int half_turns = (ftol(objects::read_tuning_float(kSpinCountSlop, 0, nullptr)) + size) / 180;
+    const int half_turns = (ftol(objects::read_tuning_float(kSpinCountSlop, 0, nullptr)) + size) / 180;
     get_trick(spin_trick_)->rotation_deg_ = degrees;
-    uint32_t crc = checksums::hash_from_text(get_trick(spin_trick_)->text_);
+    const uint32_t crc = checksums::hash_from_text(get_trick(spin_trick_)->text_);
     bool renamed = false;
     if (crc == kFakieOllie || crc == kCabTrick2 || crc == kCabTrick3) {
         if (half_turns == 1) {
@@ -523,8 +523,8 @@ void PointTally::change_spin_degrees(int degrees)
         else if (side == "BS Cab")
             side = "FS Cab";
     }
-    int shown_degrees = half_turns * 180;
-    bool joined = log_.num_ - 1 > spin_trick_;
+    const int shown_degrees = half_turns * 180;
+    const bool joined = log_.num_ - 1 > spin_trick_;
     auto flags = static_cast<uint8_t>(trick->flag_bits_);
     if (!renamed) {
         const char* format = nullptr;
@@ -560,7 +560,7 @@ void PointTally::tweak_trick(int points)
 {
     if (tricks_ <= 0)
         return;
-    TrickLog* trick = get_trick(tricks_ - 1);
+    const TrickLog* trick = get_trick(tricks_ - 1);
     if (!trick->text_[0])
         return;
     if (tricks_since_no_spin(this) > 10)
@@ -582,9 +582,9 @@ void PointTally::land()
     online::Hub* net = net_session_slot();
     goals::MatchRules* mode = get_game_mode();
     bank_combo_score();
-    int points = ftol(static_cast<double>(pot_) * multiplier_);
+    const int points = ftol(static_cast<double>(pot_) * multiplier_);
     objects::Rider* skater = rider_for_slot(rider_no_);
-    bool by_clusters = script::fetch_int_value(kScoreByClusters) != 0;
+    const bool by_clusters = script::fetch_int_value(kScoreByClusters) != 0;
     goals::get_objective_board()->land();
     if (by_clusters || (mode->is_true(kShouldModulateColor) && points > 0))
         note_tagged_prop_ask(points);
@@ -602,7 +602,7 @@ void PointTally::land()
     }
     if (combo_tricks_ > best_tricks_)
         best_tricks_ = combo_tricks_;
-    int combo = pot_score_;
+    const int combo = pot_score_;
     if (combo > top_chain_)
         top_chain_ = combo;
     combo_tricks_ = 0;
@@ -638,7 +638,7 @@ void PointTally::land()
     }
     pot_ = 0;
     clear_combo(this);
-    int before = get_total_score(); // (inlined there)
+    const int before = get_total_score(); // (inlined there)
     if (!mode->is_true(kShouldModulateColor) && mode->keeps_move_points()) {
         bool send = mode->keeps_running_total();
         if (!send && mode->keeps_best_chain() && get_total_score() < points)
@@ -727,7 +727,7 @@ namespace lists {
 void TableItemEraser::free_table_contents()
 {
     int count = lookup_table_->num_;
-    int index = 0;
+    const int index = 0;
     for (; count > 0; --count) {
         uint32_t key = 0;
         void* item = lookup_table_->fetch_entry_at(&index, &key);

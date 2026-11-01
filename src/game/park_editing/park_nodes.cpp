@@ -238,8 +238,8 @@ uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry
 void ParkAssembler::build_source_rails(Array* nodes)
 {
     RailGroup& rails = source_rails_;
-    int strings = get_memory_value("in_railstring_pool", -1);
-    int points = get_memory_value("in_railpoint_pool", -1);
+    const int strings = get_memory_value("in_railstring_pool", -1);
+    const int points = get_memory_value("in_railpoint_pool", -1);
     rails.prepare_all(points, strings, true);
     script::kill_all_child_scripts();
     script::launch_script(kLoadTerrain, nullptr, nullptr, false, nullptr);
@@ -304,7 +304,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     for (TemplateTile* source = sources_; source; source = source->following_) {
         source->rail_point_total_ = 0;
         source->num_rail_segments_ = 0;
-        for (int i = 0; Rail* rail = rails.find_rail(source->sector_, i); ++i) {
+        for (int i = 0; const Rail* rail = rails.find_rail(source->sector_, i); ++i) {
             source->rail_point_total_ += rail->vertex_total_;
             source->num_rail_segments_ += rail->count_segments();
         }
@@ -315,8 +315,8 @@ bool ParkAssembler::find_nearest_rail_point(const maths::Vec4* position, maths::
 {
     bool found = false;
     float best = 1e8f;
-    for (Rail* rail = rails_.rail_groups_; rail; rail = rail->following_) {
-        for (RailPoint* point = rail->point_chain_; point; point = point->following_) {
+    for (const Rail* rail = rails_.rail_groups_; rail; rail = rail->following_) {
+        for (const RailPoint* point = rail->point_chain_; point; point = point->following_) {
             const double dx = static_cast<double>(point->at_point_.x) - position->x;
             const double dy = static_cast<double>(point->at_point_.y) - position->y;
             const double dz = static_cast<double>(point->at_point_.z) - position->z;
@@ -339,7 +339,7 @@ void ParkAssembler::get_node_counts(int* counts)
 {
     for (int i = 0; i < 6; ++i)
         counts[i] = 0;
-    for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
+    for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
         if (!(piece->flag_bits_ & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80)))
             ++counts[0];
         if (!(piece->flag_bits_ & DuplicatedTile::kCursor) && !(piece->flag_bits_ & DuplicatedTile::kNoRails)) {
@@ -368,7 +368,7 @@ void ParkAssembler::get_node_counts(int* counts)
 
 void ParkAssembler::build_goal_node_array()
 {
-    int count = goal_editor_constant82();
+    const int count = goal_editor_constant82();
     int index = 0;
     auto* nodes = static_cast<Array*>(node_table_resource(*this)->build_node_table(kParkNodeArray, count));
     goal_editor_write_nodes(nodes, &index, memory::top_down_heap());
@@ -395,20 +395,20 @@ void ParkAssembler::build_rails(MapListNode* metas)
     rails.get_clear();
     rails.free_pools();
     memory::enter_heap_scope(memory::top_down_heap());
-    int strings = get_memory_value("out_railstring_pool", -1);
-    int points = get_memory_value("out_railpoint_pool", -1);
+    const int strings = get_memory_value("out_railstring_pool", -1);
+    const int points = get_memory_value("out_railpoint_pool", -1);
     rails.prepare_all(points, strings, false);
     memory::leave_heap_scope();
-    for (MapListNode* node = metas; node; node = node->following_) {
+    for (const MapListNode* node = metas; node; node = node->following_) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
         if (!(meta->flag_bits_ & PieceGroup::kInPark) || (meta->flag_bits_ & PieceGroup::kNoRails))
             continue;
         const int pieces = static_cast<int>(meta->filled_slots_);
         for (int i = 0; i < pieces; ++i) {
-            DuplicatedTile* piece = get_cloned(meta->get_piece(static_cast<uint32_t>(i)));
+            const DuplicatedTile* piece = get_cloned(meta->get_piece(static_cast<uint32_t>(i)));
             for (int j = 0;; ++j) {
                 const uint32_t name = piece->blend_source_->sector_;
-                Rail* source = source_rails_.find_rail(name, j);
+                const Rail* source = source_rails_.find_rail(name, j);
                 if (!source)
                     break;
                 Rail* rail = rails.get_new_rail();
@@ -450,7 +450,7 @@ void ParkAssembler::write_piece_nodes(Array* nodes, int* index)
         }
         if (piece->flag_bits_ & DuplicatedTile::kGap)
             node->put_name_key(kTriggerScript, gap_fire_script(piece));
-        else if (uint32_t script = piece->blend_source_->trigger_script_)
+        else if (const uint32_t script = piece->blend_source_->trigger_script_)
             node->put_name_key(kTriggerScript, script);
         ++*index;
     }
@@ -458,13 +458,13 @@ void ParkAssembler::write_piece_nodes(Array* nodes, int* index)
 
 void ParkAssembler::write_rail_nodes(Array* nodes, int* index)
 {
-    RailGroup& rails = rails_;
+    const RailGroup& rails = rails_;
     const int count = rails.rail_point_total();
     if (!count)
         return;
     const int end = *index + count;
-    Rail* rail = rails.rail_groups_;
-    RailPoint* point = rail->point_chain_;
+    const Rail* rail = rails.rail_groups_;
+    const RailPoint* point = rail->point_chain_;
     int rail_start = *index; // the node a loop's last point links to
     uint32_t name = kFirstRailNode;
     while (*index < end) {

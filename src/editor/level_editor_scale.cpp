@@ -59,15 +59,15 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
 {
     double out[3];
     for (int a = 0; a < 3; ++a) {
-        double f = get_axis(factor, a);
+        const double f = get_axis(factor, a);
         if (!(f > 0.0) || !std::isfinite(f)) {
             out[a] = 1.0;
             continue;
         }
         double low = 0.0, high = 1e30;
         for (size_t i = 0; i < scales.size(); ++i) {
-            double scale = get_axis(scales[i], a) > 0.0f ? get_axis(scales[i], a) : 1.0;
-            double limit = i < limits.size() ? std::min<double>(get_axis(limits[i], a), kMax) : kMax;
+            const double scale = get_axis(scales[i], a) > 0.0f ? get_axis(scales[i], a) : 1.0;
+            const double limit = i < limits.size() ? std::min<double>(get_axis(limits[i], a), kMax) : kMax;
             low = std::max(low, kMin / scale);
             high = std::min(high, limit / scale);
         }
@@ -75,7 +75,7 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
     }
     if (uniform) {
         // (the factor asked for is the same on every axis: the one nearest 1 is what all of them allow)
-        double f = get_axis(factor, 0);
+        const double f = get_axis(factor, 0);
         double common = out[0];
         for (int a = 1; a < 3; ++a)
             common = f >= 1.0 ? std::min(common, out[a]) : std::max(common, out[a]);
@@ -100,7 +100,9 @@ float confine(float scale)
 
 int main_axis(V3 d)
 {
-    float x = std::fabs(d.x), y = std::fabs(d.y), z = std::fabs(d.z);
+    const float x = std::fabs(d.x);
+    const float y = std::fabs(d.y);
+    const float z = std::fabs(d.z);
     if (y >= x && y >= z)
         return 1;
     return x >= z ? 0 : 2;
@@ -113,8 +115,8 @@ int nearest_axis(const V3 axes[3], int world_axis)
     int best = world_axis;
     float best_dot = -1.0f;
     for (int i = 0; i < 3; ++i) {
-        float length = std::sqrt(get_dot(axes[i], axes[i]));
-        float d = length > 0.0f ? std::fabs(get_axis(axes[i], world_axis)) / length : 0.0f;
+        const float length = std::sqrt(get_dot(axes[i], axes[i]));
+        const float d = length > 0.0f ? std::fabs(get_axis(axes[i], world_axis)) / length : 0.0f;
         if (d > best_dot) {
             best_dot = d;
             best = i;
@@ -137,7 +139,7 @@ RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, i
 {
     // The copy was taken after `copied` quarter turns of the piece (scale 1): copy - from = Q_c (x - x0); now
     // x' - to = Q S (x - x0) = Q_t (Q_c S Q_c^-1) (copy - from), Q_t the turns since, Q_c S Q_c^-1 S seen through Q_c.
-    int copied = (copied_quarters - quarters0) & 3;
+    const int copied = (copied_quarters - quarters0) & 3;
     return {copied_position, position, (quarters - copied_quarters) & 3, turned_scale(scale, copied),
             (quarters - quarters0) & 3};
 }
@@ -151,7 +153,7 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
                        int quarters, V3 scale)
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
-        V3 p = get_rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
+        const V3 p = get_rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
         auto* out = reinterpret_cast<float*>(data);
         out[0] = p.x;
         out[1] = p.y;
@@ -162,8 +164,8 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
 V3 scaled_normal(V3 n, V3 scale, int quarters)
 {
     if (!is_unit_scale(scale)) {
-        V3 m = {n.x / scale.x, n.y / scale.y, n.z / scale.z};
-        float length = std::sqrt(get_dot(m, m));
+        const V3 m = {n.x / scale.x, n.y / scale.y, n.z / scale.z};
+        const float length = std::sqrt(get_dot(m, m));
         n = length > 0.0f ? m * (1.0f / length) : m;
     }
     return get_quarter_turn(n, quarters);
@@ -173,7 +175,7 @@ void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t of
                      int quarters)
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
-        V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
+        const V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
         auto* out = reinterpret_cast<float*>(data + offset);
         out[0] = n.x;
         out[1] = n.y;
@@ -211,7 +213,7 @@ bool read_token(const std::string& field, V3* scale)
     // (one number, or exactly three separated by commas)
     for (int count = 0;;) {
         char* end = nullptr;
-        float value = std::strtof(at, &end);
+        const float value = std::strtof(at, &end);
         if (end == at || !(value > 0.0f) || !std::isfinite(value))
             return false;
         values[count++] = value;
@@ -290,16 +292,16 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
         n.node->axis_tag_ = n.split;
         n.node->chain_link_ = n.link;
     }
-    maths::Vec4 centre = {from.x, from.y, from.z, 0.0f};
+    const maths::Vec4 centre = {from.x, from.y, from.z, 0.0f};
     if (!is_unit_scale(scale)) {
-        maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
+        const maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
         data->scale_tool(&centre, &factor);
     }
     if (quarters & 3)
         data->rotate_y(&centre, quarters & 3);
-    V3 delta = to - from;
+    const V3 delta = to - from;
     if (delta.x != 0.0f || delta.y != 0.0f || delta.z != 0.0f) {
-        maths::Vec4 by = {delta.x, delta.y, delta.z, 0.0f};
+        const maths::Vec4 by = {delta.x, delta.y, delta.z, 0.0f};
         data->get_slide(&by);
     }
 }
@@ -344,7 +346,7 @@ struct MeshCopy {
 render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
 render::TriMeshSource* collision_data(render::WorldCell* sector)
 {
-    render::HitMesh* coll = coll_of(sector);
+    const render::HitMesh* coll = coll_of(sector);
     return coll ? coll->geometry_ : nullptr;
 }
 
@@ -439,7 +441,7 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
         return false;
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
         const MeshCopy& copy = original.meshes[i];
-        render::MeshRef* mesh = original.mesh_list_[i];
+        const render::MeshRef* mesh = original.mesh_list_[i];
         if (mesh != copy.mesh || mesh->vertex_count_ != copy.vertex_count_ || mesh->stride != copy.stride ||
             mesh->vertex_buffer_count_ != copy.buffers.size() || mesh->positions != copy.list ||
             mesh->position_count_ != copy.list_count_)
@@ -449,11 +451,11 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
                 return false;
         }
     }
-    render::TriMeshSource* data = collision_data(sector);
+    const render::TriMeshSource* data = collision_data(sector);
     if (original.have_collision_ && (data != original.collision.data || !same_collision(original.collision)))
         return false;
 
-    RebuildFrame f = frame_for(original.quarters, original.position, quarters0, quarters, position, scale);
+    const RebuildFrame f = frame_for(original.quarters, original.position, quarters0, quarters, position, scale);
     for (const MeshCopy& copy : original.meshes) {
         render::MeshRef* mesh = copy.mesh;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
@@ -465,14 +467,14 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
                                 f.normal_turns_);
             upload(copy.buffers[b]);
         }
-        V3 centre = get_rebuilt(copy.centre, f.from, f.to, f.turns, f.copy_scale_);
+        const V3 centre = get_rebuilt(copy.centre, f.from, f.to, f.turns, f.copy_scale_);
         mesh->centre[0] = centre.x;
         mesh->centre[1] = centre.y;
         mesh->centre[2] = centre.z;
         mesh->radius = copy.radius * get_largest(scale);
         for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
-            V3 p = get_rebuilt({copy.list_copy_[3 * k], copy.list_copy_[3 * k + 1], copy.list_copy_[3 * k + 2]}, f.from,
-                               f.to, 0, f.copy_scale_);
+            const V3 p = get_rebuilt({copy.list_copy_[3 * k], copy.list_copy_[3 * k + 1], copy.list_copy_[3 * k + 2]},
+                                     f.from, f.to, 0, f.copy_scale_);
             mesh->positions[3 * k + 0] = p.x;
             mesh->positions[3 * k + 1] = p.y;
             mesh->positions[3 * k + 2] = p.z;
@@ -560,7 +562,7 @@ bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
     render::TriMeshSource* geometry = tri->geometry_;
     if (!geometry)
         return true;
-    bool owns =
+    const bool owns =
         (tri->flag_bits_ & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits_ & render::HitMesh::kSharedGeometry);
     if (!owns) {
         render::TriMeshSource* own = geometry->replicate(0, false);
@@ -579,7 +581,7 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
 {
     if (!collision)
         return true;
-    render::HitMeshKind kind = collision->kind();
+    const render::HitMeshKind kind = collision->kind();
     if (kind == render::HitMeshKind::kMovingTriangles)
         return take_tri(static_cast<render::HitMovingTriangles*>(collision), entry);
     if (kind == render::HitMeshKind::kMovingBox) {
@@ -588,9 +590,9 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
         return true;
     }
     if (kind == render::HitMeshKind::kGroup) {
-        memory::ListNode* head = static_cast<render::HitMeshGroup*>(collision)->sub_nodes_;
-        for (memory::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
-             node = node->next) {
+        const memory::ListNode* head = static_cast<render::HitMeshGroup*>(collision)->sub_nodes_;
+        for (const memory::ListNode* node = head ? head->next : nullptr;
+             node && node != head && node->data != kListHeadData; node = node->next) {
             if (!take_collision(static_cast<render::HitMesh*>(node->data), entry))
                 return false;
         }
@@ -607,7 +609,7 @@ void apply_collision(ObjectEntry& entry)
         t.tri->assign_shape_data(t.copy.data); // (its radius from the vertices; its box made again)
         t.tri->unknownd0_ = is_unit_scale(entry.scale) ? t.rejection : t.copy.data->unknown3c_;
     }
-    for (ObjectEntry::Cuboid& b : entry.boxes) {
+    for (const ObjectEntry::Cuboid& b : entry.boxes) {
         const maths::Vec4& lo = b.original.min;
         const maths::Vec4& hi = b.original.max;
         b.box->box_.min = {lo.x * entry.scale.x, lo.y * entry.scale.y, lo.z * entry.scale.z, lo.w};
@@ -621,7 +623,7 @@ void apply_collision(ObjectEntry& entry)
 
 V3 get_object_scale(objects::GameEntity* object)
 {
-    ObjectEntry* entry = object ? entry_of(object) : nullptr;
+    const ObjectEntry* entry = object ? entry_of(object) : nullptr;
     return entry ? entry->scale : get_uniform(1.0f);
 }
 
@@ -632,9 +634,9 @@ V3 object_limit(objects::GameEntity* object)
     V3 limit = get_uniform(kMax);
     if (!object)
         return limit;
-    ObjectEntry* entry = entry_of(object);
+    const ObjectEntry* entry = entry_of(object);
     auto narrow = [&limit](const render::TriMeshSource* data, V3 scale) {
-        V3 l = collision_limit(data, scale);
+        const V3 l = collision_limit(data, scale);
         limit = {std::min(limit.x, l.x), std::min(limit.y, l.y), std::min(limit.z, l.z)};
     };
     if (entry) {
@@ -651,7 +653,7 @@ V3 object_limit(objects::GameEntity* object)
         if (c->kind() == render::HitMeshKind::kMovingTriangles && c->geometry_)
             narrow(c->geometry_, get_uniform(1.0f));
         if (c->kind() == render::HitMeshKind::kGroup) {
-            memory::ListNode* head = static_cast<render::HitMeshGroup*>(c)->sub_nodes_;
+            const memory::ListNode* head = static_cast<render::HitMeshGroup*>(c)->sub_nodes_;
             for (memory::ListNode* node = head ? head->next : nullptr;
                  node && node != head && node->data != kListHeadData; node = node->next)
                 pending.push_back(static_cast<render::HitMesh*>(node->data));
@@ -676,12 +678,12 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
         g_objects.push_back(std::move(made));
         entry = &g_objects.back();
     }
-    V3 limit = object_limit(object);
+    const V3 limit = object_limit(object);
     scale = {std::max(kMin, std::min(limit.x, confine(scale.x))), std::max(kMin, std::min(limit.y, confine(scale.y))),
              std::max(kMin, std::min(limit.z, confine(scale.z)))};
     entry->scale = scale;
     // The model drawn scaled (RenderModel::change_scale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
-    maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
+    const maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
     reinterpret_cast<render::RenderModel*>(model_of(object))->change_scale(&factor);
     apply_collision(*entry);
     object->mark_jumped_ahead(true); // (its components placed again at once)

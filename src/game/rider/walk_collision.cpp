@@ -87,8 +87,8 @@ void FootMovement::update_curb_float()
     ahead.flatten_onto_plane(floor_normal_);
     if (ahead.y < 0.0f)
         ahead.y = 0.0f;
-    double length = std::sqrt((static_cast<double>(ahead.z) * ahead.z + static_cast<double>(ahead.x) * ahead.x) +
-                              static_cast<double>(ahead.y) * ahead.y);
+    const double length = std::sqrt((static_cast<double>(ahead.z) * ahead.z + static_cast<double>(ahead.x) * ahead.x) +
+                                    static_cast<double>(ahead.y) * ahead.y);
     if (length > 0.0) {
         auto inverse = static_cast<float>(kOne / length);
         ahead.x = inverse * ahead.x;
@@ -100,19 +100,19 @@ void FootMovement::update_curb_float()
     render::ProbeRay feeler;
     const maths::Vec4& pos = pos_;
     feeler.line_.start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kHalf), pos.z, 0.0f};
-    float reach = walk_parameter(kCurbFloatFeelerLength);
-    float reach_y = ahead.y * reach;
-    float reach_x = reach * ahead.x;
+    const float reach = walk_parameter(kCurbFloatFeelerLength);
+    const float reach_y = ahead.y * reach;
+    const float reach_x = reach * ahead.x;
     feeler.line_.end = {reach_x + pos.x, static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
                         static_cast<float>(static_cast<double>(ahead.z) * reach + pos.z), 0.0f};
     if (!feeler.get_hit_shape(true, false))
         return;
-    float distance = feeler.reach_;
+    const float distance = feeler.reach_;
 
     // Something ahead: straight down onto it from snap_up_height, half a unit past where it was hit.
-    maths::Vec4 over = {ahead.x * kHalf + feeler.contact_pos_.x, ahead.y * kHalf + feeler.contact_pos_.y,
-                        ahead.z * kHalf + feeler.contact_pos_.z,
-                        static_cast<float>(static_cast<double>(ahead.w) * kHalf + feeler.contact_pos_.w)};
+    const maths::Vec4 over = {ahead.x * kHalf + feeler.contact_pos_.x, ahead.y * kHalf + feeler.contact_pos_.y,
+                              ahead.z * kHalf + feeler.contact_pos_.z,
+                              static_cast<float>(static_cast<double>(ahead.w) * kHalf + feeler.contact_pos_.w)};
     feeler.line_.end = over;
     feeler.line_.start = over;
     feeler.line_.start.y = static_cast<float>(static_cast<double>(walk_parameter(kSnapUpHeight)) + pos.y);
@@ -127,13 +127,13 @@ void FootMovement::update_curb_float()
     const maths::Vec4& vel = vel_;
     bool settled = std::fabs(curb) < kCurbStill && stick_deflection_ == 0.0f;
     if (settled) {
-        double least = walk_parameter(kMinCurbHeightAdjustVel);
-        double speed_squared = (static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
-                               static_cast<double>(vel.z) * vel.z;
+        const double least = walk_parameter(kMinCurbHeightAdjustVel);
+        const double speed_squared = (static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
+                                     static_cast<double>(vel.z) * vel.z;
         settled = least * least > speed_squared;
     }
     if (!settled) {
-        double rate = static_cast<double>(walk_parameter(kCurbFloatLerpUpRate)) * get_frame_length(this);
+        const double rate = static_cast<double>(walk_parameter(kCurbFloatLerpUpRate)) * get_frame_length(this);
         curb = static_cast<float>((static_cast<double>(target) - curb) * rate + curb);
     }
     curb_float_ = true;
@@ -144,7 +144,7 @@ void FootMovement::check_ceiling()
 {
     if (pushing_)
         return;
-    float height = walk_parameter(kWalkerHeight);
+    const float height = walk_parameter(kWalkerHeight);
     float top = height;
     if (up_speed_ < 0.0f)
         top = static_cast<float>(static_cast<double>(height) - kFallingHead);
@@ -196,7 +196,7 @@ void FootMovement::check_sticker_slap()
     maths::Vec4& start = feeler.line_.start;
     start = pos_;
     start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));
-    float reach = walk_parameter(kFeelerLength);
+    const float reach = walk_parameter(kFeelerLength);
     feeler.line_.end = {reach * facing.x + start.x, reach * facing.y + start.y, reach * facing.z + start.z,
                         static_cast<float>(static_cast<double>(reach) * facing.w + start.w)};
     if (!feeler.get_hit_shape(false, false))
@@ -208,10 +208,10 @@ void FootMovement::check_sticker_slap()
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));
     };
-    float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time_));
+    const float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time_));
     if (script::fetch_float(kDisallowRewallplant) > since_wallplant)
         return;
-    float since_state = since_as_float(state_time_);
+    const float since_state = since_as_float(state_time_);
     if (script::fetch_float(kLateJumpSlop) > since_state)
         return;
     if (!core_physics_->wall_plant(false, true, false))
@@ -229,11 +229,11 @@ void FootMovement::update_ground_below()
 
     // Down from the critical point: the ground below.
     render::ProbeRay down;
-    float y = pos.y + offset.y;
-    maths::Vec4 point = {pos.x + offset.x, y, pos.z + offset.z, pos.w + offset.w};
+    const float y = pos.y + offset.y;
+    const maths::Vec4 point = {pos.x + offset.x, y, pos.z + offset.z, pos.w + offset.w};
     down.line_.start = {point.x, static_cast<float>(static_cast<double>(y) + kOne), point.z, point.w};
     down.line_.end = {point.x, static_cast<float>(static_cast<double>(y) - depth), point.z, point.w};
-    bool below = down.get_hit_shape(true, false);
+    const bool below = down.get_hit_shape(true, false);
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
@@ -290,17 +290,20 @@ void FootMovement::ease_critical_point_offset()
                            static_cast<double>(offset.z) * offset.z);
     if (length_squared == 0.0f)
         return;
-    int state = state_;
+    const int state = state_;
     if (state < 0 || (state > 1 && state != 3))
         return;
 
     // Eased out at 1000 a second.
-    double step = get_frame_length(this) * kOffsetEaseRate;
-    maths::Vec4 old = offset;
-    double length = std::sqrt(static_cast<double>(length_squared));
+    const double step = get_frame_length(this) * kOffsetEaseRate;
+    const maths::Vec4 old = offset;
+    const double length = std::sqrt(static_cast<double>(length_squared));
     if (step < length) {
-        double k = step / length;
-        double kx = k * offset.x, ky = k * offset.y, kz = k * offset.z, kw = k * offset.w;
+        const double k = step / length;
+        const double kx = k * offset.x;
+        const double ky = k * offset.y;
+        const double kz = k * offset.z;
+        const double kw = k * offset.w;
         offset.x = static_cast<float>(offset.x - kx);
         offset.y = static_cast<float>(offset.y - ky);
         offset.z = static_cast<float>(offset.z - kz);
@@ -318,7 +321,8 @@ void FootMovement::ease_critical_point_offset()
     feeler.line_.start = {old.x + old_pos.x, old.y + old_pos.y, old.z + old_pos.z, old.w + old_pos.w};
     feeler.line_.end = {pos.x + offset.x, pos.y + offset.y, pos.z + offset.z, pos.w + offset.w};
     if (feeler.get_hit_shape(true, false)) {
-        maths::Vec4 adjustment = (feeler.contact_pos_ + kAdjustClearance * feeler.surface_dir_) - feeler.line_.end;
+        const maths::Vec4 adjustment =
+            (feeler.contact_pos_ + kAdjustClearance * feeler.surface_dir_) - feeler.line_.end;
         pos += adjustment;
         debug::printf(kMessageFormat, kSourceFile, 0xB8C, kBadPointMessage);
         debug::printf(kAdjustmentFormat, kSourceFile, 0xB8D, static_cast<double>(adjustment.x),
@@ -328,11 +332,11 @@ void FootMovement::ease_critical_point_offset()
     }
     // Pushed back off a wall: the critical point kept on its side of the plane.
     if (pushing_) {
-        maths::Vec4 point = pos + offset;
+        const maths::Vec4 point = pos + offset;
         const maths::Vec4& normal = push_normal_;
-        double past = ((static_cast<double>(point.z) * normal.z + static_cast<double>(point.y) * normal.y) +
-                       static_cast<double>(point.x) * normal.x) -
-                      push_plane_distance_;
+        const double past = ((static_cast<double>(point.z) * normal.z + static_cast<double>(point.y) * normal.y) +
+                             static_cast<double>(point.x) * normal.x) -
+                            push_plane_distance_;
         if (past > 0.0)
             pos -= static_cast<float>(past) * normal;
     }
@@ -352,8 +356,8 @@ void FootMovement::plan_jump_over_obstruction()
     if (!feeler.get_hit_shape(false, false))
         return;
     // ... meets something: the same jump_obstruction_check_back further back must be clear.
-    float back = walk_parameter(kJumpObstructionCheckBack);
-    float height = feeler.contact_pos_.y - start.y;
+    const float back = walk_parameter(kJumpObstructionCheckBack);
+    const float height = feeler.contact_pos_.y - start.y;
     const maths::Vec4& facing = facing_;
     for (maths::Vec4* v : {&start, &end}) {
         v->x = static_cast<float>(v->x - static_cast<double>(back) * facing.x);
@@ -366,14 +370,14 @@ void FootMovement::plan_jump_over_obstruction()
 
     // A ledge: the jump to it - the time to rise `height` at the vertical speed under gravity, and the speed back
     // toward it to cover `back` in that time.
-    double gravity = get_gravity();
-    double rise = up_speed_;
-    double discriminant = rise * rise - (gravity * height + gravity * height);
+    const double gravity = get_gravity();
+    const double rise = up_speed_;
+    const double discriminant = rise * rise - (gravity * height + gravity * height);
     if (!(discriminant > 0.0))
         return;
-    double inverse = kOne / gravity;
-    double time = (rise - std::sqrt(static_cast<double>(static_cast<float>(discriminant)))) * inverse;
-    double speed = -(back / time);
+    const double inverse = kOne / gravity;
+    const double time = (rise - std::sqrt(static_cast<double>(static_cast<float>(discriminant)))) * inverse;
+    const double speed = -(back / time);
     auto speed_f = static_cast<float>(speed);
     jump_velocity_ = {speed_f * facing.x, speed_f * facing.y, speed_f * facing.z, static_cast<float>(speed * facing.w)};
     jump_target_height_ = static_cast<float>(static_cast<double>(height) + pos_.y);
@@ -392,16 +396,16 @@ void FootMovement::try_wallplant()
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));
     };
-    float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time_));
+    const float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time_));
     if (script::fetch_float(kDisallowRewallplant) > since_wallplant)
         return;
-    float since_state = since_as_float(state_time_);
+    const float since_state = since_as_float(state_time_);
     if (script::fetch_float(kLateJumpSlop) > since_state)
         return;
     // ... and touching a wall: the first contact in this order.
     static const int kOrder[7] = {0, 1, 6, 2, 5, 3, 4};
     WalkContact* contact = nullptr;
-    for (int index : kOrder) {
+    for (const int index : kOrder) {
         WalkContact* candidate = &contacts_[index];
         if (candidate->hit) {
             contact = candidate;
@@ -414,17 +418,17 @@ void FootMovement::try_wallplant()
     // Off the wall: the way pushed (or the jump's way) mirrored off it, up by the hold of X.
     maths::Vec4 direction = stick_deflection_ == 0.0f ? leap_heading_ : stick_heading_;
     const maths::Vec4& normal = contact->normal;
-    double into = (static_cast<double>(direction.z) * normal.z + static_cast<double>(direction.y) * normal.y) +
-                  static_cast<double>(direction.x) * normal.x;
+    const double into = (static_cast<double>(direction.z) * normal.z + static_cast<double>(direction.y) * normal.y) +
+                        static_cast<double>(direction.x) * normal.x;
     if (into < 0.0)
         direction -= maths::operator*(static_cast<float>(into + into), normal);
-    float rise = walk_parameter(kVertWallJumpSpeed);
-    float hold = walk_parameter(kHoldTimeForMaxJump);
-    double held = static_cast<double>(static_cast<uint32_t>(pad->pos_x_.get_held_millis())) / hold;
-    float strength = held > kOne ? kOne : static_cast<float>(held);
-    float least = walk_parameter(kMinJumpFactor);
+    const float rise = walk_parameter(kVertWallJumpSpeed);
+    const float hold = walk_parameter(kHoldTimeForMaxJump);
+    const double held = static_cast<double>(static_cast<uint32_t>(pad->pos_x_.get_held_millis())) / hold;
+    const float strength = held > kOne ? kOne : static_cast<float>(held);
+    const float least = walk_parameter(kMinJumpFactor);
     up_speed_ = static_cast<float>(((kOne - static_cast<double>(least)) * strength + least) * rise);
-    float across = walk_parameter(kHorizWallJumpSpeed);
+    const float across = walk_parameter(kHorizWallJumpSpeed);
     vel_ = {across * direction.x, direction.y * across, direction.z * across, direction.w * across};
     leap_heading_ = facing_;
     // Off a moving object: its velocity added.
@@ -494,9 +498,9 @@ bool FootMovement::try_grind()
         return false;
     render::ProbeRay feeler(&pos, &point);
     if (feeler.get_hit_shape(true, false)) {
-        double dz = static_cast<double>(point.z) - feeler.contact_pos_.z;
-        double dy = static_cast<double>(point.y) - feeler.contact_pos_.y;
-        double dx = static_cast<double>(point.x) - feeler.contact_pos_.x;
+        const double dz = static_cast<double>(point.z) - feeler.contact_pos_.z;
+        const double dy = static_cast<double>(point.y) - feeler.contact_pos_.y;
+        const double dx = static_cast<double>(point.x) - feeler.contact_pos_.x;
         if ((dx * dx + dy * dy) + dz * dz > kGrindClearance)
             return false;
     }

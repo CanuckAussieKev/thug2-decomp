@@ -48,12 +48,12 @@ bool same_text(const std::string& a, const char* b)
 }
 bool starts_with(const std::string& text, const char* prefix)
 {
-    size_t n = std::strlen(prefix);
+    const size_t n = std::strlen(prefix);
     return text.size() >= n && same_text(text.substr(0, n), prefix);
 }
 bool ends_with(const std::string& text, const char* suffix)
 {
-    size_t n = std::strlen(suffix);
+    const size_t n = std::strlen(suffix);
     return text.size() >= n && same_text(text.substr(text.size() - n), suffix);
 }
 
@@ -66,7 +66,7 @@ int team_of(const std::string& text)
     if (ends_with(t, "_Base"))
         t.resize(t.size() - 5);
     for (int i = 0; i < kTeams; ++i) {
-        std::string suffix = std::string("_") + kTeamNames[i];
+        const std::string suffix = std::string("_") + kTeamNames[i];
         if (ends_with(t, suffix.c_str()))
             return i;
     }
@@ -118,7 +118,7 @@ const char* kind_name(Kind kind)
 
 const char* get_team_name(Team team)
 {
-    int i = static_cast<int>(team);
+    const int i = static_cast<int>(team);
     return i >= 0 && i < kTeams ? kTeamNames[i] : "?";
 }
 
@@ -164,7 +164,7 @@ Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& na
     s.name = name;
     s.pos = pos;
     s.angles = {0.0f, wrapped(yaw), 0.0f};
-    std::string colour = get_team_name(team);
+    const std::string colour = get_team_name(team);
     switch (kind) {
     case Kind::kSpawn:
         s.cls = "Restart";
@@ -262,8 +262,8 @@ bool valid_name(const std::string& name)
 {
     if (name.empty() || name.size() > 63)
         return false;
-    for (char c : name) {
-        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+    for (const char c : name) {
+        const bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
         if (!ok)
             return false;
     }
@@ -329,8 +329,8 @@ std::vector<Prop> get_fields(const Spec& spec)
         fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (another module's node)
         return fields;
     }
-    int team = team_of(kind == Kind::kFlagSet ? spec.type : spec.name);
-    std::string colour = team >= 0 ? kTeamNames[team] : "";
+    const int team = team_of(kind == Kind::kFlagSet ? spec.type : spec.name);
+    const std::string colour = team >= 0 ? kTeamNames[team] : "";
     switch (kind) {
     case Kind::kSpawn:
     case Kind::kTeamSpawn: {
@@ -345,8 +345,8 @@ std::vector<Prop> get_fields(const Spec& spec)
         flag("CreatedAtStart");
         break;
     case Kind::kFlagSet: {
-        bool base = ends_with(spec.type, "_Base");
-        std::string model = "flag_" + get_lower(colour) + (base ? "_base" : "");
+        const bool base = ends_with(spec.type, "_Base");
+        const std::string model = "flag_" + get_lower(colour) + (base ? "_base" : "");
         flag("NeverSuspend");
         string("Model", "gameobjects\\flags\\" + model + "\\" + model + ".mdl");
         integer("lod_dist1", 800);
@@ -397,7 +397,7 @@ const char* limit_message(Kind kind, const Counts& counts)
 
 bool hide_leaves_no_restart(uint32_t types, uint32_t others)
 {
-    for (uint32_t bit : {static_cast<uint32_t>(nodes::kPlayer1), static_cast<uint32_t>(nodes::kMultiplayer)}) {
+    for (const uint32_t bit : {static_cast<uint32_t>(nodes::kPlayer1), static_cast<uint32_t>(nodes::kMultiplayer)}) {
         if ((types & bit) && !(others & bit))
             return true;
     }
@@ -421,7 +421,7 @@ int append_one(LinkChain* list, const Spec& spec)
 
 bool get_take(LinkChain* list, const std::string& name, Spec* spec, int* index)
 {
-    int i = get_index_of(*list, name);
+    const int i = get_index_of(*list, name);
     if (i < 0)
         return false;
     *spec = (*list)[i];
@@ -456,7 +456,7 @@ std::vector<std::string> crown_order(const LinkChain& list)
 
 bool move_crown(LinkChain* list, const std::string& name, int delta)
 {
-    int at = get_index_of(*list, name);
+    const int at = get_index_of(*list, name);
     if (at < 0 || !is_crown((*list)[at]) || (delta != -1 && delta != 1))
         return false;
     for (int i = at + delta; i >= 0 && i < static_cast<int>(list->size()); i += delta) {
@@ -565,7 +565,7 @@ script::Struct* get_build(const Spec& spec)
         node->remove_flag(name_hash("ed_grind_flat")); // (its own choice: level_editor_chains.h)
     }
     for (const Prop& f : get_fields(spec)) {
-        uint32_t key = f.key.empty() ? 0u : name_hash(f.key);
+        const uint32_t key = f.key.empty() ? 0u : name_hash(f.key);
         if (like && f.type == Prop::kFlag && node->has_bare_flag(name_hash(f.text)))
             continue;
         if (like && f.key == "TerrainType" && spec.terrain.empty())
@@ -598,7 +598,7 @@ script::Struct* get_build(const Spec& spec)
             if (!array)
                 break;
             new (array) script::Array;
-            bool names = f.type == Prop::kNames;
+            const bool names = f.type == Prop::kNames;
             auto count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
             array->configure_size_kind(count, names ? script::kQbvalName : script::kQbvalInteger);
             for (uint32_t i = 0; i < count; ++i)
@@ -653,7 +653,7 @@ bool get_sync()
     if (g_structs.empty())
         return true;
     if (!g_array) {
-        uint32_t name = nodes::overlay_array();
+        const uint32_t name = nodes::overlay_array();
         script::note_qb_name(name, nodes::kOverlayArrayName);
         if (script::SymbolTableEntry* old = script::find_symbol(name))
             script::clean_up_and_remove_symbol(old);
@@ -690,8 +690,8 @@ void make_live(const Spec& spec, script::Struct* node)
     Kind kind{};
     if (!kind_of(spec, &kind))
         return;
-    uint32_t name = name_hash(spec.name);
-    maths::Vec4 pos = {spec.pos.x, spec.pos.y, spec.pos.z, 1.0f};
+    const uint32_t name = name_hash(spec.name);
+    const maths::Vec4 pos = {spec.pos.x, spec.pos.y, spec.pos.z, 1.0f};
     if (kind == Kind::kProximityNode && have_proxim()) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
             // (made before and removed: the game can't free one - used again)
@@ -721,7 +721,7 @@ void kill_live(const Spec& spec)
     Kind kind{};
     if (!kind_of(spec, &kind))
         return;
-    uint32_t name = name_hash(spec.name);
+    const uint32_t name = name_hash(spec.name);
     if (kind == Kind::kProximityNode && have_proxim())
         objects::proximity_node_enable(name, 0);
     else if (kind == Kind::kSound && have_emitters())
@@ -764,7 +764,7 @@ void get_forget()
 
 bool in_level()
 {
-    level_nodes::NodeManager* manager = hub();
+    const level_nodes::NodeManager* manager = hub();
     return manager && manager->num_ > (g_registered ? 1u : 0u) && render::current_level() != 0;
 }
 
@@ -795,7 +795,7 @@ bool is_added(uint32_t name)
 
 bool name_taken(const std::string& name)
 {
-    uint32_t checksum = name_hash(name);
+    const uint32_t checksum = name_hash(name);
     if (get_index_of(g_list, name) >= 0)
         return true;
     if (hub() && level_nodes::fetch_vertex(checksum, false))
@@ -826,7 +826,7 @@ const char* get_why_not(Kind kind, Team team)
         return "Not in a level";
     if (const char* limit = limit_message(kind, counts_now()))
         return limit;
-    std::string fixed = pinned_node_name(kind, team);
+    const std::string fixed = pinned_node_name(kind, team);
     if (!fixed.empty() && (name_taken(fixed) || (kind == Kind::kFlagSet && name_taken(fixed + "_Base"))))
         return kind == Kind::kFlagSet ? "This team flag already exists" : "This team spawn already exists";
     return nullptr;
@@ -843,7 +843,7 @@ const char* why_not_lobby_flag(Team team)
 
 bool fabricate(const Spec& spec, int index, std::string* message)
 {
-    LinkChain one = {spec};
+    const LinkChain one = {spec};
     if (!in_level()) {
         *message = "Not in a level";
         return false;
@@ -960,7 +960,7 @@ void set_order(const std::vector<std::string>& names)
     std::vector<script::Struct*> structs;
     std::vector<bool> used(g_list.size(), false);
     for (const std::string& name : names) {
-        int i = get_index_of(g_list, name);
+        const int i = get_index_of(g_list, name);
         if (i >= 0 && !used[i]) {
             used[i] = true;
             list.push_back(g_list[i]);
@@ -1089,13 +1089,13 @@ bool conceal(uint32_t name, bool hide)
         node->put_name_key(kClass, nodes::hidden_marker());
         node->put_name_key(kType, nodes::hidden_marker());
         if (cls == kProxim && have_proxim()) {
-            if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
+            if (const objects::ProximNode* proxim = objects::proxim_get_node(name)) {
                 h.proxim_active_ = proxim->active_;
                 objects::proximity_node_enable(name, 0);
             }
         }
         if (cls == kEmitter && have_emitters()) {
-            if (objects::EmitterNode* emitter = objects::emitter_get_node(name)) {
+            if (const objects::EmitterNode* emitter = objects::emitter_get_node(name)) {
                 h.emitter_active_ = emitter->active_;
                 objects::emitter_set_active(name, 0);
             }
@@ -1112,7 +1112,7 @@ bool conceal(uint32_t name, bool hide)
     } else {
         if (it == g_hidden.end())
             return true;
-        HiddenNode h = *it;
+        const HiddenNode h = *it;
         g_hidden.erase(it);
         uint32_t cls = 0, type = 0;
         node->read_hash_value(nodes::hidden_class_key(), &cls, 0);
@@ -1138,10 +1138,10 @@ bool conceal(uint32_t name, bool hide)
 
 void reset_all()
 {
-    std::vector<uint32_t> hidden = hidden_names();
-    for (uint32_t name : hidden)
+    const std::vector<uint32_t> hidden = hidden_names();
+    for (const uint32_t name : hidden)
         conceal(name, false);
-    std::vector<std::string> names = get_order();
+    const std::vector<std::string> names = get_order();
     for (const std::string& name : names) {
         Spec spec;
         int index = 0;

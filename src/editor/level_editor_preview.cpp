@@ -47,14 +47,14 @@ void get_wheel(Orbit* orbit, float steps)
 
 float fit_distance(float radius, float half_angle, float margin)
 {
-    float s = std::sin(half_angle);
+    const float s = std::sin(half_angle);
     return s > 1e-4f ? radius * margin / s : radius * margin * 1e4f;
 }
 
 void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)
 {
     *centre = (min + max) * 0.5f;
-    V3 half = (max - min) * 0.5f;
+    const V3 half = (max - min) * 0.5f;
     *radius = std::max(min_radius, std::sqrt(get_dot(half, half)));
 }
 
@@ -136,21 +136,21 @@ struct SavedView {
 // A geometry's meshes as the world pass draws them: shown and not hidden; opaque ones first, then the transparent.
 void draw_meshes(render::PcGeom* geom)
 {
-    auto** meshes = geom->meshes;
-    uint32_t count = geom->mesh_count_;
+    auto* const* meshes = geom->meshes;
+    const uint32_t count = geom->mesh_count_;
     if (!meshes)
         return;
-    render::MaterialRef* current = nullptr;
+    const render::MaterialRef* current = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
         for (uint32_t i = 0; i < count && i < 4096; ++i) {
             render::MeshRef* mesh = meshes[i];
             if (!mesh)
                 continue;
-            uint32_t flags = mesh->flags;
+            const uint32_t flags = mesh->flags;
             if (!(flags & 0x40) || (flags & 0x210))
                 continue;
             render::MaterialRef* material = mesh->material;
-            bool transparent = material && (material->pass_flags_[0] & 0x40);
+            const bool transparent = material && (material->pass_flags_[0] & 0x40);
             if (transparent != (pass == 1))
                 continue;
             if (material != current) {
@@ -225,7 +225,7 @@ void intake(float dx, float dy, float wheel)
 uint64_t render(int size)
 {
     auto now = std::chrono::steady_clock::now();
-    double elapsed = g_have_time ? std::chrono::duration<double>(now - g_last_frame).count() : 0.0;
+    const double elapsed = g_have_time ? std::chrono::duration<double>(now - g_last_frame).count() : 0.0;
     g_last_frame = now;
     g_have_time = true;
     if (g_kind == Kind::kNone)
@@ -258,9 +258,9 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     V3 centre{};
     float radius = 0.0f;
     sphere_of(min, max, 4.0f, &centre, &radius);
-    Lens lens = lens_for(kAngle, kSquareAspect);
-    float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
-    Eye eye = orbit_eye(centre, fit_distance(radius, half_angle, kMargin) / orbit.zoom, orbit);
+    const Lens lens = lens_for(kAngle, kSquareAspect);
+    const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
+    const Eye eye = orbit_eye(centre, fit_distance(radius, half_angle, kMargin) / orbit.zoom, orbit);
     SavedView saved{};
     saved.store_away();
     maths::Mat4 orientation = {};
@@ -268,7 +268,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     orientation.row[1] = {eye.frame.up.x, eye.frame.up.y, eye.frame.up.z, 0.0f};
     orientation.row[2] = {eye.frame.back.x, eye.frame.back.y, eye.frame.back.z, 0.0f};
     orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Vec4 position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
+    const maths::Vec4 position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
     render::choose_camera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
     render::set_world_transform(nullptr);
     render::change_phase(render::kZWrite, 1);
@@ -299,7 +299,7 @@ void tick_cycle(ui::ShapeMesh* model)
             conceal();
         return;
     }
-    uint32_t id = (*items)[view.index].id;
+    const uint32_t id = (*items)[view.index].id;
     get_show(model->browser_tab_ == 0 ? Kind::kSector : Kind::kObject, id);
     view.name = object_edit::caption(id);
     OrientedBox box{};
@@ -313,7 +313,7 @@ void tick_cycle(ui::ShapeMesh* model)
         view.type = "scene sector (scenery)";
     } else {
         view.type = object_edit::class_of(id);
-        std::string file = object_edit::get_model_file(id);
+        const std::string file = object_edit::get_model_file(id);
         if (!file.empty())
             view.type += "  -  " + file;
     }

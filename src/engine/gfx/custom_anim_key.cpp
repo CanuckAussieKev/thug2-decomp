@@ -38,7 +38,7 @@ void UserClipKey::operator delete[](void* memory) { memory::dealloc(memory); }
 // 0x004860C0
 bool UserClipKey::inside_range(float start, float end, bool inclusive)
 {
-    double frame = tick_;
+    const double frame = tick_;
     if (inclusive) {
         if (start < end)
             return frame >= start && frame <= end;
@@ -115,7 +115,7 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
     : UserClipKey(frame)
 {
     orientation_turn_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
+    const maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
     maths::QuatRotation quarter_turn{};
     quarter_turn.init_from_axis_angle(axis, 1.57079637f); // (0x3FC90FDB)
     maths::QuatRotation turned = *rotation;
@@ -133,7 +133,7 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
 // 0x004861D0
 bool CameraKey::inside_range(float start, float end, bool inclusive)
 {
-    double frame = tick_;
+    const double frame = tick_;
     if (start < end) {
         if (cut_ ? end > frame : frame < static_cast<double>(end) - 1.0)
             return false;
@@ -195,23 +195,23 @@ bool AnimScriptKey::work_on(void* object)
 memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
 {
     auto* header = reinterpret_cast<const uint32_t*>(*cursor);
-    int frame = static_cast<int>(header[0]);
-    uint32_t kind = header[1];
-    uint32_t size = header[2];
+    const int frame = static_cast<int>(header[0]);
+    const uint32_t kind = header[1];
+    const uint32_t size = header[2];
     const uint32_t* data = header + 3;
     *cursor = reinterpret_cast<const uint8_t*>(data);
     switch (kind) {
     case 1: {
-        uint32_t fov = *data;
+        const uint32_t fov = *data;
         *cursor = reinterpret_cast<const uint8_t*>(data + 1);
         auto field_of_view = std::bit_cast<float>(fov);
         return new CameraFovKey(frame, field_of_view);
     }
     case 2:
     case 7: {
-        maths::Vec4 pos = *reinterpret_cast<const maths::Vec4*>(data);
+        const maths::Vec4 pos = *reinterpret_cast<const maths::Vec4*>(data);
         *cursor = reinterpret_cast<const uint8_t*>(data + 4);
-        maths::QuatRotation rotation = *reinterpret_cast<const maths::QuatRotation*>(data + 4);
+        const maths::QuatRotation rotation = *reinterpret_cast<const maths::QuatRotation*>(data + 4);
         *cursor = reinterpret_cast<const uint8_t*>(data + 8);
         return new CameraKey(frame, &rotation, &pos, kind == 7);
     }
@@ -222,7 +222,7 @@ memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
     case 4:
     case 5:
     case 6: {
-        uint32_t value = *data;
+        const uint32_t value = *data;
         *cursor = reinterpret_cast<const uint8_t*>(data + 1);
         // (each kind's one word)
         if (kind == 4)
@@ -250,8 +250,8 @@ memory::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
         return new CameraFovKey(key.frame, key.values[0]);
     case 2:
     case 7: {
-        maths::Vec4 pos = {key.values[0], key.values[1], key.values[2], key.values[3]};
-        maths::QuatRotation rotation = {key.values[4], key.values[5], key.values[6], key.values[7]};
+        const maths::Vec4 pos = {key.values[0], key.values[1], key.values[2], key.values[3]};
+        const maths::QuatRotation rotation = {key.values[4], key.values[5], key.values[6], key.values[7]};
         return new CameraKey(key.frame, &rotation, &pos, key.kind == 7);
     }
     case 3:

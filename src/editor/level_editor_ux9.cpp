@@ -52,7 +52,8 @@ bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* p = &ray->hit_.point.x;
@@ -118,7 +119,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                             ImVec2(1.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(340.0f * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
-    std::string title =
+    const std::string title =
         (g_editing ? "Ground piece " + g_draft.name : std::string("Raise / lower ground")) + "###groundForm";
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
@@ -198,7 +199,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
             std::snprintf(row, sizeof(row), "%s  %s %.0f x %.0f, %.0f", s.name.c_str(), s.lower ? "pit" : "platform",
                           s.x1 - s.x0, s.z1 - s.z0, s.height);
             if (ImGui::Selectable(row, g_editing && s.name == d.name)) {
-                std::string name = s.name;
+                const std::string name = s.name;
                 g_queue.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
@@ -246,7 +247,7 @@ bool ground_click(V3 origin, V3 unit_dir)
             }
         }
     }
-    V3 corner = get_snapped(hit);
+    const V3 corner = get_snapped(hit);
     if (g_stage == Stage::kFirst) {
         g_first = corner;
         g_floor = ground::is_piece(sector) ? 0 : sector;
@@ -257,7 +258,7 @@ bool ground_click(V3 origin, V3 unit_dir)
     ground::Spec spec;
     spec.x0 = g_first.x, spec.z0 = g_first.z, spec.x1 = corner.x, spec.z1 = corner.z;
     ground::normalise(&spec);
-    V3 centre = {(spec.x0 + spec.x1) * 0.5f, std::max(g_first.y, corner.y), (spec.z0 + spec.z1) * 0.5f};
+    const V3 centre = {(spec.x0 + spec.x1) * 0.5f, std::max(g_first.y, corner.y), (spec.z0 + spec.z1) * 0.5f};
     spec.base = get_ground_at(centre, g_first.y);
     std::string why;
     if (!ground::choose_material(g_floor, &spec, &why)) {
@@ -320,7 +321,7 @@ void halt()
 void tick_frame()
 {
     if (g_gap_action >= 0 && actions::squeezed(g_gap_action)) {
-        bool on = !gap_wizard::get_armed();
+        const bool on = !gap_wizard::get_armed();
         g_stage = Stage::kDisengaged;
         gap_wizard::set_armed(on);
         if (!on)
@@ -389,7 +390,7 @@ void add_overlay(const overlays::Painter& painter)
     if (g_stage == Stage::kSecond) {
         V3 b = g_have_hover ? g_hover : g_first;
         float y = g_first.y + 2.0f;
-        V3 c[4] = {{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}};
+        const V3 c[4] = {{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}};
         for (int i = 0; i < 4; ++i)
             painter.get_seg(c[i], c[(i + 1) % 4], kRect, 2.0f);
         char text[64];

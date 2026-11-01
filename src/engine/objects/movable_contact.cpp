@@ -76,14 +76,15 @@ GameEntity* MovingSurfaceModule::find_contact_ahead(maths::Vec4* pos, const math
         return object;
     }
     // (two frames of the object's velocity ahead: x through the unrounded product, the others rounded first)
-    double frame = frame_clock::get_slomo_frame_seconds();
+    const double frame = frame_clock::get_slomo_frame_seconds();
     const maths::Vec4& vel = object->vel_;
-    double x = frame * vel.x;
+    const double x = frame * vel.x;
     auto y = static_cast<float>(frame * vel.y);
     auto z = static_cast<float>(frame * vel.z);
     auto w = static_cast<float>(frame * vel.w);
-    maths::Vec4 ahead = {get_sum(pos->x, x + x), get_sum(pos->y, static_cast<double>(y) + y),
-                         get_sum(pos->z, static_cast<double>(z) + z), get_sum(pos->w, static_cast<double>(w) + w)};
+    const maths::Vec4 ahead = {get_sum(pos->x, x + x), get_sum(pos->y, static_cast<double>(y) + y),
+                               get_sum(pos->z, static_cast<double>(z) + z),
+                               get_sum(pos->w, static_cast<double>(w) + w)};
     if (!find_contact(&ahead, &other)) {
         *pos = ahead;
         return object;
@@ -142,7 +143,7 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
         return false;
     }
     if (ride_) {
-        GameEntity* riding = ride_->entity_.owner_object_;
+        const GameEntity* riding = ride_->entity_.owner_object_;
         if (!riding || riding != feeler->get_hit_object())
             stop_riding();
     }
@@ -165,7 +166,7 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
 // 0x00427DD0
 void MovingSurfaceModule::update_contact_point()
 {
-    GameEntity* object = nullptr;
+    const GameEntity* object = nullptr;
     if (ride_ && ride_->entity_.owner_object_) {
         object = ride_->entity_.owner_object_;
     } else {
@@ -175,7 +176,7 @@ void MovingSurfaceModule::update_contact_point()
         if (!object)
             return;
     }
-    maths::Vec4 at = object->at_point_;
+    const maths::Vec4 at = object->at_point_;
     maths::Mat4 inverse{};
     inverse = object->basis_frame_;
     const maths::Vec4& pos = entity_->at_point_;

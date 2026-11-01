@@ -229,7 +229,7 @@ bool cfunc_dump_heaps(Struct* params, Script*)
     dump_heaps_begin();
     memory::Hub* manager = hub();
     debug::printf(format("Current Heap: %s\n\n"), manager->current_heap_name()); // "Current Heap: %s\n"
-    bool bytes = params && params->has_bare_flag(kDumpHeapsBytes);
+    const bool bytes = params && params->has_bare_flag(kDumpHeapsBytes);
     debug::printf(format(
         bytes
             ? "Name                       Used    Frag    Free    Min Blocks\n"
@@ -239,9 +239,9 @@ bool cfunc_dump_heaps(Struct* params, Script*)
               : "------------------------- ----- ----- ---- ------ ------\n")); // "------------------------- -----..."
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region_;
-        int minimum = region->min_available_; // (read before free_byte_count)
-        int blocks = heap->used_blocks_;
-        int available = region->free_byte_count();
+        const int minimum = region->min_available_; // (read before free_byte_count)
+        const int blocks = heap->used_blocks_;
+        const int available = region->free_byte_count();
         if (bytes)
             debug::printf(format("%23s: %8d %7d %7d %7d  %5d \n"), heap->label_, heap->used_size_, heap->free_size_,
                           available, minimum,
@@ -251,7 +251,7 @@ bool cfunc_dump_heaps(Struct* params, Script*)
                           heap->free_size_ / 1024, available / 1024, minimum / 1024,
                           blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
     }
-    int sound_free = free_sound_memory();
+    const int sound_free = free_sound_memory();
     debug::printf(format("\nSound mem free %d K  (%d bytes)\n"), free_sound_memory() / 1024,
                   sound_free); // "\nSound mem free %d K  (%d bytes)\n"
     dump_pool_usage(false, true);

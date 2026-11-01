@@ -252,8 +252,8 @@ bool cfunc_wait_for_async_load_to_finish(script::Struct*, script::Script*)
 static void second_pad_watch_tick(tasks::Task<void>*)
 {
     sio::Hub* devices = sio::manager_instance();
-    sio::InputPort* first = devices->get_pad_at_slot(0);
-    sio::InputPort* second = devices->get_pad_at_slot(1);
+    const sio::InputPort* first = devices->get_pad_at_slot(0);
+    const sio::InputPort* second = devices->get_pad_at_slot(1);
     if (second->is_attached() && first->is_attached())
         script::launch_script(kBothControllersIn, nullptr, nullptr, false, nullptr);
     else
@@ -301,7 +301,7 @@ bool cfunc_set_custom_skater_filename(script::Struct* params, script::Script*)
 // end's handler) - without a number, on either. False without a button.
 bool cfunc_controller_pressed(script::Struct* params, script::Script*)
 {
-    modules::FrontEnd* front_end = modules::front_end_instance();
+    const modules::FrontEnd* front_end = modules::front_end_instance();
     uint32_t button = 0;
     if (!params->read_hash_value(0u, &button, 0))
         return false;
@@ -319,10 +319,10 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script*)
 // the script's parameters - false (and none) if it isn't plugged in and valid.
 bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
 {
-    modules::FrontEnd* front_end = modules::front_end_instance();
+    const modules::FrontEnd* front_end = modules::front_end_instance();
     int controller = 0;
     params->fetch_int_value(kController, &controller, 0);
-    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[controller].get();
+    const modules::FrontEndInputHandler* handler = front_end->pad_listeners_[controller].get();
     objects::PadSnapshot pad;
     pad.tick_frame(reinterpret_cast<const uint8_t*>(handler->control_data_));
     auto* device = handler->dev_;
@@ -396,7 +396,7 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
     const char* password = nullptr;                    // (unset in the original when missing)
     preference->fetch_text("ui_string", &password, 0); // "ui_string"
     char* stars = password_stars();
-    size_t length = std::strlen(password);
+    const size_t length = std::strlen(password);
     for (size_t i = 0; i < length; ++i)
         stars[i] = '*';
     stars[length] = '\0';
@@ -481,7 +481,7 @@ bool cfunc_set_viewer_model(script::Struct* params, script::Script*)
 bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
-        objects::PreviewEntity* object = viewer_target(viewer);
+        const objects::PreviewEntity* object = viewer_target(viewer);
         script->args_->put_name_key(0x0830ECAF, object->ident_);
         script->args_->put_name_key(0x52280066, object->ident_);
     }
@@ -507,7 +507,7 @@ bool cfunc_reload_anim(script::Struct* params, script::Script*)
     if (!asset)
         return false;
     assets->discard_loaded_item(asset);
-    bool debug_heap = g_got_extra_memory;
+    const bool debug_heap = g_got_extra_memory;
     if (debug_heap) {
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(reinterpret_cast<memory::MemSource*>(memory->debug_heap_));
@@ -669,7 +669,7 @@ bool cfunc_set_active_camera(script::Struct* params, script::Script*)
     params->read_hash_value(0x40C698AFu, &id, 0); // "id"
     int viewport = 0;
     params->fetch_int_value(0x9FD29151u, &viewport, 0);
-    bool take_current_view = params->has_bare_flag(0x10C1C887u);
+    const bool take_current_view = params->has_bare_flag(0x10C1C887u);
     return make_camera_active(id, viewport, take_current_view);
 }
 
@@ -714,7 +714,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
             ++matched;
         if (matched < 9)
             continue;
-        int type = at[9] - '0';
+        const int type = at[9] - '0';
         at += 11;
         float values[6];
         for (float& value : values) {
@@ -724,7 +724,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
             ++at;
         }
         maths::Vec4 from = {values[0], values[1], values[2], 1.0f};
-        maths::Vec4 to = {values[3], values[4], values[5], 1.0f};
+        const maths::Vec4 to = {values[3], values[4], values[5], 1.0f};
         --at;
         uint32_t colour = 0;
         switch (type) {
@@ -781,7 +781,7 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
     if (!file)
         return false;
     game_fseek(file, 0, SEEK_END);
-    long size = game_ftell(file);
+    const long size = game_ftell(file);
     game_fseek(file, 0, SEEK_SET);
     void* data = game_malloc(static_cast<size_t>(size));
     game_fread(data, 1, static_cast<size_t>(size), file);

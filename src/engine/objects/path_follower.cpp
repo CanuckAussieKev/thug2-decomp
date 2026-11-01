@@ -44,9 +44,9 @@ void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 // The length of a - b, unrounded: (z, y, then x) squared and summed.
 double span_to(const maths::Vec4& a, const maths::Vec4& b)
 {
-    double x = static_cast<double>(a.x) - b.x;
-    double y = static_cast<double>(a.y) - b.y;
-    double z = static_cast<double>(a.z) - b.z;
+    const double x = static_cast<double>(a.x) - b.x;
+    const double y = static_cast<double>(a.y) - b.y;
+    const double z = static_cast<double>(a.z) - b.z;
     return std::sqrt(z * z + y * y + x * x);
 }
 // A vector's length, unrounded (0x004023C0's maths: x, y, then z).
@@ -87,7 +87,7 @@ void PathFollower::read_node_position()
 // 0x0046A120
 bool PathFollower::get_next_node()
 {
-    uint32_t links = level_nodes::get_link_count(list_link_);
+    const uint32_t links = level_nodes::get_link_count(list_link_);
     if (links == 0)
         return false;
     last_node_ = list_link_;
@@ -104,14 +104,14 @@ bool PathFollower::get_next_node()
 void PathFollower::refresh_placement()
 {
     at_point_ = segment_origin_;
-    double dx = static_cast<double>(end_point_.x) - segment_origin_.x;
-    double dy = static_cast<double>(end_point_.y) - segment_origin_.y;
-    float dz = end_point_.z - segment_origin_.z;
-    float dw = end_point_.w - segment_origin_.w;
+    const double dx = static_cast<double>(end_point_.x) - segment_origin_.x;
+    const double dy = static_cast<double>(end_point_.y) - segment_origin_.y;
+    const float dz = end_point_.z - segment_origin_.z;
+    const float dw = end_point_.w - segment_origin_.w;
     auto t = static_cast<float>(static_cast<double>(along_) / byte_count_);
     auto sx = static_cast<float>(dx * t);
-    double sy = dy * t;
-    double sz = static_cast<double>(dz) * t;
+    const double sy = dy * t;
+    const double sz = static_cast<double>(dz) * t;
     auto sw = static_cast<float>(static_cast<double>(dw) * t);
     at_point_.x = static_cast<float>(static_cast<double>(sx) + at_point_.x);
     at_point_.y = static_cast<float>(sy + at_point_.y);
@@ -127,9 +127,9 @@ bool PathFollower::check_corner()
             return false;
         maths::Vec4 next;
         level_nodes::fetch_place(level_nodes::fetch_neighbour_node(list_link_, 0), &next);
-        double between = span_to(next, end_point_);
+        const double between = span_to(next, end_point_);
         if (between < corner_distance_) {
-            double cut = between * 0.5;
+            const double cut = between * 0.5;
             cut_ = static_cast<float>(cut);
             auto left = static_cast<float>(span_to(end_point_, at_point_));
             if (cut > left)
@@ -146,7 +146,7 @@ bool PathFollower::check_corner()
 // 0x0046A250
 bool PathFollower::start_segment()
 {
-    double along = span_to(at_point_, segment_origin_);
+    const double along = span_to(at_point_, segment_origin_);
     along_ = static_cast<float>(along);
     byte_count_ = static_cast<float>(span_to(segment_origin_, end_point_));
     along_ = static_cast<float>(along + carry_);
@@ -163,21 +163,21 @@ bool PathFollower::start_segment()
 int PathFollower::compute_arc()
 {
     // the corner point: as far along the next segment from the node as the position is short of it
-    double dx = static_cast<double>(at_point_.x) - segment_origin_.x;
-    double dy = static_cast<double>(at_point_.y) - segment_origin_.y;
-    double dz = static_cast<double>(at_point_.z) - segment_origin_.z;
+    const double dx = static_cast<double>(at_point_.x) - segment_origin_.x;
+    const double dy = static_cast<double>(at_point_.y) - segment_origin_.y;
+    const double dz = static_cast<double>(at_point_.z) - segment_origin_.z;
     bend_point_ = segment_origin_;
     auto short_of = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
-    double ex = static_cast<double>(end_point_.x) - segment_origin_.x;
-    double ey = static_cast<double>(end_point_.y) - segment_origin_.y;
-    float ez = end_point_.z - segment_origin_.z;
-    float ew = end_point_.w - segment_origin_.w;
-    double segment = std::sqrt(ex * ex + static_cast<double>(ez) * ez + ey * ey);
-    double scale = short_of / segment;
+    const double ex = static_cast<double>(end_point_.x) - segment_origin_.x;
+    const double ey = static_cast<double>(end_point_.y) - segment_origin_.y;
+    const float ez = end_point_.z - segment_origin_.z;
+    const float ew = end_point_.w - segment_origin_.w;
+    const double segment = std::sqrt(ex * ex + static_cast<double>(ez) * ez + ey * ey);
+    const double scale = short_of / segment;
     auto scalef = static_cast<float>(scale);
     auto cx = static_cast<float>(ex * scale);
-    double cy = ey * scalef;
-    double cz = static_cast<double>(ez) * scalef;
+    const double cy = ey * scalef;
+    const double cz = static_cast<double>(ez) * scalef;
     auto cw = static_cast<float>(static_cast<double>(ew) * scalef);
     bend_point_.x = static_cast<float>(static_cast<double>(cx) + bend_point_.x);
     bend_point_.y = static_cast<float>(cy + bend_point_.y);
@@ -190,25 +190,25 @@ int PathFollower::compute_arc()
 
     // the arc's centre: on the bisector, through the middle of position - corner
     auto mx = static_cast<float>((static_cast<double>(bend_point_.x) - at_point_.x) * 0.5);
-    double my = (static_cast<double>(bend_point_.y) - at_point_.y) * 0.5;
-    double mz = static_cast<double>(bend_point_.z - at_point_.z) * 0.5;
+    const double my = (static_cast<double>(bend_point_.y) - at_point_.y) * 0.5;
+    const double mz = static_cast<double>(bend_point_.z - at_point_.z) * 0.5;
     auto mw = static_cast<float>(static_cast<double>(bend_point_.w - at_point_.w) * 0.5);
     auto half_chord = static_cast<float>(std::sqrt(static_cast<double>(mx) * mx + mz * mz + my * my));
     auto mid_x = static_cast<float>(static_cast<double>(mx) + at_point_.x);
     auto mid_y = static_cast<float>(my + at_point_.y);
-    double mid_z = mz + at_point_.z;
-    double mid_w = static_cast<double>(mw) + at_point_.w;
+    const double mid_z = mz + at_point_.z;
+    const double mid_w = static_cast<double>(mw) + at_point_.w;
     auto qx = static_cast<float>(static_cast<double>(mid_x) - segment_origin_.x);
     auto qy = static_cast<float>(static_cast<double>(mid_y) - segment_origin_.y);
     auto qz = static_cast<float>(mid_z - segment_origin_.z);
-    double qw = mid_w - segment_origin_.w;
-    double bisector =
+    const double qw = mid_w - segment_origin_.w;
+    const double bisector =
         std::sqrt(static_cast<double>(qz) * qz + static_cast<double>(qy) * qy + static_cast<double>(qx) * qx);
     auto bisectorf = static_cast<float>(bisector);
-    bool tight = 6.0 * bisector < half_chord;
+    const bool tight = 6.0 * bisector < half_chord;
     if (tight || bisector == 0.0)
         return 0;
-    double radius = static_cast<double>(half_chord) / bisector * short_of;
+    const double radius = static_cast<double>(half_chord) / bisector * short_of;
     radius_ = static_cast<float>(radius);
     if (radius == 0.0)
         return 2;
@@ -230,7 +230,7 @@ int PathFollower::compute_arc()
         return 2;
     out.make_unit();
     heading.make_unit();
-    double angle = std::acos(get_dot(out, heading));
+    const double angle = std::acos(get_dot(out, heading));
     arc_angle_ = static_cast<float>(angle);
     arc_length_ = static_cast<float>(angle * radius_);
     axis = maths::cross_vec(out, heading);
@@ -249,13 +249,13 @@ int PathFollower::compute_arc()
 // 0x0046A320
 void PathFollower::arc_step(float distance)
 {
-    double step = static_cast<double>(distance) / arc_length_ * arc_angle_;
+    const double step = static_cast<double>(distance) / arc_length_ * arc_angle_;
     step_ = static_cast<float>(step);
     maths::Mat4 turn;
     d3dx_multiply(tick_, maths::make_yaw_matrix(turn, static_cast<float>(step)), tick_);
     if (tick_.row[1].y > 0.0f)
         step_ = step_ * -1.0f;
-    double out = -static_cast<double>(radius_);
+    const double out = -static_cast<double>(radius_);
     const maths::Vec4& from_center = tick_.row[0];
     at_point_.z = static_cast<float>(out * from_center.z);
     at_point_.w = static_cast<float>(out * from_center.w);
@@ -282,7 +282,7 @@ void PathFollower::start_corner()
         cur_phase_ = kStateArc;
         break;
     case 2: {
-        uint32_t passed = last_node_;
+        const uint32_t passed = last_node_;
         node_passed(path_component(owner_), passed);
         along_ = byte_count_ - along_;
         flag_bits_ &= ~kFlagTellNode;
@@ -323,7 +323,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
     if (cur_phase_ == kStateDone)
         return true;
     if (direction) {
-        double along = get_dot(tick_.row[2], *direction);
+        const double along = get_dot(tick_.row[2], *direction);
         distance = along == 0.0 ? 1.0f : static_cast<float>(along * distance);
     }
     switch (cur_phase_) {
@@ -333,7 +333,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         cur_phase_ = kStateStraight;
         [[fallthrough]];
     case kStateStraight: {
-        double along = static_cast<double>(distance) + along_;
+        const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
         if (flag_bits_ & kFlagLastNode) {
             if (!(along >= byte_count_)) { // (unordered too, as the original's comparisons below)
@@ -366,10 +366,10 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         return false;
     }
     case kStateArc: {
-        double along = static_cast<double>(distance) + along_;
+        const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
         if ((flag_bits_ & kFlagTellNode) && along >= static_cast<double>(arc_length_) * 0.5) {
-            uint32_t passed = last_node_;
+            const uint32_t passed = last_node_;
             flag_bits_ &= ~kFlagTellNode;
             node_passed(path_component(owner_), passed);
         }
@@ -377,7 +377,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             arc_step(distance);
             return false;
         }
-        double over = static_cast<double>(along_) - arc_length_;
+        const double over = static_cast<double>(along_) - arc_length_;
         carry_ = static_cast<float>(over);
         arc_step(static_cast<float>(static_cast<double>(distance) - over));
         carry_ = 0.0f;
@@ -388,7 +388,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         return false;
     }
     case kStateBlend: {
-        double along = static_cast<double>(distance) + along_;
+        const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
         auto t = static_cast<float>(along / byte_count_);
         maths::Vec4 offset;
@@ -402,11 +402,11 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             offset *= static_cast<float>(static_cast<double>(t) - 1.0);
         }
         at_point_ += offset;
-        maths::Vec4 into = segment_origin_ - center_;
-        maths::Vec4 next = bend_point_ - segment_origin_;
+        const maths::Vec4 into = segment_origin_ - center_;
+        const maths::Vec4 next = bend_point_ - segment_origin_;
         float blend = t * 0.5f;
         if (blend >= 0.5f && (flag_bits_ & kFlagTellNode)) {
-            uint32_t passed = last_node_;
+            const uint32_t passed = last_node_;
             flag_bits_ &= ~kFlagTellNode;
             node_passed(path_component(owner_), passed);
         }

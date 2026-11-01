@@ -208,7 +208,7 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 {
     switch (name) {
     case kPlayAnim: {
-        PlayParams p = read_play_params(params);
+        const PlayParams p = read_play_params(params);
         play_anim(timeline_ptr_, p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
         frame_source_ = logged_source_frame_of(blend_source_, anim_set_, p.anim);
         frame_index_ = frame_index(frame_source_);
@@ -230,7 +230,7 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         return 1;
     }
     case kGlobalFrame: {
-        int value = ClipStore::get_pull()->fetch_kind();
+        const int value = ClipStore::get_pull()->fetch_kind();
         static_cast<JointClipFrames*>(frame_source_)->build_cache(value);
         return 1;
     }
@@ -245,7 +245,7 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 // 0x004A4620
 void StandardAnimController::tick_frame()
 {
-    float before = timeline_ptr_->ongoing_;
+    const float before = timeline_ptr_->ongoing_;
     timeline_ptr_->ongoing_ = get_step(timeline_ptr_);
     passed_events(timeline_ptr_, before, timeline_ptr_->ongoing_);
     if (timeline_ptr_->ongoing_ < before)
@@ -379,7 +379,7 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
 {
     switch (name) {
     case kPlayAnim: {
-        PlayParams p = read_play_params(params);
+        const PlayParams p = read_play_params(params);
         play_anim(timeline_ptr_, p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
         frame_source_ = source_frame_of(blend_source_, anim_set_ + p.anim);
         return 1;
@@ -424,8 +424,9 @@ float WobbleDriver::wobble_time()
 {
     const AnimTimeline* t = timeline_ptr_;
     float target = aim_point_;
-    float k1 = k1_, k2 = k2_;
-    double scale =
+    const float k1 = k1_;
+    const float k2 = k2_;
+    const double scale =
         std::fabs(target - (static_cast<double>(t->outset_) + t->finish_) * 0.5) *
             ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish_) - t->outset_) * 0.5)) +
         1.0;
@@ -452,7 +453,7 @@ float WobbleDriver::wobble_time()
 // 0x004A52E0
 void WobbleDriver::tick_frame()
 {
-    float before = timeline_ptr_->ongoing_;
+    const float before = timeline_ptr_->ongoing_;
     timeline_ptr_->ongoing_ = wobble_time();
     if (timeline_ptr_->ongoing_ < before)
         frame_source_ = source_frame(blend_source_, false);
@@ -530,7 +531,7 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     float start = 0.0f, end = 0.0f, current = 0.0f;
     objects::ObjectModule* blender = object_of(this)->fetch_module(kAnimBlender);
     // (the blender's fetch_value: the anim set's entry for the animation - its length)
-    float duration = static_cast<objects::AnimBlenderComponent*>(blender)->fetch_value(anim);
+    const float duration = static_cast<objects::AnimBlenderComponent*>(blender)->fetch_value(anim);
     // the times and loop type given (0x004877E0, 0x00487770; cdecl)
     fetch_anim_durations(&start, &end, current, duration, params);
     int loop_type = 0; // (the original leaves it to 0x00487770)
@@ -587,7 +588,7 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
 // 0x004A4EF0
 void PartialClipDriver::tick_frame()
 {
-    float before = partial_->ongoing_;
+    const float before = partial_->ongoing_;
     partial_->ongoing_ = get_step(partial_);
     if (partial_->ongoing_ < before)
         frame_source_ = source_frame(blend_source_, false);

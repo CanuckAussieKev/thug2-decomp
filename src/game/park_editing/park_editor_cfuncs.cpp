@@ -88,7 +88,7 @@ struct PanelRect {
 void world_rectangles(CellBox area, PanelRect* rails, PanelRect* goals)
 {
     maths::Vec4 size;
-    maths::Vec4 corner = hub()->cell_to_world_pos(area, &size);
+    const maths::Vec4 corner = hub()->cell_to_world_pos(area, &size);
     rails->x0 = static_cast<float>(static_cast<double>(corner.x) + kRailMargin);
     rails->z0 = static_cast<float>(static_cast<double>(corner.z) + kRailMargin);
     rails->x1 = static_cast<float>(static_cast<double>(size.x) + corner.x - kRailMargin);
@@ -148,7 +148,7 @@ bool cfunc_park_editor_selection_area_too_big_to_copy(script::Struct*, script::S
 // 0x0058D840
 bool cfunc_copy_park_editor_selection_to_clipboard(script::Struct*, script::Script*)
 {
-    bool copied = get_cursor()->copy_area_to_clipboard();
+    const bool copied = get_cursor()->copy_area_to_clipboard();
     get_cursor()->drop_area_marquee();
     return copied;
 }
@@ -156,7 +156,7 @@ bool cfunc_copy_park_editor_selection_to_clipboard(script::Struct*, script::Scri
 // 0x0058D870
 bool cfunc_cut_park_editor_area_selection(script::Struct*, script::Script*)
 {
-    bool copied = get_cursor()->copy_area_to_clipboard();
+    const bool copied = get_cursor()->copy_area_to_clipboard();
     if (copied) {
         get_cursor()->destroy_selection();
         get_cursor()->flatten_selection();
@@ -257,7 +257,7 @@ bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script*)
 // 0x0058DFE0
 bool cfunc_get_park_editor_time_of_day_script(script::Struct*, script::Script* script)
 {
-    uint32_t tod = get_editor()->lighting_script_;
+    const uint32_t tod = get_editor()->lighting_script_;
     if (!tod)
         return false;
     script->args_->put_name_key(kTodScript, tod);
@@ -274,7 +274,7 @@ bool cfunc_rebuild_park_node_array(script::Struct*, script::Script*)
 // 0x0058E020
 bool cfunc_get_park_editor_cursor_pos(script::Struct*, script::Script* script)
 {
-    maths::Vec4 pos = get_cursor()->at_point_;
+    const maths::Vec4 pos = get_cursor()->at_point_;
     script->args_->put_vec3(kPos, pos.x, pos.y, pos.z);
     return true;
 }
@@ -282,7 +282,7 @@ bool cfunc_get_park_editor_cursor_pos(script::Struct*, script::Script* script)
 // 0x0058E070
 bool cfunc_custom_park_mode(script::Struct* params, script::Script*)
 {
-    ParkBuilderMode* editor = get_editor();
+    const ParkBuilderMode* editor = get_editor();
     if (params->has_bare_flag("editing"))
         return editor->cur_phase_ == ParkBuilderMode::kStateEdit;
     if (params->has_bare_flag("testing"))
@@ -400,7 +400,7 @@ bool cfunc_resize_park(script::Struct* params, script::Script*)
 // 0x0058E7E0
 bool cfunc_get_current_park_bounds(script::Struct*, script::Script* script)
 {
-    CellBox bounds = hub()->build_area_;
+    const CellBox bounds = hub()->build_area_;
     script->args_->put_int(kX, bounds.x);
     script->args_->put_int(kZ, bounds.z);
     script->args_->put_int(kW, bounds.w);
@@ -411,16 +411,16 @@ bool cfunc_get_current_park_bounds(script::Struct*, script::Script* script)
 // 0x0058E870
 bool cfunc_can_change_park_dimension(script::Struct* params, script::Script*)
 {
-    CellBox bounds = hub()->build_area_;
-    CellBox shell = hub()->shell_bounds_;
+    const CellBox bounds = hub()->build_area_;
+    const CellBox shell = hub()->shell_bounds_;
     script::Array* size = nullptr;
     if (params->fetch_list(0u, &size, 0)) {
         // [w l]: whether it's another size than the park's
-        uint32_t w = size->fetch_part(0);
-        uint32_t l = size->fetch_part(1);
+        const uint32_t w = size->fetch_part(0);
+        const uint32_t l = size->fetch_part(1);
         return w != bounds.w || l != bounds.l;
     }
-    bool up = params->has_bare_flag(kUp);
+    const bool up = params->has_bare_flag(kUp);
     if (params->has_bare_flag(kWidth))
         return up ? bounds.w < shell.w : bounds.w > 16;
     return up ? bounds.l < shell.l : bounds.l > 16;
@@ -440,7 +440,7 @@ bool cfunc_load_park_from_disk(script::Struct* params, script::Script*)
 {
     int slot = 0;
     params->fetch_int_value("slot", &slot, 1);
-    bool defer_regen = params->has_bare_flag("block_rebuild");
+    const bool defer_regen = params->has_bare_flag("block_rebuild");
     get_editor()->transfer_park_file(false, slot, defer_regen);
     return true;
 }

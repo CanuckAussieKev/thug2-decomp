@@ -156,7 +156,7 @@ void player_key_callback(int key, int index, void* buffer, void*)
     // QUIRK kept: the original never counts `index` down - only player 0 is found; for the others the walk runs off
     // the end and they're reported empty.
     PlayerSearch search;
-    PlayerRecord* player = start_roster_sweep(manager, &search, false);
+    const PlayerRecord* player = start_roster_sweep(manager, &search, false);
     if (index != 0)
         while (player)
             player = step_roster_sweep(manager, &search, false);
@@ -204,7 +204,7 @@ void start_query_reporting(bool keep_map_name)
     if (reporting)
         return;
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
-    int error = game_spy::call_qr2_init(
+    const int error = game_spy::call_qr2_init(
         nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &player_key_callback,
         code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
         code_address(online::add_error_callback), nullptr);

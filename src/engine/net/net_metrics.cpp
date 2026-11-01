@@ -37,7 +37,7 @@ void Gauges::calculate_usage(int time)
 {
     int total = 0;
     for (int i = 0; i < kTallyWindow && i < packets_seen_; ++i) {
-        int age = static_cast<int>(static_cast<uint32_t>(time) - static_cast<uint32_t>(packet_tally_[i].clock_));
+        const int age = static_cast<int>(static_cast<uint32_t>(time) - static_cast<uint32_t>(packet_tally_[i].clock_));
         if (age < kUsagePeriod) // (a packet "from the future" counts too)
             total += packet_tally_[i].extent_;
     }

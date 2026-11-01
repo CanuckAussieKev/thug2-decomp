@@ -74,7 +74,7 @@ ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up) : block_(b
             break;
         }
         auto* info = static_cast<FileInfo*>(memory::carve(sizeof(FileInfo), 1, get_file_heap(bottom_up_heap_)));
-        uint32_t checksum = checksums::hash_from_text(record.name);
+        const uint32_t checksum = checksums::hash_from_text(record.name);
         if (files_->fetch_entry(checksum)) {
             memory::dealloc(info); // the same name twice: the first one wins
         } else {
@@ -159,7 +159,7 @@ int ArchiveFile::get_take_in(void* out, unsigned int count)
 {
     FileInfo* file = open_entry_;
     auto left = static_cast<unsigned int>(file->size - file->position);
-    unsigned int n = count <= left ? count : left;
+    const unsigned int n = count <= left ? count : left;
     const uint8_t* source = file->compressed_size_ ? file->unpacked : file->data;
     move_memory_block(out, source + file->position, n);
     file->position += static_cast<int>(n);
@@ -170,7 +170,7 @@ int ArchiveFile::get_take_in(void* out, unsigned int count)
 int ArchiveFile::seek_to(int offset, int origin)
 {
     FileInfo* file = open_entry_;
-    int previous = file->position;
+    const int previous = file->position;
     if (origin == 0)
         file->position = offset;
     else if (origin == 1)
@@ -308,7 +308,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
     std::snprintf(path, sizeof(path), "pre\\%s", name);
     if (std::strrchr(name, '.') && std::strlen(path) > 4)
         path[std::strlen(path) - 1] = 'x'; // .pre -> .prx
-    int start = time_milliseconds();
+    const int start = time_milliseconds();
 
     if (async) {
         if (file::AsyncFileRef* file = file::async_open(path)) {
@@ -317,7 +317,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
             strncpy_s(pending.name, name, _TRUNCATE);
             pending.handle = reinterpret_cast<int>(file);
             ++queued_archive_count_;
-            int size = file::async_get_file_size(file);
+            const int size = file::async_get_file_size(file);
             gfx::loading_console::note_file("read (async)", path, size); // (not original: the loading console)
             memory::push_mem_profile(path);
             void* data = memory::carve(static_cast<unsigned int>(size), 1, load_heap(bottom_up));
@@ -341,11 +341,11 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
     } else {
         // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
         // English archive (.ppf/.ppd).
-        size_t length = std::strlen(path);
+        const size_t length = std::strlen(path);
         uint32_t* patch = nullptr;
         uint32_t patch_size = 0;
         bool patched = false;
-        char letter = get_language() == 3 ? 'f' : get_language() == 5 ? 'd' : '\0';
+        const char letter = get_language() == 3 ? 'f' : get_language() == 5 ? 'd' : '\0';
         if (letter) {
             path[length - 1] = letter;
             if (!file::is_present(path)) {
@@ -370,7 +370,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
                           path);
             return;
         }
-        uint32_t file_size = file::get_file_size(file);
+        const uint32_t file_size = file::get_file_size(file);
         memory::push_mem_profile(path);
         size = static_cast<int>(file_size);
         uint32_t allocated = file_size;
@@ -426,10 +426,10 @@ ArchiveFile::FileInfo* ArchiveManager::open_file(const char* name)
     char path[128];
     normalise_name(path, name);
     // "...scripts.pre" -> "...scripts.pr<language letter>"
-    size_t length = std::strlen(path);
+    const size_t length = std::strlen(path);
     if (length > 11 && std::strcmp(path + length - 11, "scripts.pre") == 0) {
         static const char kLetters[] = {'f', 's', 'd', 'i'}; // languages 3 to 6
-        int language = get_language();
+        const int language = get_language();
         path[length - 1] = language >= 3 && language <= 6 ? kLetters[language - 3] : 'e';
     }
     return for_each_pre(pres_, [&](ArchiveFile* pre) -> ArchiveFile::FileInfo* {
@@ -604,7 +604,7 @@ int get_file_size(ArchiveFile::FileInfo* file)
         return 0;
     }
     get_handled() = true;
-    ArchiveFile::FileInfo* active = hub()->open_archive_->open_entry_;
+    const ArchiveFile::FileInfo* active = hub()->open_archive_->open_entry_;
     return active ? active->size : 0;
 }
 
@@ -631,9 +631,9 @@ bool cfunc_load_pre_file(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = archive_name(params);
     ArchiveManager* manager = sole();
-    bool bottom_up = script::has_bare_flag(params, kFlagBottomUpHeap);
-    bool report_missing = script::has_bare_flag(params, kFlagReportMissing);
-    bool async = script::has_bare_flag(params, kFlagAsync);
+    const bool bottom_up = script::has_bare_flag(params, kFlagBottomUpHeap);
+    const bool report_missing = script::has_bare_flag(params, kFlagReportMissing);
+    const bool async = script::has_bare_flag(params, kFlagAsync);
     memory::enter_heap_scope(bottom_up ? memory::bottom_up_heap() : memory::top_down_heap());
     manager->load_pre(name, async, report_missing, bottom_up);
     memory::leave_heap_scope();
@@ -675,7 +675,7 @@ bool cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
 // 0x005B8200: WaitAllLoadPre
 bool cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    ArchiveManager* manager = sole();
+    const ArchiveManager* manager = sole();
     while (manager->queued_archive_count_ != 0)
         file::async_wait_for_io();
     return true;

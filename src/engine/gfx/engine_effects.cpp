@@ -158,8 +158,8 @@ void Shatter::get_step(int index, float step)
 {
     maths::Vec4& velocity = velocities[index];
     maths::Vec4& centre = centres[index];
-    double move_x = static_cast<double>(step) * velocity.x;
-    double move_y = static_cast<double>(step) * velocity.y;
+    const double move_x = static_cast<double>(step) * velocity.x;
+    const double move_y = static_cast<double>(step) * velocity.y;
     auto move_z = static_cast<float>(static_cast<double>(step) * velocity.z);
     auto move_w = static_cast<float>(static_cast<double>(step) * velocity.w);
     centre.x = static_cast<float>(move_x + centre.x);
@@ -279,7 +279,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
     int best = splats->correction_steps_[0] - static_cast<int>(splats->alive[0]);
     for (int i = 0; i < 0x100; ++i) {
         if (splats->correction_steps_[i] != 0 && splats->alive[i] != 0) {
-            int done = splats->correction_steps_[i] - static_cast<int>(splats->alive[i]);
+            const int done = splats->correction_steps_[i] - static_cast<int>(splats->alive[i]);
             if (done >= best) {
                 best = done;
                 furthest = i;
@@ -294,7 +294,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
         if (splats->alive[i] != splats->alive[furthest] ||
             splats->correction_steps_[i] != splats->correction_steps_[furthest])
             continue;
-        int fade = g_splat_fade;
+        const int fade = g_splat_fade;
         uint8_t* alphas[6] = {reinterpret_cast<uint8_t*>(&splats->base_colors_[i][0]) + 3,
                               reinterpret_cast<uint8_t*>(&splats->base_colors_[i][1]) + 3,
                               reinterpret_cast<uint8_t*>(&splats->base_colors_[i][2]) + 3,
@@ -306,7 +306,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             if (*alpha == 0) {
                 ++gone;
             } else {
-                int faded = *alpha - fade;
+                const int faded = *alpha - fade;
                 *alpha = static_cast<uint8_t>(faded <= 0 ? 0 : faded);
             }
         }
@@ -320,7 +320,7 @@ void age_all_texture_splats()
 {
     if (get_paused() || !splat_sets())
         return;
-    int elapsed = frame_milliseconds();
+    const int elapsed = frame_milliseconds();
     for (void* splats = get_first_value(splat_sets()); splats; splats = next_value(splat_sets()))
         age_texture_splats(static_cast<TextureSplats*>(splats), elapsed);
 }
@@ -389,16 +389,16 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     RecentSplat* recent = nullptr;
     if (follow) {
         // A recent position of the same id near enough: the splat is made from it. Old ones go.
-        uint32_t now = frame_clock::get_time();
+        const uint32_t now = frame_clock::get_time();
         for (void* value = get_first_value(recent_splats()); value && !recent;) {
             auto* candidate = static_cast<RecentSplat*>(value);
             RecentSplat* dead = nullptr;
             if (now < candidate->time || now - candidate->time > 500) {
                 dead = candidate;
             } else if (candidate->follow == follow) {
-                double dx = static_cast<double>(from->x) - candidate->pos.x;
-                double dy = static_cast<double>(from->y) - candidate->pos.y;
-                double dz = static_cast<double>(from->z) - candidate->pos.z;
+                const double dx = static_cast<double>(from->x) - candidate->pos.x;
+                const double dy = static_cast<double>(from->y) - candidate->pos.y;
+                const double dz = static_cast<double>(from->z) - candidate->pos.z;
                 if (dz * dz + dy * dy + dx * dx < 4356.0f) {
                     recent = candidate;
                     break;
@@ -426,7 +426,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         texture = reinterpret_cast<uint8_t*>(textures->fetch_skin(checksums::hash_from_text(image_label)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.
-    maths::Seg line(*from, *to);
+    const maths::Seg line(*from, *to);
     maths::BBox line_box(line.start);
     line_box.append_spot(line.end);
     maths::BBox box;
@@ -443,7 +443,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     auto* objects = g_line_objects;
     int count = 0;
     for (CollGrid** grid = grids; *grid; ++grid) {
-        HitMesh** in_box = (*grid)->objects_in_box(&box);
+        HitMesh* const* in_box = (*grid)->objects_in_box(&box);
         if (!in_box)
             continue;
         for (; *in_box; ++in_box) {
@@ -504,7 +504,7 @@ void update_shatters()
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     for (void* value = get_first_value(shatters()); value;) {
         auto* shatter = static_cast<Shatter*>(value);
-        double left = static_cast<double>(shatter->lifetime) - elapsed;
+        const double left = static_cast<double>(shatter->lifetime) - elapsed;
         shatter->lifetime = static_cast<float>(left);
         Shatter* dead = nullptr;
         if (left <= 0.0)
@@ -557,15 +557,15 @@ void update_flashes()
         auto* flash = static_cast<Flash*>(value);
         Flash* dead = nullptr;
         if (!get_paused() || (flash->flags & 8)) {
-            double left = static_cast<double>(flash->time_left_) - elapsed;
+            const double left = static_cast<double>(flash->time_left_) - elapsed;
             flash->time_left_ = static_cast<float>(left);
             if (!(left > 0.0)) { // (NaN too)
                 dead = flash;
             } else {
-                double t = left / flash->duration;
+                const double t = left / flash->duration;
                 uint8_t* now = &flash->red;
                 for (int i = 0; i < 4; ++i) {
-                    int change = static_cast<int>(
+                    const int change = static_cast<int>(
                         static_cast<int64_t>(static_cast<double>(flash->start[i] - flash->end[i]) * t));
                     now[i] = static_cast<uint8_t>(flash->end[i] + change);
                 }

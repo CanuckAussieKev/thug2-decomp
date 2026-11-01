@@ -169,7 +169,7 @@ int BestEntryList::try_insert_entry(int value, int number)
 {
     for (int i = 0; i < num_; ++i)
         records_[i].is_fresh_ = false;
-    int count = num_;
+    const int count = num_;
     int index = 0;
     for (; index < count; ++index) {
         if (value > records_[index].val_)
@@ -423,7 +423,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
 // 0x005AFAF0
 bool cfunc_update_initials(script::Struct*, script::Script*)
 {
-    int level = skate_calls::get_career()->fetch_stage();
+    const int level = skate_calls::get_career()->fetch_stage();
     BestResults* records = sole();
     records->get_level_records(level)->update_initials(records->default_initials_);
     return true;

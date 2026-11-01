@@ -40,7 +40,7 @@ maths::Vec4* max_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out
 maths::Vec4* curve_extremes(maths::Vec4* destination, const maths::Vec4& start, const maths::Vec4& mid,
                             const maths::Vec4& end, float mid_time, float life)
 {
-    QuadraticPoints points{start, mid, end, mid_time, life};
+    const QuadraticPoints points{start, mid, end, mid_time, life};
     return quadratic_lowest(destination, &points);
 }
 
@@ -149,8 +149,8 @@ void Sparkle::update_bounds()
     low = *min_of(&lo[0], &lo[2], &curve);
     high = *max_of(&hi[0], &hi[2], &curve);
     if (p.use_mid_) { // (the paths go through the mid: their extremes on the way)
-        float life = p.lifetime_;
-        float mid_time = current_round(static_cast<double>(life) * p.mid_percent_ * 0.01f);
+        const float life = p.lifetime_;
+        const float mid_time = current_round(static_cast<double>(life) * p.mid_percent_ * 0.01f);
         maths::Vec4 extreme{};
         curve_extremes(&extreme, lo[0], lo[1], lo[2], mid_time, life);
         low = *min_of(&low, &extreme, &curve);
@@ -160,9 +160,9 @@ void Sparkle::update_bounds()
     extent_box_.min = low;
     extent_box_.max = high;
     // the sphere about the box
-    float half_x = current_round((static_cast<double>(high.x) - low.x) * 0.5f);
-    double half_y = (static_cast<double>(high.y) - low.y) * 0.5f;
-    double half_z = static_cast<double>(current_round(static_cast<double>(high.z) - low.z)) * 0.5f;
+    const float half_x = current_round((static_cast<double>(high.x) - low.x) * 0.5f);
+    const double half_y = (static_cast<double>(high.y) - low.y) * 0.5f;
+    const double half_z = static_cast<double>(current_round(static_cast<double>(high.z) - low.z)) * 0.5f;
     bound_ball_.w = low.w; // (overwritten below, as the original)
     bound_ball_.z = current_round(half_z + low.z);
     bound_ball_.x = current_round(static_cast<double>(half_x) + low.x);
@@ -311,7 +311,7 @@ void EffectsDirector::draw_particles()
 {
     if (!systems_.size)
         return;
-    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next)
         static_cast<Sparkle*>(node->data)->render(!is_game_halted());
 }
@@ -319,7 +319,7 @@ void EffectsDirector::draw_particles()
 // 0x00496680
 void EffectsDirector::tick_particles()
 {
-    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next)
         static_cast<Sparkle*>(node->data)->tick_frame();
 }
@@ -327,7 +327,7 @@ void EffectsDirector::tick_particles()
 // 0x004966B0
 void EffectsDirector::change_colour(const float* rgba)
 {
-    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next)
         static_cast<Sparkle*>(node->data)->set_colour_scale(rgba);
     for (int i = 0; i < 4; ++i)
@@ -337,7 +337,7 @@ void EffectsDirector::change_colour(const float* rgba)
 // 0x00496700
 void EffectsDirector::kill_every_particle()
 {
-    for (objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
+    for (const objects::PointerListNode* node = systems_.head ? systems_.head->next : nullptr; node != systems_.head;
          node = node->next) {
         auto* particle = static_cast<Sparkle*>(node->data);
         particle->get_release();

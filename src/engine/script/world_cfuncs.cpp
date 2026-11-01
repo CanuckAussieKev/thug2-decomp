@@ -61,7 +61,7 @@ bool cfunc_is_alive(Struct* params, Script* script) { return node_command(params
 // 0x005A53A0
 bool cfunc_pause_skaters(Struct* params, Script*)
 {
-    bool hide = params->has_bare_flag("hide");
+    const bool hide = params->has_bare_flag("hide");
     modules::Skate* skate = modules::Skate::sole();
     auto count = static_cast<uint32_t>(skate->count_riders());
     for (uint32_t i = 0; i < count; ++i) {

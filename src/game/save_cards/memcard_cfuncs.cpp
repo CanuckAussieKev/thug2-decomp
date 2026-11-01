@@ -170,7 +170,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         }
         FileLoad* file = named ? card->unseal(path, 1, 0) : nullptr;
         if (file) {
-            int size = static_cast<int>(file->seek_to(0, 2));
+            const int size = static_cast<int>(file->seek_to(0, 2));
             bool bad = size != type_file_size(type);
             if (!bad) {
                 data = static_cast<uint8_t*>(memory::alloc_block(size));
@@ -190,7 +190,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                         auto end = static_cast<size_t>(file_header.size);
                         uint8_t* rest = read_structure(header, data + kSaveFileHeaderSize, end - kSaveFileHeaderSize);
                         auto used = static_cast<size_t>(rest - data);
-                        size_t count = used < end ? end - used : 0;
+                        const size_t count = used < end ? end - used : 0;
                         if (type == kObfuscatedType) {
                             for (size_t i = 0; i < count; ++i)
                                 rest[i] -= kSaveFileMask;

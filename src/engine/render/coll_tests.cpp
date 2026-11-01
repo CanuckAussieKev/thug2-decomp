@@ -29,13 +29,13 @@ float get_component(const maths::Vec4& v, int axis) { return axis == 0 ? v.x : a
 // does it for P (and for Q on v0 v2): the x and w parts of (b - a) da rounded before the division, y and z not.
 maths::Vec4 edge_crossing(const maths::Vec4& a, const maths::Vec4& b, float da, float db)
 {
-    double difference = static_cast<double>(da) - db;
+    const double difference = static_cast<double>(da) - db;
     if (!(std::fabs(difference) > kOnPlane))
         return a;
-    double ex = static_cast<double>(b.x) - a.x;
-    double ey = static_cast<double>(b.y) - a.y;
-    float ez = get_difference(b.z, a.z);
-    float ew = get_difference(b.w, a.w);
+    const double ex = static_cast<double>(b.x) - a.x;
+    const double ey = static_cast<double>(b.y) - a.y;
+    const float ez = get_difference(b.z, a.z);
+    const float ew = get_difference(b.w, a.w);
     auto sx = static_cast<float>(ex * da);
     auto sw = static_cast<float>(static_cast<double>(ew) * da);
     auto inverse = static_cast<float>(1.0 / difference);
@@ -51,16 +51,16 @@ maths::Vec4 edge_crossing(const maths::Vec4& a, const maths::Vec4& b, float da, 
 // (maths::operator/), added to a.
 maths::Vec4 edge_crossing_scaled(const maths::Vec4& a, const maths::Vec4& b, float da, float db)
 {
-    double difference = static_cast<double>(da) - db;
+    const double difference = static_cast<double>(da) - db;
     if (!(std::fabs(difference) > kOnPlane))
         return a;
-    float ez = get_difference(b.z, a.z);
-    float ew = get_difference(b.w, a.w);
-    maths::Vec4 scaled{static_cast<float>((static_cast<double>(b.x) - a.x) * da),
-                       static_cast<float>((static_cast<double>(b.y) - a.y) * da),
-                       static_cast<float>(static_cast<double>(ez) * da),
-                       static_cast<float>(static_cast<double>(ew) * da)};
-    maths::Vec4 r = maths::operator/(scaled, static_cast<float>(difference));
+    const float ez = get_difference(b.z, a.z);
+    const float ew = get_difference(b.w, a.w);
+    const maths::Vec4 scaled{static_cast<float>((static_cast<double>(b.x) - a.x) * da),
+                             static_cast<float>((static_cast<double>(b.y) - a.y) * da),
+                             static_cast<float>(static_cast<double>(ez) * da),
+                             static_cast<float>(static_cast<double>(ew) * da)};
+    const maths::Vec4 r = maths::operator/(scaled, static_cast<float>(difference));
     return {a.x + r.x, r.y + a.y, r.z + a.z, r.w + a.w};
 }
 
@@ -74,30 +74,32 @@ bool get_inside(bool towards_positive, double value) { return towards_positive ?
 bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, const maths::Vec4& v0,
                        const maths::Vec4& v1, const maths::Vec4& v2, float* t)
 {
-    maths::Vec4 leg_alpha{get_difference(v1.x, v0.x), get_difference(v1.y, v0.y), get_difference(v1.z, v0.z),
-                          get_difference(v1.w, v0.w)};
-    float e2x = get_difference(v2.x, v0.x), e2y = get_difference(v2.y, v0.y), e2z = get_difference(v2.z, v0.z);
+    const maths::Vec4 leg_alpha{get_difference(v1.x, v0.x), get_difference(v1.y, v0.y), get_difference(v1.z, v0.z),
+                                get_difference(v1.w, v0.w)};
+    const float e2x = get_difference(v2.x, v0.x);
+    const float e2y = get_difference(v2.y, v0.y);
+    const float e2z = get_difference(v2.z, v0.z);
     // p = direction x edge2
-    double px = static_cast<double>(e2z) * direction.y - static_cast<double>(e2y) * direction.z;
-    double py = static_cast<double>(e2x) * direction.z - static_cast<double>(e2z) * direction.x;
-    double pz = static_cast<double>(e2y) * direction.x - static_cast<double>(e2x) * direction.y;
-    double determinant = (leg_alpha.z * pz + px * leg_alpha.x) + py * leg_alpha.y;
+    const double px = static_cast<double>(e2z) * direction.y - static_cast<double>(e2y) * direction.z;
+    const double py = static_cast<double>(e2x) * direction.z - static_cast<double>(e2z) * direction.x;
+    const double pz = static_cast<double>(e2y) * direction.x - static_cast<double>(e2x) * direction.y;
+    const double determinant = (leg_alpha.z * pz + px * leg_alpha.x) + py * leg_alpha.y;
     if (determinant < kMinDeterminant)
         return false;
     auto det = static_cast<float>(determinant);
     auto bound = static_cast<float>(static_cast<double>(det) * kBoundSlack);
-    maths::Vec4 offset{get_difference(start.x, v0.x), get_difference(start.y, v0.y), get_difference(start.z, v0.z),
-                       get_difference(start.w, v0.w)};
+    const maths::Vec4 offset{get_difference(start.x, v0.x), get_difference(start.y, v0.y),
+                             get_difference(start.z, v0.z), get_difference(start.w, v0.w)};
     auto u = static_cast<float>((offset.z * pz + offset.y * py) + offset.x * px);
     if (u < 0.0f || u > bound)
         return false;
-    maths::Vec4 q = maths::cross_vec(offset, leg_alpha);
-    double v = (static_cast<double>(q.z) * direction.z + static_cast<double>(q.x) * direction.x) +
-               static_cast<double>(q.y) * direction.y;
+    const maths::Vec4 q = maths::cross_vec(offset, leg_alpha);
+    const double v = (static_cast<double>(q.z) * direction.z + static_cast<double>(q.x) * direction.x) +
+                     static_cast<double>(q.y) * direction.y;
     if (v < 0.0 || u + v > bound)
         return false;
-    double along = (1.0 / det) *
-                   ((static_cast<double>(q.z) * e2z + static_cast<double>(q.y) * e2y) + static_cast<double>(q.x) * e2x);
+    const double along = (1.0 / det) * ((static_cast<double>(q.z) * e2z + static_cast<double>(q.y) * e2y) +
+                                        static_cast<double>(q.x) * e2x);
     *t = static_cast<float>(along);
     return along <= 1.0 && !(along < 0.0);
 }
@@ -106,25 +108,26 @@ bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, c
 bool line_hits_sphere(const maths::Vec4& start, const maths::Vec4& base, const CollSphere& sphere,
                       const maths::Vec4& end, float* t, float limit)
 {
-    double dx = static_cast<double>(end.x) - base.x;
-    double dy = static_cast<double>(end.y) - base.y;
-    double dz = static_cast<double>(end.z) - base.z;
-    float mx = get_difference(sphere.centre.x, start.x);
-    float my = get_difference(sphere.centre.y, start.y);
-    float mz = get_difference(sphere.centre.z, start.z);
+    const double dx = static_cast<double>(end.x) - base.x;
+    const double dy = static_cast<double>(end.y) - base.y;
+    const double dz = static_cast<double>(end.z) - base.z;
+    const float mx = get_difference(sphere.centre.x, start.x);
+    const float my = get_difference(sphere.centre.y, start.y);
+    const float mz = get_difference(sphere.centre.z, start.z);
     // the line's distance from the centre, squared, times its length squared: |m x d|^2
-    double cx = my * dz - mz * dy;
-    double cy = mz * dx - dz * mx;
-    double cz = mx * dy - my * dx;
+    const double cx = my * dz - mz * dy;
+    const double cy = mz * dx - dz * mx;
+    const double cz = mx * dy - my * dx;
     auto radius2 = static_cast<float>(static_cast<double>(sphere.radius) * sphere.radius);
     auto length2 = static_cast<float>((dz * dz + dx * dx) + dy * dy);
-    double crossed2 = (cz * cz + cy * cy) + cx * cx;
+    const double crossed2 = (cz * cz + cy * cy) + cx * cx;
     if (static_cast<double>(length2) * radius2 < crossed2)
         return false;
-    double b = (mz * dz + my * dy) + mx * dx;
-    double c = ((static_cast<double>(mz) * mz + static_cast<double>(my) * my) + static_cast<double>(mx) * mx) - radius2;
-    double inverse = 1.0 / std::sqrt(std::fabs(b * b - c * length2));
-    double along = (inverse * c) / (1.0 - inverse * b);
+    const double b = (mz * dz + my * dy) + mx * dx;
+    const double c =
+        ((static_cast<double>(mz) * mz + static_cast<double>(my) * my) + static_cast<double>(mx) * mx) - radius2;
+    const double inverse = 1.0 / std::sqrt(std::fabs(b * b - c * length2));
+    const double along = (inverse * c) / (1.0 - inverse * b);
     *t = static_cast<float>(along);
     return !(along > limit);
 }
@@ -132,11 +135,11 @@ bool line_hits_sphere(const maths::Vec4& start, const maths::Vec4& base, const C
 // 0x0040B750 (the first sign test uses the denominator before it's rounded to a float, the rest after)
 bool segments_cross_2d(float ax, float ay, float adx, float ady, float bx, float by, float bdx, float bdy, float* s)
 {
-    double dx = static_cast<double>(ax) - bx;
-    double dy = static_cast<double>(ay) - by;
+    const double dx = static_cast<double>(ax) - bx;
+    const double dy = static_cast<double>(ay) - by;
     auto numerator = static_cast<float>(bdx * dy - dx * bdy);
     auto u_numerator = static_cast<float>(dy * adx - dx * ady);
-    double denominator_exact = static_cast<double>(adx) * bdy - static_cast<double>(ady) * bdx;
+    const double denominator_exact = static_cast<double>(adx) * bdy - static_cast<double>(ady) * bdx;
     auto denominator = static_cast<float>(denominator_exact);
     // each numerator between 0 and the denominator, whichever its sign (NaN passes)
     auto within = [](float numerator, float den, bool positive) {
@@ -157,17 +160,17 @@ bool segments_cross_2d(float ax, float ay, float adx, float ady, float bx, float
 double point_triangle_distance_squared(const maths::Vec4& point, const maths::Vec4& v0, const maths::Vec4& v1,
                                        const maths::Vec4& v2, float* out, float* t_out)
 {
-    double dx = static_cast<double>(v0.x) - point.x;
-    double dy = static_cast<double>(v0.y) - point.y;
-    double dz = static_cast<double>(v0.z) - point.z;
-    double e0x_exact = static_cast<double>(v1.x) - v0.x;
-    double e0y_exact = static_cast<double>(v1.y) - v0.y;
-    double e0z_exact = static_cast<double>(v1.z) - v0.z;
+    const double dx = static_cast<double>(v0.x) - point.x;
+    const double dy = static_cast<double>(v0.y) - point.y;
+    const double dz = static_cast<double>(v0.z) - point.z;
+    const double e0x_exact = static_cast<double>(v1.x) - v0.x;
+    const double e0y_exact = static_cast<double>(v1.y) - v0.y;
+    const double e0z_exact = static_cast<double>(v1.z) - v0.z;
     auto e0x = static_cast<float>(e0x_exact), e0y = static_cast<float>(e0y_exact), e0z = static_cast<float>(e0z_exact);
-    double e1x_exact = static_cast<double>(v2.x) - v0.x;
+    const double e1x_exact = static_cast<double>(v2.x) - v0.x;
     auto e1x = static_cast<float>(e1x_exact);
-    float e1y = get_difference(v2.y, v0.y);
-    float e1z = get_difference(v2.z, v0.z);
+    const float e1y = get_difference(v2.y, v0.y);
+    const float e1z = get_difference(v2.z, v0.z);
     auto a = static_cast<float>((e0z_exact * e0z + e0y_exact * e0y_exact) + static_cast<double>(e0x) * e0x);
     auto b = static_cast<float>((static_cast<double>(e0z) * e1z + static_cast<double>(e0y) * e1y) + e0x * e1x_exact);
     auto c = static_cast<float>((static_cast<double>(e1z) * e1z + static_cast<double>(e1y) * e1y) +
@@ -177,7 +180,7 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
     double f = (dx * dx + dz * dz) + dy * dy;
     auto det = static_cast<float>(std::fabs(static_cast<double>(c) * a - static_cast<double>(b) * b));
     auto s = static_cast<float>(static_cast<double>(e) * b - static_cast<double>(d) * c);
-    double t = static_cast<double>(d) * b - static_cast<double>(e) * a;
+    const double t = static_cast<double>(d) * b - static_cast<double>(e) * a;
 
     float so = 0.0f, to = 0.0f;
     double result = f;
@@ -193,19 +196,19 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
         result = (2.0 * e + f) + c;
     };
     auto along_edge0 = [&]() { // t = 0, s = -d / a
-        double q = -(static_cast<double>(d) / a);
+        const double q = -(static_cast<double>(d) / a);
         so = static_cast<float>(q);
         result = f + q * d;
     };
     auto along_edge1 = [&]() { // s = 0, t = -e / c
-        double q = -(static_cast<double>(e) / c);
+        const double q = -(static_cast<double>(e) / c);
         to = static_cast<float>(q);
         result = f + q * e;
     };
     // the general quadratic at (so, to) - its first t term from `t_term`, which is to or the unrounded 1 - so
     auto general = [&](double t_term) {
-        double first = ((t_term * c + static_cast<double>(so) * b) + 2.0 * e) * to;
-        double second = ((static_cast<double>(to) * b + static_cast<double>(so) * a) + 2.0 * d) * so;
+        const double first = ((t_term * c + static_cast<double>(so) * b) + 2.0 * e) * to;
+        const double second = ((static_cast<double>(to) * b + static_cast<double>(so) * a) + 2.0 * d) * so;
         result = f + (first + second);
     };
     auto denominator = [&]() { return (static_cast<double>(a) - 2.0 * b) + c; };
@@ -248,20 +251,20 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
             else
                 at_v1();
         } else { // region 0: inside
-            double inverse = 1.0 / det;
+            const double inverse = 1.0 / det;
             so = static_cast<float>(s * inverse);
             to = static_cast<float>(t * inverse);
             general(to);
         }
     } else if (s < 0.0f) { // region 2
         auto near0 = static_cast<float>(static_cast<double>(d) + b);
-        double close_a = static_cast<double>(e) + c;
+        const double close_a = static_cast<double>(e) + c;
         if (close_a > near0) {
-            double numerator = close_a - near0;
-            double den = denominator();
+            const double numerator = close_a - near0;
+            const double den = denominator();
             if (below(numerator, den)) {
                 so = static_cast<float>(numerator / den);
-                double rest = 1.0 - so;
+                const double rest = 1.0 - so;
                 to = static_cast<float>(rest);
                 general(rest);
             } else {
@@ -278,10 +281,10 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
         }
     } else if (t < 0.0) { // region 6
         auto near0 = static_cast<float>(static_cast<double>(e) + b);
-        double close_a = static_cast<double>(d) + a;
+        const double close_a = static_cast<double>(d) + a;
         if (close_a > near0) {
-            double numerator = close_a - near0;
-            double den = denominator();
+            const double numerator = close_a - near0;
+            const double den = denominator();
             if (below(numerator, den)) {
                 to = static_cast<float>(numerator / den);
                 so = static_cast<float>(1.0 - to);
@@ -299,13 +302,13 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
                 so = 0.0f;
         }
     } else { // region 1
-        double numerator = ((static_cast<double>(e) + c) - b) - d;
+        const double numerator = ((static_cast<double>(e) + c) - b) - d;
         auto numerator_rounded = static_cast<float>(numerator);
         if (numerator <= 0.0) {
             at_v2();
         } else if (below(numerator_rounded, denominator())) {
             so = static_cast<float>(numerator_rounded / denominator());
-            double rest = 1.0 - so;
+            const double rest = 1.0 - so;
             to = static_cast<float>(rest);
             general(rest);
         } else {
@@ -375,7 +378,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     // t = w).
     auto try_edge01 = [&] {
         float segment_t = 0.0f, edge_t = 0.0f;
-        double distance = edge(v0, v1, &segment_t, &edge_t);
+        const double distance = edge(v0, v1, &segment_t, &edge_t);
         if (distance < best) {
             best = static_cast<float>(distance);
             along = segment_t;
@@ -385,7 +388,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     };
     auto try_edge02 = [&] {
         float segment_t = 0.0f, edge_t = 0.0f;
-        double distance = edge(v0, v2, &segment_t, &edge_t);
+        const double distance = edge(v0, v2, &segment_t, &edge_t);
         if (distance < best) {
             best = static_cast<float>(distance);
             along = segment_t;
@@ -395,7 +398,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     };
     auto try_edge12 = [&] {
         float segment_t = 0.0f, edge_t = 0.0f;
-        double distance = edge(v1, v2, &segment_t, &edge_t);
+        const double distance = edge(v1, v2, &segment_t, &edge_t);
         auto rest = static_cast<float>(1.0 - edge_t);
         if (distance < best) {
             best = static_cast<float>(distance);
@@ -406,7 +409,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     };
     // Last, one of the segment's ends (rounded before it's compared), and the result.
     auto finish_with_end = [&](bool at_end) {
-        maths::Vec4 point = at_end ? segment.end : segment.start;
+        const maths::Vec4 point = at_end ? segment.end : segment.start;
         float point_s = 0.0f, point_t = 0.0f;
         auto distance = static_cast<float>(from_point(point, &point_s, &point_t));
         if (distance < best) {
@@ -424,7 +427,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
         try_edge02();
         try_edge12();
         float point_s = 0.0f, point_t = 0.0f;
-        double distance = from_point(start, &point_s, &point_t);
+        const double distance = from_point(start, &point_s, &point_t);
         if (distance < best) {
             best = static_cast<float>(distance);
             along = 0.0f;
@@ -467,7 +470,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
                 best = static_cast<float>(edge(v0, v1, &along, &s));
                 t = 0.0f;
             } else {
-                double distance = from_point(at_end ? segment.end : start, &s, &t);
+                const double distance = from_point(at_end ? segment.end : start, &s, &t);
                 along = at_end ? 1.0f : 0.0f;
                 return finish(distance);
             }
@@ -490,7 +493,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     if (!beyond_edge12) {
         if (below_edge02) {
             if (!below_edge01) {
-                double distance = edge(v0, v2, &along, &t);
+                const double distance = edge(v0, v2, &along, &t);
                 s = 0.0f;
                 return finish(distance);
             }
@@ -507,7 +510,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
             return finish(best);
         }
         if (below_edge01) {
-            double distance = edge(v0, v1, &along, &s);
+            const double distance = edge(v0, v1, &along, &s);
             t = 0.0f;
             return finish(distance);
         }
@@ -515,7 +518,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
         return finish(0.0f);
     }
     if (!below_edge02 && !below_edge01) {
-        double distance = edge(v1, v2, &along, &t);
+        const double distance = edge(v1, v2, &along, &t);
         s = static_cast<float>(1.0 - t);
         return finish(distance);
     }
@@ -550,7 +553,7 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     auto nx = static_cast<float>(static_cast<double>(b.z) * a.y - static_cast<double>(b.y) * a.z);
     auto ny = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(b.z) * a.x);
     auto nz = static_cast<float>(static_cast<double>(b.y) * a.x - static_cast<double>(a.y) * b.x);
-    double d = -((static_cast<double>(ny) * o.y + static_cast<double>(nz) * o.z) + static_cast<double>(nx) * o.x);
+    const double d = -((static_cast<double>(ny) * o.y + static_cast<double>(nz) * o.z) + static_cast<double>(nx) * o.x);
     auto d0 = static_cast<float>(
         ((static_cast<double>(nz) * v0.z + static_cast<double>(ny) * v0.y) + static_cast<double>(nx) * v0.x) + d);
     auto d1 = static_cast<float>(
@@ -589,7 +592,9 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     }
 
     // in the plane the normal is largest across
-    float ax = std::fabs(nx), ay = std::fabs(ny), az = std::fabs(nz);
+    const float ax = std::fabs(nx);
+    const float ay = std::fabs(ny);
+    const float az = std::fabs(nz);
     int i = 1, j = 2;
     if (ax < az && ay < az) {
         i = 0;
@@ -598,55 +603,62 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
         i = 0;
         j = 2;
     }
-    float o1 = get_component(o, i), o2 = get_component(o, j);
-    float a1 = get_component(a, i), a2 = get_component(a, j);
-    float b1 = get_component(b, i), b2 = get_component(b, j);
-    float p1 = get_component(p, i), p2 = get_component(p, j);
-    float q1 = get_component(q, i), q2 = get_component(q, j);
+    const float o1 = get_component(o, i);
+    const float o2 = get_component(o, j);
+    const float a1 = get_component(a, i);
+    const float a2 = get_component(a, j);
+    const float b1 = get_component(b, i);
+    const float b2 = get_component(b, j);
+    const float p1 = get_component(p, i);
+    const float p2 = get_component(p, j);
+    const float q1 = get_component(q, i);
+    const float q2 = get_component(q, j);
 
     // each end against the sides' lines: side 0 (o along a), side 1 (o + b along a) ...
-    float neg_a1 = -a1;
+    const float neg_a1 = -a1;
     auto c0 = static_cast<float>(static_cast<double>(a1) * o2 - static_cast<double>(a2) * o1);
-    double p_along_a = static_cast<double>(neg_a1) * p2 + static_cast<double>(a2) * p1;
-    double q_along_a = static_cast<double>(neg_a1) * q2 + static_cast<double>(q1) * a2;
+    const double p_along_a = static_cast<double>(neg_a1) * p2 + static_cast<double>(a2) * p1;
+    const double q_along_a = static_cast<double>(neg_a1) * q2 + static_cast<double>(q1) * a2;
     auto q_along_af = static_cast<float>(q_along_a);
-    double b_side = static_cast<double>(neg_a1) * b2 + static_cast<double>(b1) * a2;
+    const double b_side = static_cast<double>(neg_a1) * b2 + static_cast<double>(b1) * a2;
     auto b_sidef = static_cast<float>(b_side);
-    bool p_in0 = get_inside(b_side > 0.0, c0 + p_along_a);
-    bool q_in0 = get_inside(b_side > 0.0, static_cast<float>(q_along_a + c0));
+    const bool p_in0 = get_inside(b_side > 0.0, c0 + p_along_a);
+    const bool q_in0 = get_inside(b_side > 0.0, static_cast<float>(q_along_a + c0));
     if (!p_in0 && !q_in0)
         return false;
-    float far2 = b2 + o2, far1 = b1 + o1;
+    const float far2 = b2 + o2;
+    const float far1 = b1 + o1;
     auto c1 = static_cast<float>(static_cast<double>(far2) * a1 - static_cast<double>(far1) * a2);
-    bool p_in1 = b_sidef < 0.0f ? p_along_a + c1 >= 0.0 : p_along_a + c1 <= 0.0;
-    float q_end1 = q_along_af + c1;
-    bool quat_src_a = b_sidef < 0.0f ? q_end1 >= 0.0f : q_end1 <= 0.0f;
+    const bool p_in1 = b_sidef < 0.0f ? p_along_a + c1 >= 0.0 : p_along_a + c1 <= 0.0;
+    const float q_end1 = q_along_af + c1;
+    const bool quat_src_a = b_sidef < 0.0f ? q_end1 >= 0.0f : q_end1 <= 0.0f;
     if (!p_in1 && !quat_src_a)
         return false;
     // ... side 2 (o along b), side 3 (o + a along b)
-    float neg_b1 = -b1;
+    const float neg_b1 = -b1;
     auto c2 = static_cast<float>(static_cast<double>(b1) * o2 - static_cast<double>(b2) * o1);
-    double p_along_b = static_cast<double>(neg_b1) * p2 + static_cast<double>(p1) * b2;
-    double q_along_b = static_cast<double>(neg_b1) * q2 + static_cast<double>(q1) * b2;
+    const double p_along_b = static_cast<double>(neg_b1) * p2 + static_cast<double>(p1) * b2;
+    const double q_along_b = static_cast<double>(neg_b1) * q2 + static_cast<double>(q1) * b2;
     auto q_along_bf = static_cast<float>(q_along_b);
-    double a_side = static_cast<double>(neg_b1) * a2 + static_cast<double>(b2) * a1;
+    const double a_side = static_cast<double>(neg_b1) * a2 + static_cast<double>(b2) * a1;
     auto a_sidef = static_cast<float>(a_side);
-    bool p_in2 = get_inside(a_side > 0.0, c2 + p_along_b);
-    bool quat_src_b = get_inside(a_side > 0.0, static_cast<float>(q_along_b + c2));
+    const bool p_in2 = get_inside(a_side > 0.0, c2 + p_along_b);
+    const bool quat_src_b = get_inside(a_side > 0.0, static_cast<float>(q_along_b + c2));
     if (!p_in2 && !quat_src_b)
         return false;
-    float far4 = a2 + o2, far3 = a1 + o1;
+    const float far4 = a2 + o2;
+    const float far3 = a1 + o1;
     auto c3 = static_cast<float>(static_cast<double>(far4) * b1 - static_cast<double>(far3) * b2);
-    bool p_in3 = a_sidef < 0.0f ? p_along_b + c3 >= 0.0 : p_along_b + c3 <= 0.0;
-    float q_end3 = q_along_bf + c3;
-    bool q_in3 = a_sidef < 0.0f ? q_end3 >= 0.0f : q_end3 <= 0.0f;
+    const bool p_in3 = a_sidef < 0.0f ? p_along_b + c3 >= 0.0 : p_along_b + c3 <= 0.0;
+    const float q_end3 = q_along_bf + c3;
+    const bool q_in3 = a_sidef < 0.0f ? q_end3 >= 0.0f : q_end3 <= 0.0f;
     if (!p_in3 && !q_in3)
         return false;
 
     // the ends inside the rect, then the sides crossing P Q
     int found = 0;
-    bool p_inside = p_in0 && p_in1 && p_in2 && p_in3;
-    bool q_inside = q_in0 && quat_src_a && quat_src_b && q_in3;
+    const bool p_inside = p_in0 && p_in1 && p_in2 && p_in3;
+    const bool q_inside = q_in0 && quat_src_a && quat_src_b && q_in3;
     if (p_inside) {
         points[0] = p;
         kinds[0] = p_kind;
@@ -661,12 +673,13 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
         kinds[0] = q_kind;
         found = 1;
     }
-    float dq1 = q1 - p1, dq2 = q2 - p2;
+    const float dq1 = q1 - p1;
+    const float dq2 = q2 - p2;
     float s = 0.0f;
     auto take = [&](const maths::Vec4& point) { // (true: that was the second)
         points[found] = point;
         kinds[found] = 0;
-        bool second = found == 1;
+        const bool second = found == 1;
         found = 1;
         return second;
     };

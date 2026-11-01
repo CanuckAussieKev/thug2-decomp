@@ -67,7 +67,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
-    maths::MatrixProduct product = {&a, &b};
+    const maths::MatrixProduct product = {&a, &b};
     out = product;
 }
 
@@ -101,13 +101,13 @@ void PinnedObjectModule::update_lock()
     maths::Vec4 local{};
     if (bone_) {
         // On a bone: its orientation, and its "at" towards its parent.
-        ObjectModule* skeleton_component = target->fetch_module(kSkeleton);
+        const ObjectModule* skeleton_component = target->fetch_module(kSkeleton);
         void* skeleton = skeleton_component ? skeleton_of(target->fetch_module(kSkeleton)) : nullptr;
         if (skeleton && skin_matrix_ptr(skeleton, bone_, &entity_->basis_frame_)) {
             maths::Mat4 parent{};
             skin_matrix_ptr(skeleton, parent_bone(skeleton, bone_index(skeleton, bone_)), &parent);
             GameEntity* object = entity_;
-            maths::Vec4 joint_world = object->basis_frame_.row[3];
+            const maths::Vec4 joint_world = object->basis_frame_.row[3];
             maths::Vec4 owner_pos = parent.row[3];
             object->basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
             parent.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -136,7 +136,7 @@ void PinnedObjectModule::update_lock()
             maths::Vec4& at = object->basis_frame_.row[2];
             at = {owner_pos.x - pos.x, owner_pos.y - pos.y, owner_pos.z - pos.z, owner_pos.w - pos.w};
             entity_->basis_frame_.row[2].make_unit();
-            maths::Vec4 up = target->display_matrix_.row[1];
+            const maths::Vec4 up = target->display_matrix_.row[1];
             object = entity_;
             object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[2], up);
             object = entity_;
@@ -154,7 +154,7 @@ void PinnedObjectModule::update_lock()
             entity_->basis_frame_ = frame;
         } else {
             entity_->basis_frame_ = target->display_matrix_;
-            maths::Vec4 turned = shift_ * entity_->basis_frame_;
+            const maths::Vec4 turned = shift_ * entity_->basis_frame_;
             pos = {turned.x + target->at_point_.x, target->at_point_.y + turned.y, target->at_point_.z + turned.z,
                    target->at_point_.w + turned.w};
         }
@@ -162,27 +162,27 @@ void PinnedObjectModule::update_lock()
     GameEntity* object = entity_;
     if (lock_flags_ & kLockFlagLag) {
         // Part of the way there (the roundings where the original stores).
-        float lag = lag_;
-        double dx = static_cast<double>(pos.x) - object->at_point_.x;
-        double dy = static_cast<double>(pos.y) - object->at_point_.y;
-        float dz = pos.z - object->at_point_.z;
-        float dw = pos.w - object->at_point_.w;
+        const float lag = lag_;
+        const double dx = static_cast<double>(pos.x) - object->at_point_.x;
+        const double dy = static_cast<double>(pos.y) - object->at_point_.y;
+        const float dz = pos.z - object->at_point_.z;
+        const float dw = pos.w - object->at_point_.w;
         auto step_x = static_cast<float>(dx * lag);
         auto step_y = static_cast<float>(dy * lag);
-        double step_z = static_cast<double>(dz) * lag;
-        float step_w = dw * lag;
-        float x = step_x + object->at_point_.x;
-        float y = step_y + object->at_point_.y;
+        const double step_z = static_cast<double>(dz) * lag;
+        const float step_w = dw * lag;
+        const float x = step_x + object->at_point_.x;
+        const float y = step_y + object->at_point_.y;
         object->at_point_.z = static_cast<float>(step_z + object->at_point_.z);
         object->at_point_.w = step_w + object->at_point_.w;
         object->at_point_.x = x;
         object->at_point_.y = y;
         // The lag for the next update: as configure_from_data's, with the update's step.
-        int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
+        const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
         auto time = static_cast<double>(t);
-        double step = update_wobble_step();
-        double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
-                        std::sin(time * static_cast<double>(wobble_[0]) * step);
+        const double step = update_wobble_step();
+        const double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
+                              std::sin(time * static_cast<double>(wobble_[0]) * step);
         lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * 0.5 + lag_min_);
     } else {
         object->at_point_ = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};

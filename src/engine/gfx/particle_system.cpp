@@ -83,7 +83,7 @@ bool new_colours(EmitterInstance* system, int count)
             return false;
     }
     for (int i = 0; i < count; ++i)
-        for (uint8_t** colour : colours)
+        for (uint8_t* const* colour : colours)
             for (int k = 0; k < 4; ++k)
                 (*colour)[i * 4 + k] = 0x80;
     return true;
@@ -310,16 +310,16 @@ int EmitterInstance::lod_particle_count(int count)
     if (!camera)
         return count;
     const maths::Vec4* eye = camera->fetch_location();
-    double dx = static_cast<double>(at_point_.x) - eye->x;
-    double dy = static_cast<double>(at_point_.y) - eye->y;
-    double dz = static_cast<double>(at_point_.z) - eye->z;
+    const double dx = static_cast<double>(at_point_.x) - eye->x;
+    const double dy = static_cast<double>(at_point_.y) - eye->y;
+    const double dz = static_cast<double>(at_point_.z) - eye->z;
     auto distance = static_cast<float>(dz * dz + dy * dy + dx * dx);
     if (distance < lod_near_)
         return count;
     if (distance > lod_far_)
         return lod_min_particles_;
-    double t = (static_cast<double>(lod_far_) - distance) / (static_cast<double>(lod_far_) - lod_near_);
-    int lod = truncate(t * (max_particles_ - lod_min_particles_) + lod_min_particles_);
+    const double t = (static_cast<double>(lod_far_) - distance) / (static_cast<double>(lod_far_) - lod_near_);
+    const int lod = truncate(t * (max_particles_ - lod_min_particles_) + lod_min_particles_);
     return count < lod ? count : lod;
 }
 
@@ -331,7 +331,7 @@ void EmitterInstance::update_bounds()
         force = std::fabs(force_[1]);
     if (std::fabs(force_[0]) > force)
         force = std::fabs(force_[0]);
-    double travel = static_cast<double>(force) * age_left_[1] + speed_[1];
+    const double travel = static_cast<double>(force) * age_left_[1] + speed_[1];
     bounds_ = at_point_;
     float range = emit_range_[2];
     if (emit_range_[1] > range)
@@ -416,7 +416,7 @@ void EmitterInstance::set_wants_time(uint8_t on)
 // 0x00497AB0
 maths::Mat4* EmitterInstance::build_emitter_orientation(maths::Mat4* out)
 {
-    maths::Vec4 angles{orientation_turn_[0], orientation_turn_[1], orientation_turn_[2], 1.0f};
+    const maths::Vec4 angles{orientation_turn_[0], orientation_turn_[1], orientation_turn_[2], 1.0f};
     maths::Mat4 rotation{};
     rotation.init_from_angles(angles);
     *out = rotation;

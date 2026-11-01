@@ -49,16 +49,16 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
                   const CollScaled* placed)
 {
     RectHit& hit = hits->hits[hits->count];
-    double e2x = static_cast<double>(v2.x) - v0.x;
-    double e2y = static_cast<double>(v2.y) - v0.y;
-    double e2z = static_cast<double>(v2.z) - v0.z;
-    float e1x = get_difference(v1.x, v0.x);
-    float e1y = get_difference(v1.y, v0.y);
-    double e1z = static_cast<double>(v1.z) - v0.z;
+    const double e2x = static_cast<double>(v2.x) - v0.x;
+    const double e2y = static_cast<double>(v2.y) - v0.y;
+    const double e2z = static_cast<double>(v2.z) - v0.z;
+    const float e1x = get_difference(v1.x, v0.x);
+    const float e1y = get_difference(v1.y, v0.y);
+    const double e1z = static_cast<double>(v1.z) - v0.z;
     maths::Vec4 normal{static_cast<float>(e1y * e2z - e1z * e2y), static_cast<float>(e1z * e2x - e2z * e1x),
                        static_cast<float>(e2y * e1x - e1y * e2x), 0.0f};
     hit.normal = normal.make_unit();
-    double length_squared =
+    const double length_squared =
         (static_cast<double>(hit.normal.x) * hit.normal.x + static_cast<double>(hit.normal.y) * hit.normal.y) +
         static_cast<double>(hit.normal.z) * hit.normal.z;
     if (length_squared <= 0.0)
@@ -69,8 +69,8 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     hit.ends[1].point = points[1];
     if (placed) {
         for (RectHitEnd& end : hit.ends) {
-            maths::Vec4 scaled{end.point.x * placed->size_factor_.x, placed->size_factor_.y * end.point.y,
-                               placed->size_factor_.z * end.point.z, placed->size_factor_.w * end.point.w};
+            const maths::Vec4 scaled{end.point.x * placed->size_factor_.x, placed->size_factor_.y * end.point.y,
+                                     placed->size_factor_.z * end.point.z, placed->size_factor_.w * end.point.w};
             placed->basis_frame_.carry_point_through(end.point, scaled);
         }
         maths::Vec4 turned{};
@@ -116,8 +116,8 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
     const uint16_t* faces = object->geometry_->get_faces_in_box(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
         const TriMeshSource* geometry = object->geometry_;
-        uint32_t face = faces[i];
-        uint16_t flags =
+        const uint32_t face = faces[i];
+        const uint16_t flags =
             *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
@@ -188,7 +188,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     box.append_spot({o.x + b.x, b.y + o.y, b.z + o.z, b.w + o.w});
     box.append_spot({static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
                      static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
-    bool use_cache = cache && cache->box_.get_holds(box);
+    const bool use_cache = cache && cache->box_.get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(rect);
         if (!grid)
@@ -298,7 +298,7 @@ bool BoxProbe::get_query(int)
 // 0x00417C00
 void BoxProbe::join_hits()
 {
-    int count = hits_.count;
+    const int count = hits_.count;
     const RectHit* hits = hits_.hits;
     bool used[RectHits::kMost];
     maths::Vec4 direction[RectHits::kMost];
@@ -310,10 +310,10 @@ void BoxProbe::join_hits()
         maths::Vec4& d = direction[i];
         d = {get_difference(p1.x, p0.x), get_difference(p1.y, p0.y), get_difference(p1.z, p0.z),
              get_difference(p1.w, p0.w)};
-        double length = std::sqrt((static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x) +
-                                  static_cast<double>(d.z) * d.z);
+        const double length = std::sqrt((static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x) +
+                                        static_cast<double>(d.z) * d.z);
         if (length > 0.0) {
-            double inverse = 1.0 / length;
+            const double inverse = 1.0 / length;
             d.x = static_cast<float>(inverse * d.x);
             d.y = static_cast<float>(inverse * d.y);
             d.z = static_cast<float>(inverse * d.z);
@@ -326,10 +326,10 @@ void BoxProbe::join_hits()
         const RectHit& later = hits[j];
         for (int k = j - 1; k >= 0; --k) {
             const RectHit& earlier = hits[k];
-            bool same = (same_point(later.ends[0].point, earlier.ends[0].point) &&
-                         same_point(later.ends[1].point, earlier.ends[1].point)) ||
-                        (same_point(later.ends[0].point, earlier.ends[1].point) &&
-                         same_point(later.ends[1].point, earlier.ends[0].point));
+            const bool same = (same_point(later.ends[0].point, earlier.ends[0].point) &&
+                               same_point(later.ends[1].point, earlier.ends[1].point)) ||
+                              (same_point(later.ends[0].point, earlier.ends[1].point) &&
+                               same_point(later.ends[1].point, earlier.ends[0].point));
             if (same && dot3(earlier.normal.z, earlier.normal.y, earlier.normal.x, later.normal.z, later.normal.y,
                              later.normal.x) > kParallel)
                 used[k] = true;
@@ -354,8 +354,8 @@ void BoxProbe::join_hits()
                 continue;
             const RectHitEnd& near0 = other.ends[0];
             const RectHitEnd& close_a = other.ends[1];
-            maths::Vec4& start = joined.ends[0].point;
-            maths::Vec4& end = joined.ends[1].point;
+            const maths::Vec4& start = joined.ends[0].point;
+            const maths::Vec4& end = joined.ends[1].point;
             if (same_point(start, near0.point)) {
                 joined.ends[0] = close_a;
             } else if (same_point(start, close_a.point)) {
@@ -379,21 +379,21 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
     const maths::Vec4& o = rect_.origin;
     const maths::Vec4& a = rect_.side_a_;
     const maths::Vec4& s = rect_.side_b_;
-    uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
-    maths::Vec4 oa{o.x + a.x, a.y + o.y, a.z + o.z, a.w + o.w};
-    maths::Vec4 oab{oa.x + s.x, oa.y + s.y, oa.z + s.z, oa.w + s.w};
-    maths::Vec4 ob{o.x + s.x, s.y + o.y, s.z + o.z, s.w + o.w};
+    const uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
+    const maths::Vec4 oa{o.x + a.x, a.y + o.y, a.z + o.z, a.w + o.w};
+    const maths::Vec4 oab{oa.x + s.x, oa.y + s.y, oa.z + s.z, oa.w + s.w};
+    const maths::Vec4 ob{o.x + s.x, s.y + o.y, s.z + o.z, s.w + o.w};
     gfx::push_diag_line(&o, &oa, colour, colour, frames);
     gfx::push_diag_line(&oa, &oab, colour, colour, frames);
     gfx::push_diag_line(&oab, &ob, colour, colour, frames);
     gfx::push_diag_line(&ob, &o, colour, colour, frames);
     const RectHit* hits = joined_count_ > 0 ? joined_ : hits_.hits;
-    int count = joined_count_ > 0 ? joined_count_ : hits_.count;
+    const int count = joined_count_ > 0 ? joined_count_ : hits_.count;
     for (int i = count - 1; i >= 0; --i) {
         b += 0x1F;
         g += 0x63;
         r += 0xC9;
-        uint32_t hit_colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
+        const uint32_t hit_colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
         gfx::push_diag_line(&hits[i].ends[0].point, &hits[i].ends[1].point, hit_colour, hit_colour, 1);
     }
 }

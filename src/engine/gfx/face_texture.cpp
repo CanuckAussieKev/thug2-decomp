@@ -165,11 +165,11 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
 {
     FaceAnchors face = *points;
     if (face.left_eye_[0] > face.right_eye_[0]) {
-        int x = face.left_eye_[0];
+        const int x = face.left_eye_[0];
         face.left_eye_[0] = face.right_eye_[0];
         face.right_eye_[0] = x;
     }
-    int nose_y = face.nose_slot_[1];
+    const int nose_y = face.nose_slot_[1];
     if (face.left_eye_[1] > nose_y)
         face.left_eye_[1] = nose_y - 1;
     if (face.right_eye_[1] >= nose_y)
@@ -178,14 +178,14 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
         face.mouth_part_[1] = nose_y + 2;
 
     const FaceAnchors& model = active_face_anchors();
-    int model_nose_x = model.nose_slot_[0];
-    int model_nose_y = model.nose_slot_[1];
-    int dx = model_nose_x - face.nose_slot_[0];
-    int dy = model_nose_y - nose_y;
+    const int model_nose_x = model.nose_slot_[0];
+    const int model_nose_y = model.nose_slot_[1];
+    const int dx = model_nose_x - face.nose_slot_[0];
+    const int dy = model_nose_y - nose_y;
     get_offset(texture, dx, dy, false, kNoColour);
 
-    int model_eyes_y = (model.left_eye_[1] + model.right_eye_[1]) >> 1;
-    int eyes_y = ((face.left_eye_[1] + face.right_eye_[1]) >> 1) + dy;
+    const int model_eyes_y = (model.left_eye_[1] + model.right_eye_[1]) >> 1;
+    const int eyes_y = ((face.left_eye_[1] + face.right_eye_[1]) >> 1) + dy;
     // The scales of the sides right of, above and below the nose (x87 quotients rounded to floats).
     auto scale_right = static_cast<float>(static_cast<double>(get_width(texture) - face.nose_slot_[0] - dx) /
                                           static_cast<double>(face.right_eye_[0] - face.nose_slot_[0]));
@@ -194,7 +194,7 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
                                          static_cast<double>(face.mouth_part_[1] - nose_y));
 
     // Left of the nose (its quotient kept at the x87's precision)
-    double scale_left =
+    const double scale_left =
         static_cast<double>(face.nose_slot_[0] + dx) / static_cast<double>(face.nose_slot_[0] - face.left_eye_[0]);
     int amount = ftol(scale_left * (model.left_eye_[0] - dx - face.left_eye_[0]) + 0.5f);
     if (amount < 0)
@@ -273,7 +273,7 @@ int FaceSkin::write_to(uint8_t* buffer, int /*size*/)
 {
     std::memcpy(buffer, image_, kTexelEdge);
     std::memcpy(buffer + kTexelEdge, &path_vertices_, sizeof(path_vertices_));
-    size_t length = std::strlen(overlay_name_);
+    const size_t length = std::strlen(overlay_name_);
     std::memcpy(buffer + kTexelEdge + sizeof(path_vertices_), overlay_name_, length + 1);
     return static_cast<int>(kTexelEdge + sizeof(path_vertices_) + length + 1);
 }
@@ -284,7 +284,7 @@ const uint8_t* FaceSkin::read_from(const uint8_t* buffer, int /*size*/)
     std::memcpy(image_, buffer, kTexelEdge);
     std::memcpy(&path_vertices_, buffer + kTexelEdge, sizeof(path_vertices_));
     const char* name = reinterpret_cast<const char*>(buffer + kTexelEdge + sizeof(path_vertices_));
-    size_t length = std::strlen(name);
+    const size_t length = std::strlen(name);
     std::memcpy(overlay_name_, name, length + 1);
     return reinterpret_cast<const uint8_t*>(name) + length + 1;
 }

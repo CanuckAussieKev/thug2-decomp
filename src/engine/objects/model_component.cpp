@@ -120,8 +120,8 @@ double ModelSpin::bearing()
 {
     if (!(flag_bits_ & kModelSpinOn))
         return 0.0;
-    int elapsed = flag_bits_ & kModelSpinRealTime ? static_cast<int>(frame_clock::get_time() - outset_)
-                                                  : frame_clock::game_clock_time_since(static_cast<int>(outset_));
+    const int elapsed = flag_bits_ & kModelSpinRealTime ? static_cast<int>(frame_clock::get_time() - outset_)
+                                                        : frame_clock::game_clock_time_since(static_cast<int>(outset_));
     auto t = static_cast<double>(elapsed);
     if (elapsed < 0)
         t += kTwoTo32; // (as unsigned)
@@ -133,7 +133,7 @@ double ModelSpin::bearing()
     }
     if (power_ == 0)
         return static_cast<double>(range_) / period_ * t + base_;
-    double phase = t / period_ * kHalfPi;
+    const double phase = t / period_ * kHalfPi;
     if (power_ < 0)
         return (1.0 - std::sin(kHalfPi - phase)) * range_ + base_;
     double s = std::sin(phase);
@@ -203,7 +203,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
     for (int axis = 0; axis < 3; ++axis) {
         if (!twist_rate_[axis].active_)
             continue;
-        float angle = twist_rate_[axis].bearing();
+        const float angle = twist_rate_[axis].bearing();
         if (angle == 0.0f)
             continue;
         if (none)
@@ -217,7 +217,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
         // About the pivot: the pivot less where the turn takes it, in the display's frame.
         shift = pivot_;
         if (shift.x != 0.0f || shift.y != 0.0f || shift.z != 0.0f) {
-            maths::Vec4 turned = shift * rotation;
+            const maths::Vec4 turned = shift * rotation;
             shift = {shift.x - turned.x, shift.y - turned.y, shift.z - turned.z, shift.w - turned.w};
             shift = shift * *out;
         }
@@ -240,7 +240,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
 int MeshInstanceModule::test_collision(maths::Vec4* line, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 {
     void* skeleton = skeleton_of(bone_rig_); // (read before the check: the original's crashes without one)
-    void* volumes = model_bone_volumes(mesh_instance_);
+    const void* volumes = model_bone_volumes(mesh_instance_);
     if (!bone_rig_)
         return 0;
     if (!volumes) {
@@ -306,12 +306,12 @@ void MeshInstanceModule::apply_brightness(render::ProbeRay* feeler, bool lerp, f
     if (!feeler->is_hit_triangle_collision())
         return;
     void* lights = model_lights(mesh_instance_);
-    double value = feeler->get_hit_vertex_value();
+    const double value = feeler->get_hit_vertex_value();
     if (!lights) {
         set_global_brightness(static_cast<float>(value));
         return;
     }
-    double doubled = value + value;
+    const double doubled = value + value;
     brightness_ = static_cast<float>(doubled);
     if (lerp)
         lights_lerp_brightness(lights, static_cast<float>(doubled * 0.5), rate * kLerpRateScale);
@@ -332,11 +332,11 @@ void MeshInstanceModule::change_tint(uint32_t color)
 void MeshInstanceModule::rotate_display(float duration, float start, float end, int power, bool hold, bool x, bool y,
                                         bool z)
 {
-    float period = duration * kFramesToMs;
+    const float period = duration * kFramesToMs;
     pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
     auto now = static_cast<uint32_t>(frame_clock::game_clock_time());
     uint8_t axes = 0;
-    bool flags[3] = {x, y, z};
+    const bool flags[3] = {x, y, z};
     for (int axis = 0; axis < 3; ++axis) {
         if (!flags[axis])
             continue;

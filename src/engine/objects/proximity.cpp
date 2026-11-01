@@ -120,7 +120,7 @@ void nearby_zone_startup()
 // 0x0046AB50
 void nearby_zone_shutdown()
 {
-    ProximityRegistry* manager = hub();
+    const ProximityRegistry* manager = hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->head_; node;) {
@@ -179,7 +179,7 @@ void ProximNode::change_live(bool active)
 // 0x0046ACB0
 void proximity_node_enable(uint32_t name, int active)
 {
-    ProximityRegistry* manager = hub();
+    const ProximityRegistry* manager = hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->head_; node; node = node->succ_) {
@@ -230,7 +230,7 @@ bool ProximNode::is_within(const maths::Vec4* point)
     case kProximShapeSectorBox: {
         maths::Vec4 center;
         box_.get_center(center);
-        maths::Vec4 local = into_sector(this, point, center);
+        const maths::Vec4 local = into_sector(this, point, center);
         return box_.contains_point(local) != 0;
     }
     case kProximShapeSector:
@@ -265,7 +265,7 @@ maths::Vec4* ProximNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* p
         // into the sector's frame, the box's nearest point, and back out by its world matrix
         maths::Vec4 center;
         box_.get_center(center);
-        maths::Vec4 local = into_sector(this, point, center);
+        const maths::Vec4 local = into_sector(this, point, center);
         maths::Vec4 closest;
         box_.get_closest_surface_point(local, closest);
         closest = closest - center;
@@ -284,7 +284,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     auto* node = static_cast<ProximNode*>(memory::alloc_zeroed(sizeof(ProximNode)));
     if (node)
         new (&node->box_) maths::BBox();
-    ProximityRegistry* manager = hub();
+    const ProximityRegistry* manager = hub();
     node->succ_ = manager->head_;
     hub()->head_ = node;
     node->label_ = name;
@@ -339,7 +339,7 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
     for (ProximNode* node = manager->head_; node; node = node->succ_) {
         if (!node->active_ || node->kind_tag_ != type)
             continue;
-        bool inside = node->is_within(point);
+        const bool inside = node->is_within(point);
         if (node->outside_ & mask) {
             if (!inside)
                 continue;
@@ -394,7 +394,7 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
     if (start)
         level_nodes::get_next_node();
     for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
-        uint32_t name = level_nodes::get_node_name(node);
+        const uint32_t name = level_nodes::get_node_name(node);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
         if (node_class != kRestart)
@@ -419,7 +419,7 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
 uint32_t get_spawn_node(uint32_t type, int index, uint32_t start)
 {
     uint32_t names[256];
-    int count = get_restart_nodes(type, names, start);
+    const int count = get_restart_nodes(type, names, start);
     if (count <= 0)
         return 0;
     // (a negative index reads before the list, as the original)

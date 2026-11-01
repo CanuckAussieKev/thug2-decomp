@@ -71,12 +71,12 @@ void pane(float ui_scale)
         char label[32];
         std::snprintf(label, sizeof(label), "Align %s", kEdges[edge]);
         if (ImGui::Button(label)) {
-            int axis = s.axis;
+            const int axis = s.axis;
             get_later([axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
         }
     }
     if (ImGui::Button("Distribute")) {
-        int axis = s.axis;
+        const int axis = s.axis;
         get_later([axis] { distribute(axis, at_hand().gaps, at_hand().local); });
     }
     get_tip("Space 3 or more evenly; ends stay");
@@ -95,7 +95,7 @@ void pane(float ui_scale)
     ImGui::SameLine();
     if (ImGui::Button("Unlink"))
         get_later([] { links::unlink_selection(); });
-    std::string linked = links::describe();
+    const std::string linked = links::describe();
     ImGui::TextDisabled("%s", linked.empty() ? "(not linked)" : linked.c_str());
 
     ImGui::SeparatorText("Rail Along Edge");
@@ -138,7 +138,7 @@ void get_panel(float x, float y, float ui_scale)
     static bool editing;
     if (!editing)
         edit = last;
-    bool adjustable = get_adjustable();
+    const bool adjustable = get_adjustable();
     ImGui::SetNextWindowPos(ImVec2(x + 8.0f * ui_scale, y - 8.0f * ui_scale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(280.0f * ui_scale, 0.0f));
     char title[64];
@@ -156,7 +156,7 @@ void get_panel(float x, float y, float ui_scale)
         live = live || changed;
         done = done || ImGui::IsItemDeactivatedAfterEdit();
     };
-    float speed = 1.0f;
+    const float speed = 1.0f;
     switch (edit.kind) {
     case Kind::kShiftBy:
         track(ImGui::DragFloat3("Offset", &edit.offset.x, speed, -100000.0f, 100000.0f, "%.1f"));

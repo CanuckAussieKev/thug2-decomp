@@ -56,7 +56,7 @@ bool argument_starts_with(const char* argument, const char* option)
     char copy[100];
     if (!argument || !option)
         return false;
-    size_t length = std::strlen(option);
+    const size_t length = std::strlen(option);
     if (std::strlen(argument) < length)
         return false;
     copy_string(copy, argument);

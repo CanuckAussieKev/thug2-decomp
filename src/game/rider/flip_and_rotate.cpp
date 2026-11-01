@@ -110,7 +110,7 @@ bool RiderSpinAndFlip::apply_board_turned(uint32_t object_id, bool rotated, uint
             app->send_to_host(&message);
         }
     }
-    bool was = deck_turned_;
+    const bool was = deck_turned_;
     deck_turned_ = rotated;
     return was;
 }
@@ -135,7 +135,7 @@ void RiderSpinAndFlip::get_flip()
 {
     auto* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
     uint8_t& flipped = state->flag(PoseFlag::kFlipped).on;
-    uint8_t flip = flipped == 0 ? 1 : 0;
+    const uint8_t flip = flipped == 0 ? 1 : 0;
     if (flipped != flip) { // (always)
         flipped = flip;
         state->flag(PoseFlag::kFlipped).changed_at = frame_clock::game_clock_elapsed() + g_clock_offset;
@@ -205,7 +205,7 @@ int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* param
     case kBoardRotate: {
         // (the player isn't checked for null here)
         net::Guest* app = client_app(player_skater_index(find_player_slot_by_obj(entity_->ident_)));
-        bool rotated = params->has_bare_flag(kNormal) ? false : !deck_turned_;
+        const bool rotated = params->has_bare_flag(kNormal) ? false : !deck_turned_;
         apply_board_turned(entity_->ident_, rotated, app_value8(app), true);
         return 1;
     }

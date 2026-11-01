@@ -227,7 +227,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
                     queue(conn);
             }
         } else if (handle & kHandleExcludeBroadcast) {
-            int excluded = handle & ~kHandleExcludeBroadcast;
+            const int excluded = handle & ~kHandleExcludeBroadcast;
             lists::Hunt<Conn> search;
             for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
                 if (conn->hdl_ != excluded && accepts(conn))
@@ -335,7 +335,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
     start.msg_id = msg_id;
     start.checksum = checksums::generate_crc_from_buffer(data, size);
     std::snprintf(start.desc, sizeof(start.desc), "%s", desc);
-    int first = size > kStreamPieceSize ? kStreamPieceSize : size;
+    const int first = size > kStreamPieceSize ? kStreamPieceSize : size;
     uint8_t start_bytes[wire::kStreamStartMaxSize];
     util::ByteWriter start_writer(start_bytes, sizeof(start_bytes));
     wire::write_stream_start(start_writer, start, data, static_cast<size_t>(first));
@@ -370,7 +370,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
         } else {
             // The rest goes a few pieces a frame (pump_stream_traffic), with sequence ids reserved now.
             push_network_heap();
-            int later_pieces = (size - 1) / kStreamPieceSize;
+            const int later_pieces = (size - 1) / kStreamPieceSize;
             uint8_t* copy = nullptr;
             if (borrow_caller_buffer) {
                 copy = static_cast<uint8_t*>(data);
@@ -450,7 +450,7 @@ void AppHost::transmit(bool send_in_frame)
 bool AppHost::is_conn_blocked(Conn* conn)
 {
     lists::Hunt<BlockedConnEntry> search;
-    for (BlockedConnEntry* banned = search.head_element(&banned_); banned; banned = search.following_item()) {
+    for (const BlockedConnEntry* banned = search.head_element(&banned_); banned; banned = search.following_item()) {
         if (banned->remote_ip_ == conn->remote_ip_)
             return true;
     }
@@ -475,7 +475,7 @@ bool AppHost::over_bandwidth_budget(Conn* conn)
 {
     if (fetch_traffic_spent() >= total_bandwidth(supervisor_))
         return true;
-    int limit = bandwidth_limit(conn);
+    const int limit = bandwidth_limit(conn);
     if (get_bytes_per_second(out_metrics(conn)) >= limit)
         return true;
     int sharing = 0;
@@ -486,7 +486,7 @@ bool AppHost::over_bandwidth_budget(Conn* conn)
     }
     if (sharing == 0)
         sharing = 1;
-    int share = total_bandwidth(supervisor_) / sharing;
+    const int share = total_bandwidth(supervisor_) / sharing;
     return get_bytes_per_second(out_metrics(conn)) > share;
 }
 
@@ -540,7 +540,7 @@ void AppHost::pump_stream_traffic()
             ++streams;
         if (streams == 0)
             continue;
-        int queued = num_stream_pieces_queued(conn);
+        const int queued = num_stream_pieces_queued(conn);
         if (queued >= max_queued)
             continue;
         int budget = max_queued - queued;
@@ -553,7 +553,7 @@ void AppHost::pump_stream_traffic()
             ListNode* next_link = links.following_item();
             StreamDesc* stream = stream_of(link);
             int sent = static_cast<int>(stream->succ_ - stream->content_);
-            int size = stream->extent_;
+            const int size = stream->extent_;
             bool unfinished = false;
             while (sent < size) {
                 if (budget <= 0) {
@@ -631,12 +631,12 @@ bool AppHost::handle_incoming()
         Conn* next = search.following_item();
         if (is_local_conn(conn) && conn->alias_conn_) {
             Conn* alias = conn->alias_conn_;
-            size_t length = send_buffer_end(alias) - send_buffer_start(alias);
+            const size_t length = send_buffer_end(alias) - send_buffer_start(alias);
             std::memcpy(write_position(conn), send_buffer_start(alias), length);
             send_buffer_end(conn->alias_conn_) = send_buffer_start(conn->alias_conn_);
             write_position(conn) += length;
         }
-        int result = dispatch_messages(&dispatcher_, conn, 0);
+        const int result = dispatch_messages(&dispatcher_, conn, 0);
         if (result == 2)
             return true;
         if (result == 3)

@@ -64,13 +64,13 @@ PositionScale level_position_scale(uint32_t level)
 void refresh_position_scale()
 {
     auto* manager = g_online_hub;
-    bool net_game = manager && manager->in_net_game();
-    uint32_t level = manager ? manager->level_ : 0;
+    const bool net_game = manager && manager->in_net_game();
+    const uint32_t level = manager ? manager->level_ : 0;
     if (net_game == s_scale_net_game && level == s_scale_level)
         return;
     s_scale_net_game = net_game;
     s_scale_level = level;
-    PositionScale scale = net_game ? level_position_scale(level) : PositionScale{};
+    const PositionScale scale = net_game ? level_position_scale(level) : PositionScale{};
     if (scale.big != s_factor.big || scale.tall != s_factor.tall)
         get_log("THUGPRO big level (TP-R6): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
                 scale.tall ? ", y in whole units" : "");
@@ -80,13 +80,13 @@ void refresh_position_scale()
 // (the original: FLD the float, FMUL its constant - FADD ST0,ST0 for the doubling -, _ftol, the low 16 bits kept)
 int16_t pack_horizontal(float value)
 {
-    double v = s_factor.big ? static_cast<double>(value) : static_cast<double>(value) * 2.0;
+    const double v = s_factor.big ? static_cast<double>(value) : static_cast<double>(value) * 2.0;
     return static_cast<int16_t>(static_cast<int>(v));
 }
 
 int16_t pack_height(float value)
 {
-    double v = s_factor.tall ? static_cast<double>(value) : static_cast<double>(value) * 4.0;
+    const double v = s_factor.tall ? static_cast<double>(value) : static_cast<double>(value) * 4.0;
     return static_cast<int16_t>(static_cast<int>(v));
 }
 

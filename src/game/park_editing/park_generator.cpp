@@ -192,9 +192,9 @@ void ParkAssembler::set_up_bounds()
 {
     // The most the park can take up: 56 x 56 cells, 16 steps down and 66 up.
     maths::BBox box;
-    maths::Vec4 low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
+    const maths::Vec4 low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
     box.append_spot(low);
-    maths::Vec4 high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
+    const maths::Vec4 high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
     box.append_spot(high);
     scene::assign_scene_bounds(scene_of(scene_handle_), &box);
 }
@@ -217,8 +217,8 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
     if (!shell)
         return;
     // The shell's first box: as big as can be.
-    maths::Vec4 far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
-    maths::Vec4 near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
+    const maths::Vec4 far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
+    const maths::Vec4 near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
     maths::Seg everything(near, far);
     scene::set_box(shell, &everything, 1, 0);
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.
@@ -263,14 +263,15 @@ uint32_t ParkAssembler::duplicate_scene_sector(uint32_t name, int a, int b, int 
 {
     flag_bits_ |= ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
-    uint32_t clone = scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), a, b, 0);
+    const uint32_t clone =
+        scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), a, b, 0);
     memory::leave_heap_scope();
     return clone;
 }
 
 bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
 {
-    bool deleted = scene::remove_scene_sector(scene_of(scene_handle_), name);
+    const bool deleted = scene::remove_scene_sector(scene_of(scene_handle_), name);
     rebuild_collision();
     return deleted;
 }
@@ -285,7 +286,7 @@ ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
     const uint32_t name = from->sector_;
     flag_bits_ |= ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
-    uint32_t clone =
+    const uint32_t clone =
         (flags & ParkTile::kCursor)
             ? scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 1, 0, 0)
             : scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 0, 1, 0);

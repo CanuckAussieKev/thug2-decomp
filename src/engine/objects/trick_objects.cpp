@@ -133,7 +133,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
         if (team_scoring()) {
             if (PlayerRecord* me = find_player_slot_by_obj(player)) {
                 // The team's score: each of its players' best on this cluster.
-                int team = get_team(me);
+                const int team = get_team(me);
                 total = 0;
                 PlayerSearch search;
                 for (PlayerRecord* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
@@ -148,7 +148,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
         if (changed && team_scoring()) {
             // Taken from a team mate: only if the player beat one of the team's own best scores on it.
             PlayerRecord* holder = find_player_slot_by_obj(static_cast<uint16_t>(cluster->owner_));
-            int team = get_team(find_player_slot_by_obj(player));
+            const int team = get_team(find_player_slot_by_obj(player));
             if (get_team(holder) == team) {
                 changed = false;
                 PlayerSearch search;
@@ -354,7 +354,7 @@ bool TrickSpotHub::remove_all_clusters()
 bool HitClusterLog::append_one(uint32_t object_name)
 {
     const uint32_t listed = static_cast<uint32_t>(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
-    TrickObjectCluster* cluster = g_trick_spot_hub->get_object_cluster(object_name);
+    const TrickObjectCluster* cluster = g_trick_spot_hub->get_object_cluster(object_name);
     if (!cluster || !cluster->label_)
         return false;
     for (uint32_t i = 0; i < listed; ++i) {
@@ -612,9 +612,9 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
     if (send) {
         net::AppHost* server = net->host_;
         net::Conn* conn = nullptr;
-        if (objects::Entity* skater =
+        if (const objects::Entity* skater =
                 reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player))) {
-            if (online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)))
+            if (const online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)))
                 conn = info->conn_;
         }
         uint8_t stolen[8] = {};

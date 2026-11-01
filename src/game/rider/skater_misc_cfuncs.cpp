@@ -62,7 +62,7 @@ void turn_about_y(maths::Mat4& m, float degrees, bool before)
 {
     auto radians = static_cast<float>(static_cast<double>(degrees) * g_degree_to_radian_ratio); // pi / 180
     maths::Mat4 rotation{};
-    maths::Mat4& turn = maths::make_yaw_matrix(rotation, radians);
+    const maths::Mat4& turn = maths::make_yaw_matrix(rotation, radians);
     if (before)
         matrix_multiply(&m, &turn, &m);
     else
@@ -105,7 +105,7 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
     params->fetch_float(kScale, &scale, 0);
     velocity.y = 0.0f;
     // x87: z * z + x * x and its root in double
-    double speed =
+    const double speed =
         std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
     float x = 0.0f;
     float y = 0.0f;
@@ -170,8 +170,8 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     for (int i = 0; i < count; ++i)
         order->set_element(i, static_cast<uint32_t>(i + 1));
     for (int i = 0; i < count; ++i) {
-        int other = maths::rnd(count);
-        uint32_t a = order->fetch_part(other);
+        const int other = maths::rnd(count);
+        const uint32_t a = order->fetch_part(other);
         order->set_element(other, order->fetch_part(i));
         order->set_element(i, a);
     }
@@ -186,7 +186,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         uint32_t voice_name = 0;
         if (profile->details_params()->read_hash_value(kVoice, &voice_name, 0)) {
             Array* voices = script::fetch_list(kPlayerVoices);
-            int size = static_cast<int>(voices->extent_);
+            const int size = static_cast<int>(voices->extent_);
             for (int i = 0; i < size; ++i) {
                 auto* entry = reinterpret_cast<Struct*>(voices->fetch_part(i));
                 uint32_t id = 0;

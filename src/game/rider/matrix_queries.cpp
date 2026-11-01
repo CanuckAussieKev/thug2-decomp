@@ -86,7 +86,7 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         return 1;
     }
     case kAbsolutePitchGreaterThan: {
-        float angle = angle_parameter(params);
+        const float angle = angle_parameter(params);
         return cos_degrees(angle) > up.y ? 1 : 0;
     }
     case kGetSlope: {
@@ -103,9 +103,9 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         return 1;
     }
     case kPitchGreaterThan: {
-        float angle = angle_parameter(params);
+        const float angle = angle_parameter(params);
         const maths::Vec4& v = core_vector78(core_physics_);
-        double dot =
+        const double dot =
             static_cast<double>(up.z) * v.z + static_cast<double>(up.y) * v.y + static_cast<double>(v.x) * up.x;
         return cos_degrees(angle) > dot ? 1 : 0;
     }
@@ -120,7 +120,7 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         return maths::cross_vec(v, at).y < 0.0f ? 1 : 0;
     }
     case kRollGreaterThan: {
-        float angle = angle_parameter(params);
+        const float angle = angle_parameter(params);
         maths::Vec4 v = right;
         v.align_to_plane(core_vector78(core_physics_));
         return maths::is_angle_beyond(v, right, angle) ? 1 : 0;

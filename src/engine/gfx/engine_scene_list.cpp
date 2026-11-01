@@ -41,11 +41,11 @@ WorldScene* scene_of(const memory::ListNode* node) { return static_cast<WorldSce
 // The first scene whose is_sky_ is `sky` (the original's walk: the first node's data checked before the node).
 WorldScene* first_scene(bool sky)
 {
-    memory::ListNode* node = head_of_scene_list();
+    const memory::ListNode* node = head_of_scene_list();
     if (is_head(node) || !node)
         return nullptr;
     for (;;) {
-        memory::ListNode* next = get_next_node(node);
+        const memory::ListNode* next = get_next_node(node);
         if (scene_of(node)->is_sky_ == sky)
             return scene_of(node);
         if (!next)
@@ -100,10 +100,10 @@ WorldScene* get_sky_scene() { return first_scene(true); }
 // 0x0048C810
 bool unload_all_scenes()
 {
-    memory::ListNode* node = head_of_scene_list();
+    const memory::ListNode* node = head_of_scene_list();
     if (!is_head(node) && node) {
         do {
-            memory::ListNode* next = get_next_node(node);
+            const memory::ListNode* next = get_next_node(node);
             WorldScene* scene = scene_of(node);
             TextureSet* textures = scene->texture_set_;
             unload_engine_scene(scene, 1);
@@ -128,10 +128,10 @@ void add_shadow_caster(const uint8_t* texture, void* model, WorldScene* scene)
 void print_coll_statics()
 {
     frame_clock::get_time();
-    memory::ListNode* node = head_of_scene_list();
+    const memory::ListNode* node = head_of_scene_list();
     if (!is_head(node) && node) {
         do {
-            memory::ListNode* next = get_next_node(node);
+            const memory::ListNode* next = get_next_node(node);
             WorldScene* scene = scene_of(node);
             if (!scene->is_sky_)
                 scene->print_coll_statics();
@@ -144,11 +144,11 @@ void print_coll_statics()
 // 0x0048C940
 CollGrid* get_first_coll_grid()
 {
-    memory::ListNode* node = head_of_scene_list();
+    const memory::ListNode* node = head_of_scene_list();
     if (is_head(node) || !node)
         return nullptr;
     do {
-        memory::ListNode* next = get_next_node(node);
+        const memory::ListNode* next = get_next_node(node);
         if (CollGrid* grid = scene_of(node)->coll_grid_)
             return grid;
         node = next;
@@ -168,11 +168,11 @@ CollGrid** get_coll_grids_on_line(const maths::Seg* line)
     maths::BBox box(line->start);
     box.append_spot(line->end);
     uint32_t count = 0;
-    memory::ListNode* node = head_of_scene_list();
+    const memory::ListNode* node = head_of_scene_list();
     if (is_head(node) || !node)
         return nullptr;
     do {
-        memory::ListNode* next = get_next_node(node);
+        const memory::ListNode* next = get_next_node(node);
         WorldScene* scene = scene_of(node);
         CollGrid* grid = scene->coll_grid_;
         // (each "past" test as the original: NaN doesn't rule a grid out)
@@ -198,12 +198,12 @@ uint32_t new_sector_name()
 {
     uint32_t& counter = g_next_sector_name;
     for (;;) {
-        uint32_t name = counter;
+        const uint32_t name = counter;
         bool used = false;
-        memory::ListNode* node = head_of_scene_list();
+        const memory::ListNode* node = head_of_scene_list();
         if (!is_head(node) && node) {
             do {
-                memory::ListNode* next = get_next_node(node);
+                const memory::ListNode* next = get_next_node(node);
                 if (scene_of(node)->look_up_sector(name)) {
                     used = true;
                     break;
@@ -292,7 +292,7 @@ WorldScene* add_scene(const char* scene_name, const char* add_name)
         if (TextureSet* old = find_tex_dict(checksums::hash_from_text(tex_file)))
             unload_tex_dict(old);
     }
-    TextureSet* textures = load_tex_dict(tex_file, 1, 0, 0, 0);
+    const TextureSet* textures = load_tex_dict(tex_file, 1, 0, 0, 0);
     plat_load_add_scene(scene, file);
     scene->finish_add(file, reinterpret_cast<uint32_t>(textures));
     return scene;
@@ -304,7 +304,7 @@ bool reload_scene(const char* name)
     WorldScene* scene = look_up_scene(checksums::hash_from_text(name));
     if (!scene)
         return false;
-    bool is_sky = scene->is_sky_;
+    const bool is_sky = scene->is_sky_;
     TextureSet* textures = scene->texture_set_;
     unload_engine_scene(scene, 1);
     load_scene(name, textures, !is_sky, is_sky, false, 0);

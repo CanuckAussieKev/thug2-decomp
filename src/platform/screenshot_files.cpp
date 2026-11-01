@@ -22,10 +22,10 @@ int default_key(bool snipping_takes_print_screen) { return snipping_takes_print_
 
 int parse_key(const std::string& text, int fallback, const std::function<int(const std::string&)>& by_name)
 {
-    size_t first = text.find_first_not_of(" 	");
+    const size_t first = text.find_first_not_of(" 	");
     if (first == std::string::npos)
         return fallback;
-    std::string key = text.substr(first, text.find_last_not_of(" 	") - first + 1);
+    const std::string key = text.substr(first, text.find_last_not_of(" 	") - first + 1);
     int code = 0;
     if (key.find_first_not_of("0123456789") == std::string::npos) {
         if (key.size() > 4)
@@ -130,11 +130,11 @@ void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y,
         uint8_t* p = rgb->data() + (static_cast<size_t>(py) * width + px) * 3;
         p[0] = p[1] = p[2] = value;
     };
-    int gap = size / 3;
+    const int gap = size / 3;
     // (the black edge first, two pixels wider, then the white line over it)
     for (int pass = 0; pass < 2; ++pass) {
-        int half = pass == 0 ? 2 : 1;
-        uint8_t value = pass == 0 ? 0 : 255;
+        const int half = pass == 0 ? 2 : 1;
+        const uint8_t value = pass == 0 ? 0 : 255;
         for (int d = gap; d <= size; ++d) {
             for (int t = -half; t < half; ++t) {
                 put(x + d, y + t, value);
@@ -149,10 +149,10 @@ void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y,
 bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
 {
     rgb->clear();
-    int bpp = get_bytes_per_pixel(frame.format);
+    const int bpp = get_bytes_per_pixel(frame.format);
     if (bpp == 0 || frame.width <= 0 || frame.height <= 0 || frame.pitch < frame.width * bpp)
         return false;
-    size_t need = static_cast<size_t>(frame.pitch) * (frame.height - 1) + static_cast<size_t>(frame.width) * bpp;
+    const size_t need = static_cast<size_t>(frame.pitch) * (frame.height - 1) + static_cast<size_t>(frame.width) * bpp;
     if (frame.bytes.size() < need)
         return false;
     rgb->resize(static_cast<size_t>(frame.width) * frame.height * 3);
@@ -170,7 +170,7 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
             break;
         case PixelFormat::kR5g6b5:
             for (int x = 0; x < frame.width; ++x, row += 2) {
-                unsigned v = row[0] | (row[1] << 8);
+                const unsigned v = row[0] | (row[1] << 8);
                 *out++ = widen5(v >> 11);
                 *out++ = widen6((v >> 5) & 0x3F);
                 *out++ = widen5(v & 0x1F);
@@ -178,7 +178,7 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
             break;
         case PixelFormat::kX1r5g5b5:
             for (int x = 0; x < frame.width; ++x, row += 2) {
-                unsigned v = row[0] | (row[1] << 8);
+                const unsigned v = row[0] | (row[1] << 8);
                 *out++ = widen5((v >> 10) & 0x1F);
                 *out++ = widen5((v >> 5) & 0x1F);
                 *out++ = widen5(v & 0x1F);
@@ -234,7 +234,7 @@ std::string format_sidecar(const std::string& heading, const std::vector<Section
         text += "(not available)\n";
     for (const std::string& line : log_tail) {
         // (some lines arrive with their own line end)
-        size_t end = line.find_last_not_of("\r\n");
+        const size_t end = line.find_last_not_of("\r\n");
         text += (end == std::string::npos ? std::string() : line.substr(0, end + 1)) + "\n";
     }
     return text;

@@ -32,10 +32,10 @@ bool is_startup_script(const script::Script* script)
     if (!script)
         return false;
     // (the script it's running now: CScript +0xC8)
-    uint32_t name = script->script_title_;
+    const uint32_t name = script->script_title_;
     static const uint32_t kStartup[] = {name_hash("default_system_startup"), name_hash("autolaunch"),
                                         name_hash("startup_loading_screen")};
-    for (uint32_t startup : kStartup) {
+    for (const uint32_t startup : kStartup) {
         if (name == startup)
             return true;
     }
@@ -60,8 +60,8 @@ struct Key {
     bool was_down_;
     bool squeezed(const uint8_t* keys)
     {
-        bool down = keys[code] != 0;
-        bool pressed = down && !was_down_;
+        const bool down = keys[code] != 0;
+        const bool pressed = down && !was_down_;
         was_down_ = down;
         return pressed;
     }
@@ -109,9 +109,13 @@ void tick_frame(modules::FrontEnd* front_end)
         f12{SDL_SCANCODE_F12, false}, tab{SDL_SCANCODE_TAB, false}, t{SDL_SCANCODE_T, false},
         home{SDL_SCANCODE_HOME, false};
     // (every key's state noted each frame, so a press counts once wherever it happened)
-    bool pressed_f9 = f9.squeezed(keys), pressed_f10 = f10.squeezed(keys), pressed_f11 = f11.squeezed(keys),
-         pressed_f12 = f12.squeezed(keys), pressed_tab = tab.squeezed(keys), pressed_t = t.squeezed(keys),
-         pressed_home = home.squeezed(keys);
+    const bool pressed_f9 = f9.squeezed(keys);
+    const bool pressed_f10 = f10.squeezed(keys);
+    const bool pressed_f11 = f11.squeezed(keys);
+    const bool pressed_f12 = f12.squeezed(keys);
+    const bool pressed_tab = tab.squeezed(keys);
+    const bool pressed_t = t.squeezed(keys);
+    const bool pressed_home = home.squeezed(keys);
     if (frontend::level_editor::live_now() || (front_end && front_end->is_halted_) || render::current_level() == 0)
         return;
     if (!s_started) {
@@ -154,10 +158,12 @@ bool keyboard_viewer(float* left_x, float* left_y, float* right_x, float* right_
     auto axis = [keys](SDL_Scancode minus, SDL_Scancode plus) {
         return (keys[plus] ? 127.0f : 0.0f) - (keys[minus] ? 127.0f : 0.0f);
     };
-    float move_x = axis(SDL_SCANCODE_A, SDL_SCANCODE_D), move_z = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
-    float turn_x = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT), turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
-    bool up = keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_PAGEUP];
-    bool down = keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_PAGEDOWN];
+    const float move_x = axis(SDL_SCANCODE_A, SDL_SCANCODE_D);
+    const float move_z = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
+    const float turn_x = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT);
+    const float turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
+    const bool up = keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_PAGEUP];
+    const bool down = keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_PAGEDOWN];
     if (move_x == 0.0f && move_z == 0.0f && turn_x == 0.0f && turn_y == 0.0f && !up && !down)
         return false;
     // (the right stick moves - x across, y along the view: up is -127 -, the left stick turns; a key held wins over

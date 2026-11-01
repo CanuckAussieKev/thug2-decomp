@@ -86,7 +86,7 @@ void TextureProjectionComponent::seal()
 void TextureProjectionComponent::tick_frame()
 {
     // (the head test before the null test, as the original)
-    for (memory::ListNode* node = projections_.next; !is_head(node) && node; node = node->next)
+    for (const memory::ListNode* node = projections_.next; !is_head(node) && node; node = node->next)
         static_cast<render::TextureProjection*>(node->data)->tick_frame(entity_);
 }
 

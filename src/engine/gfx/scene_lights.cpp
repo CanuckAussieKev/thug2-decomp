@@ -86,10 +86,10 @@ struct Sums {
     void append_one(const LevelLamp& light, double distance_squared)
     {
         auto d2 = static_cast<float>(distance_squared);
-        double radius = light.radius_;
+        const double radius = light.radius_;
         if (!(d2 < radius * radius))
             return;
-        double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength_;
+        const double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength_;
         const auto* colour = reinterpret_cast<const uint8_t*>(&light.shade_);
         r += colour[0] * f;
         g += colour[1] * f;
@@ -101,7 +101,7 @@ struct Sums {
     uint32_t get_apply(uint32_t colour) const
     {
         auto* bytes = reinterpret_cast<uint8_t*>(&colour);
-        double sums[3] = {r, static_cast<float>(g), static_cast<float>(b)};
+        const double sums[3] = {r, static_cast<float>(g), static_cast<float>(b)};
         for (int i = 0; i < 3; ++i) {
             double v = bytes[i] + sums[i];
             if (v > 255.0)
@@ -115,14 +115,16 @@ struct Sums {
 // A position's offset from a light, squared: the original's two orders of summing.
 double offset_squared_zxy(const float* p, const maths::Vec4& l)
 {
-    double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y,
-           dz = static_cast<double>(p[2]) - l.z;
+    const double dx = static_cast<double>(p[0]) - l.x;
+    const double dy = static_cast<double>(p[1]) - l.y;
+    const double dz = static_cast<double>(p[2]) - l.z;
     return dz * dz + dx * dx + dy * dy;
 }
 double offset_squared_zyx(const float* p, const maths::Vec4& l)
 {
-    double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y,
-           dz = static_cast<double>(p[2]) - l.z;
+    const double dx = static_cast<double>(p[0]) - l.x;
+    const double dy = static_cast<double>(p[1]) - l.y;
+    const double dz = static_cast<double>(p[2]) - l.z;
     return dz * dz + dy * dy + dx * dx;
 }
 
@@ -148,7 +150,7 @@ void LevelLamp::set_reach(float radius)
     if (radius == radius_) // (NaN: set)
         return;
     radius_ = radius;
-    DynamicLightBase** slot = find_dynamic_light(label_);
+    DynamicLightBase* const* slot = find_dynamic_light(label_);
     if (!slot)
         return;
     (*slot)->radius = radius;
@@ -168,7 +170,7 @@ void LevelLamp::clear_sectors() { sectors_->empty_table(); }
 void LevelLamp::find_sectors(script::Array* excluded)
 {
     sectors_->empty_table();
-    WorldScene* scene = get_main_scene();
+    const WorldScene* scene = get_main_scene();
     if (!scene)
         return;
     lists::KeyMap* sectors = scene->sectors_;
@@ -183,16 +185,18 @@ void LevelLamp::find_sectors(script::Array* excluded)
         // offset squared against itself rounded to a float).
         auto cx = static_cast<float>((static_cast<double>(box->max.x) + box->min.x) * 0.5);
         auto cy = static_cast<float>((static_cast<double>(box->max.y) + box->min.y) * 0.5);
-        double cz = (static_cast<double>(box->max.z) + box->min.z) * 0.5;
-        double hx = static_cast<double>(box->max.x) - cx, hy = static_cast<double>(box->max.y) - cy,
-               hz = box->max.z - cz;
-        double dx = static_cast<double>(cx) - at_point_.x, dy = static_cast<double>(cy) - at_point_.y,
-               dz = cz - at_point_.z;
+        const double cz = (static_cast<double>(box->max.z) + box->min.z) * 0.5;
+        const double hx = static_cast<double>(box->max.x) - cx;
+        const double hy = static_cast<double>(box->max.y) - cy;
+        const double hz = box->max.z - cz;
+        const double dx = static_cast<double>(cx) - at_point_.x;
+        const double dy = static_cast<double>(cy) - at_point_.y;
+        const double dz = cz - at_point_.z;
         auto distance = static_cast<float>(std::sqrt(dz * static_cast<float>(dz) + dy * dy + dx * dx));
-        double half = std::sqrt(hz * hz + hy * hy + hx * hx);
+        const double half = std::sqrt(hz * hz + hy * hy + hx * hx);
         if (!(half + radius_ > distance))
             continue;
-        uint32_t count = excluded ? excluded->extent_ : 0;
+        const uint32_t count = excluded ? excluded->extent_ : 0;
         bool skip = false;
         for (uint32_t i = 0; i < count; ++i) {
             if (excluded->fetch_part(i) == sector->checksum_) {
@@ -240,7 +244,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     for (int v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            LevelLamp& light = scene_light_array()[lights[l]];
+            const LevelLamp& light = scene_light_array()[lights[l]];
             sums.append_one(light, offset_squared_zxy(&vertices[v].x, light.at_point_));
         }
         if (sums.lit)
@@ -258,18 +262,18 @@ void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* 
     int lights[3];
     int found = 0;
     for (int i = 0; i < scene_light_count() && found < 3; ++i) {
-        LevelLamp& light = scene_light_array()[i];
+        const LevelLamp& light = scene_light_array()[i];
         bool facing = true;
         if (normal) {
-            double dx = static_cast<double>(positions->x) - light.at_point_.x;
-            double dy = static_cast<double>(positions->y) - light.at_point_.y;
-            double dz = static_cast<double>(positions->z) - light.at_point_.z;
+            const double dx = static_cast<double>(positions->x) - light.at_point_.x;
+            const double dy = static_cast<double>(positions->y) - light.at_point_.y;
+            const double dz = static_cast<double>(positions->z) - light.at_point_.z;
             facing = dz * normal->z + dy * normal->y + dx * normal->x <= 0.0; // (NaN: not)
         }
         if (!(light.strength_ > 0.0f))
             continue;
-        double rr = static_cast<double>(light.radius_) * light.radius_;
-        double d2 = offset_squared_zyx(&positions->x, light.at_point_);
+        const double rr = static_cast<double>(light.radius_) * light.radius_;
+        const double d2 = offset_squared_zyx(&positions->x, light.at_point_);
         if (!(rr >= d2) || !facing)
             continue;
         lights[found++] = i;
@@ -281,7 +285,7 @@ void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* 
     for (uint32_t v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            LevelLamp& light = scene_light_array()[lights[l]];
+            const LevelLamp& light = scene_light_array()[lights[l]];
             sums.append_one(light, offset_squared_zyx(&positions[v].x, light.at_point_));
         }
         if (sums.lit)
@@ -294,7 +298,7 @@ void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 {
     if (!name)
         return;
-    LevelLamp* light = find_scene_light(name);
+    const LevelLamp* light = find_scene_light(name);
     if (!light || !light->sectors_)
         return;
     lists::KeyMap* sectors = light->sectors_;
@@ -382,7 +386,7 @@ void update_scene_light_queue()
         clear_scene_light_queue();
         return;
     }
-    int target = queue_frames() ? queued_count() * queue_frame() / queue_frames() : queued_count();
+    const int target = queue_frames() ? queued_count() * queue_frame() / queue_frames() : queued_count();
     for (; queue_done() < target; ++queue_done()) {
         script::Struct* node = level_nodes::fetch_vertex(queued_nodes()[queue_done()], true);
         update_scene_light(level_nodes::get_node_name(node), queue_params());
@@ -402,7 +406,7 @@ void update_scene_light(uint32_t name, script::Struct* params)
             value = static_cast<float>(value * static_cast<double>(kPercent));
             if (value != light->strength_) { // (NaN: set)
                 light->strength_ = value;
-                if (DynamicLightBase** slot = find_dynamic_light(light->label_))
+                if (DynamicLightBase* const* slot = find_dynamic_light(light->label_))
                     (*slot)->intensity = value;
             }
         }
@@ -413,10 +417,10 @@ void update_scene_light(uint32_t name, script::Struct* params)
         if (params->fetch_int_value(0x059EA070u, &red, 0)) {
             params->fetch_int_value(0x2F6511DEu, &green, 1);
             params->fetch_int_value(0x61C9354Bu, &blue, 1);
-            uint32_t colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
-                              static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u;
+            const uint32_t colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
+                                    static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u;
             light->shade_ = colour;
-            if (DynamicLightBase** slot = find_dynamic_light(light->label_))
+            if (DynamicLightBase* const* slot = find_dynamic_light(light->label_))
                 (*slot)->colour = colour;
         }
         apply_scene_light(scene, name);
@@ -445,17 +449,17 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float bri
 {
     if (scene_light_count() >= kMaxSceneLights)
         return nullptr;
-    double intensity = brightness * static_cast<double>(kPercent);
+    const double intensity = brightness * static_cast<double>(kPercent);
     LevelLamp* light = &scene_light_array()[scene_light_count()++];
     light->label_ = name;
     light->at_point_ = *pos;
     if (light->strength_ != intensity) { // (the slot's old value; NaN: set)
         light->strength_ = static_cast<float>(intensity);
-        if (DynamicLightBase** slot = find_dynamic_light(name))
+        if (DynamicLightBase* const* slot = find_dynamic_light(name))
             (*slot)->intensity = static_cast<float>(intensity);
     }
     light->shade_ = colour;
-    if (DynamicLightBase** slot = find_dynamic_light(light->label_))
+    if (DynamicLightBase* const* slot = find_dynamic_light(light->label_))
         (*slot)->colour = colour;
     light->set_reach(radius);
     light->find_sectors(excluded);
@@ -467,9 +471,9 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float bri
 // 0x00490570
 void create_light_from_node(script::Struct* node)
 {
-    bool dynamic = !node->has_bare_flag(0xE1509E4Fu);
-    bool scene = !node->has_bare_flag(0x6F050E18u);
-    uint32_t name = level_nodes::get_node_name(node);
+    const bool dynamic = !node->has_bare_flag(0xE1509E4Fu);
+    const bool scene = !node->has_bare_flag(0x6F050E18u);
+    const uint32_t name = level_nodes::get_node_name(node);
     maths::Vec4 pos;
     level_nodes::fetch_place(node, &pos);
     float brightness = 100.0f;

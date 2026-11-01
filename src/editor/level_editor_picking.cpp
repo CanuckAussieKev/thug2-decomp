@@ -25,11 +25,11 @@ bool is_structure(V3 min, V3 max, V3 camera, float level_share)
 
 void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
 {
-    V3 n = perpendicular(b - a, c - a);
-    float twice = std::sqrt(get_dot(n, n));
+    const V3 n = perpendicular(b - a, c - a);
+    const float twice = std::sqrt(get_dot(n, n));
     if (!(twice > 0.0f))
         return;
-    float up = std::fabs(n.y) / twice;
+    const float up = std::fabs(n.y) / twice;
     if (up <= kUpNormalY)
         return;
     area->up += twice * 0.5f;
@@ -45,7 +45,9 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
         return V3{f[0], f[1], f[2]};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
-        uint16_t a = indices[i - 2], b = indices[i - 1], c = indices[i];
+        const uint16_t a = indices[i - 2];
+        const uint16_t b = indices[i - 1];
+        const uint16_t c = indices[i];
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
         add_top_triangle(area, at(a), at(b), at(c));
@@ -184,21 +186,22 @@ bool same_spot(float x0, float y0, float x1, float y1, float tolerance)
 bool ray_triangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t)
 {
     // (Moller and Trumbore's test)
-    V3 e1 = b - a, e2 = c - a;
-    V3 p = perpendicular(dir, e2);
-    float det = get_dot(e1, p);
+    const V3 e1 = b - a;
+    const V3 e2 = c - a;
+    const V3 p = perpendicular(dir, e2);
+    const float det = get_dot(e1, p);
     if (std::fabs(det) < 1e-12f)
         return false;
-    float inv = 1.0f / det;
-    V3 s = origin - a;
-    float u = get_dot(s, p) * inv;
+    const float inv = 1.0f / det;
+    const V3 s = origin - a;
+    const float u = get_dot(s, p) * inv;
     if (u < 0.0f || u > 1.0f)
         return false;
-    V3 q = perpendicular(s, e1);
-    float v = get_dot(dir, q) * inv;
+    const V3 q = perpendicular(s, e1);
+    const float v = get_dot(dir, q) * inv;
     if (v < 0.0f || u + v > 1.0f)
         return false;
-    float hit = get_dot(e2, q) * inv;
+    const float hit = get_dot(e2, q) * inv;
     if (!(hit > 0.0f))
         return false;
     *t = hit;
@@ -215,7 +218,9 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
         return V3{f[0], f[1], f[2]};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
-        uint16_t a = indices[i - 2], b = indices[i - 1], c = indices[i];
+        const uint16_t a = indices[i - 2];
+        const uint16_t b = indices[i - 1];
+        const uint16_t c = indices[i];
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
         float hit = 0.0f;

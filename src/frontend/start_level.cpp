@@ -36,7 +36,7 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 bool is_script(uint32_t name)
 {
-    script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+    const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
     return symbol && symbol->type == script::kQbvalScriptBody;
 }
 
@@ -118,7 +118,7 @@ int s_at_frames;
 const std::string& at_text()
 {
     static const std::string kText = [] {
-        std::string t = option_value(kCommandLine, "at");
+        const std::string t = option_value(kCommandLine, "at");
         return t.empty() ? from_ini("start_at") : t;
     }();
     return kText;
@@ -129,8 +129,8 @@ bool at_update(modules::FrontEnd* front_end)
 {
     if (s_at != At::kWaitLevel)
         return false;
-    bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
-    bool paused = front_end && front_end->is_halted_;
+    const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
+    const bool paused = front_end && front_end->is_halted_;
     s_at_frames = in_level && !paused ? s_at_frames + 1 : 0;
     if (s_at_frames < kAtSettleFrames)
         return true;
@@ -138,7 +138,7 @@ bool at_update(modules::FrontEnd* front_end)
     Spot spot;
     parse_spot(at_text(), &spot); // (checked when it was asked for)
     test_view::Vec3 at{};
-    std::string failed = test_view::jump_to({spot.x, spot.y, spot.z}, spot.has_heading_, spot.heading, &at);
+    const std::string failed = test_view::jump_to({spot.x, spot.y, spot.z}, spot.has_heading_, spot.heading, &at);
     if (!failed.empty())
         get_log("start at: %s - the skater stays where the level put it", failed.c_str());
     else
@@ -148,8 +148,8 @@ bool at_update(modules::FrontEnd* front_end)
 
 void edit_update(modules::FrontEnd* front_end)
 {
-    bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
-    bool paused = front_end && front_end->is_halted_;
+    const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
+    const bool paused = front_end && front_end->is_halted_;
     if (s_edit == Edit::kWaitLevel) {
         s_edit_frames = in_level && !paused ? s_edit_frames + 1 : 0;
         if (s_edit_frames < kLevelSettleFrames)
@@ -217,20 +217,20 @@ void edit_update(modules::FrontEnd* front_end)
 
 std::string option_value(const std::string& line, const char* option)
 {
-    std::string name = option;
+    const std::string name = option;
     for (const std::string& form : {"--" + name + "=", "--" + name + " ", "-" + name + " "}) {
         for (size_t at = line.find(form); at != std::string::npos; at = line.find(form, at + 1)) {
             // (a word of its own: at the start, or after a space or a quote - not inside a path such as C:\my-level x)
             if (at > 0 && line[at - 1] != ' ' && line[at - 1] != '\t' && line[at - 1] != '"')
                 continue;
-            size_t start = line.find_first_not_of(' ', at + form.size());
+            const size_t start = line.find_first_not_of(' ', at + form.size());
             if (start == std::string::npos)
                 return {};
             if (line[start] == '"') {
-                size_t end = line.find('"', start + 1);
+                const size_t end = line.find('"', start + 1);
                 return line.substr(start + 1, end == std::string::npos ? std::string::npos : end - start - 1);
             }
-            size_t end = line.find_first_of(" \"", start);
+            const size_t end = line.find_first_of(" \"", start);
             return line.substr(start, end == std::string::npos ? std::string::npos : end - start);
         }
     }
@@ -241,8 +241,8 @@ bool parse_spot(const std::string& text, Spot* out)
 {
     std::string s = text;
     // (the sidecar's "(x, y, z)": one pair of parentheses around the whole)
-    size_t first = s.find_first_not_of(" \t");
-    size_t last = s.find_last_not_of(" \t");
+    const size_t first = s.find_first_not_of(" \t");
+    const size_t last = s.find_last_not_of(" \t");
     if (first == std::string::npos)
         return false;
     s = s.substr(first, last - first + 1);
@@ -257,7 +257,7 @@ bool parse_spot(const std::string& text, Spot* out)
             return false;
         const char* start = s.c_str() + at;
         char* end = nullptr;
-        double v = std::strtod(start, &end);
+        const double v = std::strtod(start, &end);
         if (end == start || !std::isfinite(v))
             return false;
         values[count++] = static_cast<float>(v);
@@ -302,8 +302,8 @@ void tick_frame(modules::FrontEnd* front_end)
         // (once the level is up and settled: what it costs the script pools - for the converters' load checks,
         // tools/game/load_check.ps1)
         if (!s_pools_logged && s_started) {
-            bool up = render::current_level() != 0 && objects::find_object(kSkater) != nullptr &&
-                      !(front_end && front_end->is_halted_);
+            const bool up = render::current_level() != 0 && objects::find_object(kSkater) != nullptr &&
+                            !(front_end && front_end->is_halted_);
             s_pool_frames = up ? s_pool_frames + 1 : 0;
             if (s_pool_frames >= kLevelSettleFrames) {
                 s_pools_logged = true;
@@ -325,7 +325,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (++s_frames < 60)
         return;
     s_done = true;
-    bool loaded = read_in(get_requested(), nullptr);
+    const bool loaded = read_in(get_requested(), nullptr);
     s_started = loaded;
     if (loaded && !at_text().empty()) {
         if (parse_spot(at_text(), nullptr)) {
@@ -349,7 +349,7 @@ bool read_in(const char* name, std::string* why)
     std::string level = name;
     if (_strnicmp(level.c_str(), "load_", 5) != 0)
         level = "Load_" + level;
-    uint32_t load = name_hash(level.c_str());
+    const uint32_t load = name_hash(level.c_str());
     if (!is_script(load)) {
         get_log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
         if (why)

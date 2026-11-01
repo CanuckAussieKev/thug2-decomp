@@ -33,7 +33,7 @@ constexpr float kTwelveInchScale = 12.0f; // 0x0064546C
 // 0x0064B6F8 (bits 0x55CE224C, about 2.8e13): "no skater".
 float far_away()
 {
-    uint32_t bits = 0x55CE224C;
+    const uint32_t bits = 0x55CE224C;
     auto value = std::bit_cast<float>(bits);
     return value;
 }
@@ -42,7 +42,7 @@ float far_away()
 bool set_squared_radius(script::Struct* params, float& radius)
 {
     if (params->fetch_float(0u, &radius, 0)) {
-        double inches = static_cast<double>(radius) * kTwelveInchScale;
+        const double inches = static_cast<double>(radius) * kTwelveInchScale;
         radius = static_cast<float>(inches * inches);
     }
     return true;
@@ -50,9 +50,9 @@ bool set_squared_radius(script::Struct* params, float& radius)
 
 double get_distance_squared(const GameEntity* a, const GameEntity* b)
 {
-    double dx = static_cast<double>(a->at_point_.x) - b->at_point_.x;
-    double dy = static_cast<double>(a->at_point_.y) - b->at_point_.y;
-    double dz = static_cast<double>(a->at_point_.z) - b->at_point_.z;
+    const double dx = static_cast<double>(a->at_point_.x) - b->at_point_.x;
+    const double dy = static_cast<double>(a->at_point_.y) - b->at_point_.y;
+    const double dz = static_cast<double>(a->at_point_.z) - b->at_point_.z;
     return (dx * dx + dz * dz) + dy * dy;
 }
 
@@ -89,12 +89,12 @@ float ObjectProximityComponent::nearest_skater_distance_squared(uint32_t* skater
 {
     float nearest = far_away();
     modules::Skate* skate = modules::Skate::sole();
-    int count = skate->count_riders();
+    const int count = skate->count_riders();
     for (int i = 0; i < count; ++i) {
-        GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
+        const GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
         if (!skater || skater == entity_)
             continue;
-        double distance = get_distance_squared(skater, entity_);
+        const double distance = get_distance_squared(skater, entity_);
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
             *skater_id = skater->ident_;
@@ -123,7 +123,7 @@ void ObjectProximityComponent::tick_frame()
         }
     };
     if (inner_radius_squared_ != 0.0f) {
-        double local = local_skater_distance_squared(&id);
+        const double local = local_skater_distance_squared(&id);
         distance = static_cast<float>(local);
         if (local <= inner_radius_squared_) {
             // The local skater inside: the enter event, and the any-skater one.

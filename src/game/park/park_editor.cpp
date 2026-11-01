@@ -103,7 +103,7 @@ bool ParkLayout::rebuild_area(const CellBox* area, bool check_memory)
     MemoryStats stats{};
     get_memory_stats(&stats);
     // The park editor's singleton (a reference taken and dropped): is the park over its budget?
-    bool full = ParkBuilderMode::fabricate(false)->is_park_full() != 0;
+    const bool full = ParkBuilderMode::fabricate(false)->is_park_full() != 0;
     ParkBuilderMode::get_release();
     return !full;
 }
@@ -129,9 +129,9 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
         }
         // The area's corner and size in the world (0x00595A90), and the scene updated over it.
         maths::Vec4 size; // (x, y and z written)
-        maths::Vec4 corner = sole()->cell_to_world_pos(area, &size);
-        float x0 = corner.x;
-        float z0 = corner.z;
+        const maths::Vec4 corner = sole()->cell_to_world_pos(area, &size);
+        const float x0 = corner.x;
+        const float z0 = corner.z;
         auto z1 = static_cast<float>(static_cast<double>(size.z) + z0);
         auto x1 = static_cast<float>(static_cast<double>(size.x) + x0);
         get_engine()->delete_points(x0, z0, x1, z1, 1);
@@ -154,7 +154,7 @@ void ParkLayout::clear_area(CellBox area)
         void* meta = node_meta(node);
         if (get_meta_flags(meta) & kMetaFloor)
             continue;
-        CellBox at = meta_footprint(meta);
+        const CellBox at = meta_footprint(meta);
         shift_placed_piece(static_cast<PieceGroup*>(meta), 0, -at.y, 0);
         for (int x = at.x; x < at.x + at.w; ++x) {
             for (int z = at.z; z < at.z + at.l; ++z)
@@ -175,8 +175,8 @@ bool ParkLayout::raise_or_lower_floor(CellBox area, int dir)
 {
     // The area's highest floor, and whether it's all at one height.
     bool level = false;
-    int height = get_ground_level(area, &level);
-    bool changed = raise_or_lower_floor(area, area.y, height, dir > 0, !level);
+    const int height = get_ground_level(area, &level);
+    const bool changed = raise_or_lower_floor(area, area.y, height, dir > 0, !level);
     if (!changed)
         return false;
     if (rebuild_area(&area, true)) {
@@ -242,12 +242,12 @@ void BuildPointer::step_piece_family(int dir)
             break;
     }
     count_visible();
-    TileFamilyRef& set = get_sets(hub())[set_index()];
+    const TileFamilyRef& set = get_sets(hub())[set_index()];
     if (!set.is_clipboard_) {
         change_piece(set.entries_[set.selected_].checksum);
         return;
     }
-    int selected = set.selected_;
+    const int selected = set.selected_;
     for (Clipboard* clipboard = get_clipboards(); clipboard; clipboard = clipboard->following_)
         clipboard->free_all_piece_groups();
     Clipboard* clipboard = get_clipboards();

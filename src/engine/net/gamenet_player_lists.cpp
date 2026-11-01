@@ -135,7 +135,7 @@ constexpr float kQuarterTurn = 90.0f;                   // (make_pitch_matrix's 
 // A joining player who will play: flags 0x18, or not observing.
 bool will_play(const JoinerRecord* info)
 {
-    uint32_t flags = info->flag_bits_;
+    const uint32_t flags = info->flag_bits_;
     return (flags & 0x18) || !(flags & 4);
 }
 net::Conn* player_conn(const PlayerRecord* player) { return player->conn_; }
@@ -165,7 +165,7 @@ void d_3d_x_matrix_multiply(void* out, const void* a, const void* b) { d3dx::mat
 // The first player (observers too) for whom the PlayerRecord member `test` is true (0 / 1 in EAX: tested as AL).
 PlayerRecord* find_player(Hub* manager, int (PlayerRecord::*test)())
 {
-    for (memory::ListNode* node = get_next_node(player_list(manager)); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(player_list(manager)); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if ((player->*test)() != 0)
             return player;
@@ -270,7 +270,7 @@ JoinerRecord* Hub::step_joiner_walk(NewPlayerSearch* search)
 // 0x005370A0
 JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
 {
-    memory::ListNode* node = get_next_node(new_player_list(this));
+    const memory::ListNode* node = get_next_node(new_player_list(this));
     for (auto* player = data_of<JoinerRecord>(node); player; player = data_of<JoinerRecord>(node)) {
         if (static_cast<int>(static_cast<int8_t>(player->entity_key_)) == static_cast<int>(id))
             return player;
@@ -286,7 +286,7 @@ void Hub::set_ready_state(bool ready)
         return;
     cleared_to_start_ = ready;
     modules::Skate* skate = modules::g_skate_module;
-    unsigned int count = tally_nodes(skate->riders_.list_link_.next);
+    const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
     for (unsigned int i = 0; i < count; ++i) {
         auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
         if (skater) { // (the original's skater slots 12 / 11)
@@ -322,7 +322,7 @@ int Hub::count_other_players()
 // 0x00537620
 void Hub::clear_roster()
 {
-    for (memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         player->flag_bits_ &= ~0x00020100u;
         player->accumulated_score_ = 0;
@@ -364,8 +364,8 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
             desc.group_id_ = kGroupGame;
         }
-        for (memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
-             node = get_next_node(node))
+        for (const memory::ListNode* node = get_next_node(player_list(this));
+             auto* player = data_of<PlayerRecord>(node); node = get_next_node(node))
             host_->put_on_outbox(player_handle(player), &desc);
         return;
     }
@@ -394,7 +394,7 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
 void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
 {
     memory::ListNode* head = queued_script_list(this);
-    for (memory::ListNode* n = get_next_node(head); auto* queued = data_of<PendingScriptItem>(n);
+    for (const memory::ListNode* n = get_next_node(head); auto* queued = data_of<PendingScriptItem>(n);
          n = get_next_node(n)) {
         if (queued->own_script_ == script)
             return;
@@ -419,7 +419,7 @@ void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
 // 0x00537B30
 void Hub::clear_queued_scripts()
 {
-    memory::ListNode* node = get_next_node(queued_script_list(this));
+    const memory::ListNode* node = get_next_node(queued_script_list(this));
     for (auto* queued = data_of<PendingScriptItem>(node); queued;) {
         node = get_next_node(node);
         auto* next = data_of<PendingScriptItem>(node);
@@ -436,10 +436,10 @@ void Hub::launch_queued_scripts()
     modules::Skate* skate = modules::g_skate_module;
     memory->enter_heap_scope(memory->bottom_up_heap_);
     static_cast<modules::Skate*>(skate)->begin_queued_scripts();
-    float volume = sound::fetch_master_loudness();
+    const float volume = sound::fetch_master_loudness();
     sound->change_master_loudness(0.0f);
     get_run(kPreRunQueuedScripts);
-    memory::ListNode* node = get_next_node(queued_script_list(this));
+    const memory::ListNode* node = get_next_node(queued_script_list(this));
     for (auto* queued = data_of<PendingScriptItem>(node); queued;) {
         node = get_next_node(node);
         auto* next = data_of<PendingScriptItem>(node);
@@ -476,7 +476,7 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
     desc.ident_ = kMsgFlipProSetting;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     net::AppHost* server = host_;
-    for (memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if (!is_own_player(player))
             server->put_on_outbox(player_handle(player), &desc);
@@ -492,7 +492,7 @@ int Hub::count_team_players(int team)
         if (player_team(player) == team)
             ++count;
     }
-    for (memory::ListNode* node = get_next_node(new_player_list(this)); auto* info = data_of<JoinerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(new_player_list(this)); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         if (will_play(info) && info->team_ == team)
             ++count;
@@ -507,15 +507,15 @@ int Hub::count_players()
     uint8_t ids[12] = {};
     int noted = 0;
     int count = 0;
-    for (memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if (!is_observer(player) || (player->flag_bits_ & 8)) {
-            if (objects::Entity* skater = player_skater(player))
+            if (const objects::Entity* skater = player_skater(player))
                 ids[noted++] = static_cast<uint8_t>(get_skater_id(skater));
             ++count;
         }
     }
-    for (memory::ListNode* node = get_next_node(new_player_list(this)); auto* info = data_of<JoinerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(new_player_list(this)); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         if (!will_play(info))
             continue;
@@ -532,14 +532,14 @@ int Hub::count_players()
 int Hub::count_observers()
 {
     int count = 0;
-    for (memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(player_list(this)); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if (is_observer(player) && !player->is_pending_observer() && (!is_own_player(player) || host_mode_ == 0))
             ++count;
     }
-    for (memory::ListNode* node = get_next_node(new_player_list(this)); auto* info = data_of<JoinerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(new_player_list(this)); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        uint32_t flags = info->flag_bits_;
+        const uint32_t flags = info->flag_bits_;
         if ((flags & 4) && !(flags & 8))
             ++count;
     }
@@ -575,7 +575,7 @@ void Hub::disconnect_clients()
     if (cleared_to_start_) {
         cleared_to_start_ = false;
         modules::Skate* skate = modules::g_skate_module;
-        unsigned int count = tally_nodes(skate->riders_.list_link_.next);
+        const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
         for (unsigned int i = 0; i < count; ++i) {
             auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
             if (skater)
@@ -678,7 +678,7 @@ void Hub::send_faces_to(PlayerRecord* player)
 void Hub::add_joining_player(JoinerRecord* info, int timeout)
 {
     memory::ListNode* head = new_player_list(this);
-    for (memory::ListNode* node = get_next_node(head); auto* listed = data_of<JoinerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(head); auto* listed = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
         if (listed->entity_key_ == info->entity_key_)
             return;
@@ -805,9 +805,9 @@ void carried_flags_task(tasks::Task<Hub>*)
         maths::Mat4 turn{};
         d_3d_x_matrix_multiply(matrix, &maths::make_pitch_matrix(turn, kQuarterTurn), matrix);
         matrix->offset_local(maths::Vec4{0.0f, 12.0f, 0.0f, 0.0f}); // (moved along its own axes)
-        maths::Vec4 offset = matrix->row[3];                        // its translation row, taken out
+        const maths::Vec4 offset = matrix->row[3];                  // its translation row, taken out
         matrix->row[3] = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
-        maths::Mat4* skater_matrix = &skater->basis_frame_;
+        const maths::Mat4* skater_matrix = &skater->basis_frame_;
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
         maths::Vec4 moved{};
         const maths::Vec4& out = skater_matrix->xform(moved, offset);

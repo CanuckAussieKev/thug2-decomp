@@ -141,7 +141,7 @@ static uint32_t g_connected_time;
 // 0x0053F570
 void RoomManager::disconnected_callback(void*, const char* reason, void* param)
 {
-    uint32_t elapsed = frame_clock::get_time() - g_connected_time; // since connected
+    const uint32_t elapsed = frame_clock::get_time() - g_connected_time; // since connected
     debug::printf("Disconnected at %d after %d ms. Reason: %s\n", frame_clock::get_time(), elapsed, reason);
     auto* lobby = static_cast<RoomManager*>(param);
     if (lobby->connecting_) {
@@ -209,7 +209,7 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
     }
     for (JoinerRecord* info = first_new_player(manager, &new_search); info;
          info = next_new_player(manager, &new_search)) {
-        uint32_t flags = info->flag_bits_;
+        const uint32_t flags = info->flag_bits_;
         if (!(flags & kNewPlayerCounted) && (flags & kNewPlayerObserver))
             continue;
         if (count == index) {
@@ -308,8 +308,8 @@ void RoomManager::nat_negotiation_task(tasks::Task<RoomManager>*)
 // 0x005400E0
 void RoomManager::query_task(tasks::Task<RoomManager>* task)
 {
-    RoomManager* lobby = task_lobby(task);
-    uint32_t now = frame_clock::get_time();
+    const RoomManager* lobby = task_lobby(task);
+    const uint32_t now = frame_clock::get_time();
     push_internet_heap();
     for (int i = 0; i < queued_count(); ++i) {
         QueuedPacket& packet = get_queue()[i];
@@ -346,7 +346,7 @@ void RoomManager::start_hosting()
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
         1) // reporting on its socket
         peer_state_changed(remote_);
-    uint32_t now = frame_clock::get_time();
+    const uint32_t now = frame_clock::get_time();
     g_hosting_since = now;    // hosting since
     g_connection_timer = now; // the connection timer
     g_last_report_time = now; // reported last
@@ -364,9 +364,9 @@ void RoomManager::nat_negotiation_completed(int result, int, const void* address
         // (the SDK's sockaddr_in: the family, the port in network order, the address as it is in memory)
         util::ByteReader sockaddr(address, 8);
         sockaddr.skip(2);
-        uint8_t port_high = sockaddr.u8();
-        uint8_t port_low = sockaddr.u8();
-        uint32_t ip = sockaddr.u32();
+        const uint8_t port_high = sockaddr.u8();
+        const uint8_t port_low = sockaddr.u8();
+        const uint32_t ip = sockaddr.u32();
         auto port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
         manager->join_server(ip, port, 0);
     }
@@ -422,7 +422,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    Hub* manager = net_session_slot();
+    const Hub* manager = net_session_slot();
     if (manager->lobby_service_->negotiations_ != 0)
         return; // (one at a time)
     net::AppHost* server = manager->host_;

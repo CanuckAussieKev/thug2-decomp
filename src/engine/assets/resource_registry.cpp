@@ -43,7 +43,8 @@ const ExtensionType* get_extensions() { return g_extensions; }
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 {
-    for (lists::KeyMap::Item* item = &table->buckets_[((1u << table->bits_) - 1) & checksum]; item; item = item->next) {
+    for (const lists::KeyMap::Item* item = &table->buckets_[((1u << table->bits_) - 1) & checksum]; item;
+         item = item->next) {
         if (item->key == checksum && item->value)
             return static_cast<Resource*>(item->value);
     }
@@ -172,7 +173,7 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
     join_group(this, asset, group);
     memory::pop_mem_profile();
-    int failed = asset->load_from_buffer(data, size, copy, params, reinterpret_cast<void*>(extra));
+    const int failed = asset->load_from_buffer(data, size, copy, params, reinterpret_cast<void*>(extra));
     memory::push_mem_profile("Asset Overhead");
     if (failed) {
         if (!keep_failed_assets())
@@ -201,7 +202,7 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
     give_callback(this, asset);
     asset->set_checksum(checksum);
     join_group(this, asset, group);
-    int failed = asset->read_in(name, async, use_archive, params, reinterpret_cast<void*>(extra));
+    const int failed = asset->read_in(name, async, use_archive, params, reinterpret_cast<void*>(extra));
     if (failed) {
         if (!keep_failed_assets())
             delete asset;
@@ -254,7 +255,7 @@ bool ResourceRegistry::refresh_resource(uint32_t checksum, const char* name, int
 // 0x00407B20
 void ResourceRegistry::discard_loaded_item(Resource* asset)
 {
-    uint32_t checksum = asset->checksum_;
+    const uint32_t checksum = asset->checksum_;
     if (Resource* group = asset->bundle_)
         group->remove_dependent(asset);
     Resource** list = nullptr;
@@ -413,7 +414,7 @@ bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)
     }
     if (*head == asset)
         *head = asset->succ_;
-    for (Resource* item = *head; item; item = item->succ_) {
+    for (const Resource* item = *head; item; item = item->succ_) {
         if (item == asset) {
             asset->succ_->last_value_ = asset->last_value_;
             asset->last_value_->succ_ = asset->succ_;

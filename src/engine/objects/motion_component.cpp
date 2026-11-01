@@ -166,15 +166,15 @@ int KinematicsModule::invoke_method_by_name(uint32_t name, script::Struct* param
 void KinematicsModule::update_hover()
 {
     auto period = static_cast<uint32_t>(bob_period_);
-    uint32_t in_period = static_cast<uint32_t>(game_clock()) % period;
-    int doubled = static_cast<int>(in_period * 2);
+    const uint32_t in_period = static_cast<uint32_t>(game_clock()) % period;
+    const int doubled = static_cast<int>(in_period * 2);
     auto phase = static_cast<double>(doubled);
     if (doubled < 0)
         phase += 4294967296.0; // (the count taken as unsigned)
     phase = phase * static_cast<double>(get_bits(0x40490FDB)) / static_cast<double>(bob_period_); // (pi)
     auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
-    float height = entity_->at_point_.y;
+    const float height = entity_->at_point_.y;
     hover_base_ = height;
     entity_->at_point_.y = static_cast<float>(static_cast<double>(offset) + height);
 }
@@ -210,7 +210,7 @@ bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::S
 // 0x00423890
 bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* script)
 {
-    uint32_t links = level_nodes::get_link_count(list_link_);
+    const uint32_t links = level_nodes::get_link_count(list_link_);
     if (links)
         script->args_->put_int(kLink, maths::rnd(static_cast<int>(links)) + 1);
     return true;
@@ -231,8 +231,8 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script*)
     int period = truncate(static_cast<double>(get_bits(0x447A0000)) / frequency); // (1000)
     bob_period_ = period;
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
-    int twice = static_cast<int>(static_cast<uint32_t>(period) * 20u);
-    int random = maths::rnd(twice / 10);
+    const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20u);
+    const int random = maths::rnd(twice / 10);
     period = static_cast<int>(static_cast<uint32_t>(bob_period_ - bob_period_ / 10) + static_cast<uint32_t>(random));
     bob_period_ = period;
     if (period <= 0)
@@ -253,9 +253,9 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
         auto dx = static_cast<float>(static_cast<double>(entity_->at_point_.x) - entity_->old_pos_.x);
         auto dy = static_cast<float>(static_cast<double>(entity_->at_point_.y) - entity_->old_pos_.y);
         auto dz = static_cast<float>(static_cast<double>(entity_->at_point_.z) - entity_->old_pos_.z);
-        double frame = frame_clock::get_slomo_frame_seconds();
+        const double frame = frame_clock::get_slomo_frame_seconds();
         if (!(frame == 0.0)) {
-            double moved =
+            const double moved =
                 std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
             speed = static_cast<float>(moved / frame);
         }
@@ -266,7 +266,8 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
     }
     if (!params->has_bare_flag(kIps)) {
         // (inches per second to feet per second, else to miles per hour)
-        float scale = params->has_bare_flag(kFps) ? get_bits(0x3DAAAAAB) : get_bits(0x3D68BA2E); // 1 / 12, 1 / 17.6
+        const float scale =
+            params->has_bare_flag(kFps) ? get_bits(0x3DAAAAAB) : get_bits(0x3D68BA2E); // 1 / 12, 1 / 17.6
         speed = static_cast<float>(static_cast<double>(speed) * scale);
     }
     script->args_->push_float("Speed", speed);

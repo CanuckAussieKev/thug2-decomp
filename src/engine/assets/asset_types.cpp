@@ -718,7 +718,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     set_up_params(params, structure);
     memory::push_mem_profile(name);
     char base[512];
-    bool has_cas = split_skin_name(name, base);
+    const bool has_cas = split_skin_name(name, base);
     text::to_lower_text(base);
     args_->on_heap_ = 0;
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")
@@ -764,7 +764,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
 bool SkinResource::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
-    SkinParams* p = args_;
+    const SkinParams* p = args_;
     change_contents(
         make_skinned_model(checksum_, buffer, size, p->cas_data_, p->cas_size_, textures, p->value, p->has_cas_,
                            p->flag0));

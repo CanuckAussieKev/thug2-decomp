@@ -198,7 +198,7 @@ float get_stat(uint32_t name, const SkaterPhysicsModule* core)
 // A global of THAW's physics.qb that THUG2 hasn't: THAW's value while the overlay lacks it.
 float thaw_global(const char* name, float thaw)
 {
-    float value = script::fetch_float(name);
+    const float value = script::fetch_float(name);
     return value != 0.0f ? value : thaw;
 }
 
@@ -209,7 +209,7 @@ double dot3(const maths::Vec4& a, const maths::Vec4& b)
 double length3(const maths::Vec4& v) { return std::sqrt(dot3(v, v)); }
 bool moving_backwards(const SkaterPhysicsModule* core)
 {
-    objects::GameEntity* object = object_of(core);
+    const objects::GameEntity* object = object_of(core);
     return dot3(object->vel_, object->basis_frame_.row[2]) < 0.0;
 }
 float get_pace(const SkaterPhysicsModule* core) { return static_cast<float>(length3(object_of(core)->vel_)); }
@@ -224,7 +224,7 @@ float stick_scaled(const SkaterPhysicsModule* core, int axis) { return pad_state
 // (+0x528 set), R1 the rear; the skater's is the d-pad's down.
 bool brake_held(const SkaterPhysicsModule* core, BikeState& state)
 {
-    objects::PadSnapshot* pad = &core->input_->pad_primary_;
+    const objects::PadSnapshot* pad = &core->input_->pad_primary_;
     state.front_brake_ = false;
     if (pad->shoulder_left_a_.held_down_) {
         state.front_brake_ = true;
@@ -235,7 +235,7 @@ bool brake_held(const SkaterPhysicsModule* core, BikeState& state)
 
 void run_bike_script(const SkaterPhysicsModule* core, const char* name, script::Struct* params = nullptr)
 {
-    uint32_t checksum = checksums::hash_from_text(name);
+    const uint32_t checksum = checksums::hash_from_text(name);
     if (!script::script_exists(checksum)) {
         static uint32_t s_warned = 0;
         if (s_warned != checksum) {
@@ -251,15 +251,17 @@ void run_bike_script(const SkaterPhysicsModule* core, const char* name, script::
 
 bool wheels_on()
 {
-    static bool on = config_int("features", "thaw_bmx_wheels", 1) != 0;
+    static const bool on = config_int("features", "thaw_bmx_wheels", 1) != 0;
     return on;
 }
 
 void turn_velocity(maths::Vec4& velocity, float angle)
 {
     // (as THUG2's turn_on_ground: x87 sine and cosine)
-    double s = std::sin(static_cast<double>(angle)), c = std::cos(static_cast<double>(angle));
-    double x = velocity.x, z = velocity.z;
+    const double s = std::sin(static_cast<double>(angle));
+    const double c = std::cos(static_cast<double>(angle));
+    const double x = velocity.x;
+    const double z = velocity.z;
     velocity.x = static_cast<float>(c * x + s * z);
     velocity.z = static_cast<float>(c * z + -(x * s));
 }
@@ -343,7 +345,7 @@ float steer_blend(float rate, float sharp_rotation)
 
 float steer_in(float in, bool on, float frame_length)
 {
-    float out = on ? in + frame_length / kSteerInTime : in - frame_length / kSteerOutTime;
+    const float out = on ? in + frame_length / kSteerInTime : in - frame_length / kSteerOutTime;
     return out > 1.0f ? 1.0f : (out < 0.0f ? 0.0f : out);
 }
 
@@ -412,7 +414,7 @@ ManualOutput manual_step(const ManualInput& in)
 
 bool jump_boosts(const maths::Vec4& velocity, float stick_y)
 {
-    double horizontal =
+    const double horizontal =
         std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
     return horizontal == 0.0 && !(stick_y > 0.0f);
 }
@@ -442,7 +444,7 @@ int grind_row(float stick_y)
 int grind_column(bool left_side, bool sideways, bool backwards, bool* over_grind)
 {
     // THAW 0x005CF2F0 (with THAW's caller 0x005E2B39: its third and fourth arguments are both the sideways flag).
-    bool side = backwards ? !left_side : left_side;
+    const bool side = backwards ? !left_side : left_side;
     if (over_grind)
         *over_grind = side != sideways;
     return (side ? 1 : 0) | (sideways ? 2 : 0);
@@ -491,10 +493,12 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     // THAW 0x005D4EF0.
     WheelFeelResult out = {false, false, in.wheel, 1, 0.0f, 0.0f, 0.0f, 0.0f};
     // (THAW: the differences and `along` in SSE floats, the distance on the x87)
-    float dx = in.wheel.x - in.point.x, dy = in.wheel.y - in.point.y, dz = in.wheel.z - in.point.z;
+    const float dx = in.wheel.x - in.point.x;
+    const float dy = in.wheel.y - in.point.y;
+    const float dz = in.wheel.z - in.point.z;
     auto distance = static_cast<float>(
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx));
-    float along = in.up.z * dz + in.up.y * dy + in.up.x * dx; // (how far above the hit, along up)
+    const float along = in.up.z * dz + in.up.y * dy + in.up.x * dx; // (how far above the hit, along up)
     const maths::Vec4 on_hit = {in.point.x + in.normal.x, in.point.y + in.normal.y, in.point.z + in.normal.z,
                                 in.point.w + in.normal.w};
     if (!in.skatable) {
@@ -525,9 +529,11 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
         return out;
     out.why = 3;
     if (along > 0.0f) {
-        float cosine = turn < -1.0f ? -1.0f : (turn > 1.0f ? 1.0f : turn);
-        float mx = in.wheel.x - in.last.x, my = in.wheel.y - in.last.y, mz = in.wheel.z - in.last.z;
-        double moved =
+        const float cosine = turn < -1.0f ? -1.0f : (turn > 1.0f ? 1.0f : turn);
+        const float mx = in.wheel.x - in.last.x;
+        const float my = in.wheel.y - in.last.y;
+        const float mz = in.wheel.z - in.last.z;
+        const double moved =
             std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz + static_cast<double>(my) * my);
         auto reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
         if (in.snap_down_ > reach)
@@ -550,7 +556,7 @@ bool stall_across(const maths::Vec4& start_velocity, const maths::Vec4& directio
     maths::Vec4 flat = start_velocity;
     flat.y = 0.0f;
     flat.make_unit();
-    float dot = direction.z * flat.z + direction.y * flat.y + flat.x * direction.x;
+    const float dot = direction.z * flat.z + direction.y * flat.y + flat.x * direction.x;
     return tolerance > std::fabs(dot);
 }
 
@@ -563,7 +569,7 @@ StallSlipStep stall_slip(uint32_t elapsed, float slip_time, const maths::Vec4& v
         out.stall = true;
         return out;
     }
-    float inverse = 1.0f / slip_time;
+    const float inverse = 1.0f / slip_time;
     out.velocity.x = velocity.x - kept.x * inverse;
     out.velocity.y = velocity.y - kept.y * inverse;
     out.velocity.z = velocity.z - kept.z * inverse;
@@ -589,8 +595,8 @@ maths::Vec4 stall_facing(const maths::Vec4& facing, const maths::Vec4& direction
 {
     // THAW 0x005E354E: the facing's dot with the rail's direction (single precision, z first); not at least 0:
     // the direction the other way (w too).
-    float dot = facing.z * direction.z + facing.y * direction.y + facing.x * direction.x;
-    float sign = dot >= 0.0f ? 1.0f : -1.0f;
+    const float dot = facing.z * direction.z + facing.y * direction.y + facing.x * direction.x;
+    const float sign = dot >= 0.0f ? 1.0f : -1.0f;
     return {direction.x * sign, direction.y * sign, direction.z * sign, direction.w * sign};
 }
 
@@ -620,7 +626,7 @@ void end_frame(SkaterPhysicsModule* core)
     {
         // (ours, a diagnostic: the bike's position or velocity no longer finite - logged once)
         static bool s_logged = false;
-        objects::GameEntity* object = object_of(core);
+        const objects::GameEntity* object = object_of(core);
         const maths::Vec4& p = object->at_point_;
         const maths::Vec4& v = object->vel_;
         if (!s_logged &&
@@ -704,8 +710,8 @@ void steer_anim(SkaterPhysicsModule* core)
 {
     BikeState& state = *state_of(core, true);
     // (off the ground - an ollie, a bail, a grind - the turn goes as THAW's next branch blends in)
-    bool on = state.steer_anim_ && state_of(core) == kStateGround;
-    float before = state.steer_in_;
+    const bool on = state.steer_anim_ && state_of(core) == kStateGround;
+    const float before = state.steer_in_;
     state.steer_in_ = bike::steer_in(state.steer_in_, on, get_frame_length(core));
     if (before == 0.0f && state.steer_in_ == 0.0f)
         return;
@@ -719,7 +725,7 @@ void steer_anim(SkaterPhysicsModule* core)
             remove_steer_channel(blender);
         } else {
             // (Obj_SetAnimSubsetWeight's blend_to, no blend period: the weight at once)
-            float weight = state.steer_in_ * state.steer_blend_;
+            const float weight = state.steer_in_ * state.steer_blend_;
             auto bits = std::bit_cast<uint32_t>(weight);
             channel->blend_to(bits, 0.0f);
         }
@@ -751,7 +757,7 @@ bool ground_gravity_applies(SkaterPhysicsModule* core, const maths::Vec4& gravit
 bool should_brake(SkaterPhysicsModule* core)
 {
     BikeState& state = *state_of(core, true);
-    objects::PadSnapshot* pad = &core->input_->pad_primary_;
+    const objects::PadSnapshot* pad = &core->input_->pad_primary_;
     state.front_brake_ = false;
     if (pad->shoulder_left_a_.held_down_)
         state.front_brake_ = true;
@@ -762,9 +768,9 @@ bool should_brake(SkaterPhysicsModule* core)
 
 void get_brake(SkaterPhysicsModule* core)
 {
-    BikeState& state = *state_of(core, true);
-    bool balance_is_manual = core->balance_->trick_ == kManualKind;
-    int choice =
+    const BikeState& state = *state_of(core, true);
+    const bool balance_is_manual = core->balance_->trick_ == kManualKind;
+    const int choice =
         bike::brake_choice(state.manual, state.nose_manual_, state.front_brake_, state.endo, balance_is_manual);
     if (choice == 0)
         return;
@@ -774,7 +780,7 @@ void get_brake(SkaterPhysicsModule* core)
         return;
     }
     static const uint32_t kNames[] = {0, kBrakeAcceleration, kFrontBrakeAcceleration, kSkidAcceleration};
-    float slowing = get_frame_length(core) * tuning_float_lookup(kNames[choice], core);
+    const float slowing = get_frame_length(core) * tuning_float_lookup(kNames[choice], core);
     maths::Vec4& velocity = object_of(core)->vel_;
     if (length3(velocity) < static_cast<double>(slowing) * 2.0) {
         velocity = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -793,14 +799,14 @@ bool can_kick(SkaterPhysicsModule* core)
     BikeState& state = *state_of(core, true);
     if (core->no_kick_ || brake_held(core, state) || state.manual || moving_backwards(core))
         return false;
-    bool crouched = core->state_->flag(PoseFlag::kCrouched).on || core->crouch_stats_;
-    float most = get_stat(crouched ? kCrouchedKickSpeed : kStandingKickSpeed, core);
+    const bool crouched = core->state_->flag(PoseFlag::kCrouched).on || core->crouch_stats_;
+    const float most = get_stat(crouched ? kCrouchedKickSpeed : kStandingKickSpeed, core);
     return !(most < get_pace(core));
 }
 
 bool may_accelerate(SkaterPhysicsModule* core)
 {
-    BikeState& state = *state_of(core, true);
+    const BikeState& state = *state_of(core, true);
     return !moving_backwards(core) && !state.manual;
 }
 
@@ -808,18 +814,18 @@ void turn_on_ground(SkaterPhysicsModule* core)
 {
     BikeState& state = *state_of(core, true);
     objects::PadSnapshot* pad = pad_state_of(core);
-    float pad_axis_x = stick_raw(core, 0);
+    const float pad_axis_x = stick_raw(core, 0);
     int held = 0;
     // (THAW 0x005D6342: its &pad->right_side_ / +0x40 - the d-pad's right / left, not the stick's buttons; with the
     // stick off the d-pad on the bike, the time since the d-pad was last pressed, as THAW's)
     if (pad_axis_x != 0.0f)
         held = static_cast<int>(pad->right_side_.held_down_ ? pad->right_side_.get_held_millis()
                                                             : pad->left_side_.get_held_millis());
-    float sharp = tuning_float_lookup(kGroundSharpRotation, core);
-    float rate = bike::ground_turn_rate(get_pace(core), get_stat(kMaxSpeedStat, core),
-                                        tuning_float_lookup(kGroundRotation, core), sharp,
-                                        pad_axis_x != 0.0f && brake_held(core, state), state.manual, pad_axis_x, held,
-                                        moving_backwards(core), core->balance_->manual_.lean_);
+    const float sharp = tuning_float_lookup(kGroundSharpRotation, core);
+    const float rate = bike::ground_turn_rate(get_pace(core), get_stat(kMaxSpeedStat, core),
+                                              tuning_float_lookup(kGroundRotation, core), sharp,
+                                              pad_axis_x != 0.0f && brake_held(core, state), state.manual, pad_axis_x,
+                                              held, moving_backwards(core), core->balance_->manual_.lean_);
     // THAW 0x005D61F0's +0x570: the turn animation's share, every frame on the ground.
     state.steer_blend_ = bike::steer_blend(rate, sharp);
     {
@@ -839,7 +845,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
         state.can_skid_ = true;
     if (rate == 0.0f)
         return;
-    float step = get_frame_length(core) * rate;
+    const float step = get_frame_length(core) * rate;
     core->last_spin_backside_ = step > 0.0f ? 1 : 0;
     objects::GameEntity* object = object_of(core);
     if (!core->lock_velocity_)
@@ -861,9 +867,9 @@ void turn_on_ground(SkaterPhysicsModule* core)
         return;
     }
     const maths::Vec4 up = object->basis_frame_.row[1];
-    float above = tuning_float_lookup(kGroundSnapUp, core);
-    bool front_down = feel_wheel(core, state.front_wheel_, state.last_front_wheel_, up, above).hit;
-    bool rear_down = feel_wheel(core, state.rear_wheel_, state.last_rear_wheel_, up, above).hit;
+    const float above = tuning_float_lookup(kGroundSnapUp, core);
+    const bool front_down = feel_wheel(core, state.front_wheel_, state.last_front_wheel_, up, above).hit;
+    const bool rear_down = feel_wheel(core, state.rear_wheel_, state.last_rear_wheel_, up, above).hit;
     if (front_down && rear_down)
         return;
     object->basis_frame_.yaw_locally(-step);
@@ -899,7 +905,7 @@ void manual_pitch(SkaterPhysicsModule* core)
     in.no_balance_start_ = physics_integer(kNoBalanceFrames, core);
     in.lean = get_stat(kGroundLeanStat, core);
     in.frame_length_ = get_frame_length(core);
-    bike::ManualOutput out = bike::manual_step(in);
+    const bike::ManualOutput out = bike::manual_step(in);
     state.manual = out.manual;
     state.nose_manual_ = out.nose;
     state.endo = out.endo;
@@ -951,7 +957,7 @@ void jump_boost(SkaterPhysicsModule* core)
     maths::Vec4& velocity = object->vel_;
     if (!bike::jump_boosts(velocity, stick_raw(core, 1)))
         return;
-    float boost = thaw_global(kForwardJumpBoost, kForwardJumpBoostThaw);
+    const float boost = thaw_global(kForwardJumpBoost, kForwardJumpBoostThaw);
     const maths::Vec4& facing = object->basis_frame_.row[2];
     velocity.x += facing.x * boost;
     velocity.y += facing.y * boost;
@@ -962,7 +968,7 @@ void jump_boost(SkaterPhysicsModule* core)
 void jump_pitch(SkaterPhysicsModule* core)
 {
     // THAW 0x005DDDC0: out of a manual, pitched by the manual's angle (0.7 of it; a nose manual the other way).
-    BikeState& state = *state_of(core, true);
+    const BikeState& state = *state_of(core, true);
     if (!state.manual)
         return;
     auto angle = static_cast<float>(state.manual_angle_ * (state.nose_manual_ ? kJumpManualPitch : -kJumpManualPitch) *
@@ -983,7 +989,7 @@ void air_wheel_points(SkaterPhysicsModule* core)
 {
     // THAW 0x005E0476 (the on-bike flag), after the display matrix
     // is the skater's again: the wheel points from the skater's position and facing.
-    objects::GameEntity* object = object_of(core);
+    const objects::GameEntity* object = object_of(core);
     set_wheel_points(*state_of(core, true), object->at_point_, object->basis_frame_.row[2]);
 }
 
@@ -999,16 +1005,16 @@ void air_rotation(SkaterPhysicsModule* core)
     // The stick (a diagonal normalised).
     float sx = stick_scaled(core, 0), sy = stick_scaled(core, 1);
     if (sx != 0.0f && sy != 0.0f) {
-        double length = std::sqrt(static_cast<double>(sx) * sx + static_cast<double>(sy) * sy);
+        const double length = std::sqrt(static_cast<double>(sx) * sx + static_cast<double>(sy) * sy);
         sx = static_cast<float>(sx / length);
         sy = static_cast<float>(sy / length);
     }
-    bool fast = pad->shoulder_left_a_.held_down_ != 0;
+    const bool fast = pad->shoulder_left_a_.held_down_ != 0;
     // The pitch: up / down, after the no-lean time, ramped in.
     float pitch = 0.0f;
-    float lean = get_stat(fast ? kAirLeanFastStat : kAirLeanStat, core);
-    float no_lean = tuning_float_lookup(kAirNoLeanTime, core);
-    float ramp_lean = tuning_float_lookup(kAirRampLeanTime, core);
+    const float lean = get_stat(fast ? kAirLeanFastStat : kAirLeanStat, core);
+    const float no_lean = tuning_float_lookup(kAirNoLeanTime, core);
+    const float ramp_lean = tuning_float_lookup(kAirRampLeanTime, core);
     int held = 0;
     if (sy != 0.0f) {
         pitch = 0.0f - lean * sy;
@@ -1024,7 +1030,7 @@ void air_rotation(SkaterPhysicsModule* core)
     // The spin: left / right, likewise.
     float spin = 0.0f;
     if (!flags->flag(PoseFlag::kNoSecondSpin).on) {
-        float rotation = get_stat(fast ? kAirRotationFastStat : kAirRotationStat, core);
+        const float rotation = get_stat(fast ? kAirRotationFastStat : kAirRotationStat, core);
         int held2 = 0;
         if (sx != 0.0f) {
             spin = 0.0f - rotation * sx;
@@ -1033,8 +1039,8 @@ void air_rotation(SkaterPhysicsModule* core)
         auto held_2f = static_cast<float>(held2);
         if (tuning_float_lookup(kAutoturnCancelTime, core) < held_2f)
             clear_timed_flag(core, PoseFlag::kSpin);
-        float no_rotate = tuning_float_lookup(kAirNoRotateTime, core);
-        float ramp_rotate = tuning_float_lookup(kAirRampRotateTime, core);
+        const float no_rotate = tuning_float_lookup(kAirNoRotateTime, core);
+        const float ramp_rotate = tuning_float_lookup(kAirRampRotateTime, core);
         if (!(no_rotate < held_2f))
             spin = 0.0f;
         if (ramp_rotate > held_2f)
@@ -1050,7 +1056,7 @@ void air_rotation(SkaterPhysicsModule* core)
         state.air_pitch_ = pitch_step * kDegreesPerRadian + state.air_pitch_;
         pitched = true;
     } else {
-        float settle = bike::settle_air_pitch(state.air_pitch_);
+        const float settle = bike::settle_air_pitch(state.air_pitch_);
         if (settle != 0.0f) {
             state.air_pitch_ += settle;
             pitch_step = settle * kRadiansPerDegree;
@@ -1076,7 +1082,7 @@ void air_rotation(SkaterPhysicsModule* core)
         total = spin_step * kDegreesPerRadian + total;
         bool show = true;
         if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on && !pitched) {
-            double snap = 360.0f - tuning_float_lookup(kSpinCountSlop, core) + 0.1f;
+            const double snap = 360.0f - tuning_float_lookup(kSpinCountSlop, core) + 0.1f;
             show = snap <= std::fabs(static_cast<double>(total));
         }
         if (show) {
@@ -1088,7 +1094,7 @@ void air_rotation(SkaterPhysicsModule* core)
     if (!flags->flag(PoseFlag::kVertAir).on) {
         const maths::Vec4& position = object->at_point_;
         const maths::Vec4& up = object->basis_frame_.row[1];
-        float head = tuning_float_lookup(kEyeLevelStat, core);
+        const float head = tuning_float_lookup(kEyeLevelStat, core);
         core->probe_start_ = position;
         core->probe_end_ = {position.x + up.x * head, position.y + up.y * head, position.z + up.z * head,
                             position.w + up.w * head};
@@ -1135,7 +1141,7 @@ WheelHit feel_wheel(SkaterPhysicsModule* core, maths::Vec4& wheel, const maths::
     feel.stick_angle_ = tuning_float_lookup(
         core->input_->pad_primary_.up_dir_.held_down_ ? kGroundStickAngleForward : kGroundStickAngle, core);
     feel.snap_down_ = tuning_float_lookup(kGroundSnapDown, core);
-    bike::WheelFeelResult out = bike::feel_wheel_on(feel);
+    const bike::WheelFeelResult out = bike::feel_wheel_on(feel);
     result.why = out.why;
     result.distance = out.distance;
     result.reach = out.reach;
@@ -1158,7 +1164,7 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
     objects::GameEntity* object = object_of(core);
     const maths::Vec4 up = object->basis_frame_.row[1];
     const maths::Vec4 facing = object->basis_frame_.row[2];
-    float above = tuning_float_lookup(kGroundSnapUp, core);
+    const float above = tuning_float_lookup(kGroundSnapUp, core);
     front = feel_wheel(core, state.front_wheel_, state.last_front_wheel_, up, above);
     rear = feel_wheel(core, state.rear_wheel_, state.last_rear_wheel_, up, above);
     // A crease between the two (the normals more than ~78 degrees apart): the leading wheel's hit dropped.
@@ -1192,13 +1198,13 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
         return d;
     };
     if (rear.hit && !front.hit) {
-        maths::Vec4 d = towards(state.rear_wheel_);
+        const maths::Vec4 d = towards(state.rear_wheel_);
         state.front_wheel_ = {state.rear_wheel_.x + d.x * kWheelBase, state.rear_wheel_.y + d.y * kWheelBase,
                               state.rear_wheel_.z + d.z * kWheelBase, state.rear_wheel_.w + d.w * kWheelBase};
     } else if (front.hit && !rear.hit) {
         // (THAW subtracts here too - the rear a wheel base on from the front, past it, when the ground under the
         // skater was found: its slip; the rear goes back from the front, as the other case.)
-        maths::Vec4 d =
+        const maths::Vec4 d =
             main_hit ? towards(state.front_wheel_) : maths::Vec4{-facing.x, -facing.y, -facing.z, -facing.w};
         state.rear_wheel_ = {state.front_wheel_.x + d.x * kWheelBase, state.front_wheel_.y + d.y * kWheelBase,
                              state.front_wheel_.z + d.z * kWheelBase, state.front_wheel_.w + d.w * kWheelBase};
@@ -1229,7 +1235,7 @@ bool vert_push_held(SkaterPhysicsModule* core, int push_time)
     // THAW 0x005DA210 on the bike: LEFTUP held longer than Skater_vert_push_time, neither LEFTLEFT nor LEFTRIGHT nor
     // square nor circle.
     const BikeState& state = *state_of(core, true);
-    objects::PadSnapshot* pad = &core->input_->pad_primary_;
+    const objects::PadSnapshot* pad = &core->input_->pad_primary_;
     return state.stick_up_.down && push_time < static_cast<int>(get_since(state.stick_up_.press_time_)) &&
            !state.stick_left_.down && !state.stick_right_.down && !pad->button_box_.held_down_ &&
            !pad->button_round_.held_down_;
@@ -1267,12 +1273,12 @@ bool vert_speed_allowance(SkaterPhysicsModule* core, float* max_max)
 {
     // THAW 0x005CA8F0: within Skater_Vert_Max_Speed_Time of the last vert ground the max-max speed is
     // Skater_Vert_Max_Max_Speed_Stat's, and no heavy air friction over the max speed.
-    BikeState& state = *state_of(core, true);
+    const BikeState& state = *state_of(core, true);
     if (!state.vert_ground_noted_)
         return true;
     bool raise = false;
-    bool friction = bike::vert_window(static_cast<float>(get_since(state.vert_ground_time_)),
-                                      tuning_float_lookup(kVertMaxSpeedTime, core), &raise);
+    const bool friction = bike::vert_window(static_cast<float>(get_since(state.vert_ground_time_)),
+                                            tuning_float_lookup(kVertMaxSpeedTime, core), &raise);
     if (raise)
         *max_max = get_stat(kVertMaxMaxSpeedStat, core);
     return friction;
@@ -1294,10 +1300,10 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     snap_wheels(core, state, front, rear, main_hit);
     // (THAW's flag +0x40, vert under a wheel; THAW also sets its +0x58 from face flag 0x100 - THUG2's equivalent isn't
     // known: not here.)
-    uint8_t vert = (front.hit && (front.flags & 8)) || (rear.hit && (rear.flags & 8));
+    const uint8_t vert = (front.hit && (front.flags & 8)) || (rear.hit && (rear.flags & 8));
     core->state_->set_flag(PoseFlag::kOnVert, vert);
     // Off the ground: no wheel down, or only the trailing one (the leading wheel over an edge).
-    bool backwards = moving_backwards(core);
+    const bool backwards = moving_backwards(core);
     if ((!front.hit && !rear.hit) || (front.hit && !rear.hit && backwards) || (!front.hit && rear.hit && !backwards)) {
         static const bool kLog = config_int("debug", "thaw_bmx_wheels", 0) != 0;
         if (kLog) {
@@ -1316,8 +1322,8 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     position = {
         (state.front_wheel_.x + state.rear_wheel_.x) * 0.5f, (state.front_wheel_.y + state.rear_wheel_.y) * 0.5f,
         (state.front_wheel_.z + state.rear_wheel_.z) * 0.5f, (state.front_wheel_.w + state.rear_wheel_.w) * 0.5f};
-    maths::Vec4 up = bike::wheel_base_up(object->basis_frame_.row[0], state.front_wheel_, state.rear_wheel_,
-                                         core->feeler_.surface_dir_);
+    const maths::Vec4 up = bike::wheel_base_up(object->basis_frame_.row[0], state.front_wheel_, state.rear_wheel_,
+                                               core->feeler_.surface_dir_);
     static_cast<SkaterPhysicsModule*>(core)->turn_to_normal(up); // (THAW's 0x005D0BD0: THUG2's own)
     if (state_of(core) != kStateAir)
         static_cast<SkaterPhysicsModule*>(core)->keep_upright(); // (THAW 0x005CE810, on the ground)
@@ -1328,9 +1334,9 @@ bool lerp_display_normal(SkaterPhysicsModule* core)
 {
     if (state_of(core) == kStateAir)
         return false;
-    BikeState& state = *state_of(core, true);
+    const BikeState& state = *state_of(core, true);
     // THUG2's 0x004FEA50 with THAW's bike target and speed.
-    maths::Vec4 target = bike::wheel_base_normal(core->floor_normal_, state.front_wheel_, state.rear_wheel_);
+    const maths::Vec4 target = bike::wheel_base_normal(core->floor_normal_, state.front_wheel_, state.rear_wheel_);
     float& t = core->normal_blend_;
     maths::Vec4& display = core->drawn_normal_;
     if (t != 0.0f) {
@@ -1353,7 +1359,7 @@ bool lerp_display_normal(SkaterPhysicsModule* core)
     if (display_up != display) {
         display_up = display;
         core->display_matrix_.square_up_axes(1);
-        objects::GameEntity* object = object_of(core);
+        const objects::GameEntity* object = object_of(core);
         core->display_matrix_.row[0] = object->basis_frame_.row[0];
         core->display_matrix_.row[2] = object->basis_frame_.row[2];
     }
@@ -1386,7 +1392,7 @@ bool acid_drop_direction(SkaterPhysicsModule* core, maths::Vec4* direction)
 {
     const maths::Vec4& facing = object_of(core)->basis_frame_.row[2];
     maths::Vec4 d = {facing.x, 0.0f, facing.z, facing.w};
-    double length = std::sqrt(static_cast<double>(d.x) * d.x + static_cast<double>(d.z) * d.z);
+    const double length = std::sqrt(static_cast<double>(d.x) * d.x + static_cast<double>(d.z) * d.z);
     if (length > 0.0) {
         auto inverse = static_cast<float>(1.0 / length);
         d = {d.x * inverse, 0.0f, d.z * inverse, d.w * inverse};
@@ -1425,9 +1431,9 @@ void rail_stall_slip(SkaterPhysicsModule* core)
         state->stall_script_ = false;
         return;
     }
-    float slip_time = thaw_global(kStallSlipTime, kStallSlipTimeThaw);
+    const float slip_time = thaw_global(kStallSlipTime, kStallSlipTimeThaw);
     maths::Vec4& velocity = object_of(core)->vel_;
-    bike::StallSlipStep step =
+    const bike::StallSlipStep step =
         bike::stall_slip(get_since(core->state_changed_at_), slip_time, velocity, state->stall_velocity_);
     if (step.stall) {
         state->stall_script_ = false;
@@ -1456,7 +1462,7 @@ int enter_wheelie_from_air(SkaterPhysicsModule* core, script::Struct* params)
     state.manual_angle_ = kManualBalance;
     state.no_balance_frames_ = physics_integer(kNoBalanceFrames, core);
     state.nose_manual_ = params && params->has_bare_flag(kNose);
-    objects::PadSnapshot* pad = &core->input_->pad_primary_;
+    const objects::PadSnapshot* pad = &core->input_->pad_primary_;
     if ((state.nose_manual_ ? pad->shoulder_left_a_ : pad->shoulder_right_a_).held_down_)
         object_of(core)->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     state.tire_tap_ = false;

@@ -60,7 +60,7 @@ void EditedGoal::drop_point_to_ground(int index)
 {
     maths::Vec4& pos = path_vertices_[index].pos;
     maths::Vec4 start = {pos.x, pos.y + kDropHeight, pos.z, pos.w};
-    maths::Vec4 end = {pos.x, pos.y - kDropHeight, pos.z, pos.w};
+    const maths::Vec4 end = {pos.x, pos.y - kDropHeight, pos.z, pos.w};
     render::ProbeRay feeler;
     feeler.change_origin(&start);
     feeler.change_finish(&end);
@@ -354,7 +354,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         break;
     }
     case kGoalTypeRace: {
-        int count = vertex_total_ - 2;
+        const int count = vertex_total_ - 2;
         script::Array* waypoints = new_array_of(static_cast<uint32_t>(count), kStructureArray);
         script::Array* flags = new_array_of(static_cast<uint32_t>(count), kChecksumArray);
         char flag[0x64];
@@ -388,7 +388,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         structure_element(dialog, 0)->append_word(0xA7AB3B6D, win_message_);
         name[0] = '\0';
         get_sprintf(name, "TRG_EditedGoal%d_Pro", level_goal_number_);
-        uint32_t pro = checksums::hash_from_text(name);
+        const uint32_t pro = checksums::hash_from_text(name);
         structure_element(dialog, 0)->put_name_key(0x531E4D28, pro);
         out->append_array_ref(0x27CD32E1, dialog);
     }

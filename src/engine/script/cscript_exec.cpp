@@ -103,7 +103,7 @@ void delete_component(Component* component)
 // 0x00472980: run a member function's table entry on `object` (no null checks).
 bool invoke_method_by_name(MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
 {
-    uint32_t type = entry->owner_kind_;
+    const uint32_t type = entry->owner_kind_;
     if (type == kObjectComponentType || type == kObjectComponentType2)
         return object_call_member_function(object, entry, params, script);
     return component_call_member_function(fetch_module(object, type), entry, params, script);
@@ -159,7 +159,7 @@ uint32_t Script::read_name()
     case 0x2D: // 2D 16 <name>
         pc_ += 2;
         {
-            uint32_t parameter = fetch_word32(pc_);
+            const uint32_t parameter = fetch_word32(pc_);
             pc_ += 4;
             args_->read_hash_value(parameter, &name, 0);
         }
@@ -188,7 +188,7 @@ bool Script::execute_command()
     switch (*pc_) {
     case 0x44: {
         ++pc_;
-        uint32_t name = fetch_word32(pc_);
+        const uint32_t name = fetch_word32(pc_);
         pc_ += 4;
         parse_function_params();
         if (!entity_.get_pull()) {
@@ -222,7 +222,7 @@ bool Script::execute_command()
         Component* value = new_component();
         pc_ = parse_expression(pc_, args_, value);
         if (value->kind_tag() != kQbvalName) {
-            bool result = value->raw != 0;
+            const bool result = value->raw != 0;
             delete_component(value);
             return result;
         }
@@ -242,14 +242,14 @@ bool Script::execute_command()
         pc_ = resolve_random_jumps(pc_);
         if (*pc_ == 0x44) {
             ++pc_;
-            uint32_t member = fetch_word32(pc_);
+            const uint32_t member = fetch_word32(pc_);
             pc_ += 4;
             parse_function_params();
             return invoke_method_by_name(member, object);
         }
-        uint32_t function = read_name();
+        const uint32_t function = read_name();
         parse_function_params();
-        SymbolTableEntry* symbol = resolve_symbol(function);
+        const SymbolTableEntry* symbol = resolve_symbol(function);
         if (!symbol && script_title_ == kQuietScriptName)
             return false;
         // (anywhere else a missing name's type is read through the null symbol: the original crashes - kept)
@@ -270,7 +270,7 @@ bool Script::execute_command()
 
     if (*pc_ == 0x07) { // name = value
         pc_ -= 4;
-        uint32_t target = fetch_word32(pc_);
+        const uint32_t target = fetch_word32(pc_);
         pc_ += 5;
         pc_ = resolve_random_jumps(pc_);
         Component* value = new_component();
@@ -288,7 +288,7 @@ bool Script::execute_command()
     }
 
     parse_function_params();
-    SymbolTableEntry* symbol = resolve_symbol(name);
+    const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol) {
         if (script_title_ != kQuietScriptName)
             debug::printf("WARNING: script %s not found, ignoring in default level.\n",
@@ -370,10 +370,10 @@ void Script::run_multi_branch()
     ++pc_;
     parse_function_params();
     Component* value = new_component();
-    if (Component* first = stmt_args_->step_to_entry(nullptr))
+    if (const Component* first = stmt_args_->step_to_entry(nullptr))
         duplicate_component(value, first, 0);
     for (;;) {
-        uint8_t token = *pc_;
+        const uint8_t token = *pc_;
         if (token == 0x24) // '$': not moved past - the original loops for ever here (kept)
             continue;
         if (token == 0x3C) { // a switch in a case not taken
@@ -478,7 +478,7 @@ void Script::run_loop_exit()
     int depth = 0;
     bool searching = true;
     do {
-        uint8_t token = *pc_;
+        const uint8_t token = *pc_;
         if (token == 0x20) {
             ++depth;
         } else if (token == 0x21) {
@@ -512,7 +512,7 @@ ScriptOutcome Script::tick_frame()
             if (!seen) {
                 if (tally < 16)
                     s_logged[tally++] = script_title_;
-                objects::Entity* object = entity_.owner_object_;
+                const objects::Entity* object = entity_.owner_object_;
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
                 get_log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
                         "yields (the game hangs here)",
@@ -548,7 +548,7 @@ ScriptOutcome Script::tick_frame()
             run_loop_exit();
             break;
         case 0x24: // '$'
-            if (uint32_t on_exit = on_exit_script_) {
+            if (const uint32_t on_exit = on_exit_script_) {
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
             }
@@ -556,7 +556,7 @@ ScriptOutcome Script::tick_frame()
                 return kScriptOutcomeEndedByInterrupt;
             break;
         case 0x29: // return [args]
-            if (uint32_t on_exit = on_exit_script_) {
+            if (const uint32_t on_exit = on_exit_script_) {
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
             }

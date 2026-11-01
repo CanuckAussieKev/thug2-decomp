@@ -177,7 +177,7 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
 {
     built_model() = model;
     built_skeleton() = skeleton;
-    memory::Hub* manager = memory::Hub::get_pull();
+    const memory::Hub* manager = memory::Hub::get_pull();
     void* memory = memory::alloc_zeroed(sizeof(ModelLook), manager->top_down_heap_, 1);
     built_appearance() = new (memory) ModelLook; // (null without memory)
     built_appearance()->get_reset();             // (no memory: a crash, as the original)
@@ -357,7 +357,7 @@ bool ModelAssembler::add_geom(uint32_t part)
             return true;
         }
     }
-    for (uint32_t name : kMeshes) {
+    for (const uint32_t name : kMeshes) {
         if (option->fetch_text(name, &mesh, 0))
             add(mesh);
     }
@@ -513,7 +513,7 @@ bool ModelAssembler::seal()
 // 0x0048A9E0
 bool ModelAssembler::restore_scale()
 {
-    maths::Vec4 one = {1.0f, 1.0f, 1.0f, 1.0f};
+    const maths::Vec4 one = {1.0f, 1.0f, 1.0f, 1.0f};
     built_model()->change_scale(&one);
     if (!built_skeleton())
         return false;
@@ -557,7 +557,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
     maths::Vec4 scale;
     scale.w = 1.0f;
     for (uint32_t i = 0; i < bones->extent_; ++i) {
-        uint32_t bone = bones->fetch_part(i);
+        const uint32_t bone = bones->fetch_part(i);
         built_skeleton()->fetch_bone_sizing(bone, &scale);
         bool local = true;
         scale.x = static_cast<float>(static_cast<double>(x) * kPercent * scale.x);
@@ -597,7 +597,7 @@ bool ModelAssembler::apply_object_scale()
         return false;
     int x = 0, y = 0, z = 0;
     if (slot->fetch_int_value(kX, &x, 0) && slot->fetch_int_value(kY, &y, 0) && slot->fetch_int_value(kZ, &z, 0)) {
-        maths::Vec4 object_scale = {get_percent(x), get_percent(y), get_percent(z), 1.0f};
+        const maths::Vec4 object_scale = {get_percent(x), get_percent(y), get_percent(z), 1.0f};
         built_model()->change_scale(&object_scale);
     }
     return true;
@@ -627,7 +627,7 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     render::BitmapTexture* workspace = skater_textures()->fetch_skin(kCagWorkspace);
     workspace->begin_edit(false, false);
     texture->resize_from(workspace, 1);  // (0x0048DE80)
-    uint32_t black = 0;                  // (four zero bytes)
+    const uint32_t black = 0;            // (four zero bytes)
     texture->get_border(black);          // (0x0048DED0)
     texture->get_zoom(x_scale, y_scale); // (0x0048DEB0)
     int rotate = 0;
@@ -649,7 +649,7 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     texture->write_back(1, nullptr); // (0x0048DE30)
     const char* logo = nullptr;
     option->fetch_text(kLogoTexture, &logo, 1);
-    bool result = built_model()->replace_texture_with(in, logo, with);
+    const bool result = built_model()->replace_texture_with(in, logo, with);
     if (deck)
         game_textures()->unload_texture(base);
     game_textures()->unload_texture(texture);
@@ -680,7 +680,7 @@ bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
     // about the texture's middle: moved there, scaled, turned, moved back
     uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) - kHalf);
     uv.row[3].y = static_cast<float>(static_cast<double>(uv.row[3].y) - kHalf);
-    float size = percent_of(scale);
+    const float size = percent_of(scale);
     uv.scale_tool(maths::Vec4{size, size, size, 1.0f});
     uv.spin_by(maths::Vec4{0.0f, 0.0f, 1.0f, 1.0f}, static_cast<float>(static_cast<double>(rotation) * kDegrees));
     uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) + kHalf);

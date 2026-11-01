@@ -138,7 +138,7 @@ bool profile_logged_in(script::Struct* params, script::Script* script)
 bool send_buddy_message(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     const char* text = nullptr;
     params->fetch_text(kString, &text, 0);
     if (!text || !*text)
@@ -154,7 +154,7 @@ bool set_lobby_status(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     const char* lobby = manager->lobby_service_->room_name_; // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");
     FriendsManager* buddies = manager->presence_service_.get();

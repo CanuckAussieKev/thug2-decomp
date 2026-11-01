@@ -31,8 +31,8 @@ void draw_flash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
     const auto* view = reinterpret_cast<const float*>(fetch_current_view(flash->viewport));
-    double width = g_back_buffer_width;
-    double height = g_back_buffer_height;
+    const double width = g_back_buffer_width;
+    const double height = g_back_buffer_height;
     // (x87: each product is rounded once, each sum to float)
     auto left = static_cast<float>(width * view[1]);
     auto top = static_cast<float>(height * view[2]);
@@ -63,7 +63,7 @@ void draw_flash(const Flash* flash)
     g_drawn_triangles += 2; // triangles
     // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
     // wrong order; rotate them.
-    FlashVertex first = vertices[0];
+    const FlashVertex first = vertices[0];
     vertices[0] = vertices[1];
     vertices[1] = vertices[2];
     vertices[2] = first;

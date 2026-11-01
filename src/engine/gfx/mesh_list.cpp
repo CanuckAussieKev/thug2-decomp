@@ -90,15 +90,16 @@ int compare_meshes(const void* a, const void* b)
     const MeshRef* mesh_b = *static_cast<MeshRef* const*>(b);
     const MaterialRef* material_a = material_of(mesh_a);
     const MaterialRef* material_b = material_of(mesh_b);
-    float key_a = material_a->sort_key_;
-    float key_b = material_b->sort_key_;
+    const float key_a = material_a->sort_key_;
+    const float key_b = material_b->sort_key_;
     if (!(key_a == key_b)) // (also not a number)
         return key_a > key_b ? 1 : -1;
     if (material_a->sort_flag_ != material_b->sort_flag_)
         return material_a->sort_flag_ != 0 ? 1 : -1;
     if (material_a == material_b)
         return 0;
-    bool flag_a = (material_a->pass_flags_[0] & 0x10) != 0, flag_b = (material_b->pass_flags_[0] & 0x10) != 0;
+    const bool flag_a = (material_a->pass_flags_[0] & 0x10) != 0;
+    const bool flag_b = (material_b->pass_flags_[0] & 0x10) != 0;
     if (flag_a != flag_b)
         return flag_a ? 1 : -1;
     // (then by pixel shader, as the original: its address)
@@ -143,11 +144,11 @@ void SceneRef::destroy_body()
 // 0x004DE340
 void SceneRef::update_sphere()
 {
-    double half_x = (static_cast<double>(bounds.max.x) - bounds.min.x) * 0.5;
-    double half_y = (static_cast<double>(bounds.max.y) - bounds.min.y) * 0.5; // (kept in double precision)
+    const double half_x = (static_cast<double>(bounds.max.x) - bounds.min.x) * 0.5;
+    const double half_y = (static_cast<double>(bounds.max.y) - bounds.min.y) * 0.5; // (kept in double precision)
     auto size_z = static_cast<float>(static_cast<double>(bounds.max.z) - bounds.min.z);
     auto half_x_float = static_cast<float>(half_x);
-    double half_z = static_cast<double>(size_z) * 0.5;
+    const double half_z = static_cast<double>(size_z) * 0.5;
     centre[0] = static_cast<float>(static_cast<double>(half_x_float) + bounds.min.x);
     centre[1] = static_cast<float>(half_y + bounds.min.y);
     centre[2] = static_cast<float>(half_z + bounds.min.z);
@@ -215,7 +216,7 @@ void SceneRef::detach_meshes(int count, MeshRef* const* list)
     }
     // Close each gap. (A null left in the list before is taken as one; if none is found it never ends.)
     while (removed > 0) {
-        int n = mesh_count_;
+        const int n = mesh_count_;
         int j = 0;
         while (j < mesh_count_ && meshes[j])
             ++j;
@@ -269,16 +270,18 @@ void SceneRef::break_strips(uint32_t mask, const uint32_t* records, uint32_t cou
     for (uint32_t r = 0; r < count; ++r, records += 4) {
         if (!(records[0] & mask))
             continue;
-        uint32_t mesh_index = records[1] >> 16;
+        const uint32_t mesh_index = records[1] >> 16;
         MeshRef* mesh = find_mesh(mesh_index);
         if (!mesh)
             continue;
-        uint32_t a = records[1] & 0xFFFF, b = records[2] & 0xFFFF, c = records[2] >> 16;
+        const uint32_t a = records[1] & 0xFFFF;
+        const uint32_t b = records[2] & 0xFFFF;
+        const uint32_t c = records[2] >> 16;
         uint16_t* indices = lock_indices(index_buffer_of(mesh));
         uint32_t i = records[3];
         uint32_t first = indices[i] & 0x7FFF, second = indices[i + 1] & 0x7FFF;
         for (i += 2; i < get_index_count(mesh); ++i) {
-            uint32_t third = indices[i] & 0x7FFF;
+            const uint32_t third = indices[i] & 0x7FFF;
             if (first == a && second == c && third == b) {
                 if (mesh_index < 64)
                     ++breaks[mesh_index];
@@ -292,13 +295,13 @@ void SceneRef::break_strips(uint32_t mask, const uint32_t* records, uint32_t cou
     }
     for (int m = 0; m < mesh_count_; ++m) {
         MeshRef* mesh = meshes[m];
-        uint32_t index = load_index(mesh);
+        const uint32_t index = load_index(mesh);
         if (index >= 64 || breaks[index] <= 0)
             continue;
-        uint16_t* indices = lock_indices(index_buffer_of(mesh));
+        const uint16_t* indices = lock_indices(index_buffer_of(mesh));
         uint32_t n = 0;
         for (uint32_t i = 0; i < get_index_count(mesh); ++i) {
-            uint16_t value = indices[i] & 0x7FFF;
+            const uint16_t value = indices[i] & 0x7FFF;
             tri_strip_scratch()[n++] = value;
             if (indices[i] & 0x8000) { // repeated: a strip break
                 tri_strip_scratch()[n++] = value;

@@ -90,7 +90,7 @@ void ObjectHubBase::reassign_object_id(Entity* object, uint32_t id)
 // 0x004619D0
 void ObjectHubBase::set_entity_rank(Entity* object, int priority)
 {
-    uint32_t id = object->ident_;
+    const uint32_t id = object->ident_;
     object->list_link_.priority = priority;
     reassign_object_id(object, id);
 }

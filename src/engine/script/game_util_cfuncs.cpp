@@ -132,7 +132,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             continue;
         bool integer = true;
         float from = 0.0f;
-        uint8_t type = component->type_and_flag_ >> 1;
+        const uint8_t type = component->type_and_flag_ >> 1;
         if (type == script::kQbvalInteger) {
             from = static_cast<float>(component->integer);
         } else if (type == script::kQbvalFloat) {
@@ -141,7 +141,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         } else {
             continue;
         }
-        uint32_t name = component->name;
+        const uint32_t name = component->name;
         if (!name)
             continue;
         float to = 0.0f;
@@ -179,7 +179,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
     const char* path = nullptr;
     params->fetch_text(kPath, &path, 1);
     char name[32];
-    int length = static_cast<int>(std::strlen(path));
+    const int length = static_cast<int>(std::strlen(path));
     int i = length;
     for (; i >= 0; --i)
         if (path[i] == '/' || path[i] == '\\')
@@ -297,7 +297,7 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
     Array* skaters = script::fetch_list(kMasterSkaterList);
-    int count = static_cast<int>(skaters->extent_);
+    const int count = static_cast<int>(skaters->extent_);
     for (int i = 0; i < count; ++i) {
         auto* skater = reinterpret_cast<Struct*>(skaters->fetch_part(i));
         uint32_t entry = 0;
@@ -330,9 +330,9 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
     params->fetch_int_value(kG, &g, 1);
     int b = 0;
     params->fetch_int_value(kBlue, &b, 1);
-    objects::GameEntity* skater = get_skate()->get_home_rider();
+    const objects::GameEntity* skater = get_skate()->get_home_rider();
     const maths::Vec4& position = skater->at_point_;
-    double above = static_cast<double>(position.y) + 75.0;
+    const double above = static_cast<double>(position.y) + 75.0;
     auto horizontal = static_cast<float>(std::cos(static_cast<double>(pitch)) * 50.0);
     maths::Vec4 from;
     from.x = position.x;
@@ -344,8 +344,8 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
     to.y = static_cast<float>(std::sin(static_cast<double>(pitch)) * 50.0 + above);
     to.z = static_cast<float>(std::sin(static_cast<double>(heading)) * horizontal + position.z);
     to.w = 0.0f;
-    uint32_t colour = 0xFF000000u | static_cast<uint32_t>(static_cast<uint8_t>(b)) << 16 |
-                      static_cast<uint32_t>(static_cast<uint8_t>(g)) << 8 | static_cast<uint8_t>(r);
+    const uint32_t colour = 0xFF000000u | static_cast<uint32_t>(static_cast<uint8_t>(b)) << 16 |
+                            static_cast<uint32_t>(static_cast<uint8_t>(g)) << 8 | static_cast<uint8_t>(r);
     gfx::push_diag_line(&from, &to, colour, colour, 1);
     return true;
 }

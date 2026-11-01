@@ -88,7 +88,7 @@ int SplatSlots::oldest_slot(uint32_t count)
     for (uint32_t i = 0; i < count; ++i) {
         if (!alive[i])
             return static_cast<int>(i);
-        int age = steps[i] - static_cast<int>(alive[i]);
+        const int age = steps[i] - static_cast<int>(alive[i]);
         if (age > most) {
             most = age;
             oldest = static_cast<int>(i);

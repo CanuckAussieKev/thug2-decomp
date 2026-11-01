@@ -227,7 +227,7 @@ render::WorldScene* sky_scene() { return render::get_sky_scene(); }
 // The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
 render::WorldScene* level_scene()
 {
-    uint32_t name = park_editing::ParkBuilderMode::get_shell_checksum();
+    const uint32_t name = park_editing::ParkBuilderMode::get_shell_checksum();
     return static_cast<render::WorldScene*>(render::engine::find_scene(name));
 }
 // A scene's own colour (the original's vtable +0x20: slot 8, the "ignore one argument" stub in both the engine's and
@@ -314,7 +314,7 @@ int CtodManager::current_system() const
 // 0x00571140
 void CtodManager::get_level_color(uint32_t* out)
 {
-    TodSystem& system = system_at(this, current_system());
+    const TodSystem& system = system_at(this, current_system());
     if (!system.transitioning) {
         const TodParams& p = system.current;
         *out = (((p.lev_blue_ << 8) + p.lev_green_) << 8) + p.lev_red_;
@@ -328,9 +328,9 @@ void CtodManager::get_level_color(uint32_t* out)
     }
     const TodParams& a = system.current;
     const TodParams& b = system.next;
-    int blue = ftol(static_cast<double>(b.lev_blue_ - a.lev_blue_) * t + a.lev_blue_);
-    int green = ftol(static_cast<double>(b.lev_green_ - a.lev_green_) * t + a.lev_green_);
-    int red = ftol(static_cast<double>(b.lev_red_ - a.lev_red_) * t + a.lev_red_);
+    const int blue = ftol(static_cast<double>(b.lev_blue_ - a.lev_blue_) * t + a.lev_blue_);
+    const int green = ftol(static_cast<double>(b.lev_green_ - a.lev_green_) * t + a.lev_green_);
+    const int red = ftol(static_cast<double>(b.lev_red_ - a.lev_red_) * t + a.lev_red_);
     *out = (((blue << 8) + green) << 8) + red;
 }
 
@@ -355,8 +355,8 @@ TodParams CtodManager::get_lerp(TodParams a, TodParams b, float t)
     auto integer = [t](int from, int to) { return ftol(static_cast<double>(to - from) * t + from); };
     auto real = [t](float from, float to) { return static_cast<float>((static_cast<double>(to) - from) * t + from); };
     auto byte = [&](uint32_t from, uint32_t to, int shift) {
-        int f = static_cast<int>(from >> shift & 0xFF);
-        int g = static_cast<int>(to >> shift & 0xFF);
+        const int f = static_cast<int>(from >> shift & 0xFF);
+        const int g = static_cast<int>(to >> shift & 0xFF);
         return static_cast<uint32_t>(static_cast<uint8_t>(integer(f, g))) << shift;
     };
     TodParams r = a; // (+0x14..+0x24 and fog_on: not set by the original - stack garbage)
@@ -468,12 +468,12 @@ TodParams CtodManager::get_tod_params(int index)
 {
     if (index == -1)
         index = current_system();
-    TodSystem& system = system_at(this, index);
+    const TodSystem& system = system_at(this, index);
     if (!system.transitioning)
         return system.current;
     float t = 1.0f;
     if (system.transition_length_) {
-        double fraction = get_fraction(system.time, system.transition_length_);
+        const double fraction = get_fraction(system.time, system.transition_length_);
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one()))
             t = 1.0f;
@@ -496,7 +496,7 @@ void CtodManager::build_tod_objects(script::Struct* params, script::Script* /*sc
     // (NoPrefixWarning: passed on as the third argument of 0x0045BF90, which doesn't use it)
     params->has_bare_flag(kNoPrefixWarning);
     uint16_t count = 0;
-    uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
+    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
     for (int i = 0; i < count; ++i) {
         if (!dead_objects_->fetch_entry(nodes[i]))
             create_from_node(nodes[i]);
@@ -530,7 +530,7 @@ void CtodManager::change_args(script::Struct* params)
 // 0x00572320
 void CtodManager::set_fog_active(bool on)
 {
-    bool was = fog_active_;
+    const bool was = fog_active_;
     fog_active_ = on;
     if (was) {
         if (!on)
@@ -572,7 +572,7 @@ void CtodManager::next_state(int index)
 // 0x005724D0
 void CtodManager::update_sun()
 {
-    TodSystem& system = systems_[0];
+    const TodSystem& system = systems_[0];
     double t = 0.0;
     if (system.transitioning)
         t = get_fraction(system.time + system.state_length_, system.transition_length_ + system.state_length_);
@@ -616,10 +616,10 @@ static void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint
     render::WorldCell* sector = nullptr;
     if (table->step_iterator() && table->iter_item_)
         sector = static_cast<render::WorldCell*>(table->iter_item_->value);
-    int count = table->extent_;
+    const int count = table->extent_;
     int remaining = count;
     if (start_percent >= 0) {
-        int skip = ftol(static_cast<double>(start_percent) * count * one_percent());
+        const int skip = ftol(static_cast<double>(start_percent) * count * one_percent());
         if (start_percent < end_percent) {
             int last = ftol(static_cast<double>(end_percent) * count * one_percent());
             if (count < last)
@@ -648,7 +648,7 @@ static void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint
         do {
             if (remaining-- == 0)
                 return;
-            uint32_t group = sector->light_group_;
+            const uint32_t group = sector->light_group_;
             if (group == light_group)
                 colour(sector, color);
             else if (group == reset_light_group)
@@ -667,9 +667,9 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
             apply_color_to_scene(scene, sky_color, light_group, 0, -1, -1);
         return;
     }
-    bool whole_level = light_group == kOutdoor || light_group == 0;
-    for (SceneNode* node = first_scene(); node;) {
-        SceneNode* next = is_end(node->next) ? nullptr : node->next;
+    const bool whole_level = light_group == kOutdoor || light_group == 0;
+    for (const SceneNode* node = first_scene(); node;) {
+        const SceneNode* next = is_end(node->next) ? nullptr : node->next;
         render::WorldScene* scene = node->scene;
         if (!scene->is_sky_) {
             apply_color_to_scene(scene, color, light_group, reset_light_group, start_percent, end_percent);
@@ -688,7 +688,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
         // The models: those of objects without a sector of their name, or an outdoor one, get the colour.
         for (objects::ObjectModule* model = objects::object_hub_slot()->find_first_module_of_kind(kModel); model;
              model = model->next_of_type_) {
-            render::WorldCell* sector = look_up_sector(model->entity_->ident_);
+            const render::WorldCell* sector = look_up_sector(model->entity_->ident_);
             if (!sector || sector->light_group_ == kOutdoor)
                 set_model_color(model, color);
             if (reset_light_group && sector && sector->light_group_ == reset_light_group)
@@ -700,16 +700,16 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
 // 0x00572980
 void set_light_direction(int index, float heading, float pitch)
 {
-    double p = static_cast<double>(pitch) * degree_to_radian_conv();
-    double sin_pitch = std::sin(p);
-    double cos_pitch = std::cos(p);
+    const double p = static_cast<double>(pitch) * degree_to_radian_conv();
+    const double sin_pitch = std::sin(p);
+    const double cos_pitch = std::cos(p);
     float direction[4];
     direction[3] = 0.0f;
     direction[1] = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
-    double horizontal = cos_pitch + sin_pitch * get_zero();
-    double h = static_cast<double>(heading) * degree_to_radian_conv();
+    const double horizontal = cos_pitch + sin_pitch * get_zero();
+    const double h = static_cast<double>(heading) * degree_to_radian_conv();
     auto sin_heading = static_cast<float>(std::sin(h));
-    double cos_heading = std::cos(h);
+    const double cos_heading = std::cos(h);
     auto cos_heading_float = static_cast<float>(std::cos(h));
     direction[2] = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
     direction[0] = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
@@ -721,7 +721,7 @@ void CtodManager::apply_tod_params(TodParams params)
 {
     // (NOT ORIGINAL: an edited level's own ambient light and fog put over the state's - set_tod_params_filter; its fog
     // shown even when the manager's is off)
-    bool fog_forced = get_filter(&params);
+    const bool fog_forced = get_filter(&params);
     change_ambient_tint(get_rgba(params.ambient_red_, params.ambient_green_, params.ambient_blue_, 0x80));
     set_light_direction(0, params.heading0, params.pitch0);
     set_light_direction(1, params.heading_a_, params.pitch1);
@@ -738,7 +738,7 @@ void CtodManager::apply_tod_params(TodParams params)
     }
     // The level colour, 0..255 as 0..2.
     auto channel = [](int value) {
-        double scaled = static_cast<double>(value) * one_over255();
+        const double scaled = static_cast<double>(value) * one_over255();
         return static_cast<float>(scaled + scaled);
     };
     float color[4] = {channel(params.lev_red_), channel(params.lev_green_), channel(params.lev_blue_), 1.0f};
@@ -804,12 +804,12 @@ void CtodManager::set_scene_color(script::Struct* params)
     params->read_hash_value(kLightGroup, &light_group, 0);
     uint32_t reset_light_group = 0;
     params->read_hash_value(kResetLightGroup, &reset_light_group, 0);
-    bool scene_only = params->has_bare_flag(kSceneColorFlag);
+    const bool scene_only = params->has_bare_flag(kSceneColorFlag);
     int value = 0;
     params->fetch_int_value(kColor, &value, 1);
     // (the colour's fourth byte isn't set by the original - stack garbage; nor the sky colour's, the top byte of the
     // parameters' pointer whose argument slot it's kept in)
-    uint32_t color = static_cast<uint32_t>(value) & 0xFFFFFF;
+    const uint32_t color = static_cast<uint32_t>(value) & 0xFFFFFF;
     uint32_t sky_color = 0;
     int sky = value;
     bool is_sky = false;
@@ -838,7 +838,7 @@ void CtodManager::mark_permanently_dead(script::Struct* params)
         return;
     params->has_bare_flag(kNoPrefixWarning); // (see build_tod_objects)
     uint16_t count = 0;
-    uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
+    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
     for (int i = 0; i < count; ++i) {
         if (!dead_objects_->fetch_entry(nodes[i]))
             dead_objects_->store_entry(nodes[i], this);
@@ -886,26 +886,26 @@ CtodManager::~CtodManager()
 void CtodManager::update_system(int index)
 {
     TodSystem& system = system_at(this, index);
-    int part = system.part;
+    const int part = system.part;
     ++system.frame;
     if (part != 0 && system.frame <= system.wait_frames_)
         return;
 
     // This part's share of the sectors.
-    double step = hundred() / static_cast<double>(system.parts);
-    int start = ftol(part * step);
-    int end = ftol((part + 1) * step);
+    const double step = hundred() / static_cast<double>(system.parts);
+    const int start = ftol(part * step);
+    const int end = ftol((part + 1) * step);
     float t = 1.0f;
     if (system.transition_length_) {
-        double fraction = get_fraction(system.time, system.transition_length_);
+        const double fraction = get_fraction(system.time, system.transition_length_);
         t = static_cast<float>(fraction);
         if (!(fraction <= get_one()))
             t = 1.0f;
     }
-    TodParams params = get_lerp(system.current, system.next, t);
-    uint32_t level_color = get_rgba(params.lev_red_, params.lev_green_, params.lev_blue_, 0x80);
-    uint32_t sky_color = get_rgba(params.sky_red_, params.sky_green_, params.sky_blue_, 0x80);
-    bool sky = system.sky;
+    const TodParams params = get_lerp(system.current, system.next, t);
+    const uint32_t level_color = get_rgba(params.lev_red_, params.lev_green_, params.lev_blue_, 0x80);
+    const uint32_t sky_color = get_rgba(params.sky_red_, params.sky_green_, params.sky_blue_, 0x80);
+    const bool sky = system.sky;
     apply_color(level_color, sky_color, sky, system.light_group_, system.reset_light_group_, part > 0, start, end);
     if (!sky && !level_lights_reset_)
         apply_tod_params(params);
@@ -924,7 +924,7 @@ void CtodManager::update_system(int index)
         set_bloom(params.bloom_on_, params.bloom1, params.bloom2, params.bloom_strength_, params.bloom_color_);
 
     // The transition script: half-way through (evening's at once).
-    float threshold = system.state == kEvening ? get_zero() : get_half();
+    const float threshold = system.state == kEvening ? get_zero() : get_half();
     if (!system.script_run_ && t > threshold) {
         system.script_run_ = true;
         script::Struct* script_params = spawn_param_table();
@@ -972,13 +972,13 @@ void CtodManager::reset_level_lights(uint32_t state_name)
 // 0x00573CE0
 void CtodManager::refresh_all(bool temp_state)
 {
-    bool was_active = active_;
+    const bool was_active = active_;
     active_ = true;
     for (TodSystem& system : systems_) {
         const TodParams& current = system.current;
-        uint32_t level_color = get_rgba(current.lev_red_, current.lev_green_, current.lev_blue_, 0x80);
-        uint32_t sky_color = get_rgba(current.sky_red_, current.sky_green_, current.sky_blue_, 0x80);
-        bool sky = system.sky;
+        const uint32_t level_color = get_rgba(current.lev_red_, current.lev_green_, current.lev_blue_, 0x80);
+        const uint32_t sky_color = get_rgba(current.sky_red_, current.sky_green_, current.sky_blue_, 0x80);
+        const bool sky = system.sky;
         script::Array* groups = nullptr;
         system.params->fetch_list(kGroups, &groups, 1);
         for (int g = 0; g < system.group_count_; ++g) {
@@ -989,8 +989,8 @@ void CtodManager::refresh_all(bool temp_state)
             group->read_hash_value(kResetLightGroup, &reset_light_group, 0);
             auto step = static_cast<float>(hundred() / static_cast<double>(system.parts));
             for (int part = 0; part < system.parts; ++part) {
-                int start = ftol(static_cast<double>(part) * step);
-                int end = ftol(static_cast<double>(part + 1) * step);
+                const int start = ftol(static_cast<double>(part) * step);
+                const int end = ftol(static_cast<double>(part + 1) * step);
                 apply_color(level_color, sky_color, sky, light_group, reset_light_group, part > 0, start, end);
             }
             if (!sky && !level_lights_reset_)
@@ -1058,7 +1058,7 @@ void CtodManager::set_temp_bloom_params(script::Struct* params)
         temp_bloom_.color = color_from_array(array);
     // Off: back to the state's bloom (in a single player game).
     if (!temp_bloom_.on && !is_multiplayer()) {
-        BloomParams bloom = bloom_of(system_at(this, current_system()).current);
+        const BloomParams bloom = bloom_of(system_at(this, current_system()).current);
         set_bloom(bloom.on, bloom.bloom1, bloom.bloom2, bloom.strength, bloom.color);
         return;
     }
@@ -1083,7 +1083,7 @@ void CtodManager::tick_frame()
     if (active_ruleset_label() != kCareer || script::fetch_int_value(kInactive) == 1 || temp_tod_ || !active_ ||
         is_game_halted())
         return;
-    int elapsed = ftol(frame_clock::get_slomo_frame_seconds() * time_multiplier_ * thousand());
+    const int elapsed = ftol(frame_clock::get_slomo_frame_seconds() * time_multiplier_ * thousand());
     full_length_ += elapsed;
     update_sun();
     for (int index = 0; index < kSystems; ++index) {
@@ -1145,7 +1145,7 @@ void CtodManager::set_tod_instant(uint32_t state)
 // NOT ORIGINAL (engine/net/thugpro_peer.h)
 uint32_t CtodManager::current_state() const
 {
-    int index = current_system();
+    const int index = current_system();
     return index < kSystems ? systems_[index].state : 0;
 }
 
@@ -1153,7 +1153,7 @@ uint32_t CtodManager::current_state() const
 // `state` is reached (an unknown current state or target never is) and every state on the way has its structure.
 bool CtodManager::can_set_tod_instant(uint32_t state) const
 {
-    int index = current_system();
+    const int index = current_system();
     if (index >= kSystems)
         return false;
     const TodSystem& current = systems_[index];
@@ -1275,7 +1275,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     int index = -1;
     params->fetch_int_value(kSystemIndex, &index, 0);
     CtodManager* manager = tod_manager();
-    TodParams p = manager->get_tod_params(index);
+    const TodParams p = manager->get_tod_params(index);
     script::Struct* out = spawn_param_table();
     out->put_int(kActive, manager->active_);
     int current = 0;

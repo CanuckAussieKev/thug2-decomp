@@ -207,7 +207,7 @@ RiderFrameLog::RiderFrameLog()
 void RiderFrameLog::get_frame_movement(maths::Vec4* out)
 {
     const maths::Vec4& vel = entity_->vel_;
-    double frame = frame_clock::get_frame_seconds();
+    const double frame = frame_clock::get_frame_seconds();
     auto rounded = static_cast<float>(frame);
     out->x = rounded * vel.x;
     out->y = rounded * vel.y;
@@ -221,7 +221,7 @@ void RiderFrameLog::fetch_place(maths::Vec4* out) { *out = entity_->at_point_; }
 // 0x0051A020
 double RiderFrameLog::get_collision_reach(bool driving)
 {
-    float reach = script::fetch_float(entity_->is_local_skater_ ? 0x0D24273Bu : 0x25F78481u);
+    const float reach = script::fetch_float(entity_->is_local_skater_ ? 0x0D24273Bu : 0x25F78481u);
     if (!driving)
         return reach;
     return (script::fetch_float(0x0A49FF23u) + 1.0) * reach;
@@ -235,7 +235,7 @@ double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
         name = manager_flag4() ? 0xF2E35FA3u : 0xECB41860u;
     else
         name = manager_flag4() ? 0xDBD6D58Au : 0xC5819249u;
-    float radius = script::fetch_float(name);
+    const float radius = script::fetch_float(name);
     float drivers = my_driving ? 1.0f : 0.0f;
     if (their_driving)
         drivers = static_cast<float>(drivers + 1.0);
@@ -245,12 +245,12 @@ double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 // 0x0051A150
 bool RiderFrameLog::is_near_local_skater()
 {
-    GameEntity* local = local_skater();
+    const GameEntity* local = local_skater();
     const maths::Vec4& pos = entity_->at_point_;
-    float dx = get_difference(pos.x, local->at_point_.x);
-    double dy = static_cast<double>(pos.y) - local->at_point_.y;
-    double dz = static_cast<double>(pos.z) - local->at_point_.z;
-    double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
+    const float dx = get_difference(pos.x, local->at_point_.x);
+    const double dy = static_cast<double>(pos.y) - local->at_point_.y;
+    const double dz = static_cast<double>(pos.z) - local->at_point_.z;
+    const double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
     return distance < 96.0f; // 0x0064EC40
 }
 
@@ -272,8 +272,8 @@ void RiderFrameLog::check_for_collisions(int first)
         if (!is_it(me) && !on_a_team(me))
             return;
     }
-    bool my_driving = my_state->in_vehicle_;
-    maths::Vec4 my_pos = entity_->at_point_;
+    const bool my_driving = my_state->in_vehicle_;
+    const maths::Vec4 my_pos = entity_->at_point_;
     maths::Vec4 my_move{};
     get_frame_movement(&my_move);
     maths::Vec4 my_dir = my_move;
@@ -297,7 +297,7 @@ void RiderFrameLog::check_for_collisions(int first)
             continue;
 
         RiderFrameLog* their_history = static_cast<Rider*>(skater)->state_history_;
-        bool their_driving = their_state->in_vehicle_;
+        const bool their_driving = their_state->in_vehicle_;
         maths::Vec4 their_pos{};
         their_history->fetch_place(&their_pos);
         maths::Vec4 their_move{};
@@ -356,7 +356,7 @@ void RiderFrameLog::check_for_collisions(int first)
             net::NetMessageInfo msg;
             online::RanInto ran_into; // (engine/net/play_messages.h)
             ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
-            maths::Vec4 push = my_point - their_point;
+            const maths::Vec4 push = my_point - their_point;
             ran_into.push[0] = push.x;
             ran_into.push[1] = push.y;
             ran_into.push[2] = push.z;
@@ -384,7 +384,7 @@ void RiderFrameLog::check_for_collisions(int first)
             }
         }
 
-        uint32_t type = get_game_type();
+        const uint32_t type = get_game_type();
         if (type == kGameTag || get_game_type() == kGameTag2) {
             if (tag_game_over())
                 return;
@@ -414,7 +414,7 @@ void RiderFrameLog::check_for_collisions(int first)
             uint8_t tagged[2];
             tagged[0] = static_cast<uint8_t>(skater->ident_);
             tagged[1] = static_cast<uint8_t>(get_team(me));
-            bool same_team = get_team(me) == them->team_;
+            const bool same_team = get_team(me) == them->team_;
             online::PlayerSearch search;
             for (online::PlayerRecord* player = start_roster_sweep(&search); player;
                  player = step_roster_sweep(&search)) {
@@ -444,7 +444,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
     online::Hit hit;
     if (!online::read_hit(reader, &hit))
         return net::kResultConsumed;
-    bool other_driving = hit.fireball;
+    const bool other_driving = hit.fireball;
     auto* skater = static_cast<GameEntity*>(context->content_);
     char name[0x20] = {};
     std::memcpy(name, kSomeone, 8);
@@ -452,11 +452,11 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id))) {
             GameEntity* other = player_object(player);
             // Away from the other skater (straight along x and z if they're on top of each other).
-            double dx = static_cast<double>(skater->at_point_.x) - other->at_point_.x;
-            float dy = get_difference(skater->at_point_.y, other->at_point_.y);
-            float dz = get_difference(skater->at_point_.z, other->at_point_.z);
-            float dw = get_difference(skater->at_point_.w, other->at_point_.w);
-            double length = std::sqrt((dx * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz);
+            const double dx = static_cast<double>(skater->at_point_.x) - other->at_point_.x;
+            const float dy = get_difference(skater->at_point_.y, other->at_point_.y);
+            const float dz = get_difference(skater->at_point_.z, other->at_point_.z);
+            const float dw = get_difference(skater->at_point_.w, other->at_point_.w);
+            const double length = std::sqrt((dx * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz);
             double x = 1.0, y = 0.0, z = 1.0, w = 1.0;
             if (!(length < kTooClose)) {
                 auto inverse = static_cast<float>(1.0 / length);
@@ -473,7 +473,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             skater->vel_.w = wk * kKnockScale;
             skater->vel_.y = kKnockUp;
             ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
-            RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
+            const RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
             if (!state->in_vehicle_ && state->physics_mode_ == 0)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
@@ -481,7 +481,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             copy_name(name, get_skater_name(player_object(player)));
             if (!get_on_server()) {
                 void* score = skater_score(skater);
-                int lost = hit.score;
+                const int lost = hit.score;
                 if (get_points_total(score) - lost < 0) {
                     set_points_total(score, 0);
                     script::launch_script(kUnbindFireballTricks, nullptr, nullptr, false);
@@ -503,7 +503,7 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
 int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
 {
     auto* skater = static_cast<GameEntity*>(context->content_);
-    uint8_t id = context->type_code_;
+    const uint8_t id = context->type_code_;
     if (id != kMsgRanInto && id != kMsgRanIntoAck)
         return net::kResultPassOn;
     // (the messages: engine/net/play_messages.h - 0x44 its first byte only; NOT ORIGINAL: one too short is dropped,
@@ -521,7 +521,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
         return net::kResultPassOn;
     char name[0x20] = {};
     std::memcpy(name, kSomeone, 8);
-    bool other_driving = (ran_into.object_id >> 7) & 1;
+    const bool other_driving = (ran_into.object_id >> 7) & 1;
     // (the driving bit cleared in the message itself, as the original: the next local skater's handler sees it so)
     context->body_[0] = static_cast<char>(ran_into.object_id & 0x7F);
     online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(ran_into.object_id & 0x7F));
@@ -535,16 +535,16 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
         ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
         if (!static_cast<RiderBoardPhysics*>(control)->pose_->in_vehicle_) {
             GameEntity* other = player_object(player);
-            double dw = static_cast<double>(skater->at_point_.w) - other->at_point_.w;
-            double dz = static_cast<double>(skater->at_point_.z) - other->at_point_.z;
-            double dy = static_cast<double>(skater->at_point_.y) - other->at_point_.y;
+            const double dw = static_cast<double>(skater->at_point_.w) - other->at_point_.w;
+            const double dz = static_cast<double>(skater->at_point_.z) - other->at_point_.z;
+            const double dy = static_cast<double>(skater->at_point_.y) - other->at_point_.y;
             float away[4] = {get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy),
                              static_cast<float>(dz), static_cast<float>(dw)};
-            double length = std::sqrt((static_cast<double>(away[0]) * away[0] + dy * dy) + dz * dz);
+            const double length = std::sqrt((static_cast<double>(away[0]) * away[0] + dy * dy) + dz * dz);
             double w = 0.0, z = 0.0;
             if (!(length < kTooClose)) {
                 // (0x00423650: each component times 1 / the length rounded to a float)
-                double inverse = 1.0 / static_cast<float>(length);
+                const double inverse = 1.0 / static_cast<float>(length);
                 for (float& c : away)
                     c = static_cast<float>(inverse * c);
                 z = away[2];
@@ -555,16 +555,16 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
                 z = 1.0;
                 w = 1.0;
             }
-            double wk = w * kKnockBack; // (kept unrounded)
+            const double wk = w * kKnockBack; // (kept unrounded)
             auto zk = static_cast<float>(z * kKnockBack);
-            float yk = away[1] * kKnockBack;
-            float xk = away[0] * kKnockBack;
+            const float yk = away[1] * kKnockBack;
+            const float xk = away[0] * kKnockBack;
             skater->vel_.x = xk * kKnockScale;
             skater->vel_.y = yk * kKnockScale;
             skater->vel_.z = zk * kKnockScale;
             skater->vel_.w = static_cast<float>(wk * kKnockScale);
             skater->vel_.y = kKnockUp;
-            RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
+            const RiderPoseState* state = static_cast<RiderBoardPhysics*>(control)->pose_;
             if (!state->in_vehicle_ && state->physics_mode_ == 0 &&
                 !static_cast<RiderBoardPhysics*>(control)->force_walk_)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
@@ -573,7 +573,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
         }
         copy_name(name, get_skater_name(player_object(player)));
     }
-    script::VectorValue push = {ran_into.push[0], ran_into.push[1], ran_into.push[2], ran_into.push[3]};
+    const script::VectorValue push = {ran_into.push[0], ran_into.push[1], ran_into.push[2], ran_into.push[3]};
     send_event(skater, 0x915E5E39, name, 0x2F679251, other_driving, &push);
     return net::kResultPassOn;
 }

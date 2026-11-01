@@ -115,7 +115,7 @@ void tick_child_scripts()
         Script* next = script->following_;
         while (next && !is_spawned(next))
             next = next->following_;
-        uint8_t flags = script->spawn_flags_;
+        const uint8_t flags = script->spawn_flags_;
         bool run = (flags & kScriptFlagSpawned) && !((flags & kScriptFlagPaused) && script->pc_);
         if (run && (flags & kScriptFlagPauseWithObject) && script->entity_.get_pull())
             run = object_runs_scripts(script->entity_.get_pull());
@@ -153,7 +153,7 @@ void kill_all_child_scripts()
 Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node, uint32_t id,
                      bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
 {
-    SymbolTableEntry* symbol = resolve_symbol(name);
+    const SymbolTableEntry* symbol = resolve_symbol(name);
     if (symbol && symbol->type == kQbvalNativeFunc) {
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
         memory::Hub* manager = memory::Hub::get_pull();
@@ -219,7 +219,7 @@ void delete_finished_scripts()
 void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag,
                    const char* /*nameString*/)
 {
-    SymbolTableEntry* symbol = resolve_symbol(name);
+    const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol ||
         (symbol->type != kQbvalScriptBody && symbol->type != kQbvalNativeFunc && symbol->type != kQbvalNativeMethod))
         return;
@@ -283,7 +283,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     uint8_t data[online::kRunScriptHeaderSize + online::kRunScriptParamsSize];
     util::ByteWriter writer(data, sizeof(data));
     online::write_run_script(writer, message);
-    int size = emit_into_buffer(params, writer.cursor(), static_cast<int>(online::kRunScriptParamsSize));
+    const int size = emit_into_buffer(params, writer.cursor(), static_cast<int>(online::kRunScriptParamsSize));
     void* client = fetch_patron(net, 0);
     desc.content_ = data;
     desc.byte_count_ = static_cast<uint16_t>(size + online::kRunScriptHeaderSize);
@@ -339,7 +339,7 @@ void resume_child_script(Script* script)
 // 0x00472DE0
 bool script_exists(uint32_t name)
 {
-    SymbolTableEntry* symbol = resolve_symbol(name);
+    const SymbolTableEntry* symbol = resolve_symbol(name);
     return symbol && symbol->type == kQbvalScriptBody;
 }
 

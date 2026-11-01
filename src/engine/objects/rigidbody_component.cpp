@@ -132,10 +132,10 @@ void BodyDynamicsModule::set_box(const maths::Vec4* top, const maths::Vec4* bott
     contact_count_ = 8;
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     int n = 0;
-    for (bool right : {false, true}) {
-        for (bool upper : {false, true}) {
+    for (const bool right : {false, true}) {
+        for (const bool upper : {false, true}) {
             const maths::Vec4& half = upper ? *top : *bottom;
-            for (bool front : {false, true}) {
+            for (const bool front : {false, true}) {
                 contacts_[n++] = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
                                   half.z * (front ? 1.0f : -1.0f), 1.0f};
             }
@@ -162,11 +162,11 @@ void BodyDynamicsModule::set_cylinder(float top_radius, float bottom_radius, flo
     contact_count_ = static_cast<uint16_t>(edges * 2);
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     int n = 0;
-    for (bool upper : {false, true}) {
+    for (const bool upper : {false, true}) {
         const float radius = upper ? top_radius : bottom_radius;
         for (int i = edges; i != 0;) {
             --i;
-            double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
+            const double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
             auto rounded = static_cast<float>(angle);
             contacts_[n++] = {static_cast<float>(std::cos(angle) * radius), upper ? half_height : -half_height,
                               static_cast<float>(std::sin(static_cast<double>(rounded)) * radius), 1.0f};
@@ -181,8 +181,8 @@ void BodyDynamicsModule::set_triangle(const maths::Vec4* dimensions)
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     const maths::Vec4& d = *dimensions;
     int n = 0;
-    for (bool back : {false, true}) {
-        float z = (back ? -1.0f : 1.0f) * d.z;
+    for (const bool back : {false, true}) {
+        const float z = (back ? -1.0f : 1.0f) * d.z;
         contacts_[n++] = {d.x, -d.y, z, 1.0f};
         contacts_[n++] = {-d.x, -d.y, z, 1.0f};
         contacts_[n++] = {0.0f, d.y, z, 1.0f};
@@ -288,7 +288,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     if (params->has_entry_named(0xE9156E6D)) {                       // skater_collision_assent (degrees)
         float degrees = 0.0f;
         params->fetch_float(0xE9156E6D, &degrees, 0);
-        double radians = static_cast<double>(degrees) * kRadiansPerDegree;
+        const double radians = static_cast<double>(degrees) * kRadiansPerDegree;
         skater_assent_cos_ = static_cast<float>(std::cos(radians));
         skater_assent_sin_ = static_cast<float>(std::sin(radians));
     }
@@ -418,14 +418,18 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         auto m = [&turn](int r, int c) { return static_cast<double>(reinterpret_cast<const float*>(&turn.row[r])[c]); };
         for (int i = contact_count_; i != 0;) {
             maths::Vec4& p = contacts_[--i];
-            double x = p.x, y = p.y, z = p.z;
+            const double x = p.x;
+            const double y = p.y;
+            const double z = p.z;
             p.z = static_cast<float>((m(0, 2) * x + m(1, 2) * y) + m(2, 2) * z);
             p.x = static_cast<float>((m(0, 0) * x + m(1, 0) * y) + m(2, 0) * z);
             p.y = static_cast<float>((m(0, 1) * x + m(1, 1) * y) + m(2, 1) * z);
         }
         for (int i = sphere_count_; i != 0;) {
             maths::Vec4& p = spheres_[--i].center;
-            double x = p.x, y = p.y, z = p.z;
+            const double x = p.x;
+            const double y = p.y;
+            const double z = p.z;
             p.z = static_cast<float>((m(1, 2) * y + m(2, 2) * z) + m(0, 2) * x);
             p.x = static_cast<float>((m(1, 0) * y + m(2, 0) * z) + m(0, 0) * x);
             p.y = static_cast<float>((m(1, 1) * y + m(2, 1) * z) + m(0, 1) * x);
@@ -445,7 +449,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             const maths::Vec4& p = spheres_[--i].center;
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
-        double share = 1.0 / static_cast<double>(contact_count_ + sphere_count_);
+        const double share = 1.0 / static_cast<double>(contact_count_ + sphere_count_);
         center = {static_cast<float>(center.x * share), static_cast<float>(center.y * share),
                   static_cast<float>(center.z * share), static_cast<float>(center.w * share)};
     }
@@ -467,20 +471,24 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         float extent = 0.0f;
         for (int i = contact_count_; i != 0;) {
             const maths::Vec4& p = contacts_[--i];
-            double x = p.x, y = p.y, z = p.z;
+            const double x = p.x;
+            const double y = p.y;
+            const double z = p.z;
             auto length = static_cast<float>(std::sqrt((z * z + x * x) + y * y));
             if (!(extent > length))
                 extent = length;
         }
         for (int i = sphere_count_; i != 0;) {
             const Sphere& s = spheres_[--i];
-            double x = s.center.x, y = s.center.y, z = s.center.z;
+            const double x = s.center.x;
+            const double y = s.center.y;
+            const double z = s.center.z;
             auto length = static_cast<float>(std::sqrt((z * z + x * x) + y * y) + s.radius);
             if (!(extent > length))
                 extent = length;
         }
         if (extent > kBigShape) {
-            double scale = static_cast<double>(extent) * kShapeScale;
+            const double scale = static_cast<double>(extent) * kShapeScale;
             mass_over_moment_ = static_cast<float>(mass_over_moment_ / (scale * scale));
         }
     }
@@ -492,15 +500,19 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     radius_ = 0.0f;
     for (int i = contact_count_; i != 0;) {
         const maths::Vec4& p = contacts_[--i];
-        double x = p.x, y = p.y, z = p.z;
-        double length_squared = (z * z + x * x) + y * y;
+        const double x = p.x;
+        const double y = p.y;
+        const double z = p.z;
+        const double length_squared = (z * z + x * x) + y * y;
         if (length_squared > radius_)
             radius_ = static_cast<float>(length_squared);
     }
     for (int i = sphere_count_; i != 0;) {
         const Sphere& s = spheres_[--i];
-        double x = s.center.x, y = s.center.y, z = s.center.z;
-        double reach = std::sqrt((z * z + x * x) + y * y) + s.radius;
+        const double x = s.center.x;
+        const double y = s.center.y;
+        const double z = s.center.z;
+        const double reach = std::sqrt((z * z + x * x) + y * y) + s.radius;
         if (reach * reach > radius_)
             radius_ = static_cast<float>(reach * reach);
     }
@@ -512,10 +524,10 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         return static_cast<double>(reinterpret_cast<const float*>(&basis_frame_.row[row])[c]);
     };
     const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
-    double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
-    double ty = (r(2, 1) * oz + r(1, 1) * oy) + r(0, 1) * ox;
+    const double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
+    const double ty = (r(2, 1) * oz + r(1, 1) * oy) + r(0, 1) * ox;
     auto tz = static_cast<float>((r(2, 2) * oz + r(1, 2) * oy) + r(0, 2) * ox);
-    float tw = model_offset_.w;
+    const float tw = model_offset_.w;
     at_point_.x = static_cast<float>(at_point_.x - tx);
     at_point_.y = static_cast<float>(at_point_.y - ty);
     at_point_.z = at_point_.z - tz;
@@ -616,12 +628,12 @@ bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, scri
 bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, script::Script* /*script*/)
 {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    uint32_t id = params->step_to_entry(nullptr)->checksum;
+    const uint32_t id = params->step_to_entry(nullptr)->checksum;
     auto* other = reinterpret_cast<GameEntity*>(object_hub_slot()->look_up_entity(id));
-    bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
+    const bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
     vel_ = other->vel_;
     if (adjust) {
-        double factor = maths::plus_or_minus_exact(0.4000000059604645f) + 1.0f;
+        const double factor = maths::plus_or_minus_exact(0.4000000059604645f) + 1.0f;
         vel_ = {static_cast<float>(factor * vel_.x), static_cast<float>(factor * vel_.y),
                 static_cast<float>(factor * vel_.z), static_cast<float>(factor * vel_.w)};
     }
@@ -631,7 +643,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
     if (auto* body = static_cast<BodyDynamicsModule*>(other->fetch_module(kType))) {
         rot_vel_ = body->rot_vel_;
         if (adjust) {
-            double factor = maths::plus_or_minus_exact(0.4000000059604645f);
+            const double factor = maths::plus_or_minus_exact(0.4000000059604645f);
             rot_vel_ = {static_cast<float>(factor * rot_vel_.x), static_cast<float>(factor * rot_vel_.y),
                         static_cast<float>(factor * rot_vel_.z), static_cast<float>(factor * rot_vel_.w)};
         }

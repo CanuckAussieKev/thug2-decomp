@@ -66,7 +66,7 @@ uint32_t g_prev_taunt_stamp;
 
 ParamBag* new_script_struct()
 {
-    int current = script::g_struct_pools.current;
+    const int current = script::g_struct_pools.current;
     memory::SlabBank* pool = script::g_struct_pools.pools[current];
     void* memory = pool ? pool->carve() : memory::alloc(8);
     return memory ? new (memory) script::Struct : nullptr;
@@ -91,7 +91,7 @@ void dup_from(char* out, size_t size, const char* in)
 {
     // The original copies with no limit (and would overrun on a too-long line); stop at the field size. (Not
     // strncpy_s: a debug build fills the rest of the field with 0xFE - sent over the network.)
-    size_t length = strnlen(in, size - 1);
+    const size_t length = strnlen(in, size - 1);
     std::memcpy(out, in, length);
     out[length] = '\0';
 }
@@ -204,7 +204,7 @@ void send_chat_message(Hub* manager, const char* text)
     if (*text == '\0')
         return;
     PlayerRecord* player = find_own_player_record(manager);
-    uint8_t color = is_observer(player) ? kObserverColor : team_color(player);
+    const uint8_t color = is_observer(player) ? kObserverColor : team_color(player);
     post_out(manager, player_name(player), color, text);
 }
 
@@ -236,7 +236,7 @@ bool handle_chat_command(Hub* manager, const char* text)
     if (_stricmp(text, "/where") == 0) {
         // Only shown here, not sent: the level, the local skater's position and orientation, and the camera's - written
         // to thug2-decomp.log (for picking a place to show behind the main menu).
-        uint8_t level = render::current_level();
+        const uint8_t level = render::current_level();
         get_log("where: level %u", level);
         auto* skater = modules::g_skate_module->get_home_rider(); // the skate module's local skater
         if (skater) {
@@ -270,7 +270,7 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     char keys[256];
     if (sio::get_keyboard_chars(keys) <= 0)
         return;
-    char key = keys[0];
+    const char key = keys[0];
     if (key == kKeyEnter) {
         // Open the chat box - unless one of the dialogs (or the quit dialog's anchor) is up. (The parameters are
         // never freed: the original leaks them, 8 bytes a time.)
@@ -289,7 +289,7 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
         if (object_exists(params))
             return;
         params->get_clear();
-        uint32_t anchor = checksums::hash_from_text("quit_dialog_anchor");
+        const uint32_t anchor = checksums::hash_from_text("quit_dialog_anchor");
         params->put_name_key(checksums::hash_from_text("id"), anchor);
         if (object_exists(params))
             return;

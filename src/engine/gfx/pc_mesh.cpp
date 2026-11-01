@@ -58,8 +58,8 @@ bool read_breaks(PcMesh* mesh, Stream& in)
 // 0x004B7AF0
 int compare_strip_breaks(const void* a, const void* b)
 {
-    uint32_t x = static_cast<const StripBreak*>(a)->mesh_and_index_;
-    uint32_t y = static_cast<const StripBreak*>(b)->mesh_and_index_;
+    const uint32_t x = static_cast<const StripBreak*>(a)->mesh_and_index_;
+    const uint32_t y = static_cast<const StripBreak*>(b)->mesh_and_index_;
     if ((x >> 16) != (y >> 16))
         return (x >> 16) > (y >> 16) ? 1 : -1;
     if ((x & 0xFFFF) > (y & 0xFFFF))
@@ -97,7 +97,7 @@ bool PcMesh::load_skin_file(const char* name)
     if (!file)
         return false; // Not original - no file (the original read through null)
     scene_format::FileStream in(file);
-    bool found = read_breaks(this, in);
+    const bool found = read_breaks(this, in);
     file::shut(file);
     return found;
 }

@@ -56,9 +56,9 @@ EmitterNode* emitter_get_node(uint32_t name) { return static_cast<EmitterNode*>(
 // 0x00468120
 bool EmitterNode::is_within(const maths::Vec4* point)
 {
-    float dx = point->x - at_point_.x;
-    float dy = point->y - at_point_.y;
-    float dz = point->z - at_point_.z;
+    const float dx = point->x - at_point_.x;
+    const float dy = point->y - at_point_.y;
+    const float dz = point->z - at_point_.z;
     switch (form_) {
     case kEmitterShapeBox:
         return box_.contains_point(*point) != 0;
@@ -112,7 +112,7 @@ void emitter_cleanup()
     start_iteration(table);
     for (EmitterNode* node = step_iterator(get_table()); node;) {
         EmitterNode* next = step_iterator(get_table());
-        uint32_t name = node->label_;
+        const uint32_t name = node->label_;
         memory::Hub::get_pull()->dealloc(node);
         get_table()->erase_entry(name);
         node = next;
@@ -205,9 +205,9 @@ void FollowTrail::tick_frame()
         return;
     }
     const maths::Vec4& last = path_vertices_[head_];
-    float dx = last.x - aim_point_.x;
-    float dy = last.y - aim_point_.y;
-    float dz = last.z - aim_point_.z;
+    const float dx = last.x - aim_point_.x;
+    const float dy = last.y - aim_point_.y;
+    const float dz = last.z - aim_point_.z;
     // (summed unrounded: z, x, then y)
     double distance = static_cast<double>(dz) * dz + static_cast<double>(dx) * dx;
     distance += static_cast<double>(dy) * dy;
@@ -254,7 +254,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         return;
     // the unit direction back from that segment's point (times -1 / length, unrounded), and the point the
     // remaining distance along it
-    double scale = -1.0 / length;
+    const double scale = -1.0 / length;
     auto nx = static_cast<float>(dx * scale);
     auto ny = static_cast<float>(dy * scale);
     auto nz = static_cast<float>(dz * scale);
@@ -270,9 +270,9 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
 
     // the facing: the old front x10 plus the direction (x unrounded before the add, as the original)
     maths::Vec4& front = matrix->row[2];
-    float fy = front.y * kFacingWeight;
-    float fz = front.z * kFacingWeight;
-    float fw = front.w * kFacingWeight;
+    const float fy = front.y * kFacingWeight;
+    const float fz = front.z * kFacingWeight;
+    const float fw = front.w * kFacingWeight;
     front.x = static_cast<float>(static_cast<double>(front.x) * kFacingWeight + nx);
     front.y = fy + ny;
     front.z = fz + nz;

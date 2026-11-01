@@ -170,7 +170,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
     case kPlayAnim: {
         // Turned on again by the walk-to-skate animation (its animTags in the skater's tags).
         script::Struct* tags = entity_->tag_table_;
-        RiderPoseState* state = physics_control_->pose_;
+        const RiderPoseState* state = physics_control_->pose_;
         script::Struct* anim_tags = nullptr;
         if (tags && !state->in_vehicle_ && !state->physics_mode_ && tags->read_sub_struct(kAnimTags, &anim_tags, 0) &&
             anim_tags->has_bare_flag(kWalkToSkateTransition)) {
@@ -226,7 +226,7 @@ void RiderRollingAudio::tick_frame()
         if (no_rail_sound_) {
             have_sound_ = 0;
         } else {
-            uint32_t table = sliding_ ? kTableSlide : kTableGrind;
+            const uint32_t table = sliding_ ? kTableSlide : kTableGrind;
             if (sound_changed_) {
                 have_sound_ = terrain_sound(sound_, surface_type_, sound_table(table)) ? 1 : 0;
                 sound_changed_ = 0;
@@ -246,7 +246,7 @@ void RiderRollingAudio::tick_frame()
     // Its volume from where the skater is - stopped while the skater hasn't moved.
     sound::AudioMixer* sfx = audio_mixer_handle();
     if (entity_->at_point_ != last_pos_) {
-        float dropoff = sfx->get_dropoff_distance(sound_name_key(sound_));
+        const float dropoff = sfx->get_dropoff_distance(sound_name_key(sound_));
         sfx->fetch_loudness(&volume, &entity_->at_point_, dropoff, 0, nullptr, nullptr);
     } else {
         sfx->stop_sound(sound_id_);

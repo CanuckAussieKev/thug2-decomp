@@ -62,7 +62,7 @@ bool is_hex8(const std::string& w)
 {
     if (w.size() != 8)
         return false;
-    for (char c : w) {
+    for (const char c : w) {
         if (!std::isxdigit(static_cast<unsigned char>(c)))
             return false;
     }
@@ -115,9 +115,9 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         if (!line.empty() && line.back() == '\r')
             line.pop_back();
         std::string comment;
-        if (size_t hash = line.find('#'); hash != std::string::npos) {
+        if (const size_t hash = line.find('#'); hash != std::string::npos) {
             comment = line.substr(hash + 1);
-            size_t a = comment.find_first_not_of(' ');
+            const size_t a = comment.find_first_not_of(' ');
             comment = a == std::string::npos ? "" : comment.substr(a);
             line.resize(hash);
         }
@@ -153,16 +153,18 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         if (keyword == "level") {
             std::string what;
             for (const std::string& w : words) {
-                std::string key = w.substr(0, w.find('='));
+                const std::string key = w.substr(0, w.find('='));
                 what += (what.empty() ? "" : ", ") + key;
             }
             e.summary = "Level properties: " + (what.empty() ? std::string("edited") : what);
         } else if (keyword == "sector" || keyword == "rail" || keyword == "clone" || keyword == "wall") {
             e.id = words.empty() ? 0 : id_of(words[0]);
-            std::string name = name_of(e.id, words.empty() ? "?" : words[0]);
-            int quarters = static_cast<int>(number(1));
-            float x = number(2), y = number(3), z = number(4);
-            bool hidden = words.size() > 5 && words[5] == "1" && keyword != "clone";
+            const std::string name = name_of(e.id, words.empty() ? "?" : words[0]);
+            const int quarters = static_cast<int>(number(1));
+            const float x = number(2);
+            const float y = number(3);
+            const float z = number(4);
+            const bool hidden = words.size() > 5 && words[5] == "1" && keyword != "clone";
             std::string what;
             if (keyword == "clone")
                 what = "a copy of " + name;
@@ -181,23 +183,26 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                 what.insert(0, "Rail point ");
             e.summary = what;
         } else if (keyword == "object" || keyword == "copy") {
-            bool copy = keyword == "copy";
-            uint32_t source = copy && words.size() > 1 ? id_of(words[1]) : 0;
+            const bool copy = keyword == "copy";
+            const uint32_t source = copy && words.size() > 1 ? id_of(words[1]) : 0;
             e.id = words.empty() ? 0 : id_of(words[0]);
-            size_t at = copy ? 2 : 1;
-            float x = number(at), y = number(at + 1), z = number(at + 2);
+            const size_t at = copy ? 2 : 1;
+            const float x = number(at);
+            const float y = number(at + 1);
+            const float z = number(at + 2);
             // (the at row: the heading)
-            float ax = number(at + 9), az = number(at + 11);
+            const float ax = number(at + 9);
+            const float az = number(at + 11);
             auto heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * 180.0 /
                                               3.14159265358979);
-            std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? words[1] : "?")
-                                    : name_of(e.id, words.empty() ? "?" : words[0]);
+            const std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? words[1] : "?")
+                                          : name_of(e.id, words.empty() ? "?" : words[0]);
             char text[96];
             std::snprintf(text, sizeof(text), " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
             e.summary = name + text + scale_of();
         } else if (keyword == "set") {
             e.id = words.empty() ? 0 : id_of(words[0]);
-            std::string name = name_of(e.id, words.empty() ? "?" : words[0]);
+            const std::string name = name_of(e.id, words.empty() ? "?" : words[0]);
             bool pos = false, angles = false;
             int fields = 0;
             for (size_t i = 1; i < words.size(); ++i) {
@@ -212,7 +217,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             e.summary = name + ": " + (what.empty() ? std::string("edited") : what);
         } else if (keyword == "node" || keyword == "point" || keyword == "camera") {
             e.id = words.empty() ? 0 : id_of(words[0]);
-            std::string cls = keyword == "camera" ? "camera" : words.size() > 1 ? words[1] : "?";
+            const std::string cls = keyword == "camera" ? "camera" : words.size() > 1 ? words[1] : "?";
             e.summary = std::string(keyword == "point"    ? "Point "
                                     : keyword == "camera" ? "Camera "
                                                           : "Added ") +
@@ -238,13 +243,13 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         } else if (keyword == "links") {
             e.id = words.empty() ? 0 : id_of(words[0]);
             std::string to = words.size() > 1 ? words[1] : "-";
-            int count = to == "-" ? 0 : 1 + static_cast<int>(std::count(to.begin(), to.end(), ','));
+            const int count = to == "-" ? 0 : 1 + static_cast<int>(std::count(to.begin(), to.end(), ','));
             e.summary = name_of(e.id, words.empty() ? "?" : words[0]) + " relinked (" + std::to_string(count) +
                         (count == 1 ? " link)" : " links)");
         } else if (keyword == "terrain" || keyword == "facing" || keyword == "railspeed" || keyword == "grindflat" ||
                    keyword == "speed") {
             e.id = words.empty() ? 0 : id_of(words[0]);
-            std::string value = words.size() > 1 ? words[1] : "";
+            const std::string value = words.size() > 1 ? words[1] : "";
             const char* what = keyword == "terrain"     ? " terrain "
                                : keyword == "facing"    ? " facing "
                                : keyword == "railspeed" ? " speed-up "
@@ -257,12 +262,12 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         } else if (keyword == "faces") {
             e.id = words.empty() ? 0 : id_of(words[0]);
             std::string list = words.size() > 1 ? words[1] : "";
-            int count = list.empty() ? 0 : 1 + static_cast<int>(std::count(list.begin(), list.end(), ','));
+            const int count = list.empty() ? 0 : 1 + static_cast<int>(std::count(list.begin(), list.end(), ','));
             e.summary = name_of(e.id, words.empty() ? "?" : words[0]) + ": " + std::to_string(count) +
                         (count == 1 ? " face's flags" : " faces' flags");
         } else if (keyword == "cluster") {
             e.id = words.empty() ? 0 : id_of(words[0]);
-            std::string to = words.size() > 1 ? words[1] : "-";
+            const std::string to = words.size() > 1 ? words[1] : "-";
             e.summary = name_of(e.id, words.empty() ? "?" : words[0]) +
                         (to == "-" ? ": not a trick object" : ": trick object of cluster " + name_of(id_of(to), to));
         } else {

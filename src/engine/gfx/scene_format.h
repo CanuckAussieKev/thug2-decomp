@@ -325,7 +325,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
         }
         if (!scaled)
             continue;
-        int count = take<int>(in);
+        const int count = take<int>(in);
         if (count < 0 || !in.fits(static_cast<uint64_t>(count) * kScaledVertexSize))
             return false;
         if (count && static_cast<uint64_t>(count - 1) * body->stride + 12 > size)
@@ -438,13 +438,13 @@ bool walk_scene(Stream& in, SceneCounts* counts)
             if (!read_sector_mesh(in, &mesh) || !read_mesh_body(in, &body))
                 return false;
             ++counts->meshes;
-            for (uint16_t count : body.index_counts)
+            for (const uint16_t count : body.index_counts)
                 counts->indices += count;
             counts->vertex_bytes += body.vertices.size();
         }
         ++counts->sectors;
     }
-    int nodes = take<int>(in);
+    const int nodes = take<int>(in);
     if (!in.ok())
         return false;
     if (nodes > 0) {

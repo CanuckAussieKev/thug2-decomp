@@ -37,7 +37,7 @@ Kind get_classify(uint16_t flags, float normal_y, float threshold, int trigger)
     if (flags & 0x10)
         return Kind::kNone; // (passed through)
     bool skatable = false;
-    bool vert = (flags & 0x08) != 0;
+    const bool vert = (flags & 0x08) != 0;
     if (flags & 0x01)
         // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
         skatable = true;
@@ -135,8 +135,8 @@ float game_threshold()
 {
     if (g_threshold < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
-        float angle = script::fetch_float(0x3EEDE4D3u); // (the original also passes 1, unused)
-        float factor = ::commands::g_degree_to_radian_ratio;
+        const float angle = script::fetch_float(0x3EEDE4D3u); // (the original also passes 1, unused)
+        const float factor = ::commands::g_degree_to_radian_ratio;
         g_threshold = get_threshold(angle, factor);
     }
     return g_threshold;
@@ -144,13 +144,16 @@ float game_threshold()
 
 const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int trigger)
 {
-    V3 min = to_v3(tri->lower_limit_), max = to_v3(tri->upper_limit_), first = {}, last = {};
+    const V3 min = to_v3(tri->lower_limit_);
+    const V3 max = to_v3(tri->upper_limit_);
+    V3 first = {};
+    V3 last = {};
     if (tri->vertices_ && tri->num_vertices_) {
         first = to_v3(tri->read_stored_vertex(0));
         last = to_v3(tri->read_stored_vertex(tri->num_vertices_ - 1));
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
-    float threshold = game_threshold();
+    const float threshold = game_threshold();
     Cached& c = g_cache[checksum];
     if (c.tri == tri && c.faces == tri->tri_count_ && c.threshold == threshold && same(c.min, min) &&
         same(c.max, max) && same(c.first, first) && same(c.last, last))
@@ -164,17 +167,17 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         V3 p[3];
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
-            uint32_t index = tri->face_vertex(f, k);
+            const uint32_t index = tri->face_vertex(f, k);
             ok = index < tri->num_vertices_;
             if (ok)
                 p[k] = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
-        uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
-        V3 n = perpendicular(p[1] - p[0], p[2] - p[0]);
-        float length = std::sqrt(get_dot(n, n));
-        float ny = length > 0.0f ? n.y / length : 0.0f;
+        const uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+        const V3 n = perpendicular(p[1] - p[0], p[2] - p[0]);
+        const float length = std::sqrt(get_dot(n, n));
+        const float ny = length > 0.0f ? n.y / length : 0.0f;
         Kind kind = get_classify(flags, ny, threshold, (flags & 0x40) ? trigger : 0);
         if (kind == Kind::kNone)
             continue;
@@ -215,13 +218,13 @@ void add_overlay(const overlays::Painter& painter)
     scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
-            render::HitMesh* coll = sector->hit_body_;
+            const render::HitMesh* coll = sector->hit_body_;
             if (!render::is_static_collider(coll) || (coll->flag_bits_ & 4))
                 return; // (no collision, or switched off)
             const auto* tri = coll->geometry_;
             if (!tri || !tri->tri_count_ || view::hidden_sector(checksum))
                 return;
-            float distance = view::distance_to_box(w->camera, to_v3(tri->lower_limit_), to_v3(tri->upper_limit_));
+            const float distance = view::distance_to_box(w->camera, to_v3(tri->lower_limit_), to_v3(tri->upper_limit_));
             if (distance <= kRadius)
                 w->found.push_back({checksum, tri, distance});
         },
@@ -244,7 +247,7 @@ void add_overlay(const overlays::Painter& painter)
                 break;
             }
             V3 clipped[4];
-            int count =
+            const int count =
                 view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &c.points[f * 3], clipped);
             if (!count)
                 continue;
@@ -262,7 +265,7 @@ void add_overlay(const overlays::Painter& painter)
             }
             if (left || right || below || above)
                 continue;
-            Kind kind = static_cast<Kind>(c.kinds[f]);
+            const Kind kind = static_cast<Kind>(c.kinds[f]);
             poly.depth = depth / static_cast<float>(count);
             poly.argb = get_colour(kind);
             polygons.push_back(poly);
@@ -287,12 +290,12 @@ void add_overlay(const overlays::Painter& painter)
         box_corners(box.origin, box.axes, box.min, box.max, corner);
         const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
-        uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
+        const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
         for (const auto& e : edges)
             painter.get_seg(corner[e[0]], corner[e[1]], colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
-    modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module;
     auto* rails = skate ? skate->rail_manager_.get() : nullptr;
     if (rails && !rails->on_object_ && rails->nodes_) {
         int drawn = 0;
@@ -301,8 +304,8 @@ void add_overlay(const overlays::Painter& painter)
             if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
                 !(node.flag_bits_ & objects::kRailFlagActive))
                 continue;
-            V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z},
-               b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
+            const V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
+            const V3 b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
             if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius)
                 continue;
             if (painter.get_seg(a, b, kRail, 3.0f))
@@ -319,9 +322,9 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
     ImGui::SetNextWindowPos(ImVec2(view_x + view_width - 12.0f * scale, view_y + view_height - 12.0f * scale),
                             ImGuiCond_Always, ImVec2(1.0f, 1.0f));
     ImGui::SetNextWindowBgAlpha(0.8f);
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                             ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                   ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
     if (!ImGui::Begin("##skateLegend", nullptr, flags)) {
         ImGui::End();
         return;
@@ -329,8 +332,8 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
     ImGui::TextUnformatted("Skateability");
     float box = ImGui::GetTextLineHeight();
     auto row = [&](uint32_t argb, const char* name, int count) {
-        ImVec2 at = ImGui::GetCursorScreenPos();
-        uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
+        const ImVec2 at = ImGui::GetCursorScreenPos();
+        const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
         ImGui::GetWindowDrawList()->AddRectFilled(at, ImVec2(at.x + box, at.y + box), abgr | 0xFF000000u);
         ImGui::Dummy(ImVec2(box, box));
         ImGui::SameLine();

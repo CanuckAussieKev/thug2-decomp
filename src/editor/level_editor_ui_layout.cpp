@@ -36,18 +36,19 @@ Layout compute(float width, float height, float scale, bool outliner_open, bool 
     menu = std::min(menu, height * 0.12f);
     strip = std::min(strip, height * 0.13f);
     status = std::min(status, height * 0.25f);
-    float toolbar = menu + strip;
-    float middle_top = toolbar, middle_height = std::max(0.0f, height - toolbar - status);
+    const float toolbar = menu + strip;
+    const float middle_top = toolbar;
+    const float middle_height = std::max(0.0f, height - toolbar - status);
     layout.toolbar = {0.0f, 0.0f, width, toolbar};
     layout.menu = {0.0f, 0.0f, width, menu};
     layout.strip = {0.0f, menu, width, strip};
     layout.status = {0.0f, height - status, width, status};
     // The side panels: 280 / 320 at scale 1, narrowed to 180 each so the viewport keeps 40% of the width.
     float left = outliner_open ? 280.0f * scale : 0.0f, right = inspector_open ? 320.0f * scale : 0.0f;
-    float room = width * 0.6f;
+    const float room = width * 0.6f;
     if (left + right > room) {
-        float minimum = 180.0f * scale;
-        float shrink = (left + right - room) / std::max(1.0f, left + right);
+        const float minimum = 180.0f * scale;
+        const float shrink = (left + right - room) / std::max(1.0f, left + right);
         left = left > 0.0f ? std::max(minimum, left * (1.0f - shrink)) : 0.0f;
         right = right > 0.0f ? std::max(minimum, right * (1.0f - shrink)) : 0.0f;
         // (still too wide: the Inspector closes first, then the Outliner)

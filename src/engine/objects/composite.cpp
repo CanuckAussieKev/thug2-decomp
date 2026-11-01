@@ -107,12 +107,12 @@ double fast_a_cos_unrounded(float value)
     const double a3 = g_composite_acos_a3;
     const double pi = g_pi;
     if (value < 0.0f) {
-        double x = -static_cast<double>(value);
-        double root = std::sqrt(1.0 - x);
+        const double x = -static_cast<double>(value);
+        const double root = std::sqrt(1.0 - x);
         return pi - (((x * a3 + a2) * x - a1) * x + a0) * root;
     }
-    double x = value;
-    double root = std::sqrt(1.0 - x);
+    const double x = value;
+    const double root = std::sqrt(1.0 - x);
     return (((x * a3 + a2) * x - a1) * x + a0) * root;
 }
 // a x b in double precision, each component rounded once; w = 0.
@@ -126,9 +126,9 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
 double len_of(float x, float y, float z)
 {
-    double x2 = static_cast<double>(x) * x;
-    double y2 = static_cast<double>(y) * y;
-    double z2 = static_cast<double>(z) * z;
+    const double x2 = static_cast<double>(x) * x;
+    const double y2 = static_cast<double>(y) * y;
+    const double z2 = static_cast<double>(z) * z;
     return std::sqrt(x2 + y2 + z2);
 }
 
@@ -136,10 +136,10 @@ double len_of(float x, float y, float z)
 // are rounded to floats first.
 void add_scaled(maths::Vec4& pos, const maths::Vec4& row, float scale)
 {
-    double x = static_cast<double>(scale) * row.x;
-    double y = static_cast<double>(scale) * row.y;
-    float z = scale * row.z;
-    float w = scale * row.w;
+    const double x = static_cast<double>(scale) * row.x;
+    const double y = static_cast<double>(scale) * row.y;
+    const float z = scale * row.z;
+    const float w = scale * row.w;
     pos.x = static_cast<float>(x + pos.x);
     pos.y = static_cast<float>(y + pos.y);
     pos.z = z + pos.z;
@@ -332,8 +332,8 @@ void GameEntity::attach_module(ObjectModule* component)
 // 0x0045DA90
 void GameEntity::build_modules_from_list(Array* components, Struct* extra)
 {
-    uint32_t* elements = components->find_array_value();
-    int count = static_cast<int>(components->extent_);
+    const uint32_t* elements = components->find_array_value();
+    const int count = static_cast<int>(components->extent_);
     for (int i = 0; i < count; ++i)
         create_component_from_structure(reinterpret_cast<Struct*>(elements[i]), extra);
 }
@@ -398,7 +398,7 @@ ObjectModule* GameEntity::fetch_module(uint32_t type)
 bool GameEntity::invoke_method_by_name(uint32_t name, Struct* params, Script* script)
 {
     for (ObjectModule* component = attached_modules_; component; component = component->following_) {
-        int result = component->invoke_method_by_name(name, params, script);
+        const int result = component->invoke_method_by_name(name, params, script);
         if (result == 0)
             return false;
         if (result == 1)
@@ -519,9 +519,9 @@ bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script)
     auto* other = static_cast<GameEntity*>(find_object(name));
     float distance = 0.0f;
     if (other) {
-        double dx = static_cast<double>(at_point_.x) - other->at_point_.x;
-        double dy = static_cast<double>(at_point_.y) - other->at_point_.y;
-        double dz = static_cast<double>(at_point_.z) - other->at_point_.z;
+        const double dx = static_cast<double>(at_point_.x) - other->at_point_.x;
+        const double dy = static_cast<double>(at_point_.y) - other->at_point_.y;
+        const double dz = static_cast<double>(at_point_.z) - other->at_point_.z;
         distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx) * kInchesToFeet);
     }
     script->args_->push_float(kDistanceResult, distance);
@@ -595,21 +595,27 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     const maths::Vec4& up = basis_frame_.row[1];
     const maths::Vec4& at = basis_frame_.row[2];
     // The start: pos + up * height + at * distance + right * shift (x87: some sums kept at 53 bits, as below).
-    float offset_cell_x = shift * right.x, shift_y = shift * right.y, offset_cell_z = shift * right.z;
-    double shift_w = static_cast<double>(shift) * right.w;
-    float at_x = distance * at.x, at_y = distance * at.y;
-    double at_z = static_cast<double>(distance) * at.z, at_w = static_cast<double>(distance) * at.w;
-    float up_x = height * up.x, up_y = height * up.y;
-    double up_z = static_cast<double>(height) * up.z, up_w = static_cast<double>(height) * up.w;
+    const float offset_cell_x = shift * right.x;
+    const float shift_y = shift * right.y;
+    const float offset_cell_z = shift * right.z;
+    const double shift_w = static_cast<double>(shift) * right.w;
+    const float at_x = distance * at.x;
+    const float at_y = distance * at.y;
+    const double at_z = static_cast<double>(distance) * at.z;
+    const double at_w = static_cast<double>(distance) * at.w;
+    const float up_x = height * up.x;
+    const float up_y = height * up.y;
+    const double up_z = static_cast<double>(height) * up.z;
+    const double up_w = static_cast<double>(height) * up.w;
     auto w1 = static_cast<float>(up_w + at_point_.w);
-    double z1 = up_z + at_point_.z;
+    const double z1 = up_z + at_point_.z;
     float y1 = up_y + at_point_.y;
     float x1 = up_x + at_point_.x;
     w1 = static_cast<float>(w1 + at_w);
     auto z2 = static_cast<float>(z1 + at_z);
     y1 = y1 + at_y;
     x1 = x1 + at_x;
-    maths::Vec4 start = {x1 + offset_cell_x, y1 + shift_y, z2 + offset_cell_z, static_cast<float>(shift_w + w1)};
+    const maths::Vec4 start = {x1 + offset_cell_x, y1 + shift_y, z2 + offset_cell_z, static_cast<float>(shift_w + w1)};
     feeler.kickoff() = start;
     maths::Vec4& end = feeler.get_end();
     end = start;
@@ -645,9 +651,10 @@ bool GameEntity::obj_get_orientation(Struct* /*params*/, Script* script)
     float x = display_matrix_.row[2].x;
     float y = display_matrix_.row[2].y;
     float z = display_matrix_.row[2].z;
-    double length = std::sqrt(static_cast<double>(z) * z + static_cast<double>(y) * y + static_cast<double>(x) * x);
+    const double length =
+        std::sqrt(static_cast<double>(z) * z + static_cast<double>(y) * y + static_cast<double>(x) * x);
     if (length > 0.0) {
-        double scale = 1.0 / length;
+        const double scale = 1.0 / length;
         x = static_cast<float>(x * scale);
         y = static_cast<float>(y * scale);
         z = static_cast<float>(z * scale);
@@ -665,9 +672,9 @@ bool GameEntity::obj_get_dist_to_node(Struct* params, Script* script)
     params->read_hash_value(kUnnamed, &name, 0);
     maths::Vec4 node_pos;
     get_position_from_structure(fetch_vertex(name, 1), &node_pos);
-    double dx = static_cast<double>(at_point_.x) - node_pos.x;
-    double dy = static_cast<double>(at_point_.y) - node_pos.y;
-    double dz = static_cast<double>(at_point_.z) - node_pos.z;
+    const double dx = static_cast<double>(at_point_.x) - node_pos.x;
+    const double dy = static_cast<double>(at_point_.y) - node_pos.y;
+    const double dz = static_cast<double>(at_point_.z) - node_pos.z;
     script->args_->push_float(kDist, static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx)));
     return true;
 }
@@ -687,7 +694,7 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
         maths::Vec4 to_other = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
                                 other->at_point_.z - at_point_.z, 0.0f};
         to_other.make_unit();
-        double sum = static_cast<double>(to_other.z) * right.z + static_cast<double>(to_other.y) * right.y;
+        const double sum = static_cast<double>(to_other.z) * right.z + static_cast<double>(to_other.y) * right.y;
         dot = static_cast<float>(sum + static_cast<double>(to_other.x) * right.x);
         angle = static_cast<float>(fast_a_cos_unrounded(dot) * kDegreesPerRadian - kQuarterTurnDeg);
     }
@@ -770,10 +777,10 @@ GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
     GameEntity* nearest = object;
     float nearest_distance = kFarAway;
     for (; object; object = static_cast<GameEntity*>(search.next_item_of_type())) {
-        double dx = static_cast<double>(object->at_point_.x) - at_point_.x;
-        double dy = static_cast<double>(object->at_point_.y) - at_point_.y;
-        double dz = static_cast<double>(object->at_point_.z) - at_point_.z;
-        double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
+        const double dx = static_cast<double>(object->at_point_.x) - at_point_.x;
+        const double dy = static_cast<double>(object->at_point_.y) - at_point_.y;
+        const double dz = static_cast<double>(object->at_point_.z) - at_point_.z;
+        const double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
         if (object != this && distance < nearest_distance) {
             nearest_distance = static_cast<float>(distance);
             nearest = object;
@@ -786,14 +793,14 @@ GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
 // off its at axis, measured about its up axis. None: false.
 bool GameEntity::obj_nearest_outside_angle(Struct* params, Script* /*script*/)
 {
-    GameEntity* other = find_nearest_object_of_type(kNearestType);
+    const GameEntity* other = find_nearest_object_of_type(kNearestType);
     if (!other)
         return false;
     float angle = 0.0f; // (uninitialised in the original: a missing angle compares with stack garbage)
     params->fetch_float(kUnnamed, &angle, 1);
     angle *= kRadiansPerDegree;
-    maths::Vec4 offset = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
-                          other->at_point_.z - at_point_.z, other->at_point_.w - at_point_.w};
+    const maths::Vec4 offset = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
+                                other->at_point_.z - at_point_.z, other->at_point_.w - at_point_.w};
     return std::fabs(maths::get_angle_in_plane(basis_frame_, offset, 2, 1)) > angle;
 }
 

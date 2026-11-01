@@ -39,7 +39,7 @@ void GrowableMap::destroy_body() { memory::free_malloc(items_); }
 void GrowableMap::append_one(void* item)
 {
     if (capacity_ <= num_) {
-        int capacity = capacity_ + grow_;
+        const int capacity = capacity_ + grow_;
         auto** items = static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * 4));
         for (int i = 0; i < capacity_; ++i)
             items[i] = items_[i];
@@ -55,7 +55,7 @@ void GrowableMap::append_one(void* item)
 // 0x00562920
 void TableReleaser::empty_table_items()
 {
-    int count = lookup_table_->num_;
+    const int count = lookup_table_->num_;
     for (int i = 0; i < count; ++i)
         memory::dealloc(lookup_table_->items_[i]);
     lookup_table_->num_ = 0;
@@ -149,7 +149,7 @@ bool key_combo_name(uint32_t key_combo, int taps, uint32_t* name)
     *name = PointTally::trick_from_key_combo(key_combo, taps);
     if (*name)
         return true;
-    int index = PointTally::created_trick_from_key_combo(key_combo);
+    const int index = PointTally::created_trick_from_key_combo(key_combo);
     if (index == -1)
         return false;
     *name = created_trick_name(index);
@@ -250,7 +250,7 @@ int PointTally::get_score_of_range(int first, int last)
     int total = 0;
     int spin = 2;
     for (int i = first; i < last; ++i) {
-        TrickLog* trick = get_trick(i);
+        const TrickLog* trick = get_trick(i);
         if (trick->flag_bits_ & kTrickNoSpin)
             spin = 2;
         else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin))
@@ -274,7 +274,7 @@ uint32_t PointTally::get_trick_name(int index) { return get_trick(index)->label_
 void PointTally::dispatch_trick_sequence(bool clear)
 {
     objects::Rider* skater = rider_for_slot(rider_no_);
-    int number = skater ? skater->get_skater_number() : 0;
+    const int number = skater ? skater->get_skater_number() : 0;
     auto* text = static_cast<frontend::ParagraphWidget*>(find_element(kTheTrickText + static_cast<uint32_t>(number)));
     if (!text)
         return;
@@ -314,7 +314,7 @@ void PointTally::setup_balance_meter()
 void PointTally::dispatch_score_pot(int points, float multiplier)
 {
     objects::Rider* skater = rider_for_slot(rider_no_);
-    int number = skater ? skater->get_skater_number() : 0;
+    const int number = skater ? skater->get_skater_number() : 0;
     auto* text = static_cast<frontend::LabelWidget*>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
     char shown[0x80];
     if (!points) {
@@ -323,7 +323,7 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
     } else if (multiplier == 0.0f) {
         std::snprintf(shown, sizeof(shown), "%s", text::format_with_separators(points)); // "%s"
     } else {
-        int whole = ftol(multiplier);
+        const int whole = ftol(multiplier);
         if (static_cast<double>(whole) == multiplier)
             std::snprintf(shown, sizeof(shown), "%s X %d", text::format_with_separators(points), whole); // "%s X %d"
         else
@@ -342,9 +342,9 @@ void PointTally::test_record_score(int before, int after)
         return;
     auto* goals = skate->score_goals_;
     for (int i = 0; i < 64; ++i) {
-        int score = goals[i].score;
-        int goal = goals[i].goal;
-        uint32_t script = goals[i].script;
+        const int score = goals[i].score;
+        const int goal = goals[i].goal;
+        const uint32_t script = goals[i].script;
         if (!score || before >= score || after < score || skate_calls::get_career()->get_goal(goal, -1))
             continue;
         skate_calls::get_career()->set_goal(goal, -1);
@@ -361,7 +361,7 @@ void PointTally::set_grand_total(int total)
         return;
     char shown[0x40];
     if (get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing) {
-        uint32_t seconds = static_cast<uint32_t>(sum_) / 1000;
+        const uint32_t seconds = static_cast<uint32_t>(sum_) / 1000;
         std::snprintf(shown, sizeof(shown), "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
     } else {
         std::snprintf(shown, sizeof(shown), "%d", sum_); // "%d"
@@ -387,7 +387,7 @@ uint32_t PointTally::trick_from_key_combo(uint32_t key_combo, int taps)
     if (!mapping->read_hash_value(key_combo, &trick, 0)) {
         script::Array* specials = nullptr;
         profile->get_specials()->fetch_list(0u, &specials, 1);
-        int count = static_cast<int>(specials->extent_);
+        const int count = static_cast<int>(specials->extent_);
         for (int i = 0; i < count; ++i) {
             auto* special = reinterpret_cast<script::Struct*>(specials->fetch_part(static_cast<uint32_t>(i)));
             uint32_t slot = 0;
@@ -413,7 +413,7 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
         return index;
     script::Array* specials = nullptr;
     profile->get_specials()->fetch_list(0u, &specials, 1);
-    int count = static_cast<int>(specials->extent_);
+    const int count = static_cast<int>(specials->extent_);
     for (int i = 0; i < count; ++i) {
         auto* special = reinterpret_cast<script::Struct*>(specials->fetch_part(static_cast<uint32_t>(i)));
         int is_cat = 0;
@@ -436,7 +436,7 @@ bool PointTally::is_trick_at(int index, uint32_t name, int spin, bool perfect)
 {
     if (index >= tricks_)
         return false;
-    TrickLog* trick = get_trick(index);
+    const TrickLog* trick = get_trick(index);
     if (trick->label_ != name)
         return false;
     if (!spin)
@@ -445,7 +445,7 @@ bool PointTally::is_trick_at(int index, uint32_t name, int spin, bool perfect)
         return false;
     if (!perfect)
         return true;
-    int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
+    const int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
     int off = degrees - spin * 180;
     if (off < 0)
         off = -off;
@@ -458,7 +458,7 @@ int PointTally::count_trick(uint32_t name, int spin, bool perfect)
     int count = 0;
     int shared = 1;
     for (int i = 0; i < tricks_; ++i) {
-        TrickLog* trick = get_trick(i);
+        const TrickLog* trick = get_trick(i);
         if (trick->flag_bits_ & kTrickNoSpin)
             shared = 1;
         else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin))
@@ -469,7 +469,7 @@ int PointTally::count_trick(uint32_t name, int spin, bool perfect)
             if (spin != shared)
                 continue;
             if (perfect) {
-                int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
+                const int degrees = trick->rotation_deg_ < 0 ? -trick->rotation_deg_ : trick->rotation_deg_;
                 int off = degrees - spin * 180;
                 if (off < 0)
                     off = -off;
@@ -501,7 +501,7 @@ bool PointTally::last_trick_is(uint32_t name, int spin, bool perfect, int taps)
             return false;
         --index;
     } while (!get_trick(index)->text_[0]);
-    uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
+    const uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
     return is_trick_at(index, trick, spin, perfect);
 }
 
@@ -545,7 +545,7 @@ int count_repeats(PointTally* score, uint32_t name, int spin)
     int count = 0;
     bool latest = false;
     for (int i = 0; i < score->tricks_; ++i) {
-        TrickLog* trick = score->get_trick(i);
+        const TrickLog* trick = score->get_trick(i);
         if (trick->label_ == name) {
             if (!spin || spin == trick->twist_rate_) {
                 ++count;
@@ -565,7 +565,7 @@ int count_repeats(PointTally* score, uint32_t name, int spin)
 // 0x005625A0
 int PointTally::count_trick_repeats(uint32_t name, int spin, int taps)
 {
-    uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
+    const uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
     return count_repeats(this, trick, spin);
 }
 
@@ -615,12 +615,12 @@ void PointTally::refresh_bot_check(int line)
         ++robot_combo_first_lines_;
     if (combo_count < 0xFF)
         ++combo_count;
-    int kick_in = script::fetch_int_value(kRobotKickInCount);
+    const int kick_in = script::fetch_int_value(kRobotKickInCount);
     if (combo_count <= kick_in) {
         robot_factor_ = 1.0f;
         return;
     }
-    double factor = static_cast<double>(21 - count) * static_cast<double>(0.05f) / (combo_count - kick_in + 1);
+    const double factor = static_cast<double>(21 - count) * static_cast<double>(0.05f) / (combo_count - kick_in + 1);
     robot_factor_ = factor < static_cast<double>(0.1f) ? 0.1f : static_cast<float>(factor);
 }
 

@@ -70,9 +70,9 @@ void steering_angles(const DrivableModule* vehicle, float steering, float* inner
         *outer = 0.0;
         return;
     }
-    double radius = vehicle->wheelbase_ / std::tan(static_cast<double>(vehicle->max_steering_angle_) * steering);
-    double half_track = static_cast<double>(vehicle->track_) * kHalf;
-    double wheelbase = vehicle->wheelbase_;
+    const double radius = vehicle->wheelbase_ / std::tan(static_cast<double>(vehicle->max_steering_angle_) * steering);
+    const double half_track = static_cast<double>(vehicle->track_) * kHalf;
+    const double wheelbase = vehicle->wheelbase_;
     if (radius > 0.0) {
         *inner = static_cast<float>(-std::atan2(wheelbase, radius - half_track));
         *outer = -std::atan2(wheelbase, half_track + radius);
@@ -95,8 +95,8 @@ void DrivableModule::update_wheel_friction()
         maths::Vec4 vel = wheel.vel;
         vel.flatten_onto_plane(wheel.normal);
         // The tyre's sideways direction: the body's right turned by the steering, along the ground, unit.
-        double c = std::cos(static_cast<double>(wheel.steering));
-        float s = std::sin(wheel.steering);
+        const double c = std::cos(static_cast<double>(wheel.steering));
+        const float s = std::sin(wheel.steering);
         const maths::Vec4* rows = basis_frame_.row;
         maths::Vec4 sideways;
         sideways.x = static_cast<float>((c * rows[2].x + static_cast<double>(s) * rows[0].x) + rows[1].x * 0.0);
@@ -104,11 +104,11 @@ void DrivableModule::update_wheel_friction()
         sideways.z = static_cast<float>((static_cast<double>(s) * rows[0].z + c * rows[2].z) + rows[1].z * 0.0);
         sideways.w = 1.0f;
         sideways.flatten_onto_plane(wheel.normal);
-        double length =
+        const double length =
             std::sqrt((static_cast<double>(sideways.z) * sideways.z + static_cast<double>(sideways.y) * sideways.y) +
                       static_cast<double>(sideways.x) * sideways.x);
         if (length > 0.0) {
-            double scale = 1.0 / length;
+            const double scale = 1.0 / length;
             sideways.x = static_cast<float>(sideways.x * scale);
             sideways.y = static_cast<float>(sideways.y * scale);
             sideways.z = static_cast<float>(sideways.z * scale);
@@ -116,7 +116,7 @@ void DrivableModule::update_wheel_friction()
         wheel.sideways = sideways;
         wheel.contact_vel_ = vel;
         // The slip: the ground velocity less the tyre's rolling along its sideways direction.
-        double rolling = static_cast<double>(wheel.radius) * wheel.spin;
+        const double rolling = static_cast<double>(wheel.radius) * wheel.spin;
         auto roll_y = static_cast<float>(sideways.y * rolling);
         auto roll_z = static_cast<float>(sideways.z * rolling);
         auto roll_w = static_cast<float>(sideways.w * rolling);
@@ -167,7 +167,7 @@ void DrivableModule::refresh_hit_cache()
 // 0x00435F00
 void DrivableModule::update_steering()
 {
-    double previous = display_steering_;
+    const double previous = display_steering_;
     auto display = static_cast<float>(
         (static_cast<double>(steering_) - previous) * (static_cast<double>(step_length_) * kSteeringRate) + previous);
     display_steering_ = display;
@@ -194,10 +194,12 @@ void DrivableModule::apply_damping()
     if (kick_time_ > 0.0f)
         return;
     // The spin damped by a part growing with its square; all of it when that's more than there is.
-    double x = rotmom_.x, y = rotmom_.y, z = rotmom_.z;
-    double damping = ((x * x + y * y) + z * z) * spin_damping_ * step_length_;
+    const double x = rotmom_.x;
+    const double y = rotmom_.y;
+    const double z = rotmom_.z;
+    const double damping = ((x * x + y * y) + z * z) * spin_damping_ * step_length_;
     auto damping_rounded = static_cast<float>(damping);
-    double length = std::sqrt((x * x + y * y) + z * z);
+    const double length = std::sqrt((x * x + y * y) + z * z);
     if (damping > length) {
         rotmom_ = {0.0f, 0.0f, 0.0f, 1.0f};
     } else {
@@ -235,9 +237,9 @@ void DrivableModule::apply_gravity()
         gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kGravity;
     force_.y = static_cast<float>(force_.y - gravity);
     if (debug_mode_) {
-        maths::Vec4 down{at_point_.x,
-                         static_cast<float>(-static_cast<double>(kGravity) / inv_mass_ * 0.05f + at_point_.y),
-                         at_point_.z, static_cast<float>(static_cast<double>(at_point_.w) + 0.05f)};
+        const maths::Vec4 down{at_point_.x,
+                               static_cast<float>(-static_cast<double>(kGravity) / inv_mass_ * 0.05f + at_point_.y),
+                               at_point_.z, static_cast<float>(static_cast<double>(at_point_.w) + 0.05f)};
         gfx::push_diag_line(&at_point_, &down, 0xFF003232, 0xFF003232, 1);
     }
 }
@@ -256,16 +258,17 @@ void DrivableModule::apply_suspension()
         // The spring (by how far the suspension is compressed along the ground's normal) and the damper.
         const maths::Vec4& n = wheel.normal;
         const maths::Vec4& up = basis_frame_.row[1];
-        double up_along_normal =
+        const double up_along_normal =
             (static_cast<double>(up.z) * n.z + static_cast<double>(up.y) * n.y) + static_cast<double>(up.x) * n.x;
-        double spring = -(up_along_normal * (static_cast<double>(wheel.rest_y_) - wheel.y) * wheel.spring_rate_);
-        double closing = (static_cast<double>(wheel.vel.z) * n.z + static_cast<double>(wheel.vel.y) * n.y) +
-                         static_cast<double>(wheel.vel.x) * n.x;
-        double force = spring - closing * wheel.damping_rate_;
+        const double spring = -(up_along_normal * (static_cast<double>(wheel.rest_y_) - wheel.y) * wheel.spring_rate_);
+        const double closing = (static_cast<double>(wheel.vel.z) * n.z + static_cast<double>(wheel.vel.y) * n.y) +
+                               static_cast<double>(wheel.vel.x) * n.x;
+        const double force = spring - closing * wheel.damping_rate_;
         auto force_rounded = static_cast<float>(force);
-        maths::Vec4 push{static_cast<float>(force * n.x), static_cast<float>(static_cast<double>(force_rounded) * n.y),
-                         static_cast<float>(static_cast<double>(force_rounded) * n.z),
-                         static_cast<float>(static_cast<double>(force_rounded) * n.w)};
+        const maths::Vec4 push{static_cast<float>(force * n.x),
+                               static_cast<float>(static_cast<double>(force_rounded) * n.y),
+                               static_cast<float>(static_cast<double>(force_rounded) * n.z),
+                               static_cast<float>(static_cast<double>(force_rounded) * n.w)};
         add_force_at_point(&push, &wheel.pos, 0xFF006464);
         wheel.load_history_[load_index_] = force_rounded;
         // The load: the average of the last ten.
@@ -287,7 +290,7 @@ void DrivableModule::apply_tyre_forces()
             continue;
         // The slip velocity: the ground velocity less the tyre's rolling (as update_wheel_friction).
         const maths::Vec4 side = wheel.sideways;
-        double rolling = static_cast<double>(wheel.spin) * wheel.radius;
+        const double rolling = static_cast<double>(wheel.spin) * wheel.radius;
         auto roll_y = static_cast<float>(side.y * rolling);
         auto roll_z = static_cast<float>(side.z * rolling);
         auto roll_w = static_cast<float>(side.w * rolling);
@@ -296,8 +299,8 @@ void DrivableModule::apply_tyre_forces()
         slip.y = static_cast<float>(static_cast<double>(wheel.contact_vel_.y) - roll_y);
         slip.z = static_cast<float>(static_cast<double>(wheel.contact_vel_.z) - roll_z);
         slip.w = static_cast<float>(static_cast<double>(wheel.contact_vel_.w) - roll_w);
-        double speed = std::sqrt((static_cast<double>(slip.z) * slip.z + static_cast<double>(slip.y) * slip.y) +
-                                 static_cast<double>(slip.x) * slip.x);
+        const double speed = std::sqrt((static_cast<double>(slip.z) * slip.z + static_cast<double>(slip.y) * slip.y) +
+                                       static_cast<double>(slip.x) * slip.x);
         auto speed_rounded = static_cast<float>(speed);
         wheel.slip = speed_rounded;
         if (speed < 1e-6)
@@ -306,34 +309,34 @@ void DrivableModule::apply_tyre_forces()
         double dir_x = slip.x;
         float dir_y = slip.y, dir_z = slip.z;
         if (speed_rounded > 0.0f) {
-            double inverse = 1.0 / speed_rounded;
+            const double inverse = 1.0 / speed_rounded;
             auto inverse_rounded = static_cast<float>(inverse);
             dir_x = inverse * slip.x;
             dir_y = static_cast<float>(static_cast<double>(slip.y) * inverse_rounded);
             dir_z = static_cast<float>(static_cast<double>(slip.z) * inverse_rounded);
         }
         auto scale = static_cast<float>(-(static_cast<double>(wheel.friction) * wheel.load));
-        double friction_x = dir_x * scale;
-        maths::Vec4 friction{0.0f, static_cast<float>(static_cast<double>(dir_y) * scale),
-                             static_cast<float>(static_cast<double>(dir_z) * scale),
-                             static_cast<float>(static_cast<double>(slip.w) * scale)};
+        const double friction_x = dir_x * scale;
+        const maths::Vec4 friction{0.0f, static_cast<float>(static_cast<double>(dir_y) * scale),
+                                   static_cast<float>(static_cast<double>(dir_z) * scale),
+                                   static_cast<float>(static_cast<double>(slip.w) * scale)};
         // The torque that would stop the slip along the tyre this step, and the friction's own torque on it: the
         // smaller one acts on the wheel; when it's the stopping one, the rest of it pushes the body.
         auto stop = static_cast<float>(((static_cast<double>(slip.z) * side.z + static_cast<double>(slip.y) * side.y) +
                                         static_cast<double>(slip.x) * side.x) /
                                        wheel.radius / (static_cast<double>(step_length_) * wheel.inv_moment_));
-        double along =
+        const double along =
             (static_cast<double>(friction.z) * side.z + static_cast<double>(friction.y) * side.y) + friction_x * side.x;
-        double friction_torque = -(along * wheel.radius);
+        const double friction_torque = -(along * wheel.radius);
         float wheel_torque = 0.0f;
         maths::Vec4 push;
         if (std::fabs(static_cast<double>(stop)) > std::fabs(friction_torque)) {
             push = {static_cast<float>(friction_x), friction.y, friction.z, friction.w};
             wheel_torque = static_cast<float>(friction_torque);
         } else {
-            double rest = -1.0 / wheel.radius * stop - along;
-            maths::Vec4 extra{static_cast<float>(side.x * rest), static_cast<float>(side.y * rest),
-                              static_cast<float>(side.z * rest), static_cast<float>(side.w * rest)};
+            const double rest = -1.0 / wheel.radius * stop - along;
+            const maths::Vec4 extra{static_cast<float>(side.x * rest), static_cast<float>(side.y * rest),
+                                    static_cast<float>(side.z * rest), static_cast<float>(side.w * rest)};
             push = {static_cast<float>(friction_x + extra.x),
                     static_cast<float>(static_cast<double>(extra.y) + friction.y),
                     static_cast<float>(static_cast<double>(extra.z) + friction.z),
@@ -354,10 +357,10 @@ void DrivableModule::apply_engine_braking()
         Wheel& wheel = wheels_[i];
         if (!wheel.drive || wheel.state == kWheelInAir)
             continue;
-        int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
-        double ratio = transmission_ratios_[gear];
+        const int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
+        const double ratio = transmission_ratios_[gear];
         double braking = ratio * engine_braking_ * ratio / as_unsigned(drive_wheel_count_);
-        float stop = brake_turn_force(static_cast<double>(wheel.inv_moment_) * step_length_, wheel.spin);
+        const float stop = brake_turn_force(static_cast<double>(wheel.inv_moment_) * step_length_, wheel.spin);
         if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
@@ -370,8 +373,8 @@ void DrivableModule::apply_engine_braking()
 void DrivableModule::apply_drive_torque()
 {
     // Less drive on a slope (up.y squared / 0.9, at most 1).
-    double upright = static_cast<double>(basis_frame_.row[1].y) * basis_frame_.row[1].y * kUprightBoost;
-    float grip = upright > 1.0 ? 1.0f : static_cast<float>(upright);
+    const double upright = static_cast<double>(basis_frame_.row[1].y) * basis_frame_.row[1].y * kUprightBoost;
+    const float grip = upright > 1.0 ? 1.0f : static_cast<float>(upright);
     if (!(throttle_ || reverse_) || brake_)
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -383,7 +386,7 @@ void DrivableModule::apply_drive_torque()
             spin = wheel.spin > 0.0f ? wheel.spin : 0.0f;
         else
             spin = wheel.spin < 0.0f ? -wheel.spin : 0.0f;
-        int gear = get_gear(spin);
+        const int gear = get_gear(spin);
         double torque = static_cast<double>(transmission_ratios_[gear]) * final_drive_ratio_ * engine_torque_ /
                         as_unsigned(drive_wheel_count_) * grip;
         if (reverse_)
@@ -402,7 +405,7 @@ void DrivableModule::apply_brakes()
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = wheels_[i];
         double braking = wheel.brake_torque_;
-        float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
+        const float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
         if (braking > stop) {
             wheel.brake_excess_ = static_cast<float>(braking - stop);
             braking = stop;
@@ -421,7 +424,7 @@ void DrivableModule::apply_handbrake(float scale)
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = wheels_[i];
         double braking = static_cast<double>(scale) * wheel.handbrake_torque_;
-        float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
+        const float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
         if (braking > stop) {
             wheel.brake_excess_ = static_cast<float>(braking - stop);
             braking = stop;
@@ -444,7 +447,7 @@ void DrivableModule::apply_brake_excess()
         if (wheel.brake_excess_ == 0.0f)
             continue;
         double braking = wheel.brake_excess_;
-        float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
+        const float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
         if (braking > stop)
             braking = stop;
         if (!(wheel.spin < 0.0f))
@@ -543,13 +546,13 @@ void DrivableModule::update_dependents()
         Collider& c = colliders_[i];
         // The corner turned and moved; the edges turned (each with its own order of sums, as the original).
         const maths::Vec4& o = c.corner;
-        double x =
+        const double x =
             (static_cast<double>(r[2].x) * o.z + static_cast<double>(r[1].x) * o.y) + static_cast<double>(o.x) * r[0].x;
         auto y = static_cast<float>((static_cast<double>(r[0].y) * o.x + static_cast<double>(r[2].y) * o.z) +
                                     static_cast<double>(r[1].y) * o.y);
         auto z = static_cast<float>((static_cast<double>(r[0].z) * o.x + static_cast<double>(r[2].z) * o.z) +
                                     static_cast<double>(r[1].z) * o.y);
-        float w = o.w;
+        const float w = o.w;
         c.world_corner_.z = static_cast<float>(static_cast<double>(z) + at_point_.z);
         c.world_corner_.w = static_cast<float>(static_cast<double>(w) + at_point_.w);
         c.world_corner_.x = static_cast<float>(x + at_point_.x);
@@ -566,7 +569,7 @@ void DrivableModule::update_dependents()
             static_cast<float>((static_cast<double>(r[2].y) * a.z + static_cast<double>(r[0].y) * a.x) +
                                static_cast<double>(r[1].y) * a.y);
         const maths::Vec4& b = c.edges[1];
-        float bw = b.w;
+        const float bw = b.w;
         c.world_edges_[1].z =
             static_cast<float>((static_cast<double>(r[2].z) * b.z + static_cast<double>(r[1].z) * b.y) +
                                static_cast<double>(b.x) * r[0].z);
@@ -578,7 +581,7 @@ void DrivableModule::update_dependents()
             static_cast<float>((static_cast<double>(r[1].y) * b.y + static_cast<double>(r[2].y) * b.z) +
                                static_cast<double>(r[0].y) * b.x);
         for (int k = 0; k < 2; ++k) {
-            double inverse = 1.0 / c.lengths[k];
+            const double inverse = 1.0 / c.lengths[k];
             const maths::Vec4& edge = c.world_edges_[k];
             c.directions[k] = {static_cast<float>(inverse * edge.x), static_cast<float>(inverse * edge.y),
                                static_cast<float>(inverse * edge.z), static_cast<float>(inverse * edge.w)};
@@ -646,9 +649,9 @@ void DrivableModule::update_wheel_contacts()
         maths::Vec4& p = wheel.pos;
         p = wheel.offset;
         p.y = static_cast<float>((static_cast<double>(wheel.y) - wheel.radius) + p.y);
-        double x =
+        const double x =
             (static_cast<double>(p.x) * r[0].x + static_cast<double>(r[2].x) * p.z) + static_cast<double>(r[1].x) * p.y;
-        double y =
+        const double y =
             (static_cast<double>(p.x) * r[0].y + static_cast<double>(p.y) * r[1].y) + static_cast<double>(r[2].y) * p.z;
         auto z = static_cast<float>((static_cast<double>(r[2].z) * p.z + static_cast<double>(r[1].z) * p.y) +
                                     static_cast<double>(r[0].z) * p.x);
@@ -663,7 +666,7 @@ void DrivableModule::update_wheel_contacts()
 // 0x00437550
 void DrivableModule::check_sleep()
 {
-    int still = still_frames_;
+    const int still = still_frames_;
     still_frames_ = 0;
     if (throttle_)
         return;
@@ -673,10 +676,14 @@ void DrivableModule::check_sleep()
         return;
     if (wheels_in_contact_ != 0 && wheels_in_contact_ != wheel_count_)
         return;
-    double vx = vel_.x, vy = vel_.y, vz = vel_.z;
+    const double vx = vel_.x;
+    const double vy = vel_.y;
+    const double vz = vel_.z;
     if ((vx * vx + vy * vy) + vz * vz > kSleepSpeed)
         return;
-    double sx = rotvel_.x, sy = rotvel_.y, sz = rotvel_.z;
+    const double sx = rotvel_.x;
+    const double sy = rotvel_.y;
+    const double sz = rotvel_.z;
     if ((sx * sx + sy * sy) + sz * sz > kSleepSpin)
         return;
     if (is_kicked())
@@ -698,11 +705,12 @@ void DrivableModule::read_controls()
 {
     const PadSnapshot& input = input_ptr_->pad_primary_;
     // The stick squared (its sign kept); else the d-pad's left / right.
-    float stick = input.scaled_stick_[2];
-    double steering = std::fabs(static_cast<double>(stick)) * stick;
+    const float stick = input.scaled_stick_[2];
+    const double steering = std::fabs(static_cast<double>(stick)) * stick;
     steering_ = static_cast<float>(steering);
     if (steering == 0.0) {
-        bool left = input.left_side_.held_down_ != 0, right = input.right_side_.held_down_ != 0;
+        const bool left = input.left_side_.held_down_ != 0;
+        const bool right = input.right_side_.held_down_ != 0;
         if (left && !right)
             steering_ = -1.0f;
         else if (!left && right)
@@ -734,8 +742,8 @@ void DrivableModule::read_controls()
         brake_ = brake;
         reverse_ = !brake;
         if (other) {
-            double forward = (static_cast<double>(vel_.z) * at.z + static_cast<double>(vel_.y) * at.y) +
-                             static_cast<double>(vel_.x) * at.x;
+            const double forward = (static_cast<double>(vel_.z) * at.z + static_cast<double>(vel_.y) * at.y) +
+                                   static_cast<double>(vel_.x) * at.x;
             if (forward < 0.0) {
                 brake_ = true;
                 reverse_ = false;
@@ -760,7 +768,7 @@ void DrivableModule::read_controls()
 // 0x004378B0
 void DrivableModule::update_skater()
 {
-    GameEntity* object = entity_;
+    const GameEntity* object = entity_;
     GameEntity* skater = rider_ref_;
     maths::Vec4 place;
     object->basis_frame_.rotate_vector(place, skater_pos_);
@@ -777,9 +785,9 @@ void DrivableModule::update_skater()
         return;
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
     objects::RiderPoseState* flags = core->state_;
-    float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;
+    const float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;
     auto* blender = reinterpret_cast<AnimBlenderComponent*>(anim_blender_ptr_);
-    double duration = blender->fetch_value(rider_anim_name_);
+    const double duration = blender->fetch_value(rider_anim_name_);
     auto frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     auto frame_bits = std::bit_cast<uint32_t>(frame);
     auto blend = std::bit_cast<uint32_t>(1000.0f);

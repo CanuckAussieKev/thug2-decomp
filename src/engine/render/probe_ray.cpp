@@ -91,7 +91,7 @@ void ProbeRay::callback_relay(CollisionHit* hit)
 // 0x004172F0
 int ProbeRay::get_hit_shape(bool movables, bool farthest)
 {
-    maths::Seg line = line_;
+    const maths::Seg line = line_;
     hit_.callback_data_ = reinterpret_cast<uint32_t>(this);
     hit_.hit = false;
     hit_.face_flag40_ = 0;
@@ -101,8 +101,8 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     HitMeshCache* cache = hit_cache_ ? hit_cache_ : s_current_cache;
     entity_.get_release();
     entity_key_ = 0;
-    bool hit_static = farthest ? collide_with_statics_farthest(&line, &hit_, callback, cache)
-                               : collide_with_statics(&line, &hit_, callback, cache);
+    const bool hit_static = farthest ? collide_with_statics_farthest(&line, &hit_, callback, cache)
+                                     : collide_with_statics(&line, &hit_, callback, cache);
     if (movables) {
         entity_.assign_value(farthest ? collide_with_movables_farthest(&line, &hit_, callback, cache)
                                       : collide_with_movables(&line, &hit_, callback, cache));
@@ -112,7 +112,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     reach_ = hit_.distance;
     contact_pos_ = hit_.point;
     surface_dir_ = hit_.normal;
-    int result = hit_static || entity_ ? 1 : 0;
+    const int result = hit_static || entity_ ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h).
     collision_overlay::note_feeler_query(this, result,
                                          static_cast<uint32_t>(reinterpret_cast<uintptr_t>(THUG2_RETURN_ADDRESS())));
@@ -159,21 +159,22 @@ double ProbeRay::get_hit_vertex_value() const
 {
     if (!hit_.hit)
         return kNoHitValue;
-    HitMesh* object = hit_.object;
+    const HitMesh* object = hit_.object;
     const TriMeshSource* geometry = object->geometry_;
     const maths::Vec4& at = hit_.point;
     maths::Vec4 corner[3];
     float value[3];
     for (int k = 0; k < 3; ++k) {
-        uint32_t vertex = geometry->face_vertex(static_cast<int>(hit_.face), k);
-        maths::Vec4 position = object->read_vertex_point(static_cast<int>(vertex));
+        const uint32_t vertex = geometry->face_vertex(static_cast<int>(hit_.face), k);
+        const maths::Vec4 position = object->read_vertex_point(static_cast<int>(vertex));
         corner[k] = {get_difference(position.x, at.x), get_difference(position.y, at.y),
                      get_difference(position.z, at.z), 1.0f};
         value[k] = static_cast<float>(geometry->vertex_bytes_[vertex]) * kByteScale;
     }
     // The line from the first corner through the hit point, where it meets the opposite edge's line.
     const maths::Vec4 hit_point{0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Seg from_corner(corner[0], hit_point), opposite(corner[1], corner[2]);
+    const maths::Seg from_corner(corner[0], hit_point);
+    const maths::Seg opposite(corner[1], corner[2]);
     maths::Vec4 on_line{0.0f, 0.0f, 0.0f, 0.0f},
         on_edge{}; // (the original's are left unset when the lines are parallel)
     float s = 0.0f, t = 0.0f;
@@ -200,7 +201,7 @@ double ProbeRay::get_hit_vertex_value() const
 // 0x00417150 (the colour: alpha 0xFF over the low byte of b, then g and r ORed in whole, as the original)
 void ProbeRay::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
 {
-    uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
+    const uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
     gfx::push_diag_line(&line_.start, &line_.end, colour, colour, frames);
 }
 

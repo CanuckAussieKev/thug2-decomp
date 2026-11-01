@@ -89,17 +89,17 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     m.row[0] = *direction;
     // Row 2 across the direction and up, row 1 across row 2 and the direction.
     const maths::Vec4& r0 = m.row[0];
-    double s0 = static_cast<double>(r0.z) * up->y - static_cast<double>(r0.y) * up->z;
-    double s1 = static_cast<double>(up->z) * r0.x - static_cast<double>(r0.z) * up->x;
-    double s2 = static_cast<double>(r0.y) * up->x - static_cast<double>(up->y) * r0.x;
+    const double s0 = static_cast<double>(r0.z) * up->y - static_cast<double>(r0.y) * up->z;
+    const double s1 = static_cast<double>(up->z) * r0.x - static_cast<double>(r0.z) * up->x;
+    const double s2 = static_cast<double>(r0.y) * up->x - static_cast<double>(up->y) * r0.x;
     m.row[2].w = 0.0f;
     m.row[2].z = static_cast<float>(s2);
     m.row[2].x = static_cast<float>(s0);
     m.row[2].y = static_cast<float>(s1);
     const maths::Vec4& r2 = m.row[2];
-    double t0 = static_cast<double>(r2.y) * r0.z - static_cast<double>(r2.z) * r0.y;
-    double t1 = static_cast<double>(r0.x) * r2.z - static_cast<double>(r2.x) * r0.z;
-    double t2 = static_cast<double>(r2.x) * r0.y - static_cast<double>(r0.x) * r2.y;
+    const double t0 = static_cast<double>(r2.y) * r0.z - static_cast<double>(r2.z) * r0.y;
+    const double t1 = static_cast<double>(r0.x) * r2.z - static_cast<double>(r2.x) * r0.z;
+    const double t2 = static_cast<double>(r2.x) * r0.y - static_cast<double>(r0.x) * r2.y;
     m.row[1].w = 0.0f;
     m.row[1].z = static_cast<float>(t2);
     m.row[1].x = static_cast<float>(t0);
@@ -110,16 +110,16 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
         layout = 3;
     }
     std::memcpy(poly->colours, poly->start_colours_, sizeof(poly->colours));
-    float height = poly->start_dims_[1];
+    const float height = poly->start_dims_[1];
     poly->dims[1] = height;
-    float width = poly->start_dims_[0];
+    const float width = poly->start_dims_[0];
     poly->dims[0] = width;
     poly->age = 0.0f;
     // The corners about the centre (w: see the header).
-    double left = width * -0.5;
-    double top = height * -0.5;
-    double right = width * 0.5;
-    double bottom = height * 0.5;
+    const double left = width * -0.5;
+    const double top = height * -0.5;
+    const double right = width * 0.5;
+    const double bottom = height * 0.5;
     maths::Vec4 corners[4] = {{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(top), 0.0f, 0.0f},
                               {static_cast<float>(right), static_cast<float>(bottom), 0.0f, 0.0f},
@@ -151,7 +151,7 @@ void update_spawned_polys()
             value = next_value(spawned_polys());
             continue;
         }
-        double age = static_cast<double>(elapsed) + poly->age;
+        const double age = static_cast<double>(elapsed) + poly->age;
         poly->age = static_cast<float>(age);
         if (age >= poly->lifetime) {
             // Done: its primitive destroyed, the polygon taken out and freed.
@@ -165,10 +165,10 @@ void update_spawned_polys()
             commands::free_spawned_poly_details(poly);
             continue;
         }
-        double t = age / poly->lifetime;
+        const double t = age / poly->lifetime;
         for (int c = 0; c < 4; ++c) {
             for (int k = 0; k < 4; ++k) {
-                int change = static_cast<int>(static_cast<int64_t>(
+                const int change = static_cast<int>(static_cast<int64_t>(
                     static_cast<double>(poly->end_colours_[c][k] - poly->start_colours_[c][k]) * t));
                 poly->colours[c][k] = static_cast<uint8_t>(poly->start_colours_[c][k] + change);
             }

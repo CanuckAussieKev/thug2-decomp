@@ -83,13 +83,13 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
 {
     self->entity_->display_matrix_.get_euler_angles(out.angles);
-    objects::RiderPoseState* core = self->pose_;
+    const objects::RiderPoseState* core = self->pose_;
     out.state = static_cast<uint8_t>(core->cur_phase_);
     out.value_7c_ = core->surface_type_;
     out.flag74 = core->in_trick_move_;
     out.flag75 = core->physics_mode_ == 1 ? 1 : 0;
     out.flag76 = core->in_vehicle_;
-    objects::GrindPoint* rail = self->board_->rail_node_;
+    const objects::GrindPoint* rail = self->board_->rail_node_;
     out.value80 = rail ? rail->label_ : 0;
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
@@ -108,20 +108,20 @@ static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, U
 uint32_t RiderHostSync::fetch_sync_field_mask()
 {
     uint32_t flags = 0;
-    net::AppHost* app = client_app(static_cast<Rider*>(entity_)->view_slot_);
+    const net::AppHost* app = client_app(static_cast<Rider*>(entity_)->view_slot_);
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
-    bool force = get_on_server() || static_cast<uint32_t>(app->frame_count_) % 15 == 0;
+    const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count_) % 15 == 0;
     UpdateState now{};
     read_update_state(this, component_6c, now);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value =
+        const int16_t value =
             k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
         if (value != sent_pos_[k] || force)
             flags |= 1u << k;
     }
     for (int k = 0; k < 3; ++k) {
-        int16_t value = pack_angle((&now.angles.x)[k]);
+        const int16_t value = pack_angle((&now.angles.x)[k]);
         if (value != sent_angles_[k] || force) {
             sent_angles_[k] = value;
             flags |= 8u << k;
@@ -144,7 +144,7 @@ void RiderHostSync::send_update()
     util::PackedBitBuffer stream;
     auto* app = static_cast<net::Guest*>(client_app(static_cast<Rider*>(entity_)->view_slot_));
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
-    bool on_server = get_on_server();
+    const bool on_server = get_on_server();
     if (!on_server && static_cast<uint32_t>(app->frame_count_) % 15 != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
         net::ConnSearch search;
@@ -158,7 +158,7 @@ void RiderHostSync::send_update()
     UpdateState now{};
     read_update_state(this, component_6c, now);
     stream.write_bits(app->clock_, 32);
-    uint32_t flags = fetch_sync_field_mask();
+    const uint32_t flags = fetch_sync_field_mask();
     stream.write_bits(flags, 9);
     if (on_server) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
@@ -169,14 +169,14 @@ void RiderHostSync::send_update()
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value =
+        const int16_t value =
             k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         sent_pos_[k] = value;
     }
     for (int k = 0; k < 3; ++k) {
-        int16_t value = pack_angle((&now.angles.x)[k]);
+        const int16_t value = pack_angle((&now.angles.x)[k]);
         if (flags & (8u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         sent_angles_[k] = value;
@@ -207,7 +207,7 @@ void RiderHostSync::send_update()
         stream.write_bits(now.value80, 32);
     }
     stream.drain();
-    int size = stream.get_byte_count();
+    const int size = stream.get_byte_count();
     desc.content_ = buffer;
     desc.ident_ = 0x23;
     desc.byte_count_ = static_cast<uint16_t>(size);
@@ -255,8 +255,8 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     if (!online::read_tag_stolen(reader, &message) || message.game_id != run_count())
         return net::kResultConsumed;
     // (the thief first, as the senders write it: score_trick_objects / PointTally::note_tagged_prop)
-    uint32_t thief_id = message.thief_id;
-    uint32_t victim_id = message.victim_id;
+    const uint32_t thief_id = message.thief_id;
+    const uint32_t victim_id = message.victim_id;
     auto* skater = static_cast<Rider*>(context->content_);
     Rider* thief = rider_for_slot(thief_id);
     if (!thief)

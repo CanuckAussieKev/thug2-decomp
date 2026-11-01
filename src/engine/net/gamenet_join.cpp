@@ -358,8 +358,8 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
         return false;
     }
     if (conn->is_off_machine()) {
-        int limit = rank_limit(this);
-        int test = rank_test(this);
+        const int limit = rank_limit(this);
+        const int test = rank_test(this);
         if (test == kRankTestGreater) {
             if (msg->rank <= limit) {
                 reason = kRefusedRankLow;
@@ -825,7 +825,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content_);
     const char* msg = context->body_;
-    int reason = static_cast<int8_t>(msg[0]);
+    const int reason = static_cast<int8_t>(msg[0]);
     switch (reason) {
     case kRefusedBanned:
         manager->refused_reason_ = kReasonBanned;
@@ -847,7 +847,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         char response[0x80];
         // NOT ORIGINAL: the challenge read from the message's own 9 bytes (NUL-ended here).
         char challenge[kJoinRefusedSize] = {};
-        uint32_t challenge_size = context->body_size_ > 1 ? context->body_size_ - 1 : 0;
+        const uint32_t challenge_size = context->body_size_ > 1 ? context->body_size_ - 1 : 0;
         std::memcpy(challenge, msg + 1,
                     challenge_size < kJoinRefusedSize - 1u ? challenge_size : kJoinRefusedSize - 1u);
         get_cd_key(key);
@@ -892,7 +892,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         break;
     default:
         // (the wrong version too.) NOT ORIGINAL: THUGPRO's reasons 31-37 in words (TP-R13).
-        if (uint32_t text = thugpro::refused_reason_text(reason))
+        if (const uint32_t text = thugpro::refused_reason_text(reason))
             manager->refused_reason_ = text;
         else
             manager->refused_reason_ = kReasonDefault;

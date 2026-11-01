@@ -71,7 +71,7 @@ ColorCycleComponent::~ColorCycleComponent() = default;
 // 0x0041B310
 void ColorCycleComponent::change_colors(script::Array* colors)
 {
-    int count = static_cast<int>(colors->extent_);
+    const int count = static_cast<int>(colors->extent_);
     color_count_ = count;
     for (int i = 0; i < count; ++i) {
         auto* vector = reinterpret_cast<const float*>(colors->fetch_part(static_cast<uint32_t>(i)));
@@ -117,7 +117,7 @@ void ColorCycleComponent::tick_frame()
     set_object_color(entity_->ident_, params);
     delete_params(params);
     // (compared before rounding, as the original keeps the sum on the FPU stack)
-    double time = frame_clock::get_slomo_frame_seconds() * kMilliseconds + clock_;
+    const double time = frame_clock::get_slomo_frame_seconds() * kMilliseconds + clock_;
     clock_ = static_cast<float>(time);
     if (time >= period_) {
         clock_ = 0.0f;

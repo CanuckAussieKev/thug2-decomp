@@ -89,7 +89,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
     net::AppHost* client = manager->start_client_session(false, false, true, 0);
     game_spy::peer_send_nat_negotiate_cookie(lobby->remote_, static_cast<uint32_t>(inet_addr(address)), port,
                                              lobby->nat_cookie_); // the cookie to the host
-    int error = game_spy::nat_begin_with_socket(
+    const int error = game_spy::nat_begin_with_socket(
         client->get_socket(), lobby->nat_cookie_, kClientNatIndex,
         code_address(stubs::do_nothing) /* no progress callback */, &RoomManager::nat_negotiation_completed,
         reinterpret_cast<void*>(static_cast<intptr_t>(lobby->nat_cookie_))); // negotiation on the client's socket
@@ -111,7 +111,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
 // 0x005403E0
 bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 {
-    RoomManager* lobby = current_lobby();
+    const RoomManager* lobby = current_lobby();
     nat_cancel(lobby->nat_cookie_);
     nat_think();
     nat_free_negotiations();
@@ -124,7 +124,7 @@ bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 bool cfunc_leave_lobby(script::Struct* params, script::Script*)
 {
     push_internet_heap();
-    Hub* manager = net_session_slot();
+    const Hub* manager = net_session_slot();
     auto* lobby = manager->lobby_service_.get();
     FriendsManager* buddy = manager->presence_service_.get();
     game_spy::peer_leave_room(lobby->remote_, kRoomGroupKind, nullptr); // the group room left
@@ -152,8 +152,8 @@ bool cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 {
     push_internet_heap();
-    Hub* manager = net_session_slot();
-    int quiet = params->has_bare_flag(kOff) ? 0 : 1;
+    const Hub* manager = net_session_slot();
+    const int quiet = params->has_bare_flag(kOff) ? 0 : 1;
     game_spy::peer_set_quiet_mode(manager->lobby_service_->remote_, quiet);
     pop_heap();
     return true;
@@ -162,14 +162,14 @@ bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 // 0x005406C0
 bool cfunc_can_host_game(script::Struct*, script::Script*)
 {
-    Hub* manager = net_session_slot();
-    RoomManager* lobby = manager->lobby_service_.get();
+    const Hub* manager = net_session_slot();
+    const RoomManager* lobby = manager->lobby_service_.get();
     if (!lobby->restricted_hosting_)
         return lobby->unknown30_ < lobby->unknown2c_;
     if (!manager->presence_service_->authenticated_) // (logged in to the presence)
         return false;
-    int profile = manager->presence_service_->account_;
-    for (int allowed : kHostProfiles)
+    const int profile = manager->presence_service_->account_;
+    for (const int allowed : kHostProfiles)
         if (profile == allowed)
             return true;
     return false;

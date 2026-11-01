@@ -155,8 +155,8 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
 {
     int number = 1;
     params->fetch_int_value(0x0A89DA7D, &number, 0);
-    int index = number - 1;
-    PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    const int index = number - 1;
+    const PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
     for (int i = 0; i < index && i < messages_.size; ++i)
         node = node->next;
     auto* message = static_cast<PagerMessage*>(node->data);
@@ -175,8 +175,8 @@ bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, 
 // 0x004ECBD0
 bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*params*/, script::Script* script)
 {
-    PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
-    int count = messages_.size;
+    const PointerListNode* node = messages_.head ? messages_.head->next : nullptr;
+    const int count = messages_.size;
     int index = 0;
     if (count != 0) {
         for (; index < count; ++index) {

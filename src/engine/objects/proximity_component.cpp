@@ -53,17 +53,17 @@ void ProximityComponent::launch_script(uint32_t script, Entity* skater)
 // 0x0042B700
 void ProximityComponent::tick_frame()
 {
-    GameEntity* skater = get_skater();
+    const GameEntity* skater = get_skater();
     if (!skater)
         return;
     int inside = is_within_;
     bool within = false;
     if (active_) {
         const maths::Vec4& at = entity_->at_point_;
-        double dx = static_cast<double>(skater->at_point_.x) - at.x;
-        double dy = static_cast<double>(skater->at_point_.y) - at.y;
-        double dz = static_cast<double>(skater->at_point_.z) - at.z;
-        double reach = static_cast<double>(skater_radius()) + outer_radius_;
+        const double dx = static_cast<double>(skater->at_point_.x) - at.x;
+        const double dy = static_cast<double>(skater->at_point_.y) - at.y;
+        const double dz = static_cast<double>(skater->at_point_.z) - at.z;
+        const double reach = static_cast<double>(skater_radius()) + outer_radius_;
         if (!(reach * reach < (dz * dz + dy * dy) + dx * dx)) {
             maths::Seg line{};
             const maths::Vec4& head = skater->at_point_;
@@ -107,7 +107,7 @@ bool ProximityComponent::proximity_set_active(script::Struct* params, script::Sc
     if (!active_) {
         float delay = 0.0f;
         if (params->fetch_float(kDelay, &delay, 0)) {
-            int now = frame_clock::game_clock_elapsed();
+            const int now = frame_clock::game_clock_elapsed();
             reactivate_time_ = now + (g_clock_offset - truncate(static_cast<double>(delay) * -1000.0f));
         } else {
             reactivate_time_ = 0;

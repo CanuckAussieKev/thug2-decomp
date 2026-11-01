@@ -43,7 +43,7 @@ constexpr float kEase = 3.75f;                    // 0x0064B2C0
 // One angle eased toward `target` (the original's x87 sequence: the difference rounded, its size unrounded).
 void get_ease(float& angle, double target, float frame)
 {
-    double difference = target - angle;
+    const double difference = target - angle;
     auto rounded = static_cast<float>(difference);
     if (std::fabs(difference) > kNear)
         angle = static_cast<float>(static_cast<double>(rounded) * frame * kEase + angle);
@@ -85,7 +85,7 @@ void FreeLookModule::turn_to(float heading, float tilt, float time, float factor
     turning_ = true;
     target_tilt_ = tilt;
     if (time > 0.0f) {
-        double inverse = 1.0 / time;
+        const double inverse = 1.0 / time;
         heading_rate_ = static_cast<float>((static_cast<double>(heading) - heading_) * inverse);
         tilt_rate_ = static_cast<float>((static_cast<double>(tilt) - lean_angle_) * inverse);
     }
@@ -111,18 +111,18 @@ void FreeLookModule::tick_frame()
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
-        PadSnapshot* p = pad;
-        skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
+        const PadSnapshot* p = pad;
+        const skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
             p->up_dir_.held_down_ != 0, p->btn_down_.held_down_ != 0, p->left_side_.held_down_ != 0,
             p->right_side_.held_down_ != 0, skater::thaw_bmx::kLookInvertDefault);
-        float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
+        const float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, tilt, frame);
         get_ease(heading_, in.heading, frame);
     } else if (!locked_ && !turning_) {
-        float stick_y = pad->scaled_stick_[1];
-        double tilt = static_cast<double>(stick_y) * (stick_y < 0.0f ? kUpScale : kDownScale) * kTiltScale;
+        const float stick_y = pad->scaled_stick_[1];
+        const double tilt = static_cast<double>(stick_y) * (stick_y < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, tilt, frame);
-        double heading = static_cast<double>(pad->scaled_stick_[0]) * kHeadingScale;
+        const double heading = static_cast<double>(pad->scaled_stick_[0]) * kHeadingScale;
         get_ease(heading_, heading, frame);
     }
     auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds());

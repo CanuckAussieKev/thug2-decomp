@@ -160,7 +160,7 @@ bool write_toggle_cheat(util::ByteWriter& writer, const ToggleCheat& message)
 
 bool read_cheats(util::ByteReader& reader, Cheats* message)
 {
-    int32_t count = reader.i32();
+    const int32_t count = reader.i32();
     if (!reader.ok() || count < 0 || count > kMaxCheats || static_cast<size_t>(count) > reader.remaining() / 4) {
         message->count = 0;
         return false;

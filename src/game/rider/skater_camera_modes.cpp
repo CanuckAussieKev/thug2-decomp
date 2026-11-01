@@ -35,7 +35,7 @@ constexpr float kPi = 3.14159274f, kHalfPi = 1.57079637f;
 
 float one_frame()
 {
-    uint32_t bits = 0x3C888889; // 0x0064BA64 (1/60)
+    const uint32_t bits = 0x3C888889; // 0x0064BA64 (1/60)
     auto value = std::bit_cast<float>(bits);
     return value;
 }
@@ -92,7 +92,7 @@ void RiderChaseView::update_lerps()
 void RiderChaseView::change_regime(int mode, float time)
 {
     auto* camera = entity_->fetch_module(kCamera);
-    int screen = screen_mode();
+    const int screen = screen_mode();
     const char* array_name = screen == 1   ? "Skater_Camera_2P_Vert_Array"
                              : screen == 2 ? "Skater_Camera_2P_Horiz_Array"
                                            : "Skater_Camera_Array";
@@ -131,14 +131,14 @@ void RiderChaseView::change_regime(int mode, float time)
     origin_offset_ = static_cast<float>(static_cast<double>(offset) * kFeet);
     horiz_fov_ = fov;
     lean_angle_ = tilt;
-    double behind_feet = static_cast<double>(behind) * kFeet;
+    const double behind_feet = static_cast<double>(behind) * kFeet;
     if (time > 0.0f) {
         // lerped there a frame (1/60 s) at a time
         auto behind_target = static_cast<float>(behind_feet);
         auto above_target = static_cast<float>(static_cast<double>(above) * kFeet);
         behind_time_ = time;
         above_time_ = time;
-        double per_frame = static_cast<double>(one_frame()) / time;
+        const double per_frame = static_cast<double>(one_frame()) / time;
         behind_step_ = static_cast<float>((static_cast<double>(behind_target) - behind_) * per_frame);
         above_step_ = static_cast<float>((static_cast<double>(above_target) - above_) * per_frame);
     } else {

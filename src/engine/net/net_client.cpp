@@ -88,7 +88,7 @@ void Guest::send_bulk_to_host(uint8_t msg_id, uint16_t size, void* data, const c
 // 0x00459E50
 void Guest::send_to_host(NetMessageInfo* desc)
 {
-    if (Conn* server = server_connection(this))
+    if (const Conn* server = server_connection(this))
         net::put_on_outbox(this, server->hdl_, desc);
 }
 
@@ -102,7 +102,7 @@ void Guest::pull_inbound()
     int received = 0;
     do {
         char* buffer = receive_buffer_;
-        SOCKET socket = sock_;
+        const SOCKET socket = sock_;
         if (!linked_up_)
             received =
                 recvfrom(socket, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &from_length);
@@ -113,12 +113,12 @@ void Guest::pull_inbound()
             return;
         }
         inbound_byte_total_ += received;
-        int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
+        const int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
         auto& server = *reinterpret_cast<sockaddr_in*>(host_sock_addr_);
         if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& read_ptr = conn->read_ptr_;
             if (read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
-                uint32_t time = frame_clock::get_time();
+                const uint32_t time = frame_clock::get_time();
                 if (pull_datagram(this, buffer, read_ptr, received)) {
                     read_ptr += size;
                     add_packet_metric(&conn->receive_metrics_, received + 0x1C, get_timestamp(this));
@@ -200,11 +200,11 @@ void Guest::flush_outbox(Conn* conn)
         if (!bundle_messages(conn, kLanePriority, false))
             done = true;
         char*& write_ptr = conn->write_ptr_;
-        int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
+        const int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
         if (size > 0 && is_off_machine(conn)) {
             char* packet = conn->outgoing_bytes_;
-            bool sent = linked_up_ ? net::post_out(this, packet, size, 0)
-                                   : net::transmit_to(this, conn->remote_ip_, conn->port_no_, packet, size, 0);
+            const bool sent = linked_up_ ? net::post_out(this, packet, size, 0)
+                                         : net::transmit_to(this, conn->remote_ip_, conn->port_no_, packet, size, 0);
             if (!sent) {
                 mark_messages_for_retry(conn, conn->timestamp_out_);
                 write_ptr = conn->outgoing_bytes_;
@@ -250,7 +250,7 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
         newest = *stamp;
         return kResultPassOn;
     }
-    uint32_t timestamp = *stamp;
+    const uint32_t timestamp = *stamp;
     bool late = false;
     if (timestamp < newest) {
         late = newest - timestamp <= kTimestampWindow; // (else it has wrapped around: newer)
@@ -258,7 +258,7 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
         ++context->receiver_app_->repeat_arrivals_;
         return kResultFailed;
     } else {
-        uint32_t gap = timestamp - newest;
+        const uint32_t gap = timestamp - newest;
         if (gap > 1 && gap <= kTimestampWindow) {
             context->receiver_app_->skipped_stamps_ += static_cast<int>(gap - 1);
             context->sender_conn_->last_timestamp_in_ = *stamp;

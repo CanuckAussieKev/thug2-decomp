@@ -36,7 +36,7 @@ const char* find_caseless(const char* haystack, const char* needle)
 {
     if (*needle == '\0')
         return nullptr;
-    char first = get_lower(*needle);
+    const char first = get_lower(*needle);
     for (; *haystack; ++haystack) {
         if (get_lower(*haystack) != first)
             continue;
@@ -95,7 +95,8 @@ const char* format_with_separators(int value)
 int compare_caseless(const char* a, const char* b)
 {
     for (;; ++a, ++b) {
-        char ca = get_lower(*a), cb = get_lower(*b);
+        const char ca = get_lower(*a);
+        const char cb = get_lower(*b);
         if (ca != cb)
             return ca < cb ? -1 : 1;
         if (ca == '\0')
@@ -106,7 +107,7 @@ int compare_caseless(const char* a, const char* b)
 // 0x004020E0
 int hex_digit_value(const char* digit)
 {
-    char c = *digit;
+    const char c = *digit;
     if (c >= '0' && c <= '9')
         return c - '0';
     if (c >= 'a' && c <= 'v')
@@ -120,7 +121,7 @@ int hex_digit_value(const char* digit)
 int next_word(char* out, const char*& cursor)
 {
     for (;;) {
-        char c = *cursor;
+        const char c = *cursor;
         if (c == '\0') {
             *out = '\0';
             return 2;
@@ -129,7 +130,7 @@ int next_word(char* out, const char*& cursor)
             break;
         if (c == '\\') {
             ++cursor;
-            char escaped = *cursor;
+            const char escaped = *cursor;
             if (escaped == '_') {
                 *out++ = ' ';
                 ++cursor;

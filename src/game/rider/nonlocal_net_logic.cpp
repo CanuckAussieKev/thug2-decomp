@@ -138,7 +138,7 @@ void RiderRemoteSync::update_ground_lighting()
     if (pose_->cur_phase_ != kStateRail && feeler.is_hit_triangle_collision()) {
         // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
         // folded getter 0x00532EB0; else the global).
-        render::RenderModel* model = mesh_set_->mesh_instance_;
+        const render::RenderModel* model = mesh_set_->mesh_instance_;
         void* light = model->lights_ptr_;
         if (light)
             static_cast<render::ModelLights*>(light)->move_brightness(static_cast<float>(feeler.get_hit_vertex_value()),
@@ -159,7 +159,7 @@ void RiderRemoteSync::settle_onto_floor()
     const maths::Vec4& up = skater->basis_frame_.row[1];
     const maths::Vec4& pos = skater->at_point_;
     // From Physics_Ground_Snap_Up above (the product unrounded) to 200 below (rounded first).
-    double snap_up = get_physics(skater, kGroundSnapUp);
+    const double snap_up = get_physics(skater, kGroundSnapUp);
     maths::Vec4 start, end;
     start.x = static_cast<float>(snap_up * up.x + pos.x);
     start.y = static_cast<float>(snap_up * up.y + pos.y);
@@ -180,16 +180,16 @@ void RiderRemoteSync::settle_onto_floor()
 
     const maths::Vec4& point = feeler.contact_pos_;
     const maths::Vec4& normal = feeler.surface_dir_;
-    double dz = static_cast<double>(pos.z) - point.z;
-    double dy = static_cast<double>(pos.y) - point.y;
-    double dx = static_cast<double>(pos.x) - point.x;
+    const double dz = static_cast<double>(pos.z) - point.z;
+    const double dy = static_cast<double>(pos.y) - point.y;
+    const double dx = static_cast<double>(pos.x) - point.x;
     auto distance = static_cast<float>(std::sqrt((dx * dx + dy * dy) + dz * dz));
     // How far above the hit the skater is, along its up row.
     auto height = static_cast<float>((dy * up.y + dz * up.z) + dx * up.x);
 
     // (only its low byte is tested: skatable, vert, not "not skatable" and not wallride)
     auto flags = static_cast<uint8_t>(feeler.hit_.face_flags_);
-    bool skatable =
+    const bool skatable =
         (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) && !(flags & kFaceWallride);
     if (skatable &&
         !(std::sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) * kRadiansPerDegree) > normal.y)) {
@@ -212,14 +212,15 @@ void RiderRemoteSync::settle_onto_floor()
         if (height > 0.0f) {
             // Above it: only within this frame's move times the slope between the two grounds (at least
             // Physics_Ground_Snap_Down).
-            float angle = std::acos(turn);
-            maths::Vec4 move = skater->at_point_ - last_pos_;
-            float slope = std::tan(angle);
+            const float angle = std::acos(turn);
+            const maths::Vec4 move = skater->at_point_ - last_pos_;
+            const float slope = std::tan(angle);
             // (its length unrounded, as Vec4::len_of's x87 code leaves it)
-            double length = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
-                                      static_cast<double>(move.z) * move.z);
+            const double length =
+                std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
+                          static_cast<double>(move.z) * move.z);
             auto reach = static_cast<float>(length * slope);
-            double snap_down = get_physics(skater, kGroundSnapDown);
+            const double snap_down = get_physics(skater, kGroundSnapDown);
             if (reach < snap_down)
                 reach = static_cast<float>(snap_down);
             if (distance > reach)
@@ -250,16 +251,18 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
         cosine = 1.0f;
     else if (cosine < -1.0f)
         cosine = -1.0f;
-    double exact = std::acos(static_cast<double>(cosine));
+    const double exact = std::acos(static_cast<double>(cosine));
     auto angle = static_cast<float>(exact);
     if (exact > kHalfPi) // (the unrounded angle compared; the rounded one adjusted)
         angle = static_cast<float>(static_cast<double>(angle) - kPi);
-    double rotation = static_cast<double>(script::fetch_float(kWallBounceAngleMultiplier)) * angle;
+    const double rotation = static_cast<double>(script::fetch_float(kWallBounceAngleMultiplier)) * angle;
     *turn = static_cast<float>(rotation);
     // The velocity turned about y (sine / cosine unrounded), then the matrix by the rounded turn.
-    double s = std::sin(rotation), c = std::cos(rotation);
+    const double s = std::sin(rotation);
+    const double c = std::cos(rotation);
     maths::Vec4& vel = entity_->vel_;
-    double vx = vel.x, vz = vel.z;
+    const double vx = vel.x;
+    const double vz = vel.z;
     vel.x = static_cast<float>(s * vz + c * vx);
     vel.z = static_cast<float>(-(vx * s) + c * vz);
     maths::Mat4 rotate{};
@@ -277,7 +280,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     auto away_x = static_cast<float>(static_cast<double>(skater->at_point_.x) - last_pos_.x);
     render::ProbeRay feeler;
     // The collision height up the up row (the products rounded).
-    double height = get_physics(skater, kFirstForwardCollisionHeight);
+    const double height = get_physics(skater, kFirstForwardCollisionHeight);
     const maths::Vec4& up = skater->basis_frame_.row[1];
     auto raise_w = static_cast<float>(height * up.w);
     auto raise_z = static_cast<float>(height * up.z);
@@ -286,10 +289,10 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     float turn = 0.0f;
     auto angle = static_cast<float>(turn_towards(*normal, &turn));
     // Slowed by how far past Wall_Bounce_Dont_Slow_Angle it turned (to nothing at a right angle).
-    double dont_slow = static_cast<double>(script::fetch_float(kWallBounceDontSlowAngle)) * kRadiansPerDegree;
-    double magnitude = std::fabs(static_cast<double>(angle));
+    const double dont_slow = static_cast<double>(script::fetch_float(kWallBounceDontSlowAngle)) * kRadiansPerDegree;
+    const double magnitude = std::fabs(static_cast<double>(angle));
     if (magnitude > dont_slow) {
-        double keep = 1.0 - (magnitude - dont_slow) / (kHalfPi - dont_slow);
+        const double keep = 1.0 - (magnitude - dont_slow) / (kHalfPi - dont_slow);
         maths::Vec4& vel = skater->vel_;
         vel.x = static_cast<float>(keep * vel.x);
         vel.y = static_cast<float>(keep * vel.y);
@@ -309,13 +312,13 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
 
     // A feeler from twice the height up, along the velocity as far as the skater went this frame (then the
     // collision length further).
-    double moved = std::sqrt((static_cast<double>(away_x) * away_x + static_cast<double>(away_y) * away_y) +
-                             static_cast<double>(away_z) * away_z);
+    const double moved = std::sqrt((static_cast<double>(away_x) * away_x + static_cast<double>(away_y) * away_y) +
+                                   static_cast<double>(away_z) * away_z);
     maths::Vec4 dir = skater->vel_;
-    double speed = std::sqrt((static_cast<double>(dir.z) * dir.z + static_cast<double>(dir.y) * dir.y) +
-                             static_cast<double>(dir.x) * dir.x);
+    const double speed = std::sqrt((static_cast<double>(dir.z) * dir.z + static_cast<double>(dir.y) * dir.y) +
+                                   static_cast<double>(dir.x) * dir.x);
     if (speed > 0.0) {
-        double inverse = 1.0 / speed;
+        const double inverse = 1.0 / speed;
         dir.x = static_cast<float>(dir.x * inverse);
         dir.y = static_cast<float>(dir.y * inverse);
         dir.z = static_cast<float>(dir.z * inverse);
@@ -329,7 +332,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     from.y = static_cast<float>((static_cast<double>(raise_y) + pos.y) + raise_y);
     from.z = static_cast<float>((static_cast<double>(raise_z) + pos.z) + raise_z);
     from.w = static_cast<float>((static_cast<double>(raise_w) + pos.w) + raise_w);
-    double length = get_physics(skater, kFirstForwardCollisionLength);
+    const double length = get_physics(skater, kFirstForwardCollisionLength);
     auto reach_w = static_cast<float>(dir.w * length);
     auto reach_z = static_cast<float>(dir.z * length);
     auto reach_y = static_cast<float>(dir.y * length);
@@ -341,14 +344,15 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     auto mid_y = static_cast<float>(static_cast<double>(base_y) + ahead_y);
     auto mid_x = static_cast<float>(static_cast<double>(base_x) + ahead_x);
     maths::Vec4 to;
-    double to_w = static_cast<double>(mid_w) + reach_w;
-    double to_z = static_cast<double>(mid_z) + reach_z;
+    const double to_w = static_cast<double>(mid_w) + reach_w;
+    const double to_z = static_cast<double>(mid_z) + reach_z;
     to.y = static_cast<float>(static_cast<double>(mid_y) + reach_y);
     to.x = static_cast<float>(static_cast<double>(mid_x) + reach_x);
     to.z = static_cast<float>(to_z);
     to.w = static_cast<float>(to_w);
-    double ex = static_cast<double>(from.x) - to.x, ey = static_cast<double>(from.y) - to.y,
-           ez = static_cast<double>(from.z) - to_z;
+    const double ex = static_cast<double>(from.x) - to.x;
+    const double ey = static_cast<double>(from.y) - to.y;
+    const double ez = static_cast<double>(from.z) - to_z;
     if (std::sqrt((ex * ex + ey * ey) + ez * ez) > kBounceReach)
         return;
     feeler.change_strand(&from, &to);
@@ -356,13 +360,14 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater_)
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
-    double around = static_cast<double>(kPi) - turn;
+    const double around = static_cast<double>(kPi) - turn;
     auto s = static_cast<float>(std::sin(around));
     auto c = static_cast<float>(std::cos(around));
     maths::Vec4& vel = skater->vel_;
-    double vx = vel.x, vz = vel.z;
-    double nx = vx * c + vz * s;
-    double nz = -(vx * s) + vz * c;
+    const double vx = vel.x;
+    const double vz = vel.z;
+    const double nx = vx * c + vz * s;
+    const double nz = -(vx * s) + vz * c;
     vel.x = static_cast<float>(nx);
     vel.z = static_cast<float>(nz);
     maths::Mat4 rotate{};
@@ -379,8 +384,8 @@ void RiderRemoteSync::tick_frame()
 {
     auto* net_manager = online::g_online_hub;
     frame_seconds_ = static_cast<float>(frame_clock::get_frame_seconds());
-    int state = pose_->cur_phase_;
-    bool was_lip = state == kStateLip;
+    const int state = pose_->cur_phase_;
+    const bool was_lip = state == kStateLip;
     if (state != kStateAir) {
         // (on the ground the state's two vectors follow the up row)
         pose_->drawn_normal_ = entity_->basis_frame_.row[1];
@@ -394,9 +399,9 @@ void RiderRemoteSync::tick_frame()
     auto* player = static_cast<online::PlayerRecord*>(net_manager->get_own_player());
     if (!player->is_observer() && !player->is_scouting_level()) {
         void* game_mode = static_cast<void*>(goals::g_game_mode);
-        bool extrapolate = online::g_online_hub->players_can_collide() ||
-                           static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
-                           static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;
+        const bool extrapolate = online::g_online_hub->players_can_collide() ||
+                                 static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
+                                 static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;
         if (extrapolate && past_frames_->state_count_ >= kHistory) {
             if (pose_->cur_phase_ == kStateRail) {
                 extrapolate_on_rail();
@@ -418,8 +423,8 @@ void RiderRemoteSync::tick_frame()
         pose_->lip_straight_up_ = 0;
 
     // Driving in or out: the scripts told (with the vehicle's control type when it starts).
-    uint8_t driving = pose_->in_vehicle_;
-    uint32_t steer_kind = past_frames_->vehicle_control_type_;
+    const uint8_t driving = pose_->in_vehicle_;
+    const uint32_t steer_kind = past_frames_->vehicle_control_type_;
     if ((driving && steer_kind) || (!driving && was_driving_)) {
         script::Struct* params = script::spawn_param_bag();
         if (params)
@@ -451,7 +456,8 @@ void RiderRemoteSync::tick_frame()
         sound->hold_off(false);
         sound->on_ = 1;
     }
-    double vz = entity_->vel_.z, vx = entity_->vel_.x;
+    const double vz = entity_->vel_.z;
+    const double vx = entity_->vel_.x;
     sound->set_pace_ratio(static_cast<float>(std::sqrt(vx * vx + vz * vz) * kSpeedToSoundFraction));
     uint8_t changed = sound->sound_changed_;
     changed |= sound->cur_phase_ != pose_->cur_phase_ ? 1 : 0;

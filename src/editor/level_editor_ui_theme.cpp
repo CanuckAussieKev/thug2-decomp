@@ -29,7 +29,7 @@ ImFont* add_font(ui_fonts::CompressedFont font, float size)
 
 Fonts build_fonts(float scale)
 {
-    ui_layout::FontSizes sizes = ui_layout::font_sizes_for(scale);
+    const ui_layout::FontSizes sizes = ui_layout::font_sizes_for(scale);
     ImFontAtlas* atlas = ImGui::GetIO().Fonts;
     atlas->Clear();
     Fonts fonts;

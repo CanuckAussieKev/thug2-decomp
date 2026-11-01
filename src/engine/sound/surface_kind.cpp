@@ -262,7 +262,7 @@ Struct* pick_sound_action(Struct* entry)
 // 0x00444830
 Struct* find_sound_action(Struct* sound_actions, uint8_t table, float value)
 {
-    uint32_t action = get_table_action(table);
+    const uint32_t action = get_table_action(table);
     Struct* entry = nullptr;
     if (sound_actions->read_sub_struct(action, &entry, 0))
         return entry;
@@ -289,7 +289,7 @@ void load_sound_action(Struct* sound_action)
 // 0x00444950 (TERRAIN_DEFAULT's own structure for the action counts only if it names the action again inside)
 void load_table_sounds(Struct* sound_actions, uint8_t table)
 {
-    uint32_t action = get_table_action(table);
+    const uint32_t action = get_table_action(table);
     Struct* default_actions = nullptr;
     script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
     Struct* entry = nullptr;
@@ -380,7 +380,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     sounds->fetch_loudness(&volume, position, sounds->get_dropoff_distance(info.checksum), 0, nullptr, nullptr);
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
-        float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
+        const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
         sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
                            static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
     }
@@ -396,7 +396,7 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
     sounds->fetch_loudness(&volume, position, sounds->get_dropoff_distance(info.checksum), 0, nullptr, nullptr);
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
-        float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
+        const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
         sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
                            static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
     }
@@ -407,7 +407,7 @@ bool load_terrain_sounds(uint32_t checksum)
 {
     if (sound::no_sound())
         return false;
-    uint8_t terrain = get_terrain_index(checksum);
+    const uint8_t terrain = get_terrain_index(checksum);
     Struct* default_actions = nullptr;
     script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
     Struct* terrain_actions = nullptr;

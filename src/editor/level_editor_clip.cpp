@@ -24,7 +24,7 @@ const char* const kHeaderComment = "# thug2-decomp clipboard";
 
 bool is_clip_text(const std::string& text)
 {
-    size_t n = std::char_traits<char>::length(kHeaderComment);
+    const size_t n = std::char_traits<char>::length(kHeaderComment);
     return text.compare(0, n, kHeaderComment) == 0;
 }
 
@@ -88,8 +88,8 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         node_create::Spec spec = s;
         if (!name_free(spec.name)) {
             node_create::Kind kind{};
-            bool fixed = node_create::kind_of(spec, &kind) &&
-                         (node_create::is_lobby_flag(spec.name) || spec.name.starts_with("TRG_CTF_"));
+            const bool fixed = node_create::kind_of(spec, &kind) &&
+                               (node_create::is_lobby_flag(spec.name) || spec.name.starts_with("TRG_CTF_"));
             if (fixed || !node_create::kind_of(spec, &kind)) {
                 missing->push_back(spec.name + " (the level has one by that name)");
                 continue;
@@ -168,7 +168,7 @@ struct Props {
 
 std::vector<uint32_t> selected_nodes()
 {
-    SelectionIds s = current_selection();
+    const SelectionIds s = current_selection();
     std::vector<uint32_t> nodes;
     auto add = [&](uint32_t id) {
         if (id && nodes::get_find(id) >= 0 && std::find(nodes.begin(), nodes.end(), id) == nodes.end())
@@ -176,9 +176,9 @@ std::vector<uint32_t> selected_nodes()
     };
     if (s.node)
         add(s.node);
-    for (uint32_t id : s.objects)
+    for (const uint32_t id : s.objects)
         add(id);
-    for (uint32_t id : s.sectors)
+    for (const uint32_t id : s.sectors)
         add(id);
     return nodes;
 }
@@ -187,7 +187,7 @@ std::vector<uint32_t> selected_nodes()
 
 bool dup_from(std::string* message)
 {
-    SelectionIds s = current_selection();
+    const SelectionIds s = current_selection();
     render::WorldScene* scene = scenery::main_scene();
     if (!scene) {
         *message = "Not in a level";
@@ -196,7 +196,7 @@ bool dup_from(std::string* message)
     layout::FileLoad fragment;
     fragment.scene = scenery::world_scene_key(scene);
     std::vector<std::string> skipped;
-    for (uint32_t checksum : s.sectors) {
+    for (const uint32_t checksum : s.sectors) {
         layout::CloneRecord record;
         record.source = checksum;
         Placement now = {0, {0.0f, 0.0f, 0.0f}};
@@ -210,7 +210,7 @@ bool dup_from(std::string* message)
         }
         fragment.clones.push_back(record);
     }
-    for (uint32_t id : s.objects) {
+    for (const uint32_t id : s.objects) {
         objects::GameEntity* object = live_object(id);
         if (!object)
             continue;
@@ -233,7 +233,7 @@ bool dup_from(std::string* message)
         fragment.copies.push_back(record);
     }
     if (s.node) {
-        int index = nodes::get_find(s.node);
+        const int index = nodes::get_find(s.node);
         bool done = false;
         if (index >= 0 && node_create::is_added(s.node)) {
             for (const triggers::Placed& t : triggers::capture_added()) {
@@ -260,14 +260,14 @@ bool dup_from(std::string* message)
         if (!done)
             skipped.push_back(nodes::caption(s.node) + " (type not copyable)");
     }
-    int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
-                                 fragment.triggers.size());
+    const int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
+                                       fragment.triggers.size());
     if (!count) {
         *message = skipped.empty() ? "Nothing selected to copy" : "Can't copy " + skipped.front();
         return false;
     }
-    std::string text = std::string(kHeaderComment) + " - " + std::to_string(count) + " things from " +
-                       object_edit::caption(fragment.scene) + "\n" + layout::emit_out(fragment);
+    const std::string text = std::string(kHeaderComment) + " - " + std::to_string(count) + " things from " +
+                             object_edit::caption(fragment.scene) + "\n" + layout::emit_out(fragment);
     if (SDL_SetClipboardText(text.c_str()) != 0) {
         *message = "Couldn't put it on the clipboard";
         return false;
@@ -280,7 +280,7 @@ bool dup_from(std::string* message)
 bool graft(std::string* message)
 {
     char* clip = SDL_GetClipboardText();
-    std::string text = clip ? clip : "";
+    const std::string text = clip ? clip : "";
     if (clip)
         SDL_free(clip);
     layout::FileLoad fragment, now;
@@ -306,7 +306,7 @@ bool graft(std::string* message)
     };
     std::vector<std::string> missing;
     std::vector<uint32_t> copies;
-    int added = merge(fragment, &now, hooks, &missing, &copies);
+    const int added = merge(fragment, &now, hooks, &missing, &copies);
     if (!added) {
         *message = "Nothing pasted - not in this level: " + (missing.empty() ? std::string("?") : missing.front()) +
                    (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
@@ -339,7 +339,7 @@ bool copy_props(std::string* message)
     props.have_transform_ = selection_transform(&props.transform);
     std::vector<uint32_t> nodes = selected_nodes();
     if (!nodes.empty()) {
-        int index = nodes::get_find(nodes.front());
+        const int index = nodes::get_find(nodes.front());
         props.from = nodes::caption(nodes.front());
         for (const fields::Row& row : fields::rows_of(nodes::get_all()[index])) {
             // (its own editable fields - not those of a shared structure; pos / angles go with the transform)
@@ -379,13 +379,13 @@ bool paste_fields(std::string* message)
         *message = "No fields copied";
         return false;
     }
-    std::vector<uint32_t> nodes = selected_nodes();
+    const std::vector<uint32_t> nodes = selected_nodes();
     if (nodes.empty()) {
         *message = "No nodes selected";
         return false;
     }
     std::string why;
-    int set = set_fields_on_nodes(nodes, g_props.fields, "Paste fields", &why);
+    const int set = set_fields_on_nodes(nodes, g_props.fields, "Paste fields", &why);
     *message = set ? "Pasted " + std::to_string(set) + " fields onto " + std::to_string(nodes.size()) + " nodes" +
                          (why.empty() ? "" : " (" + why + ")")
                    : "No field pasted: " + why;

@@ -73,8 +73,8 @@ bool walking_state(SkaterPhysicsModule* component, int state)
 double fall_time(SkaterPhysicsModule* component, float height, float upward)
 {
     set_timed_flag(component, PoseFlag::kAcidDrop, 1);
-    double down = -current_gravity(component);
-    double discriminant = static_cast<double>(upward) * upward + 2.0 * (static_cast<double>(height) * down);
+    const double down = -current_gravity(component);
+    const double discriminant = static_cast<double>(upward) * upward + 2.0 * (static_cast<double>(height) * down);
     double time = 0.0;
     if (discriminant >= 0.0 || discriminant != discriminant)
         time = (std::sqrt(discriminant) + upward) / down;
@@ -96,11 +96,12 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         // Not original: THAW 0x005D1890 - on the bike along its facing (the other way with the stick pulled back).
         thaw_bmx::acid_drop_direction(this, &direction);
     } else if (walking_state(this, 0)) {
-        double x = velocity->x, z = velocity->z;
-        double length = std::sqrt(x * x + z * z);
+        const double x = velocity->x;
+        const double z = velocity->z;
+        const double length = std::sqrt(x * x + z * z);
         if (length < kMinSpeed)
             return false;
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         direction = {static_cast<float>(inverse * x), static_cast<float>(0.0f * inverse),
                      static_cast<float>(z * inverse), static_cast<float>(velocity->w * inverse)};
     } else {
@@ -131,9 +132,11 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     corner.y = static_cast<float>(corner.y - static_cast<double>(kBoxDepth));
     box.append_spot(corner);
     {
-        float rz = direction.z * reach, ry = direction.y * reach, rx = direction.x * reach;
-        double rw = static_cast<double>(direction.w) * reach;
-        float y = base.y + ry;
+        const float rz = direction.z * reach;
+        const float ry = direction.y * reach;
+        const float rx = direction.x * reach;
+        const double rw = static_cast<double>(direction.w) * reach;
+        const float y = base.y + ry;
         corner = {rx + base.x, y + lift, base.z + rz, static_cast<float>(rw + base.w)};
     }
     box.append_spot(corner);
@@ -151,9 +154,14 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     float step = kFirstStep;
     bool searching = kFirstStep < reach;
     while (searching) {
-        float sz = direction.z * step, sy = direction.y * step, sx = direction.x * step;
-        double sw = static_cast<double>(direction.w) * step;
-        float x = sx + base.x, y = base.y + sy, z = base.z + sz, w = static_cast<float>(sw + base.w);
+        const float sz = direction.z * step;
+        const float sy = direction.y * step;
+        const float sx = direction.x * step;
+        const double sw = static_cast<double>(direction.w) * step;
+        const float x = sx + base.x;
+        const float y = base.y + sy;
+        const float z = base.z + sz;
+        const float w = static_cast<float>(sw + base.w);
         feeler.line_.start = {x, y + lift, z, w};
         feeler.line_.end = {x, static_cast<float>(y - static_cast<double>(kFeelerDepth)), z, w};
         if (feeler.get_hit_shape(true, false) && (feeler.hit_.face_flags_ & 8) &&
@@ -161,9 +169,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
             maths::Vec4 flat = {feeler.surface_dir_.x, 0.0f, feeler.surface_dir_.z, feeler.surface_dir_.w};
             normal = feeler.surface_dir_;
             flat.make_unit();
-            double facing = static_cast<double>(flat.z) * direction.z + static_cast<double>(flat.y) * direction.y +
-                            static_cast<double>(flat.x) * direction.x;
-            bool walking_in = walking_state(this, 1) && walk_->state_ == 1;
+            const double facing = static_cast<double>(flat.z) * direction.z +
+                                  static_cast<double>(flat.y) * direction.y + static_cast<double>(flat.x) * direction.x;
+            const bool walking_in = walking_state(this, 1) && walk_->state_ == 1;
             if ((walking_in && facing <= kWalkFacing) || facing >= kFacing) {
                 found = true;
                 break;
@@ -184,16 +192,16 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     hit = feeler.contact_pos_;
     hit_height = hit.y;
     alive = feeler.hit_object_alive();
-    double dw = static_cast<double>(hit.w) - position->w;
+    const double dw = static_cast<double>(hit.w) - position->w;
     auto dz = static_cast<float>(hit.z - static_cast<double>(position->z));
-    double dx_unrounded = static_cast<double>(hit.x) - position->x;
+    const double dx_unrounded = static_cast<double>(hit.x) - position->x;
     auto dx = static_cast<float>(dx_unrounded);
     distance = static_cast<float>(std::sqrt(dx_unrounded * dx + static_cast<double>(dz) * dz));
-    double sideways = static_cast<double>(direction.z) * dz + static_cast<double>(dx) * direction.x +
-                      static_cast<double>(direction.y) * 0.0f;
+    const double sideways = static_cast<double>(direction.z) * dz + static_cast<double>(dx) * direction.x +
+                            static_cast<double>(direction.y) * 0.0f;
     if (sideways < 0.0)
         distance = -distance;
-    double inverse = 1.0 / distance;
+    const double inverse = 1.0 / distance;
     saved = *velocity;
     auto inverse_float = static_cast<float>(inverse);
     direction = {static_cast<float>(static_cast<double>(inverse_float) * dx),
@@ -219,14 +227,14 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     objects::GameEntity* object = object_of(this);
     if (pop) {
         // At least Physics_Acid_Drop_Pop_Speed up.
-        float least = tuning_float_lookup(kPopSpeed, object);
-        float upward = velocity->y;
+        const float least = tuning_float_lookup(kPopSpeed, object);
+        const float upward = velocity->y;
         velocity->y = upward > least ? upward : least;
     }
     if (!walking_state(this, 1) || static_cast<uint32_t>(walk_->state_)) {
         // At most twice that.
-        double most = static_cast<double>(tuning_float_lookup(kPopSpeed, object)) * 2.0;
-        float upward = velocity->y;
+        const double most = static_cast<double>(tuning_float_lookup(kPopSpeed, object)) * 2.0;
+        const float upward = velocity->y;
         velocity->y = upward < most ? upward : static_cast<float>(most);
     }
     set_timed_flag(this, PoseFlag::kAcidDrop, 1);
@@ -235,16 +243,16 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     // The highest the arc gets on its way to the wall.
     float peak = 0.0f;
     if (distance > 0.0f && horizontal > kMinHorizontal) {
-        double ratio = static_cast<double>(distance) / horizontal;
+        const double ratio = static_cast<double>(distance) / horizontal;
         peak = static_cast<float>((static_cast<double>(gravity) * ratio * 0.5f + velocity->y) * ratio + position->y);
     } else {
         peak = position->y;
     }
     if (walking_state(this, 1) && velocity->y > 0.0f && position->y < hit.y) {
-        double upward = velocity->y;
-        double top = upward * upward / (static_cast<double>(gravity) * -2.0f) + position->y;
-        double to_wall = std::fabs(static_cast<double>(distance)) / horizontal;
-        double to_top = -(upward / gravity);
+        const double upward = velocity->y;
+        const double top = upward * upward / (static_cast<double>(gravity) * -2.0f) + position->y;
+        const double to_wall = std::fabs(static_cast<double>(distance)) / horizontal;
+        const double to_top = -(upward / gravity);
         if (to_wall < to_top)
             peak = static_cast<float>(top);
     }
@@ -266,13 +274,13 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         feeler.line_.start = *position;
         auto rise = static_cast<float>(position->y - static_cast<double>(hit.y));
         auto half = static_cast<float>(fall_time(this, rise, velocity->y) * 0.5f);
-        double scale = static_cast<double>(half_distance) / half;
+        const double scale = static_cast<double>(half_distance) / half;
         auto y = static_cast<float>(static_cast<double>(half) * half * gravity * 0.5f +
                                     static_cast<double>(half) * velocity->y + position->y);
-        double along = scale * half;
+        const double along = scale * half;
         auto aw = static_cast<float>(direction.w * along), az = static_cast<float>(direction.z * along),
              ay = static_cast<float>(direction.y * along);
-        double ax = along * direction.x;
+        const double ax = along * direction.x;
         maths::Vec4& end = feeler.line_.end;
         end = {static_cast<float>(ax + position->x), static_cast<float>(static_cast<double>(ay) + y), position->z + az,
                position->w + aw};
@@ -288,7 +296,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
                 return true;
             }
         }
-        double higher = static_cast<double>(hit.y) + kRise;
+        const double higher = static_cast<double>(hit.y) + kRise;
         hit.y = static_cast<float>(higher);
         if (!(higher < peak))
             return fail();
@@ -299,24 +307,24 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
 void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
 {
     // The horizontal direction to the drop point and the speed to get there in the fall's time.
-    objects::GameEntity* object = object_of(this);
+    const objects::GameEntity* object = object_of(this);
     const maths::Vec4& position = object->at_point_;
-    double dw = static_cast<double>(drop->point.w) - position.w;
+    const double dw = static_cast<double>(drop->point.w) - position.w;
     auto dz = static_cast<float>(drop->point.z - static_cast<double>(position.z));
-    double dx_unrounded = static_cast<double>(drop->point.x) - position.x;
+    const double dx_unrounded = static_cast<double>(drop->point.x) - position.x;
     auto dx = static_cast<float>(dx_unrounded);
     auto distance = static_cast<float>(std::sqrt(dx_unrounded * dx + static_cast<double>(dz) * dz));
     const maths::Vec4& velocity = object->vel_;
-    double sideways = static_cast<double>(dz) * velocity.z + static_cast<double>(dx) * velocity.x +
-                      static_cast<double>(velocity.y) * 0.0f;
+    const double sideways = static_cast<double>(dz) * velocity.z + static_cast<double>(dx) * velocity.x +
+                            static_cast<double>(velocity.y) * 0.0f;
     if (sideways < 0.0)
         distance = -distance;
-    double inverse = 1.0 / distance;
+    const double inverse = 1.0 / distance;
     auto inverse_float = static_cast<float>(inverse);
-    maths::Vec4 direction = {static_cast<float>(static_cast<double>(inverse_float) * dx),
-                             static_cast<float>(static_cast<double>(inverse_float) * 0.0f),
-                             static_cast<float>(static_cast<double>(inverse_float) * dz),
-                             static_cast<float>(dw * inverse)};
+    const maths::Vec4 direction = {static_cast<float>(static_cast<double>(inverse_float) * dx),
+                                   static_cast<float>(static_cast<double>(inverse_float) * 0.0f),
+                                   static_cast<float>(static_cast<double>(inverse_float) * dz),
+                                   static_cast<float>(dw * inverse)};
     auto rise = static_cast<float>(entity_->at_point_.y - static_cast<double>(drop->point.y));
     auto time = static_cast<float>(fall_time(this, rise, entity_->vel_.y));
     auto speed = static_cast<float>(static_cast<double>(distance) / time);
@@ -335,17 +343,17 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     drop_object_hit_ = drop->object_hit_;
     entity_->vel_.x = 0.0f;
     entity_->vel_.z = 0.0f;
-    maths::Mat4 start = entity_->basis_frame_;
+    const maths::Mat4 start = entity_->basis_frame_;
 
     // The wall's orientation: along the drop turned into the wall's plane, its normal up, across them.
     const maths::Vec4& normal = drop->normal;
     double upward =
         -((static_cast<double>(direction.x) * normal.x + static_cast<double>(direction.z) * normal.z) / normal.y);
-    double length = std::sqrt(static_cast<double>(direction.x) * direction.x + upward * upward +
-                              static_cast<double>(direction.z) * direction.z);
+    const double length = std::sqrt(static_cast<double>(direction.x) * direction.x + upward * upward +
+                                    static_cast<double>(direction.z) * direction.z);
     maths::Vec4 along = {direction.x, 0.0f, direction.z, direction.w};
     if (length > 0.0) {
-        double scale = 1.0 / length;
+        const double scale = 1.0 / length;
         along.x = static_cast<float>(direction.x * scale);
         upward *= scale;
         along.z = static_cast<float>(direction.z * scale);
@@ -353,7 +361,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     along.y = static_cast<float>(upward);
     along.flatten_onto_plane(normal);
     along.make_unit();
-    maths::Vec4 up = normal;
+    const maths::Vec4 up = normal;
     drop_heading_ = along;
     maths::Mat4 wall;
     wall.row[0] = {static_cast<float>(static_cast<double>(up.y) * along.z - static_cast<double>(up.z) * along.y),
@@ -425,21 +433,21 @@ bool SkaterPhysicsModule::try_spine_transfer()
     const maths::Vec4& up_row = object->basis_frame_.row[1];
     maths::Vec4 out = {up_row.x, 0.0f, up_row.z, 0.0f};
     {
-        double length = std::sqrt(static_cast<double>(out.x) * out.x + static_cast<double>(out.z) * out.z);
+        const double length = std::sqrt(static_cast<double>(out.x) * out.x + static_cast<double>(out.z) * out.z);
         if (length > 0.0) {
-            double inverse = 1.0 / length;
+            const double inverse = 1.0 / length;
             out.x = static_cast<float>(out.x * inverse);
             out.z = static_cast<float>(out.z * inverse);
         }
     }
-    maths::Vec4 across = {-out.z, 0.0f, out.x, 0.0f};
+    const maths::Vec4 across = {-out.z, 0.0f, out.x, 0.0f};
     const maths::Vec4& velocity = object->vel_;
     maths::Vec4 down = {-velocity.x, -velocity.y, -velocity.z, -velocity.w};
     {
-        double length = std::sqrt(static_cast<double>(down.x) * down.x + static_cast<double>(down.y) * down.y +
-                                  static_cast<double>(down.z) * down.z);
+        const double length = std::sqrt(static_cast<double>(down.x) * down.x + static_cast<double>(down.y) * down.y +
+                                        static_cast<double>(down.z) * down.z);
         if (length > 0.0) { // (x, y, z only: w stays the velocity's, negated)
-            double inverse = 1.0 / length;
+            const double inverse = 1.0 / length;
             down.x = static_cast<float>(down.x * inverse);
             down.y = static_cast<float>(down.y * inverse);
             down.z = static_cast<float>(down.z * inverse);
@@ -455,7 +463,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     bool hip = false, object_hit = false;
     render::ProbeRay feeler;
     const maths::Vec4& position = object->at_point_;
-    maths::Vec4 ahead = {target.x * kAhead, target.y * kAhead, target.z * kAhead, target.w * kAhead};
+    const maths::Vec4 ahead = {target.x * kAhead, target.y * kAhead, target.z * kAhead, target.w * kAhead};
     feeler.line_.start = {static_cast<float>(static_cast<double>(ahead.x) + position.x),
                           static_cast<float>(static_cast<double>(ahead.y) + position.y),
                           static_cast<float>(static_cast<double>(ahead.z) + position.z),
@@ -464,17 +472,18 @@ bool SkaterPhysicsModule::try_spine_transfer()
     feeler.line_.end.y = static_cast<float>(feeler.line_.end.y - static_cast<double>(kFeelerDepth));
     if (!feeler.get_hit_shape(true, false))
         return false;
-    float wall_x = feeler.contact_pos_.x, wall_z = feeler.contact_pos_.z;
+    const float wall_x = feeler.contact_pos_.x;
+    const float wall_z = feeler.contact_pos_.z;
     maths::Vec4 normal = {feeler.surface_dir_.x, 0.0f, feeler.surface_dir_.z, feeler.surface_dir_.w};
     normal.make_unit();
 
     // Something to transfer to, looking back the way the skater came - or, with one of the two buttons (&input->pad_primary_.left_side_
     // / +0x80, not both) held, the same turned that way along the wall.
-    maths::Vec4 back = {-target.x, -target.y, -target.z, -target.w};
+    const maths::Vec4 back = {-target.x, -target.y, -target.z, -target.w};
     maths::Vec4 look = back;
     maths::Vec4 target_normal{};
     if (!find_transfer_target(this, &look, &normal, &hip, &target, &target_normal, &object_hit)) {
-        objects::PadInputModule* input = input_;
+        const objects::PadInputModule* input = input_;
         if (!input->pad_primary_.left_side_.held_down_ == !input->pad_primary_.right_side_.held_down_)
             return false;
         if (input->pad_primary_.left_side_.held_down_) {
@@ -482,7 +491,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
                     static_cast<float>(static_cast<double>(back.z) + normal.x),
                     static_cast<float>(static_cast<double>(back.w) + 1.0f)};
         } else {
-            maths::Vec4 side = {normal.z, 0.0f, -normal.x, -1.0f};
+            const maths::Vec4 side = {normal.z, 0.0f, -normal.x, -1.0f};
             look = side + back;
         }
         look.make_unit();
@@ -491,15 +500,16 @@ bool SkaterPhysicsModule::try_spine_transfer()
     }
 
     // Found: how far the target is from the wall (flat), the target's normal flattened.
-    float height = position.y; // (the target is taken at the skater's own height)
-    double side_shift_x = static_cast<double>(target.x) - wall_x, off_z = static_cast<double>(target.z) - wall_z;
+    const float height = position.y; // (the target is taken at the skater's own height)
+    const double side_shift_x = static_cast<double>(target.x) - wall_x;
+    const double off_z = static_cast<double>(target.z) - wall_z;
     auto distance = static_cast<float>(std::sqrt(side_shift_x * side_shift_x + off_z * off_z));
     maths::Vec4 flat_normal = {target_normal.x, 0.0f, target_normal.z, target_normal.w};
     flat_normal.make_unit();
     maths::Vec4& object_velocity = object->vel_;
-    maths::Vec4 old_velocity = object_velocity;
-    double facing = static_cast<double>(flat_normal.z) * out.z + static_cast<double>(flat_normal.y) * out.y +
-                    static_cast<double>(flat_normal.x) * out.x;
+    const maths::Vec4 old_velocity = object_velocity;
+    const double facing = static_cast<double>(flat_normal.z) * out.z + static_cast<double>(flat_normal.y) * out.y +
+                          static_cast<double>(flat_normal.x) * out.x;
     if (std::fabs(facing) < kFlatTarget || distance > kFarTarget) { // (all of the speed straight up)
         object_velocity.y = static_cast<float>(length_unrounded(object_velocity));
         object_velocity.x = 0.0f;
@@ -510,10 +520,10 @@ bool SkaterPhysicsModule::try_spine_transfer()
     auto time = static_cast<float>(fall_time(this, rise, object_velocity.y));
     if (time < kLeastFallTime)
         time = kLeastFallTime;
-    double inverse_time = 1.0 / time;
+    const double inverse_time = 1.0 / time;
     auto per_second = static_cast<float>(inverse_time);
     if (reach > kFarTarget) { // (fast enough to get there in the time?)
-        double speed = inverse_time * reach;
+        const double speed = inverse_time * reach;
         if (length_sqr_unrounded(object_velocity) < speed * speed)
             return false;
     }
@@ -529,8 +539,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
 
     // The way the skater lands: over a spine, towards the target along its slope; over a hip, straight up or down
     // (down when the target lies on the far side of its normal).
-    double to_w = static_cast<double>(target.w) - position.w, to_z = static_cast<double>(target.z) - position.z;
-    double to_x = static_cast<double>(target.x) - position.x;
+    const double to_w = static_cast<double>(target.w) - position.w;
+    const double to_z = static_cast<double>(target.z) - position.z;
+    const double to_x = static_cast<double>(target.x) - position.x;
     maths::Vec4 along{};
     if (!hip) {
         along = {static_cast<float>(to_x),
@@ -542,14 +553,14 @@ bool SkaterPhysicsModule::try_spine_transfer()
         along = {static_cast<float>(to_x), static_cast<float>(static_cast<double>(height) - position.y),
                  static_cast<float>(to_z), static_cast<float>(to_w)};
         along.make_unit();
-        double side = static_cast<double>(along.z) * flat_normal.z + static_cast<double>(along.y) * flat_normal.y +
-                      static_cast<double>(along.x) * flat_normal.x;
+        const double side = static_cast<double>(along.z) * flat_normal.z +
+                            static_cast<double>(along.y) * flat_normal.y + static_cast<double>(along.x) * flat_normal.x;
         along = {0.0f, side < 0.0 ? 1.0f : -1.0f, 0.0f, 1.0f};
     }
 
     // The orientation at the target (rows: across, the target's normal, along it in its plane), turned by the
     // skater's facing against its old velocity (none under 30 degrees); the slerp there from the skater's.
-    maths::Mat4 start = object->basis_frame_;
+    const maths::Mat4 start = object->basis_frame_;
     maths::Vec4 forward = along;
     forward.flatten_onto_plane(target_normal);
     forward.make_unit();

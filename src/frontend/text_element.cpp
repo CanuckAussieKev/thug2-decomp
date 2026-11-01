@@ -162,7 +162,7 @@ void SmearEffect::start_morph(int ms)
 // 0x004A57D0
 void SmearEffect::tick_frame()
 {
-    int now = static_cast<int>(frame_clock::get_time());
+    const int now = static_cast<int>(frame_clock::get_time());
     double k = get_one();
     if (remaining_)
         k = as_unsigned(now - last_time_) / as_unsigned(remaining_);
@@ -180,7 +180,7 @@ void SmearEffect::tick_frame()
         ongoing_ = aim_point_;
     }
     for (int n = 0; n < 16; ++n) {
-        double f = static_cast<double>(n) * sixteenth();
+        const double f = static_cast<double>(n) * sixteenth();
         DupFrom& c = copies_[n];
         c.dx = static_cast<float>(f * ongoing_.max_displacement_[0]);
         c.dy = static_cast<float>(f * ongoing_.max_displacement_[1]);
@@ -270,8 +270,8 @@ void LabelWidget::set_viewports()
 // 0x004AF8C0
 void LabelWidget::change_caption(const char* text)
 {
-    size_t size = std::strlen(text) + 1;
-    bool fits = chars_ && static_cast<int>(std::strlen(chars_)) >= static_cast<int>(size - 1);
+    const size_t size = std::strlen(text) + 1;
+    const bool fits = chars_ && static_cast<int>(std::strlen(chars_)) >= static_cast<int>(size - 1);
     if (!fits) {
         if (chars_)
             memory::dealloc(chars_);
@@ -314,7 +314,7 @@ void LabelWidget::change_caption(const char* text)
 // 0x004AFA00 (the target compared unrounded, the shown one with the float)
 void LabelWidget::set_text_rotation(float degrees, int now)
 {
-    double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+    const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     auto angle = static_cast<float>(radians);
     if (radians != aim_point_.angle) {
         aim_point_.angle = angle;
@@ -359,8 +359,8 @@ void LabelWidget::set_char_properties(script::Array* chars)
                 index, static_cast<float>(static_cast<double>(degrees) * get_degrees()));
         float x = 0.0f, y = 0.0f;
         if (c->fetch_pair(kOffset, &x, &y, 0)) {
-            int iy = get_truncated(y);
-            int ix = get_truncated(x);
+            const int iy = get_truncated(y);
+            const int ix = get_truncated(x);
             static_cast<render::GlyphString*>(texts_[0])->set_char_offset(index, static_cast<int16_t>(ix),
                                                                           static_cast<int16_t>(iy));
         }
@@ -373,8 +373,8 @@ void LabelWidget::set_char_properties(script::Array* chars)
 // 0x004AFD00
 bool LabelWidget::join_onto(const char* text)
 {
-    int length = chars_ ? static_cast<int>(std::strlen(chars_)) : 0;
-    int total = static_cast<int>(std::strlen(text)) + length;
+    const int length = chars_ ? static_cast<int>(std::strlen(chars_)) : 0;
+    const int total = static_cast<int>(std::strlen(text)) + length;
     if (total + 1 >= 0x60 || total <= 0)
         return false;
     char joined[0x60];
@@ -391,7 +391,7 @@ bool LabelWidget::backspace()
 {
     if (!chars_)
         return false;
-    int length = static_cast<int>(std::strlen(chars_));
+    const int length = static_cast<int>(std::strlen(chars_));
     if (length == 0)
         return false;
     char shorter[0x60];
@@ -535,22 +535,22 @@ void LabelWidget::tick_frame()
 {
     if (!chars_)
         return;
-    float top = summed_.top;
-    bool outside = top < layout_top() || top > layout_bottom();
-    float shown_angle = (object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle;
+    const float top = summed_.top;
+    const bool outside = top < layout_top() || top > layout_bottom();
+    const float shown_angle = (object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle;
     if (num_) {
         uint32_t shown = 0;
         std::memcpy(&shown, shown_.rgba, 4);
         void* t = texts_[0];
-        uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed_.alpha));
+        const uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed_.alpha));
         text_override_alpha(t, override_alpha_);
         // the point turned about (as set_text_rotation), from the text's size when it is turned
         float width = 0.0f, height = 0.0f;
         if (summed_.angle != get_zero())
             read_string_param(typeface_, chars_, &width, &height);
-        double scaled_width = static_cast<double>(width) * summed_.scale_x_;
+        const double scaled_width = static_cast<double>(width) * summed_.scale_x_;
         auto x = static_cast<float>(get_half() * scaled_width);
-        double scaled_height = static_cast<double>(height) * summed_.scale_y_;
+        const double scaled_height = static_cast<double>(height) * summed_.scale_y_;
         auto scaled_height_f = static_cast<float>(scaled_height);
         auto y = static_cast<float>(scaled_height * get_half());
         if (inner_align_h_ < get_zero())
@@ -580,7 +580,7 @@ void LabelWidget::tick_frame()
             void* s = shadows_[0];
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_, 4);
-            uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
+            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
             text_override_alpha(s, override_alpha_);
             text_font(s, typeface_);
             text_pos(s, static_cast<float>(static_cast<double>(shadow_x_) + summed_.left),
@@ -605,9 +605,9 @@ void LabelWidget::tick_frame()
     auto centre_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * span_ * get_half() + summed_.left);
     auto centre_y = static_cast<float>(static_cast<double>(summed_.scale_y_) * level_y_ * get_half() + summed_.top);
     for (int i = 1; i < num_; ++i) {
-        SmearEffect::DupFrom* copy = blur_->get_copy(i - 1);
-        uint32_t blur = blur_->rgba_value_;
-        uint32_t rgba = with_alpha(
+        const SmearEffect::DupFrom* copy = blur_->get_copy(i - 1);
+        const uint32_t blur = blur_->rgba_value_;
+        const uint32_t rgba = with_alpha(
             blur, static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(blur >> 24)) * copy->alpha)));
         void* t = texts_[i];
         auto x = static_cast<float>(centre_x - (static_cast<double>(span_) * copy->scale_x_ * get_half() + copy->dx) *
@@ -630,7 +630,7 @@ void LabelWidget::tick_frame()
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_, 4);
             text_override_alpha(s, override_alpha_);
-            uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
+            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
             text_pos(s, static_cast<float>(static_cast<double>(scale_x) * shadow_x_ + x),
                      static_cast<float>(static_cast<double>(scale_y) * shadow_y_ + y));
             text_colour(s, shadow_rgba, override_rgba_);

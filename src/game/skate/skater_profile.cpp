@@ -72,7 +72,7 @@ int write_struct(script::Struct* s, uint8_t* buffer, int size)
 }
 uint8_t* read_struct(script::Struct* s, uint8_t* buffer, const uint8_t* limit)
 {
-    size_t size = buffer < limit ? static_cast<size_t>(limit - buffer) : 0;
+    const size_t size = buffer < limit ? static_cast<size_t>(limit - buffer) : 0;
     return script::decode_from_bytes(s, buffer, size);
 }
 
@@ -282,7 +282,7 @@ void ChecksumSet::get_fill()
     num_ = 0;
     script::Array* array = script::fetch_list(0x5004A967);
     for (uint32_t i = 0; i < array->extent_; ++i) {
-        uint32_t item = array->fetch_part(i);
+        const uint32_t item = array->fetch_part(i);
         int j = 0;
         for (; j < num_; ++j) {
             if (item == items_[j])
@@ -311,11 +311,11 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         uint32_t appearance = 0;
         params->read_hash_value(kAppearanceName, &appearance, 1);
         load_appearance(this, appearance, true);
-        for (uint32_t name : {kDisplayName, 0x562E3ECDu, 0x2820E997u, 0x6C375B95u}) {
+        for (const uint32_t name : {kDisplayName, 0x562E3ECDu, 0x2820E997u, 0x6C375B95u}) {
             params->fetch_text(name, &text, 1);
             mine->append_word(name, text);
         }
-        for (uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
+        for (const uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
             params->fetch_int_value(name, reinterpret_cast<int*>(&number), name != 0x27EB9B9D);
             mine->put_int(name, static_cast<int>(number));
         }
@@ -325,7 +325,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             params->fetch_int_value(0xB78D4AAE, reinterpret_cast<int*>(&number), 1);
             mine->put_int(0xB78D4AAE, static_cast<int>(number));
         }
-        for (uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
+        for (const uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
             params->read_hash_value(name, &checksum, 1);
             mine->put_name_key(name, checksum);
         }
@@ -495,7 +495,7 @@ int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
     written = write_struct(part, buffer, size);
     size -= written;
     total += written;
-    int info = write_info_to_buffer(buffer + written, size);
+    const int info = write_info_to_buffer(buffer + written, size);
     pop_heap();
     return info + total;
 }
@@ -543,7 +543,7 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         }
         c = next;
     }
-    int written = write_struct(sent, buffer, size);
+    const int written = write_struct(sent, buffer, size);
     free_struct(sent);
     return written;
 }

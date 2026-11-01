@@ -75,7 +75,7 @@ void halt(StreamSlot& slot)
 {
     WaitForSingleObject(stream_lock(), INFINITE);
     if (slot.get_playing()) {
-        bool ready = slot.wad ? slot.wad->ready_to_free() : slot.bink->ready_to_free();
+        const bool ready = slot.wad ? slot.wad->ready_to_free() : slot.bink->ready_to_free();
         if (ready)
             slot.dealloc();
         else if (slot.wad)
@@ -103,7 +103,7 @@ bool load_music_track(uint32_t checksum)
     music.fabricate(1, false, 1);
     char path[256];
     std::snprintf(path, sizeof(path), "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
-    Result result = music.bink ? music.bink->unseal(path) : -1;
+    const Result result = music.bink ? music.bink->unseal(path) : -1;
     if (music.wad)
         music.wad->change_loudness(music.volume);
     else if (music.bink)
@@ -196,7 +196,8 @@ void sync_music_to_time(float seconds)
         return;
     WaitForSingleObject(stream_lock(), INFINITE);
     render::Bink* bink = music_slot().bink->bink_; // (a WadStream, or a paused Bink stream, would crash here)
-    int frame = ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
+    const int frame =
+        ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
     uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);
     if (static_cast<int>(off) < 0)
         off = 0u - off;
@@ -221,11 +222,11 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
             float level[5];
             double last = 0;
             for (int i = 0; i < 5; ++i) {
-                double scaled = static_cast<double>(sound_volume()) * volume->level[i] * kPercent;
+                const double scaled = static_cast<double>(sound_volume()) * volume->level[i] * kPercent;
                 level[i] = static_cast<float>(scaled);
                 last = scaled;
             }
-            double sum = last + level[3] + level[2] + level[1] + level[0];
+            const double sum = last + level[3] + level[2] + level[1] + level[0];
             slot.volume = static_cast<float>(sum * kFifth);
             if (slot.wad)
                 slot.wad->set_channel_volumes(level[0], level[1], level[2], level[3], level[4]);
@@ -256,11 +257,11 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
 // 0x00454080
 bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, int, int, bool preload, int plays)
 {
-    int entry = find_wad_entry(checksum);
+    const int entry = find_wad_entry(checksum);
     if (entry < 0)
         return false;
-    uint32_t offset = wad_entries()[entry].offset;
-    uint32_t size = wad_entries()[entry].size;
+    const uint32_t offset = wad_entries()[entry].offset;
+    const uint32_t size = wad_entries()[entry].size;
     if (stream_status(slot_index) != 1)
         return false;
     WaitForSingleObject(stream_lock(), INFINITE);

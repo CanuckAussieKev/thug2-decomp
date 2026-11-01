@@ -76,7 +76,7 @@ inline int state_of(const SkaterPhysicsModule* component) { return component->st
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
 inline int get_now()
 {
-    int time = frame_clock::game_clock_elapsed();
+    const int time = frame_clock::game_clock_elapsed();
     return time + objects::g_clock_offset;
 }
 // The time since `stamp` (the clock's elapsed time, as the original works it out).

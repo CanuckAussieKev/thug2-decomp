@@ -103,7 +103,7 @@ bool same_selection(const edit::Selected& a, const edit::Selected& b) { return a
 // The action made again from where it started (its step taken back first - Place: moved / turned in place).
 void get_apply(const ActStep& wanted)
 {
-    ActStep n = normalised(wanted, xform::get_grid());
+    const ActStep n = normalised(wanted, xform::get_grid());
     if (get_same(n, g_last.action))
         return;
     g_applying = true;
@@ -111,10 +111,10 @@ void get_apply(const ActStep& wanted)
     bool pushed = true;
     switch (n.kind) {
     case Kind::kPlace: {
-        V3 pos = edit::get_pos();
+        const V3 pos = edit::get_pos();
         if (pos.x != n.pos.x || pos.y != n.pos.y || pos.z != n.pos.z)
             edit::place_at(n.pos);
-        float turn = n.degrees - g_last.action.degrees;
+        const float turn = n.degrees - g_last.action.degrees;
         if (std::fabs(turn) > 1e-4f)
             edit::turn_by(turn * kPi / 180.0f);
         edit::get_settle();
@@ -156,9 +156,10 @@ void get_apply(const ActStep& wanted)
     case Kind::kJustify:
     case Kind::kDistribute: {
         edit::take_back();
-        bool done = n.kind == Kind::kJustify ? arrange::justify(n.axis, static_cast<arrange::Edge>(n.edge),
-                                                                static_cast<arrange::Reference>(n.reference), n.local)
-                                             : arrange::distribute(n.axis, n.gaps, n.local);
+        const bool done = n.kind == Kind::kJustify
+                              ? arrange::justify(n.axis, static_cast<arrange::Edge>(n.edge),
+                                                 static_cast<arrange::Reference>(n.reference), n.local)
+                              : arrange::distribute(n.axis, n.gaps, n.local);
         if (!done) {
             edit::get_begin();
             edit::get_end();

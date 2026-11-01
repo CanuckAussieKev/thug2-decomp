@@ -150,7 +150,7 @@ void delete_all(memory::ListNode* head)
 void update_rank(LobbyPlayer* player, const char* value)
 {
     player->skill_points_ = std::atol(value);
-    double rank = static_cast<double>(player->skill_points_) * g_rank_scale * render::g_float_ten;
+    const double rank = static_cast<double>(player->skill_points_) * g_rank_scale * render::g_float_ten;
     int shown = static_cast<int>(rank); // (truncated, as _ftol)
     if (shown > kMaxRank)
         shown = kMaxRank;
@@ -319,13 +319,13 @@ void RoomManager::fill_player_list()
 // 0x00541C70
 void RoomManager::fill_prospective_buddy_list()
 {
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     get_run(kDestroyBuddyChildren);
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
-        int profile = player->account_;
+        const int profile = player->account_;
         if (profile != manager->presence_service_->account_ && profile > 0 && // (0x005480C0: our own profile)
             !manager->presence_service_->is_buddy(profile))                   // (a buddy already)
             add_buddy_menu_item(player);                                      // (a prospective buddy)
@@ -454,7 +454,7 @@ void RoomManager::enum_players_callback(void* peer, int success, int room_type, 
 void RoomManager::join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby)
 {
     (void)result;
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     if (!success) {
         get_run(kJoinLobbyFailed);
         return;
@@ -471,7 +471,7 @@ void RoomManager::join_room_callback(void* peer, int success, int result, int ro
     char key[64];
     char value[64];
     std::sprintf(key, "b_rating");
-    int* rating = &manager->rating_service_->get_personal_stats()->skill_points_;
+    const int* rating = &manager->rating_service_->get_personal_stats()->skill_points_;
     std::sprintf(value, "%d", *rating);
     const char* keys[1] = {key};
     const char* values[1] = {value};
@@ -500,7 +500,7 @@ bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     RoomManager* lobby = manager->lobby_service_.get();
     while (lobby->negotiations_) { // (counted down one at a time, as the original - a negative count takes long)
@@ -530,7 +530,7 @@ bool cfunc_fill_player_list(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    Hub* manager = Hub::fabricate(false);
+    const Hub* manager = Hub::fabricate(false);
     manager->lobby_service_->fill_player_list();
     release_manager();
     return true;
@@ -550,7 +550,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     RoomManager* lobby = manager->lobby_service_.get();
     if (lobby->group_id_)
@@ -564,7 +564,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
 bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     int index = 0;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     params->fetch_int_value(kIndex, &index, 0);

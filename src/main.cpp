@@ -26,7 +26,7 @@ namespace {
 void load_system_direct_input()
 {
     char path[MAX_PATH];
-    UINT length = GetSystemDirectoryA(path, MAX_PATH);
+    const UINT length = GetSystemDirectoryA(path, MAX_PATH);
     if (length == 0 || length + sizeof("\\dinput8.dll") > MAX_PATH)
         return;
     std::memcpy(path + length, "\\dinput8.dll", sizeof("\\dinput8.dll"));

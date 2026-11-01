@@ -106,7 +106,9 @@ inline void take_press(objects::ControlButton* button) { button->reset_activatio
 // leave them on the x87 stack: x * x + y * y + z * z, unrounded.
 inline double length_sqr_unrounded(const maths::Vec4& v)
 {
-    double x = v.x, y = v.y, z = v.z;
+    const double x = v.x;
+    const double y = v.y;
+    const double z = v.z;
     return x * x + y * y + z * z;
 }
 inline double length_unrounded(const maths::Vec4& v) { return std::sqrt(length_sqr_unrounded(v)); }

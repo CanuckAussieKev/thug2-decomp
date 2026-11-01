@@ -169,8 +169,8 @@ void NodeManager::unhash_node_array(uint32_t array)
     for (uint32_t i = 0; i <= slots.get_mask(); ++i) {
         if (slots.vacant(i))
             continue;
-        uint32_t moved_array = slots.get_array(i);
-        int moved_node = slots.elem(i);
+        const uint32_t moved_array = slots.get_array(i);
+        const int moved_node = slots.elem(i);
         slots.get_clear(i);
         auto* node = reinterpret_cast<Struct*>(arrays_[moved_array].node_entries_->fetch_part(moved_node));
         uint32_t name = 0;
@@ -185,7 +185,7 @@ void NodeManager::unhash_node_array(uint32_t array)
 // 0x0045CFC0
 Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
 {
-    Slots slots(this);
+    const Slots slots(this);
     // (NOT ORIGINAL: at most every slot once - a full hash without the name went round for ever)
     uint32_t tries = slots.get_mask() + 1;
     for (uint32_t slot = name & slots.get_mask(); tries-- && !slots.vacant(slot);
@@ -217,7 +217,7 @@ void NodeManager::start_walk(uint32_t name)
     walk.assign_value(0, 0);
     if (!name)
         return;
-    Slots slots(this);
+    const Slots slots(this);
     uint32_t slot = name & slots.get_mask();
     for (;;) {
         auto* node =
@@ -323,13 +323,13 @@ void NodeManager::hash_nodes(uint32_t index)
 // 0x0045D480
 void NodeManager::resolve_links(Array* nodes)
 {
-    uint32_t count = nodes->extent_;
+    const uint32_t count = nodes->extent_;
     for (uint32_t i = 0; i < count; ++i) {
         auto* node = reinterpret_cast<Struct*>(nodes->fetch_part(i));
         Array* links = nullptr;
         if (!node->fetch_list(kLinks, &links, 0) || !links->extent_)
             continue;
-        uint32_t link_count = links->extent_;
+        const uint32_t link_count = links->extent_;
         for (uint32_t j = 0; j < link_count; ++j) {
             auto* linked = reinterpret_cast<Struct*>(nodes->fetch_part(links->fetch_part(j)));
             links->set_element(j, get_node_name(linked));
@@ -350,7 +350,7 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
     ++num_;
     hash_nodes(num_ - 1);
     add_node_array_prefixes(name);
-    int count = static_cast<int>(nodes->extent_);
+    const int count = static_cast<int>(nodes->extent_);
     for (int i = 0; i < count; ++i) {
         auto* node = reinterpret_cast<Struct*>(nodes->fetch_part(i));
         script::VectorValue position = {0.0f, 0.0f, 0.0f, 1.0f};

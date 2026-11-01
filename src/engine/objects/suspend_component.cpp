@@ -88,7 +88,7 @@ void DormancyModule::publish_method_table()
 DormancyModule::DormancyModule()
 {
     kind_tag_ = kType;
-    double distance = static_cast<double>(script::fetch_float(kDefaultSuspendDistance)) * kInchesPerFoot;
+    const double distance = static_cast<double>(script::fetch_float(kDefaultSuspendDistance)) * kInchesPerFoot;
     suspend_distance_ = static_cast<float>(distance);
     suspend_distance_squared_ = static_cast<float>(distance * distance);
 }
@@ -106,7 +106,7 @@ void DormancyModule::configure_from_data(script::Struct* params)
         if (suspend_distance_ == 0.0f && !params->fetch_float(kLodDist[0], &suspend_distance_, 0))
             suspend_distance_ = script::fetch_float(kDefaultSuspendDistance);
         never_suspend_ = false;
-        double distance = static_cast<double>(suspend_distance_) * kInchesPerFoot;
+        const double distance = static_cast<double>(suspend_distance_) * kInchesPerFoot;
         suspend_distance_ = static_cast<float>(distance);
         suspend_distance_squared_ = static_cast<float>(distance * distance);
     }
@@ -125,7 +125,8 @@ void DormancyModule::configure_from_data(script::Struct* params)
     params->fetch_float(kLodDist[1], &lod[1], 0);
     params->fetch_float(kLodDist[2], &lod[2], 0);
     params->fetch_float(kLodDist[3], &lod[3], 0);
-    double first = static_cast<double>(lod[0]) * kInchesPerFoot, second = static_cast<double>(lod[1]) * kInchesPerFoot;
+    const double first = static_cast<double>(lod[0]) * kInchesPerFoot;
+    const double second = static_cast<double>(lod[1]) * kInchesPerFoot;
     lod[0] = static_cast<float>(first);
     lod[1] = static_cast<float>(second);
     lod[2] = lod[2] * kInchesPerFoot;
@@ -140,7 +141,7 @@ void DormancyModule::configure_from_data(script::Struct* params)
     lod[0] = script::fetch_float(0xD3D072F9) * lod[0]; // LOD0DistanceMultiplier
     lod[1] = script::fetch_float(0x0432F2A1) * lod[1]; // LOD1DistanceMultiplier
     // NOT ORIGINAL - [Graphics] lod_distance_scale (engine/gfx/graphics_options.h): animated and drawn further out.
-    float scale = render::graphics_options::get_pull().lod_distance_scale_;
+    const float scale = render::graphics_options::get_pull().lod_distance_scale_;
     lod[0] = render::graphics_options::get_scaled(lod[0], scale);
     lod[1] = render::graphics_options::get_scaled(lod[1], scale);
 }
@@ -168,12 +169,12 @@ bool DormancyModule::wants_animating(float* distance_squared)
     if (distance_squared)
         *distance_squared = d;
     bool animate = true;
-    double lod = lod_distances_[0];
+    const double lod = lod_distances_[0];
     if (d > lod * lod) { // (not a number: as within)
         animate = false;
     } else {
-        float skip_every2 = script::fetch_float(0xDB120FB5);  // AnimLODInterleave2
-        double skip_every4 = script::fetch_float(0x3271AA80); // AnimLODInterleave4
+        const float skip_every2 = script::fetch_float(0xDB120FB5);  // AnimLODInterleave2
+        const double skip_every4 = script::fetch_float(0x3271AA80); // AnimLODInterleave4
         auto within2 = static_cast<float>(static_cast<double>(skip_every2) * skip_every2);
         if (d > skip_every4 * skip_every4)
             animate = (++interleave4_count() & 3) == 0;
@@ -199,7 +200,7 @@ void DormancyModule::refresh_shown_state()
         } else if (static_cast<MeshInstanceModule*>(mesh_instance_)->level_object_) {
             visible = true;
         } else {
-            double lod = lod_distances_[1];
+            const double lod = lod_distances_[1];
             if (distance_squared_ < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 float sphere[4];
@@ -212,8 +213,8 @@ void DormancyModule::refresh_shown_state()
             }
         }
     }
-    uint8_t flags = model_of(mesh_instance_)[0x44];
-    bool shown = (flags & 0x2) && !(flags & 0x4);
+    const uint8_t flags = model_of(mesh_instance_)[0x44];
+    const bool shown = (flags & 0x2) && !(flags & 0x4);
     change_model_enabled(model_of(mesh_instance_), visible);
     if (visible && !shown)
         mesh_instance_->tick_frame();
@@ -231,8 +232,8 @@ bool DormancyModule::obj_reset_no_suspend_count(script::Struct* /*params*/, scri
 // 0x00433E20
 void next_suspend_frame()
 {
-    int previous = frame_count();
-    int frame = previous + 1;
+    const int previous = frame_count();
+    const int frame = previous + 1;
     frame_count() = frame;
     interleave2_count() = frame;
     interleave4_count() = (((previous >> 1) & 1) + 1) ^ frame;
@@ -274,15 +275,16 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
             } else {
                 const maths::Vec4& pos = component->entity_->at_point_;
                 const auto* at = reinterpret_cast<const float*>(&camera->viewer_pos_);
-                double dx = static_cast<double>(pos.x) - at[0], dy = static_cast<double>(pos.y) - at[1],
-                       dz = static_cast<double>(pos.z) - at[2];
-                double distance_squared = (dz * dz + dy * dy) + dx * dx;
+                const double dx = static_cast<double>(pos.x) - at[0];
+                const double dy = static_cast<double>(pos.y) - at[1];
+                const double dz = static_cast<double>(pos.z) - at[2];
+                const double distance_squared = (dz * dz + dy * dy) + dx * dx;
                 component->distance_squared_ = static_cast<float>(distance_squared);
                 component->far_ = distance_squared > component->suspend_distance_squared_;
             }
         }
         GameEntity* object = component->entity_;
-        bool suspended = (object->composite_flags_ & kCompositeFlagSuspended) != 0;
+        const bool suspended = (object->composite_flags_ & kCompositeFlagSuspended) != 0;
         if (component->far_ && !suspended)
             object->hold_off(true);
         else if (!component->far_ && suspended)

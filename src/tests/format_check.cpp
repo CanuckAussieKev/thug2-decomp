@@ -121,9 +121,9 @@ std::unique_ptr<Value> read_element(util::ByteReader& reader, uint8_t type)
 bool read_structure(util::ByteReader& reader, Structure* out)
 {
     for (uint8_t type = reader.u8(); type != 0 && reader.ok(); type = reader.u8()) {
-        Name name = read_name(reader, type);
+        const Name name = read_name(reader, type);
         auto value = std::make_unique<Value>();
-        uint8_t kind = type & 0x3F;
+        const uint8_t kind = type & 0x3F;
         switch (kind) {
         case kSignedByte:
             value->type = kInteger;
@@ -159,7 +159,7 @@ bool read_structure(util::ByteReader& reader, Structure* out)
 bool read_array(util::ByteReader& reader, ArrayValue* out)
 {
     out->type = reader.u8();
-    uint32_t count = reader.u16();
+    const uint32_t count = reader.u16();
     for (uint32_t i = 0; i < count && reader.ok(); ++i)
         out->elements.push_back(read_element(reader, out->type));
     return reader.ok();
@@ -196,7 +196,7 @@ void write_element(util::ByteWriter& writer, const Value& value)
         writer.f32(value.floats[1]);
         break;
     case kVector:
-        for (float f : value.floats)
+        for (const float f : value.floats)
             writer.f32(f);
         break;
     case kStruct:
@@ -239,7 +239,7 @@ void write_structure(util::ByteWriter& writer, const Structure& structure)
         if (value->type == kFloat) {
             float f = 0.0f;
             std::memcpy(&f, &value->bits, sizeof(f));
-            float magnitude = f < 0.0f ? -f : f;
+            const float magnitude = f < 0.0f ? -f : f;
             if (magnitude < 0.0001) {
                 write_name(writer, kZeroFloat, name);
                 continue;
@@ -266,11 +266,11 @@ size_t check_structure_round_trip(const uint8_t* bytes, size_t size, const std::
     util::ByteReader reader(bytes, size);
     Structure local;
     Structure& tree = decoded ? *decoded : local;
-    bool read = read_structure(reader, &tree);
+    const bool read = read_structure(reader, &tree);
     check(read, what + ": decoded");
     if (!read)
         return 0;
-    size_t used = reader.position();
+    const size_t used = reader.position();
     std::vector<uint8_t> again(used + 16);
     util::ByteWriter writer(again.data(), again.size());
     write_structure(writer, tree);
@@ -330,7 +330,7 @@ void check_park_map(const ArrayValue& array, const std::string& what)
     std::memcpy(again.data() + kParkMapHeaderSize, map.data() + kParkMapHeaderSize, kParkMapFloorCells);
     reader.seek(kParkMapRecordsStart);
     writer.seek(kParkMapRecordsStart);
-    bool current = header.version == kParkMapVersion;
+    const bool current = header.version == kParkMapVersion;
     for (int i = 0; i < header.piece_count; ++i) {
         ParkMapPiece piece;
         read_park_map_piece(reader, &piece);
@@ -364,9 +364,9 @@ void check_park_maps_in(const Structure& structure, const std::string& what)
 void check_structure_file(const std::filesystem::path& path, const std::vector<uint8_t>& file)
 {
     std::printf("structure file %s\n", path.string().c_str());
-    std::string name = path.filename().string();
+    const std::string name = path.filename().string();
     Structure tree;
-    size_t used = check_structure_round_trip(file.data(), file.size(), name, &tree);
+    const size_t used = check_structure_round_trip(file.data(), file.size(), name, &tree);
     check(used == file.size(), name + ": the structure is the whole file");
     check_park_maps_in(tree, name);
 }
@@ -390,14 +390,14 @@ void check_save_file(const std::filesystem::path& path)
 {
     std::ifstream in(path, std::ios::binary);
     std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    std::string name = path.filename().string();
+    const std::string name = path.filename().string();
 
     util::ByteReader reader(file.data(), file.size());
     save_cards::SaveFileHeader header;
-    bool save = save_cards::read_save_file_header(reader, &header) &&
-                header.size >= static_cast<int>(save_cards::kSaveFileHeaderSize) &&
-                header.size <= static_cast<int>(file.size()) && header.summary_size >= 0 &&
-                header.summary_size <= save_cards::kMaxSummarySize;
+    const bool save = save_cards::read_save_file_header(reader, &header) &&
+                      header.size >= static_cast<int>(save_cards::kSaveFileHeaderSize) &&
+                      header.size <= static_cast<int>(file.size()) && header.summary_size >= 0 &&
+                      header.summary_size <= save_cards::kMaxSummarySize;
     if (!save) { // (not a save: a bare structure, as the custom parks)
         check_structure_file(path, file);
         return;
@@ -416,7 +416,7 @@ void check_save_file(const std::filesystem::path& path)
     check(save_cards::write_save_file_header(writer, header) && std::memcmp(again, file.data(), sizeof(again)) == 0,
           name + ": header encoded again");
 
-    size_t summary_used =
+    const size_t summary_used =
         check_structure_round_trip(summary, static_cast<size_t>(header.summary_size), name + " summary");
     check(summary_used == static_cast<size_t>(header.summary_size), name + ": summary ends at its size");
     std::vector<uint8_t> contents(file.begin() + static_cast<std::ptrdiff_t>(save_cards::kSaveFileHeaderSize) +
@@ -427,7 +427,8 @@ void check_save_file(const std::filesystem::path& path)
             b = static_cast<uint8_t>(b - save_cards::kSaveFileMask);
     }
     Structure tree;
-    size_t contents_used = check_structure_round_trip(contents.data(), contents.size(), name + " contents", &tree);
+    const size_t contents_used =
+        check_structure_round_trip(contents.data(), contents.size(), name + " contents", &tree);
     check_park_maps_in(tree, name);
     check(contents_used == contents.size(), name + ": contents end at the header's size");
     for (size_t i = size; i < file.size(); ++i) {
@@ -485,7 +486,7 @@ static_assert(sizeof(ReferenceStreamStart) == 0x130 && offsetof(ReferenceStreamS
 void check_wire_messages()
 {
     std::printf("wire messages\n");
-    for (size_t piece_size : {size_t{0}, size_t{1}, size_t{100}, size_t{0x100}}) {
+    for (const size_t piece_size : {size_t{0}, size_t{1}, size_t{100}, size_t{0x100}}) {
         std::vector<uint8_t> piece(piece_size);
         for (size_t i = 0; i < piece_size; ++i)
             piece[i] = static_cast<uint8_t>(i * 7 + 3);
@@ -497,7 +498,7 @@ void check_wire_messages()
         reference.msg_id = 0x5A;
         if (piece_size)
             std::memcpy(reference.content, piece.data(), piece_size);
-        size_t reference_size = piece_size + 0x30;
+        const size_t reference_size = piece_size + 0x30;
 
         net::wire::StreamStart start;
         std::snprintf(start.desc, sizeof(start.desc), "%s", "Appearance");
@@ -508,7 +509,7 @@ void check_wire_messages()
         uint8_t bytes[net::wire::kStreamStartMaxSize];
         util::ByteWriter writer(bytes, sizeof(bytes));
         net::wire::write_stream_start(writer, start, piece.data(), piece_size);
-        std::string what = "stream start, piece " + std::to_string(piece_size);
+        const std::string what = "stream start, piece " + std::to_string(piece_size);
         check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes, &reference, reference_size) == 0,
               what + ": as the original's struct");
 
@@ -741,7 +742,7 @@ void check_session_messages()
 void check_skate_messages()
 {
     std::printf("skate messages\n");
-    for (int count : {1, 3, 8}) {
+    for (const int count : {1, 3, 8}) {
         ReferenceScores reference = {};
         reference.time_left = 95;
         reference.cheats = 0x10;
@@ -762,7 +763,7 @@ void check_skate_messages()
         uint8_t bytes[sizeof(ReferenceScores)];
         util::ByteWriter writer(bytes, sizeof(bytes));
         skate_net::write_scores(writer, *message);
-        std::string what = "scores, " + std::to_string(count);
+        const std::string what = "scores, " + std::to_string(count);
         check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes, &reference, reference_size) == 0,
               what + ": as the original's struct");
         util::ByteReader reader(bytes, writer.position());
@@ -794,7 +795,7 @@ int main(int argc, char** argv)
     check_skate_messages();
     g_failures += format_check_net::run();
     for (int i = 1; i < argc; ++i) {
-        std::filesystem::path path(argv[i]);
+        const std::filesystem::path path(argv[i]);
         if (std::filesystem::is_directory(path / "pre")) { // a Data folder: its archives and files
             g_failures += format_check_files::run(path);
         } else if (std::filesystem::is_directory(path)) {

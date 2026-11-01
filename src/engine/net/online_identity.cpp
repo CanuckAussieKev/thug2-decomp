@@ -37,7 +37,7 @@ constexpr size_t kKeyLength = 6;
 
 bool valid_name(const char* name)
 {
-    size_t length = std::strlen(name);
+    const size_t length = std::strlen(name);
     if (length == 0 || length > kMaxName)
         return false;
     for (size_t i = 0; i < length; ++i)

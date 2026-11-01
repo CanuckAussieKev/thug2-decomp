@@ -68,9 +68,9 @@ bool is_near(const GameEntity* object, const GameEntity* self, float reach_squar
         y = point->y;
         z = point->z;
     }
-    double dx = static_cast<double>(object->at_point_.x) - x;
-    double dy = static_cast<double>(object->at_point_.y) - y;
-    double dz = static_cast<double>(object->at_point_.z) - z;
+    const double dx = static_cast<double>(object->at_point_.x) - x;
+    const double dy = static_cast<double>(object->at_point_.y) - y;
+    const double dz = static_cast<double>(object->at_point_.z) - z;
     return dz * dz + dy * dy + dx * dx < reach_squared;
 }
 
@@ -167,8 +167,8 @@ double rect_radius_sqr(CbBoxComponent::Rect2* rect)
     if (std::fabs(rect->shift_.x) > offset)
         offset = std::fabs(rect->shift_.x);
     rect->radius_computed_ = true;
-    double sum = static_cast<double>(size) + offset;
-    double square = sum * sum;
+    const double sum = static_cast<double>(size) + offset;
+    const double square = sum * sum;
     rect->reach_squared_ = static_cast<float>(square);
     return square;
 }
@@ -176,16 +176,16 @@ double rect_radius_sqr(CbBoxComponent::Rect2* rect)
 // 0x0041AC40
 bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
 {
-    float offset_x = rect->shift_.x;
-    float offset_y = rect->shift_.y;
-    float offset_z = rect->shift_.z;
+    const float offset_x = rect->shift_.x;
+    const float offset_y = rect->shift_.y;
+    const float offset_z = rect->shift_.z;
     compute_rect(rect);
     // From the box's middle (rounded where the original stores: x, the middle's z, the sum).
     const maths::Vec4& self = entity_->at_point_;
     auto dx = static_cast<float>((static_cast<double>(offset_x) + object->at_point_.x) - self.x);
-    double dy = (static_cast<double>(offset_y) + object->at_point_.y) - self.y;
+    const double dy = (static_cast<double>(offset_y) + object->at_point_.y) - self.y;
     auto middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point_.z);
-    double dz = static_cast<double>(middle_z) - self.z;
+    const double dz = static_cast<double>(middle_z) - self.z;
     auto distance_sqr = static_cast<float>(dz * dz + dy * dy + static_cast<double>(dx) * dx);
     if (rect_radius_sqr(rect) < distance_sqr)
         return false;
@@ -205,7 +205,7 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
 // 0x0041AE20
 bool CbBoxComponent::any_skater_near(Rect2* rect, float reach_squared, const maths::Vec4* point)
 {
-    int count = modules::Skate::sole()->count_riders();
+    const int count = modules::Skate::sole()->count_riders();
     for (int i = 0; i < count; ++i) {
         GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
         if (skater == entity_)
@@ -266,7 +266,7 @@ bool CbBoxComponent::query_objects(script::Struct* params, script::Script* scrip
     if (!rect) {
         if (!params->fetch_float(kRadius, &reach_squared, 0))
             return false;
-        double radius = static_cast<double>(reach_squared) * kTwelveInchScale;
+        const double radius = static_cast<double>(reach_squared) * kTwelveInchScale;
         reach_squared = static_cast<float>(radius * radius);
     }
     uint32_t type = 0;

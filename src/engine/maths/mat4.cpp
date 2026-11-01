@@ -17,8 +17,8 @@ Vec4& Mat4::operator[](int index) { return row[index]; }
 // 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
 Mat4& make_pitch_matrix(Mat4& m, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    const float s = std::sin(angle);
+    const float c = std::cos(angle);
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, c, s, 0.0f};
     m.row[2] = {0.0f, -s, c, 0.0f};
@@ -29,8 +29,8 @@ Mat4& make_pitch_matrix(Mat4& m, float angle)
 // 0x00404E20
 Mat4& make_yaw_matrix(Mat4& m, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    const float s = std::sin(angle);
+    const float c = std::cos(angle);
     m.row[0] = {c, 0.0f, -s, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m.row[2] = {s, 0.0f, c, 0.0f};
@@ -41,8 +41,8 @@ Mat4& make_yaw_matrix(Mat4& m, float angle)
 // 0x00404E70
 Mat4& make_roll_matrix(Mat4& m, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    const float s = std::sin(angle);
+    const float c = std::cos(angle);
     m.row[0] = {c, s, 0.0f, 0.0f};
     m.row[1] = {-s, c, 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -183,9 +183,9 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
     // to float), 1 - cos from the FPU's full-precision cosine, the sine rounded to float, the products as below.
     double x = axis.x, y = axis.y;
     float z = axis.z;
-    double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
+    const double length = std::sqrt((static_cast<double>(z) * z + y * y) + x * x);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         x *= inverse;
         y *= inverse;
         z = static_cast<float>(z * inverse);
@@ -200,7 +200,8 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
     auto zy_t = static_cast<float>(z * y * t);
     auto zx_t = static_cast<float>(z * x * t);
     auto xs = static_cast<float>(x * s);
-    double ys = y * s, zs = static_cast<double>(z) * s;
+    const double ys = y * s;
+    const double zs = static_cast<double>(z) * s;
     m.row[0] = {static_cast<float>(1.0 - xx_t), static_cast<float>(xy_t + zs), static_cast<float>(zx_t - ys), 0.0f};
     m.row[1] = {static_cast<float>(xy_t - zs), static_cast<float>(1.0 - yy_t),
                 static_cast<float>(zy_t + static_cast<double>(xs)), 0.0f};
@@ -220,11 +221,14 @@ Mat4& Mat4::operator=(const MatrixProduct& product)
 // 0x0040AF60 (x87: each sum in double, rounded once; `in` may be `out`)
 Vec4& Mat4::xform(Vec4& out, const Vec4& in) const
 {
-    double x = in.x, y = in.y, z = in.z, w = in.w;
-    double rx = ((row[3].x * w + row[1].x * y) + row[2].x * z) + x * row[0].x;
-    double ry = ((row[3].y * w + row[1].y * y) + row[0].y * x) + row[2].y * z;
-    double rz = ((row[3].z * w + row[1].z * y) + row[0].z * x) + row[2].z * z;
-    double rw = ((row[3].w * w + row[1].w * y) + row[0].w * x) + row[2].w * z;
+    const double x = in.x;
+    const double y = in.y;
+    const double z = in.z;
+    const double w = in.w;
+    const double rx = ((row[3].x * w + row[1].x * y) + row[2].x * z) + x * row[0].x;
+    const double ry = ((row[3].y * w + row[1].y * y) + row[0].y * x) + row[2].y * z;
+    const double rz = ((row[3].z * w + row[1].z * y) + row[0].z * x) + row[2].z * z;
+    const double rw = ((row[3].w * w + row[1].w * y) + row[0].w * x) + row[2].w * z;
     out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), static_cast<float>(rw)};
     return out;
 }
@@ -232,11 +236,13 @@ Vec4& Mat4::xform(Vec4& out, const Vec4& in) const
 // 0x0040B000
 Vec4& Mat4::carry_point_through(Vec4& out, const Vec4& in) const
 {
-    double x = in.x, y = in.y, z = in.z;
-    double rx = ((row[2].x * z + row[1].x * y) + x * row[0].x) + row[3].x;
-    double ry = ((row[2].y * z + row[1].y * y) + row[0].y * x) + row[3].y;
-    double rz = ((row[2].z * z + row[1].z * y) + row[0].z * x) + row[3].z;
-    double rw = ((row[2].w * z + row[1].w * y) + row[0].w * x) + row[3].w;
+    const double x = in.x;
+    const double y = in.y;
+    const double z = in.z;
+    const double rx = ((row[2].x * z + row[1].x * y) + x * row[0].x) + row[3].x;
+    const double ry = ((row[2].y * z + row[1].y * y) + row[0].y * x) + row[3].y;
+    const double rz = ((row[2].z * z + row[1].z * y) + row[0].z * x) + row[3].z;
+    const double rw = ((row[2].w * z + row[1].w * y) + row[0].w * x) + row[3].w;
     out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), static_cast<float>(rw)};
     return out;
 }
@@ -244,11 +250,13 @@ Vec4& Mat4::carry_point_through(Vec4& out, const Vec4& in) const
 // 0x0040B090
 Vec4& Mat4::rotate_vector(Vec4& out, const Vec4& in) const
 {
-    double x = in.x, y = in.y, z = in.z;
-    float w = in.w;
-    double rx = (row[2].x * z + row[1].x * y) + x * row[0].x;
-    double ry = (row[2].y * z + row[1].y * y) + row[0].y * x;
-    double rz = (row[2].z * z + row[1].z * y) + row[0].z * x;
+    const double x = in.x;
+    const double y = in.y;
+    const double z = in.z;
+    const float w = in.w;
+    const double rx = (row[2].x * z + row[1].x * y) + x * row[0].x;
+    const double ry = (row[2].y * z + row[1].y * y) + row[0].y * x;
+    const double rz = (row[2].z * z + row[1].z * y) + row[0].z * x;
     out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), w};
     return out;
 }
@@ -297,14 +305,14 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
         cosine = 1.0f;
     else if (cosine < -1.0f)
         cosine = -1.0f;
-    float angle = std::acos(cosine);
+    const float angle = std::acos(cosine);
 
     // Which way round: compare ref x in_plane with the plane normal on its largest axis.
-    Vec4 cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
-               ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
+    const Vec4 cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
+                     ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
     int axis = 0;
-    bool cross_positive = cross.dominant_axis_index(&axis) > 0.0f;
-    bool normal_positive = (&normal.x)[axis] > 0.0f;
+    const bool cross_positive = cross.dominant_axis_index(&axis) > 0.0f;
+    const bool normal_positive = (&normal.x)[axis] > 0.0f;
     return cross_positive == normal_positive ? angle : -angle;
 }
 
@@ -321,7 +329,7 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
         std::sqrt((z_difference * z + static_cast<double>(x) * x) + static_cast<double>(y) * y);
 
     if (length > 0.0) {
-        double inv = 1.0 / length;
+        const double inv = 1.0 / length;
         axis = {static_cast<float>(x * inv), static_cast<float>(y * inv), static_cast<float>(z * inv),
                 static_cast<float>(inv)};
     } else { // (also a NaN length)
@@ -388,8 +396,8 @@ Mat4& Mat4::square_up_axes(int axis)
         c.make_unit();
     };
 
-    float c_dot_a = c.x * a.x + c.y * a.y + c.z * a.z;
-    float a_dot_b = a.x * b.x + a.y * b.y + a.z * b.z;
+    const float c_dot_a = c.x * a.x + c.y * a.y + c.z * a.z;
+    const float a_dot_b = a.x * b.x + a.y * b.y + a.z * b.z;
     if (std::fabs(c_dot_a) < std::fabs(a_dot_b)) {
         rebuild_b();
         rebuild_c();
@@ -440,10 +448,10 @@ bool Mat4::restore_right_angles()
 // 0x00404EC0
 Mat4& build_axis_angle_matrix(Mat4& m, int axis, float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
-    int a = (axis + 1) % 3;
-    int b = (axis + 2) % 3;
+    const float s = std::sin(angle);
+    const float c = std::cos(angle);
+    const int a = (axis + 1) % 3;
+    const int b = (axis + 2) % 3;
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -459,16 +467,20 @@ Mat4& build_axis_angle_matrix(Mat4& m, int axis, float angle)
 Mat4& create_look_at_matrix(Mat4& m, const Vec4& eye, const Vec4& target, const Vec4& up)
 {
     float fx = target.x - eye.x, fy = target.y - eye.y, fz = target.z - eye.z;
-    float length = std::sqrt(fy * fy + fx * fx + fz * fz);
+    const float length = std::sqrt(fy * fy + fx * fx + fz * fz);
     if (length > 0.0f) {
-        float scale = 1.0f / length;
+        const float scale = 1.0f / length;
         fx *= scale;
         fy *= scale;
         fz *= scale;
     }
     // right = forward x up, true_up = right x forward
-    float rx = fy * up.z - fz * up.y, ry = fz * up.x - fx * up.z, rz = fx * up.y - fy * up.x;
-    float ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+    const float rx = fy * up.z - fz * up.y;
+    const float ry = fz * up.x - fx * up.z;
+    const float rz = fx * up.y - fy * up.x;
+    const float ux = ry * fz - rz * fy;
+    const float uy = rz * fx - rx * fz;
+    const float uz = rx * fy - ry * fx;
 
     m.row[0] = {rx, ux, fx, 0.0f};
     m.row[1] = {ry, uy, fy, 0.0f};
@@ -492,9 +504,9 @@ Mat4& create_orthographic_matrix(Mat4& m, float width, float height, float near_
 Mat4& create_perspective_matrix(Mat4& m, float fov, float aspect, float near_depth, float far_depth)
 {
     // (x87: q and the cotangent of FSIN / FCOS kept on the FPU until stored)
-    double q = far_depth / (static_cast<double>(far_depth) - near_depth);
+    const double q = far_depth / (static_cast<double>(far_depth) - near_depth);
     const double half_fov = static_cast<double>(fov) * 0.5f;
-    double cot = std::cos(half_fov) / std::sin(half_fov);
+    const double cot = std::cos(half_fov) / std::sin(half_fov);
     m.row[0] = {static_cast<float>(aspect * cot), 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, static_cast<float>(cot), 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, static_cast<float>(q), 1.0f};
@@ -534,9 +546,12 @@ Mat4& Mat4::set_from_euler_angles(float x, float y, float z)
     // As the original's x87 code: the cosines and sin z stored as floats, sin x and sin y kept on the FPU at full
     // precision (their products rounded to 53 bits), the sums too until each element is stored; cos x * sin y stored
     // once and reused.
-    float cx = std::cos(x), cy = std::cos(y), cz = std::cos(z), sz = std::sin(z);
+    const float cx = std::cos(x);
+    const float cy = std::cos(y);
+    const float cz = std::cos(z);
+    const float sz = std::sin(z);
     auto cxsy = static_cast<float>(std::sin(static_cast<double>(y)) * cx);
-    double sysx = std::sin(static_cast<double>(y)) * std::sin(static_cast<double>(x));
+    const double sysx = std::sin(static_cast<double>(y)) * std::sin(static_cast<double>(x));
     auto f = [](double v) { return static_cast<float>(v); };
     row[0] = {f(static_cast<double>(cz) * cy), f(-(static_cast<double>(sz) * cy)), -std::sin(y), 0.0f};
     row[1] = {f(static_cast<double>(sz) * cx - sysx * cz), f(sysx * sz + static_cast<double>(cz) * cx),
@@ -565,9 +580,15 @@ double minor(const Mat4& m, int skip_row, int skip_col)
     for (int i = 0, n = 0; i < 4; ++i)
         if (i != skip_col)
             c[n++] = i;
-    double a = get_at(m, r[0], c[0]), b = get_at(m, r[0], c[1]), cc = get_at(m, r[0], c[2]);
-    double d = get_at(m, r[1], c[0]), e = get_at(m, r[1], c[1]), f = get_at(m, r[1], c[2]);
-    double g = get_at(m, r[2], c[0]), h = get_at(m, r[2], c[1]), i = get_at(m, r[2], c[2]);
+    const double a = get_at(m, r[0], c[0]);
+    const double b = get_at(m, r[0], c[1]);
+    const double cc = get_at(m, r[0], c[2]);
+    const double d = get_at(m, r[1], c[0]);
+    const double e = get_at(m, r[1], c[1]);
+    const double f = get_at(m, r[1], c[2]);
+    const double g = get_at(m, r[2], c[0]);
+    const double h = get_at(m, r[2], c[1]);
+    const double i = get_at(m, r[2], c[2]);
     return a * (e * i - f * h) - b * (d * i - f * g) + cc * (d * h - e * g);
 }
 
@@ -610,7 +631,7 @@ Mat4& Mat4::upend()
 {
     Mat4 adjugate{};
     adjugate.get_adjugate(*this);
-    double determinant = get_det();
+    const double determinant = get_det();
     if (determinant != 1.0) // (a NaN scales too)
         adjugate *= static_cast<float>(1.0 / determinant);
     *this = adjugate;
@@ -630,7 +651,7 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
     // until stored)
     bool above = false;
     double inverse = 0.0, neg_inverse = 0.0;
-    float y = maths::neg_asin_cos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
+    const float y = maths::neg_asin_cos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
     float x = 0.0f, z = 0.0f;
     if (above) {
         auto inv = static_cast<float>(inverse);

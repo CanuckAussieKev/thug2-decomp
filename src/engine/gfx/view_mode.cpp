@@ -25,14 +25,14 @@ namespace render::view_mode {
 std::string unlit_shader_source(const std::string& source)
 {
     // The version line first ("ps.1.1"); the constant must be free.
-    size_t version_end = source.find('\n');
+    const size_t version_end = source.find('\n');
     if (!source.starts_with("ps.") || version_end == std::string::npos)
         return {};
     auto is_name = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
-    std::string constant = "c" + std::to_string(kUnlitConstant);
+    const std::string constant = "c" + std::to_string(kUnlitConstant);
     for (size_t at = source.find(constant); at != std::string::npos; at = source.find(constant, at + 1)) {
-        bool before = at == 0 || !is_name(source[at - 1]);
-        bool after = at + constant.size() >= source.size() || !is_name(source[at + constant.size()]);
+        const bool before = at == 0 || !is_name(source[at - 1]);
+        const bool after = at + constant.size() >= source.size() || !is_name(source[at + constant.size()]);
         if (before && after)
             return {};
     }
@@ -41,15 +41,15 @@ std::string unlit_shader_source(const std::string& source)
     out.reserve(source.size() + 32);
     bool changed = false, comment = false;
     for (size_t i = 0; i < source.size(); ++i) {
-        char c = source[i];
+        const char c = source[i];
         if (c == '\n')
             comment = false;
         else if (c == ';')
             comment = true;
-        bool v0 = !comment && c == 'v' && i + 1 < source.size() && source[i + 1] == '0' &&
-                  (i == 0 || !is_name(source[i - 1])) && (i + 2 >= source.size() || !is_name(source[i + 2]));
+        const bool v0 = !comment && c == 'v' && i + 1 < source.size() && source[i + 1] == '0' &&
+                        (i == 0 || !is_name(source[i - 1])) && (i + 2 >= source.size() || !is_name(source[i + 2]));
         if (v0) {
-            bool alpha =
+            const bool alpha =
                 i + 3 < source.size() && source[i + 2] == '.' && (source[i + 3] == 'a' || source[i + 3] == 'w');
             if (!alpha) {
                 out += constant;
@@ -114,7 +114,7 @@ void get_release(void* object) { d3dx::release_buffer(object); }
 void* make_twin(void* original, Twin* twin)
 {
     twin->tried = true;
-    std::string text = unlit_shader_source(twin->source);
+    const std::string text = unlit_shader_source(twin->source);
     if (text.empty() || text == twin->source) {
         twin->shader = original;
         return original;
@@ -122,7 +122,7 @@ void* make_twin(void* original, Twin* twin)
     void* code = nullptr;
     void* errors = nullptr;
     void* made = nullptr;
-    long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
+    const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
     if (result >= 0 && code && input_port())
         input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)),
                                         reinterpret_cast<IDirect3DPixelShader9**>(&made));

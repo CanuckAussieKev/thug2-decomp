@@ -97,7 +97,7 @@ uint32_t vertex_format(uint32_t type)
 // loader's) - only while the skin scaling is on.
 void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertices, uint32_t stride)
 {
-    size_t count = records.size() / scene_format::kScaledVertexSize;
+    const size_t count = records.size() / scene_format::kScaledVertexSize;
     for (size_t i = 0; i < count; ++i) {
         ScaledVertex v{};
         std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
@@ -124,7 +124,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
         mesh->index_counts_[i] = body.index_counts[i];
-        uint16_t count = body.index_counts[i];
+        const uint16_t count = body.index_counts[i];
         if (!count)
             continue;
         void* memory = alloc_block(sizeof(IdxStore));
@@ -165,8 +165,8 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     mesh->vertex_buffer_count_ = 1;
     // Not original - the vertices the mesh draws (or, without a vertex format, unpacks) within its buffer: a count
     // past them is cut to what is there (the original read past the buffer).
-    uint32_t sets = material ? material->pass_count_ : 0;
-    uint32_t vertex_bytes = mesh->fvf ? mesh->stride : 0x20 + sets * 8;
+    const uint32_t sets = material ? material->pass_count_ : 0;
+    const uint32_t vertex_bytes = mesh->fvf ? mesh->stride : 0x20 + sets * 8;
     if (!scene_format::vertices_fit(body, vertex_bytes)) {
         uint32_t fit = 0;
         if (body.vertices.size() >= vertex_bytes)
@@ -201,11 +201,11 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
 // 0x004D5940
 void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexArena* arena)
 {
-    uint32_t sets = reinterpret_cast<MaterialRef*>(material)->pass_count_; // (a texture coordinate set a pass)
+    const uint32_t sets = reinterpret_cast<MaterialRef*>(material)->pass_count_; // (a texture coordinate set a pass)
     auto* out = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
     per_vertex_data_ = out;
     uint32_t bones = 1;
-    bool suspect = vertex_count_ == 0x280 && index_counts_[0] == 0x6A3; // (a debugging check the original kept)
+    const bool suspect = vertex_count_ == 0x280 && index_counts_[0] == 0x6A3; // (a debugging check the original kept)
     auto unpack11 = [](uint32_t bits) {
         return static_cast<int>(bits & 0x400 ? (bits & 0x7FF) - 0x800 : bits & 0x7FF);
     };
@@ -213,21 +213,21 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
         std::memcpy(out, packed, 12); // the position
         if (suspect && i == 0xF7)
             debug::printf("euh");
-        uint32_t normal = *reinterpret_cast<const uint32_t*>(packed + 0x18);
+        const uint32_t normal = *reinterpret_cast<const uint32_t*>(packed + 0x18);
         auto* f = reinterpret_cast<float*>(out);
         f[3] = static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11_scale));
         f[4] = static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11_scale));
-        uint32_t z = normal >> 22;
+        const uint32_t z = normal >> 22;
         f[5] = static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) * static_cast<double>(g_unpack_z_scale));
         std::memcpy(out + 0x18, packed + 0x1C, 4); // the colour
         std::memcpy(out + 0x1C, packed + 0x20, sets * 8);
         for (int k = 0; k < 4; ++k)
             out[0x3C + k] = static_cast<uint8_t>(*reinterpret_cast<const int16_t*>(packed + 0x10 + 2 * k) / 3);
-        uint32_t weights = *reinterpret_cast<const uint32_t*>(packed + 0xC);
+        const uint32_t weights = *reinterpret_cast<const uint32_t*>(packed + 0xC);
         f[16] = static_cast<float>(unpack11(weights) * static_cast<double>(g_unpack11_scale));
         f[17] = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(g_unpack11_scale));
-        uint32_t w = weights >> 22;
-        double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(g_unpack_z_scale);
+        const uint32_t w = weights >> 22;
+        const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(g_unpack_z_scale);
         f[18] = static_cast<float>(third);
         if (bones < 2 && !(f[17] == 0.0f))
             bones = 2;
@@ -282,7 +282,9 @@ void MeshRef::build_collision()
     uint32_t count = 0;
     uint16_t* out = found;
     for (uint32_t k = 0; k < index_counts_[0] - 2u; ++k, ++strip) {
-        uint16_t a = strip[0], b = strip[1], c = strip[2];
+        const uint16_t a = strip[0];
+        const uint16_t b = strip[1];
+        const uint16_t c = strip[2];
         if (a == b || b == c || c == a)
             continue;
         if (k & 1) { // (every other triangle of a strip winds the other way)

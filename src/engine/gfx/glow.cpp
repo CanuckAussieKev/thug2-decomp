@@ -54,8 +54,8 @@ void set_quad(const Glow* glow, const float* u, const float* v, float size, uint
     float* q = glow_quad();
     auto* colours = reinterpret_cast<uint32_t*>(q);
     for (int i = 0; i < 3; ++i) {
-        double across = static_cast<double>(u[i]) * size;
-        double up = static_cast<double>(v[i]) * size;
+        const double across = static_cast<double>(u[i]) * size;
+        const double up = static_cast<double>(v[i]) * size;
         q[i] = static_cast<float>((glow->position[i] - across) - up);
         q[4 + i] = static_cast<float>((glow->position[i] - across) + up);
         q[8 + i] = static_cast<float>((up + across) + glow->position[i]);
@@ -74,9 +74,9 @@ void update_glows(bool queries)
 {
     // The camera's across and up directions from the view matrix's third column (a, b, c): u = (b*0 - c, c*0 - a*0,
     // a - b*0) and v = u x (a, b, c), each then normalised.
-    double a = g_view_matrix.row[0].z;
-    double b = g_view_matrix.row[1].z;
-    double c = g_view_matrix.row[2].z;
+    const double a = g_view_matrix.row[0].z;
+    const double b = g_view_matrix.row[1].z;
+    const double c = g_view_matrix.row[2].z;
     float u[3], v[3];
     u[0] = static_cast<float>(b * 0.0f - c);
     u[1] = static_cast<float>(c * 0.0f - a * 0.0f);
@@ -85,10 +85,10 @@ void update_glows(bool queries)
     v[1] = static_cast<float>(u[2] * a - c * u[0]);
     v[2] = static_cast<float>(b * u[0] - u[1] * a);
     for (float* w : {u, v}) {
-        double length = std::sqrt((static_cast<double>(w[2]) * w[2] + static_cast<double>(w[1]) * w[1]) +
-                                  static_cast<double>(w[0]) * w[0]);
+        const double length = std::sqrt((static_cast<double>(w[2]) * w[2] + static_cast<double>(w[1]) * w[1]) +
+                                        static_cast<double>(w[0]) * w[0]);
         if (length > 0.0) {
-            double inverse = 1.0 / length;
+            const double inverse = 1.0 / length;
             for (int i = 0; i < 3; ++i)
                 w[i] = static_cast<float>(w[i] * inverse);
         }
@@ -137,7 +137,7 @@ void update_glows(bool queries)
         bool seen = false;
         if (!g_radeon8500) { // (not on a Radeon 8500)
             uint32_t pixels = 0;
-            int result = query_result(glow->queries[0], &pixels);
+            const int result = query_result(glow->queries[0], &pixels);
             if (result == 0) {
                 queries_in_use()[glow->queries[0]] = 0;
                 glow->queries[0] = glow->queries[1];

@@ -83,13 +83,13 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
     online::Hub* net = net_session_slot();
     net::Conn* conn = nullptr;
     if (net->get_on_server()) {
-        online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_));
+        const online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_));
         conn = player->conn_;
     } else {
         net::ConnSearch search;
         conn = app->begin_conn_walk(&search);
     }
-    int latency = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
+    const int latency = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
     if (frame_ms == 0)
         return 0.0f;
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(latency - frame_ms)) /
@@ -101,15 +101,15 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
 // 0x00515940
 void RiderRemoteSync::interpolate()
 {
-    net::AppHost* app = client_app();
+    const net::AppHost* app = client_app();
     if (!app || past_frames_->state_count_ < kHistory)
         return;
     auto* skater = static_cast<Rider*>(entity_);
     if (sync_frame_ == 0) {
         // Playback starts at the newest state, a fixed time behind it.
-        int newest = (past_frames_->state_count_ - 1) % kHistory;
+        const int newest = (past_frames_->state_count_ - 1) % kHistory;
         sync_frame_ = app->clock_;
-        int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / frame_rate());
+        const int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / frame_rate());
         SkaterStateHistoryFrame* frame = history_frame(past_frames_, newest);
         play_idx_ = newest;
         sync_time_ = static_cast<int>(history_frame_stamp(frame) - delay);
@@ -132,8 +132,8 @@ void RiderRemoteSync::interpolate()
         net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
     if (!player->has_finished_joining())
         player->set_finished_joining();
-    int count = past_frames_->state_count_;
-    int oldest = count % kHistory; // (the next to be written)
+    const int count = past_frames_->state_count_;
+    const int oldest = count % kHistory; // (the next to be written)
     uint32_t now = app->clock_ - sync_frame_ + sync_time_;
     SkaterStateHistoryFrame* last = history_frame(past_frames_, (count - 1) % kHistory);
     if (now > history_frame_stamp(last)) {
@@ -153,7 +153,7 @@ void RiderRemoteSync::interpolate()
         if (entry == oldest)
             return;
     }
-    int lag = (oldest - entry + kHistory) % kHistory;
+    const int lag = (oldest - entry + kHistory) % kHistory;
     play_idx_ = entry;
     g_nonlocal_lag = lag;
     if (lag >= 10)
@@ -163,29 +163,31 @@ void RiderRemoteSync::interpolate()
     SkaterStateHistoryFrame* from = history_frame(past_frames_, (entry + kHistory - 1) % kHistory);
     SkaterStateHistoryFrame* to = history_frame(past_frames_, entry);
     auto elapsed = static_cast<float>(static_cast<int>(now - history_frame_stamp(from)));
-    int span = static_cast<int>(history_frame_stamp(to) - history_frame_stamp(from));
+    const int span = static_cast<int>(history_frame_stamp(to) - history_frame_stamp(from));
     auto t = static_cast<float>(static_cast<double>(elapsed) / span);
     maths::Vec4 move = frame_position(to) - frame_position(from);
     last_play_pos_ = play_pos_;
 
     // The orientation: slerped, unless the at rows are far apart (then the earlier state's).
-    maths::Vec4 turn = to->matrix.row[2] - from->matrix.row[2];
-    double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
-                              static_cast<double>(turn.y) * turn.y);
+    const maths::Vec4 turn = to->matrix.row[2] - from->matrix.row[2];
+    const double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
+                                    static_cast<double>(turn.y) * turn.y);
     if (turned > kTurnSnap) {
         skater->basis_frame_ = snapshot_orientation(from);
         skater->display_matrix_ = snapshot_orientation(from);
     } else {
-        maths::Mat4 start = snapshot_orientation(from), end = snapshot_orientation(to), between{};
-        maths::ArcRotationBlender slerp(start, end);
+        const maths::Mat4 start = snapshot_orientation(from);
+        const maths::Mat4 end = snapshot_orientation(to);
+        maths::Mat4 between{};
+        const maths::ArcRotationBlender slerp(start, end);
         slerp.fetch_mat(between, t);
         skater->basis_frame_ = between;
         skater->display_matrix_ = between;
     }
 
     // The position: interpolated, unless it moved too far (then put at the later state's, standing).
-    double distance = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
-                                static_cast<double>(move.z) * move.z);
+    const double distance = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
+                                      static_cast<double>(move.z) * move.z);
     if (distance > kTeleportDistance) {
         skater->at_point_ = frame_position(to);
         skater->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -205,7 +207,7 @@ void RiderRemoteSync::interpolate()
             sum[3] += moves_[n].w;
         }
         if (n > 0) {
-            double inverse = static_cast<double>(kOne) / n;
+            const double inverse = static_cast<double>(kOne) / n;
             auto rounded = static_cast<float>(inverse);
             skater->vel_.x = static_cast<float>(inverse * sum[0]);
             skater->vel_.y = static_cast<float>(sum[1] * rounded);
@@ -224,7 +226,7 @@ void RiderRemoteSync::interpolate()
     pose_->in_vehicle_ = to->flag76 != 0;
     reinterpret_cast<RiderSessionEnd*>(run_over_)->flag_bits_ = to->value_6c_; // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.
-    uint32_t bits = to->value68;
+    const uint32_t bits = to->value68;
     for (int i = 0; i < kPoseFlagCount; ++i)
         pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1u << i)) != 0);
     if (pose_->flag(PoseFlag::kAcidDrop).on)
@@ -238,17 +240,17 @@ void RiderRemoteSync::get_extrapolate()
 {
     online::Hub* net = net_session_slot();
     net::AppHost* app = client_app();
-    int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
-    float lag = connection_lag(app, entity_, frame_ms);
-    int slot = updates_ % kHistory;
-    float dw = play_pos_.w - last_play_pos_.w;
-    float dz = play_pos_.z - last_play_pos_.z;
-    float dy = play_pos_.y - last_play_pos_.y;
-    float dx = play_pos_.x - last_play_pos_.x;
+    const int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
+    const float lag = connection_lag(app, entity_, frame_ms);
+    const int slot = updates_ % kHistory;
+    const float dw = play_pos_.w - last_play_pos_.w;
+    const float dz = play_pos_.z - last_play_pos_.z;
+    const float dy = play_pos_.y - last_play_pos_.y;
+    const float dx = play_pos_.x - last_play_pos_.x;
     float dir_x = dx, dir_z = dz;
     // How well the move lines up with this machine's skater's (0 to 1; 0 without one).
     double alignment = 0.0;
-    online::PlayerRecord* local = net->get_own_player();
+    const online::PlayerRecord* local = net->get_own_player();
     if (local && local->skater_) {
         maths::Vec4 theirs = local->skater_->vel_;
         maths::Vec4 mine = {dx, dy, dz, dw};
@@ -258,7 +260,7 @@ void RiderRemoteSync::get_extrapolate()
                      static_cast<double>(mine.y) * theirs.y + kOne) *
                     kHalf;
     }
-    double squared = (static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz;
+    const double squared = (static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz;
     auto squared_rounded = static_cast<float>(squared);
     speeds_[slot] =
         static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
@@ -274,15 +276,15 @@ void RiderRemoteSync::get_extrapolate()
         lags += lags_[n];
         alignments += alignments_[n];
     }
-    double inverse = static_cast<double>(kOne) / n;
+    const double inverse = static_cast<double>(kOne) / n;
     auto rounded = static_cast<float>(inverse);
     auto speed = static_cast<float>(inverse * speeds);
-    double scale = (rounded * lags) * (alignments * rounded);
+    const double scale = (rounded * lags) * (alignments * rounded);
     // On along the last move's direction (flattened: y isn't moved) by the average speed, times the average lag and
     // alignment.
-    double length = std::sqrt(static_cast<double>(squared_rounded));
+    const double length = std::sqrt(static_cast<double>(squared_rounded));
     if (length > 0.0) {
-        double to_unit = static_cast<double>(kOne) / length;
+        const double to_unit = static_cast<double>(kOne) / length;
         dir_x = static_cast<float>(dx * to_unit);
         dir_z = static_cast<float>(to_unit * dz);
     }
@@ -298,12 +300,17 @@ void RiderRemoteSync::get_extrapolate()
     GameEntity* skater = entity_;
     auto height = static_cast<float>(read_tuning_float(kFirstForwardCollisionHeight, 1, skater));
     const maths::Vec4& up = skater->basis_frame_.row[1];
-    float raise_w = height * up.w, raise_z = height * up.z, raise_y = height * up.y, raise_x = height * up.x;
-    maths::Vec4 from = {raise_x + play_pos_.x, raise_y + play_pos_.y, raise_z + play_pos_.z, raise_w + play_pos_.w};
-    maths::Vec4 to = {raise_x + pos.x, raise_y + pos.y, raise_z + pos.z, raise_w + pos.w};
+    const float raise_w = height * up.w;
+    const float raise_z = height * up.z;
+    const float raise_y = height * up.y;
+    const float raise_x = height * up.x;
+    const maths::Vec4 from = {raise_x + play_pos_.x, raise_y + play_pos_.y, raise_z + play_pos_.z,
+                              raise_w + play_pos_.w};
+    const maths::Vec4 to = {raise_x + pos.x, raise_y + pos.y, raise_z + pos.z, raise_w + pos.w};
     render::ProbeRay feeler;
-    double ex = static_cast<double>(from.x) - to.x, ey = static_cast<double>(from.y) - to.y,
-           ez = static_cast<double>(from.z) - to.z;
+    const double ex = static_cast<double>(from.x) - to.x;
+    const double ey = static_cast<double>(from.y) - to.y;
+    const double ez = static_cast<double>(from.z) - to.z;
     if (std::sqrt((ez * ez + ey * ey) + ex * ex) > kWallCheckReach)
         return;
     feeler.change_strand(&from, &to);
@@ -323,15 +330,17 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     maths::Vec4 a{}, b{}, p1{}, p2{};
     rails->get_absolute_pos(&a, node);
     rails->get_absolute_pos(&b, next);
-    double sx = static_cast<double>(b.x) - a.x, sy = static_cast<double>(b.y) - a.y,
-           sz = static_cast<double>(b.z) - a.z, sw = static_cast<double>(b.w) - a.w;
+    const double sx = static_cast<double>(b.x) - a.x;
+    const double sy = static_cast<double>(b.y) - a.y;
+    const double sz = static_cast<double>(b.z) - a.z;
+    const double sw = static_cast<double>(b.w) - a.w;
     auto length = static_cast<float>(std::sqrt((sx * sx + sy * sy) + sz * sz));
-    double inverse = static_cast<double>(kOne) / length;
+    const double inverse = static_cast<double>(kOne) / length;
     auto rounded = static_cast<float>(inverse);
-    maths::Vec4 along = {static_cast<float>(inverse * sx), static_cast<float>(rounded * sy),
-                         static_cast<float>(rounded * sz), static_cast<float>(rounded * sw)};
+    const maths::Vec4 along = {static_cast<float>(inverse * sx), static_cast<float>(rounded * sy),
+                               static_cast<float>(rounded * sz), static_cast<float>(rounded * sw)};
     // The rail's gravity along it.
-    float gravity = read_tuning_float(kRailGravity, 1, skater);
+    const float gravity = read_tuning_float(kRailGravity, 1, skater);
     maths::Vec4 pull = {0.0f, gravity, 0.0f, 1.0f};
     pull.project_onto(along);
     maths::Vec4& vel = skater->vel_;
@@ -375,7 +384,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
         auto cosine =
             static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
                                static_cast<double>(there.x) * here.x);
-        double limit =
+        const double limit =
             std::cos(static_cast<double>(read_tuning_float(kRailCornerLeaveAngle, 1, skater)) * kRadiansPerDegree);
         if (limit > cosine)
             stopped = true;
@@ -386,9 +395,10 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     float overshoot = 0.0f;
     rails->get_absolute_pos(&p1, sign > 0.0f ? node : next);
     const maths::Vec4& pos = skater->at_point_;
-    double dx = static_cast<double>(pos.x) - p1.x, dy = static_cast<double>(pos.y) - p1.y,
-           dz = static_cast<double>(pos.z) - p1.z;
-    double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
+    const double dx = static_cast<double>(pos.x) - p1.x;
+    const double dy = static_cast<double>(pos.y) - p1.y;
+    const double dz = static_cast<double>(pos.z) - p1.z;
+    const double distance = std::sqrt((dz * dz + dy * dy) + dx * dx);
     if (distance > static_cast<double>(length) + kRailEndSlack) {
         overshoot = static_cast<float>(distance - length);
         // (quirk kept: going forward, the segment's own end is checked for being active, not the node beyond it)
@@ -416,7 +426,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     }
 
     // Along the segment it's on: the velocity and the matrix turned along it (the way it's going), the move.
-    GrindPoint* end = node->succ_;
+    const GrindPoint* end = node->succ_;
     rails->get_absolute_pos(&p1, node);
     rails->get_absolute_pos(&p2, end);
     maths::Vec4 segment = {p2.x - p1.x, p2.y - p1.y, p2.z - p1.z, p2.w - p1.w};
@@ -431,7 +441,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     vel.y *= sign;
     vel.z *= sign;
     vel.w *= sign;
-    maths::Vec4 heading = {segment.x * sign, segment.y * sign, segment.z * sign, segment.w * sign};
+    const maths::Vec4 heading = {segment.x * sign, segment.y * sign, segment.z * sign, segment.w * sign};
     maths::Mat4& m = skater->basis_frame_;
     m.row[2] = heading;
     m.row[2].make_unit();
@@ -462,15 +472,15 @@ void RiderRemoteSync::extrapolate_on_rail()
     GrindRailHub* rails = get_level_rails();
     online::Hub* net = net_session_slot();
     net::AppHost* app = client_app();
-    int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
-    float lag = connection_lag(app, entity_, frame_ms);
-    int slot = updates_ % kHistory;
-    float dx = play_pos_.x - last_play_pos_.x;
-    float dy = play_pos_.y - last_play_pos_.y;
-    float dz = play_pos_.z - last_play_pos_.z;
-    float dw = play_pos_.w - last_play_pos_.w;
+    const int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
+    const float lag = connection_lag(app, entity_, frame_ms);
+    const int slot = updates_ % kHistory;
+    const float dx = play_pos_.x - last_play_pos_.x;
+    const float dy = play_pos_.y - last_play_pos_.y;
+    const float dz = play_pos_.z - last_play_pos_.z;
+    const float dw = play_pos_.w - last_play_pos_.w;
     double alignment = 0.0;
-    online::PlayerRecord* local = net->get_own_player();
+    const online::PlayerRecord* local = net->get_own_player();
     if (local) { // (its skater isn't checked here)
         maths::Vec4 theirs = local->skater_->vel_;
         maths::Vec4 mine = {dx, dy, dz, dw};
@@ -480,7 +490,7 @@ void RiderRemoteSync::extrapolate_on_rail()
                      static_cast<double>(mine.x) * theirs.x + kOne) *
                     kHalf;
     }
-    double squared = (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
+    const double squared = (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
     speeds_[slot] =
         static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
     lags_[slot] = lag;
@@ -492,9 +502,9 @@ void RiderRemoteSync::extrapolate_on_rail()
         lags += lags_[n];
         alignments += alignments_[n];
     }
-    double inverse = static_cast<double>(kOne) / n;
+    const double inverse = static_cast<double>(kOne) / n;
     // How far along the rail: the frame's length times the average alignment and lag (at most one second's worth).
-    double ahead = ((inverse * alignments) * (inverse * lags)) * frame_seconds_;
+    const double ahead = ((inverse * alignments) * (inverse * lags)) * frame_seconds_;
     auto left = static_cast<float>(ahead);
     if (ahead > kOne)
         left = kOne;
@@ -517,11 +527,11 @@ void RiderRemoteSync::extrapolate_on_rail()
 // 0x00516180 (its EAX - left over from the loop - isn't read)
 void RiderRemoteSync::play_history_events()
 {
-    net::AppHost* app = client_app();
+    const net::AppHost* app = client_app();
     if (!app || past_frames_->state_count_ < kHistory)
         return;
-    int first = past_frames_->message_count_ % kHistory;
-    uint32_t now = app->clock_ - sync_frame_ + sync_time_;
+    const int first = past_frames_->message_count_ % kHistory;
+    const uint32_t now = app->clock_ - sync_frame_ + sync_time_;
     auto* messages = past_frames_->messages_;
     auto* blender = static_cast<AnimBlenderComponent*>(anim_blender_);
     int i = first;
@@ -565,7 +575,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             case 0x76: { // the model's three parts set going, by the message's bits
                 mesh_set_->pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
-                int time = get_now();
+                const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))
                         mesh_set_->twist_rate_[bit].append_one(

@@ -176,7 +176,7 @@ int RoomManager::count_callback(void*, int type, void*)
 void RoomManager::key_list_callback(void*, int type, void* key_buffer, void*)
 {
     if (type == kKeyTypeServer) {
-        for (int key :
+        for (const int key :
              {kKeyHostport, kKeyMapname, kKeyGametype, kKeyTeamplay, kKeyNumplayers, kKeyMaxplayers, kKeyPassword,
               kKeyObservers, kKeyMaxObservers, kKeyLoggedIn, kKeySkillLevel, kKeyInProgress, kKeyHostMode})
             key_buffer_add(key_buffer, key);

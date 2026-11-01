@@ -88,12 +88,12 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     render::BitmapTexture* tag = find_texture(skater_textures(), kCustomTag);
     tag->begin_edit(false, false);
     tag->modulate(0u, false);
-    uint32_t size = tag->fetch_breadth();
-    int width = static_cast<uint16_t>(size);
+    const uint32_t size = tag->fetch_breadth();
+    const int width = static_cast<uint16_t>(size);
     render::BitmapTexture* workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
     workspace->begin_edit(false, false);
 
-    uint32_t count = layers->extent_;
+    const uint32_t count = layers->extent_;
     bool translucent = false;
     int last_layer = -1;
     for (uint32_t i = 0; i < count; ++i) {
@@ -137,7 +137,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         auto b = static_cast<uint8_t>(ftol(rgba->fetch_float(2)));
         auto g = static_cast<uint8_t>(ftol(rgba->fetch_float(1)));
         auto r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
-        uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
+        const uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
         workspace->modulate(colour, false);
         if (a < 0x80)
             translucent = true;

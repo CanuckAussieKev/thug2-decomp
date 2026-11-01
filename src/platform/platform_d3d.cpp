@@ -49,8 +49,8 @@ void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint
 // 0x005F4620
 HRESULT create_dynamic_vertex_buffer(uint32_t size)
 {
-    HRESULT result = input_port()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                                      &dynamic_vertices(), nullptr);
+    const HRESULT result = input_port()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0,
+                                                            D3DPOOL_DEFAULT, &dynamic_vertices(), nullptr);
     dynamic_vertices_size() = size;
     return result;
 }
@@ -93,9 +93,9 @@ HRESULT create_quad_index_buffer(uint32_t quads)
 void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
                             uint32_t* room)
 {
-    uint32_t first = (dynamic_vertices_used() + stride - 1) / stride;
+    const uint32_t first = (dynamic_vertices_used() + stride - 1) / stride;
     *buffer = dynamic_vertices();
-    uint32_t start = first * stride;
+    const uint32_t start = first * stride;
     if (count * stride + start > dynamic_vertices_size()) {
         // Full: start again at the beginning.
         dynamic_vertices()->Lock(0, 0, reinterpret_cast<void**>(&dynamic_vertices_locked()), D3DLOCK_DISCARD);
@@ -145,7 +145,7 @@ HRESULT end_occlusion_query(uint32_t key)
         return D3DERR_NOTFOUND;
     if (ended_queries().find(key) != ended_queries().end())
         return E_FAIL;
-    HRESULT result = query->Issue(D3DISSUE_END);
+    const HRESULT result = query->Issue(D3DISSUE_END);
     if (FAILED(result))
         query->Release(); // (and kept all the same, as in the original)
     ended_queries().insert({key, query});
@@ -160,7 +160,7 @@ HRESULT get_occlusion_result(uint32_t key, DWORD* pixels)
     if (it == ended_queries().end())
         return D3DERR_NOTFOUND;
     IDirect3DQuery9* query = it->second;
-    HRESULT result = query->GetData(pixels, sizeof(DWORD), 0);
+    const HRESULT result = query->GetData(pixels, sizeof(DWORD), 0);
     if (result == S_OK) {
         ended_queries().erase(it);
         query->Release();

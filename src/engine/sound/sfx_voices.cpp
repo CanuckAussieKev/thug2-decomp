@@ -138,7 +138,7 @@ void stop_positional_voice(AudioMixer* manager, const PositionalSound* entry)
         if (get_playing()[i].unique_id_ != entry->unique_id_)
             continue;
         if (is_voice_playing(i) && !no_sound()) {
-            int index = manager->get_playing_index(entry->unique_id_);
+            const int index = manager->get_playing_index(entry->unique_id_);
             if (index >= 0)
                 stop_voice(index);
         }
@@ -170,31 +170,31 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
             return;
     }
     const maths::Vec4* camera_at = &static_cast<gfx::ViewCam*>(camera)->old_pos_; // (its +0x4C, as the original)
-    float px = camera_at->x - previous->x;
-    float py = camera_at->y - previous->y;
-    float pz = camera_at->z - previous->z;
+    const float px = camera_at->x - previous->x;
+    const float py = camera_at->y - previous->y;
+    const float pz = camera_at->z - previous->z;
     const maths::Vec4* listener = viewer_location(camera);
-    double nx = static_cast<double>(listener->x) - position->x;
-    double ny = static_cast<double>(listener->y) - position->y;
-    double nz = static_cast<double>(listener->z) - position->z;
-    double now = std::sqrt(nz * nz + ny * ny + nx * nx);
-    double before =
+    const double nx = static_cast<double>(listener->x) - position->x;
+    const double ny = static_cast<double>(listener->y) - position->y;
+    const double nz = static_cast<double>(listener->z) - position->z;
+    const double now = std::sqrt(nz * nz + ny * ny + nx * nx);
+    const double before =
         std::sqrt(static_cast<double>(pz) * pz + static_cast<double>(py) * py + static_cast<double>(px) * px);
     auto change = static_cast<float>(now - before);
     auto speed =
         static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * 60.0f));
-    double limit = frame_clock::get_slomo_frame_seconds() * 60.0f * 360.0f;
+    const double limit = frame_clock::get_slomo_frame_seconds() * 60.0f * 360.0f;
     if (limit < speed) // (equal or unordered: shifted)
         return;
-    double p = *pitch;
+    const double p = *pitch;
     *pitch = static_cast<float>(p - change * p / (static_cast<double>(frame_seconds) * 12320.0f));
 }
 
 // 0x0047BA00
 PlaybackProps* AudioMixer::get_positional_props(objects::AudioEmitterModule* object, uint32_t id, bool by_checksum)
 {
-    for (PositionalSound* entry = positional_head(); entry; entry = entry->next) {
-        uint32_t key = by_checksum ? entry->checksum : entry->unique_id_;
+    for (const PositionalSound* entry = positional_head(); entry; entry = entry->next) {
+        const uint32_t key = by_checksum ? entry->checksum : entry->unique_id_;
         if (entry->object == object && key == id) {
             int index = 0;
             if (!is_sound_playing(entry->unique_id_, &index))
@@ -217,7 +217,7 @@ bool AudioMixer::is_unique_id_free(uint32_t id)
             }
         }
     }
-    for (PositionalSound* entry = positional_head(); entry; entry = entry->next) {
+    for (const PositionalSound* entry = positional_head(); entry; entry = entry->next) {
         if (entry->unique_id_ == id)
             return false;
     }
@@ -269,11 +269,11 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, float pitc
     SoundWaveSlot* entry = fetch_wave_slot(checksum);
     if (!entry)
         return 0;
-    uint32_t id = unique_id ? unique_id : checksum;
+    const uint32_t id = unique_id ? unique_id : checksum;
     if (!quiet_misses() && script::fetch_int_value(kDebugB) != 0 && !params)
         is_unique_id_free(id); // (a debug check whose report is compiled out)
     adjust_volume_and_pitch(volume, &pitch, entry);
-    int voice = play_voice(&entry->wave, volume, pitch);
+    const int voice = play_voice(&entry->wave, volume, pitch);
     if (voice == -1)
         return 0;
     PlayingSound& sound = get_playing()[voice];
@@ -301,9 +301,9 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
             return true;
     }
     const maths::Vec4* listener = viewer_location(camera);
-    double dx = static_cast<double>(listener->x) - position->x;
-    double dy = static_cast<double>(listener->y) - position->y;
-    double dz = static_cast<double>(listener->z) - position->z;
+    const double dx = static_cast<double>(listener->x) - position->x;
+    const double dy = static_cast<double>(listener->y) - position->y;
+    const double dz = static_cast<double>(listener->z) - position->z;
     auto distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
     if (extent)
         dropoff = static_cast<float>(get_extent(extent, viewer_location(camera)) + distance);
@@ -322,7 +322,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         level = static_cast<float>((1.0f - static_cast<double>(t)) * 100.0f);
         break;
     case 2: {
-        double left = 1.0f - static_cast<double>(t);
+        const double left = 1.0f - static_cast<double>(t);
         level = static_cast<float>(left * left * 100.0f);
         break;
     }
@@ -333,17 +333,17 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         break;
     }
     volume->kind_tag_ = VolumeRef::kType3d;
-    float magnitude = std::fabs(level);
+    const float magnitude = std::fabs(level);
     if (std::fabs(volume->find_peak_channel()) < magnitude) {
         // which way the sound is: in front of the camera, to its side
         maths::Vec4 to_sound = *position - *viewer_location(camera);
         to_sound.make_unit();
-        maths::Vec4 front = -cam_orientation(camera)->row[0];
-        double facing = static_cast<double>(front.z) * to_sound.z + static_cast<double>(front.y) * to_sound.y +
-                        static_cast<double>(front.x) * to_sound.x;
-        double side = (facing + 1.0f) * 0.5f;
+        const maths::Vec4 front = -cam_orientation(camera)->row[0];
+        const double facing = static_cast<double>(front.z) * to_sound.z + static_cast<double>(front.y) * to_sound.y +
+                              static_cast<double>(front.x) * to_sound.x;
+        const double side = (facing + 1.0f) * 0.5f;
         auto right = static_cast<float>((1.0f - side * side) * level);
-        double left = (1.0f - (1.0f - side) * (1.0f - side)) * level;
+        const double left = (1.0f - (1.0f - side) * (1.0f - side)) * level;
         if (volume->kind_tag_ == VolumeRef::kTypePositional) {
             // (never: the type was just set to 3D)
             bool louder = false;
@@ -356,9 +356,10 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
                 louder = true;
             }
             if (louder) {
-                maths::Vec4 behind = -cam_orientation(camera)->row[2];
-                double ahead = static_cast<double>(behind.z) * to_sound.z + static_cast<double>(behind.y) * to_sound.y +
-                               static_cast<double>(behind.x) * to_sound.x;
+                const maths::Vec4 behind = -cam_orientation(camera)->row[2];
+                const double ahead = static_cast<double>(behind.z) * to_sound.z +
+                                     static_cast<double>(behind.y) * to_sound.y +
+                                     static_cast<double>(behind.x) * to_sound.x;
                 if (ahead < 0.0)
                     volume->lanes_[0] = volume->lanes_[0] * -1.0f;
             }
@@ -385,13 +386,13 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
         return 0;
     auto* given = static_cast<float*>(params); // {pitch, volume, dropoff, falloff}
     VolumeRef volume;
-    maths::Vec4 at = *object_position(object);
+    const maths::Vec4 at = *object_position(object);
     void* camera = nearest_camera(&at, nullptr);
     if (camera) {
         uint8_t extent_data[0x10] = {};
         void* extent = object_sound_extent(object, camera, extent_data) ? extent_data : nullptr;
-        float dropoff = given[2] != 0.0f ? given[2] : entry->dropoff;
-        int falloff = reinterpret_cast<int*>(params)[3];
+        const float dropoff = given[2] != 0.0f ? given[2] : entry->dropoff;
+        const int falloff = reinterpret_cast<int*>(params)[3];
         maths::Vec4 heard{};
         fetch_loudness(&volume, object_sound_position(object, &heard, camera), dropoff, falloff, camera, extent);
     } else {
@@ -400,14 +401,14 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
     if (volume.is_audio_off() && !force) {
         if (not_positional || !entry->looping)
             return 0;
-        uint32_t id = fetch_distinct_id(checksum);
+        const uint32_t id = fetch_distinct_id(checksum);
         PlaybackProps props{};
         init_playback_props(&props, entry, static_cast<PlaybackProps*>(params));
         keep_looping_sound(object, &props, frame_clock::get_time());
         return id;
     }
     volume.percent_tweak(given[1]);
-    uint32_t id = emit_sound(checksum, &volume, given[0], 0, params, 0);
+    const uint32_t id = emit_sound(checksum, &volume, given[0], 0, params, 0);
     get_report_missing();
     if (!not_positional) {
         add_positional_sound(id, checksum, object);
@@ -420,8 +421,8 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
 bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time)
 {
     PlaybackProps* props = &sound->props;
-    float dropoff = props->dropoff == 0.0f ? default_dropoff() : props->dropoff;
-    maths::Vec4 at = *object_position(object);
+    const float dropoff = props->dropoff == 0.0f ? default_dropoff() : props->dropoff;
+    const maths::Vec4 at = *object_position(object);
     float distance = 0.0f;
     void* camera = nearest_camera(&at, &distance);
     if (!camera)
@@ -441,13 +442,13 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     }
     float pitch = 100.0f;
     VolumeRef volume;
-    AudioMixer* manager = sole();
+    const AudioMixer* manager = sole();
     volume.kind_tag_ = manager ? manager->fallback_channel_mode_ : VolumeRef::kTypeStereo;
     volume.change_muted();
     if (extent || distance < dropoff) {
         maths::Vec4 heard{};
         const maths::Vec4* position = object_sound_position(object, &heard, camera);
-        maths::Vec4 here = *position;
+        const maths::Vec4 here = *position;
         if (sound->entry->flags & 1) {
             auto frame_seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
             maths::Vec4 previous{};
@@ -462,7 +463,7 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
 // 0x0047C560
 void AudioMixer::tick_positional_sounds()
 {
-    uint32_t time = frame_clock::get_time();
+    const uint32_t time = frame_clock::get_time();
     for (PositionalSound* entry = positional_head(); entry;) {
         PositionalSound* next = entry->next;
         int index = 0;
@@ -520,7 +521,7 @@ int fetch_idle_voice(PcWave* wave)
     auto count = static_cast<uint32_t>(voice_count());
     int chosen = static_cast<int>((last + 1) % count);
     for (int i = 0; i < static_cast<int>(count); ++i) {
-        int voice = static_cast<int>((last + i) % count);
+        const int voice = static_cast<int>((last + i) % count);
         if (get_voices()[voice].playing)
             continue;
         if (get_voices()[voice].wave == wave) {
@@ -585,14 +586,14 @@ void init_voices(AudioMixer* manager)
     static_assert(sizeof(DSCAPS) == 0x60);
     DSCAPS caps{};
     caps.dwSize = sizeof(caps);
-    HRESULT result = sound_device()->GetCaps(&caps);
+    const HRESULT result = sound_device()->GetCaps(&caps);
     has_3d() = false;
     if (result != DS_OK) {
         voice_count() = 0x30;
         return;
     }
     has_3d() = caps.dwFreeHw3DAllBuffers > 0;
-    uint32_t mixing = caps.dwFreeHwMixingAllBuffers;
+    const uint32_t mixing = caps.dwFreeHwMixingAllBuffers;
     if (mixing <= 0x10) {
         voice_count() = 0x30;
     } else {
@@ -657,7 +658,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     // short, without its format or data, or with less data than it decodes is not loaded.
     std::vector<uint8_t> contents;
     std::fseek(file.get(), 0, SEEK_END);
-    long length = std::ftell(file.get());
+    const long length = std::ftell(file.get());
     std::fseek(file.get(), 0, SEEK_SET);
     if (length > 0) {
         contents.resize(static_cast<size_t>(length));
@@ -666,7 +667,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     file.reset();
     util::ByteReader reader(contents.data(), contents.size());
     wave_format::Wave wave;
-    bool read = wave_format::read_wave(reader, &wave);
+    const bool read = wave_format::read_wave(reader, &wave);
     if (!read || wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes) {
         debug::printf("sound %s damaged: cut short, no format or data, or less data than it decodes\n", file_name);
         return false;
@@ -700,7 +701,7 @@ bool load_wave(const char* path, uint32_t /*checksum*/, PcWave** slot, int load_
 {
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
     char* file_name = g_wave_file_name;
-    size_t length = std::strlen(path);
+    const size_t length = std::strlen(path);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(file_name + 12, path, length);
     std::memcpy(file_name + 12 + length, ".snd", 5);
@@ -709,7 +710,7 @@ bool load_wave(const char* path, uint32_t /*checksum*/, PcWave** slot, int load_
         wave->data_size_ = 0;
         wave->data = nullptr;
     }
-    bool loaded = wave->read_in(file_name, 0x400E0);
+    const bool loaded = wave->read_in(file_name, 0x400E0);
     if (loaded) {
         slot[0] = wave;
         reinterpret_cast<uint8_t*>(slot)[4] = wave->looping;
@@ -741,23 +742,23 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         void* viewport = viewport_camera(0);
         maths::Vec4 relative = volume->anchor_point_ - *viewer_location(camera);
         if (camera != viewport && viewport) {
-            maths::Vec4 front = -cam_orientation(viewport)->row[2];
+            const maths::Vec4 front = -cam_orientation(viewport)->row[2];
             listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
-            maths::Vec4 heard = -cam_orientation(camera)->row[2];
-            maths::Vec4 seen = -cam_orientation(viewport)->row[2];
-            double angle = maths::read_turn_angle(heard, seen);
+            const maths::Vec4 heard = -cam_orientation(camera)->row[2];
+            const maths::Vec4 seen = -cam_orientation(viewport)->row[2];
+            const double angle = maths::read_turn_angle(heard, seen);
             relative.rotate_about_y(static_cast<float>(angle * 0.017453292f));
         } else {
-            maths::Vec4 front = -cam_orientation(camera)->row[2];
+            const maths::Vec4 front = -cam_orientation(camera)->row[2];
             listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
         }
-        float range = volume->dropoff_;
+        const float range = volume->dropoff_;
         IDirectSound3DBuffer* buffer_3d = buffer_3d_of(voice.buffer_3d_);
         buffer_3d->SetMaxDistance(range, DS3D_DEFERRED);
         buffer_3d->SetMinDistance(90.0f, DS3D_DEFERRED);
         buffer_3d->SetPosition(relative.x, relative.y, relative.z, DS3D_DEFERRED);
         int attenuation = -10000;
-        double level = static_cast<double>(voice_volume()) * 0.0099999998f;
+        const double level = static_cast<double>(voice_volume()) * 0.0099999998f;
         if (level > 0.0) {
             attenuation = ftol(std::log(level) * 14.42695045f) * 100;
             if (attenuation < -10000)
@@ -765,7 +766,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             else if (attenuation > 0)
                 attenuation = 0;
         }
-        bool audible = volume->lanes_[0] > 0.0f || volume->lanes_[1] > 0.0f;
+        const bool audible = volume->lanes_[0] > 0.0f || volume->lanes_[1] > 0.0f;
         buffer_of(voice.buffer)
             ->SetVolume(output_attenuation(audible ? attenuation : -10000)); // (NOT ORIGINAL: mute_audio)
         if (get_listener())
@@ -775,8 +776,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     // stereo: the louder channel's level and the balance between the two as decibels
     int pan = 0;
     int attenuation = -10000;
-    float left = volume->lanes_[0];
-    float right = volume->lanes_[1];
+    const float left = volume->lanes_[0];
+    const float right = volume->lanes_[1];
     if (left > 0.0f || right > 0.0f) {
         double louder = 0.0;
         double ratio = 0.0;
@@ -788,7 +789,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             ratio = static_cast<double>(right) / left;
         }
         pan = ftol(std::log10(ratio) * 1000.0f);
-        double level = louder * voice_volume() * 0.0099999998f;
+        const double level = louder * voice_volume() * 0.0099999998f;
         if (level > 0.0) {
             attenuation = ftol(std::log10(level * 0.0099999998f) * 2000.0f);
             if (attenuation < -10000)
@@ -824,7 +825,7 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
     PcWave* wave = *slot;
     if (!wave)
         return -1;
-    int index = fetch_idle_voice(wave);
+    const int index = fetch_idle_voice(wave);
     if (index < 0)
         return -1;
     Voice& voice = get_voices()[index];
@@ -838,13 +839,13 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
             buffer_of(voice.buffer)->Release();
         voice.buffer = nullptr;
         voice.wave = nullptr;
-        bool three_d = has_3d() && volume->kind_tag_ == VolumeRef::kType3d;
+        const bool three_d = has_3d() && volume->kind_tag_ == VolumeRef::kType3d;
         wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
         std::memcpy(wave->desc_3d_algorithm_, &g_default_3d_algorithm, 16);
         // (the wave's DSBUFFERDESC is in place at +0x14, sfx.h)
         const auto* desc = reinterpret_cast<const DSBUFFERDESC*>(&wave->desc_size_);
         IDirectSoundBuffer* created = nullptr;
-        HRESULT made = sound_device()->CreateSoundBuffer(desc, &created, nullptr);
+        const HRESULT made = sound_device()->CreateSoundBuffer(desc, &created, nullptr);
         voice.buffer = created;
         if (made != DS_OK)
             return -1;
@@ -867,7 +868,8 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
     voice.frequency = 0;
     apply_voice_settings(index, volume, pitch);
     buffer_of(voice.buffer)->SetCurrentPosition(0);
-    HRESULT result = buffer_of(voice.buffer)->Play(0, 0, reinterpret_cast<uint8_t*>(slot)[4] ? DSBPLAY_LOOPING : 0u);
+    const HRESULT result =
+        buffer_of(voice.buffer)->Play(0, 0, reinterpret_cast<uint8_t*>(slot)[4] ? DSBPLAY_LOOPING : 0u);
     ++playing_voices();
     voice.playing = true;
     return result == 0 ? index : -1;

@@ -117,7 +117,8 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         auto* v = reinterpret_cast<float*>(vertices + mesh->stride * i);
         auto* uv = reinterpret_cast<float*>(vertices + mesh->stride * i + mesh->unknown1c_[2]);
-        float x = v[0], z = v[2];
+        const float x = v[0];
+        const float z = v[2];
         uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_uv_scale);
         uv[1] = static_cast<float>(static_cast<double>(z) * g_grass_uv_scale);
         uv[2] = static_cast<float>(static_cast<double>(x) * g_grass_detail_uv_scale);
@@ -147,7 +148,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         copy->flags |= 0x182;
         char name[64];
         std::snprintf(name, sizeof(name), "Grass-Grass_Layer%d", layer);
-        uint32_t checksum = checksums::generate_crc_from_buffer(name, static_cast<int>(std::strlen(name)));
+        const uint32_t checksum = checksums::generate_crc_from_buffer(name, static_cast<int>(std::strlen(name)));
         auto* scene = *reinterpret_cast<SceneRef**>(geom->scene + 0x280);
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->material = material;
@@ -159,12 +160,13 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         material->sort_key_ = height;
         uint8_t* vertices = nullptr;
         copy->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked)
-        double lift = static_cast<double>(layer + 1) * step;
+        const double lift = static_cast<double>(layer + 1) * step;
         for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
             auto* v = reinterpret_cast<float*>(vertices + copy->stride * i);
             v[1] = static_cast<float>(lift + v[1]);
             auto* uv = reinterpret_cast<float*>(vertices + copy->stride * i + copy->unknown1c_[2]);
-            float x = v[0], z = v[2];
+            const float x = v[0];
+            const float z = v[2];
             uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale);
             uv[1] = static_cast<float>(static_cast<double>(z) * g_grass_copy_uv_scale);
         }

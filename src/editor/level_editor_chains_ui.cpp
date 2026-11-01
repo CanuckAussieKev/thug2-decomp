@@ -112,9 +112,9 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
     op_button("Unlink", chain.can_unlink_, "Split the chain after this point  (U)", "No next point", requests,
               chains::kOpUnlink);
     if (chain.rail && !chain.terrains.empty()) {
-        std::string current = chain.terrain >= 0 && chain.terrain < static_cast<int>(chain.terrains.size())
-                                  ? terrain_label(chain.terrains[chain.terrain])
-                                  : std::string("(other)");
+        const std::string current = chain.terrain >= 0 && chain.terrain < static_cast<int>(chain.terrains.size())
+                                        ? terrain_label(chain.terrains[chain.terrain])
+                                        : std::string("(other)");
         ImGui::SetNextItemWidth(-1.0f);
         if (ImGui::BeginCombo("##terrain", ("Terrain: " + current).c_str())) {
             for (int i = 0; i < static_cast<int>(chain.terrains.size()); ++i) {

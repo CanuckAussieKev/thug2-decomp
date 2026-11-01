@@ -112,7 +112,7 @@ void Objective::attach_child(uint32_t id)
         sub_nodes_->objective_key_ = id;
         return;
     }
-    for (GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
         if (link->objective_key_ == id)
             return;
     }
@@ -134,7 +134,7 @@ void Objective::uninitialize(bool children, int depth)
     if (!children)
         return;
     void* manager = objective_board();
-    for (GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_)
+    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_)
         get_goal(manager, link->objective_key_, 1)->uninitialize(children, depth + 1);
 }
 
@@ -174,7 +174,7 @@ bool Objective::is_expired_at_end_of_run(bool force)
     if (cur_phase_ & kStateNoTimeLimit)
         return false;
     if (run_ending_ == 0 || run_ending_ == 1) {
-        bool done = run_ending_ == 1 ? end_run->run_done() : end_run->goal_run_done();
+        const bool done = run_ending_ == 1 ? end_run->run_done() : end_run->goal_run_done();
         if (done)
             return seconds_remaining_ <= 0;
     }
@@ -202,7 +202,7 @@ bool Objective::tick_frame()
     if (!is_operative() || is_frozen())
         return true;
     if (has_time_limit() && seconds_remaining_ >= 1) {
-        int before = seconds_remaining_;
+        const int before = seconds_remaining_;
         seconds_remaining_ +=
             truncate(frame_clock::get_slomo_frame_seconds() * g_goal_run_minus_milliseconds); // (-1000)
         elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand);       // (1000)
@@ -249,9 +249,9 @@ bool Objective::register_gap_hit(uint32_t gap)
         if (!skater)
             return false;
         void* score = static_cast<objects::Rider*>(skater)->get_points_total();
-        uint32_t name = checksums::hash_from_text(trick);
-        uint32_t backside = checksums::fold_text_into_checksum(kBsPrefix, trick);
-        uint32_t frontside = checksums::fold_text_into_checksum(kFsPrefix, trick);
+        const uint32_t name = checksums::hash_from_text(trick);
+        const uint32_t backside = checksums::fold_text_into_checksum(kBsPrefix, trick);
+        const uint32_t frontside = checksums::fold_text_into_checksum(kFsPrefix, trick);
         if (!get_trick_count(score, name) && !get_trick_count(score, backside) && !get_trick_count(score, frontside))
             return false;
     }
@@ -384,7 +384,7 @@ void Objective::mark_won()
     else
         flag_bits_ |= kFlagWon;
     void* manager = objective_board();
-    for (GoalEdge* link = parents_; link && link->objective_key_; link = link->succ_)
+    for (const GoalEdge* link = parents_; link && link->objective_key_; link = link->succ_)
         get_goal(manager, link->objective_key_, 1)->mark_won();
 }
 
@@ -421,8 +421,8 @@ bool Objective::test_highest_air()
     int height = truncate(state->height_above_ground_) - start;
     if (height < 0)
         height = 0;
-    int feet = height / 12;
-    int inches = height % 12;
+    const int feet = height / 12;
+    const int inches = height % 12;
     args_->put_int(kCurrentHeightFeet, feet);
     args_->put_int(kCurrentHeightInches, inches);
     if (height <= record)
@@ -440,21 +440,21 @@ bool Objective::test_longest_jump()
     args_->read_hash_value(kDistanceObject, &id, 1);
     objects::Entity* object =
         reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(id);
-    objects::GameEntity* skater = local_skater();
+    const objects::GameEntity* skater = local_skater();
     if (!skater || !object)
         return false;
     // The distance across the ground: the height's square added and taken away again, as the original.
     const float* from = &static_cast<objects::GameEntity*>(object)->at_point_.x;
     const float* to = &skater->at_point_.x;
-    double dx = static_cast<double>(from[0]) - to[0];
-    double dy = static_cast<double>(from[1]) - to[1];
-    double dz = static_cast<double>(from[2]) - to[2];
-    double down = static_cast<double>(to[1]) - from[1];
-    double distance = std::sqrt(dz * dz + dx * dx + dy * dy - down * down);
+    const double dx = static_cast<double>(from[0]) - to[0];
+    const double dy = static_cast<double>(from[1]) - to[1];
+    const double dz = static_cast<double>(from[2]) - to[2];
+    const double down = static_cast<double>(to[1]) - from[1];
+    const double distance = std::sqrt(dz * dz + dx * dx + dy * dy - down * down);
     auto rounded = static_cast<float>(distance);
-    int feet = truncate(distance * g_goal_run_inches_to_feet); // (1/12)
-    int whole = truncate(rounded);
-    int inches = whole % 12;
+    const int feet = truncate(distance * g_goal_run_inches_to_feet); // (1/12)
+    const int whole = truncate(rounded);
+    const int inches = whole % 12;
     args_->put_int(kCurrentDistanceFeet, feet);
     args_->put_int(kCurrentDistanceInches, inches);
     int record = 0;

@@ -29,7 +29,7 @@ Item act_step(int index, const char* label, bool edits)
 }
 Item action_by_id(const char* id, const char* label, bool edits)
 {
-    int index = actions::get_find(id);
+    const int index = actions::get_find(id);
     if (index < 0) {
         Item none;
         none.label = label ? label : id;

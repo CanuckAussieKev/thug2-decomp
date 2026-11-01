@@ -137,7 +137,7 @@ bool cfunc_init_coim(script::Struct* params, script::Script*)
     params->fetch_int_value(kCoimBb9a31b5, &a, 1);
     params->fetch_float(kCoim03d6dE47, &factor, 1);
     // (x87: the square unrounded, _ftol's truncation)
-    int squared = static_cast<int>(static_cast<int64_t>(static_cast<double>(factor) * factor));
+    const int squared = static_cast<int>(static_cast<int64_t>(static_cast<double>(factor) * factor));
     objects::init_coim(a, static_cast<uint32_t>(size), b, squared);
     return true;
 }
@@ -180,7 +180,7 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
     render::ViewRegion* camera = viewport_camera(0);
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 1);
-    objects::GameEntity* object = entity_for_id(id);
+    const objects::GameEntity* object = entity_for_id(id);
     if (!object)
         return false;
     float x = 0.0f, y = 0.0f, depth = 0.0f;
@@ -214,8 +214,8 @@ bool cfunc_transform_local_to_world(script::Struct* params, script::Script* scri
     params->fetch_vec(kLocalOffset, &offset, 0);
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 0);
-    objects::GameEntity* object = entity_for_id(id);
-    maths::Vec4 local = {offset.x, offset.y, offset.z, offset.w};
+    const objects::GameEntity* object = entity_for_id(id);
+    const maths::Vec4 local = {offset.x, offset.y, offset.z, offset.w};
     maths::Vec4 world;
     object->display_matrix_.xform(world, local);
     script->args_->put_vec3(kWorldOffset, world.x, world.y, world.z);
@@ -254,7 +254,7 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
 // 0x00449890: GetNodeName: nodename = the id of the object the script runs on. False with no object or id 0.
 bool cfunc_get_node_name(script::Struct*, script::Script* script)
 {
-    objects::Entity* object = script->entity_.get_pull();
+    const objects::Entity* object = script->entity_.get_pull();
     if (!object || !object->ident_)
         return false;
     script->args_->put_name_key(kNodeName, object->ident_);
@@ -314,7 +314,7 @@ bool cfunc_orient(script::Struct* params, script::Script*)
     if (!params->fetch_vec(kAngles, &angles, 0))
         angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->has_bare_flag(kDegrees)) {
-        float degrees = g_degree_to_radian_ratio; // pi / 180
+        const float degrees = g_degree_to_radian_ratio; // pi / 180
         angles.x *= degrees;
         angles.y *= degrees;
         angles.z *= degrees;
@@ -350,7 +350,7 @@ bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script*)
     params->read_hash_value(kEx, &event_type, 1);
     params->read_hash_value(kScr, &handler, 1);
     params->read_hash_value(kGroup, &group, 0);
-    bool exception = params->has_bare_flag(kException);
+    const bool exception = params->has_bare_flag(kException);
     script::Struct* handler_params = nullptr;
     params->read_sub_struct(kParams, &handler_params, 0);
     uint32_t id = 0;

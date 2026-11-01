@@ -85,7 +85,7 @@ bool cfunc_array_contains(Struct* params, script::Script*)
 {
     Array* array = nullptr;
     params->fetch_list(kArray, &array, 1);
-    script::QbValueKind type = array->kind_tag_;
+    const script::QbValueKind type = array->kind_tag_;
     for (uint32_t i = 0; i < array->extent_; ++i) {
         switch (type) {
         case script::kQbvalInteger: {

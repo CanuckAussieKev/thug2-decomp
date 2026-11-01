@@ -34,7 +34,7 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
                 ok = false;
                 break;
             }
-            uint8_t c = in[read++];
+            const uint8_t c = in[read++];
             out[put++] = c;
             window[r] = c;
             r = (r + 1) & (kWindow - 1);
@@ -45,15 +45,15 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
                 ok = false;
                 break;
             }
-            int position = in[read] | ((in[read + 1] & 0xF0) << 4);
-            int last = (in[read + 1] & 0x0F) + 2;
+            const int position = in[read] | ((in[read + 1] & 0xF0) << 4);
+            const int last = (in[read + 1] & 0x0F) + 2;
             read += 2;
             if (out_capacity - put < static_cast<size_t>(last) + 1) {
                 ok = false;
                 break;
             }
             for (int k = 0; k <= last; ++k) {
-                uint8_t c = window[(position + k) & (kWindow - 1)];
+                const uint8_t c = window[(position + k) & (kWindow - 1)];
                 out[put++] = c;
                 window[r] = c;
                 r = (r + 1) & (kWindow - 1);

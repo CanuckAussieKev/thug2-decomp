@@ -302,12 +302,12 @@ CinematicTable::~CinematicTable()
 // 0x00466DD0
 void CinematicTable::load_from_bundle()
 {
-    file::AssetBundle* bundle = bundle_ptr_.get();
-    int count = bundle->num_;
+    const file::AssetBundle* bundle = bundle_ptr_.get();
+    const int count = bundle->num_;
     for (int i = 0; i < count; ++i) {
         file::AssetBundle::TableRow* entry = bundle_ptr_->get_entry(i);
         void* data = bundle_ptr_->obtain_loaded_item(i);
-        uint32_t type = entry->type;
+        const uint32_t type = entry->type;
         switch (type) {
         case kTypeStructure:
             call_args_->get_clear();
@@ -322,7 +322,7 @@ void CinematicTable::load_from_bundle()
             }
             break;
         case kTypeCameraAnim: {
-            uint32_t name = hash_of_name("_CAM", static_cast<int>(entry->name)); // (the game's 0x00647914)
+            const uint32_t name = hash_of_name("_CAM", static_cast<int>(entry->name)); // (the game's 0x00647914)
             load_asset(name, reinterpret_cast<uint32_t>(data), entry->size);
             ++camera_parts_;
             if (!camera_source_) {
@@ -338,7 +338,7 @@ void CinematicTable::load_from_bundle()
             break;
         }
         case kTypeObjectAnim: {
-            uint32_t name = hash_of_name("_OBA", static_cast<int>(entry->name)); // (the game's 0x0064790C)
+            const uint32_t name = hash_of_name("_OBA", static_cast<int>(entry->name)); // (the game's 0x0064790C)
             load_asset(name, reinterpret_cast<uint32_t>(data), entry->size);
             ++object_parts_;
             if (!object_source_) {
@@ -352,7 +352,7 @@ void CinematicTable::load_from_bundle()
             break;
         }
         case kTypeImage: {
-            uint32_t name = entry->name;
+            const uint32_t name = entry->name;
             load_asset_data(name, 6, 0, data, entry->size, nullptr);
             assets_[asset_count_] = name;
             ++asset_count_;
@@ -387,14 +387,14 @@ void CinematicTable::load_from_bundle()
 // isn't the skater's (variants: name + 1 ... name + 4 by face and sex).
 void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, void* data)
 {
-    uint32_t model_name = entry->name + kTypeModel; // (the original prints name + type, compiled out)
+    const uint32_t model_name = entry->name + kTypeModel; // (the original prints name + type, compiled out)
     LoadParams params{};
     reinterpret_cast<assets::SkinParams*>(&params)->get_clear(); // (the skinned model's load parameters, 0x14 bytes)
     void* texture_data = bundle_ptr_->find_asset(entry->name, kTypeTextures, 1);
-    file::AssetBundle::TableRow* textures = bundle_ptr_->find_entry(entry->name, kTypeTextures, 1);
-    uint32_t texture_size = textures->size;
-    uint32_t textures_name = textures->type + textures->name;
-    uint8_t is_model = entry->type == kTypeModel;
+    const file::AssetBundle::TableRow* textures = bundle_ptr_->find_entry(entry->name, kTypeTextures, 1);
+    const uint32_t texture_size = textures->size;
+    const uint32_t textures_name = textures->type + textures->name;
+    const uint8_t is_model = entry->type == kTypeModel;
     params.extra = nullptr;
     params.extra_size_ = 0;
     params.is_model_ = is_model;
@@ -451,7 +451,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             has_face = false;
         }
         auto* face = static_cast<gfx::FaceSkin*>(appearance_face(unknown34a8_));
-        int skater_face = face && face->is_sound() ? 1 : 0;
+        const int skater_face = face && face->is_sound() ? 1 : 0;
         int skater_male = 0;
         static_cast<script::Struct*>(unknown34ac_)->fetch_int_value(0x3F813177, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;

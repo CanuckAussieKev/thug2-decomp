@@ -145,8 +145,8 @@ void DynamicLightComponent::tick_frame()
     auto radius = static_cast<float>((static_cast<double>(to_radius) - from_radius) * t + from_radius);
     uint32_t color = 0;
     for (int i = 0; i < 4; ++i) {
-        int from = static_cast<int>((from_color >> (8 * i)) & 0xFF);
-        int to = static_cast<int>((to_color >> (8 * i)) & 0xFF);
+        const int from = static_cast<int>((from_color >> (8 * i)) & 0xFF);
+        const int to = static_cast<int>((to_color >> (8 * i)) & 0xFF);
         color |= static_cast<uint32_t>(static_cast<uint8_t>(get_truncated(static_cast<double>(to - from) * t + from)))
                  << (8 * i);
     }

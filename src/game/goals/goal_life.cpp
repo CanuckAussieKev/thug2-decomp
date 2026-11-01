@@ -142,7 +142,7 @@ int total_score(void* score) { return static_cast<modules::PointTally*>(score)->
 Objective* root_of(void* manager, GoalEdge* parents)
 {
     Objective* root = nullptr;
-    for (GoalEdge* link = parents; link && link->objective_key_; link = root->parents_)
+    for (const GoalEdge* link = parents; link && link->objective_key_; link = root->parents_)
         root = get_goal(manager, link->objective_key_, 1);
     return root;
 }
@@ -225,7 +225,7 @@ void Objective::merge_skill_tier_args()
     script::Array* levels = nullptr;
     if (!args_->fetch_list(kDifficultyLevelParams, &levels, 0))
         return;
-    int level = get_skill_tier(objective_board(), false);
+    const int level = get_skill_tier(objective_board(), false);
     args_->append_structure_if_any(reinterpret_cast<script::Struct*>(levels->fetch_part(static_cast<uint32_t>(level))));
     alloc_objective_bits(args_);
 }
@@ -238,7 +238,7 @@ void Objective::prepare_all()
     // (merge_skill_tier_args, inlined)
     script::Array* levels = nullptr;
     if (args_->fetch_list(kDifficultyLevelParams, &levels, 0)) {
-        int level = get_skill_tier(objective_board(), false);
+        const int level = get_skill_tier(objective_board(), false);
         args_->append_structure_if_any(
             reinterpret_cast<script::Struct*>(levels->fetch_part(static_cast<uint32_t>(level))));
         alloc_objective_bits(args_);
@@ -402,7 +402,7 @@ bool Objective::get_win()
     uint32_t script = 0;
     if (args_->read_hash_value(kSuccess, &script, 0))
         script::launch_script(script, args_, nullptr, false, nullptr);
-    bool testing = args_->has_bare_flag(kTrialRunFlag);
+    const bool testing = args_->has_bare_flag(kTrialRunFlag);
     if (is_operative())
         disengage(false, true);
     if (!testing) {
@@ -453,7 +453,7 @@ void Objective::get_prize_struct(script::Struct* rewards)
     // A special trick slot as the reward, while there's room for one.
     if (args_->has_bare_flag(kRewardTrickslot) && !args_->has_bare_flag(kCreateATrick)) {
         objects::RiderIdentity* profile = skate_calls::get_profile_from_params(nullptr);
-        int slots = profile->get_max_specials();
+        const int slots = profile->get_max_specials();
         if (slots <= script::fetch_int_value(kMaxTrickslots)) {
             int remove = 0;
             args_->fetch_int_value(kShouldRemoveTrick, &remove, 0);
@@ -498,9 +498,9 @@ void Objective::open_up_prize_objectives()
     script::Array* goals = nullptr;
     if (!args_->fetch_list(kRewardGoal, &goals, 0))
         return;
-    int count = static_cast<int>(goals->extent_);
+    const int count = static_cast<int>(goals->extent_);
     for (int i = 0; i < count; ++i) {
-        uint32_t id = goals->fetch_part(static_cast<uint32_t>(i));
+        const uint32_t id = goals->fetch_part(static_cast<uint32_t>(i));
         if (id)
             open_up_objective(manager, id);
     }
@@ -514,7 +514,7 @@ int Objective::get_reward_points()
         return points;
     script::Array* by_level = nullptr;
     if (args_->fetch_list(kRewardPoints, &by_level, 0)) {
-        int level = get_skill_tier(objective_board(), false);
+        const int level = get_skill_tier(objective_board(), false);
         if (level >= 0 && level < static_cast<int>(by_level->extent_))
             return static_cast<int>(by_level->fetch_part(static_cast<uint32_t>(level)));
     }
@@ -525,7 +525,7 @@ int Objective::get_reward_points()
 bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
 {
     // A silently activated goal (not won yet) takes flags while inactive, and is won by them.
-    bool silent = args_->has_bare_flag(kSilentActivation) && !has_won();
+    const bool silent = args_->has_bare_flag(kSilentActivation) && !has_won();
     if (!is_operative() && !silent)
         return false;
     void* manager = objective_board();
@@ -565,7 +565,7 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
         return changed;
     if (has_every_bit()) {
         void* goals = objective_board();
-        uint32_t id = get_objective_key();
+        const uint32_t id = get_objective_key();
         complete_objective(goals, id);
     } else if (!sub && args_->has_bare_flag(kGaps) && !args_->has_bare_flag(kNoGapMessages)) {
         script::Struct* params = spawn_param_table();
@@ -586,7 +586,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
         if (flags->kind_tag_ == script::kQbvalStruct) {
             // One structure per skater: its own flags and counts.
             goal_flags_->put_name_key(kNoName, kSkaterTraits);
-            int skaters = static_cast<int>(flags->extent_);
+            const int skaters = static_cast<int>(flags->extent_);
             for (int i = 0; i < skaters; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(flags->fetch_part(static_cast<uint32_t>(i)));
                 uint32_t skater = 0;
@@ -594,7 +594,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 script::Struct* own = spawn_param_table();
                 script::Array* names = nullptr;
                 entry->fetch_list(kGoalFlags, &names, 1);
-                int count = static_cast<int>(names->extent_);
+                const int count = static_cast<int>(names->extent_);
                 for (int k = 0; k < count; ++k)
                     own->put_int(names->fetch_part(static_cast<uint32_t>(k)), 0);
                 own->put_int(kNumFlags, count);

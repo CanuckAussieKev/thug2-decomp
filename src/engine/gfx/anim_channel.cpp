@@ -213,7 +213,7 @@ Rig* skeleton_of(objects::ObjectModule* component)
 // 0x0047DD10
 int AnimListHead::tally_entries()
 {
-    memory::ListNode* node = head_.next;
+    const memory::ListNode* node = head_.next;
     int count = 0;
     while (!is_head(node) && node) {
         node = node->next;
@@ -230,7 +230,7 @@ BlendChannel::BlendChannel(objects::GameEntity* object, objects::AnimBlenderComp
 {
     list_link_.make_node(this);
     timelines_.make_head();
-    uint32_t value = full ? 0x3F800000 : 0;
+    const uint32_t value = full ? 0x3F800000 : 0;
     ongoing_ = value;
     aim_point_ = value;
     outset_ = value;
@@ -258,7 +258,7 @@ BlendChannel* BlendChannel::teardown(uint8_t flags)
 void BlendChannel::get_reset()
 {
     delete_all_timelines(&timelines_);
-    bool waiting = waiting_;
+    const bool waiting = waiting_;
     has_next_blend_ = false;
     next_blend_ = 0.0f;
     if (waiting) {
@@ -301,7 +301,7 @@ void BlendChannel::release_waiting_script(script::Script* script)
 // 0x0047E030 (x87: the blend's time left unrounded through the division)
 void BlendChannel::update_blend()
 {
-    if (AnimTrack* first = get_first(this))
+    if (const AnimTrack* first = get_first(this))
         prev_timeline_pos_ = first->ongoing_;
     if (period_left_ > 0.0f) {
         double left = period_left_ - frame_clock::get_slomo_frame_seconds();
@@ -309,7 +309,7 @@ void BlendChannel::update_blend()
         if (!(left > 0.0))
             left = 0.0;
         period_left_ = static_cast<float>(left);
-        double done = left / period_;
+        const double done = left / period_;
         get_as_float(ongoing_) = static_cast<float>(
             (static_cast<double>(get_as_float(outset_)) - get_as_float(aim_point_)) * done + get_as_float(aim_point_));
     } else {
@@ -409,8 +409,8 @@ bool BlendChannel::blend_pose(int index)
     if (!skeleton)
         return false;
     skeleton->set_lod(blender_->distance_squared_);
-    int count = count_list_items(&timelines_);
-    RigData* data = skeleton->payload_;
+    const int count = count_list_items(&timelines_);
+    const RigData* data = skeleton->payload_;
     for (int i = 0; i < count; ++i) {
         // (each pose's translations start as the skeleton's bind translations)
         std::memcpy(current_poses()[i].translations, data->bind_translations_,
@@ -442,7 +442,7 @@ void BlendChannel::fetch_pose(int index, void* pose, float* weight)
                 break;
         }
     }
-    double w = current_weight(timeline); // (null when not found: a crash, as the original)
+    const double w = current_weight(timeline); // (null when not found: a crash, as the original)
     auto rounded = static_cast<float>(w);
     if (!(w <= 0.0)) {
         skeleton_of(bone_rig_); // (read and not used)
@@ -466,7 +466,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
             post_out(app, message, kMsgFlip, data, 2, false);
         }
     }
-    bool was = (flag_bits_ >> 29) & 1;
+    const bool was = (flag_bits_ >> 29) & 1;
     flag_bits_ = (flag_bits_ & ~kFlipped) | (flip ? kFlipped : 0);
     return was;
 }
@@ -475,7 +475,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
 void BlendChannel::toggle_flipped()
 {
     net::AppHost* app = net_session_slot()->fetch_patron(0);
-    uint32_t unused = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(app) + 8);
+    const uint32_t unused = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(app) + 8);
     set_flipped(get_owner(this)->ident_, !((flag_bits_ >> 29) & 1), unused, true);
 }
 
@@ -497,7 +497,7 @@ bool BlendChannel::is_clip_done()
 // 0x0047E240
 bool BlendChannel::is_cycling()
 {
-    AnimTrack* first = get_first(this);
+    const AnimTrack* first = get_first(this);
     if (!first)
         return false;
     return first->repeat_mode_ == AnimTimeline::kCycle || first->repeat_mode_ == AnimTimeline::kPingPong;
@@ -506,8 +506,8 @@ bool BlendChannel::is_cycling()
 // 0x0047DF50
 bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
 {
-    AnimTrack* first = get_first(this);
-    uint32_t anim = first ? first->anim_ : 0;
+    const AnimTrack* first = get_first(this);
+    const uint32_t anim = first ? first->anim_ : 0;
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
         if (component->name)
@@ -515,7 +515,7 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
         script::Array* array = nullptr;
         if (component->kind_tag() == script::kQbvalName) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            script::SymbolTableEntry* symbol = script::resolve_symbol(component->checksum);
+            const script::SymbolTableEntry* symbol = script::resolve_symbol(component->checksum);
             if (symbol && symbol->type == script::kQbvalArray) {
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
                 array = reinterpret_cast<script::Array*>(symbol->raw);
@@ -583,10 +583,10 @@ void BlendChannel::set_wobble_details(const float* details, bool send)
                 bits = 1;
             else if (details[0] == 10.1f)
                 bits = 2;
-            uint8_t b1 = details[1] == 0.04f ? 0 : details[1] == 10.1f ? 1 : 0;
-            uint8_t b2 = details[2] == 0.0022f ? 0 : details[2] == 20.0f ? 1 : 0;
-            uint8_t b3 = details[3] == 0.0017f ? 0 : details[3] == 10.0f ? 1 : 0;
-            uint8_t b4 = details[4] == 1.5f ? 0 : details[4] == 1.0f ? 1 : 0;
+            const uint8_t b1 = details[1] == 0.04f ? 0 : details[1] == 10.1f ? 1 : 0;
+            const uint8_t b2 = details[2] == 0.0022f ? 0 : details[2] == 20.0f ? 1 : 0;
+            const uint8_t b3 = details[3] == 0.0017f ? 0 : details[3] == 10.0f ? 1 : 0;
+            const uint8_t b4 = details[4] == 1.5f ? 0 : details[4] == 1.0f ? 1 : 0;
             uint8_t data[2];
             data[0] = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
             data[1] = static_cast<uint8_t>(get_owner(this)->ident_);
@@ -637,7 +637,7 @@ void BlendChannel::get_reverse(uint32_t /*unused*/)
 // 0x0047E850 (x87: the range and the ratio's products unrounded)
 void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
 {
-    AnimTrack* first = get_first(this);
+    const AnimTrack* first = get_first(this);
     if (!first)
         return;
     if (!all && std::abs(static_cast<double>(first->speed_) * kFramesPerSecond - speed) < 0.05f) // (0x00645D6C)
@@ -673,7 +673,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         memory::ListNode* node = timelines_.next;
         if (is_head(node) || !node)
             return;
-        float per_frame = speed * kSecondsPerFrame;
+        const float per_frame = speed * kSecondsPerFrame;
         for (; !is_head(node) && node; node = node->next)
             reinterpret_cast<AnimTrack*>(node)->speed_ = per_frame;
     }
@@ -682,7 +682,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
 // 0x0047EA40
 double BlendChannel::get_speed(Struct* /*params*/, script::Script* /*script*/)
 {
-    AnimTrack* first = get_first(this);
+    const AnimTrack* first = get_first(this);
     if (!first)
         return 0.0;
     return static_cast<double>(first->speed_) * kFramesPerSecond;
@@ -800,7 +800,7 @@ void BlendChannel::configure_from_data(Struct* params)
     play_anim(kDefault, false, 0.0f, 1000.0f, 0, kStockCrossfade, 1.0f, nullptr);
     get_reset();
     uint32_t anim = kDefault;
-    bool loop = params->read_hash_value(0xEAE64B47, &anim, 0);
+    const bool loop = params->read_hash_value(0xEAE64B47, &anim, 0);
     play_anim(anim, false, 0.0f, *anim_length(lookup_key_ + anim), 0, kStockCrossfade, 1.0f, nullptr);
     if (loop)
         change_repeat_mode(AnimTimeline::kCycle, true);
@@ -812,7 +812,7 @@ void BlendChannel::configure_from_data(Struct* params)
 // 0x0047F470 (x87: the synchronised start's fraction and product unrounded)
 uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* script, float blend_period)
 {
-    if (AnimTrack* first = get_first(this))
+    if (const AnimTrack* first = get_first(this))
         prev_timeline_pos_ = first->ongoing_;
     if (flag_4e_) {
         AnimTrack* first = get_first(this);
@@ -827,8 +827,8 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         script::dump_to_log(params, 0);
     float speed = 1.0f;
     params->fetch_float(kSpeed, &speed, 0);
-    AnimTrack* first = get_first(this);
-    uint32_t playing = first ? first->anim_ : 0;
+    const AnimTrack* first = get_first(this);
+    const uint32_t playing = first ? first->anim_ : 0;
     if (anim == kCurrent) {
         anim = playing;
     } else if (playing == anim && params->has_bare_flag(0xFE09FE09)) { // NoRestart
@@ -848,7 +848,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         else
             params->fetch_float(0x8F0D24ED, &blend, 0); // BlendPeriod
     }
-    float length = *anim_length(lookup_key_ + anim);
+    const float length = *anim_length(lookup_key_ + anim);
     float to = length;
     float from = 0.0f;
     float start = 0.0f; // the time the new one starts at
@@ -958,7 +958,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         int index = 0;
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             toggle_flipped();
-            for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
+            for (const memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
                 static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script);
             return 1;
         }
@@ -1000,7 +1000,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
             auto* timeline = reinterpret_cast<AnimTrack*>(node);
             float start = 0.0f, current = 0.0f, end = 0.0f;
             timeline->get_times(&start, &current, &end);
-            float larger = start > end ? start : end;
+            const float larger = start > end ? start : end;
             timeline->speed_ = static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame);
         }
         return 1;
@@ -1029,7 +1029,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case 0x922E7D14: // whether the unnamed time (frames) was passed since the last frame
         return time_passed(params);
     case 0x986D274E: // to every timeline
-        for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
+        for (const memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next)
             static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script);
         return 1;
     case 0x98A32669: {                                                       // flag4C from enabled
@@ -1051,7 +1051,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case 0xBD4EDD44: // SetPartialAnimSpeed
     case 0xD63A1B81: // GetPartialAnimParams
     case 0xF5E2B871: {
-        memory::ListNode* node = timelines_.next;
+        const memory::ListNode* node = timelines_.next;
         if (is_head(node) || !node)
             return 1;
         return static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script) != 0 ? 1 : 0;
@@ -1076,7 +1076,7 @@ int BlendChannel::wait_anim(Struct* params)
         time = static_cast<float>((static_cast<double>(end) - start) * time * static_cast<double>(0.01f) + start);
     else if (!params->has_bare_flag(0x49E0EE96) && !params->has_bare_flag(0xD029F619)) // (Seconds: as it is)
         time = time * 0.001f;
-    bool forwards = start <= end;
+    const bool forwards = start <= end;
     // (x87: rounded once to a float; a NaN kept as it is - not negated)
     auto sum = [](float a, float b) { return static_cast<float>(static_cast<double>(a) + b); };
     auto difference = [](float a, float b) { return static_cast<float>(static_cast<double>(a) - b); };

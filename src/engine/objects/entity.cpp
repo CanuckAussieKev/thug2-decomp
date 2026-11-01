@@ -102,7 +102,7 @@ void Entity::dispose_when_free()
 // 0x00461710
 void Entity::change_traits(Struct* params)
 {
-    bool replace = params->has_bare_flag(kReplaceHandlers);
+    const bool replace = params->has_bare_flag(kReplaceHandlers);
     Array* handlers = nullptr;
     if (params->fetch_list(kReactionList, &handlers, 0)) {
         create_script_if_needed();
@@ -270,7 +270,7 @@ void Entity::get_remove_tags(Array* names)
         return;
     if (names) {
         for (uint32_t i = 0; i < names->extent_; ++i) {
-            uint32_t name = names->fetch_part(i);
+            const uint32_t name = names->fetch_part(i);
             tag_table_->erase_module(name);
             tag_table_->remove_flag(name);
         }
@@ -448,7 +448,7 @@ bool Entity::obj_remove_tags(Struct* params, Script* /*script*/)
 // 0x00461040: none of the flags is set (no flags named: false).
 bool Entity::obj_flag_not_set(Struct* params, Script* script)
 {
-    uint32_t mask = get_flag_mask(params, script);
+    const uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
     return (flag_bits_ & mask) == 0;
@@ -461,7 +461,7 @@ bool Entity::obj_clear_flag(Struct* params, Script* script)
         flag_bits_ = 0;
         return true;
     }
-    uint32_t mask = get_flag_mask(params, script);
+    const uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
     flag_bits_ &= ~mask;
@@ -471,7 +471,7 @@ bool Entity::obj_clear_flag(Struct* params, Script* script)
 // 0x004610C0: set the flags. No flags named: false.
 bool Entity::obj_set_flag(Struct* params, Script* script)
 {
-    uint32_t mask = get_flag_mask(params, script);
+    const uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
     flag_bits_ |= mask;
@@ -481,8 +481,8 @@ bool Entity::obj_set_flag(Struct* params, Script* script)
 // 0x004610F0: any of the flags was set (clear: then they're cleared). No flags named: false.
 bool Entity::obj_flag_set(Struct* params, Script* script)
 {
-    uint32_t flags = flag_bits_;
-    uint32_t mask = get_flag_mask(params, script);
+    const uint32_t flags = flag_bits_;
+    const uint32_t mask = get_flag_mask(params, script);
     if (!mask)
         return false;
     if (params->has_bare_flag(kClear))
@@ -507,12 +507,12 @@ bool Entity::obj_spawn_script(Struct* params, Script* script)
     if (!first || first->kind_tag() != script::kQbvalName)
         return true;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    uint32_t name = first->checksum;
+    const uint32_t name = first->checksum;
     uint32_t id = script::get_spawn_id(script);
     params->read_hash_value(kId, &id, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    bool pause_with_object = params->has_bare_flag(kPauseWithObject);
+    const bool pause_with_object = params->has_bare_flag(kPauseWithObject);
     Script* spawned = spawn_script(name, script_params, id, pause_with_object);
     if (!params->has_bare_flag(kNoSpawnerFile))
         spawned->set_spawner_file(script);

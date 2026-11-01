@@ -40,9 +40,9 @@ void relocate_array_elements(Array* array, uint32_t base)
 // 0x0046C830
 uint8_t* relocate_array(Array* array, uint32_t base)
 {
-    uint32_t size = array->extent_;
+    const uint32_t size = array->extent_;
     auto* end = reinterpret_cast<uint8_t*>(array + 1);
-    uint32_t* elements = nullptr;
+    const uint32_t* elements = nullptr;
     if (size > 1) {
         if (array->elements_)
             relocate(array->elements_, base);
@@ -146,7 +146,7 @@ uint8_t* relocate_symbol(SymbolTableEntry* symbol, uint32_t base)
     case kQbvalScriptBody: {
         // {checksum, size, stored size, code}: the stored size is read from right after the entry (where the
         // script is), not through the value.
-        uint32_t stored = reinterpret_cast<const uint32_t*>(end)[2];
+        const uint32_t stored = reinterpret_cast<const uint32_t*>(end)[2];
         relocate(symbol->raw, base);
         return end + 12 + align4(stored);
     }
@@ -169,12 +169,12 @@ void relocate_precompiled_symbols(uint8_t* file, uint32_t base, PrecompiledSymbo
     // its own in-memory form (precompiled.h).
     util::ByteReader header(file, kPrecompiledHeaderSize);
     header.u32(); // the magic
-    uint32_t size = header.u32();
+    const uint32_t size = header.u32();
     // Not original - a size short of the header is refused, and the walk stops at the file's end: the original
     // walked until a symbol ended exactly there (a damaged image walked on past it).
     if (size < kPrecompiledHeaderSize)
         return;
-    uint8_t* end = file + size;
+    const uint8_t* end = file + size;
     uint8_t* p = file + kPrecompiledHeaderSize;
     while (p < end) {
         auto* symbol = reinterpret_cast<SymbolTableEntry*>(p);
@@ -198,7 +198,7 @@ void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum,
 // 0x0046FBA0
 void parse_precompiled_qb(const char* filename, uint8_t* data, int unused)
 {
-    uint32_t flag = unused != 0;
+    const uint32_t flag = unused != 0;
     relocate_precompiled_symbols(data, reinterpret_cast<uint32_t>(data), define_precompiled_symbol,
                                  checksums::hash_from_text(filename), flag);
 }

@@ -124,7 +124,8 @@ T* data_of(memory::ListNode* node)
 int total_of(memory::ListNode* head)
 {
     int count = 0;
-    for (memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node;
+         node = node->next)
         ++count;
     return count;
 }
@@ -299,7 +300,7 @@ void Hub::update_hosting_status()
         char location[1024];
         RoomManager* lobby = current_lobby(this);
         if (lobby->remote_) {
-            uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote_); // (the peer's private address)
+            const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote_); // (the peer's private address)
             std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
                          server_name, lobby->room_name_);
         } else {
@@ -318,7 +319,7 @@ bool Hub::start_server_list()
         return true;
     destroy_match_client();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
-    net::AppHost* client = start_matchmaking_client();
+    const net::AppHost* client = start_matchmaking_client();
     ram_stats()->leave_heap_scope();
     if (!client)
         return false;
@@ -392,7 +393,7 @@ void Hub::show_server_in_menu(void* item, int index)
     params->append_word(kText, server->label_);
     params->append_word(kMode, server->mode_sel_);
     debug::printf("The game mode is: %s\n", server->mode_sel_);
-    uint32_t id = server_id(this, server);
+    const uint32_t id = server_id(this, server);
     params->put_name_key(kId, id);
     params->put_name_key(kParent, kServerListMenu);
     params->put_name_key(kPadChooseScript, kChooseSelectedServer);
@@ -469,7 +470,7 @@ void Hub::refresh_server_list(bool force)
         ram_stats()->leave_heap_scope();
         return;
     }
-    Hub* manager = the_manager();
+    const Hub* manager = the_manager();
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->lobby_service_->clear_lost_connection();

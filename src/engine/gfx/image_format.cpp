@@ -44,7 +44,7 @@ bool power_of_two(uint32_t n) { return (n & (n - 1)) == 0; }
 
 bool stored_plain(const ImageHeader& header, bool memory)
 {
-    bool plain = !(header.width && power_of_two(header.width) && header.height && power_of_two(header.height));
+    const bool plain = !(header.width && power_of_two(header.width) && header.height && power_of_two(header.height));
     return plain || (memory && header.id == kUnswizzledId);
 }
 
@@ -54,8 +54,8 @@ uint32_t texel_size(const ImageHeader& header, bool plain)
     bool palette = false;
     decode_format(header.format, &bits, &palette);
     // (the sizes as the loaders keep them: 16 bits each)
-    uint32_t width = plain ? header.image_width : static_cast<uint16_t>(header.width);
-    uint32_t height = plain ? header.image_height : static_cast<uint16_t>(header.height);
+    const uint32_t width = plain ? header.image_width : static_cast<uint16_t>(header.width);
+    const uint32_t height = plain ? header.image_height : static_cast<uint16_t>(header.height);
     return ((bits >> 3) * height * width + 3) & ~3u;
 }
 

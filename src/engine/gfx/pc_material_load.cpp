@@ -53,7 +53,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
     m->alpha_ref_ = static_cast<uint8_t>(record.alpha_ref);
     m->sort_flag_ = record.sort_flag;
     m->sort_key_ = record.sort_key;
-    bool keep_culling = record.keep_culling != 0; // (else a blended pass 0 turns culling off)
+    const bool keep_culling = record.keep_culling != 0; // (else a blended pass 0 turns culling off)
     m->two_sided_ = record.two_sided;
     m->depth_bias_ = static_cast<uint8_t>(record.depth_bias > 0x10 ? 0x10 : record.depth_bias);
     if (record.has_extra) {
@@ -110,7 +110,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
                 std::memset(m->texture_anim_, 0, sizeof(TextureAnim));
                 m->has_texture_anim_ = true;
             }
-            int keys = in.texture_key_count;
+            const int keys = in.texture_key_count;
             m->texture_anim_->key_counts_[pass] = static_cast<uint32_t>(keys);
             m->texture_anim_->phases[pass] = in.texture_phase;
             m->texture_anim_->loops[pass] = in.texture_loops;
@@ -127,7 +127,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             continue;
         }
         m->textures[pass] = find_texture(textures, in.texture);
-        double lod = static_cast<double>(in.mip_lod_bias) + 8.0f;
+        const double lod = static_cast<double>(in.mip_lod_bias) + 8.0f;
         auto stored = static_cast<float>(lod);
         std::memcpy(&m->mip_lod_bias_[pass], &stored, 4);
         if (lod > 0.0)

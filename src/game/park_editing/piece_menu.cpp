@@ -99,13 +99,13 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     if (set->is_clipboard_) {
         clipboards = true;
         BuildPointer* cursor = BuildPointer::sole();
-        for (Clipboard* clipboard = cursor->copy_buffers_; clipboard; clipboard = clipboard->following_)
+        for (const Clipboard* clipboard = cursor->copy_buffers_; clipboard; clipboard = clipboard->following_)
             ++clipboard_count;
         cursor->drop_area_marquee();
     }
     void* tracker = get_tracker();
     if (point_group_) {
-        uint32_t id = point_group_->entries_[selected_].checksum;
+        const uint32_t id = point_group_->entries_[selected_].checksum;
         if (object_exists(tracker, id))
             launch_event(tracker, kUnfocus, id, kSystem);
     }
@@ -114,7 +114,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     if (set != point_group_) {
         launch_script(kMakePieceMenu);
         for (int i = 0; i < set->entry_total_; ++i) {
-            uint32_t checksum = set->entries_[i].checksum;
+            const uint32_t checksum = set->entries_[i].checksum;
             script::Struct params;
             params.put_name_key(kMetapieceId, checksum);
             if (clipboards) {
@@ -150,13 +150,13 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         params.get_clear();
     }
 
-    uint32_t id = set->entries_[set->selected_].checksum;
+    const uint32_t id = set->entries_[set->selected_].checksum;
     if (object_exists(tracker, id))
         launch_event(tracker, kFocus, id, kSystem);
     selected_ = set->selected_;
 
     // The slider: the seven entries round the selected one (all of them when there are no more).
-    int count = set->entry_total_;
+    const int count = set->entry_total_;
     int first = selected_ - 3;
     int last = selected_ + 3;
     if (count <= 7) {

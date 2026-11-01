@@ -61,7 +61,7 @@ StaticCollider::~StaticCollider()
 // 0x004139A0
 HitMesh* StaticCollider::replicate(int argument)
 {
-    bool instance = static_cast<uint8_t>(argument) != 0;
+    const bool instance = static_cast<uint8_t>(argument) != 0;
     TriMeshSource* geometry = instance ? geometry_ : clone_geometry(geometry_, 0, 1);
     if (!geometry)
         return nullptr;
@@ -86,7 +86,7 @@ HitMesh* StaticCollider::replicate(int argument)
         copy->flag_bits_ |= kOwnsGeometry;
         copy->geometry_ = geometry;
         if (!instance && octets_) {
-            uint32_t size = geometry_->tri_count_;
+            const uint32_t size = geometry_->tri_count_;
             memory::push_mem_profile("Collision face-rejection optimization");
             memory::enter_heap_scope(memory::bottom_up_heap());
             copy->octets_ = static_cast<uint8_t*>(memory::alloc_block(size));
@@ -104,8 +104,8 @@ HitMesh* StaticCollider::replicate(int argument)
 void StaticCollider::place_at_absolute_point(const maths::Vec4* position)
 {
     const maths::Vec4* current = get_absolute_point();
-    maths::Vec4 delta{position->x - current->x, position->y - current->y, position->z - current->z,
-                      position->w - current->w};
+    const maths::Vec4 delta{position->x - current->x, position->y - current->y, position->z - current->z,
+                            position->w - current->w};
     translate_geometry(geometry_, &delta);
 }
 
@@ -118,7 +118,7 @@ const maths::Mat4* StaticCollider::fetch_facing() { return &g_shared_orientation
 // 0x00410980
 maths::Vec4 StaticCollider::read_vertex_point(int index) const
 {
-    maths::Vec4 raw = geometry_->read_stored_vertex(index);
+    const maths::Vec4 raw = geometry_->read_stored_vertex(index);
     return {raw.x, raw.y, raw.z, 1.0f};
 }
 
@@ -189,12 +189,12 @@ void CollStaticInstance::recompute_world_bounds()
 {
     world_box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     world_box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    int count = geometry_->num_vertices_;
+    const int count = geometry_->num_vertices_;
     for (int i = 0; i < count; ++i) {
         maths::Vec4 raw{};
         geometry_->read_stored_vertex(i, &raw);
-        maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z,
-                           raw.w * size_factor_.w};
+        const maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z,
+                                 raw.w * size_factor_.w};
         maths::Vec4 placed{};
         basis_frame_.carry_point_through(placed, scaled);
         world_box_.append_spot(placed);
@@ -213,8 +213,8 @@ void CollStaticInstance::scale_about(const maths::Vec4* position, const maths::V
     const maths::Vec4& at = basis_frame_.row[3];
     if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
         return;
-    maths::Vec4 scaled{scale->x * size_factor_.x, scale->y * size_factor_.y, scale->z * size_factor_.z,
-                       scale->w * size_factor_.w};
+    const maths::Vec4 scaled{scale->x * size_factor_.x, scale->y * size_factor_.y, scale->z * size_factor_.z,
+                             scale->w * size_factor_.w};
     change_scale(&scaled);
 }
 
@@ -259,9 +259,9 @@ void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
         checksum_ = geometry->checksum_;
     radius_ = 0.0f;
     for (int i = 0; i < geometry->num_vertices_; ++i) {
-        maths::Vec4 v = geometry_->read_stored_vertex(i);
-        double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
-                                  static_cast<double>(v.z) * v.z);
+        const maths::Vec4 v = geometry_->read_stored_vertex(i);
+        const double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
+                                        static_cast<double>(v.z) * v.z);
         if (length > radius_)
             radius_ = static_cast<float>(length);
         geometry = geometry_;

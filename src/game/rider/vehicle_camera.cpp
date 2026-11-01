@@ -57,10 +57,10 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths::Mat4& orientation)
 {
     const maths::Vec4& at = orientation.row[2];
-    double x = static_cast<double>(distance) * at.x;
-    float y = distance * at.y;
-    float z = distance * at.z;
-    float w = distance * at.w;
+    const double x = static_cast<double>(distance) * at.x;
+    const float y = distance * at.y;
+    const float z = distance * at.z;
+    const float w = distance * at.w;
     return {static_cast<float>(position.x - x), position.y - y, position.z - z, position.w - w};
 }
 
@@ -119,11 +119,11 @@ void CarView::update_target_direction()
     float x = -velocity[0];
     float y = 0.0f;
     float z = -velocity[2];
-    float w = -velocity[3];
-    double length = std::sqrt(static_cast<double>(z) * z + static_cast<double>(x) * x);
+    const float w = -velocity[3];
+    const double length = std::sqrt(static_cast<double>(z) * z + static_cast<double>(x) * x);
     auto speed = static_cast<float>(length);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         x = static_cast<float>(x * inverse);
         y = static_cast<float>(0.0f * inverse);
         z = static_cast<float>(z * inverse);
@@ -137,7 +137,9 @@ void CarView::update_target_direction()
     if (scale > 1.0)
         scale = 1.0;
     const maths::Vec4& at = subject_->basis_frame_.row[2];
-    double a = -at.x, b = -at.y, c = -at.z;
+    const double a = -at.x;
+    const double b = -at.y;
+    const double c = -at.z;
     auto along = static_cast<float>((c * z + b * y + a * x) * scale);
     target_direction_ = {-at.x, -at.y, -at.z, -at.w};
     target_direction_.y = 0.0f;
@@ -166,7 +168,7 @@ void CarView::apply_to_camera()
 // 0x00524780
 void CarView::update_orientation()
 {
-    double heading = free_look_->heading_;
+    const double heading = free_look_->heading_;
     double rotated_x = 0.0, rotated_z = 0.0;
     maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
     auto right = static_cast<float>(rotated_z);
@@ -176,7 +178,7 @@ void CarView::update_orientation()
     orientation_.row[2] = {forward, direction_.y, right, direction_.w};
     orientation_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     const maths::Vec4& subject = subject_->at_point_;
-    float back = right * reach_;
+    const float back = right * reach_;
     anchor_point_.x = static_cast<float>(static_cast<double>(forward) * reach_ + subject.x);
     anchor_point_.y = level_y_ + subject.y;
     anchor_point_.z = back + subject.z;
@@ -208,9 +210,9 @@ void CarView::tick_frame()
 {
     camera_of(entity_)->remember_prev_pos();
     update_target_direction();
-    double dot = static_cast<double>(direction_.z) * target_direction_.z +
-                 static_cast<double>(direction_.y) * target_direction_.y +
-                 static_cast<double>(direction_.x) * target_direction_.x;
+    const double dot = static_cast<double>(direction_.z) * target_direction_.z +
+                       static_cast<double>(direction_.y) * target_direction_.y +
+                       static_cast<double>(direction_.x) * target_direction_.x;
     auto cosine = static_cast<float>(dot);
     if (dot > 1.0)
         cosine = 1.0f;
@@ -220,21 +222,21 @@ void CarView::tick_frame()
     float angle = maths::acos_f(cosine, kHalfPi, &obtuse);
     if (obtuse)
         angle = kPi - angle;
-    bool left = static_cast<double>(direction_.z) * target_direction_.x -
-                    static_cast<double>(target_direction_.z) * direction_.x >
-                0.0;
+    const bool left = static_cast<double>(direction_.z) * target_direction_.x -
+                          static_cast<double>(target_direction_.z) * direction_.x >
+                      0.0;
     double step = frame_clock::get_slomo_frame_seconds() * lerp_ * angle;
     if (step > angle)
         step = angle;
-    double turn = (left ? 1.0f : -1.0f) * step;
+    const double turn = (left ? 1.0f : -1.0f) * step;
     double x = 0.0, z = 0.0;
     maths::spin_by(turn, direction_.x, direction_.z, &x, &z);
     direction_.x = static_cast<float>(x);
     direction_.z = static_cast<float>(z);
     direction_.make_unit();
     update_orientation();
-    maths::Vec4 focus = get_behind(anchor_point_, reach_, orientation_);
-    maths::Vec4 target = get_behind(anchor_point_, reach_, orientation_);
+    const maths::Vec4 focus = get_behind(anchor_point_, reach_, orientation_);
+    const maths::Vec4 target = get_behind(anchor_point_, reach_, orientation_);
     avoid_camera_collisions(&anchor_point_, &orientation_, &target, &focus, false, false);
     apply_to_camera();
 }

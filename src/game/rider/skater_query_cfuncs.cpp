@@ -75,13 +75,15 @@ int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
 // The score pot: the base score times the multiplier, truncated (x87 at 53 bits, then the original's _ftol).
 int score_pot(modules::PointTally* score)
 {
-    double pot = static_cast<double>(score->pot_) * score->multiplier_;
+    const double pot = static_cast<double>(score->pot_) * score->multiplier_;
     return static_cast<int>(static_cast<int64_t>(pot));
 }
 // The local skater's speed: the length of its velocity (as the original's x87: in double).
 double speed_of(objects::GameEntity* skater)
 {
-    double x = skater->vel_.x, y = skater->vel_.y, z = skater->vel_.z;
+    const double x = skater->vel_.x;
+    const double y = skater->vel_.y;
+    const double z = skater->vel_.z;
     return std::sqrt(x * x + y * y + z * z);
 }
 // An integer parameter, 0 if missing.
@@ -134,7 +136,7 @@ bool cfunc_skater_speed_less_than(script::Struct* params, script::Script*)
 // last trick's score.
 bool cfunc_skater_last_score_landed_greater_than(script::Struct* params, script::Script*)
 {
-    int value = integer_or_zero(params);
+    const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
     if (!skater)
         return false;
@@ -144,7 +146,7 @@ bool cfunc_skater_last_score_landed_greater_than(script::Struct* params, script:
 
 bool cfunc_skater_last_score_landed_less_than(script::Struct* params, script::Script*)
 {
-    int value = integer_or_zero(params);
+    const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
     if (!skater)
         return false;
@@ -170,7 +172,7 @@ bool cfunc_accumulate_scores(script::Struct*, script::Script*)
 {
     online::Hub* manager = net_session_slot();
     PlayerSearch search;
-    PlayerSearch unused; // (made and dropped by the original)
+    const PlayerSearch unused; // (made and dropped by the original)
     (void)unused;
     for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
          player = step_roster_sweep(manager, &search, false))
@@ -185,7 +187,7 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
 {
     online::Hub* manager = net_session_slot();
     PlayerSearch search;
-    PlayerSearch others;
+    const PlayerSearch others;
     int lowest = -1;
     int highest = 0;
     int in_game = 0;
@@ -238,7 +240,7 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
                 ++teams[player->team_];
         }
         int with_players = 0;
-        for (int count : teams)
+        for (const int count : teams)
             with_players += count > 0 ? 1 : 0;
         return with_players <= 1;
     }
@@ -260,7 +262,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
 {
     online::Hub* manager = net_session_slot();
     PlayerSearch search;
-    int target = integer_or_zero(params);
+    const int target = integer_or_zero(params);
     if (is_squad_match()) {
         int teams[4] = {0, 0, 0, 0};
         for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
@@ -268,7 +270,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
             modules::PointTally* score = get_score_of(player->skater_);
             teams[player->team_] += total_score(score);
         }
-        for (int total : teams) {
+        for (const int total : teams) {
             if (total >= target)
                 return true;
         }
@@ -298,7 +300,7 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
             modules::PointTally* score = get_score_of(player->skater_);
             teams[player->team_] += total_score(score);
         }
-        for (int total : teams)
+        for (const int total : teams)
             scored += total > 0 ? 1 : 0;
         if (manager->begin_joiner_walk(&joining))
             return false;
@@ -324,7 +326,7 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
 // 0x005ACF50 / 0x005ACFA0: SkaterTotalScoreGreaterThan / less_than <score> (0 if missing) - the local skater's total.
 bool cfunc_skater_total_score_greater_than(script::Struct* params, script::Script*)
 {
-    int value = integer_or_zero(params);
+    const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
     if (!skater)
         return false;
@@ -334,7 +336,7 @@ bool cfunc_skater_total_score_greater_than(script::Struct* params, script::Scrip
 
 bool cfunc_skater_total_score_less_than(script::Struct* params, script::Script*)
 {
-    int value = integer_or_zero(params);
+    const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
     if (!skater)
         return false;
@@ -359,7 +361,7 @@ bool cfunc_skater_current_score_pot_greater_than(script::Struct* params, script:
 
 bool cfunc_skater_current_score_pot_less_than(script::Struct* params, script::Script*)
 {
-    int value = integer_or_zero(params);
+    const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
     if (!skater)
         return false;
@@ -391,7 +393,7 @@ bool cfunc_in_first_place(script::Struct*, script::Script* script)
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
     if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater_)
         return false;
-    int mine = total_score(component_score_of(local->skater_));
+    const int mine = total_score(component_score_of(local->skater_));
     int in_game = 0;
     for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
          player = step_roster_sweep(manager, &search, false)) {
@@ -421,7 +423,7 @@ bool cfunc_in_last_place(script::Struct*, script::Script* script)
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
     if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater_)
         return false;
-    int mine = total_score(component_score_of(local->skater_));
+    const int mine = total_score(component_score_of(local->skater_));
     int in_game = 0;
     for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
          player = step_roster_sweep(manager, &search, false)) {
@@ -433,7 +435,7 @@ bool cfunc_in_last_place(script::Struct*, script::Script* script)
             ++worse;
         if (player->is_own_player())
             continue;
-        int total = total_score(score);
+        const int total = total_score(score);
         if (lowest == -1)
             lowest = total;
         else if (total < lowest)
@@ -456,7 +458,7 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
     if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater_)
         return false;
-    int mine = total_score(component_score_of(local->skater_));
+    const int mine = total_score(component_score_of(local->skater_));
     int in_game = 0;
     for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
          player = step_roster_sweep(manager, &search, false)) {
@@ -521,7 +523,8 @@ bool cfunc_toggle_skater_cam_mode(script::Struct* params, script::Script*)
 bool cfunc_get_skater_id(script::Struct* params, script::Script* script)
 {
     int index = 0;
-    objects::GameEntity* skater = params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
+    const objects::GameEntity* skater =
+        params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
     if (!skater || !skater->is_local_skater_)
         return false;
     script->args_->put_name_key(kObjId, skater->ident_);
@@ -534,7 +537,7 @@ bool cfunc_skater_exists(script::Struct* params, script::Script* script)
     int index = 0; // (uninitialised in the original)
     if (!params->fetch_int_value(kSkater, &index, 1))
         return false;
-    objects::GameEntity* skater = get_rider_at(index);
+    const objects::GameEntity* skater = get_rider_at(index);
     if (!skater)
         return false;
     script->args_->put_name_key(kObjId, skater->ident_);
@@ -560,7 +563,7 @@ bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
     auto* object = static_cast<objects::GameEntity*>(script->entity_.get_pull());
     if (!object || !object->is_local_skater_)
         return false;
-    uint32_t id = object->ident_;
+    const uint32_t id = object->ident_;
     script->args_->put_name_key(kObjId, id);
     script->args_->put_int(kIntId, static_cast<int>(id));
     return true;
@@ -573,7 +576,8 @@ bool cfunc_get_skater_position(script::Struct*, script::Script* script)
     auto* object = static_cast<objects::GameEntity*>(script->entity_.get_pull());
     if (!object)
         return false;
-    float y = object->at_point_.y, z = object->at_point_.z;
+    const float y = object->at_point_.y;
+    const float z = object->at_point_.z;
     script->args_->put_int("x", static_cast<int>(static_cast<int64_t>(object->at_point_.x))); // (the original's _ftol)
     script->args_->put_int("y", static_cast<int>(static_cast<int64_t>(y)));
     script->args_->put_int("z", static_cast<int>(static_cast<int64_t>(z)));

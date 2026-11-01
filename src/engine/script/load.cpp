@@ -97,7 +97,7 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
     symbol->type = kQbvalScriptBody;
     // (not original: room for LZSS's worst case - the original's 20000 bytes overflowed for a script past ~17.7 KB
     // that doesn't compress)
-    uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
+    const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
     auto* buffer = static_cast<uint8_t*>(memory::alloc_block(room));
     int stored = lzss::pack_up(code, buffer, static_cast<int>(size), false);
     if (stored >= static_cast<int>(size)) {
@@ -132,7 +132,7 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
     // First the checksums' names.
     for (const uint8_t* p = data; *p;) {
         if (*p == 0x2B) {
-            uint32_t checksum = fetch_word32(p + 1);
+            const uint32_t checksum = fetch_word32(p + 1);
             const char* name = reinterpret_cast<const char*>(p + 5);
             if (use_qb_names)
                 add_script_checksum_name(checksum, name);
@@ -147,7 +147,7 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
     register_name_hash(checksums::hash_from_text(filename), filename);
     loading_file() = checksums::hash_from_text(filename);
 
-    memory::Hub* manager = memory::Hub::get_pull();
+    const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(manager->script_heap_);
     const uint8_t* p = data;
     for (;;) {
@@ -158,7 +158,7 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
             loading_file() = 0;
             return;
         case 0x16: { // name = value
-            uint32_t name = fetch_word32(p + 1);
+            const uint32_t name = fetch_word32(p + 1);
             p = skip_newline_tokens(p + 5);
             p = skip_newline_tokens(p + 1); // (past the '=')
             SymbolTableEntry* existing = find_symbol(name);
@@ -170,11 +170,11 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
             break;
         }
         case 0x23: { // script name ... endscript
-            uint32_t name = fetch_word32(p + 2);
+            const uint32_t name = fetch_word32(p + 2);
             const uint8_t* start = p + 6;
             p = skip_to_end_of_script(start);
             auto size = static_cast<uint32_t>(p - start);
-            uint32_t checksum = calculate_script_checksum(start);
+            const uint32_t checksum = calculate_script_checksum(start);
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
@@ -193,7 +193,7 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
             p = step_over_token(p);
             break;
         case 0x45: { // a section marker
-            uint32_t marker = fetch_word32(p + 2);
+            const uint32_t marker = fetch_word32(p + 2);
             p += 6;
             if (marker == 0x0FA33D9B) {
                 // The end of a debug section.
@@ -259,9 +259,9 @@ void load_qb_data(const char* filename, uint8_t* data, int unused, int use_qb_na
 // 0x0046EDE0
 void load_qb(const char* filename, int unused, int temporary)
 {
-    size_t length = std::strlen(filename);
+    const size_t length = std::strlen(filename);
     const char* extension = precompiled_extension();
-    memory::Hub* manager = memory::Hub::get_pull();
+    const memory::Hub* manager = memory::Hub::get_pull();
     if (filename[length - 4] == '.' && _stricmp(filename + length - 3, extension) == 0) {
         // Pre-compiled: kept loaded.
         memory::enter_heap_scope(manager->script_heap_);

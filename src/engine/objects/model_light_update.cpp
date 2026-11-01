@@ -65,23 +65,23 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
 {
     // Down from just above the object (nudged along its up vector).
     render::ProbeRay down;
-    GameEntity* object = entity_;
+    const GameEntity* object = entity_;
     maths::Vec4& start = down.line_.start;
     maths::Vec4& end = down.line_.end;
     start = object->at_point_;
     end = object->at_point_;
     const maths::Vec4& up = object->basis_frame_.row[1];
-    double step_x = static_cast<double>(up.x) * kUpNudge;
-    double step_y = static_cast<double>(up.y) * kUpNudge;
-    double step_z = static_cast<double>(up.z) * kUpNudge;
-    double step_w = static_cast<double>(up.w) * kUpNudge;
+    const double step_x = static_cast<double>(up.x) * kUpNudge;
+    const double step_y = static_cast<double>(up.y) * kUpNudge;
+    const double step_z = static_cast<double>(up.z) * kUpNudge;
+    const double step_w = static_cast<double>(up.w) * kUpNudge;
     start.x = static_cast<float>(step_x + start.x);
     start.y = static_cast<float>(start.y + step_y);
     start.z = static_cast<float>(start.z + step_z);
     start.w = static_cast<float>(start.w + step_w);
     start.y = start.y + kAbove;
     end.y = end.y - kDepth;
-    bool hit = down.get_hit_shape(false, false) != 0;
+    const bool hit = down.get_hit_shape(false, false) != 0;
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
     render::ProbeRay again;
     again.set_excluded(0, 0x20);

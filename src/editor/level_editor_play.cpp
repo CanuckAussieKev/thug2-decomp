@@ -28,7 +28,7 @@ bool get_key_down(const uint8_t* keys)
 {
     if (!keys)
         return false;
-    bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
+    const bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
     return keys[SDL_SCANCODE_F5] || (ctrl && keys[SDL_SCANCODE_P]);
 }
 
@@ -53,7 +53,7 @@ bool g_key_up = true;
 // The overlay's level_editor_enter is loaded (tools/pipeline/menu_level/make_menu_level.ts).
 bool enter_script_loaded()
 {
-    script::SymbolTableEntry* symbol = script::resolve_symbol(checksums::hash_from_text("level_editor_enter"));
+    const script::SymbolTableEntry* symbol = script::resolve_symbol(checksums::hash_from_text("level_editor_enter"));
     return symbol && symbol->type == script::kQbvalScriptBody;
 }
 
@@ -63,7 +63,7 @@ void get_request() { g_requested = true; }
 
 bool take_request()
 {
-    bool requested = g_requested;
+    const bool requested = g_requested;
     g_requested = false;
     if (requested) {
         g_phase = Phase::kUnpause;
@@ -93,11 +93,11 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    bool down = get_key_down(keys);
-    bool pressed = down && g_key_up;
+    const bool down = get_key_down(keys);
+    const bool pressed = down && g_key_up;
     g_key_up = !down;
-    bool paused = front_end && front_end->is_halted_;
-    bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
+    const bool paused = front_end && front_end->is_halted_;
+    const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     switch (g_phase) {
     case Phase::kUnpause:
         // (level_editor_exit brought the pause menu back: closed as its CONTINUE closes it)
@@ -141,7 +141,7 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     if (!pressed || level_editor::live_now())
         return;
-    bool offered = enter_script_loaded() && cfunc_available(nullptr, nullptr) && !layout::get_refused();
+    const bool offered = enter_script_loaded() && cfunc_available(nullptr, nullptr) && !layout::get_refused();
     if (on_key(pressed, in_level, paused, offered) != Step::kPauseThenEnter) {
         if (in_level && !paused && !offered)
             get_log("level editor: the play key - the editor isn't offered here");

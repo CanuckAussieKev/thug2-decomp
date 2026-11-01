@@ -112,8 +112,8 @@ uint32_t emit_int(util::ByteWriter& out, uint32_t name, int value)
 // 0x00479A50
 uint32_t emit_real(util::ByteWriter& out, uint32_t name, float value)
 {
-    size_t start = out.position();
-    float magnitude = value < 0.0f ? -value : value;
+    const size_t start = out.position();
+    const float magnitude = value < 0.0f ? -value : value;
     // (a NaN counts as big)
     if (magnitude < 0.0001) {
         if (out.remaining() < 5)
@@ -135,7 +135,7 @@ uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_
     auto length = static_cast<uint32_t>(std::strlen(string));
     if (out.remaining() < length + 6) // (room for the longest name form, as the original)
         return 0;
-    size_t start = out.position();
+    const size_t start = out.position();
     write_name_and_type(out, type, name);
     out.c_string(string);
     return written_since(out, start);
@@ -166,9 +166,9 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
 {
     if (out.remaining() < 3)
         return 0;
-    size_t start = out.position();
-    uint8_t type = array->kind_tag_;
-    uint32_t count = array->extent_;
+    const size_t start = out.position();
+    const uint8_t type = array->kind_tag_;
+    const uint32_t count = array->extent_;
     out.u8(type);
     out.u16(static_cast<uint16_t>(count));
     switch (type) {
@@ -194,7 +194,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case kQbvalPair: {
         if (uint64_t{count} * 8 > out.remaining())
             return 0;
-        auto** pairs = reinterpret_cast<Pair**>(array->find_array_value());
+        auto* const* pairs = reinterpret_cast<Pair**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             out.f32(pairs[i]->x);
             out.f32(pairs[i]->y);
@@ -204,7 +204,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     case kQbvalVector: {
         if (uint64_t{count} * 12 > out.remaining())
             return 0;
-        auto** vectors = reinterpret_cast<Vector**>(array->find_array_value());
+        auto* const* vectors = reinterpret_cast<Vector**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             out.f32(vectors[i]->x);
             out.f32(vectors[i]->y);
@@ -213,7 +213,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         break;
     }
     case kQbvalStruct: {
-        auto** structures = reinterpret_cast<Struct**>(array->find_array_value());
+        auto* const* structures = reinterpret_cast<Struct**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             if (emit_structure(out, structures[i], assert, nullptr) == 0)
                 return 0;
@@ -221,7 +221,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         break;
     }
     case kQbvalArray: {
-        auto** arrays = reinterpret_cast<Array**>(array->find_array_value());
+        auto* const* arrays = reinterpret_cast<Array**>(array->find_array_value());
         for (uint32_t i = 0; i < count; ++i) {
             if (write_array_to_buffer(out, arrays[i], assert) == 0)
                 return 0;
@@ -240,14 +240,14 @@ namespace {
 // as the original: room for the longest name form and the value), the bytes written - 0 when they don't fit.
 uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, void (*callback)())
 {
-    size_t start = out.position();
+    const size_t start = out.position();
     if (structure) {
         for (Component* component = structure->step_to_entry(nullptr); component;
              component = structure->step_to_entry(component)) {
             if (callback)
                 callback();
             uint32_t written = 0;
-            size_t at = out.position();
+            const size_t at = out.position();
             switch (component->kind_tag()) {
             case kQbvalInteger:
                 written = emit_int(out, component->name, component->integer);
@@ -332,7 +332,7 @@ uint32_t measure_buffer_bytes(Struct* structure, uint32_t max_size)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     auto* scratch = static_cast<uint8_t*>(memory::alloc_block(max_size));
-    uint32_t size = emit_into_buffer(structure, scratch, max_size, 1, nullptr);
+    const uint32_t size = emit_into_buffer(structure, scratch, max_size, 1, nullptr);
     memory::free_malloc(scratch);
     memory::Hub::get_pull()->leave_heap_scope();
     return size;
@@ -367,7 +367,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
     manager->enter_heap_scope(manager->script_heap_);
     // (a buffer cut short reads as zeros: its type byte ends the structure)
     for (uint8_t type = reader.u8(); type != 0; type = reader.u8()) {
-        uint32_t name = read_name(reader, type);
+        const uint32_t name = read_name(reader, type);
         if (!reader.ok())
             break;
         switch (type & 0x3F) {
@@ -384,15 +384,15 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             structure->append_inline_text(name, read_text(reader));
             break;
         case kQbvalPair: {
-            float x = reader.f32();
-            float y = reader.f32();
+            const float x = reader.f32();
+            const float y = reader.f32();
             structure->insert_pair(name, x, y);
             break;
         }
         case kQbvalVector: {
-            float x = reader.f32();
-            float y = reader.f32();
-            float z = reader.f32();
+            const float x = reader.f32();
+            const float y = reader.f32();
+            const float z = reader.f32();
             structure->put_vec3(name, x, y, z);
             break;
         }
@@ -445,8 +445,8 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
 void decode_array(Array* array, util::ByteReader& reader)
 {
     release_array_storage(array);
-    uint8_t type = reader.u8();
-    uint32_t count = reader.u16();
+    const uint8_t type = reader.u8();
+    const uint32_t count = reader.u16();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     array->configure_size_kind(count, static_cast<QbValueKind>(type));

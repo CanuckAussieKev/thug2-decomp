@@ -104,7 +104,7 @@ void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
                   name); // (the original: the game's sprintf, 0x006234FE)
     debug::printf("loading %s\n", file_name);
     assets::ResourceRegistry* assets = asset_manager();
-    int saved = assets->unknown18_;
+    const int saved = assets->unknown18_;
     if (assets->load_anim(file_name, name, anim_set, false, false)) {
         debug::printf("loaded\n");
         fam_ = checksums::hash_from_text(file_name);
@@ -129,9 +129,9 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
     if (!stream_only) {
         params->put_int(kUsePosInfo, 0);
         auto* blender = static_cast<AnimBlenderComponent*>(entity_->fetch_module(AnimBlenderComponent::kType));
-        uint32_t anim_set = blender->get_anim_set();
+        const uint32_t anim_set = blender->get_anim_set();
         load_anim_bank(name, anim_set);
-        uint32_t stream = audio::prime_stream(name, priority);
+        const uint32_t stream = audio::prime_stream(name, priority);
         params->put_name_key(kStreamId, stream);
         feed_ = stream;
         if (asset_manager()->get_asset_data(anim_set + name, 0))

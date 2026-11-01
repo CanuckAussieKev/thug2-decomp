@@ -57,7 +57,7 @@ void look_along(gfx::ViewCam* camera, maths::Vec4 v)
 // The camera's place for a shadow at `position`: `distance` back along the light (the x product left unrounded).
 maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& direction, float distance)
 {
-    double d = distance;
+    const double d = distance;
     return {static_cast<float>(position.x - d * direction.x),
             static_cast<float>(position.y - static_cast<float>(d * direction.y)),
             static_cast<float>(position.z - static_cast<float>(d * direction.z)),
@@ -101,7 +101,7 @@ void FullShadow::change_place(maths::Vec4 position)
 // 0x004A1BA0
 void FullShadow::set_light_direction(const maths::Vec4* direction)
 {
-    maths::Vec4 position = *view_camera_->fetch_location();
+    const maths::Vec4 position = *view_camera_->fetch_location();
     direction_ = *direction;
     direction_.make_unit();
     view_camera_->change_location(maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
@@ -149,7 +149,7 @@ void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matr
     placed.row[2] = forward;
     placed.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     placed.scale_tool(maths::Vec4{size_factor_, size_factor_, size_factor_, 1.0f});
-    double offset = shift_;
+    const double offset = shift_;
     auto dx = static_cast<float>(normal.x * offset);
     auto dy = static_cast<float>(normal.y * offset);
     auto dz = static_cast<float>(normal.z * offset);
@@ -212,7 +212,7 @@ void ShadowVolume::change_place(maths::Vec4 position)
 // 0x004A21A0
 void ShadowVolume::set_light_direction(const maths::Vec4* direction)
 {
-    maths::Vec4 position = *view_camera_->fetch_location();
+    const maths::Vec4 position = *view_camera_->fetch_location();
     direction_ = *direction;
     direction_.make_unit();
     view_camera_->change_location(maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});

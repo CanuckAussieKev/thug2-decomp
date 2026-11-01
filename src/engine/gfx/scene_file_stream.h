@@ -22,7 +22,7 @@ public:
             std::memset(out, 0, bytes);
             return false;
         }
-        int read = file::get_take_in(out, static_cast<int>(bytes), 1, file_);
+        const int read = file::get_take_in(out, static_cast<int>(bytes), 1, file_);
         if (read != static_cast<int>(bytes)) {
             ok_ = false;
             if (read >= 0 && static_cast<size_t>(read) < bytes)

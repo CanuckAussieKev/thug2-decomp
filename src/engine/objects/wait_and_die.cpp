@@ -41,15 +41,15 @@ void WaitAndDieComponent::configure_from_data(script::Struct* params)
     if (!params->read_hash_value(kWaitFor, &wait_for_, 0))
         params->fetch_float(kLifeTime, &seconds, 1);
     lifespan_ = static_cast<uint32_t>(ftol(static_cast<double>(seconds) * kMilliseconds));
-    int clock = frame_clock::game_clock_elapsed();
+    const int clock = frame_clock::game_clock_elapsed();
     outset_ = clock + g_clock_offset;
 }
 
 // 0x0043D8E0
 void WaitAndDieComponent::tick_frame()
 {
-    int start = outset_;
-    int clock = frame_clock::game_clock_elapsed();
+    const int start = outset_;
+    const int clock = frame_clock::game_clock_elapsed();
     elapsed_ = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start));
     if (wait_for_) {
         if (!find_object(wait_for_))

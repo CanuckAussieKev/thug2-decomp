@@ -49,7 +49,7 @@ uint32_t get_back_buffer_height() { return reinterpret_cast<uint32_t&>(g_back_bu
 
 uint8_t current_level()
 {
-    modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module;
     if (!skate)
         return 0;
     return static_cast<uint8_t>(skate->career_->level_); // (its low byte, as the original reads it)
@@ -101,9 +101,9 @@ float get_screen_angle() { return g_base_fov_angle; }
 // (0x00701340) is updated too.
 float fetch_fov_ratio()
 {
-    float aspect = desired_3d_aspect_ratio();
+    const float aspect = desired_3d_aspect_ratio();
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
-    float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
+    const float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
     view_ratio_slot() = aspect;
     if (angle_factor_constant() != 1.0f)
         return angle_factor_constant();
@@ -131,9 +131,9 @@ void set_screen_blur(uint32_t amount)
 // selects the fitted display region (set_display_region).
 void set_letterbox(bool letterbox)
 {
-    float back_buffer_aspect =
+    const float back_buffer_aspect =
         static_cast<float>(get_back_buffer_width()) / static_cast<float>(get_back_buffer_height());
-    float desired = desired_aspect_ratio();
+    const float desired = desired_aspect_ratio();
     if (back_buffer_aspect > desired) {
         // wider: bars left and right
         horiz_screen_ratio() = desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f);

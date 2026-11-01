@@ -49,8 +49,8 @@ bool write_park_map_header(util::ByteWriter& writer, const ParkMapHeader& header
 
 bool read_park_map_piece(util::ByteReader& reader, ParkMapPiece* piece)
 {
-    uint32_t where = reader.u32();
-    uint32_t how = reader.u32();
+    const uint32_t where = reader.u32();
+    const uint32_t how = reader.u32();
     piece->name_index = where & 0x3FF;
     piece->x = static_cast<uint8_t>(where >> 10);
     piece->z = static_cast<uint8_t>(where >> 18);

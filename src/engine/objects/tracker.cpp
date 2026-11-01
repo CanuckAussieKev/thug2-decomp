@@ -79,9 +79,9 @@ void listener_receive(SignalReceiver* listener, Signal* event) { listener->recei
 // 0x0041A820: the squared distance between two points (x87: (dx*dx + dz*dz) + dy*dy, not rounded to float).
 double get_distance_squared(const float* a, const float* b)
 {
-    double dx = static_cast<double>(a[0]) - b[0];
-    double dy = static_cast<double>(a[1]) - b[1];
-    double dz = static_cast<double>(a[2]) - b[2];
+    const double dx = static_cast<double>(a[0]) - b[0];
+    const double dy = static_cast<double>(a[1]) - b[1];
+    const double dz = static_cast<double>(a[2]) - b[2];
     return dx * dx + dz * dz + dy * dy;
 }
 
@@ -124,7 +124,7 @@ void ScriptNode::uncouple()
 // 0x00462620
 void ScriptList::append_one(script::Script* script)
 {
-    for (ScriptNode* node = following_->is_head() ? nullptr : following_; node;) {
+    for (const ScriptNode* node = following_->is_head() ? nullptr : following_; node;) {
         if (node->payload_ == script)
             return;
         node = node->following_;
@@ -182,7 +182,7 @@ void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint3
             char* name = names_[i];
             const char* string = names->find_inline_text(i);
             std::memcpy(name, string, std::strlen(string) + 1);
-            uint32_t checksum = checksums::hash_from_text(names->find_inline_text(i));
+            const uint32_t checksum = checksums::hash_from_text(names->find_inline_text(i));
             names_ptr_->store_entry(checksum, name);
         }
     }
@@ -478,7 +478,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             listener_receive(listener, &event);
             --listener->busy_;
         }
-        uint32_t event_target = event.aim_point_;
+        const uint32_t event_target = event.aim_point_;
         if (event_target != kNoObjectId && !(event.flag_bits_ & Signal::kFlagHandled)) {
             if (Entity* object = look_up_object(event_target)) {
                 forward_trigger(object, &event);
@@ -504,13 +504,13 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             Entity* object = script->entity_.get_pull();
             if (!object || !has_position(object))
                 return true;
-            double distance = get_distance_squared(source_position, get_position(object));
+            const double distance = get_distance_squared(source_position, get_position(object));
             return static_cast<double>(radius) * radius > distance;
         };
         int count = 0;
-        ScriptNode* first = list->following_;
+        const ScriptNode* first = list->following_;
         if (!first->is_head()) {
-            for (ScriptNode* node = first; node;) {
+            for (const ScriptNode* node = first; node;) {
                 node = node->following_;
                 ++count;
                 if (node->is_head())
@@ -534,7 +534,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
                 for (int i = 0; i < count; ++i)
                     new (&pointers[i]) Pointer();
             }
-            ScriptNode* node = list->following_->is_head() ? nullptr : list->following_;
+            const ScriptNode* node = list->following_->is_head() ? nullptr : list->following_;
             for (int i = 0; node; ++i) {
                 scripts[i] = node->payload_;
                 pointers[i].assign_value(&node->payload_->shared_base_);
@@ -572,7 +572,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
     if (!(event.flag_bits_ & Signal::kFlagHandled))
         log_.add_row(event.kind_tag_, event.aim_point_, event.from_where_, 0, 3, SignalTrace::kHandled);
     --launch_depth_;
-    bool handled = (event.flag_bits_ & Signal::kFlagHandled) != 0;
+    const bool handled = (event.flag_bits_ & Signal::kFlagHandled) != 0;
     event.teardown();
     return handled;
 }
@@ -693,7 +693,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
         source = own_object();
     script::Struct* data = nullptr;
     params->read_sub_struct(kData, &data, 0);
-    bool broadcast = params->has_bare_flag(kBroadcast);
+    const bool broadcast = params->has_bare_flag(kBroadcast);
     float radius = -1.0f;
     params->fetch_float(kRadius, &radius, 0);
     EventWaitBoard* tracker = get_tracker();
@@ -708,7 +708,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     }
     script::Array* types = nullptr;
     if (params->fetch_list(kType, &types, 0)) {
-        uint32_t size = types->extent_;
+        const uint32_t size = types->extent_;
         for (uint32_t i = 0; i < size; ++i) {
             tracker->launched_from_script_ = from_script();
             tracker->launch_event(types->fetch_part(i), target, source, data, broadcast, radius);

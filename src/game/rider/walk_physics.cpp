@@ -157,7 +157,7 @@ void FootMovement::change_phase(int state)
 {
     if (state == state_)
         return;
-    int previous = state_;
+    const int previous = state_;
     previous_state_ = previous;
     state_ = state;
     state_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
@@ -201,7 +201,7 @@ void FootMovement::clear_model_offset() { model_->shift_ = {0.0f, 0.0f, 0.0f, 1.
 // 0x00524E10
 bool FootMovement::using_dpad()
 {
-    objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = input_;
     if (!(input->pad_primary_.stick_[2] == 0.0f) || !(input->pad_primary_.stick_[3] == 0.0f))
         return false;
     return control_full_;
@@ -211,10 +211,10 @@ bool FootMovement::using_dpad()
 maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
 {
     constexpr float kCameraOffset = -18.0f; // 0x0064C614
-    int state = state_;
+    const int state = state_;
     bool offset = false;
     if (state == 1) {
-        int previous = previous_state_;
+        const int previous = previous_state_;
         offset = (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(state_time_)) < 150;
     } else {
         offset = state > 1 && state <= 4;
@@ -251,12 +251,13 @@ maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
 // 0x00528370
 void FootMovement::update_run_adjustment()
 {
-    modules::PointTally* score = static_cast<RiderPointKeeper*>(entity_->fetch_module(kSkaterScore))->points_held_;
+    const modules::PointTally* score =
+        static_cast<RiderPointKeeper*>(entity_->fetch_module(kSkaterScore))->points_held_;
     if (truncate(static_cast<double>(score->pot_) * score->multiplier_) > 0) {
         run_adjustment_ = 1.0f;
         return;
     }
-    float rate = walk_parameter(kRunAdjustRate);
+    const float rate = walk_parameter(kRunAdjustRate);
     double adjustment = run_adjustment_ - frame_clock::get_slomo_frame_seconds() * rate;
     if (adjustment < 0.0)
         adjustment = 0.0f;
@@ -272,9 +273,9 @@ void FootMovement::clamp_skater_speed(uint32_t stop_anim)
         last_speed_ = speed_;
         return;
     }
-    float speed = speed_;
-    float last = last_speed_;
-    float limited = speed < last ? speed : last;
+    const float speed = speed_;
+    const float last = last_speed_;
+    const float limited = speed < last ? speed : last;
     speed_ = limited;
     last_speed_ = speed;
     if (anim_state_ == kRun && limited == 0.0f)
@@ -295,7 +296,7 @@ double FootMovement::get_gravity()
 // 0x00528280
 bool FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4* out, render::ProbeRay* feeler)
 {
-    float height = walk_parameter(kProbeElevation);
+    const float height = walk_parameter(kProbeElevation);
     feeler->line_.start = *position;
     feeler->line_.start.y = static_cast<float>(static_cast<double>(height) + height + feeler->line_.start.y);
     feeler->line_.end = *position;
@@ -351,7 +352,7 @@ bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Scrip
 // 0x005285C0
 bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Script* script)
 {
-    float speed = speed_;
+    const float speed = speed_;
     uint32_t scale = 0;
     if (speed < walk_parameter(kMaxSlowWalkSpeed))
         scale = kWalkSlow;
@@ -405,18 +406,18 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
     const maths::Vec4* b = rails->get_absolute_pos(&to, hang_next_node_);
     float dx = b->x - a->x;
     float dy = b->y - a->y;
-    double dz_full = static_cast<double>(b->z) - a->z;
+    const double dz_full = static_cast<double>(b->z) - a->z;
     auto dz = static_cast<float>(dz_full);
     // (z's square from its unrounded difference times its rounded one, as the original's x87 code)
-    double length = std::sqrt((dz_full * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
+    const double length = std::sqrt((dz_full * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         dx = static_cast<float>(dx * inverse);
         dy = static_cast<float>(dy * inverse);
         dz = static_cast<float>(dz * inverse);
     }
     const maths::Vec4& facing = facing_;
-    bool negate = static_cast<double>(dz) * facing.x - static_cast<double>(dx) * facing.z < 0.0;
+    const bool negate = static_cast<double>(dz) * facing.x - static_cast<double>(dx) * facing.z < 0.0;
     script->args_->push_float(kHangAngle, asin_degrees(dy, negate));
     return true;
 }

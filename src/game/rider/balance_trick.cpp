@@ -279,13 +279,13 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         params->fetch_float(kSpeedMult, &speed_mult, 0);
         // (an unknown type has no balance: the original crashes here)
         Balance* balance = at_hand();
-        double time = static_cast<double>(time_mult) * balance->on_rail_seconds_ + time_add;
+        const double time = static_cast<double>(time_mult) * balance->on_rail_seconds_ + time_add;
         balance->on_rail_seconds_ = time < 0.0 ? 0.0f : static_cast<float>(time);
         // The lean and its speed scaled, then pushed further the way they lean.
-        double lean = static_cast<double>(lean_mult) * balance->lean_;
+        const double lean = static_cast<double>(lean_mult) * balance->lean_;
         balance->lean_ = static_cast<float>(lean);
         balance->lean_ = static_cast<float>((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add) + lean);
-        double speed = static_cast<double>(speed_mult) * balance->lean_speed_;
+        const double speed = static_cast<double>(speed_mult) * balance->lean_speed_;
         balance->lean_speed_ = static_cast<float>(speed);
         balance->lean_speed_ =
             static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add) + speed);
@@ -324,9 +324,9 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         if (params->fetch_int_value(kIsATap, &tap, 0))
             return 1;
         trick_ = type;
-        bool do_flip = params->has_bare_flag(kDoFlipCheck);
-        bool backwards = params->has_bare_flag(kPlayRangeAnimBackwards);
-        bool clear_cheese = params->has_bare_flag(kClearCheese);
+        const bool do_flip = params->has_bare_flag(kDoFlipCheck);
+        const bool backwards = params->has_bare_flag(kPlayRangeAnimBackwards);
+        const bool clear_cheese = params->has_bare_flag(kClearCheese);
         Balance* balance = at_hand();
         if (!balance)
             return 1;

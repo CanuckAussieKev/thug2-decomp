@@ -57,7 +57,7 @@ void GapRegistry::end_gap(void* piece, PieceGroup* meta, int index)
 bool GapRegistry::get_gap_index(PieceGroup* meta, int* index)
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        Gap* gap = gaps_ptr_[slot];
+        const Gap* gap = gaps_ptr_[slot];
         if (gap && gap->metas_[get_half(this, slot)] == meta) {
             if (index)
                 *index = slot;
@@ -71,7 +71,7 @@ bool GapRegistry::get_gap_index(PieceGroup* meta, int* index)
 uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        Gap* gap = gaps_ptr_[slot];
+        const Gap* gap = gaps_ptr_[slot];
         if (!gap || gap->pieces_[get_half(this, slot)] != piece)
             continue;
         if ((slot & 1) && script::fetch_int_value("PrintGaps")) {
@@ -88,7 +88,7 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
 // 0x0058CB20
 GapDetails* GapRegistry::get_gap_info(int index, int* half)
 {
-    Gap* gap = gaps_ptr_[index];
+    const Gap* gap = gaps_ptr_[index];
     if (!gap)
         return nullptr;
     *half = get_half(this, index);

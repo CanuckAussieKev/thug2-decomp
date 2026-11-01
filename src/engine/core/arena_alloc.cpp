@@ -60,30 +60,30 @@ void Zone::remove_allocator(MemSource* allocator) { allocators_[(allocator->dire
 // 0x005BC530
 int Zone::free_byte_count()
 {
-    uint8_t* bottom = allocators_[0] ? allocators_[0]->top_side_ : outset_;
-    uint8_t* top = allocators_[1] ? allocators_[1]->top_side_ : finish_;
+    const uint8_t* bottom = allocators_[0] ? allocators_[0]->top_side_ : outset_;
+    const uint8_t* top = allocators_[1] ? allocators_[1]->top_side_ : finish_;
     return static_cast<int>(top - bottom);
 }
 
 // 0x005BC560
 uint8_t* Zone::carve(MemSource* allocator, int size, int /*unused*/)
 {
-    int side = (allocator->direction_ >> 1) & 1; // 0 growing up, 1 growing down
-    MemSource* other = allocators_[side ^ 1];
+    const int side = (allocator->direction_ >> 1) & 1; // 0 growing up, 1 growing down
+    const MemSource* other = allocators_[side ^ 1];
     uint8_t* new_top = allocator->top_side_ + allocator->direction_ * size;
     uint8_t* result = new_top;
     if (side) {
-        uint8_t* limit = other ? other->top_side_ : outset_;
+        const uint8_t* limit = other ? other->top_side_ : outset_;
         if (new_top < limit)
             return nullptr;
     } else {
-        uint8_t* limit = other ? other->top_side_ : finish_;
+        const uint8_t* limit = other ? other->top_side_ : finish_;
         result = allocator->top_side_;
         if (new_top > limit)
             return nullptr;
     }
     allocator->top_side_ = new_top;
-    int available = free_byte_count();
+    const int available = free_byte_count();
     if (available < min_available_)
         min_available_ = available;
     return result;
@@ -93,7 +93,7 @@ uint8_t* Zone::carve(MemSource* allocator, int size, int /*unused*/)
 MemoryArena::MemoryArena(uint32_t size)
 {
     if (size) {
-        uint32_t rounded = size & ~0xFu;
+        const uint32_t rounded = size & ~0xFu;
         auto* start = static_cast<uint8_t*>(alloc(rounded)); // (New makes sure the memory system is set up)
         finish_ = start + rounded;
         outset_ = start;
@@ -199,7 +199,7 @@ void MemSource::leave_heap_scope()
         context->node.uncouple();
         memory::dealloc(context);
     }
-    ListNode* next = zone_chain_.next;
+    const ListNode* next = zone_chain_.next;
     context_ = next->data != reinterpret_cast<void*>(-1) && next ? static_cast<CtxInfo*>(next->data) : nullptr;
 }
 

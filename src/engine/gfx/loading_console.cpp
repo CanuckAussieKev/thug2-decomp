@@ -149,7 +149,7 @@ double get_now()
 
 void add_line(const char* text)
 {
-    double now = get_now();
+    const double now = get_now();
     AcquireSRWLockExclusive(&g_lock);
     g_ring.append_one(text, now - g_start);
     g_last_activity = now;
@@ -175,14 +175,14 @@ void build_font()
     IDirect3DDevice9* device = input_port();
     if (!device)
         return;
-    float pixels = std::clamp(std::round(static_cast<float>(get_screen_height()) * 15.0f / 720.0f), 12.0f, 30.0f);
+    const float pixels = std::clamp(std::round(static_cast<float>(get_screen_height()) * 15.0f / 720.0f), 12.0f, 30.0f);
     ImFontAtlas atlas;
     atlas.Flags |= ImFontAtlasFlags_NoMouseCursors;
     ImFontConfig config;
     config.PixelSnapH = true;
     config.OversampleH = 2;
     static const ImWchar kRanges[] = {0x0020, 0x007E, 0};
-    frontend::level_editor::ui_fonts::CompressedFont mono = frontend::level_editor::ui_fonts::get_mono();
+    const frontend::level_editor::ui_fonts::CompressedFont mono = frontend::level_editor::ui_fonts::get_mono();
     ImFont* font = atlas.AddFontFromMemoryCompressedTTF(mono.data, mono.size, pixels, &config, kRanges);
     unsigned char* rgba = nullptr;
     int width = 0, height = 0;
@@ -250,8 +250,10 @@ void draw_text(float x, float y, const char* text, size_t columns, uint32_t colo
         auto c = static_cast<unsigned char>(text[i]);
         const Glyph& glyph = g_glyphs[c < 0x80 ? c : '?'];
         if (glyph.visible) {
-            float x0 = x + glyph.x0 - 0.5f, y0 = y + glyph.y0 - 0.5f, x1 = x + glyph.x1 - 0.5f,
-                  y1 = y + glyph.y1 - 0.5f;
+            const float x0 = x + glyph.x0 - 0.5f;
+            const float y0 = y + glyph.y0 - 0.5f;
+            const float x1 = x + glyph.x1 - 0.5f;
+            const float y1 = y + glyph.y1 - 0.5f;
             const Vertex a{x0, y0, 0.0f, 1.0f, color, glyph.u0, glyph.v0},
                 b{x1, y0, 0.0f, 1.0f, color, glyph.u1, glyph.v0}, cc{x0, y1, 0.0f, 1.0f, color, glyph.u0, glyph.v1},
                 d{x1, y1, 0.0f, 1.0f, color, glyph.u1, glyph.v1};
@@ -274,19 +276,22 @@ void get_layout(double now)
     ReleaseSRWLockShared(&g_lock);
 
     auto width = static_cast<float>(get_screen_width()), height = static_cast<float>(get_screen_height());
-    float margin = std::max(8.0f, std::round(height * 0.02f));
-    float pad = std::round(g_line_height * 0.4f);
+    const float margin = std::max(8.0f, std::round(height * 0.02f));
+    const float pad = std::round(g_line_height * 0.4f);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
-    float bar_left = (width - static_cast<float>(progress_bar_pixels())) * 0.5f - width * 5.0f / 640.0f;
+    const float bar_left = (width - static_cast<float>(progress_bar_pixels())) * 0.5f - width * 5.0f / 640.0f;
     float panel_width = std::min(width * 0.45f, bar_left - 2.0f * margin);
     if (panel_width < 20.0f * g_advance)
         panel_width = std::min(width - 2.0f * margin, 40.0f * g_advance); // (no room beside the bar: over it)
-    size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - 2.0f * pad) / g_advance));
-    float panel_height = 2.0f * pad + g_line_height * static_cast<float>(kShownLines + 1) + pad * 0.5f;
-    float x0 = margin, y1 = height - margin, y0 = y1 - panel_height, x1 = x0 + panel_width;
+    const size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - 2.0f * pad) / g_advance));
+    const float panel_height = 2.0f * pad + g_line_height * static_cast<float>(kShownLines + 1) + pad * 0.5f;
+    const float x0 = margin;
+    const float y1 = height - margin;
+    const float y0 = y1 - panel_height;
+    const float x1 = x0 + panel_width;
 
-    double idle = now - last;
-    bool stalled = idle >= kStallSeconds;
+    const double idle = now - last;
+    const bool stalled = idle >= kStallSeconds;
     rect2(x0, y0, x1, y1, stalled ? 0xC0301000u : 0xB0000000u);
     rect2(x0, y0, x1, y0 + 2.0f, stalled ? 0xFFFF8C1Au : 0xFF5A5A5Au); // (a rule along the top)
 
@@ -298,8 +303,8 @@ void get_layout(double now)
         std::snprintf(right, sizeof(right), "last activity %.1f s ago", idle);
     float y = y0 + pad;
     draw_text(x0 + pad, y, left, columns, 0xFFFFFFFFu);
-    size_t right_length = std::strlen(right);
-    size_t left_length = std::strlen(left);
+    const size_t right_length = std::strlen(right);
+    const size_t left_length = std::strlen(left);
     if (left_length + 2 + right_length <= columns)
         draw_text(x1 - pad - static_cast<float>(right_length) * g_advance, y, right, columns,
                   stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
@@ -308,8 +313,8 @@ void get_layout(double now)
                   columns - std::min(columns, left_length + 2), stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     y += g_line_height + pad * 0.5f;
     for (size_t i = 0; i < lines.size(); ++i) {
-        bool newest = i + 1 == lines.size();
-        uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
+        const bool newest = i + 1 == lines.size();
+        const uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
         draw_text(x0 + pad, y, lines[i].c_str(), columns, color);
         y += g_line_height;
     }
@@ -327,7 +332,7 @@ void CALLBACK screen_tick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
     // isn't a frozen frame, and no movie is shown.
     if (!g_active || !g_timer_draws || bar_timer() != 0 || !load_screen_shown() || movie_shown())
         return;
-    bool blank = g_blank;
+    const bool blank = g_blank;
     if (!blank && !screen_picture())
         return;
     WaitForSingleObject(screen_mutex(), INFINITE);
@@ -356,7 +361,7 @@ void on_log_line(const char* line)
 
 bool is_switched_on()
 {
-    static bool on = config_int("features", "loading_console", 1) != 0;
+    static const bool on = config_int("features", "loading_console", 1) != 0;
     return on;
 }
 
@@ -369,7 +374,7 @@ void screen_shown(bool freeze, bool blank)
     if (!g_font_tried)
         build_font();
     if (!g_active) {
-        double now = get_now();
+        const double now = get_now();
         AcquireSRWLockExclusive(&g_lock);
         g_ring.count = 0;
         g_start = now;
@@ -396,7 +401,7 @@ void screen_hidden()
         timeKillEvent(g_timer);
         g_timer = 0;
     }
-    double now = get_now();
+    const double now = get_now();
     get_log("loading console: the loading screen was up %.1f s", now - g_start);
 }
 
@@ -460,7 +465,7 @@ void note_log_line(const char* line)
     char text[kLineWidth];
     strncpy_s(text, line, _TRUNCATE);
     // (a log line can come from any thread, also while a crash is being logged: never wait for the lock)
-    double now = get_now();
+    const double now = get_now();
     if (!TryAcquireSRWLockExclusive(&g_lock))
         return;
     g_ring.append_one(text, now - g_start);
@@ -475,7 +480,7 @@ void draw_panel()
     IDirect3DDevice9* device = input_port();
     if (!device)
         return;
-    double now = get_now();
+    const double now = get_now();
     if (g_laid_out < 0.0 || now - g_laid_out >= kLayoutSeconds)
         get_layout(now);
     if (g_vertices.empty())

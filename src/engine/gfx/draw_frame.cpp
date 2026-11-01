@@ -166,14 +166,14 @@ void draw_2d_with_black_bars()
     if (get_front_end_widescreen())
         return;
 
-    uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
-    uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
-    float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
+    const uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
+    const uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
+    const float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
     constexpr uint32_t kBlack = 0xFF000000;
     if (back_buffer_aspect > desired_aspect_ratio()) {
         // bars left and right
         auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_x * 640.0f)));
-        uint32_t bar_width = (back_buffer_width - width) / 2;
+        const uint32_t bar_width = (back_buffer_width - width) / 2;
         set_texture(0, nullptr);
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
@@ -189,7 +189,7 @@ void draw_2d_with_black_bars()
     } else if (back_buffer_aspect < desired_aspect_ratio()) {
         // bars top and bottom
         auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_y * 480.0f)));
-        uint32_t bar_height = (back_buffer_height - height) / 2;
+        const uint32_t bar_height = (back_buffer_height - height) / 2;
         set_texture(0, nullptr);
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
@@ -246,10 +246,10 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
-    double half_angle = static_cast<double>(angle) * 0.008726646f;
+    const double half_angle = static_cast<double>(angle) * 0.008726646f;
     auto width = static_cast<float>(std::tan(half_angle) * 4.0f);
     auto height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * 0.90909094f));
-    float height = height_factor * width;
+    const float height = height_factor * width;
     matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
     if (zoom != 1.0f) {
         maths::Mat4 scale;
@@ -269,8 +269,8 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     auto& shape = g_view_shape;
     shape.tan_x_ = std::tan(static_cast<float>(half_angle));
     shape.tan_y_ = -(height_factor * shape.tan_x_);
-    double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
-    double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;
+    const double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
+    const double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;
     shape.sin_x_ = static_cast<float>(1.0 / std::sqrt(1.0 / tan_x2 + 1.0));
     shape.sin_y_ = static_cast<float>(1.0 / std::sqrt(1.0 / tan_y2 + 1.0));
     shape.cos_x_ = static_cast<float>(1.0 / std::sqrt(tan_x2 + 1.0));
@@ -321,17 +321,18 @@ void draw_screen_blur()
     set_render_state(0x11, 1);
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
-    int current = g_screen_copy_index;
+    const int current = g_screen_copy_index;
     IDirect3DTexture9* texture = g_screen_textures[current];
     IDirect3DTexture9* other = g_screen_textures[(current + 1) % 2];
     D3DSURFACE_DESC desc;
     texture->GetLevelDesc(0, &desc);
-    uint32_t texels_wide = desc.Width, texels_high = desc.Height;
+    const uint32_t texels_wide = desc.Width;
+    const uint32_t texels_high = desc.Height;
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
-    uint32_t amount = g_screen_blur;
+    const uint32_t amount = g_screen_blur;
     auto inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
-    double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
+    const double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
     auto inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
     auto screen_width = static_cast<float>(g_present_parameters.BackBufferWidth);
     auto screen_height = static_cast<float>(g_present_parameters.BackBufferHeight);
@@ -384,7 +385,7 @@ void draw_screen_blur()
     graphics_options::resolve_scene_target(static_cast<IDirect3DTexture9*>(texture));
     set_render_target(reinterpret_cast<void*>(g_back_buffer));
     set_depth_stencil_surface(reinterpret_cast<void*>(g_back_depth));
-    bool fog_colour = g_fog_setting && g_distance_clipping;
+    const bool fog_colour = g_fog_setting && g_distance_clipping;
     clear_target(fog_colour ? g_fog_colour : g_camera.background_colour_);
     set_render_state(0x11, 0);
     set_texture(0, texture);
@@ -503,8 +504,8 @@ void draw_viewport(int index)
     // Original behaviour: the camera is drawn where the game put it.
     frontend::test_view::place_camera(static_cast<gfx::ViewCam*>(camera), index);
     g_drawn_viewport = index; // the viewport being drawn
-    double width = g_back_buffer_width;
-    double height = static_cast<float>(g_back_buffer_height);
+    const double width = g_back_buffer_width;
+    const double height = static_cast<float>(g_back_buffer_height);
     DeviceViewport& vp = the_viewport();
     vp.x = static_cast<int>(width * view->x);
     vp.y = static_cast<int>(height * view->y);
@@ -523,17 +524,17 @@ void draw_viewport(int index)
     }
     set_viewport();
     clear_world_transform();
-    float aspect = reinterpret_cast<const ViewRegion*>(view)->fetch_width_over_height();
+    const float aspect = reinterpret_cast<const ViewRegion*>(view)->fetch_width_over_height();
 
     // Not original - the level editor's ortho views (editor/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
     // Original behaviour: the camera's own angle, the near plane at 2.
     auto* editor_camera = static_cast<gfx::ViewCam*>(camera);
-    float editor_near = frontend::level_editor::get_near_plane(static_cast<gfx::ViewCam*>(camera));
+    const float editor_near = frontend::level_editor::get_near_plane(static_cast<gfx::ViewCam*>(camera));
 
     // The world: every scene but the sky.
     {
-        float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         s_near_z = editor_near;
         const maths::Vec4* position = viewer_location(camera);
         choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
@@ -570,19 +571,20 @@ void draw_viewport(int index)
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
-        maths::Vec4 origin = {0.0f, 0.0f, 0.0f, 1.0f};
-        float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        const maths::Vec4 origin = {0.0f, 0.0f, 0.0f, 1.0f};
+        const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         s_near_z = 2.0f;
         choose_camera(cam_orientation(camera), &origin, angle, aspect, 1.0f, true);
     }
     float& fog_start = g_fog_begin_distance;
     float& fog_end = g_fog_end;
-    float saved_fog_end = fog_end, saved_fog_start = fog_start;
+    const float saved_fog_end = fog_end;
+    const float saved_fog_start = fog_start;
     fog_start = 20.0f;
     fog_end = 21.0f;
     set_device_render_state(0x24, reinterpret_cast<uint32_t&>(g_fog_begin_distance)); // D3DRS_FOGSTART
     set_device_render_state(0x25, reinterpret_cast<uint32_t&>(g_fog_end));            // D3DRS_FOGEND
-    bool fog = g_fog_active != 0;
+    const bool fog = g_fog_active != 0;
     change_fog(false);
     set_render_state(1, 0);
     set_render_state(2, 1);
@@ -592,7 +594,8 @@ void draw_viewport(int index)
         // (with distance clipping and fog both on, there's no sky)
         if (g_distance_clipping && g_fog_setting)
             return;
-        uint32_t min_filter = get_sampler_state(0, 6), mip_filter = get_sampler_state(0, 7);
+        const uint32_t min_filter = get_sampler_state(0, 6);
+        const uint32_t mip_filter = get_sampler_state(0, 7);
         set_sampler_state(0, 6, 2); // linear
         set_sampler_state(0, 7, 0); // no mipmaps
         draw_scene_group(scene, 3, index);
@@ -613,7 +616,7 @@ void draw_viewport(int index)
 
     // The world again, for the later passes.
     {
-        float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
+        const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         const maths::Vec4* position = viewer_location(camera);
         s_near_z = editor_near;
         choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
@@ -662,7 +665,7 @@ void draw_world()
         set_render_state(2, 1);
         render_shadow_textures();
         begin_screen_effects();
-        int count = modules::g_viewport_count;
+        const int count = modules::g_viewport_count;
         // Not original - the wireframe render mode (engine/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
         wireframe::begin_world();
@@ -684,7 +687,7 @@ void draw_world()
         set_viewport();
         copy_screen_quarter();
         draw_screen_blur();
-        bool fog = g_fog_active != 0;
+        const bool fog = g_fog_active != 0;
         change_fog(false);
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.

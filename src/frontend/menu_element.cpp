@@ -119,7 +119,7 @@ void MenuBase::move_selection(int direction, bool stay, bool grid_x)
         selected_index_ = 0;
     while (tries != 0) {
         if (!stay) {
-            int index = selected_index_ + direction;
+            const int index = selected_index_ + direction;
             selected_index_ = index;
             if (index >= child_total()) {
                 if (cycles_around_) {
@@ -181,14 +181,14 @@ void MenuBase::get_step(int direction)
 void MenuBase::arrange()
 {
     float total = 0.0f, largest = 0.0f;
-    bool regular = regular_space_ > regular_space_minimum();
+    const bool regular = regular_space_ > regular_space_minimum();
     {
         ElementPtr item;
         item.assign_value(eldest_.owner_object_);
         if (regular) {
             for (; item; item.assign_value(item->following_.owner_object_)) {
-                double across = vertical_ ? static_cast<double>(item->span_) * item->shown_.scale_x_
-                                          : static_cast<double>(item->level_y_) * item->shown_.scale_y_;
+                const double across = vertical_ ? static_cast<double>(item->span_) * item->shown_.scale_x_
+                                                : static_cast<double>(item->level_y_) * item->shown_.scale_y_;
                 total = static_cast<float>(static_cast<double>(total) + regular_space_);
                 if (across > largest)
                     largest = static_cast<float>(across);
@@ -252,8 +252,9 @@ void MenuBase::arrange()
         } else {
             for (; item; item.assign_value(item->following_.owner_object_)) {
                 // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
-                double half = (vertical_ ? static_cast<double>(item->level_y_) : static_cast<double>(item->span_)) *
-                              margin_factor_ * 0.5;
+                const double half =
+                    (vertical_ ? static_cast<double>(item->level_y_) : static_cast<double>(item->span_)) *
+                    margin_factor_ * 0.5;
                 auto half_stored = static_cast<float>(half);
                 offset = static_cast<float>(half + offset);
                 if (vertical_) {

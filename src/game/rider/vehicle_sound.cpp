@@ -72,7 +72,9 @@ float get_setting(script::Struct* settings, uint32_t name)
 // The object's speed as the original computes it (x, y, then z), unrounded, times 3.
 double get_pace(const maths::Vec4& vel)
 {
-    double x = vel.x, y = vel.y, z = vel.z;
+    const double x = vel.x;
+    const double y = vel.y;
+    const double z = vel.z;
     return std::sqrt((x * x + y * y) + z * z) * kSpeedScale;
 }
 
@@ -176,28 +178,28 @@ void SkaterVehicleSoundComponent::tick_engine()
 
     // The speed eased towards the object's, each step limited by the rates (as the original compares them, a step
     // the wrong way is kept and one the right way isn't).
-    double follow = get_rate(0x02A7095B);
-    double eased = (static_cast<double>(speed_) - speed) * (follow * frame) + speed;
+    const double follow = get_rate(0x02A7095B);
+    const double eased = (static_cast<double>(speed_) - speed) * (follow * frame) + speed;
     speed_ = static_cast<float>(eased);
     if (eased < speed) {
-        double step = static_cast<double>(speed_) + static_cast<double>(get_rate(0xCA5EFD91)) * frame;
+        const double step = static_cast<double>(speed_) + static_cast<double>(get_rate(0xCA5EFD91)) * frame;
         if (!(step > speed_))
             speed_ = static_cast<float>(step);
     } else {
-        double step = static_cast<double>(speed_) - static_cast<double>(get_rate(0x77C8E7C8)) * frame;
+        const double step = static_cast<double>(speed_) - static_cast<double>(get_rate(0x77C8E7C8)) * frame;
         if (!(step < speed_))
             speed_ = static_cast<float>(step);
     }
 
     // The gear: back to the first a while after driving stopped, else shifted at the gear's speeds.
     if (core_physics_->state_->cur_phase_ == 0) {
-        int last_driven = static_cast<int>(core_physics_->air_start_);
-        float delay = get_rate(0xC0F451D4);
-        int clock = get_clock();
+        const int last_driven = static_cast<int>(core_physics_->air_start_);
+        const float delay = get_rate(0xC0F451D4);
+        const int clock = get_clock();
         if (as_unsigned(get_since(clock, clock_offset(), last_driven)) > delay)
             gear_ = 0;
     } else {
-        int gear = gear_;
+        const int gear = gear_;
         if (gear < gear_count_ - 1 && speed_ > gear_steps_[gear].up_at_) {
             gear_ = gear + 1;
             shift_time_ = get_now(get_clock(), clock_offset());
@@ -208,37 +210,37 @@ void SkaterVehicleSoundComponent::tick_engine()
     }
 
     // Just after a shift the engine is quieter (from 0xBFA32092 of full, back to full over 0xFB6BD20E ms).
-    float shift_time = get_rate(0xFB6BD20E);
-    int shifted = shift_time_;
-    int clock = get_clock();
-    int since_shift = get_since(clock, clock_offset(), shifted);
-    float quietest = get_rate(0xBFA32092);
-    double recovery = as_unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
-    float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
+    const float shift_time = get_rate(0xFB6BD20E);
+    const int shifted = shift_time_;
+    const int clock = get_clock();
+    const int since_shift = get_since(clock, clock_offset(), shifted);
+    const float quietest = get_rate(0xBFA32092);
+    const double recovery = as_unsigned(since_shift) / shift_time * (1.0 - quietest) + quietest;
+    const float loudness = recovery > 1.0 ? 1.0f : static_cast<float>(recovery);
 
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
     // pitch range; eased.
-    int gear = gear_;
-    double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
-    double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
+    const int gear = gear_;
+    const double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
+    const double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
     auto target =
         static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
                            gear_steps_[gear].low_rpm_);
-    double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
+    const double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
     rpm_ = static_cast<float>((static_cast<double>(target) - rpm_) * ease + rpm_);
-    float high_rpm = get_setting(settings_, 0x95DF9449);
-    float low_rpm = get_setting(settings_, 0x05AC84A3);
-    float rpm = get_fraction((static_cast<double>(rpm_) - low_rpm) / (static_cast<double>(high_rpm) - low_rpm));
+    const float high_rpm = get_setting(settings_, 0x95DF9449);
+    const float low_rpm = get_setting(settings_, 0x05AC84A3);
+    const float rpm = get_fraction((static_cast<double>(rpm_) - low_rpm) / (static_cast<double>(high_rpm) - low_rpm));
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
                         nullptr);
-    float loudest = get_setting(settings_, 0x288B029D);
-    float quiet = get_setting(settings_, 0xB8F81277);
+    const float loudest = get_setting(settings_, 0x288B029D);
+    const float quiet = get_setting(settings_, 0xB8F81277);
     volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
-    float high_pitch = get_setting(settings_, 0x9F46344A);
-    float low_pitch = get_setting(settings_, 0x2660AF3B);
+    const float high_pitch = get_setting(settings_, 0x9F46344A);
+    const float low_pitch = get_setting(settings_, 0x2660AF3B);
     auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
     if (!engine_sound_)
         engine_sound_ = sfx->emit_sound(engine_sound_name_, &volume, pitch, 0, nullptr, 0);
@@ -252,24 +254,24 @@ void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
     if (input_->pad_primary_.btn_down_.held_down_ && core_physics_->state_->cur_phase_ == 0) {
-        double speed = get_pace(entity_->vel_);
+        const double speed = get_pace(entity_->vel_);
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);
     }
-    float rate = get_rate(0x95FBE774);
-    double ease = frame_clock::get_slomo_frame_seconds() * rate;
+    const float rate = get_rate(0x95FBE774);
+    const double ease = frame_clock::get_slomo_frame_seconds() * rate;
     skid_ = static_cast<float>((static_cast<double>(skid) - skid_) * ease + skid_);
-    float loudest_at = get_setting(settings_, 0x28F1AAD0);
-    float level = get_fraction(static_cast<double>(skid_) / loudest_at);
+    const float loudest_at = get_setting(settings_, 0x28F1AAD0);
+    const float level = get_fraction(static_cast<double>(skid_) / loudest_at);
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
     sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
-    float loudest = get_setting(settings_, 0x42EA5746);
-    float quiet = get_setting(settings_, 0x43E6CDF2);
+    const float loudest = get_setting(settings_, 0x42EA5746);
+    const float quiet = get_setting(settings_, 0x43E6CDF2);
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
-    float high_pitch = get_setting(settings_, 0xE68BE784);
-    float low_pitch = get_setting(settings_, 0x76F8F76E);
+    const float high_pitch = get_setting(settings_, 0xE68BE784);
+    const float low_pitch = get_setting(settings_, 0x76F8F76E);
     auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
     if (!volume.is_audio_off()) {
         if (!skid_sound_)

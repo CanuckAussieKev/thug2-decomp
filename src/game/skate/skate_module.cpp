@@ -13,7 +13,7 @@ Skate* Skate::sole() { return g_skate_module; }
 // 0x0041AD90
 int Skate::count_riders()
 {
-    memory::ListNode* node = riders_.list_link_.next;
+    const memory::ListNode* node = riders_.list_link_.next;
     int count = 0;
     while (reinterpret_cast<intptr_t>(node->data) != -1 && node) {
         node = node->next;

@@ -133,7 +133,7 @@ bool cfunc_preload_model(Struct* params, Script*)
     const char* name = nullptr;
     params->fetch_text(kName, &name, true);
     render::RenderModel* model = spawn_model(1);
-    bool allow_replace_tex = params->has_bare_flag(kAllowReplaceTex);
+    const bool allow_replace_tex = params->has_bare_flag(kAllowReplaceTex);
     text::Chars file;
     {
         // <name>.mdl (0x004879D0 returns a String: made in `storage`)
@@ -160,7 +160,7 @@ bool cfunc_load_collision(Struct* params, Script*)
     const char* name = nullptr;
     params->fetch_text(kScene, &name, false);
     if (name) {
-        bool is_net = params->has_bare_flag(kIsNet);
+        const bool is_net = params->has_bare_flag(kIsNet);
         load_scene_collision(look_up_scene(name), name, is_net);
     }
     return true;
@@ -199,7 +199,7 @@ bool cfunc_unload_anim(Struct* params, Script*)
     params->read_hash_value(kSpecKey, &desc, 1);
     if (!params->read_hash_value(kTargetKey, &reference, 0))
         reference = static_cast<uint32_t>(assets->unknown18_); // the reference checksum (SetReferenceChecksum)
-    uint32_t checksum = desc ? reference + desc : checksums::hash_from_text(name);
+    const uint32_t checksum = desc ? reference + desc : checksums::hash_from_text(name);
     if (assets::Resource* asset = assets->obtain_loaded_item(checksum, 0))
         assets->discard_loaded_item(asset);
     return true;
@@ -214,7 +214,7 @@ bool cfunc_load_asset(Struct* params, Script*)
     if (!params->fetch_text(kName, &name, false))
         params->fetch_text(0u, &name, true);
     params->read_hash_value(kParent, &parent, false);
-    bool async = params->has_bare_flag(kAsync);
+    const bool async = params->has_bare_flag(kAsync);
     uint32_t desc = 0;
     params->read_hash_value(kDesc, &desc, false);
     if (!assets->fetch_or_load_resource(name, 0, desc, parent, async, false, assets->get_permanent_by_default(),
@@ -231,8 +231,8 @@ bool cfunc_load_anim(Struct* params, Script*)
     uint32_t desc = 0;
     params->fetch_text(kName, &name, false);
     params->read_hash_value(kSpecKey, &desc, true);
-    bool async = params->has_bare_flag(kAsync);
-    bool use_pip = params->has_bare_flag(kUsePip);
+    const bool async = params->has_bare_flag(kAsync);
+    const bool use_pip = params->has_bare_flag(kUsePip);
     return assets->load_anim(name, desc, static_cast<uint32_t>(assets->unknown18_), async, use_pip);
 }
 
@@ -358,7 +358,7 @@ bool cfunc_print_config(Struct*, Script*)
     debug::printf("Hardware       = %s\n", platform_label_text());
     // (the original passes no number: the %d reads the frame rate it passed to the name's function, still on the
     // stack)
-    int framerate = config_framerate();
+    const int framerate = config_framerate();
     debug::printf("Display Type   = %s, %d fps\n", video_mode_label_text(framerate), framerate);
     debug::printf("Language       = %s\n", locale_text());
     debug::printf("Territory      = %s\n", region_label_text());

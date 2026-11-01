@@ -58,14 +58,14 @@ maths::Seg get_segment(const maths::Vec4& start, const maths::Vec4& end)
 bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count, maths::Vec4* points, int)
 {
     const maths::Vec4& start = segment->start;
-    double mx = static_cast<double>(start.x) - sphere->centre.x;
-    double my = static_cast<double>(start.y) - sphere->centre.y;
-    double mz = static_cast<double>(start.z) - sphere->centre.z;
-    maths::Vec4 d = get_minus(segment->end, start);
+    const double mx = static_cast<double>(start.x) - sphere->centre.x;
+    const double my = static_cast<double>(start.y) - sphere->centre.y;
+    const double mz = static_cast<double>(start.z) - sphere->centre.z;
+    const maths::Vec4 d = get_minus(segment->end, start);
     auto a = static_cast<float>((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) +
                                 static_cast<double>(d.x) * d.x);
     auto b = static_cast<float>((d.z * mz + d.x * mx) + d.y * my);
-    double radius = sphere->radius;
+    const double radius = sphere->radius;
     auto discriminant =
         static_cast<float>(static_cast<double>(b) * b - (((mz * mz + mx * mx) + my * my) - radius * radius) * a);
     if (discriminant < 0.0f) {
@@ -73,8 +73,8 @@ bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere,
         return false;
     }
     if (discriminant > 0.0f) {
-        double root = std::sqrt(static_cast<double>(discriminant));
-        double inverse = 1.0 / a;
+        const double root = std::sqrt(static_cast<double>(discriminant));
+        const double inverse = 1.0 / a;
         auto t0 = static_cast<float>((-static_cast<double>(b) - root) * inverse);
         auto t1 = static_cast<float>((root - b) * inverse);
         if (t0 > 1.0f || t1 < 0.0f) {
@@ -95,7 +95,7 @@ bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere,
         return true;
     }
     // grazing (or NaN)
-    float t = -(b / a);
+    const float t = -(b / a);
     if (!(0.0f <= t) || !(t <= 1.0f)) {
         *count = 0;
         return false;
@@ -111,7 +111,7 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
 {
     if (segment_crosses_sphere(edge, sphere, count, point, 0))
         return true;
-    maths::Capsule capsule(*edge, sphere->radius);
+    const maths::Capsule capsule(*edge, sphere->radius);
     const maths::Vec4& centre = sphere->centre;
     // the centre's path relative to the edge
     maths::Seg path;
@@ -133,15 +133,15 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
     if (*count == 2 && u < s)
         *t = u;
     // the centre then, the edge then, and the edge's point nearest the centre
-    float time = *t;
-    double ax = static_cast<double>(time) * motion->x + centre.x;
-    double ay = static_cast<double>(time * motion->y) + centre.y;
-    double az = static_cast<double>(time * motion->z) + centre.z;
+    const float time = *t;
+    const double ax = static_cast<double>(time) * motion->x + centre.x;
+    const double ay = static_cast<double>(time * motion->y) + centre.y;
+    const double az = static_cast<double>(time * motion->z) + centre.z;
     const maths::Vec4& start = edge->start;
-    maths::Vec4 moved{static_cast<float>(static_cast<double>(time) * edge_motion->x + start.x),
-                      time * edge_motion->y + start.y, time * edge_motion->z + start.z,
-                      time * edge_motion->w + start.w};
-    maths::Vec4 along = get_minus(edge->end, start);
+    const maths::Vec4 moved{static_cast<float>(static_cast<double>(time) * edge_motion->x + start.x),
+                            time * edge_motion->y + start.y, time * edge_motion->z + start.z,
+                            time * edge_motion->w + start.w};
+    const maths::Vec4 along = get_minus(edge->end, start);
     auto k = static_cast<float>((static_cast<double>(along.z) * moved.z + static_cast<double>(along.y) * moved.y) +
                                 static_cast<double>(along.x) * moved.x);
     auto far = static_cast<float>(((static_cast<double>(along.z) * along.z + static_cast<double>(along.y) * along.y) +
@@ -154,7 +154,7 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
         *point = {along.x + moved.x, along.y + moved.y, along.z + moved.z, along.w + moved.w};
     } else {
         auto fraction = static_cast<float>((static_cast<double>(m) - k) / (static_cast<double>(far) - k));
-        maths::Vec4 part = fraction * along;
+        const maths::Vec4 part = fraction * along;
         *point = {moved.x + part.x, moved.y + part.y, moved.z + part.z, moved.w + part.w};
     }
     *count = 1;
@@ -168,34 +168,36 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
                               float limit, int* count, maths::Vec4* point, maths::Vec4*)
 {
     const maths::Vec4& centre = sphere->centre;
-    float mx = get_difference(corner->x, centre.x), my = get_difference(corner->y, centre.y),
-          mz = get_difference(corner->z, centre.z);
-    double radius = sphere->radius;
-    double distance2 = (static_cast<double>(mz) * mz + static_cast<double>(mx) * mx) + static_cast<double>(my) * my;
+    const float mx = get_difference(corner->x, centre.x);
+    const float my = get_difference(corner->y, centre.y);
+    const float mz = get_difference(corner->z, centre.z);
+    const double radius = sphere->radius;
+    const double distance2 =
+        (static_cast<double>(mz) * mz + static_cast<double>(mx) * mx) + static_cast<double>(my) * my;
     if (radius * radius > distance2) {
         *t = 0.0f; // (the corner already inside the sphere)
         return false;
     }
-    float ux = get_difference(motion->x, edge_motion->x);
-    double uy = static_cast<double>(motion->y) - edge_motion->y;
-    double uz_exact = static_cast<double>(motion->z) - edge_motion->z;
+    const float ux = get_difference(motion->x, edge_motion->x);
+    const double uy = static_cast<double>(motion->y) - edge_motion->y;
+    const double uz_exact = static_cast<double>(motion->z) - edge_motion->z;
     auto uz = static_cast<float>(uz_exact);
-    double towards = (uz_exact * mz + uy * my) + static_cast<double>(ux) * mx;
+    const double towards = (uz_exact * mz + uy * my) + static_cast<double>(ux) * mx;
     if (towards <= 0.0)
         return false; // (moving away from the corner)
     const maths::Vec4& c = *edge_cross;
-    double k1 = (static_cast<double>(c.z) * corner->z + static_cast<double>(c.x) * corner->x) +
-                static_cast<double>(c.y) * corner->y;
-    double k2 = (static_cast<double>(centre.z) * c.z + static_cast<double>(c.y) * centre.y) +
-                static_cast<double>(c.x) * centre.x;
+    const double k1 = (static_cast<double>(c.z) * corner->z + static_cast<double>(c.x) * corner->x) +
+                      static_cast<double>(c.y) * corner->y;
+    const double k2 = (static_cast<double>(centre.z) * c.z + static_cast<double>(c.y) * centre.y) +
+                      static_cast<double>(c.x) * centre.x;
     double k3 = (uy * c.y + static_cast<double>(uz) * c.z) + static_cast<double>(ux) * c.x;
     if (k3 == 0.0)
         k3 = kTiny;
-    double s = (k1 - k2) / k3;
+    const double s = (k1 - k2) / k3;
     // where the path crosses the edge's plane
-    double px = static_cast<double>(ux) * s + centre.x;
-    double py = static_cast<double>(static_cast<float>(uy * s)) + centre.y;
-    double pz = static_cast<double>(static_cast<float>(static_cast<double>(uz) * s)) + centre.z;
+    const double px = static_cast<double>(ux) * s + centre.x;
+    const double py = static_cast<double>(static_cast<float>(uy * s)) + centre.y;
+    const double pz = static_cast<double>(static_cast<float>(static_cast<double>(uz) * s)) + centre.z;
     auto n1 = static_cast<float>((static_cast<double>(edge->z) * corner->z + static_cast<double>(edge->x) * corner->x) +
                                  static_cast<double>(edge->y) * corner->y);
     auto n2 = static_cast<float>((px * edge->x + pz * edge->z) + py * edge->y);
@@ -237,16 +239,17 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
 {
     const maths::Vec4& centre = sphere->centre;
     maths::Vec4 e01 = get_minus(*v1, *v0), e12 = get_minus(*v2, *v1), e20 = get_minus(*v0, *v2);
-    double e2x = static_cast<double>(v2->x) - v0->x;
-    double e2y = static_cast<double>(v2->y) - v0->y;
-    double e2z = static_cast<double>(v2->z) - v0->z;
-    float e1x = get_difference(v1->x, v0->x), e1y = get_difference(v1->y, v0->y);
-    double e1z = static_cast<double>(v1->z) - v0->z;
+    const double e2x = static_cast<double>(v2->x) - v0->x;
+    const double e2y = static_cast<double>(v2->y) - v0->y;
+    const double e2z = static_cast<double>(v2->z) - v0->z;
+    const float e1x = get_difference(v1->x, v0->x);
+    const float e1y = get_difference(v1->y, v0->y);
+    const double e1z = static_cast<double>(v1->z) - v0->z;
     auto nx = static_cast<float>(e1y * e2z - e1z * e2y);
     auto ny = static_cast<float>(e1z * e2x - e2z * e1x);
-    double nz_exact = e2y * e1x - e1y * e2x;
+    const double nz_exact = e2y * e1x - e1y * e2x;
     *normal = {nx, ny, static_cast<float>(nz_exact), 0.0f};
-    double length2 = (nz_exact * nz_exact + static_cast<double>(ny) * ny) + static_cast<double>(nx) * nx;
+    const double length2 = (nz_exact * nz_exact + static_cast<double>(ny) * ny) + static_cast<double>(nx) * nx;
     if (length2 <= 0.0)
         return false;
     const maths::Vec4& n = *normal;
@@ -255,7 +258,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     auto reach2 = static_cast<float>(static_cast<double>(sphere->radius) * sphere->radius * length2);
     auto plane_along = static_cast<float>((static_cast<double>(v0->z) * n.z + static_cast<double>(n.y) * v0->y) +
                                           static_cast<double>(n.x) * v0->x);
-    float distance = centre_along - plane_along;
+    const float distance = centre_along - plane_along;
     const maths::Vec4 zero{0.0f, 0.0f, 0.0f, 1.0f};
     // each edge crossed with the (unnormalised) normal: pointing out of the triangle
     auto across = [&](const maths::Vec4& e) {
@@ -282,7 +285,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
                along;
     };
     auto edge = [&](const maths::Vec4& a, const maths::Vec4& b) {
-        maths::Seg line = get_segment(a, b);
+        const maths::Seg line = get_segment(a, b);
         int touched = 0;
         maths::Vec4 hit[2];
         if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit))
@@ -298,18 +301,18 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
 
     if (!(static_cast<double>(distance) * distance <= reach2) && distance == distance && reach2 == reach2) {
         // apart from the plane: by where the centre lies
-        bool in01 = inside01((static_cast<double>(c01.z) * centre.z + static_cast<double>(c01.x) * centre.x) +
-                             static_cast<double>(c01.y) * centre.y);
-        bool in12 = inside12((static_cast<double>(c12.z) * centre.z + static_cast<double>(c12.x) * centre.x) +
-                             static_cast<double>(c12.y) * centre.y);
-        bool in20 = inside20((static_cast<double>(c20.z) * centre.z + static_cast<double>(c20.x) * centre.x) +
-                             static_cast<double>(c20.y) * centre.y);
+        const bool in01 = inside01((static_cast<double>(c01.z) * centre.z + static_cast<double>(c01.x) * centre.x) +
+                                   static_cast<double>(c01.y) * centre.y);
+        const bool in12 = inside12((static_cast<double>(c12.z) * centre.z + static_cast<double>(c12.x) * centre.x) +
+                                   static_cast<double>(c12.y) * centre.y);
+        const bool in20 = inside20((static_cast<double>(c20.z) * centre.z + static_cast<double>(c20.x) * centre.x) +
+                                   static_cast<double>(c20.y) * centre.y);
         if (in01 && in12 && in20) {
             float s = 0.0f, u = 0.0f;
             point_triangle_distance_squared(centre, *v0, *v1, *v2, &s, &u);
-            maths::Vec4 across2 = u * (*v2 - *v0);
+            const maths::Vec4 across2 = u * (*v2 - *v0);
             *point = (*v0 + s * (*v1 - *v0)) + across2;
-            maths::Capsule path(centre, *motion, sphere->radius);
+            const maths::Capsule path(centre, *motion, sphere->radius);
             return path.contains_point(*point, nullptr);
         }
         if (in01 && in12)
@@ -328,16 +331,16 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
     }
 
     // within reach of the plane: where the sphere's front meets it along the move
-    maths::Vec4 move{motion->x, motion->y, motion->z, get_difference(motion->w, 1.0f)};
-    bool above = centre_along > plane_along;
-    double approach =
+    const maths::Vec4 move{motion->x, motion->y, motion->z, get_difference(motion->w, 1.0f)};
+    const bool above = centre_along > plane_along;
+    const double approach =
         (static_cast<double>(move.x) * n.x + static_cast<double>(move.z) * n.z) + static_cast<double>(move.y) * n.y;
     if (above ? !(approach < 0.0) && approach == approach : !(approach > 0.0) && approach == approach)
         return false;
-    maths::Vec4 front = centre - sphere->radius * *normal;
-    double plane_at =
+    const maths::Vec4 front = centre - sphere->radius * *normal;
+    const double plane_at =
         (static_cast<double>(v0->z) * n.z + static_cast<double>(n.y) * v0->y) + static_cast<double>(n.x) * v0->x;
-    double front_at =
+    const double front_at =
         (static_cast<double>(front.x) * n.x + static_cast<double>(front.z) * n.z) + static_cast<double>(front.y) * n.y;
     auto time = static_cast<float>((plane_at - front_at) / static_cast<float>(approach));
     maths::Vec4 meet{static_cast<float>(static_cast<double>(move.x) * time + front.x), move.y * time + front.y,
@@ -346,7 +349,9 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
         return (static_cast<double>(meet.z) * cr.z + static_cast<double>(meet.y) * cr.y) +
                static_cast<double>(meet.x) * cr.x;
     };
-    bool in01 = inside01(along_of(c01)), in12 = inside12(along_of(c12)), in20 = inside20(along_of(c20));
+    const bool in01 = inside01(along_of(c01));
+    const bool in12 = inside12(along_of(c12));
+    const bool in20 = inside20(along_of(c20));
     auto corner_line = [&](const maths::Vec4* at) {
         if (!line_hits_sphere(*at, zero, *sphere, *motion, t, limit))
             return false;
@@ -379,40 +384,47 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
 bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1, const maths::Vec4* v2,
                           maths::Vec4* point, maths::Vec4* normal)
 {
-    double e2x = static_cast<double>(v2->x) - v0->x;
-    double e2y = static_cast<double>(v2->y) - v0->y;
-    double e2z = static_cast<double>(v2->z) - v0->z;
-    float e1x = get_difference(v1->x, v0->x), e1y = get_difference(v1->y, v0->y);
-    double e1z = static_cast<double>(v1->z) - v0->z;
+    const double e2x = static_cast<double>(v2->x) - v0->x;
+    const double e2y = static_cast<double>(v2->y) - v0->y;
+    const double e2z = static_cast<double>(v2->z) - v0->z;
+    const float e1x = get_difference(v1->x, v0->x);
+    const float e1y = get_difference(v1->y, v0->y);
+    const double e1z = static_cast<double>(v1->z) - v0->z;
     auto nx = static_cast<float>(e1y * e2z - e1z * e2y);
     auto ny = static_cast<float>(e1z * e2x - e2z * e1x);
-    double nz_exact = e2y * e1x - e1y * e2x;
+    const double nz_exact = e2y * e1x - e1y * e2x;
     *normal = {nx, ny, static_cast<float>(nz_exact), 0.0f};
     if ((nz_exact * nz_exact + static_cast<double>(ny) * ny) + static_cast<double>(nx) * nx <= 0.0)
         return false;
     const maths::Vec4& c = sphere->centre;
-    double dx = static_cast<double>(v0->x) - c.x, dy = static_cast<double>(v0->y) - c.y,
-           dz = static_cast<double>(v0->z) - c.z;
+    const double dx = static_cast<double>(v0->x) - c.x;
+    const double dy = static_cast<double>(v0->y) - c.y;
+    const double dz = static_cast<double>(v0->z) - c.z;
     if ((dy * normal->y + dx * normal->x) + dz * normal->z >= 0.0)
         return false; // (behind the face)
     normal->make_unit();
     float s = 0.0f, u = 0.0f;
-    double distance2 = point_triangle_distance_squared(c, *v0, *v1, *v2, &s, &u);
+    const double distance2 = point_triangle_distance_squared(c, *v0, *v1, *v2, &s, &u);
     // v0 + s (v1 - v0) + u (v2 - v0), rounded as the original
-    double f2x = static_cast<double>(v2->x) - v0->x, f2y = static_cast<double>(v2->y) - v0->y;
-    float f2z = get_difference(v2->z, v0->z), f2w = get_difference(v2->w, v0->w);
+    const double f2x = static_cast<double>(v2->x) - v0->x;
+    const double f2y = static_cast<double>(v2->y) - v0->y;
+    const float f2z = get_difference(v2->z, v0->z);
+    const float f2w = get_difference(v2->w, v0->w);
     auto g2x = static_cast<float>(f2x * u);
-    double g2y = f2y * u;
-    float g2z = f2z * u, g2w = f2w * u;
-    double f1x = static_cast<double>(v1->x) - v0->x, f1y = static_cast<double>(v1->y) - v0->y;
-    float f1z = get_difference(v1->z, v0->z), f1w = get_difference(v1->w, v0->w);
+    const double g2y = f2y * u;
+    const float g2z = f2z * u;
+    const float g2w = f2w * u;
+    const double f1x = static_cast<double>(v1->x) - v0->x;
+    const double f1y = static_cast<double>(v1->y) - v0->y;
+    const float f1z = get_difference(v1->z, v0->z);
+    const float f1w = get_difference(v1->w, v0->w);
     auto g1x = static_cast<float>(f1x * s);
-    double g1y = f1y * s;
-    double g1z = static_cast<double>(f1z) * s;
-    float g1w = f1w * s;
-    maths::Vec4 base{g1x + v0->x, static_cast<float>(g1y + v0->y), static_cast<float>(g1z + v0->z), g1w + v0->w};
+    const double g1y = f1y * s;
+    const double g1z = static_cast<double>(f1z) * s;
+    const float g1w = f1w * s;
+    const maths::Vec4 base{g1x + v0->x, static_cast<float>(g1y + v0->y), static_cast<float>(g1z + v0->z), g1w + v0->w};
     *point = {base.x + g2x, static_cast<float>(g2y + base.y), base.z + g2z, base.w + g2w};
-    double radius = sphere->radius;
+    const double radius = sphere->radius;
     return distance2 <= radius * radius;
 }
 
@@ -424,8 +436,8 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
     const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
         const TriMeshSource* geometry = geometry_;
-        uint32_t face = faces[i];
-        uint16_t flags =
+        const uint32_t face = faces[i];
+        const uint16_t flags =
             *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
@@ -435,9 +447,9 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
         maths::Vec4 point{}, normal{};
         float t = 0.0f;
-        bool hit = hits->sweep == 0.0f ? sphere_hits_triangle(sphere, &v0, &v1, &v2, &point, &normal)
-                                       : swept_sphere_hits_triangle(sphere, &v0, &v1, &v2, &t, hits->sweep,
-                                                                    &hits->direction, &point, &normal);
+        const bool hit = hits->sweep == 0.0f ? sphere_hits_triangle(sphere, &v0, &v1, &v2, &point, &normal)
+                                             : swept_sphere_hits_triangle(sphere, &v0, &v1, &v2, &t, hits->sweep,
+                                                                          &hits->direction, &point, &normal);
         if (!hit)
             continue;
         if (hits->count == SphereHits::kMost)
@@ -460,21 +472,22 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
 bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, HitMeshCache* cache)
 {
     const maths::Vec4& c = sphere->centre;
-    float r = sphere->radius;
-    float low = -r;
+    const float r = sphere->radius;
+    const float low = -r;
     maths::BBox box({low + c.x, low + c.y, low + c.z, r + c.w});
     box.append_spot({r + c.x, r + c.y, r + c.z, r + c.w});
     if (hits->sweep != 0.0f) {
         const maths::Vec4& d = hits->direction;
-        float s = hits->sweep;
-        double moved_x = static_cast<double>(s) * d.x + c.x;
-        double moved_y = static_cast<double>(s * d.y) + c.y;
-        float moved_z = s * d.z + c.z, moved_w = s * d.w + c.w;
+        const float s = hits->sweep;
+        const double moved_x = static_cast<double>(s) * d.x + c.x;
+        const double moved_y = static_cast<double>(s * d.y) + c.y;
+        const float moved_z = s * d.z + c.z;
+        const float moved_w = s * d.w + c.w;
         box.append_spot(
             {static_cast<float>(moved_x + low), static_cast<float>(moved_y + low), moved_z + low, moved_w + r});
         box.append_spot({static_cast<float>(moved_x + r), static_cast<float>(moved_y) + r, moved_z + r, moved_w + r});
     }
-    bool use_cache = cache && cache->box_.get_holds(box);
+    const bool use_cache = cache && cache->box_.get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(sphere);
         if (!grid)
@@ -493,7 +506,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
         }
         return hits->count > 0;
     }
-    maths::Seg diagonal = get_segment(grown.min, grown.max);
+    const maths::Seg diagonal = get_segment(grown.min, grown.max);
     CollGrid** grids = grids_along(&diagonal);
     if (!grids)
         return false;

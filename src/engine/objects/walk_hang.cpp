@@ -229,7 +229,7 @@ void trigger_rail_script(objects::FootMovement* walk, const int* events)
 // The hang offset (+0x71C) for the facing: hang_critical_point_horiz_offset along it, the critical point's height up.
 void set_hang_offset(objects::FootMovement* walk)
 {
-    float horiz = objects::FootMovement::get_param(kHangCriticalPointHorizOffset);
+    const float horiz = objects::FootMovement::get_param(kHangCriticalPointHorizOffset);
     const maths::Vec4& facing = walk->facing_;
     maths::Vec4& offset = walk->critical_point_offset_;
     offset.z = horiz * facing.z;
@@ -297,8 +297,8 @@ constexpr double kSixtyDegrees = 1.0471975511965976;
 // 0x0043D990
 maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t)
 {
-    double dx = static_cast<double>(b->x) - a->x;
-    double dy = static_cast<double>(b->y) - a->y;
+    const double dx = static_cast<double>(b->x) - a->x;
+    const double dy = static_cast<double>(b->y) - a->y;
     auto dz = static_cast<float>(static_cast<double>(b->z) - a->z);
     auto dw = static_cast<float>(static_cast<double>(b->w) - a->w);
     auto sx = static_cast<float>(dx * t);
@@ -331,8 +331,8 @@ float objects::FootMovement::get_param(uint32_t name)
 // 0x0043DAA0
 double objects::FootMovement::run_speed()
 {
-    float combo = get_param(kComboRunSpeed);
-    float run = get_param(kRunSpeed);
+    const float combo = get_param(kComboRunSpeed);
+    const float run = get_param(kRunSpeed);
     return (static_cast<double>(combo) - run) * run_adjustment_ + run;
 }
 
@@ -342,17 +342,17 @@ double objects::FootMovement::hang_height_offset()
     const render::RenderModel* model = model_->mesh_instance_;
     if (!(model->flag_bits_ & 8)) // (kModelScaled)
         return 0.0;
-    float fraction = model->size_factor_.y;
-    float offset = get_param(kHangVertOriginOffset);
+    const float fraction = model->size_factor_.y;
+    const float offset = get_param(kHangVertOriginOffset);
     return (1.0 - fraction) * offset;
 }
 
 // 0x0043DC60
 double objects::FootMovement::critical_point_up()
 {
-    float vert = get_param(kHangCriticalPointVertOffset);
-    float scaling = get_param(kMaxCasScaling);
-    float origin = get_param(kHangVertOriginOffset);
+    const float vert = get_param(kHangCriticalPointVertOffset);
+    const float scaling = get_param(kMaxCasScaling);
+    const float origin = get_param(kHangVertOriginOffset);
     return vert - static_cast<double>(origin) * scaling;
 }
 
@@ -395,19 +395,19 @@ void objects::FootMovement::end_drop_to_hang()
 // 0x0043DDD0
 bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const maths::Vec4* hang, const maths::Vec4* side)
 {
-    float side_length = get_param(kHangObstructionFeelerSide);
-    float sx = side_length * side->x;
-    float sy = side_length * side->y;
-    float sz = side_length * side->z;
-    float sw = side_length * side->w;
-    float horiz = get_param(kHangCriticalPointHorizOffset);
+    const float side_length = get_param(kHangObstructionFeelerSide);
+    const float sx = side_length * side->x;
+    const float sy = side_length * side->y;
+    const float sz = side_length * side->z;
+    const float sw = side_length * side->w;
+    const float horiz = get_param(kHangCriticalPointHorizOffset);
     const maths::Vec4& point = hang[0];
     const maths::Vec4& out = hang[1];
     // the critical point (the y left unrounded, as the original keeps it on the x87 stack), moved along the side
     auto cx = static_cast<float>(static_cast<double>(horiz) * out.x + point.x);
-    double cy = static_cast<double>(horiz) * out.y + point.y;
-    float hz = horiz * out.z;
-    float hw = horiz * out.w;
+    const double cy = static_cast<double>(horiz) * out.y + point.y;
+    const float hz = horiz * out.z;
+    const float hw = horiz * out.w;
     auto cz = static_cast<float>(static_cast<double>(hz) + point.z);
     auto cw = static_cast<float>(static_cast<double>(hw) + point.w);
     maths::Seg& line = feeler->line_;
@@ -416,13 +416,13 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const maths::Ve
     line.start.y = static_cast<float>(cy + sy);
     line.start.z = static_cast<float>(static_cast<double>(cz) + sz);
     line.end = line.start;
-    float origin = get_param(kHangVertOriginOffset);
+    const float origin = get_param(kHangVertOriginOffset);
     line.start.y = static_cast<float>(static_cast<double>(line.start.y) - origin + critical_point_up());
-    float up = get_param(kHangObstructionFeelerUp);
+    const float up = get_param(kHangObstructionFeelerUp);
     line.end.y = up + line.end.y;
     if (feeler->get_hit_shape(true, false))
         return false;
-    maths::Vec4 start = line.start;
+    const maths::Vec4 start = line.start;
     line.start = line.end;
     line.end = start;
     return !feeler->get_hit_shape(true, false);
@@ -435,36 +435,36 @@ void objects::FootMovement::face_hang_rail(float distance, bool from_end, const 
     maths::Vec4 a{}, b{};
     rails->get_absolute_pos(&a, hang_next_node_);
     rails->get_absolute_pos(&b, hang_node_);
-    maths::Vec4 d = {b.x - a.x, b.y - a.y, b.z - a.z, b.w - a.w};
-    float xx = d.x * d.x;
-    double length = std::sqrt(static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y + xx);
+    const maths::Vec4 d = {b.x - a.x, b.y - a.y, b.z - a.z, b.w - a.w};
+    const float xx = d.x * d.x;
+    const double length = std::sqrt(static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y + xx);
     if (distance > length)
         distance = static_cast<float>(length);
-    double fraction = distance / length;
+    const double fraction = distance / length;
     along_ = static_cast<float>(fraction);
     if (from_end)
         along_ = static_cast<float>(1.0 - fraction);
     // across the rail, flat
     maths::Vec4 across = {-d.z, 0.0f, d.x, 0.0f};
-    double across_length = std::sqrt(static_cast<double>(across.x) * across.x + xx);
+    const double across_length = std::sqrt(static_cast<double>(across.x) * across.x + xx);
     if (across_length > 0.0) {
-        double scale = 1.0 / across_length;
+        const double scale = 1.0 / across_length;
         across.x = static_cast<float>(across.x * scale);
         across.y = static_cast<float>(0.0 * scale);
         across.z = static_cast<float>(scale * d.x);
     }
-    maths::Vec4 reversed = {-d.x, -d.y, -d.z, -d.w};
+    const maths::Vec4 reversed = {-d.x, -d.y, -d.z, -d.w};
     const maths::Vec4& along = from_end ? reversed : d;
     const maths::Vec4& facing = facing_;
-    double turn = static_cast<double>(direction->z) * facing.x - static_cast<double>(facing.z) * direction->x;
-    double side = static_cast<double>(across.x) * along.z - static_cast<double>(across.z) * along.x;
+    const double turn = static_cast<double>(direction->z) * facing.x - static_cast<double>(facing.z) * direction->x;
+    const double side = static_cast<double>(across.x) * along.z - static_cast<double>(across.z) * along.x;
     if (side * turn < 0.0) {
         across.x = -across.x;
         across.y = -across.y;
         across.z = -across.z;
     }
-    double dot = static_cast<double>(across.z) * facing.z + static_cast<double>(across.y) * facing.y +
-                 static_cast<double>(across.x) * facing.x;
+    const double dot = static_cast<double>(across.z) * facing.z + static_cast<double>(across.y) * facing.y +
+                       static_cast<double>(across.x) * facing.x;
     if (std::cos(kSixtyDegrees) > dot)
         walk_camera_->apply_queued_change();
     facing_ = {across.x, across.y, across.z, 1.0f};
@@ -508,13 +508,13 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
             return false;
     }
     // a joining rail: does it run on the same way?
-    bool same_way = objects::nodes_together(joining, end) || objects::nodes_together(joining->succ_, start);
+    const bool same_way = objects::nodes_together(joining, end) || objects::nodes_together(joining->succ_, start);
     maths::Vec4 a{}, b{};
     rails->get_absolute_pos(&a, start);
     rails->get_absolute_pos(&b, end);
     maths::Vec4 here = {b.x - a.x, b.y - a.y, b.z - a.z, b.w - a.w};
     here.make_unit();
-    objects::GrindPoint* joined_next = joining->succ_;
+    const objects::GrindPoint* joined_next = joining->succ_;
     rails->get_absolute_pos(&a, joining);
     rails->get_absolute_pos(&b, joined_next);
     maths::Vec4 there = {b.x - a.x, b.y - a.y, b.z - a.z, b.w - a.w};
@@ -525,7 +525,7 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
         ty *= -1.0f;
         tz *= -1.0f;
     }
-    double dot = here.z * tz + ty * here.y + tx * here.x;
+    const double dot = here.z * tz + ty * here.y + tx * here.x;
     if (dot < -0.86599999666213989) {
         debug::printf("M:%s:%i: %s\n", "omponents\\WalkHangUtil.cpp", 0x4F2, "BAD ANGLE ON COINCIDENT RAIL");
         return false;
@@ -546,9 +546,9 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     maths::Vec4 ground{};
     bool found = find_stand_position(target, &ground, &ledge);
     if (!found) {
-        float across = -facing_.z;
-        maths::Vec4 first = ground;
-        float facing_x = facing_.x;
+        const float across = -facing_.z;
+        const maths::Vec4 first = ground;
+        const float facing_x = facing_.x;
         target->x = static_cast<float>(static_cast<double>(across) * 12.0f + target->x);
         target->z = static_cast<float>(static_cast<double>(facing_x) * 12.0f + target->z);
         target->w = target->w + 12.0f;
@@ -564,21 +564,21 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     }
     // seven feelers round the ground point, half the push feeler's length out (an x87 sine and cosine each)
     render::ProbeRay probe;
-    float push = get_param(kPushFeelerLength);
+    const float push = get_param(kPushFeelerLength);
     auto half_push = static_cast<float>(static_cast<double>(push) * 0.5f);
-    float height = get_param(kProbeElevation);
+    const float height = get_param(kProbeElevation);
     auto no_rise = static_cast<float>(static_cast<double>(half_push) * 0.0f);
     const maths::Vec4& facing = facing_;
     for (int i = 0; i < 7; ++i) {
-        double angle = static_cast<double>(i) * 0.89759790897369385;
-        double c = std::cos(angle);
-        double s = std::sin(angle);
+        const double angle = static_cast<double>(i) * 0.89759790897369385;
+        const double c = std::cos(angle);
+        const double s = std::sin(angle);
         probe.line_.start = {ground.x, static_cast<float>(static_cast<double>(ground.y) + height), ground.z, ground.w};
         auto dx = static_cast<float>(c * facing.x - s * facing.z);
-        double dz = s * facing.x + c * facing.z;
+        const double dz = s * facing.x + c * facing.z;
         auto out_x = static_cast<float>(static_cast<double>(dx) * half_push);
         auto out_z = static_cast<float>(dz * half_push);
-        float rise = no_rise + ground.y;
+        const float rise = no_rise + ground.y;
         probe.line_.end = {out_x + ground.x, static_cast<float>(static_cast<double>(rise) + height), out_z + ground.z,
                            ground.w + half_push};
         if (probe.get_hit_shape(true, false))
@@ -589,8 +589,8 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     probe.line_.start = {static_cast<float>(static_cast<double>(facing.x) * -6.0f + pos.x),
                          static_cast<float>(pos.y + static_cast<double>(facing.y) * -6.0f), pos.z + facing.z * -6.0f,
                          pos.w + facing.w * -6.0f};
-    float top = get_param(kHangVertOriginOffset);
-    float obstruction = get_param(kPullUpObstructionHeight);
+    const float top = get_param(kHangVertOriginOffset);
+    const float obstruction = get_param(kPullUpObstructionHeight);
     probe.line_.start.y = static_cast<float>(static_cast<double>(probe.line_.start.y) + obstruction + top);
     probe.line_.end = {ground.x, ground.y + 1.0f, ground.z, ground.w};
     if (probe.get_hit_shape(true, false))
@@ -611,7 +611,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     anim_waiting_ = 1;
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = 0.0f;
-    double back = -(static_cast<double>(get_param(kPullUpOffsetForward)) + 6.0f);
+    const double back = -(static_cast<double>(get_param(kPullUpOffsetForward)) + 6.0f);
     auto back_f = static_cast<float>(back);
     maths::Vec4& offset = critical_point_offset_;
     offset = {back_f * facing.x, back_f * facing.y, back_f * facing.z, static_cast<float>(back * facing.w)};
@@ -628,11 +628,11 @@ bool objects::FootMovement::drop_to_hang()
 {
     if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
         return false;
-    float factor = get_param(kDropToHangSpeedFactor);
-    double speed = run_speed() * factor;
+    const float factor = get_param(kDropToHangSpeedFactor);
+    const double speed = run_speed() * factor;
     const maths::Vec4& velocity = vel_;
-    double moving = static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y +
-                    static_cast<double>(velocity.z) * velocity.z;
+    const double moving = static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y +
+                          static_cast<double>(velocity.z) * velocity.z;
     if (speed * speed < moving)
         return false;
     auto* tagging = static_cast<objects::TaggingControlComponent*>(object_of(this)->fetch_module(kTaggingControl));
@@ -656,7 +656,7 @@ bool objects::FootMovement::drop_to_hang()
     set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_to_hang>());
     set_transition_facing(&rail.facing, get_param(kDropToHangRotateFactor));
     anim_waiting_ = 1;
-    float horiz = get_param(kHangCriticalPointHorizOffset);
+    const float horiz = get_param(kHangCriticalPointHorizOffset);
     critical_point_offset_ = {rail.facing.x * horiz, rail.facing.y * horiz, rail.facing.z * horiz,
                               rail.facing.w * horiz};
     push_normal_ = rail.facing;
@@ -705,34 +705,34 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
                                            const maths::Vec4* move, maths::Vec4 segment, objects::GrindPoint* start,
                                            objects::GrindPoint* end)
 {
-    double dot = static_cast<double>(segment.y) * move->y + static_cast<double>(segment.x) * move->x +
-                 static_cast<double>(segment.z) * move->z;
-    bool towards_end = dot < 0.0 ? left : !left;
+    const double dot = static_cast<double>(segment.y) * move->y + static_cast<double>(segment.x) * move->x +
+                       static_cast<double>(segment.z) * move->z;
+    const bool towards_end = dot < 0.0 ? left : !left;
     maths::Vec4 sideways = left ? *move : maths::Vec4{-move->x, -move->y, -move->z, -move->w};
     maths::Vec4 outwards = *out;
-    double t = towards_end ? 1.0 - along : along;
-    double segment_length =
+    const double t = towards_end ? 1.0 - along : along;
+    const double segment_length =
         std::sqrt(static_cast<double>(segment.z) * segment.z + static_cast<double>(segment.y) * segment.y +
                   static_cast<double>(segment.x) * segment.x);
     auto distance = static_cast<float>(segment_length * t);
-    float side_length = get_param(kHangMoveCollisionSideLength);
+    const float side_length = get_param(kHangMoveCollisionSideLength);
     if (static_cast<double>(side_length) + 1.0f > distance) {
         // near the segment's end: look along the next segment instead, if it doesn't turn too far
         along = (towards_end ? 2.0f : -2.0f) + along;
         objects::GrindPoint* next_start = nullptr;
         objects::GrindPoint* next_end = nullptr;
         if (next_hang_rail(&along, start, end, &next_start, &next_end)) {
-            float sign = along > 0.5f ? -1.0f : 1.0f;
+            const float sign = along > 0.5f ? -1.0f : 1.0f;
             maths::Vec4 a{}, b{};
             get_rails_of(this)->get_absolute_pos(&a, next_end);
             get_rails_of(this)->get_absolute_pos(&b, next_start);
-            double dw = static_cast<double>(b.w) - a.w;
-            float dz = b.z - a.z;
-            float dx = b.x - a.x;
+            const double dw = static_cast<double>(b.w) - a.w;
+            const float dz = b.z - a.z;
+            const float dx = b.x - a.x;
             maths::Vec4 next = {dx * sign, 0.0f, dz * sign, static_cast<float>(dw * sign)};
             next.make_unit();
-            double turn = static_cast<double>(next.y) * out->y + static_cast<double>(next.z) * out->z +
-                          static_cast<double>(next.x) * out->x;
+            const double turn = static_cast<double>(next.y) * out->y + static_cast<double>(next.z) * out->z +
+                                static_cast<double>(next.x) * out->x;
             if (turn < 0.0 && turn > -0.87000000476837158) {
                 sideways = next;
                 if (left) {
@@ -750,7 +750,7 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     maths::Seg& line = feeler.line_;
     line.start = *point;
     line.start.y = line.start.y + get_param(kHangMoveCollisionUp);
-    float back = get_param(kHangMoveCollisionBack);
+    const float back = get_param(kHangMoveCollisionBack);
     line.start.x = static_cast<float>(line.start.x - static_cast<double>(back) * out->x);
     line.start.y = static_cast<float>(line.start.y - static_cast<double>(back) * out->y);
     line.start.z = static_cast<float>(line.start.z - static_cast<double>(back) * out->z);
@@ -779,7 +779,7 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
         return true;
     // down at the critical point, out from the wall, sideways and one more along the segment
     line.end = line.start;
-    float up = get_param(kHangMoveCollisionUp);
+    const float up = get_param(kHangMoveCollisionUp);
     line.end.y = static_cast<float>(critical_point_up() - up - 1.0f + line.end.y);
     add_scaled(get_param(kHangCriticalPointHorizOffset), outwards);
     add_scaled(get_param(kHangMoveCollisionSideLength), sideways);
@@ -804,25 +804,25 @@ void objects::FootMovement::place_on_hang()
 {
     GrindRailHub* rails = get_rails_of(this);
     maths::Vec4 a{}, b{}, point{};
-    maths::Vec4* end_pos = rails->get_absolute_pos(&a, hang_next_node_);
-    maths::Vec4* start_pos = rails->get_absolute_pos(&b, hang_node_);
+    const maths::Vec4* end_pos = rails->get_absolute_pos(&a, hang_next_node_);
+    const maths::Vec4* start_pos = rails->get_absolute_pos(&b, hang_node_);
     maths::Vec4& pos = pos_;
     pos = *walk::get_lerp(&point, start_pos, end_pos, along_);
     pos.y = rail_up_ + pos.y;
     // out from the rail along the facing (x's product left unrounded, as the x87 code adds it)
-    float out = rail_out_;
+    const float out = rail_out_;
     maths::Vec4& facing = facing_;
-    double out_x = static_cast<double>(out) * facing.x;
-    float out_y = out * facing.y;
-    float out_z = out * facing.z;
-    float out_w = out * facing.w;
+    const double out_x = static_cast<double>(out) * facing.x;
+    const float out_y = out * facing.y;
+    const float out_z = out * facing.z;
+    const float out_w = out * facing.w;
     pos.x = static_cast<float>(out_x + pos.x);
     pos.y = out_y + pos.y;
     pos.z = out_z + pos.z;
     pos.w = out_w + pos.w;
 
     // riding something: let go of it once it's gone; when it turned, the facing across the rail again
-    objects::MovingSurfaceModule* contact = ride_;
+    const objects::MovingSurfaceModule* contact = ride_;
     auto* tracker = contact->ride_;
     if (!tracker)
         return;
@@ -837,7 +837,7 @@ void objects::FootMovement::place_on_hang()
     maths::Vec4 along = {b.x - a.x, 0.0f, b.z - a.z, b.w - a.w};
     along.make_unit();
     double side = static_cast<double>(along.x) * facing.z + static_cast<double>(-along.z) * facing.x;
-    float facing_y = facing.y;
+    const float facing_y = facing.y;
     facing.y = 0.0f;
     side = side + static_cast<double>(facing_y) * 0.0f;
     if (side > 0.0) {
@@ -856,22 +856,22 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
 {
     auto* rail = reinterpret_cast<RailHit*>(record);
     rail->point = *point;
-    GrindPoint* node = rail->node;
-    maths::Vec4 side = {-rail->facing.z, 0.0f, rail->facing.x, 1.0f};
+    const GrindPoint* node = rail->node;
+    const maths::Vec4 side = {-rail->facing.z, 0.0f, rail->facing.x, 1.0f};
     maths::Vec4 a{}, b{};
-    maths::Vec4* next_pos = get_rails_of(this)->get_absolute_pos(&a, node->succ_);
-    maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&b, rail->node);
-    maths::Vec4 segment = {node_pos->x - next_pos->x, node_pos->y - next_pos->y, node_pos->z - next_pos->z,
-                           node_pos->w - next_pos->w};
+    const maths::Vec4* next_pos = get_rails_of(this)->get_absolute_pos(&a, node->succ_);
+    const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&b, rail->node);
+    const maths::Vec4 segment = {node_pos->x - next_pos->x, node_pos->y - next_pos->y, node_pos->z - next_pos->z,
+                                 node_pos->w - next_pos->w};
     // room at both sides
     if (!side_clear(feeler, &rail->point, &side))
         return false;
-    maths::Vec4 other_side = {-side.x, 0.0f, -side.z, -1.0f};
+    const maths::Vec4 other_side = {-side.x, 0.0f, -side.z, -1.0f};
     if (!side_clear(feeler, &rail->point, &other_side))
         return false;
     // the hang point: below the rail and out from it; room to shimmy either way from there
     rail->point.y = rail->point.y - get_param(kHangVertOriginOffset);
-    float horiz = get_param(kHangHorizOriginOffset);
+    const float horiz = get_param(kHangHorizOriginOffset);
     rail->point.x = static_cast<float>(static_cast<double>(horiz) * rail->facing.x + rail->point.x);
     rail->point.y = static_cast<float>(static_cast<double>(horiz) * rail->facing.y + rail->point.y);
     rail->point.z = static_cast<float>(static_cast<double>(horiz) * rail->facing.z + rail->point.z);
@@ -917,18 +917,18 @@ void objects::FootMovement::shimmy(float move)
     const maths::Vec4 old_offset = offset;
     const maths::Vec4 old_facing = facing;
 
-    maths::Vec4 side = {-facing.z, 0.0f, facing.x, 1.0f};
+    const maths::Vec4 side = {-facing.z, 0.0f, facing.x, 1.0f};
     maths::Vec4 a{}, b{};
-    maths::Vec4* end_pos = get_rails_of(this)->get_absolute_pos(&a, end);
-    maths::Vec4* start_pos = get_rails_of(this)->get_absolute_pos(&b, start);
-    maths::Vec4 segment = {start_pos->x - end_pos->x, start_pos->y - end_pos->y, start_pos->z - end_pos->z,
-                           start_pos->w - end_pos->w};
-    bool left = move > 0.0f;
+    const maths::Vec4* end_pos = get_rails_of(this)->get_absolute_pos(&a, end);
+    const maths::Vec4* start_pos = get_rails_of(this)->get_absolute_pos(&b, start);
+    const maths::Vec4 segment = {start_pos->x - end_pos->x, start_pos->y - end_pos->y, start_pos->z - end_pos->z,
+                                 start_pos->w - end_pos->w};
+    const bool left = move > 0.0f;
     // (the differences unrounded here, as the x87 code keeps them)
-    double dot = static_cast<double>(side.x) * (static_cast<double>(start_pos->x) - end_pos->x) +
-                 (static_cast<double>(start_pos->z) - end_pos->z) * old_facing.x +
-                 (static_cast<double>(start_pos->y) - end_pos->y) * 0.0f;
-    bool towards_end = dot < 0.0 ? left : !left;
+    const double dot = static_cast<double>(side.x) * (static_cast<double>(start_pos->x) - end_pos->x) +
+                       (static_cast<double>(start_pos->z) - end_pos->z) * old_facing.x +
+                       (static_cast<double>(start_pos->y) - end_pos->y) * 0.0f;
+    const bool towards_end = dot < 0.0 ? left : !left;
     if (shimmy_blocked(&facing, along, &pos, left, &side, segment, start, end)) {
         climb_scale_ = 0.0f;
         anim_state_ = kAnimHang;
@@ -936,18 +936,19 @@ void objects::FootMovement::shimmy(float move)
     }
 
     // along the rail by the move
-    double length_squared = static_cast<double>(segment.x) * segment.x + static_cast<double>(segment.y) * segment.y +
-                            static_cast<double>(segment.z) * segment.z;
+    const double length_squared = static_cast<double>(segment.x) * segment.x +
+                                  static_cast<double>(segment.y) * segment.y +
+                                  static_cast<double>(segment.z) * segment.z;
     auto length_squared_f = static_cast<float>(length_squared);
     double step = std::fabs(move) / std::sqrt(length_squared);
     if (!towards_end)
         step = -step;
-    double moved = step + along;
+    const double moved = step + along;
     along = static_cast<float>(moved);
     // past an end: onto the next rail (the rest of the way along it), or stopped at the end
     const bool past_end = moved < 0.0 || moved > 1.0;
     if (past_end && !next_hang_rail(&along, start, end, &start, &end)) {
-        float t = along;
+        const float t = along;
         climb_scale_ = 0.0f;
         if (t > 1.0f)
             along = 1.0f;
@@ -956,9 +957,9 @@ void objects::FootMovement::shimmy(float move)
         anim_state_ = kAnimHang;
     } else {
         if (past_end) {
-            float t = along;
-            double clamped = t > 1.0f ? 1.0 : t < 0.0f ? 0.0 : t;
-            double over = static_cast<double>(along) - clamped;
+            const float t = along;
+            const double clamped = t > 1.0f ? 1.0 : t < 0.0f ? 0.0 : t;
+            const double over = static_cast<double>(along) - clamped;
             auto rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(length_squared_f)));
             maths::Vec4 reversed{};
             const maths::Vec4* direction = &segment;
@@ -973,7 +974,7 @@ void objects::FootMovement::shimmy(float move)
 
     // nothing in the way from the old critical point to the new one, or it's all put back
     {
-        maths::Vec4 critical = {offset.x + pos.x, offset.y + pos.y, offset.z + pos.z, offset.w + pos.w};
+        const maths::Vec4 critical = {offset.x + pos.x, offset.y + pos.y, offset.z + pos.z, offset.w + pos.w};
         render::ProbeRay feeler;
         feeler.line_.start = old_critical;
         feeler.line_.end = critical;
@@ -995,7 +996,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
                                        const maths::Vec4* on_line, float along, Record34* record, bool away)
 {
     auto* rail = reinterpret_cast<RailHit*>(record);
-    float origin = get_param(kHangVertOriginOffset);
+    const float origin = get_param(kHangVertOriginOffset);
     // in the air: only rails at or below the line, and close to it
     if (state_ == 1) {
         if (on_rail->y > on_line->y)
@@ -1004,8 +1005,8 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
             return false;
     }
     // not too steep
-    float dz = end->z - start->z;
-    float dx = end->x - start->x;
+    const float dz = end->z - start->z;
+    const float dx = end->x - start->x;
     maths::Vec4 direction = {dx, end->y - start->y, dz, end->w - start->w};
     direction.make_unit();
     if (std::fabs(direction.y) > std::sin(static_cast<double>(get_param(kHangMaxRailAscent)) * 0.017453292384743690))
@@ -1021,13 +1022,13 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
         out.y = -out.y;
         out.z = -out.z;
     };
-    double towards = static_cast<double>(facing.z) * out.z + static_cast<double>(facing.y) * out.y +
-                     static_cast<double>(facing.x) * out.x;
+    const double towards = static_cast<double>(facing.z) * out.z + static_cast<double>(facing.y) * out.y +
+                           static_cast<double>(facing.x) * out.x;
     if (away ? towards > 0.0 : towards < 0.0)
         flip();
     // a one-sided rail (flag 0x80: hung from one side, 0x40: the other) turns it round
     bool on_right = static_cast<double>(direction.x) * out.z - static_cast<double>(direction.z) * out.x > 0.0;
-    uint32_t flags = rail->node->flag_bits_;
+    const uint32_t flags = rail->node->flag_bits_;
     if (((flags & 0x80) && on_right) || ((flags & 0x40) && !on_right)) {
         flip();
         on_right = !on_right;
@@ -1036,7 +1037,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     // room to hang there (the collision near the rail cached), facing that way - or the other, if the rail allows
     render::ProbeRay feeler;
     render::HitMeshCache cache;
-    float height = origin + 12.0f;
+    const float height = origin + 12.0f;
     maths::BBox box;
     box.max = {on_rail->x + 24.0f, height + on_rail->y, on_rail->z + 24.0f, on_rail->w + 1.0f};
     box.min = {on_rail->x - 24.0f, on_rail->y - 24.0f, on_rail->z - 24.0f, on_rail->w - 1.0f};
@@ -1055,14 +1056,16 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     rail->out = static_cast<float>(((static_cast<double>(rail->point.y) - on_rail->y) * out.y +
                                     (static_cast<double>(rail->point.z) - on_rail->z) * out.z) +
                                    (static_cast<double>(rail->point.x) - on_rail->x) * out.x);
-    float horiz = get_param(kHangCriticalPointHorizOffset);
-    float hx = horiz * out.x, hy = horiz * out.y, hz = horiz * out.z;
-    double hw = static_cast<double>(horiz) * out.w;
+    const float horiz = get_param(kHangCriticalPointHorizOffset);
+    const float hx = horiz * out.x;
+    const float hy = horiz * out.y;
+    const float hz = horiz * out.z;
+    const double hw = static_cast<double>(horiz) * out.w;
     maths::Seg& line = feeler.line_;
     line.start = {hx + rail->point.x, hy + rail->point.y, hz + rail->point.z, static_cast<float>(hw + rail->point.w)};
     line.start.y = line.start.y + get_param(kHangInitAnimFeelerHeight);
     line.end = line.start;
-    float length = get_param(kHangInitAnimFeelerLength);
+    const float length = get_param(kHangInitAnimFeelerLength);
     line.end.x = static_cast<float>(static_cast<double>(length) * out.x + line.end.x);
     line.end.y = static_cast<float>(static_cast<double>(length) * out.y + line.end.y);
     line.end.z = static_cast<float>(static_cast<double>(length) * out.z + line.end.z);
@@ -1075,7 +1078,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
 void objects::FootMovement::update_hang()
 {
     // carried by what it rides on
-    objects::MovingSurfaceModule* contact = ride_;
+    const objects::MovingSurfaceModule* contact = ride_;
     if (auto* tracker = contact->ride_) {
         if (!tracker->entity_.get_pull() || !tracker->tick_frame(&pos_)) {
             stop_riding(this);
@@ -1088,21 +1091,21 @@ void objects::FootMovement::update_hang()
     }
     jump_unsteered_ = false;
 
-    maths::Vec4& pos = pos_;
+    const maths::Vec4& pos = pos_;
     const maths::Vec4& facing = facing_;
-    objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = input_;
     if (control_full_) {
         if (input->pad_primary_.lock_[0] == 0 && input->pad_primary_.polar_[1].length != 0.0f &&
             std::fabs(input->pad_primary_.polar_[1].angle) < 0.78539818525314331f) {
             // pushed forward: a pull-up, pull_up_offset_forward ahead - then half that
-            float forward = get_param(kPullUpOffsetForward);
+            const float forward = get_param(kPullUpOffsetForward);
             maths::Vec4 target = {static_cast<float>(static_cast<double>(forward) * facing.x + pos.x),
                                   static_cast<float>(static_cast<double>(forward) * facing.y + pos.y),
                                   forward * facing.z + pos.z, forward * facing.w + pos.w};
             target.y = get_param(kPullUpOffsetUp) + target.y;
             if (pull_up(&target))
                 return;
-            double half = static_cast<double>(get_param(kPullUpOffsetForward)) * 0.5f;
+            const double half = static_cast<double>(get_param(kPullUpOffsetForward)) * 0.5f;
             target = {static_cast<float>(half * facing.x) + pos.x, static_cast<float>(half * facing.y) + pos.y,
                       static_cast<float>(half * facing.z) + pos.z, static_cast<float>(half * facing.w + pos.w)};
             target.y = get_param(kPullUpOffsetUp) + target.y;
@@ -1122,19 +1125,19 @@ void objects::FootMovement::update_hang()
 
     // the shimmy's speed: the control's sideways part (within hang_vert_control_tolerance of straight sideways)
     auto sideways = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
-    float tolerance = get_param(kHangVertControlTolerance);
+    const float tolerance = get_param(kHangVertControlTolerance);
     float wanted = 0.0f;
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
-        float direction = input->pad_primary_.polar_[1].angle > 0.0f ? 1.0f : -1.0f;
-        float speed = get_param(kHangMoveSpeedParam);
+        const float direction = input->pad_primary_.polar_[1].angle > 0.0f ? 1.0f : -1.0f;
+        const float speed = get_param(kHangMoveSpeedParam);
         wanted = static_cast<float>(static_cast<double>(direction) * stick_deflection_ * speed);
     }
-    float rate = get_param(kHangMoveLerpRate);
+    const float rate = get_param(kHangMoveLerpRate);
     float& move_speed = climb_scale_;
     move_speed = static_cast<float>(move_speed + (static_cast<double>(wanted) - move_speed) *
                                                      (static_cast<double>(rate) * frame_length_));
-    float speed_now = move_speed;
-    float cutoff = get_param(kHangMoveCutoff);
+    const float speed_now = move_speed;
+    const float cutoff = get_param(kHangMoveCutoff);
     if (std::fabs(speed_now) > cutoff) {
         speed_ = std::fabs(move_speed);
         shimmy(move_speed * frame_length_);
@@ -1183,15 +1186,15 @@ void objects::FootMovement::end_ladder_off_top_to_air()
 void objects::FootMovement::end_onto_ladder_bottom()
 {
     GrindPoint* node = hang_node_;
-    GrindPoint* other = ladder_other_end(node);
+    const GrindPoint* other = ladder_other_end(node);
     maths::Vec4 a{}, b{};
-    maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
-    maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
-    float dx = other_pos->x - node_pos->x;
-    float dy = other_pos->y - node_pos->y;
-    float dz = other_pos->z - node_pos->z;
-    float up = get_param(kLadderBottomOffsetUp);
-    double length =
+    const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
+    const maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
+    const float dx = other_pos->x - node_pos->x;
+    const float dy = other_pos->y - node_pos->y;
+    const float dz = other_pos->z - node_pos->z;
+    const float up = get_param(kLadderBottomOffsetUp);
+    const double length =
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx);
     along_ = static_cast<float>(up / length);
     change_phase(3);
@@ -1202,15 +1205,15 @@ void objects::FootMovement::end_onto_ladder_bottom()
 void objects::FootMovement::end_onto_ladder_top()
 {
     GrindPoint* node = hang_node_;
-    GrindPoint* other = ladder_other_end(node);
+    const GrindPoint* other = ladder_other_end(node);
     maths::Vec4 a{}, b{};
-    maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
-    maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
-    double dx = static_cast<double>(other_pos->x) - node_pos->x;
-    double dy = static_cast<double>(other_pos->y) - node_pos->y;
-    double dz = static_cast<double>(other_pos->z) - node_pos->z;
+    const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
+    const maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
+    const double dx = static_cast<double>(other_pos->x) - node_pos->x;
+    const double dy = static_cast<double>(other_pos->y) - node_pos->y;
+    const double dz = static_cast<double>(other_pos->z) - node_pos->z;
     auto length = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
-    float up = get_param(kLadderTopOffsetUp);
+    const float up = get_param(kLadderTopOffsetUp);
     along_ = static_cast<float>((static_cast<double>(length) - up) / length);
     change_phase(3);
     tell_physics_node(this);
@@ -1229,13 +1232,16 @@ bool objects::FootMovement::check_ladder_top(const maths::Vec4* bottom, const ma
     // ladder_top_offset_up below the top, ladder_climb_offset out of the ladder (x and y's products unrounded, as the
     // x87 code subtracts them)
     auto* ladder = reinterpret_cast<FoundLadder*>(record);
-    float offset = get_param(kLadderTopOffsetUp);
-    float oy = offset * up.y, oz = offset * up.z, ow = offset * up.w;
+    const float offset = get_param(kLadderTopOffsetUp);
+    const float oy = offset * up.y;
+    const float oz = offset * up.z;
+    const float ow = offset * up.w;
     ladder->point = {static_cast<float>(top->x - static_cast<double>(offset) * up.x), top->y - oy, top->z - oz,
                      top->w - ow};
-    float climb = get_param(kLadderClimbOffset);
+    const float climb = get_param(kLadderClimbOffset);
     const maths::Vec4& at = orientation->row[2];
-    float cz = climb * at.z, cw = climb * at.w;
+    const float cz = climb * at.z;
+    const float cw = climb * at.w;
     ladder->point.x = static_cast<float>(ladder->point.x - static_cast<double>(climb) * at.x);
     ladder->point.y = static_cast<float>(ladder->point.y - static_cast<double>(climb) * at.y);
     ladder->point.z = ladder->point.z - cz;
@@ -1250,10 +1256,10 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
                                               Record24* record)
 {
     // upright enough (its height as part of its length; no length: the height itself)
-    float dy = top->y - bottom->y;
-    double dz = static_cast<double>(top->z) - bottom->z;
-    double dx = static_cast<double>(top->x) - bottom->x;
-    double length = std::sqrt(dx * dx + static_cast<double>(dy) * dy + dz * dz);
+    const float dy = top->y - bottom->y;
+    const double dz = static_cast<double>(top->z) - bottom->z;
+    const double dx = static_cast<double>(top->x) - bottom->x;
+    const double length = std::sqrt(dx * dx + static_cast<double>(dy) * dy + dz * dz);
     float up_y = dy;
     if (length > 0.0)
         up_y = static_cast<float>(dy * (1.0 / length));
@@ -1266,9 +1272,11 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
         return false;
     // the point ladder_climb_offset out of it there, if nothing is in the way
     auto* ladder = reinterpret_cast<FoundLadder*>(record);
-    float climb = get_param(kLadderClimbOffset);
+    const float climb = get_param(kLadderClimbOffset);
     const maths::Vec4& at = orientation->row[2];
-    float cx = climb * at.x, cy = climb * at.y, cz = climb * at.z;
+    const float cx = climb * at.x;
+    const float cy = climb * at.y;
+    const float cz = climb * at.z;
     ladder->point = {on_ladder->x - cx, on_ladder->y - cy, on_ladder->z - cz,
                      static_cast<float>(on_ladder->w - static_cast<double>(climb) * at.w)};
     render::ProbeRay feeler;
@@ -1286,15 +1294,16 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
 void objects::FootMovement::climb_off_bottom()
 {
     // ladder_bottom_offset_forward back and ladder_bottom_offset_up down: the ground there, if any
-    float forward = get_param(kLadderBottomOffsetForward);
-    maths::Vec4& pos = pos_;
-    maths::Vec4& facing = facing_;
-    float fz = forward * facing.z, fw = forward * facing.w;
+    const float forward = get_param(kLadderBottomOffsetForward);
+    const maths::Vec4& pos = pos_;
+    const maths::Vec4& facing = facing_;
+    const float fz = forward * facing.z;
+    const float fw = forward * facing.w;
     maths::Vec4 target = {static_cast<float>(pos.x - static_cast<double>(forward) * facing.x),
                           static_cast<float>(pos.y - static_cast<double>(forward) * facing.y), pos.z - fz, pos.w - fw};
     target.y = target.y - get_param(kLadderBottomOffsetUp);
     render::ProbeRay* ground = &feeler_;
-    bool found = find_stand_position(&target, &target, ground);
+    const bool found = find_stand_position(&target, &target, ground);
     feeler_hit_ = found;
     if (found)
         floor_normal_ = ground->surface_dir_;
@@ -1323,20 +1332,22 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
     if (up.y < 0.995f)
         return false;
     // faced (within max_onto_ladder_angle)
-    float max_angle = get_param(kMaxOntoLadderAngle);
+    const float max_angle = get_param(kMaxOntoLadderAngle);
     const maths::Vec4& at = orientation->row[2];
     const maths::Vec4& facing = facing_;
-    double dot = static_cast<double>(at.z) * facing.z + static_cast<double>(at.y) * facing.y +
-                 static_cast<double>(at.x) * facing.x;
+    const double dot = static_cast<double>(at.z) * facing.z + static_cast<double>(at.y) * facing.y +
+                       static_cast<double>(at.x) * facing.x;
     if (dot < std::cos(static_cast<double>(max_angle) * 0.017453292384743690))
         return false;
     // ladder_bottom_offset_up above the bottom, ladder_climb_offset out of the ladder
     auto* ladder = reinterpret_cast<FoundLadder*>(record);
-    float offset = get_param(kLadderBottomOffsetUp);
-    float ox = offset * up.x, oy = offset * up.y, oz = offset * up.z;
+    const float offset = get_param(kLadderBottomOffsetUp);
+    const float ox = offset * up.x;
+    const float oy = offset * up.y;
+    const float oz = offset * up.z;
     ladder->point = {ox + bottom->x, oy + bottom->y, oz + bottom->z,
                      static_cast<float>(static_cast<double>(offset) * up.w + bottom->w)};
-    float climb = get_param(kLadderClimbOffset);
+    const float climb = get_param(kLadderClimbOffset);
     ladder->point.x = static_cast<float>(ladder->point.x - static_cast<double>(climb) * at.x);
     ladder->point.y = static_cast<float>(ladder->point.y - static_cast<double>(climb) * at.y);
     ladder->point.z = static_cast<float>(ladder->point.z - static_cast<double>(climb) * at.z);
@@ -1344,7 +1355,9 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
     // nothing between the skater and 6 behind that point
     render::ProbeRay feeler;
     feeler.line_.start = pos_;
-    float bx = at.x * 6.0f, by = at.y * 6.0f, bz = at.z * 6.0f;
+    const float bx = at.x * 6.0f;
+    const float by = at.y * 6.0f;
+    const float bz = at.z * 6.0f;
     feeler.line_.end = {ladder->point.x - bx, ladder->point.y - by, ladder->point.z - bz,
                         static_cast<float>(ladder->point.w - static_cast<double>(at.w) * 6.0f)};
     if (feeler.get_hit_shape(true, false))
@@ -1357,15 +1370,17 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
 void objects::FootMovement::climb_off_top()
 {
     // ladder_top_offset_forward ahead and ladder_top_offset_up up: the ground there - or into the air
-    float forward = get_param(kLadderTopOffsetForward);
-    maths::Vec4& pos = pos_;
-    maths::Vec4& facing = facing_;
-    float fx = forward * facing.x, fy = forward * facing.y, fz = forward * facing.z;
+    const float forward = get_param(kLadderTopOffsetForward);
+    const maths::Vec4& pos = pos_;
+    const maths::Vec4& facing = facing_;
+    const float fx = forward * facing.x;
+    const float fy = forward * facing.y;
+    const float fz = forward * facing.z;
     maths::Vec4 target = {fx + pos.x, fy + pos.y, fz + pos.z,
                           static_cast<float>(static_cast<double>(forward) * facing.w + pos.w)};
     target.y = target.y + get_param(kLadderTopOffsetUp);
     render::ProbeRay ledge;
-    bool found = find_stand_position(&target, &target, &ledge);
+    const bool found = find_stand_position(&target, &target, &ledge);
     transition_start_ = pos;
     transition_pos_ = target;
     if (found) {
@@ -1391,8 +1406,8 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
 {
     if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
         return false;
-    float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
-    float height = get_param(kMaxVertSnapDistance);
+    const float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
+    const float height = get_param(kMaxVertSnapDistance);
     FoundLadder ladder{};
     if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, reinterpret_cast<uint32_t>(&ladder),
                                         &hang_node_))
@@ -1417,8 +1432,8 @@ bool objects::FootMovement::climb_onto_top()
 {
     if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
         return false;
-    float height = get_param(kMaxVertSnapDistance);
-    float radius = get_param(kMaxHorizSnapDistance);
+    const float height = get_param(kMaxVertSnapDistance);
+    const float radius = get_param(kMaxHorizSnapDistance);
     FoundLadder ladder{};
     if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, reinterpret_cast<uint32_t>(&ladder),
                                         &hang_node_))
@@ -1461,41 +1476,41 @@ bool objects::FootMovement::grab_ladder(const maths::Vec4* start, const maths::V
 void objects::FootMovement::climb_ladder()
 {
     // the control's up / down part (its angle's cosine) at ladder_move_speed
-    float speed = get_param(kLadderMoveSpeed);
-    objects::PadInputModule* input = input_;
-    double move_speed = std::cos(static_cast<double>(input->pad_primary_.polar_[1].angle)) * stick_deflection_ *
-                        static_cast<double>(speed);
+    const float speed = get_param(kLadderMoveSpeed);
+    const objects::PadInputModule* input = input_;
+    const double move_speed = std::cos(static_cast<double>(input->pad_primary_.polar_[1].angle)) * stick_deflection_ *
+                              static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
     auto move = static_cast<float>(move_speed * frame_length_);
     GrindPoint* node = hang_node_;
-    GrindPoint* other = ladder_other_end(node);
+    const GrindPoint* other = ladder_other_end(node);
     maths::Vec4 a{}, b{};
-    maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
-    maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
-    maths::Vec4 d = {other_pos->x - node_pos->x, other_pos->y - node_pos->y, other_pos->z - node_pos->z,
-                     other_pos->w - node_pos->w};
-    double length =
+    const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
+    const maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
+    const maths::Vec4 d = {other_pos->x - node_pos->x, other_pos->y - node_pos->y, other_pos->z - node_pos->z,
+                           other_pos->w - node_pos->w};
+    const double length =
         std::sqrt(static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x);
-    double step = move / length;
-    bool up = step > 0.0;
+    const double step = move / length;
+    const bool up = step > 0.0;
     float& along = along_;
     along = static_cast<float>(step + along);
     auto length_f = static_cast<float>(length);
     // off the bottom or the top
-    float bottom_up = get_param(kLadderBottomOffsetUp);
-    double inverse = 1.0 / length_f;
+    const float bottom_up = get_param(kLadderBottomOffsetUp);
+    const double inverse = 1.0 / length_f;
     auto inverse_f = static_cast<float>(inverse);
     if (inverse * bottom_up > along) {
         climb_off_bottom();
         return;
     }
-    float top_up = get_param(kLadderTopOffsetUp);
+    const float top_up = get_param(kLadderTopOffsetUp);
     if ((static_cast<double>(length_f) - top_up) * inverse_f < along) {
         climb_off_top();
         return;
     }
     // else on it: the animation, the place along it (ladder_climb_offset out of it)
-    float t = along;
+    const float t = along;
     along = t > 1.0f ? 1.0f : t < 0.0f ? 0.0f : t;
     if (along == 0.0f || along == 1.0f) {
         anim_state_ = kAnimLadder;
@@ -1503,15 +1518,15 @@ void objects::FootMovement::climb_ladder()
     } else {
         anim_state_ = up ? kAnimLadderMoveUp : kAnimLadderMoveDown;
     }
-    float climb = get_param(kLadderClimbOffset);
+    const float climb = get_param(kLadderClimbOffset);
     const maths::Vec4& facing = facing_;
-    maths::Vec4 out = {climb * facing.x, climb * facing.y, climb * facing.z, climb * facing.w};
-    maths::Vec4 part = {d.x * along, d.y * along, d.z * along, d.w * along};
+    const maths::Vec4 out = {climb * facing.x, climb * facing.y, climb * facing.z, climb * facing.w};
+    const maths::Vec4 part = {d.x * along, d.y * along, d.z * along, d.w * along};
     node_pos = get_rails_of(this)->get_absolute_pos(&a, hang_node_);
-    double x = static_cast<double>(part.x) + node_pos->x;
-    float y = part.y + node_pos->y;
-    float z = part.z + node_pos->z;
-    float w = part.w + node_pos->w;
+    const double x = static_cast<double>(part.x) + node_pos->x;
+    const float y = part.y + node_pos->y;
+    const float z = part.z + node_pos->z;
+    const float w = part.w + node_pos->w;
     maths::Vec4& pos = pos_;
     pos.z = z - out.z;
     pos.w = w - out.w;
@@ -1528,9 +1543,9 @@ void objects::FootMovement::update_ladder()
         trigger_rail_script(this, kOntoLadderEvents);
     jump_unsteered_ = false;
     // the control within ladder_control_tolerance of up or down: climbing
-    objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = input_;
     auto upright = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
-    float tolerance = get_param(kLadderControlTolerance);
+    const float tolerance = get_param(kLadderControlTolerance);
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
         climb_ladder();
         return;

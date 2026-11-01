@@ -67,7 +67,7 @@ bool module_of(uintptr_t address, char (&name)[MAX_PATH], uintptr_t* offset)
         !module)
         return false;
     GetModuleFileNameA(module, name, MAX_PATH);
-    if (char* slash = strrchr(name, '\\'))
+    if (const char* slash = strrchr(name, '\\'))
         memmove(name, slash + 1, strlen(slash));
     *offset = address - reinterpret_cast<uintptr_t>(module);
     return true;
@@ -78,9 +78,9 @@ bool readable(uintptr_t address, size_t size, bool code)
     MEMORY_BASIC_INFORMATION info;
     if (!VirtualQuery(reinterpret_cast<void*>(address), &info, sizeof(info)) || info.State != MEM_COMMIT)
         return false;
-    DWORD wanted = code ? (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)
-                        : (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ |
-                           PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY);
+    const DWORD wanted = code ? (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)
+                              : (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ |
+                                 PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY);
     return (info.Protect & wanted) && !(info.Protect & PAGE_GUARD) &&
            address + size <= reinterpret_cast<uintptr_t>(info.BaseAddress) + info.RegionSize;
 }
@@ -93,7 +93,7 @@ bool after_call(uintptr_t address)
     const auto* p = reinterpret_cast<const uint8_t*>(address);
     if (p[-5] == 0xE8)
         return true;
-    for (int length : {2, 3, 4, 6, 7}) {
+    for (const int length : {2, 3, 4, 6, 7}) {
         if (p[-length] == 0xFF && ((p[-length + 1] >> 3) & 7) == 2)
             return true;
     }
@@ -113,7 +113,7 @@ void crash_log_stack_scan(uintptr_t esp)
     for (uintptr_t slot = esp; found < 24 && slot < esp + 0x2000; slot += 4) {
         if (!readable(slot, 4, false))
             break;
-        uintptr_t value = *reinterpret_cast<const uint32_t*>(slot);
+        const uintptr_t value = *reinterpret_cast<const uint32_t*>(slot);
         if (!after_call(value) || !module_of(value, name, &offset))
             continue;
         get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name, static_cast<unsigned>(offset),
@@ -129,7 +129,7 @@ namespace {
 void log_backtrace()
 {
     void* frames[24];
-    USHORT count = CaptureStackBackTrace(2, 24, frames, nullptr);
+    const USHORT count = CaptureStackBackTrace(2, 24, frames, nullptr);
     for (USHORT i = 0; i < count; ++i) {
         char name[MAX_PATH] = "?";
         auto offset = reinterpret_cast<uintptr_t>(frames[i]);
@@ -142,7 +142,7 @@ void log_backtrace()
 void report_exception(const EXCEPTION_POINTERS* info, const char* note)
 {
     const CONTEXT* c = info->ContextRecord;
-    DWORD code = info->ExceptionRecord->ExceptionCode;
+    const DWORD code = info->ExceptionRecord->ExceptionCode;
     char name[MAX_PATH] = "?";
     uintptr_t offset = c->Eip;
     module_of(c->Eip, name, &offset);
@@ -174,7 +174,7 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
 LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
 {
     static int logged = 0;
-    DWORD code = info->ExceptionRecord->ExceptionCode;
+    const DWORD code = info->ExceptionRecord->ExceptionCode;
     bool any_module = false;
     if (!is_fatal_exception(code, &any_module))
         return EXCEPTION_CONTINUE_SEARCH;
@@ -207,7 +207,7 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
 // Nothing handled it: the process ends here, before Windows Error Reporting would show its box.
 LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
 {
-    DWORD code = info->ExceptionRecord->ExceptionCode;
+    const DWORD code = info->ExceptionRecord->ExceptionCode;
     if (info->ExceptionRecord != g_reported_record || info->ContextRecord->Eip != g_reported_address)
         report_exception(info, "(unhandled)");
     get_log("  unhandled: nothing caught exception 0x%08X", static_cast<unsigned>(code));
@@ -340,7 +340,7 @@ void install_crash_handling(bool console)
     _set_purecall_handler(pure_call);
 #ifdef _DEBUG
     // Debug CRT reports: our hook decides; whatever gets past it goes to the log / the console, never a window.
-    for (int type : {_CRT_WARN, _CRT_ERROR, _CRT_ASSERT}) {
+    for (const int type : {_CRT_WARN, _CRT_ERROR, _CRT_ASSERT}) {
         _CrtSetReportMode(type, _CRTDBG_MODE_FILE);
         _CrtSetReportFile(type, console ? _CRTDBG_FILE_STDOUT : static_cast<_HFILE>(log_file_handle()));
     }

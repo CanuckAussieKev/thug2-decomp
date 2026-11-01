@@ -29,7 +29,7 @@ const char* short_name(const std::string& path)
 
 bool get_live(uint32_t id)
 {
-    objects::Entity* object = objects::find_object(id);
+    const objects::Entity* object = objects::find_object(id);
     return object && !(object->object_flags_ & objects::kObjectFlagDead);
 }
 
@@ -60,7 +60,7 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
     const char* model = nullptr;
     if (!s || !s->fetch_text(kModel, &model, 0) || !model || !get_live(id))
         return;
-    std::string now = model;
+    const std::string now = model;
     ImGui::Spacing();
     ImGui::SeparatorText("Model");
     const std::vector<std::string>& models = detail::get_models();
@@ -68,7 +68,7 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
     if (ImGui::BeginCombo("##modelswap", short_name(now))) {
         for (size_t i = 0; i < models.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
-            bool same = _stricmp(models[i].c_str(), now.c_str()) == 0;
+            const bool same = _stricmp(models[i].c_str(), now.c_str()) == 0;
             if (ImGui::Selectable(short_name(models[i]), same) && !same) {
                 const std::string& chosen = models[i];
                 get_queue([id, now] { detail::watch_model(id, now); });
@@ -87,7 +87,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
 {
     static const uint32_t kBouncy = checksums::hash_from_text("bouncy");
     static const uint32_t kContacts = checksums::hash_from_text("contacts");
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     if (!s || index < 0 || !s->has_bare_flag(kBouncy))
         return;
     ImGui::Spacing();
@@ -103,7 +103,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             ImGui::TableNextColumn();
             ImGui::TextDisabled("%s", field);
             ImGui::TableNextColumn();
-            std::string text = fields::get_format(row->value, fields::get_name_of);
+            const std::string text = fields::get_format(row->value, fields::get_name_of);
             if (!row->editable) {
                 ImGui::TextUnformatted(text.c_str());
                 continue;
@@ -136,7 +136,7 @@ void moving_section(uint32_t id)
         return;
     ImGui::Spacing();
     ImGui::SeparatorText("Path Speed");
-    float set = detail::speed_set(id);
+    const float set = detail::speed_set(id);
     bool own = set > 0.0f;
     if (ImGui::Checkbox("Path speed", &own))
         get_queue([id, own] { detail::change_speed(id, own ? detail::default_mph(id) : 0.0f); });
@@ -151,7 +151,7 @@ void moving_section(uint32_t id)
         if (ImGui::IsItemActive())
             detail::set_ui_active(true);
     }
-    bool previewing = detail::get_previewing(id);
+    const bool previewing = detail::get_previewing(id);
     if (ImGui::Button(previewing && detail::preview_playing() ? "Pause" : "Play"))
         get_queue([id] { detail::preview_play(id); });
     ImGui::SameLine();
@@ -171,8 +171,8 @@ void moving_section(uint32_t id)
 void sound_section(uint32_t name)
 {
     bool sphere = false;
-    float radius_now = detail::emitter_radius(name, &sphere);
-    EmitterSound e = detail::emitter_now(name);
+    const float radius_now = detail::emitter_radius(name, &sphere);
+    const EmitterSound e = detail::emitter_now(name);
     ImGui::Spacing();
     ImGui::SeparatorText("Sound");
     std::vector<std::pair<uint32_t, std::string>> sounds = detail::get_sounds();
@@ -238,7 +238,7 @@ void inspector_section(int node, uint32_t object, ImFont* mono, std::vector<ui::
     int family = -1;
     if (!name && node >= 0 && node < static_cast<int>(all.size()))
         name = all[node].name;
-    int index = name ? nodes::get_find(name) : -1;
+    const int index = name ? nodes::get_find(name) : -1;
     if (index >= 0)
         family = static_cast<int>(all[index].family);
     if (!name)

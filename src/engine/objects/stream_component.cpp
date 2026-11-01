@@ -50,7 +50,7 @@ AudioStreamModule::AudioStreamModule() { kind_tag_ = kType; }
 // 0x00433890 (0x00433C40 the deleting one)
 AudioStreamModule::~AudioStreamModule()
 {
-    for (uint32_t stream : streams_) {
+    for (const uint32_t stream : streams_) {
         if (stream)
             audio::halt_stream(stream);
     }
@@ -89,7 +89,7 @@ bool AudioStreamModule::get_stream_extent(void* camera, maths::Vec4* out)
 bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*script*/)
 {
     bool room = false;
-    for (uint32_t stream : streams_)
+    for (const uint32_t stream : streams_)
         room = room || !stream;
     if (!room)
         return false;

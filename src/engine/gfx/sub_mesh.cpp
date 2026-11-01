@@ -136,16 +136,16 @@ void MeshRef::turn_y(int turns)
         case 1:
             for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
                 auto* p = reinterpret_cast<float*>(vertex);
-                double x = static_cast<double>(p[0]) - transform[12];
-                double z = static_cast<double>(p[2]) - transform[14];
+                const double x = static_cast<double>(p[0]) - transform[12];
+                const double z = static_cast<double>(p[2]) - transform[14];
                 p[0] = static_cast<float>(z + transform[12]);
                 p[2] = static_cast<float>(transform[14] - x);
             }
             {
                 centre[0] = static_cast<float>(static_cast<double>(centre[0]) - transform[12]);
-                double z = static_cast<double>(centre[2]) - transform[14];
+                const double z = static_cast<double>(centre[2]) - transform[14];
                 centre[2] = static_cast<float>(z);
-                float x = centre[0];
+                const float x = centre[0];
                 centre[0] = static_cast<float>(z + transform[12]);
                 centre[2] = static_cast<float>(transform[14] - static_cast<double>(x));
             }
@@ -153,7 +153,7 @@ void MeshRef::turn_y(int turns)
         case 2:
             for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
                 auto* p = reinterpret_cast<float*>(vertex);
-                double z = static_cast<double>(p[2]) - transform[14];
+                const double z = static_cast<double>(p[2]) - transform[14];
                 p[0] = static_cast<float>(transform[12] - (static_cast<double>(p[0]) - transform[12]));
                 p[2] = static_cast<float>(transform[14] - z);
             }
@@ -165,16 +165,16 @@ void MeshRef::turn_y(int turns)
         case 3:
             for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
                 auto* p = reinterpret_cast<float*>(vertex);
-                double x = static_cast<double>(p[0]) - transform[12];
-                double z = static_cast<double>(p[2]) - transform[14];
+                const double x = static_cast<double>(p[0]) - transform[12];
+                const double z = static_cast<double>(p[2]) - transform[14];
                 p[0] = static_cast<float>(transform[12] - z);
                 p[2] = static_cast<float>(x + transform[14]);
             }
             {
                 centre[0] = static_cast<float>(static_cast<double>(centre[0]) - transform[12]);
-                double z = static_cast<double>(centre[2]) - transform[14];
+                const double z = static_cast<double>(centre[2]) - transform[14];
                 centre[2] = static_cast<float>(z);
-                float x = centre[0];
+                const float x = centre[0];
                 centre[0] = static_cast<float>(transform[12] - z);
                 centre[2] = static_cast<float>(static_cast<double>(x) + transform[14]);
             }
@@ -245,7 +245,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
         info->type = 0;
     } else if (type == 2) {
         // About the axis - unless it's nearly vertical (not a number counts as not).
-        double vertical =
+        const double vertical =
             std::fabs((static_cast<double>(axis->z) * 0.0f + static_cast<double>(axis->x) * 0.0f) + axis->y);
         info->type = vertical > 0.99f ? 1 : 2; // 0x00645450
     }
@@ -265,15 +265,16 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     auto e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
     auto e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
     auto e1x = static_cast<float>(static_cast<double>(p1[0]) - p0[0]);
-    double e1y = static_cast<double>(p1[1]) - p0[1];
-    double e1z = static_cast<double>(p1[2]) - p0[2];
+    const double e1y = static_cast<double>(p1[1]) - p0[1];
+    const double e1z = static_cast<double>(p1[2]) - p0[2];
     auto nx = static_cast<float>(e1y * e2z - e1z * e2y);
     auto ny = static_cast<float>(e1z * e2x - static_cast<double>(e2z) * e1x);
-    double nz_exact = static_cast<double>(e2y) * e1x - e1y * e2x;
+    const double nz_exact = static_cast<double>(e2y) * e1x - e1y * e2x;
     auto nz = static_cast<float>(nz_exact);
-    double length = std::sqrt((static_cast<double>(nx) * nx + nz_exact * nz_exact) + static_cast<double>(ny) * ny);
+    const double length =
+        std::sqrt((static_cast<double>(nx) * nx + nz_exact * nz_exact) + static_cast<double>(ny) * ny);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         nx = static_cast<float>(nx * inverse);
         ny = static_cast<float>(ny * inverse);
         nz = static_cast<float>(nz_exact * inverse);
@@ -331,9 +332,9 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     // The quad's four vertices into those axes about the pivot.
     for (int v = 0; v < 4; ++v) {
         auto* p = reinterpret_cast<float*>(data + v * stride);
-        double dx = static_cast<double>(p[0]) - pivot->x;
-        double dy = static_cast<double>(p[1]) - pivot->y;
-        double dz = static_cast<double>(p[2]) - pivot->z;
+        const double dx = static_cast<double>(p[0]) - pivot->x;
+        const double dy = static_cast<double>(p[1]) - pivot->y;
+        const double dz = static_cast<double>(p[2]) - pivot->z;
         p[0] = static_cast<float>((dx * r0[0] + dz * r0[2]) + dy * r0[1]);
         p[1] = static_cast<float>((dx * r1x + dz * r1z) + dy * r1y);
         p[2] = static_cast<float>((dx * nx + dz * nz) + dy * ny);

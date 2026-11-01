@@ -51,16 +51,16 @@ bool normalise(Spec* s)
 
 float ramp_length(const Spec& s, int side)
 {
-    Ramp ramp = s.ramps[side];
+    const Ramp ramp = s.ramps[side];
     if (ramp == Ramp::kNone)
         return 0.0f;
     float length = s.length > 0.0f ? s.length : (ramp == Ramp::kKicker ? 2.0f * s.height : s.height);
     length = std::max(10.0f, length);
     if (s.lower) {
         // (a pit: the ramp opposite takes its share of the width)
-        float across = side == kMinusX || side == kPlusX ? s.x1 - s.x0 : s.z1 - s.z0;
-        int opposite = side ^ 1;
-        float room = s.ramps[opposite] != Ramp::kNone ? across * 0.5f - 10.0f : across - 10.0f;
+        const float across = side == kMinusX || side == kPlusX ? s.x1 - s.x0 : s.z1 - s.z0;
+        const int opposite = side ^ 1;
+        const float room = s.ramps[opposite] != Ramp::kNone ? across * 0.5f - 10.0f : across - 10.0f;
         length = std::max(10.0f, std::min(length, room));
     }
     return length;
@@ -73,10 +73,10 @@ std::vector<std::pair<float, float>> quarter_profile(float radius, float height,
         segments = 1;
     // An arc of `radius`: its foot (out `radius` sin(top), up 0) to the angle reaching min(height, radius) - vertical
     // when the full quarter; d = R (sin top - sin t), y = R (1 - cos t).
-    float rise = std::min(height, radius);
-    double top = std::acos(std::max(-1.0, std::min(1.0, 1.0 - static_cast<double>(rise) / radius)));
+    const float rise = std::min(height, radius);
+    const double top = std::acos(std::max(-1.0, std::min(1.0, 1.0 - static_cast<double>(rise) / radius)));
     for (int i = 0; i <= segments; ++i) {
-        double t = top * i / segments;
+        const double t = top * i / segments;
         auto d = static_cast<float>(radius * (std::sin(top) - std::sin(t)));
         auto y = static_cast<float>(radius * (1.0 - std::cos(t)));
         if (i == segments) {
@@ -119,7 +119,9 @@ struct Builder {
 
     void get_corner(V3 p, V3 n)
     {
-        float ax = std::fabs(n.x), ay = std::fabs(n.y), az = std::fabs(n.z);
+        const float ax = std::fabs(n.x);
+        const float ay = std::fabs(n.y);
+        const float az = std::fabs(n.z);
         float u = 0.0f, v = 0.0f;
         if (ay >= ax && ay >= az)
             u = p.x, v = p.z;
@@ -133,7 +135,7 @@ struct Builder {
     void get_tri(V3 a, V3 b, V3 c, V3 hint, uint16_t flags)
     {
         V3 n = perpendicular(b - a, c - a);
-        float length = std::sqrt(get_dot(n, n));
+        const float length = std::sqrt(get_dot(n, n));
         if (!(length > 1e-3f))
             return;
         if (get_dot(n, hint) < 0.0f) {
@@ -168,25 +170,28 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, float foot, float top
     else
         profile = quarter_profile(length, rise, kQuarterSegments);
     for (size_t i = 0; i + 1 < profile.size(); ++i) {
-        float d0 = profile[i].first, y0 = foot + profile[i].second;
-        float d1 = profile[i + 1].first, y1 = foot + profile[i + 1].second;
-        float dd = d1 - d0, dy = y1 - y0;
+        const float d0 = profile[i].first;
+        const float y0 = foot + profile[i].second;
+        const float d1 = profile[i + 1].first;
+        const float y1 = foot + profile[i + 1].second;
+        const float dd = d1 - d0;
+        const float dy = y1 - y0;
         // (the surface's normal: out by the rise, up by the run)
-        V3 hint = out * dy + get_up() * -dd;
-        uint16_t flags = ramp == Ramp::kQuarter && dy >= -dd ? kFlagVert : kFlagRamp;
+        const V3 hint = out * dy + get_up() * -dd;
+        const uint16_t flags = ramp == Ramp::kQuarter && dy >= -dd ? kFlagVert : kFlagRamp;
         b->get_quad(get_at(e0 + out * d0, y0), get_at(e1 + out * d0, y0), get_at(e1 + out * d1, y1),
                     get_at(e0 + out * d1, y1), hint, flags);
     }
     if (!cheeks)
         return;
-    V3 along = make_unit(e1 - e0);
+    const V3 along = make_unit(e1 - e0);
     for (int end = 0; end < 2; ++end) {
-        V3 e = end ? e1 : e0;
-        V3 away = end ? along : along * -1.0f;
-        V3 corner = get_at(e, foot);
+        const V3 e = end ? e1 : e0;
+        const V3 away = end ? along : along * -1.0f;
+        const V3 corner = get_at(e, foot);
         for (size_t i = 0; i + 1 < profile.size(); ++i) {
-            V3 p = get_at(e + out * profile[i].first, foot + profile[i].second);
-            V3 q = get_at(e + out * profile[i + 1].first, foot + profile[i + 1].second);
+            const V3 p = get_at(e + out * profile[i].first, foot + profile[i].second);
+            const V3 q = get_at(e + out * profile[i + 1].first, foot + profile[i + 1].second);
             b->get_tri(corner, p, q, away, kFlagWall);
         }
     }
@@ -202,7 +207,8 @@ Mesh get_build(const Spec& spec)
     if (!normalise(&s))
         return b.mesh;
     if (!s.lower) {
-        float top = s.base + s.height, bottom = s.base - kSink;
+        const float top = s.base + s.height;
+        const float bottom = s.base - kSink;
         b.get_quad({s.x0, top, s.z0}, {s.x1, top, s.z0}, {s.x1, top, s.z1}, {s.x0, top, s.z1}, get_up(), kFlagDeck);
         for (int side = 0; side < 4; ++side) {
             V3 out{}, e0{}, e1{};
@@ -213,13 +219,13 @@ Mesh get_build(const Spec& spec)
                 add_ramp(&b, s.ramps[side], out, e0, e1, s.base, top, ramp_length(s, side), true);
         }
     } else {
-        float floor = s.base - s.height;
+        const float floor = s.base - s.height;
         b.get_quad({s.x0, floor, s.z0}, {s.x1, floor, s.z0}, {s.x1, floor, s.z1}, {s.x0, floor, s.z1}, get_up(),
                    kFlagDeck);
         for (int side = 0; side < 4; ++side) {
             V3 out{}, e0{}, e1{};
             side_frame(s, side, &out, &e0, &e1);
-            V3 in = out * -1.0f;
+            const V3 in = out * -1.0f;
             if (s.ramps[side] == Ramp::kNone)
                 b.get_quad(get_at(e0, floor), get_at(e1, floor), get_at(e1, s.base), get_at(e0, s.base), in, kFlagWall);
             else
@@ -343,7 +349,7 @@ std::vector<std::string> split_commas(const std::string& text)
     std::vector<std::string> parts;
     size_t start = 0;
     while (true) {
-        size_t comma = text.find(',', start);
+        const size_t comma = text.find(',', start);
         parts.push_back(text.substr(start, comma == std::string::npos ? std::string::npos : comma - start));
         if (comma == std::string::npos)
             break;
@@ -357,7 +363,7 @@ bool is_hex8(const std::string& text, uint32_t* value)
     if (text.size() != 10 || text[0] != '0' || (text[1] != 'x' && text[1] != 'X'))
         return false;
     char* end = nullptr;
-    unsigned long v = std::strtoul(text.c_str() + 2, &end, 16);
+    const unsigned long v = std::strtoul(text.c_str() + 2, &end, 16);
     if (!end || *end)
         return false;
     *value = static_cast<uint32_t>(v);
@@ -368,7 +374,7 @@ bool valid_word(const std::string& name)
 {
     if (name.empty() || name.size() > 64)
         return false;
-    for (char c : name) {
+    for (const char c : name) {
         if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_'))
             return false;
     }
@@ -395,7 +401,7 @@ std::string link_record(const Spec& s, const char* material_name)
     std::snprintf(colour, sizeof(colour), "%08X", s.colour);
     char material[16];
     std::snprintf(material, sizeof(material), "0x%08X", s.material);
-    std::string material_text =
+    const std::string material_text =
         material_name && *material_name && valid_word(material_name) && name_checksum_for(material_name) == s.material
             ? std::string(material_name)
             : std::string(material);
@@ -438,10 +444,11 @@ bool read_record(const std::string& text, Spec* out)
         return true;
     };
     for (std::string word; in >> word;) {
-        size_t eq = word.find('=');
+        const size_t eq = word.find('=');
         if (eq == std::string::npos || eq == 0)
             return false;
-        std::string key = word.substr(0, eq), value = word.substr(eq + 1);
+        const std::string key = word.substr(0, eq);
+        const std::string value = word.substr(eq + 1);
         bool ok = true;
         if (key == "rect") {
             std::vector<std::string> parts = split_commas(value);
@@ -475,12 +482,12 @@ bool read_record(const std::string& text, Spec* out)
             ok = once(&have_uv) && read_float(value, &s.uv) && s.uv > 0.0f;
         } else if (key == "color") {
             char* end = nullptr;
-            unsigned long v = std::strtoul(value.c_str(), &end, 16);
+            const unsigned long v = std::strtoul(value.c_str(), &end, 16);
             ok = once(&have_colour) && value.size() == 8 && end && !*end;
             s.colour = static_cast<uint32_t>(v);
         } else if (key == "terrain") {
             char* end = nullptr;
-            long v = std::strtol(value.c_str(), &end, 10);
+            const long v = std::strtol(value.c_str(), &end, 10);
             ok = once(&have_terrain) && !value.empty() && end && !*end && v >= 0 && v <= 0xFFFF;
             s.terrain = static_cast<uint16_t>(v);
         } else if (key == "hides") {
@@ -509,7 +516,7 @@ std::string fresh_name(const std::vector<Spec>& specs)
     for (int n = 1;; ++n) {
         char name[32];
         std::snprintf(name, sizeof(name), "ed_ground%02d", n);
-        bool taken = std::any_of(specs.begin(), specs.end(), [&](const Spec& s) { return s.name == name; });
+        const bool taken = std::any_of(specs.begin(), specs.end(), [&](const Spec& s) { return s.name == name; });
         if (!taken)
             return name;
     }
@@ -522,13 +529,16 @@ bool tile_inside(V3 min, V3 max, const Spec& s, float margin)
 
 bool ground_face_under(const V3 c[3], const Spec& s, float tolerance)
 {
-    V3 n = perpendicular(c[1] - c[0], c[2] - c[0]);
-    float length = std::sqrt(get_dot(n, n));
+    const V3 n = perpendicular(c[1] - c[0], c[2] - c[0]);
+    const float length = std::sqrt(get_dot(n, n));
     if (!(length > 0.0f) || std::fabs(n.y) / length < 0.7f)
         return false;
-    float min_x = std::min({c[0].x, c[1].x, c[2].x}), max_x = std::max({c[0].x, c[1].x, c[2].x});
-    float min_z = std::min({c[0].z, c[1].z, c[2].z}), max_z = std::max({c[0].z, c[1].z, c[2].z});
-    float min_y = std::min({c[0].y, c[1].y, c[2].y}), max_y = std::max({c[0].y, c[1].y, c[2].y});
+    const float min_x = std::min({c[0].x, c[1].x, c[2].x});
+    const float max_x = std::max({c[0].x, c[1].x, c[2].x});
+    const float min_z = std::min({c[0].z, c[1].z, c[2].z});
+    const float max_z = std::max({c[0].z, c[1].z, c[2].z});
+    const float min_y = std::min({c[0].y, c[1].y, c[2].y});
+    const float max_y = std::max({c[0].y, c[1].y, c[2].y});
     if (max_y < s.base - tolerance || min_y > s.base + tolerance)
         return false;
     return max_x > s.x0 + 1.0f && min_x < s.x1 - 1.0f && max_z > s.z0 + 1.0f && min_z < s.z1 - 1.0f;

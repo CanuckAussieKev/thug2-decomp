@@ -101,7 +101,7 @@ bool script_flagged(uint32_t name)
     get_seen()[get_seen_count()++] = name;
     if (name == g_editor_camera_name)
         return false;
-    for (uint32_t skip_name : g_editor_camera_skip_names) {
+    for (const uint32_t skip_name : g_editor_camera_skip_names) {
         if (name == skip_name)
             return true;
     }
@@ -151,7 +151,7 @@ void flag_scripted_hit(render::ProbeRay* feeler)
 {
     if (!feeler->hit_.face_flag40_)
         return;
-    uint32_t node_name = feeler->hit_.object_checksum_;
+    const uint32_t node_name = feeler->hit_.object_checksum_;
     if (!node_name)
         return;
     script::Struct* node = level_nodes::fetch_vertex(node_name, false);
@@ -239,20 +239,20 @@ void EditorViewModule::conceal(bool hide)
 // 0x004E5A10
 void EditorViewModule::resync_ground_shadow()
 {
-    maths::Vec4 top = {cursor_.x, cursor_.y + level_y_, cursor_.z, cursor_.w};
+    const maths::Vec4 top = {cursor_.x, cursor_.y + level_y_, cursor_.z, cursor_.w};
     Feeler feeler;
     feeler.change_origin(top);
-    maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
+    const maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
     feeler.change_finish(bottom);
     if (!feeler.get_hit_shape(1, 0)) {
         shadow_handle_.reset();
         return;
     }
     build_blob_shadow();
-    maths::Vec4 point = feeler.get_point();
+    const maths::Vec4 point = feeler.get_point();
     maths::Mat4 identity;
     identity.reset_to_identity();
-    maths::Vec4 normal = feeler.get_normal();
+    const maths::Vec4 normal = feeler.get_normal();
     shadow_handle_->tick_frame(&point, &identity, normal);
 }
 
@@ -275,24 +275,24 @@ bool EditorViewModule::ground_height(maths::Vec4 start, maths::Vec4 end, float* 
     if (feeler.get_normal().y < kMaxSlope)
         return false;
     *height = feeler.get_point().y;
-    maths::Vec4 point = feeler.get_point();
+    const maths::Vec4 point = feeler.get_point();
     return !flagged_object_between(start, point);
 }
 
 // 0x004E5640
 bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
 {
-    float above = cursor_.y + step;
-    float below = get_global(0xF230D521) + cursor_.y;
+    const float above = cursor_.y + step;
+    const float below = get_global(0xF230D521) + cursor_.y;
     float height = 0.0f;
     if (!ground_height({cursor_.x, above + level_y_, cursor_.z, cursor_.w},
                        {cursor_.x, below + level_y_, cursor_.z, cursor_.w}, &height))
         return false;
     // Nothing in the way at head height from where it was?
-    double was = static_cast<double>(previous.y) + level_y_;
+    const double was = static_cast<double>(previous.y) + level_y_;
     auto top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
-    maths::Vec4 to = {cursor_.x, top, cursor_.z, cursor_.w};
-    maths::Vec4 from = {previous.x, top, previous.z, previous.w};
+    const maths::Vec4 to = {cursor_.x, top, cursor_.z, cursor_.w};
+    const maths::Vec4 from = {previous.x, top, previous.z, previous.w};
     bool clear = true;
     if (!simple_collision_ && flagged_object_between(from, to))
         clear = false;
@@ -317,7 +317,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
         return true;
     }
     // Down: the drop added to the height (unless it's a small one with the camera low).
-    double drop = static_cast<double>(cursor_.y) - height;
+    const double drop = static_cast<double>(cursor_.y) - height;
     if (level_y_ > 1.0f || !(drop <= step))
         level_y_ = static_cast<float>(drop + level_y_);
     cursor_.y = height;
@@ -358,7 +358,7 @@ void EditorViewModule::tick_frame()
     const PadSnapshot& pad = input_ptr_->pad_primary_;
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
-    double heading = static_cast<double>(get_global(0x8242D878)) * pad.scaled_stick_[0] + heading_;
+    const double heading = static_cast<double>(get_global(0x8242D878)) * pad.scaled_stick_[0] + heading_;
     heading_ = static_cast<float>(heading);
     if (heading > kTwoPi) {
         double h = heading_;
@@ -375,7 +375,7 @@ void EditorViewModule::tick_frame()
         heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.
-    double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * pad.scaled_stick_[1]) + lean_angle_;
+    const double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * pad.scaled_stick_[1]) + lean_angle_;
     lean_angle_ = static_cast<float>(tilt);
     if (tilt > max_tilt_)
         lean_angle_ = max_tilt_;
@@ -384,8 +384,8 @@ void EditorViewModule::tick_frame()
 
     // The zoom and height buttons by controller type.
     bool zoom_in = false, zoom_out = false, raise = false, lower = false;
-    int controller = game_config::g_platform;
-    uint32_t buttons = input_ptr_->events_;
+    const int controller = game_config::g_platform;
+    const uint32_t buttons = input_ptr_->events_;
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
@@ -413,7 +413,7 @@ void EditorViewModule::tick_frame()
     double zoom_rate = get_global(0x4E58F829);
     if (!zoom_in)
         zoom_rate = zoom_out ? -zoom_rate : 0.0f;
-    double zoom = zoom_rate * zoom_ + zoom_;
+    const double zoom = zoom_rate * zoom_ + zoom_;
     zoom_ = static_cast<float>(zoom);
     if (zoom < min_zoom_)
         zoom_ = min_zoom_;
@@ -423,7 +423,7 @@ void EditorViewModule::tick_frame()
         static_cast<float>((static_cast<double>(zoom_) - min_zoom_) / (static_cast<double>(max_zoom_) - min_zoom_));
 
     // Raising / lowering the height (by the zoom; slowly when close), not through a ceiling.
-    float near_rate = get_global(0x604961F4);
+    const float near_rate = get_global(0x604961F4);
     auto rise =
         static_cast<float>((static_cast<double>(get_global(0x5C445EAD)) - near_rate) * zoom_fraction + near_rate);
     if (zoom_ < kNearZoom)
@@ -435,14 +435,14 @@ void EditorViewModule::tick_frame()
             rise = -rise;
     }
     if ((raise || lower) && rise > 0.0f) {
-        maths::Vec4 from = {cursor_.x, static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
-                            cursor_.z, cursor_.w};
-        maths::Vec4 to = {cursor_.x, from.y - kDown, cursor_.z, cursor_.w};
+        const maths::Vec4 from = {cursor_.x, static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
+                                  cursor_.z, cursor_.w};
+        const maths::Vec4 to = {cursor_.x, from.y - kDown, cursor_.z, cursor_.w};
         Feeler ceiling;
         ceiling.change_origin(from);
         ceiling.change_finish(to);
         if (ceiling.get_hit_shape(1, 0)) {
-            float room = from.y - ceiling.get_point().y;
+            const float room = from.y - ceiling.get_point().y;
             if (get_global(0x61D56FA0) < room)
                 rise = 0.0f;
             if (room < 0.0f)
@@ -453,16 +453,16 @@ void EditorViewModule::tick_frame()
     }
     level_y_ = rise + level_y_;
 
-    modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module;
     if (in_park_editor())
         rail_editor_moving(0);
 
     // The cursor kept under anything above it, and the height under any ceiling.
     Feeler feeler;
     {
-        float height = level_y_;
-        maths::Vec4 above = {cursor_.x, static_cast<float>(static_cast<double>(height) + cursor_.y), cursor_.z,
-                             static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        const float height = level_y_;
+        const maths::Vec4 above = {cursor_.x, static_cast<float>(static_cast<double>(height) + cursor_.y), cursor_.z,
+                                   static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
         feeler.change_origin(above);
         feeler.change_finish(cursor_);
         if (feeler.get_hit_shape(1, 0)) {
@@ -470,9 +470,9 @@ void EditorViewModule::tick_frame()
             cursor_ = feeler.get_point();
         }
         feeler.change_origin(cursor_);
-        float up = level_y_ + kAbove;
-        maths::Vec4 top = {cursor_.x, up + cursor_.y, cursor_.z,
-                           static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        const float up = level_y_ + kAbove;
+        const maths::Vec4 top = {cursor_.x, up + cursor_.y, cursor_.z,
+                                 static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
         feeler.change_finish(top);
         if (feeler.get_hit_shape(1, 0))
             level_y_ = static_cast<float>((static_cast<double>(feeler.get_point().y) - cursor_.y) - kAbove);
@@ -483,12 +483,12 @@ void EditorViewModule::tick_frame()
         level_y_ = 0.0f;
 
     // The heading's axes.
-    float heading_now = heading_;
+    const float heading_now = heading_;
     right_side_ = {static_cast<float>(std::cos(static_cast<double>(heading_now))), 0.0f,
                    static_cast<float>(-std::sin(static_cast<double>(heading_now))), 1.0f};
     forward_ = {static_cast<float>(std::sin(static_cast<double>(heading_now))), 0.0f,
                 static_cast<float>(std::cos(static_cast<double>(heading_now))), 1.0f};
-    float near_speed = get_global(0x83BDE786);
+    const float near_speed = get_global(0x83BDE786);
     double speed = (static_cast<double>(get_global(0xBFB0D8DF)) - near_speed) * zoom_fraction + near_speed;
     if (zoom_ < kNearZoom)
         speed = 1.0f;
@@ -511,14 +511,16 @@ void EditorViewModule::tick_frame()
     auto a1 = static_cast<float>(ahead * forward_.w);
     auto a2 = static_cast<float>(ahead * forward_.z);
     auto a3 = static_cast<float>(ahead * forward_.y);
-    double a4 = ahead * forward_.x;
+    const double a4 = ahead * forward_.x;
     auto b1 = static_cast<float>(a1 * speed), b2 = static_cast<float>(a2 * speed), b3 = static_cast<float>(a3 * speed);
     auto b4 = static_cast<float>(a4 * speed);
-    double c1 = static_cast<double>(side) * right_side_.w, c2 = static_cast<double>(side) * right_side_.z;
-    float c3 = side * right_side_.y, c4 = side * right_side_.x;
+    const double c1 = static_cast<double>(side) * right_side_.w;
+    const double c2 = static_cast<double>(side) * right_side_.z;
+    const float c3 = side * right_side_.y;
+    const float c4 = side * right_side_.x;
     auto d1 = static_cast<float>(c1 * speed), d2 = static_cast<float>(c2 * speed), d3 = static_cast<float>(c3 * speed);
-    double x0 = speed * c4;
-    maths::Vec4 previous = cursor_;
+    const double x0 = speed * c4;
+    const maths::Vec4 previous = cursor_;
     cursor_.x = static_cast<float>((x0 + b4) + cursor_.x);
     cursor_.y = static_cast<float>((static_cast<double>(d3) + b3) + cursor_.y);
     cursor_.z = static_cast<float>((static_cast<double>(d2) + b2) + cursor_.z);
@@ -531,9 +533,9 @@ void EditorViewModule::tick_frame()
     // The camera: the focus follows the cursor (its height eased), the camera at the zoom along the tilt.
     focus_.x = cursor_.x;
     focus_.z = cursor_.z;
-    float ease = get_global(0x725AD02C);
+    const float ease = get_global(0x725AD02C);
     focus_.y = static_cast<float>(((static_cast<double>(cursor_.y) + level_y_) - focus_.y) * ease + focus_.y);
-    float tilt_now = lean_angle_;
+    const float tilt_now = lean_angle_;
     auto at_x = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.x);
     auto at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
     auto at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
@@ -547,9 +549,11 @@ void EditorViewModule::tick_frame()
     look.row[2] = {at_x, at_y, at_z, 0.0f};
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     entity_->basis_frame_ = look;
-    float zoom_now = zoom_;
-    float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)
-    float off_z = at_z * zoom_now, nudge_along_y = at_y * zoom_now, side_shift_x = at_x * zoom_now;
+    const float zoom_now = zoom_;
+    const float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)
+    const float off_z = at_z * zoom_now;
+    const float nudge_along_y = at_y * zoom_now;
+    const float side_shift_x = at_x * zoom_now;
     viewer_.x = side_shift_x + focus_.x;
     viewer_.y = focus_.y + nudge_along_y;
     viewer_.z = focus_.z + off_z;

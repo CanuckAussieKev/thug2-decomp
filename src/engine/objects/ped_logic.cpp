@@ -390,7 +390,7 @@ const char* profile_voice()
         return male == 1 ? "Male1" : "Female1";
     }
     script::Array* voices = script::fetch_list(kPlayerVoices);
-    int count = static_cast<int>(voices->extent_);
+    const int count = static_cast<int>(voices->extent_);
     for (int i = 0; i < count; ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(voices->fetch_part(static_cast<uint32_t>(i)));
         uint32_t id = 0;
@@ -526,7 +526,7 @@ bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script
     if (params->fetch_float(kPercent, &boost, 0))
         boost = static_cast<float>(static_cast<double>(boost) * kPercentScale + 1.0);
     if (KinematicsModule* motion = get_motion(entity_)) {
-        double speed = static_cast<double>(boost) * motion->path_max_speed_;
+        const double speed = static_cast<double>(boost) * motion->path_max_speed_;
         motion->path_max_speed_ = static_cast<float>(speed);
         if (speed > kMaxBoostedSpeed)
             motion->path_max_speed_ = kMaxBoostedSpeed;
@@ -642,7 +642,7 @@ bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script
             }
         } else {
             script::Array* skaters = script::fetch_list(kMasterSkaterList);
-            int count = static_cast<int>(skaters->extent_);
+            const int count = static_cast<int>(skaters->extent_);
             for (int i = 0; i < count; ++i) {
                 auto* skater = reinterpret_cast<script::Struct*>(skaters->fetch_part(static_cast<uint32_t>(i)));
                 uint32_t name = 0;

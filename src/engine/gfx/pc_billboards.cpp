@@ -61,8 +61,8 @@ float sort_depth_of_batch(const BillboardBatch* batch) { return batch->material 
 
 void draw_list(const memory::ListNode* head, const float* y_axis, const float* x_axis, const float* z_axis)
 {
-    for (memory::ListNode* node = head_of_scene_list(head); node;) {
-        memory::ListNode* next = get_next_node(node);
+    for (const memory::ListNode* node = head_of_scene_list(head); node;) {
+        const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40)
             draw_billboard_mesh(mesh, y_axis, x_axis, z_axis);
@@ -139,12 +139,14 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     input_port()->GetVertexShader(&vertex_shader);
     IDirect3DIndexBuffer9* indices = nullptr;
     input_port()->GetIndices(&indices);
-    uint32_t primitives = primitive_count(mesh->primitive_type_, mesh->index_counts_[0]);
+    const uint32_t primitives = primitive_count(mesh->primitive_type_, mesh->index_counts_[0]);
     uint8_t* into = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
     const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
     const float* pivot = mesh->billboard->pivot;
-    float px = pivot[0], py = pivot[1], pz = pivot[2];
+    const float px = pivot[0];
+    const float py = pivot[1];
+    const float pz = pivot[2];
     uint32_t rest = mesh->stride - 0xC;
     const uint32_t* table = nullptr;
     if (mesh->per_vertex_bytes_) { // (a value per vertex from the material's table)
@@ -162,12 +164,12 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         auto c = static_cast<float>(static_cast<double>(x) * x_axis[2]);
         auto t2 = static_cast<float>(static_cast<double>(y) * y_axis[2]);
         a = static_cast<float>(static_cast<double>(y) * y_axis[0] + a);
-        double sum_y = static_cast<double>(y) * y_axis[1] + b;
-        double sum_z = static_cast<double>(c) + t2;
+        const double sum_y = static_cast<double>(y) * y_axis[1] + b;
+        const double sum_z = static_cast<double>(c) + t2;
         auto t3 = static_cast<float>(static_cast<double>(z) * z_axis[2]);
         a = static_cast<float>(static_cast<double>(z) * z_axis[0] + a);
         auto b2 = static_cast<float>(static_cast<double>(z) * z_axis[1] + sum_y);
-        double c2 = t3 + sum_z;
+        const double c2 = t3 + sum_z;
         float out[3] = {static_cast<float>(static_cast<double>(px) + a),
                         static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)};
         std::memcpy(into, out, 0xC);
@@ -231,7 +233,7 @@ BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 void BillboardSet::setup_axes()
 {
     const auto* m = reinterpret_cast<float*>(&g_view_matrix);
-    float vz = m[10];
+    const float vz = m[10];
     view[0] = m[2];
     view[1] = m[6];
     view[3] = 1.0f;
@@ -242,9 +244,9 @@ void BillboardSet::setup_axes()
     double ry = static_cast<double>(view[2]) * 0.0f - static_cast<double>(view[0]) * 0.0f;
     auto rz = static_cast<float>(static_cast<double>(view[0]) - zero);
     {
-        double length = std::sqrt(static_cast<double>(rz) * rz + ry * ry + rx * rx);
+        const double length = std::sqrt(static_cast<double>(rz) * rz + ry * ry + rx * rx);
         if (length > 0.0f) {
-            double inverse = 1.0f / length;
+            const double inverse = 1.0f / length;
             rx *= inverse;
             ry *= inverse;
             rz = static_cast<float>(rz * inverse);
@@ -257,12 +259,12 @@ void BillboardSet::setup_axes()
     // up = forward x right... as the original orders it
     double ux = static_cast<double>(view[2]) * right[1] - static_cast<double>(view[1]) * right[2];
     double uy = static_cast<double>(right[2]) * view[0] - static_cast<double>(view[2]) * right[0];
-    double uz_wide = static_cast<double>(view[1]) * right[0] - static_cast<double>(right[1]) * view[0];
+    const double uz_wide = static_cast<double>(view[1]) * right[0] - static_cast<double>(right[1]) * view[0];
     auto uz = static_cast<float>(uz_wide);
     {
-        double length = std::sqrt(uz_wide * uz + uy * uy + ux * ux); // (the unrounded one times the stored one)
+        const double length = std::sqrt(uz_wide * uz + uy * uy + ux * ux); // (the unrounded one times the stored one)
         if (length > 0.0f) {
-            double inverse = 1.0f / length;
+            const double inverse = 1.0f / length;
             ux *= inverse;
             uy *= inverse;
             uz = static_cast<float>(uz * inverse);
@@ -276,9 +278,9 @@ void BillboardSet::setup_axes()
     auto flatten = [](float x, float z, float* out) {
         double fx = x, fz = z;
         float y = 0.0f;
-        double length = std::sqrt(fz * fz + fx * fx);
+        const double length = std::sqrt(fz * fz + fx * fx);
         if (length > 0.0f) {
-            double inverse = 1.0f / length;
+            const double inverse = 1.0f / length;
             fx *= inverse;
             y = static_cast<float>(0.0f * inverse);
             fz *= inverse;
@@ -324,7 +326,7 @@ void BillboardBatch::add_row(MeshRef* mesh)
 // 0x004CE250
 void BillboardBatch::erase_record(MeshRef* mesh)
 {
-    for (memory::ListNode* head : lists) {
+    for (const memory::ListNode* head : lists) {
         memory::ListNode* node = head->next;
         if (is_head(node))
             continue;
@@ -351,10 +353,10 @@ void BillboardBatch::render()
     else
         material->submit_states();
     for (auto& list : lists) { // (the first shown list's first mesh's pixel shader)
-        memory::ListNode* first = list->next;
+        const memory::ListNode* first = list->next;
         if (is_head(first) || !first)
             continue;
-        memory::ListNode* node = head_of_scene_list(list);
+        const memory::ListNode* node = head_of_scene_list(list);
         if (vertex_shaders())
             set_pixel_shader(static_cast<BillboardRec*>(node->data)->mesh->pixel_shader_, nullptr);
         break;
@@ -395,8 +397,8 @@ void BillboardBatch::render()
         draw_list(lists[1], y_axis, x_axis, z_axis);
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
-    for (memory::ListNode* node = head_of_scene_list(lists[2]); node;) {
-        memory::ListNode* next = get_next_node(node);
+    for (const memory::ListNode* node = head_of_scene_list(lists[2]); node;) {
+        const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40) {
             const float* axis = mesh->billboard->axis;
@@ -404,9 +406,9 @@ void BillboardBatch::render()
             double rx = static_cast<double>(d[1]) * axis[2] - static_cast<double>(d[2]) * axis[1];
             auto ry = static_cast<float>(static_cast<double>(d[2]) * axis[0] - static_cast<double>(d[0]) * axis[2]);
             auto rz = static_cast<float>(static_cast<double>(d[0]) * axis[1] - static_cast<double>(d[1]) * axis[0]);
-            double length = std::sqrt(rx * rx + static_cast<double>(rz) * rz + static_cast<double>(ry) * ry);
+            const double length = std::sqrt(rx * rx + static_cast<double>(rz) * rz + static_cast<double>(ry) * ry);
             if (length > 0.0f) {
-                double inverse = 1.0f / length;
+                const double inverse = 1.0f / length;
                 rx *= inverse;
                 ry = static_cast<float>(ry * inverse);
                 rz = static_cast<float>(rz * inverse);
@@ -415,9 +417,9 @@ void BillboardBatch::render()
             double uy = rx * axis[2] - static_cast<double>(rz) * axis[0];
             double uz = static_cast<double>(ry) * axis[0] - rx * axis[1];
             auto uz_stored = static_cast<float>(uz);
-            double length2 = std::sqrt(ux * ux + uz * uz + uy * uy);
+            const double length2 = std::sqrt(ux * ux + uz * uz + uy * uy);
             if (length2 > 0.0f) {
-                double inverse = 1.0f / length2;
+                const double inverse = 1.0f / length2;
                 ux *= inverse;
                 uy *= inverse;
                 uz *= inverse;
@@ -459,7 +461,7 @@ void BillboardSet::remove_mesh(MeshRef* mesh)
     if (!batch)
         return;
     batch->erase_record(mesh);
-    for (memory::ListNode* head : batch->lists) {
+    for (const memory::ListNode* head : batch->lists) {
         if (head->prev != head)
             return;
     }

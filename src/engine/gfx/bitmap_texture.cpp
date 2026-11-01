@@ -64,7 +64,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
     unknowne_ = source->unknowne_;
     unknownf_ = source->unknownf_;
     IDirect3DTexture9* from = get_d3d(source);
-    DWORD level_count = from->GetLevelCount();
+    const DWORD level_count = from->GetLevelCount();
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
     input_port()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
@@ -157,7 +157,7 @@ bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new
 {
     if (texture)
         get_d3d(this)->Release();
-    HRESULT result =
+    const HRESULT result =
         input_port()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                     reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
     get_d3d(this)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&surface));
@@ -181,7 +181,7 @@ void release_render_target_textures()
 {
     for (DWORD stage = 0; stage < 8; ++stage)
         input_port()->SetTexture(stage, nullptr); // (the cache isn't told)
-    for (Elem* node = foremost(); node; node = node->next) {
+    for (const Elem* node = foremost(); node; node = node->next) {
         TextureRef* t = node->texture;
         if (!t->texture || !t->render_target_)
             continue;
@@ -196,7 +196,7 @@ void release_render_target_textures()
 // 0x004E0440
 void restore_render_target_textures()
 {
-    for (Elem* node = foremost(); node; node = node->next) {
+    for (const Elem* node = foremost(); node; node = node->next) {
         TextureRef* t = node->texture;
         if (t->texture || !t->render_target_)
             continue;

@@ -71,7 +71,7 @@ void EditedGoal::remove_gap_and_renumber(uint8_t gap)
 // 0x004E7390
 void EditedGoal::register_gap_entry(uint8_t gap)
 {
-    uint8_t count = num_gaps_;
+    const uint8_t count = num_gaps_;
     for (int i = 0; i < num_gaps_; ++i) {
         if (gaps_[i] == gap)
             return;
@@ -121,7 +121,7 @@ void EditedGoal::remove_key_combo_set(int set)
 // 0x004E6D50
 KeyComboSet* EditedGoal::find_key_combo_set(int set)
 {
-    int count = num_key_combo_sets_;
+    const int count = num_key_combo_sets_;
     for (int i = 0; i < count; ++i) {
         if (key_combo_sets_[i].set == set)
             return &key_combo_sets_[i];
@@ -242,24 +242,24 @@ void EditedGoal::create_markers()
 // 0x004E7210
 bool EditedGoal::near_other_point(const maths::Vec4& pos)
 {
-    float radius = script::fetch_float(0x71B20276);
-    float start_to_object_radius = script::fetch_float(0x3F6E9739);
-    int count = vertex_total_;
-    int current = current_point_;
+    const float radius = script::fetch_float(0x71B20276);
+    const float start_to_object_radius = script::fetch_float(0x3F6E9739);
+    const int count = vertex_total_;
+    const int current = current_point_;
     for (int i = 0; i < count; ++i) {
         if (i == current)
             continue;
         const EditedGoalPoint& point = path_vertices_[i];
-        int current_kind = path_vertices_[current].kind;
+        const int current_kind = path_vertices_[current].kind;
         double within = radius;
         if ((current_kind == kPointObject && point.kind == kPointStart) ||
             (current_kind == kPointStart && point.kind == kPointObject))
             within = start_to_object_radius;
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
         auto dx = static_cast<float>(static_cast<double>(point.pos.x) - pos.x);
-        double dy = (static_cast<double>(point.pos.y) + point.height) - pos.y;
-        double dz = static_cast<double>(point.pos.z) - pos.z;
-        double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
+        const double dy = (static_cast<double>(point.pos.y) + point.height) - pos.y;
+        const double dz = static_cast<double>(point.pos.z) - pos.z;
+        const double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
         if (distance < within)
             return true;
     }

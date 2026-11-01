@@ -62,7 +62,7 @@ float get_argument(script::Struct* params)
 // 0x00448AE0: Sin <degrees>: sin = the sine.
 bool cfunc_sin(script::Struct* params, script::Script* script)
 {
-    float angle = get_argument(params);
+    const float angle = get_argument(params);
     script->args_->push_float(kSin, static_cast<float>(std::sin(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
@@ -70,7 +70,7 @@ bool cfunc_sin(script::Struct* params, script::Script* script)
 // 0x00448B20: Cos <degrees>: cos = the cosine.
 bool cfunc_cos(script::Struct* params, script::Script* script)
 {
-    float angle = get_argument(params);
+    const float angle = get_argument(params);
     script->args_->push_float(kCos, static_cast<float>(std::cos(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
@@ -78,7 +78,7 @@ bool cfunc_cos(script::Struct* params, script::Script* script)
 // 0x00448B60: Tan <degrees>: tan = the tangent.
 bool cfunc_tan(script::Struct* params, script::Script* script)
 {
-    float angle = get_argument(params);
+    const float angle = get_argument(params);
     script->args_->push_float(kTan, static_cast<float>(std::tan(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
@@ -86,7 +86,7 @@ bool cfunc_tan(script::Struct* params, script::Script* script)
 // 0x00448BA0: ASin <value>: asin = the arc sine in degrees (the C runtime's asin).
 bool cfunc_a_sin(script::Struct* params, script::Script* script)
 {
-    float value = get_argument(params);
+    const float value = get_argument(params);
     script->args_->push_float(kASin, static_cast<float>(std::asin(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
@@ -94,7 +94,7 @@ bool cfunc_a_sin(script::Struct* params, script::Script* script)
 // 0x00448BE0: ACos <value>: acos = the arc cosine in degrees (the C runtime's acos).
 bool cfunc_a_cos(script::Struct* params, script::Script* script)
 {
-    float value = get_argument(params);
+    const float value = get_argument(params);
     script->args_->push_float(kACos, static_cast<float>(std::acos(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
@@ -102,7 +102,7 @@ bool cfunc_a_cos(script::Struct* params, script::Script* script)
 // 0x00448C20: ATan <value>: atan = the arc tangent in degrees.
 bool cfunc_a_tan(script::Struct* params, script::Script* script)
 {
-    float value = get_argument(params);
+    const float value = get_argument(params);
     script->args_->push_float(kATan, static_cast<float>(std::atan(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
@@ -110,7 +110,7 @@ bool cfunc_a_tan(script::Struct* params, script::Script* script)
 // 0x00448C60: Sqrt <value>: sqrt = the square root.
 bool cfunc_sqrt(script::Struct* params, script::Script* script)
 {
-    float value = get_argument(params);
+    const float value = get_argument(params);
     script->args_->push_float(kSqrt, static_cast<float>(std::sqrt(static_cast<double>(value))));
     return true;
 }
@@ -122,12 +122,12 @@ bool cfunc_normalize_vector(script::Struct* params, script::Script* script)
     script::VectorValue v = {};
     params->fetch_vec(0u, &v, 1);
     // (x87: the sum from z down, unrounded; the length rounded to a float)
-    double z2 = static_cast<double>(v.z) * v.z;
-    double y2 = static_cast<double>(v.y) * v.y;
-    double x2 = static_cast<double>(v.x) * v.x;
+    const double z2 = static_cast<double>(v.z) * v.z;
+    const double y2 = static_cast<double>(v.y) * v.y;
+    const double x2 = static_cast<double>(v.x) * v.x;
     auto length = static_cast<float>(std::sqrt(z2 + y2 + x2));
     if (length != 0.0f) {
-        double scale = 1.0 / length;
+        const double scale = 1.0 / length;
         v.x = static_cast<float>(v.x * scale);
         v.y = static_cast<float>(v.y * scale);
         v.z = static_cast<float>(v.z * scale);

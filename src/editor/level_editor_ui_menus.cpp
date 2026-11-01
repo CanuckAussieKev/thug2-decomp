@@ -22,12 +22,12 @@ namespace {
 // A registry action as a menu item: its name (or `label`), its first key, its check and whether it can run now.
 void get_item(const char* id, const char* label = nullptr)
 {
-    int index = actions::get_find(id);
+    const int index = actions::get_find(id);
     const actions::ActStep* action = index >= 0 ? actions::get_pull(index) : nullptr;
     if (!action)
         return;
-    std::string keys = hints::leading_key_name(actions::get_keys_text(index));
-    int checked = actions::get_checked(index);
+    const std::string keys = hints::leading_key_name(actions::get_keys_text(index));
+    const int checked = actions::get_checked(index);
     if (ImGui::MenuItem(label ? label : action->name.c_str(), keys.empty() ? nullptr : keys.c_str(), checked == 1,
                         actions::is_switched_on(index)))
         actions::get_run(index);
@@ -45,7 +45,7 @@ void get_items(std::initializer_list<const char*> ids)
 // A menu's title, noted for the self-test (level_editor_ui_strip.h).
 bool get_menu(const char* title)
 {
-    bool open = ImGui::BeginMenu(title);
+    const bool open = ImGui::BeginMenu(title);
     ui_strip::get_note(title);
     return open;
 }

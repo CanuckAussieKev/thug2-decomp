@@ -66,7 +66,7 @@ constexpr float kSideProbe = 8.0f;
 // 0x004E4340
 double frame_blend(float rate, float seconds)
 {
-    double scaled = static_cast<double>(seconds) * 60.0f * rate;
+    const double scaled = static_cast<double>(seconds) * 60.0f * rate;
     return scaled / ((1.0f - static_cast<double>(rate)) + scaled);
 }
 
@@ -76,14 +76,14 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
 {
     maths::Vec4& pos = *position;
     // The direction from the target, normalised (z unrounded until then); w's difference as it is.
-    float dw = pos.w - target->w;
-    double dz = static_cast<double>(pos.z) - target->z;
-    float dy = pos.y - target->y;
-    float dx = pos.x - target->x;
+    const float dw = pos.w - target->w;
+    const double dz = static_cast<double>(pos.z) - target->z;
+    const float dy = pos.y - target->y;
+    const float dx = pos.x - target->x;
     float dir_x = dx, dir_y = dy, dir_z = static_cast<float>(dz);
-    double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + dz * dz);
+    const double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + dz * dz);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         dir_x = static_cast<float>(dx * inverse);
         dir_y = static_cast<float>(dy * inverse);
         dir_z = static_cast<float>(dz * inverse);
@@ -100,13 +100,14 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     if (feeler.get_hit_shape(1, 0)) {
         const maths::Vec4& s = feeler.kickoff();
         const maths::Vec4& e = feeler.get_end();
-        double lx = static_cast<double>(e.x) - s.x, ly = static_cast<double>(e.y) - s.y,
-               lz = static_cast<double>(e.z) - s.z;
+        const double lx = static_cast<double>(e.x) - s.x;
+        const double ly = static_cast<double>(e.y) - s.y;
+        const double lz = static_cast<double>(e.z) - s.z;
         auto line_length = static_cast<float>(std::sqrt((lx * lx + ly * ly) + lz * lz));
         double fraction = feeler.get_fraction();
         if (fraction * line_length < kMinimumDistance)
             fraction = static_cast<double>(kMinimumDistance) / line_length;
-        double pull = fraction * line_length - 2.0f;
+        const double pull = fraction * line_length - 2.0f;
         auto pw = static_cast<float>(dw * pull);
         auto pz = static_cast<float>(dir_z * pull);
         auto py = static_cast<float>(dir_y * pull);
@@ -147,8 +148,10 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         hit = feeler.get_hit_shape(pos, probe, 1);
         if (hit) {
             const maths::Vec4& p = feeler.get_point();
-            double ox = static_cast<double>(probe.x) - p.x, oy = static_cast<double>(probe.y) - p.y;
-            float oz = probe.z - p.z, ow = probe.w - p.w;
+            const double ox = static_cast<double>(probe.x) - p.x;
+            const double oy = static_cast<double>(probe.y) - p.y;
+            const float oz = probe.z - p.z;
+            const float ow = probe.w - p.w;
             pos.x = static_cast<float>(pos.x - ox);
             pos.y = static_cast<float>(pos.y - oy);
             pos.z -= oz;

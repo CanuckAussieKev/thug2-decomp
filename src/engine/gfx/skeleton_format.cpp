@@ -6,7 +6,7 @@ bool read_skeleton(util::ByteReader& reader, Skeleton* out)
 {
     out->version = reader.u32();
     out->flags = reader.u32();
-    uint32_t count = reader.u32();
+    const uint32_t count = reader.u32();
     if (!reader.ok() || count > static_cast<uint32_t>(kMaxBones))
         return false;
     out->count = static_cast<int>(count);

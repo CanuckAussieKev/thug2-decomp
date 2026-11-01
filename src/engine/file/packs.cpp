@@ -60,7 +60,7 @@ PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(h
 PreEntry* next_entry(PreEntry* entry)
 {
     auto stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
-    uintptr_t after_name =
+    const uintptr_t after_name =
         (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
     return reinterpret_cast<PreEntry*>(after_name + ((stored + 3) & ~3u));
 }
@@ -87,12 +87,12 @@ PreEntry* find_pre_entry(uint32_t checksum)
 // 0x005B7C00 (PartyMod's script patching wraps calls to this, and calls it by address)
 void* read_in(const char* name, bool async, void* callback, void* hook_user_a, void* hook_user_b)
 {
-    uint32_t checksum = checksums::hash_from_text(name);
+    const uint32_t checksum = checksums::hash_from_text(name);
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is read from it,
     // before any archive (synchronously, through FileLoad::unseal, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
-    bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
+    const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
 
     // Already loaded?
     if (PreEntry* entry = overlay ? nullptr : find_pre_entry(checksum)) {
@@ -172,7 +172,7 @@ void* load_file_into(const char* name, int* size, void* buffer)
     // Not original - the data overlay: a file of it is read from there (FileLoad::unseal), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
-    bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
+    const bool overlay = frontend::data_overlay::get_overlay_path(name, overlay_path);
     void* data = overlay ? nullptr : pre::sole()->ingest_file(name, &file_size, static_cast<uint8_t*>(buffer));
     if (data)
         gfx::loading_console::note_file("unpack", name, file_size); // (not original: the loading console)
@@ -219,7 +219,7 @@ void load_pre(const char* name)
     std::snprintf(path, sizeof(path), "pre\\%s", name);
     // The block starts with the archive's name, padded to 16 bytes.
     auto prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~static_cast<size_t>(0xF));
-    size_t length = std::strlen(path);
+    const size_t length = std::strlen(path);
 
     // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
     // English archive (.ppf/.ppd).
@@ -231,7 +231,7 @@ void load_pre(const char* name)
     unsigned int file_size = 0, allocated = 0;
     size_t archive_size = 0; // (not original: the archive's bytes in the block, the bound for its reader)
     bool loaded = false;
-    char letter = game_config::g_language == 3 ? 'f' : game_config::g_language == 5 ? 'd' : '\0';
+    const char letter = game_config::g_language == 3 ? 'f' : game_config::g_language == 5 ? 'd' : '\0';
     if (letter) {
         path[length - 1] = letter;
         if (!file::is_present(path)) {
@@ -272,7 +272,8 @@ void load_pre(const char* name)
         util::ByteReader patch_reader(patch, patch_size);
         if (patched && !pre_format::read_patch_header(patch_reader, &patch_header))
             patch_header = {};
-        unsigned int needed = patched && patch_header.patched_size >= file_size ? patch_header.patched_size : file_size;
+        const unsigned int needed =
+            patched && patch_header.patched_size >= file_size ? patch_header.patched_size : file_size;
         archive_size = needed;
         allocated = ((needed + 0x7FF) & ~0x7FFu) + prefix;
         block = static_cast<uint8_t*>(allocate_file_memory(allocated));
@@ -402,9 +403,9 @@ bool cfunc_un_load_pip_pre(script::Struct* params, script::Script* /*script*/) {
 // 0x005B7430: DumpPipPreStatus [ShowPreedFiles] [ShowUnPreedFiles] [ShowOnlyOpenFiles] - debug output
 bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*/)
 {
-    bool show_files = script::has_bare_flag(params, "ShowPreedFiles");
-    bool show_loose_files = script::has_bare_flag(params, "ShowUnPreedFiles");
-    bool only_open = script::has_bare_flag(params, "ShowOnlyOpenFiles");
+    const bool show_files = script::has_bare_flag(params, "ShowPreedFiles");
+    const bool show_loose_files = script::has_bare_flag(params, "ShowUnPreedFiles");
+    const bool only_open = script::has_bare_flag(params, "ShowOnlyOpenFiles");
     debug::printf("Currently loaded pre files:\n");
     for (int i = 0; i < kPreloadCapacity; ++i) {
         char* pre = pre_files()[i];
@@ -467,7 +468,7 @@ int get_file_size(uint32_t checksum)
         if (file.data && file.checksum == checksum)
             return file.size;
     }
-    PreEntry* entry = find_pre_entry(checksum);
+    const PreEntry* entry = find_pre_entry(checksum);
     return entry ? entry->size : 0;
 }
 

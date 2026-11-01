@@ -73,7 +73,7 @@ void init_script_patches()
 const uint8_t* load_patched_script(const char* filename)
 {
     auto* data = static_cast<const uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
-    int size = packs::get_file_size(checksums::hash_from_text(filename));
+    const int size = packs::get_file_size(checksums::hash_from_text(filename));
     ScriptPatch* entry = nullptr;
     for (ScriptPatch& p : s_patches)
         if (std::strcmp(p.filename, filename) == 0)
@@ -89,7 +89,7 @@ const uint8_t* load_patched_script(const char* filename)
                           "%s isn't the file its patch is for (a data overlay's own) - loaded as it is\n", filename);
         return data;
     }
-    uint32_t checksum = bps::patch_checksum(entry->patch, entry->patch_size_);
+    const uint32_t checksum = bps::patch_checksum(entry->patch, entry->patch_size_);
     if (entry->made && entry->made_with_ == checksum) {
         debug_log::printf(StageMap::kInfo, "Using cached patched script for %s\n", filename);
         entry->copy = entry->patched; // (back as patched)

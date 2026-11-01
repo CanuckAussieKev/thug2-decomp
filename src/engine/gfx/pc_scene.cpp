@@ -110,7 +110,7 @@ memory::owner<WorldCell*> PcScene::plat_create_sector() { return new PcSector();
 void PcScene::unload_sectors()
 {
     lists::KeyMap* table = sectors_;
-    for (void* sector = first_sector(table); sector; sector = next_sector(table)) {
+    for (const void* sector = first_sector(table); sector; sector = next_sector(table)) {
     }
 }
 
@@ -207,7 +207,7 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
 uint32_t count_loaded_meshes(const PcGeom* geom)
 {
     uint32_t count = 0;
-    for (memory::ListNode* node = geom->load_list_->next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = geom->load_list_->next; node->data != reinterpret_cast<void*>(-1) && node;
          node = node->next)
         ++count;
     return count;
@@ -223,7 +223,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     scene_format::Sector record;
     // Not original - each record read and checked first: a sector, mesh or index list cut short (or a mesh count
     // past what is there) ends the scene (the original read on past its end).
-    bool read = scene_format::read_sector(in, &record);
+    const bool read = scene_format::read_sector(in, &record);
     change_sector_key(sector, record.checksum);
     sector->flags = record.flags;
     geometry->mesh_count_ = read ? record.mesh_count : 0;
@@ -232,9 +232,9 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     maths::Vec4 max = {record.box[3], record.box[4], record.box[5], 1.0f};
     geometry->bounds.min = min;
     geometry->bounds.max = max;
-    uint32_t billboard_type = record.billboard_type;
-    maths::Vec4 pivot = {record.pivot[0], record.pivot[1], -record.pivot[2], 0.0f};
-    maths::Vec4 axis = {record.axis[0], record.axis[1], record.axis[2], 0.0f};
+    const uint32_t billboard_type = record.billboard_type;
+    const maths::Vec4 pivot = {record.pivot[0], record.pivot[1], -record.pivot[2], 0.0f};
+    const maths::Vec4 axis = {record.axis[0], record.axis[1], record.axis[2], 0.0f};
     if (!read) {
         debug::printf("scene sector %08x damaged: cut short\n", record.checksum);
         in.fail();

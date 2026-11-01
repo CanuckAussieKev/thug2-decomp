@@ -49,8 +49,8 @@ bool ground_below(Vec3 point, float* y)
     // (the game's memory layout, as level_editor_carry.cpp's first_hit: static collision only, nothing to release)
     render::ProbeRay ray_storage;
     render::ProbeRay* feeler = &ray_storage;
-    maths::Vec4 start = {point.x, point.y + kProbeAbove, point.z, 1.0f};
-    maths::Vec4 end = {point.x, point.y - kProbeBelow, point.z, 1.0f};
+    const maths::Vec4 start = {point.x, point.y + kProbeAbove, point.z, 1.0f};
+    const maths::Vec4 end = {point.x, point.y - kProbeBelow, point.z, 1.0f};
     if (!feeler->get_collision_along(&start, &end, false))
         return false;
     *y = feeler->contact_pos_.y;
@@ -66,9 +66,9 @@ bool cfunc_teleport_skater_standing(script::Struct* params, script::Script*)
         return false;
     }
     float heading = 0.0f;
-    bool has_heading = params->fetch_float("heading", &heading, 0);
+    const bool has_heading = params->fetch_float("heading", &heading, 0);
     Vec3 at = {};
-    std::string why = jump_to({pos.x, pos.y, pos.z}, has_heading, heading, &at);
+    const std::string why = jump_to({pos.x, pos.y, pos.z}, has_heading, heading, &at);
     if (!why.empty()) {
         get_log("TeleportSkaterStanding: %s", why.c_str());
         return false;
@@ -82,12 +82,12 @@ bool cfunc_teleport_skater_standing(script::Struct* params, script::Script*)
 
 bool camera_rows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back)
 {
-    float length = len_of(direction);
+    const float length = len_of(direction);
     if (!(length > 1e-6f))
         return false;
-    Vec3 b = scale_tool(direction, -1.0f / length);
+    const Vec3 b = scale_tool(direction, -1.0f / length);
     Vec3 r = perpendicular({0.0f, 1.0f, 0.0f}, b);
-    float rl = len_of(r);
+    const float rl = len_of(r);
     if (!(rl > 1e-4f))
         return false;
     r = scale_tool(r, 1.0f / rl);
@@ -101,7 +101,7 @@ bool camera_rows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back)
 
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
 {
-    double h = static_cast<double>(heading_degrees) * kPi / 180.0;
+    const double h = static_cast<double>(heading_degrees) * kPi / 180.0;
     auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     *at = {s, 0.0f, c};
     *up = {0.0f, 1.0f, 0.0f};
@@ -121,15 +121,15 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
             static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
     }
     float ground = 0.0f;
-    bool grounded = ground_below(position, &ground);
+    const bool grounded = ground_below(position, &ground);
     if (grounded)
         position.y = ground;
     Vec3 right{}, up{}, at{};
     standing_rows(heading_degrees, &right, &up, &at);
     // (the skater's own custom restart kept and put back: only the restart's code is borrowed)
-    maths::Vec4 saved_pos = skater->custom_restart_pos_;
-    maths::Mat4 saved_matrix = skater->custom_restart_matrix_;
-    bool saved_walking = skater->custom_restart_walking_;
+    const maths::Vec4 saved_pos = skater->custom_restart_pos_;
+    const maths::Mat4 saved_matrix = skater->custom_restart_matrix_;
+    const bool saved_walking = skater->custom_restart_walking_;
     skater->custom_restart_pos_ = get_row(position, 1.0f);
     skater->custom_restart_matrix_.row[0] = get_row(right, 0.0f);
     skater->custom_restart_matrix_.row[1] = get_row(up, 0.0f);

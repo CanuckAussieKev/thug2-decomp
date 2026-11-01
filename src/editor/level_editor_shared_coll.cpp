@@ -34,9 +34,9 @@ float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 float segment_distance(V3 p, V3 a, V3 b)
 {
-    V3 ab = b - a;
-    float len2 = get_dot(ab, ab);
-    float t = len2 > 0.0f ? std::clamp(get_dot(p - a, ab) / len2, 0.0f, 1.0f) : 0.0f;
+    const V3 ab = b - a;
+    const float len2 = get_dot(ab, ab);
+    const float t = len2 > 0.0f ? std::clamp(get_dot(p - a, ab) / len2, 0.0f, 1.0f) : 0.0f;
     return len_of(p - (a + ab * t));
 }
 
@@ -44,16 +44,19 @@ float segment_distance(V3 p, V3 a, V3 b)
 
 float point_triangle_distance(V3 p, V3 a, V3 b, V3 c)
 {
-    V3 ab = b - a, ac = c - a;
-    V3 n = perpendicular(ab, ac);
-    float n2 = get_dot(n, n);
-    float scale = std::max({get_dot(ab, ab), get_dot(ac, ac), get_dot(c - b, c - b)});
+    const V3 ab = b - a;
+    const V3 ac = c - a;
+    const V3 n = perpendicular(ab, ac);
+    const float n2 = get_dot(n, n);
+    const float scale = std::max({get_dot(ab, ab), get_dot(ac, ac), get_dot(c - b, c - b)});
     if (!(n2 > scale * scale * 1e-12f)) // (degenerate: a line or a point)
         return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, a, c)});
     // Inside the triangle's prism: the distance to its plane; else to the nearest edge.
-    V3 ap = p - a, bp = p - b, cp = p - c;
-    bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0f && get_dot(perpendicular(c - b, bp), n) >= 0.0f &&
-                  get_dot(perpendicular(a - c, cp), n) >= 0.0f;
+    const V3 ap = p - a;
+    const V3 bp = p - b;
+    const V3 cp = p - c;
+    const bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0f && get_dot(perpendicular(c - b, bp), n) >= 0.0f &&
+                        get_dot(perpendicular(a - c, cp), n) >= 0.0f;
     if (inside)
         return std::fabs(get_dot(ap, n)) / std::sqrt(n2);
     return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, c, a)});
@@ -67,14 +70,18 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
         return V3{f[0], f[1], f[2]};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
-        uint16_t a = indices[i - 2], b = indices[i - 1], c = indices[i];
+        const uint16_t a = indices[i - 2];
+        const uint16_t b = indices[i - 1];
+        const uint16_t c = indices[i];
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
-        V3 va = at(a), vb = at(b), vc = at(c);
+        const V3 va = at(a);
+        const V3 vb = at(b);
+        const V3 vc = at(c);
         // (a quick reject: the triangle's box farther than the best so far)
-        float dx = std::max({std::min({va.x, vb.x, vc.x}) - p.x, p.x - std::max({va.x, vb.x, vc.x}), 0.0f});
-        float dy = std::max({std::min({va.y, vb.y, vc.y}) - p.y, p.y - std::max({va.y, vb.y, vc.y}), 0.0f});
-        float dz = std::max({std::min({va.z, vb.z, vc.z}) - p.z, p.z - std::max({va.z, vb.z, vc.z}), 0.0f});
+        const float dx = std::max({std::min({va.x, vb.x, vc.x}) - p.x, p.x - std::max({va.x, vb.x, vc.x}), 0.0f});
+        const float dy = std::max({std::min({va.y, vb.y, vc.y}) - p.y, p.y - std::max({va.y, vb.y, vc.y}), 0.0f});
+        const float dz = std::max({std::min({va.z, vb.z, vc.z}) - p.z, p.z - std::max({va.z, vb.z, vc.z}), 0.0f});
         if (dx * dx + dy * dy + dz * dz >= best * best)
             continue;
         best = std::min(best, point_triangle_distance(p, va, vb, vc));
@@ -91,7 +98,7 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
     std::memcpy(&copy.flags, data, 2);
     std::memcpy(&copy.terrain, data + 2, 2);
     for (int k = 0; k < 3; ++k) {
-        uint32_t vertex = geometry->face_vertex(face, k);
+        const uint32_t vertex = geometry->face_vertex(face, k);
         maths::Vec4 v;
         geometry->read_stored_vertex(static_cast<int>(vertex), &v);
         copy.v[k] = {v.x, v.y, v.z};
@@ -102,7 +109,7 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
 
 Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
 {
-    size_t count = std::min(faces.size(), static_cast<size_t>(kMostFaces));
+    const size_t count = std::min(faces.size(), static_cast<size_t>(kMostFaces));
     faces_.resize(count * 10);
     for (size_t f = 0; f < count; ++f) {
         const FaceCopy& face = faces[f];
@@ -155,7 +162,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
 void Companion::get_place(const Placement& placement)
 {
     for (size_t i = 0; i < base_.size(); ++i) {
-        V3 v = get_apply(placement, base_[i]);
+        const V3 v = get_apply(placement, base_[i]);
         vertices_[i * 3] = v.x;
         vertices_[i * 3 + 1] = v.y;
         vertices_[i * 3 + 2] = v.z;
@@ -197,7 +204,7 @@ void Companion::update_box()
     // (as the loaded geometries keep it: w = 1 - Translate moves w by the delta's 0)
     V3 lo = base_.empty() ? V3{0, 0, 0} : get_vertex(0), hi = lo;
     for (size_t i = 1; i < base_.size(); ++i) {
-        V3 v = get_vertex(static_cast<int>(i));
+        const V3 v = get_vertex(static_cast<int>(i));
         lo = {std::min(lo.x, v.x), std::min(lo.y, v.y), std::min(lo.z, v.z)};
         hi = {std::max(hi.x, v.x), std::max(hi.y, v.y), std::max(hi.z, v.z)};
     }
@@ -246,14 +253,14 @@ bool is_switched_on()
 template <typename F>
 void for_each_strip(render::PcGeom* geom, F fn)
 {
-    auto** meshes = geom->meshes;
-    uint32_t count = geom->mesh_count_;
+    auto* const* meshes = geom->meshes;
+    const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        render::MeshRef* mesh = meshes[i];
+        const render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
-        render::IdxStore* indices = mesh->index_buffers_[0];
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
+        const render::IdxStore* indices = mesh->index_buffers_[0];
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         fn(vertices->data, static_cast<uint32_t>(mesh->stride), static_cast<uint32_t>(mesh->vertex_count_),
@@ -274,9 +281,9 @@ float geom_distance(render::PcGeom* geom, V3 p, float best)
 float face_distance(render::PcGeom* geom, const FaceCopy& face, float limit)
 {
     float worst = 0.0f;
-    float over = std::nextafter(limit, std::numeric_limits<float>::infinity());
+    const float over = std::nextafter(limit, std::numeric_limits<float>::infinity());
     for (const V3& v : face.v) {
-        float d = geom_distance(geom, v, over);
+        const float d = geom_distance(geom, v, over);
         if (d > limit)
             return over;
         worst = std::max(worst, d);
@@ -310,7 +317,7 @@ render::TriMeshSource* get_collision_only(render::WorldCell* sector)
 {
     if (!sector || geom_of(sector))
         return nullptr;
-    render::StaticCollider* coll = coll_of(sector);
+    const render::StaticCollider* coll = coll_of(sector);
     if (!coll || (coll->flag_bits_ & 6) || !coll->geometry_ || !coll->geometry_->faces_)
         return nullptr;
     return coll->geometry_;
@@ -331,11 +338,11 @@ std::vector<uint32_t> named_for(uint32_t checksum)
     const char* name = get_name_of(checksum);
     if (!name || !*name)
         return found;
-    uint32_t base = checksums::hash_from_text(name);
+    const uint32_t base = checksums::hash_from_text(name);
     if (base != checksum) // (a name that isn't the piece's own)
         return found;
     for (const char* suffix : kSuffixes) {
-        uint32_t named = checksums::fold_text_into_checksum(base, suffix);
+        const uint32_t named = checksums::fold_text_into_checksum(base, suffix);
         if (get_collision_only(scenery::sector_of(named)))
             found.push_back(named);
     }
@@ -346,7 +353,7 @@ std::vector<uint32_t> named_for(uint32_t checksum)
 const std::map<uint32_t, uint32_t>& get_named_objects()
 {
     static std::map<uint32_t, uint32_t> named;
-    static render::WorldScene* scene = nullptr;
+    static const render::WorldScene* scene = nullptr;
     static int sectors = -1;
     int count = 0;
     scenery::for_each_level_sector([](void* context, uint32_t, render::WorldCell*) { ++*static_cast<int*>(context); },
@@ -363,8 +370,8 @@ const std::map<uint32_t, uint32_t>& get_named_objects()
                 static_cast<std::vector<uint32_t>*>(context)->push_back(checksum);
         },
         &pieces);
-    for (uint32_t piece : pieces) {
-        for (uint32_t object : named_for(piece))
+    for (const uint32_t piece : pieces) {
+        for (const uint32_t object : named_for(piece))
             named.emplace(object, piece);
     }
     return named;
@@ -421,12 +428,13 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         const maths::Vec4& hi = geometry->upper_limit_;
         if (lo.x > max.x || hi.x < min.x || lo.y > max.y || hi.y < min.y || lo.z > max.z || hi.z < min.z)
             continue;
-        bool named = std::find(mine.begin(), mine.end(), source.first) != mine.end();
+        const bool named = std::find(mine.begin(), mine.end(), source.first) != mine.end();
         if (!named && named_objects.count(source.first))
             continue; // (named after another piece: that one's)
-        V3 named_min = min - V3{100.0f, 100.0f, 100.0f}, named_max = max + V3{100.0f, 100.0f, 100.0f};
+        const V3 named_min = min - V3{100.0f, 100.0f, 100.0f};
+        const V3 named_max = max + V3{100.0f, 100.0f, 100.0f};
         for (int f = 0; f < geometry->tri_count_ && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
-            FaceCopy face = read_face(geometry, f);
+            const FaceCopy face = read_face(geometry, f);
             if (!takeable(face.flags))
                 continue;
             if (named) {
@@ -435,7 +443,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             } else {
                 if (!face_inside(face, min, max))
                     continue;
-                float own = face_distance(geom, face, kNear);
+                const float own = face_distance(geom, face, kNear);
                 if (!(own <= kNear))
                     continue;
                 float nearest = std::numeric_limits<float>::infinity();
@@ -503,7 +511,7 @@ bool get_live(const TableRow& entry, uint32_t checksum)
 // and geometries are gone with it - nothing touched); out of every collision cache.
 void get_drop(const std::map<uint32_t, TableRow>::iterator& it)
 {
-    TableRow& entry = it->second;
+    const TableRow& entry = it->second;
     if (entry.companion) {
         if (get_live(entry, it->first)) {
             if (entry.in_grid_)
@@ -556,7 +564,7 @@ void ensure(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sec
     if (!is_switched_on() || get_find(checksum))
         return;
     std::vector<Taken> taken;
-    std::vector<FaceCopy> faces = gather(checksum, &taken);
+    const std::vector<FaceCopy> faces = gather(checksum, &taken);
     if (debug_enabled() || !faces.empty())
         get_log("level editor: shared collision of %08X: %u face%s taken along", checksum,
                 static_cast<unsigned>(faces.size()), faces.size() == 1 ? "" : "s");
@@ -574,14 +582,14 @@ void get_place(uint32_t checksum, const Placement& placement)
 
 void rebase(uint32_t checksum)
 {
-    TableRow* entry = get_find(checksum);
+    const TableRow* entry = get_find(checksum);
     if (entry && entry->companion)
         entry->companion->rebase();
 }
 
 void change_live(uint32_t checksum, bool active)
 {
-    TableRow* entry = get_find(checksum);
+    const TableRow* entry = get_find(checksum);
     if (entry && entry->companion)
         entry->companion->change_live(active);
 }
@@ -590,7 +598,7 @@ std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source)
 {
     if (!is_switched_on())
         return nullptr;
-    if (TableRow* entry = get_find(source))
+    if (const TableRow* entry = get_find(source))
         return entry->companion ? std::make_shared<std::vector<FaceCopy>>(entry->companion->get_faces()) : nullptr;
     auto faces = std::make_shared<std::vector<FaceCopy>>(gather(source, nullptr));
     return faces->empty() ? nullptr : faces;
@@ -704,7 +712,7 @@ bool origin_of(uint32_t piece, int index, render::TriMeshSource** geometry, int*
 
 const Companion* companion_of(uint32_t piece)
 {
-    TableRow* entry = get_find(piece);
+    const TableRow* entry = get_find(piece);
     return entry ? entry->companion.get() : nullptr;
 }
 

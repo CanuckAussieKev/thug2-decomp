@@ -97,7 +97,7 @@ bool has_link_to(Struct* node, Struct* target)
     node->fetch_list(kLinks, &links, 0);
     if (!links)
         return false;
-    int count = static_cast<int>(links->extent_);
+    const int count = static_cast<int>(links->extent_);
     for (int i = 0; i < count; ++i) {
         if (hub()->fetch_vertex(links->fetch_part(i), true) == target)
             return true;
@@ -193,9 +193,9 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
         Struct* node = hub()->fetch_vertex(*names, true);
         node->fetch_vec(kPos, &p, 0);
         // (x87, 53-bit: the differences and squares in double, summed z, y, x)
-        double dx = static_cast<double>(p.x) - pos->x;
-        double dy = static_cast<double>(p.y) - pos->y;
-        double dz = static_cast<double>(p.z) - pos->z;
+        const double dx = static_cast<double>(p.x) - pos->x;
+        const double dy = static_cast<double>(p.y) - pos->y;
+        const double dz = static_cast<double>(p.z) - pos->z;
         double distance = dz * dz + dy * dy;
         distance += dx * dx;
         if (distance < best) {
@@ -226,13 +226,13 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
         case kTokenMemberFunctionEntry: {
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or
             // member function that is `target` handed to the callback; EndGap's gapscript= is followed too.
-            uint32_t name = *token == kTokenMemberFunctionEntry
-                                ? *reinterpret_cast<const uint32_t*>(script::fetch_word32(token + 1))
-                                : script::fetch_word32(token + 1);
+            const uint32_t name = *token == kTokenMemberFunctionEntry
+                                      ? *reinterpret_cast<const uint32_t*>(script::fetch_word32(token + 1))
+                                      : script::fetch_word32(token + 1);
             token += 5;
             if (*token == kTokenEquals)
                 break;
-            script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+            const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
             if (!symbol)
                 break;
             switch (symbol->type) {
@@ -275,7 +275,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
         }
         case kTokenCFunction: {
             // A C function already looked up: SetEventHandler's scr= is followed.
-            uint32_t function = script::fetch_word32(token + 1);
+            const uint32_t function = script::fetch_word32(token + 1);
             token += 5;
             // (the game's Function table holds the game's address; a table of ours would hold our function)
             if (function != kSetEventHandler &&

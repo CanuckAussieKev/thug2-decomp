@@ -70,7 +70,7 @@ Checklist get_take_in(goals::GapTally* checklist)
 {
     Checklist out;
     out.built = checklist->built_;
-    int count = checklist->total_of();
+    const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {
         Gap gap;
         gap.name = checklist->get_gap_title(i);
@@ -99,7 +99,7 @@ void get_edited_copy(bool on)
     }
     if (goals::GapTally* checklist = g_of) {
         // Put back as the career's load puts a checklist (RiderStoryProgress::decode_from_struct): cleared, the gaps added.
-        Checklist now = get_take_in(checklist);
+        const Checklist now = get_take_in(checklist);
         checklist->get_clear();
         for (const Gap& gap : g_baseline.gaps) {
             checklist->register_gap_entry(gap.name.c_str(), gap.count, gap.score);
@@ -127,11 +127,11 @@ void career_replaced()
 bool save_view(goals::GapTally* checklist, Checklist* out)
 {
     std::vector<std::string> editor_gaps, level_gaps;
-    bool editor = triggers::get_editor_gaps(checklist, &editor_gaps, &level_gaps);
-    bool baseline = g_on && checklist && checklist == g_of;
+    const bool editor = triggers::get_editor_gaps(checklist, &editor_gaps, &level_gaps);
+    const bool baseline = g_on && checklist && checklist == g_of;
     if (!baseline && !editor)
         return false;
-    Checklist live = get_take_in(checklist);
+    const Checklist live = get_take_in(checklist);
     *out = for_save(live, baseline ? &g_baseline : nullptr, editor_gaps, level_gaps);
     get_log("level editor: the career save gets this level's gap list %s (%u gaps, %d landed; it has %u, %d landed)",
             baseline ? "as before the edited copy" : "without the editor's gaps",

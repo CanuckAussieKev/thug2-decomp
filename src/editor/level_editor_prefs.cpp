@@ -134,8 +134,8 @@ const Values& get_pull()
 
 void assign_value(const Values& values, bool save)
 {
-    Values before = get_pull();
-    Values after = get_clamped(values);
+    const Values before = get_pull();
+    const Values after = get_clamped(values);
     if (after.ui_scale_pct_ != before.ui_scale_pct_ || after.accent != before.accent)
         ++g_style_generation;
     g_values = after;
@@ -151,7 +151,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
 {
     if (!g_open)
         return;
-    ImGuiIO& io = ImGui::GetIO();
+    const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(440.0f * scale, 0.0f), ImGuiCond_Appearing);
@@ -215,7 +215,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
         get_accent_rgb(i, rgb);
         ImGui::SameLine(0.0f, 6.0f * scale);
         ImGui::PushID(i);
-        ImVec4 colour(rgb[0], rgb[1], rgb[2], 1.0f);
+        const ImVec4 colour(rgb[0], rgb[1], rgb[2], 1.0f);
         if (ImGui::ColorButton(accent_name(i), colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2((i == v.accent ? 22.0f : 16.0f) * scale, 16.0f * scale))) {
             v.accent = i;
@@ -275,7 +275,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     }
     if (!g_tips)
         return;
-    ImGuiIO& io = ImGui::GetIO();
+    const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.42f), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(470.0f * scale, 0.0f), ImGuiCond_Appearing);
@@ -312,7 +312,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
         ImGui::EndTable();
     }
     ImGui::Spacing();
-    bool dismiss = ImGui::Button("Got it");
+    const bool dismiss = ImGui::Button("Got it");
     ImGui::SameLine();
     ImGui::TextDisabled("(Help > Show Tips shows this again)");
     ImGui::End();

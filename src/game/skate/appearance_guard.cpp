@@ -102,7 +102,7 @@ int sanitise(script::Struct* appearance)
             reset_body = true;
             break;
         }
-        uint32_t to = get_fallback(c->name, list);
+        const uint32_t to = get_fallback(c->name, list);
         if (!to) {
             get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
                     c->name, desc);
@@ -123,7 +123,7 @@ int sanitise(script::Struct* appearance)
                 change.from, change.to);
         change.part->put_name_key(kDescId, change.to);
     }
-    for (uint32_t slot : remove)
+    for (const uint32_t slot : remove)
         appearance->erase_module(slot);
     return static_cast<int>(changes.size() + remove.size());
 }

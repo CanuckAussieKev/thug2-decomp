@@ -95,7 +95,7 @@ static_assert(sizeof(ReferencePlayAnim) == online::kPlayAnimSize && sizeof(Refer
 void check_skater_messages()
 {
     {
-        ReferencePlayAnim ref = {2, 5, 0xA1B2C3D4, {-4096, 8192, 1229, 4096}};
+        const ReferencePlayAnim ref = {2, 5, 0xA1B2C3D4, {-4096, 8192, 1229, 4096}};
         online::PlayAnimMessage m;
         m.loop_type = 2;
         m.object_id = 5;
@@ -114,7 +114,7 @@ void check_skater_messages()
         check_message("pair 0x2A-0x3D", m, ref, online::write_pair, online::read_pair);
     }
     {
-        ReferenceHideGeom ref = {0x12345678, 7, 1, {}};
+        const ReferenceHideGeom ref = {0x12345678, 7, 1, {}};
         online::HideGeomMessage m;
         m.name = 0x12345678;
         m.object_id = 7;
@@ -129,7 +129,7 @@ void check_skater_messages()
         check_message("anim speed 0x41", m, ref, online::write_anim_speed, online::read_anim_speed, 5);
     }
     {
-        ReferenceSpinModel ref = {1500, 2, -90, 360, 1, 1, 5, 0};
+        const ReferenceSpinModel ref = {1500, 2, -90, 360, 1, 1, 5, 0};
         online::SpinModelMessage m;
         m.period = 1500;
         m.power = 2;
@@ -141,7 +141,7 @@ void check_skater_messages()
         check_message("spin model 0x76", m, ref, online::write_spin_model, online::read_spin_model, 15);
     }
     {
-        ReferenceSpecialItem ref = {0xCAFEBABE, 0x0BADF00D, 6, 0xFF, {}};
+        const ReferenceSpecialItem ref = {0xCAFEBABE, 0x0BADF00D, 6, 0xFF, {}};
         online::SpecialItemMessage m;
         m.params = 0xCAFEBABE;
         m.bone = 0x0BADF00D;
@@ -196,7 +196,7 @@ void check_graffiti_messages()
     message->objects[2] = 0x33333333;
     ReferenceTrickObjects ref = {1, {}, 9, 0, 3, 12345, 3, {0x11111111, 0x22222222, 0x33333333}};
     check_message("trick objects 0x3B", *message, ref, online::write_trick_objects, online::read_trick_objects);
-    ReferenceObservedTrickObjects observed = {9, {}, 3, 3, {0x11111111, 0x22222222, 0x33333333}};
+    const ReferenceObservedTrickObjects observed = {9, {}, 3, 3, {0x11111111, 0x22222222, 0x33333333}};
     check_message("observed trick objects 0x5B", *message, observed, online::write_observed_trick_objects,
                   online::read_observed_trick_objects);
     // a count past the message's end, or past the senders' buffer: refused
@@ -211,14 +211,14 @@ void check_graffiti_messages()
     util::ByteReader big_reader(big.data(), big.size());
     check(!online::read_trick_objects(big_reader, message.get()), "trick objects 0x3B: more than the buffer refused");
 
-    ReferenceTagStolen stolen_ref = {7, {}, 2, 5};
+    const ReferenceTagStolen stolen_ref = {7, {}, 2, 5};
     online::TagStolenMessage stolen;
     stolen.game_id = 7;
     stolen.thief_id = 2;
     stolen.victim_id = 5;
     check_message("tag stolen 0x4B", stolen, stolen_ref, online::write_tag_stolen, online::read_tag_stolen);
 
-    ReferencePoints points_ref = {4, {}, -250};
+    const ReferencePoints points_ref = {4, {}, -250};
     online::PointsMessage points;
     points.game_id = 4;
     points.points = -250;
@@ -318,7 +318,7 @@ void check_play_messages()
         check(writer.ok() && std::memcmp(bytes, one, 16) == 0, "hunt placement 0x8F: as the original's vector");
     }
     {
-        ReferenceBoardVehicle ref = {5, {}, 0x8A6B04AD};
+        const ReferenceBoardVehicle ref = {5, {}, 0x8A6B04AD};
         online::BoardVehicle m;
         m.skater_id = 5;
         m.control_type = 0x8A6B04AD;
@@ -347,7 +347,7 @@ void check_play_messages()
         check_message("place tag 0x99", m, ref, online::write_place_tag, online::read_place_tag);
     }
     {
-        ReferenceTerrainSound ref = {-100, 250, 3000, 2, 17, 100, 0x9C, 50, 0};
+        const ReferenceTerrainSound ref = {-100, 250, 3000, 2, 17, 100, 0x9C, 50, 0};
         online::TerrainSound m;
         m.x = -100;
         m.y = 250;
@@ -360,7 +360,7 @@ void check_play_messages()
         check_message("terrain sound 0x35", m, ref, online::write_terrain_sound, online::read_terrain_sound, 11);
     }
     {
-        ReferenceToggleCheat ref = {0xEEFECF1B, 1, {}};
+        const ReferenceToggleCheat ref = {0xEEFECF1B, 1, {}};
         online::ToggleCheat m;
         m.cheat = 0xEEFECF1B;
         m.on = true;
@@ -378,12 +378,12 @@ void check_play_messages()
         check(!online::read_cheats(reader, &back) && back.count == 0, "cheats 0x82: a negative count refused");
     }
     {
-        ReferenceRunScript ref = {0x12345678, 0xFFFFFFFF};
+        const ReferenceRunScript ref = {0x12345678, 0xFFFFFFFF};
         online::RunScript m;
         m.name = 0x12345678;
         m.object_id = 0xFFFFFFFF;
         check_message("run script 0x48", m, ref, online::write_run_script, online::read_run_script);
-        ReferenceSpawnScript spawn_ref = {0x9ABCDEF0, 3, 77, 1, {}};
+        const ReferenceSpawnScript spawn_ref = {0x9ABCDEF0, 3, 77, 1, {}};
         online::SpawnScript spawn;
         spawn.name = 0x9ABCDEF0;
         spawn.object_id = 3;
@@ -491,8 +491,8 @@ void check_join_messages()
     check(online::read_proceed_info(reader, &back) && std::strlen(back.server_name_) == 15 && back.max_players_ == 8,
           "join proceed 79: an unterminated name cut to its field");
 
-    ReferenceTrailer trailer_ref = {{'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'}, {}, 0x00070000, 0x32475554,
-                                    0x09FC08B0, 0xA1B2C3D4, 1, {}};
+    const ReferenceTrailer trailer_ref = {
+        {'_', 'T', 'H', 'U', 'G', '_', 'P', 'R', 'O', '_'}, {}, 0x00070000, 0x32475554, 0x09FC08B0, 0xA1B2C3D4, 1, {}};
     online::thugpro::ConnectTrailer trailer = {};
     std::memcpy(trailer.magic, online::thugpro::kMagic, sizeof(trailer.magic));
     trailer.version = 0x00070000;
@@ -587,7 +587,7 @@ void check_session_others()
               "hud notice 0x3F: an unterminated string ends in its field");
     }
     {
-        ReferenceStartRequest ref = {{1, 2, 3, 4, 5, 6, 0, 8, 9, 10, 11, 12, 13}};
+        const ReferenceStartRequest ref = {{1, 2, 3, 4, 5, 6, 0, 8, 9, 10, 11, 12, 13}};
         online::StartRequest m;
         m.game_type = 1;
         m.time_limit = 2;
@@ -613,14 +613,14 @@ void check_session_others()
         check_message("kick request 0x61", m, ref, online::write_kick_request, online::read_kick_request);
     }
     {
-        ReferenceGoalMessage ref = {7, {}, 0xC0FFEE00};
+        const ReferenceGoalMessage ref = {7, {}, 0xC0FFEE00};
         online::GoalMessage m;
         m.id = 7;
         m.goal = 0xC0FFEE00;
         check_message("goal 0x6E / 0x6F", m, ref, online::write_goal_message, online::read_goal_message);
     }
     {
-        ReferenceLevelSwitch ref = {0xB664035D, 'F', {}};
+        const ReferenceLevelSwitch ref = {0xB664035D, 'F', {}};
         online::LevelSwitch m;
         m.level = 0xB664035D;
         m.flag = 'F';
@@ -701,7 +701,7 @@ void check_chat_messages()
         check(!online::thugpro::read_chat_message(text_reader, &back), "THUGPRO chat 76: an unended text dropped");
     }
     {
-        ReferenceThugproServerInfo ref = {0x12345678, 0x1CA1FF20, 0x0000000000004281ull};
+        const ReferenceThugproServerInfo ref = {0x12345678, 0x1CA1FF20, 0x0000000000004281ull};
         online::thugpro::ServerInfo m;
         m.time_of_day_ = 0x12345678;
         m.weather = 0x1CA1FF20;
@@ -769,7 +769,7 @@ static_assert(sizeof(ReferenceHit) == online::kHitSize && sizeof(ReferenceRanInt
 
 void check_collision_messages()
 {
-    ReferenceHit hit_ref = {5, 1, {}, 120};
+    const ReferenceHit hit_ref = {5, 1, {}, 120};
     online::Hit hit;
     hit.object_id = 5;
     hit.fireball = true;

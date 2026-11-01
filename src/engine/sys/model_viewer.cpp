@@ -118,7 +118,7 @@ float dead_zone(float value)
 // `object` rolled by `angle` about the world's z axis (the rotation before its matrix).
 void get_roll(objects::GameEntity* object, float angle)
 {
-    maths::Vec4 axis = {0.0f, 0.0f, 1.0f, 1.0f};
+    const maths::Vec4 axis = {0.0f, 0.0f, 1.0f, 1.0f};
     maths::Mat4 rotation{};
     maths::build_axis_angle_matrix(rotation, axis, angle);
     maths::get_multiply(object->basis_frame_, rotation, object->basis_frame_);
@@ -202,7 +202,7 @@ void handle_viewer_shift(ViewerInputHandler* handler)
 {
     Viewer* viewer = handler->content_;
     viewer->shift_makes_ = 0;
-    pad_input::Payload* data = handler->control_data_;
+    const pad_input::Payload* data = handler->control_data_;
     if (!(data->buttons_ & 0x100)) // select
         return;
     viewer->shift_makes_ |= data->makes_;
@@ -313,9 +313,9 @@ void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
         return static_cast<double>(m.row[2][c]) * v.z + static_cast<double>(m.row[0][c]) * v.x +
                static_cast<double>(m.row[1][c]) * v.y;
     };
-    double x = along(0) + object->at_point_.x;
-    double y = along(1) + object->at_point_.y;
-    double z = along(2) + object->at_point_.z;
+    const double x = along(0) + object->at_point_.x;
+    const double y = along(1) + object->at_point_.y;
+    const double z = along(2) + object->at_point_.z;
     object->at_point_.z = static_cast<float>(z);
     object->at_point_.x = static_cast<float>(x);
     object->at_point_.y = static_cast<float>(y);
@@ -324,7 +324,7 @@ void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
 // 0x00577380
 void select_combo_task(ViewerTask* task)
 {
-    Viewer* viewer = task->content_;
+    const Viewer* viewer = task->content_;
     if (!script::fetch_int_value(kSelectShift))
         return;
     // The buttons pressed with Select held, and their scripts - the first one in this order.
@@ -346,7 +346,7 @@ void select_combo_task(ViewerTask* task)
         {0x8000, 0xDD589439}, // UserSelectLeft
         {0x2000, 0x7A03C488}, // UserSelectRight
     };
-    uint32_t makes = viewer->shift_makes_;
+    const uint32_t makes = viewer->shift_makes_;
     for (const auto& combo : kCombos) {
         if (makes & combo.button) {
             spawn_script_if_exists(combo.script);
@@ -384,7 +384,7 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
 int on_remote_script_msg(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
-    uint32_t name = *reinterpret_cast<const uint32_t*>(message);
+    const uint32_t name = *reinterpret_cast<const uint32_t*>(message);
     script::Struct* params = spawn_param_table();
     script::decode_from_bytes(params, reinterpret_cast<const uint8_t*>(message + 4)); // the script reader
     script::launch_script(name, params, nullptr, false, nullptr);
@@ -428,8 +428,8 @@ bool Viewer::place_camera(script::Struct* params)
 void free_camera_task(ViewerTask* task)
 {
     Viewer* viewer = task->content_;
-    uint32_t last = last_time();
-    uint32_t elapsed = frame_clock::get_time() - last;
+    const uint32_t last = last_time();
+    const uint32_t elapsed = frame_clock::get_time() - last;
     last_time() += elapsed;
     auto seconds = static_cast<float>(static_cast<double>(static_cast<int>(elapsed)) * 0.001f);
     if (viewer->actions_ & 0x4000)
@@ -445,7 +445,7 @@ void free_camera_task(ViewerTask* task)
         if (viewer->mode_sel_ == 0) {
             if (viewer->pad_ly_ != 0.0f) {
                 // Up / down: about its own x axis.
-                maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
+                const maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
                 auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly_ * seconds * kDegrees);
                 camera->basis_frame_.turn_in_own_frame(axis, angle);
@@ -464,20 +464,21 @@ void free_camera_task(ViewerTask* task)
             viewer->entity_->change_spin(viewer->pad_lx_, viewer->pad_ly_);
         }
         if (viewer->pad_rx_ != 0.0f || viewer->pad_ry_ != 0.0f) {
-            double step = static_cast<double>(movement_velocity()) * seconds;
-            maths::Vec4 offset = {static_cast<float>(step * viewer->pad_rx_), 0.0f,
-                                  static_cast<float>(step * viewer->pad_ry_), 1.0f};
+            const double step = static_cast<double>(movement_velocity()) * seconds;
+            const maths::Vec4 offset = {static_cast<float>(step * viewer->pad_rx_), 0.0f,
+                                        static_cast<float>(step * viewer->pad_ry_), 1.0f};
             move_object_local(camera, &offset);
         }
     }
     // (from here on the original doesn't check for the camera object)
     if (viewer->actions_ & Viewer::kCommandShoulderA) {
-        maths::Vec4 offset = {0.0f, static_cast<float>(static_cast<double>(movement_velocity()) * seconds), 0.0f, 1.0f};
+        const maths::Vec4 offset = {0.0f, static_cast<float>(static_cast<double>(movement_velocity()) * seconds), 0.0f,
+                                    1.0f};
         move_object_local(camera, &offset);
     }
     if (viewer->actions_ & Viewer::kCommandShoulderB) {
-        maths::Vec4 offset = {0.0f, static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)), 0.0f,
-                              1.0f};
+        const maths::Vec4 offset = {0.0f, static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)),
+                                    0.0f, 1.0f};
         move_object_local(camera, &offset);
     }
     if (!script::fetch_int_value(kNoRoll)) {
@@ -489,7 +490,7 @@ void free_camera_task(ViewerTask* task)
     }
     camera->composite_flags_ &= ~objects::kCompositeFlagPaused;
     if (viewer->actions_ & 0x1000) {
-        int next = (render::get_view_layout() + 1) % 6;
+        const int next = (render::get_view_layout() + 1) % 6;
         render::set_screen_mode(next);
     }
     viewer->actions_ = 0;
@@ -539,10 +540,10 @@ Viewer::Viewer()
         // NOLINTNEXTLINE(bugprone-unused-return-value): the original's call; its result unused, as there
         static_cast<void>(inet_addr(net->fetch_own_address())); // (unused)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
-        int address = static_cast<int>(inet_addr(net->fetch_own_address()));
+        const int address = static_cast<int>(inet_addr(net->fetch_own_address()));
         net_handler_.reset(net->make_server_app(0, "THUG2 Viewer", 4, 10000, address, 0x10));
     }
-    int controller = script::fetch_int_value(kViewerPadKey);
+    const int controller = script::fetch_int_value(kViewerPadKey);
 
     task_1c_ = std::make_unique<ViewerTask>(&free_camera_task, this, 0);
     pad_listener_ = std::make_unique<ViewerInputHandler>(&handle_viewer_input, this, 0, controller);

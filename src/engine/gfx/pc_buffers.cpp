@@ -213,7 +213,7 @@ void MeshRef::move_into_arena(VertexArena* arena)
 // 0x004D3D10
 void MeshRef::set_pixel_shader_colored()
 {
-    uint32_t bytes = material->pass_count_ << 4; // 16 a pass
+    const uint32_t bytes = material->pass_count_ << 4; // 16 a pass
     auto* constants = g_ps_constant_bank;
     auto* saved = g_saved_pixel_shader_constants;
     std::memcpy(saved, constants, bytes);

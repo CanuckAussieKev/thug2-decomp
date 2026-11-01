@@ -40,7 +40,7 @@ RideTracker::RideTracker(GameEntity* object)
 // 0x00416F00
 bool RideTracker::tick_frame(const maths::Vec4* point)
 {
-    GameEntity* object = entity_.get_pull();
+    const GameEntity* object = entity_.get_pull();
     if (!object)
         return false;
     const maths::Vec4& position = object->at_point_;

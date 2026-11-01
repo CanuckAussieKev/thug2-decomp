@@ -71,7 +71,7 @@ public:
     int32_t i32() { return static_cast<int32_t>(u32()); }
     float f32()
     {
-        uint32_t bits = u32();
+        const uint32_t bits = u32();
         auto value = std::bit_cast<float>(bits);
         return value;
     }
@@ -89,7 +89,7 @@ public:
     const char* c_string()
     {
         const auto* start = reinterpret_cast<const char*>(data_ + position_);
-        size_t length = size_ == kUnknownSize ? std::strlen(start) : strnlen_in_bounds(start);
+        const size_t length = size_ == kUnknownSize ? std::strlen(start) : strnlen_in_bounds(start);
         if (length == kNotFound) {
             fail();
             return nullptr;
@@ -103,7 +103,7 @@ public:
     {
         if (!has(count) || out_size == 0)
             return fail();
-        size_t copy = count < out_size - 1 ? count : out_size - 1;
+        const size_t copy = count < out_size - 1 ? count : out_size - 1;
         std::memcpy(out, data_ + position_, copy);
         out[copy] = '\0';
         out[strnlen(out, copy)] = '\0';
@@ -135,7 +135,7 @@ private:
     }
     size_t strnlen_in_bounds(const char* start) const
     {
-        size_t max = size_ - position_;
+        const size_t max = size_ - position_;
         for (size_t i = 0; i < max; ++i) {
             if (start[i] == '\0')
                 return i;

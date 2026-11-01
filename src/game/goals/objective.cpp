@@ -30,7 +30,7 @@ int truncate(double value) { return static_cast<int>(value); }
 void Objective::pass_inherited_flags(int depth)
 {
     void* manager = objective_board();
-    for (GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
+    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
         Objective* child = get_goal(manager, link->objective_key_, 1);
         if (child) {
             child->inherited_ |= inherited_;
@@ -242,7 +242,7 @@ bool Objective::has_won_goal_or_child()
 {
     if (has_won())
         return true;
-    for (GoalEdge* link = sub_nodes_; link; link = link->succ_) {
+    for (const GoalEdge* link = sub_nodes_; link; link = link->succ_) {
         if (link->won_)
             return true;
     }
@@ -402,7 +402,7 @@ void Objective::capture_save_block(script::Struct* data)
 {
     data->put_int(kLevelNum, level_);
     void* manager = objective_board();
-    bool locked = (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
+    const bool locked = (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
     data->put_int(kIsLocked, locked);
     data->put_int(kHasSeen, (flag_bits_ & kFlagSeen) ? 1 : 0);
     data->put_int(kAlreadyWon, has_won());
@@ -428,7 +428,7 @@ void Objective::replace_trick_tokens(const char* text, char* out, script::Array*
         return;
     }
     while (*text) {
-        char c = text[0];
+        const char c = text[0];
         script::Array* source = nullptr;
         if (c == '\\' && text[1] == 't' && text[2] <= '9' && text[2] >= '0')
             source = tricks;
@@ -446,7 +446,7 @@ void Objective::replace_trick_tokens(const char* text, char* out, script::Array*
         }
         const char* replacement = source->find_inline_text(static_cast<uint32_t>(number - 1));
         std::snprintf(out, 0x7FFFFFFF, replacement); // (the original: sprintf, unbounded, the text as the format)
-        int length = static_cast<int>(std::strlen(replacement));
+        const int length = static_cast<int>(std::strlen(replacement));
         if (length > 0)
             out += length;
         text += 3;

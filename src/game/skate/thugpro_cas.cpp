@@ -51,7 +51,7 @@ int s_frames;
 
 bool is_file(const std::string& path)
 {
-    DWORD attributes = GetFileAttributesA(path.c_str());
+    const DWORD attributes = GetFileAttributesA(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
@@ -71,8 +71,8 @@ bool is_path(const char* text) { return std::strchr(text, '/') || std::strchr(te
 // The ways the game asks for a part's file: as named, .xbx after it, an image's .img.xbx.
 std::vector<std::string> get_candidates(const char* path)
 {
-    std::string relative = get_relative(path);
-    std::string key = path_key(path);
+    const std::string relative = get_relative(path);
+    const std::string key = path_key(path);
     return {relative, relative + ".xbx", key + ".img.xbx", relative + ".img.xbx"};
 }
 
@@ -94,7 +94,7 @@ bool game_has(const std::string& name)
 // as one the overlay serves from the install).
 bool get_found(const char* path)
 {
-    std::string key = path_key(path);
+    const std::string key = path_key(path);
     if (s_their_files.count(key))
         return true;
     for (const std::string& candidate : get_candidates(path)) {
@@ -169,11 +169,11 @@ bool is_part_list(script::Array* array)
 std::vector<uint8_t> read_whole_file(const std::string& path)
 {
     std::vector<uint8_t> data;
-    util::UniqueHandle file(
+    const util::UniqueHandle file(
         CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
     if (!file)
         return data;
-    DWORD size = GetFileSize(file.get(), nullptr);
+    const DWORD size = GetFileSize(file.get(), nullptr);
     if (size != INVALID_FILE_SIZE && size < 64u << 20) {
         data.resize(size);
         DWORD read = 0;
@@ -191,7 +191,7 @@ std::string install_folder()
     if (folder[0])
         return folder;
     char local[MAX_PATH] = {};
-    DWORD length = GetEnvironmentVariableA("LOCALAPPDATA", local, sizeof(local));
+    const DWORD length = GetEnvironmentVariableA("LOCALAPPDATA", local, sizeof(local));
     if (!length || length >= sizeof(local))
         return "";
     return std::string(local) + "\\THUG Pro";
@@ -215,18 +215,18 @@ std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size)
         if (flags & 1) {
             if (i >= length)
                 break;
-            uint8_t c = in[i++];
+            const uint8_t c = in[i++];
             out.push_back(c);
             window[r] = c;
             r = (r + 1) & 4095;
         } else {
             if (i + 1 >= length)
                 break;
-            uint32_t position = in[i] | ((in[i + 1] & 0xF0u) << 4);
-            uint32_t last = (in[i + 1] & 0x0Fu) + 2;
+            const uint32_t position = in[i] | ((in[i + 1] & 0xF0u) << 4);
+            const uint32_t last = (in[i + 1] & 0x0Fu) + 2;
             i += 2;
             for (uint32_t k = 0; k <= last && out.size() < size; ++k) {
-                uint8_t c = window[(position + k) & 4095];
+                const uint8_t c = window[(position + k) & 4095];
                 out.push_back(c);
                 window[r] = c;
                 r = (r + 1) & 4095;
@@ -248,21 +248,22 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         std::memcpy(&value, archive.data() + at, 4);
         return value;
     };
-    uint32_t count = u32(8);
+    const uint32_t count = u32(8);
     size_t offset = 12;
     for (uint32_t k = 0; k < count; ++k) {
         if (offset + 16 > archive.size())
             return false;
-        uint32_t size = u32(offset), compressed = u32(offset + 4);
+        const uint32_t size = u32(offset);
+        const uint32_t compressed = u32(offset + 4);
         uint16_t name_size = 0;
         std::memcpy(&name_size, archive.data() + offset + 8, 2);
-        size_t body = offset + 16 + name_size;
-        size_t stored = compressed ? compressed : size;
+        const size_t body = offset + 16 + name_size;
+        const size_t stored = compressed ? compressed : size;
         if (body > archive.size() || stored > archive.size() - body)
             return false;
-        std::string name(reinterpret_cast<const char*>(archive.data() + offset + 16),
-                         strnlen(reinterpret_cast<const char*>(archive.data() + offset + 16), name_size));
-        std::string key = get_relative(name.c_str());
+        const std::string name(reinterpret_cast<const char*>(archive.data() + offset + 16),
+                               strnlen(reinterpret_cast<const char*>(archive.data() + offset + 16), name_size));
+        const std::string key = get_relative(name.c_str());
         for (const std::string& wanted : names) {
             if (key != wanted)
                 continue;
@@ -289,7 +290,7 @@ std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t*
         case 0x00:
             return arrays;
         case 0x16: { // name = value
-            uint32_t name = script::fetch_word32(p + 1);
+            const uint32_t name = script::fetch_word32(p + 1);
             const uint8_t* q = script::skip_newline_tokens(p + 5);
             if (*q != 0x07) {
                 p = script::step_over_token(p);
@@ -325,7 +326,7 @@ std::string path_key(const char* path)
     for (bool again = true; again;) {
         again = false;
         for (const char* extension : kExtensions) {
-            size_t length = std::strlen(extension);
+            const size_t length = std::strlen(extension);
             if (key.size() > length && key.compare(key.size() - length, length, extension) == 0) {
                 key.erase(key.size() - length);
                 again = true;
@@ -370,7 +371,7 @@ bool file_path(const char* relative, char (&path)[260])
     const std::set<std::string>* served = s_served.load();
     if (!served || !relative || !served->count(path_key(relative)))
         return false;
-    std::string full = s_data + relative;
+    const std::string full = s_data + relative;
     if (full.size() >= sizeof(path) || !is_file(full))
         return false;
     std::memcpy(path, full.c_str(), full.size() + 1);
@@ -390,15 +391,15 @@ void load_once()
         return;
     }
     s_done = true;
-    int setting = config_int("features", "thugpro_parts", 1);
+    const int setting = config_int("features", "thugpro_parts", 1);
     if (!setting) {
         get_log("THUGPRO CAS (TP-R10): off ([features] thugpro_parts=0) - a THUGPRO player's own parts fall back to "
                 "THUG2's");
         return;
     }
-    std::string folder = install_folder();
-    std::string archive_path = folder + R"(\data\pre\thugpro_qb.prx)";
-    std::vector<uint8_t> archive = read_whole_file(archive_path);
+    const std::string folder = install_folder();
+    const std::string archive_path = folder + R"(\data\pre\thugpro_qb.prx)";
+    const std::vector<uint8_t> archive = read_whole_file(archive_path);
     if (archive.empty()) {
         get_log("THUGPRO CAS (TP-R10): no THUGPRO install at %s - a THUGPRO player's own parts fall back to THUG2's "
                 "([features] thugpro_folder= names another)",
@@ -406,7 +407,7 @@ void load_once()
         return;
     }
     s_data = folder + "\\data\\";
-    std::vector<std::string> names(std::begin(kFiles), std::end(kFiles));
+    const std::vector<std::string> names(std::begin(kFiles), std::end(kFiles));
     std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
     if (!read_archive(archive, names, &files)) {
         get_log("THUGPRO CAS (TP-R10): %s isn't an archive we can read - THUGPRO's parts not loaded",
@@ -421,7 +422,7 @@ void load_once()
     };
     std::vector<Target> targets;
     for (auto& [name, data] : files) {
-        size_t size = data.size();
+        const size_t size = data.size();
         data.resize(size + 16, 0); // (the walk stops at a 0 token)
         for (auto [array, at] : top_level_arrays(data.data(), size)) {
             script::Array* ours = script::fetch_list(array);
@@ -438,7 +439,7 @@ void load_once()
         }
     }
     int added = 0, lists = 0, skipped = 0;
-    memory::Hub* manager = memory::Hub::get_pull();
+    const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(manager->script_heap_);
     for (const Target& target : targets) {
         script::Array* theirs = script::alloc_script_array();
@@ -464,7 +465,7 @@ void load_once()
             }
         }
         if (!picked.empty()) {
-            uint32_t old = target.ours->extent_;
+            const uint32_t old = target.ours->extent_;
             target.ours->rescale(old + static_cast<uint32_t>(picked.size()));
             uint32_t* elements = theirs->find_array_value();
             for (size_t k = 0; k < picked.size(); ++k) {

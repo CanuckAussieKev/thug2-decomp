@@ -58,9 +58,9 @@ void RiderStanceDisplay::seal()
 int RiderStanceDisplay::get_stance()
 {
     auto* core = reinterpret_cast<ObjectModule*>(core_physics_);
-    uint8_t flip = core_physics_->state_->flag(PoseFlag::kFlipped).on;
-    bool reversed = static_cast<Rider*>(core->entity_)->goofy_ != 0;
-    bool flipped = reversed ? flip != 0 : flip == 0;
+    const uint8_t flip = core_physics_->state_->flag(PoseFlag::kFlipped).on;
+    const bool reversed = static_cast<Rider*>(core->entity_)->goofy_ != 0;
+    const bool flipped = reversed ? flip != 0 : flip == 0;
     if (press_amount_)
         return flipped ? 3 : 4;
     if (flipped)
@@ -74,11 +74,11 @@ void RiderStanceDisplay::tick_frame()
     frontend::UiWidget* panel = nullptr;
     {
         frontend::ElementPtr found;
-        uint32_t id = static_cast<uint32_t>(static_cast<Rider*>(entity_)->get_skater_number()) - kPanelIdOffset;
+        const uint32_t id = static_cast<uint32_t>(static_cast<Rider*>(entity_)->get_skater_number()) - kPanelIdOffset;
         frontend::UiTree::sole()->fetch_part(&found, id, 0);
         panel = found.get_pull();
     }
-    int stance = get_stance();
+    const int stance = get_stance();
     if (stance == shown_)
         return;
     shown_ = stance;

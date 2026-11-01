@@ -66,7 +66,10 @@ TextureSplats* first_splats(lists::KeyMap* table)
 // RGBA bytes as ARGB.
 uint32_t to_argb(uint32_t rgba)
 {
-    uint8_t r = rgba & 0xFF, g = (rgba >> 8) & 0xFF, b = (rgba >> 16) & 0xFF, a = rgba >> 24;
+    const uint8_t r = rgba & 0xFF;
+    const uint8_t g = (rgba >> 8) & 0xFF;
+    const uint8_t b = (rgba >> 16) & 0xFF;
+    const uint8_t a = rgba >> 24;
     return (static_cast<uint32_t>(a) << 24) | (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) | b;
 }
 
@@ -95,7 +98,7 @@ void light_texture_splats(TextureSplats* splats)
 {
     for (int i = 0; i <= splats->last; ++i) {
         uint8_t (*triangle)[0x18] = splats->vertices[i];
-        uint32_t* base = splats->base_colors_[i];
+        const uint32_t* base = splats->base_colors_[i];
         // (the lit colours come back over `colors`, which first holds the base colours)
         uint32_t colors[3];
         std::memcpy(colors, base, 12);
@@ -155,9 +158,9 @@ void draw_texture_splats()
         for (int j = 0; j <= splats->last; ++j) {
             double factor = 1.0;
             if (!(0.0f == splats->correction_a_[j] - splats->correction_b_[j])) {
-                double r = static_cast<double>(splats->correction_a_[j]) / splats->correction_b_[j];
-                double steps = splats->correction_steps_[j];
-                double t = (steps - static_cast<int>(splats->alive[j])) / steps;
+                const double r = static_cast<double>(splats->correction_a_[j]) / splats->correction_b_[j];
+                const double steps = splats->correction_steps_[j];
+                const double t = (steps - static_cast<int>(splats->alive[j])) / steps;
                 factor = 1.0 / (t * (1.0 - r) + r);
             }
             auto* uv = reinterpret_cast<float*>(splats->vertices[0][0] + 0x18 * j + 0x10);
@@ -177,13 +180,13 @@ bool segments_intersect(float ax, float ay, float bx, float by, float cx, float 
     // (the stored differences are floats; the rest stays in registers)
     auto abx = static_cast<float>(static_cast<double>(bx) - ax);
     auto aby = static_cast<float>(static_cast<double>(by) - ay);
-    double dcx = static_cast<double>(cx) - dx;
-    double dcy = static_cast<double>(cy) - dy;
+    const double dcx = static_cast<double>(cx) - dx;
+    const double dcy = static_cast<double>(cy) - dy;
     auto cax = static_cast<float>(static_cast<double>(ax) - cx);
     auto cay = static_cast<float>(static_cast<double>(ay) - cy);
     auto along = static_cast<float>(cax * dcy - cay * dcx);
     auto denominator = static_cast<float>(aby * dcx - dcy * abx);
-    double other = static_cast<double>(cay) * abx - static_cast<double>(cax) * aby;
+    const double other = static_cast<double>(cay) * abx - static_cast<double>(cax) * aby;
     if (denominator > 0.0f) {
         if (along < 0.0f || along > denominator)
             return false;
@@ -217,7 +220,8 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
             return true;
     }
     // a corner inside the triangle: on the inner side of each edge (as the original rounds)
-    double e0 = static_cast<double>(x2) - x1, f0 = static_cast<double>(y2) - y1;
+    const double e0 = static_cast<double>(x2) - x1;
+    const double f0 = static_cast<double>(y2) - y1;
     auto side0 = static_cast<float>((static_cast<double>(y0) - y1) * e0 - f0 * (static_cast<double>(x0) - x1));
     auto e0f = static_cast<float>(e0), f0f = static_cast<float>(f0);
     for (const auto& corner : corners) {
@@ -226,7 +230,8 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
             continue;
         px = static_cast<double>(corner[0]) - x2;
         py = static_cast<double>(corner[1]) - y2;
-        double e1 = static_cast<double>(x0) - x2, f1 = static_cast<double>(y0) - y2;
+        const double e1 = static_cast<double>(x0) - x2;
+        const double f1 = static_cast<double>(y0) - y2;
         auto e1f = static_cast<float>(e1), f1f = static_cast<float>(f1);
         auto g1 = static_cast<float>(static_cast<double>(x1) - x2),
              h1 = static_cast<float>(static_cast<double>(y1) - y2);
@@ -234,7 +239,8 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
             continue;
         px = static_cast<double>(corner[0]) - x0;
         py = static_cast<double>(corner[1]) - y0;
-        double e2 = static_cast<double>(x1) - x0, f2 = static_cast<double>(y1) - y0;
+        const double e2 = static_cast<double>(x1) - x0;
+        const double f2 = static_cast<double>(y1) - y0;
         auto e2f = static_cast<float>(e2), f2f = static_cast<float>(f2);
         auto g2 = static_cast<float>(static_cast<double>(x2) - x0),
              h2 = static_cast<float>(static_cast<double>(y2) - y0);
@@ -259,21 +265,21 @@ bool split_next_triangle(uint8_t** out, const SplitFormat* format)
     auto* p1 = reinterpret_cast<float*>(v1);
     auto* p2 = reinterpret_cast<float*>(v2);
     // the edges from v0 and their cross product (as the original: some parts rounded to floats on the way)
-    double ax = static_cast<double>(p1[0]) - p0[0];
-    double ay = static_cast<double>(p1[1]) - p0[1];
-    double az = static_cast<double>(p1[2]) - p0[2];
+    const double ax = static_cast<double>(p1[0]) - p0[0];
+    const double ay = static_cast<double>(p1[1]) - p0[1];
+    const double az = static_cast<double>(p1[2]) - p0[2];
     auto ayf = static_cast<float>(ay), azf = static_cast<float>(az);
     auto bxf = static_cast<float>(static_cast<double>(p2[0]) - p0[0]);
     auto byf = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
-    double bz = static_cast<double>(p2[2]) - p0[2];
+    const double bz = static_cast<double>(p2[2]) - p0[2];
     auto cross_x = static_cast<float>(bz * ay - byf * az);
     auto cross_y = static_cast<float>(az * bxf - bz * ax);
-    double cross_z = ax * byf - ay * bxf;
-    double length_squared =
+    const double cross_z = ax * byf - ay * bxf;
+    const double length_squared =
         cross_z * cross_z + static_cast<double>(cross_y) * cross_y + static_cast<double>(cross_x) * cross_x;
-    uint32_t size = get_vertex_size();
+    const uint32_t size = get_vertex_size();
     if (!(length_squared > g_split_area_limit)) {
-        for (uint8_t* v : {v0, v1, v2}) {
+        for (const uint8_t* v : {v0, v1, v2}) {
             std::memcpy(*out, v, size);
             *out += size;
         }
@@ -296,7 +302,7 @@ bool split_next_triangle(uint8_t** out, const SplitFormat* format)
         q12[k] = midpoint(p1[k], p2[k]);
     for (int k = 0; k < 3; ++k)
         q20[k] = midpoint(p2[k], p0[k]);
-    if (uint8_t c = format->color_offset_) {
+    if (const uint8_t c = format->color_offset_) {
         for (int k = 0; k < 4; ++k) {
             m01[c + k] = byte_midpoint(v0[c + k], v1[c + k]);
             m12[c + k] = byte_midpoint(v1[c + k], v2[c + k]);
@@ -358,8 +364,8 @@ TextureSplats* get_texture_splats(uint32_t texture)
     MaterialRef* material = memory ? new (memory) MaterialRef : nullptr;
     // (no check: a failed allocation writes through null, as the original)
     material->pass_flags_[0] = texture ? 4 : 0; // (the pass's flags)
-    int a = get_rand();
-    int b = get_rand();
+    const int a = get_rand();
+    const int b = get_rand();
     material->checksum = a * b;                                  // a random checksum
     material->textures[0] = reinterpret_cast<uint8_t*>(texture); // (the texture's key: its PC texture's address)
     material->pass_count_ = 1;                                   // one pass
@@ -391,28 +397,28 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
     float* start = params->start;
     float* end = params->end;
     // the ray's direction (normalised when it has a length; the parts stored are floats) and length
-    double dz = static_cast<double>(end[2]) - start[2];
+    const double dz = static_cast<double>(end[2]) - start[2];
     auto dyf = static_cast<float>(static_cast<double>(end[1]) - start[1]);
     auto dxf = static_cast<float>(static_cast<double>(end[0]) - start[0]);
     float direction[3] = {dxf, dyf, static_cast<float>(dz)};
-    double length_squared = static_cast<double>(dxf) * dxf + static_cast<double>(dyf) * dyf + dz * dz;
+    const double length_squared = static_cast<double>(dxf) * dxf + static_cast<double>(dyf) * dyf + dz * dz;
     auto length = static_cast<float>(std::sqrt(length_squared));
-    double norm = std::sqrt(length_squared);
+    const double norm = std::sqrt(length_squared);
     if (norm > 0.0) {
-        double inverse = 1.0 / norm;
+        const double inverse = 1.0 / norm;
         direction[0] = static_cast<float>(dxf * inverse);
         direction[1] = static_cast<float>(dyf * inverse);
         direction[2] = static_cast<float>(dz * inverse);
     }
-    float cone = std::cos(params->cone_angle_);
+    const float cone = std::cos(params->cone_angle_);
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
     float up[4];
     maths::Mat4 view{}, projection{}, combined{};
     if (params->up) {
         const float* from = params->up;
-        double az = static_cast<double>(start[2]) - from[2];
-        double ay = static_cast<double>(start[1]) - from[1];
+        const double az = static_cast<double>(start[2]) - from[2];
+        const double ay = static_cast<double>(start[1]) - from[1];
         up[0] = static_cast<float>(static_cast<double>(start[0]) - from[0]);
         up[1] = static_cast<float>(ay);
         up[2] = static_cast<float>(az);
@@ -456,8 +462,8 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
         auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
         if (!geom)
             continue;
-        MeshRef** meshes = geom->meshes;
-        uint32_t mesh_count = geom->mesh_count_;
+        MeshRef* const* meshes = geom->meshes;
+        const uint32_t mesh_count = geom->mesh_count_;
         for (uint32_t m = 0; m < mesh_count; ++m) {
             MeshRef* mesh = meshes[m];
             if (mesh->flags & 2)
@@ -468,13 +474,15 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
             mesh->index_buffers_[0]->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
             for (uint32_t strip = 2; strip < mesh->index_counts_[0]; ++strip) {
-                uint32_t c = indices[strip];
-                uint32_t ia = a, ib = b, ic = c;
+                const uint32_t c = indices[strip];
+                const uint32_t ia = a;
+                const uint32_t ib = b;
+                const uint32_t ic = c;
                 a = b;
                 b = c;
                 if (ia == ib || ia == ic || ib == ic)
                     continue;
-                uint32_t stride = mesh->stride;
+                const uint32_t stride = mesh->stride;
                 float t0[3], t1[3], t2[3];
                 transform_coord(t0, get_at(vertices + stride * ia), &combined);
                 transform_coord(t1, get_at(vertices + stride * ib), &combined);
@@ -504,18 +512,20 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     const float* p0 = get_at(v0);
                     const float* p1 = get_at(v1);
                     const float* p2 = get_at(v2);
-                    double ez2 = static_cast<double>(p2[2]) - p0[2], ey2 = static_cast<double>(p2[1]) - p0[1];
-                    double ex2 = static_cast<double>(p2[0]) - p0[0], ez1 = static_cast<double>(p1[2]) - p0[2];
+                    const double ez2 = static_cast<double>(p2[2]) - p0[2];
+                    const double ey2 = static_cast<double>(p2[1]) - p0[1];
+                    const double ex2 = static_cast<double>(p2[0]) - p0[0];
+                    const double ez1 = static_cast<double>(p1[2]) - p0[2];
                     auto ey1f = static_cast<float>(static_cast<double>(p1[1]) - p0[1]);
                     auto ex1f = static_cast<float>(static_cast<double>(p1[0]) - p0[0]);
                     float normal[3] = {static_cast<float>(ez1 * ey2 - ey1f * ez2),
                                        static_cast<float>(ex1f * ez2 - ez1 * ex2),
                                        static_cast<float>(ey1f * ex2 - ex1f * ey2)};
                     normalize3(normal);
-                    double facing = static_cast<double>(normal[2]) * direction[2] +
-                                    static_cast<double>(normal[1]) * direction[1] +
-                                    static_cast<double>(normal[0]) * direction[0];
-                    double absolute = std::fabs(facing);
+                    const double facing = static_cast<double>(normal[2]) * direction[2] +
+                                          static_cast<double>(normal[1]) * direction[1] +
+                                          static_cast<double>(normal[0]) * direction[0];
+                    const double absolute = std::fabs(facing);
                     if (absolute < cone || absolute == cone)
                         continue;
                 }
@@ -542,14 +552,15 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     const float* p0 = get_at(v0);
                     const float* p1 = get_at(v1);
                     const float* p2 = get_at(v2);
-                    double ez1 = static_cast<double>(p1[2]) - p0[2], ey1 = static_cast<double>(p1[1]) - p0[1];
-                    double ex1 = static_cast<double>(p1[0]) - p0[0];
+                    const double ez1 = static_cast<double>(p1[2]) - p0[2];
+                    const double ey1 = static_cast<double>(p1[1]) - p0[1];
+                    const double ex1 = static_cast<double>(p1[0]) - p0[0];
                     auto ez2f = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
                     auto ey2f = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
-                    double ex2 = static_cast<double>(p2[0]) - p0[0];
+                    const double ex2 = static_cast<double>(p2[0]) - p0[0];
                     auto cz = static_cast<float>(ey2f * ex1 - ex2 * ey1);
                     auto cy = static_cast<float>(ex2 * ez1 - ez2f * ex1);
-                    double cx = ez2f * ey1 - ey2f * ez1;
+                    const double cx = ez2f * ey1 - ey2f * ez1;
                     g_split_area_limit = static_cast<float>(
                         (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
                 }
@@ -571,7 +582,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                 bool kept = false;
                 for (uint8_t* piece = pieces; piece != cursor; piece += 0x48) {
                     auto twice = [&](int offset) {
-                        double value = *reinterpret_cast<const float*>(piece + offset);
+                        const double value = *reinterpret_cast<const float*>(piece + offset);
                         return static_cast<float>(value + value - 1.0f);
                     };
                     if (!triangle_overlaps_screen(twice(0x10), twice(0x14), twice(0x28), twice(0x2C), twice(0x40),
@@ -593,7 +604,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                         get_color(into + 0x18 * k) = splat_color(get_color(piece + 0x18 * k));
                     // the base colours: grey from each vertex colour's first byte
                     for (int k = 0; k < 3; ++k) {
-                        uint8_t grey = into[0x18 * k + 0xC];
+                        const uint8_t grey = into[0x18 * k + 0xC];
                         splats->base_colors_[slot][k] = 0x80000000u | (grey << 16) | (grey << 8) | grey;
                     }
                     splats->correction_a_[slot] = params->depth;

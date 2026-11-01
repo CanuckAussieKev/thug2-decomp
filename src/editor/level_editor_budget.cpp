@@ -64,7 +64,7 @@ int get_worst(const std::vector<Meter>& meters)
     for (size_t i = 0; i < meters.size(); ++i) {
         if (meters[i].limit <= 0.0)
             continue;
-        double f = get_fill(meters[i].used, meters[i].limit);
+        const double f = get_fill(meters[i].used, meters[i].limit);
         if (f > fill) {
             fill = f;
             worst = static_cast<int>(i);
@@ -76,7 +76,7 @@ int get_worst(const std::vector<Meter>& meters)
 std::string get_bytes(double bytes)
 {
     char text[32];
-    double a = std::fabs(bytes);
+    const double a = std::fabs(bytes);
     if (a < 1024.0)
         std::snprintf(text, sizeof(text), "%.0f B", bytes);
     else if (a < 1024.0 * 1024.0)
@@ -112,8 +112,8 @@ std::string added_text(const Meter& meter)
     // (memory moves by a few bytes on its own: under 1 KB isn't shown)
     if (meter.added == 0.0 || (meter.bytes && std::fabs(meter.added) < 1024.0))
         return "";
-    std::string sign = meter.added > 0.0 ? "+" : "-";
-    Meter positive = meter;
+    const std::string sign = meter.added > 0.0 ? "+" : "-";
+    const Meter positive = meter;
     return (meter.approximate ? "about " : "") + sign + get_amount(positive, std::fabs(meter.added));
 }
 
@@ -147,7 +147,7 @@ constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
 bool pool_use(memory::PoolPair& pools, int* used, int* count)
 {
-    memory::SlabBank* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
+    const memory::SlabBank* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
     if (!pool)
         return false;
     *used = pool->taken_count_;
@@ -161,7 +161,7 @@ bool region_use(memory::Zone* region, double* size, double* used)
     if (!region)
         return false;
     double free = region->free_byte_count();
-    for (memory::MemSource* allocator : region->allocators_) {
+    for (const memory::MemSource* allocator : region->allocators_) {
         if (allocator)
             free += allocator->free_size_;
     }
@@ -187,7 +187,7 @@ Datum g_base;
 
 void take_baseline()
 {
-    memory::Hub* manager = memory::Hub::get_pull();
+    const memory::Hub* manager = memory::Hub::get_pull();
     double size = 0.0;
     g_base.main = g_base.script = 0.0;
     if (manager) {
@@ -205,7 +205,7 @@ void take_baseline()
 
 void get_observe()
 {
-    int loads = layout::level_loads();
+    const int loads = layout::level_loads();
     if (loads != g_base.loads) {
         g_base.loads = loads;
         g_base.taken = false;
@@ -231,7 +231,7 @@ std::vector<Meter> get_meters()
         crowns_shipped += n.type == kCrown;
         restarts_shipped += n.cls == kRestart;
     }
-    node_create::Counts counts = node_create::counts_now();
+    const node_create::Counts counts = node_create::counts_now();
     auto count = [&](const char* name, double used, double limit, double added, const char* where) {
         Meter m;
         m.name = name;
@@ -256,13 +256,13 @@ std::vector<Meter> get_meters()
           added_nodes,
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
-    if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance())
+    if (const level_nodes::NodeManager* manager = level_nodes::node_manager_instance())
         count("Node arrays", manager->num_, level_nodes::NodeManager::kMaxArrays, 0,
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
     count("Editor trigger volumes", static_cast<double>(triggers::added_triggers().size()), 0,
           static_cast<double>(triggers::added_triggers().size()), "the movable collision list (no fixed limit)");
     int faces = 0;
-    int companions = shared_collision::total_of(&faces);
+    const int companions = shared_collision::total_of(&faces);
     (void)companions;
     count("Collision faces taken along", faces, 0, faces,
           "companions' faces (at most 2048 a piece: SharedCollision::kMostFaces)");
@@ -283,7 +283,7 @@ std::vector<Meter> get_meters()
         m.where = kPools[i].where;
         meters.push_back(m);
     }
-    if (memory::Hub* manager = memory::Hub::get_pull()) {
+    if (const memory::Hub* manager = memory::Hub::get_pull()) {
         double size = 0.0, used = 0.0;
         if (region_use(manager->script_region_, &size, &used)) {
             Meter m;
@@ -323,7 +323,7 @@ const std::vector<Meter>& get_cached()
 {
     static std::vector<Meter> meters;
     static double last = -1.0;
-    double now = ImGui::GetTime();
+    const double now = ImGui::GetTime();
     if (last < 0.0 || now - last > 0.25) {
         meters = get_meters();
         last = now;
@@ -336,7 +336,7 @@ const std::vector<Meter>& get_cached()
 bool strip_meter(float* fill, uint32_t* argb)
 {
     const std::vector<Meter>& meters = get_cached();
-    int worst = get_worst(meters);
+    const int worst = get_worst(meters);
     if (worst < 0)
         return false;
     const Meter& w = meters[worst];
@@ -348,17 +348,17 @@ bool strip_meter(float* fill, uint32_t* argb)
 void tooltip()
 {
     const std::vector<Meter>& meters = get_cached();
-    int worst = get_worst(meters);
+    const int worst = get_worst(meters);
     if (worst < 0)
         return;
     ImGui::BeginTooltip();
     ImGui::Text("Budget: %s %s (click for details)", meters[worst].name, used_text(meters[worst]).c_str());
     ImGui::Separator();
     for (const Meter& m : meters) {
-        StageMap l = get_level_of(m.used, m.limit);
+        const StageMap l = get_level_of(m.used, m.limit);
         ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))), "%s", "\xE2\x97\x8F");
         ImGui::SameLine();
-        std::string added = added_text(m);
+        const std::string added = added_text(m);
         ImGui::Text("%s: %s%s%s", m.name, used_text(m).c_str(), added.empty() ? "" : "  (edits ",
                     added.empty() ? "" : (added + ")").c_str());
     }
@@ -389,7 +389,7 @@ void get_table()
         ImGui::TextUnformatted(used_text(m).c_str());
         ImGui::TableNextColumn();
         if (m.limit > 0.0) {
-            StageMap l = get_level_of(m.used, m.limit);
+            const StageMap l = get_level_of(m.used, m.limit);
             ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))));
             ImGui::ProgressBar(static_cast<float>(std::min(1.0, get_fill(m.used, m.limit))), ImVec2(-1.0f, 0.0f), "");
             ImGui::PopStyleColor();

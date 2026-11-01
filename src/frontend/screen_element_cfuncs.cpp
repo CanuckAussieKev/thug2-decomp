@@ -227,8 +227,8 @@ bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script
     uint32_t id = 0;
     if (!manager->resolve_id(params, kId, &id))
         return false;
-    int recurse = params->has_bare_flag("dont_recurse") ? 0 : 1; // dont_recurse
-    int keep = params->has_bare_flag("preserve_parent") ? 1 : 0; // preserve_parent
+    const int recurse = params->has_bare_flag("dont_recurse") ? 0 : 1; // dont_recurse
+    const int keep = params->has_bare_flag("preserve_parent") ? 1 : 0; // preserve_parent
     if (recurse || !keep)
         manager->dismantle_part(id, recurse, keep, script);
     return true;
@@ -248,7 +248,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     params->read_sub_struct(kParamsName, &script_params, 0);
     Struct* callback_params = nullptr;
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
-    script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+    const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
     if (symbol && symbol->type == script::kQbvalNativeMethod) {
         element.owner_object_->invoke_method_by_name(name, script_params, script);
     } else if (Script* spawned = script::spawn_script(name, script_params, callback, callback_params, 0, 0, false,
@@ -292,8 +292,9 @@ bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* scrip
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    int width = static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown_.scale_x_) * element->span_));
-    int height =
+    const int width =
+        static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown_.scale_x_) * element->span_));
+    const int height =
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown_.scale_y_) * element->level_y_));
     script->args_->put_int(kWidth, width);
     script->args_->put_int(kHeight, height);
@@ -346,7 +347,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
         ElementPtr found;
         element.assign_value(manager->fetch_part(&found, id, 1)->owner_object_);
     }
-    int count = element->child_total();
+    const int count = element->child_total();
     if (count == 0)
         return false;
     script::Array* array = script::alloc_script_array();
@@ -367,8 +368,8 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
     const char* text = nullptr;
     params->fetch_text(0u, &text, 1);
     if (element->kind_tag_ == kTextBlockElement) {
-        bool last_line = params->has_bare_flag(kLastLine);
-        bool enforce = params->has_bare_flag(kEnforceMaxWidth);
+        const bool last_line = params->has_bare_flag(kLastLine);
+        const bool enforce = params->has_bare_flag(kEnforceMaxWidth);
         return text_block_concatenate(element.owner_object_, text, enforce, last_line);
     }
     if (element->kind_tag_ == kTextElement)
@@ -437,7 +438,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     auto* menu = static_cast<MenuBase*>(element.owner_object_);
-    int selected = menu->selected_index_;
+    const int selected = menu->selected_index_;
     if (selected == -1)
         return false;
     int index = 0;
@@ -512,7 +513,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
             text = texts->fetch_text(++text_index);
             cursor = text;
             if (previous != 1) {
-                size_t length = std::strlen(word);
+                const size_t length = std::strlen(word);
                 word[length] = ' ';
                 word[length + 1] = 0;
             }
@@ -521,7 +522,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         float word_width = 0.0f, word_height = 0.0f;
         read_string_param(font, word, &word_width, &word_height);
         bool new_line = false;
-        bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;
+        const bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;
         if (full || previous == 1 || std::strlen(word) + line_length >= 0x60) {
             // the line so far (without its trailing space) becomes an element
             char* last = line_length ? &line[line_length - 1] : &word[sizeof(buffers.word) - 1];

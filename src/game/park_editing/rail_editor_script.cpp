@@ -81,7 +81,7 @@ void free_struct(script::Struct* structure)
 
 int rail_pool_used()
 {
-    memory::PoolPair& pools = rail_pools();
+    const memory::PoolPair& pools = rail_pools();
     return pools.pools[pools.current]->taken_count_;
 }
 
@@ -148,13 +148,13 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
     else
         info->put_name_key(kCurrentRail, kNull);
     int count = 0;
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
     if (count) {
         script::Array* rails = alloc_script_array();
         rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
         uint32_t i = 0;
-        for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+        for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
             rails->set_element(i++, reinterpret_cast<uint32_t>(spawn_param_bag()));
         info->append_array_ref(kRails, rails);
     }
@@ -166,20 +166,20 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
 void RailAuthoring::write_to_structure(script::Struct* params)
 {
     int count = 0;
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
     script::Array* rails = alloc_script_array();
     rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     uint32_t r = 0;
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
         script::Struct* rail_info = spawn_param_bag();
         uint32_t point_count = 0;
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
+        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
             ++point_count;
         script::Array* points = alloc_script_array();
         points->configure_size_kind(point_count, script::kQbvalStruct);
         uint32_t i = 0;
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
             script::Struct* point = spawn_param_bag();
             point->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
             // (a post drawn, not has_post_)
@@ -222,8 +222,8 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
 {
     int next = *index;
     int rail_index = 0;
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++rail_index) {
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++rail_index) {
+        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
             auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(static_cast<uint32_t>(next)));
             ++next;
             node->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
@@ -272,7 +272,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 0);
         if (!active_node_)
             return 0;
-        EditedRailPoint* head = active_node_->point_chain_;
+        const EditedRailPoint* head = active_node_->point_chain_;
         if (head && !rail_segment_valid(&pos, &head->at_point_))
             return 1;
         if (!ParkBuilderMode::is_inside_park(pos, 10.0f))
@@ -322,7 +322,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         EditedRail* rail = find_rail(id);
         if (!rail)
             return 1;
-        bool update = params->has_bare_flag(kUpdateSuperSectors);
+        const bool update = params->has_bare_flag(kUpdateSuperSectors);
         return rail->move_point(index, &pos, update) ? 1 : 0;
     }
     case kHighlightRailPoint: {
@@ -330,12 +330,12 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         params->read_hash_value(kRailId, &id, 0);
         int index = 0;
         params->fetch_int_value(kRailPointIndex, &index, 0);
-        EditedRail* rail = find_rail(id);
+        const EditedRail* rail = find_rail(id);
         if (!rail)
             return 1;
         EditedRailPoint* p = rail->fetch_vertex_at(index);
-        bool include_end_posts = params->has_bare_flag(kIncludeEndPosts);
-        bool flash = params->has_bare_flag(kFlash);
+        const bool include_end_posts = params->has_bare_flag(kIncludeEndPosts);
+        const bool flash = params->has_bare_flag(kFlash);
         p->spotlight(flash, include_end_posts);
         return 1;
     }
@@ -379,7 +379,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     case kGetEditedRailInfo: {
         uint32_t id = 0;
         params->read_hash_value(kRailId, &id, 0);
-        EditedRail* rail = find_rail(id);
+        const EditedRail* rail = find_rail(id);
         if (params->has_bare_flag(kCurrentRail))
             rail = active_node_;
         if (!rail)

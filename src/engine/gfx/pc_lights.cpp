@@ -155,7 +155,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     if (!radius)
         return;
     DynamicLightBase* dynamic[32];
-    uint32_t count = find_dynamic_lights(position, radius, dynamic);
+    const uint32_t count = find_dynamic_lights(position, radius, dynamic);
     if (!count) {
         float* off = light_color_constant(first_dynamic_);
         off[0] = off[1] = off[2] = 0.0f;
@@ -166,16 +166,16 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         const float* at = light->pos;
         double dx = static_cast<double>(position->x) - at[0];
         double dy = static_cast<double>(position->y) - at[1];
-        double dz = static_cast<double>(position->z) - at[2];
+        const double dz = static_cast<double>(position->z) - at[2];
         auto distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
-        double falloff = get_falloff(light, distance);
+        const double falloff = get_falloff(light, distance);
         // the direction from the light, normalised (unless its length isn't above 0)
         dx = static_cast<double>(position->x) - at[0];
         dy = static_cast<double>(position->y) - at[1];
         auto zf = static_cast<float>(static_cast<double>(position->z) - at[2]);
-        double length = std::sqrt(dx * dx + static_cast<double>(zf) * zf + dy * dy);
+        const double length = std::sqrt(dx * dx + static_cast<double>(zf) * zf + dy * dy);
         if (length > 0.0) {
-            double inverse = 1.0 / length;
+            const double inverse = 1.0 / length;
             dx *= inverse;
             dy *= inverse;
             zf = static_cast<float>(zf * inverse);
@@ -185,7 +185,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         direction[1] = static_cast<float>(dy);
         direction[2] = zf;
         if (light->type == 1) {
-            double factor = (1.0 - falloff) * light->intensity * kPer255;
+            const double factor = (1.0 - falloff) * light->intensity * kPer255;
             float* out = light_color_constant(first_dynamic_ + j);
             const auto* colour = reinterpret_cast<const uint8_t*>(&light->colour); // (its r, g, b bytes)
             for (int k = 0; k < 3; ++k)
@@ -209,7 +209,7 @@ bool PcModelLights::ambient_light_is_on() { return (overrides & 1) != 0; }
 // 0x004B6210
 void PcModelLights::switch_diffuse_light(int light, bool on)
 {
-    uint32_t bit = 2u << (light & 31);
+    const uint32_t bit = 2u << (light & 31);
     if (on)
         overrides |= bit;
     else

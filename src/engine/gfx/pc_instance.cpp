@@ -109,9 +109,9 @@ void send_lights()
     lamp_b.Direction.y = g_light_constants[13];
     lamp_b.Direction.z = g_light_constants[14];
     input_port()->SetLight(1, &lamp_b);
-    uint32_t r = get_channel(g_light_constants[0]);
-    uint32_t g = get_channel(g_light_constants[1]);
-    uint32_t b = get_channel(g_light_constants[2]);
+    const uint32_t r = get_channel(g_light_constants[0]);
+    const uint32_t g = get_channel(g_light_constants[1]);
+    const uint32_t b = get_channel(g_light_constants[2]);
     input_port()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 
@@ -130,7 +130,7 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
     if (bones && bones_on_device(scene) <= 0)
         return;
     for (int i = 0; i < scene->mesh_count_; ++i) {
-        MeshRef* mesh = scene->meshes[i];
+        const MeshRef* mesh = scene->meshes[i];
         if (!(mesh->fvf & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit))
             return;
     }
@@ -209,7 +209,7 @@ void Singleton::render(uint32_t draw_bits)
         change_phase(kStateLighting, 0);
     }
     if (bones_on_device(scene) != 0) {
-        int count = bone_count_ < kMaxBones ? bone_count_ : kMaxBones;
+        const int count = bone_count_ < kMaxBones ? bone_count_ : kMaxBones;
         if (count > 0) {
             for (int bone = 0; bone < count; ++bone) {
                 maths::Mat4 world = transform;
@@ -258,7 +258,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
 // 0x004D1760
 void draw_instance_batch(uint32_t flags, int viewport)
 {
-    uint32_t mask = 1u << (viewport & 0x1F);
+    const uint32_t mask = 1u << (viewport & 0x1F);
     float culling[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}; // the identity at each one's position
     int count = 0;
     set_last_bones(nullptr);
@@ -266,7 +266,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
         for (Singleton* instance = instances(); instance; instance = instance->next) {
             if (!instance->active || !(instance->viewports & mask))
                 continue;
-            SceneRef* list = instance->scene;
+            const SceneRef* list = instance->scene;
             if (!((flags & kRenderOpaque) && list->mesh_count_ > list->transparent_count_) &&
                 !((flags & kRenderTransparent) && list->transparent_count_ > 0))
                 continue;
@@ -297,15 +297,15 @@ void draw_instance_batch(uint32_t flags, int viewport)
                     instance->render(flags);
             }
             clear_flag_786e_b4();
-            float camera[3] = {g_camera.position[0], g_camera.position[1], g_camera.position[2]};
-            double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
+            const float camera[3] = {g_camera.position[0], g_camera.position[1], g_camera.position[2]};
+            const double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
             auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
                 Singleton* instance = get_visible()[i];
                 const auto* position = reinterpret_cast<const float*>(get_position(instance));
-                double dx = static_cast<double>(position[0]) - camera[0];
-                double dy = static_cast<double>(position[1]) - camera[1];
-                double dz = static_cast<double>(position[2]) - camera[2];
+                const double dx = static_cast<double>(position[0]) - camera[0];
+                const double dy = static_cast<double>(position[1]) - camera[1];
+                const double dz = static_cast<double>(position[2]) - camera[2];
                 g_near_camera = !(dz * dz + dy * dy + dx * dx > near_squared); // near the camera
                 if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x100)))
                     instance->render(flags);
@@ -331,12 +331,14 @@ int compare_instances(const void* a, const void* b)
             return -1;
         if (first->bones != second->bones)
             return second->bones < first->bones ? 1 : -1;
-        int x = first->scene->transparent_count_, y = second->scene->transparent_count_;
+        const int x = first->scene->transparent_count_;
+        const int y = second->scene->transparent_count_;
         return x == y ? 0 : x > y ? 1 : -1;
     }
     if (skinned_by_shader(second))
         return 1;
-    int x = first->scene->transparent_count_, y = second->scene->transparent_count_;
+    const int x = first->scene->transparent_count_;
+    const int y = second->scene->transparent_count_;
     if (x != y)
         return x > y ? 1 : -1;
     if (x <= 0)
@@ -345,7 +347,8 @@ int compare_instances(const void* a, const void* b)
     const MaterialRef* m2 = second->scene->meshes[second->scene->first_transparent_]->material;
     if (!m1 || !m2)
         return 0;
-    float k1 = m1->sort_key_, k2 = m2->sort_key_;
+    const float k1 = m1->sort_key_;
+    const float k2 = m2->sort_key_;
     if (k1 > k2)
         return 1;
     return k1 < k2 ? -1 : 0;

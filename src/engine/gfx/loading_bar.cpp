@@ -115,7 +115,7 @@ void update_loading_bar_colors()
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
     // bytes too early (it replaced the instruction's base, which is the table's address + 4). Here the table is
     // at the start of the buffer. Nothing reads the table.
-    int steps = static_cast<int>(static_cast<double>(gradient_width()) * horiz_screen_ratio());
+    const int steps = static_cast<int>(static_cast<double>(gradient_width()) * horiz_screen_ratio());
     const Rgb start = gradient_start();
     const Rgb delta = {gradient_end().r - start.r, gradient_end().g - start.g, gradient_end().b - start.b};
     Rgb* table = gradient_table();
@@ -141,19 +141,19 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
-    double x_scale = static_cast<double>(get_screen_width()) * g_per640;                     // 1 / 640
+    const double x_scale = static_cast<double>(get_screen_width()) * g_per640;               // 1 / 640
     auto y_scale = static_cast<float>(static_cast<double>(get_screen_height()) * g_per480);  // 1 / 480
-    double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
+    const double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
     elapsed_seconds() = static_cast<float>(elapsed);
     double fraction = elapsed / get_total_seconds();
     if (fraction > 1.0)
         fraction = 1.0;
-    int left = (get_screen_width() - gradient_width()) / 2;
-    int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * g_float_five); // 5
-    int filled = ftol(gradient_width() * fraction) + left;
-    int frame_right = ftol((gradient_width() + frame_left) + x_scale * g_float_ten); // 10
-    int top = ftol(y_scale * static_cast<double>(g_float420));                       // 420
-    int bottom = ftol(top + y_scale * static_cast<double>(g_float_twenty));          // 20
+    const int left = (get_screen_width() - gradient_width()) / 2;
+    const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * g_float_five); // 5
+    const int filled = ftol(gradient_width() * fraction) + left;
+    const int frame_right = ftol((gradient_width() + frame_left) + x_scale * g_float_ten); // 10
+    const int top = ftol(y_scale * static_cast<double>(g_float420));                       // 420
+    const int bottom = ftol(top + y_scale * static_cast<double>(g_float_twenty));          // 20
     auto top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
     auto frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
 
@@ -163,15 +163,16 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     if (render::select_picture_up()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
         // safety yellow rule on top, a little wider and taller than the bar's frame.
-        float pad_x = static_cast<float>(x_scale * 18.0), pad_y = y_scale * 14.0f;
-        float rule = y_scale * 2.0f;
+        const float pad_x = static_cast<float>(x_scale * 18.0);
+        const float pad_y = y_scale * 14.0f;
+        const float rule = y_scale * 2.0f;
         draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, bottom_f + pad_y, 0xFF0A0A0A, 0xFF0A0A0A);
         draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, top_f - pad_y + rule, 0xFFF2E205,
                   0xFFF2E205);
     }
     draw_quad(frame_left_f, top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     // the gradient, inset 5/480 of the screen's height top and bottom
-    double inset = y_scale * static_cast<double>(g_float_five); // 5
+    const double inset = y_scale * static_cast<double>(g_float_five); // 5
     auto gradient_top = static_cast<float>(top_f + inset);
     auto gradient_bottom = static_cast<float>(bottom_f - static_cast<double>(static_cast<float>(inset)));
     draw_quad(static_cast<float>(left), gradient_top, static_cast<float>(gradient_width() + left), gradient_bottom,

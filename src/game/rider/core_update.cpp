@@ -27,7 +27,7 @@ void SkaterPhysicsModule::tick_frame()
 {
     frame_length_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     collision_events::checkpoint(this, "update-start"); // (not original)
-    bool bike = thaw_bmx::live_now(this);               // (not original: THAW's bike, thaw_bmx_physics.cpp)
+    const bool bike = thaw_bmx::live_now(this);         // (not original: THAW's bike, thaw_bmx_physics.cpp)
     if (bike)
         thaw_bmx::begin_frame(this);
     landed_this_frame_ = 0;
@@ -84,7 +84,7 @@ void SkaterPhysicsModule::tick_frame()
     update_special_time();
     collision_events::checkpoint(this, "update-rest"); // (not original)
 
-    uint8_t in_air =
+    const uint8_t in_air =
         state_of(this) == kAir && bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop);
     uint8_t& air_from_jump = vert_air_announced_;
     if (air_from_jump != in_air) {

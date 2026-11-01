@@ -274,12 +274,12 @@ bool ShootVideoObjective::target_in_view()
         return false;
     auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
     maths::Vec4* camera = static_cast<gfx::ViewCam*>(skater->obtain_active_lens())->fetch_location();
-    float dx = (*camera)[0] - object->at_point_[0];
-    float dy = (*camera)[1] - object->at_point_[1];
-    float dz = (*camera)[2] - object->at_point_[2];
+    const float dx = (*camera)[0] - object->at_point_[0];
+    const float dy = (*camera)[1] - object->at_point_[1];
+    const float dz = (*camera)[2] - object->at_point_[2];
     int maximum = 0;
     args_->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
-    double distance =
+    const double distance =
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx);
     return static_cast<double>(maximum) > distance;
 }
@@ -341,13 +341,13 @@ void HuntGapsObjective::scan_for_gaps()
     int count = 0;
     args_->fetch_int_value(kNumGapsFound, &count, 1);
     auto* score = static_cast<modules::PointTally*>(skater->get_points_total());
-    int gaps = score->tricks_;
+    const int gaps = score->tricks_;
     bool found_new = false;
     for (int i = 0; i < gaps; ++i) {
         // (modules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)
         if (!score->is_gap(i))
             continue;
-        uint32_t gap = reinterpret_cast<modules::PointTally*>(score)->get_trick_name(i);
+        const uint32_t gap = reinterpret_cast<modules::PointTally*>(score)->get_trick_name(i);
         if (found->has_entry_named(gap))
             continue;
         found->put_int(gap, 1);

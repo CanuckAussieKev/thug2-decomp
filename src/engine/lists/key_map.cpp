@@ -15,7 +15,7 @@ static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10
 // 0x0049FD90
 KeyMap::KeyMap(int bits) : bits_(bits)
 {
-    int count = 1 << bits;
+    const int count = 1 << bits;
     auto* buckets = static_cast<Item*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Item)));
     if (buckets) {
         for (int i = 0; i < count; ++i)
@@ -109,11 +109,11 @@ void KeyMap::empty_table()
 // 0x005B8060
 void KeyMap::run_hook(HookFn callback, void* data)
 {
-    Item* bucket = buckets_;
+    const Item* bucket = buckets_;
     for (unsigned int i = 1u << bits_; i != 0; --i, ++bucket) {
         // The chained items first, then the bucket's own slot.
-        for (Item* item = bucket->next; item;) {
-            Item* next = item->next;
+        for (const Item* item = bucket->next; item;) {
+            const Item* next = item->next;
             if (item->value)
                 callback(item->value, data);
             item = next;

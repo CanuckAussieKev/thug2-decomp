@@ -77,7 +77,7 @@ RiderOverheadTag::~RiderOverheadTag() { run_with_label_id(kDestroyObjectLabel, l
 // 0x00511780
 void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 {
-    uint32_t id = entity_->ident_;
+    const uint32_t id = entity_->ident_;
     if (id < 8)
         label_id_ = kLabelIds[id];
 }
@@ -95,20 +95,20 @@ void RiderOverheadTag::tick_frame()
         frontend::UiTree::sole()->fetch_part(&found, label_id_, 0);
         label = found.get_pull();
     }
-    online::PlayerRecord* player = find_player_slot_by_obj(entity_->ident_);
+    const online::PlayerRecord* player = find_player_slot_by_obj(entity_->ident_);
     auto* skater = static_cast<Rider*>(entity_);
     if (!skater->get_flag_2c_4() || (entity_->composite_flags_ & kCompositeFlagHidden)) {
         if (label)
             run_with_label_id(kDestroyObjectLabel, label_id_);
         return;
     }
-    float height = find_own_player_record() == player ? kLocalHeight : kOtherHeight;
+    const float height = find_own_player_record() == player ? kLocalHeight : kOtherHeight;
     script::Struct* params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
     params->put_name_key(kId, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
-    uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team_) : entity_->ident_;
+    const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team_) : entity_->ident_;
     char text[64];
     std::snprintf(text, sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
     params->append_word(kText, text);

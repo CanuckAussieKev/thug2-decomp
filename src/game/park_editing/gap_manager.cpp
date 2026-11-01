@@ -95,7 +95,7 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
             park_owner_->builder_->destroy_piece(piece);
     }
     if (forget) {
-        int checklist_index = skate_checklist()->find_gap(gap->details_.text_);
+        const int checklist_index = skate_checklist()->find_gap(gap->details_.text_);
         if (checklist_index >= 0)
             remove_gap_from_goals(checklist_index);
     }
@@ -182,10 +182,10 @@ void GapRegistry::start_gap(void* piece, PieceGroup* meta, int index)
 void GapRegistry::fire_gap(int index, script::Script* script)
 {
     for (int i = 0; i < 2; ++i) {
-        int half = started_first_[index] ? i : 1 - i;
+        const int half = started_first_[index] ? i : 1 - i;
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* params = memory ? new (memory) script::Struct : nullptr;
-        Gap* gap = gaps_ptr_[index];
+        const Gap* gap = gaps_ptr_[index];
         params->put_name_key(kGapId, gap->ids_[half]);
         params->put_int(kScore, gaps_ptr_[index]->details_.points_held_);
         params->append_word(kText, gaps_ptr_[index]->label_);

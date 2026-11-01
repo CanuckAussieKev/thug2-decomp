@@ -106,10 +106,10 @@ bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script
     uint32_t name = 0;
     params->read_hash_value(kChecksum, &name, 1);
     void* face = get_face_texture();
-    int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution(); // (0x4420)
-    void* data = static_cast<gfx::FaceSkin*>(face)->get_image();           // (its +0x3C)
-    void* texture = static_cast<render::TextureSet*>(texture_bank())
-                        ->read_texture_buffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
+    const int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution(); // (0x4420)
+    const void* data = static_cast<gfx::FaceSkin*>(face)->get_image();           // (its +0x3C)
+    const void* texture = static_cast<render::TextureSet*>(texture_bank())
+                              ->read_texture_buffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
     return texture != nullptr;
 }
 
@@ -126,11 +126,11 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
     uint8_t image[0x4420];
     std::memset(image, 0, sizeof(image));
     texture->set_pixels(static_cast<void*>(image));
-    int palette_size = static_cast<int>(texture->get_palette_size());
-    uint8_t bits_per_pixel = texture->get_unknown_e();
+    const int palette_size = static_cast<int>(texture->get_palette_size());
+    const uint8_t bits_per_pixel = texture->get_unknown_e();
     texture->set_palette(static_cast<void*>(image + 0x20), palette_size / (bits_per_pixel >> 3));
     const void* pixels = texture->get_pixels();
-    int pixel_size = static_cast<int>(texture->get_pixels_size());
+    const int pixel_size = static_cast<int>(texture->get_pixels_size());
     std::memcpy(image + 0x20 + palette_size, pixels, pixel_size);
     static_cast<gfx::FaceSkin*>(face)->set_image(image, pixel_size + palette_size + 0x20);
     return true;
@@ -150,7 +150,7 @@ bool cfunc_offset_texture(script::Struct* params, script::Script*)
     params->fetch_int_value(kXOffset, &x, 0);
     params->fetch_int_value(kYOffset, &y, 0);
     bool given = false;
-    uint32_t colour = read_colour(params, &given);
+    const uint32_t colour = read_colour(params, &given);
     texture->get_offset(x, y, given, static_cast<int>(colour));
     return true;
 }
@@ -189,7 +189,7 @@ bool cfunc_push_texture_to_point(script::Struct* params, script::Script*)
     params->fetch_int_value(kAxis, &axis, 0);
     params->fetch_int_value(kPushAmount, &amount, 0);
     bool given = false;
-    uint32_t colour = read_colour(params, &given);
+    const uint32_t colour = read_colour(params, &given);
     texture->squash(point, axis, amount, given, colour);
     return true;
 }
@@ -213,7 +213,7 @@ bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*)
     params->fetch_int_value(kA, &a, 0);
     int mode = 0;
     params->fetch_int_value(kTintMode, &mode, 0);
-    bool second = mode == 1;
+    const bool second = mode == 1;
     texture->modulate(pack_colour(r, g, b, a), second);
     return true;
 }
@@ -256,8 +256,8 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     else if (v > 1.0)
         v = 1.0;
 
-    int sector = ftol(h);
-    double f = h - static_cast<double>(sector);
+    const int sector = ftol(h);
+    const double f = h - static_cast<double>(sector);
     auto p = static_cast<float>((1.0 - s) * v);
     auto q = static_cast<float>((1.0 - s * f) * v);
     auto t = static_cast<float>((1.0 - (1.0 - f) * s) * v);

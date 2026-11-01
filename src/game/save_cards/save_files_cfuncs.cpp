@@ -119,7 +119,7 @@ bool delete_mem_card_file(Struct* params, Script*)
             std::snprintf(full_name, sizeof(full_name), "/%s%s/%s%s", folder, file, folder, file);
             path = full_name;
         }
-        uint32_t file_type = type_from_letter(path[std::strlen(path) - 1]);
+        const uint32_t file_type = type_from_letter(path[std::strlen(path) - 1]);
         // the folder: the first character, then up to the next '/'
         char directory[100];
         directory[0] = path[0];
@@ -201,7 +201,7 @@ bool get_mem_card_space_required(Struct* params, Script* script)
 {
     uint32_t type = 0;
     params->read_hash_value(0u, &type, 0);
-    int size = type_file_size(type);
+    const int size = type_file_size(type);
     result_params(script)->put_int(0xEB3860C3u, save_blocks(type, size)); // SpaceRequired
     return true;
 }
@@ -251,7 +251,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
             card->remove_file(type_file_name);
         return false;
     }
-    int size = static_cast<int>(file->seek_to(0, 2));
+    const int size = static_cast<int>(file->seek_to(0, 2));
     result_params(script)->put_int("total_file_size", save_blocks(type, size));
     file->drain();
     file->shut();
@@ -310,12 +310,12 @@ bool get_save_info(Struct* params, Script* script)
     if (contents)
         contents = new (contents) script::Struct;
     write_save_contents(contents, type);
-    int main_size = static_cast<int>(script::measure_buffer_bytes(contents, 100000));
+    const int main_size = static_cast<int>(script::measure_buffer_bytes(contents, 100000));
     Struct* summary = script::spawn_param_bag();
     if (summary)
         summary = new (summary) script::Struct;
     write_summary(contents, summary, type);
-    int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
+    const int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
     Struct* results = result_params(script);
     results->put_int(0x172C1344u, main_size);                       // MainStructureSize
     results->put_int(0x96635475u, summary_size);                    // SummaryInfoSize
@@ -342,7 +342,7 @@ uint8_t g_listed_file[kListedFileBytes];
 // The i-th file of a list (its nodes from the head's next; each file is its own node).
 FileLoad* list_entry(memory::ListNode* head, int index)
 {
-    memory::ListNode* node = head->next;
+    const memory::ListNode* node = head->next;
     for (int i = 0; i < index; ++i)
         node = node->next;
     return static_cast<FileLoad*>(node->data);
@@ -422,9 +422,10 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     int listed = 0;
     Struct* entries[kMaxFiles];
     const char* folder = save_folder();
-    int folder_length = static_cast<int>(std::strlen(folder));
+    const int folder_length = static_cast<int>(std::strlen(folder));
     int file_count = 0;
-    for (memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1 && node; node = node->next)
+    for (const memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1 && node;
+         node = node->next)
         ++file_count;
     debug::printf(
         "ScriptGetMemCardDirectoryListing: DirList Start\n"); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
@@ -434,7 +435,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         if (std::memcmp(file->label_, folder, static_cast<size_t>(folder_length)) != 0)
             continue;
         ++game_files;
-        uint32_t type = listed_file_type(file, folder_length);
+        const uint32_t type = listed_file_type(file, folder_length);
         if (wanted_type && type != wanted_type)
             continue;
         if (listed >= kMaxFiles)
@@ -467,10 +468,11 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             SaveFileHeader listed_header;
             read_save_file_header(reader, &listed_header);
             const uint8_t* listed_summary = reader.cursor();
-            int summary_size = listed_header.summary_size;
-            bool bad = summary_size > kMaxSummarySize ||
-                       checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
-            int size = static_cast<int>(opened->seek_to(0, 2));
+            const int summary_size = listed_header.summary_size;
+            const bool bad =
+                summary_size > kMaxSummarySize ||
+                checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
+            const int size = static_cast<int>(opened->seek_to(0, 2));
             entry->put_int(0x3D1BCFEDu, save_blocks(type, size)); // total_file_size
             if (bad || listed_header.version != type_version(type)) {
                 mark_corrupt(entry, os_layer() == 5 ? kNgcDamagedFile : kDamagedFile);
@@ -495,9 +497,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         --struct_pools().current;
     }
     // the list's nodes deleted (each file is its own node)
-    for (memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1;) {
-        memory::ListNode* next = node->next;
-        memory::ListNode* following = reinterpret_cast<intptr_t>(next->data) == -1 ? nullptr : next;
+    for (const memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1;) {
+        const memory::ListNode* next = node->next;
+        const memory::ListNode* following = reinterpret_cast<intptr_t>(next->data) == -1 ? nullptr : next;
         static_cast<FileLoad*>(node->data)->teardown(1);
         node = following;
         if (!node)
@@ -589,11 +591,11 @@ bool save_to_memory_card(Struct* params, Script*)
     uint8_t* header = nullptr;
     uint8_t* padding = nullptr;
     bool saved = false;
-    int file_size = type_file_size(type);
-    uint32_t main_size = script::measure_buffer_bytes(contents, static_cast<uint32_t>(file_size));
-    uint32_t summary_size = script::measure_buffer_bytes(summary, kMaxSummarySize);
-    uint32_t total = main_size + summary_size + kSaveFileHeaderSize;
-    uint32_t padding_size = static_cast<uint32_t>(file_size) - total;
+    const int file_size = type_file_size(type);
+    const uint32_t main_size = script::measure_buffer_bytes(contents, static_cast<uint32_t>(file_size));
+    const uint32_t summary_size = script::measure_buffer_bytes(summary, kMaxSummarySize);
+    const uint32_t total = main_size + summary_size + kSaveFileHeaderSize;
+    const uint32_t padding_size = static_cast<uint32_t>(file_size) - total;
     if (padding_size != 0 && os_layer() != 5) {
         padding = static_cast<uint8_t*>(memory::alloc_block(padding_size));
         if (padding_size > 0)
@@ -637,7 +639,7 @@ bool save_to_memory_card(Struct* params, Script*)
                 file_header.size = static_cast<int>(total);
                 file_header.summary_size = static_cast<int>(summary_size);
                 uint8_t* data = header + kSaveFileHeaderSize;
-                bool pc = os_layer() == 4 || os_layer() == 7;
+                const bool pc = os_layer() == 4 || os_layer() == 7;
                 script::emit_into_buffer(summary, data, summary_size, 0, pc ? keep_sound_going : nullptr);
                 file_header.summary_crc = checksums::generate_crc_from_buffer(data, static_cast<int>(summary_size));
                 data += summary_size;

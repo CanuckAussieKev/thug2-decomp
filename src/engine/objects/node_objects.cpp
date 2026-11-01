@@ -61,7 +61,7 @@ void run_creation_script(GameEntity* object, script::Struct* params)
     int value = 0;
     if (!params->fetch_int_value(kCreationValue, &value, 0))
         return;
-    uint32_t name = level_nodes::get_node_name(params);
+    const uint32_t name = level_nodes::get_node_name(params);
     script::Struct* data = script::spawn_param_bag();
     if (data)
         new (data) script::Struct;

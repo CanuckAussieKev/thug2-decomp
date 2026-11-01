@@ -175,7 +175,7 @@ RenderModel::~RenderModel()
 // 0x00494BA0
 void RenderModel::drop_geoms()
 {
-    ModelGeomNode* head = geoms_;
+    const ModelGeomNode* head = geoms_;
     for (ModelGeomNode* node = get_first(this); node != head; node = node->next) {
         ModelGeom* entry = table_row(node);
         delete_geom_object(entry->geom);
@@ -351,15 +351,15 @@ bool RenderModel::add_geom(void* geom, uint32_t name, bool default_heap)
 // 0x00493090
 bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
 {
-    bool normal = display_mode_ == 0;
+    const bool normal = display_mode_ == 0;
     int index = 0;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++index) {
-        bool active = normal && (flag_bits_ & kModelEnabledBit) && (visible_geoms_ & geom_bit(index));
+        const bool active = normal && (flag_bits_ & kModelEnabledBit) && (visible_geoms_ & geom_bit(index));
         set_geom_active(get_geom(node), active);
     }
     if (flag_bits_ & kModelScaled) {
         for (int row = 0; row < 3; ++row) {
-            float factor = (&size_factor_.x)[row];
+            const float factor = (&size_factor_.x)[row];
             for (int i = 0; i < 4; ++i)
                 (*matrix)[row][i] *= factor;
         }
@@ -375,8 +375,8 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
                 set_geom_bone_matrices(get_geom(node), matrix, nullptr, 0, 0, 0);
         } else {
             uint8_t* bones = skeleton_bones(skeleton);
-            int count = skeleton_bone_count(skeleton);
-            int flag = get_bone_flag(count);
+            const int count = skeleton_bone_count(skeleton);
+            const int flag = get_bone_flag(count);
             int geom = 0;
             for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++geom)
                 set_geom_bone_matrices(get_geom(node), matrix, bones, count, flag, geom);
@@ -396,7 +396,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
     default: {
         // A box about the position (compiled out).
         maths::Mat4 orientation = *matrix;
-        maths::Vec4 position = (*matrix)[3];
+        const maths::Vec4 position = (*matrix)[3];
         orientation[3] = {0.0f, 0.0f, 0.0f, 1.0f};
         maths::Vec4 box[2] = {{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}};
         gfx::draw_debug_cube(&orientation, &position, box, 0, 1, 0, 0xFF0000C8);
@@ -419,7 +419,7 @@ int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t 
         if (!volumes)
             continue;
         float distance = nearest;
-        int result = static_cast<int>(reinterpret_cast<gfx::BoneVolumes*>(volumes)->segment_hits_bone(
+        const int result = static_cast<int>(reinterpret_cast<gfx::BoneVolumes*>(volumes)->segment_hits_bone(
             reinterpret_cast<const maths::Seg*>(a), reinterpret_cast<gfx::Rig*>(b),
             reinterpret_cast<const maths::Mat4*>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
             reinterpret_cast<float*>(&extra)));
@@ -452,7 +452,7 @@ float RenderModel::get_bone_volume(uint32_t a, uint32_t b, uint32_t bone)
 // 0x00493D10
 bool RenderModel::swap_texture(uint32_t name, const char* source, const char* dest)
 {
-    bool all = name == kAllGeoms;
+    const bool all = name == kAllGeoms;
     bool replaced = false;
     begin_texture_swap();
     char from[0x200];
@@ -463,7 +463,7 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     if (char* extension = std::strstr(to, ".png"))
         *extension = 0;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
-        ModelGeom* entry = table_row(node);
+        const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
             reinterpret_cast<TextureSet*>(entry->textures)->replace_texture_from_file(from, to))
             replaced = true;
@@ -477,14 +477,14 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
 // 0x00493E80
 bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32_t dest)
 {
-    bool all = name == kAllGeoms;
+    const bool all = name == kAllGeoms;
     bool replaced = false;
     begin_texture_swap();
     char from[0x200];
     get_png_name(from, source);
     void* texture = find_texture(dest);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
-        ModelGeom* entry = table_row(node);
+        const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all) && entry->textures &&
             reinterpret_cast<TextureSet*>(entry->textures)->swap_texture(from, static_cast<BitmapTexture*>(texture)))
             replaced = true;
@@ -498,7 +498,7 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
 // 0x00494010
 bool RenderModel::set_geom_color_hsv(uint32_t name, float h, float s, float v)
 {
-    bool all = name == kAllGeoms;
+    const bool all = name == kAllGeoms;
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         if ((name == table_row(node)->name || all) && !is_geom_multicolor(get_geom(node))) {
@@ -515,8 +515,8 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
     bool any = false;
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    uint32_t rgba = rgba_from_hsv(h, s, v);
-    bool all = name == kAllGeoms;
+    const uint32_t rgba = rgba_from_hsv(h, s, v);
+    const bool all = name == kAllGeoms;
     uint32_t material = 0; // (uninitialised in the original; kept from one geom and pass to the next)
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         void* geom = get_geom(node);
@@ -557,7 +557,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
     bool any = false;
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    bool all = name == kAllGeoms;
+    const bool all = name == kAllGeoms;
     uint32_t material = 0; // (as set_color_from_script)
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         void* geom = get_geom(node);
@@ -598,8 +598,8 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     auto* face_texture = static_cast<gfx::FaceSkin*>(face);
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    int size = face_texture->fetch_skin_resolution();
-    void* data = face_texture->get_image();
+    const int size = face_texture->fetch_skin_resolution();
+    const void* data = face_texture->get_image();
     void* image = static_cast<TextureSet*>(get_textures())
                       ->read_texture_buffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);
     void* overlay = static_cast<TextureSet*>(get_textures())->ingest_skin(face_texture->get_overlay_name(), 1, 1, true);
@@ -614,11 +614,11 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     auto get_parameters = [face_texture](uint8_t* out) {
         return reinterpret_cast<uint8_t*>(face_texture->get_points(reinterpret_cast<gfx::FaceAnchors*>(out)));
     };
-    uint8_t generate_palette = get_parameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
+    const uint8_t generate_palette = get_parameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
     gfx::massage_face_texture(static_cast<BitmapTexture*>(image),
                               reinterpret_cast<const gfx::FaceAnchors*>(get_parameters(parameters)), generate_palette,
                               false, 0x80808080);
-    bool replaced = replace_texture_with(name, source, texture_hash(image));
+    const bool replaced = replace_texture_with(name, source, texture_hash(image));
     detach_texture(image);
     detach_texture(overlay);
     return replaced;

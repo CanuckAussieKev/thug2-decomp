@@ -116,7 +116,7 @@ double dot3(const maths::Vec4& a, const maths::Vec4& b)
 // The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
 objects::GrindRailHub* get_level_rails()
 {
-    modules::Skate* module = modules::g_skate_module;
+    const modules::Skate* module = modules::g_skate_module;
     return module ? module->rail_manager_.get() : nullptr;
 }
 
@@ -199,9 +199,9 @@ namespace bike {
 maths::Vec4 tire_tap_velocity(const maths::Vec4& velocity)
 {
     maths::Vec4 v = velocity;
-    double flat = std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z);
+    const double flat = std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z);
     if (flat > 0.0) {
-        double keep = flat > kTapSlowing ? (flat - kTapSlowing) / flat : 0.0;
+        const double keep = flat > kTapSlowing ? (flat - kTapSlowing) / flat : 0.0;
         v.x = static_cast<float>(v.x * keep);
         v.z = static_cast<float>(v.z * keep);
     }
@@ -213,8 +213,8 @@ maths::Vec4 tire_tap_velocity(const maths::Vec4& velocity)
 TapStep tire_tap_step(const maths::Vec4& position, const maths::Vec4& tap)
 {
     TapStep step = {position, false, false};
-    maths::Vec4 toward = {tap.x - position.x, 0.0f, tap.z - position.z, 0.0f};
-    double distance = std::sqrt(dot3(toward, toward));
+    const maths::Vec4 toward = {tap.x - position.x, 0.0f, tap.z - position.z, 0.0f};
+    const double distance = std::sqrt(dot3(toward, toward));
     if (distance < kTapReach) {
         if (tap.y > position.y) {
             step.position = {tap.x, tap.y, tap.z, position.w};
@@ -250,13 +250,14 @@ bool display_pitch_beyond(const maths::Vec4& up, const maths::Vec4& normal, floa
 bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::Vec4& direction, const maths::Vec4& a,
                  const maths::Vec4& b, float margin, maths::Vec4* point, float* score)
 {
-    maths::Seg line(start, end), rail(a, b);
+    const maths::Seg line(start, end);
+    const maths::Seg rail(a, b);
     maths::Vec4 on_line, on_rail;
     float s = 0.0f, t = 0.0f;
     if (!maths::closest_points_between_lines(line, rail, on_line, on_rail, s, t, true)) {
         // (along the line, or a rail of no length: the rail's point nearest the line's start)
-        maths::Vec4 along = b - a;
-        double length = dot3(along, along);
+        const maths::Vec4 along = b - a;
+        const double length = dot3(along, along);
         double k = length > 0.0 ? dot3(start - a, along) / length : 0.0;
         k = k < 0.0 ? 0.0 : (k > 1.0 ? 1.0 : k);
         on_rail = a + static_cast<float>(k) * along;
@@ -267,7 +268,7 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
     maths::Vec4 apart = on_rail - on_line;
     if (dot3(apart, apart) > static_cast<double>(margin) * margin)
         return false;
-    double forward = dot3(apart, direction);
+    const double forward = dot3(apart, direction);
     if (forward > 0.0)
         apart -= static_cast<float>(forward * 0.6666667f) * direction;
     *score = static_cast<float>(dot3(apart, apart));
@@ -285,7 +286,7 @@ bool wallplant_by_square(SkaterPhysicsModule* core) { return core->input_->pad_p
 
 uint32_t wallplant_trick_list()
 {
-    uint32_t bike = name_hash(kWallplantTrick);
+    const uint32_t bike = name_hash(kWallplantTrick);
     return script::fetch_list(bike) ? bike : kThugWallplantTrick;
 }
 
@@ -314,14 +315,14 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         state.tap_armed_ = false;
         return;
     }
-    bool not_vert = !flags->flag(PoseFlag::kVertAir).on;
+    const bool not_vert = !flags->flag(PoseFlag::kVertAir).on;
     if (not_vert)
         state.tap_armed_ = false;
-    objects::PadSnapshot* pad = &core->input_->pad_primary_;
-    bool held = pad->shoulder_right_a_.held_down_ && (state.stick_up_.down || state.stick_down_.down);
+    const objects::PadSnapshot* pad = &core->input_->pad_primary_;
+    const bool held = pad->shoulder_right_a_.held_down_ && (state.stick_up_.down || state.stick_down_.down);
     if (!state.tap_armed_ && !held)
         return;
-    objects::GameEntity* object = object_of(core);
+    const objects::GameEntity* object = object_of(core);
     auto* physics = static_cast<SkaterPhysicsModule*>(core);
     const maths::Vec4 position = object->at_point_;
     const maths::Vec4 up = object->basis_frame_.row[1];
@@ -340,13 +341,13 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         down.make_unit();
         // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
         for (float depth = kTapSearchStart; depth > kTapSearchEnd; depth -= kTapSearchStep) {
-            maths::Vec4 from = position + depth * down;
-            maths::Vec4 to = {from.x, from.y - kTapDrop, from.z, from.w};
+            const maths::Vec4 from = position + depth * down;
+            const maths::Vec4 to = {from.x, from.y - kTapDrop, from.z, from.w};
             core->probe_start_ = from;
             core->probe_end_ = to;
             if (!physics->probe_touches_zone(0x10, 0) || (core->feeler_.hit_.face_flags_ & 8))
                 continue;
-            float distance = from.y - core->feeler_.contact_pos_.y;
+            const float distance = from.y - core->feeler_.contact_pos_.y;
             if (distance > best + kTapNearer)
                 continue;
             best = distance;
@@ -368,8 +369,8 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     // a thousand times further away).
     maths::Vec4 ledge;
     if (find_ledge(position, end, direction, &ledge)) {
-        maths::Vec4 apart = ledge - position;
-        double distance = std::sqrt(dot3(apart, apart)) * kTapLedgeWeight;
+        const maths::Vec4 apart = ledge - position;
+        const double distance = std::sqrt(dot3(apart, apart)) * kTapLedgeWeight;
         if (!found || distance <= static_cast<double>(best) + kTapNearer) {
             state.tap_point_ = ledge;
             state.tap_start_ = position;
@@ -406,11 +407,11 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     objects::GameEntity* object = object_of(core);
     maths::Vec4& velocity = object->vel_;
     maths::Vec4& position = object->at_point_;
-    objects::PadSnapshot* pad = &core->input_->pad_primary_;
-    bool held = pad->shoulder_right_a_.held_down_ && (state.stick_up_.down || state.stick_down_.down);
+    const objects::PadSnapshot* pad = &core->input_->pad_primary_;
+    const bool held = pad->shoulder_right_a_.held_down_ && (state.stick_up_.down || state.stick_down_.down);
     if (held || state.tap_ledge_) {
         velocity = bike::tire_tap_velocity(velocity);
-        bike::TapStep step = bike::tire_tap_step(position, state.tap_point_);
+        const bike::TapStep step = bike::tire_tap_step(position, state.tap_point_);
         if (step.ends) {
             state.tire_tap_ = false;
             state.tap_ledge_ = false;
@@ -437,11 +438,11 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     }
     // THAW 0x005DC9E9..: the bike turned over to 45 degrees in half a second (THAW slerps its display there; here the
     // skater's matrix and the display's, a step a frame).
-    float target = state.tire_tap_nose_ ? kTapPitch : -kTapPitch;
-    float remaining = target - state.tap_pitch_;
+    const float target = state.tire_tap_nose_ ? kTapPitch : -kTapPitch;
+    const float remaining = target - state.tap_pitch_;
     if (remaining != 0.0f) {
-        float most = kTapPitch / kTapPitchTime * get_frame_length(core);
-        float step = std::fabs(remaining) < most ? remaining : (remaining > 0.0f ? most : -most);
+        const float most = kTapPitch / kTapPitchTime * get_frame_length(core);
+        const float step = std::fabs(remaining) < most ? remaining : (remaining > 0.0f ? most : -most);
         state.tap_pitch_ += step;
         object->basis_frame_.pitch_locally(step);
         core->display_matrix_.pitch_locally(step);
@@ -576,7 +577,7 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
         return 0;
     // (the first of each kind logged: the bike's sounds can be checked from the log)
     static bool s_logged[8] = {};
-    int k = static_cast<int>(kind);
+    const int k = static_cast<int>(kind);
     if (!s_logged[k]) {
         s_logged[k] = true;
         get_log("thaw_bmx: bike sound %s -> %s", kSoundTables[k], static_cast<surface_kind::SoundInfo*>(info)->name);
@@ -615,7 +616,7 @@ int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* 
         // began (+0x18C0) - above 0 forward (nose down), below 0 backward (nose up). bike_land2 starts the wheelie
         // from the air on it (with the stick held back / forward as it lands).
         const BikeState* state = state_of(core, false);
-        float pitch = state ? state->last_air_pitch_ : 0.0f;
+        const float pitch = state ? state->last_air_pitch_ : 0.0f;
         return (name == kPitchingForward ? pitch > 0.0f : pitch < 0.0f) ? 1 : 0;
     }
     if (name == kShouldStall) { // 0x005C8410: +0x49D

@@ -50,7 +50,7 @@ uint64_t read_number(const uint8_t* buffer, size_t* offset)
     uint64_t result = 0;
     uint64_t shift = 0;
     for (;;) {
-        uint8_t byte = read_byte(buffer, offset);
+        const uint8_t byte = read_byte(buffer, offset);
         result += static_cast<int>((byte & 0x7F) << static_cast<int>(shift)); // (32-bit shifts, as upstream)
         if (byte & 0x80)
             break;
@@ -115,7 +115,7 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     int32_t target_at = 0;
     while (at < patch_size - 12) {
         auto head = static_cast<uint32_t>(read_number(patch, &at));
-        uint32_t length = (head >> 2) + 1;
+        const uint32_t length = (head >> 2) + 1;
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (head & 3) {
         case 0: // the input's bytes at the same place
@@ -142,16 +142,16 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
         }
     }
 
-    uint32_t input_crc = read_word(patch, &at);
+    const uint32_t input_crc = read_word(patch, &at);
     if (input_crc != crc32(input, input_size)) {
         debug_log::printf(StageMap::kError, "INPUT CRC DID NOT MATCH: %x %x\n", input_crc, crc32(input, input_size));
     } else {
-        uint32_t output_crc = read_word(patch, &at);
+        const uint32_t output_crc = read_word(patch, &at);
         if (output_crc != crc32(out, output->size())) {
             debug_log::printf(StageMap::kError, "OUTPUT CRC DID NOT MATCH: %x %x\n", output_crc,
                               crc32(out, output->size()));
         } else {
-            uint32_t patch_crc = read_word(patch, &at);
+            const uint32_t patch_crc = read_word(patch, &at);
             if (patch_crc == crc32(patch, patch_size - 4))
                 return true;
             debug_log::printf(StageMap::kError, "PATCH CRC DID NOT MATCH: %x %x\n", patch_crc,

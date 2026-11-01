@@ -226,7 +226,7 @@ bool async_free_handle(AsyncFileHandle* file)
     for (int i = 0; i < kMaxHandles; ++i) {
         if (slab_bank()[i] == file) {
             // Swap it with the last handle in use.
-            int last = --handles_in_use();
+            const int last = --handles_in_use();
             slab_bank()[i] = slab_bank()[last];
             slab_bank()[last] = file;
             return true;
@@ -238,8 +238,8 @@ bool async_free_handle(AsyncFileHandle* file)
 // 0x005B65D0
 void async_add_callback(AsyncFileHandle* file, int event, int value)
 {
-    int list = current_list();
-    int index = callback_counts()[list]++;
+    const int list = current_list();
+    const int index = callback_counts()[list]++;
     callback_lists()[list][index] = {file, event, value};
 }
 
@@ -254,8 +254,8 @@ void async_swap_callback_lists()
 void async_execute_callbacks()
 {
     async_swap_callback_lists();
-    int list = current_list() ^ 1; // the one that was being filled
-    int count = callback_counts()[list];
+    const int list = current_list() ^ 1; // the one that was being filled
+    const int count = callback_counts()[list];
     for (int i = 0; i < count; ++i) {
         const PendingCallback& pending = callback_lists()[list][i];
         AsyncFileHandle* file = pending.file;
@@ -306,7 +306,7 @@ AsyncFileHandle* async_get_handle()
             slab_bank()[idle] = slab_bank()[first_free];
             slab_bank()[first_free] = swap;
         } else {
-            AsyncFileHandle* busy = slab_bank()[first_free];
+            const AsyncFileHandle* busy = slab_bank()[first_free];
             do {
                 async_execute_callbacks();
                 first_free = handles_in_use();
@@ -334,7 +334,7 @@ AsyncFileHandle* async_open(const char* name, bool blocking, int priority)
 // 0x005B68A0
 bool async_close(AsyncFileHandle* file)
 {
-    bool result = file->shut();
+    const bool result = file->shut();
     async_free_handle(file);
     return result;
 }
@@ -474,7 +474,7 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
         make_disk_path(reinterpret_cast<char (&)[256]>(path), name);
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops_ = in_flight_ops_ + 1;
-    bool overlapped = use_overlapped_io();
+    const bool overlapped = use_overlapped_io();
     file_ref_ =
         CreateFileA(path, GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
                     overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);

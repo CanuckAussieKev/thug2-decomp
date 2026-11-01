@@ -79,7 +79,7 @@ bool parse_hex(const std::string& text, uint32_t* value)
 {
     if (text.size() != 8)
         return false;
-    for (char c : text) {
+    for (const char c : text) {
         if (!std::isxdigit(static_cast<unsigned char>(c)))
             return false;
     }
@@ -99,8 +99,8 @@ bool parse_names(const std::string& text, std::vector<uint32_t>* out)
     out->clear();
     size_t start = 0;
     while (start <= text.size()) {
-        size_t comma = text.find(',', start);
-        std::string word = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        const size_t comma = text.find(',', start);
+        const std::string word = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         uint32_t value = 0;
         if (!parse_hex(word, &value))
             return false;
@@ -125,7 +125,7 @@ bool valid_word(const std::string& name)
 {
     if (name.empty() || name.size() > 63)
         return false;
-    for (char c : name) {
+    for (const char c : name) {
         if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
             return false;
     }
@@ -157,7 +157,7 @@ bool read_triple(const std::string& text, V3* out)
 bool read_float(const std::string& text, float* out)
 {
     char* end = nullptr;
-    float v = std::strtof(text.c_str(), &end);
+    const float v = std::strtof(text.c_str(), &end);
     if (text.empty() || end != text.c_str() + text.size() || !std::isfinite(v))
         return false;
     *out = v;
@@ -268,7 +268,7 @@ std::string write_records(const State& state)
             get_names(out, l.links);
         out << '\n';
     }
-    for (uint32_t name : state.dropped) {
+    for (const uint32_t name : state.dropped) {
         out << "drop ";
         get_hex(out, name);
         out << '\n';
@@ -285,7 +285,7 @@ std::string write_records(const State& state)
         get_hex(out, f.name);
         out << facing << '\n';
     }
-    for (uint32_t name : state.grind_flat_) {
+    for (const uint32_t name : state.grind_flat_) {
         out << "grindflat ";
         get_hex(out, name);
         out << '\n';
@@ -315,10 +315,11 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         std::vector<std::string> seen;
         std::string field;
         while (in >> field) {
-            size_t equals = field.find('=');
+            const size_t equals = field.find('=');
             if (equals == std::string::npos || equals == 0)
                 return false;
-            std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+            const std::string key = field.substr(0, equals);
+            const std::string value = field.substr(equals + 1);
             if (std::find(seen.begin(), seen.end(), key) != seen.end())
                 return false;
             seen.push_back(key);
@@ -379,7 +380,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
             return false;
         if (value != "-" && !parse_names(value, &l.links))
             return false;
-        for (LinkEdit& other : state->links) {
+        for (const LinkEdit& other : state->links) {
             if (other.name == l.name)
                 return false;
         }
@@ -401,7 +402,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         TerrainEdit t = {};
         if (!read_hex_word(in, &t.name) || !(in >> t.terrain) || !valid_word(t.terrain))
             return false;
-        for (TerrainEdit& other : state->terrains) {
+        for (const TerrainEdit& other : state->terrains) {
             if (other.name == t.name)
                 return false;
         }
@@ -414,7 +415,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         std::string value;
         if (!read_hex_word(in, &f.name) || !(in >> value) || !read_float(value, &f.facing))
             return false;
-        for (FacingEdit& other : state->facings) {
+        for (const FacingEdit& other : state->facings) {
             if (other.name == f.name)
                 return false;
         }
@@ -602,7 +603,7 @@ bool insert_after(Graph* graph, uint32_t from, uint32_t point)
     auto it = graph->find(from);
     if (it == graph->end() || it->second.empty() || from == point || graph->count(point))
         return false;
-    uint32_t next = it->second.front();
+    const uint32_t next = it->second.front();
     it->second.front() = point;
     (*graph)[point] = {next};
     return true;
@@ -611,7 +612,7 @@ bool insert_after(Graph* graph, uint32_t from, uint32_t point)
 void drop_out(Graph* graph, uint32_t name)
 {
     std::vector<uint32_t> own = links_of(*graph, name);
-    uint32_t next = own.empty() ? 0 : own.front();
+    const uint32_t next = own.empty() ? 0 : own.front();
     for (auto& entry : *graph) {
         if (entry.first == name)
             continue;
@@ -619,7 +620,7 @@ void drop_out(Graph* graph, uint32_t name)
         auto at = std::find(links.begin(), links.end(), name);
         if (at == links.end())
             continue;
-        bool already = next && std::find(links.begin(), links.end(), next) != links.end();
+        const bool already = next && std::find(links.begin(), links.end(), next) != links.end();
         if (next && !already && next != entry.first)
             *at = next;
         else
@@ -658,11 +659,11 @@ std::vector<uint32_t> get_connected(const Graph& graph, uint32_t name)
 {
     std::vector<uint32_t> found = {name};
     for (size_t i = 0; i < found.size(); ++i) {
-        uint32_t at = found[i];
+        const uint32_t at = found[i];
         std::vector<uint32_t> near = links_of(graph, at);
-        for (uint32_t p : predecessors(graph, at))
+        for (const uint32_t p : predecessors(graph, at))
             near.push_back(p);
-        for (uint32_t n : near) {
+        for (const uint32_t n : near) {
             if (std::find(found.begin(), found.end(), n) == found.end())
                 found.push_back(n);
         }
@@ -686,11 +687,11 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
     for (const V3& dir : kDirections) {
         // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
         for (float t = kStep; t <= reach; t += kStep) {
-            V3 probe = hit + dir * t;
+            const V3 probe = hit + dir * t;
             float ground = 0.0f;
-            bool have = ground_at({probe.x, hit.y + 20.0f, probe.z}, &ground);
+            const bool have = ground_at({probe.x, hit.y + 20.0f, probe.z}, &ground);
             if (!have || ground < hit.y - kDrop) {
-                float edge = t - kStep * 0.5f;
+                const float edge = t - kStep * 0.5f;
                 if (edge < best) {
                     best = edge;
                     best_at = hit + dir * edge;
@@ -723,7 +724,7 @@ const std::vector<std::string>& grind_terrain_names()
 
 float facing_into_wall(V3 normal)
 {
-    float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
+    const float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
     if (!(length > 1e-6f))
         return 0.0f;
     return std::atan2(-normal.x / length, -normal.z / length);
@@ -735,7 +736,7 @@ bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from,
 {
     if (!(std::fabs(normal.y) < 0.7f))
         return false;
-    float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
+    const float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
     if (!(length > 1e-6f))
         return false;
     V3 at = {hit.x + normal.x / length * out, hit.y, hit.z + normal.z / length * out};
@@ -749,12 +750,15 @@ bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from,
 bool ladder_top(V3 foot, V3 from, V3 dir, V3* top)
 {
     // The closest points of the line foot + t (0, 1, 0) and the ray from + s dir.
-    V3 w = foot - from;
-    float b = dir.y, c = get_dot(dir, dir), d = w.y, e = get_dot(dir, w);
-    float denominator = c - b * b;
+    const V3 w = foot - from;
+    const float b = dir.y;
+    const float c = get_dot(dir, dir);
+    const float d = w.y;
+    const float e = get_dot(dir, w);
+    const float denominator = c - b * b;
     if (!(denominator > 1e-6f * c))
         return false; // (looking straight up or down the line)
-    float t = (b * e - c * d) / denominator;
+    const float t = (b * e - c * d) / denominator;
     if (!(t >= kLadderMin))
         return false;
     *top = {foot.x, foot.y + t, foot.z};
@@ -791,14 +795,14 @@ script::Struct* look_up_node_params(uint32_t name)
 // The level's rail manager (modules::Skate +0x24; null when there is none or its rails ride an object).
 objects::GrindRailHub* get_rails()
 {
-    modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module;
     auto* manager = skate ? skate->rail_manager_.get() : nullptr;
     return manager && !manager->on_object_ ? manager : nullptr;
 }
 
 objects::GrindPoint* rail_node_named(uint32_t name)
 {
-    objects::GrindRailHub* rails = get_rails();
+    const objects::GrindRailHub* rails = get_rails();
     if (!rails || !rails->nodes_)
         return nullptr;
     for (int i = 0; i < rails->num_; ++i) {
@@ -864,8 +868,8 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
 // A structure's own pos= set (the one the game reads: the last).
 void write_pos(script::Struct* node, V3 pos)
 {
-    script::Component* own = nullptr;
-    for (script::Component* c = node->head_; c; c = c->next) {
+    const script::Component* own = nullptr;
+    for (const script::Component* c = node->head_; c; c = c->next) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == kPos && c->kind_tag() == script::kQbvalVector && c->vector)
             own = c;
@@ -886,8 +890,8 @@ void write_pos(script::Struct* node, V3 pos)
 void write_angles(script::Struct* node, V3 angles)
 {
     constexpr uint32_t kAngles = 0x9D2D0915; // angles
-    script::Component* own = nullptr;
-    for (script::Component* c = node->head_; c; c = c->next) {
+    const script::Component* own = nullptr;
+    for (const script::Component* c = node->head_; c; c = c->next) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == kAngles && c->kind_tag() == script::kQbvalVector && c->vector)
             own = c;
@@ -956,7 +960,7 @@ bool known_terrain(uint32_t terrain)
 }
 bool terrain_byte(const std::string& name, uint8_t* value)
 {
-    uint32_t terrain = name_hash(name);
+    const uint32_t terrain = name_hash(name);
     if (!known_terrain(terrain))
         return false;
     *value = surface_kind::get_terrain_index(terrain);
@@ -1113,8 +1117,8 @@ maths::Vec4 climb_of(float facing)
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Vec4 angles = {0.0f, facing, 0.0f, 1.0f};
-    maths::Mat4* built = &matrix.init_from_angles(angles);
+    const maths::Vec4 angles = {0.0f, facing, 0.0f, 1.0f};
+    const maths::Mat4* built = &matrix.init_from_angles(angles);
     maths::Vec4 quat = {};
     reinterpret_cast<maths::QuatRotation*>(&quat)->from_matrix(*built);
     return quat;
@@ -1165,8 +1169,8 @@ void set_level_links(uint32_t name, const std::vector<uint32_t>& links)
 // The rail manager node's box: to its next node, or its own point.
 void cuboid(objects::GrindPoint* node)
 {
-    maths::Vec4 here = node->at_point_;
-    maths::Vec4 there = node->succ_ ? node->succ_->at_point_ : node->at_point_;
+    const maths::Vec4 here = node->at_point_;
+    const maths::Vec4 there = node->succ_ ? node->succ_->at_point_ : node->at_point_;
     objects::box_of(&here, &there, &node->lower_limit_, &node->upper_limit_);
 }
 
@@ -1190,7 +1194,7 @@ void register_trick_objects()
         return;
     std::map<uint32_t, uint32_t> want;
     for (const node_create::Spec& spec : node_create::at_hand()) {
-        uint32_t name = name_hash(spec.name);
+        const uint32_t name = name_hash(spec.name);
         auto extras = g_extras.find(name);
         if (same_text(spec.cls, "RailNode") && extras != g_extras.end() && extras->second.cluster &&
             rail_node_named(name))
@@ -1223,7 +1227,7 @@ void rebuild_rails()
     if (!rails)
         return;
     objects::GrindPoint* old = rails->nodes_;
-    int old_count = old ? rails->num_ : 0;
+    const int old_count = old ? rails->num_ : 0;
     // The nodes: the ones it has whose node is still there (a dropped one too - kept switched off, so the editor's
     // moves of it stay), then the overlay's new rail points.
     std::vector<int> kept;
@@ -1233,18 +1237,18 @@ void rebuild_rails()
     }
     std::vector<std::pair<uint32_t, script::Struct*>> added;
     for (const node_create::Spec& spec : node_create::at_hand()) {
-        uint32_t name = name_hash(spec.name);
+        const uint32_t name = name_hash(spec.name);
         script::Struct* node = look_up_node_params(name);
-        uint32_t cls = class_of(node);
+        const uint32_t cls = class_of(node);
         if (!node || (cls != rail_node_class() && cls != climbing_node_class()))
             continue;
         bool there = false;
-        for (int i : kept)
+        for (const int i : kept)
             there = there || old[i].label_ == name;
         if (!there)
             added.emplace_back(name, node);
     }
-    int count = static_cast<int>(kept.size() + added.size());
+    const int count = static_cast<int>(kept.size() + added.size());
     objects::GrindPoint* nodes = nullptr;
     if (count) {
         memory::Hub* manager = memory::Hub::get_pull();
@@ -1271,7 +1275,7 @@ void rebuild_rails()
         objects::GrindPoint* node = &nodes[i];
         index.emplace(node->label_, i);
         node->succ_ = node->last_value_ = nullptr;
-        bool dropped = std::find(g_dropped.begin(), g_dropped.end(), node->label_) != g_dropped.end();
+        const bool dropped = std::find(g_dropped.begin(), g_dropped.end(), node->label_) != g_dropped.end();
         auto was = g_drop_active.find(node->label_);
         if (dropped) {
             if (was == g_drop_active.end())
@@ -1292,7 +1296,7 @@ void rebuild_rails()
         objects::GrindPoint* node = &nodes[i];
         if (is_dropped(node->label_))
             continue;
-        for (uint32_t link : own_links(look_up_node_params(node->label_))) {
+        for (const uint32_t link : own_links(look_up_node_params(node->label_))) {
             auto it = index.find(link);
             if (it == index.end() || is_dropped(link))
                 continue;
@@ -1357,7 +1361,7 @@ State at_hand()
         script::Struct* node = look_up_node_params(entry.first);
         if (node != entry.second.node)
             continue;
-        std::vector<uint32_t> now = own_links(node);
+        const std::vector<uint32_t> now = own_links(node);
         if (now != entry.second.links)
             state.links.push_back({entry.first, now});
     }
@@ -1378,12 +1382,12 @@ bool change_phase(const State& target)
 {
     if (!in_level())
         return false;
-    State before = at_hand();
+    const State before = at_hand();
     if (same_state(before, target))
         return true; // (nothing to do: the rail manager isn't built again)
     // Points: those not wanted (or wanted different, other than place and links) removed; the missing made (one
     // re-registration); places and links set.
-    std::vector<Point> now = before.points;
+    const std::vector<Point> now = before.points;
     for (const Point& p : now) {
         const Point* want = nullptr;
         for (const Point& t : target.points)
@@ -1396,7 +1400,7 @@ bool change_phase(const State& target)
         }
     }
     std::vector<node_create::Spec> make;
-    std::vector<Point> remaining = added_points();
+    const std::vector<Point> remaining = added_points();
     for (const Point& t : target.points) {
         bool there = false;
         for (const Point& p : remaining)
@@ -1411,7 +1415,7 @@ bool change_phase(const State& target)
             get_log("level editor: %s", message.c_str());
     }
     for (const Point& t : target.points) {
-        uint32_t name = name_hash(t.name);
+        const uint32_t name = name_hash(t.name);
         node_create::set_links(name, t.links);
         if (script::Struct* node = look_up_node_params(name)) {
             maths::Vec4 pos;
@@ -1449,7 +1453,7 @@ bool change_phase(const State& target)
         }
     }
     for (const FacingEdit& f : target.facings) {
-        objects::GrindPoint* node = rail_node_named(f.name);
+        const objects::GrindPoint* node = rail_node_named(f.name);
         if (!node || !(node->flag_bits_ & objects::kRailFlagClimbing) || node_create::is_added(f.name))
             continue;
         if (!g_facings.count(f.name))
@@ -1457,7 +1461,7 @@ bool change_phase(const State& target)
         g_facings[f.name].facing = f.facing;
     }
     g_level_flat.clear();
-    for (uint32_t name : target.grind_flat_) {
+    for (const uint32_t name : target.grind_flat_) {
         if (!node_create::is_added(name) && look_up_node_params(name))
             g_level_flat.push_back(name);
     }
@@ -1468,13 +1472,13 @@ bool change_phase(const State& target)
     for (const LinkEdit& l : target.links)
         names.insert(l.name);
     std::vector<uint32_t> paths_changed;
-    for (uint32_t name : names) {
+    for (const uint32_t name : names) {
         std::vector<uint32_t> want = level_links_original(name);
         for (const LinkEdit& l : target.links)
             if (l.name == name)
                 want = l.links;
         if (level_links_now(name) != want) {
-            uint32_t cls = class_of(look_up_node_params(name));
+            const uint32_t cls = class_of(look_up_node_params(name));
             if (cls == pedestrian_class() || cls == vehicle_class())
                 paths_changed.push_back(name);
         }
@@ -1482,12 +1486,12 @@ bool change_phase(const State& target)
     }
     // Dropped points: hidden with phase 3's marker (shown again when no longer dropped).
     std::vector<uint32_t> dropped = target.dropped;
-    for (uint32_t name : std::vector<uint32_t>(g_dropped)) {
+    for (const uint32_t name : std::vector<uint32_t>(g_dropped)) {
         if (std::find(dropped.begin(), dropped.end(), name) == dropped.end())
             node_create::conceal(name, false);
     }
     std::vector<uint32_t> kept;
-    for (uint32_t name : dropped) {
+    for (const uint32_t name : dropped) {
         if (node_create::is_added(name) || !look_up_node_params(name))
             continue;
         if (node_create::get_hidden(name) || node_create::conceal(name, true))
@@ -1508,7 +1512,7 @@ bool change_phase(const State& target)
         }
     }
     for (const TerrainEdit& t : target.terrains) {
-        objects::GrindPoint* node = rail_node_named(t.name);
+        const objects::GrindPoint* node = rail_node_named(t.name);
         uint8_t value = 0;
         if (!node || !terrain_byte(t.terrain, &value))
             continue;
@@ -1520,7 +1524,7 @@ bool change_phase(const State& target)
     // The added points' places in the rail manager (a point made before keeps its node there).
     for (const Point& t : target.points)
         move_added_point(name_hash(t.name), t.pos);
-    for (uint32_t name : paths_changed)
+    for (const uint32_t name : paths_changed)
         get_remake(name);
     apply_speeds();
     nodes::mark_stale();
@@ -1605,7 +1609,7 @@ bool flat_hook(const maths::Vec4* a, const maths::Vec4* b)
 bool is_ledge_node(uint32_t name)
 {
     static const uint32_t kLedge = name_hash("Ledge");
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     return index >= 0 && nodes::get_all()[index].cls == climbing_node_class() && nodes::get_all()[index].type == kLedge;
 }
 
@@ -1644,7 +1648,7 @@ void apply_speeds()
         script::Struct* node = look_up_node_params(w.first);
         if (!node)
             continue;
-        uint32_t ours = name_hash(speed_script_name(w.first));
+        const uint32_t ours = name_hash(speed_script_name(w.first));
         auto it = g_speed_applied.find(w.first);
         if (it == g_speed_applied.end()) {
             SpeedApplied a;
@@ -1661,7 +1665,7 @@ void apply_speeds()
         return;
     // The scripts: the fixed two (once - they stay defined), the points' when they change.
     static const uint32_t kRailSpeed = name_hash("ed_RailSpeed");
-    script::SymbolTableEntry* fixed = script::resolve_symbol(kRailSpeed);
+    const script::SymbolTableEntry* fixed = script::resolve_symbol(kRailSpeed);
     if (!fixed || fixed->type != script::kQbvalScriptBody) {
         std::vector<uint8_t> qb = rail_speed_qb(); // (the loader may relocate a pre-compiled file in place)
         script::load_qb_data("editor\\thug2_decomp_railspeed.qb", qb.data(), 0, 0, 0);
@@ -1676,7 +1680,8 @@ void apply_speeds()
     // Each node's TriggerScript ours (its own component, after any shared one: it counts).
     for (const SpeedScript& s : scripts) {
         script::Struct* node = look_up_node_params(s.node);
-        uint32_t ours = name_hash(speed_script_name(s.node)), now = 0;
+        const uint32_t ours = name_hash(speed_script_name(s.node));
+        uint32_t now = 0;
         if (!node || (node->read_hash_value(kTriggerScriptKey, &now, 0) && now == ours))
             continue;
         fields::Own own;
@@ -1691,7 +1696,7 @@ void apply_speeds()
 std::vector<SpeedSegment> speed_segments(V3 near, float radius)
 {
     std::vector<SpeedSegment> out;
-    objects::GrindRailHub* rails = get_rails();
+    const objects::GrindRailHub* rails = get_rails();
     if (!rails || !rails->nodes_ || !level_nodes::node_manager_instance())
         return out;
     // (the level's own RailAccelerate points: found once for each rail manager array)
@@ -1708,7 +1713,7 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
             auto applied = g_speed_applied.find(node->label_);
             if (applied != g_speed_applied.end())
                 script = applied->second.original_script_; // (the level's own script, under ours)
-            triggers::Calls calls = triggers::script_calls(script);
+            const triggers::Calls calls = triggers::script_calls(script);
             if (calls.rail_speed_)
                 g_level_speed_cache.found.emplace_back(node->label_, calls.rail_rate_);
         }
@@ -1717,9 +1722,10 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
     auto add = [&](const objects::GrindPoint* node, float rate, bool level) {
         if (!node || !node->succ_ || (node->flag_bits_ & objects::kRailFlagClimbing))
             return;
-        V3 a = {node->at_point_.x, node->at_point_.y, node->at_point_.z};
-        V3 b = {node->succ_->at_point_.x, node->succ_->at_point_.y, node->succ_->at_point_.z};
-        V3 da = a - near, db = b - near;
+        const V3 a = {node->at_point_.x, node->at_point_.y, node->at_point_.z};
+        const V3 b = {node->succ_->at_point_.x, node->succ_->at_point_.y, node->succ_->at_point_.z};
+        const V3 da = a - near;
+        const V3 db = b - near;
         if (get_dot(da, da) > r2 && get_dot(db, db) > r2)
             return;
         out.push_back({a, b, rate, level});
@@ -1727,9 +1733,9 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
     for (const auto& entry : g_speed_applied) {
         auto extras = g_extras.find(entry.first);
         auto level = g_level_speeds.find(entry.first);
-        float rate = extras != g_extras.end()        ? extras->second.speed
-                     : level != g_level_speeds.end() ? level->second
-                                                     : 0.0f;
+        const float rate = extras != g_extras.end()        ? extras->second.speed
+                           : level != g_level_speeds.end() ? level->second
+                                                           : 0.0f;
         if (rate > 0.0f)
             add(rail_node_named(entry.first), rate, false);
     }
@@ -1765,7 +1771,7 @@ void tick()
     // The rail manager's old node arrays: freed once the level's rails are no longer the ones built here (the game
     // made a new level's - its Cleanup freed ours - or there are none).
     if (!g_retired.empty()) {
-        objects::GrindRailHub* rails = get_rails();
+        const objects::GrindRailHub* rails = get_rails();
         if (!rails || rails->nodes_ != g_built) {
             for (void* nodes : g_retired)
                 memory::free_malloc(nodes);
@@ -1794,20 +1800,20 @@ void tick()
 
 bool is_chain_node(uint32_t name)
 {
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     if (index < 0)
         return false;
-    nodes::Family family = nodes::get_all()[index].family;
+    const nodes::Family family = nodes::get_all()[index].family;
     return family == nodes::Family::kRail || family == nodes::Family::kLadder || family == nodes::Family::kRouteWay;
 }
 bool is_path(uint32_t name)
 {
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     return index >= 0 && nodes::get_all()[index].family == nodes::Family::kRouteWay;
 }
 bool is_ladder(uint32_t name)
 {
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     return index >= 0 && nodes::get_all()[index].family == nodes::Family::kLadder;
 }
 
@@ -1815,7 +1821,7 @@ bool is_added_point(uint32_t name)
 {
     if (!node_create::is_added(name))
         return false;
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     return index >= 0 && (nodes::get_all()[index].family == nodes::Family::kRail ||
                           nodes::get_all()[index].family == nodes::Family::kLadder ||
                           nodes::get_all()[index].family == nodes::Family::kRouteWay);
@@ -1833,7 +1839,7 @@ bool move_added_point(uint32_t name, V3 pos)
     if (objects::GrindPoint* rail = rail_node_named(name)) {
         if (rail->at_point_.x != pos.x || rail->at_point_.y != pos.y || rail->at_point_.z != pos.z) {
             rail->at_point_ = {pos.x, pos.y, pos.z, 1.0f};
-            objects::GrindRailHub* rails = get_rails();
+            const objects::GrindRailHub* rails = get_rails();
             for (int i = 0; i < rails->num_; ++i) {
                 if (&rails->nodes_[i] == rail || rails->nodes_[i].succ_ == rail)
                     cuboid(&rails->nodes_[i]);
@@ -1841,7 +1847,7 @@ bool move_added_point(uint32_t name, V3 pos)
             scenery::rails_rebuilt(); // (the node layer reads the places again)
         }
     }
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     if (index >= 0)
         nodes::reread(index);
     return true;
@@ -1858,7 +1864,7 @@ Graph graph_of(nodes::Family family)
         if (node.family != family || !node.name || node.hidden)
             continue;
         std::vector<uint32_t> links;
-        for (int link : node.links) {
+        for (const int link : node.links) {
             if (link >= 0 && link < static_cast<int>(nodes.size()) && nodes[link].family == family &&
                 !nodes[link].hidden)
                 links.push_back(nodes[link].name);
@@ -1870,7 +1876,7 @@ Graph graph_of(nodes::Family family)
 
 nodes::Family family_of_name(uint32_t name)
 {
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     return index >= 0 ? nodes::get_all()[index].family : nodes::Family::kOther;
 }
 
@@ -1879,7 +1885,7 @@ V3 place_of(uint32_t name)
     node_edit::Values values;
     if (node_edit::get_take_in(name, &values))
         return values.pos;
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     return index >= 0 ? nodes::get_all()[index].pos : V3{};
 }
 
@@ -1914,8 +1920,8 @@ void put_graph(State* state, const Graph& graph)
             continue;
         // (a level node: only the links within the family are in the graph - others it has are kept)
         std::vector<uint32_t> links = entry.second;
-        nodes::Family family = family_of_name(entry.first);
-        for (uint32_t other : level_links_now(entry.first)) {
+        const nodes::Family family = family_of_name(entry.first);
+        for (const uint32_t other : level_links_now(entry.first)) {
             if (family_of_name(other) != family && std::find(links.begin(), links.end(), other) == links.end())
                 links.push_back(other);
         }
@@ -1943,7 +1949,7 @@ std::string fresh_point_name(nodes::Family family, const State& state, bool ledg
 Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const State& state)
 {
     // (a ledge: drawn as one, or drawn on from one)
-    bool ledge = family == nodes::Family::kLadder && (g_draw == Blit::kLedge || (from && is_ledge_node(from)));
+    const bool ledge = family == nodes::Family::kLadder && (g_draw == Blit::kLedge || (from && is_ledge_node(from)));
     Point p;
     p.name = fresh_point_name(family, state, ledge);
     p.cls = family == nodes::Family::kRouteWay ? "Waypoint"
@@ -2035,7 +2041,7 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
             if (same_text(p.cls, "ClimbingNode"))
                 graph[name_hash(p.name)] = p.links;
         }
-        for (uint32_t point : get_connected(graph, name)) {
+        for (const uint32_t point : get_connected(graph, name)) {
             if (std::find(points.begin(), points.end(), point) == points.end())
                 points.push_back(point);
         }
@@ -2061,16 +2067,16 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
         return get_apply(state, message, level ? "Ladder hidden" : "Ladder deleted");
     }
     case kOpTurn: {
-        int notches = static_cast<int>(arg);
-        float facing =
+        const int notches = static_cast<int>(arg);
+        const float facing =
             node_edit::wrap_angle(facing_now(name) + static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f));
-        for (uint32_t point : points)
+        for (const uint32_t point : points)
             set_facing(&state, point, facing);
         *select = name;
         char text[96];
         std::snprintf(text, sizeof(text), "Ladder facing %.0f degrees",
                       static_cast<double>(node_edit::get_heading_degrees({0.0f, facing, 0.0f})));
-        std::string done = text;
+        const std::string done = text;
         return get_apply(state, message, done.c_str());
     }
     case kOpFacingHome: {
@@ -2098,9 +2104,9 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
 
 std::vector<uint32_t> chain_of(uint32_t name)
 {
-    nodes::Family family = family_of_name(name);
+    const nodes::Family family = family_of_name(name);
     if (family == nodes::Family::kRail || family == nodes::Family::kLadder) {
-        std::vector<uint32_t> rail = scenery::rail_of(name);
+        const std::vector<uint32_t> rail = scenery::rail_of(name);
         return rail.empty() ? std::vector<uint32_t>{name} : rail;
     }
     if (family == nodes::Family::kRouteWay)
@@ -2122,12 +2128,12 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         *message = "Not in a level";
         return false;
     }
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     if (index < 0)
         return false;
     const nodes::Elem node = nodes::get_all()[index];
-    nodes::Family family = node.family;
-    bool object = node.cls == pedestrian_class() || node.cls == vehicle_class();
+    const nodes::Family family = node.family;
+    const bool object = node.cls == pedestrian_class() || node.cls == vehicle_class();
     if (op == kOpAssignArm || op == kOpUnassign) {
         if (!object) {
             *message = "Only peds and cars have paths";
@@ -2142,7 +2148,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         // (its links to anything but waypoints kept)
         State state = at_hand();
         std::vector<uint32_t> links;
-        for (uint32_t other : level_links_now(name)) {
+        for (const uint32_t other : level_links_now(name)) {
             if (family_of_name(other) != nodes::Family::kRouteWay)
                 links.push_back(other);
         }
@@ -2150,7 +2156,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         *select = name;
         return get_apply(state, message, "No path now - it is made again without one");
     }
-    bool ledge = family == nodes::Family::kLadder && is_ledge_node(name);
+    const bool ledge = family == nodes::Family::kLadder && is_ledge_node(name);
     if (family == nodes::Family::kLadder && !ledge)
         return ladder_op(op, name, node, arg, message, select);
     if (family != nodes::Family::kRail && family != nodes::Family::kRouteWay && !ledge) {
@@ -2170,9 +2176,10 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             *message = "Last point: use Extend";
             return false;
         }
-        V3 a = place_of(name), b = place_of(links.front());
-        Point p = append_rail_vertex(family, name, (a + b) * 0.5f, state);
-        uint32_t made = name_hash(p.name);
+        const V3 a = place_of(name);
+        const V3 b = place_of(links.front());
+        const Point p = append_rail_vertex(family, name, (a + b) * 0.5f, state);
+        const uint32_t made = name_hash(p.name);
         state.points.push_back(p);
         insert_after(&graph, name, made);
         put_graph(&state, graph);
@@ -2284,7 +2291,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             *message = "Only rails are ground";
             return false;
         }
-        for (uint32_t point : chain_of(name)) {
+        for (const uint32_t point : chain_of(name)) {
             bool added = false;
             for (Point& p : state.points) {
                 if (name_hash(p.name) == point) {
@@ -2315,8 +2322,8 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             *message = "Only rails have speed-ups";
             return false;
         }
-        float rate = arg ? clamp_speed(static_cast<float>(arg) / 10000.0f) : 0.0f;
-        std::vector<uint32_t> points = op == kOpSpeedRail ? chain_of(name) : std::vector<uint32_t>{name};
+        const float rate = arg ? clamp_speed(static_cast<float>(arg) / 10000.0f) : 0.0f;
+        const std::vector<uint32_t> points = op == kOpSpeedRail ? chain_of(name) : std::vector<uint32_t>{name};
         int changed = 0;
         for (uint32_t point : points) {
             const objects::GrindPoint* rail = rail_node_named(point);
@@ -2357,7 +2364,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             return false;
         }
         bool any = false;
-        for (uint32_t point : chain_of(name)) {
+        for (const uint32_t point : chain_of(name)) {
             for (Point& p : state.points) {
                 if (name_hash(p.name) == point) {
                     p.hang = static_cast<int>(arg) == kHangLeft || static_cast<int>(arg) == kHangRight
@@ -2419,9 +2426,9 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *message = "Click the next point";
         return false;
     }
-    nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
-                           : g_draw == Blit::kLedge  ? nodes::Family::kLadder
-                                                     : nodes::Family::kRail;
+    const nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
+                                 : g_draw == Blit::kLedge  ? nodes::Family::kLadder
+                                                           : nodes::Family::kRail;
     State state = at_hand();
     Graph graph = graph_of(family);
     if (g_draw_last && !graph.count(g_draw_last))
@@ -2437,8 +2444,8 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *select = end;
         return get_apply(state, message, "Linked onto that end - drawing finished");
     }
-    Point p = append_rail_vertex(family, g_draw_last, at, state);
-    uint32_t made = name_hash(p.name);
+    const Point p = append_rail_vertex(family, g_draw_last, at, state);
+    const uint32_t made = name_hash(p.name);
     state.points.push_back(p);
     graph[made] = {};
     if (g_draw_last && !extend(&graph, g_draw_last, made)) {
@@ -2450,7 +2457,7 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *message = "Not in a level";
         return false;
     }
-    bool first = g_draw_last == 0;
+    const bool first = g_draw_last == 0;
     g_draw_last = made;
     *select = made;
     if (message->empty())
@@ -2468,14 +2475,14 @@ bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* mess
         *message = points.size() < 2 ? "A rail needs two points" : "Not in a level";
         return false;
     }
-    Blit drawing = g_draw;
+    const Blit drawing = g_draw;
     g_draw = Blit::kNone; // (append_rail_vertex: a plain rail, whatever is being drawn)
     State state = at_hand();
     Graph graph = graph_of(nodes::Family::kRail);
     uint32_t last = 0, first = 0;
-    for (V3 at : points) {
+    for (const V3 at : points) {
         Point p = append_rail_vertex(nodes::Family::kRail, last, at, state);
-        uint32_t made = name_hash(p.name);
+        const uint32_t made = name_hash(p.name);
         if (!last)
             p.cluster = cluster ? cluster : made;
         state.points.push_back(p);
@@ -2505,7 +2512,8 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* n = &ray->hit_.normal.x;
@@ -2601,18 +2609,19 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     }
     // A free end of a chain of the kind drawn, within 24: taken as it is.
     if (g_draw != Blit::kNone) {
-        nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
-                               : g_draw == Blit::kLedge  ? nodes::Family::kLadder
-                                                         : nodes::Family::kRail;
-        Graph graph = graph_of(family);
+        const nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
+                                     : g_draw == Blit::kLedge  ? nodes::Family::kLadder
+                                                               : nodes::Family::kRail;
+        const Graph graph = graph_of(family);
         float best = 24.0f * 24.0f;
         for (const auto& entry : graph) {
             if (entry.first == g_draw_last || (!is_last(graph, entry.first) && !is_first(graph, entry.first)))
                 continue;
             if (g_draw == Blit::kLedge && !is_ledge_node(entry.first))
                 continue; // (a ledge links onto ledges, not ladders)
-            V3 at = place_of(entry.first), d = at - *point;
-            float distance = get_dot(d, d);
+            const V3 at = place_of(entry.first);
+            const V3 d = at - *point;
+            const float distance = get_dot(d, d);
             if (distance < best) {
                 best = distance;
                 *end = entry.first;
@@ -2629,11 +2638,11 @@ bool wants_pick() { return g_pick == kOpLinkArm || g_pick == kOpAssignArm; }
 bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 {
     *select = 0;
-    Op pick = g_pick;
+    const Op pick = g_pick;
     g_pick = kOpCancel;
-    uint32_t from = g_pick_from;
+    const uint32_t from = g_pick_from;
     if (pick == kOpLinkArm) {
-        nodes::Family family = family_of_name(from);
+        const nodes::Family family = family_of_name(from);
         if (family_of_name(name) != family) {
             *message = "Can only link chains of the same kind";
             return false;
@@ -2655,7 +2664,7 @@ bool get_picked(uint32_t name, std::string* message, uint32_t* select)
         }
         State state = at_hand();
         std::vector<uint32_t> links = {name};
-        for (uint32_t other : level_links_now(from)) {
+        for (const uint32_t other : level_links_now(from)) {
             if (family_of_name(other) != nodes::Family::kRouteWay && other != name)
                 links.push_back(other);
         }
@@ -2687,14 +2696,14 @@ View view_of(uint32_t name)
 {
     View view;
     view.waiting = get_waiting();
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     if (index < 0 || !in_level())
         return view;
     const nodes::Elem& node = nodes::get_all()[index];
     view.terrains = grind_terrain_names();
     if (node.cls == pedestrian_class() || node.cls == vehicle_class()) {
         view.show = view.object = true;
-        for (uint32_t link : level_links_now(name)) {
+        for (const uint32_t link : level_links_now(name)) {
             if (family_of_name(link) == nodes::Family::kRouteWay)
                 view.path_start_ = object_edit::caption(link);
         }
@@ -2756,7 +2765,7 @@ View view_of(uint32_t name)
         else if (own)
             own->read_hash_value(kTriggerScriptKey, &script, 0);
         if (script) {
-            triggers::Calls calls = triggers::script_calls(script);
+            const triggers::Calls calls = triggers::script_calls(script);
             view.level_speed_ = calls.rail_speed_;
             view.level_rate_ = calls.rail_rate_;
         }

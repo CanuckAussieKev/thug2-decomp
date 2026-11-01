@@ -144,7 +144,7 @@ void ShotImpactModule::tick_frame()
         return;
     modules::Skate* skate = skate_module();
     auto count = static_cast<uint32_t>(skate->count_riders());
-    bool team_game = goals::g_game_mode->is_squad_match() != 0;
+    const bool team_game = goals::g_game_mode->is_squad_match() != 0;
     for (uint32_t i = 0; i < count; ++i) {
         GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
         if (skater->ident_ == holder_key_)
@@ -161,10 +161,10 @@ void ShotImpactModule::tick_frame()
         if (team_game && owner->team_ == victim->team_ &&
             net->get_online_settings()->get_preference_checksum(kFriendlyFire, kChecksum) != kBooleanTrue)
             continue;
-        GameEntity* object = entity_;
-        double dz = static_cast<double>(skater->at_point_.z) - object->at_point_.z;
-        double dy = static_cast<double>(skater->at_point_.y) - object->at_point_.y;
-        double dx = static_cast<double>(skater->at_point_.x) - object->at_point_.x;
+        const GameEntity* object = entity_;
+        const double dz = static_cast<double>(skater->at_point_.z) - object->at_point_.z;
+        const double dy = static_cast<double>(skater->at_point_.y) - object->at_point_.y;
+        const double dx = static_cast<double>(skater->at_point_.x) - object->at_point_.x;
         if (!(std::sqrt(dx * dx + dy * dy + dz * dz) < reach))
             continue;
 
@@ -173,7 +173,7 @@ void ShotImpactModule::tick_frame()
         net::AppHost* server = static_cast<online::Hub*>(net)->host_;
         get_kill(entity_);
         if (on_collide_script_) {
-            maths::Vec4 pos = entity_->at_point_;
+            const maths::Vec4 pos = entity_->at_point_;
             script::Struct* params = new_params();
             params->put_vec3(kPos, script::VectorValue{pos.x, pos.y, pos.z, pos.w});
             params->put_vec3(kVel, script::VectorValue{vel_.x, vel_.y, vel_.z, vel_.w});
@@ -260,10 +260,10 @@ void ProjectileProximityComponent::tick_frame()
             continue;
         const float* pos = &projectile.pos.x;
         const maths::Vec4& at = entity_->at_point_;
-        double middle = static_cast<double>(at.y) + kAbovePed;
+        const double middle = static_cast<double>(at.y) + kAbovePed;
         auto dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
-        double dy = pos[1] - middle;
-        double dx = static_cast<double>(pos[0]) - at.x;
+        const double dy = pos[1] - middle;
+        const double dx = static_cast<double>(pos[0]) - at.x;
         if (!(dx * dx + dy * dy + static_cast<double>(dz) * dz <= reach_squared_))
             continue;
         // In reach: the ped is hit.

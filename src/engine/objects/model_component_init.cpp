@@ -177,7 +177,7 @@ void MeshInstanceModule::tick_frame()
         model->copy_bones(reinterpret_cast<uint8_t*>(skeleton_of(skeleton)));
         return;
     }
-    uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits_ : 0;
+    const uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits_ : 0;
     if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4))
         return; // (not active, or hidden)
     get_draw_matrix(&matrix);
@@ -350,7 +350,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                     else
                         model_path_for(file, ".mdl", path);
                     text::to_lower_text(path);
-                    bool allow_replace = params->has_bare_flag(kAllowReplaceTex);
+                    const bool allow_replace = params->has_bare_flag(kAllowReplaceTex);
                     mesh_instance_->add_file_geom(static_cast<const char*>(path), 0, via_resource_store != 0,
                                                   tex_dict_offset, allow_replace, false, true, false);
                 }

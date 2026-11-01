@@ -58,9 +58,10 @@ float epsilon() { return objects::g_float_zero; }
 // reciprocal unrounded).
 void normalize_xzy(float& x, float& y, float& z)
 {
-    double length = std::sqrt((static_cast<double>(x) * x + static_cast<double>(z) * z) + static_cast<double>(y) * y);
+    const double length =
+        std::sqrt((static_cast<double>(x) * x + static_cast<double>(z) * z) + static_cast<double>(y) * y);
     if (length > epsilon()) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         x = static_cast<float>(x * inverse);
         y = static_cast<float>(y * inverse);
         z = static_cast<float>(z * inverse);
@@ -95,7 +96,7 @@ maths::Vec4* ClampVector::confine(const maths::Vec4* min, const maths::Vec4* max
     const float* low = &min->x;
     const float* high = &max->x;
     for (int i = 0; i < 4; ++i) {
-        float value = values[i] > high[i] ? high[i] : values[i];
+        const float value = values[i] > high[i] ? high[i] : values[i];
         values[i] = value < low[i] ? low[i] : value;
     }
     return this;
@@ -115,22 +116,22 @@ maths::Vec4* clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths:
 // precision into its two products)
 maths::QuatRotation* angles_to_quat(maths::QuatRotation* out, const maths::Vec4* angles)
 {
-    double half_z = angles->z * 0.5;
-    double half_y = angles->y * 0.5;
-    double half_x = angles->x * 0.5;
+    const double half_z = angles->z * 0.5;
+    const double half_y = angles->y * 0.5;
+    const double half_x = angles->x * 0.5;
     auto cos_z = static_cast<float>(std::cos(half_z));
     auto cos_y = static_cast<float>(std::cos(half_y));
     auto cos_x = static_cast<float>(std::cos(half_x));
-    float sin_z = std::sin(static_cast<float>(half_z));
-    float sin_x = std::sin(static_cast<float>(half_x));
+    const float sin_z = std::sin(static_cast<float>(half_z));
+    const float sin_x = std::sin(static_cast<float>(half_x));
     auto cycz = static_cast<float>(static_cast<double>(cos_y) * cos_z);
     auto szsy = static_cast<float>(std::sin(half_y) * sin_z);
     auto sycz = static_cast<float>(std::sin(half_y) * cos_z);
     auto szcy = static_cast<float>(static_cast<double>(sin_z) * cos_y);
-    double w = static_cast<double>(szsy) * sin_x + static_cast<double>(cycz) * cos_x;
-    double x = static_cast<double>(cycz) * sin_x - static_cast<double>(szsy) * cos_x;
-    double y = static_cast<double>(szcy) * sin_x + static_cast<double>(sycz) * cos_x;
-    double z = static_cast<double>(szcy) * cos_x - static_cast<double>(sycz) * sin_x;
+    const double w = static_cast<double>(szsy) * sin_x + static_cast<double>(cycz) * cos_x;
+    const double x = static_cast<double>(cycz) * sin_x - static_cast<double>(szsy) * cos_x;
+    const double y = static_cast<double>(szcy) * sin_x + static_cast<double>(sycz) * cos_x;
+    const double z = static_cast<double>(szcy) * cos_x - static_cast<double>(sycz) * sin_x;
     out->x = static_cast<float>(x);
     out->y = static_cast<float>(y);
     out->z = static_cast<float>(z);
@@ -141,18 +142,18 @@ maths::QuatRotation* angles_to_quat(maths::QuatRotation* out, const maths::Vec4*
 // 0x00488020
 maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q)
 {
-    double asin_argument = -((static_cast<double>(q->x) * q->z - static_cast<double>(q->w) * q->y) * 2.0);
-    double y = std::asin(asin_argument);
-    float ww = q->w * q->w;
-    float xx = q->x * q->x;
-    float yy = q->y * q->y;
-    float zz = q->z * q->z;
-    double z_num = (static_cast<double>(q->w) * q->z + static_cast<double>(q->y) * q->x) * 2.0;
-    double z_den = ((static_cast<double>(xx) + ww) - yy) - zz;
+    const double asin_argument = -((static_cast<double>(q->x) * q->z - static_cast<double>(q->w) * q->y) * 2.0);
+    const double y = std::asin(asin_argument);
+    const float ww = q->w * q->w;
+    const float xx = q->x * q->x;
+    const float yy = q->y * q->y;
+    const float zz = q->z * q->z;
+    const double z_num = (static_cast<double>(q->w) * q->z + static_cast<double>(q->y) * q->x) * 2.0;
+    const double z_den = ((static_cast<double>(xx) + ww) - yy) - zz;
     auto z = static_cast<float>(std::atan2(z_num, z_den));
     out->w = 1.0f;
-    double x_num = (static_cast<double>(q->w) * q->x + static_cast<double>(q->y) * q->z) * 2.0;
-    double x_den = ((static_cast<double>(ww) - xx) - yy) + zz;
+    const double x_num = (static_cast<double>(q->w) * q->x + static_cast<double>(q->y) * q->z) * 2.0;
+    const double x_den = ((static_cast<double>(ww) - xx) - yy) + zz;
     out->x = static_cast<float>(std::atan2(x_num, x_den));
     out->y = static_cast<float>(y);
     out->z = z;
@@ -208,7 +209,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
     for (Bone& bone : bones_) {
         if (bone.bone_ == kNoBone)
             continue;
-        int index = skeleton->fetch_bone_slot(bone.bone_);
+        const int index = skeleton->fetch_bone_slot(bone.bone_);
         if (index == -1)
             continue;
         const maths::Vec4& pos = object->at_point_;
@@ -219,7 +220,8 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
         float dz = bone.look_goal_.z - pos.z;
         normalize_xzy(dx, dy, dz);
         maths::QuatRotation& pose = rotations[index];
-        double dot = (static_cast<double>(dx) * at.x + static_cast<double>(dz) * at.z) + static_cast<double>(dy) * at.y;
+        const double dot =
+            (static_cast<double>(dx) * at.x + static_cast<double>(dz) * at.z) + static_cast<double>(dy) * at.y;
         auto angle = static_cast<float>(std::acos(dot));
         maths::Vec4 axis;
         axis.x = static_cast<float>(static_cast<double>(dy) * at.z - static_cast<double>(dz) * at.y);
@@ -229,24 +231,24 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
         normalize_xzy(axis.x, axis.y, axis.z);
         // The axis turned to the bone's own way of looking
         maths::QuatRotation turn = {0.0f, 0.0f, 0.0f, 1.0f};
-        int axis_code = bone.pivot_dir_;
+        const int axis_code = bone.pivot_dir_;
         auto which = static_cast<unsigned int>(axis_code < 0 ? -axis_code : axis_code);
         if (which <= 3) {
             if (which <= 2) {
-                volatile int divisor = axis_code; // (0 divides by zero: the original's)
+                const volatile int divisor = axis_code; // (0 divides by zero: the original's)
                 int sign = axis_code / divisor;
                 if (axis_code < 0)
                     sign = -sign;
-                double quarter = sign * static_cast<double>(kQuarterTurn);
-                double s = std::sin(quarter);
-                double c = std::cos(quarter);
+                const double quarter = sign * static_cast<double>(kQuarterTurn);
+                const double s = std::sin(quarter);
+                const double c = std::cos(quarter);
                 if (which <= 1) {
-                    double old_y = axis.y;
+                    const double old_y = axis.y;
                     axis.y = static_cast<float>(old_y * c - axis.z * s);
                     axis.z = static_cast<float>(old_y * s + axis.z * c);
                 } else {
                     auto sin_f = static_cast<float>(s);
-                    double old_x = axis.x;
+                    const double old_x = axis.x;
                     axis.x = static_cast<float>(c * old_x - static_cast<double>(axis.y) * sin_f);
                     axis.y = static_cast<float>(sin_f * old_x + axis.y * c);
                 }
@@ -285,13 +287,13 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
         pose = rotation;
         pose.make_unit(1.0f);
         maths::QuatRotation& last = bone.orientation_turn_;
-        double closeness = ((static_cast<double>(pose.z) * last.z + static_cast<double>(last.x) * pose.x) +
-                            static_cast<double>(pose.w) * last.w) +
-                           static_cast<double>(pose.y) * last.y;
+        const double closeness = ((static_cast<double>(pose.z) * last.z + static_cast<double>(last.x) * pose.x) +
+                                  static_cast<double>(pose.w) * last.w) +
+                                 static_cast<double>(pose.y) * last.y;
         if (closeness < kEaseBelow) {
             auto t = static_cast<float>(std::fabs(closeness) * kEaseFactor);
             float eased[4];
-            float* result = interpolate_rotation(eased, &last.x, &pose.x, t);
+            const float* result = interpolate_rotation(eased, &last.x, &pose.x, t);
             pose = {result[0], result[1], result[2], result[3]};
         }
         last = pose;
@@ -357,7 +359,7 @@ int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Scr
         return 2;
     bool all = false;
     bool by_id = false;
-    int index = bone_from_params(this, params, &all, &by_id);
+    const int index = bone_from_params(this, params, &all, &by_id);
     if (name == kOn) {
         if (all)
             activate_all();
@@ -391,7 +393,7 @@ int BoneLookAt::find_bone(uint32_t bone)
 // 0x00487D90
 bool BoneLookAt::all_active()
 {
-    for (Bone& bone : bones_) {
+    for (const Bone& bone : bones_) {
         if (bone.bone_ != kNoBone && !bone.active_)
             return false;
     }

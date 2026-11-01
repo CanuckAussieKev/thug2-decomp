@@ -79,7 +79,8 @@ void Script::update_wait()
         }
         break;
     case kSuspendOnTimer: {
-        double frame = frame_clock::get_slomo_frame_seconds(); // (unrounded, as the original keeps it on the x87 stack)
+        const double frame =
+            frame_clock::get_slomo_frame_seconds(); // (unrounded, as the original keeps it on the x87 stack)
         if (frame > suspend_clock_) {
             // Less than a frame left: done - unless this is the first Update, which only zeroes the time.
             if (suspend_clock_started_)
@@ -94,8 +95,9 @@ void Script::update_wait()
         break;
     }
     case kWaitTypeRealTimer: {
-        uint32_t start = suspend_arg_;
-        uint32_t elapsed = static_cast<uint32_t>(game_clock()) + (static_cast<uint32_t>(game_clock_offset()) - start);
+        const uint32_t start = suspend_arg_;
+        const uint32_t elapsed =
+            static_cast<uint32_t>(game_clock()) + (static_cast<uint32_t>(game_clock_offset()) - start);
         if (static_cast<double>(elapsed) >= suspend_clock_) // (not when the time is a NaN)
             suspend_reason_ = kSuspendOnNothing;
         break;
@@ -284,7 +286,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
 bool Script::return_from_script(Struct* results)
 {
     script_store_instance()->release_script(script_title_);
-    bool interrupted = (flag_bits_ & kScriptRunInterrupted) != 0;
+    const bool interrupted = (flag_bits_ & kScriptRunInterrupted) != 0;
     if (call_depth_ == 0) {
         // The bottom level: the script ends (its parameters stay, for the results).
         pc_ = nullptr;
@@ -294,7 +296,7 @@ bool Script::return_from_script(Struct* results)
             args_->get_clear();
             delete_struct(args_);
         }
-        CallFrame& frame = frame_records_[call_depth_];
+        const CallFrame& frame = frame_records_[call_depth_];
         script_title_ = frame.script_id_;
         args_ = frame.arg_struct_;
         pc_ = frame.caller_frame_;
@@ -376,15 +378,15 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
     if (signal_routes_)
         signal_routes_->mark_group(group);
-    int count = static_cast<int>(table->extent_);
+    const int count = static_cast<int>(table->extent_);
     if (!signal_routes_ && count)
         signal_routes_ = new_event_handler_table();
-    uint32_t* elements = table->find_array_value();
+    const uint32_t* elements = table->find_array_value();
     for (int i = 0; i < count; ++i) {
-        Component* flag = reinterpret_cast<Struct*>(elements[i])->step_to_entry(nullptr);
-        Component* type = flag->next;
-        Component* script = type->next;
-        Component* params = script->next;
+        const Component* flag = reinterpret_cast<Struct*>(elements[i])->step_to_entry(nullptr);
+        const Component* type = flag->next;
+        const Component* script = type->next;
+        const Component* params = script->next;
         signal_routes_->append_listener(this, type->checksum, script->checksum, group, flag->checksum == kExceptionFlag,
                                         params ? params->structure : nullptr);
     }

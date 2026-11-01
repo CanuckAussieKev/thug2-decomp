@@ -61,7 +61,7 @@ void copy_value(const char* from, char* to, unsigned capacity)
     }
     unsigned length = 0;
     for (;;) {
-        char c = *from++;
+        const char c = *from++;
         if (c == '\0' || c == end)
             break;
         to[length++] = c;

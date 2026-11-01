@@ -238,10 +238,10 @@ int query_sun_visibility(void*, uint8_t query)
 // 0x004428F0
 void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4* centre)
 {
-    maths::Vec4 line = *sun - *centre;
+    const maths::Vec4 line = *sun - *centre;
     for (uint32_t i = 0; i < element_count(); ++i) {
         FlareElement& element = get_elements()[i];
-        maths::Vec4 pos = *centre + element.pos_scale_ * line;
+        const maths::Vec4 pos = *centre + element.pos_scale_ * line;
         element.morph->push_float(kTime, time);
         element.morph->put_vec3(kPos, get_value(pos));
         frontend::cfunc_do_screen_element_morph(element.morph, nullptr);
@@ -298,8 +298,8 @@ void update_flare(Struct* params, script::Script*)
     params->fetch_float(kMorphTime, &time, 0);
     script::VectorValue sun{}; // (unset if there's none: the getter asserts)
     params->fetch_vec(kSunPos, &sun, 1);
-    maths::Vec4 sun_pos = {sun.x, sun.y, sun.z, sun.w};
-    maths::Vec4 centre_pos = {centre.x, centre.y, centre.z, centre.w};
+    const maths::Vec4 sun_pos = {sun.x, sun.y, sun.z, sun.w};
+    const maths::Vec4 centre_pos = {centre.x, centre.y, centre.z, centre.w};
     place_flare_elements(time, &sun_pos, &centre_pos);
 }
 
@@ -348,7 +348,7 @@ void unhide_flare(Struct*, script::Script* script)
         container.get_release();
         return;
     }
-    float time = 0.2f;
+    const float time = 0.2f;
     Struct* morph = new_params();
     morph->put_name_key(kId, kContainer);
     morph->push_float(kAlpha, 1.0f);
@@ -370,7 +370,7 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     facing[1] = maths::cross_vec(facing[2], facing[0]);
     if (sun_texture())
         quad->set_texture(static_cast<const uint8_t*>(sun_texture()), 0, 0);
-    float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
+    const float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
     float half = size / 2.0f;
     maths::Vec4 quad_corners[4] = {
         {-half, -half, 0.0f, 1.0f},
@@ -400,7 +400,7 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
 // 0x00443780
 void show_flare(const maths::Vec4* sun, float time)
 {
-    maths::Vec4 centre = screen_centre();
+    const maths::Vec4 centre = screen_centre();
     frontend::ElementPtr container;
     frontend::UiTree::sole()->fetch_part(&container, kContainer, 0);
     if (container.is_null())
@@ -471,13 +471,13 @@ void render(gfx::ViewCam* camera)
     // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
     if (!get_query() || (visible = query_result(get_query())) == 0) {
         // not seen: the corona fades out over SunBurst_Out seconds, the lens flare maybe hidden
-        uint32_t unseen = get_since(visible_time());
+        const uint32_t unseen = get_since(visible_time());
         auto fade_time = static_cast<uint32_t>(get_truncated(static_cast<double>(sun_burst_out_time()) * 1000.0f));
         auto fade = static_cast<float>(static_cast<double>(unseen) / static_cast<double>(fade_time));
         fade = clamp_to_range(fade, 0.0f, 1.0f);
         hidden_time() = get_now();
         if (fade < 1.0f) {
-            float left = 1.0f - fade;
+            const float left = 1.0f - fade;
             corner_colors(colors, left);
             Prim corona(2);
             float corona_corners[12] = {};
@@ -500,8 +500,9 @@ void render(gfx::ViewCam* camera)
     } else {
         // seen: the corona at half the colour, the lens flare shown (morphed in if it was hidden for a while)
         visible_time() = get_now();
-        uint32_t unseen = get_since(hidden_time());
-        float brightness = clamp_to_range(static_cast<float>(static_cast<double>(visible) / 50000.0f), 0.0f, 1.0f);
+        const uint32_t unseen = get_since(hidden_time());
+        const float brightness =
+            clamp_to_range(static_cast<float>(static_cast<double>(visible) / 50000.0f), 0.0f, 1.0f);
         (void)brightness; // (worked out, not used)
         corner_colors(colors, 0.5);
         if (get_corona_texture())

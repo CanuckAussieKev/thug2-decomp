@@ -37,12 +37,12 @@ NoteHandler* NoteHandler::teardown(unsigned int flags)
 void Router::prepare_all()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
-        memory::ListNode* node = link_chain(id).list_link_.next;
+        const memory::ListNode* node = link_chain(id).list_link_.next;
         // (the head check comes before the null check)
         if (node->data == reinterpret_cast<void*>(-1) || !node)
             continue;
         do {
-            memory::ListNode* next = node->next;
+            const memory::ListNode* next = node->next;
             if (next->data == reinterpret_cast<void*>(-1))
                 next = nullptr;
             static_cast<NoteHandler*>(node->data)->teardown(1); // (the handler is its node)
@@ -86,18 +86,18 @@ NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t
 int Router::dispatch_msg(InboundMsgCtx* context)
 {
     // Not original - what THUGPRO players send that THUG2 hasn't, checked first (TP-R8, net_guards.h).
-    int guarded = online::guards::check_received_message(context);
+    const int guarded = online::guards::check_received_message(context);
     if (guarded >= 0)
         return guarded;
     lists::Hunt<NoteHandler> search;
-    NoteHandler* next = nullptr;
-    for (NoteHandler* handler = search.head_element(&link_chain(context->type_code_).list_link_); handler;
+    const NoteHandler* next = nullptr;
+    for (const NoteHandler* handler = search.head_element(&link_chain(context->type_code_).list_link_); handler;
          handler = next) {
         next = search.following_item();
         if ((handler->mode_bits_ & context->wire_options_) != context->wire_options_)
             continue;
         context->content_ = handler->content_;
-        int result = handler->code_(context);
+        const int result = handler->code_(context);
         switch (result) {
         case kResultFailed:
         case kResultStop:
@@ -133,7 +133,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size_)) {
         context.type_code_ = packet.u8();
         uint8_t* table = fetch_hub(conn->owner_app_);
-        bool has_length = !(message_flags(table, context.type_code_) & kMsgNoLength);
+        const bool has_length = !(message_flags(table, context.type_code_) & kMsgNoLength);
         if (has_length) {
             context.body_size_ = packet.u16();
             // NOT ORIGINAL: a length past the packet's end ends it (the original copied that much into its buffer)
@@ -149,12 +149,12 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
         } else {
             // a whole buffer's worth, whatever the message's size (NOT ORIGINAL: no further than the packet's end -
             // the original read on past the connection's receive buffer)
-            size_t copy = packet.remaining() < kFixedSizeCopy ? packet.remaining() : kFixedSizeCopy;
+            const size_t copy = packet.remaining() < kFixedSizeCopy ? packet.remaining() : kFixedSizeCopy;
             std::memcpy(buffer, p, copy);
         }
         if (is_outsider(conn))
             context.wire_options_ |= kPacketForeign;
-        int result = dispatch_msg(&context);
+        const int result = dispatch_msg(&context);
         if (result == kResultFailed || result == kResultStop) {
             read_ptr = read_buffer;
             return kResultStop;

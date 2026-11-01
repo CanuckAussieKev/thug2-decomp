@@ -76,8 +76,8 @@ void swap_mapping(uint32_t a, uint32_t b)
     // (with the table full, a slot of -1: the entry before the table, as in the original)
     SwapSlot& first = table[slot_a];
     SwapSlot& second = table[slot_b];
-    uint32_t first_value = first.value;
-    uint32_t second_value = second.value;
+    const uint32_t first_value = first.value;
+    const uint32_t second_value = second.value;
     if (first.key == second_value)
         first.used = false;
     else
@@ -128,7 +128,7 @@ bool cfunc_get_goals_completed(Struct* params, Script* script)
 {
     int level = 0;
     params->fetch_int_value(0u, &level, 0);
-    int goals = get_career()->count_goals(level);
+    const int goals = get_career()->count_goals(level);
     char text[100];
     std::snprintf(text, sizeof(text), "%d/9", goals);
     result_params(script)->append_word(0xC661FE79u, script::kQbvalString, text);    // (name unknown)
@@ -142,8 +142,8 @@ bool cfunc_get_next_level_requirements(Struct*, Script* script)
     char text[100];
     std::snprintf(text, sizeof(text), "%s", kNoText);
     objects::RiderStoryProgress* career = get_career();
-    int goals = career->count_total_goals();
-    int medals = career->count_levels_with_goals();
+    const int goals = career->count_total_goals();
+    const int medals = career->count_levels_with_goals();
     script::Array* steps = script::fetch_list(0x1D8F1A7Eu); // (name unknown) the level steps
     for (uint32_t i = 0; i < steps->extent_; ++i) {
         auto* step = reinterpret_cast<Struct*>(steps->fetch_part(i));

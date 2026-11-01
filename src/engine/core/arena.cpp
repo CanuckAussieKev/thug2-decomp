@@ -42,7 +42,7 @@ Arena::Arena(Zone* region, int direction, const char* name) : MemSource(region, 
 // 0x005BA780
 void* Arena::carve(uint32_t size, bool halt_if_exhausted)
 {
-    uint32_t rounded = round_up16(size);
+    const uint32_t rounded = round_up16(size);
 
     // The smallest free block that fits (the first of equal sizes).
     ChunkPrefix* best = nullptr;
@@ -51,7 +51,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     for (ChunkPrefix* block = context_->free_list_; block; previous = block, block = block->next_free()) {
         if (block->size < rounded)
             continue;
-        bool take = forced_free_block() ? block == forced_free_block() : !best || block->size < best->size;
+        const bool take = forced_free_block() ? block == forced_free_block() : !best || block->size < best->size;
         if (take) {
             best = block;
             best_previous = previous;
@@ -69,7 +69,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         count_up(used_size_, max_used_size_, static_cast<int>(best->size));
 
         // Split off what isn't needed, as a free block of its own.
-        int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
+        const int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
         if (rest > 0) {
             auto* tail = reinterpret_cast<ChunkPrefix*>(reinterpret_cast<uint8_t*>(best) + kBlockHeaderSize + rounded);
             best->size = rounded;
@@ -130,7 +130,7 @@ void* Arena::extend_block_downward(uint32_t new_size, void* block)
 {
     heap_busy() = 1;
     ChunkPrefix* header = fetch_chunk_prefix(block);
-    uint32_t rounded = round_up16(new_size);
+    const uint32_t rounded = round_up16(new_size);
     // The new space comes just below the block (with its own header, which becomes the block's).
     ChunkPrefix* extended = fetch_chunk_prefix(carve(rounded - header->size, true));
     debug_track_block(header);
@@ -147,7 +147,7 @@ void* Arena::extend_block_upward(uint32_t new_size, void* block)
 {
     heap_busy() = 1;
     ChunkPrefix* header = fetch_chunk_prefix(block);
-    uint32_t rounded = round_up16(new_size);
+    const uint32_t rounded = round_up16(new_size);
     if (rounded <= header->size) {
         heap_busy() = 0;
         return block;
@@ -161,7 +161,7 @@ void* Arena::extend_block_upward(uint32_t new_size, void* block)
     }
     debug_track_block(header);
     debug_track_block(extra);
-    uint32_t extra_size = extra->size;
+    const uint32_t extra_size = extra->size;
     --used_blocks_;
     header->size += kBlockHeaderSize + extra_size;
     debug_track_block(header);
@@ -174,7 +174,7 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
 {
     heap_busy() = 1;
     ChunkPrefix* header = fetch_chunk_prefix(block);
-    uint32_t cut = (header->size - new_size) & ~15u;
+    const uint32_t cut = (header->size - new_size) & ~15u;
     if (cut <= kBlockHeaderSize) {
         heap_busy() = 0;
         return block;

@@ -141,14 +141,14 @@ lists::KeyMap* load_materials_from_file(scene_format::FileStream& in, const list
 // -1 when it names none (an index that may still be past the material's passes otherwise).
 inline int pass_from_checksum(const MaterialRef* material, uint32_t checksum, int pass)
 {
-    uint32_t name = material->name_hash_;
+    const uint32_t name = material->name_hash_;
     if (name == checksum)
         return pass;
     if (name < checksum || name - checksum > 0x7F)
         return -1;
-    uint32_t difference = name - checksum;
-    uint32_t low = difference & 7;
-    uint32_t mask = difference >> 3;
+    const uint32_t difference = name - checksum;
+    const uint32_t low = difference & 7;
+    const uint32_t mask = difference >> 3;
     if (low)
         return low == static_cast<uint32_t>(pass) + 1 ? 0 : -1;
     if (!mask || !(mask & (1u << (pass & 31)))) // (shifts as x86 does: by the low five bits)

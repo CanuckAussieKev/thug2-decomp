@@ -126,7 +126,8 @@ void get_note(const char* what)
 {
     if (!g_boxes)
         return;
-    ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+    const ImVec2 a = ImGui::GetItemRectMin();
+    const ImVec2 b = ImGui::GetItemRectMax();
     note_rect(a.x, a.y, b.x, b.y, what);
 }
 
@@ -153,7 +154,7 @@ bool flip_over(const char* label, bool on)
 {
     if (on)
         ImGui::PushStyleColor(ImGuiCol_Button, accent_button());
-    bool pressed = ImGui::Button(label);
+    const bool pressed = ImGui::Button(label);
     if (on)
         ImGui::PopStyleColor();
     return pressed;
@@ -199,7 +200,7 @@ const char* pick_text(uint32_t bits)
 
 std::string problems_text(const State& s)
 {
-    int count = s.errors + s.warnings;
+    const int count = s.errors + s.warnings;
     char text[48];
     if (count > 0)
         std::snprintf(text, sizeof(text), "Problems %d###stripproblems", count);
@@ -296,7 +297,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     }
     case kSpace: {
         // (as wide as the wider label, so it doesn't move when switched)
-        float width = std::max(button_width("World"), button_width("Local"));
+        const float width = std::max(button_width("World"), button_width("Local"));
         if (ImGui::Button(s.local ? "Local###stripspace" : "World###stripspace", ImVec2(width, 0.0f)))
             out->events.push_back({Occurrence::Kind::kSpace});
         get_tip(s.local ? "Gizmo axes: local" : "Gizmo axes: world", get_key_of(s, "tool_space"));
@@ -309,13 +310,13 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         get_tip("Snap while moving");
         get_note("Snap");
         ImGui::SameLine(0.0f, inner);
-        std::string grid = grid_text(s.grid);
+        const std::string grid = grid_text(s.grid);
         if (ImGui::Button(grid.c_str()))
             ImGui::OpenPopup("##stripgridlist");
         get_tip("Grid size");
         get_note("Grid");
         if (ImGui::BeginPopup("##stripgridlist")) {
-            for (float size : s.grids) {
+            for (const float size : s.grids) {
                 char label[16];
                 std::snprintf(label, sizeof(label), "%g", size);
                 if (ImGui::Selectable(label, size == s.grid))
@@ -326,7 +327,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         break;
     }
     case kPickItem: {
-        std::string label = std::string(pick_text(s.pick_filter_)) + kDown + "###strippick";
+        const std::string label = std::string(pick_text(s.pick_filter_)) + kDown + "###strippick";
         if (ImGui::Button(label.c_str()))
             ImGui::OpenPopup("##strippicklist");
         get_tip("What a click in the view selects");
@@ -362,7 +363,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         break;
     case kLevel: {
         // (text, set on the buttons' baseline)
-        ImVec2 at = ImGui::GetCursorScreenPos();
+        const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + ImGui::GetStyle().FramePadding.y));
         ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s", get_level_text(s, scale).c_str());
         out->level_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
@@ -370,20 +371,21 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         break;
     }
     case kBudgetItem: {
-        float width = 44.0f * scale, frame = ImGui::GetFrameHeight();
-        ImVec2 at = ImGui::GetCursorScreenPos();
+        const float width = 44.0f * scale;
+        const float frame = ImGui::GetFrameHeight();
+        const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::InvisibleButton("##stripbudget", ImVec2(width, frame));
         if (ImGui::IsItemClicked())
             out->events.push_back({Occurrence::Kind::kBudget});
         out->budget_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         get_note("Budget");
-        float bar = ImGui::GetTextLineHeight() * 0.6f;
-        float top = at.y + (frame - bar) * 0.5f;
+        const float bar = ImGui::GetTextLineHeight() * 0.6f;
+        const float top = at.y + (frame - bar) * 0.5f;
         ImDrawList* draw = ImGui::GetWindowDrawList();
-        uint32_t c = s.budget_argb_;
-        ImU32 colour = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
+        const uint32_t c = s.budget_argb_;
+        const ImU32 colour = IM_COL32((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 255);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width, top + bar), IM_COL32(60, 62, 66, 255), 2.0f);
-        float fill = std::clamp(s.budget_fill_, 0.0f, 1.0f);
+        const float fill = std::clamp(s.budget_fill_, 0.0f, 1.0f);
         draw->AddRectFilled(ImVec2(at.x, top), ImVec2(at.x + width * fill, top + bar), colour, 2.0f);
         break;
     }
@@ -400,7 +402,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
             out->events.push_back({Occurrence::Kind::kProblems});
         ImGui::PopStyleColor(colours);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
-            std::string keys = get_key_of(s, "problems");
+            const std::string keys = get_key_of(s, "problems");
             ImGui::SetTooltip("%d errors, %d warnings%s%s%s", s.errors, s.warnings, keys.empty() ? "" : "  (",
                               keys.c_str(), keys.empty() ? "" : ")");
         }
@@ -420,7 +422,7 @@ void blit(const State& state, float x, float y, float width, float scale, Output
     for (const Item& item : items)
         slots.push_back(item.slot);
     const char* more = "\xC2\xBB###stripmore"; // ("»")
-    float more_width = button_width(more);
+    const float more_width = button_width(more);
     Plan plan = get_fit(slots, x, x + width, more_width, 10.0f * scale);
     for (size_t i = 0; i < items.size(); ++i) {
         if (!plan.shown[i])
@@ -458,13 +460,13 @@ void blit(const State& state, float x, float y, float width, float scale, Output
 void status_row(const std::string& message, const std::vector<std::pair<std::string, std::string>>& hints,
                 const std::string& right, float x, float y, float width, const ux8::Fonts& fonts)
 {
-    float s = fonts.scale;
+    const float s = fonts.scale;
     const float gap = 16.0f * s;
     // The right-hand text first: at most 45% of the row, elided.
     if (fonts.mono)
         ImGui::PushFont(fonts.mono);
-    std::string right_text = elide(right, width * 0.45f);
-    float right_width = right_text.empty() ? 0.0f : ImGui::CalcTextSize(right_text.c_str()).x;
+    const std::string right_text = elide(right, width * 0.45f);
+    const float right_width = right_text.empty() ? 0.0f : ImGui::CalcTextSize(right_text.c_str()).x;
     if (!right_text.empty()) {
         ImGui::SetCursorScreenPos(ImVec2(x + width - right_width, y));
         ImGui::TextDisabled("%s", right_text.c_str());
@@ -472,12 +474,12 @@ void status_row(const std::string& message, const std::vector<std::pair<std::str
     }
     if (fonts.mono)
         ImGui::PopFont();
-    float left_width = std::max(0.0f, width - right_width - (right_text.empty() ? 0.0f : gap));
+    const float left_width = std::max(0.0f, width - right_width - (right_text.empty() ? 0.0f : gap));
     ImGui::SetCursorScreenPos(ImVec2(x, y));
     if (fonts.small)
         ImGui::PushFont(fonts.small);
     if (!message.empty()) {
-        std::string text = elide(message, left_width);
+        const std::string text = elide(message, left_width);
         if (!text.empty()) {
             ImGui::TextColored(ImVec4(1.0f, 0.86f, 0.5f, 1.0f), "%s", text.c_str());
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && text != message)

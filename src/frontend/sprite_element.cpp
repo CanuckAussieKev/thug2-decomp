@@ -163,7 +163,7 @@ void ImageWidget::set_texture(uint32_t texture)
 // 0x004AF240 (the target compared unrounded, the shown one with the float)
 void ImageWidget::set_sprite_rotation(float degrees, int now)
 {
-    double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+    const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     auto angle = static_cast<float>(radians);
     if (radians != aim_point_.angle) {
         aim_point_.angle = angle;
@@ -210,7 +210,7 @@ void ImageWidget::blend_towards(Struct* params)
     UiWidget::blend_towards(params);
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
-        double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
+        const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
         if (radians != aim_point_.angle) {
             aim_point_.angle = static_cast<float>(radians);
             object_flags_ |= kDirty;
@@ -221,17 +221,17 @@ void ImageWidget::blend_towards(Struct* params)
 // 0x004AF2C0
 void ImageWidget::tick_frame()
 {
-    float top = summed_.top;
-    bool outside = top < layout_top() || top > layout_bottom();
-    bool hidden = is_concealed();
+    const float top = summed_.top;
+    const bool outside = top < layout_top() || top > layout_bottom();
+    const bool hidden = is_concealed();
     quad_->change_concealed(outside || hidden);
     if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
         return;
-    uint32_t rgba = shown_colour(this);
+    const uint32_t rgba = shown_colour(this);
     quad_->change_location(summed_.x, summed_.y);
     // (the size truncated: the height first)
-    int height = get_truncated(level_y_);
-    int width = get_truncated(span_);
+    const int height = get_truncated(level_y_);
+    const int width = get_truncated(span_);
     quad_->change_extent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
     quad_->set_flip(static_cast<bool>((object_flags_ >> 25) & 1), static_cast<bool>((object_flags_ >> 26) & 1));
     quad_->change_spin((object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle);
@@ -277,11 +277,11 @@ void PanelWidget::tick_frame()
 {
     if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
         return;
-    int top = get_truncated(summed_.y - (static_cast<double>(just_y_) + get_one()) * get_half() * level_y_);
-    int left = get_truncated(summed_.x - (static_cast<double>(just_x_) + get_one()) * get_half() * span_);
+    const int top = get_truncated(summed_.y - (static_cast<double>(just_y_) + get_one()) * get_half() * level_y_);
+    const int left = get_truncated(summed_.x - (static_cast<double>(just_x_) + get_one()) * get_half() * span_);
     reinterpret_cast<render::ScreenWindow*>(screen_region_)->change_location(left, top);
-    int height = get_truncated(level_y_);
-    int width = get_truncated(span_);
+    const int height = get_truncated(level_y_);
+    const int width = get_truncated(span_);
     reinterpret_cast<render::ScreenWindow*>(screen_region_)->change_extent(width, height);
 }
 

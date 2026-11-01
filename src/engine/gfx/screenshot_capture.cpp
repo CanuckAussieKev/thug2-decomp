@@ -66,7 +66,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
     // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization): Direct3D's structure zeroed, as D3D allows
     D3DSURFACE_DESC desc = {};
     back->GetDesc(&desc);
-    sys::screenshot::PixelFormat format = get_map(desc.Format);
+    const sys::screenshot::PixelFormat format = get_map(desc.Format);
     if (format == sys::screenshot::PixelFormat::kUnknown)
         return fail("the back buffer's format isn't one we read", static_cast<HRESULT>(desc.Format));
     IDirect3DSurface9* source = back;
@@ -91,7 +91,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
     hr = system->LockRect(&locked, nullptr, D3DLOCK_READONLY);
     if (FAILED(hr))
         return fail("LockRect failed", hr);
-    int row_bytes = static_cast<int>(desc.Width) * sys::screenshot::get_bytes_per_pixel(format);
+    const int row_bytes = static_cast<int>(desc.Width) * sys::screenshot::get_bytes_per_pixel(format);
     out->width = static_cast<int>(desc.Width);
     out->height = static_cast<int>(desc.Height);
     out->pitch = row_bytes;
@@ -122,7 +122,7 @@ bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error)
     }
     // (the main loop's scene is open here: render::begin_frame_draw began it, the end of the frame - 0x004B2750 - ends it)
     device->EndScene();
-    bool ok = dup_from(device, out, error);
+    const bool ok = dup_from(device, out, error);
     device->BeginScene();
     return ok;
 }

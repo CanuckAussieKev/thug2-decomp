@@ -57,7 +57,7 @@ Struct* included_structure(const Component* component)
 {
     if (component->name != 0 || component->kind_tag() != kQbvalName)
         return nullptr;
-    SymbolTableEntry* symbol = resolve_symbol(component->checksum);
+    const SymbolTableEntry* symbol = resolve_symbol(component->checksum);
     return symbol && symbol->type == kQbvalStruct ? symbol->structure : nullptr;
 }
 
@@ -126,9 +126,9 @@ bool Struct::get_hunt(uint32_t name, uint32_t type, void* out)
 {
     auto* value = static_cast<uint32_t*>(out);
     bool found = false;
-    for (Component* component = head_; component; component = component->next) {
+    for (const Component* component = head_; component; component = component->next) {
         if (component->name == name) {
-            QbValueKind component_type = component->kind_tag();
+            const QbValueKind component_type = component->kind_tag();
             if (component_type == type) {
                 *value = component->raw;
                 found = true;
@@ -137,7 +137,7 @@ bool Struct::get_hunt(uint32_t name, uint32_t type, void* out)
                 found = true;
             } else if (component_type == kQbvalName) {
                 // A name standing for a global value.
-                SymbolTableEntry* symbol = resolve_symbol(component->checksum);
+                const SymbolTableEntry* symbol = resolve_symbol(component->checksum);
                 if (symbol) {
                     if (symbol->type == type) {
                         *value = symbol->raw;
@@ -168,7 +168,7 @@ bool Struct::has_entry_named(const char* name) { return find_component(checksums
 // 0x00476B40
 bool Struct::has_bare_flag(uint32_t flag)
 {
-    for (Component* component = head_; component; component = component->next) {
+    for (const Component* component = head_; component; component = component->next) {
         if (component->name != 0 || component->kind_tag() != kQbvalName)
             continue;
         if (component->checksum == flag)
@@ -353,10 +353,10 @@ bool Struct::fetch_script(uint32_t name, ParamScript* out, int assert)
 bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
 {
     bool found = false;
-    for (Component* component = head_; component; component = component->next) {
+    for (const Component* component = head_; component; component = component->next) {
         if (component->name == name) {
             if (component->kind_tag() == kQbvalName) {
-                SymbolTableEntry* symbol = nullptr;
+                const SymbolTableEntry* symbol = nullptr;
                 // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
                 if (name != 0 || !(symbol = resolve_symbol(component->checksum)) || symbol->type != kQbvalStruct) {
                     *out = component->checksum;
@@ -504,8 +504,8 @@ uint32_t& permanent_string_count() { return g_permanent_string_count; }
 // 0x00476260 (the string in EAX: called only by spawn_text, so registered source-only)
 char* create_permanent_string(const char* string)
 {
-    int length = static_cast<int>(std::strlen(string));
-    uint32_t checksum = checksums::generate_crc_from_buffer(string, length);
+    const int length = static_cast<int>(std::strlen(string));
+    const uint32_t checksum = checksums::generate_crc_from_buffer(string, length);
     PermanentString* table = permanent_string_table();
     for (uint32_t i = 0; i < permanent_string_count(); ++i) {
         if (table[i].checksum == checksum)
@@ -532,7 +532,7 @@ char* spawn_text(const char* string)
     if (use_permanent_strings())
         return create_permanent_string(string);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-    size_t size = std::strlen(string) + 1;
+    const size_t size = std::strlen(string) + 1;
     auto* copy = static_cast<char*>(memory::alloc_block(static_cast<unsigned int>(size)));
     std::memcpy(copy, string, size);
     memory::leave_heap_scope();
@@ -615,8 +615,8 @@ uint32_t* Array::find_array_value() { return extent_ == 1 ? &single_ : elements_
 // 0x00477140
 void release_array_storage(Array* array)
 {
-    uint32_t count = array->extent_;
-    QbValueKind type = array->kind_tag_;
+    const uint32_t count = array->extent_;
+    const QbValueKind type = array->kind_tag_;
     uint32_t* elements = array->find_array_value();
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t& element = elements[i];
@@ -911,8 +911,8 @@ void Struct::attach_module(Component* added)
     while (component) {
         bool replace = false;
         if (component->name == added->name) {
-            QbValueKind mine = component->kind_tag();
-            QbValueKind theirs = added->kind_tag();
+            const QbValueKind mine = component->kind_tag();
+            const QbValueKind theirs = added->kind_tag();
             if (mine == theirs)
                 replace = !(mine == kQbvalName && component->name == 0) || component->raw == added->raw;
             else
@@ -1139,7 +1139,7 @@ void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
 // 0x00478480
 Struct* Struct::merge_structure(Struct* source)
 {
-    for (Component* component = source->head_; component; component = component->next) {
+    for (const Component* component = source->head_; component; component = component->next) {
         Component* copy = new_component();
         duplicate_component(copy, component, 0);
         attach_module(copy);
@@ -1167,7 +1167,7 @@ Struct* Struct::get_assign(Struct* source)
 // 0x00478560
 void Struct::inline_into(Struct* dest, int depth)
 {
-    for (Component* component = head_; component; component = component->next) {
+    for (const Component* component = head_; component; component = component->next) {
         if (Struct* included = included_structure(component)) {
             included->inline_into(dest, depth + 1);
             continue;
@@ -1300,7 +1300,7 @@ char* Array::find_inline_text(uint32_t index) { return reinterpret_cast<char*>(f
 // 0x0046CBF0
 float Array::fetch_float(uint32_t index)
 {
-    uint32_t bits = fetch_part(index);
+    const uint32_t bits = fetch_part(index);
     if (kind_tag_ == kQbvalFloat) {
         auto value = std::bit_cast<float>(bits);
         return value;
@@ -1312,7 +1312,7 @@ float Array::fetch_float(uint32_t index)
 void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count, uint32_t type)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t element = source[i];
+        const uint32_t element = source[i];
         switch (type) {
         case kQbvalInteger:
         case kQbvalFloat:
@@ -1378,8 +1378,8 @@ void copy_array_elements(uint32_t* dest, const uint32_t* source, uint32_t count,
 void duplicate_array(Array* dest, Array* source)
 {
     release_array_storage(dest);
-    QbValueKind type = source->kind_tag_;
-    uint32_t size = source->extent_;
+    const QbValueKind type = source->kind_tag_;
+    const uint32_t size = source->extent_;
     dest->configure_size_kind(size, type);
     if (size)
         copy_array_elements(dest->find_array_value(), source->find_array_value(), size, type);
@@ -1535,14 +1535,14 @@ float fetch_float(const char* name) { return fetch_float(checksums::hash_from_te
 // 0x00478F90 / 0x00478FB0
 uint32_t get_symbol_value(uint32_t name)
 {
-    SymbolTableEntry* entry = resolve_symbol(name);
+    const SymbolTableEntry* entry = resolve_symbol(name);
     return entry ? entry->raw : 0;
 }
 uint32_t get_symbol_value(const char* name) { return get_symbol_value(checksums::hash_from_text(name)); }
 // 0x00478FD0 / 0x00478FF0 (any type: the raw value)
 const char* fetch_text(uint32_t name)
 {
-    SymbolTableEntry* entry = resolve_symbol(name);
+    const SymbolTableEntry* entry = resolve_symbol(name);
     return entry ? reinterpret_cast<const char*>(entry->raw) : empty_string();
 }
 const char* fetch_text(const char* name) { return fetch_text(checksums::hash_from_text(name)); }
@@ -1567,7 +1567,7 @@ bool components_equal(Component* a, Component* b)
         *type = component->kind_tag();
         *value = component->raw;
         if (*type == kQbvalName) {
-            if (SymbolTableEntry* symbol = resolve_symbol(*value)) {
+            if (const SymbolTableEntry* symbol = resolve_symbol(*value)) {
                 *value = symbol->raw;
                 *type = symbol->type;
             }

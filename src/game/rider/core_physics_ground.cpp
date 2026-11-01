@@ -68,8 +68,9 @@ void SkaterPhysicsModule::apply_friction(float friction)
         static_cast<float>(static_cast<double>(length_squared) * frame_length_ * friction * kFramesPerSecond);
     maths::Vec4 change = velocity;
     change.set_length(slowing);
-    double change_squared = (static_cast<double>(change.z) * change.z + static_cast<double>(change.x) * change.x) +
-                            static_cast<double>(change.y) * change.y;
+    const double change_squared =
+        (static_cast<double>(change.z) * change.z + static_cast<double>(change.x) * change.x) +
+        static_cast<double>(change.y) * change.y;
     if (change_squared > length_squared) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
@@ -83,7 +84,7 @@ void SkaterPhysicsModule::apply_friction(float friction)
 // 0x004FE320
 bool SkaterPhysicsModule::should_brake()
 {
-    objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = input_;
     if (!auto_kick_ && !input->pad_primary_.button_box_.held_down_ && speed_of(entity_->vel_) < kSlow)
         return true;
     if (!input->pad_primary_.btn_down_.held_down_ || !can_brake_)
@@ -92,10 +93,11 @@ bool SkaterPhysicsModule::should_brake()
         return true;
     if (!input->pad_primary_.right_side_.held_down_ && !input->pad_primary_.left_side_.held_down_)
         return true;
-    objects::GameEntity* object = object_of(this);
+    const objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel_;
     const maths::Vec4& f = object->basis_frame_.row[2];
-    double along = (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
+    const double along =
+        (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
     return along < 0.0;
 }
 
@@ -111,7 +113,7 @@ bool SkaterPhysicsModule::may_turn_on_slope()
 // 0x004FE490
 bool SkaterPhysicsModule::can_push_off()
 {
-    objects::PadInputModule* input = input_;
+    const objects::PadInputModule* input = input_;
     if (no_kick_)
         return false;
     if (!auto_kick_ && !input->pad_primary_.button_box_.held_down_)
@@ -119,7 +121,7 @@ bool SkaterPhysicsModule::can_push_off()
     if (input->pad_primary_.btn_down_.held_down_)
         return false;
     auto speed = static_cast<float>(speed_of(entity_->vel_));
-    bool crouched = is_crouched(this) || crouch_stats_;
+    const bool crouched = is_crouched(this) || crouch_stats_;
     auto limit = static_cast<float>(stat_value(object_of(this), crouched ? kPushSpeedCrouched : kKickoffSpeed));
     return !(limit < speed);
 }
@@ -132,8 +134,8 @@ void SkaterPhysicsModule::push_off()
     if (lock_velocity_) {
         direction = object->vel_;
         const maths::Vec4& v = direction;
-        double speed = std::sqrt((static_cast<double>(v.z) * v.z + static_cast<double>(v.y) * v.y) +
-                                 static_cast<double>(v.x) * v.x);
+        const double speed = std::sqrt((static_cast<double>(v.z) * v.z + static_cast<double>(v.y) * v.y) +
+                                       static_cast<double>(v.x) * v.x);
         if (speed < kLockedSlow)
             direction = object->basis_frame_.row[2];
         else
@@ -141,12 +143,12 @@ void SkaterPhysicsModule::push_off()
     } else {
         direction = object->basis_frame_.row[2];
     }
-    bool crouched = is_crouched(this) || crouch_stats_;
+    const bool crouched = is_crouched(this) || crouch_stats_;
     auto push = static_cast<float>(stat_value(object, crouched ? kPushCrouched : kPush));
-    double frame = frame_length_;
+    const double frame = frame_length_;
     auto x = static_cast<float>(static_cast<double>(direction.x) * push * frame);
-    double y = static_cast<double>(direction.y) * push * frame;
-    double z = static_cast<double>(static_cast<float>(static_cast<double>(direction.z) * push)) * frame;
+    const double y = static_cast<double>(direction.y) * push * frame;
+    const double z = static_cast<double>(static_cast<float>(static_cast<double>(direction.z) * push)) * frame;
     auto w =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(direction.w) * push)) * frame);
     maths::Vec4& velocity = entity_->vel_;
@@ -173,22 +175,22 @@ void SkaterPhysicsModule::apply_stance_friction()
 void SkaterPhysicsModule::apply_wheel_drag()
 {
     maths::Vec4& velocity = entity_->vel_;
-    double x = velocity.x;
-    double w = velocity.w;
-    float vy = velocity.y;
-    float vz = velocity.z;
-    double speed = std::sqrt((static_cast<double>(vz) * vz + static_cast<double>(vy) * vy) + x * x);
+    const double x = velocity.x;
+    const double w = velocity.w;
+    const float vy = velocity.y;
+    const float vz = velocity.z;
+    const double speed = std::sqrt((static_cast<double>(vz) * vz + static_cast<double>(vy) * vy) + x * x);
     auto speed_rounded = static_cast<float>(speed);
     if (speed < kStill) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
-    double k = static_cast<double>(frame_length_) / speed_rounded * rolling_friction_ * kFramesPerSecond;
+    const double k = static_cast<double>(frame_length_) / speed_rounded * rolling_friction_ * kFramesPerSecond;
     auto dx = static_cast<float>(k * x);
     auto dy = static_cast<float>(vy * k);
     auto dz = static_cast<float>(vz * k);
-    double dw = w * k;
-    double change_squared =
+    const double dw = w * k;
+    const double change_squared =
         (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
     if (static_cast<double>(speed_rounded) * speed_rounded < change_squared) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -231,7 +233,7 @@ void SkaterPhysicsModule::update_ground_normal()
         if (old_normal_ == floor_normal_) {
             blend = 0.0f;
         } else {
-            double left =
+            const double left =
                 blend - static_cast<double>(script::fetch_float(kNormalBlendRate)) * frame_length_ * kFramesPerSecond;
             auto t = static_cast<float>(left);
             blend = t;
@@ -262,7 +264,7 @@ void SkaterPhysicsModule::start_vert_air()
         set_timed_flag(this, PoseFlag::kVertAir, 0);
         return;
     }
-    objects::GameEntity* object = object_of(this);
+    const objects::GameEntity* object = object_of(this);
     tracking_print(3, &object->old_pos_, &object->at_point_);
     maths::Vec4 across = floor_normal_;
     vert_wall_normal_ = floor_normal_;
@@ -278,7 +280,7 @@ void SkaterPhysicsModule::start_vert_air()
     turn_to_normal(across);
     vert_facing_ = entity_->basis_frame_.row[2];
     vert_facing_.y = -vert_facing_.y;
-    double out = script::fetch_float(kVertPushOut);
+    const double out = script::fetch_float(kVertPushOut);
     maths::Vec4& position = entity_->at_point_;
     auto y = static_cast<float>(across.y * out);
     auto z = static_cast<float>(across.z * out);

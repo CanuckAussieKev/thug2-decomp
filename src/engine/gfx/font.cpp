@@ -94,7 +94,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         char* out = slot.name;
         while ((*out++ = *source++) != '\0') {
         }
-        uint32_t key = checksums::hash_from_text(name);
+        const uint32_t key = checksums::hash_from_text(name);
         font_table().store_entry(key, slot.name);
     }
     // (With every slot taken nothing is loaded, but the map below still is.)
@@ -105,7 +105,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
     if (!map)
         return;
     for (uint32_t i = 0; i < 32; ++i) {
-        int digit = i < map->extent_ ? static_cast<int>(map->fetch_part(i)) : 0;
+        const int digit = i < map->extent_ ? static_cast<int>(map->fetch_part(i)) : 0;
         glyph_escape_table()[i] = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
     }
     meta_button_map_loaded() = true;
@@ -114,7 +114,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
 // 0x0048D950
 bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
 {
-    bool button_font = params->has_bare_flag("buttons_font");
+    const bool button_font = params->has_bare_flag("buttons_font");
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
     params->fetch_text(0u, &name, false);
     if (button_font)

@@ -98,27 +98,27 @@ void QuadSprite::draw()
     }
     // (the flips go through a 16-bit integer, as in the original: coordinates between 0 and 1 come out 0, 1.0 stays)
     if (flip_v_) {
-        float old = v_top;
+        const float old = v_top;
         v_top = v_bottom;
         v_bottom = static_cast<float>(static_cast<uint16_t>(get_truncated(old)));
     }
     if (flip_u_) {
-        float old = u0;
+        const float old = u0;
         u0 = u1;
         u1 = static_cast<float>(static_cast<uint16_t>(get_truncated(old)));
     }
 
     // The corners from the hot spot, in layout units (the left one kept at double precision, as the original does).
-    double left = -(static_cast<double>(scale_x) * hot_x_);
+    const double left = -(static_cast<double>(scale_x) * hot_x_);
     auto top = static_cast<float>(-(static_cast<double>(scale_y) * hot_y_));
     auto right = static_cast<float>(static_cast<double>(width) * scale_x + left);
     auto bottom = static_cast<float>(static_cast<double>(height) * scale_y + top);
 
-    uint32_t argb = (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);
+    const uint32_t argb = (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);
     if (!(argb & 0xFF000000))
         return;
 
-    bool front_end_widescreen = get_front_end_widescreen();
+    const bool front_end_widescreen = get_front_end_widescreen();
     auto screen_right = static_cast<float>(get_back_buffer_width());
     Vertex vertices[4]; // top left, bottom left, top right, bottom right
     if (rotation == 0.0f) {
@@ -126,7 +126,8 @@ void QuadSprite::draw()
         auto y0 = static_cast<float>(static_cast<double>(top) + y);
         auto x1 = static_cast<float>(static_cast<double>(right) + x);
         double y1 = static_cast<double>(bottom) + y;
-        float layout_x0 = x0, layout_x1 = x1;
+        const float layout_x0 = x0;
+        const float layout_x1 = x1;
         // As wide as the layout or wider: the whole back buffer's width (the same for heights).
         if (x0 <= 0.0f && x1 >= kLayoutWidth) {
             x0 = 0.0f;
@@ -163,13 +164,13 @@ void QuadSprite::draw()
                               {right, top, 0.0f, 0.0f},
                               {right, bottom, 0.0f, 0.0f}};
         // (in the original's order: top left, top right, bottom left, bottom right)
-        for (int i : {0, 2, 1, 3})
+        for (const int i : {0, 2, 1, 3})
             spin_around_z(corners[i], rotation);
         // Still (nearly) upright or on its side: within 0.01 radians of a multiple of 90 degrees. (The menus' bottom
         // band is turned by pi + 0.001, so its corners don't line up exactly.)
-        double quarter_turns = static_cast<double>(rotation) / 1.5707963267948966;
-        bool upright = std::fabs(quarter_turns - std::round(quarter_turns)) * 1.5707963267948966 <= 0.01;
-        double offset_x = screen_offset_x();
+        const double quarter_turns = static_cast<double>(rotation) / 1.5707963267948966;
+        const bool upright = std::fabs(quarter_turns - std::round(quarter_turns)) * 1.5707963267948966 <= 0.01;
+        const double offset_x = screen_offset_x();
         auto offset_y = static_cast<float>(screen_offset_y());
         double layout_x[4];
         for (int i = 0; i < 4; ++i) {
@@ -208,8 +209,8 @@ void QuadSprite::draw()
         }
         static uint32_t s_seen[256];
         static int tally = 0;
-        uint32_t key = static_cast<uint32_t>(x * 16.0f) * 2654435761u ^ static_cast<uint32_t>(y * 16.0f) ^
-                       static_cast<uint32_t>(width) << 20;
+        const uint32_t key = static_cast<uint32_t>(x * 16.0f) * 2654435761u ^ static_cast<uint32_t>(y * 16.0f) ^
+                             static_cast<uint32_t>(width) << 20;
         bool seen = false;
         for (int i = 0; i < tally; ++i)
             seen |= s_seen[i] == key;

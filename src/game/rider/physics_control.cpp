@@ -148,7 +148,7 @@ void RiderBoardPhysics::dismount_to_walk()
     auto* camera = static_cast<GameEntity*>(static_cast<Rider*>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
-    int skater_state = core_physics_->state_->cur_phase_;
+    const int skater_state = core_physics_->state_->cur_phase_;
     core_leaving(core_physics_);
     freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), true);
     freeze_module(entity_->fetch_module(kSkaterRotate), true);
@@ -183,7 +183,7 @@ void RiderBoardPhysics::remount_board()
     set_walking(pose_, false);
     freeze_module(reinterpret_cast<ObjectModule*>(core_physics_), false);
     // The walk's ground state (0) and what it leaves for: 1 its grind, 2 its acid drop.
-    int hold = walk->leave_for_;
+    const int hold = walk->leave_for_;
     const skater::AcidDrop* acid_drop = hold == 2 ? &walk->acid_drop_ : nullptr;
     const FootMovement* grind_from = hold == 1 ? walk : nullptr;
     core_returning(core_physics_, walk->state_ == 0, grind_from, acid_drop);

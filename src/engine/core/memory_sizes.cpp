@@ -89,7 +89,7 @@ uint32_t script_heap_extra()
     static const uint32_t kExtra = [] {
         if (config_int("memory", "original_sizes", 0) != 0)
             return 0u;
-        int mb = std::clamp(config_int("memory", "script_heap_extra_mb", kScriptHeapExtraMb), 0, 256);
+        const int mb = std::clamp(config_int("memory", "script_heap_extra_mb", kScriptHeapExtraMb), 0, 256);
         return static_cast<uint32_t>(mb) << 20;
     }();
     return kExtra;
@@ -97,8 +97,8 @@ uint32_t script_heap_extra()
 
 uint32_t main_block_size()
 {
-    uint32_t extra = script_region_size() - kOriginalScriptRegion +
-                     get_grown(hash_item_bytes(at_hand()), hash_item_bytes(kOriginal));
+    const uint32_t extra = script_region_size() - kOriginalScriptRegion +
+                           get_grown(hash_item_bytes(at_hand()), hash_item_bytes(kOriginal));
     return kOriginalMainBlock + ((extra + 0xFFFF) & ~0xFFFFu);
 }
 
@@ -109,7 +109,7 @@ uint32_t node_hash_slots()
     static const uint32_t kSlots = [] {
         if (config_int("memory", "original_sizes", 0) != 0)
             return kOriginalNodeHashSlots;
-        int asked = std::clamp(config_int("memory", "node_hash_slots", 0x10000), 0x4000, 0x100000);
+        const int asked = std::clamp(config_int("memory", "node_hash_slots", 0x10000), 0x4000, 0x100000);
         uint32_t n = kOriginalNodeHashSlots;
         while (n < static_cast<uint32_t>(asked))
             n <<= 1;

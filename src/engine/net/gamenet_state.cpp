@@ -99,7 +99,7 @@ int Hub::get_hosting_role() { return host_mode_; }
 // 0x00532AE0
 int Hub::get_rank_test()
 {
-    uint32_t value = preference_checksum(this, kRankTest);
+    const uint32_t value = preference_checksum(this, kRankTest);
     if (value == kRankTestLess)
         return 1;
     return value == kRankTestGreater ? 2 : 0;
@@ -117,7 +117,7 @@ int Hub::get_player_limit() { return number_of(preference_checksum(this, kNumPla
 // 0x00532CF0
 int Hub::get_num_teams()
 {
-    uint32_t value = preference_checksum(this, kTeamMode);
+    const uint32_t value = preference_checksum(this, kTeamMode);
     if (value == kTeamsNone)
         return 0;
     if (value == kTeamsTwo)
@@ -166,7 +166,7 @@ void Hub::scan_local_network()
         return;
     }
     browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message, 0xFFFFFFFF, kLanPort, 0);
-    uint32_t command_line = g_command_line_server; // (parse_network_params)
+    const uint32_t command_line = g_command_line_server; // (parse_network_params)
     if (command_line != 0xFFFFFFFF)
         browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message, command_line, kLanPort, 0);
 }
@@ -184,7 +184,7 @@ uint32_t Hub::get_start_info_word(int index) { return (start_points_)[index]; }
 // 0x00532FE0
 bool Hub::is_untimed_game()
 {
-    uint32_t mode = game_type_;
+    const uint32_t mode = game_type_;
     if (mode == kNetGoalAttack || mode == kKing || mode == kNetKing || mode == kNetScoreChallenge ||
         mode == kScoreChallenge)
         return true;
@@ -300,8 +300,8 @@ void Hub::prepare_created_goals(uint32_t level)
     created_goals_level_ = level;
     std::memcpy(created_goals_, &level, sizeof(level));
     park_editing::ObjectiveAuthoring* editor = get_goal_editor();
-    int size = static_cast<int>(editor->write_level_goals_to_buffer(level, created_goals_ + sizeof(level),
-                                                                    static_cast<uint32_t>(kGoalsBufferSize)));
+    const int size = static_cast<int>(editor->write_level_goals_to_buffer(level, created_goals_ + sizeof(level),
+                                                                          static_cast<uint32_t>(kGoalsBufferSize)));
     created_goals_size_ = size + 4;
 }
 

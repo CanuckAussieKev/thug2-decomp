@@ -184,10 +184,10 @@ bool cfunc_init_anim_system(Struct* params, Script*)
 // information (compiled out). With enable or disable it does nothing (their code is compiled out). Always true.
 bool cfunc_update_anim_cache(Struct* params, Script*)
 {
-    bool disable = params->has_entry_named(kDisable);
-    bool enable = params->has_entry_named(kEnable);
-    bool defrag = params->has_entry_named(kDefrag);
-    bool clear = params->has_entry_named(kClear);
+    const bool disable = params->has_entry_named(kDisable);
+    const bool enable = params->has_entry_named(kEnable);
+    const bool defrag = params->has_entry_named(kDefrag);
+    const bool clear = params->has_entry_named(kClear);
     if (disable || enable)
         return true;
     if (clear)
@@ -280,7 +280,7 @@ bool cfunc_debug_line(Struct* params, Script*)
 // the script's params. Always true.
 bool cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
 {
-    float x = render::g_present_parameters.BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
+    const float x = render::g_present_parameters.BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
     script->args_->insert_pair(checksums::hash_from_text("pos"), x, 240.0f);
     return true;
 }
@@ -310,7 +310,7 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
     // below 0 - NaN goes through). x87: the low half from the unrounded product, the high one from it rounded to a
     // float.
     auto extent = [](float size, float& low_side, float& high_side) {
-        double inches = static_cast<double>(size) * 12.0;
+        const double inches = static_cast<double>(size) * 12.0;
         double half = inches * -0.5;
         low_side = 0.0 < half ? 0.0f : static_cast<float>(half);
         half = static_cast<double>(static_cast<float>(inches)) * 0.5;

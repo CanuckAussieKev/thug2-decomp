@@ -31,7 +31,7 @@ constexpr uint32_t kArtGround = 0xFF1C1C1B;
 
 ImU32 get_col(uint32_t argb, float alpha = 1.0f)
 {
-    uint32_t a = static_cast<uint32_t>(std::clamp(static_cast<float>((argb >> 24) & 0xFF) * alpha, 0.0f, 255.0f));
+    const uint32_t a = static_cast<uint32_t>(std::clamp(static_cast<float>((argb >> 24) & 0xFF) * alpha, 0.0f, 255.0f));
     return IM_COL32((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF, a);
 }
 
@@ -82,11 +82,11 @@ constexpr ImWchar kTextRanges[] = {0x0020, 0x007E, 0x00B7, 0x00B7, 0x00C0, 0x00F
 
 bool read_file(const std::string& path, std::vector<uint8_t>* out)
 {
-    util::UniqueFile file = util::open_file(path.c_str(), "rb");
+    const util::UniqueFile file = util::open_file(path.c_str(), "rb");
     if (!file)
         return false;
     std::fseek(file.get(), 0, SEEK_END);
-    long size = std::ftell(file.get());
+    const long size = std::ftell(file.get());
     std::fseek(file.get(), 0, SEEK_SET);
     bool ok = size > 12 && size < 64 * 1024 * 1024;
     if (ok) {
@@ -106,13 +106,14 @@ const Baked* font_for(Face face, float css)
         if (!b.font || b.face != face)
             continue;
         // (the smallest bake at least as large, else the largest)
-        float baked_css = b.em_px_ / std::max(g_scale, 0.01f);
+        const float baked_css = b.em_px_ / std::max(g_scale, 0.01f);
         if (!best) {
             best = &b;
             continue;
         }
-        float best_css = best->em_px_ / std::max(g_scale, 0.01f);
-        bool fits = baked_css >= css - 0.5f, best_fits = best_css >= css - 0.5f;
+        const float best_css = best->em_px_ / std::max(g_scale, 0.01f);
+        const bool fits = baked_css >= css - 0.5f;
+        const bool best_fits = best_css >= css - 0.5f;
         if ((fits && (!best_fits || baked_css < best_css)) || (!fits && !best_fits && baked_css > best_css))
             best = &b;
     }
@@ -167,10 +168,10 @@ Gauges metrics_of(const Style& style, const TickCycle& frame)
 // The text's width in window px.
 float get_measure(const Style& style, const TickCycle& frame, const char* text)
 {
-    Gauges m = metrics_of(style, frame);
+    const Gauges m = metrics_of(style, frame);
     if (!m.baked)
         return 0.0f;
-    std::string s = style.upper ? get_upper(text) : text;
+    const std::string s = style.upper ? get_upper(text) : text;
     const char* p = s.c_str();
     const char* end = p + s.size();
     float width = 0.0f;
@@ -192,14 +193,14 @@ float get_measure(const Style& style, const TickCycle& frame, const char* text)
 // The text with its baseline at window y `baseline`, starting at window x `x`.
 void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, float x, float baseline, const char* text)
 {
-    Gauges m = metrics_of(style, frame);
+    const Gauges m = metrics_of(style, frame);
     if (!m.baked)
         return;
     ImFont* font = m.baked->font;
-    std::string s = style.upper ? get_upper(text) : text;
+    const std::string s = style.upper ? get_upper(text) : text;
     const char* end = s.c_str() + s.size();
-    ImU32 colour = get_col(style.colour, style.alpha);
-    float top = baseline - font->Ascent * m.k;
+    const ImU32 colour = get_col(style.colour, style.alpha);
+    const float top = baseline - font->Ascent * m.k;
     for (int pass = 0; pass < (m.bold_px_ > 0.0f ? 2 : 1); ++pass) {
         float pen = x + (pass ? m.bold_px_ : 0.0f);
         for (const char* p = s.c_str(); p < end;) {
@@ -211,8 +212,8 @@ void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, float
             if (!g)
                 continue;
             if (g->Visible) {
-                ImVec2 a(pen + g->X0 * m.k * m.x_scale_, top + g->Y0 * m.k);
-                ImVec2 b(pen + g->X1 * m.k * m.x_scale_, top + g->Y1 * m.k);
+                const ImVec2 a(pen + g->X0 * m.k * m.x_scale_, top + g->Y0 * m.k);
+                const ImVec2 b(pen + g->X1 * m.k * m.x_scale_, top + g->Y1 * m.k);
                 dl->PrimReserve(6, 4);
                 dl->PrimRectUV(a, b, ImVec2(g->U0, g->V0), ImVec2(g->U1, g->V1), colour);
             }
@@ -236,8 +237,8 @@ std::vector<std::string> get_wrap(const Style& style, const TickCycle& frame, co
     std::string line;
     size_t at = 0;
     while (at < text.size()) {
-        size_t space = text.find(' ', at);
-        std::string word = text.substr(at, space == std::string::npos ? std::string::npos : space - at);
+        const size_t space = text.find(' ', at);
+        const std::string word = text.substr(at, space == std::string::npos ? std::string::npos : space - at);
         at = space == std::string::npos ? text.size() : space + 1;
         if (word.empty())
             continue;
@@ -269,10 +270,12 @@ void get_cut(ImDrawList* dl, float x0, float y0, float x1, float y1, float top_i
 // translateX(24px) rotate(-3deg) about its left centre.
 void xform(ImDrawList* dl, int start, float px, float py, float radians, float dx, float dy)
 {
-    float c = std::cos(radians), s = std::sin(radians);
+    const float c = std::cos(radians);
+    const float s = std::sin(radians);
     for (int i = start; i < dl->VtxBuffer.Size; ++i) {
         ImVec2& p = dl->VtxBuffer[i].pos;
-        float x = p.x - px, y = p.y - py;
+        const float x = p.x - px;
+        const float y = p.y - py;
         p.x = px + dx + x * c - y * s;
         p.y = py + dy + x * s + y * c;
     }
@@ -281,10 +284,15 @@ void xform(ImDrawList* dl, int start, float px, float py, float radians, float d
 // An arrow (the design's "<-" / "->" in the mono face): a line with a head, `size` px tall, at the text's x-height.
 void get_arrow(ImDrawList* dl, float x, float baseline, float size, bool left, ImU32 colour, float* advance)
 {
-    float w = size * 0.9f, y = baseline - size * 0.32f, t = std::max(1.0f, size * 0.09f);
-    float x0 = x, x1 = x + w;
+    const float w = size * 0.9f;
+    const float y = baseline - size * 0.32f;
+    const float t = std::max(1.0f, size * 0.09f);
+    const float x0 = x;
+    const float x1 = x + w;
     dl->AddLine(ImVec2(x0, y), ImVec2(x1, y), colour, t);
-    float hx = left ? x0 : x1, dir = left ? 1.0f : -1.0f, h = size * 0.3f;
+    const float hx = left ? x0 : x1;
+    const float dir = left ? 1.0f : -1.0f;
+    const float h = size * 0.3f;
     dl->AddLine(ImVec2(hx, y), ImVec2(hx + dir * h, y - h), colour, t);
     dl->AddLine(ImVec2(hx, y), ImVec2(hx + dir * h, y + h), colour, t);
     *advance = w + size * 0.45f;
@@ -307,7 +315,7 @@ void art_box(ImDrawList* dl, const Art& art, float x0, float y0, float x1, float
 // The bottom of the art darkened so the words over it read (not in the mock-ups, which have flat grey there).
 void get_shade(ImDrawList* dl, float x0, float y0, float x1, float y1)
 {
-    float mid = y0 + (y1 - y0) * 0.35f;
+    const float mid = y0 + (y1 - y0) * 0.35f;
     dl->AddRectFilledMultiColor(ImVec2(x0, mid), ImVec2(x1, y1), get_col(kGround, 0.0f), get_col(kGround, 0.0f),
                                 get_col(kGround, 0.88f), get_col(kGround, 0.88f));
 }
@@ -320,7 +328,7 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, float pan, float 
 {
     if (alpha <= 0.001f)
         return;
-    float x1 = kColumn + kScrimFeather;
+    const float x1 = kColumn + kScrimFeather;
     if (art.texture) {
         Uv uv = cover_uv(art.width, art.height, 1280.0f, 720.0f, pan, 0.03f);
         if (art.bottom_up_) {
@@ -328,19 +336,24 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, float pan, float 
             uv.v1 = 1.0f - uv.v1;
         }
         // (the column's share of the picture)
-        float share = x1 / 1280.0f;
-        float u1 = uv.u0 + (uv.u1 - uv.u0) * share;
-        float u_edge = uv.u0 + (uv.u1 - uv.u0) * (kColumn / 1280.0f);
+        const float share = x1 / 1280.0f;
+        const float u1 = uv.u0 + (uv.u1 - uv.u0) * share;
+        const float u_edge = uv.u0 + (uv.u1 - uv.u0) * (kColumn / 1280.0f);
         static const float kOffsets[][2] = {{0, 0}, {9, 0},   {-9, 0}, {0, 9}, {0, -9},
                                             {6, 6}, {-6, -6}, {6, -6}, {-6, 6}};
         dl->PushTextureID(static_cast<ImTextureID>(art.texture));
         dl->PushClipRect(ImVec2(f.get_x(0.0f), f.get_y(0.0f)), ImVec2(f.get_x(x1), f.get_y(720.0f)), true);
         for (int i = 0; i < 9; ++i) {
-            float dx = f.current_s(kOffsets[i][0]), dy = f.current_s(kOffsets[i][1]);
+            const float dx = f.current_s(kOffsets[i][0]);
+            const float dy = f.current_s(kOffsets[i][1]);
             // (copy i at 1 / (i + 1): the result is the copies' average; across the feather it fades to the art)
-            ImU32 full = get_col(0xFFFFFFFF, alpha / static_cast<float>(i + 1)), none = get_col(0xFFFFFFFF, 0.0f);
-            float ya = f.get_y(0.0f) + dy, yb = f.get_y(720.0f) + dy;
-            float xa = f.get_x(0.0f) + dx, xm = f.get_x(kColumn) + dx, xb = f.get_x(x1) + dx;
+            const ImU32 full = get_col(0xFFFFFFFF, alpha / static_cast<float>(i + 1));
+            const ImU32 none = get_col(0xFFFFFFFF, 0.0f);
+            const float ya = f.get_y(0.0f) + dy;
+            const float yb = f.get_y(720.0f) + dy;
+            const float xa = f.get_x(0.0f) + dx;
+            const float xm = f.get_x(kColumn) + dx;
+            const float xb = f.get_x(x1) + dx;
             dl->PrimReserve(12, 8);
             auto base = static_cast<ImDrawIdx>(dl->_VtxCurrentIdx);
             dl->PrimWriteVtx(ImVec2(xa, ya), ImVec2(uv.u0, uv.v0), full);
@@ -364,7 +377,7 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, float pan, float 
         dl->PopClipRect();
         dl->PopTextureID();
     }
-    float dark = 0.8f * alpha;
+    const float dark = 0.8f * alpha;
     dl->AddRectFilled(ImVec2(f.get_x(0.0f), f.get_y(0.0f)), ImVec2(f.get_x(kColumn), f.get_y(720.0f)),
                       get_col(kGround, dark));
     dl->AddRectFilledMultiColor(ImVec2(f.get_x(kColumn), f.get_y(0.0f)), ImVec2(f.get_x(x1), f.get_y(720.0f)),
@@ -420,15 +433,15 @@ Style mono12(uint32_t colour, bool tracked = true)
 float get_header(Ctx& c, float top, float right, const char* left_text, bool back, const char* right_text)
 {
     Style s = mono12(kMuted);
-    float line_h = 1.3f;
-    float base = datum(s, c.f, c.f.get_y(top), line_h);
+    const float line_h = 1.3f;
+    const float base = datum(s, c.f, c.f.get_y(top), line_h);
     float x = c.f.get_x(48.0f);
     if (back) {
-        Style b = mono12(kMuted, false);
+        const Style b = mono12(kMuted, false);
         float adv = 0.0f;
         get_arrow(c.dl, x, base, c.f.current_s(12.0f), true, get_col(kMuted), &adv);
         draw_text(c.dl, b, c.f, x + adv, base, text_tools::kBack);
-        float w = adv + get_measure(b, c.f, text_tools::kBack);
+        const float w = adv + get_measure(b, c.f, text_tools::kBack);
         c.get_hit(Hit::Kind::kBack, 0, 48.0f - 6.0f, top - 6.0f, 48.0f + w / c.f.scale + 6.0f,
                   top + 12.0f * line_h + 6.0f);
         x += w + c.f.current_s(16.0f);
@@ -436,10 +449,10 @@ float get_header(Ctx& c, float top, float right, const char* left_text, bool bac
     }
     draw_text(c.dl, s, c.f, x, base, left_text);
     if (right_text && *right_text) {
-        Style r = mono12(kMuted);
+        const Style r = mono12(kMuted);
         draw_text(c.dl, r, c.f, c.f.get_x(right) - get_measure(r, c.f, right_text), base, right_text);
     }
-    float rule = top + 12.0f * line_h + 12.0f;
+    const float rule = top + 12.0f * line_h + 12.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(48.0f), c.f.get_y(rule)),
                         ImVec2(c.f.get_x(right), c.f.get_y(rule) + std::max(1.0f, c.f.current_s(1.0f))),
                         get_col(kRule));
@@ -466,13 +479,13 @@ void get_row(Ctx& c, const RowStyle& rs, float top, const char* number, const ch
              bool dim)
 {
     ImDrawList* dl = c.dl;
-    int start = dl->VtxBuffer.Size;
-    float line_top = top + rs.row_pad_top_;
-    float line_h = rs.name.css * rs.line_height_;
-    float base = datum(rs.name, c.f, c.f.get_y(line_top), rs.line_height_);
-    float width = get_measure(rs.name, c.f, label);
+    const int start = dl->VtxBuffer.Size;
+    const float line_top = top + rs.row_pad_top_;
+    const float line_h = rs.name.css * rs.line_height_;
+    const float base = datum(rs.name, c.f, c.f.get_y(line_top), rs.line_height_);
+    const float width = get_measure(rs.name, c.f, label);
     if (e > 0.001f) {
-        float x0 = c.f.get_x(rs.cut_left_);
+        const float x0 = c.f.get_x(rs.cut_left_);
         float x1 = c.f.get_x(rs.text_x_) + width + c.f.current_s(rs.cut_right_pad_);
         x1 = x0 + (x1 - x0) * e; // (the cut snaps out from the left)
         get_cut(dl, x0, c.f.get_y(line_top + line_h * rs.cut_top_), x1, c.f.get_y(line_top + line_h * rs.cut_bottom_),
@@ -481,10 +494,10 @@ void get_row(Ctx& c, const RowStyle& rs, float top, const char* number, const ch
     Style name = rs.name;
     name.colour = get_mix(dim ? kMuted2 : kPaper, kGround, e);
     draw_text(dl, name, c.f, c.f.get_x(rs.text_x_), base, label);
-    Style num = rs.number;
+    const Style num = rs.number;
     draw_text(dl, num, c.f, c.f.get_x(48.0f), base, number);
     if (e > 0.001f) {
-        float pivot_y = c.f.get_y(top + rs.row_height_ * 0.5f);
+        const float pivot_y = c.f.get_y(top + rs.row_height_ * 0.5f);
         xform(dl, start, c.f.get_x(48.0f), pivot_y, -3.0f * 3.14159265f / 180.0f * e, c.f.current_s(24.0f) * e, 0.0f);
     }
 }
@@ -551,11 +564,11 @@ float big_name(Ctx& c, const std::string& name, float css, float left, float rig
         css = std::max(css * 0.66f, css * c.f.current_s(right - left) / widest);
         s.css = css;
     }
-    float line_h = css * 0.85f;
-    float top = bottom - line_h * static_cast<float>(lines.size());
-    float mid = c.f.get_y(top + (bottom - top) * 0.55f);
+    const float line_h = css * 0.85f;
+    const float top = bottom - line_h * static_cast<float>(lines.size());
+    const float mid = c.f.get_y(top + (bottom - top) * 0.55f);
     for (int half = 0; half < (slice > 0.0f ? 2 : 1); ++half) {
-        float dy = slice > 0.0f ? (half == 0 ? -1.0f : 1.0f) * c.f.current_s(70.0f) * slice : 0.0f;
+        const float dy = slice > 0.0f ? (half == 0 ? -1.0f : 1.0f) * c.f.current_s(70.0f) * slice : 0.0f;
         s.alpha = 1.0f - slice;
         if (slice > 0.0f) {
             // (each half keeps its own part of the name: the cut moves with it, the gap between opens)
@@ -565,15 +578,15 @@ float big_name(Ctx& c, const std::string& name, float css, float left, float rig
                 c.dl->PushClipRect(ImVec2(0, mid + dy), ImVec2(1e6f, 1e6f), true);
         }
         for (size_t i = 0; i < lines.size(); ++i) {
-            float line_top = top + line_h * static_cast<float>(i);
-            float base = datum(s, c.f, c.f.get_y(line_top), 0.85f);
+            const float line_top = top + line_h * static_cast<float>(i);
+            const float base = datum(s, c.f, c.f.get_y(line_top), 0.85f);
             draw_text(c.dl, s, c.f, c.f.get_x(left), base + dy, lines[i].c_str());
         }
         if (slice > 0.0f)
             c.dl->PopClipRect();
     }
     if (slice > 0.0f) {
-        float w = c.f.current_s(right - left) * std::min(1.0f, slice * 2.0f);
+        const float w = c.f.current_s(right - left) * std::min(1.0f, slice * 2.0f);
         c.dl->AddRectFilled(ImVec2(c.f.get_x(left), mid - c.f.current_s(2.0f)),
                             ImVec2(c.f.get_x(left) + w, mid + c.f.current_s(2.0f)),
                             get_col(slice_colour, 1.0f - slice));
@@ -586,7 +599,7 @@ float get_kicker(Ctx& c, const std::string& text, float left, float bottom, uint
 {
     Style s = mono12(colour);
     s.alpha = alpha;
-    float top = bottom - 12.0f * 1.3f;
+    const float top = bottom - 12.0f * 1.3f;
     draw_text(c.dl, s, c.f, c.f.get_x(left), datum(s, c.f, c.f.get_y(top), 1.3f), text.c_str());
     return top;
 }
@@ -596,16 +609,17 @@ float get_kicker(Ctx& c, const std::string& text, float left, float bottom, uint
 float get_hints(Ctx& c, const std::vector<std::string>& hints, float left, float right, float bottom,
                 std::vector<std::pair<float, float>>* spans = nullptr)
 {
-    Style s = mono12(kMuted, false);
-    float top = bottom - 12.0f * 1.3f;
-    float base = datum(s, c.f, c.f.get_y(top), 1.3f);
+    const Style s = mono12(kMuted, false);
+    const float top = bottom - 12.0f * 1.3f;
+    const float base = datum(s, c.f, c.f.get_y(top), 1.3f);
     float total = 0.0f;
     std::vector<float> widths;
     for (const std::string& h : hints) {
         widths.push_back(get_measure(s, c.f, h.c_str()));
         total += widths.back();
     }
-    float gap = hints.size() > 1 ? (c.f.current_s(right - left) - total) / static_cast<float>(hints.size() - 1) : 0.0f;
+    const float gap =
+        hints.size() > 1 ? (c.f.current_s(right - left) - total) / static_cast<float>(hints.size() - 1) : 0.0f;
     float x = c.f.get_x(left);
     for (size_t i = 0; i < hints.size(); ++i) {
         draw_text(c.dl, s, c.f, x, base, hints[i].c_str());
@@ -613,7 +627,7 @@ float get_hints(Ctx& c, const std::vector<std::string>& hints, float left, float
             spans->emplace_back(c.f.design_x(x), c.f.design_x(x + widths[i]));
         x += widths[i] + gap;
     }
-    float rule = top - 10.0f - 1.0f;
+    const float rule = top - 10.0f - 1.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule)),
                         ImVec2(c.f.get_x(right), c.f.get_y(rule) + std::max(1.0f, c.f.current_s(1.0f))),
                         get_col(kRule));
@@ -630,7 +644,7 @@ Art art_for(const Extras& extras, const std::string& image)
 // The art for an item: its own, levels.json's menu_art for its id, else THUG2's loading screen for it.
 std::string art_by_id(const Catalogue* data, const std::string& id)
 {
-    std::string image = data ? data->menu_art(id) : std::string();
+    const std::string image = data ? data->menu_art(id) : std::string();
     return image.empty() ? default_art(id) : image;
 }
 
@@ -649,12 +663,12 @@ float records_row(Ctx& c, const std::vector<std::string>& cols, float left, floa
         return bottom;
     Style s = mono12(kMuted, false);
     s.alpha = alpha;
-    float top = bottom - 12.0f * 1.3f;
-    float col_w = (right - left) / 3.0f;
+    const float top = bottom - 12.0f * 1.3f;
+    const float col_w = (right - left) / 3.0f;
     for (size_t i = 0; i < cols.size() && i < 3; ++i)
         draw_text(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)), datum(s, c.f, c.f.get_y(top), 1.3f),
                   cols[i].c_str());
-    float rule_y = top - 10.0f - 1.0f;
+    const float rule_y = top - 10.0f - 1.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule_y)),
                         ImVec2(c.f.get_x(right), c.f.get_y(rule_y) + std::max(1.0f, c.f.current_s(1.0f))),
                         get_col(kRule, alpha));
@@ -663,7 +677,7 @@ float records_row(Ctx& c, const std::vector<std::string>& cols, float left, floa
 
 std::string get_clock(float seconds)
 {
-    int total = static_cast<int>(seconds);
+    const int total = static_cast<int>(seconds);
     char text[32];
     if (total >= 3600)
         std::snprintf(text, sizeof(text), "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60);
@@ -697,7 +711,7 @@ float pause_side(Ctx& c, float left, float right, float bottom, std::string* kic
                        (s.gaps_total_ > 0 ? "/" + std::to_string(s.gaps_total_) : ""));
     if (s.seconds >= 0.0f)
         cols.push_back(std::string(text_tools::kTime) + " " + get_clock(s.seconds));
-    float top = records_row(c, cols, left, right, bottom, 1.0f) - 10.0f;
+    const float top = records_row(c, cols, left, right, bottom, 1.0f) - 10.0f;
     *kicker = std::string(text_tools::kTitlePaused) +
               (c.extras.level_kicker_.empty() ? std::string() : " \xE2\x80\x94 " + c.extras.level_kicker_);
     *name = c.extras.level_name_.empty() ? std::string(text_tools::kTitlePaused) : c.extras.level_name_;
@@ -713,16 +727,16 @@ float get_tabs(Ctx& c, const std::vector<std::pair<std::string, uint32_t>>& tabs
     Style tab = mono12(kMuted, false);
     tab.css = 13.0f;
     float x = 48.0f;
-    float tab_h = 13.0f * 1.3f + 8.0f;
+    const float tab_h = 13.0f * 1.3f + 8.0f;
     for (int i = 0; i < static_cast<int>(tabs.size()); ++i) {
-        float w = get_measure(tab, c.f, tabs[i].first.c_str()) / c.f.scale;
+        const float w = get_measure(tab, c.f, tabs[i].first.c_str()) / c.f.scale;
         if (x > 48.0f && x + w > kColumnInner) {
             x = 48.0f;
             y += tab_h + 4.0f;
         }
-        bool on = i == selected;
+        const bool on = i == selected;
         tab.colour = on ? tabs[i].second : kMuted;
-        float base = datum(tab, c.f, c.f.get_y(y + 4.0f), 1.3f);
+        const float base = datum(tab, c.f, c.f.get_y(y + 4.0f), 1.3f);
         draw_text(c.dl, tab, c.f, c.f.get_x(x), base, tabs[i].first.c_str());
         if (on)
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), base + c.f.current_s(5.0f)),
@@ -743,13 +757,16 @@ void get_button(Ctx& c, float left, float bottom, const char* text, uint32_t col
     s.upper = true;
     s.colour = kGround;
     s.alpha = alpha;
-    float tw = get_measure(s, c.f, text) / c.f.scale;
-    float arrow_w = arrow ? 30.0f * 0.9f + 10.0f : 0.0f;
-    float bh = 30.0f * 1.15f + 12.0f;
-    float bx0 = left, bx1 = left + 22.0f + tw + arrow_w + 22.0f, by0 = bottom - bh, by1 = bottom;
+    const float tw = get_measure(s, c.f, text) / c.f.scale;
+    const float arrow_w = arrow ? 30.0f * 0.9f + 10.0f : 0.0f;
+    const float bh = 30.0f * 1.15f + 12.0f;
+    const float bx0 = left;
+    const float bx1 = left + 22.0f + tw + arrow_w + 22.0f;
+    const float by0 = bottom - bh;
+    const float by1 = bottom;
     get_cut(c.dl, c.f.get_x(bx0), c.f.get_y(by0), c.f.get_x(bx1), c.f.get_y(by1), c.f.current_s(10.0f),
             c.f.current_s(10.0f), get_col(colour, alpha));
-    float sb = datum(s, c.f, c.f.get_y(by0 + 6.0f), 1.15f);
+    const float sb = datum(s, c.f, c.f.get_y(by0 + 6.0f), 1.15f);
     draw_text(c.dl, s, c.f, c.f.get_x(bx0 + 22.0f), sb, text);
     if (arrow) {
         float adv = 0.0f;
@@ -772,41 +789,42 @@ void options_screen(Ctx& c, float window_width, float window_height)
     } else {
         backdrop(c.dl, c.f, art_for(c.extras, art_by_id(menu.payload(), "options")), menu.get_pan());
     }
-    float rule = get_header(c, 36.0f, kColumnInner, text_tools::kTitleOptions, true, nullptr);
+    const float rule = get_header(c, 36.0f, kColumnInner, text_tools::kTitleOptions, true, nullptr);
     std::vector<std::pair<std::string, uint32_t>> tabs;
     tabs.reserve(groups.size());
     for (const options::GroupSet& g : groups)
         tabs.emplace_back(g.name, Menu::kHouseYellow);
-    float list_top = get_tabs(c, tabs, menu.option_group(), rule + 14.0f) + 18.0f;
+    const float list_top = get_tabs(c, tabs, menu.option_group(), rule + 14.0f) + 18.0f;
     const std::vector<int>& rows = menu.option_rows();
     // (the options' rows: a size smaller than the level list's - their labels are long)
     RowStyle rs = level_row_style();
     rs.name.css = 28.0f;
     rs.row_height_ = 28.0f * 1.05f + 6.0f;
-    float row_h = rs.row_height_;
+    const float row_h = rs.row_height_;
     Style value = mono12(kMuted, false);
-    int count = static_cast<int>(rows.size()) + 1;
+    const int count = static_cast<int>(rows.size()) + 1;
     for (int i = 0; i < count; ++i) {
-        float top = list_top + static_cast<float>(i) * row_h;
-        bool action = i == static_cast<int>(rows.size());
+        const float top = list_top + static_cast<float>(i) * row_h;
+        const bool action = i == static_cast<int>(rows.size());
         const char* label = action ? text_tools::kGameOptions : specs[rows[i]].label;
         // (a short label for the row: the design's 40 px type in a 470 px column)
         get_row(c, rs, top, pad2(i + 1).c_str(), label, menu.row_amount(i), Menu::kHouseYellow, false);
-        std::string shown = action ? std::string(text_tools::kGameOptionsValue)
-                                   : specs[rows[i]].choices[menu.option_choice(rows[i])].label;
-        float base = datum(rs.name, c.f, c.f.get_y(top), rs.line_height_);
+        const std::string shown = action ? std::string(text_tools::kGameOptionsValue)
+                                         : specs[rows[i]].choices[menu.option_choice(rows[i])].label;
+        const float base = datum(rs.name, c.f, c.f.get_y(top), rs.line_height_);
         value.colour = i == menu.option_row() ? Menu::kHouseYellow : kMuted;
         // (the value at the column's right, where the label leaves room for it)
-        float value_x = c.f.get_x(kColumnInner) - get_measure(value, c.f, shown.c_str());
+        const float value_x = c.f.get_x(kColumnInner) - get_measure(value, c.f, shown.c_str());
         if (c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, label) + c.f.current_s(40.0f) < value_x)
             draw_text(c.dl, value, c.f, value_x, base, shown.c_str());
         c.get_hit(Hit::Kind::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
     }
 
     // The right's foot.
-    float left = kRight, right = 1240.0f;
-    bool action = menu.option_row() >= static_cast<int>(rows.size());
-    std::vector<std::string> hints =
+    const float left = kRight;
+    const float right = 1240.0f;
+    const bool action = menu.option_row() >= static_cast<int>(rows.size());
+    const std::vector<std::string> hints =
         action ? std::vector<std::string>{text_tools::kHintOpen, text_tools::kHintGroup, text_tools::kHintBack}
                : std::vector<std::string>{text_tools::kHintChange, text_tools::kHintGroup, text_tools::kHintBack};
     float bottom = get_hints(c, hints, left, right, 692.0f) - 14.0f;
@@ -824,17 +842,17 @@ void options_screen(Ctx& c, float window_width, float window_height)
         bottom -= 21.0f + 10.0f;
         name = text_tools::kGameOptions;
     } else {
-        int option = rows[menu.option_row()];
+        const int option = rows[menu.option_row()];
         const options::Spec& spec = specs[option];
         // The choices: a segmented control (mono 13; the chosen one filled).
         Style seg = mono12(kPaper, false);
         seg.css = 13.0f;
-        float h = 13.0f * 1.3f + 16.0f;
+        const float h = 13.0f * 1.3f + 16.0f;
         float x = left, y0 = bottom - h;
-        int chosen = menu.option_choice(option);
+        const int chosen = menu.option_choice(option);
         for (size_t i = 0; i < spec.choices.size(); ++i) {
-            float w = get_measure(seg, c.f, spec.choices[i].label) / c.f.scale + 28.0f;
-            bool on = static_cast<int>(i) == chosen;
+            const float w = get_measure(seg, c.f, spec.choices[i].label) / c.f.scale + 28.0f;
+            const bool on = static_cast<int>(i) == chosen;
             if (on)
                 get_cut(c.dl, c.f.get_x(x), c.f.get_y(y0), c.f.get_x(x + w), c.f.get_y(bottom), c.f.current_s(6.0f),
                         c.f.current_s(6.0f), get_col(Menu::kHouseYellow));
@@ -850,16 +868,18 @@ void options_screen(Ctx& c, float window_width, float window_height)
         bottom = y0 - 14.0f;
         // When it's seen ("Restart to apply" - yellow once changed; nothing for a live one), its ini key only behind
         // [frontend] show_ini_keys=1, what it does (when it has a line).
-        bool pending = option < static_cast<int>(c.extras.restart_pending_.size()) && c.extras.restart_pending_[option];
-        std::string when =
+        const bool pending =
+            option < static_cast<int>(c.extras.restart_pending_.size()) && c.extras.restart_pending_[option];
+        const std::string when =
             spec.apply == options::Apply::kLive ? std::string() : std::string(text_tools::kRestartToApply);
-        std::string where = c.extras.show_ini_keys_ ? std::string("[") + spec.section + "] " + spec.key : std::string();
+        const std::string where =
+            c.extras.show_ini_keys_ ? std::string("[") + spec.section + "] " + spec.key : std::string();
         if (!when.empty() || !where.empty()) {
-            Style key = mono12(kMuted2, false);
+            const Style key = mono12(kMuted2, false);
             if (!where.empty())
                 draw_text(c.dl, key, c.f, c.f.get_x(left), datum(key, c.f, c.f.get_y(bottom - 15.6f), 1.3f),
                           where.c_str());
-            Style note = mono12(pending ? Menu::kHouseYellow : kMuted2, false);
+            const Style note = mono12(pending ? Menu::kHouseYellow : kMuted2, false);
             if (!when.empty())
                 draw_text(c.dl, note, c.f, c.f.get_x(right) - get_measure(note, c.f, when.c_str()),
                           datum(note, c.f, c.f.get_y(bottom - 15.6f), 1.3f), when.c_str());
@@ -871,10 +891,10 @@ void options_screen(Ctx& c, float window_width, float window_height)
         }
         name = spec.label;
     }
-    float name_top = big_name(c, name, 96.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
+    const float name_top = big_name(c, name, 96.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     get_kicker(c, kicker, left, name_top - 8.0f, Menu::kHouseYellow);
     if (!c.extras.options_note_.empty()) {
-        Style note = mono12(kMuted2, false);
+        const Style note = mono12(kMuted2, false);
         draw_text(c.dl, note, c.f, c.f.get_x(left), datum(note, c.f, c.f.get_y(36.0f), 1.3f),
                   c.extras.options_note_.c_str());
     }
@@ -886,18 +906,18 @@ void levels_screen(Ctx& c, int* visible_rows)
     const Menu& menu = c.menu;
     const Catalogue* data = menu.payload();
     const SectionView* view = menu.get_view();
-    int section_index = menu.get_section_index();
+    const int section_index = menu.get_section_index();
     const Section* section = data && section_index >= 0 && section_index < static_cast<int>(data->sections.size())
                                  ? &data->sections[section_index]
                                  : nullptr;
-    uint32_t colour = section ? section->colour : Menu::kHouseYellow;
+    const uint32_t colour = section ? section->colour : Menu::kHouseYellow;
     const StageMap* level = menu.selected_level();
-    float launch = menu.get_launch();
-    float grow = launch >= 0.0f ? ease_out(launch * 1.4f) : 0.0f;
+    const float launch = menu.get_launch();
+    const float grow = launch >= 0.0f ? ease_out(launch * 1.4f) : 0.0f;
 
     // The level's loading screen behind the whole screen, the column's scrim over it (a launch: the scrim and the
     // list go under the sharp picture), the thin edge in the game's colour.
-    Art art = art_for(c.extras, level ? level->current_art() : std::string());
+    const Art art = art_for(c.extras, level ? level->current_art() : std::string());
     backdrop(c.dl, c.f, art, menu.get_pan());
     c.dl->AddRectFilled(ImVec2(c.f.get_x(kColumn), c.f.get_y(0.0f)),
                         ImVec2(c.f.get_x(kColumn + 4.0f), c.f.get_y(720.0f)), get_col(colour, 1.0f - grow));
@@ -908,36 +928,37 @@ void levels_screen(Ctx& c, int* visible_rows)
         const char* title = menu.levels_purpose() == LevelsFor::kEdit     ? text_tools::kTitleEditLevel
                             : menu.levels_purpose() == LevelsFor::kFreeze ? text_tools::kTitleChangeLevel
                                                                           : text_tools::kTitleFreeSkate;
-        float rule = get_header(c, 36.0f, kColumnInner, title, true, nullptr);
+        const float rule = get_header(c, 36.0f, kColumnInner, title, true, nullptr);
         // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
         std::vector<std::pair<std::string, uint32_t>> tabs;
         for (int i = 0; data && i < static_cast<int>(data->sections.size()); ++i)
             tabs.emplace_back(data->sections[i].tab, data->sections[i].colour);
-        float tabs_bottom = get_tabs(c, tabs, section_index, rule + 14.0f);
-        float tab_h = 0.0f, y = tabs_bottom; // The list.
-        float list_top = y + tab_h + 18.0f;  // (tab_h 0: Tabs gave the bottom of its last row)
-        float list_bottom = 692.0f;
-        int fit = std::max(1, static_cast<int>((list_bottom - list_top) / kLevelRowHeight));
+        const float tabs_bottom = get_tabs(c, tabs, section_index, rule + 14.0f);
+        const float tab_h = 0.0f;
+        const float y = tabs_bottom;              // The list.
+        const float list_top = y + tab_h + 18.0f; // (tab_h 0: Tabs gave the bottom of its last row)
+        const float list_bottom = 692.0f;
+        const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / kLevelRowHeight));
         if (visible_rows)
             *visible_rows = fit;
-        RowStyle rs = level_row_style();
+        const RowStyle rs = level_row_style();
         c.dl->PushClipRect(ImVec2(c.f.get_x(0.0f), c.f.get_y(list_top - 2.0f)),
                            ImVec2(c.f.get_x(kColumn + kScrimFeather), c.f.get_y(list_bottom + 8.0f)), true);
-        float scroll = menu.list_scroll();
-        int count = view ? static_cast<int>(view->levels.size()) : 0;
-        int first = std::max(0, static_cast<int>(std::floor(scroll)) - 1);
-        int last = std::min(count - 1, static_cast<int>(std::ceil(scroll)) + fit + 1);
+        const float scroll = menu.list_scroll();
+        const int count = view ? static_cast<int>(view->levels.size()) : 0;
+        const int first = std::max(0, static_cast<int>(std::floor(scroll)) - 1);
+        const int last = std::min(count - 1, static_cast<int>(std::ceil(scroll)) + fit + 1);
         for (int row = first; row <= last; ++row) {
             const StageMap& l = section->levels[view->levels[row]];
-            float top = list_top + (static_cast<float>(row) - scroll) * kLevelRowHeight;
-            bool locked = row < static_cast<int>(view->locked.size()) && view->locked[row];
+            const float top = list_top + (static_cast<float>(row) - scroll) * kLevelRowHeight;
+            const bool locked = row < static_cast<int>(view->locked.size()) && view->locked[row];
             get_row(c, rs, top, pad2(row + 1).c_str(), l.name.c_str(), menu.row_amount(row), colour, locked);
             if (top >= list_top - 1.0f && top + kLevelRowHeight <= list_bottom + 1.0f)
                 c.get_hit(Hit::Kind::kStageMap, row, 48.0f, top, kColumnInner + 20.0f, top + kLevelRowHeight);
         }
         c.dl->PopClipRect();
         if (count == 0) {
-            Style empty = mono12(kMuted2);
+            const Style empty = mono12(kMuted2);
             draw_text(c.dl, empty, c.f, c.f.get_x(48.0f), datum(empty, c.f, c.f.get_y(list_top), 1.3f),
                       text_tools::kNoLevels);
         }
@@ -962,15 +983,16 @@ void levels_screen(Ctx& c, int* visible_rows)
                           static_cast<int>(level->art_variants_.size()));
         Style note = mono12(kMuted);
         note.alpha = 1.0f - grow;
-        float nw = get_measure(note, c.f, text) / c.f.scale;
+        const float nw = get_measure(note, c.f, text) / c.f.scale;
         draw_text(c.dl, note, c.f, c.f.get_x(1240.0f - nw), datum(note, c.f, c.f.get_y(36.0f), 1.3f), text);
     }
 
     // The right's foot: Skate, the records, the name, the kicker.
-    float left = kRight + (32.0f - kRight) * grow, right = 1240.0f;
-    float bottom = 692.0f;
+    const float left = kRight + (32.0f - kRight) * grow;
+    const float right = 1240.0f;
+    const float bottom = 692.0f;
     if (level) {
-        float fade = 1.0f - grow;
+        const float fade = 1.0f - grow;
         // Skate (Anton 30 on the game's colour, a slanted button).
         Style skate;
         skate.face = Face::kDisplay;
@@ -978,17 +1000,20 @@ void levels_screen(Ctx& c, int* visible_rows)
         skate.upper = true;
         skate.colour = kGround;
         skate.alpha = fade;
-        bool locked = menu.selected_locked();
+        const bool locked = menu.selected_locked();
         const char* skate_text = locked                                      ? text_tools::kLocked
                                  : menu.levels_purpose() == LevelsFor::kEdit ? text_tools::kEdit
                                                                              : text_tools::kSkate;
-        float tw = get_measure(skate, c.f, skate_text) / c.f.scale;
-        float arrow_w = locked ? 0.0f : 30.0f * 0.9f + 10.0f;
-        float bh = 30.0f * 1.15f + 12.0f;
-        float bx0 = left, bx1 = left + 22.0f + tw + arrow_w + 22.0f, by0 = bottom - bh, by1 = bottom;
+        const float tw = get_measure(skate, c.f, skate_text) / c.f.scale;
+        const float arrow_w = locked ? 0.0f : 30.0f * 0.9f + 10.0f;
+        const float bh = 30.0f * 1.15f + 12.0f;
+        const float bx0 = left;
+        const float bx1 = left + 22.0f + tw + arrow_w + 22.0f;
+        const float by0 = bottom - bh;
+        const float by1 = bottom;
         get_cut(c.dl, c.f.get_x(bx0), c.f.get_y(by0), c.f.get_x(bx1), c.f.get_y(by1), c.f.current_s(10.0f),
                 c.f.current_s(10.0f), get_col(locked ? kMuted2 : colour, fade));
-        float sb = datum(skate, c.f, c.f.get_y(by0 + 6.0f), 1.15f);
+        const float sb = datum(skate, c.f, c.f.get_y(by0 + 6.0f), 1.15f);
         draw_text(c.dl, skate, c.f, c.f.get_x(bx0 + 22.0f), sb, skate_text);
         if (!locked) {
             float adv = 0.0f;
@@ -998,7 +1023,7 @@ void levels_screen(Ctx& c, int* visible_rows)
         c.get_hit(Hit::Kind::kSkate, 0, bx0, by0, bx1, by1);
         float y = by0 - 6.0f;
         // The records (only what the career keeps for this level).
-        Highscores rec = c.extras.records ? c.extras.records(*level) : Highscores{};
+        const Highscores rec = c.extras.records ? c.extras.records(*level) : Highscores{};
         std::vector<std::string> cols;
         char text[64];
         if (rec.gaps_total_ > 0) {
@@ -1012,19 +1037,19 @@ void levels_screen(Ctx& c, int* visible_rows)
         if (!cols.empty()) {
             Style s = mono12(kMuted, false);
             s.alpha = fade;
-            float top = y - 10.0f - 12.0f * 1.3f;
-            float col_w = (right - left) / 3.0f;
+            const float top = y - 10.0f - 12.0f * 1.3f;
+            const float col_w = (right - left) / 3.0f;
             for (size_t i = 0; i < cols.size(); ++i)
                 draw_text(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)),
                           datum(s, c.f, c.f.get_y(top), 1.3f), cols[i].c_str());
-            float rule_y = top - 10.0f - 1.0f;
+            const float rule_y = top - 10.0f - 1.0f;
             c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule_y)),
                                 ImVec2(c.f.get_x(right), c.f.get_y(rule_y) + std::max(1.0f, c.f.current_s(1.0f))),
                                 get_col(kRule, fade));
             y = rule_y;
         }
-        float slice = launch >= 0.0f ? ease_out(launch * 1.6f) : 0.0f;
-        float name_top = big_name(c, level->name, 112.0f, left, right, y - 10.0f, slice, colour);
+        const float slice = launch >= 0.0f ? ease_out(launch * 1.6f) : 0.0f;
+        const float name_top = big_name(c, level->name, 112.0f, left, right, y - 10.0f, slice, colour);
         std::string kicker = (section ? section->tab : std::string()) + " \xE2\x80\x94 " + pad2(menu.level_row() + 1);
         if (locked)
             kicker += std::string(" \xC2\xB7 ") + text_tools::kLocked;
@@ -1038,7 +1063,7 @@ void wipe(ImDrawList* dl, float t, uint32_t colour, float width, float height)
 {
     if (t < 0.0f)
         return;
-    float skew = height * 0.35f;
+    const float skew = height * 0.35f;
     float lead = -skew + (width + skew * 2.0f) * ease_out(std::min(1.0f, t * 2.0f));
     float trail = -skew + (width + skew * 2.0f) * ease_out(std::max(0.0f, t * 2.0f - 1.0f));
     if (lead <= trail)
@@ -1063,15 +1088,15 @@ Style get_body(uint32_t colour = kMuted)
 float paragraphs(Ctx& c, const std::vector<std::string>& texts, float left, float right, float top, int max_lines,
                  uint32_t colour = kMuted)
 {
-    Style body = get_body(colour);
-    float line_h = 14.0f * 1.5f;
+    const Style body = get_body(colour);
+    const float line_h = 14.0f * 1.5f;
     int drawn = 0;
     for (const std::string& text : texts) {
         // (each \n of a dialog's text a line of its own)
         size_t at = 0;
         while (at <= text.size() && drawn < max_lines) {
-            size_t end = text.find('\n', at);
-            std::string part = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
+            const size_t end = text.find('\n', at);
+            const std::string part = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
             for (const std::string& line : get_wrap(body, c.f, part, c.f.current_s(right - left))) {
                 if (drawn >= max_lines)
                     break;
@@ -1094,18 +1119,20 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
 {
     const mirror::View& v = t.get_shown();
     c.dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround, 0.62f));
-    float y0 = 196.0f, y1 = 548.0f;
+    const float y0 = 196.0f;
+    const float y1 = 548.0f;
     c.dl->AddRectFilled(ImVec2(0.0f, c.f.get_y(y0)), ImVec2(window_width, c.f.get_y(y1)), get_col(kGround, 0.94f));
     c.dl->AddRectFilled(ImVec2(0.0f, c.f.get_y(y0)), ImVec2(window_width, c.f.get_y(y0 + 4.0f)),
                         get_col(Menu::kHouseYellow));
-    float left = 96.0f, text_right = 700.0f;
+    const float left = 96.0f;
+    const float text_right = 700.0f;
     int choices = 0;
     for (const mirror::Row& r : v.rows)
         choices += r.focusable ? 1 : 0;
     const char* kicker = choices >= 2   ? text_tools::kDialogConfirm
                          : choices == 1 ? text_tools::kDialogNotice
                                         : text_tools::kPleaseWait;
-    float kicker_top = get_kicker(c, kicker, left, y0 + 44.0f, Menu::kHouseYellow);
+    const float kicker_top = get_kicker(c, kicker, left, y0 + 44.0f, Menu::kHouseYellow);
     (void)kicker_top;
     // The title (Anton 72, up to two lines) under the kicker.
     Style title;
@@ -1123,23 +1150,24 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
     paragraphs(c, v.lines, left, text_right, y + 14.0f, 6, kPaper);
     // The choices.
     RowStyle rs = level_row_style();
-    float rows_left = 760.0f;
+    const float rows_left = 760.0f;
     rs.text_x_ = rows_left + 26.0f + 14.0f + 10.0f;
     rs.cut_left_ = rows_left + 26.0f + 14.0f - 6.0f;
-    int n = static_cast<int>(v.rows.size());
-    float top = (y0 + y1) * 0.5f - static_cast<float>(n) * kLevelRowHeight * 0.5f;
+    const int n = static_cast<int>(v.rows.size());
+    const float top = (y0 + y1) * 0.5f - static_cast<float>(n) * kLevelRowHeight * 0.5f;
     for (int i = 0; i < n; ++i) {
-        float row_top = top + static_cast<float>(i) * kLevelRowHeight;
+        const float row_top = top + static_cast<float>(i) * kLevelRowHeight;
         // (Row puts the number at the design's x 48: drawn here on the right instead)
         ImDrawList* dl = c.dl;
-        int start = dl->VtxBuffer.Size;
-        float e = t.row_amount(i);
-        float base = datum(rs.name, c.f, c.f.get_y(row_top), rs.line_height_);
-        float width = get_measure(rs.name, c.f, v.rows[i].label.c_str());
+        const int start = dl->VtxBuffer.Size;
+        const float e = t.row_amount(i);
+        const float base = datum(rs.name, c.f, c.f.get_y(row_top), rs.line_height_);
+        const float width = get_measure(rs.name, c.f, v.rows[i].label.c_str());
         if (e > 0.001f) {
-            float x0 = c.f.get_x(rs.cut_left_), x1 = c.f.get_x(rs.text_x_) + width + c.f.current_s(rs.cut_right_pad_);
+            const float x0 = c.f.get_x(rs.cut_left_);
+            float x1 = c.f.get_x(rs.text_x_) + width + c.f.current_s(rs.cut_right_pad_);
             x1 = x0 + (x1 - x0) * e;
-            float line_h = rs.name.css * rs.line_height_;
+            const float line_h = rs.name.css * rs.line_height_;
             get_cut(dl, x0, c.f.get_y(row_top + line_h * rs.cut_top_), x1, c.f.get_y(row_top + line_h * rs.cut_bottom_),
                     c.f.current_s(rs.top_inset_), c.f.current_s(rs.bottom_inset_), get_col(Menu::kHouseYellow));
         }
@@ -1168,7 +1196,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     c.dl->AddRectFilledMultiColor(ImVec2(0.0f, 0.0f), ImVec2(window_width, c.f.get_y(170.0f)), get_col(kGround, 0.92f),
                                   get_col(kGround, 0.92f), get_col(kGround, 0.0f), get_col(kGround, 0.0f));
     // The right: a panel feathered from x 720.
-    float panel = 800.0f;
+    const float panel = 800.0f;
     c.dl->AddRectFilledMultiColor(ImVec2(c.f.get_x(panel - 90.0f), 0.0f), ImVec2(c.f.get_x(panel), window_height),
                                   get_col(kGround, 0.0f), get_col(kGround, 0.86f), get_col(kGround, 0.86f),
                                   get_col(kGround, 0.0f));
@@ -1178,7 +1206,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
                                   get_col(kGround, 0.0f), get_col(kGround, 0.0f), get_col(kGround, 0.9f),
                                   get_col(kGround, 0.9f));
 
-    std::string count =
+    const std::string count =
         v.selected >= 0 ? pad2(v.selected + 1) + " / " + pad2(static_cast<int>(v.rows.size())) : std::string();
     get_header(c, 36.0f, 1232.0f, v.title.c_str(), true, count.c_str());
 
@@ -1187,7 +1215,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     name.face = Face::kDisplay;
     name.css = 28.0f;
     name.upper = true;
-    float gap = 34.0f;
+    const float gap = 34.0f;
     std::vector<float> widths;
     float total = 0.0f, selected_centre = 0.0f;
     for (size_t i = 0; i < v.rows.size(); ++i) {
@@ -1201,15 +1229,15 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     shift = std::max(shift, 1232.0f - (total - gap));
     if (total - gap < 1184.0f)
         shift = 48.0f;
-    float strip_top = 88.0f;
+    const float strip_top = 88.0f;
     c.dl->PushClipRect(ImVec2(c.f.get_x(0.0f), c.f.get_y(strip_top - 20.0f)),
                        ImVec2(c.f.get_x(1280.0f), c.f.get_y(strip_top + 60.0f)), true);
     float x = shift;
     for (size_t i = 0; i < v.rows.size(); ++i) {
-        float e = t.row_amount(static_cast<int>(i));
+        const float e = t.row_amount(static_cast<int>(i));
         ImDrawList* dl = c.dl;
-        int start = dl->VtxBuffer.Size;
-        float line_h = 28.0f * 1.05f;
+        const int start = dl->VtxBuffer.Size;
+        const float line_h = 28.0f * 1.05f;
         if (e > 0.001f)
             get_cut(dl, c.f.get_x(x - 10.0f), c.f.get_y(strip_top + line_h * 0.12f),
                     c.f.get_x(x - 10.0f) + (c.f.current_s(widths[i] + 26.0f)) * e,
@@ -1233,7 +1261,8 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
                         get_col(kRule));
 
     // The panel: the stats as a mono table with bars, the name over it, the kicker.
-    float left = panel + 40.0f, right = 1232.0f;
+    const float left = panel + 40.0f;
+    const float right = 1232.0f;
     float bottom =
         get_hints(
             c, {text_tools::kHintSkater, text_tools::kHintAccept, text_tools::kHintBack, text_tools::kHintLoadSkater},
@@ -1243,32 +1272,33 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     label.css = 13.0f;
     Style number = mono12(kPaper, false);
     number.css = 13.0f;
-    float row_h = 26.0f;
-    int stats = static_cast<int>(v.stats.size());
-    float table_top = bottom - row_h * static_cast<float>(stats);
+    const float row_h = 26.0f;
+    const int stats = static_cast<int>(v.stats.size());
+    const float table_top = bottom - row_h * static_cast<float>(stats);
     for (int i = 0; i < stats; ++i) {
-        float top = table_top + row_h * static_cast<float>(i);
-        float base = datum(label, c.f, c.f.get_y(top + 4.0f), 1.3f);
+        const float top = table_top + row_h * static_cast<float>(i);
+        const float base = datum(label, c.f, c.f.get_y(top + 4.0f), 1.3f);
         draw_text(c.dl, label, c.f, c.f.get_x(left), base, v.stats[i].first.c_str());
-        int value = std::clamp(v.stats[i].second, 0, 10);
-        float bar_left = left + 110.0f, bar_right = right - 40.0f;
-        float seg = (bar_right - bar_left) / 10.0f;
+        const int value = std::clamp(v.stats[i].second, 0, 10);
+        const float bar_left = left + 110.0f;
+        const float bar_right = right - 40.0f;
+        const float seg = (bar_right - bar_left) / 10.0f;
         for (int k = 0; k < 10; ++k) {
-            float sx = bar_left + seg * static_cast<float>(k);
+            const float sx = bar_left + seg * static_cast<float>(k);
             get_cut(c.dl, c.f.get_x(sx), c.f.get_y(top + 7.0f), c.f.get_x(sx + seg - 4.0f), c.f.get_y(top + 19.0f),
                     c.f.current_s(3.0f), c.f.current_s(3.0f), get_col(k < value ? Menu::kHouseYellow : kRule));
         }
-        std::string text = std::to_string(v.stats[i].second);
+        const std::string text = std::to_string(v.stats[i].second);
         draw_text(c.dl, number, c.f, c.f.get_x(right) - get_measure(number, c.f, text.c_str()), base, text.c_str());
     }
     if (stats > 0) {
-        float rule = table_top - 12.0f;
+        const float rule = table_top - 12.0f;
         c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule)),
                             ImVec2(c.f.get_x(right), c.f.get_y(rule) + std::max(1.0f, c.f.current_s(1.0f))),
                             get_col(kRule));
         bottom = rule - 14.0f;
     }
-    float name_top = big_name(c, v.big_name_, 84.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
+    const float name_top = big_name(c, v.big_name_, 84.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     std::string kicker = text_tools::kSkater;
     if (v.selected >= 0 && !v.rows[v.selected].focusable)
         kicker += std::string(" \xC2\xB7 ") + text_tools::kLocked;
@@ -1294,14 +1324,16 @@ void colour_track(Ctx& c, const mirror::View& v, const mirror::Row& r, bool sele
     constexpr float kSatLimit = 90.0f, kValLow = 12.0f, kValHigh = 60.0f;
     float hue = v.has_colour_ ? v.hue : 0.0f, sat = v.has_colour_ ? v.sat : kSatLimit,
           val = v.has_colour_ ? v.val : 40.0f;
-    float rail_half = 3.0f;
-    float px0 = c.f.get_x(x0), px1 = c.f.get_x(x1), py0 = c.f.get_y(y_mid - rail_half),
-          py1 = c.f.get_y(y_mid + rail_half);
-    int steps = r.track == 1 ? 12 : 8;
+    const float rail_half = 3.0f;
+    const float px0 = c.f.get_x(x0);
+    const float px1 = c.f.get_x(x1);
+    const float py0 = c.f.get_y(y_mid - rail_half);
+    const float py1 = c.f.get_y(y_mid + rail_half);
+    const int steps = r.track == 1 ? 12 : 8;
     if (r.track >= 1 && r.track <= 3) {
         for (int k = 0; k < steps; ++k) {
-            float a = static_cast<float>(k) / static_cast<float>(steps),
-                  b = static_cast<float>(k + 1) / static_cast<float>(steps);
+            const float a = static_cast<float>(k) / static_cast<float>(steps);
+            const float b = static_cast<float>(k + 1) / static_cast<float>(steps);
             auto at = [&](float t) {
                 if (r.track == 1)
                     return skater_col(t * 360.0f, kSatLimit, val);
@@ -1320,8 +1352,10 @@ void colour_track(Ctx& c, const mirror::View& v, const mirror::Row& r, bool sele
     c.dl->AddRect(ImVec2(px0, py0), ImVec2(px1, py1), get_col(0xFF000000, 0.6f), 0.0f, 0,
                   std::max(1.0f, c.f.current_s(1.0f)));
     // The marker: a post over the rail, ink-edged, the accent when its row is the selected one.
-    float mx = px0 + (px1 - px0) * std::clamp(r.track_at_, 0.0f, 1.0f);
-    float half = std::max(1.5f, c.f.current_s(2.0f)), top = c.f.get_y(y_mid - 9.0f), bottom = c.f.get_y(y_mid + 9.0f);
+    const float mx = px0 + (px1 - px0) * std::clamp(r.track_at_, 0.0f, 1.0f);
+    const float half = std::max(1.5f, c.f.current_s(2.0f));
+    const float top = c.f.get_y(y_mid - 9.0f);
+    const float bottom = c.f.get_y(y_mid + 9.0f);
     if (r.track >= 1 && r.track <= 4) {
         c.dl->AddRectFilled(ImVec2(mx - half - 1.0f, top - 1.0f), ImVec2(mx + half + 1.0f, bottom + 1.0f),
                             get_col(0xFF000000));
@@ -1336,14 +1370,14 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
 {
     const mirror::View& v = t.get_shown();
     pause_ground(c, window_width, window_height, v.editor ? 0.15f : 0.55f); // (an editor's view shows through)
-    float rule =
+    const float rule =
         get_header(c, 40.0f, kColumnInner, v.title.empty() ? text_tools::kTitleMenu : v.title.c_str(), true, nullptr);
-    int n = static_cast<int>(v.rows.size());
+    const int n = static_cast<int>(v.rows.size());
     bool big = n <= 6;
     if (big) {
         // (big type only while every label - and its value, when it has one - fits the column)
-        RowStyle probe = main_row_style();
-        Style probe_value = mono12(kMuted, false);
+        const RowStyle probe = main_row_style();
+        const Style probe_value = mono12(kMuted, false);
         for (const mirror::Row& r : v.rows) {
             float need = c.f.current_s(probe.text_x_) + get_measure(probe.name, c.f, r.label.c_str());
             if (!r.value.empty())
@@ -1352,11 +1386,11 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
                 big = false;
         }
     }
-    RowStyle rs = big ? main_row_style() : level_row_style();
-    float row_h = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
-    float list_top = rule + (big ? 36.0f : 20.0f);
-    float list_bottom = 620.0f;
-    int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
+    const RowStyle rs = big ? main_row_style() : level_row_style();
+    const float row_h = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
+    const float list_top = rule + (big ? 36.0f : 20.0f);
+    const float list_bottom = 620.0f;
+    const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
     // (the selection kept in view, a row of margin)
     float first = scroll ? *scroll : 0.0f;
     if (v.selected >= 0) {
@@ -1372,26 +1406,27 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
     c.dl->PushClipRect(ImVec2(c.f.get_x(0.0f), c.f.get_y(list_top - 2.0f)),
                        ImVec2(c.f.get_x(kColumn + kScrimFeather), c.f.get_y(list_bottom + 8.0f)), true);
     for (int i = 0; i < n; ++i) {
-        float top = list_top + (static_cast<float>(i) - first) * row_h;
+        const float top = list_top + (static_cast<float>(i) - first) * row_h;
         if (top < list_top - row_h || top > list_bottom)
             continue;
         const mirror::Row& r = v.rows[i];
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), t.row_amount(i), Menu::kHouseYellow, !r.focusable);
         if (!r.value.empty()) {
-            float base = datum(rs.name, c.f, c.f.get_y(top + rs.row_pad_top_), rs.line_height_);
+            const float base = datum(rs.name, c.f, c.f.get_y(top + rs.row_pad_top_), rs.line_height_);
             value.colour = i == v.selected ? Menu::kHouseYellow : kMuted;
-            float value_x = c.f.get_x(kColumnInner) - get_measure(value, c.f, r.value.c_str());
+            const float value_x = c.f.get_x(kColumnInner) - get_measure(value, c.f, r.value.c_str());
             if (c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, r.label.c_str()) + c.f.current_s(24.0f) < value_x)
                 draw_text(c.dl, value, c.f, value_x, base, r.value.c_str());
         }
         if (r.track > 0 && r.focusable) {
             // (between the label and the number: from past the widest label to a fixed width, at most; a selected row's
             // label sits in its cut, shifted right by Row's 24 px - the track starts past the cut's end)
-            float value_w =
+            const float value_w =
                 r.value.empty() ? 0.0f : get_measure(value, c.f, r.value.c_str()) / c.f.current_s(1.0f) + 14.0f;
-            float label_end = rs.text_x_ + get_measure(rs.name, c.f, r.label.c_str()) / c.f.current_s(1.0f) + 16.0f +
-                              t.row_amount(i) * (rs.cut_right_pad_ + 24.0f + 4.0f);
-            float x1 = kColumnInner - value_w, x0 = std::max(label_end, x1 - 190.0f);
+            const float label_end = rs.text_x_ + get_measure(rs.name, c.f, r.label.c_str()) / c.f.current_s(1.0f) +
+                                    16.0f + t.row_amount(i) * (rs.cut_right_pad_ + 24.0f + 4.0f);
+            const float x1 = kColumnInner - value_w;
+            const float x0 = std::max(label_end, x1 - 190.0f);
             if (x1 - x0 > 40.0f)
                 colour_track(c, v, r, i == v.selected, x0, x1, top + row_h * 0.5f);
         }
@@ -1401,14 +1436,16 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
     c.dl->PopClipRect();
 
     // The right: the hints, the screen's other words, the selected item (its value under it), the title as the kicker.
-    float left = kRight, right = 1240.0f;
+    const float left = kRight;
+    const float right = 1240.0f;
     float bottom =
         get_hints(c, {text_tools::kHintSelect, text_tools::kHintChange, text_tools::kHintBack}, left, right, 688.0f) -
         12.0f;
     if (v.has_colour_) {
         // The colour chosen, as the skater shows it, with its numbers.
-        float swatch_top = bottom - 30.0f;
-        ImVec2 a(c.f.get_x(left), c.f.get_y(swatch_top)), b(c.f.get_x(left + 64.0f), c.f.get_y(swatch_top + 30.0f));
+        const float swatch_top = bottom - 30.0f;
+        const ImVec2 a(c.f.get_x(left), c.f.get_y(swatch_top));
+        const ImVec2 b(c.f.get_x(left + 64.0f), c.f.get_y(swatch_top + 30.0f));
         c.dl->AddRectFilled(a, b, skater_col(v.hue, v.sat, v.val));
         c.dl->AddRect(a, b, get_col(kRule), 0.0f, 0, std::max(1.0f, c.f.current_s(1.0f)));
         Style d = mono12(kMuted, false);
@@ -1436,11 +1473,11 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
     if (sel && !sel->value.empty()) {
         Style d = mono12(Menu::kHouseYellow, false);
         d.css = 13.0f;
-        float top = bottom - 13.0f * 1.3f;
+        const float top = bottom - 13.0f * 1.3f;
         draw_text(c.dl, d, c.f, c.f.get_x(left), datum(d, c.f, c.f.get_y(top), 1.3f), sel->value.c_str());
         bottom = top - 12.0f;
     }
-    float name_top = big_name(c, v.big_name_, 96.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
+    const float name_top = big_name(c, v.big_name_, 96.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     get_kicker(c, v.title.empty() ? std::string(text_tools::kTitleMenu) : v.title, left, name_top - 8.0f,
                Menu::kHouseYellow);
     if (!v.lines.empty())
@@ -1454,21 +1491,21 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
 {
     const mirror::View& v = t.get_shown();
     pause_ground(c, window_width, window_height);
-    float rule = get_header(c, 40.0f, kColumnInner, text_tools::kTitlePaused, false, nullptr);
-    int n = static_cast<int>(v.rows.size());
+    const float rule = get_header(c, 40.0f, kColumnInner, text_tools::kTitlePaused, false, nullptr);
+    const int n = static_cast<int>(v.rows.size());
     bool big = n <= 7;
     if (big) {
-        RowStyle probe = main_row_style();
+        const RowStyle probe = main_row_style();
         for (const mirror::Row& r : v.rows)
             if (c.f.current_s(probe.text_x_) + get_measure(probe.name, c.f, r.label.c_str()) >
                 c.f.current_s(kColumnInner + 10.0f))
                 big = false;
     }
-    RowStyle rs = big ? main_row_style() : level_row_style();
-    float row_h = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
-    float list_top = rule + (big ? 36.0f : 20.0f);
-    float list_bottom = 680.0f;
-    int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
+    const RowStyle rs = big ? main_row_style() : level_row_style();
+    const float row_h = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
+    const float list_top = rule + (big ? 36.0f : 20.0f);
+    const float list_bottom = 680.0f;
+    const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
     float first = scroll ? *scroll : 0.0f;
     if (v.selected >= 0) {
         if (static_cast<float>(v.selected) < first + 1.0f)
@@ -1482,7 +1519,7 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
     c.dl->PushClipRect(ImVec2(c.f.get_x(0.0f), c.f.get_y(list_top - 2.0f)),
                        ImVec2(c.f.get_x(kColumn + kScrimFeather), c.f.get_y(list_bottom + 8.0f)), true);
     for (int i = 0; i < n; ++i) {
-        float top = list_top + (static_cast<float>(i) - first) * row_h;
+        const float top = list_top + (static_cast<float>(i) - first) * row_h;
         if (top < list_top - row_h || top > list_bottom)
             continue;
         const mirror::Row& r = v.rows[i];
@@ -1492,12 +1529,13 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
     }
     c.dl->PopClipRect();
 
-    float left = kRight, right = 1240.0f;
+    const float left = kRight;
+    const float right = 1240.0f;
     float bottom = get_hints(c, {text_tools::kHintSelect, text_tools::kHintResumeLevel}, left, right, 688.0f) - 8.0f;
     std::string kicker, name;
     uint32_t colour = Menu::kHouseYellow;
     bottom = pause_side(c, left, right, bottom, &kicker, &name, &colour);
-    float name_top = big_name(c, name, 120.0f, left, right, bottom, 0.0f, colour);
+    const float name_top = big_name(c, name, 120.0f, left, right, bottom, 0.0f, colour);
     get_kicker(c, kicker, left, name_top - 8.0f, colour, 1.0f);
 }
 
@@ -1512,21 +1550,21 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     if (art.empty())
         art = art_by_id(c.extras.catalogue, v.screen_art_);
     backdrop(c.dl, c.f, art_for(c.extras, art), 0.0f);
-    float rule = get_header(c, 40.0f, kColumnInner, v.title.c_str(), !v.main_menu_, nullptr);
-    int n = static_cast<int>(v.rows.size());
+    const float rule = get_header(c, 40.0f, kColumnInner, v.title.c_str(), !v.main_menu_, nullptr);
+    const int n = static_cast<int>(v.rows.size());
     bool big = n <= 7;
     if (big) {
-        RowStyle probe = main_row_style();
+        const RowStyle probe = main_row_style();
         for (const mirror::Row& r : v.rows)
             if (c.f.current_s(probe.text_x_) + get_measure(probe.name, c.f, r.label.c_str()) >
                 c.f.current_s(kColumnInner + 10.0f))
                 big = false;
     }
-    RowStyle rs = big ? main_row_style() : level_row_style();
-    float row_h = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
-    float list_top = rule + (big ? 36.0f : 20.0f);
-    float list_bottom = 620.0f;
-    int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
+    const RowStyle rs = big ? main_row_style() : level_row_style();
+    const float row_h = big ? kMainRowHeight + 2.0f : kLevelRowHeight;
+    const float list_top = rule + (big ? 36.0f : 20.0f);
+    const float list_bottom = 620.0f;
+    const int fit = std::max(1, static_cast<int>((list_bottom - list_top) / row_h));
     float first = scroll ? *scroll : 0.0f;
     if (v.selected >= 0) {
         if (static_cast<float>(v.selected) < first + 1.0f)
@@ -1540,15 +1578,15 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     c.dl->PushClipRect(ImVec2(c.f.get_x(0.0f), c.f.get_y(list_top - 2.0f)),
                        ImVec2(c.f.get_x(kColumn + kScrimFeather), c.f.get_y(list_bottom + 8.0f)), true);
     for (int i = 0; i < n; ++i) {
-        float top = list_top + (static_cast<float>(i) - first) * row_h;
+        const float top = list_top + (static_cast<float>(i) - first) * row_h;
         if (top < list_top - row_h || top > list_bottom)
             continue;
         const mirror::Row& r = v.rows[i];
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), t.row_amount(i), Menu::kHouseYellow, !r.focusable);
         if (!r.tag.empty()) {
-            Style tag = mono12(kMuted2);
-            float base = datum(rs.name, c.f, c.f.get_y(top + rs.row_pad_top_), rs.line_height_);
-            float x = c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, r.label.c_str()) + c.f.current_s(16.0f);
+            const Style tag = mono12(kMuted2);
+            const float base = datum(rs.name, c.f, c.f.get_y(top + rs.row_pad_top_), rs.line_height_);
+            const float x = c.f.get_x(rs.text_x_) + get_measure(rs.name, c.f, r.label.c_str()) + c.f.current_s(16.0f);
             draw_text(c.dl, tag, c.f, x, base - c.f.current_s(rs.name.css * 0.12f), r.tag.c_str());
         }
         if (r.focusable && top >= list_top - 1.0f && top + row_h <= list_bottom + 1.0f)
@@ -1559,16 +1597,17 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     body.face = Face::kBody;
     body.css = 14.0f;
     body.colour = kMuted;
-    std::vector<std::string> lines =
+    const std::vector<std::string> lines =
         get_wrap(body, c.f, sel ? sel->blurb : std::string(), c.f.current_s(kColumnInner - 48.0f));
-    float line_h = 14.0f * 1.5f;
+    const float line_h = 14.0f * 1.5f;
     float y = 688.0f - line_h * static_cast<float>(lines.size());
     for (const std::string& line : lines) {
         draw_text(c.dl, body, c.f, c.f.get_x(48.0f), datum(body, c.f, c.f.get_y(y), 1.5f), line.c_str());
         y += line_h;
     }
 
-    float left = kRight, right = 1240.0f;
+    const float left = kRight;
+    const float right = 1240.0f;
     std::vector<std::string> hints = {text_tools::kHintSelect};
     int resume_hint = -1;
     if (v.main_menu_ && !c.extras.continue_name_.empty()) {
@@ -1578,11 +1617,11 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     if (!v.main_menu_)
         hints.emplace_back(text_tools::kHintBack);
     std::vector<std::pair<float, float>> spans;
-    float bottom = get_hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
+    const float bottom = get_hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
     if (resume_hint >= 0 && resume_hint < static_cast<int>(spans.size()))
         c.get_hit(Hit::Kind::kContinue, 0, spans[resume_hint].first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f,
                   spans[resume_hint].second + 6.0f, 688.0f + 6.0f);
-    float name_top = big_name(c, v.big_name_, 120.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
+    const float name_top = big_name(c, v.big_name_, 120.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     get_kicker(c, v.kicker, left, name_top - 8.0f, Menu::kHouseYellow, 1.0f);
 }
 
@@ -1594,14 +1633,14 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
     const mirror::View& v = t.get_shown();
     if (v.over_game_)
         pause_ground(c, window_width, window_height, 0.7f);
-    float rule = get_header(c, 40.0f, 1232.0f, v.title.c_str(), true, nullptr);
+    const float rule = get_header(c, 40.0f, 1232.0f, v.title.c_str(), true, nullptr);
     // The text typed (the game's cursor "_" kept as it shows it).
     Style entry;
     entry.face = Face::kDisplay;
     entry.css = 72.0f;
     entry.upper = false;
     entry.colour = kPaper;
-    float entry_top = rule + 30.0f;
+    const float entry_top = rule + 30.0f;
     // (the game's cursor "_": drawn as our own bar after the text - the display face has no underscore)
     std::string typed = v.entry;
     if (!typed.empty() && typed.back() == '_')
@@ -1609,14 +1648,14 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
     Style typed_style = entry;
     typed_style.face = Face::kBody; // (the case as typed: the display face is capitals only)
     typed_style.css = 48.0f;
-    float entry_x = c.f.get_x(48.0f);
+    const float entry_x = c.f.get_x(48.0f);
     draw_text(c.dl, typed_style, c.f, entry_x, datum(typed_style, c.f, c.f.get_y(entry_top + 12.0f), 1.0f),
               typed.c_str());
-    float cursor_x = entry_x + get_measure(typed_style, c.f, typed.c_str()) + c.f.current_s(4.0f);
+    const float cursor_x = entry_x + get_measure(typed_style, c.f, typed.c_str()) + c.f.current_s(4.0f);
     c.dl->AddRectFilled(ImVec2(cursor_x, c.f.get_y(entry_top + 58.0f)),
                         ImVec2(cursor_x + c.f.current_s(22.0f), c.f.get_y(entry_top + 62.0f)),
                         get_col(Menu::kHouseYellow));
-    float line = entry_top + 72.0f + 10.0f;
+    const float line = entry_top + 72.0f + 10.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(48.0f), c.f.get_y(line)),
                         ImVec2(c.f.get_x(1232.0f), c.f.get_y(line) + std::max(1.0f, c.f.current_s(2.0f))),
                         get_col(Menu::kHouseYellow));
@@ -1629,15 +1668,15 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
         float x = 48.0f;
         for (size_t k = 0; k < v.keys[r].size(); ++k) {
             const std::string& label = v.keys[r][k];
-            float w = std::max(52.0f, get_measure(key, c.f, label.c_str()) / c.f.scale + 28.0f);
-            bool sel = static_cast<int>(r) == v.key_row_ && static_cast<int>(k) == v.key_col_;
+            const float w = std::max(52.0f, get_measure(key, c.f, label.c_str()) / c.f.scale + 28.0f);
+            const bool sel = static_cast<int>(r) == v.key_row_ && static_cast<int>(k) == v.key_col_;
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), c.f.get_y(top)), ImVec2(c.f.get_x(x + w), c.f.get_y(top + h)),
                                 sel ? get_col(Menu::kHouseYellow) : get_col(kGround, 0.85f));
             c.dl->AddRect(ImVec2(c.f.get_x(x), c.f.get_y(top)), ImVec2(c.f.get_x(x + w), c.f.get_y(top + h)),
                           get_col(kRule), 0.0f, 0, std::max(1.0f, c.f.current_s(1.0f)));
             Style s = key;
             s.colour = sel ? kGround : kPaper;
-            float tx = c.f.get_x(x + w * 0.5f) - get_measure(s, c.f, label.c_str()) * 0.5f;
+            const float tx = c.f.get_x(x + w * 0.5f) - get_measure(s, c.f, label.c_str()) * 0.5f;
             draw_text(c.dl, s, c.f, tx, datum(s, c.f, c.f.get_y(top + (h - 20.0f * 1.3f) * 0.5f), 1.3f), label.c_str());
             c.get_hit(Hit::Kind::kStageMap, static_cast<int>(r) * 64 + static_cast<int>(k), x, top, x + w, top + h);
             x += w + gap;
@@ -1653,23 +1692,23 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
 
 float baseline_in_line(float ascent, float descent, float css, float line_height)
 {
-    float content = (ascent - descent) * css;
+    const float content = (ascent - descent) * css;
     return (css * line_height - content) * 0.5f + ascent * css;
 }
 
 float main_row_top(int index)
 {
     // (the header's rule at 40 + 12 * 1.3 + 12, 1 px; the nav 36 below; rows 2 apart)
-    float rule = 40.0f + 12.0f * 1.3f + 12.0f + 1.0f;
+    const float rule = 40.0f + 12.0f * 1.3f + 12.0f + 1.0f;
     return rule + 36.0f + static_cast<float>(index) * (kMainRowHeight + 2.0f);
 }
 
 float level_list_top(int tab_rows)
 {
-    float rule = 36.0f + 12.0f * 1.3f + 12.0f + 1.0f;
-    float tab_h = 13.0f * 1.3f + 8.0f;
-    int rows = std::max(1, tab_rows);
-    float last_tab_top = rule + 14.0f + static_cast<float>(rows - 1) * (tab_h + 4.0f);
+    const float rule = 36.0f + 12.0f * 1.3f + 12.0f + 1.0f;
+    const float tab_h = 13.0f * 1.3f + 8.0f;
+    const int rows = std::max(1, tab_rows);
+    const float last_tab_top = rule + 14.0f + static_cast<float>(rows - 1) * (tab_h + 4.0f);
     return last_tab_top + tab_h + 18.0f;
 }
 
@@ -1682,18 +1721,18 @@ bool read_font_metrics(const uint8_t* data, size_t size, float* ascent, float* d
 {
     if (!data || size < 12)
         return false;
-    uint32_t tag = be32(data);
+    const uint32_t tag = be32(data);
     if (tag != 0x00010000 && tag != 0x74727565 /* true */ && tag != 0x4F54544F /* OTTO */)
         return false;
-    int tables = be16(data + 4);
+    const int tables = be16(data + 4);
     const uint8_t* head = nullptr;
     const uint8_t* hhea = nullptr;
     for (int i = 0; i < tables; ++i) {
-        size_t entry = 12 + static_cast<size_t>(i) * 16;
+        const size_t entry = 12 + static_cast<size_t>(i) * 16;
         if (entry + 16 > size)
             return false;
-        uint32_t name = be32(data + entry);
-        uint32_t offset = be32(data + entry + 8);
+        const uint32_t name = be32(data + entry);
+        const uint32_t offset = be32(data + entry + 8);
         if (offset + 54 > size)
             continue;
         if (name == 0x68656164) // head
@@ -1747,16 +1786,16 @@ bool build_fonts(const FontFiles& files, float scale)
         FaceLayout& face = g_faces[static_cast<int>(kBakes[i].face)];
         if (!face.ok)
             continue;
-        float em = std::max(4.0f, std::round(kBakes[i].css * scale));
+        const float em = std::max(4.0f, std::round(kBakes[i].css * scale));
         ImFontConfig config;
         config.FontDataOwnedByAtlas = false;
-        bool big = em > 32.0f;
+        const bool big = em > 32.0f;
         config.OversampleH = big ? 1 : 2;
         config.OversampleV = 1;
         config.PixelSnapH = big;
         std::snprintf(config.Name, sizeof(config.Name), "fe %d %.0f", static_cast<int>(kBakes[i].face), kBakes[i].css);
         // (stb_truetype's size is ascent - descent: the em asked for times that)
-        float pixel_height = em * (face.ascent - face.descent);
+        const float pixel_height = em * (face.ascent - face.descent);
         ImFont* font =
             atlas->AddFontFromMemoryTTF(face.file.data(), static_cast<int>(face.file.size()), pixel_height, &config,
                                         kBakes[i].face == Face::kDisplay ? kDisplayRanges : kTextRanges);
@@ -1775,7 +1814,8 @@ void get_screen(const Menu& menu, const TickCycle& frame, float window_width, fl
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     dl->PushTextureID(ImGui::GetIO().Fonts->TexID);
     // (the pause menus: over the game, dimmed - the rest on the ground's colour)
-    bool over_game = is_pause_screen(menu.get_shown()) || (menu.get_shown() == Screen::kOptions && menu.over_pause());
+    const bool over_game =
+        is_pause_screen(menu.get_shown()) || (menu.get_shown() == Screen::kOptions && menu.over_pause());
     if (!over_game)
         dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround));
     Ctx c{dl, frame, menu, extras, hits};

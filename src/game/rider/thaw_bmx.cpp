@@ -104,7 +104,7 @@ std::unordered_map<const void*, BikeState>& get_states()
 
 bool run_if_there(const char* name, objects::Entity* object)
 {
-    uint32_t checksum = name_hash(name);
+    const uint32_t checksum = name_hash(name);
     if (!script::script_exists(checksum)) {
         get_log("thaw_bmx: the script %s isn't loaded - make the overlay with "
                 "tools/pipeline/menu_level/make_menu_level.ts after "
@@ -128,7 +128,7 @@ bool load_assets()
     const uint32_t bike = name_hash(kTestAnim) + name_hash(kSkeleton);
     if (assets->asset_exists(skeleton) && assets->asset_exists(rider) && assets->asset_exists(bike))
         return true;
-    bool permanent = assets->get_permanent_by_default();
+    const bool permanent = assets->get_permanent_by_default();
     assets->set_permanent_by_default(true);
     memory::enter_heap_scope(memory::bottom_up_heap());
     bool ok = true;
@@ -209,7 +209,7 @@ uint32_t skater_script(const objects::Rider* skater, uint32_t name, const script
     if (!is_switched_on() || !skater || !on_bike(skater->core_physics_))
         return name;
     static const uint32_t kBikeKnockDown = name_hash("bike_PedKnockDown");
-    uint32_t chosen =
+    const uint32_t chosen =
         bike_skater_script(name, caller ? caller->script_title_ : 0, script::script_exists(kBikeKnockDown));
     if (chosen == 0)
         get_log("thaw_bmx: a ped's knock-down on the bike - not knocked over (THAW's STATESCRIPT_knockdown)");
@@ -239,7 +239,7 @@ script::Struct* physics_structure(const SkaterPhysicsModule* core)
         return nullptr;
     }
     script::Struct* physics = script::read_sub_struct(name_hash(kPhysics));
-    int now = physics ? 1 : 2;
+    const int now = physics ? 1 : 2;
     if (now != s_logged) {
         get_log(
             physics
@@ -290,16 +290,16 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
         return 1;
     }
     // (the rest read or change the state; one is made on first use)
-    bool known = name == kOn || name == kOff || name == kOverGrind || name == kGetAngle || name == kResetAngle ||
-                 name == kInManual || name == kInXup || name == kEnterXup || name == kExitXup || name == kInTireTap ||
-                 name == kEnterSkid || name == kExitSkid || name == kInSkid || name == kCanSkid ||
-                 name == kExitTireTap || name == kExitEndo;
+    const bool known = name == kOn || name == kOff || name == kOverGrind || name == kGetAngle || name == kResetAngle ||
+                       name == kInManual || name == kInXup || name == kEnterXup || name == kExitXup ||
+                       name == kInTireTap || name == kEnterSkid || name == kExitSkid || name == kInSkid ||
+                       name == kCanSkid || name == kExitTireTap || name == kExitEndo;
     if (!known)
         return call_trick_member(core, name, params, script); // (phase 4's: thaw_bmx_tricks.cpp)
     BikeState& state = *state_of(core, true);
     if (name == kOn) { // 0x005C98E0
         state.on = true;
-        objects::GameEntity* skater = core->entity_;
+        const objects::GameEntity* skater = core->entity_;
         set_wheel_points(state, skater->at_point_, skater->basis_frame_.row[2]);
         return 1;
     }
@@ -412,8 +412,8 @@ void tick_frame(modules::FrontEnd* front_end)
         get_log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
     }
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    bool down = keys && g_key > 0 && g_key < SDL_NUM_SCANCODES && keys[g_key];
-    bool pressed = down && g_key_up;
+    const bool down = keys && g_key > 0 && g_key < SDL_NUM_SCANCODES && keys[g_key];
+    const bool pressed = down && g_key_up;
     g_key_up = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
         (front_end && front_end->is_halted_) || render::current_level() == 0)

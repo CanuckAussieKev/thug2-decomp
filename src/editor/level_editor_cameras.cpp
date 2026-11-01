@@ -88,9 +88,11 @@ void yaw_pitch_of(V3 angles, float* yaw, float* pitch)
 V3 get_forward(V3 angles)
 {
     // (RotationZ last: it turns that row about the world's z axis - the editor's cameras keep z 0)
-    float cx = std::cos(angles.x), sx = std::sin(angles.x);
-    V3 v = {std::sin(angles.y) * cx, -sx, std::cos(angles.y) * cx};
-    float cz = std::cos(angles.z), sz = std::sin(angles.z);
+    const float cx = std::cos(angles.x);
+    const float sx = std::sin(angles.x);
+    const V3 v = {std::sin(angles.y) * cx, -sx, std::cos(angles.y) * cx};
+    const float cz = std::cos(angles.z);
+    const float sz = std::sin(angles.z);
     return {v.x * cz - v.y * sz, v.x * sz + v.y * cz, v.z};
 }
 
@@ -110,9 +112,10 @@ void frustum_corners(V3 pos, V3 angles, float tan_x, float tan_y, float depth, V
 {
     float yaw = 0.0f, pitch = 0.0f;
     yaw_pitch_of(angles, &yaw, &pitch);
-    TickCycle f = frame_from_yaw_pitch(yaw, pitch);
-    V3 centre = pos - f.back * depth;
-    V3 right = f.right * (tan_x * depth), up = f.up * (tan_y * depth);
+    const TickCycle f = frame_from_yaw_pitch(yaw, pitch);
+    const V3 centre = pos - f.back * depth;
+    const V3 right = f.right * (tan_x * depth);
+    const V3 up = f.up * (tan_y * depth);
     out[0] = centre + right + up;
     out[1] = centre - right + up;
     out[2] = centre - right - up;
@@ -141,10 +144,11 @@ bool read_record(std::istringstream& in, ViewCam* out)
     bool have_pos = false, have_angles = false, have_distance = false;
     std::string field;
     while (in >> field) {
-        size_t equals = field.find('=');
+        const size_t equals = field.find('=');
         if (equals == std::string::npos || equals == 0)
             return false;
-        std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+        const std::string key = field.substr(0, equals);
+        const std::string value = field.substr(equals + 1);
         if (key == "pos") {
             if (have_pos || !read_triple(value, &c.pos))
                 return false;
@@ -209,11 +213,11 @@ struct Step : ModuleStep {
     std::vector<ViewCam> cameras;
     void get_restore() override
     {
-        std::vector<ViewCam> now = get_all();
+        const std::vector<ViewCam> now = get_all();
         // (those not in the step: removed; those in it: made, or put where the step has them)
         for (const ViewCam& c : now) {
-            bool keep = std::any_of(cameras.begin(), cameras.end(),
-                                    [&](const ViewCam& k) { return same_text(k.name, c.name); });
+            const bool keep = std::any_of(cameras.begin(), cameras.end(),
+                                          [&](const ViewCam& k) { return same_text(k.name, c.name); });
             if (!keep) {
                 node_create::Spec removed;
                 int at = -1;
@@ -223,7 +227,7 @@ struct Step : ModuleStep {
         std::string message;
         for (const ViewCam& c : cameras) {
             g_distances[c.name] = c.distance;
-            uint32_t name = node_create::name_hash(c.name);
+            const uint32_t name = node_create::name_hash(c.name);
             if (!node_create::is_added(name)) {
                 node_create::fabricate(spec_of(c), -1, &message);
             } else {
@@ -271,9 +275,9 @@ void keep_offsets(const ViewCam& c)
     } keys[2] = {{fields::hash_of_name("targetOffset"), target_of(c.pos, c.angles, c.distance)},
                  {fields::hash_of_name("positionOffset"), position_offset(c.pos, c.angles, c.distance)}};
     for (const Key& k : keys) {
-        fields::Own own = fields::own_in(node, k.key, false);
-        bool same = own.present && own.value.kind == fields::Kind::kVec4 && own.value.numbers[0] == k.value.x &&
-                    own.value.numbers[1] == k.value.y && own.value.numbers[2] == k.value.z;
+        const fields::Own own = fields::own_in(node, k.key, false);
+        const bool same = own.present && own.value.kind == fields::Kind::kVec4 && own.value.numbers[0] == k.value.x &&
+                          own.value.numbers[1] == k.value.y && own.value.numbers[2] == k.value.z;
         if (same)
             continue;
         fields::Own put = own;
@@ -332,7 +336,7 @@ using Function = bool (*)(script::Struct*, script::Script*);
 // The offsets of the camera `name` (false: no such node).
 bool shot_offsets(uint32_t name, V3* target, V3* position)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     if (const ViewCam* c = get_find(all, name)) {
         *target = target_of(c->pos, c->angles, c->distance);
         *position = position_offset(c->pos, c->angles, c->distance);
@@ -353,7 +357,8 @@ bool shot_offsets(uint32_t name, V3* target, V3* position)
         return false;
     script::VectorValue a = {};
     node->fetch_vec(get_checksums("Angles"), &a, 0);
-    V3 pos = {at.x, at.y, at.z}, angles = {a.x, a.y, a.z};
+    const V3 pos = {at.x, at.y, at.z};
+    const V3 angles = {a.x, a.y, a.z};
     *target = target_of(pos, angles, kDefaultDistance);
     *position = position_offset(pos, angles, kDefaultDistance);
     return true;
@@ -381,7 +386,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
         params->fetch_int_value(get_checksums("time"), &whole, 0))
         seconds = static_cast<float>(whole);
     const uint32_t shot = get_checksums("ed_camera_shot");
-    double now = get_now();
+    const double now = get_now();
     if (now < g_shot_until) {
         // (the last shot still playing: killed first, as the goals kill theirs)
         auto* kill = new (script::spawn_param_bag()) script::Struct;
@@ -397,7 +402,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     anim->put_name_key(get_checksums("targetid"), get_checksums("world"));
     anim->put_vec3(get_checksums("targetOffset"), target.x, target.y, target.z);
     anim->put_vec3(get_checksums("positionOffset"), position.x, position.y, position.z);
-    int frames = shot_frames(seconds);
+    const int frames = shot_frames(seconds);
     anim->put_int(get_checksums("frames"), frames);
     anim->put_int(get_checksums("skippable"), 1);
     commands::cfunc_play_skater_cam_anim(anim, script);
@@ -411,7 +416,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
 
 bool is_camera(uint32_t name)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     return get_find(all, name) != nullptr;
 }
 
@@ -442,14 +447,14 @@ std::string create_from_view()
 
 bool get_preview(uint32_t name)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     return c && look_through(*c);
 }
 
 bool aim_from_view(uint32_t name)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     ViewNow view{};
     if (!c || !current_view(&view))
@@ -466,7 +471,7 @@ bool aim_from_view(uint32_t name)
 
 bool set_pitch(uint32_t name, float degrees, bool done)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     if (!c)
         return false;
@@ -483,7 +488,7 @@ bool set_pitch(uint32_t name, float degrees, bool done)
 
 bool place_at_range(uint32_t name, float distance, bool done)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     if (!c)
         return false;
@@ -496,14 +501,14 @@ bool place_at_range(uint32_t name, float distance, bool done)
 
 bool drop_out(uint32_t name)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     if (!c)
         return false;
     push_undo();
     node_create::Spec removed;
     int at = -1;
-    std::string label = c->name;
+    const std::string label = c->name;
     if (!node_create::drop_out(name, &removed, &at))
         return false;
     hud::get_message("Deleted camera " + label);
@@ -518,7 +523,7 @@ int get_apply(const std::vector<ViewCam>& cameras)
     std::string message;
     for (const ViewCam& c : cameras) {
         g_distances[c.name] = clamp_distance(c.distance);
-        uint32_t name = node_create::name_hash(c.name);
+        const uint32_t name = node_create::name_hash(c.name);
         if (node_create::is_added(name))
             continue;
         if (node_create::name_taken(c.name)) {
@@ -573,12 +578,12 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
         lines->push_back({ax, ay, bx, by, argb, thickness});
     };
     for (const ViewCam& c : get_all()) {
-        V3 d = c.pos - camera_pos;
+        const V3 d = c.pos - camera_pos;
         if (get_dot(d, d) > 12000.0f * 12000.0f)
             continue;
-        bool lit = node_create::name_hash(c.name) == selected;
-        uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
-        float thickness = lit ? 2.0f : 1.25f;
+        const bool lit = node_create::name_hash(c.name) == selected;
+        const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
+        const float thickness = lit ? 2.0f : 1.25f;
         V3 corners[4];
         frustum_corners(c.pos, c.angles, lens.tan_x_, lens.tan_y_, 120.0f, corners);
         for (int i = 0; i < 4; ++i) {
@@ -586,15 +591,15 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
             line(corners[i], corners[(i + 1) % 4], colour, thickness);
         }
         // (its up: a small triangle over the top edge; what it looks at: a line to the target and a cross there)
-        V3 top = (corners[0] + corners[1]) * 0.5f;
+        const V3 top = (corners[0] + corners[1]) * 0.5f;
         float yaw = 0.0f, pitch = 0.0f;
         yaw_pitch_of(c.angles, &yaw, &pitch);
-        V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0f;
+        const V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0f;
         line(corners[0] * 0.75f + corners[1] * 0.25f, top + up, colour, thickness);
         line(corners[1] * 0.75f + corners[0] * 0.25f, top + up, colour, thickness);
-        V3 target = target_of(c.pos, c.angles, c.distance);
+        const V3 target = target_of(c.pos, c.angles, c.distance);
         line(c.pos, target, lit ? 0xC0FFF060 : 0x60FF9030, 1.0f);
-        float s = lit ? 25.0f : 15.0f;
+        const float s = lit ? 25.0f : 15.0f;
         line(target - V3{s, 0, 0}, target + V3{s, 0, 0}, colour, 1.0f);
         line(target - V3{0, s, 0}, target + V3{0, s, 0}, colour, 1.0f);
         line(target - V3{0, 0, s}, target + V3{0, 0, s}, colour, 1.0f);
@@ -603,7 +608,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
 
 void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
 {
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     const ViewCam* c = node ? get_find(all, node) : nullptr;
     if (!c)
         return;
@@ -618,7 +623,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
     if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg",
                          ImGuiSliderFlags_AlwaysClamp)) {
-        float value = pitch_degrees;
+        const float value = pitch_degrees;
         g_queue.emplace_back([node, value] { set_pitch(node, value, false); });
     }
     if (ImGui::IsItemDeactivated())
@@ -627,12 +632,13 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
     if (ImGui::DragFloat("Target##camera", &distance, 5.0f, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
-        float value = distance;
+        const float value = distance;
         g_queue.emplace_back([node, value] { place_at_range(node, value, false); });
     }
     if (ImGui::IsItemDeactivated())
         g_queue.emplace_back([] { g_dragging = false; });
-    V3 target = target_of(c->pos, c->angles, c->distance), offset = position_offset(c->pos, c->angles, c->distance);
+    const V3 target = target_of(c->pos, c->angles, c->distance);
+    const V3 offset = position_offset(c->pos, c->angles, c->distance);
     ImGui::PushFont(small_font);
     ImGui::Text("targetOffset   (%.1f, %.1f, %.1f)", target.x, target.y, target.z);
     ImGui::Text("positionOffset (%.1f, %.1f, %.1f)", offset.x, offset.y, offset.z);
@@ -665,12 +671,12 @@ void list_section(ImFont* mono, ImFont* small_font)
     ImGui::PopFont();
     if (ImGui::Button("New Camera from View"))
         g_queue.emplace_back([] { create_from_view(); });
-    std::vector<ViewCam> all = get_all();
+    const std::vector<ViewCam> all = get_all();
     if (all.empty())
         ImGui::TextDisabled("None yet.");
     ImGui::PushFont(mono);
     for (const ViewCam& c : all) {
-        uint32_t name = node_create::name_hash(c.name);
+        const uint32_t name = node_create::name_hash(c.name);
         ImGui::PushID(static_cast<int>(name));
         ImGui::TextUnformatted(c.name.c_str());
         ImGui::SameLine();

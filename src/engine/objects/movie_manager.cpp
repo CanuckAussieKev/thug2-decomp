@@ -48,7 +48,7 @@ uint32_t get_name_of(Movie* movie) { return movie_key_from_params(movie); }
 // The movie at `index` of the list (lists::Foremost<Movie>::fetch_entry, 0x0055D990; null past the end).
 Movie* movie_at(memory::ListNode* head, int index)
 {
-    memory::ListNode* node = reinterpret_cast<goals::GoalListHead*>(head)->get_node_at(index);
+    const memory::ListNode* node = reinterpret_cast<goals::GoalListHead*>(head)->get_node_at(index);
     return node ? static_cast<Movie*>(node->data) : nullptr;
 }
 void set_game_camera(gfx::ViewCam* camera) { render::choose_camera(0, camera); }
@@ -119,7 +119,7 @@ gfx::ViewCam* CameraAssignment::get_assign(const gfx::ViewCam* other)
 int VideoHub::total_of()
 {
     int count = 0;
-    for (memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next)
+    for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next)
         ++count;
     return count;
 }
@@ -143,7 +143,7 @@ Movie* VideoHub::find_movie(uint32_t name)
         Movie* movie = nullptr;
         if (total_of()) {
             int left = i;
-            for (memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+            for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
                 if (left-- == 0) {
                     movie = static_cast<Movie*>(node->data);
                     break;
@@ -192,7 +192,7 @@ void VideoHub::stop_all()
         Movie* movie = nullptr;
         if (total_of()) {
             int left = i;
-            for (memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+            for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
                 if (left-- == 0) {
                     movie = static_cast<Movie*>(node->data);
                     break;
@@ -214,7 +214,7 @@ void VideoHub::clear_movies()
 // 0x0057A6B0
 void VideoHub::end_movie(Movie* movie)
 {
-    uint32_t end_script = movie->label_;
+    const uint32_t end_script = movie->label_;
     script::Struct* params = spawn_param_table();
     params->append_structure_if_any(movie->args_);
     if (total_of() == 1)
@@ -222,7 +222,7 @@ void VideoHub::end_movie(Movie* movie)
     halt(movie);
     uncouple(&movie->list_link_);
     delete_movie(movie);
-    uint64_t frame = frame_clock::get_draw_frame();
+    const uint64_t frame = frame_clock::get_draw_frame();
     debug::printf("Details have been removed %ld\n", static_cast<uint32_t>(frame), static_cast<uint32_t>(frame >> 32));
     if (end_script)
         script::launch_script(end_script, params, nullptr, false, nullptr);
@@ -257,7 +257,7 @@ bool VideoHub::end_movies(bool skippable)
         next->kickoff(); // started
     if (!ended) {
         // (a walk over the queue that does nothing: compiled-out code)
-        for (memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+        for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
         }
     }
     return true;
@@ -323,7 +323,7 @@ bool VideoHub::kill_movie(uint32_t name)
     Movie* movie = find_movie(name);
     if (!movie)
         return false;
-    Movie* playing = total_of() ? movie_at(&movies_, 0) : nullptr;
+    const Movie* playing = total_of() ? movie_at(&movies_, 0) : nullptr;
     if (movie == playing) {
         end_movies(false);
         return true;
@@ -336,7 +336,7 @@ bool VideoHub::kill_movie(uint32_t name)
 // 0x0057AB60
 bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
 {
-    bool kept_camera = keep_camera_;
+    const bool kept_camera = keep_camera_;
     Movie* movie = nullptr;
     keep_camera_ = false;
     // An object camera animation / skater camera's context: the skater's info (0x00564FC0) and its +0x5C.
@@ -354,12 +354,12 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
         return new CinematicEntry(reinterpret_cast<const uint32_t*>(context));
     };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
-        assets::Resource* asset = assets::g_asset_manager->obtain_loaded_item(name, 0);
+        const assets::Resource* asset = assets::g_asset_manager->obtain_loaded_item(name, 0);
         if (!asset)
             return false; // (keep_camera_ stays cleared)
         while (kill_movie(name)) {
         }
-        int kind = asset->fetch_kind(); // (the original's slot 0)
+        const int kind = asset->fetch_kind(); // (the original's slot 0)
         if (kind == 5) {
             movie = new ObjectAnimMovie;
         } else if (kind == 9) {
@@ -401,7 +401,7 @@ bool VideoHub::tick_frame()
     if (keep_camera_ && frame_clock::get_draw_frame() >= keep_until_) {
         keep_camera_ = false;
         // (a walk over the queue that does nothing: compiled-out code)
-        for (memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+        for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
         }
     }
     if (!total_of())

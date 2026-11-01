@@ -78,7 +78,7 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
 {
     uint32_t mode = 0;
     params->read_hash_value(kCollisionMode, &mode, 0);
-    int type = render::shape_type_from_checksum(mode);
+    const int type = render::shape_type_from_checksum(mode);
     if (!type)
         return;
     uint32_t cls = 0;
@@ -131,7 +131,7 @@ void ContactShapeModule::tick_frame()
     }
     const auto* translation = reinterpret_cast<const float*>(bone + 0x40);
     const maths::Vec4& pos = entity_->at_point_;
-    maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
+    const maths::Vec4 position = {translation[0] + pos.x, translation[1] + pos.y, translation[2] + pos.z, pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
     d3dx_multiply(&orientation, reinterpret_cast<const maths::Mat4*>(bone + 0x10), &entity_->display_matrix_);

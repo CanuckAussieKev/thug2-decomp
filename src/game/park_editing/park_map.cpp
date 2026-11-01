@@ -97,7 +97,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
     if (params->read_sub_struct(kParkEditorGoals, &goals, 0))
         read_goals(goal_editor, goals, 1);
 
-    ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
+    const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
     if (editor->cur_phase_ != kEditLevel)
         rail_editor_flag() = false;
     read_rails(params);
@@ -107,7 +107,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
     params->fetch_int_value(kMaxPlayers, &max_players, 0);
     sole()->builder_->set_player_cap(max_players);
 
-    uint16_t map_size = (flag_bits_ & kMapLoaded) ? map_.shell_size_ : 0;
+    const uint16_t map_size = (flag_bits_ & kMapLoaded) ? map_.shell_size_ : 0;
     if (park_built_)
         write_compressed_map();
     script::Array* map = nullptr;
@@ -131,7 +131,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
     if (save) {
         script::Struct* params = spawn_param_table();
         export_to_struct(params);
-        uint32_t size = structure_buffer_size(params, 100000);
+        const uint32_t size = structure_buffer_size(params, 100000);
         void* buffer = memory::alloc_block(size);
         write_structure(params, buffer, size, 1, 0);
         file::Hdl file = file::unseal(name, "wb");
@@ -143,9 +143,9 @@ void ParkLayout::transfer_park_file(bool save, int slot)
     }
 
     file::Hdl file = file::unseal(name, "rb");
-    uint32_t size = file::get_file_size(file);
+    const uint32_t size = file::get_file_size(file);
     void* buffer = memory::alloc_block(size);
-    int read = file::get_take_in(buffer, static_cast<int>(size), 1, file);
+    const int read = file::get_take_in(buffer, static_cast<int>(size), 1, file);
     file::shut(file);
     script::Struct* params = spawn_param_table();
     // (Not original: decoded within what was read - the original decoded on to the end marker, past a file cut short)
@@ -157,7 +157,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
 
     // A premade park keeps its name.
     if (script::Array* premade = script::fetch_list(kPremadeParksInfo)) {
-        int count = static_cast<int>(premade->extent_);
+        const int count = static_cast<int>(premade->extent_);
         for (int i = 0; i < count; ++i) {
             auto* info = reinterpret_cast<script::Struct*>(premade->fetch_part(i));
             if (!info)
@@ -215,7 +215,7 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
         ParkMapPiece piece;
         if (!read_park_map_piece(in, &piece))
             break;
-        uint32_t checksum = names->fetch_part(piece.name_index);
+        const uint32_t checksum = names->fetch_part(piece.name_index);
         if (checksum == (current ? kDeadPiece : kOldDeadPiece))
             continue;
         PieceGroup* meta = make_placed_piece(find_piece_template(checksum), 0);

@@ -6,7 +6,7 @@ namespace frontend::level_editor::hints {
 
 std::string leading_key_name(const std::string& keys_text)
 {
-    size_t at = keys_text.find(" / ");
+    const size_t at = keys_text.find(" / ");
     return at == std::string::npos ? keys_text : keys_text.substr(0, at);
 }
 
@@ -39,7 +39,7 @@ std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vecto
             continue;
         for (const actions::Chord& c : a.keys) {
             if (c.scancode && c.mods == mods) {
-                std::string text = actions::format_chord(c);
+                const std::string text = actions::format_chord(c);
                 if (!text.empty())
                     out.emplace_back(text, a.name);
                 break;
@@ -54,7 +54,7 @@ std::vector<std::string> get_tokens(const std::string& keys)
     std::vector<std::string> out;
     std::string current;
     for (size_t i = 0; i < keys.size(); ++i) {
-        char c = keys[i];
+        const char c = keys[i];
         // ('+' separates tokens - unless it ends one with nothing after it: "Keypad+", or stands alone)
         if (c == '+' && !current.empty() && i + 1 < keys.size()) {
             out.push_back(current);
@@ -114,7 +114,7 @@ struct Builder {
     std::string get_key(const char* id) const { return leading_key_name(key_of_(id)); }
     void act(const char* id, const std::string& what, const char* prefix = nullptr)
     {
-        std::string k = get_key(id);
+        const std::string k = get_key(id);
         if (k.empty())
             return;
         get_raw(prefix ? std::string(prefix) + "+" + k : k, what);
@@ -124,13 +124,13 @@ struct Builder {
     {
         std::vector<std::string> keys;
         for (const char* id : ids) {
-            std::string k = get_key(id);
+            const std::string k = get_key(id);
             if (!k.empty())
                 keys.push_back(k);
         }
         if (keys.empty())
             return;
-        std::string joined = join_keys(keys);
+        const std::string joined = join_keys(keys);
         get_raw(prefix ? std::string(prefix) + "+" + joined : joined, what);
     }
     // The fly keys ("WASD" - with the right button unless wasd_flies=1).
@@ -326,7 +326,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.act("simulate", "stop simulating");
     // A modifier held: what it changes, then what it's bound to (the registry).
     if (c.mods) {
-        bool selected = c.selection != Selection::kNone;
+        const bool selected = c.selection != Selection::kNone;
         if (c.mods == actions::kAlt) {
             b.get_raw("Alt+LMB", "one piece (any)");
             b.get_raw("Alt+LMB", "drag: orbit");

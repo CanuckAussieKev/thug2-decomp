@@ -70,7 +70,7 @@ void reset_match_tree()
 // Insert the string at window position r into the tree, and record the longest match found on the way.
 void add_match_node(int r)
 {
-    uint8_t* window = pane();
+    const uint8_t* window = pane();
     int* left = get_left();
     int* right = get_right();
     int* parent = current_parent();
@@ -205,7 +205,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
                                                      (longest_run_ref() - (kLiteralRunLimit + 1)));
         }
 
-        bool group_full = (mask & 0x80) != 0;
+        const bool group_full = (mask & 0x80) != 0;
         mask = static_cast<uint8_t>(mask << 1);
         if (group_full) {
             std::memcpy(out, code, code_size);
@@ -216,10 +216,10 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
             mask = 1;
         }
 
-        int last_match = longest_run_ref();
+        const int last_match = longest_run_ref();
         int i = 0;
         for (; i < last_match && size != 0; ++i, --size) {
-            uint8_t c = *in++;
+            const uint8_t c = *in++;
             unlink_list_node(s);
             window[s] = c;
             if (s < kF - 1)
@@ -276,7 +276,7 @@ uint8_t* decode(const uint8_t* in, uint8_t* out, int size)
             if (size == 0)
                 return out;
             --size;
-            uint8_t c = *in++;
+            const uint8_t c = *in++;
             *out++ = c;
             window[r] = c;
             r = (r + 1) & (kN - 1);
@@ -284,13 +284,13 @@ uint8_t* decode(const uint8_t* in, uint8_t* out, int size)
             if (size == 0)
                 return out;
             int position = in[0];
-            int info = in[1];
+            const int info = in[1];
             in += 2;
             size -= 2;
             position |= (info & 0xF0) << 4;
-            int last = (info & 0x0F) + kLiteralRunLimit;
+            const int last = (info & 0x0F) + kLiteralRunLimit;
             for (int k = 0; k <= last; ++k) {
-                uint8_t c = window[(position + k) & (kN - 1)];
+                const uint8_t c = window[(position + k) & (kN - 1)];
                 *out++ = c;
                 window[r] = c;
                 r = (r + 1) & (kN - 1);

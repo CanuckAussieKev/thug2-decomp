@@ -130,7 +130,7 @@ uint32_t AnimCacheEntry::carve(uint32_t key, int16_t bones, int rotation_keys, i
     bones_ = bones;
     kind_tag_ = type;
     key_sizes(type, rotation_key_size_, translation_key_size_);
-    uint32_t granularity = get_cache()->granularity_;
+    const uint32_t granularity = get_cache()->granularity_;
     extent_ = rotation_key_size_ * rotation_keys + translation_key_size_ * translation_keys;
     allocated_ = (extent_ / granularity + 1) * granularity;
     push_anim_heap();
@@ -155,7 +155,7 @@ uint32_t AnimCacheEntry::get_release()
 {
     // (a busy entry: forever, as the original - the flags were read once. Volatile: an empty loop that never ends
     // is undefined behaviour in C++, a compiler may drop it.)
-    volatile uint16_t flags = flag_bits_;
+    const volatile uint16_t flags = flag_bits_;
     while (flags & kBusy) {
     }
     flag_bits_ = flags | kReleasing;
@@ -163,7 +163,7 @@ uint32_t AnimCacheEntry::get_release()
         release_callback_(release_arg_);
         release_callback_ = nullptr;
     }
-    uint32_t allocated = allocated_;
+    const uint32_t allocated = allocated_;
     flag_bits_ &= kReleasing;
     vacant(this);
     free_data(this);
@@ -226,8 +226,8 @@ int16_t AnimCacheEntry::set_slot_time(int index, int16_t time)
     AnimCacheSlot* slot = slots_ptr_[index];
     if (!slot)
         return 0;
-    uint16_t old = slot->clock_;
-    int last = static_cast<int16_t>(old << 1) >> 1; // (15 bits, signed)
+    const uint16_t old = slot->clock_;
+    const int last = static_cast<int16_t>(old << 1) >> 1; // (15 bits, signed)
     slot->clock_ = static_cast<uint16_t>((old & 0x8000) | (static_cast<uint16_t>(time) & 0x7FFF));
     return static_cast<int16_t>(time - last);
 }
@@ -299,7 +299,7 @@ void ClipStore::teardown()
 uint32_t ClipStore::heap_available()
 {
     push_anim_heap();
-    uint32_t available = hub()->obtainable();
+    const uint32_t available = hub()->obtainable();
     pop_heap();
     return available;
 }
@@ -339,7 +339,7 @@ uint32_t ClipStore::fetch_record_bytes(uint32_t /*key*/, int rotation_keys, int 
 {
     uint8_t rotation = 0, translation = 0;
     key_sizes(type, rotation, translation);
-    uint32_t size = rotation * rotation_keys + translation * translation_keys;
+    const uint32_t size = rotation * rotation_keys + translation * translation_keys;
     return (size / granularity_ + 1) * granularity_;
 }
 
@@ -348,7 +348,7 @@ AnimCacheEntry* ClipStore::add_row(uint32_t key, int16_t bones, int rotation_key
 {
     int i = 0;
     for (;; ++i) {
-        AnimCacheEntry* entry = slot_array_[i];
+        const AnimCacheEntry* entry = slot_array_[i];
         if (entry->lookup_key_ == key)
             return nullptr;
         if (entry->kind_tag_ == 0)
@@ -356,7 +356,7 @@ AnimCacheEntry* ClipStore::add_row(uint32_t key, int16_t bones, int rotation_key
         if (i + 1 >= kEntries)
             return nullptr;
     }
-    uint32_t allocated = slot_array_[i]->carve(key, bones, rotation_keys, translation_keys, type);
+    const uint32_t allocated = slot_array_[i]->carve(key, bones, rotation_keys, translation_keys, type);
     taken_count_ += allocated;
     if (!allocated)
         return nullptr;
@@ -369,7 +369,7 @@ uint32_t ClipStore::find_oldest(uint32_t size, uint32_t* users)
 {
     uint32_t key = 0;
     uint32_t oldest = frame_clock::get_time();
-    for (AnimCacheEntry* entry : slot_array_) {
+    for (const AnimCacheEntry* entry : slot_array_) {
         if (entry->allocated_ >= size && entry->last_used_ < oldest && !(entry->flag_bits_ & AnimCacheEntry::kKeep)) {
             *users = entry->flag_bits_ & AnimCacheEntry::kUserMask;
             oldest = entry->last_used_;
@@ -383,7 +383,7 @@ uint32_t ClipStore::find_oldest(uint32_t size, uint32_t* users)
 bool ClipStore::free_oldest(uint32_t max_users, uint32_t size)
 {
     uint32_t users = 999;
-    uint32_t key = find_oldest(size, &users);
+    const uint32_t key = find_oldest(size, &users);
     if (max_users > users && key) {
         drop_out(key);
         return true;
@@ -416,7 +416,7 @@ int ClipStore::add_user(uint32_t key)
 {
     for (AnimCacheEntry* entry : slot_array_) {
         if (entry->lookup_key_ == key) {
-            int slot = entry->new_slot();
+            const int slot = entry->new_slot();
             if (slot == -1)
                 return -1;
             entry->flag_bits_ = with_users(entry->flag_bits_, 1);
@@ -447,7 +447,7 @@ int ClipStore::defragment()
     }
     uint32_t total = 0;
     int with_data = 0;
-    for (AnimCacheEntry* entry : slot_array_) {
+    for (const AnimCacheEntry* entry : slot_array_) {
         if (entry->payload_) {
             total += entry->allocated_;
             ++with_data;
@@ -467,7 +467,7 @@ int ClipStore::defragment()
     // The keys copied out, in order...
     uint8_t* to = copy;
     uint8_t** old = old_data;
-    for (AnimCacheEntry* entry : slot_array_) {
+    for (const AnimCacheEntry* entry : slot_array_) {
         if (entry->payload_) {
             copy_forwards(to, entry->payload_, entry->allocated_);
             to += entry->allocated_;
@@ -498,7 +498,7 @@ int ClipStore::defragment()
         if (entry->kind_tag_) {
             copy_forwards(entry->payload_, copy + offset, entry->allocated_);
             offset += entry->allocated_;
-            int moved = static_cast<int>(entry->payload_ - *old++);
+            const int moved = static_cast<int>(entry->payload_ - *old++);
             entry->rotation_keys_ptr_ += moved;
             entry->translation_keys_ptr_ += moved;
         }

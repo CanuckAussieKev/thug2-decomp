@@ -68,11 +68,11 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kBone, &bone_, 0);
     // (updated after the target: its priority less one)
     EntityHub* manager = object_hub_slot();
-    Entity* target = manager->look_up_entity(target_id_);
+    const Entity* target = manager->look_up_entity(target_id_);
     if (!target)
         target = manager->look_up_entity(entity_label_);
     if (target) {
-        int priority = get_truncated(static_cast<double>(target->list_link_.priority) - 1.0);
+        const int priority = get_truncated(static_cast<double>(target->list_link_.priority) - 1.0);
         manager->set_entity_rank(reinterpret_cast<Entity*>(entity_), priority);
     }
     lock_flags_ &= ~kLockFlagLag;
@@ -86,11 +86,11 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
         lock_flags_ |= kLockFlagLag;
     wobble_seed_ = maths::rnd(0x400);
     // (the masked time is never negative: the original's 2^32 correction for a negative one never applies)
-    int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
+    const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
     auto time = static_cast<double>(t);
     auto step = static_cast<double>(wobble_step());
-    double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
-                    std::sin(time * static_cast<double>(wobble_[0]) * step);
+    const double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
+                          std::sin(time * static_cast<double>(wobble_[0]) * step);
     lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * 0.5 +
                               static_cast<double>(lag_min_));
     if (params->has_entry_named(kAngles))
@@ -118,7 +118,7 @@ void PinnedObjectModule::tick_frame()
     }
     // NOT ORIGINAL: THAW's no_rotate - placed by the lock (the offset turned by the target, as THAW's ferris cars go
     // round with the wheel), its own orientation kept.
-    maths::Mat4 own = entity_->basis_frame_;
+    const maths::Mat4 own = entity_->basis_frame_;
     update_lock();
     entity_->basis_frame_ = own;
     entity_->display_matrix_ = own;

@@ -116,8 +116,8 @@ int Hub::get_squad_points(int team)
 {
     PlayerSearch search;
     int total = 0;
-    PlayerRecord* local = find_own_player_record(this);
-    bool goal_attack = get_game_type() == kNetGoalAttack;
+    const PlayerRecord* local = find_own_player_record(this);
+    const bool goal_attack = get_game_type() == kNetGoalAttack;
     for (PlayerRecord* p = get_first(this, &search); p; p = get_next(this, &search)) {
         if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || p->team_ != team)
             continue;
@@ -131,7 +131,7 @@ int Hub::get_squad_points(int team)
 // 0x005436E0
 int Hub::get_entrant_points(uint32_t id)
 {
-    PlayerRecord* local = find_own_player_record(this);
+    const PlayerRecord* local = find_own_player_record(this);
     if (get_game_type() == kNetGoalAttack && !(local->flag_bits_ & kPlayerObserver))
         return objective_board()->count_cleared_by_player(static_cast<int>(id));
     auto* player = find_player_slot_by_obj(static_cast<uint16_t>(id));
@@ -141,21 +141,21 @@ int Hub::get_entrant_points(uint32_t id)
 // 0x00544780
 void score_broadcast_tick(tasks::Task<Hub>* task)
 {
-    void* elements = frontend::g_ui_element_hub; // (the screen element manager: unused by the lookup)
+    const void* elements = frontend::g_ui_element_hub; // (the screen element manager: unused by the lookup)
     (void)elements;
     Hub* manager = task->content_;
     lists::Foremost list{};
     list.list_link_.make_head();
     PlayerSearch search;
-    bool not_lobby = get_game_type() != kNetLobby;
-    bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
+    const bool not_lobby = get_game_type() != kNetLobby;
+    const bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
     bool scavenger_hunt = false;
     if (get_game_type() == kNetScavengerHunt) {
         goals::Objective* goal = objective_board()->get_goal(kScavenger, 0);
         if (goal && goal->is_operative())
             scavenger_hunt = true; // (the goal is active)
     }
-    uint32_t now = frame_clock::get_time();
+    const uint32_t now = frame_clock::get_time();
     if (now - score_sync_stamp_slot() < kUpdateInterval) {
         list.list_link_.prev->next = list.list_link_.next; // (the head's destructor)
         list.list_link_.next->prev = list.list_link_.prev;
@@ -170,7 +170,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
-            uint32_t name = team < 4 ? kTeamNames[team] : 0;
+            const uint32_t name = team < 4 ? kTeamNames[team] : 0;
             ScoreEntry* entry = new_entry();
             teams[team] = entry;
             std::strcpy(entry->text_, script::fetch_text(name));
@@ -236,7 +236,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     }
 
     // The lines, best first.
-    memory::ListNode* cursor =
+    const memory::ListNode* cursor =
         list.list_link_.next->data == reinterpret_cast<void*>(-1) ? nullptr : list.list_link_.next;
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
     for (int line = 0; entry; ++line) {
@@ -263,7 +263,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         if (!not_lobby) {
             std::sprintf(text, "\\c%d%s", entry->shade_, entry->text_);
         } else if (hill_mode) {
-            int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
+            const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
             if (seconds < 3600)
                 std::sprintf(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix, entry->shade_, entry->text_, entry->shade_,
                              seconds / 60, seconds % 60);
@@ -276,7 +276,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             std::sprintf(text, "%s\\c%d %s \\c%d %d", prefix, entry->shade_, entry->text_, entry->shade_,
                          entry->priority);
         }
-        uint32_t id = line < 8 ? kScoreLines[line] : 0;
+        const uint32_t id = line < 8 ? kScoreLines[line] : 0;
         script::Struct* params = new_params();
         params->append_word(kText, script::kQbvalString, text);
         params->add_component_of_type(kId, script::kQbvalName, id);

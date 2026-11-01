@@ -80,8 +80,8 @@ void BuildPointer::remove_clipboards_too_big()
         Clipboard* next = next_clipboard(clipboard);
         CellBox area = {};
         clipboard_area(clipboard, this, &area);
-        uint8_t park_width = hub()->park_dims().w;
-        uint8_t park_length = hub()->park_dims().l;
+        const uint8_t park_width = hub()->park_dims().w;
+        const uint8_t park_length = hub()->park_dims().l;
         if (area.w > park_width || area.w > park_length || area.l > park_width || area.l > park_length) {
             // Too big to paste in this park: unlinked and deleted.
             if (previous)
@@ -108,7 +108,7 @@ bool BuildPointer::commit_tile_placement()
     if (get_area().h + ground_level_cell(manager, get_area(), nullptr) > 17)
         return false;
     // A restart point needs a free slot of its type.
-    uint32_t type = meta_type(get_meta());
+    const uint32_t type = meta_type(get_meta());
     for (int slot = 1; slot < 9; ++slot) {
         if (type == manager->restart_pieces_[slot - 1]) {
             if (!as_generator(manager->get_generator())->has_free_restart_slot(slot)) {
@@ -164,7 +164,7 @@ bool BuildPointer::add_gap_half()
                 drop_gap_entry(hub(), &gap);
             else
                 gap.halves_placed_ = 0;
-            int n = gap.halves_placed_;
+            const int n = gap.halves_placed_;
             gap.at_point_[n] = meta_footprint(meta);
             gap.quarter_turns_[n] = 0;
             gap.reach_left_[n] = 0;
@@ -260,7 +260,7 @@ bool BuildPointer::change_gap(int turn, int left, int right)
     }
     drop_gap_entry(hub(), gap);
     copy.quarter_turns_[half] &= 3;
-    CellBox park = hub()->park_dims();
+    const CellBox park = hub()->park_dims();
     const CellBox& at = copy.at_point_[half];
     int* m_reach_left = &copy.reach_left_[half];
     int* m_reach_right = &copy.reach_right_[half];
@@ -302,7 +302,7 @@ bool BuildPointer::destroy_selection()
         return false;
     CellBox area = {};
     selected_area(this, &area);
-    bool destroyed = hub()->destroy_metas_in_area_and_rebuild(area, true, true, false);
+    const bool destroyed = hub()->destroy_metas_in_area_and_rebuild(area, true, true, false);
     memory_marker("After Area deletion"); // "After Area deletion"
     selecting() = true;
     area_highlighted_ = false;
@@ -350,21 +350,21 @@ bool BuildPointer::raise_lower(int dir)
             return false;
         clipboard_area(active_copy_buffer(), this, &area);
     }
-    CellBox park = ParkLayout::sole()->park_dims();
+    const CellBox park = ParkLayout::sole()->park_dims();
     if (area.w > park.w || area.l > park.l)
         return false;
     // (the original has the level flag written over the copy's first byte)
     char level = 0;
-    int height = ground_level_cell(hub(), area, &level);
+    const int height = ground_level_cell(hub(), area, &level);
     if (height + dir <= -16)
         return false;
     int top = area.h + height + dir;
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
-    CellBox above = {area.x, area.y, area.z, area.w, 16, area.l};
+    const CellBox above = {area.x, area.y, area.z, area.w, 16, area.l};
     MapListNode* list = metas_within(ParkLayout::sole(), above);
-    for (MapListNode* node = list; node; node = node->following_) {
+    for (const MapListNode* node = list; node; node = node->following_) {
         void* meta = node->get_piece_group();
-        CellBox at = meta_footprint(meta);
+        const CellBox at = meta_footprint(meta);
         if (at.h > area.h)
             top = at.h + height + dir;
         if (at.x < area.x)
@@ -381,7 +381,7 @@ bool BuildPointer::raise_lower(int dir)
         return false;
     if (get_mode() == 5 && active_copy_buffer())
         as_clipboard(active_copy_buffer())->free_all_piece_groups();
-    bool raised = raise_area(area, height, dir, level);
+    const bool raised = raise_area(area, height, dir, level);
     if (get_mode() == 4)
         area_highlighted_ = false;
     return raised;
@@ -408,7 +408,7 @@ void ParkLayout::commission(uint32_t level)
     gap_registry_ = block ? new (block) GapRegistry(this) : nullptr;
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();
-    int theme = (current_flags() & 2) ? map_.shell_size_ : 0;
+    const int theme = (current_flags() & 2) ? map_.shell_size_ : 0;
     builder_->load_pieces(level, theme);
     set_up_abstract_metas();
     set_up_road_mask();
@@ -445,7 +445,7 @@ void ParkLayout::commission(uint32_t level)
             set.entry_total_ = end - index;
             end = index;
             for (int entry = 0; entry < set.entry_total_; ++entry) {
-                int piece = index + entry;
+                const int piece = index + entry;
                 void* meta = nullptr;
                 int at = num_abstract_metas_ - 1;
                 for (auto* node = abstract_metas_; node; node = node->following_, --at) {

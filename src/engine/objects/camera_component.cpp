@@ -54,7 +54,7 @@ void ViewpointModule::seal()
 // 0x0041B8A0
 void ViewpointModule::tick_frame()
 {
-    maths::Vec4 pos = entity_->at_point_;
+    const maths::Vec4 pos = entity_->at_point_;
     maths::Mat4 matrix{};
     matrix = entity_->basis_frame_;
     entity_->display_matrix_ = matrix;

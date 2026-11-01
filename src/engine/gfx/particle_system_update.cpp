@@ -36,13 +36,13 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 // A random number in [-1, 1].
 float random_signed()
 {
-    double v = static_cast<double>(get_rand()) * kRandomUnit;
+    const double v = static_cast<double>(get_rand()) * kRandomUnit;
     return static_cast<float>(v + v - 1.0);
 }
 // min + (max - min) times a random fraction.
 double random_between(float min, float max)
 {
-    double t = static_cast<double>(get_rand()) * kRandomUnit;
+    const double t = static_cast<double>(get_rand()) * kRandomUnit;
     return t * (static_cast<double>(max) - min) + min;
 }
 
@@ -150,10 +150,10 @@ void EmitterInstance::get_emit(int count)
 {
     if (fading_out_)
         return;
-    int first = particle_count_;
-    int total = count + first;
+    const int first = particle_count_;
+    const int total = count + first;
     particle_count_ = total > max_particles_ ? max_particles_ : total;
-    int last = particle_count_;
+    const int last = particle_count_;
     maths::Mat4 m{};
     get_emit_matrix(&m);
     for (int i = first; i < last; ++i) {
@@ -172,24 +172,24 @@ void EmitterInstance::get_emit(int count)
         }
         // the direction: a point on the disc of the spread about the third row
         float a = random_signed(), b = random_signed(), c = random_signed();
-        double spread = static_cast<double>(angle_spread_) * 0.25f * kPi;
-        double x = a * spread;
-        double y = spread * b;
-        double z = 1.0 - (x * x + y * y);
+        const double spread = static_cast<double>(angle_spread_) * 0.25f * kPi;
+        const double x = a * spread;
+        const double y = spread * b;
+        const double z = 1.0 - (x * x + y * y);
         auto zx = static_cast<float>(m.row[2].x * z), zy = static_cast<float>(m.row[2].y * z),
              zz = static_cast<float>(m.row[2].z * z);
         auto yx = static_cast<float>(m.row[1].x * y), yy = static_cast<float>(m.row[1].y * y),
              yz = static_cast<float>(m.row[1].z * y);
         auto xx = static_cast<float>(m.row[0].x * x), xy = static_cast<float>(m.row[0].y * x);
-        double xz = x * m.row[0].z;
+        const double xz = x * m.row[0].z;
         auto sum_y = static_cast<float>(static_cast<double>(xy) + yy);
         auto sum_z = static_cast<float>(xz + yz);
         auto dir_x = static_cast<float>((static_cast<double>(xx) + yx) + zx);
         auto dir_y = static_cast<float>(static_cast<double>(sum_y) + zy);
         auto dir_z = static_cast<float>(static_cast<double>(sum_z) + zz);
-        double speed = random_between(speed_[0], speed_[1]);
-        float velocity[3] = {static_cast<float>(dir_x * speed), static_cast<float>(dir_y * speed),
-                             static_cast<float>(dir_z * speed)};
+        const double speed = random_between(speed_[0], speed_[1]);
+        const float velocity[3] = {static_cast<float>(dir_x * speed), static_cast<float>(dir_y * speed),
+                                   static_cast<float>(dir_z * speed)};
         // the position in the emit box (a new random point with the random spread; on its circle when circular)
         if (random_direction_) {
             a = random_signed();
@@ -197,35 +197,35 @@ void EmitterInstance::get_emit(int count)
             c = random_signed();
         }
         if (circular_emit_) {
-            double f = 1.0 / std::sqrt(static_cast<double>(b) * b + static_cast<double>(a) * a);
+            const double f = 1.0 / std::sqrt(static_cast<double>(b) * b + static_cast<double>(a) * a);
             a = static_cast<float>(std::fabs(a) * f * a);
             b = static_cast<float>(std::fabs(b) * f * b);
         }
-        double ax = static_cast<double>(a) * emit_range_[0];
-        double by = static_cast<double>(b) * emit_range_[1];
-        double cz = static_cast<double>(c) * emit_range_[2];
+        const double ax = static_cast<double>(a) * emit_range_[0];
+        const double by = static_cast<double>(b) * emit_range_[1];
+        const double cz = static_cast<double>(c) * emit_range_[2];
         auto czx = static_cast<float>(m.row[2].x * cz), czy = static_cast<float>(m.row[2].y * cz),
              czz = static_cast<float>(m.row[2].z * cz);
         auto byx = static_cast<float>(m.row[1].x * by), byy = static_cast<float>(m.row[1].y * by);
-        double byz = by * m.row[1].z;
+        const double byz = by * m.row[1].z;
         auto axz = static_cast<float>(m.row[0].z * ax);
         auto px = static_cast<float>(m.row[0].x * ax + byx);
         auto py = static_cast<float>(m.row[0].y * ax + byy);
-        double pz = static_cast<double>(axz) + byz;
+        const double pz = static_cast<double>(axz) + byz;
         auto pos_x = static_cast<float>(static_cast<double>(px) + czx);
         auto pos_y = static_cast<float>(static_cast<double>(py) + czy);
         auto pos_z = static_cast<float>(pz + czz);
         if (fill_path_) { // somewhere along the way it came
             auto dx = static_cast<float>(static_cast<double>(last_pos_.x) - at_point_.x);
             auto dy = static_cast<float>(static_cast<double>(last_pos_.y) - at_point_.y);
-            double dz53 = static_cast<double>(last_pos_.z) - at_point_.z;
+            const double dz53 = static_cast<double>(last_pos_.z) - at_point_.z;
             auto dz = static_cast<float>(dz53);
-            double length = (dz53 * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
+            const double length = (dz53 * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
             if (!(length == 0.0)) {
-                double r = static_cast<double>(get_rand()) * kRandomUnit;
-                double u = (r + r - 1.0 + 1.0) * 0.5;
+                const double r = static_cast<double>(get_rand()) * kRandomUnit;
+                const double u = (r + r - 1.0 + 1.0) * 0.5;
                 auto fx = static_cast<float>(dx * u), fy = static_cast<float>(dy * u);
-                double fz = u * dz;
+                const double fz = u * dz;
                 auto new_z = static_cast<float>(fz + pos_z);
                 pos_x = static_cast<float>(static_cast<double>(fx) + pos_x);
                 pos_y = static_cast<float>(static_cast<double>(fy) + pos_y);
@@ -331,8 +331,8 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
                 }
                 for (int k = 0; k < 4; ++k) { // (the end too, unless it was given)
                     if (params->fetch_int_value(kStartChannels[k], &value, 0)) {
-                        uint8_t byte = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
-                                              : static_cast<uint8_t>(value);
+                        const uint8_t byte = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
+                                                    : static_cast<uint8_t>(value);
                         start[k] = byte;
                         if (!end_colour_set_)
                             end[k] = byte;
@@ -448,11 +448,11 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
 void EmitterInstance::update_ground_brightness(bool movables)
 {
     ProbeRay feeler;
-    float y = at_point_.y;
+    const float y = at_point_.y;
     feeler.line_.start = {at_point_.x, static_cast<float>(static_cast<double>(y) + 1.0), at_point_.z, at_point_.w};
     feeler.line_.end = {at_point_.x, static_cast<float>(static_cast<double>(y) - 4800.0), at_point_.z, at_point_.w};
     if (feeler.get_hit_shape(movables, false)) {
-        double value = feeler.get_hit_vertex_value();
+        const double value = feeler.get_hit_vertex_value();
         brightness_ = static_cast<float>(value + value);
     }
 }
@@ -501,7 +501,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         if (emit_rate_ == 0.0f) { // out of view and not emitting: the particles only age
             for (int i = 0; i < particle_count_; ++i) {
                 FlexibleParticle& p = particle_list_[i];
-                double age = static_cast<double>(time) + p.age;
+                const double age = static_cast<double>(time) + p.age;
                 p.age = static_cast<float>(age);
                 if (age > p.lifetime) {
                     remove_particle(i, true);
@@ -512,9 +512,9 @@ void EmitterInstance::tick_frame(float time, bool skip)
         }
     }
     if (!(emit_rate_ == 0.0f)) {
-        double owed = static_cast<double>(time) + emit_owed_;
+        const double owed = static_cast<double>(time) + emit_owed_;
         emit_owed_ = static_cast<float>(owed);
-        int count = truncate(owed * emit_rate_);
+        const int count = truncate(owed * emit_rate_);
         if (count != 0) {
             emit_owed_ = static_cast<float>(owed - static_cast<double>(count) / emit_rate_);
             get_emit(count);
@@ -549,7 +549,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
             --i;
         }
     }
-    int lod = lod_particle_count(particle_count_);
+    const int lod = lod_particle_count(particle_count_);
     for (int i = 0; i < particle_count_; ++i) { // beyond the LOD count
         if (lod < particle_count_) {
             remove_particle(i, false);
@@ -562,13 +562,16 @@ void EmitterInstance::tick_frame(float time, bool skip)
 // 0x00499EE0
 uint32_t* ModelParticles::lerp_colour(uint32_t* out, const uint8_t* from, const uint8_t* to, float t)
 {
-    double green = static_cast<double>(colour_scale_[1]) * brightness_;
+    const double green = static_cast<double>(colour_scale_[1]) * brightness_;
     auto blue = static_cast<float>(static_cast<double>(colour_scale_[2]) * brightness_);
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(truncate(static_cast<double>(to[k] - from[k]) * t) + from[k]);
     };
-    uint8_t r = lerp(0), g = lerp(1), b = lerp(2), a = lerp(3);
-    double red = static_cast<double>(colour_scale_[0]) * brightness_;
+    const uint8_t r = lerp(0);
+    const uint8_t g = lerp(1);
+    const uint8_t b = lerp(2);
+    const uint8_t a = lerp(3);
+    const double red = static_cast<double>(colour_scale_[0]) * brightness_;
     auto clamp = [](double value) {
         if (value < 0.0)
             value = 0.0;

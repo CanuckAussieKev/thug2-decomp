@@ -269,7 +269,7 @@ struct OrientedBox {
 // Its size along its own axes (the extents times the axes' lengths: a scaled box's size).
 inline V3 box_size(const OrientedBox& box)
 {
-    V3 extent = box.max - box.min;
+    const V3 extent = box.max - box.min;
     float lengths[3];
     for (int i = 0; i < 3; ++i)
         lengths[i] = std::sqrt(get_dot(box.axes[i], box.axes[i]));

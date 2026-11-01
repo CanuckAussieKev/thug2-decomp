@@ -64,7 +64,7 @@ void for_each_sector(lists::KeyMap* table, Body body)
     table->iter_bucket_ = -1;
     table->iter_item_ = nullptr;
     while (table->step_iterator()) {
-        lists::KeyMap::Item* item = table->iter_item_;
+        const lists::KeyMap::Item* item = table->iter_item_;
         if (!item || !item->value)
             break;
         body(item->value);
@@ -121,8 +121,8 @@ int make_collision_file_name(char* out, const char* level)
 // 0x0049CB00
 void* WorldScene::look_up_sector(uint32_t name)
 {
-    lists::KeyMap* table = sectors_;
-    lists::KeyMap::Item* item = &table->buckets_[name & ((1u << table->bits_) - 1)];
+    const lists::KeyMap* table = sectors_;
+    const lists::KeyMap::Item* item = &table->buckets_[name & ((1u << table->bits_) - 1)];
     for (; item; item = item->next) {
         if (item->key == name && item->value)
             return item->value;
@@ -139,7 +139,7 @@ bool WorldScene::remove_scene_sector(void* sector)
         return false;
     }
     if (look_up_sector(sector_key_from_spec(sector)) == sector) {
-        uint32_t name = sector_key_from_spec(sector);
+        const uint32_t name = sector_key_from_spec(sector);
         sectors_->erase_entry(name);
     }
     delete static_cast<WorldCell*>(sector);
@@ -163,20 +163,20 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, Sta
     // fixed up and read whatever the offsets said). Valid files are laid out as before.
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
-    bool valid = collision_format::lay_out_collision(data, size, &header, &layout) &&
-                 collision_format::check_collision_objects(data, header, layout);
+    const bool valid = collision_format::lay_out_collision(data, size, &header, &layout) &&
+                       collision_format::check_collision_objects(data, header, layout);
     if (!valid) {
         debug::printf("a damaged collision file: not loaded\n");
         header.object_count = 0;
     }
     *count = header.object_count;
     *objects = data + collision_format::kHeaderSize;
-    uintptr_t vertices = layout.vertices;
-    uintptr_t vertex_bytes = layout.vertex_bytes;
-    uintptr_t faces = layout.faces;
+    const uintptr_t vertices = layout.vertices;
+    const uintptr_t vertex_bytes = layout.vertex_bytes;
+    const uintptr_t faces = layout.faces;
     uintptr_t buffer = layout.face_buffers;
-    uintptr_t nodes = layout.nodes;
-    uintptr_t face_lists = layout.face_lists;
+    const uintptr_t nodes = layout.nodes;
+    const uintptr_t face_lists = layout.face_lists;
     bool any_vertices = false;
     // the static objects: an array new (the count before them)
     *statics = new StaticCollider[static_cast<unsigned int>(header.object_count)];
@@ -197,9 +197,9 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, Sta
         }
     }
     if (!any_vertices) {
-        maths::Vec4 low = {-100.0f, -100.0f, -100.0f, 1.0f};
+        const maths::Vec4 low = {-100.0f, -100.0f, -100.0f, 1.0f};
         box->append_spot(low);
-        maths::Vec4 high = {100.0f, 100.0f, 100.0f, 1.0f};
+        const maths::Vec4 high = {100.0f, 100.0f, 100.0f, 1.0f};
         box->append_spot(high);
     }
     return true;

@@ -150,11 +150,11 @@ bool is_hex_form(const std::string& name, uint32_t* value)
         return false;
     uint32_t v = 0;
     for (size_t i = 2; i < 10; ++i) {
-        char c = name[i];
-        int d = c >= '0' && c <= '9'   ? c - '0'
-                : c >= 'a' && c <= 'f' ? c - 'a' + 10
-                : c >= 'A' && c <= 'F' ? c - 'A' + 10
-                                       : -1;
+        const char c = name[i];
+        const int d = c >= '0' && c <= '9'   ? c - '0'
+                      : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                      : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                                             : -1;
         if (d < 0)
             return false;
         v = v << 4 | static_cast<uint32_t>(d);
@@ -177,7 +177,7 @@ bool read_triple(const std::string& text, V3* out)
     float v[3];
     size_t at = 0;
     for (int i = 0; i < 3; ++i) {
-        size_t comma = i < 2 ? text.find(',', at) : text.size();
+        const size_t comma = i < 2 ? text.find(',', at) : text.size();
         if (comma == std::string::npos)
             return false;
         if (!read_number(text.substr(at, comma - at), &v[i]))
@@ -397,10 +397,10 @@ std::string clean_text(const std::string& text)
             break;
     }
     // (no spaces at either end)
-    size_t first = out.find_first_not_of(' ');
+    const size_t first = out.find_first_not_of(' ');
     if (first == std::string::npos)
         return "";
-    size_t last = out.find_last_not_of(' ');
+    const size_t last = out.find_last_not_of(' ');
     return out.substr(first, last - first + 1);
 }
 
@@ -424,35 +424,37 @@ OrientedBox box_of(V3 pos, float yaw, V3 size)
 
 bool get_inside(const OrientedBox& box, V3 p)
 {
-    V3 d = p - box.origin;
-    float x = get_dot(d, box.axes[0]), y = get_dot(d, box.axes[1]), z = get_dot(d, box.axes[2]);
+    const V3 d = p - box.origin;
+    const float x = get_dot(d, box.axes[0]);
+    const float y = get_dot(d, box.axes[1]);
+    const float z = get_dot(d, box.axes[2]);
     return x >= box.min.x && x <= box.max.x && y >= box.min.y && y <= box.max.y && z >= box.min.z && z <= box.max.z;
 }
 
 V3 handle_direction(float yaw, int handle)
 {
-    int axis = (handle >> 1) % 3;
-    float sign = (handle & 1) ? 1.0f : -1.0f;
-    V3 unit = axis == 0 ? V3{1.0f, 0.0f, 0.0f} : axis == 1 ? V3{0.0f, 1.0f, 0.0f} : V3{0.0f, 0.0f, 1.0f};
+    const int axis = (handle >> 1) % 3;
+    const float sign = (handle & 1) ? 1.0f : -1.0f;
+    const V3 unit = axis == 0 ? V3{1.0f, 0.0f, 0.0f} : axis == 1 ? V3{0.0f, 1.0f, 0.0f} : V3{0.0f, 0.0f, 1.0f};
     return turn_about_up(unit, yaw) * sign;
 }
 
 V3 handle_point(V3 pos, float yaw, V3 size, int handle)
 {
-    int axis = (handle >> 1) % 3;
-    float half = (axis == 0 ? size.x : axis == 1 ? size.y : size.z) * 0.5f;
+    const int axis = (handle >> 1) % 3;
+    const float half = (axis == 0 ? size.x : axis == 1 ? size.y : size.z) * 0.5f;
     return pos + handle_direction(yaw, handle) * half;
 }
 
 void resize_face(V3 pos, float yaw, V3 size, int handle, float along, V3* new_pos, V3* new_size)
 {
-    int axis = (handle >> 1) % 3;
+    const int axis = (handle >> 1) % 3;
     V3 grown = size;
     float* side = axis == 0 ? &grown.x : axis == 1 ? &grown.y : &grown.z;
-    float before = *side;
+    const float before = *side;
     *side = before + (std::isfinite(along) ? along : 0.0f);
     grown = clamp_size(grown);
-    float change = (axis == 0 ? grown.x : axis == 1 ? grown.y : grown.z) - before;
+    const float change = (axis == 0 ? grown.x : axis == 1 ? grown.y : grown.z) - before;
     *new_size = grown;
     *new_pos = pos + handle_direction(yaw, handle) * (change * 0.5f);
 }
@@ -525,7 +527,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
         // [emit_sound <sound>] Shatter name=<piece> area=5000 variance=1.0 spread=1.5 life=3 bounce=0 scale=0.4
         // vel_x=0 vel_y=60 vel_z=0, Kill name=<piece> - BO_ShatteringGlass's (without its texture swap - the piece's
         // own textures shatter)
-        uint32_t piece = checksum_of(spec.target);
+        const uint32_t piece = checksum_of(spec.target);
         if (!spec.sound.empty()) {
             put_name(&out, get_checksums("PlaySound"));
             put_name(&out, checksum_of(spec.sound));
@@ -568,7 +570,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
         put_name(&out, get_checksums("time"));
         out.push_back(0x07);
         out.push_back(0x1A);
-        float seconds = clamp_seconds(spec.seconds);
+        const float seconds = clamp_seconds(spec.seconds);
         auto bits = std::bit_cast<uint32_t>(seconds);
         get_put4(&out, bits);
         out.push_back(0x01);
@@ -586,7 +588,7 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
         uint32_t value = 0;
         if (name.empty() || is_hex_form(name, &value))
             return;
-        uint32_t checksum = get_checksums(name.c_str());
+        const uint32_t checksum = get_checksums(name.c_str());
         for (const auto& n : names) {
             if (n.first == checksum)
                 return;
@@ -595,7 +597,7 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
     };
     for (const Spec& spec : specs) {
         out.push_back(0x23);
-        std::string script = get_script_name(spec);
+        const std::string script = get_script_name(spec);
         put_name(&out, get_checksums(script.c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = get_body(spec);
@@ -667,7 +669,7 @@ std::string link_record(const Placed& placed)
         std::snprintf(number, sizeof(number), " seconds=%.9g", clamp_seconds(s.seconds));
         out << number;
     }
-    std::string text = clean_text(s.text);
+    const std::string text = clean_text(s.text);
     if (!text.empty())
         out << " text=\"" << text << '"';
     return out.str();
@@ -679,10 +681,10 @@ bool read_record(const std::string& line, Placed* placed)
     Spec& s = placed->spec;
     std::string text = line;
     // text="..." (last: it may hold spaces)
-    size_t quote = text.find(" text=\"");
+    const size_t quote = text.find(" text=\"");
     if (quote != std::string::npos) {
-        size_t start = quote + 7;
-        size_t end = text.find('"', start);
+        const size_t start = quote + 7;
+        const size_t end = text.find('"', start);
         if (end == std::string::npos || text.find_first_not_of(" \t\r", end + 1) != std::string::npos)
             return false;
         s.text = clean_text(text.substr(start, end - start));
@@ -704,10 +706,11 @@ bool read_record(const std::string& line, Placed* placed)
     };
     std::string field;
     while (in >> field) {
-        size_t equals = field.find('=');
+        const size_t equals = field.find('=');
         if (equals == std::string::npos || equals == 0)
             return false;
-        std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+        const std::string key = field.substr(0, equals);
+        const std::string value = field.substr(equals + 1);
         bool ok = true;
         if (key == "pos") {
             ok = once(&have_pos) && read_triple(value, &placed->pos);
@@ -735,19 +738,19 @@ bool read_record(const std::string& line, Placed* placed)
                 size_t comma = value.find(',', at);
                 if (comma == std::string::npos)
                     comma = value.size();
-                std::string flag = value.substr(at, comma - at);
+                const std::string flag = value.substr(at, comma - at);
                 ok = valid_name(flag);
                 s.flags.push_back(flag);
                 at = comma + 1;
             }
         } else if (key == "score") {
             char* end = nullptr;
-            long score = std::strtol(value.c_str(), &end, 10);
+            const long score = std::strtol(value.c_str(), &end, 10);
             ok = once(&have_score) && !value.empty() && end && *end == '\0' && score >= 0 && score <= 1000000;
             s.score = static_cast<int>(score);
         } else if (key == "replaces") {
             char* end = nullptr;
-            unsigned long checksum = std::strtoul(value.c_str(), &end, 16);
+            const unsigned long checksum = std::strtoul(value.c_str(), &end, 16);
             ok = once(&have_replaces) && !value.empty() && value.size() <= 8 && end && *end == '\0';
             s.replaces = static_cast<uint32_t>(checksum);
         } else if (key == "exit") {
@@ -755,7 +758,7 @@ bool read_record(const std::string& line, Placed* placed)
             s.exit = value == "1";
         } else if (key == "strength") {
             char* end = nullptr;
-            long strength = std::strtol(value.c_str(), &end, 10);
+            const long strength = std::strtol(value.c_str(), &end, 10);
             ok = once(&have_strength) && !value.empty() && end && *end == '\0' && strength >= kBoostMin &&
                  strength <= kBoostMax;
             s.strength = static_cast<int>(strength);
@@ -832,7 +835,7 @@ std::string proxim_record(const ProximEdit& e, const char* known)
 bool read_proxim_record(const std::string& line, ProximEdit* edit)
 {
     *edit = ProximEdit{};
-    std::string text = line.substr(0, line.find('#'));
+    const std::string text = line.substr(0, line.find('#'));
     std::istringstream in(text);
     std::string word;
     if (!(in >> word) || word.size() != 8 || word.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
@@ -848,10 +851,11 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
     };
     std::string field;
     while (in >> field) {
-        size_t equals = field.find('=');
+        const size_t equals = field.find('=');
         if (equals == std::string::npos || equals == 0)
             return false;
-        std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+        const std::string key = field.substr(0, equals);
+        const std::string value = field.substr(equals + 1);
         bool ok = true;
         if (key == "enter") {
             ok = once(&have_enter) && valid_name(value);
@@ -907,14 +911,14 @@ std::vector<uint8_t> proxim_body(uint32_t enter, uint32_t exit, uint32_t own)
     // if Inside {enter} else {exit}: 47 <offset> ... 48 <offset> 01 ... 28 01; each offset counted from its own first
     // byte - the if's to the else's body, the else's to the end of line after endif.
     out.push_back(0x47);
-    size_t if_offset = out.size();
+    const size_t if_offset = out.size();
     out.push_back(0);
     out.push_back(0);
     put_name(&out, get_checksums("Inside"));
     out.push_back(0x01);
     branch(enter);
     out.push_back(0x48);
-    size_t else_offset = out.size();
+    const size_t else_offset = out.size();
     out.push_back(0);
     out.push_back(0);
     out.push_back(0x01);
@@ -1108,7 +1112,7 @@ const Calls& calls_of(uint32_t script)
 
 bool is_script(uint32_t name)
 {
-    script::SymbolTableEntry* symbol = name ? script::resolve_symbol(name) : nullptr;
+    const script::SymbolTableEntry* symbol = name ? script::resolve_symbol(name) : nullptr;
     return symbol && symbol->type == script::kQbvalScriptBody;
 }
 
@@ -1121,7 +1125,7 @@ Calls get_walk(uint32_t script)
     static const uint32_t kKills[] = {kill_skater(), get_checksums("SK3_KillSkater_Pungee"),
                                       get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")};
     script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
-    for (uint32_t target : kKills)
+    for (const uint32_t target : kKills)
         level_nodes::for_each_script_call(script, target, &on_kill, nullptr, 0);
     level_nodes::for_each_script_call(script, kill_skater_water(), &on_water, nullptr, 0);
     level_nodes::for_each_script_call(script, get_teleport(), &on_teleport, nullptr, 0);
@@ -1158,7 +1162,7 @@ V3 to_v3(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
 // a trigger's; where its collision is now (a wall moved: read again - RefreshMoved).
 bool read_faces(render::WorldCell* sector, LevelTrigger* t)
 {
-    render::HitMesh* coll = coll_of(sector);
+    const render::HitMesh* coll = coll_of(sector);
     auto* tri = coll ? coll->geometry_ : nullptr;
     if (!tri || !tri->faces_ || !tri->vertices_ || tri->tri_count_ == 0)
         return false;
@@ -1170,7 +1174,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     t->bounds_high_ = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
     bool any = false;
     for (int f = 0; f < tri->tri_count_; ++f) {
-        uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+        const uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         if (!(flags & 0x40)) {
             t->all_trigger_ = false;
             continue;
@@ -1178,7 +1182,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
         V3 p[3];
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
-            uint32_t index = tri->face_vertex(f, k);
+            const uint32_t index = tri->face_vertex(f, k);
             ok = index < tri->num_vertices_;
             if (ok)
                 p[k] = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
@@ -1248,7 +1252,7 @@ void read_level_gaps()
     }
     g_names = &g_level_gap_names;
     script::clear_script_flag_6f_2564();
-    for (uint32_t script : scripts) {
+    for (const uint32_t script : scripts) {
         if (is_script(script))
             level_nodes::for_each_script_call(script, end_gap(), &on_level_gap, nullptr, 0);
     }
@@ -1278,7 +1282,7 @@ void free_box(render::HitMovingBox* box)
 
 void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
 {
-    OrientedBox placed = box_of(pos, yaw, size);
+    const OrientedBox placed = box_of(pos, yaw, size);
     b->coll->box_.min = {placed.min.x, placed.min.y, placed.min.z, 1.0f};
     b->coll->box_.max = {placed.max.x, placed.max.y, placed.max.z, 1.0f};
     b->coll->anchor_point_ = {pos.x, pos.y, pos.z, 1.0f};
@@ -1294,7 +1298,7 @@ void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
 
 void drop_boxes()
 {
-    for (Cuboid& b : g_boxes)
+    for (const Cuboid& b : g_boxes)
         free_box(b.coll);
     g_boxes.clear();
 }
@@ -1320,7 +1324,7 @@ void take_out_gaps(goals::GapTally* checklist, const std::vector<std::pair<std::
     for (const auto& gap : g_gaps_added) {
         if (std::find(wanted.begin(), wanted.end(), gap) != wanted.end() || level_gap(gap.first))
             continue;
-        int index = checklist->find_gap(gap.first.c_str());
+        const int index = checklist->find_gap(gap.first.c_str());
         goals::GapEntry* check = index >= 0 ? checklist->get_gap(index) : nullptr;
         if (check && check->points_held_ == gap.second) {
             check->teardown(1);
@@ -1349,7 +1353,7 @@ void refresh_level()
 {
     for (LevelTrigger& t : g_level) {
         render::WorldCell* sector = scenery::sector_of(t.sector);
-        render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
+        const render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
         auto* tri = coll ? coll->geometry_ : nullptr;
         if (!tri)
             continue;
@@ -1392,7 +1396,7 @@ bool is_sector_enabled(uint32_t checksum)
 // the piece (false: the piece isn't there).
 bool break_place(const Spec& spec, V3* pos, V3* size)
 {
-    uint32_t piece = checksum_of(spec.target);
+    const uint32_t piece = checksum_of(spec.target);
     OrientedBox box{};
     if (!piece || !scenery::cuboid(piece, &box))
         return false;
@@ -1441,7 +1445,7 @@ void sync_proxims()
 {
     if (!have_proxim_manager() || (g_proxims.empty() && g_proxim_originals.empty()))
         return;
-    bool refused = layout::get_refused();
+    const bool refused = layout::get_refused();
     std::vector<ProximScript> scripts;
     std::vector<std::pair<const ProximEdit*, objects::ProximNode*>> live;
     for (const ProximEdit& e : g_proxims) {
@@ -1450,11 +1454,11 @@ void sync_proxims()
             continue;
         auto o = g_proxim_originals.find(e.node);
         if (o == g_proxim_originals.end()) {
-            ProximOriginal original = {p->own_script_,
-                                       p->form_,
-                                       p->radius_,
-                                       {p->box_.min.x, p->box_.min.y, p->box_.min.z},
-                                       {p->box_.max.x, p->box_.max.y, p->box_.max.z}};
+            const ProximOriginal original = {p->own_script_,
+                                             p->form_,
+                                             p->radius_,
+                                             {p->box_.min.x, p->box_.min.y, p->box_.min.z},
+                                             {p->box_.max.x, p->box_.max.y, p->box_.max.z}};
             o = g_proxim_originals.emplace(e.node, original).first;
         }
         if (!e.enter.empty() || !e.exit.empty())
@@ -1463,7 +1467,8 @@ void sync_proxims()
     }
     // (put back: those not edited now)
     for (auto it = g_proxim_originals.begin(); it != g_proxim_originals.end();) {
-        bool kept = std::any_of(live.begin(), live.end(), [&](const auto& l) { return l.first->node == it->first; });
+        const bool kept =
+            std::any_of(live.begin(), live.end(), [&](const auto& l) { return l.first->node == it->first; });
         if (!kept) {
             if (objects::ProximNode* p = objects::proxim_get_node(it->first))
                 put_proxim_back(p, it->second);
@@ -1481,7 +1486,7 @@ void sync_proxims()
         const ProximEdit& e = *l.first;
         objects::ProximNode* p = l.second;
         const ProximOriginal& o = g_proxim_originals[e.node];
-        uint32_t script =
+        const uint32_t script =
             !e.enter.empty() || !e.exit.empty() ? get_checksums(proxim_script_name(e.node).c_str()) : o.script;
         if (p->own_script_ != script)
             p->own_script_ = script;
@@ -1493,7 +1498,8 @@ void sync_proxims()
             p->box_.max = {o.max.x, o.max.y, o.max.z, 1.0f};
         } else if (e.box) {
             // (kProximShapeBox: the world's axes; its middle kept at the node's place plus the offset)
-            V3 centre = V3{p->at_point_.x, p->at_point_.y, p->at_point_.z} + e.offset, half = e.size * 0.5f;
+            const V3 centre = V3{p->at_point_.x, p->at_point_.y, p->at_point_.z} + e.offset;
+            const V3 half = e.size * 0.5f;
             p->form_ = objects::kProximShapeBox;
             p->box_.min = {centre.x - half.x, centre.y - half.y, centre.z - half.z, 1.0f};
             p->box_.max = {centre.x + half.x, centre.y + half.y, centre.z + half.z, 1.0f};
@@ -1546,7 +1552,7 @@ void get_sync()
     }
     // The boxes: one for each alive trigger, where its node is (none in a network session or a career-type mode -
     // Guard).
-    bool network = layout::get_refused();
+    const bool network = layout::get_refused();
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_added.size(); ++k) {
@@ -1592,7 +1598,7 @@ void get_sync()
             ++i;
         }
     }
-    for (uint32_t sector : replaced) {
+    for (const uint32_t sector : replaced) {
         if (turned_off_by_us(sector))
             continue;
         if (!walls::disengaged(sector))
@@ -1702,7 +1708,7 @@ void note_level()
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance()) {
         if (g_level_array && array_loaded(manager, g_level_array))
             return;
-        uint32_t level = manager->get_last_node_array_name();
+        const uint32_t level = manager->get_last_node_array_name();
         if (level && level != g_level_array) {
             if (g_level_array)
                 get_forget();
@@ -1753,8 +1759,8 @@ std::string nearest_restart(V3 pos)
         if (node.family != nodes::Family::kSpawn || node.hidden || !node.has_pos_ ||
             !(node.restart_types_ & (nodes::kPlayer1 | nodes::kMultiplayer)))
             continue;
-        V3 d = node.pos - pos;
-        float distance = get_dot(d, d);
+        const V3 d = node.pos - pos;
+        const float distance = get_dot(d, d);
         if (name.empty() || distance < best) {
             best = distance;
             name = name_for(node.name, script::kept_qb_name(node.name));
@@ -1769,7 +1775,8 @@ bool get_cast(V3 from, V3 to, V3* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* point = &ray->hit_.point.x;
@@ -1781,11 +1788,11 @@ bool ground_below(V3 from, V3* hit) { return get_cast(from, {from.x, from.y - 50
 // Where a new trigger goes: the ground where the view looks (else 600 units ahead), its box standing on it.
 V3 place_ahead(V3 size, float ahead)
 {
-    V3 forward = make_unit(g_forward);
+    const V3 forward = make_unit(g_forward);
     V3 at{};
     if (!get_cast(g_camera, g_camera + forward * 4000.0f, &at))
         at = g_camera + forward * 600.0f;
-    V3 flat = make_unit({forward.x, 0.0f, forward.z});
+    const V3 flat = make_unit({forward.x, 0.0f, forward.z});
     at = at + flat * ahead;
     V3 ground{};
     if (ground_below(at + V3{0.0f, 200.0f, 0.0f}, &ground))
@@ -1883,7 +1890,7 @@ void kickoff()
     g_level_gaps_read = false;
     // (breakables broken while playing: their pieces back to edit - and to break again)
     for (const Spec& spec : g_specs) {
-        uint32_t piece = spec.kind == Kind::kBreak ? checksum_of(spec.target) : 0;
+        const uint32_t piece = spec.kind == Kind::kBreak ? checksum_of(spec.target) : 0;
         render::WorldCell* sector = piece ? scenery::sector_of(piece) : nullptr;
         if (sector && node_alive(spec.name) && !is_sector_enabled(piece) && !scenery::get_hidden(piece)) {
             sector->change_live(true);
@@ -1951,13 +1958,13 @@ void append_script()
 void register_gap_entry()
 {
     Placed start, end;
-    std::string gap = fresh_gap();
+    const std::string gap = fresh_gap();
     start.spec.name = node_create::fresh_name("ed_trigger", name_taken);
     start.spec.kind = Kind::kGapStart;
     start.spec.size = {300.0f, 300.0f, 60.0f};
     start.spec.gap = gap;
     start.spec.flags = {"CANCEL_GROUND"};
-    int number = std::atoi(gap.c_str() + 6);
+    const int number = std::atoi(gap.c_str() + 6);
     char text[32];
     std::snprintf(text, sizeof(text), "Editor Gap %d", number > 0 ? number : 1);
     start.spec.text = text;
@@ -1979,7 +1986,7 @@ void register_gap_entry()
 // (UX9: the gap wizard - level_editor_gap_wizard.h) A gap's two ends as given, their names and GapID fresh.
 void add_gap_pair(Placed start, Placed end)
 {
-    std::string gap = fresh_gap();
+    const std::string gap = fresh_gap();
     start.spec.name = node_create::fresh_name("ed_trigger", name_taken);
     std::string first = start.spec.name;
     end.spec.name = node_create::fresh_name("ed_trigger",
@@ -1999,7 +2006,7 @@ void add_gap_pair(Placed start, Placed end)
 
 void set_spec(const std::string& name, const Spec& spec, bool undo)
 {
-    int i = spec_index(name);
+    const int i = spec_index(name);
     if (i < 0)
         return;
     if (undo)
@@ -2086,15 +2093,15 @@ void make_editable(uint32_t sector)
 
 void select_partner(const std::string& name)
 {
-    int i = spec_index(name);
-    int other = partner(g_specs, i);
+    const int i = spec_index(name);
+    const int other = partner(g_specs, i);
     if (other >= 0)
         g_select = nodes::get_find(hash_of_name(g_specs[other].name));
 }
 
 void select_node_named(uint32_t name)
 {
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     if (index >= 0)
         g_select = index;
 }
@@ -2123,7 +2130,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
     }
     for (const LevelTrigger& l : g_level) {
         V3 axes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
-        V3 grow = {2.0f, 2.0f, 2.0f};
+        const V3 grow = {2.0f, 2.0f, 2.0f};
         float t = 0.0f;
         if (!ray_box(origin, unit_dir, {0.0f, 0.0f, 0.0f}, axes, l.min - grow, l.max + grow, &t) || t >= best)
             continue;
@@ -2180,7 +2187,7 @@ struct Painter {
         V3 c[8];
         box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < 8; ++i) {
-            for (int bit : {1, 2, 4}) {
+            for (const int bit : {1, 2, 4}) {
                 if (!(i & bit))
                     get_seg(c[i], c[i | bit], argb, thickness);
             }
@@ -2198,9 +2205,10 @@ struct Painter {
             return;
         dx /= length;
         dy /= length;
-        float head = std::min(14.0f, length * 0.4f);
-        for (float side : {-1.0f, 1.0f}) {
-            float hx = -dx * 0.9f + side * -dy * 0.45f, hy = -dy * 0.9f + side * dx * 0.45f;
+        const float head = std::min(14.0f, length * 0.4f);
+        for (const float side : {-1.0f, 1.0f}) {
+            const float hx = -dx * 0.9f + side * -dy * 0.45f;
+            const float hy = -dy * 0.9f + side * dx * 0.45f;
             lines->push_back({bx, by, bx + hx * head, by + hy * head, argb, 2.0f});
         }
     }
@@ -2210,8 +2218,9 @@ uint32_t get_dim(uint32_t argb, uint32_t alpha) { return (argb & 0x00FFFFFFu) | 
 
 float distance_to(V3 p, V3 min, V3 max)
 {
-    float dx = std::max({min.x - p.x, 0.0f, p.x - max.x}), dy = std::max({min.y - p.y, 0.0f, p.y - max.y}),
-          dz = std::max({min.z - p.z, 0.0f, p.z - max.z});
+    const float dx = std::max({min.x - p.x, 0.0f, p.x - max.x});
+    const float dy = std::max({min.y - p.y, 0.0f, p.y - max.y});
+    const float dz = std::max({min.z - p.z, 0.0f, p.z - max.z});
     return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
@@ -2292,7 +2301,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     // The level's: nearest first.
     std::vector<std::pair<float, const LevelTrigger*>> near;
     for (const LevelTrigger& l : g_level) {
-        float d = distance_to(camera, l.min, l.max);
+        const float d = distance_to(camera, l.min, l.max);
         if (d <= kDrawRadius)
             near.emplace_back(d, &l);
     }
@@ -2301,9 +2310,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         near.resize(kMaxLevelDrawn);
     for (const auto& n : near) {
         const LevelTrigger& l = *n.second;
-        bool inspected = l.sector == g_inspected;
-        uint32_t colour = l.off ? 0x70909090u : get_dim(kind_colour(l.kind), inspected ? 0xFFu : 0xC0u);
-        float thickness = inspected ? 2.5f : 1.0f;
+        const bool inspected = l.sector == g_inspected;
+        const uint32_t colour = l.off ? 0x70909090u : get_dim(kind_colour(l.kind), inspected ? 0xFFu : 0xC0u);
+        const float thickness = inspected ? 2.5f : 1.0f;
         if (l.face_count_ <= kMaxFacesKept) {
             for (size_t f = 0; f + 2 < l.faces.size(); f += 3) {
                 paint.get_seg(l.faces[f], l.faces[f + 1], colour, thickness);
@@ -2311,11 +2320,11 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
                 paint.get_seg(l.faces[f + 2], l.faces[f], colour, thickness);
             }
         } else {
-            OrientedBox box = {
+            const OrientedBox box = {
                 {0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, l.min, l.max};
             paint.cuboid(box, colour, thickness);
         }
-        V3 centre = (l.min + l.max) * 0.5f;
+        const V3 centre = (l.min + l.max) * 0.5f;
         V3 target{};
         if (!l.off && l.kind == Kind::kJumpTo && get_node_pos(l.calls.target, &target))
             // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
@@ -2330,8 +2339,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     for (const Added& a : g_added) {
         if (!a.alive)
             continue;
-        OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
-        uint32_t colour = a.problem ? 0xC0A0A0A0u : kind_colour(a.spec.kind);
+        const OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
+        const uint32_t colour = a.problem ? 0xC0A0A0A0u : kind_colour(a.spec.kind);
         paint.cuboid(box, colour, 2.0f);
         V3 target{};
         if (!a.problem &&
@@ -2339,7 +2348,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             get_node_pos(checksum_of(a.spec.target), &target))
             paint.get_arrow(a.pos, target, get_dim(colour, a.spec.kind == Kind::kKill ? 0x80 : 0xE0));
         if (a.spec.kind == Kind::kGapStart) {
-            int other = partner(g_specs, spec_index(a.spec.name));
+            const int other = partner(g_specs, spec_index(a.spec.name));
             if (other >= 0) {
                 for (const Added& b : g_added) {
                     if (b.alive && same_text(b.spec.name, g_specs[other].name))
@@ -2379,24 +2388,24 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
         V3 a = s.a, b = s.b;
         if (b.y < a.y)
             std::swap(a, b);
-        V3 d = b - a;
-        float length = std::sqrt(get_dot(d, d));
+        const V3 d = b - a;
+        const float length = std::sqrt(get_dot(d, d));
         if (length < 1.0f)
             continue;
-        V3 dir = d * (1.0f / length);
+        const V3 dir = d * (1.0f / length);
         V3 side = perpendicular(dir, up);
         if (get_dot(side, side) < 1e-4f)
             side = {1.0f, 0.0f, 0.0f};
         side = make_unit(side);
-        uint32_t colour = s.level ? 0xC0B4B4B4u : 0xFFFF9F1Au;
-        int count = std::max(1, std::min(24, static_cast<int>(length / 60.0f)));
+        const uint32_t colour = s.level ? 0xC0B4B4B4u : 0xFFFF9F1Au;
+        const int count = std::max(1, std::min(24, static_cast<int>(length / 60.0f)));
         for (int i = 1; i <= count; ++i) {
-            V3 tip = a + d * (static_cast<float>(i) / static_cast<float>(count + 1)) + up * 4.0f;
+            const V3 tip = a + d * (static_cast<float>(i) / static_cast<float>(count + 1)) + up * 4.0f;
             paint.get_seg(tip - dir * 9.0f + side * 7.0f, tip, colour, 2.0f);
             paint.get_seg(tip - dir * 9.0f - side * 7.0f, tip, colour, 2.0f);
         }
-        V3 middle = (a + b) * 0.5f;
-        V3 m = middle - camera;
+        const V3 middle = (a + b) * 0.5f;
+        const V3 m = middle - camera;
         if (get_dot(m, m) < 1500.0f * 1500.0f) {
             char text[64];
             std::snprintf(text, sizeof(text), "%s+%.1f%%", s.level ? "level speed-up " : "speed-up ", s.rate * 100.0f);
@@ -2405,16 +2414,17 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     }
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    uint32_t selected =
+    const uint32_t selected =
         selected_node >= 0 && selected_node < static_cast<int>(nodes.size()) ? nodes[selected_node].name : 0;
     auto draw_proxim = [&](uint32_t node, bool is_selected) {
-        objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
+        const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
         if (!p)
             return;
-        V3 at = {p->at_point_.x, p->at_point_.y, p->at_point_.z}, d = at - camera;
+        const V3 at = {p->at_point_.x, p->at_point_.y, p->at_point_.z};
+        const V3 d = at - camera;
         if (!is_selected && get_dot(d, d) > 6000.0f * 6000.0f)
             return;
-        uint32_t colour = is_selected ? 0xFFFFB060u : 0xC0F08A3Cu;
+        const uint32_t colour = is_selected ? 0xFFFFB060u : 0xC0F08A3Cu;
         V3 top = at;
         if (p->form_ == objects::kProximShapeSphere && p->radius_ > 0.0f) {
             constexpr int kSides = 32;
@@ -2422,8 +2432,8 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
             for (const auto& plane : axes) {
                 V3 previous = at + plane[0] * p->radius_;
                 for (int i = 1; i <= kSides; ++i) {
-                    float angle = 2.0f * 3.14159265f * static_cast<float>(i) / kSides;
-                    V3 next =
+                    const float angle = 2.0f * 3.14159265f * static_cast<float>(i) / kSides;
+                    const V3 next =
                         at + plane[0] * (p->radius_ * std::cos(angle)) + plane[1] * (p->radius_ * std::sin(angle));
                     paint.get_seg(previous, next, colour, 1.0f);
                     previous = next;
@@ -2431,8 +2441,9 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
             }
             top = at + up * p->radius_;
         } else if (p->form_ == objects::kProximShapeBox) {
-            V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z}, max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
-            OrientedBox box = {
+            const V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z};
+            const V3 max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
+            const OrientedBox box = {
                 {0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, min, max};
             paint.cuboid(box, colour, 1.5f);
             top = {(min.x + max.x) * 0.5f, max.y, (min.z + max.z) * 0.5f};
@@ -2457,25 +2468,25 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     for (const Added& a : g_added) {
         if (!a.alive)
             continue;
-        V3 d = a.pos - camera;
+        const V3 d = a.pos - camera;
         if (get_dot(d, d) > 4000.0f * 4000.0f)
             continue;
         if (a.spec.kind == Kind::kBreak) {
-            uint32_t colour = a.broken ? 0x90A0A0A0u : 0xFFE8F4FFu;
-            V3 half = a.spec.size * 0.5f;
+            const uint32_t colour = a.broken ? 0x90A0A0A0u : 0xFFE8F4FFu;
+            const V3 half = a.spec.size * 0.5f;
             const V3 normals[4] = {{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
             for (const V3& n : normals) {
-                V3 across = {n.z, 0.0f, -n.x};
-                float width = std::fabs(across.x) * half.x + std::fabs(across.z) * half.z;
-                V3 centre = a.pos + V3{n.x * half.x, 0.0f, n.z * half.z};
+                const V3 across = {n.z, 0.0f, -n.x};
+                const float width = std::fabs(across.x) * half.x + std::fabs(across.z) * half.z;
+                const V3 centre = a.pos + V3{n.x * half.x, 0.0f, n.z * half.z};
                 for (int ray = 0; ray < 5; ++ray) {
-                    float angle = 0.6f + static_cast<float>(ray) * 1.26f;
+                    const float angle = 0.6f + static_cast<float>(ray) * 1.26f;
                     V3 previous = centre;
                     for (int step = 1; step <= 3; ++step) {
-                        float reach = static_cast<float>(step) / 3.0f;
-                        float jag = (step & 1) ? 0.18f : -0.12f;
-                        V3 next = centre + across * (std::cos(angle + jag) * width * 0.8f * reach) +
-                                  up * (std::sin(angle + jag) * half.y * 0.8f * reach);
+                        const float reach = static_cast<float>(step) / 3.0f;
+                        const float jag = (step & 1) ? 0.18f : -0.12f;
+                        const V3 next = centre + across * (std::cos(angle + jag) * width * 0.8f * reach) +
+                                        up * (std::sin(angle + jag) * half.y * 0.8f * reach);
                         paint.get_seg(previous, next, colour, 1.5f);
                         previous = next;
                     }
@@ -2485,18 +2496,19 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
                   std::string(a.broken ? "broken (back in the editor)" : "breaks when hit") +
                       (a.spec.sound.empty() ? "" : "  " + a.spec.sound));
         } else if (a.spec.kind == Kind::kBoost) {
-            V3 base = a.pos + up * (a.spec.size.y * 0.5f);
+            const V3 base = a.pos + up * (a.spec.size.y * 0.5f);
             paint.get_arrow(base, base + up * (static_cast<float>(a.spec.strength) * 0.15f), kind_colour(Kind::kBoost));
         }
     }
     for (const LevelTrigger& l : g_level) {
         if (l.kind != Kind::kBoost || l.off)
             continue;
-        V3 centre = (l.min + l.max) * 0.5f, d = centre - camera;
+        const V3 centre = (l.min + l.max) * 0.5f;
+        const V3 d = centre - camera;
         if (get_dot(d, d) > 3000.0f * 3000.0f)
             continue;
-        float strength = l.calls.boost_speed_ > 0.0f ? l.calls.boost_speed_ : 600.0f;
-        V3 base = {centre.x, l.max.y, centre.z};
+        const float strength = l.calls.boost_speed_ > 0.0f ? l.calls.boost_speed_ : 600.0f;
+        const V3 base = {centre.x, l.max.y, centre.z};
         paint.get_arrow(base, base + up * (strength * 0.15f), get_dim(kind_colour(Kind::kBoost), 0xA0));
     }
 }
@@ -2585,10 +2597,10 @@ bool shape_for(uint32_t node, HandleShape* s)
         s->size = a->spec.size;
         return true;
     }
-    objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
+    const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
     if (!p)
         return false;
-    V3 at = {p->at_point_.x, p->at_point_.y, p->at_point_.z};
+    const V3 at = {p->at_point_.x, p->at_point_.y, p->at_point_.z};
     const ProximEdit* e = proxim_of(node);
     if (e && e->shape) {
         s->sphere = !e->box;
@@ -2603,7 +2615,8 @@ bool shape_for(uint32_t node, HandleShape* s)
         return p->radius_ > 0.0f;
     }
     if (p->form_ == objects::kProximShapeBox) {
-        V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z}, max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
+        const V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z};
+        const V3 max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
         s->pos = (min + max) * 0.5f;
         s->size = max - min;
         return s->size.x > 0.0f && s->size.y > 0.0f && s->size.z > 0.0f;
@@ -2620,13 +2633,13 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
     if (!g_last_view.have || !shape_for(g_selected_node, &shape))
         return;
     for (int h = 0; h < 6; ++h) {
-        V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
+        const V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
         float nx = 0.0f, ny = 0.0f, x = 0.0f, y = 0.0f;
         if (!cast_onto(g_last_view.camera, g_last_view.frame, g_last_view.lens, p, g_last_view.near_z_, &nx, &ny))
             continue;
         ndc_to_pixel(g_last_view.viewport, nx, ny, &x, &y);
-        bool lit = h == g_hover_handle || (g_resize.on && h == g_resize.handle);
-        uint32_t colour = lit ? 0xFFFFFF40u : kHandleColours[h >> 1];
+        const bool lit = h == g_hover_handle || (g_resize.on && h == g_resize.handle);
+        const uint32_t colour = lit ? 0xFFFFFF40u : kHandleColours[h >> 1];
         circles->push_back({x, y, lit ? 7.0f : 5.5f, colour, true, 1.0f});
         circles->push_back({x, y, lit ? 7.0f : 5.5f, 0xFF101010u, false, 1.0f});
         g_drawn_handles.push_back({h, x, y});
@@ -2638,7 +2651,7 @@ int handle_at(float x, float y, float radius)
     int best = -1;
     float best_distance = radius;
     for (const DrawnHandle& d : g_drawn_handles) {
-        float distance = std::sqrt((d.x - x) * (d.x - x) + (d.y - y) * (d.y - y));
+        const float distance = std::sqrt((d.x - x) * (d.x - x) + (d.y - y) * (d.y - y));
         if (distance <= best_distance) {
             best_distance = distance;
             best = d.handle;
@@ -2684,8 +2697,8 @@ void rescale(V3 origin, V3 dir, bool snap)
     float along = s - g_resize.s0;
     if (!std::isfinite(along) || std::fabs(along) > 50000.0f)
         return; // (the ray nearly along the axis: far off)
-    int axis = g_resize.handle >> 1;
-    float size0 = axis == 0 ? g_resize.size0.x : axis == 1 ? g_resize.size0.y : g_resize.size0.z;
+    const int axis = g_resize.handle >> 1;
+    const float size0 = axis == 0 ? g_resize.size0.x : axis == 1 ? g_resize.size0.y : g_resize.size0.z;
     if (snap)
         along = snap_to_grid(size0 + along, 25.0f) - size0;
     V3 pos{}, size{};
@@ -2693,7 +2706,7 @@ void rescale(V3 origin, V3 dir, bool snap)
     if (g_resize.proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
         // its middle kept as an offset from the node)
-        objects::ProximNode* p = is_proxim(g_resize.node) ? objects::proxim_get_node(g_resize.node) : nullptr;
+        const objects::ProximNode* p = is_proxim(g_resize.node) ? objects::proxim_get_node(g_resize.node) : nullptr;
         if (!p) {
             g_resize.on = false;
             return;
@@ -2711,7 +2724,7 @@ void rescale(V3 origin, V3 dir, bool snap)
         set_proxim(e, false);
         return;
     }
-    int i = spec_index(g_resize.name);
+    const int i = spec_index(g_resize.name);
     if (i < 0) {
         g_resize.on = false;
         return;
@@ -2765,7 +2778,7 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
 
 void perform(bool editing)
 {
-    bool any = std::any_of(g_added.begin(), g_added.end(), [](const Added& a) { return a.alive && a.spec.exit; });
+    const bool any = std::any_of(g_added.begin(), g_added.end(), [](const Added& a) { return a.alive && a.spec.exit; });
     if (editing || !any || g_boxes.empty() || layout::get_refused()) { // (a network session or a career-type mode)
         g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
@@ -2773,14 +2786,14 @@ void perform(bool editing)
     auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
     if (!skater)
         return;
-    V3 at = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
+    const V3 at = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
     for (const Added& a : g_added) {
         if (!a.alive || !a.spec.exit || a.problem)
             continue;
         uint32_t node = hash_of_name(a.spec.name);
-        bool now = get_inside(box_of(a.pos, a.yaw, a.spec.size), at);
+        const bool now = get_inside(box_of(a.pos, a.yaw, a.spec.size), at);
         auto it = std::find_if(g_seen.begin(), g_seen.end(), [&](const Seen& s) { return s.node == node; });
-        bool known = it != g_seen.end();
+        const bool known = it != g_seen.end();
         if (get_left(known, known && it->inside, now))
             fire_on_leaving(skater, node);
         if (known)
@@ -2812,8 +2825,8 @@ void get_restore(const State& state)
     for (const node_create::Spec& n : node_create::at_hand()) {
         if (!n.owned || spec_index(n.name) < 0)
             continue;
-        bool keep = std::any_of(state.nodes.begin(), state.nodes.end(),
-                                [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
+        const bool keep = std::any_of(state.nodes.begin(), state.nodes.end(),
+                                      [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
         if (!keep) {
             node_create::Spec removed;
             int at = 0;
@@ -2823,7 +2836,7 @@ void get_restore(const State& state)
     g_specs = state.specs;
     std::string message;
     for (const node_create::Spec& n : state.nodes) {
-        uint32_t name = hash_of_name(n.name);
+        const uint32_t name = hash_of_name(n.name);
         if (!node_create::is_added(name)) {
             node_create::fabricate(n, -1, &message);
         } else {
@@ -2855,14 +2868,14 @@ bool take_undo(State* before)
 
 int take_select()
 {
-    int select = g_select;
+    const int select = g_select;
     g_select = -1;
     return select;
 }
 
 uint32_t take_wall_select()
 {
-    uint32_t wall = g_select_wall;
+    const uint32_t wall = g_select_wall;
     g_select_wall = 0;
     return wall;
 }
@@ -2939,7 +2952,7 @@ int apply_proxims(const std::vector<ProximEdit>& edits)
     note_level();
     int found = 0;
     for (const ProximEdit& e : edits) {
-        int i = proxim_index(e.node);
+        const int i = proxim_index(e.node);
         if (i >= 0)
             g_proxims[i] = e;
         else
@@ -2977,14 +2990,14 @@ void add_camera()
     // (the nearest of the editor's cameras - another is chosen in the Inspector)
     float best = 0.0f;
     for (const cameras::ViewCam& camera : cameras::get_all()) {
-        V3 d = camera.pos - p.pos;
-        float distance = d.x * d.x + d.y * d.y + d.z * d.z;
+        const V3 d = camera.pos - p.pos;
+        const float distance = d.x * d.x + d.y * d.y + d.z * d.z;
         if (p.spec.target.empty() || distance < best) {
             best = distance;
             p.spec.target = camera.name;
         }
     }
-    std::string what =
+    const std::string what =
         p.spec.target.empty() ? std::string("a camera trigger") : "a camera trigger (" + p.spec.target + ")";
     fabricate({p}, what.c_str());
 }
@@ -3019,11 +3032,11 @@ void set_breakable(uint32_t sector, bool on)
     }
     // (off: its trigger removed - its collision comes back with it - and the piece shown if a test run broke it)
     note_undo();
-    std::string name = there->spec.name;
+    const std::string name = there->spec.name;
     node_create::Spec removed;
     int at = 0;
     node_create::drop_out(hash_of_name(name), &removed, &at);
-    int i = spec_index(name);
+    const int i = spec_index(name);
     if (i >= 0)
         g_specs.erase(g_specs.begin() + i);
     if (render::WorldCell* piece = scenery::sector_of(sector);
@@ -3035,7 +3048,7 @@ void set_breakable(uint32_t sector, bool on)
 
 const ProximEdit* proxim_of(uint32_t node)
 {
-    int i = proxim_index(node);
+    const int i = proxim_index(node);
     return i >= 0 ? &g_proxims[i] : nullptr;
 }
 
@@ -3048,7 +3061,7 @@ void set_proxim(const ProximEdit& edit, bool undo)
     e.size = {std::max(kProximMin, std::min(kProximMax, e.size.x)),
               std::max(kProximMin, std::min(kProximMax, e.size.y)),
               std::max(kProximMin, std::min(kProximMax, e.size.z))};
-    int i = proxim_index(e.node);
+    const int i = proxim_index(e.node);
     if (!proxim_edited(e)) {
         if (i >= 0)
             g_proxims.erase(g_proxims.begin() + i);

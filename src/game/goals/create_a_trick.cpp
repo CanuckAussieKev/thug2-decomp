@@ -78,7 +78,7 @@ CreateATrick::~CreateATrick()
         other->get_clear();
         script::delete_struct(other);
     }
-    for (script::Array** array : {&spin_list_, &animations_}) {
+    for (script::Array* const* array : {&spin_list_, &animations_}) {
         if (!*array)
             continue;
         script::release_array_storage(*array);
@@ -97,7 +97,7 @@ bool cfunc_get_create_a_trick_params(script::Struct* params, script::Script* scr
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    CreateATrick* trick = created_trick(skater, index);
+    const CreateATrick* trick = created_trick(skater, index);
     get_results(script)->put_sub_struct(kOtherParams, trick->other_params_);
     get_results(script)->append_array_value(kRotationInfo, trick->spin_list_);
     get_results(script)->append_array_value(kAnimationInfo, trick->animations_);
@@ -234,7 +234,7 @@ bool store_int_field(script::Struct* params, int objects::Rider::* field)
 }
 bool fetch_int_value(script::Script* script, int objects::Rider::* field, const char* name)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     get_results(script)->put_int(name, skater->*field);
@@ -252,7 +252,7 @@ bool set_flag(script::Struct* params, bool objects::Rider::* field)
 }
 bool fetch_marker(script::Script* script, bool objects::Rider::* field, const char* name)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     get_results(script)->put_int(name, skater->*field ? 1 : 0);
@@ -309,7 +309,7 @@ bool cfunc_cat_set_flip_skater(script::Struct* params, script::Script*)
 // 0x00552350
 bool cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     get_results(script)->put_int(kFlipSkater180, skater->cat_flip_180_ ? 1 : 0);
@@ -329,7 +329,7 @@ bool cfunc_cat_set_hold_time(script::Struct* params, script::Script*)
 // 0x005523E0
 bool cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     get_results(script)->push_float(kHoldTime, skater->cat_hold_time_);

@@ -103,7 +103,7 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
         return;
     if (manager->get_on_server()) {
         objects::Entity* skater = player_skater(player);
-        bool observer = is_observer(player);
+        const bool observer = is_observer(player);
         manager->evict_player(player, drop);
         if (!observer)
             get_skate()->drop_skater_from_roster(static_cast<objects::Rider*>(skater)); // its skater removed
@@ -201,7 +201,7 @@ bool cfunc_get_players_team(script::Struct* params, script::Script* script)
 {
     int id = 0;
     params->fetch_int_value(kObjId, &id, 0);
-    PlayerRecord* player = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    const PlayerRecord* player = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player)
         script->args_->put_int("team", player_team(player));
     return true;

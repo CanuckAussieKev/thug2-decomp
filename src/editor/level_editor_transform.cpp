@@ -102,7 +102,8 @@ Mode next_mode(Mode mode)
 
 void heading_axes(float yaw, V3 out[3])
 {
-    float c = std::cos(yaw), s = std::sin(yaw);
+    const float c = std::cos(yaw);
+    const float s = std::sin(yaw);
     out[0] = {c, 0.0f, -s};
     out[1] = {0.0f, 1.0f, 0.0f};
     out[2] = {s, 0.0f, c};
@@ -133,7 +134,7 @@ float snap_angle(float radians, float step_degrees)
 {
     if (step_degrees <= 0.0f)
         return radians;
-    float step = step_degrees * kPi / 180.0f;
+    const float step = step_degrees * kPi / 180.0f;
     return std::round(radians / step) * step;
 }
 
@@ -161,7 +162,7 @@ std::vector<V3> get_ring(V3 pivot, float radius, int count)
 {
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
-        float a = 2.0f * kPi * static_cast<float>(i) / static_cast<float>(count);
+        const float a = 2.0f * kPi * static_cast<float>(i) / static_cast<float>(count);
         points.push_back({pivot.x + std::sin(a) * radius, pivot.y, pivot.z + std::cos(a) * radius});
     }
     return points;
@@ -170,8 +171,8 @@ std::vector<V3> get_ring(V3 pivot, float radius, int count)
 std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
 {
     std::vector<Segment> out;
-    V3 p = gizmo.pivot;
-    float length = gizmo.length;
+    const V3 p = gizmo.pivot;
+    const float length = gizmo.length;
     switch (gizmo.mode) {
     case Mode::kShiftBy:
         for (int axis = 0; axis < 3; ++axis)
@@ -184,7 +185,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         std::vector<V3> ring = get_ring(p, length * 0.8f, 48);
         for (size_t i = 0; i < ring.size(); ++i)
             out.push_back({ring[i], ring[(i + 1) % ring.size()], 1, false});
-        V3 forward = {gizmo.axes[2].x, 0.0f, gizmo.axes[2].z};
+        const V3 forward = {gizmo.axes[2].x, 0.0f, gizmo.axes[2].z};
         if (get_dot(forward, forward) > 1e-6f)
             out.push_back({p, p + make_unit(forward) * (length * 0.8f), 1, false});
         break;
@@ -203,7 +204,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
             }
         };
         for (int axis = 0; axis < 3; ++axis) {
-            V3 end = p + gizmo.axes[axis] * length;
+            const V3 end = p + gizmo.axes[axis] * length;
             out.push_back({p, end, axis, false});
             add_cube(end, axis);
         }
@@ -227,7 +228,7 @@ int handle_at(const Gizmo& gizmo, const Projector& project, float x, float y, fl
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by))
             continue;
-        float d = distance_to_segment(x, y, ax, ay, bx, by);
+        const float d = distance_to_segment(x, y, ax, ay, bx, by);
         if (d < best_distance) {
             best_distance = d;
             best = s.handle;
@@ -257,7 +258,7 @@ uint32_t handle_colour(int handle, bool lit)
 bool type_key(Typed* typed, char c)
 {
     if (c >= 'x' && c <= 'z') {
-        int axis = c - 'x';
+        const int axis = c - 'x';
         typed->axis = typed->axis == axis ? -1 : axis;
         typed->axis_changed_ = true;
         return true;
@@ -298,7 +299,7 @@ bool typed_value(const Typed& typed, float* value)
     if (t.empty() || t == "-" || t == "." || t == "-.")
         return false;
     char* end = nullptr;
-    double v = std::strtod(t.c_str(), &end);
+    const double v = std::strtod(t.c_str(), &end);
     if (!end || *end != '\0' || !std::isfinite(v))
         return false;
     *value = static_cast<float>(v);
@@ -308,7 +309,7 @@ bool typed_value(const Typed& typed, float* value)
 std::string describe(Mode mode, const Typed& typed, int default_axis)
 {
     static const char* g_axis[3] = {"X", "Y", "Z"};
-    int axis = typed.axis >= 0 ? typed.axis : default_axis;
+    const int axis = typed.axis >= 0 ? typed.axis : default_axis;
     std::string text;
     switch (mode) {
     case Mode::kShiftBy:
@@ -347,7 +348,7 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
     if (a != b)
         return false;
     step->offset = pos - memory.source_pos_;
-    float turn = get_wrap(heading - memory.source_heading_);
+    const float turn = get_wrap(heading - memory.source_heading_);
     if (kind == Kind::kScenery) {
         step->quarters = get_quarters(turn) & 3;
         step->turn = 0.0f;
@@ -360,9 +361,9 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
 
 V3 repeat_target(V3 from, const RepeatStep& step)
 {
-    V3 offset = step.quarters       ? get_quarter_turn(step.offset, step.quarters)
-                : step.turn != 0.0f ? turn_about_up(step.offset, step.turn)
-                                    : step.offset;
+    const V3 offset = step.quarters       ? get_quarter_turn(step.offset, step.quarters)
+                      : step.turn != 0.0f ? turn_about_up(step.offset, step.turn)
+                                          : step.offset;
     return from + offset;
 }
 

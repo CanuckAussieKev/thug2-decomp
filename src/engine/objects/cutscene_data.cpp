@@ -82,15 +82,15 @@ void quat_to_matrix(float* quat, const float* translation, float* matrix)
     quat[0] = -quat[0];
     quat[1] = -quat[1];
     quat[2] = -quat[2];
-    double xx = static_cast<double>(quat[0]) * quat[0];
-    double yy = static_cast<double>(quat[1]) * quat[1];
-    double zz = static_cast<double>(quat[2]) * quat[2];
-    double zy = static_cast<double>(quat[2]) * quat[1];
-    double zx = static_cast<double>(quat[2]) * quat[0];
-    double yx = static_cast<double>(quat[1]) * quat[0];
+    const double xx = static_cast<double>(quat[0]) * quat[0];
+    const double yy = static_cast<double>(quat[1]) * quat[1];
+    const double zz = static_cast<double>(quat[2]) * quat[2];
+    const double zy = static_cast<double>(quat[2]) * quat[1];
+    const double zx = static_cast<double>(quat[2]) * quat[0];
+    const double yx = static_cast<double>(quat[1]) * quat[0];
     auto wx = static_cast<float>(static_cast<double>(quat[3]) * quat[0]);
     auto wy = static_cast<float>(static_cast<double>(quat[3]) * quat[1]);
-    double wz = static_cast<double>(quat[3]) * quat[2];
+    const double wz = static_cast<double>(quat[3]) * quat[2];
     matrix[0] = static_cast<float>(1.0f - (zz + yy) * 2.0);
     matrix[1] = static_cast<float>((wz + yx) * 2.0);
     matrix[2] = static_cast<float>((zx - wy) * 2.0);
@@ -168,7 +168,7 @@ void add_cutscene_lights()
     script::Array* lights = script::fetch_list(kLights);
     if (!lights)
         return;
-    int count = static_cast<int>(lights->extent_);
+    const int count = static_cast<int>(lights->extent_);
     for (int i = 0; i < count; ++i) {
         script::Struct* node = script::read_sub_struct(lights->fetch_part(static_cast<uint32_t>(i)));
         render::create_light_from_node(node);
@@ -181,7 +181,7 @@ void remove_cutscene_lights()
     script::Array* lights = script::fetch_list(kLights);
     if (!lights)
         return;
-    int count = static_cast<int>(lights->extent_);
+    const int count = static_cast<int>(lights->extent_);
     for (int i = 0; i < count; ++i) {
         script::Struct* node = script::read_sub_struct(lights->fetch_part(static_cast<uint32_t>(i)));
         render::delete_scene_light(level_nodes::get_node_name(node));
@@ -194,7 +194,7 @@ void set_up_cutscene_heaps()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     reinterpret_cast<render::FlexibleParticleManager*&>(render::g_flexible_particle_manager)->create_temp_heap(0x25800);
-    uint32_t available = memory::Hub::get_pull()->obtainable();
+    const uint32_t available = memory::Hub::get_pull()->obtainable();
     memory::Hub::get_pull()->init_cutscene_heaps(available - 0x32000);
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -207,14 +207,14 @@ void CinematicTable::destroy_objects()
         if (entry.active) {
             // the level's object it stood in for gets its model's settings back
             ObjectModule* stand_in = static_cast<GameEntity*>(entry.object)->fetch_module(kModelModuleName);
-            uint32_t id = static_cast<MeshInstanceModule*>(stand_in)->get_linked_entity_name();
+            const uint32_t id = static_cast<MeshInstanceModule*>(stand_in)->get_linked_entity_name();
             auto* original = static_cast<GameEntity*>(find_object(id));
             void* model = model_of(original->fetch_module(kModelModuleName));
             static_cast<render::RenderModel*>(model)->change_bound_sphere(
                 reinterpret_cast<const maths::Vec4*>(lent_2c_));
             static_cast<render::RenderModel*>(model)->conceal(lent_3c_);
             static_cast<render::RenderModel*>(model)->allow_resizing(lent_3d_);
-            uint32_t mine = model_get(model);
+            const uint32_t mine = model_get(model);
             model_set(model, model_get(model_of(stand_in)));
             model_set(model_of(stand_in), mine);
             original->at_point_ = lent_pos_;

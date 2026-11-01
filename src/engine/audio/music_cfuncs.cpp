@@ -216,7 +216,7 @@ bool cfunc_add_music_track(Struct* params, Script*)
     const char* title = nullptr;
     params->fetch_text(0u, &name, 0);
     params->fetch_text(kTrackTitle, &title, 0);
-    int list = params->has_bare_flag(kPlaylist0) ? 0 : 1;
+    const int list = params->has_bare_flag(kPlaylist0) ? 0 : 1;
     if (name)
         audio::queue_track(name, list, title);
     return true;
@@ -227,7 +227,7 @@ bool cfunc_change_track_state(Struct* params, Script*)
 {
     int track = 0;
     params->fetch_int_value(0u, &track, 0);
-    bool off = params->has_bare_flag("Off"); // "Off"
+    const bool off = params->has_bare_flag("Off"); // "Off"
     audio::change_track_state(track, off, 0);
     return true;
 }
@@ -362,7 +362,7 @@ bool cfunc_set_stream_params(Struct* params, Script*)
     float left = 0.0f; // (uninitialised in the original: a channel not given passes on whatever was there)
     float right = 0.0f;
     float vol = 0.0f;
-    bool got_left = params->fetch_float(kVolL, &left, 0);
+    const bool got_left = params->fetch_float(kVolL, &left, 0);
     bool got_volume = params->fetch_float(kVolR, &right, 0) || got_left;
     if (params->fetch_float(kVol, &vol, 0)) {
         left = vol;
@@ -392,7 +392,7 @@ bool cfunc_load_music_header(Struct* params, Script*)
     if (!file)
         return false;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
-    bool loaded = audio::load_music_header(file);
+    const bool loaded = audio::load_music_header(file);
     memory::Hub::get_pull()->leave_heap_scope();
     return loaded;
 }
@@ -403,7 +403,7 @@ bool cfunc_load_stream_header(Struct* params, Script*)
     if (!file)
         return false;
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
-    bool loaded = audio::load_stream_header(file);
+    const bool loaded = audio::load_stream_header(file);
     memory::Hub::get_pull()->leave_heap_scope();
     return loaded;
 }
@@ -429,7 +429,7 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script*)
         volume = new (volume) sound::VolumeRef;
     volume->lanes_[0] = level;
     volume->lanes_[1] = level;
-    bool started = audio::start_pre_loaded_stream(stream, volume, 100.0f, 0);
+    const bool started = audio::start_pre_loaded_stream(stream, volume, 100.0f, 0);
     memory::Hub::get_pull()->dealloc(volume);
     return started;
 }

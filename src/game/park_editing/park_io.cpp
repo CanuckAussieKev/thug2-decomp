@@ -83,14 +83,14 @@ void ParkLayout::set_up_abstract_metas()
             get_footprint_size(source, &pos);
             script::Array* at = nullptr;
             if (desc->fetch_list("pos", &at, 0)) {
-                uint8_t z = byte_at(at, 2);
-                uint8_t y = byte_at(at, 1);
+                const uint8_t z = byte_at(at, 2);
+                const uint8_t y = byte_at(at, 1);
                 pos.x = byte_at(at, 0);
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
             }
             meta->insert_tile(source, &pos, 0, false);
-            uint32_t name = source->sector_; // the source's name
+            const uint32_t name = source->sector_; // the source's name
             piece_names[num_piece_names++] = name;
             meta->flag_bits_ |= PieceGroup::kSector;
             meta->name_key_ = name;
@@ -143,7 +143,7 @@ void ParkLayout::set_up_abstract_metas()
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(pieces->fetch_part(i));
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                uint32_t name = entry->step_to_entry(nullptr)->checksum; // the piece's name comes first
+                const uint32_t name = entry->step_to_entry(nullptr)->checksum; // the piece's name comes first
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1); // its unnamed [x y z (rot)]
                 TileTemplate* source = piece_source(builder_, name);
@@ -151,12 +151,12 @@ void ParkLayout::set_up_abstract_metas()
                 CellBox pos{};
                 pos.assign_value(0, 0, 0, 0, 0, 0);
                 get_footprint_size(source, &pos);
-                uint8_t z = byte_at(at, 2);
-                uint8_t y = byte_at(at, 1);
+                const uint8_t z = byte_at(at, 2);
+                const uint8_t y = byte_at(at, 1);
                 pos.x = byte_at(at, 0);
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
-                int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
+                const int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
                 if (entry->has_bare_flag(0x0CD75A3Fu))
                     unslidable = true;
                 meta->insert_tile(source, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
@@ -168,23 +168,23 @@ void ParkLayout::set_up_abstract_metas()
             for (uint32_t i = 0; i < pieces->extent_; ++i) {
                 auto* entry = reinterpret_cast<script::Struct*>(pieces->fetch_part(i));
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                uint32_t name = entry->step_to_entry(nullptr)->checksum;
+                const uint32_t name = entry->step_to_entry(nullptr)->checksum;
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1);
                 PieceGroup* part = nullptr;
-                for (MapListNode* node = abstract_metas_; node; node = node->following_) {
+                for (const MapListNode* node = abstract_metas_; node; node = node->following_) {
                     if (node->get_piece_group()->get_cast()->name_key_ == name) {
                         part = node->get_piece_group()->get_cast();
                         break;
                     }
                 }
                 CellBox pos = part->cell_footprint_; // (an unknown name crashes, as in the original)
-                uint8_t z = byte_at(at, 2);
-                uint8_t y = byte_at(at, 1);
+                const uint8_t z = byte_at(at, 2);
+                const uint8_t y = byte_at(at, 1);
                 pos.x = byte_at(at, 0);
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
-                int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
+                const int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
                 static_cast<PieceBlueprint*>(meta)->add_meta_piece(part, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
             }
         }
@@ -203,9 +203,9 @@ void ParkLayout::set_up_abstract_metas()
 
     // a single-piece palette metapiece for every piece used that hasn't one
     for (uint32_t i = 0; i < num_piece_names; ++i) {
-        uint32_t name = piece_names[i];
+        const uint32_t name = piece_names[i];
         bool found = false;
-        for (MapListNode* node = abstract_metas_; node; node = node->following_) {
+        for (const MapListNode* node = abstract_metas_; node; node = node->following_) {
             if (node->get_piece_group()->get_cast()->name_key_ == name) {
                 found = true;
                 break;
@@ -237,7 +237,7 @@ void ParkLayout::write_compressed_map()
     CompressedMap& map = map_;
     std::memset(&map, 0, sizeof(map));
     script::Array* save_names = script::fetch_list("Ed_Save_Map"); // the palette names, by save index
-    uint32_t name_total = save_names->extent_;
+    const uint32_t name_total = save_names->extent_;
     map.rev_ = CompressedMap::kVersion;
     map.shell_size_ = static_cast<uint16_t>(shell_size_);
     map.unknown0a_ = 0;
@@ -259,12 +259,12 @@ void ParkLayout::write_compressed_map()
     out.seek(kParkMapRecordsStart);
 
     int num_metas = 0;
-    for (MapListNode* node = concrete_metas_; node; node = node->following_) {
-        PieceGroup* meta = node->get_piece_group()->get_cast();
-        uint32_t flags = meta->flag_bits_;
+    for (const MapListNode* node = concrete_metas_; node; node = node->following_) {
+        const PieceGroup* meta = node->get_piece_group()->get_cast();
+        const uint32_t flags = meta->flag_bits_;
         if ((flags & PieceGroup::kBuiltShell) || (flags & PieceGroup::kFence) || !(flags & PieceGroup::kInPark))
             continue;
-        CellBox at = meta->cell_footprint_;
+        const CellBox at = meta->cell_footprint_;
         uint32_t index = 0;
         while (index < name_total && save_names->fetch_part(index) != meta->name_key_)
             ++index;
@@ -321,7 +321,7 @@ void ParkLayout::write_compressed_map()
 
 void ParkLayout::set_default_bounds()
 {
-    int inner = script::fetch_int_value("ed_default_inner_dim"); // (0x004790C0, asserting)
+    const int inner = script::fetch_int_value("ed_default_inner_dim"); // (0x004790C0, asserting)
     shell_bounds_.assign_value(1, -4, 1, 56, 8, 56);
     auto corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
     build_area_.assign_value(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
@@ -447,9 +447,9 @@ void ParkLayout::clear_compressed_map()
     std::memcpy(map.label_, "Unnamed park", 13); // "Unnamed park"
     std::memset(map.floor_heights_, 0, kFloorSize * kFloorSize);
     map.composite_count_ = 0;
-    uint32_t used = offsetof(CompressedMap, floor_heights_) + kFloorSize * kFloorSize;
+    const uint32_t used = offsetof(CompressedMap, floor_heights_) + kFloorSize * kFloorSize;
     // (the checksum is taken before the size and the gap count are set, as in the original)
-    uint32_t checksum = checksums::generate_crc_from_buffer(&map.extent_, static_cast<int>(used - 4));
+    const uint32_t checksum = checksums::generate_crc_from_buffer(&map.extent_, static_cast<int>(used - 4));
     map.extent_ = static_cast<uint16_t>(used);
     map.checksum_ = checksum;
     map.num_gaps_ = 0;
@@ -460,7 +460,7 @@ void ParkLayout::clear_compressed_map()
 
 bool ParkLayout::register_gap_entry(GapDetails* gap)
 {
-    int tab = gap_registry_->find_empty_gap_slot();
+    const int tab = gap_registry_->find_empty_gap_slot();
     if (tab == -1)
         return false;
     // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
@@ -471,14 +471,14 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         pos.w = 1;
         pos.h = 1;
         pos.l = 1;
-        MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, true));
+        const MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, true));
         if (!metas.list)
             return false;
         PieceGroup* meta = metas.list->get_piece_group()->get_cast();
         meta->flag_bits_ |= PieceGroup::kHighlightable;
         pos = meta->cell_footprint_;
-        CellBox d = meta->cell_footprint_;
-        float length = gap->fetch_magnitude(half);
+        const CellBox d = meta->cell_footprint_;
+        const float length = gap->fetch_magnitude(half);
         const double w = cell_size_x(), l = cell_size_z();
         const double y = static_cast<double>(d.y) * cell_size_y();
         int along_x = 0;
@@ -528,10 +528,10 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
 {
     PieceGroup* halves[2]; // (unset for a half with nothing there, as in the original)
     for (int half = 0; half < gap->halves_placed_; ++half) {
-        MapListHolder metas(get_intersecting_metas(gap->at_point_[half], 0, nullptr, true));
+        const MapListHolder metas(get_intersecting_metas(gap->at_point_[half], 0, nullptr, true));
         if (metas.list->following_)
             print_map_list(metas.list);
-        for (MapListNode* node = metas.list; node; node = node->following_) {
+        for (const MapListNode* node = metas.list; node; node = node->following_) {
             PieceGroup* meta = node->get_piece_group()->get_cast();
             halves[half] = meta;
             const CellBox& d = meta->cell_footprint_;

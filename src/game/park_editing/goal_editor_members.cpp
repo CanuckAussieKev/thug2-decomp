@@ -56,7 +56,7 @@ bool ObjectiveAuthoring::edited_goal_remove_gap(script::Struct* params, script::
 // 0x004E8530
 bool ObjectiveAuthoring::edited_goal_got_gap(script::Struct* params, script::Script* /*script*/)
 {
-    EditedGoal* goal = get_goal_from_params(params);
+    const EditedGoal* goal = get_goal_from_params(params);
     if (!goal)
         return false;
     int gap = 0;
@@ -100,7 +100,7 @@ bool ObjectiveAuthoring::get_key_combo_set(script::Struct* params, script::Scrip
         return true;
     int set = 0;
     params->fetch_int_value(0xEB7D6498, &set, 0);
-    KeyComboSet* entry = goal->find_key_combo_set(set);
+    const KeyComboSet* entry = goal->find_key_combo_set(set);
     if (!entry)
         return false;
     script->args_->put_int(0xEDF5DB70, entry->spin * 180);
@@ -168,7 +168,7 @@ bool ObjectiveAuthoring::removed_created_goal(script::Struct* params, script::Sc
 // 0x004E8950
 bool ObjectiveAuthoring::goal_has_all_positions_set(script::Struct* params, script::Script* /*script*/)
 {
-    EditedGoal* goal = get_goal_from_params(params);
+    const EditedGoal* goal = get_goal_from_params(params);
     return goal && goal->vertex_total_ >= goal->min_points_;
 }
 

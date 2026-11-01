@@ -161,14 +161,14 @@ bool RiderPoseState::in_air_move(script::Struct*, script::Script*) { return in_t
 // 0x00519540
 bool RiderPoseState::has_powerup(script::Struct* params, script::Script*)
 {
-    int index = find_powerup(params);
+    const int index = find_powerup(params);
     return index != -1 && boost_items_[index] != 0;
 }
 
 // 0x005195B0
 bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script*)
 {
-    int index = find_powerup(params);
+    const int index = find_powerup(params);
     if (index != -1)
         boost_items_[index] = 1;
     return true;

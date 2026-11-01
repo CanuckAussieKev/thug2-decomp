@@ -65,7 +65,7 @@ void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
 {
     auto* skater = static_cast<Rider*>(skate_calls::get_home_rider());
     rider_ref_ = skater;
-    uint32_t name = entity_->ident_;
+    const uint32_t name = entity_->ident_;
     seat_ = -1;
     for (int i = 0; i < kSlotCount; ++i) {
         if (name == skater->projectiles_[i].name) {

@@ -54,7 +54,7 @@ bool get_supported(int samples, void* context)
         FAILED(q->d3d->CheckDeviceMultiSampleType(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, q->depth, q->windowed, type,
                                                   &depth_levels)))
         return false;
-    DWORD levels = colour_levels < depth_levels ? colour_levels : depth_levels;
+    const DWORD levels = colour_levels < depth_levels ? colour_levels : depth_levels;
     if (levels == 0)
         return false;
     q->quality = levels;
@@ -100,7 +100,7 @@ float parse_scale(const char* text)
     if (!text || !*text)
         return 1.0f;
     char* end = nullptr;
-    double value = std::strtod(text, &end);
+    const double value = std::strtod(text, &end);
     if (end == text || !std::isfinite(value) || !(value > 0.0))
         return 1.0f;
     auto scale = static_cast<float>(value);
@@ -159,10 +159,10 @@ void create_scene_target()
     if (s_samples <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE)
         return; // (the device was made without: the fallbacks in init_direct_3d)
     IDirect3DDevice9* device = input_port();
-    HRESULT colour =
+    const HRESULT colour =
         device->CreateRenderTarget(pp.BackBufferWidth, pp.BackBufferHeight, pp.BackBufferFormat, pp.MultiSampleType,
                                    pp.MultiSampleQuality, FALSE, &s_scene_colour, nullptr);
-    HRESULT depth =
+    const HRESULT depth =
         device->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
                                           pp.MultiSampleType, pp.MultiSampleQuality, TRUE, &s_scene_depth, nullptr);
     if (FAILED(colour) || FAILED(depth)) {

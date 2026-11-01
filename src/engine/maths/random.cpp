@@ -56,7 +56,7 @@ float signed_spread(float range) { return static_cast<float>(plus_or_minus_exact
 double plus_or_minus_exact(float range)
 {
     // A sample in [0, 10000), centred on 0 and scaled so that +/-5000 maps to +/-range.
-    double centred = static_cast<double>(scale_tool(get_next(stream1()), 10000)) - 5000.0f;
+    const double centred = static_cast<double>(scale_tool(get_next(stream1()), 10000)) - 5000.0f;
     return centred * range * 0.0002f;
 }
 

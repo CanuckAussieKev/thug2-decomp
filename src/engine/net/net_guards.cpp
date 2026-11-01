@@ -58,7 +58,7 @@ bool game_mode_exists(uint32_t mode)
 
 bool script_exists(uint32_t name)
 {
-    script::SymbolTableEntry* symbol = script::resolve_symbol(name);
+    const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
     return symbol && symbol->type == script::kQbvalScriptBody;
 }
 
@@ -101,7 +101,7 @@ void set_lookups(const Lookups& lookups) { s_lookups = lookups; }
 
 int check_received_message(net::InboundMsgCtx* context)
 {
-    uint8_t id = context->type_code_;
+    const uint8_t id = context->type_code_;
     // How many bytes each check reads.
     uint32_t needed = 0;
     switch (id) {
@@ -131,7 +131,7 @@ int check_received_message(net::InboundMsgCtx* context)
     }
     switch (id) {
     case kMsgPrimaryAnim: {
-        uint32_t animation = read32(context, kAnimOffset);
+        const uint32_t animation = read32(context, kAnimOffset);
         if (!s_lookups.animation_loaded_(animation)) {
             log_once(id, animation, "names an animation that isn't loaded, played as default:");
             write32(context, kAnimOffset, kDefaultAnim);
@@ -140,7 +140,7 @@ int check_received_message(net::InboundMsgCtx* context)
     }
     case kMsgCreateSpecialItem:
     case kMsgDestroySpecialItem: {
-        uint32_t details = read32(context, kSpecialItemDetails);
+        const uint32_t details = read32(context, kSpecialItemDetails);
         if (!s_lookups.structure_exists_(details)) {
             log_once(id, details, "names special item details that don't exist, dropped:");
             return kDropped;
@@ -148,12 +148,12 @@ int check_received_message(net::InboundMsgCtx* context)
         return kDispatch;
     }
     case kMsgSessionBrief: {
-        uint32_t level = read32(context, kSessionBriefLevelAt);
+        const uint32_t level = read32(context, kSessionBriefLevelAt);
         if (!s_lookups.script_exists_(level)) {
             log_once(id, level, "names a level we haven't, leaving the server: load script");
             return s_lookups.leave_server_(context);
         }
-        uint32_t mode = read32(context, kSessionBriefGameTypeAt);
+        const uint32_t mode = read32(context, kSessionBriefGameTypeAt);
         if (!s_lookups.game_mode_exists_(mode)) {
             log_once(id, mode, "names a game mode we haven't, played as free skate:");
             write32(context, kSessionBriefGameTypeAt, kNetLobby);
@@ -161,7 +161,7 @@ int check_received_message(net::InboundMsgCtx* context)
         return kDispatch;
     }
     case kMsgStartGame: {
-        uint32_t mode = read32(context, kStartGameTypeAt);
+        const uint32_t mode = read32(context, kStartGameTypeAt);
         if (!s_lookups.game_mode_exists_(mode)) {
             log_once(id, mode, "names a game mode we haven't, played as free skate:");
             write32(context, kStartGameTypeAt, kNetLobby);
@@ -169,7 +169,7 @@ int check_received_message(net::InboundMsgCtx* context)
         return kDispatch;
     }
     case kMsgLevelSwitch: {
-        uint32_t level = read32(context, kChangeLevelLevel);
+        const uint32_t level = read32(context, kChangeLevelLevel);
         if (!s_lookups.script_exists_(level)) {
             log_once(id, level, "names a level we haven't, leaving the server: load script");
             return s_lookups.leave_server_(context);

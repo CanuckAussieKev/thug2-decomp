@@ -159,13 +159,13 @@ void BinkStream::change_loudness(float volume)
 // 0x00452FC0
 void BinkStream::set_volume_and_pan(float left, float right)
 {
-    double sum = static_cast<double>(left) + right;
+    const double sum = static_cast<double>(left) + right;
     loudness_ = static_cast<float>(sum * 0.5f);
     auto total = static_cast<float>(sum);
     int level = 0;
     int pan = 0;
     if (right > 0.0f || left > 0.0f) {
-        float louder = left > right ? left : right;
+        const float louder = left > right ? left : right;
         pan = ftol(static_cast<double>(right) / total * kBinkPanScale);
         if (louder > 0.0f) {
             level = ftol(static_cast<double>(louder) * kBinkVolumeScale);
@@ -259,7 +259,7 @@ Result WadStream::start_read()
         read_done_ = true;
         return 0;
     }
-    DWORD error = GetLastError();
+    const DWORD error = GetLastError();
     if (error == ERROR_IO_PENDING)
         return 0;
     if (static_cast<int>(error) <= 0)

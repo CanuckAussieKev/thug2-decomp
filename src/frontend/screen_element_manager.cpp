@@ -102,7 +102,8 @@ void UiTree::drop_entity_registration(objects::Entity* object)
     element.assign_value(as_element(object));
     if (element && tree_root_.owner_object_ == element.owner_object_) {
         tree_root_.get_release();
-        for (memory::ListNode* node = entities_.next; node->data != reinterpret_cast<void*>(-1); node = node->next) {
+        for (const memory::ListNode* node = entities_.next; node->data != reinterpret_cast<void*>(-1);
+             node = node->next) {
             ElementPtr candidate;
             candidate.assign_value(static_cast<UiWidget*>(node->data));
             if (!candidate->container_ && candidate.owner_object_ != element.owner_object_) {
@@ -235,7 +236,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
             if (!resolving_)
                 return false;
         }
-        bool resolved = resolve_id(path, kChild, out);
+        const bool resolved = resolve_id(path, kChild, out);
         resolving_.get_release();
         if (resolved)
             return true;
@@ -250,7 +251,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
             if (!resolving_)
                 return false;
             id = resolving_->ident_;
-        } else if (objects::Entity* aliased = objects::get_tracker()->look_up_by_nickname(id)) {
+        } else if (const objects::Entity* aliased = objects::get_tracker()->look_up_by_nickname(id)) {
             id = aliased->ident_;
         }
         resolving_.get_release();
@@ -326,7 +327,7 @@ void UiTree::lock_tree(int lock)
 // 0x004AAEE0
 void UiTree::set_paused_all(bool pause)
 {
-    memory::ListNode* node = entities_.next;
+    const memory::ListNode* node = entities_.next;
     if (node->data == reinterpret_cast<void*>(-1))
         return;
     while (node) {
@@ -504,7 +505,7 @@ void UiTree::listener_receive(objects::Signal* event)
     }
     if (!is_pad_type || event->aim_point_ != kSystem)
         return;
-    int controller = objects::event_controller(event);
+    const int controller = objects::event_controller(event);
     for (FocusEntry* entry = manager->focus_lists_[controller]; entry; entry = entry->next)
         entry->tried = false;
     manager->focus_dirty_[controller] = true;
@@ -561,7 +562,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
     int slot = -1, highest_slot = -1;
     bool free = false;
     for (int i = 0; i < kPriorities; ++i) {
-        PriorityEntry& entry = priorities_[i];
+        const PriorityEntry& entry = priorities_[i];
         if (entry.active) {
             if (entry.priority < lowest || lowest == 0) {
                 lowest = entry.priority;
@@ -615,7 +616,7 @@ void UiTree::update_priorities()
         PriorityEntry& entry = priorities_[i];
         if (!entry.active)
             continue;
-        UiWidget* element = nullptr;
+        const UiWidget* element = nullptr;
         {
             ElementPtr found;
             element = fetch_part(&found, entry.id, 0)->owner_object_;

@@ -118,8 +118,8 @@ void get_identity(float* m)
 // The caster with this key (the table's own inlined lookup: the first item with the key and a value).
 ShadowCaster* find_caster(uint32_t key)
 {
-    lists::KeyMap* table = get_casters();
-    lists::KeyMap::Item* item = table->buckets_ + (key & ((1u << table->bits_) - 1));
+    const lists::KeyMap* table = get_casters();
+    const lists::KeyMap::Item* item = table->buckets_ + (key & ((1u << table->bits_) - 1));
     for (; item; item = item->next) {
         if (item->key == key && item->value)
             return static_cast<ShadowCaster*>(item->value);
@@ -153,10 +153,10 @@ void project_shadow_vertices(const float* positions, uint32_t count, const void*
         transform_coord(vertex->projected, positions, matrix);
         // The clip flags from the float bits: a bit for each of x < 0, x > 1, y < 0, y > 1, z (on the sign and
         // the exponent's top bit after adding 1 to the exponent).
-        uint32_t x = std::bit_cast<uint32_t>(vertex->projected[0]) + 0x800000;
-        uint32_t y = std::bit_cast<uint32_t>(vertex->projected[1]) + 0x800000;
-        uint32_t z = std::bit_cast<uint32_t>(vertex->projected[2]) + 0x800000;
-        uint32_t bits = (((y & 0xC0000003) | ((x >> 2) & 0x30000000)) >> 2) | (z & 0xC0000000);
+        const uint32_t x = std::bit_cast<uint32_t>(vertex->projected[0]) + 0x800000;
+        const uint32_t y = std::bit_cast<uint32_t>(vertex->projected[1]) + 0x800000;
+        const uint32_t z = std::bit_cast<uint32_t>(vertex->projected[2]) + 0x800000;
+        const uint32_t bits = (((y & 0xC0000003) | ((x >> 2) & 0x30000000)) >> 2) | (z & 0xC0000000);
         vertex->position[0] = positions[0];
         vertex->position[1] = positions[1];
         vertex->position[2] = positions[2];
@@ -174,10 +174,10 @@ int clip_shadow_triangles(const uint16_t* indices, uint32_t count)
         const ProjectedVertex& v2 = get_projected()[indices[2]];
         if (v0.clip & v1.clip & v2.clip)
             continue; // all outside the same side
-        double facing = (static_cast<double>(v2.projected[1]) - v1.projected[1]) *
-                            (static_cast<double>(v1.projected[0]) - v0.projected[0]) -
-                        (static_cast<double>(v2.projected[0]) - v1.projected[0]) *
-                            (static_cast<double>(v1.projected[1]) - v0.projected[1]);
+        const double facing = (static_cast<double>(v2.projected[1]) - v1.projected[1]) *
+                                  (static_cast<double>(v1.projected[0]) - v0.projected[0]) -
+                              (static_cast<double>(v2.projected[0]) - v1.projected[0]) *
+                                  (static_cast<double>(v1.projected[1]) - v0.projected[1]);
         if (facing > kFacingLimit)
             continue;
         for (const ProjectedVertex* v : {&v0, &v1, &v2}) {
@@ -232,7 +232,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
     MeshRef* const* meshes = list->meshes;
     for (int i = 0; i < list->mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
-        uint32_t flags = mesh->flags;
+        const uint32_t flags = mesh->flags;
         if (!(flags & 0x40) || !(flags & 0x200))
             continue;
         if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh->centre), mesh->radius))
@@ -266,7 +266,7 @@ void render_shadow_textures()
     std::memcpy(saved_projection, projection_matrix(), sizeof(saved_projection));
     IDirect3DSurface9* render_target = nullptr;
     IDirect3DSurface9* depth = nullptr;
-    uint32_t saved_fog = get_fog();
+    const uint32_t saved_fog = get_fog();
     input_port()->GetRenderTarget(0, &render_target);
     input_port()->GetDepthStencilSurface(&depth);
     if (get_fog()) {
@@ -288,7 +288,7 @@ void render_shadow_textures()
         get_identity(identity);
         input_port()->SetTransform(D3DTS_WORLD, reinterpret_cast<const D3DMATRIX*>(identity));
         auto draw_model = [](void* model) {
-            int count = get_mesh_count(model);
+            const int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
                 // (the geom's instance: drawn when active, its mesh list flagged as a shadow meanwhile)
                 Singleton* instance = static_cast<PcGeom*>(get_mesh(model, i))->instance;
@@ -337,7 +337,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     input_port()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
     input_port()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-    uint32_t saved_fog = get_fog();
+    const uint32_t saved_fog = get_fog();
     if (get_fog()) {
         get_fog() = 0;
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
@@ -391,7 +391,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
                 continue;
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
             project_shadow_vertices(mesh->positions, mesh->position_count_, to_texture);
-            int triangles = clip_shadow_triangles(mesh->triangles, mesh->triangle_count_);
+            const int triangles = clip_shadow_triangles(mesh->triangles, mesh->triangle_count_);
             if (triangles) {
                 input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles(),
                                               sizeof(ShadowCornerPoint));

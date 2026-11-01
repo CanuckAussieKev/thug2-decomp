@@ -88,7 +88,7 @@ namespace frontend::level_editor {
 
 V3 make_unit(V3 v)
 {
-    double length =
+    const double length =
         std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z);
     if (length <= 0.0)
         return v;
@@ -97,9 +97,11 @@ V3 make_unit(V3 v)
 
 TickCycle frame_from_yaw_pitch(float yaw, float pitch)
 {
-    double cp = std::cos(static_cast<double>(pitch)), sp = std::sin(static_cast<double>(pitch));
-    double cy = std::cos(static_cast<double>(yaw)), sy = std::sin(static_cast<double>(yaw));
-    V3 forward = {static_cast<float>(sy * cp), static_cast<float>(sp), static_cast<float>(cy * cp)};
+    const double cp = std::cos(static_cast<double>(pitch));
+    const double sp = std::sin(static_cast<double>(pitch));
+    const double cy = std::cos(static_cast<double>(yaw));
+    const double sy = std::sin(static_cast<double>(yaw));
+    const V3 forward = {static_cast<float>(sy * cp), static_cast<float>(sp), static_cast<float>(cy * cp)};
     TickCycle frame{};
     frame.back = forward * -1.0f;
     frame.right = make_unit(perpendicular({0.0f, 1.0f, 0.0f}, frame.back));
@@ -109,16 +111,16 @@ TickCycle frame_from_yaw_pitch(float yaw, float pitch)
 
 void yaw_pitch_from_back(V3 back, float* yaw, float* pitch)
 {
-    V3 forward = make_unit(back * -1.0f);
+    const V3 forward = make_unit(back * -1.0f);
     *yaw = static_cast<float>(std::atan2(static_cast<double>(forward.x), static_cast<double>(forward.z)));
     *pitch = static_cast<float>(std::asin(std::max(-1.0, std::min(1.0, static_cast<double>(forward.y)))));
 }
 
 V3 get_fly(V3 pos, const TickCycle& frame, const FlyInput& input, float distance)
 {
-    V3 forward = frame.back * -1.0f;
-    V3 move = forward * static_cast<float>(input.forward) + frame.right * static_cast<float>(input.right) +
-              V3{0.0f, static_cast<float>(input.up), 0.0f};
+    const V3 forward = frame.back * -1.0f;
+    const V3 move = forward * static_cast<float>(input.forward) + frame.right * static_cast<float>(input.right) +
+                    V3{0.0f, static_cast<float>(input.up), 0.0f};
     if (move.x == 0.0f && move.y == 0.0f && move.z == 0.0f)
         return pos;
     return pos + make_unit(move) * distance;
@@ -137,9 +139,9 @@ void get_look(float* yaw, float* pitch, float dx, float dy, float radians_per_pi
 
 Lens lens_for(float angle_degrees, float aspect)
 {
-    double half_angle = static_cast<double>(angle_degrees) * 0.008726646f;
-    double tan_x = std::tan(half_angle);
-    double height_factor = 1.0 / (static_cast<double>(aspect) * 0.90909094f);
+    const double half_angle = static_cast<double>(angle_degrees) * 0.008726646f;
+    const double tan_x = std::tan(half_angle);
+    const double height_factor = 1.0 / (static_cast<double>(aspect) * 0.90909094f);
     return {static_cast<float>(tan_x), static_cast<float>(tan_x * height_factor)};
 }
 
@@ -165,8 +167,8 @@ V3 ray_direction(const TickCycle& frame, const Lens& lens, float nx, float ny)
 
 bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point, float near_z, float* nx, float* ny)
 {
-    V3 d = point - camera_pos;
-    float depth = -get_dot(d, frame.back);
+    const V3 d = point - camera_pos;
+    const float depth = -get_dot(d, frame.back);
     if (depth < near_z || lens.tan_x_ == 0.0f || lens.tan_y_ == 0.0f)
         return false;
     *nx = get_dot(d, frame.right) / (depth * lens.tan_x_);
@@ -176,16 +178,18 @@ bool cast_onto(V3 camera_pos, const TickCycle& frame, const Lens& lens, V3 point
 
 bool ray_sphere(V3 origin, V3 dir, V3 centre, float radius, float* t)
 {
-    V3 oc = origin - centre;
-    double a = get_dot(dir, dir), b = 2.0 * get_dot(oc, dir),
-           c = static_cast<double>(get_dot(oc, oc)) - radius * radius;
+    const V3 oc = origin - centre;
+    const double a = get_dot(dir, dir);
+    const double b = 2.0 * get_dot(oc, dir);
+    const double c = static_cast<double>(get_dot(oc, oc)) - radius * radius;
     if (a <= 0.0)
         return false;
-    double discriminant = b * b - 4.0 * a * c;
+    const double discriminant = b * b - 4.0 * a * c;
     if (discriminant < 0.0)
         return false;
-    double root = std::sqrt(discriminant);
-    double t_near = (-b - root) / (2.0 * a), t_far = (-b + root) / (2.0 * a);
+    const double root = std::sqrt(discriminant);
+    const double t_near = (-b - root) / (2.0 * a);
+    const double t_far = (-b + root) / (2.0 * a);
     if (t_far < 0.0)
         return false;
     *t = static_cast<float>(t_near >= 0.0 ? t_near : 0.0); // (inside: at once)
@@ -196,10 +200,10 @@ bool ray_box(V3 origin, V3 dir, V3 box_origin, const V3 axes[3], V3 min, V3 max,
 {
     // The ray in the box's own coordinates (p = local.x * axes[0] + local.y * axes[1] + local.z * axes[2] + origin;
     // the rows are taken as orthogonal).
-    V3 rel = origin - box_origin;
+    const V3 rel = origin - box_origin;
     double o[3], d[3];
     for (int i = 0; i < 3; ++i) {
-        double length_squared = get_dot(axes[i], axes[i]);
+        const double length_squared = get_dot(axes[i], axes[i]);
         if (length_squared <= 0.0)
             return false;
         o[i] = get_dot(rel, axes[i]) / length_squared;
@@ -229,10 +233,10 @@ bool ray_box(V3 origin, V3 dir, V3 box_origin, const V3 axes[3], V3 min, V3 max,
 
 bool ray_plane(V3 origin, V3 dir, V3 point, V3 normal, float* t)
 {
-    double denominator = get_dot(dir, normal);
+    const double denominator = get_dot(dir, normal);
     if (std::fabs(denominator) < 1e-9)
         return false;
-    double hit = get_dot(point - origin, normal) / denominator;
+    const double hit = get_dot(point - origin, normal) / denominator;
     if (hit < 0.0)
         return false;
     *t = static_cast<float>(hit);
@@ -242,7 +246,9 @@ bool ray_plane(V3 origin, V3 dir, V3 point, V3 normal, float* t)
 void box_corners(V3 box_origin, const V3 axes[3], V3 min, V3 max, V3 out[8])
 {
     for (int i = 0; i < 8; ++i) {
-        float x = (i & 1) ? max.x : min.x, y = (i & 2) ? max.y : min.y, z = (i & 4) ? max.z : min.z;
+        const float x = (i & 1) ? max.x : min.x;
+        const float y = (i & 2) ? max.y : min.y;
+        const float z = (i & 4) ? max.z : min.z;
         out[i] = box_origin + axes[0] * x + axes[1] * y + axes[2] * z;
     }
 }
@@ -253,13 +259,14 @@ bool box_looks_world_space(V3 min, V3 max, V3 object_pos)
         return p.x >= min.x - margin && p.x <= max.x + margin && p.y >= min.y - margin && p.y <= max.y + margin &&
                p.z >= min.z - margin && p.z <= max.z + margin;
     };
-    float size = std::max({max.x - min.x, max.y - min.y, max.z - min.z, 1.0f});
+    const float size = std::max({max.x - min.x, max.y - min.y, max.z - min.z, 1.0f});
     return holds(object_pos, size * 0.05f) && !holds({0.0f, 0.0f, 0.0f}, size * 0.05f);
 }
 
 V3 turn_about_up(V3 v, float angle)
 {
-    double c = std::cos(static_cast<double>(angle)), s = std::sin(static_cast<double>(angle));
+    const double c = std::cos(static_cast<double>(angle));
+    const double s = std::sin(static_cast<double>(angle));
     return {static_cast<float>(v.x * c + v.z * s), v.y, static_cast<float>(-v.x * s + v.z * c)};
 }
 
@@ -267,9 +274,13 @@ bool closest_on_axis(V3 p, V3 u, V3 o, V3 d, float* s)
 {
     // Minimise |(p + u s) - (o + d t)|: with w = p - o, a = u.u, b = u.d, c = d.d, e = u.w, f = d.w,
     // s = (b f - c e) / (a c - b b).
-    V3 w = p - o;
-    double a = get_dot(u, u), b = get_dot(u, d), c = get_dot(d, d), e = get_dot(u, w), f = get_dot(d, w);
-    double denominator = a * c - b * b;
+    const V3 w = p - o;
+    const double a = get_dot(u, u);
+    const double b = get_dot(u, d);
+    const double c = get_dot(d, d);
+    const double e = get_dot(u, w);
+    const double f = get_dot(d, w);
+    const double denominator = a * c - b * b;
     if (std::fabs(denominator) < 1e-9 * a * c || a <= 0.0 || c <= 0.0)
         return false;
     *s = static_cast<float>((b * f - c * e) / denominator);
@@ -278,10 +289,13 @@ bool closest_on_axis(V3 p, V3 u, V3 o, V3 d, float* s)
 
 float distance_to_segment(float x, float y, float ax, float ay, float bx, float by)
 {
-    double dx = bx - ax, dy = by - ay, length = dx * dx + dy * dy;
+    const double dx = bx - ax;
+    const double dy = by - ay;
+    const double length = dx * dx + dy * dy;
     double t = length > 0.0 ? ((x - ax) * dx + (y - ay) * dy) / length : 0.0;
     t = std::max(0.0, std::min(1.0, t));
-    double px = ax + dx * t - x, py = ay + dy * t - y;
+    const double px = ax + dx * t - x;
+    const double py = ay + dy * t - y;
     return static_cast<float>(std::sqrt(px * px + py * py));
 }
 
@@ -296,7 +310,8 @@ V3 dropped_to(V3 pos, float base, float ground_y) { return {pos.x, pos.y + (grou
 
 bool clip_to_near(V3 camera_pos, const TickCycle& frame, float near_z, V3* a, V3* b)
 {
-    float da = -get_dot(*a - camera_pos, frame.back), db = -get_dot(*b - camera_pos, frame.back);
+    const float da = -get_dot(*a - camera_pos, frame.back);
+    const float db = -get_dot(*b - camera_pos, frame.back);
     if (da < near_z && db < near_z)
         return false;
     if (da < near_z)
@@ -536,7 +551,7 @@ void handle_event(SDL_Event* event)
         break;
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP: {
-        bool down = event->type == SDL_MOUSEBUTTONDOWN;
+        const bool down = event->type == SDL_MOUSEBUTTONDOWN;
         if (!g_relative) {
             g_mouse.x = static_cast<float>(event->button.x);
             g_mouse.y = static_cast<float>(event->button.y);
@@ -558,7 +573,7 @@ void handle_event(SDL_Event* event)
     case SDL_KEYDOWN:
         // While dragging: X / Y / Z, digits, - . and Backspace typed (level_editor_transform.h), Enter applies.
         if (g_dragging) {
-            SDL_Scancode code = event->key.keysym.scancode;
+            const SDL_Scancode code = event->key.keysym.scancode;
             char c = 0;
             if (code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9)
                 c = static_cast<char>('1' + (code - SDL_SCANCODE_1));
@@ -634,7 +649,7 @@ int picked_node_index()
         return -1;
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     if (g_node_index < 0 || g_node_index >= static_cast<int>(nodes.size()) || nodes[g_node_index].name != g_node_name) {
-        int found = g_node_name ? nodes::get_find(g_node_name) : -1;
+        const int found = g_node_name ? nodes::get_find(g_node_name) : -1;
         if (found < 0)
             return -1;
         g_node_index = found;
@@ -650,7 +665,7 @@ bool node_values(node_edit::Values* values)
 // switched off / on as level_editor_walls.h does; 0 when none (or something else is selected).
 uint32_t wall_only()
 {
-    uint32_t wall = view::selected_wall();
+    const uint32_t wall = view::selected_wall();
     return wall && !g_node_selected && !scenery::has_selection() && !get_primary() && walls::is_wall(wall) ? wall : 0;
 }
 bool have_selection() { return get_primary() || scenery::has_selection() || picked_node_index() >= 0 || wall_only(); }
@@ -682,14 +697,14 @@ void note_online_edit(int index)
 // rest of its rail with it, by as much, while Whole rail is on (L).
 void set_selected_node(const node_edit::Values& values)
 {
-    int index = picked_node_index();
+    const int index = picked_node_index();
     if (index < 0)
         return;
     note_online_edit(index);
     node_edit::Values now;
     if (node_edit::is_chain(g_node_name) && node_edit::get_take_in(g_node_name, &now)) {
-        V3 delta = values.pos - now.pos;
-        for (uint32_t name : node_edit::moved_with(g_node_name, g_move_entire_rail)) {
+        const V3 delta = values.pos - now.pos;
+        for (const uint32_t name : node_edit::moved_with(g_node_name, g_move_entire_rail)) {
             node_edit::Values point;
             if (node_edit::get_take_in(name, &point)) {
                 point.pos = point.pos + delta;
@@ -737,23 +752,23 @@ void unpick()
 // (a node selected by itself: its pos=, which is its base too)
 V3 selection_pos()
 {
-    if (objects::GameEntity* object = get_primary())
+    if (const objects::GameEntity* object = get_primary())
         return object_edit::pos_of(object);
     node_edit::Values node;
     if (node_values(&node))
         return node.pos;
-    if (uint32_t wall = wall_only())
+    if (const uint32_t wall = wall_only())
         return walls::get_pivot(wall);
     return scenery::get_pivot();
 }
 float get_selection_base()
 {
-    if (objects::GameEntity* object = get_primary())
+    if (const objects::GameEntity* object = get_primary())
         return object->at_point_.y;
     node_edit::Values node;
     if (node_values(&node))
         return node.pos.y;
-    if (uint32_t wall = wall_only())
+    if (const uint32_t wall = wall_only())
         return walls::get_bottom(wall);
     return scenery::get_bottom();
 }
@@ -765,7 +780,7 @@ V3 target_of()
     node_edit::Values node;
     if (node_values(&node))
         return node.pos;
-    if (uint32_t wall = wall_only())
+    if (const uint32_t wall = wall_only())
         return walls::get_pivot(wall);
     return scenery::get_pivot();
 }
@@ -779,7 +794,7 @@ void place_selection(V3 pos)
         return;
     }
     std::vector<objects::GameEntity*> objects = selected_objects();
-    if (uint32_t wall = objects.empty() ? wall_only() : 0) {
+    if (const uint32_t wall = objects.empty() ? wall_only() : 0) {
         walls::move_to(wall, pos);
         return;
     }
@@ -788,7 +803,7 @@ void place_selection(V3 pos)
         follow_scenery();
         return;
     }
-    V3 delta = pos - object_edit::pos_of(objects.front());
+    const V3 delta = pos - object_edit::pos_of(objects.front());
     for (objects::GameEntity* object : objects)
         object_edit::get_place(object, object_edit::pos_of(object) + delta);
 }
@@ -796,7 +811,7 @@ void place_selection(V3 pos)
 // place (the Centre pivot - level_editor_transform.h).
 V3 selection_centre()
 {
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     V3 min = {}, max = {};
     bool have = false;
     OrientedBox box{};
@@ -814,7 +829,7 @@ V3 selection_centre()
     }
     if (picked_node_index() >= 0 || wall_only())
         return selection_pos();
-    for (uint32_t checksum : scenery::get_selection()) {
+    for (const uint32_t checksum : scenery::get_selection()) {
         V3 a{}, b{};
         if (scenery::cuboid(checksum, &box)) {
             bounds_of(box, &a, &b);
@@ -830,8 +845,8 @@ void turn_objects_by(const std::vector<objects::GameEntity*>& objects, float rad
 {
     if (objects.empty() || radians == 0.0f)
         return;
-    xform::Pivot pivot = xform::at_hand().pivot;
-    V3 base = object_edit::pos_of(objects.front());
+    const xform::Pivot pivot = xform::at_hand().pivot;
+    const V3 base = object_edit::pos_of(objects.front());
     for (objects::GameEntity* object : objects)
         object_edit::turn_about(object,
                                 pivot == xform::Pivot::kOwn      ? object_edit::pos_of(object)
@@ -851,8 +866,8 @@ void turn_selection(int notches)
         set_selected_node(node);
         return;
     }
-    std::vector<objects::GameEntity*> objects = selected_objects();
-    if (uint32_t wall = objects.empty() ? wall_only() : 0) {
+    const std::vector<objects::GameEntity*> objects = selected_objects();
+    if (const uint32_t wall = objects.empty() ? wall_only() : 0) {
         walls::get_turn(wall, notches);
         walls::finalise();
         return;
@@ -963,15 +978,15 @@ constexpr size_t kMaxUndo = 64;
 UndoStep get_snapshot()
 {
     UndoStep step;
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     if (picked_node_index() >= 0) {
         step.kind = UndoStep::Kind::kNodes;
         // (a rail point: the points that move with it too)
-        std::vector<uint32_t> names = node_edit::moved_with(g_node_name, g_move_entire_rail);
-        for (uint32_t name : names)
+        const std::vector<uint32_t> names = node_edit::moved_with(g_node_name, g_move_entire_rail);
+        for (const uint32_t name : names)
             node_edit::note_origin(name);
         step.nodes = node_edit::get_capture(names, node_edit::get_take_in);
-    } else if (uint32_t wall = objects.empty() ? wall_only() : 0) {
+    } else if (const uint32_t wall = objects.empty() ? wall_only() : 0) {
         step.kind = UndoStep::Kind::kWalls;
         step.wall = wall;
         step.walls = walls::store_away({wall});
@@ -999,7 +1014,7 @@ UndoStep get_snapshot()
 void follow_scenery()
 {
     carry::get_follow([](uint32_t name) {
-        int index = nodes::get_find(name);
+        const int index = nodes::get_find(name);
         if (index >= 0)
             note_online_edit(index);
     });
@@ -1088,12 +1103,12 @@ bool scale_objects(const std::vector<objects::GameEntity*>& objects, V3 factor, 
             for (int a = 0; a < 3; ++a) {
                 if (along[a] == 1.0f)
                     continue;
-                int axis = scale_tool::nearest_axis(rows, a);
+                const int axis = scale_tool::nearest_axis(rows, a);
                 (axis == 0 ? local.x : axis == 1 ? local.y : local.z) = along[a];
             }
         }
-        V3 now = scale_tool::get_object_scale(object);
-        V3 allowed = scale_tool::allowed_factor(local, {now}, {scale_tool::object_limit(object)}, uniform);
+        const V3 now = scale_tool::get_object_scale(object);
+        const V3 allowed = scale_tool::allowed_factor(local, {now}, {scale_tool::object_limit(object)}, uniform);
         if (is_unit_scale(allowed))
             continue;
         if (scale_tool::set_object_scale(object, per_axis(now, allowed)))
@@ -1122,9 +1137,9 @@ bool scale_selection_by(V3 factor, bool uniform)
         hud::get_message("Object has no model to scale");
         return false;
     }
-    UndoStep before = get_snapshot();
-    bool changed = objects.empty() ? !is_unit_scale(scenery::scale_selection(factor, uniform))
-                                   : scale_objects(objects, factor, uniform);
+    const UndoStep before = get_snapshot();
+    const bool changed = objects.empty() ? !is_unit_scale(scenery::scale_selection(factor, uniform))
+                                         : scale_objects(objects, factor, uniform);
     if (!changed) {
         hud::get_message("Scale limit reached");
         return false;
@@ -1147,9 +1162,9 @@ V3 selection_scale_now()
 // The selection scaled to `scale` (along its own axes, as selection_scale_now): the Inspector's fields.
 void scale_selection_to(V3 scale)
 {
-    V3 now = selection_scale_now();
-    V3 local = {scale_tool::confine(scale.x) / now.x, scale_tool::confine(scale.y) / now.y,
-                scale_tool::confine(scale.z) / now.z};
+    const V3 now = selection_scale_now();
+    const V3 local = {scale_tool::confine(scale.x) / now.x, scale_tool::confine(scale.y) / now.y,
+                      scale_tool::confine(scale.z) / now.z};
     if (get_primary()) {
         for (objects::GameEntity* object : selected_objects()) {
             if (scale_tool::object_scalable(object))
@@ -1175,10 +1190,10 @@ void end_change()
     if (!g_has_pending)
         return;
     g_has_pending = false;
-    V3 now = selection_pos();
-    bool changed = g_pending.kind == UndoStep::Kind::kNodes
-                       ? node_edit::differs(g_pending.nodes, node_edit::get_take_in) // (moved or turned)
-                       : g_pending.where.x != now.x || g_pending.where.y != now.y || g_pending.where.z != now.z;
+    const V3 now = selection_pos();
+    const bool changed = g_pending.kind == UndoStep::Kind::kNodes
+                             ? node_edit::differs(g_pending.nodes, node_edit::get_take_in) // (moved or turned)
+                             : g_pending.where.x != now.x || g_pending.where.y != now.y || g_pending.where.z != now.z;
     // (a turn or a scale by a drag - level_editor_transform.h: a step though the position may be where it was)
     if (changed || g_pending_forced)
         push_undo(g_pending, "Move");
@@ -1190,7 +1205,7 @@ void set_exist(UndoStep* step, bool exist)
 {
     if (!step->sectors.empty()) {
         std::vector<scenery::SectorState> states;
-        for (uint32_t checksum : step->sectors) {
+        for (const uint32_t checksum : step->sectors) {
             Placement placement = {0, {0.0f, 0.0f, 0.0f}};
             scenery::placement_now(checksum, &placement);
             states.push_back({checksum, placement, !exist});
@@ -1207,9 +1222,9 @@ void set_exist(UndoStep* step, bool exist)
         std::vector<objects::GameEntity*> made;
         for (MadeCopy& copy : step->copies) {
             auto* object = static_cast<objects::GameEntity*>(objects::find_object(copy.name));
-            bool there = object && !(object->object_flags_ & objects::kObjectFlagDead);
+            const bool there = object && !(object->object_flags_ & objects::kObjectFlagDead);
             if (exist && !there) {
-                V3 pos = {copy.state.pos.x, copy.state.pos.y, copy.state.pos.z};
+                const V3 pos = {copy.state.pos.x, copy.state.pos.y, copy.state.pos.z};
                 object = object_edit::make_copy(copy.source, pos, copy.name);
                 if (object)
                     object_edit::get_restore(copy.state);
@@ -1262,7 +1277,7 @@ void get_restore(UndoStep& step)
     case UndoStep::Kind::kNodes: {
         node_edit::place_in(
             step.nodes, [](uint32_t name, const node_edit::Values& values) { node_edit::assign_value(name, values); });
-        int index = step.nodes.nodes.empty() ? -1 : nodes::get_find(step.nodes.nodes.front().first);
+        const int index = step.nodes.nodes.empty() ? -1 : nodes::get_find(step.nodes.nodes.front().first);
         if (index >= 0)
             select_node_only(index);
         break;
@@ -1276,9 +1291,10 @@ void get_restore(UndoStep& step)
                 by_index[i] = i;
             std::sort(by_index.begin(), by_index.end(),
                       [&](size_t a, size_t b) { return step.added_at_[a] < step.added_at_[b]; });
-            for (size_t i : by_index)
+            for (const size_t i : by_index)
                 node_create::fabricate(step.added[i], step.added_at_[i], &message);
-            int index = step.added.empty() ? -1 : nodes::get_find(node_create::name_hash(step.added.front().name));
+            const int index =
+                step.added.empty() ? -1 : nodes::get_find(node_create::name_hash(step.added.front().name));
             if (index >= 0)
                 select_node_only(index);
         } else {
@@ -1292,9 +1308,9 @@ void get_restore(UndoStep& step)
         break;
     }
     case UndoStep::Kind::kHidden: {
-        for (uint32_t name : step.hidden_names_)
+        for (const uint32_t name : step.hidden_names_)
             node_create::conceal(name, step.hidden);
-        int index = step.hidden_names_.empty() ? -1 : nodes::get_find(step.hidden_names_.front());
+        const int index = step.hidden_names_.empty() ? -1 : nodes::get_find(step.hidden_names_.front());
         if (index >= 0)
             select_node_only(index);
         break;
@@ -1335,7 +1351,7 @@ void get_restore(UndoStep& step)
     case UndoStep::Kind::kFields: {
         for (const FieldUndo& f : step.fields)
             fields::place_in(f.node, f.key, f.own);
-        int index = step.fields.empty() ? -1 : nodes::get_find(step.fields.front().node);
+        const int index = step.fields.empty() ? -1 : nodes::get_find(step.fields.front().node);
         if (index >= 0 && g_node_name != step.fields.front().node)
             select_node_only(index);
         break;
@@ -1407,7 +1423,7 @@ UndoStep at_hand(const UndoStep& step)
             // (there now: as they are now - moved since - and where)
             node_create::LinkChain current = node_create::at_hand();
             for (size_t i = 0; i < now.added.size(); ++i) {
-                int at = node_create::get_index_of(current, now.added[i].name);
+                const int at = node_create::get_index_of(current, now.added[i].name);
                 if (at >= 0) {
                     now.added[i] = current[at];
                     now.added_at_[i] = at;
@@ -1498,7 +1514,7 @@ V3 drag_plane_normal(bool vertical, const TickCycle& frame)
 {
     if (!vertical)
         return {0.0f, 1.0f, 0.0f};
-    V3 flat = {frame.back.x, 0.0f, frame.back.z};
+    const V3 flat = {frame.back.x, 0.0f, frame.back.z};
     if (get_dot(flat, flat) < 1e-6f)
         return frame.back;
     return make_unit(flat);
@@ -1510,8 +1526,8 @@ const V3 kAxes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}
 // (as the picture shows the distance - an ortho view's far eye scaled down: level_editor_camera.h; [editor] gizmo_pct)
 float arrow_length()
 {
-    float distance = view_cam::apparent(std::sqrt(get_dot(selection_pos() - g_pos, selection_pos() - g_pos)));
-    float length =
+    const float distance = view_cam::apparent(std::sqrt(get_dot(selection_pos() - g_pos, selection_pos() - g_pos)));
+    const float length =
         std::max(20.0f, std::min(1500.0f, distance * 0.2f)) * static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0f;
     return view_cam::ortho() ? length * std::sqrt(get_dot(selection_pos() - g_pos, selection_pos() - g_pos)) /
                                    std::max(1.0f, distance)
@@ -1545,7 +1561,7 @@ bool selection_scales()
 // The tool the gizmo shows: the toolbar's, or Move when the selection can't do that.
 xform::Mode gizmo_mode()
 {
-    xform::Mode mode = xform::at_hand().mode;
+    const xform::Mode mode = xform::at_hand().mode;
     if ((mode == xform::Mode::kSpinBy && !selection_turns()) || (mode == xform::Mode::kScale && !selection_scales()))
         return xform::Mode::kShiftBy;
     return mode;
@@ -1558,7 +1574,7 @@ void selection_axes(V3 out[3])
         out[i] = kAxes[i];
     if (xform::at_hand().space != xform::Space::kLocal)
         return;
-    if (objects::GameEntity* object = get_primary()) {
+    if (const objects::GameEntity* object = get_primary()) {
         V3 rows[3];
         for (int i = 0; i < 3; ++i)
             rows[i] = {object->basis_frame_.row[i].x, object->basis_frame_.row[i].y, object->basis_frame_.row[i].z};
@@ -1571,7 +1587,7 @@ void selection_axes(V3 out[3])
         return;
     }
     if (!wall_only() && scenery::has_selection()) {
-        int quarters = scenery::selection_quarters();
+        const int quarters = scenery::selection_quarters();
         for (int i = 0; i < 3; ++i)
             out[i] = get_quarter_turn(kAxes[i], quarters);
     }
@@ -1586,7 +1602,7 @@ V3 axis_vector(int axis)
 // turns.
 float selection_heading()
 {
-    if (objects::GameEntity* object = get_primary())
+    if (const objects::GameEntity* object = get_primary())
         return xform::get_heading_of(
             {object->basis_frame_.row[2].x, object->basis_frame_.row[2].y, object->basis_frame_.row[2].z});
     node_edit::Values node;
@@ -1622,22 +1638,22 @@ xform::Gizmo gizmo_now()
 // invisible walls by whole quarter turns (the engine turns level geometry by quarters - level_editor_scenery.h).
 void apply_turn_to(float target)
 {
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     node_edit::Values node;
     if (!objects.empty()) {
-        float delta = target - g_rot_applied;
+        const float delta = target - g_rot_applied;
         if (std::fabs(delta) < 1e-6f)
             return;
         turn_objects_by(objects, delta, g_transform_pivot);
     } else if (node_values(&node)) {
-        float delta = target - g_rot_applied;
+        const float delta = target - g_rot_applied;
         if (std::fabs(delta) < 1e-6f)
             return;
         node.angles =
             node_edit::with_heading(node.angles, node_edit::get_heading_degrees(node.angles) + delta * 180.0f / kPi);
         set_selected_node(node);
     } else {
-        int quarters = xform::get_quarters(target);
+        const int quarters = xform::get_quarters(target);
         if (quarters == g_quarters_applied)
             return;
         turn_selection(quarters - g_quarters_applied);
@@ -1651,11 +1667,11 @@ void apply_turn_to(float target)
 // scale then - an object's own axis nearest each world axis, the scenery's turned (odd quarter turns swap x and z).
 V3 scale_applied_now()
 {
-    V3 now = selection_scale_now();
+    const V3 now = selection_scale_now();
     V3 r = {now.x / g_scale_start.x, now.y / g_scale_start.y, now.z / g_scale_start.z};
     if (xform::at_hand().space == xform::Space::kLocal)
         return r;
-    if (objects::GameEntity* object = get_primary()) {
+    if (const objects::GameEntity* object = get_primary()) {
         V3 rows[3];
         for (int i = 0; i < 3; ++i)
             rows[i] = {object->basis_frame_.row[i].x, object->basis_frame_.row[i].y, object->basis_frame_.row[i].z};
@@ -1671,24 +1687,25 @@ V3 scale_applied_now()
 // bottom (Centre: about its middle).
 void apply_scale_to(V3 wanted, bool uniform)
 {
-    V3 applied = scale_applied_now();
-    V3 ratio = {wanted.x / applied.x, wanted.y / applied.y, wanted.z / applied.z};
+    const V3 applied = scale_applied_now();
+    const V3 ratio = {wanted.x / applied.x, wanted.y / applied.y, wanted.z / applied.z};
     if (std::fabs(ratio.x - 1.0f) < 1e-4f && std::fabs(ratio.y - 1.0f) < 1e-4f && std::fabs(ratio.z - 1.0f) < 1e-4f)
         return;
-    bool local = xform::at_hand().space == xform::Space::kLocal;
-    bool centre = xform::at_hand().pivot == xform::Pivot::kCentre;
+    const bool local = xform::at_hand().space == xform::Space::kLocal;
+    const bool centre = xform::at_hand().pivot == xform::Pivot::kCentre;
     std::vector<objects::GameEntity*> objects = selected_objects();
     if (!objects.empty()) {
         std::vector<V3> before;
         before.reserve(objects.size());
-        for (objects::GameEntity* object : objects)
+        for (const objects::GameEntity* object : objects)
             before.push_back(object_edit::pos_of(object));
         if (local) {
             for (objects::GameEntity* object : objects) {
                 if (!scale_tool::object_scalable(object))
                     continue;
-                V3 now = scale_tool::get_object_scale(object);
-                V3 allowed = scale_tool::allowed_factor(ratio, {now}, {scale_tool::object_limit(object)}, uniform);
+                const V3 now = scale_tool::get_object_scale(object);
+                const V3 allowed =
+                    scale_tool::allowed_factor(ratio, {now}, {scale_tool::object_limit(object)}, uniform);
                 if (!is_unit_scale(allowed))
                     scale_tool::set_object_scale(object, per_axis(now, allowed));
             }
@@ -1700,14 +1717,15 @@ void apply_scale_to(V3 wanted, bool uniform)
             selection_axes(axes);
             const float r[3] = {ratio.x, ratio.y, ratio.z};
             for (size_t i = 0; i < objects.size(); ++i) {
-                V3 d = before[i] - g_transform_pivot, placed = g_transform_pivot;
+                const V3 d = before[i] - g_transform_pivot;
+                V3 placed = g_transform_pivot;
                 for (int a = 0; a < 3; ++a)
                     placed = placed + axes[a] * (get_dot(d, axes[a]) * r[a]);
                 object_edit::get_place(objects[i], placed);
             }
         }
     } else {
-        V3 centre_before = selection_centre();
+        const V3 centre_before = selection_centre();
         scenery::scale_selection(local ? turned_scale(ratio, scenery::selection_quarters()) : ratio, uniform);
         if (centre)
             scenery::move_to(scenery::get_pivot() + (centre_before - selection_centre()));
@@ -1775,7 +1793,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
             have = true;
         }
         if (have) {
-            float delta = xform::get_wrap(angle - g_rot_last);
+            const float delta = xform::get_wrap(angle - g_rot_last);
             g_rot_last = angle;
             g_rot_total += g_rot_by_plane ? delta : delta * g_rot_sign;
         }
@@ -1786,7 +1804,7 @@ void rotate_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 
 void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
 {
-    int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 && g_axis < 3 ? g_axis : -1;
+    const int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 && g_axis < 3 ? g_axis : -1;
     float factor = 1.0f, typed = 0.0f;
     if (xform::typed_value(g_typed, &typed)) {
         if (typed <= 0.0f)
@@ -1806,8 +1824,8 @@ void scale_drag(V3 origin, V3 dir, const TickCycle& frame, bool snap)
         if (snap)
             factor = xform::snap_factor(factor);
     }
-    V3 wanted = axis < 0 ? V3{factor, factor, factor}
-                         : V3{axis == 0 ? factor : 1.0f, axis == 1 ? factor : 1.0f, axis == 2 ? factor : 1.0f};
+    const V3 wanted = axis < 0 ? V3{factor, factor, factor}
+                               : V3{axis == 0 ? factor : 1.0f, axis == 1 ? factor : 1.0f, axis == 2 ? factor : 1.0f};
     apply_scale_to(wanted, axis < 0);
 }
 
@@ -1819,7 +1837,7 @@ void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float 
         start_transform_drag(origin, dir, frame);
         return;
     }
-    V3 pos = selection_pos();
+    const V3 pos = selection_pos();
     g_drag_vertical = vertical;
     g_drag_from = pos;
     g_drag_mouse_x = mouse_x;
@@ -1834,12 +1852,12 @@ void start_drag(V3 origin, V3 dir, bool vertical, const TickCycle& frame, float 
     g_drag_plane_offset = vertical ? V3{0.0f, 0.0f, 0.0f} : V3{0.0f, get_selection_base() - pos.y, 0.0f};
     g_drag_right = make_unit({frame.right.x, 0.0f, frame.right.z});
     g_drag_forward = make_unit({-frame.back.x, 0.0f, -frame.back.z});
-    float depth = std::max(50.0f, -get_dot(pos - origin, frame.back));
+    const float depth = std::max(50.0f, -get_dot(pos - origin, frame.back));
     g_drag_units = 2.0f * depth * g_lens.tan_x_ / static_cast<float>(std::max(1, g_mouse.window_width_));
     float t = 0.0f;
     g_drag_screen = !vertical && (std::fabs(make_unit(dir).y) < 0.34f ||
                                   !ray_plane(origin, dir, pos + g_drag_plane_offset, g_drag_plane_normal, &t));
-    V3 point = pos + g_drag_plane_offset;
+    const V3 point = pos + g_drag_plane_offset;
     g_drag_offset = !g_drag_screen && ray_plane(origin, dir, point, g_drag_plane_normal, &t)
                         ? point - (origin + dir * t)
                         : V3{0.0f, 0.0f, 0.0f};
@@ -1882,13 +1900,13 @@ std::vector<V3> selection_corners()
         box_corners(b.origin, b.axes, b.min, b.max, corners);
         out.insert(out.end(), corners, corners + 8);
     };
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     for (objects::GameEntity* object : objects) {
         if (object_edit::model_box(object, &box))
             add(box);
     }
     if (objects.empty() && picked_node_index() < 0 && !wall_only()) {
-        for (uint32_t checksum : scenery::get_selection()) {
+        for (const uint32_t checksum : scenery::get_selection()) {
             if (scenery::cuboid(checksum, &box))
                 add(box);
         }
@@ -1905,14 +1923,14 @@ void surface_drag(V3 origin, V3 dir)
     std::vector<uint32_t> skip;
     if (!get_primary() && picked_node_index() < 0) {
         skip = scenery::get_selection();
-        if (uint32_t wall = wall_only())
+        if (const uint32_t wall = wall_only())
             skip.push_back(wall);
     }
     snap::SurfaceHit hit;
     if (!snap::get_surface(origin, make_unit(dir), kMaxPickDistance, skip, &hit))
         return;
-    V3 pos = selection_pos();
-    V3 wanted = snap::on_surface(pos, get_selection_base(), hit.point);
+    const V3 pos = selection_pos();
+    const V3 wanted = snap::on_surface(pos, get_selection_base(), hit.point);
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
         place_selection(wanted);
     if (!xform::at_hand().align_to_slope_)
@@ -1938,11 +1956,11 @@ void surface_drag(V3 origin, V3 dir)
 // under the cursor - an object's box corner, or a scenery piece's drawn vertex (the selection's own passed).
 void vertex_drag(V3 origin, V3 dir, const TickCycle& frame)
 {
-    V3 unit = make_unit(dir);
-    V3 pos = selection_pos();
+    const V3 unit = make_unit(dir);
+    const V3 pos = selection_pos();
     if (!g_vertex_have) {
         std::vector<V3> corners = selection_corners();
-        int i = snap::nearest_on_screen(
+        const int i = snap::nearest_on_screen(
             corners, [&](V3 p, float* x, float* y) { return get_to_pixel(frame, p, x, y); }, g_cursor_x, g_cursor_y);
         if (i < 0)
             return;
@@ -1978,10 +1996,10 @@ void vertex_drag(V3 origin, V3 dir, const TickCycle& frame)
         }
         break;
     }
-    int nearest = snap::get_nearest(targets, at);
+    const int nearest = snap::get_nearest(targets, at);
     if (nearest < 0)
         return;
-    V3 wanted = targets[nearest] - g_vertex_corner;
+    const V3 wanted = targets[nearest] - g_vertex_corner;
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
         place_selection(wanted);
 }
@@ -1996,12 +2014,12 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         scale_drag(origin, dir, frame, snap.on);
         return;
     }
-    V3 pos = selection_pos();
+    const V3 pos = selection_pos();
     // (a typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started)
     float typed = 0.0f;
     if (xform::typed_value(g_typed, &typed)) {
-        int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 ? g_axis : 0;
-        V3 wanted = g_drag_start + axis_vector(axis) * typed;
+        const int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 ? g_axis : 0;
+        const V3 wanted = g_drag_start + axis_vector(axis) * typed;
         if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
             place_selection(wanted);
         return;
@@ -2017,16 +2035,16 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
         return;
     }
     // Grid snapping: relative (whole steps from where the drag started), or the world's grid (absolute).
-    bool absolute = snap.target == xform::SnapTarget::kWorldGrid;
+    const bool absolute = snap.target == xform::SnapTarget::kWorldGrid;
     float grid = xform::get_grid();
     auto relative = [&](float d) { return xform::snap_relative(d, grid); };
     V3 wanted{};
     if (g_axis >= 0) {
-        V3 u = axis_vector(g_axis);
+        const V3 u = axis_vector(g_axis);
         float s = 0.0f;
         if (!closest_on_axis(g_drag_from, u, origin, dir, &s))
             return;
-        float along = s - g_axis_t0;
+        const float along = s - g_axis_t0;
         if (std::fabs(along) > g_orbit_distance * 20.0f)
             return; // (the ray nearly along the axis: far off)
         wanted = g_drag_from + u * along;
@@ -2034,13 +2052,13 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
             float* c = g_axis == 0 ? &wanted.x : g_axis == 1 ? &wanted.y : &wanted.z;
             *c = snap_to_grid(*c, grid);
         } else if (snap.on) {
-            float total = get_dot(wanted - g_drag_start, u);
+            const float total = get_dot(wanted - g_drag_start, u);
             wanted = wanted + u * (relative(total) - total);
         }
     } else if (g_drag_screen) {
         // (away for the cursor going up: 2.5 times a pixel's span, the ground being seen end-on)
-        float right = (mouse_x - g_drag_mouse_x) * g_drag_units,
-              away = (g_drag_mouse_y - mouse_y) * g_drag_units * 2.5f;
+        const float right = (mouse_x - g_drag_mouse_x) * g_drag_units;
+        const float away = (g_drag_mouse_y - mouse_y) * g_drag_units * 2.5f;
         wanted = g_drag_from + g_drag_right * right + g_drag_forward * away;
         wanted.y = pos.y;
     } else {
@@ -2067,9 +2085,9 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     }
     // (no snapping held: a scenery piece's box faces flush with its neighbours' - level_editor_arrange.h)
     if (!snap.on && !get_primary() && picked_node_index() < 0 && !wall_only()) {
-        int axes = g_axis >= 0       ? (xform::at_hand().space == xform::Space::kWorld ? 1 << g_axis : 0)
-                   : g_drag_vertical ? 2
-                                     : 5;
+        const int axes = g_axis >= 0       ? (xform::at_hand().space == xform::Space::kWorld ? 1 << g_axis : 0)
+                         : g_drag_vertical ? 2
+                                           : 5;
         if (axes)
             wanted = arrange::edge_snapped(pos, wanted, axes);
     }
@@ -2102,14 +2120,14 @@ void end_drag()
     if (!g_dragging)
         return;
     g_dragging = false;
-    bool uniform = g_axis < 0 && g_typed.axis < 0;
+    const bool uniform = g_axis < 0 && g_typed.axis < 0;
     g_axis = -1;
-    uint64_t serial = g_undo.empty() ? 0 : g_undo.back().serial;
+    const uint64_t serial = g_undo.empty() ? 0 : g_undo.back().serial;
     end_change();
     get_settle();
     if (!g_undo.empty() && g_undo.back().serial != serial)
         note_for_adjust(g_drag_mode, selection_pos() - g_drag_start, uniform);
-    V3 at = selection_pos();
+    const V3 at = selection_pos();
     note_action("%s to (%.0f, %.0f, %.0f): %s",
                 g_drag_mode == xform::Mode::kSpinBy  ? "turned"
                 : g_drag_mode == xform::Mode::kScale ? "scaled"
@@ -2176,8 +2194,11 @@ void add_line(V3 a, V3 b, const TickCycle& frame, uint32_t color, std::vector<Li
     float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_to_pixel(frame, a, &ax, &ay) || !get_to_pixel(frame, b, &bx, &by))
         return;
-    float dx = bx - ax, dy = by - ay, length = std::sqrt(dx * dx + dy * dy);
-    float nx = length > 0.0f ? -dy / length : 0.0f, ny = length > 0.0f ? dx / length : 0.0f;
+    const float dx = bx - ax;
+    const float dy = by - ay;
+    const float length = std::sqrt(dx * dx + dy * dy);
+    const float nx = length > 0.0f ? -dy / length : 0.0f;
+    const float ny = length > 0.0f ? dx / length : 0.0f;
     for (int k = -(thickness / 2); k <= thickness / 2; ++k)
         add_pixel_line(ax + nx * static_cast<float>(k), ay + ny * static_cast<float>(k),
                        bx + nx * static_cast<float>(k), by + ny * static_cast<float>(k), color, out);
@@ -2207,8 +2228,9 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
         return;
     dx /= length;
     dy /= length;
-    for (float side : {-1.0f, 1.0f}) {
-        float hx = -dx * 0.9f + -dy * 0.45f * side, hy = -dy * 0.9f + dx * 0.45f * side;
+    for (const float side : {-1.0f, 1.0f}) {
+        const float hx = -dx * 0.9f + -dy * 0.45f * side;
+        const float hy = -dy * 0.9f + dx * 0.45f * side;
         add_pixel_line(bx, by, bx + hx * 12.0f, by + hy * 12.0f, color, out);
     }
 }
@@ -2223,7 +2245,7 @@ void add_arrow(V3 from, V3 to, const TickCycle& frame, uint32_t color, std::vect
 // Back buffer pixels per pixel at 720 lines (the icons' size).
 float pixel_scale()
 {
-    float gizmo = static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0f; // ([editor] gizmo_pct)
+    const float gizmo = static_cast<float>(prefs::get_pull().gizmo_pct_) / 100.0f; // ([editor] gizmo_pct)
     return (g_viewport[3] > 0 ? static_cast<float>(g_viewport[3]) / 720.0f : 1.0f) * gizmo;
 }
 
@@ -2233,7 +2255,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
 {
     g_pickables.clear();
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    float k = pixel_scale();
+    const float k = pixel_scale();
     ui::Overlay& o = g_overlay;
     auto line = [&](float ax, float ay, float bx, float by, uint32_t c, float t) {
         o.lines.push_back({ax, ay, bx, by, c, t});
@@ -2250,33 +2272,35 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         constexpr int kSides = 32;
         V3 previous = centre + u * radius;
         for (int i = 1; i <= kSides; ++i) {
-            float angle = 2.0f * kPi * static_cast<float>(i) / kSides;
-            V3 next = centre + u * (radius * std::cos(angle)) + v * (radius * std::sin(angle));
+            const float angle = 2.0f * kPi * static_cast<float>(i) / kSides;
+            const V3 next = centre + u * (radius * std::cos(angle)) + v * (radius * std::sin(angle));
             world_line(previous, next, c, 1.0f);
             previous = next;
         }
     };
     const V3 x_axis = {1.0f, 0.0f, 0.0f}, y_axis = {0.0f, 1.0f, 0.0f}, z_axis = {0.0f, 0.0f, 1.0f};
-    float left = static_cast<float>(g_viewport[0]) - 40.0f, top = static_cast<float>(g_viewport[1]) - 40.0f;
-    float right = static_cast<float>(g_viewport[0] + g_viewport[2]) + 40.0f;
-    float bottom = static_cast<float>(g_viewport[1] + g_viewport[3]) + 40.0f;
+    const float left = static_cast<float>(g_viewport[0]) - 40.0f;
+    const float top = static_cast<float>(g_viewport[1]) - 40.0f;
+    const float right = static_cast<float>(g_viewport[0] + g_viewport[2]) + 40.0f;
+    const float bottom = static_cast<float>(g_viewport[1] + g_viewport[3]) + 40.0f;
     for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
         const nodes::Elem& n = nodes[i];
         if (!n.has_pos_ || !(g_families & nodes::get_bit(n.family)) || organize::gizmo_hidden(n.name))
             continue;
-        nodes::Shape shape = nodes::shape_of(n.family);
+        const nodes::Shape shape = nodes::shape_of(n.family);
         if (shape == nodes::Shape::kNone)
             continue;
-        bool is_selected = i == selected, is_hovered = i == g_hover_node;
-        V3 d = n.pos - g_pos;
-        float distance = view_cam::apparent(std::sqrt(get_dot(d, d))); // (an ortho view: level_editor_camera.h)
+        const bool is_selected = i == selected;
+        const bool is_hovered = i == g_hover_node;
+        const V3 d = n.pos - g_pos;
+        const float distance = view_cam::apparent(std::sqrt(get_dot(d, d))); // (an ortho view: level_editor_camera.h)
         if (shape == nodes::Shape::kChain) {
             constexpr float kChainCutoff = 4000.0f;
-            for (int link : n.links) {
+            for (const int link : n.links) {
                 const nodes::Elem& m = nodes[link];
                 if (!m.has_pos_)
                     continue;
-                V3 e = m.pos - g_pos;
+                const V3 e = m.pos - g_pos;
                 if (!is_selected && !is_hovered && distance > kChainCutoff &&
                     view_cam::apparent(std::sqrt(get_dot(e, e))) > kChainCutoff)
                     continue;
@@ -2289,8 +2313,8 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 if ((ax < left && bx < left) || (ax > right && bx > right) || (ay < top && by < top) ||
                     (ay > bottom && by > bottom))
                     continue;
-                uint32_t c = is_selected ? kSelectedGizmo : is_hovered ? kHoverGizmo : n.colour;
-                float t = is_selected || is_hovered ? 3.0f : n.family == nodes::Family::kRail ? 2.0f : 1.5f;
+                const uint32_t c = is_selected ? kSelectedGizmo : is_hovered ? kHoverGizmo : n.colour;
+                const float t = is_selected || is_hovered ? 3.0f : n.family == nodes::Family::kRail ? 2.0f : 1.5f;
                 if (n.family == nodes::Family::kLadder) {
                     for (int piece = 0; piece < 8; piece += 2) // (dashed)
                         line(ax + (bx - ax) * static_cast<float>(piece) / 8.0f,
@@ -2306,13 +2330,15 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                     if (length > 30.0f * k) {
                         dx /= length;
                         dy /= length;
-                        float mx = (ax + bx) * 0.5f, my = (ay + by) * 0.5f, h = 7.0f * k;
+                        const float mx = (ax + bx) * 0.5f;
+                        const float my = (ay + by) * 0.5f;
+                        const float h = 7.0f * k;
                         o.triangles.push_back({mx + dx * h, my + dy * h, mx - dx * h - dy * h * 0.6f,
                                                my - dy * h + dx * h * 0.6f, mx - dx * h + dy * h * 0.6f,
                                                my - dy * h - dx * h * 0.6f, c});
                     }
                 }
-                V3 middle = (a + b) * 0.5f;
+                const V3 middle = (a + b) * 0.5f;
                 g_pickables.push_back({i, ax, ay, bx, by, true, -get_dot(middle - g_pos, frame.back),
                                        -get_dot(a - g_pos, frame.back), -get_dot(b - g_pos, frame.back)});
             }
@@ -2327,7 +2353,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 // (a rail's points, near: a dot each, picked before its segments - a point moves by itself or with
                 // its whole rail)
                 float px = 0.0f, py = 0.0f;
-                V3 front = n.pos - g_pos;
+                const V3 front = n.pos - g_pos;
                 if (-get_dot(front, frame.back) > kNearZ && get_to_pixel(frame, n.pos, &px, &py) && px >= left &&
                     px <= right && py >= top && py <= bottom) {
                     if (!is_selected && !is_hovered)
@@ -2337,21 +2363,22 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             }
             continue;
         }
-        float cutoff = n.family == nodes::Family::kObject || n.family == nodes::Family::kParticle ? 2500.0f : 6000.0f;
+        const float cutoff =
+            n.family == nodes::Family::kObject || n.family == nodes::Family::kParticle ? 2500.0f : 6000.0f;
         if (!is_selected && !is_hovered && distance > cutoff)
             continue;
         float px = 0.0f, py = 0.0f;
         if (!get_to_pixel(frame, n.pos, &px, &py) || px < left || px > right || py < top || py > bottom)
             continue;
-        float depth = -get_dot(d, frame.back);
-        float r = 6.0f * k;
-        uint32_t c = n.hidden ? 0x90A0A4A8 : n.colour; // (hidden: greyed)
+        const float depth = -get_dot(d, frame.back);
+        const float r = 6.0f * k;
+        const uint32_t c = n.hidden ? 0x90A0A4A8 : n.colour; // (hidden: greyed)
         const uint32_t outline = 0xC0101012;
         switch (n.family) {
         case nodes::Family::kSpawn: {
             // A disc and its heading (an arrow along the ground).
-            float length = std::max(30.0f, std::min(200.0f, depth * 0.08f));
-            V3 tip = n.pos + n.forward * length;
+            const float length = std::max(30.0f, std::min(200.0f, depth * 0.08f));
+            const V3 tip = n.pos + n.forward * length;
             float tx = 0.0f, ty = 0.0f;
             if (get_to_pixel(frame, tip, &tx, &ty)) {
                 line(px, py, tx, ty, c, 2.5f);
@@ -2359,7 +2386,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                 if (l > 4.0f) {
                     dx /= l;
                     dy /= l;
-                    float h = 8.0f * k;
+                    const float h = 8.0f * k;
                     o.triangles.push_back({tx + dx * h * 0.5f, ty + dy * h * 0.5f, tx - dx * h - dy * h * 0.55f,
                                            ty - dy * h + dx * h * 0.55f, tx - dx * h + dy * h * 0.55f,
                                            ty - dy * h - dx * h * 0.55f, c});
@@ -2394,8 +2421,9 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             o.circles.push_back({px, py, r + 1.5f * k, outline, true, 1.0f});
             o.circles.push_back({px, py, r, c, true, 1.0f});
             for (int ray = 0; ray < 4; ++ray) {
-                float angle = kPi * 0.25f + kPi * 0.5f * static_cast<float>(ray);
-                float cx = std::cos(angle), cy = std::sin(angle);
+                const float angle = kPi * 0.25f + kPi * 0.5f * static_cast<float>(ray);
+                const float cx = std::cos(angle);
+                const float cy = std::sin(angle);
                 line(px + cx * r * 1.4f, py + cy * r * 1.4f, px + cx * r * 2.1f, py + cy * r * 2.1f, c, 1.5f);
             }
             if ((is_selected || is_hovered) && n.radius > 0.0f) {
@@ -2417,8 +2445,9 @@ void add_node_gizmos(const TickCycle& frame, int selected)
         case nodes::Family::kParticle:
             // A spark: three strokes.
             for (int stroke = 0; stroke < 3; ++stroke) {
-                float angle = kPi * static_cast<float>(stroke) / 3.0f;
-                float cx = std::cos(angle) * r, cy = std::sin(angle) * r;
+                const float angle = kPi * static_cast<float>(stroke) / 3.0f;
+                const float cx = std::cos(angle) * r;
+                const float cy = std::sin(angle) * r;
                 line(px - cx, py - cy, px + cx, py + cy, c, 2.0f);
             }
             break;
@@ -2429,7 +2458,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             line(px + r, py + r, px - r, py + r, c, 2.0f);
             line(px - r, py + r, px - r, py - r, c, 2.0f);
             if (n.radius > 0.0f && (is_selected || is_hovered || distance < 2000.0f)) {
-                uint32_t faint = (c & 0x00FFFFFF) | 0x90000000;
+                const uint32_t faint = (c & 0x00FFFFFF) | 0x90000000;
                 ring(n.pos, n.radius, x_axis, z_axis, faint);
                 ring(n.pos, n.radius, x_axis, y_axis, faint);
                 ring(n.pos, n.radius, z_axis, y_axis, faint);
@@ -2464,10 +2493,10 @@ void add_node_gizmos(const TickCycle& frame, int selected)
     bool crossing = false;
     if (organize::box_outline(&box, &crossing)) {
         uint32_t c = crossing ? 0xFF8FD18Fu : 0xFFFFC870u;
-        ui::Seg edges[4] = {{box.x0, box.y0, box.x1, box.y0, c, 1.5f},
-                            {box.x1, box.y0, box.x1, box.y1, c, 1.5f},
-                            {box.x1, box.y1, box.x0, box.y1, c, 1.5f},
-                            {box.x0, box.y1, box.x0, box.y0, c, 1.5f}};
+        const ui::Seg edges[4] = {{box.x0, box.y0, box.x1, box.y0, c, 1.5f},
+                                  {box.x1, box.y0, box.x1, box.y1, c, 1.5f},
+                                  {box.x1, box.y1, box.x0, box.y1, c, 1.5f},
+                                  {box.x0, box.y1, box.x0, box.y0, c, 1.5f}};
         for (const ui::Seg& edge : edges) {
             if (crossing)
                 view::add_dashed(&o.lines, edge, 6.0f * k, 4.0f * k);
@@ -2488,7 +2517,7 @@ bool g_hover_tinted, g_selected_tinted;      // (else their boxes are drawn)
 bool tint_sectors(const std::vector<uint32_t>& sectors, uint32_t rgba)
 {
     bool all = true;
-    for (uint32_t checksum : sectors) {
+    for (const uint32_t checksum : sectors) {
         void* geom = scenery::sector_geometry(checksum);
         if (scenery::tintable(geom))
             scenery::get_tint({checksum, -1}, geom, rgba);
@@ -2500,9 +2529,9 @@ bool tint_sectors(const std::vector<uint32_t>& sectors, uint32_t rgba)
 
 void update_highlights()
 {
-    uint32_t pulse = get_pulse(kSelectedTintLow, kSelectedTintHigh, SDL_GetTicks() / 1000.0);
+    const uint32_t pulse = get_pulse(kSelectedTintLow, kSelectedTintHigh, SDL_GetTicks() / 1000.0);
     g_selected_tinted = true;
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     for (objects::GameEntity* object : objects)
         g_selected_tinted &= object_edit::get_tint(object, pulse);
     if (objects.empty() && scenery::has_selection())
@@ -2520,7 +2549,7 @@ void update_highlights()
                                       kHoverTint);
     // (the browser's entry where it is in the level)
     if (g_browser.open && g_browser.index < static_cast<int>(g_browser.items.size())) {
-        uint32_t id = g_browser.items[g_browser.index].id;
+        const uint32_t id = g_browser.items[g_browser.index].id;
         if (g_browser.tab == 0)
             tint_sectors({id}, kBrowseTint);
         else if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(id)))
@@ -2613,7 +2642,7 @@ bool cfunc_start(script::Struct*, script::Script*)
     g_help = false;
     g_browser = Browser{};
     // The UI (Dear ImGui) - else the HUD of screen elements.
-    bool ui = ui::kickoff();
+    const bool ui = ui::kickoff();
     view::kickoff();
     overlays::kickoff();  // (the view menus: Lit to start with - level_editor_overlays.h)
     ux8::kickoff();       // (no pie, not walking, not following - level_editor_ux8.h)
@@ -2688,7 +2717,8 @@ bool get_cast(V3 from, V3 to, V3* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* point = &ray->hit_.point.x;
@@ -2707,18 +2737,20 @@ void place_skater_below_camera()
         return;
     // (below the camera; else from high above it - the camera may have gone through the floor)
     V3 ground{};
-    bool found = ground_below(g_pos, &ground) || ground_below({g_pos.x, g_pos.y + 3000.0f, g_pos.z}, &ground);
+    const bool found = ground_below(g_pos, &ground) || ground_below({g_pos.x, g_pos.y + 3000.0f, g_pos.z}, &ground);
     if (!found)
         ground = g_pos;
-    TickCycle frame = frame_from_yaw_pitch(g_yaw, 0.0f);
+    const TickCycle frame = frame_from_yaw_pitch(g_yaw, 0.0f);
     V3 at = {-frame.back.x, 0.0f, -frame.back.z};
-    float length = std::sqrt(at.x * at.x + at.z * at.z);
+    const float length = std::sqrt(at.x * at.x + at.z * at.z);
     if (length > 0.0001f)
         at = {at.x / length, 0.0f, at.z / length};
     else
         at = {0.0f, 0.0f, 1.0f};
     // (rows: right = up x at, up, at)
-    maths::Vec4 right = {at.z, 0.0f, -at.x, 0.0f}, up = {0.0f, 1.0f, 0.0f, 0.0f}, forward = {at.x, 0.0f, at.z, 0.0f};
+    const maths::Vec4 right = {at.z, 0.0f, -at.x, 0.0f};
+    const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 0.0f};
+    const maths::Vec4 forward = {at.x, 0.0f, at.z, 0.0f};
     for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
         m->row[0] = right;
         m->row[1] = up;
@@ -2843,7 +2875,7 @@ void place_camera(gfx::ViewCam* camera)
     }
     if (camera != g_camera)
         return;
-    TickCycle frame = frame_from_yaw_pitch(g_yaw, g_pitch);
+    const TickCycle frame = frame_from_yaw_pitch(g_yaw, g_pitch);
     camera->at_point_ = {g_pos.x, g_pos.y, g_pos.z, 1.0f};
     camera->basis_frame_.row[0] = {frame.right.x, frame.right.y, frame.right.z, 0.0f};
     camera->basis_frame_.row[1] = {frame.up.x, frame.up.y, frame.up.z, 0.0f};
@@ -2864,7 +2896,7 @@ void note_view(gfx::ViewCam* camera, float angle, float aspect, const uint32_t v
 {
     if (!g_active || camera != g_camera)
         return;
-    Lens lens = lens_for(angle, aspect);
+    const Lens lens = lens_for(angle, aspect);
     if (debug_enabled() && !g_have_view)
         get_log("level editor: view %u,%u %ux%u, angle %.2f, aspect %.4f", viewport[0], viewport[1], viewport[2],
                 viewport[3], angle, aspect);
@@ -2890,7 +2922,7 @@ std::string describe_selection()
     }
     if (scenery::has_selection())
         return scenery::describe_selection();
-    if (uint32_t wall = wall_only())
+    if (const uint32_t wall = wall_only())
         return "invisible wall " + object_edit::caption(wall) + " - " + walls::describe_state(wall);
     if (g_node_selected && g_node_index < static_cast<int>(nodes::get_all().size())) {
         const nodes::Elem& node = nodes::get_all()[g_node_index];
@@ -2934,7 +2966,7 @@ std::string handle_hover_text(int handle)
 }
 std::string hover_text()
 {
-    if (uint32_t wall = view::hover_wall(); wall && g_hover_axis < 0)
+    if (const uint32_t wall = view::hover_wall(); wall && g_hover_axis < 0)
         return "Invisible wall " + object_edit::caption(wall) + " (Shift+click)";
     if (g_hover_handle >= 0 && g_hover_axis < 0)
         return std::string("the trigger volume's ") + "-+"[g_hover_handle & 1] + "XYZ"[g_hover_handle >> 1] +
@@ -3017,17 +3049,17 @@ const std::vector<PlaceEntry>& place_entries()
     const Team teams[] = {Team::kRed, Team::kBlue, Team::kGreen, Team::kYellow};
     entries.push_back({Kind::kSpawn, Team::kRed, "Multiplayer Spawn", nodes::spawn_colour(nodes::kMultiplayer, 0)});
     for (Team t : teams) {
-        std::string colour = node_create::get_team_name(t);
+        const std::string colour = node_create::get_team_name(t);
         entries.push_back(
             {Kind::kTeamSpawn, t, "Team spawn (" + colour + ")", nodes::team_colour(("_" + colour).c_str())});
     }
     entries.push_back({Kind::kCrown, Team::kRed, "Crown", 0xFFFFC233});
     for (Team t : teams) {
-        std::string colour = node_create::get_team_name(t);
+        const std::string colour = node_create::get_team_name(t);
         entries.push_back({Kind::kFlagSet, t, "CTF Flag (" + colour + ")", nodes::team_colour(("_" + colour).c_str())});
     }
     for (Team t : teams) {
-        std::string colour = node_create::get_team_name(t);
+        const std::string colour = node_create::get_team_name(t);
         entries.push_back(
             {Kind::kFlagSet, t, "Team Flag (" + colour + ")", nodes::team_colour(("_" + colour).c_str()), true});
     }
@@ -3101,7 +3133,7 @@ void place_node(int entry, V3 at)
     push_undo(step, "Place node");
     g_pickables.clear();
     g_hover_node = -1;
-    int index = nodes::get_find(node_create::name_hash(specs.front().name));
+    const int index = nodes::get_find(node_create::name_hash(specs.front().name));
     if (index >= 0)
         select_node_only(index);
     note_online_change(family_of(e.kind), specs.front().name.c_str(), "added");
@@ -3127,7 +3159,7 @@ void after_chain_change(const chains::State& before, uint32_t select, const std:
         g_hover_node = -1;
     }
     if (select) {
-        int index = nodes::get_find(select);
+        const int index = nodes::get_find(select);
         if (index >= 0)
             select_node_only(index);
     } else if (g_node_selected && nodes::get_find(g_node_name) < 0) {
@@ -3144,7 +3176,7 @@ uint32_t chain_target()
 {
     if (g_node_selected && g_node_name)
         return g_node_name;
-    if (objects::GameEntity* object = get_primary())
+    if (const objects::GameEntity* object = get_primary())
         return nodes::get_find(object->ident_) >= 0 ? object->ident_ : 0;
     return 0;
 }
@@ -3152,10 +3184,10 @@ uint32_t chain_target()
 // An Inspector / key operation on the selected node's chain.
 void run_chain_op(int op, uint32_t arg)
 {
-    uint32_t target = chain_target();
+    const uint32_t target = chain_target();
     if (!target)
         return;
-    chains::State before = chains::at_hand();
+    const chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;
     chains::apply_op(static_cast<chains::Op>(op), target, arg, &message, &select);
@@ -3170,7 +3202,7 @@ void run_chain_op(int op, uint32_t arg)
 // a chain does (one undo step, live).
 void set_links_from_inspector(uint32_t node, const std::string& text, bool home)
 {
-    chains::State before = chains::at_hand();
+    const chains::State before = chains::at_hand();
     chains::State state = before;
     auto it =
         std::find_if(state.links.begin(), state.links.end(), [&](const chains::LinkEdit& l) { return l.name == node; });
@@ -3215,8 +3247,8 @@ void field_request(const ui::Request& request)
     step.kind = UndoStep::Kind::kFields;
     std::string message;
     if (request.kind == ui::Request::Kind::kFieldHome) {
-        std::vector<uint32_t> keys = request.id ? std::vector<uint32_t>{request.id} : fields::touched_keys(node);
-        for (uint32_t key : keys) {
+        const std::vector<uint32_t> keys = request.id ? std::vector<uint32_t>{request.id} : fields::touched_keys(node);
+        for (const uint32_t key : keys) {
             fields::Own before, origin;
             if (fields::get_capture(node, key, &before) && fields::get_origin(node, key, &origin)) {
                 step.fields.push_back({node, key, before});
@@ -3226,8 +3258,8 @@ void field_request(const ui::Request& request)
         // (and the links, when every field goes back)
         if (!request.id) {
             chains::State chains = chains::at_hand();
-            bool relinked = std::any_of(chains.links.begin(), chains.links.end(),
-                                        [&](const chains::LinkEdit& l) { return l.name == node; });
+            const bool relinked = std::any_of(chains.links.begin(), chains.links.end(),
+                                              [&](const chains::LinkEdit& l) { return l.name == node; });
             if (relinked)
                 set_links_from_inspector(node, "", true);
         }
@@ -3237,7 +3269,7 @@ void field_request(const ui::Request& request)
         fields::get_capture(node, request.id, &before);
         fields::Value value;
         std::string error;
-        bool removed = request.kind == ui::Request::Kind::kFieldRemove;
+        const bool removed = request.kind == ui::Request::Kind::kFieldRemove;
         if (!removed && !fields::parse(static_cast<fields::Kind>(request.value), request.text, &value, &error)) {
             hud::get_message("Not set: " + error, 5.0);
             return;
@@ -3251,7 +3283,7 @@ void field_request(const ui::Request& request)
         step.fields.push_back({node, request.id, before});
         const char* note = nullptr;
         const nodes::Elem& n = nodes::get_all()[nodes::get_find(node)];
-        fields::When when = fields::when_applied(n.family, request.id, &note);
+        const fields::When when = fields::when_applied(n.family, request.id, &note);
         message = std::string(removed ? "Field removed" : "Field set") +
                   (when == fields::When::kLive ? "" : " (applies on reload)");
     }
@@ -3292,7 +3324,7 @@ void level_props_request(const ui::Request& request)
 constexpr int kChainEntries = 4; // (the feature map's ledge the fourth)
 int chain_entry(int entry)
 {
-    int base = static_cast<int>(place_entries().size());
+    const int base = static_cast<int>(place_entries().size());
     return entry >= base && entry < base + kChainEntries ? entry - base : -1;
 }
 // The Place palette's entities (after the chains): peds, cars, bouncy sets, particle systems, sound emitters
@@ -3300,7 +3332,7 @@ int chain_entry(int entry)
 // or a sound emitter with its sound (an added node: its undo step). False: not one of those entries.
 bool place_entity(int entry, V3 at)
 {
-    int index = entry - static_cast<int>(place_entries().size()) - kChainEntries;
+    const int index = entry - static_cast<int>(place_entries().size()) - kChainEntries;
     if (entry < 0 || index < 0 || index >= static_cast<int>(entities::get_palette().size()))
         return false;
     const entities::PaletteEntry& e = entities::get_palette()[index];
@@ -3313,9 +3345,9 @@ bool place_entity(int entry, V3 at)
         at = dropped_to(at, at.y, ground.y);
     entities::Placed placed = entities::get_place(index, at, g_yaw);
     if (placed.emitter) {
-        std::string name =
+        const std::string name =
             node_create::fresh_name(node_create::name_stem(node_create::Kind::kSound), node_create::name_taken);
-        node_create::Spec spec =
+        const node_create::Spec spec =
             node_create::default_spec(node_create::Kind::kSound, node_create::Team::kRed, at, g_yaw, name);
         std::string message;
         if (!node_create::fabricate(spec, -1, &message)) {
@@ -3331,7 +3363,7 @@ bool place_entity(int entry, V3 at)
         push_undo(step, "Place");
         g_pickables.clear();
         g_hover_node = -1;
-        int node = nodes::get_find(node_create::name_hash(name));
+        const int node = nodes::get_find(node_create::name_hash(name));
         if (node >= 0)
             select_node_only(node);
         hud::get_message("Added " + name + " (" + nodes::caption(placed.sound) + ")");
@@ -3346,7 +3378,7 @@ bool place_entity(int entry, V3 at)
     step.kind = UndoStep::Kind::kMade;
     step.exist = false;
     std::vector<objects::GameEntity*> made;
-    for (uint32_t name : placed.copies) {
+    for (const uint32_t name : placed.copies) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(name));
         if (!object)
             continue;
@@ -3363,7 +3395,7 @@ bool place_entity(int entry, V3 at)
     push_undo(step, "Place");
     if (!made.empty()) {
         select_objects(made);
-    } else if (int node = nodes::get_find(placed.copies.front()); node >= 0) {
+    } else if (const int node = nodes::get_find(placed.copies.front()); node >= 0) {
         g_pickables.clear();
         select_node_only(node); // (a particle system: its node)
     }
@@ -3377,7 +3409,7 @@ bool place_entity(int entry, V3 at)
 
 chains::Blit chain_kind_of(int entry)
 {
-    int chain = chain_entry(entry);
+    const int chain = chain_entry(entry);
     return chain == 0   ? chains::Blit::kRail
            : chain == 1 ? chains::Blit::kRouteWay
            : chain == 2 ? chains::Blit::kLadder
@@ -3391,10 +3423,10 @@ void draw_chain_point(V3 dir, bool alt)
 {
     if (chains::get_drawing() == chains::Blit::kLadder) {
         // (a ladder: its foot on a wall, then its top - level_editor_chains.h)
-        chains::State before = chains::at_hand();
+        const chains::State before = chains::at_hand();
         std::string message;
         uint32_t select = 0;
-        bool made = chains::ladder_click(g_pos, make_unit(dir), kMaxPickDistance, &message, &select);
+        const bool made = chains::ladder_click(g_pos, make_unit(dir), kMaxPickDistance, &message, &select);
         after_chain_change(before, made ? select : 0, message);
         if (made && chain_kind_of(g_place_armed) != chains::Blit::kNone)
             g_place_armed = -1;
@@ -3406,7 +3438,7 @@ void draw_chain_point(V3 dir, bool alt)
         hud::get_message("No surface under the cursor");
         return;
     }
-    chains::State before = chains::at_hand();
+    const chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;
     chains::draw_at(point, end, &message, &select);
@@ -3433,7 +3465,7 @@ void stop_chain_drawing(const char* message)
 // UI runs (`confirmed`), at once with the old HUD.
 void unlink_list_node(bool confirmed)
 {
-    int index = picked_node_index();
+    const int index = picked_node_index();
     if (index < 0)
         return;
     const nodes::Elem node = nodes::get_all()[index];
@@ -3513,10 +3545,10 @@ void unlink_list_node(bool confirmed)
 // Home on a hidden node: shown again (undoable).
 bool show_hidden_node()
 {
-    int index = picked_node_index();
+    const int index = picked_node_index();
     if (index < 0 || !nodes::get_all()[index].hidden)
         return false;
-    uint32_t name = nodes::get_all()[index].name;
+    const uint32_t name = nodes::get_all()[index].name;
     if (chains::is_chain_node(name)) {
         // (a deleted rail / path point: its neighbours were linked past it - the chains' undo puts both back)
         hud::get_message("Deleted points can be restored with Undo");
@@ -3537,7 +3569,7 @@ bool show_hidden_node()
 // An added crown earlier / later among the added crowns (one undo step).
 void move_selected_crown(int delta)
 {
-    int index = picked_node_index();
+    const int index = picked_node_index();
     if (index < 0)
         return;
     const nodes::Elem& node = nodes::get_all()[index];
@@ -3545,14 +3577,14 @@ void move_selected_crown(int delta)
     step.kind = UndoStep::Kind::kOrder;
     step.order = node_create::get_order();
     std::string message;
-    uint32_t name = node.name;
-    nodes::Family family = node.family;
+    const uint32_t name = node.name;
+    const nodes::Family family = node.family;
     if (!node_create::move_crown(name, delta, &message)) {
         hud::get_message(message, 5.0);
         return;
     }
     push_undo(step, "Crown order");
-    int now = nodes::get_find(name);
+    const int now = nodes::get_find(name);
     if (now >= 0) {
         select_node_only(now);
         char text[96];
@@ -3640,17 +3672,17 @@ std::unordered_map<uint32_t, uint8_t> change_marks()
             marks[name] |= bits;
     };
     for (const scenery::SectorState& s : scenery::changed_sectors()) {
-        bool moved = s.placement.quarters != 0 || !is_unit_scale(s.placement.scale) || s.placement.offset.x != 0.0f ||
-                     s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
+        const bool moved = s.placement.quarters != 0 || !is_unit_scale(s.placement.scale) ||
+                           s.placement.offset.x != 0.0f || s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
         mark(s.checksum, static_cast<uint8_t>((moved ? ui::kMarkMoved : 0) | (s.hidden ? ui::kMarkHidden : 0)));
     }
     for (const scenery::RailState& r : scenery::changed_rails())
         mark(r.name, static_cast<uint8_t>(r.hidden ? ui::kMarkHidden : ui::kMarkMoved));
     for (const walls::WallState& w : walls::get_changed()) {
-        bool moved = !walls::is_home(w.placement);
+        const bool moved = !walls::is_home(w.placement);
         mark(w.checksum, static_cast<uint8_t>((moved ? ui::kMarkMoved : 0) | (w.off ? ui::kMarkCollisionOff : 0)));
     }
-    for (uint32_t id : object_edit::get_touched()) {
+    for (const uint32_t id : object_edit::get_touched()) {
         const object_edit::State* origin = object_edit::get_origin(id);
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
         if (!origin || !object)
@@ -3668,7 +3700,7 @@ std::unordered_map<uint32_t, uint8_t> change_marks()
         if (n.hidden)
             mark(n.name, ui::kMarkHidden);
     }
-    for (uint32_t id : view::hidden_ids())
+    for (const uint32_t id : view::hidden_ids())
         mark(id, ui::kMarkViewHidden);
     for (const picking::Lock& lock : picking::get_locks())
         mark(lock.id, ui::kMarkClickThrough);
@@ -3681,7 +3713,7 @@ ui::ShapeMesh assemble_model()
     model.carry = carry::is_switched_on();
     model.carried = g_dragging || g_key_moving || g_field_editing ? carry::total_of() : 0; // (a move under way)
     model.marks = change_marks();
-    uint32_t scene = scenery::world_scene_key(scenery::main_scene());
+    const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
     model.level = scene ? object_edit::caption(scene) : "";
     model.level_title_ = layout::level_title();
     model.edited_saved_ = layout::has_saved_layout();
@@ -3707,7 +3739,7 @@ ui::ShapeMesh assemble_model()
              std::string(lock.kind == picking::kObjects ? "object " : "scenery ") + object_edit::caption(lock.id)});
     {
         bool all = true;
-        std::vector<picking::Lock> selected = selection_locks();
+        const std::vector<picking::Lock> selected = selection_locks();
         for (const picking::Lock& lock : selected)
             all = all && picking::latched(lock.kind, lock.id);
         model.selection_lockable_ = !selected.empty();
@@ -3715,7 +3747,7 @@ ui::ShapeMesh assemble_model()
         model.view.can_hide_ = !selected.empty();
     }
     {
-        view::Attributes stats = view::last_stats();
+        const view::Attributes stats = view::last_stats();
         model.view.collision = view::show_collision();
         model.view.triangles = stats.triangles;
         model.view.sectors = stats.sectors;
@@ -3725,7 +3757,7 @@ ui::ShapeMesh assemble_model()
         model.view.triggers = stats.triggers;
         model.view.capped = stats.capped;
         model.view.hidden = view::hidden_count();
-        if (uint32_t wall = view::selected_wall()) {
+        if (const uint32_t wall = view::selected_wall()) {
             model.view.wall = wall;
             model.view.wall_name_ = object_edit::caption(wall);
             model.view.wall_info_ = view::describe_wall(wall);
@@ -3738,7 +3770,7 @@ ui::ShapeMesh assemble_model()
         // (the Inspector's Collision checkbox: the selected scenery's switches - level_editor_walls.h)
         std::vector<bool> offs;
         if (!get_primary())
-            for (uint32_t checksum : scenery::get_selection())
+            for (const uint32_t checksum : scenery::get_selection())
                 offs.push_back(walls::disengaged(checksum));
         model.view.scenery_collision_ = walls::get_combined(offs);
     }
@@ -3767,7 +3799,7 @@ ui::ShapeMesh assemble_model()
         s.scalable = true;
         s.scale = scenery::selection_scale();
         if (s.sectors > 1 || scenery::selected_rail_count() > 0) {
-            for (uint32_t checksum : scenery::get_selection()) {
+            for (const uint32_t checksum : scenery::get_selection()) {
                 ui::ShapeMesh::Selection::Member member;
                 member.id = checksum;
                 member.name = object_edit::caption(checksum);
@@ -3775,13 +3807,13 @@ ui::ShapeMesh assemble_model()
                 OrientedBox box{};
                 if (scenery::cuboid(checksum, &box)) {
                     char size[48];
-                    V3 extent = box_size(box);
+                    const V3 extent = box_size(box);
                     std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f", extent.x, extent.y, extent.z);
                     member.size = size;
                 }
                 s.members.push_back(member);
             }
-            for (uint32_t name : scenery::selected_rail_names()) {
+            for (const uint32_t name : scenery::selected_rail_names()) {
                 ui::ShapeMesh::Selection::Member member;
                 member.rail = true;
                 member.id = name;
@@ -3833,7 +3865,7 @@ ui::ShapeMesh assemble_model()
         model.nodes.can_hide_ = !n.added && node_create::can_hide(n, &why);
         model.nodes.why_no_hide_ = why ? why : "";
         if (n.added && n.family == nodes::Family::kCrown) {
-            node_create::LinkChain list = node_create::at_hand();
+            const node_create::LinkChain list = node_create::at_hand();
             std::string name;
             for (const node_create::Spec& spec : list) {
                 if (node_create::name_hash(spec.name) == n.name)
@@ -3889,7 +3921,7 @@ ui::ShapeMesh assemble_model()
     if (!model.chain.waiting)
         model.chain.waiting = chains::get_waiting();
     if (g_confirm_hide) {
-        int index = nodes::get_find(g_confirm_hide);
+        const int index = nodes::get_find(g_confirm_hide);
         if (index >= 0) {
             const nodes::Elem& n = nodes::get_all()[index];
             model.confirm.open = true;
@@ -3910,7 +3942,7 @@ ui::ShapeMesh assemble_model()
 
 void show_help()
 {
-    std::vector<std::string> lines = {
+    const std::vector<std::string> lines = {
         "LEVEL EDITOR - KEYS    (F1 or Esc closes this)",
         "Flying       W A S D move   Q / E down / up   Shift faster   right mouse looks",
         "             wheel forward / back   - / = flying speed",
@@ -3952,7 +3984,7 @@ void fill_browser()
 {
     g_browser.items.clear();
     if (g_browser.tab == 0) {
-        for (uint32_t checksum : scenery::movable_pieces()) {
+        for (const uint32_t checksum : scenery::movable_pieces()) {
             OrientedBox box{};
             char size[48] = "";
             if (scenery::cuboid(checksum, &box))
@@ -3977,20 +4009,20 @@ void show_browser()
     std::snprintf(title, sizeof(title), "ADD   %s / %s   (%d)", g_browser.tab == 0 ? "SCENERY" : "scenery",
                   g_browser.tab == 1 ? "OBJECTS" : "objects", static_cast<int>(g_browser.items.size()));
     lines.emplace_back(title);
-    int count = static_cast<int>(g_browser.items.size());
+    const int count = static_cast<int>(g_browser.items.size());
     if (g_browser.index < g_browser.top)
         g_browser.top = g_browser.index;
     if (g_browser.index >= g_browser.top + kBrowserRows)
         g_browser.top = g_browser.index - kBrowserRows + 1;
     for (int row = 0; row < kBrowserRows; ++row) {
-        int i = g_browser.top + row;
+        const int i = g_browser.top + row;
         if (i >= count) {
             lines.emplace_back(
                 row == 0 ? (g_browser.tab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)")
                          : "");
             continue;
         }
-        std::string label = g_browser.items[i].label.substr(0, 40);
+        const std::string label = g_browser.items[i].label.substr(0, 40);
         lines.push_back(i == g_browser.index ? get_key(("> " + label).c_str()) : "  " + label);
     }
     hud::show_panel(lines, 380.0f, 34.0f, 254.0f);
@@ -4001,9 +4033,9 @@ void show_browser()
 V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame)
 {
     V3 hit{}, ground{};
-    V3 ray = have_ray ? make_unit(dir) : frame.back * -1.0f;
+    const V3 ray = have_ray ? make_unit(dir) : frame.back * -1.0f;
     if (get_cast(g_pos, g_pos + ray * kMaxPickDistance, &hit)) {
-        V3 back = hit - ray * 5.0f + V3{0.0f, 5.0f, 0.0f};
+        const V3 back = hit - ray * 5.0f + V3{0.0f, 5.0f, 0.0f};
         return ground_below(back, &ground) ? ground : hit;
     }
     V3 ahead = g_pos + ray * 600.0f;
@@ -4016,19 +4048,19 @@ void place_from_browser(V3 at, bool keep_open = false)
 {
     if (g_browser.index >= static_cast<int>(g_browser.items.size()))
         return;
-    uint32_t source = g_browser.items[g_browser.index].id;
+    const uint32_t source = g_browser.items[g_browser.index].id;
     UndoStep step;
     step.kind = UndoStep::Kind::kMade;
     step.exist = false;
     if (g_browser.tab == 0) {
-        uint32_t copy = scenery::get_duplicate(source);
+        const uint32_t copy = scenery::get_duplicate(source);
         if (!copy) {
             hud::get_message("Couldn't copy the piece");
             return;
         }
         g_objects.clear();
         scenery::set_selection({copy});
-        V3 pivot = scenery::get_pivot();
+        const V3 pivot = scenery::get_pivot();
         scenery::move_to({at.x, at.y + (pivot.y - scenery::get_bottom()), at.z});
         scenery::finalise();
         step.sectors.push_back(copy);
@@ -4064,14 +4096,14 @@ std::vector<std::pair<uint32_t, uint32_t>> g_duplicate_pairs;
 void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nullptr)
 {
     g_duplicate_pairs.clear();
-    edit::Selected adjust_source = edit::get_selection(); // (level_editor_adjust.h: what it copied)
+    const edit::Selected adjust_source = edit::get_selection(); // (level_editor_adjust.h: what it copied)
     UndoStep step;
     step.kind = UndoStep::Kind::kMade;
     step.exist = false;
-    V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
-    std::vector<objects::GameEntity*> objects = selected_objects();
-    V3 source_pos = selection_pos();
-    float source_heading = selection_heading();
+    const V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
+    const std::vector<objects::GameEntity*> objects = selected_objects();
+    const V3 source_pos = selection_pos();
+    const float source_heading = selection_heading();
     if (picked_node_index() >= 0) {
         duplicate_node(frame, repeat);
         return;
@@ -4088,10 +4120,10 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
                     source = c.source; // (a copy's copy: made from the same node)
             }
             OrientedBox box{};
-            float width =
+            const float width =
                 object_edit::model_box(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0f;
-            V3 at = repeat ? xform::repeat_target(object_edit::pos_of(object), *repeat)
-                           : object_edit::pos_of(object) + right * (width + 20.0f);
+            const V3 at = repeat ? xform::repeat_target(object_edit::pos_of(object), *repeat)
+                                 : object_edit::pos_of(object) + right * (width + 20.0f);
             objects::GameEntity* copy = object_edit::make_copy(source, at);
             if (!copy)
                 continue;
@@ -4105,7 +4137,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         }
         // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
         if (repeat && repeat->turn != 0.0f && !made.empty()) {
-            V3 pivot = object_edit::pos_of(made.front());
+            const V3 pivot = object_edit::pos_of(made.front());
             for (objects::GameEntity* copy : made)
                 object_edit::turn_about(copy, pivot, repeat->turn);
         }
@@ -4120,7 +4152,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         OrientedBox box{};
         V3 min = {}, max = {};
         bool have = false;
-        for (uint32_t checksum : scenery::get_selection()) {
+        for (const uint32_t checksum : scenery::get_selection()) {
             V3 a{}, b{};
             if (scenery::cuboid(checksum, &box)) {
                 bounds_of(box, &a, &b);
@@ -4129,8 +4161,8 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             }
         }
         std::vector<uint32_t> copies;
-        for (uint32_t checksum : scenery::get_selection()) {
-            if (uint32_t copy = scenery::get_duplicate(checksum)) {
+        for (const uint32_t checksum : scenery::get_selection()) {
+            if (const uint32_t copy = scenery::get_duplicate(checksum)) {
                 copies.push_back(copy);
                 g_duplicate_pairs.emplace_back(checksum, copy);
             }
@@ -4140,7 +4172,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             return;
         }
         scenery::set_selection(copies);
-        float width = std::fabs((max.x - min.x) * right.x) + std::fabs((max.z - min.z) * right.z);
+        const float width = std::fabs((max.x - min.x) * right.x) + std::fabs((max.z - min.z) * right.z);
         if (repeat) {
             scenery::move_to(xform::repeat_target(scenery::get_pivot(), *repeat));
             if (repeat->quarters)
@@ -4160,7 +4192,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
     made.reserve(step.copies.size());
     for (const MadeCopy& copy : step.copies)
         made.push_back(copy.name);
-    for (uint32_t sector : step.sectors)
+    for (const uint32_t sector : step.sectors)
         made.push_back(sector);
     xform::note_duplicate(&xform::last_duplicate(), step.sectors.empty() ? xform::Kind::kObject : xform::Kind::kScenery,
                           made, source_pos, source_heading);
@@ -4207,7 +4239,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
         return false;
     }
     node_create::Spec spec = list[at];
-    V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
+    const V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
     spec.name = node_create::fresh_name(node_create::name_stem(kind), node_create::name_taken);
     spec.pos = repeat ? xform::repeat_target(values.pos, *repeat) : values.pos + right * 64.0f;
     spec.angles = values.angles;
@@ -4227,7 +4259,7 @@ bool duplicate_node(const TickCycle& frame, const xform::RepeatStep* repeat)
     push_undo(step);
     g_pickables.clear();
     g_hover_node = -1;
-    int index = nodes::get_find(node_create::name_hash(spec.name));
+    const int index = nodes::get_find(node_create::name_hash(spec.name));
     if (index >= 0)
         select_node_only(index);
     xform::note_duplicate(&xform::last_duplicate(), xform::Kind::kElem, {node_create::name_hash(spec.name)}, values.pos,
@@ -4243,13 +4275,13 @@ void repeat_duplicate(const TickCycle& frame)
 {
     xform::Kind kind = xform::Kind::kNone;
     std::vector<uint32_t> ids;
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     if (picked_node_index() >= 0) {
         kind = xform::Kind::kElem;
         ids.push_back(g_node_name);
     } else if (!objects.empty()) {
         kind = xform::Kind::kObject;
-        for (objects::GameEntity* object : objects)
+        for (const objects::GameEntity* object : objects)
             ids.push_back(object->ident_);
     } else if (scenery::has_selection()) {
         kind = xform::Kind::kScenery;
@@ -4290,7 +4322,7 @@ void switch_scenery_collision(bool off)
     step.walls = walls::store_away(sectors);
     step.sectors = sectors;
     int changed = 0;
-    for (uint32_t checksum : sectors) {
+    for (const uint32_t checksum : sectors) {
         if (walls::disengaged(checksum) != off && walls::set_off(checksum, off))
             ++changed;
     }
@@ -4311,7 +4343,7 @@ void erase_one()
         unlink_list_node(false);
         return;
     }
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     if (!objects.empty()) {
         UndoStep step;
         step.kind = UndoStep::Kind::kMade;
@@ -4338,7 +4370,7 @@ void erase_one()
         note_action("deleted object copies (Delete)");
         return;
     }
-    if (uint32_t wall = wall_only()) {
+    if (const uint32_t wall = wall_only()) {
         switch_wall(wall, !walls::disengaged(wall)); // (Delete again: back on)
         return;
     }
@@ -4356,15 +4388,15 @@ void get_reset()
     // (map3: faces selected - their flags back as the level has them, level_editor_faces.h)
     if (faces::has_selection() && faces::home_selection())
         return;
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     node_edit::Values node;
     if (show_hidden_node()) {
         // (a hidden node: shown first - Home again puts it back where the level has it)
     } else if (node_values(&node)) {
         // (a rail point: with the points that move with it - its whole rail while Whole rail is on)
-        UndoStep before = get_snapshot();
+        const UndoStep before = get_snapshot();
         bool any = false;
-        for (uint32_t name : node_edit::moved_with(g_node_name, g_move_entire_rail)) {
+        for (const uint32_t name : node_edit::moved_with(g_node_name, g_move_entire_rail)) {
             node_edit::Values now;
             const node_edit::Values* origin = node_edit::get_origin(name);
             if (origin && node_edit::get_take_in(name, &now) && !node_edit::get_same(now, *origin)) {
@@ -4385,9 +4417,9 @@ void get_reset()
         if (triggers::proxim_of(g_node_name))
             triggers::set_proxim(triggers::ProximEdit{g_node_name}, true); // (a proximity node's scripts / shape)
     } else if (!objects.empty()) {
-        UndoStep before = get_snapshot();
+        const UndoStep before = get_snapshot();
         bool any = false;
-        for (objects::GameEntity* object : objects) {
+        for (const objects::GameEntity* object : objects) {
             if (const object_edit::State* origin = object_edit::get_origin(object->ident_))
                 any |= object_edit::get_restore(*origin);
         }
@@ -4421,9 +4453,9 @@ void focus_on_selection()
     if (!have_selection())
         return;
     g_free_camera = false; // (the camera follows the selection again)
-    V3 target = target_of();
-    V3 back = g_pos - target;
-    float distance = std::sqrt(get_dot(back, back));
+    const V3 target = target_of();
+    const V3 back = g_pos - target;
+    const float distance = std::sqrt(get_dot(back, back));
     if (distance < 1.0f)
         return;
     g_orbit_distance = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
@@ -4458,7 +4490,7 @@ float trigger_reach(V3 dir)
 // filter the same - and that click took something with more under it.
 bool cycle_holds(float x, float y, bool shift, bool everything)
 {
-    V3 moved = g_pos - g_cycle.pos;
+    const V3 moved = g_pos - g_cycle.pos;
     return g_cycle.have && !shift && !everything && g_cycle.index >= 0 && g_cycle.order.size() > 1 &&
            picking::same_spot(x, y, g_cycle.x, g_cycle.y, 4.0f * pixel_scale()) && get_dot(moved, moved) < 1.0f &&
            g_cycle.changes == g_changes && g_cycle.filter == g_pick_filter;
@@ -4489,7 +4521,7 @@ void note_click_for_cycle(float x, float y, V3 dir, bool plain)
         g_cycle.pos = g_pos;
         g_cycle.filter = g_pick_filter;
         g_cycle.order = picking::cycle_order(g_hover_node, objects, scenery, g_pick_filter);
-        objects::GameEntity* object = get_live(g_hover);
+        const objects::GameEntity* object = get_live(g_hover);
         g_cycle.index = g_hover_node >= 0 ? picking::get_index_of(g_cycle.order, picking::Choice::kNode, g_hover_node)
                         : object ? picking::get_index_of(g_cycle.order, picking::Choice::kObject, object->ident_)
                         : g_hover_sector
@@ -4513,7 +4545,7 @@ bool drop_under_cursor(V3 dir)
     if (!scenery::has_selection())
         return false;
     if (g_hover_node >= 0 && g_hover_node < static_cast<int>(nodes::get_all().size())) {
-        uint32_t name = nodes::get_all()[g_hover_node].name;
+        const uint32_t name = nodes::get_all()[g_hover_node].name;
         if (!scenery::carries_rail(name))
             return false;
         scenery::drop_rail(name);
@@ -4528,10 +4560,10 @@ bool drop_under_cursor(V3 dir)
         passed.push_back(layer.passed);
         selected.push_back(scenery::get_selected(layer.checksum));
     }
-    int index = members::drop_target(passed, selected);
+    const int index = members::drop_target(passed, selected);
     if (index < 0)
         return false;
-    uint32_t checksum = layers[index].checksum;
+    const uint32_t checksum = layers[index].checksum;
     scenery::flip_over(checksum);
     hud::get_message("Removed " + object_edit::caption(checksum) + " from selection");
     return true;
@@ -4541,10 +4573,10 @@ bool drop_under_cursor(V3 dir)
 std::vector<picking::Lock> selection_locks()
 {
     std::vector<picking::Lock> locks;
-    for (objects::GameEntity* object : selected_objects())
+    for (const objects::GameEntity* object : selected_objects())
         locks.push_back({picking::kObjects, object->ident_});
     if (locks.empty())
-        for (uint32_t sector : scenery::get_selection())
+        for (const uint32_t sector : scenery::get_selection())
             locks.push_back({picking::kScenery, sector});
     return locks;
 }
@@ -4560,7 +4592,7 @@ void view_hide(bool isolate)
         hud::get_message(isolate ? "Nothing selected to isolate" : "Nothing selected to hide");
         return;
     }
-    int count = isolate ? view::get_isolate(sectors, objects) : view::conceal(sectors, objects);
+    const int count = isolate ? view::get_isolate(sectors, objects) : view::conceal(sectors, objects);
     if (!isolate)
         unpick();
     note_action("view: %s (%d hidden)", isolate ? "isolated" : "hid", count);
@@ -4572,7 +4604,7 @@ void view_hide(bool isolate)
 // Alt+H / Show all.
 void view_show_all()
 {
-    int count = view::hidden_count();
+    const int count = view::hidden_count();
     view::show_all();
     note_action("view: showed all (%d)", count);
     hud::get_message(count ? "All shown" : "Nothing hidden");
@@ -4594,7 +4626,7 @@ void show_collision(bool on)
 // it to unlock); a selection all locked already (picked in the Outliner) unlocked; nothing selected: every lock dropped.
 void toggle_lock()
 {
-    std::vector<picking::Lock> locks = selection_locks();
+    const std::vector<picking::Lock> locks = selection_locks();
     if (locks.empty() && !g_node_selected && !picking::get_locks().empty()) {
         // (nothing selected: every lock dropped - the old HUD has no Inspector to unlock one)
         char text[64];
@@ -4626,7 +4658,7 @@ void toggle_lock()
 // The camera taken to look at a point from `distance` away, from the side it looks from now.
 void get_look_at(V3 target, float distance)
 {
-    TickCycle frame = frame_from_yaw_pitch(g_yaw, std::min(g_pitch, -0.35f));
+    const TickCycle frame = frame_from_yaw_pitch(g_yaw, std::min(g_pitch, -0.35f));
     g_pos = target + frame.back * distance;
     yaw_pitch_from_back(make_unit(g_pos - target), &g_yaw, &g_pitch);
 }
@@ -4634,8 +4666,8 @@ void get_look_at(V3 target, float distance)
 // A key's press (true once per press).
 bool squeezed(const uint8_t* keys, SDL_Scancode key, bool* was)
 {
-    bool down = keys[key] != 0;
-    bool pressed = down && !*was;
+    const bool down = keys[key] != 0;
+    const bool pressed = down && !*was;
     *was = down;
     return pressed;
 }
@@ -4647,7 +4679,7 @@ bool get_repeated(const uint8_t* keys, SDL_Scancode key, uint32_t* since)
         *since = 0;
         return false;
     }
-    uint32_t now = SDL_GetTicks();
+    const uint32_t now = SDL_GetTicks();
     if (!*since) {
         *since = now;
         return true;
@@ -4668,7 +4700,7 @@ int inspected_node()
     if (g_node_selected) {
         if (g_node_index < static_cast<int>(nodes.size()) && nodes[g_node_index].name == g_node_name)
             return g_node_index;
-        int found = g_node_name ? nodes::get_find(g_node_name) : -1;
+        const int found = g_node_name ? nodes::get_find(g_node_name) : -1;
         if (found < 0) {
             g_node_selected = false; // (another level)
             return -1;
@@ -4676,7 +4708,7 @@ int inspected_node()
         g_node_index = found;
         return found;
     }
-    if (objects::GameEntity* object = get_primary())
+    if (const objects::GameEntity* object = get_primary())
         return nodes::get_find(object->ident_);
     if (scenery::has_selection())
         return nodes::get_find(scenery::get_selection().front());
@@ -4719,7 +4751,7 @@ void select_node(int index)
 // The flag node of a flag's object (-1: not a flag's).
 int flag_node_of(objects::GameEntity* object)
 {
-    int index = object ? nodes::get_find(object->ident_) : -1;
+    const int index = object ? nodes::get_find(object->ident_) : -1;
     return index >= 0 && nodes::get_all()[index].family == nodes::Family::kBitMark ? index : -1;
 }
 
@@ -4740,10 +4772,10 @@ void drop_selection()
 {
     if (!have_selection() || g_dragging)
         return;
-    V3 pos = selection_pos();
-    float base = get_selection_base();
+    const V3 pos = selection_pos();
+    const float base = get_selection_base();
     V3 ground{};
-    V3 from = ground_ray_start(pos, base, get_primary() || picked_node_index() >= 0);
+    const V3 from = ground_ray_start(pos, base, get_primary() || picked_node_index() >= 0);
     if (ground_below(from, &ground) && ground.y != base) {
         push_undo(get_snapshot(), "Drop to ground");
         place_selection(dropped_to(pos, base, ground.y));
@@ -4815,7 +4847,7 @@ void ask_reset_level()
         g_confirm_reset = true;
         return;
     }
-    uint32_t now = SDL_GetTicks();
+    const uint32_t now = SDL_GetTicks();
     if (g_reset_asked_at && now - g_reset_asked_at < 5000) {
         g_reset_asked_at = 0;
         reset_level_now();
@@ -4852,7 +4884,7 @@ void focus_browser_item()
 {
     if (g_browser.index >= static_cast<int>(g_browser.items.size()))
         return;
-    uint32_t id = g_browser.items[g_browser.index].id;
+    const uint32_t id = g_browser.items[g_browser.index].id;
     OrientedBox box{};
     if (g_browser.tab == 0 && scenery::cuboid(id, &box)) {
         V3 a{}, b{};
@@ -4890,13 +4922,13 @@ float selection_radius()
     OrientedBox box{};
     if (objects::GameEntity* object = get_primary()) {
         if (object_edit::model_box(object, &box)) {
-            V3 size = box_size(box);
+            const V3 size = box_size(box);
             return std::max(50.0f, 0.5f * std::sqrt(get_dot(size, size)));
         }
     } else if (!scenery::get_selection().empty()) {
         V3 lo = {}, hi = {};
         bool have = false;
-        for (uint32_t sector : scenery::get_selection()) {
+        for (const uint32_t sector : scenery::get_selection()) {
             if (!scenery::cuboid(sector, &box))
                 continue;
             V3 a{}, b{};
@@ -4954,7 +4986,7 @@ void apply_resume(const perform::Resume& r)
     g_pitch = r.pitch;
     g_speed = r.speed;
     std::vector<objects::GameEntity*> objects;
-    for (uint32_t id : r.objects) {
+    for (const uint32_t id : r.objects) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
         if (object && get_live({object, id}))
             objects.push_back(object);
@@ -4974,7 +5006,7 @@ void apply_resume(const perform::Resume& r)
     }
     // (the camera where it was: the selection orbited from there)
     if (have_selection()) {
-        V3 back = g_pos - target_of();
+        const V3 back = g_pos - target_of();
         g_orbit_distance = std::max(kMinOrbit, std::min(kMaxOrbit, std::sqrt(get_dot(back, back))));
     }
     get_log("level editor: back from play from here - the camera at (%.0f, %.0f, %.0f), %s", g_pos.x, g_pos.y, g_pos.z,
@@ -4984,7 +5016,7 @@ void apply_resume(const perform::Resume& r)
 // What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
 void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
 {
-    bool no_change = g_dragging || g_key_moving || g_field_editing || triggers::resizing();
+    const bool no_change = g_dragging || g_key_moving || g_field_editing || triggers::resizing();
     for (const ui::Request& request : ui::take_requests()) {
         switch (request.kind) {
         case ui::Request::Kind::kUndo:
@@ -5101,7 +5133,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
             view::clear_wall();
             break;
         case ui::Request::Kind::kWallCollision:
-            if (uint32_t wall = wall_only(); wall && !no_change)
+            if (const uint32_t wall = wall_only(); wall && !no_change)
                 switch_wall(wall, request.value == 0);
             break;
         case ui::Request::Kind::kSceneryCollision:
@@ -5164,7 +5196,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 g_field_editing = false;
                 if (!get_primary())
                     scenery::finalise();
-                V3 now = selection_scale_now();
+                const V3 now = selection_scale_now();
                 if (g_has_pending && (now.x != g_scale_at_field_start.x || now.y != g_scale_at_field_start.y ||
                                       now.z != g_scale_at_field_start.z)) {
                     push_undo(g_pending, "Scale (Inspector)");
@@ -5228,7 +5260,7 @@ void apply_ui_requests(V3 dir, bool have_ray, const TickCycle& frame)
                 unlink_list_node(false);
             break;
         case ui::Request::Kind::kHideConfirmed: {
-            uint32_t name = g_confirm_hide;
+            const uint32_t name = g_confirm_hide;
             g_confirm_hide = 0;
             if (!no_change && name && name == g_node_name)
                 unlink_list_node(true);
@@ -5316,20 +5348,20 @@ void drill_through(int steps, float x, float y, V3 dir)
         g_cycle.changes = g_changes;
         g_cycle.filter = g_pick_filter;
         g_cycle.order = picking::cycle_order(g_hover_node, objects, scenery, g_pick_filter);
-        objects::GameEntity* object = get_live(g_hover);
+        const objects::GameEntity* object = get_live(g_hover);
         shown = g_hover_node >= 0 ? picking::get_index_of(g_cycle.order, picking::Choice::kNode, g_hover_node)
                 : object          ? picking::get_index_of(g_cycle.order, picking::Choice::kObject, object->ident_)
                 : g_hover_sector  ? picking::get_index_of(g_cycle.order, picking::Choice::kScenery, g_hover_sector)
                                   : -1;
     }
-    int count = static_cast<int>(g_cycle.order.size());
+    const int count = static_cast<int>(g_cycle.order.size());
     if (count < 2) {
         g_cycle.have = false;
         g_drilled = false;
         hud::get_message(count ? "Only one item under cursor" : "Nothing under cursor", 1.5);
         return;
     }
-    int at = nav::drill_index(shown, steps, count);
+    const int at = nav::drill_index(shown, steps, count);
     g_cycle.index = nav::cycle_index_showing(at, count);
     g_drilled = true;
     char text[96];
@@ -5341,7 +5373,7 @@ void drill_through(int steps, float x, float y, V3 dir)
 void teleport_to(V3 dir)
 {
     V3 hit{};
-    V3 ray = make_unit(dir);
+    const V3 ray = make_unit(dir);
     if (!get_cast(g_pos, g_pos + ray * kMaxPickDistance, &hit)) {
         hud::get_message("No surface under cursor");
         return;
@@ -5365,12 +5397,12 @@ void walk_frame(const Mouse& input, const uint8_t* keys, const ux8::Pad& pad, do
     }
     set_relative(true);
     const prefs::Values& prefs = prefs::get_pull();
-    float dx = input.rel_x_ + pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
-    float dy = input.rel_y_ - pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+    const float dx = input.rel_x_ + pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+    const float dy = input.rel_y_ - pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
     get_look(&g_yaw, &g_pitch, dx, prefs.invert_y_ ? -dy : dy,
              kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
     static bool g_jump_was;
-    bool jump_key = actions::get_held(keys, actions::kFlyUp);
+    const bool jump_key = actions::get_held(keys, actions::kFlyUp);
     nav::WalkInput in;
     in.forward = static_cast<float>((actions::get_held(keys, actions::kForward) ? 1 : 0) -
                                     (actions::get_held(keys, actions::kBack) ? 1 : 0)) +
@@ -5395,15 +5427,18 @@ void transform_keys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const 
 {
     // (the keys from the keymap - level_editor_actions.h: W / E / R, Space, `, Alt+G, F)
     (void)keys;
-    bool w = actions::squeezed(actions::kToolMove), e = actions::squeezed(actions::kToolRotate),
-         r = actions::squeezed(actions::kToolScale), space = actions::squeezed(actions::kToolCycle),
-         grave = actions::squeezed(actions::kToolSpace), g = actions::squeezed(actions::kModalTransform),
-         f = actions::squeezed(actions::kFrameSelection);
+    const bool w = actions::squeezed(actions::kToolMove);
+    const bool e = actions::squeezed(actions::kToolRotate);
+    const bool r = actions::squeezed(actions::kToolScale);
+    const bool space = actions::squeezed(actions::kToolCycle);
+    const bool grave = actions::squeezed(actions::kToolSpace);
+    const bool g = actions::squeezed(actions::kModalTransform);
+    const bool f = actions::squeezed(actions::kFrameSelection);
     if (g_dragging || g_browser.open || ctrl || g_field_editing)
         return;
     xform::Settings& settings = xform::at_hand();
-    xform::Mode before = settings.mode;
-    bool always = xform::fly_always();
+    const xform::Mode before = settings.mode;
+    const bool always = xform::fly_always();
     (void)shift, (void)alt;
     if (!always && !input.right) {
         if (w)
@@ -5458,7 +5493,7 @@ void tick_frame()
     triggers::perform(g_active); // (exit triggers: the skater leaving one, in play)
     // (emitters' sounds, path speeds, objects made again, the path preview - level_editor_entities.h)
     {
-        objects::GameEntity* primary = g_active ? get_primary() : nullptr;
+        const objects::GameEntity* primary = g_active ? get_primary() : nullptr;
         entities::tick(g_active, primary ? primary->ident_ : 0, g_dragging);
     }
     chains::tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
@@ -5484,7 +5519,7 @@ void tick_frame()
         g_offer_show = false;
         hud::get_message("Autosave found: Ctrl+R restores, Ctrl+Shift+R discards", 20.0);
     }
-    uint64_t now = SDL_GetPerformanceCounter();
+    const uint64_t now = SDL_GetPerformanceCounter();
     double seconds =
         g_last_counter ? static_cast<double>(now - g_last_counter) / static_cast<double>(SDL_GetPerformanceFrequency())
                        : 0.0;
@@ -5504,7 +5539,7 @@ void tick_frame()
         keys = kNoKeys;
     // (UX8: a game controller in controller mode - level_editor_ux8.h: A as the left button at the crosshair, the
     // D-pad as the nudge keys, L3 as Shift, B as Escape; the sticks below)
-    ux8::Pad pad = ux8::read_pad();
+    const ux8::Pad pad = ux8::read_pad();
     bool pad_cursor = false;
     if (pad.active) {
         keys = ux8::pad_keys(keys, pad);
@@ -5520,10 +5555,10 @@ void tick_frame()
         if (ux8::pad_cancel(pad))
             g_cancel_requested = true;
     }
-    bool shift = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-    bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
-    bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
-    double boost = shift ? 4.0 : 1.0;
+    const bool shift = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
+    const bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
+    const bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
+    const double boost = shift ? 4.0 : 1.0;
     if (!have_selection())
         g_dragging = false;
     // The camera tools (level_editor_camera.h): Alt+drag orbits, the wheel with the right button the flying speed.
@@ -5546,7 +5581,7 @@ void tick_frame()
     // Walk mode (UX8 - level_editor_ux8.h: Shift+`): the camera at a skater's eye height; the editor's other keys and
     // clicks rest meanwhile.
     if (ux8::take_walk_toggle() && !g_dragging) {
-        bool on = !ux8::on_foot();
+        const bool on = !ux8::on_foot();
         if (on)
             unpick();
         ux8::set_walking(on, g_pos);
@@ -5614,7 +5649,7 @@ void tick_frame()
 
     static bool g_enter_key, g_focus_key, g_left_key, g_right_key;
     static uint32_t g_up_since, g_down_since, g_page_up_since, g_page_down_since;
-    bool no_change = g_dragging || g_key_moving || g_field_editing || triggers::resizing();
+    const bool no_change = g_dragging || g_key_moving || g_field_editing || triggers::resizing();
     // (the history, changes, search, selection tools and clipboards - level_editor_ux3.h)
     ux3::tick_frame();
     // (UX8: quick selection sets, the follow camera's key, the pie menus - a pie up takes the clicks)
@@ -5671,10 +5706,10 @@ void tick_frame()
         focus_on_selection();
     // L: with a rail point selected, it moves with its whole rail or by itself (level_editor_node_edit.h); otherwise
     // the selection locked (clicks pass it - level_editor_picking.h) or, all locked, unlocked.
-    int l_node = picked_node_index();
+    const int l_node = picked_node_index();
     // (a rail's, a ladder's or a path's point: its whole chain or itself - level_editor_chains.h)
-    bool rail_point = l_node >= 0 && node_edit::is_chain(nodes::get_all()[l_node].name);
-    bool l_pressed = actions::squeezed(actions::kLock);
+    const bool rail_point = l_node >= 0 && node_edit::is_chain(nodes::get_all()[l_node].name);
+    const bool l_pressed = actions::squeezed(actions::kLock);
     if (l_pressed && !rail_point && !g_dragging)
         toggle_lock();
     if (l_pressed && rail_point && !no_change) {
@@ -5708,11 +5743,11 @@ void tick_frame()
         }
     }
     if (actions::squeezed(actions::kJumpArcs) && !g_browser.open) {
-        bool on = !overlays::get_shown(overlays::kJumpArcs);
+        const bool on = !overlays::get_shown(overlays::kJumpArcs);
         overlays::assign_value(overlays::kJumpArcs, on);
         hud::get_message(on ? "Jump Arcs on" : "Jump Arcs off");
     }
-    bool ruler_clear = actions::squeezed(actions::kRulerClear);
+    const bool ruler_clear = actions::squeezed(actions::kRulerClear);
     if ((actions::squeezed(actions::kRuler) || ruler_clear) && !g_browser.open && !g_dragging) {
         if (ruler_clear) {
             ruler::get_clear();
@@ -5735,7 +5770,7 @@ void tick_frame()
         }
     }
     {
-        TickCycle view = frame_from_yaw_pitch(g_yaw, g_pitch);
+        const TickCycle view = frame_from_yaw_pitch(g_yaw, g_pitch);
         triggers::tick(g_pos, view.back * -1.0f, g_yaw);
         // (an editor trigger selected by itself: its resize handles)
         triggers::set_selected(picked_node_index() >= 0 && triggers::has_handles(g_node_name) ? g_node_name : 0);
@@ -5757,7 +5792,7 @@ void tick_frame()
             g_hover_node = -1;
             select_node_only(select);
         }
-        if (uint32_t wall = triggers::take_wall_select(); wall && !g_dragging) {
+        if (const uint32_t wall = triggers::take_wall_select(); wall && !g_dragging) {
             unpick();
             view::select_wall(wall); // (a level trigger volume moved as an invisible wall - level_editor_walls.h)
         }
@@ -5786,8 +5821,8 @@ void tick_frame()
     if (actions::squeezed(actions::kProblems))
         checks::toggle_window(); // (UX5) Alt+P: the Problems window (Hammer's Check for Problems key)
     if (actions::squeezed(actions::kLogCamera)) {
-        TickCycle view = frame_from_yaw_pitch(g_yaw, g_pitch);
-        uint32_t scene = scenery::world_scene_key(scenery::main_scene());
+        const TickCycle view = frame_from_yaw_pitch(g_yaw, g_pitch);
+        const uint32_t scene = scenery::world_scene_key(scenery::main_scene());
         get_log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:",
                 render::current_level(), object_edit::caption(scene).c_str(), g_yaw * 180.0f / kPi,
                 g_pitch * 180.0f / kPi);
@@ -5808,8 +5843,10 @@ void tick_frame()
     }
     // A rail's / path's point selected (level_editor_chains.h): Insert puts a point halfway to the next, End draws on
     // from this end, J links this end to the next end clicked, U unlinks it from its next.
-    bool insert_now = actions::squeezed(actions::kChainInsert), end_now = actions::squeezed(actions::kChainExtend),
-         join_now = actions::squeezed(actions::kChainLink), unlink_now = actions::squeezed(actions::kChainUnlink);
+    const bool insert_now = actions::squeezed(actions::kChainInsert);
+    const bool end_now = actions::squeezed(actions::kChainExtend);
+    const bool join_now = actions::squeezed(actions::kChainLink);
+    const bool unlink_now = actions::squeezed(actions::kChainUnlink);
     if (g_node_selected && !no_change && !g_browser.open && chains::is_chain_node(g_node_name)) {
         if (insert_now)
             run_chain_op(chains::kOpInsert, 0);
@@ -5835,9 +5872,9 @@ void tick_frame()
             g_right_travel = 0.0f;
         g_right_travel += std::fabs(input.rel_x_) + std::fabs(input.rel_y_);
     }
-    bool right_click = g_right_was && !input.right && g_right_travel < 6.0f;
+    const bool right_click = g_right_was && !input.right && g_right_travel < 6.0f;
     g_right_was = input.right;
-    bool enter_now = actions::squeezed(actions::kChainFinish);
+    const bool enter_now = actions::squeezed(actions::kChainFinish);
     if (chains::get_drawing() != chains::Blit::kNone && (enter_now || right_click) && !g_browser.open)
         stop_chain_drawing("Drawing finished");
 
@@ -5848,21 +5885,21 @@ void tick_frame()
         get_look(&g_yaw, &g_pitch, input.rel_x_, prefs.invert_y_ ? -input.rel_y_ : input.rel_y_,
                  kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
     }
-    bool pad_sticks = pad.active && !ux8::pie_open();
+    const bool pad_sticks = pad.active && !ux8::pie_open();
     if (pad_sticks && (pad.look_x_ != 0.0f || pad.look_y_ != 0.0f)) {
         // (UX8: the controller's right stick looks - orbits a selection, as the right button does)
         const prefs::Values& prefs = prefs::get_pull();
-        float px = pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds),
-              py = -pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+        const float px = pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
+        const float py = -pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
         get_look(&g_yaw, &g_pitch, px, prefs.invert_y_ ? -py : py,
                  kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
     }
     view_cam::apply_orbit(rig_now());
-    TickCycle frame = frame_from_yaw_pitch(g_yaw, g_pitch);
+    const TickCycle frame = frame_from_yaw_pitch(g_yaw, g_pitch);
     if (pad_sticks && (pad.move_x_ != 0.0f || pad.move_y_ != 0.0f || pad.up_down_ != 0.0f)) {
         // (UX8: the left stick flies, the triggers down / up - with a selection the camera leaves it, as the right
         // button's flying does; F frames it again)
-        V3 move = frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{0.0f, pad.up_down_, 0.0f};
+        const V3 move = frame.back * -pad.move_y_ + frame.right * pad.move_x_ + V3{0.0f, pad.up_down_, 0.0f};
         g_pos = g_pos + move * static_cast<float>(g_speed * (pad.fast ? 4.0 : 1.0) * seconds);
         if (have_selection())
             g_free_camera = true;
@@ -5881,7 +5918,8 @@ void tick_frame()
     float back_x = 0.0f, back_y = 0.0f;
     if (g_have_view && !input.right && input.window_width_ > 0 && input.window_height_ > 0 &&
         (ui::mouse_to_editor() || pad_cursor)) {
-        mouse_menus::ScreenMapping mapping = mouse_menus::current_mapping(input.window_width_, input.window_height_);
+        const mouse_menus::ScreenMapping mapping =
+            mouse_menus::current_mapping(input.window_width_, input.window_height_);
         back_x = static_cast<float>(static_cast<double>(input.x) * mapping.back_buffer_width_ / input.window_width_);
         back_y = static_cast<float>(static_cast<double>(input.y) * mapping.back_buffer_height_ / input.window_height_);
         float nx = 0.0f, ny = 0.0f;
@@ -5915,15 +5953,15 @@ void tick_frame()
 
     if (g_browser.open) {
         // The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
-        int count = static_cast<int>(g_browser.items.size());
-        int move = (get_repeated(keys, SDL_SCANCODE_DOWN, &g_down_since) ? 1 : 0) -
-                   (get_repeated(keys, SDL_SCANCODE_UP, &g_up_since) ? 1 : 0) +
-                   (get_repeated(keys, SDL_SCANCODE_PAGEDOWN, &g_page_down_since) ? kBrowserRows : 0) -
-                   (get_repeated(keys, SDL_SCANCODE_PAGEUP, &g_page_up_since) ? kBrowserRows : 0);
+        const int count = static_cast<int>(g_browser.items.size());
+        const int move = (get_repeated(keys, SDL_SCANCODE_DOWN, &g_down_since) ? 1 : 0) -
+                         (get_repeated(keys, SDL_SCANCODE_UP, &g_up_since) ? 1 : 0) +
+                         (get_repeated(keys, SDL_SCANCODE_PAGEDOWN, &g_page_down_since) ? kBrowserRows : 0) -
+                         (get_repeated(keys, SDL_SCANCODE_PAGEUP, &g_page_up_since) ? kBrowserRows : 0);
         if (move && count)
             g_browser.index = std::max(0, std::min(count - 1, g_browser.index + move));
-        bool left = squeezed(keys, SDL_SCANCODE_LEFT, &g_left_key),
-             right = squeezed(keys, SDL_SCANCODE_RIGHT, &g_right_key);
+        const bool left = squeezed(keys, SDL_SCANCODE_LEFT, &g_left_key);
+        const bool right = squeezed(keys, SDL_SCANCODE_RIGHT, &g_right_key);
         if (left || right) {
             g_browser.tab = 1 - g_browser.tab;
             g_browser.index = g_browser.top = 0;
@@ -5937,14 +5975,14 @@ void tick_frame()
             show_browser();
     }
 
-    bool selection_held = have_selection();
+    const bool selection_held = have_selection();
     // (the Outliner's lock - level_editor_organize.h: what it holds isn't moved, turned, scaled or dropped)
-    bool change_locked = selection_held && organize::selection_locked(false);
+    const bool change_locked = selection_held && organize::selection_locked(false);
     if (selection_held && !g_browser.open) {
         // The selection moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R, Page
         // Up/Down) down/up - and the camera follows it.
-        V3 forward = make_unit({-frame.back.x, 0.0f, -frame.back.z});
-        V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
+        const V3 forward = make_unit({-frame.back.x, 0.0f, -frame.back.z});
+        const V3 right = make_unit({frame.right.x, 0.0f, frame.right.z});
         int f = 0, r = 0, u = 0;
         if (xform::fly_always()) {
             // ([editor] wasd_flies=1: the fly keys nudge it as well as the arrows - Space aside, it cycles the tool)
@@ -5968,12 +6006,12 @@ void tick_frame()
             u = (actions::get_held(keys, actions::kNudgeUp) ? 1 : 0) -
                 (actions::get_held(keys, actions::kNudgeDown) ? 1 : 0);
             if (input.right && !ctrl && !g_dragging) {
-                FlyInput fly = {(actions::get_held(keys, actions::kForward) ? 1 : 0) -
-                                    (actions::get_held(keys, actions::kBack) ? 1 : 0),
-                                (actions::get_held(keys, actions::kRight) ? 1 : 0) -
-                                    (actions::get_held(keys, actions::kLeft) ? 1 : 0),
-                                (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
-                                    (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
+                const FlyInput fly = {(actions::get_held(keys, actions::kForward) ? 1 : 0) -
+                                          (actions::get_held(keys, actions::kBack) ? 1 : 0),
+                                      (actions::get_held(keys, actions::kRight) ? 1 : 0) -
+                                          (actions::get_held(keys, actions::kLeft) ? 1 : 0),
+                                      (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
+                                          (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
                 if (fly.forward || fly.right || fly.up) {
                     g_free_camera = true;
                     g_pos = get_fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds));
@@ -5988,14 +6026,14 @@ void tick_frame()
             if (!g_key_moving)
                 begin_change();
             auto step = static_cast<float>(kObjectSpeed * boost * seconds);
-            V3 pos = selection_pos();
+            const V3 pos = selection_pos();
             place_selection({pos.x + (forward.x * static_cast<float>(f) + right.x * static_cast<float>(r)) * step,
                              pos.y + static_cast<float>(u) * step,
                              pos.z + (forward.z * static_cast<float>(f) + right.z * static_cast<float>(r)) * step});
             g_key_moving = true;
         } else {
             if (g_key_moving) {
-                uint64_t serial = g_undo.empty() ? 0 : g_undo.back().serial;
+                const uint64_t serial = g_undo.empty() ? 0 : g_undo.back().serial;
                 end_change();
                 get_settle();
                 if (!g_undo.empty() && g_undo.back().serial != serial) // (level_editor_adjust.h)
@@ -6027,11 +6065,11 @@ void tick_frame()
         if (scaling && organize::selection_locked(true))
             scaling = 0;
         if (scaling && !g_dragging && !g_field_editing && !ctrl) {
-            float step = shift ? scale_tool::kFineStep : scale_tool::kStep;
-            float factor = scaling > 0 ? step : 1.0f / step;
+            const float step = shift ? scale_tool::kFineStep : scale_tool::kStep;
+            const float factor = scaling > 0 ? step : 1.0f / step;
             if (alt) {
-                TickCycle view = frame_from_yaw_pitch(g_yaw, g_pitch);
-                int axis = scale_tool::main_axis(view.back);
+                const TickCycle view = frame_from_yaw_pitch(g_yaw, g_pitch);
+                const int axis = scale_tool::main_axis(view.back);
                 if (scale_selection_by(scale_tool::along_axis(axis, factor), false)) {
                     adjust::ActStep action; // (level_editor_adjust.h)
                     action.kind = adjust::Kind::kScale;
@@ -6056,7 +6094,7 @@ void tick_frame()
         // The wheel: nearer / further - or, while dragging, the selection pushed away / pulled back (a tenth of its
         // distance a notch).
         if (input.wheel && g_dragging) {
-            V3 pos = selection_pos();
+            const V3 pos = selection_pos();
             g_drag_push +=
                 static_cast<float>(input.wheel) * std::max(20.0f, std::sqrt(get_dot(pos - g_pos, pos - g_pos)) * 0.1f);
         } else if (input.wheel && g_free_camera) {
@@ -6074,21 +6112,21 @@ void tick_frame()
         // browser has the keys: its F, arrows and Enter).
         g_key_moving = false;
         if (!g_browser.open && !ctrl && (xform::fly_always() || input.right)) {
-            FlyInput fly = {(actions::get_held(keys, actions::kForward) ? 1 : 0) -
-                                (actions::get_held(keys, actions::kBack) ? 1 : 0),
-                            (actions::get_held(keys, actions::kRight) ? 1 : 0) -
-                                (actions::get_held(keys, actions::kLeft) ? 1 : 0),
-                            (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
-                                (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
+            const FlyInput fly = {(actions::get_held(keys, actions::kForward) ? 1 : 0) -
+                                      (actions::get_held(keys, actions::kBack) ? 1 : 0),
+                                  (actions::get_held(keys, actions::kRight) ? 1 : 0) -
+                                      (actions::get_held(keys, actions::kLeft) ? 1 : 0),
+                                  (actions::get_held(keys, actions::kFlyUp) ? 1 : 0) -
+                                      (actions::get_held(keys, actions::kFlyDown) ? 1 : 0)};
             // ([editor] fly_accel_ms: the speed reached over that time - level_editor_camera.h)
-            float ramp = view_cam::fly_factor(fly.forward || fly.right || fly.up, seconds);
+            const float ramp = view_cam::fly_factor(fly.forward || fly.right || fly.up, seconds);
             g_pos = get_fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds * ramp));
         }
         if (input.wheel) {
             auto step = static_cast<float>(kWheelStep * boost * input.wheel);
             g_pos = g_pos - frame.back * step;
         }
-        int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
+        const int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
         if (speed)
             g_speed = static_cast<float>(std::max(50.0, std::min(20000.0, g_speed * std::pow(1.5, speed))));
     }
@@ -6098,13 +6136,13 @@ void tick_frame()
         // afresh.)
         static uint32_t g_follow_key;
         SelectionIds ids = current_selection();
-        uint32_t key = (ids.objects.empty() ? 0u : ids.objects.front()) ^
-                       (ids.sectors.empty() ? 0u : ids.sectors.front() * 31u) ^ (ids.node * 131u) ^
-                       static_cast<uint32_t>(ids.objects.size() * 7u + ids.sectors.size() * 13u);
-        bool active =
+        const uint32_t key = (ids.objects.empty() ? 0u : ids.objects.front()) ^
+                             (ids.sectors.empty() ? 0u : ids.sectors.front() * 31u) ^ (ids.node * 131u) ^
+                             static_cast<uint32_t>(ids.objects.size() * 7u + ids.sectors.size() * 13u);
+        const bool active =
             ux8::get_following() && have_selection() && !g_dragging && !triggers::resizing() && key == g_follow_key;
         g_follow_key = key;
-        V3 delta = nav::follow_step(&ux8::get_follower(), active, active ? target_of() : V3{0.0f, 0.0f, 0.0f});
+        const V3 delta = nav::follow_step(&ux8::get_follower(), active, active ? target_of() : V3{0.0f, 0.0f, 0.0f});
         if (active && g_free_camera)
             g_pos = g_pos + delta;
     }
@@ -6146,7 +6184,7 @@ void tick_frame()
             }
         }
         // (Shift: up / down - not with Ctrl or Alt, which pick what it snaps to)
-        bool vertical = shift && !ctrl && !alt;
+        const bool vertical = shift && !ctrl && !alt;
         if (g_drag_mode == xform::Mode::kShiftBy && g_axis < 0 && vertical != g_drag_vertical)
             start_drag(g_pos, dir, vertical, frame, input.x, input.y);
         if (g_drag_moved || g_typed_apply || !g_typed.text.empty())
@@ -6176,7 +6214,7 @@ void tick_frame()
         g_hover_node = -1;
         g_hover_passed = 0;
         // (UX8: a drill-through - Alt+wheel - holds with Alt still down: its entry is the hover)
-        bool drilled = g_drilled && cycle_holds(input.x, input.y, false, false);
+        const bool drilled = g_drilled && cycle_holds(input.x, input.y, false, false);
         g_drilled = drilled;
         g_hover_cycle = drilled || cycle_holds(input.x, input.y, shift, alt || input.middle_presses_)
                             ? (g_cycle.index + 1) % static_cast<int>(g_cycle.order.size())
@@ -6190,7 +6228,7 @@ void tick_frame()
             else
                 hover_sector = next.id;
         } else if (have_ray && g_hover_axis < 0) {
-            bool everything = alt || input.middle_presses_;
+            const bool everything = alt || input.middle_presses_;
             picking::Candidates c;
             scenery::Hit hit;
             scenery::get_pick(g_pos, make_unit(dir), kMaxPickDistance, &hit);
@@ -6203,7 +6241,7 @@ void tick_frame()
             c.object = object != nullptr;
             c.object_t_ = object_t;
             // (Alt: the nearest pickable piece whatever is in front of it; a plain click: the first, if nothing occludes)
-            uint32_t scenery_pick = everything ? hit.nearest : hit.checksum;
+            const uint32_t scenery_pick = everything ? hit.nearest : hit.checksum;
             c.scenery = scenery_pick != 0;
             c.scenery_t_ = everything ? hit.nearest_t_ : hit.t;
             c.passed = hit.passed != 0;
@@ -6267,8 +6305,9 @@ void tick_frame()
         teleport_to(dir);
         box_candidate = false;
     }
-    bool handle_pressed = input.left_presses_ && have_ray && !g_dragging && g_hover_axis < 0 && g_hover_handle >= 0 &&
-                          !triggers::resizing() && triggers::begin_resize(g_hover_handle, g_pos, dir);
+    const bool handle_pressed = input.left_presses_ && have_ray && !g_dragging && g_hover_axis < 0 &&
+                                g_hover_handle >= 0 && !triggers::resizing() &&
+                                triggers::begin_resize(g_hover_handle, g_pos, dir);
     if (handle_pressed) {
         hud::get_message("Resize: drag the face (Ctrl: snap)", 3.0);
     } else if (input.left_presses_ && have_ray && !g_dragging && g_hover_axis < 0 && ux9::occupied() &&
@@ -6292,7 +6331,7 @@ void tick_frame()
     } else if (input.left_presses_ && have_ray && !g_dragging && chains::wants_pick() && g_hover_axis < 0) {
         // (an armed Link / path assignment: the node clicked - level_editor_chains.h)
         if (g_hover_node >= 0) {
-            chains::State before = chains::at_hand();
+            const chains::State before = chains::at_hand();
             std::string message;
             uint32_t select = 0;
             chains::get_picked(nodes::get_all()[g_hover_node].name, &message, &select);
@@ -6317,25 +6356,26 @@ void tick_frame()
             get_log("level editor: ctrl+click - selected: %s", describe_selection().c_str());
     } else if ((input.left_presses_ || input.middle_presses_) && have_ray && !g_dragging) {
         objects::GameEntity* hover = get_live(g_hover);
-        bool one = alt || (input.middle_presses_ && !input.left_presses_);
+        const bool one = alt || (input.middle_presses_ && !input.left_presses_);
         bool drag = false;
         if (g_hover_axis < 0)
             note_click_for_cycle(input.x, input.y, dir, input.left_presses_ && !shift && !one);
         // (with the collision shown, Shift+click on an invisible wall's face: that wall - level_editor_view.h)
-        uint32_t wall = input.left_presses_ && shift && !alt && g_hover_axis < 0 && view::show_collision()
-                            ? view::pick_wall(g_pos, make_unit(dir))
-                            : 0;
+        const uint32_t wall = input.left_presses_ && shift && !alt && g_hover_axis < 0 && view::show_collision()
+                                  ? view::pick_wall(g_pos, make_unit(dir))
+                                  : 0;
         // (a plain click on the selected wall's face: dragging it - level_editor_walls.h)
-        bool on_wall = !wall && input.left_presses_ && !shift && !one && g_hover_axis < 0 && wall_only() &&
-                       view::show_collision() && view::pick_wall(g_pos, make_unit(dir)) == wall_only();
+        const bool on_wall = !wall && input.left_presses_ && !shift && !one && g_hover_axis < 0 && wall_only() &&
+                             view::show_collision() && view::pick_wall(g_pos, make_unit(dir)) == wall_only();
         if (!wall && !on_wall && g_hover_axis < 0)
             view::clear_wall();
         // (with the trigger volumes shown, a plain click on one - nearer than the rest: its node; Alt passes them -
         // level_editor_triggers.h)
         int trigger_node = -1;
         uint32_t trigger_sector = 0;
-        bool trigger = !wall && input.left_presses_ && !alt && g_hover_axis < 0 && g_hover_node < 0 && ui::underway() &&
-                       triggers::get_pick(g_pos, make_unit(dir), &trigger_node, &trigger_sector, trigger_reach(dir));
+        const bool trigger =
+            !wall && input.left_presses_ && !alt && g_hover_axis < 0 && g_hover_node < 0 && ui::underway() &&
+            triggers::get_pick(g_pos, make_unit(dir), &trigger_node, &trigger_sector, trigger_reach(dir));
         if (wall) {
             unpick();
             view::select_wall(wall);
@@ -6432,16 +6472,16 @@ void tick_frame()
     // The ground marker: the point below the selection's base.
     g_have_mark = false;
     if (have_selection()) {
-        V3 pos = selection_pos();
+        const V3 pos = selection_pos();
         g_mark_base = {pos.x, get_selection_base(), pos.z};
-        V3 from = get_primary() || picked_node_index() >= 0 ? g_mark_base + V3{0.0f, 2.0f, 0.0f}
-                                                            : g_mark_base - V3{0.0f, 1.0f, 0.0f};
+        const V3 from = get_primary() || picked_node_index() >= 0 ? g_mark_base + V3{0.0f, 2.0f, 0.0f}
+                                                                  : g_mark_base - V3{0.0f, 1.0f, 0.0f};
         g_have_mark = ground_below(from, &g_mark_ground);
     }
     // The camera tools' end of the frame: a flight, an ortho view kept on its axis (level_editor_camera.h).
-    bool flew = actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kBack) ||
-                actions::get_held(keys, actions::kLeft) || actions::get_held(keys, actions::kRight) ||
-                actions::get_held(keys, actions::kFlyUp) || actions::get_held(keys, actions::kFlyDown);
+    const bool flew = actions::get_held(keys, actions::kForward) || actions::get_held(keys, actions::kBack) ||
+                      actions::get_held(keys, actions::kLeft) || actions::get_held(keys, actions::kRight) ||
+                      actions::get_held(keys, actions::kFlyUp) || actions::get_held(keys, actions::kFlyDown);
     view_cam::after_update(rig_now(), input.wheel,
                            input.right || input.left_presses_ || input.middle_presses_ || input.wheel || flew ||
                                view_cam::get_orbiting());
@@ -6451,12 +6491,12 @@ void blit()
 {
     if (!g_active || !g_have_view || !render::g_d3d_device)
         return;
-    TickCycle frame = frame_from_yaw_pitch(g_yaw, g_pitch);
+    const TickCycle frame = frame_from_yaw_pitch(g_yaw, g_pitch);
     // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
     // cyan selected); the selection's grind rails, the ground marker and the move arrows as lines.
     static std::vector<LineVertex> lines;
     lines.clear();
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     objects::GameEntity* hover = g_dragging ? nullptr : get_live(g_hover);
     OrientedBox box{};
     // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
@@ -6466,7 +6506,8 @@ void blit()
             add_box(box, frame, 0xFFFFFF00, &lines);
         } else if (!g_dragging && g_hover_sector && !scenery::get_selected(g_hover_sector)) {
             const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-            bool one = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT] || scenery::why_not_movable(g_hover_sector);
+            const bool one =
+                keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT] || scenery::why_not_movable(g_hover_sector);
             const std::vector<uint32_t>& group = scenery::hover_group(g_hover_sector);
             if (one || group.empty()) {
                 if (scenery::cuboid(g_hover_sector, &box))
@@ -6497,18 +6538,18 @@ void blit()
         constexpr uint32_t kMark = 0xFFFFE070;
         if (std::fabs(g_mark_base.y - g_mark_ground.y) > 1.0f)
             add_line(g_mark_base, g_mark_ground, frame, kMark, &lines);
-        float size = std::max(10.0f, std::min(60.0f, g_orbit_distance * 0.05f));
+        const float size = std::max(10.0f, std::min(60.0f, g_orbit_distance * 0.05f));
         add_line(g_mark_ground - V3{size, 0.0f, 0.0f}, g_mark_ground + V3{size, 0.0f, 0.0f}, frame, kMark, &lines);
         add_line(g_mark_ground - V3{0.0f, 0.0f, size}, g_mark_ground + V3{0.0f, 0.0f, size}, frame, kMark, &lines);
     }
     // The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
     // one only (a modal Rotate / Scale: the whole gizmo).
     if (have_selection() && (!g_dragging || g_axis >= 0 || g_drag_mode != xform::Mode::kShiftBy)) {
-        xform::Gizmo gizmo = gizmo_now();
+        const xform::Gizmo gizmo = gizmo_now();
         for (const xform::Segment& segment : xform::gizmo_segments(gizmo)) {
             if (g_dragging && g_axis >= 0 && segment.handle != g_axis)
                 continue;
-            uint32_t colour =
+            const uint32_t colour =
                 xform::handle_colour(segment.handle, segment.handle == g_hover_axis || segment.handle == g_axis);
             if (segment.arrow)
                 add_arrow(segment.a, segment.b, frame, colour, &lines);
@@ -6572,8 +6613,8 @@ void blit()
     // The old HUD: the lines on the device (the renderer's cached state).
     if (lines.empty())
         return;
-    int count = static_cast<int>(lines.size());
-    LineVertex* line_data = lines.data();
+    const int count = static_cast<int>(lines.size());
+    const LineVertex* line_data = lines.data();
     // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
     render::set_texture(0, nullptr);
     render::set_vertex_format(0x144);           // XYZRHW | DIFFUSE | TEX1
@@ -6597,7 +6638,7 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
     std::vector<std::pair<std::string, std::string>> out;
     if (!g_active)
         return out;
-    ui::ShapeMesh model = assemble_model();
+    const ui::ShapeMesh model = assemble_model();
     char text[160];
     out.emplace_back("mode", std::string(model.mode ? model.mode : "") +
                                  (ui::underway() ? " (Dear ImGui panels)" : " (old HUD)"));
@@ -6638,7 +6679,7 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
     for (const std::string& line : {arcs::describe(), ruler::describe(), grind_preview::describe()})
         if (!line.empty())
             out.emplace_back("measure", line);
-    if (std::string ux9 = ux9::describe(); !ux9.empty())
+    if (const std::string ux9 = ux9::describe(); !ux9.empty())
         out.emplace_back("ux9", ux9);
     std::snprintf(text, sizeof(text), "%d changes, %d pieces moved%s", model.changes, model.moved,
                   model.unsaved ? ", unsaved" : "");
@@ -6730,7 +6771,7 @@ bool apply_layout_step(const std::string& text, const char* label, std::string* 
 SelectionIds current_selection()
 {
     SelectionIds ids;
-    for (objects::GameEntity* object : selected_objects())
+    for (const objects::GameEntity* object : selected_objects())
         ids.objects.push_back(object->ident_);
     if (ids.objects.empty())
         ids.sectors = scenery::get_selection();
@@ -6745,7 +6786,7 @@ void set_selection(const SelectionIds& ids)
         return;
     unpick();
     std::vector<objects::GameEntity*> objects;
-    for (uint32_t id : ids.objects) {
+    for (const uint32_t id : ids.objects) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
         if (object && !(object->object_flags_ & objects::kObjectFlagDead))
             objects.push_back(object);
@@ -6755,7 +6796,7 @@ void set_selection(const SelectionIds& ids)
     } else if (!ids.sectors.empty()) {
         scenery::set_selection(ids.sectors);
     } else if (ids.node) {
-        int index = nodes::get_find(ids.node);
+        const int index = nodes::get_find(ids.node);
         if (index >= 0)
             select_node(index);
     }
@@ -6768,7 +6809,7 @@ bool go_to_thing(uint32_t id)
 {
     if (!g_active || !id || g_dragging)
         return false;
-    int index = nodes::get_find(id);
+    const int index = nodes::get_find(id);
     if (index >= 0) {
         go_to_node(index);
         if (have_selection())
@@ -6811,7 +6852,7 @@ int set_fields_on_nodes(const std::vector<uint32_t>& nodes, const std::vector<Fi
     UndoStep step;
     step.kind = UndoStep::Kind::kFields;
     int set = 0;
-    for (uint32_t node : nodes) {
+    for (const uint32_t node : nodes) {
         if (nodes::get_find(node) < 0)
             continue;
         for (const FieldSet& f : fields) {
@@ -6873,10 +6914,10 @@ bool set_selection_transform(const TransformValues& transform)
     place_selection(transform.pos);
     node_edit::Values node;
     if (transform.has_heading_) {
-        if (objects::GameEntity* object = get_primary()) {
+        if (const objects::GameEntity* object = get_primary()) {
             const maths::Vec4& at = object->basis_frame_.row[2];
             auto now = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
-            V3 pivot = object_edit::pos_of(object);
+            const V3 pivot = object_edit::pos_of(object);
             for (objects::GameEntity* o : selected_objects())
                 object_edit::turn_about(o, pivot, transform.heading - now);
         } else if (node_values(&node)) {
@@ -6922,7 +6963,7 @@ void look_from(V3 pos, float yaw, float pitch)
 // (UX5 - level_editor_modules.h) the Problems window's and the notes' Go to.
 bool go_to_node_named(uint32_t name)
 {
-    int index = g_active && !g_dragging && name ? nodes::get_find(name) : -1;
+    const int index = g_active && !g_dragging && name ? nodes::get_find(name) : -1;
     if (index < 0)
         return false;
     go_to_node(index);
@@ -6956,15 +6997,15 @@ namespace edit {
 Selected get_selection()
 {
     Selected out;
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     if (!objects.empty()) {
         out.kind = Kind::kObject;
-        for (objects::GameEntity* object : objects)
+        for (const objects::GameEntity* object : objects)
             out.ids.push_back(object->ident_);
     } else if (picked_node_index() >= 0) {
         out.kind = Kind::kElem;
         out.ids.push_back(g_node_name);
-    } else if (uint32_t wall = wall_only()) {
+    } else if (const uint32_t wall = wall_only()) {
         out.kind = Kind::kWall;
         out.ids.push_back(wall);
     } else if (scenery::has_selection()) {
@@ -6979,7 +7020,7 @@ void choose_one(const Selected& selected)
     switch (selected.kind) {
     case Kind::kObject: {
         std::vector<objects::GameEntity*> objects;
-        for (uint32_t id : selected.ids) {
+        for (const uint32_t id : selected.ids) {
             auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
             if (object && !(object->object_flags_ & objects::kObjectFlagDead))
                 objects.push_back(object);
@@ -6995,7 +7036,7 @@ void choose_one(const Selected& selected)
         scenery::set_selection(selected.ids);
         break;
     case Kind::kElem: {
-        int index = selected.ids.empty() ? -1 : nodes::get_find(selected.ids.front());
+        const int index = selected.ids.empty() ? -1 : nodes::get_find(selected.ids.front());
         if (index >= 0)
             select_node_only(index);
         break;
@@ -7034,12 +7075,12 @@ void turn_by(float radians)
         set_selected_node(node);
         return;
     }
-    std::vector<objects::GameEntity*> objects = selected_objects();
+    const std::vector<objects::GameEntity*> objects = selected_objects();
     if (!objects.empty()) {
         turn_objects_by(objects, radians, selection_centre());
         return;
     }
-    if (int quarters = xform::get_quarters(radians))
+    if (const int quarters = xform::get_quarters(radians))
         turn_selection(quarters);
 }
 
@@ -7062,7 +7103,7 @@ void fold(size_t depth)
         return;
     UndoStep group;
     group.kind = UndoStep::Kind::kGroup;
-    std::string label = g_undo.back().label;
+    const std::string label = g_undo.back().label;
     group.group.assign(g_undo.begin() + static_cast<long>(depth), g_undo.end());
     g_undo.erase(g_undo.begin() + static_cast<long>(depth), g_undo.end());
     group.where = selection_pos();
@@ -7087,7 +7128,7 @@ void push_made(const std::vector<uint32_t>& objects, const std::vector<uint32_t>
     UndoStep step;
     step.kind = UndoStep::Kind::kMade;
     step.exist = false;
-    for (uint32_t id : objects) {
+    for (const uint32_t id : objects) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
         if (!object)
             continue;
@@ -7111,7 +7152,7 @@ void remove_copies(const std::vector<uint32_t>& ids)
     UndoStep step;
     step.kind = UndoStep::Kind::kMade;
     step.exist = true; // (undone: made again)
-    for (uint32_t id : ids) {
+    for (const uint32_t id : ids) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
         if (!object || !object_edit::is_copy(id))
             continue;
@@ -7140,8 +7181,8 @@ bool set_field(uint32_t node, uint32_t key, int kind, const std::string& text)
     request.id = key;
     request.value = kind;
     request.text = text;
-    size_t before = g_undo.size();
-    uint64_t serial = top_serial();
+    const size_t before = g_undo.size();
+    const uint64_t serial = top_serial();
     field_request(request);
     return g_undo.size() != before || top_serial() != serial;
 }

@@ -61,7 +61,7 @@ uint32_t opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
 float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * 0.5f); }
 float from_uv(float uv)
 {
-    double value = uv;
+    const double value = uv;
     return static_cast<float>(value + value - 1.0f);
 }
 
@@ -91,7 +91,7 @@ void ProjectionBatch::teardown() { material.~MaterialRef(); }
 // 0x004C73E0
 ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name)
 {
-    uint32_t count = batch_count();
+    const uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
         if (get_batches()[i].texture == texture)
             return &get_batches()[i];
@@ -103,8 +103,8 @@ ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name)
     ProjectionBatch* batch = &get_batches()[count];
     MaterialRef* material = &batch->material;
     material->pass_flags_[0] = 0x44; // (the pass's flags)
-    int a = get_rand();
-    int b = get_rand();
+    const int a = get_rand();
+    const int b = get_rand();
     material->checksum = a * b;                                  // a random checksum
     material->pass_count_ = 1;                                   // one pass
     material->textures[0] = reinterpret_cast<uint8_t*>(texture); // (the texture's key: its PC texture's address)
@@ -152,7 +152,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
         auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
         if (!geom)
             continue;
-        MeshRef** meshes = geom->meshes;
+        MeshRef* const* meshes = geom->meshes;
         for (uint32_t m = 0; m < geom->mesh_count_; ++m) {
             MeshRef* mesh = meshes[m];
             if (mesh->flags & 2)
@@ -163,13 +163,15 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
             mesh->index_buffers_[0]->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
             for (uint32_t strip = 2; strip < mesh->index_counts_[0]; ++strip) {
-                uint32_t c = indices[strip];
-                uint32_t ia = a, ib = b, ic = c;
+                const uint32_t c = indices[strip];
+                const uint32_t ia = a;
+                const uint32_t ib = b;
+                const uint32_t ic = c;
                 a = b;
                 b = c;
                 if (ia == ib || ia == ic || ib == ic)
                     continue;
-                uint32_t stride = mesh->stride;
+                const uint32_t stride = mesh->stride;
                 float t0[3], t1[3], t2[3];
                 transform_coord(t0, reinterpret_cast<const float*>(vertices + stride * ia), &projection_);
                 transform_coord(t1, reinterpret_cast<const float*>(vertices + stride * ib), &projection_);
@@ -200,7 +202,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 get_uv(v1)[1] = to_uv(t1[1]);
                 get_uv(v2)[0] = to_uv(t2[0]);
                 get_uv(v2)[1] = to_uv(t2[1]);
-                uint32_t colour_offset = mesh->unknown1c_[0];
+                const uint32_t colour_offset = mesh->unknown1c_[0];
                 get_colour(v0) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ia + colour_offset));
                 get_colour(v1) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ib + colour_offset));
                 get_colour(v2) = opaque(*reinterpret_cast<uint32_t*>(vertices + stride * ic + colour_offset));
@@ -213,15 +215,16 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     const auto* p0 = reinterpret_cast<const float*>(v0);
                     const auto* p1 = reinterpret_cast<const float*>(v1);
                     const auto* p2 = reinterpret_cast<const float*>(v2);
-                    double e1z = static_cast<double>(p1[2]) - p0[2], e1y = static_cast<double>(p1[1]) - p0[1];
-                    double e1x = static_cast<double>(p1[0]) - p0[0];
+                    const double e1z = static_cast<double>(p1[2]) - p0[2];
+                    const double e1y = static_cast<double>(p1[1]) - p0[1];
+                    const double e1x = static_cast<double>(p1[0]) - p0[0];
                     auto e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
                     auto e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
-                    double e2x = static_cast<double>(p2[0]) - p0[0];
+                    const double e2x = static_cast<double>(p2[0]) - p0[0];
                     auto cz = static_cast<float>(e2y * e1x - e2x * e1y);
                     auto cy = static_cast<float>(e2x * e1z - e2z * e1x);
-                    double cx = e2z * e1y - e2y * e1z;
-                    double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
+                    const double cx = e2z * e1y - e2y * e1z;
+                    const double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));
                     new (vertex_stack()) VertexStack; // (emptied)
                     g_vertex_stack.vertex_size_ = 0x18;

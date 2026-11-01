@@ -70,7 +70,7 @@ namespace {
 
 int get_mode()
 {
-    static int mode = config_int("features", "debug_collision", 0);
+    static const int mode = config_int("features", "debug_collision", 0);
     return mode;
 }
 
@@ -93,7 +93,7 @@ const objects::Rider* skater_of_feeler(const void* feeler)
     modules::Skate* skate = modules::Skate::sole();
     if (!skate)
         return nullptr;
-    for (uint32_t i = 0; objects::Rider* rider = skate->get_skater_at(i); ++i) {
+    for (uint32_t i = 0; const objects::Rider* rider = skate->get_skater_at(i); ++i) {
         const skater::SkaterPhysicsModule* core = rider->core_physics_;
         if (core && (feeler == &core->feeler_ || feeler == &core->floor_feeler_))
             return rider;
@@ -126,7 +126,7 @@ int g_lines_this_second = 0;
 
 bool should_log(uintptr_t what, int face)
 {
-    DWORD now = GetTickCount();
+    const DWORD now = GetTickCount();
     if (now - g_second_start >= 1000) {
         g_second_start = now;
         g_lines_this_second = 0;
@@ -155,14 +155,14 @@ void log_hit(const void* feeler, uint32_t caller)
     const float* end = &ray->line_.end.x;
     const float* normal = &ray->hit_.normal.x;
     const float* point = &ray->hit_.point.x;
-    int face = static_cast<int>(ray->hit_.face);
-    uint16_t flags = ray->hit_.face_flags_;
-    uint8_t terrain = ray->hit_.terrain;
-    bool static_hit = ray->hit_.hit;
+    const int face = static_cast<int>(ray->hit_.face);
+    const uint16_t flags = ray->hit_.face_flags_;
+    const uint8_t terrain = ray->hit_.terrain;
+    const bool static_hit = ray->hit_.hit;
     const render::HitMesh* coll_object = ray->hit_.object;
-    uint32_t sector = ray->hit_.object_checksum_;
-    void* object = ray->entity_.owner_object_;
-    uint32_t object_id = ray->entity_key_;
+    const uint32_t sector = ray->hit_.object_checksum_;
+    const void* object = ray->entity_.owner_object_;
+    const uint32_t object_id = ray->entity_key_;
 
     const objects::Rider* skater_feeler = skater_of_feeler(feeler);
     if (get_mode() == 1 && (!skater_feeler || normal[1] > 0.7f))

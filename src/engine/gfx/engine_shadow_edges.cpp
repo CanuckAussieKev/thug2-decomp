@@ -107,9 +107,9 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
             }
         }
     }
-    int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
+    const int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
     if (estimate >= 1) {
-        uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowSilhouetteEdge);
+        const uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowSilhouetteEdge);
         edges_->edges = static_cast<uint8_t*>(memory::alloc(size));
         std::memset(edges_->edges, 0, size);
     }
@@ -133,7 +133,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
                     b = face[3];
                     c = face[4];
                 }
-                maths::Vec4 normal = mesh.get_triangle_normal(f);
+                const maths::Vec4 normal = mesh.get_triangle_normal(f);
                 edges_->last_mesh_ = m;
                 add_edge(edges_, count, a, b, normal);
                 add_edge(edges_, count, b, c, normal);
@@ -144,7 +144,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
     if (count <= estimate && count > 0) {
         edges_->count = count;
         ++edges_->users;
-        uint32_t key = model_key_;
+        const uint32_t key = model_key_;
         edge_table().store_entry(key, edges_);
         add_shadow_volume(this);
         return;

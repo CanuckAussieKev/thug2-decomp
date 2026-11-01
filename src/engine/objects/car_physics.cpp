@@ -128,14 +128,14 @@ void AutomobileDynamicsModule::seal()
         return;
     mesh_instance_ = static_cast<objects::MeshInstanceModule*>(entity_->fetch_module(kModel))->mesh_instance_;
     bone_rig_ = static_cast<objects::BoneRigModule*>(skeleton)->bone_rig_;
-    BoneDesc* bones = model_bones(mesh_instance_);
+    const BoneDesc* bones = model_bones(mesh_instance_);
     maths::Mat4 a = bones[2].matrix;
     matrix_multiply(&a, &a, &bones[0].matrix);
     maths::Mat4 b = bones[4].matrix;
     matrix_multiply(&b, &b, &bones[0].matrix);
-    double dx = static_cast<double>(a.row[3].x) - b.row[3].x;
-    double dy = static_cast<double>(a.row[3].y) - b.row[3].y;
-    double dz = static_cast<double>(a.row[3].z) - b.row[3].z;
+    const double dx = static_cast<double>(a.row[3].x) - b.row[3].x;
+    const double dy = static_cast<double>(a.row[3].y) - b.row[3].y;
+    const double dz = static_cast<double>(a.row[3].z) - b.row[3].z;
     wheel_base_ = static_cast<float>(std::fabs(std::sqrt(dz * dz + dy * dy + dx * dx)));
 }
 
@@ -144,8 +144,9 @@ void AutomobileDynamicsModule::update_angles()
 {
     uint8_t* motion = motion_;
     // The spin, kept within 0-360 (the steps taken on the FPU stack, from the stored value).
-    double frames = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond;
-    double spin = frames * (static_cast<double>(motion_speed(motion)) * kSpinSpeedScale) * kSpinScale + wheel_spin_;
+    const double frames = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond;
+    const double spin =
+        frames * (static_cast<double>(motion_speed(motion)) * kSpinSpeedScale) * kSpinScale + wheel_spin_;
     wheel_spin_ = static_cast<float>(spin);
     if (spin > kFullTurn) {
         double turned = wheel_spin_;
@@ -162,27 +163,27 @@ void AutomobileDynamicsModule::update_angles()
         wheel_spin_ = static_cast<float>(turned);
     }
     // The steering.
-    PathFollower* follower = motion_path_follower(motion);
+    const PathFollower* follower = motion_path_follower(motion);
     if (!follower) {
         steer_ = 0.0f;
     } else {
         // (the original's +0xE0 / +0x04 / +0xB0: the follower's last arc step, its position and the arc's centre)
-        float turn = follower->step_;
+        const float turn = follower->step_;
         if (turn == 0.0f) {
             target_steer_ = 0.0f;
         } else {
             const float* point = &follower->at_point_.x;
             const float* from = &follower->center_.x;
-            double dx = static_cast<double>(point[0]) - from[0];
-            double dy = static_cast<double>(point[1]) - from[1];
-            double dz = static_cast<double>(point[2]) - from[2];
-            double ratio = wheel_base_ / std::sqrt(dz * dz + dy * dy + dx * dx);
+            const double dx = static_cast<double>(point[0]) - from[0];
+            const double dy = static_cast<double>(point[1]) - from[1];
+            const double dz = static_cast<double>(point[2]) - from[2];
+            const double ratio = wheel_base_ / std::sqrt(dz * dz + dy * dy + dx * dx);
             auto clamped = static_cast<float>(ratio);
             if (ratio > 1.0f)
                 clamped = 1.0f;
             else if (clamped < -1.0f)
                 clamped = -1.0f;
-            double target = std::asin(static_cast<double>(clamped)) * kMinusRadiansToDegrees;
+            const double target = std::asin(static_cast<double>(clamped)) * kMinusRadiansToDegrees;
             target_steer_ = static_cast<float>(target);
             if (turn < 0.0f)
                 target_steer_ = static_cast<float>(-target);
@@ -191,7 +192,7 @@ void AutomobileDynamicsModule::update_angles()
                                     static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond));
     }
     // The tilt.
-    float speed = motion_speed(motion_);
+    const float speed = motion_speed(motion_);
     auto acceleration = static_cast<float>(static_cast<double>(speed) - last_speed_);
     last_speed_ = speed;
     if (script::fetch_int_value(kReadGlobalsEveryUpdate)) {
@@ -200,7 +201,7 @@ void AutomobileDynamicsModule::update_angles()
         tilt_rate_ = script::fetch_float(kTiltRate);
         tilt_divisor_ = script::fetch_float(kTiltDivisor);
     }
-    double target = tilt_divisor_ == 0.0f ? 0.0 : -(static_cast<double>(acceleration) / tilt_divisor_);
+    const double target = tilt_divisor_ == 0.0f ? 0.0 : -(static_cast<double>(acceleration) / tilt_divisor_);
     target_tilt_ = static_cast<float>(target);
     if (target > max_tilt_)
         target_tilt_ = max_tilt_;
@@ -214,13 +215,13 @@ void AutomobileDynamicsModule::update_angles()
 // 0x0041BF00
 void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer)
 {
-    BoneDesc* bones = model_bones(model);
+    const BoneDesc* bones = model_bones(model);
     maths::Mat4* matrices = rig_matrix_block(skeleton);
-    float tilt_radians = tilt * kRadiansPerDegree;
-    float steer_radians = steer * kRadiansPerDegree;
-    float spin_radians = spin * kRadiansPerDegree;
+    const float tilt_radians = tilt * kRadiansPerDegree;
+    const float steer_radians = steer * kRadiansPerDegree;
+    const float spin_radians = spin * kRadiansPerDegree;
     for (int i = 0; i < skeleton_bone_count(skeleton); ++i) {
-        BoneDesc& bone = bones[i];
+        const BoneDesc& bone = bones[i];
         maths::Mat4* matrix = &matrices[bone.index];
         *matrix = bone.matrix;
         maths::Mat4 rotation{};
@@ -255,7 +256,7 @@ void AutomobileDynamicsModule::update_bones()
         return;
     maths::Mat4 collapsed{};
     collapsed.reset_to_identity();
-    maths::Vec4 nothing = {0.0f, 0.0f, 0.0f, 1.0f};
+    const maths::Vec4 nothing = {0.0f, 0.0f, 0.0f, 1.0f};
     collapsed.scale_tool(nothing);
     rig_matrix_block(bone_rig_)[0] = collapsed;
 }

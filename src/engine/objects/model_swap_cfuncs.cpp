@@ -151,7 +151,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     // the renderable models swapped
     render::RenderModel* nx_a = model_a->mesh_instance_;
     render::RenderModel* nx_b = model_b->mesh_instance_;
-    uint32_t value_a = model_get(nx_a);
+    const uint32_t value_a = model_get(nx_a);
     model_set(nx_a, model_get(nx_b));
     model_set(nx_b, value_a);
     set_model_virtual(model_a, nx_b);
@@ -197,7 +197,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
     for (;;) {
         bool any = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            SwapEntry& entry = get_swaps()[i];
+            const SwapEntry& entry = get_swaps()[i];
             if (!entry.used)
                 continue;
             any = true;
@@ -222,7 +222,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
 bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
 {
     int index = 0;
-    objects::Rider* skater = nullptr;
+    const objects::Rider* skater = nullptr;
     if (params->fetch_int_value(kSkater, &index, 0))
         skater = static_cast<objects::Rider*>(modules::Skate::sole()->get_rider_at(index));
     else

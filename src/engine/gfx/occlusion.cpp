@@ -64,29 +64,32 @@ enum class DotOrder { kZyx, kXyz };    // ... and the products of the plane's di
 void set_plane(float* plane, const float* origin, const float* u_end, const float* v_end, LengthOrder length_order,
                bool exact_inverse_for_x, const float* point, DotOrder dot_order)
 {
-    double u0 = static_cast<double>(u_end[0]) - origin[0];
-    double u1 = static_cast<double>(u_end[1]) - origin[1];
-    double u2 = static_cast<double>(u_end[2]) - origin[2];
+    const double u0 = static_cast<double>(u_end[0]) - origin[0];
+    const double u1 = static_cast<double>(u_end[1]) - origin[1];
+    const double u2 = static_cast<double>(u_end[2]) - origin[2];
     auto v0 = static_cast<float>(static_cast<double>(v_end[0]) - origin[0]);
     auto v1 = static_cast<float>(static_cast<double>(v_end[1]) - origin[1]);
-    double v2 = static_cast<double>(v_end[2]) - origin[2];
+    const double v2 = static_cast<double>(v_end[2]) - origin[2];
     auto nx = static_cast<float>(v2 * u1 - v1 * u2);
     auto ny = static_cast<float>(u2 * v0 - v2 * u0);
     auto nz = static_cast<float>(v1 * u0 - u1 * v0);
-    double xx = static_cast<double>(nx) * nx, yy = static_cast<double>(ny) * ny, zz = static_cast<double>(nz) * nz;
-    double length = std::sqrt(length_order == LengthOrder::kXzy ? (xx + zz) + yy : (zz + yy) + xx);
+    const double xx = static_cast<double>(nx) * nx;
+    const double yy = static_cast<double>(ny) * ny;
+    const double zz = static_cast<double>(nz) * nz;
+    const double length = std::sqrt(length_order == LengthOrder::kXzy ? (xx + zz) + yy : (zz + yy) + xx);
     double x = nx;
     float y = ny, z = nz;
     if (length > 0.0) {
-        double inverse = 1.0 / static_cast<float>(length);
+        const double inverse = 1.0 / static_cast<float>(length);
         auto inverse_float = static_cast<float>(inverse);
         x = (exact_inverse_for_x ? inverse : inverse_float) * static_cast<double>(nx);
         y = static_cast<float>(static_cast<double>(inverse_float) * ny);
         z = static_cast<float>(static_cast<double>(inverse_float) * nz);
     }
-    double distance = dot_order == DotOrder::kZyx
-                          ? (static_cast<double>(z) * point[2] + static_cast<double>(y) * point[1]) + x * point[0]
-                          : (x * point[0] + static_cast<double>(y) * point[1]) + static_cast<double>(z) * point[2];
+    const double distance =
+        dot_order == DotOrder::kZyx
+            ? (static_cast<double>(z) * point[2] + static_cast<double>(y) * point[1]) + x * point[0]
+            : (x * point[0] + static_cast<double>(y) * point[1]) + static_cast<double>(z) * point[2];
     plane[0] = static_cast<float>(x);
     plane[1] = y;
     plane[2] = z;
@@ -99,12 +102,12 @@ bool inside_frustum(const float* view, float radius)
 {
     if (static_cast<double>(radius) - view[2] < near_plane_depth())
         return false;
-    double a = static_cast<double>(side_cos()) * view[2];
-    double b = static_cast<double>(side_sin()) * view[0];
+    const double a = static_cast<double>(side_cos()) * view[2];
+    const double b = static_cast<double>(side_sin()) * view[0];
     if (a - b > radius || radius < a + b)
         return false;
-    double c = static_cast<double>(vertical_cos()) * view[2];
-    double d = static_cast<double>(vertical_sin()) * view[1];
+    const double c = static_cast<double>(vertical_cos()) * view[2];
+    const double d = static_cast<double>(vertical_sin()) * view[1];
     if (d + c > radius || radius < c - d)
         return false;
     return true;
@@ -122,13 +125,14 @@ int compare_occluders(const void* a, const void* b)
         first->hidden[0] = 0;
     if (!second->poly->enabled)
         second->hidden[0] = 0;
-    int first_hidden0 = first->hidden[0], second_hidden0 = second->hidden[0];
+    const int first_hidden0 = first->hidden[0];
+    const int second_hidden0 = second->hidden[0];
     if (!first->poly->enabled)
         first->hidden[1] = 0;
     if (!second->poly->enabled)
         second->hidden[1] = 0;
-    int first_sum = first_hidden0 + first->hidden[1];
-    int second_sum = second_hidden0 + second->hidden[1];
+    const int first_sum = first_hidden0 + first->hidden[1];
+    const int second_sum = second_hidden0 + second->hidden[1];
     if (first_sum < second_sum)
         return 1;
     return first_sum <= second_sum ? 0 : -1;
@@ -137,7 +141,7 @@ int compare_occluders(const void* a, const void* b)
 // 0x004D8C10
 void sort_occluders()
 {
-    uint32_t count = occluder_count();
+    const uint32_t count = occluder_count();
     if (count == 0)
         return;
     get_qsort(occluder_array(), count, sizeof(Occluder), &compare_occluders);
@@ -173,7 +177,7 @@ void clear_occluder_polys()
 // 0x004D8CE0
 void add_occluders()
 {
-    uint32_t count = poly_count();
+    const uint32_t count = poly_count();
     if (count == 0)
         return;
     uint32_t next = next_poly();
@@ -217,7 +221,7 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
         poly.corners[i][3] = corners[i]->w;
     }
     // The normal: (p1 - p0) x (p3 - p0), the first component of p3 - p0 kept in double precision.
-    double a0 = static_cast<double>(p3->x) - p0->x;
+    const double a0 = static_cast<double>(p3->x) - p0->x;
     auto a1 = static_cast<float>(static_cast<double>(p3->y) - p0->y);
     auto a2 = static_cast<float>(static_cast<double>(p3->z) - p0->z);
     auto b0 = static_cast<float>(static_cast<double>(p1->x) - p0->x);
@@ -248,9 +252,9 @@ void collect_occluders(const maths::Vec4* eye, int frame)
         const float* p2 = poly.corners[2];
         const float* p3 = poly.corners[3];
         // Which side of the polygon the eye is on decides the corners' order.
-        double facing = ((static_cast<double>(e[2]) - p0[2]) * poly.normal[2] +
-                         (static_cast<double>(e[1]) - p0[1]) * poly.normal[1]) +
-                        (static_cast<double>(e[0]) - p0[0]) * poly.normal[0];
+        const double facing = ((static_cast<double>(e[2]) - p0[2]) * poly.normal[2] +
+                               (static_cast<double>(e[1]) - p0[1]) * poly.normal[1]) +
+                              (static_cast<double>(e[0]) - p0[0]) * poly.normal[0];
         if (facing >= 0.0) {
             set_plane(occluder.planes[0], p0, p2, p3, L::kXzy, false, p0, D::kZyx);
             set_plane(occluder.planes[1], e, p0, p1, L::kXzy, false, e, D::kXyz);
@@ -284,13 +288,13 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
         y = static_cast<double>(world[13]) + centre->y;
         z = static_cast<double>(world[14]) + centre->z;
     }
-    float limit = -radius;
+    const float limit = -radius;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
         Occluder& occluder = occluder_array()[i];
         int plane = 0;
         for (; plane < 5; ++plane) {
             const float* p = occluder.planes[plane];
-            double distance = ((z * p[2] + x * p[0]) + y * p[1]) - p[3];
+            const double distance = ((z * p[2] + x * p[0]) + y * p[1]) - p[3];
             if (distance >= limit) // (not a number counts as behind)
                 break;
         }
@@ -333,7 +337,7 @@ bool beyond_clip_distance(const void* bounds)
     if (!g_distance_clipping)
         return false;
     const auto* sphere = static_cast<const float*>(bounds);
-    float radius = sphere[4];
+    const float radius = sphere[4];
     float centre[3] = {sphere[1], sphere[2], sphere[3]};
     float moved[3];
     const float* point = centre;
@@ -345,8 +349,9 @@ bool beyond_clip_distance(const void* bounds)
     }
     float view[4];
     xform(view, point, view_matrix());
-    double distance = std::sqrt((static_cast<double>(view[2]) * view[2] + static_cast<double>(view[1]) * view[1]) +
-                                static_cast<double>(view[0]) * view[0]);
+    const double distance =
+        std::sqrt((static_cast<double>(view[2]) * view[2] + static_cast<double>(view[1]) * view[1]) +
+                  static_cast<double>(view[0]) * view[0]);
     return distance - radius > far_clip();
 }
 

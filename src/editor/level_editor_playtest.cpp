@@ -63,13 +63,13 @@ float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 const char* motion_name(Motion motion)
 {
-    int i = static_cast<int>(motion);
+    const int i = static_cast<int>(motion);
     return i >= 0 && i < kMotions ? kMotionNames[i] : "?";
 }
 
 uint32_t motion_colour(Motion motion)
 {
-    int i = static_cast<int>(motion);
+    const int i = static_cast<int>(motion);
     return i >= 0 && i < kMotions ? kMotionColours[i] : 0xFFFFFFFF;
 }
 
@@ -126,7 +126,7 @@ void Recorder::feed(V3 pos, Motion motion)
         last_kept_ = push(now);
         return;
     }
-    V3 step = pos - last.pos;
+    const V3 step = pos - last.pos;
     if (get_dot(step, step) > kJump * kJump) {
         // (moved there: the stretch before ends where it was, the new one starts unlinked)
         if (!last_kept_)
@@ -143,15 +143,15 @@ void Recorder::feed(V3 pos, Motion motion)
         keep = true;
     } else {
         const Sample& kept = samples.back();
-        V3 d = pos - kept.pos;
-        float distance = len_of(d);
+        const V3 d = pos - kept.pos;
+        const float distance = len_of(d);
         if (distance >= kMaxStep) {
             keep = true;
         } else if (distance >= kMinStep && samples.size() >= 2 && !kept.jump) {
-            V3 before = kept.pos - samples[samples.size() - 2].pos;
-            float lb = len_of(before);
+            const V3 before = kept.pos - samples[samples.size() - 2].pos;
+            const float lb = len_of(before);
             if (lb > 0.001f) {
-                float c = get_dot(before, d) / (lb * distance);
+                const float c = get_dot(before, d) / (lb * distance);
                 keep = c < std::cos(kTurnDegrees * 3.14159265f / 180.0f);
             }
         }
@@ -176,7 +176,8 @@ std::vector<GapChange> GapTracker::tick_frame(const std::vector<GapRead>& now)
                 break;
             }
         }
-        int old_pending = old ? old->pending : 0, old_count = old ? old->count : g.count;
+        const int old_pending = old ? old->pending : 0;
+        const int old_count = old ? old->count : g.count;
         if (g.pending > old_pending)
             changes.push_back({GapChange::Kind::kGot, g.name, g.score});
         if (g.count > old_count) {
@@ -396,7 +397,7 @@ bool simulate_key_keeps(int scancode, bool ctrl, bool alt, bool fly_keys_safe)
     default:
         break;
     }
-    bool digit = scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_0;
+    const bool digit = scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_0;
     if (alt)
         return !ctrl && scancode == SDL_SCANCODE_H; // (Alt+H: everything shown again - the view only)
     if (ctrl)
@@ -462,23 +463,23 @@ struct SkaterNow {
 };
 bool read_skater(objects::GameEntity* skater, SkaterNow* out)
 {
-    objects::ObjectModule* state = skater->fetch_module(kSkaterState);
+    const objects::ObjectModule* state = skater->fetch_module(kSkaterState);
     if (!state)
         return false;
     const auto* pose = static_cast<const objects::RiderPoseState*>(state);
-    int physics = pose->cur_phase_;
-    bool bailing = pose->is_on(objects::PoseFlag::kBailing) != 0;
-    bool driving = pose->in_vehicle_ != 0;
-    bool walking = !driving && pose->physics_mode_ == 1;
-    objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);
-    uint32_t trick = balance ? static_cast<const objects::RiderTeeterMoves*>(balance)->trick_ : 0;
+    const int physics = pose->cur_phase_;
+    const bool bailing = pose->is_on(objects::PoseFlag::kBailing) != 0;
+    const bool driving = pose->in_vehicle_ != 0;
+    const bool walking = !driving && pose->physics_mode_ == 1;
+    const objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);
+    const uint32_t trick = balance ? static_cast<const objects::RiderTeeterMoves*>(balance)->trick_ : 0;
     out->pos = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
     out->motion = get_classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
     out->pending = 0;
-    if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
+    if (const objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
         if (const modules::PointTally* s = static_cast<const objects::RiderPointKeeper*>(score)->points_held_) {
-            double points = static_cast<double>(s->pot_) * s->multiplier_;
+            const double points = static_cast<double>(s->pot_) * s->multiplier_;
             if (points > 0.0 && points < 2.0e9)
                 out->pending = static_cast<int>(points);
         }
@@ -536,7 +537,7 @@ std::string trails_path(uint32_t scene)
 
 bool ingest_file(uint32_t scene, bool quiet)
 {
-    std::ifstream file(trails_path(scene), std::ios::binary);
+    const std::ifstream file(trails_path(scene), std::ios::binary);
     if (!file)
         return false;
     std::stringstream text;
@@ -616,10 +617,10 @@ void open_run(int load)
 
 void link_record(modules::FrontEnd* front_end)
 {
-    int load = layout::level_loads();
+    const int load = layout::level_loads();
     if (g_rec.open && (g_rec.load != load || !g_record_on))
         close_run(g_rec.load != load ? "another level loaded" : "recording turned off");
-    bool paused = front_end && front_end->is_halted_;
+    const bool paused = front_end && front_end->is_halted_;
     auto* skater = static_cast<objects::GameEntity*>(objects::find_object(kSkater));
     if (!g_record_on || paused || !skater || render::current_level() == 0 || !layout::editing_copy()) {
         g_rec.last_ticks_ = 0;
@@ -642,8 +643,8 @@ void link_record(modules::FrontEnd* front_end)
         open_run(load);
         g_rec.refused_check_ = 60;
     }
-    uint32_t ticks = SDL_GetTicks();
-    float dt = g_rec.last_ticks_ ? std::min(0.1f, static_cast<float>(ticks - g_rec.last_ticks_) / 1000.0f) : 0.0f;
+    const uint32_t ticks = SDL_GetTicks();
+    const float dt = g_rec.last_ticks_ ? std::min(0.1f, static_cast<float>(ticks - g_rec.last_ticks_) / 1000.0f) : 0.0f;
     g_rec.last_ticks_ = ticks;
     Run& run = g_rec.run;
     run.seconds += dt;
@@ -695,17 +696,17 @@ void restart_step(modules::FrontEnd* front_end)
         g_restart = 0;
         return;
     }
-    bool paused = front_end && front_end->is_halted_;
+    const bool paused = front_end && front_end->is_halted_;
     if (paused || g_restart_frames < 4 || !objects::find_object(kSkater) || render::current_level() == 0)
         return;
-    uint32_t restart = g_restart;
+    const uint32_t restart = g_restart;
     g_restart = 0;
     auto* params = new (script::spawn_param_bag()) script::Struct;
     params->put_name_key(checksums::hash_from_text("node_name"), restart);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();
     script::delete_struct(params);
-    std::string label = nodes::caption(restart);
+    const std::string label = nodes::caption(restart);
     get_log("level editor: play from the restart %s (ResetSkaters)", label.c_str());
     layout::panel_message(("Playing from " + label + " (F5: return to editor)").c_str());
 }
@@ -752,10 +753,11 @@ void simulate_event(SDL_Event* event)
         return;
     if (event->type == SDL_KEYDOWN && !event->key.repeat && ui::keys_to_editor()) {
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-        bool ctrl = (event->key.keysym.mod & KMOD_CTRL) != 0, alt = (event->key.keysym.mod & KMOD_ALT) != 0;
+        const bool ctrl = (event->key.keysym.mod & KMOD_CTRL) != 0;
+        const bool alt = (event->key.keysym.mod & KMOD_ALT) != 0;
         int x = 0, y = 0;
-        bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
-        bool fly_keys_safe = right || !xform::fly_always();
+        const bool right = (SDL_GetMouseState(&x, &y) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
+        const bool fly_keys_safe = right || !xform::fly_always();
         (void)keys;
         if (!simulate_key_keeps(event->key.keysym.scancode, ctrl, alt, fly_keys_safe))
             stop_simulation("a key that edits");
@@ -808,7 +810,7 @@ void stop_simulation(const char* why)
         const std::vector<uint32_t>& touched = object_edit::get_touched();
         for (const Snapshot& s : g_snapshots) {
             // (one the editor moved while it ran keeps the editor's change)
-            bool edited_now =
+            const bool edited_now =
                 std::find(touched.begin(), touched.end(), s.state.id) != touched.end() &&
                 std::find(g_touched_before.begin(), g_touched_before.end(), s.state.id) == g_touched_before.end();
             if (edited_now) {
@@ -875,7 +877,7 @@ void tick(bool dragging)
         else
             hud::get_message("Requires the editor UI (editor_ui=1)");
     }
-    Ask ask = g_ask;
+    const Ask ask = g_ask;
     g_ask = Ask::kNone;
     switch (ask) {
     case Ask::kToggleSimulate:
@@ -890,7 +892,7 @@ void tick(bool dragging)
         break;
     }
     case Ask::kStoreAway: {
-        bool ok = g_editor_scene && save_file(g_editor_scene);
+        const bool ok = g_editor_scene && save_file(g_editor_scene);
         hud::get_message(ok ? "Trails saved: " + get_file_name(g_editor_scene)
                             : std::string("Trails couldn't be saved"));
         get_log("level editor: trails %s %s", ok ? "saved to" : "not saved to", trails_path(g_editor_scene).c_str());
@@ -940,19 +942,20 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     };
     constexpr float kFar = 20000.0f, kLabelFar = 5000.0f;
     size_t budget = 60000;
-    int newest = runs.empty() ? 0 : runs.back().number;
+    const int newest = runs.empty() ? 0 : runs.back().number;
     for (const Run& run : runs) {
         if (!run.visible)
             continue;
-        bool latest = run.number == newest;
-        uint32_t alpha = latest ? 0xFF000000u : 0xA0000000u;
-        float thickness = latest ? 2.0f : 1.25f;
+        const bool latest = run.number == newest;
+        const uint32_t alpha = latest ? 0xFF000000u : 0xA0000000u;
+        const float thickness = latest ? 2.0f : 1.25f;
         for (size_t i = 1; i < run.samples.size() && budget; ++i) {
             const Sample& a = run.samples[i - 1];
             const Sample& b = run.samples[i];
             if (b.jump)
                 continue;
-            V3 da = a.pos - camera, db = b.pos - camera;
+            const V3 da = a.pos - camera;
+            const V3 db = b.pos - camera;
             if (get_dot(da, da) > kFar * kFar && get_dot(db, db) > kFar * kFar)
                 continue;
             line(a.pos, b.pos, (motion_colour(b.motion) & 0x00FFFFFF) | alpha, thickness);
@@ -960,8 +963,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         }
         // The run's start.
         if (!run.samples.empty()) {
-            V3 s = run.samples.front().pos;
-            V3 d = s - camera;
+            const V3 s = run.samples.front().pos;
+            const V3 d = s - camera;
             float x = 0.0f, y = 0.0f;
             if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
                 circles->push_back({x, y, 5.0f, 0xFFFFFFFF, false, 1.5f});
@@ -970,8 +973,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         }
         // The markers.
         for (const Occurrence& e : run.events) {
-            V3 d = e.pos - camera;
-            float distance2 = get_dot(d, d);
+            const V3 d = e.pos - camera;
+            const float distance2 = get_dot(d, d);
             if (distance2 > kFar * kFar)
                 continue;
             float x = 0.0f, y = 0.0f;
@@ -985,9 +988,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             if (!to_screen(e.pos, &x, &y))
                 continue;
             if (e.kind == EventKind::kGap) {
-                uint32_t colour = e.status == GapStatus::kLanded ? 0xFF40FF60
-                                  : e.status == GapStatus::kLost ? 0xFFFF4040
-                                                                 : 0xFFFFE040;
+                const uint32_t colour = e.status == GapStatus::kLanded ? 0xFF40FF60
+                                        : e.status == GapStatus::kLost ? 0xFFFF4040
+                                                                       : 0xFFFFE040;
                 circles->push_back({x, y, 7.0f, colour, true, 1.0f});
                 circles->push_back({x, y, 9.0f, 0xFF000000, false, 1.0f});
                 if (distance2 < kLabelFar * kLabelFar)

@@ -32,7 +32,7 @@ memory::ListNode* get_first(memory::ListNode* head)
 template <typename F>
 void for_each_child(memory::ListNode* head, F f)
 {
-    for (memory::ListNode* node = head->next; node->data != kHeadData && node; node = node->next)
+    for (const memory::ListNode* node = head->next; node->data != kHeadData && node; node = node->next)
         f(static_cast<HitMesh*>(node->data));
 }
 
@@ -200,7 +200,7 @@ void HitMeshGroup::recompute_b_box()
     box_valid_ = true;
     box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
-    for (memory::ListNode* node = sub_nodes_->next; node->data != kHeadData && node; node = node->next) {
+    for (const memory::ListNode* node = sub_nodes_->next; node->data != kHeadData && node; node = node->next) {
         const maths::BBox* box = static_cast<HitMesh*>(node->data)->get_local_bounds();
         if (!box) {
             box_valid_ = false;

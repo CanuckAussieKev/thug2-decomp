@@ -123,7 +123,7 @@ bool front_end_menu(uint32_t menu_id)
 {
     static const uint32_t kMenus[] = {name_hash("main_vmenu"), name_hash("newfe_career_vmenu"),
                                       name_hash("career_options_vmenu"), name_hash("main_menu")};
-    for (uint32_t id : kMenus)
+    for (const uint32_t id : kMenus)
         if (id == menu_id)
             return true;
     return false;
@@ -133,7 +133,7 @@ bool excluded_title(const std::string& clean_title)
 {
     // (screens whose meaning is a picture, not their list: the gamma test card, the screen's position)
     static const char* const kTitles[] = {"GAMMA", "SCREEN SETUP", "SCREEN"};
-    std::string upper = get_upper(clean_title);
+    const std::string upper = get_upper(clean_title);
     for (const char* title : kTitles)
         if (upper == title)
             return true;
@@ -145,9 +145,9 @@ std::string clean_text(const std::string& raw, bool newlines)
     std::string out;
     out.reserve(raw.size());
     for (size_t i = 0; i < raw.size(); ++i) {
-        char c = raw[i];
+        const char c = raw[i];
         if (c == '\\' && i + 1 < raw.size()) {
-            char e = raw[i + 1];
+            const char e = raw[i + 1];
             if (e == 'n' || e == 'N') {
                 out += newlines ? '\n' : ' ';
                 ++i;
@@ -166,7 +166,7 @@ std::string clean_text(const std::string& raw, bool newlines)
             }
             if ((e == 'b' || e == 'B' || e == 'm' || e == 'M') && i + 2 < raw.size()) {
                 // (a button: the key's name as the game spells it, between spaces when words touch it)
-                std::string name = g_button_namer ? g_button_namer(e, raw[i + 2]) : std::string();
+                const std::string name = g_button_namer ? g_button_namer(e, raw[i + 2]) : std::string();
                 if (!name.empty()) {
                     if (!out.empty() && out.back() != ' ' && out.back() != '/')
                         out += ' ';
@@ -192,7 +192,7 @@ std::string clean_text(const std::string& raw, bool newlines)
     }
     // Spaces collapsed (not across line ends), trimmed.
     std::string tidy;
-    for (char c : out) {
+    for (const char c : out) {
         if (c == ' ' && (tidy.empty() || tidy.back() == ' ' || tidy.back() == '\n'))
             continue;
         if (c == '\n' && !tidy.empty() && tidy.back() == ' ')
@@ -233,7 +233,7 @@ View get_build(const MenuRead& read, const Policy& policy)
                 continue; // (the text block, the spacer, a logo)
             std::vector<std::string> texts;
             for (const std::string& t : item.texts) {
-                std::string clean = clean_text(t);
+                const std::string clean = clean_text(t);
                 if (!clean.empty())
                     texts.push_back(clean);
             }
@@ -244,7 +244,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             // value.
             size_t label_at = texts.empty() ? 0 : texts.size();
             for (size_t k = 0; k < texts.size() && label_at == texts.size(); ++k)
-                for (char ch : texts[k])
+                for (const char ch : texts[k])
                     if (std::isalpha(static_cast<unsigned char>(ch))) {
                         label_at = k;
                         break;
@@ -275,7 +275,7 @@ View get_build(const MenuRead& read, const Policy& policy)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                     std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * kSatMax + 0.5f));
                 else if (item.slider_kind_ == 3) {
-                    float low = read.graphic_editor_ ? 0.0f : kValMinCas;
+                    const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
                     std::snprintf(number, sizeof(number), "%d%%",
                                   // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                                   static_cast<int>(low + item.slider_at_ * (kValMax - low) + 0.5f));
@@ -301,7 +301,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         view.kind = Kind::kDialog;
         view.title = clean_text(read.dialog_title_);
         for (const std::string& line : read.dialog_lines_) {
-            std::string clean = clean_text(line, true);
+            const std::string clean = clean_text(line, true);
             if (!clean.empty())
                 view.lines.push_back(clean);
         }
@@ -341,9 +341,9 @@ View get_build(const MenuRead& read, const Policy& policy)
         // A front end menu: every item with words in the game's order, in our words where the style table has the
         // item (its art, the line under the list, a note); the menu's title ours for the ones we know.
         static const uint32_t kMainMenu = name_hash("main_vmenu"), kCareerMenu = name_hash("newfe_career_vmenu");
-        std::string title = clean_text(read.title);
-        std::string upper = get_upper(title);
-        bool classic = upper.find("CLASSIC") != std::string::npos;
+        const std::string title = clean_text(read.title);
+        const std::string upper = get_upper(title);
+        const bool classic = upper.find("CLASSIC") != std::string::npos;
         view.kind = Kind::kMenu;
         view.main_menu_ = read.menu_id_ == kMainMenu;
         if (view.main_menu_) {
@@ -414,7 +414,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         for (const std::vector<std::string>& row : read.keys) {
             std::vector<std::string> keys;
             for (const std::string& key : row) {
-                std::string clean = clean_text(key);
+                const std::string clean = clean_text(key);
                 keys.push_back(clean.empty() && !key.empty() ? std::string(" ") : clean);
             }
             view.keys.push_back(std::move(keys));
@@ -440,7 +440,7 @@ View get_build(const MenuRead& read, const Policy& policy)
                 view.selected = static_cast<int>(view.rows.size());
             view.rows.push_back(std::move(row));
         }
-        std::string name = clean_text(read.skater_name_);
+        const std::string name = clean_text(read.skater_name_);
         view.big_name_ = !name.empty() ? name : view.selected >= 0 ? view.rows[view.selected].label : std::string();
         view.stats = read.stats;
         view.title = text_tools::kTitleSkaters;
@@ -477,7 +477,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         view.unsettled = true;
         return original("nothing to choose");
     }
-    std::string title = clean_text(read.title);
+    const std::string title = clean_text(read.title);
     if (excluded_title(title))
         return original("a screen left original by its title");
     view.kind = Kind::kLinkChain;
@@ -491,7 +491,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         return view;
     }
     for (const std::string& t : read.extra_texts_) {
-        std::string clean = clean_text(t, true);
+        const std::string clean = clean_text(t, true);
         if (!clean.empty() && get_upper(clean) != get_upper(title))
             view.lines.push_back(clean);
     }
@@ -505,7 +505,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             if (r.track >= 1 && r.track <= 3)
                 at[r.track] = r.track_at_;
         if (at[1] >= 0.0f && at[2] >= 0.0f && at[3] >= 0.0f) {
-            float low = read.graphic_editor_ ? 0.0f : kValMinCas;
+            const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
             view.has_colour_ = true;
             view.hue = std::min(at[1] * 360.0f, 359.0f);
             view.sat = at[2] * kSatMax;
@@ -517,13 +517,16 @@ View get_build(const MenuRead& read, const Policy& policy)
 
 void skater_colour(float hue, float sat_percent, float val_percent, float rgb[3])
 {
-    float s = sat_percent * 0.01f, v = val_percent * 0.01f;
+    const float s = sat_percent * 0.01f;
+    const float v = val_percent * 0.01f;
     float r = v, g = v, b = v;
     if (s != 0.0f) {
-        float sector = hue * (1.0f / 60.0f);
-        int i = static_cast<int>(sector);
-        float f = sector - static_cast<float>(i);
-        float p = (1.0f - s) * v, q = (1.0f - s * f) * v, t = (1.0f - (1.0f - f) * s) * v;
+        const float sector = hue * (1.0f / 60.0f);
+        const int i = static_cast<int>(sector);
+        const float f = sector - static_cast<float>(i);
+        const float p = (1.0f - s) * v;
+        const float q = (1.0f - s * f) * v;
+        const float t = (1.0f - (1.0f - f) * s) * v;
         switch (static_cast<unsigned>(i)) {
         case 0:
             r = v, g = t, b = p;

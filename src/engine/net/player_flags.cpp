@@ -153,7 +153,7 @@ void PlayerRecord::score_flag_capture(int team)
 {
     char key[64];
     get_team_key(key, team);
-    PlayerRecord* local = get_local(the_manager());
+    const PlayerRecord* local = get_local(the_manager());
     script::Struct* params = new_params();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key));
@@ -188,7 +188,7 @@ void PlayerRecord::note_flag_steal(int team)
     } else {
         params->append_word(kString0, script::kQbvalString, label_);
         params->append_word(kString1, script::kQbvalString, get_team_name(key));
-        bool from_local = !(local->flag_bits_ & kPlayerObserver) && local->get_flag_team() == team;
+        const bool from_local = !(local->flag_bits_ & kPlayerObserver) && local->get_flag_team() == team;
         get_run(from_local ? kStoleFlagFromYou : kStoleFlagOther, params);
     }
     delete_params(params);
@@ -203,7 +203,7 @@ void PlayerRecord::note_flag_pickup(int team)
     char key[64];
     get_team_key(key, team);
     script::Struct* params = new_params();
-    PlayerRecord* local = get_local(manager);
+    const PlayerRecord* local = get_local(manager);
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key));
         get_run(kTookFlagYou, params);
@@ -236,7 +236,7 @@ void PlayerRecord::note_flag_returned()
         get_run(kHideCtfArrow);
         get_run(kRetrievedFlagYou, params);
     } else {
-        PlayerRecord* local = get_local(manager);
+        const PlayerRecord* local = get_local(manager);
         if (local && !(local->flag_bits_ & kPlayerObserver) && local->team_ == team_)
             get_run(kHideCtfArrow);
         params->append_word(kString0, script::kQbvalString, label_);
@@ -271,7 +271,7 @@ void PlayerRecord::give_crown(bool king)
         flag_bits_ |= kPlayerKing;
         if (flag_bits_ & kPlayerLocal) {
             script::Struct* params = new_params();
-            uint32_t player = skater_->get_skater_number() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
+            const uint32_t player = skater_->get_skater_number() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
             params->put_name_key(player, player);
             get_run(kHideCrownArrow, params);
             delete_params(params);

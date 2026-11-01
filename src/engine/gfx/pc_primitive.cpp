@@ -76,10 +76,10 @@ uint32_t get_swapped(uint32_t rgba) { return (rgba & 0xFF00FF00u) | (rgba & 0xFF
 PcPrimitive::PcPrimitive(int own) : Primitive(own)
 {
     // (material_ made first by its constructor)
-    uint32_t made = flag_bits_ | 1;
+    const uint32_t made = flag_bits_ | 1;
     flag_bits_ = made;
     material_.pass_flags_[0] = 0;
-    int r = get_rand();
+    const int r = get_rand();
     material_.checksum = static_cast<uint32_t>(r * get_rand()); // (a sort key)
     material_.pass_count_ = 1;
     material_.textures[0] = nullptr;
@@ -108,7 +108,7 @@ void PcPrimitive::set_texture(const uint8_t* texture, int, int)
     uint8_t* pc_texture = texture[8] & 1 ? **reinterpret_cast<uint8_t** const*>(texture + 0x10)
                                          : *reinterpret_cast<uint8_t* const*>(texture + 0x10);
     material_.pass_flags_[0] = pc_texture ? 4 : 0;
-    int r = get_rand();
+    const int r = get_rand();
     material_.checksum = static_cast<uint32_t>(r * get_rand());
     material_.pass_count_ = 1;
     material_.textures[0] = pc_texture;
@@ -277,7 +277,7 @@ void PcPrimitive::set_normal_z(int index, float z) { vertex_at<VertexNormalColou
 // 0x004C56E0
 void PcPrimitive::set_vertex_colour(int index, uint32_t rgba)
 {
-    uint32_t bgra = get_swapped(rgba);
+    const uint32_t bgra = get_swapped(rgba);
     if (vertex_format_ == 0x42)
         vertex_at<VertexColour>(vertices_, index).colour = bgra;
     else if (vertex_format_ == 0x142)

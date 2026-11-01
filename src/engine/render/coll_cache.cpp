@@ -60,7 +60,7 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
 {
     get_clear(this);
     maths::Seg line(box.min, box.max);
-    void** lists = grid_lists_along(&line);
+    void* const* lists = grid_lists_along(&line);
     if (!lists)
         return;
     box_ = box;
@@ -78,7 +78,7 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
             ++statics_;
         }
     }
-    for (memory::ListNode* node = first_movable(); node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = first_movable(); node->data != reinterpret_cast<void*>(-1) && node;
          node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
         if (!object || (object->flag_bits_ & 6) || !object->inside_bounds(&grown))

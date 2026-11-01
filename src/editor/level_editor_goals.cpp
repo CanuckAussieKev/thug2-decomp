@@ -89,7 +89,7 @@ bool read_int(const std::string& text, int* out)
     if (text.empty())
         return false;
     char* end = nullptr;
-    long v = std::strtol(text.c_str(), &end, 10);
+    const long v = std::strtol(text.c_str(), &end, 10);
     if (*end != '\0' || v < -100000000L || v > 100000000L)
         return false;
     *out = static_cast<int>(v);
@@ -296,7 +296,7 @@ bool get_complete(const Goal& goal, std::string* why)
             *why = text;
         return false;
     };
-    int count = static_cast<int>(goal.points.size());
+    const int count = static_cast<int>(goal.points.size());
     if (count < min_points(goal.type))
         return fail("It needs " + std::to_string(min_points(goal.type)) + " points (has " + std::to_string(count) +
                     ")");
@@ -312,7 +312,7 @@ bool get_complete(const Goal& goal, std::string* why)
 std::string clean_text(const std::string& text, size_t limit)
 {
     std::string out;
-    for (char c : text) {
+    for (const char c : text) {
         auto u = static_cast<unsigned char>(c);
         if (u < 0x20 || u == 0x7F || c == '"' || c == '#' || c == '|')
             continue;
@@ -320,10 +320,10 @@ std::string clean_text(const std::string& text, size_t limit)
             break;
         out.push_back(c);
     }
-    size_t first = out.find_first_not_of(' ');
+    const size_t first = out.find_first_not_of(' ');
     if (first == std::string::npos)
         return "";
-    size_t last = out.find_last_not_of(' ');
+    const size_t last = out.find_last_not_of(' ');
     return out.substr(first, last - first + 1);
 }
 
@@ -390,8 +390,8 @@ bool read_record(const std::string& text, Goal* out)
             ++at;
     };
     skip();
-    size_t end = text.find_first_of(" \t\r", at);
-    std::string id = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
+    const size_t end = text.find_first_of(" \t\r", at);
+    const std::string id = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
     if (!node_create::valid_name(id) || id.size() > 40)
         return false;
     at = end == std::string::npos ? text.size() : end;
@@ -404,7 +404,7 @@ bool read_record(const std::string& text, Goal* out)
         skip();
         if (at >= text.size())
             break;
-        size_t equals = text.find('=', at);
+        const size_t equals = text.find('=', at);
         if (equals == std::string::npos || equals == at)
             return false;
         std::string key = text.substr(at, equals - at);
@@ -413,7 +413,7 @@ bool read_record(const std::string& text, Goal* out)
         at = equals + 1;
         std::string value;
         if (at < text.size() && text[at] == '"') {
-            size_t close = text.find('"', at + 1);
+            const size_t close = text.find('"', at + 1);
             if (close == std::string::npos)
                 return false;
             value = text.substr(at + 1, close - at - 1);
@@ -421,7 +421,7 @@ bool read_record(const std::string& text, Goal* out)
             if (at < text.size() && text[at] != ' ' && text[at] != '\t' && text[at] != '\r')
                 return false; // (text after the closing quote)
         } else {
-            size_t stop = text.find_first_of(" \t\r", at);
+            const size_t stop = text.find_first_of(" \t\r", at);
             value = text.substr(at, stop == std::string::npos ? std::string::npos : stop - at);
             at = stop == std::string::npos ? text.size() : stop;
         }
@@ -446,7 +446,7 @@ bool read_record(const std::string& text, Goal* out)
             g.gaps.clear();
             if (!value.empty()) {
                 for (const std::string& gap : get_split(value, '|')) {
-                    std::string clean = clean_text(gap, 60);
+                    const std::string clean = clean_text(gap, 60);
                     if (!clean.empty())
                         g.gaps.push_back(clean);
                 }
@@ -532,7 +532,7 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
     auto u32 = [b](uint32_t offset) -> uint32_t& { return *reinterpret_cast<uint32_t*>(b + offset); };
     auto f32 = [b](uint32_t offset) -> float& { return *reinterpret_cast<float*>(b + offset); };
     auto text = [b](uint32_t offset, const std::string& value, size_t room) {
-        size_t n = std::min(value.size(), room - 1);
+        const size_t n = std::min(value.size(), room - 1);
         std::memcpy(b + offset, value.data(), n);
         b[offset + n] = 0;
     };
@@ -559,11 +559,11 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
     text(0x4B, goal.text, 0xAF - 0x4B);
     text(0xAF, goal.win, 0x113 - 0xAF);
     text(0x36, goal.ped, 0x4B - 0x36);
-    int count = std::min(static_cast<int>(goal.points.size()), max_points(goal.type));
+    const int count = std::min(static_cast<int>(goal.points.size()), max_points(goal.type));
     b[0x286] = static_cast<uint8_t>(count);
     for (int i = 0; i < count; ++i) {
         const Point& p = goal.points[i];
-        uint32_t at = 0x11C + 0x1C * i;
+        const uint32_t at = 0x11C + 0x1C * i;
         f32(at) = p.pos.x;
         f32(at + 4) = p.pos.y;
         f32(at + 8) = p.pos.z;
@@ -580,7 +580,7 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
     case KindTag::kGap: {
         text(0x303, goal.trick, kTexelEdge - 0x303);
         int n = 0;
-        for (int number : gap_numbers) {
+        for (const int number : gap_numbers) {
             if (n >= 10 || number < 0 || number > 255)
                 continue;
             b[0x2F8 + n++] = static_cast<uint8_t>(number);
@@ -723,7 +723,7 @@ void sync_nodes(const std::vector<Goal>& goals)
     node_create::LinkChain make;
     for (const Goal& g : goals) {
         for (size_t k = 0; k < g.points.size(); ++k) {
-            uint32_t name = get_checksums(point_node(g, static_cast<int>(k)));
+            const uint32_t name = get_checksums(point_node(g, static_cast<int>(k)));
             if (!node_create::is_added(name)) {
                 if (!node_create::name_taken(point_node(g, static_cast<int>(k))))
                     make.push_back(point_spec(g, static_cast<int>(k)));
@@ -743,7 +743,7 @@ void sync_nodes(const std::vector<Goal>& goals)
 
 void remove_node(const std::string& name)
 {
-    uint32_t checksum = get_checksums(name);
+    const uint32_t checksum = get_checksums(name);
     if (!node_create::is_added(checksum))
         return;
     node_create::Spec removed;
@@ -802,10 +802,10 @@ modules::Skate* skate_module() { return modules::g_skate_module; }
 // 0x004E7D00 / 0x004EC010 / 0x004EA6C0 do).
 uint32_t current_level()
 {
-    modules::Skate* skate = skate_module();
+    const modules::Skate* skate = skate_module();
     if (!skate)
         return 0;
-    uint32_t level = skate->level_;
+    const uint32_t level = skate->level_;
     return level == 0xB664035D ? 0xE8B4B836 : level;
 }
 
@@ -814,7 +814,7 @@ bool goal_command(Function command, uint32_t goal)
 {
     auto* params = new (script::spawn_param_bag()) script::Struct;
     params->put_name_key(0xA1DC81F9u, goal); // name
-    bool result = command(params, nullptr);
+    const bool result = command(params, nullptr);
     params->get_clear();
     script::delete_struct(params);
     return result;
@@ -880,7 +880,7 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
         s.pos = {p.pos.x, p.pos.y + p.height, p.pos.z};
         s.angles = {0.0f, get_image_angle(p.heading) - pi, 0.0f};
         s.owned = true;
-        int kind = point_kind(g.type, static_cast<int>(k));
+        const int kind = point_kind(g.type, static_cast<int>(k));
         if (kind == 1) {
             s.cls = "Pedestrian";
             s.type = "Ped_From_Profile";
@@ -902,7 +902,7 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
             s.extra = {created, string("RestartName", "Edited goal: Restart"), types};
         } else {
             s.cls = "GameObject";
-            uint32_t kind_hash = get_kind_hash(g.type);
+            const uint32_t kind_hash = get_kind_hash(g.type);
             const char* model = park_editing::goal_object_model(kind_hash, static_cast<int>(k) - 2);
             static const char* const kLetterTypes[2][5] = {{"Letter_S", "Letter_K", "Letter_A", "Letter_T", "Letter_E"},
                                                            {"Combo_C", "Combo_O", "Combo_M", "Combo_B", "Combo_O"}};
@@ -926,7 +926,7 @@ std::vector<int> gap_ordinals(const Goal& g)
     if (!list)
         return out;
     for (const std::string& gap : g.gaps) {
-        int number = list->find_gap(gap.c_str());
+        const int number = list->find_gap(gap.c_str());
         if (number >= 0)
             out.push_back(number);
         else
@@ -940,8 +940,8 @@ void take_out_of_play()
 {
     if (g_in_play.empty())
         return;
-    for (int index : g_in_play) {
-        uint32_t goal = get_checksums(get_goal_id(index));
+    for (const int index : g_in_play) {
+        const uint32_t goal = get_checksums(get_goal_id(index));
         if (skate_module() && goal_exists(goal)) {
             if (is_goal_running(goal))
                 switch_off_goal(goal);
@@ -964,7 +964,7 @@ void put_in_play()
     if (live_now() || !layout::editing_copy() || layout::get_refused(&why) || !skate_module() || g_goals.empty())
         return;
     get_refresh();
-    uint32_t level = current_level();
+    const uint32_t level = current_level();
     node_create::LinkChain nodes;
     std::vector<std::pair<int, const Goal*>> play;
     for (size_t i = 0; i < g_goals.size() && static_cast<int>(i) < kMaxGoals; ++i) {
@@ -974,7 +974,7 @@ void put_in_play()
             get_log("level editor: goal %s (%s) not played - %s", g.id.c_str(), g.name.c_str(), incomplete.c_str());
             continue;
         }
-        int index = play_index(static_cast<int>(i));
+        const int index = play_index(static_cast<int>(i));
         bool taken = false;
         for (const node_create::Spec& s : play_nodes(g, index)) {
             if (node_create::name_taken(s.name))
@@ -998,7 +998,7 @@ void put_in_play()
         GoalImage image{};
         fill_image(*goal, level, index, gap_ordinals(*goal), &image);
         reinterpret_cast<park_editing::EditedGoal*>(image.bytes)->add_to_goal_manager(true);
-        uint32_t id = get_checksums(get_goal_id(index));
+        const uint32_t id = get_checksums(get_goal_id(index));
         if (!goal_exists(id)) {
             get_log("level editor: goal %s - the goal manager didn't take it", goal->id.c_str());
             continue;
@@ -1015,7 +1015,8 @@ bool get_cast(V3 from, V3 to, V3* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* point = &ray->hit_.point.x;
@@ -1065,7 +1066,7 @@ void select_point(const Goal& g, int index)
 
 int take_select()
 {
-    int select = g_select;
+    const int select = g_select;
     g_select = -1;
     return select;
 }
@@ -1093,22 +1094,22 @@ bool fabricate(KindTag type)
         hud::get_message("Goal limit reached (10)", 4.0);
         return false;
     }
-    TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    V3 forward = frame.back * -1.0f;
+    const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
+    const V3 forward = frame.back * -1.0f;
     V3 base{};
     if (!get_cast(view.pos, view.pos + forward * 4000.0f, &base))
         base = view.pos + forward * 600.0f;
     base = get_grounded(base);
-    V3 flat = make_unit({forward.x, 0.0f, forward.z});
-    V3 right = make_unit(perpendicular({0.0f, 1.0f, 0.0f}, flat * -1.0f));
+    const V3 flat = make_unit({forward.x, 0.0f, forward.z});
+    const V3 right = make_unit(perpendicular({0.0f, 1.0f, 0.0f}, flat * -1.0f));
     Goal g = get_defaults(type, get_fresh_id());
     g.name = fresh_title(type);
     // The pro facing the camera, the start beside it facing away; letters / checkpoints in a line ahead.
     g.points.push_back({base, view.yaw + kPi, 0.0f});
     g.points.push_back({get_grounded(base + right * 150.0f), view.yaw, 0.0f});
-    int count = min_points(type);
+    const int count = min_points(type);
     for (int k = 2; k < count; ++k) {
-        V3 at = get_grounded(base + flat * (300.0f * static_cast<float>(k - 1)));
+        const V3 at = get_grounded(base + flat * (300.0f * static_cast<float>(k - 1)));
         g.points.push_back({at, view.yaw, starting_height(type, k)});
     }
     for (Point& p : g.points) {
@@ -1126,7 +1127,7 @@ bool fabricate(KindTag type)
 
 bool get_edit(const std::string& id, const Goal& changed, bool done)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     if (i < 0)
         return false;
     if (!g_dragging)
@@ -1155,11 +1156,11 @@ bool get_edit(const std::string& id, const Goal& changed, bool done)
 
 bool drop_out(const std::string& id)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     if (i < 0)
         return false;
     push_undo();
-    Goal g = g_goals[i];
+    const Goal g = g_goals[i];
     for (size_t k = 0; k < g.points.size(); ++k)
         remove_node(point_node(g, static_cast<int>(k)));
     g_goals.erase(g_goals.begin() + i);
@@ -1169,14 +1170,14 @@ bool drop_out(const std::string& id)
 
 bool add_checkpoint(const std::string& id)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     if (i < 0 || g_goals[i].type != KindTag::kRace ||
         static_cast<int>(g_goals[i].points.size()) >= max_points(KindTag::kRace))
         return false;
     push_undo();
     Goal& g = g_goals[i];
     const Point& last = g.points.back();
-    V3 ahead = {std::sin(last.heading), 0.0f, std::cos(last.heading)};
+    const V3 ahead = {std::sin(last.heading), 0.0f, std::cos(last.heading)};
     g.points.push_back({get_grounded(last.pos + ahead * 300.0f), last.heading, 0.0f});
     sync_nodes({g});
     select_point(g, static_cast<int>(g.points.size()) - 1);
@@ -1185,7 +1186,7 @@ bool add_checkpoint(const std::string& id)
 
 bool remove_checkpoint(const std::string& id)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     if (i < 0 || g_goals[i].type != KindTag::kRace ||
         static_cast<int>(g_goals[i].points.size()) <= min_points(KindTag::kRace))
         return false;
@@ -1198,7 +1199,7 @@ bool remove_checkpoint(const std::string& id)
 
 bool restore_points(const std::string& id)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     if (i < 0 || !missing_points(g_goals[i]))
         return false;
     push_undo();
@@ -1208,7 +1209,7 @@ bool restore_points(const std::string& id)
 
 bool export_goal(const std::string& id, std::string* message)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     if (i < 0) {
         *message = "No such goal";
         return false;
@@ -1223,7 +1224,7 @@ bool export_goal(const std::string& id, std::string* message)
     // The goal editor's component (the object GoalEditor, CreateGoalEditor at start-up: its goaleditor 0x81F01058).
     auto* editor = static_cast<objects::GameEntity*>(objects::find_object(get_checksums("GoalEditor")));
     uint8_t* component = editor ? reinterpret_cast<uint8_t*>(editor->fetch_module(0x81F01058)) : nullptr;
-    uint32_t level = current_level();
+    const uint32_t level = current_level();
     if (!component || !level) {
         *message = "Goal editor unavailable";
         return false;
@@ -1302,8 +1303,8 @@ void forget_level()
     // (the level's nodes and objects went with it; a goal of ours the goal manager still has is removed - the game's
     // level change normally takes every goal out first)
     if (skate_module()) {
-        for (int index : g_in_play) {
-            uint32_t goal = get_checksums(get_goal_id(index));
+        for (const int index : g_in_play) {
+            const uint32_t goal = get_checksums(get_goal_id(index));
             if (goal_exists(goal))
                 drop_objective(goal);
         }
@@ -1336,7 +1337,7 @@ void get_queue(std::function<void()> action) { g_queue.push_back(std::move(actio
 void end_drag() { g_dragging = false; }
 int get_missing(const std::string& id)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     return i < 0 ? 0 : missing_points(g_goals[i]);
 }
 bool point_of_node(uint32_t node, std::string* id, int* point)
@@ -1349,7 +1350,7 @@ bool point_of_node(uint32_t node, std::string* id, int* point)
 }
 void choose_one(const std::string& id, int point)
 {
-    int i = index_of_goal_id(id);
+    const int i = index_of_goal_id(id);
     if (i >= 0 && point >= 0 && point < static_cast<int>(g_goals[i].points.size()))
         select_point(g_goals[i], point);
 }
@@ -1363,7 +1364,7 @@ std::vector<std::string> get_level_gaps()
     auto* list = skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
     if (!list)
         return out;
-    int count = list->total_of();
+    const int count = list->total_of();
     for (int i = 0; i < count; ++i)
         out.emplace_back(list->get_gap_title(i));
     return out;
@@ -1390,18 +1391,18 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
     int selected_point = -1;
     point_of_node(selected, &selected_goal, &selected_point);
     for (const Goal& g : g_goals) {
-        bool lit = g.id == selected_goal;
-        uint32_t colour = lit ? 0xFFFFE070 : 0xFFE0A030;
+        const bool lit = g.id == selected_goal;
+        const uint32_t colour = lit ? 0xFFFFE070 : 0xFFE0A030;
         for (size_t k = 0; k < g.points.size(); ++k) {
             const Point& p = g.points[k];
-            V3 d = p.pos - camera_pos;
+            const V3 d = p.pos - camera_pos;
             if (get_dot(d, d) > 8000.0f * 8000.0f)
                 continue;
-            V3 top = p.pos + V3{0.0f, p.height, 0.0f};
+            const V3 top = p.pos + V3{0.0f, p.height, 0.0f};
             if (p.height > 0.0f)
                 line(p.pos, top, colour, 1.0f); // (a letter floats its height above its node)
             // (its heading: a short arrow on the ground)
-            V3 ahead = {std::sin(p.heading) * 40.0f, 0.0f, std::cos(p.heading) * 40.0f};
+            const V3 ahead = {std::sin(p.heading) * 40.0f, 0.0f, std::cos(p.heading) * 40.0f};
             line(p.pos, p.pos + ahead, colour, lit ? 2.0f : 1.25f);
             float x = 0.0f, y = 0.0f;
             if (get_dot(d, d) < 3000.0f * 3000.0f && project(top + V3{0.0f, 12.0f, 0.0f}, &x, &y)) {

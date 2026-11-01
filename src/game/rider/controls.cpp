@@ -67,7 +67,7 @@ void begin_drop_in(objects::FootMovement* walk, const float* velocity)
 script::Struct* Component::platform_structure(script::Struct* params)
 {
     script::Struct* found = nullptr;
-    int xbox = ps2_controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)
+    const int xbox = ps2_controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)
     if (os_layer() == xbox) {
         if (!params->read_sub_struct(0xCE42EE1A, &found, 0))
             params->read_sub_struct(0xE594F0A2, &found, 1);

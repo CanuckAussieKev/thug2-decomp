@@ -188,10 +188,10 @@ void CinematicTable::add_objects(script::Struct* params)
         }
         if (is_skater2 && is_skater)
             has_skater = true;
-        bool skater = is_skater && is_skater2;
+        const bool skater = is_skater && is_skater2;
         bool add = true;
         if (!special) {
-            void* asset = assets::g_asset_manager->get_asset_data(model_file, 0);
+            const void* asset = assets::g_asset_manager->get_asset_data(model_file, 0);
             if (!asset && !skater)
                 params2->put_name_key(kUnnamed, kNoModelFile);
             if (object->has_bare_flag(kKeepSkeleton)) {
@@ -253,7 +253,7 @@ void CinematicTable::add_objects(script::Struct* params)
                             static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
                                 reinterpret_cast<maths::Vec4*>(saved)));
                         std::memcpy(lent_2c_, settings, 16);
-                        uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
+                        const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
                         lent_3c_ = flags >> 2 & 1;
                         lent_3d_ = flags >> 3 & 1;
                         lent_pos_ = level->at_point_;
@@ -319,7 +319,7 @@ void CinematicTable::add_objects(script::Struct* params)
             continue;
         void* model = model_of(component);
         uint32_t flags = static_cast<render::RenderModel*>(model)->get_strip_break_flags();
-        ObjectEntry* parent = find_entry(entry.name - 1);
+        const ObjectEntry* parent = find_entry(entry.name - 1);
         if (parent && parent->active) {
             GameEntity* level = level_object_of(parent->object);
             flags |= static_cast<render::RenderModel*>(model_of(level->fetch_module(kModelModuleName)))
@@ -330,7 +330,7 @@ void CinematicTable::add_objects(script::Struct* params)
     // children: their parent, the skater's look (colours from its appearance parts), their animation index
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = entities_[i];
-        ObjectEntry* parent = find_entry(entry.name - 1);
+        const ObjectEntry* parent = find_entry(entry.name - 1);
         if (parent) {
             entry.parent = parent->object;
             if (parent->active)

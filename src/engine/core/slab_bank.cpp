@@ -136,7 +136,7 @@ void* PoolPair::carve(unsigned int size)
 
 void PoolPair::dealloc(void* item)
 {
-    for (int which : {current, current ^ 1}) {
+    for (const int which : {current, current ^ 1}) {
         SlabBank* pool = pools[which];
         if (pool && pool->get_holds(item)) {
             pool->dealloc(item);

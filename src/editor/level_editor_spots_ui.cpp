@@ -37,7 +37,7 @@ void spawn_section(int node_index, std::vector<Request>* requests)
     ImGui::BeginDisabled(node.added);
     if (ImGui::Checkbox("HORSE Spot", &horse)) {
         std::string text;
-        for (uint32_t type : types) {
+        for (const uint32_t type : types) {
             if (type == kHorse)
                 continue;
             text += (text.empty() ? "" : ", ") + fields::get_name_text(type, fields::get_name_of);

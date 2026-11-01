@@ -44,7 +44,7 @@ void scale_stick(uint8_t byte, float* out)
     }
     if (value == -0x80)
         value = -0x7F;
-    int moved = value + (value > 0 ? -50 : 50);
+    const int moved = value + (value > 0 ? -50 : 50);
     *out = static_cast<float>(moved * static_cast<double>(float_from_bits(0x3C54C77B)));
 }
 
@@ -115,14 +115,14 @@ void ControlButton::set_held_down(uint8_t down)
 // 0x0046B900
 int ControlButton::read_let_go_time()
 {
-    int released = release_time_;
+    const int released = release_time_;
     return frame_clock::game_clock_elapsed() + (g_clock_offset - released);
 }
 
 // 0x0046B920
 int ControlButton::get_held_millis()
 {
-    int pressed = press_time_;
+    const int pressed = press_time_;
     return frame_clock::game_clock_elapsed() + (g_clock_offset - pressed);
 }
 
@@ -215,7 +215,7 @@ void PadSnapshot::tick_frame(const uint8_t* data)
     shoulder_right_a_.tick_frame(get_full(data[0xD] != 0));
     shoulder_left_b_.tick_frame(get_full(data[0xE] != 0));
     shoulder_right_b_.tick_frame(get_full(data[0xF] != 0));
-    uint32_t bits = *reinterpret_cast<const uint32_t*>(data + 0x1C);
+    const uint32_t bits = *reinterpret_cast<const uint32_t*>(data + 0x1C);
     stick_click_left_.tick_frame(get_full((bits & 0x200) != 0));
     stick_click_right_.tick_frame(get_full((bits & 0x400) != 0));
     button_choose_.tick_frame(get_full((bits & 0x100) != 0));
@@ -232,7 +232,7 @@ void PadSnapshot::tick_frame(const uint8_t* data)
 
     x = stick_[2];
     y = stick_[3];
-    double length = std::sqrt(y * y + x * x);
+    const double length = std::sqrt(y * y + x * x);
     polar_[1].length = static_cast<float>(length);
     // (compared unrounded, as the original's)
     if (length > float_from_bits(0x3A83126F)) {
@@ -240,7 +240,10 @@ void PadSnapshot::tick_frame(const uint8_t* data)
             static_cast<float>(std::atan2(static_cast<double>(stick_[2]), -static_cast<double>(stick_[3])));
     } else {
         // the d-pad stands in for a centred stick
-        uint8_t up = data[6] != 0, down = data[7] != 0, left = data[5] != 0, right = data[4] != 0;
+        const uint8_t up = data[6] != 0;
+        const uint8_t down = data[7] != 0;
+        const uint8_t left = data[5] != 0;
+        const uint8_t right = data[4] != 0;
         if (up || down || left || right) {
             polar_[1].angle = d_pad_angle(up, down, left, right);
             polar_[1].length = 127.0f;
@@ -250,7 +253,7 @@ void PadSnapshot::tick_frame(const uint8_t* data)
         }
     }
 
-    double angle = std::fabs(static_cast<double>(polar_[1].angle));
+    const double angle = std::fabs(static_cast<double>(polar_[1].angle));
     update_lock(lock_[0], polar_[1].length, angle < kQuarterPi);
     update_lock(lock_[1], polar_[1].length, static_cast<double>(kPi) - angle < kQuarterPi);
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
@@ -315,10 +318,10 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 // 0x0046C370
 double stick_length(float x, float y, float angle)
 {
-    double nx = x / static_cast<double>(x > 0.0f ? 127.0f : 128.0f);
-    double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);
+    const double nx = x / static_cast<double>(x > 0.0f ? 127.0f : 128.0f);
+    const double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);
     // the angle brought into the quarter around up / down, then around left / right
-    double a = angle;
+    const double a = angle;
     double to_gate = 0.0;
     if (a > -static_cast<double>(kQuarterPi) && a < kQuarterPi)
         to_gate = a;
@@ -328,7 +331,7 @@ double stick_length(float x, float y, float angle)
         to_gate = std::fabs(a) - kPi;
     else
         to_gate = a + kHalfPi;
-    double length =
+    const double length =
         std::sqrt(ny * ny + nx * nx) * std::fabs(std::cos(to_gate)) * static_cast<double>(float_from_bits(0x3F969696));
     return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)
 }

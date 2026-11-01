@@ -94,7 +94,7 @@ std::string get_check(const fields::Row& row, uint32_t self, const char* text, s
     } else if (value.kind == fields::Kind::kName && !fields::get_name_of(value.checksum)) {
         *note = "unknown name (checksum used)";
     } else if (value.kind == fields::Kind::kNames) {
-        for (uint32_t c : value.list) {
+        for (const uint32_t c : value.list) {
             if (!fields::get_name_of(c))
                 *note = "contains an unknown name";
         }
@@ -122,7 +122,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         g_typing.node = node_index;
         g_typing.generation = nodes::get_generation();
     }
-    std::vector<fields::Row> rows = fields::rows_of(node);
+    const std::vector<fields::Row> rows = fields::rows_of(node);
     bool any_edited = false;
     for (const fields::Row& row : rows)
         any_edited = any_edited || row.edited;
@@ -142,7 +142,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             ImGui::PushID(static_cast<int>(row.key));
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            std::string name = fields::get_name_text(row.key, fields::get_name_of);
+            const std::string name = fields::get_name_text(row.key, fields::get_name_of);
             if (row.included)
                 ImGui::TextDisabled("%s", name.c_str());
             else if (row.edited)
@@ -157,7 +157,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                                   row.edited ? "\nModified" : "");
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
-            std::string text = fields::get_format(row.value, fields::get_name_of);
+            const std::string text = fields::get_format(row.value, fields::get_name_of);
             if (!row.editable) {
                 ImGui::BeginDisabled(true);
                 ImGui::TextWrapped("%s", text.c_str());
@@ -169,20 +169,22 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 if (ImGui::Checkbox("##flag", &on))
                     set_field(requests, node.name, row.key, fields::Kind::kBitMark, on ? "on" : "off");
             } else {
-                bool active = g_typing.active_set_ && g_typing.active == row.key;
+                const bool active = g_typing.active_set_ && g_typing.active == row.key;
                 ScratchBuf& buffer = g_typing.buffers[row.key];
                 if (!active)
                     dup_from(&buffer, text);
-                bool enter = ImGui::InputText("##value", buffer.data(), buffer.size(),
-                                              ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-                bool left = ImGui::IsItemDeactivatedAfterEdit();
+                const bool enter =
+                    ImGui::InputText("##value", buffer.data(), buffer.size(),
+                                     ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+                const bool left = ImGui::IsItemDeactivatedAfterEdit();
                 if (ImGui::IsItemActive()) {
                     g_typing.active = row.key;
                     g_typing.active_set_ = true;
                     still_active = true;
                 }
                 std::string note;
-                std::string error = active || enter || left ? get_check(row, node.name, buffer.data(), &note) : "";
+                const std::string error =
+                    active || enter || left ? get_check(row, node.name, buffer.data(), &note) : "";
                 if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
                     if (error.empty())
                         set_field(requests, node.name, row.key, row.value.kind, buffer.data());
@@ -199,9 +201,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             }
             ImGui::TableNextColumn();
             ImGui::PushFont(small_font);
-            ImVec4 colour = row.when == fields::When::kLive     ? kLive
-                            : row.when == fields::When::kReload ? kReload
-                                                                : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
+            const ImVec4 colour = row.when == fields::When::kLive     ? kLive
+                                  : row.when == fields::When::kReload ? kReload
+                                                                      : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled];
             ImGui::TextColored(
                 row.editable || row.when == fields::When::kElsewhere ? colour
                                                                      : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
@@ -261,8 +263,8 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         fields::Value value;
         std::string error;
         std::string name = g_typing.new_name_.data();
-        bool name_ok = fields::parse_name(name, &key) && name[0] != '#' && name[0] != '0';
-        bool value_ok = fields::parse(kAddKinds[g_typing.new_kind_], g_typing.new_value_.data(), &value, &error);
+        const bool name_ok = fields::parse_name(name, &key) && name[0] != '#' && name[0] != '0';
+        const bool value_ok = fields::parse(kAddKinds[g_typing.new_kind_], g_typing.new_value_.data(), &value, &error);
         bool exists = false;
         for (const fields::Row& row : rows)
             exists = exists || row.key == key;
@@ -353,9 +355,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (!g_level.name_active_)
             dup_from(&g_level.name, props.name);
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        bool enter = ImGui::InputTextWithHint("##name", level.have_defaults_ ? own.name.c_str() : "Original",
-                                              g_level.name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
-        bool left = ImGui::IsItemDeactivatedAfterEdit();
+        const bool enter = ImGui::InputTextWithHint("##name", level.have_defaults_ ? own.name.c_str() : "Original",
+                                                    g_level.name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
+        const bool left = ImGui::IsItemDeactivatedAfterEdit();
         g_level.name_active_ = ImGui::IsItemActive();
         if ((enter || left) && props.name != g_level.name.data()) {
             props.name = g_level.name.data();
@@ -444,7 +446,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Sky");
         ImGui::TableNextColumn();
-        std::string own_sky =
+        const std::string own_sky =
             "(original: " + (level.have_defaults_ && !own.sky.empty() ? own.sky : std::string("none")) + ")";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         ImGui::PushFont(mono);

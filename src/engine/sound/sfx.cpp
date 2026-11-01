@@ -90,7 +90,7 @@ int falloff_from_checksum(uint32_t checksum)
 // 0x0047B030
 VolumeRef::VolumeRef()
 {
-    AudioMixer* manager = g_audio_mixer;
+    const AudioMixer* manager = g_audio_mixer;
     kind_tag_ = manager ? manager->fallback_channel_mode_ : kTypeStereo;
     change_muted();
 }
@@ -142,7 +142,7 @@ bool no_sound()
 {
     if (!audio::g_sound_device)
         return true;
-    int platform = game_config::g_platform;
+    const int platform = game_config::g_platform;
     return platform == 2 || platform == 6;
 }
 
@@ -348,12 +348,12 @@ bool AudioMixer::ingest_sound(const char* path, uint16_t flags, int load_type, i
         return false;
     // the name without its folders
     const char* name = path;
-    int length = static_cast<int>(std::strlen(path));
+    const int length = static_cast<int>(std::strlen(path));
     for (int i = 0; i < length; ++i) {
         if (path[i] == '\\' || path[i] == '/')
             name = path + i + 1;
     }
-    uint32_t checksum = checksums::hash_from_text(name);
+    const uint32_t checksum = checksums::hash_from_text(name);
     if (fetch_wave_slot(checksum))
         return false;
     SoundWaveSlot* entry = nullptr;
@@ -399,7 +399,7 @@ bool AudioMixer::stop_sound(uint32_t id)
 {
     if (no_sound())
         return true;
-    int index = get_playing_index(id);
+    const int index = get_playing_index(id);
     if (index < 0)
         return false;
     stop_voice(index);
@@ -411,7 +411,7 @@ bool AudioMixer::set_sound_params(uint32_t id, VolumeRef* volume, float pitch)
 {
     if (no_sound())
         return true;
-    int index = get_playing_index(id);
+    const int index = get_playing_index(id);
     if (index < 0) {
         get_report_missing();
         return false;
@@ -481,7 +481,7 @@ float AudioMixer::get_dropoff_distance(uint32_t checksum)
 {
     if (no_sound())
         return default_dropoff();
-    SoundWaveSlot* entry = fetch_wave_slot(checksum);
+    const SoundWaveSlot* entry = fetch_wave_slot(checksum);
     if (!entry)
         return 0.0f;
     return entry->dropoff == 0.0f ? default_dropoff() : entry->dropoff;
@@ -501,7 +501,7 @@ bool AudioMixer::set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, 
         get_report_missing();
         return false;
     }
-    PlayingSound& sound = get_playing()[index];
+    const PlayingSound& sound = get_playing()[index];
     if (!volume->is_audio_off()) {
         if (sound.props.volume != 100.0f)
             volume->percent_tweak(sound.props.volume);

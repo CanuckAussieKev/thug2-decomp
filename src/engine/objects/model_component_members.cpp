@@ -155,7 +155,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kAtomicIsHidden: {
         uint32_t geom = 0;
         params->read_hash_value(0u, &geom, 1);
-        bool hidden = mesh_instance_->is_part_concealed(geom);
+        const bool hidden = mesh_instance_->is_part_concealed(geom);
         script->args_->put_int(kHidden, hidden ? 1 : 0);
         break;
     }
@@ -173,8 +173,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         // The viewports the model is drawn in (a bit each).
         int viewport = 0;
         params->fetch_int_value(kViewport, &viewport, false);
-        uint32_t bit = 1u << viewport;
-        uint32_t mask = mesh_instance_->fetch_shown();
+        const uint32_t bit = 1u << viewport;
+        const uint32_t mask = mesh_instance_->fetch_shown();
         mesh_instance_->toggle_shown(name == kObjSetVisibility ? mask | bit : mask & ~bit);
         break;
     }
@@ -197,7 +197,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjGetScaling:
         if (mesh_instance_) {
-            maths::Vec4 scale = reinterpret_cast<VectorAt1c*>(mesh_instance_)->get_pull();
+            const maths::Vec4 scale = reinterpret_cast<VectorAt1c*>(mesh_instance_)->get_pull();
             script->args_->put_vec3(kScaling, script::VectorValue{scale.x, scale.y, scale.z, scale.w});
         }
         break;
@@ -283,10 +283,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kSinePower, &power, 0);
         pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
         params->fetch_vec(kRotationOffset, reinterpret_cast<script::VectorValue*>(&pivot_), 0);
-        bool hold = params->has_bare_flag(kHoldOnLastAngle);
-        bool dont_pause = params->has_bare_flag(kDontPause);
-        uint32_t now = dont_pause ? frame_clock::get_time()
-                                  : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
+        const bool hold = params->has_bare_flag(kHoldOnLastAngle);
+        const bool dont_pause = params->has_bare_flag(kDontPause);
+        const uint32_t now = dont_pause ? frame_clock::get_time()
+                                        : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
         uint8_t axes = 0;
         static const uint32_t kAxes[3] = {kX, kY, kZ};
         for (int axis = 0; axis < 3; ++axis) {
@@ -328,7 +328,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         float radius = 0.0f;
         params->fetch_float(0u, &radius, 1);
         if (mesh_instance_) {
-            maths::Vec4 sphere = {0.0f, 0.0f, 0.0f, radius};
+            const maths::Vec4 sphere = {0.0f, 0.0f, 0.0f, radius};
             mesh_instance_->change_bound_sphere(&sphere);
         }
         break;
@@ -376,7 +376,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         maths::Mat4 uv;
         uv.reset_to_identity();
         float u_scale = 1.0f, v_scale = 1.0f;
-        bool scaled = params->fetch_float(kUScale, &u_scale, 0);
+        const bool scaled = params->fetch_float(kUScale, &u_scale, 0);
         if (params->fetch_float(kVScale, &v_scale, 0) || scaled) {
             uv.row[0].x *= u_scale;
             uv.row[1].y *= v_scale;
@@ -385,7 +385,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         if (params->fetch_float(kRot, &rot, 0))
             uv.spin_around_z(rot * kRadiansPerDegree);
         float u_off = 0.0f, v_off = 0.0f;
-        bool offset = params->fetch_float(kUOff, &u_off, 0);
+        const bool offset = params->fetch_float(kUOff, &u_off, 0);
         if (params->fetch_float(kVOff, &v_off, 0) || offset) {
             uv.row[3].x = u_off;
             uv.row[3].y = v_off;
@@ -486,7 +486,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
                 maths::Vec4 line[2];
                 line_params->fetch_vec(kStart, reinterpret_cast<script::VectorValue*>(&line[0]), 1);
                 line_params->fetch_vec(kEnd, reinterpret_cast<script::VectorValue*>(&line[1]), 1);
-                int hit = test_collision(line, arg, 0, 0, 0);
+                const int hit = test_collision(line, arg, 0, 0, 0);
                 if (hit)
                     script->args_->put_name_key(kCollisionResult, static_cast<uint32_t>(hit));
             }
@@ -494,7 +494,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         // (the line test goes on into the bone's volume)
         uint32_t bone = 0;
         params->read_hash_value(kBone, &bone, 1);
-        void* skeleton = skeleton_of(bone_rig_);
+        const void* skeleton = skeleton_of(bone_rig_);
         maths::Mat4 matrix;
         get_draw_matrix(&matrix);
         auto volume = static_cast<float>(mesh_instance_->get_bone_volume(reinterpret_cast<uint32_t>(skeleton),

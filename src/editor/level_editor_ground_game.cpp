@@ -114,7 +114,7 @@ uint32_t sector_key_from_spec(const Spec& spec)
 void note_level()
 {
     render::WorldScene* scene = scenery::main_scene();
-    uint32_t name = scenery::world_scene_key(scene);
+    const uint32_t name = scenery::world_scene_key(scene);
     if (scene == g_scene && name == g_active_scene_key)
         return;
     g_scene = scene;
@@ -127,7 +127,7 @@ void note_level()
 
 void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
 {
-    for (uint32_t tile : tiles) {
+    for (const uint32_t tile : tiles) {
         render::WorldCell* sector = scenery::sector_of(tile);
         if (!sector)
             continue;
@@ -161,7 +161,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         *why = "the copy has no drawn geometry";
         return false;
     }
-    render::MeshRef** meshes = meshes_of(geom);
+    render::MeshRef* const* meshes = meshes_of(geom);
     render::MeshRef* first = meshes[0];
     Layout layout;
     if (!first || !layout_for(vertex_format(first), first->stride, &layout) || first->vertex_buffer_count_ < 1 ||
@@ -215,8 +215,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     }
     first->position_count_ = 0; // (the copied lists aren't the piece's)
     first->triangle_count_ = 0;
-    V3 centre = (mesh.min + mesh.max) * 0.5f;
-    V3 half = mesh.max - centre;
+    const V3 centre = (mesh.min + mesh.max) * 0.5f;
+    const V3 half = mesh.max - centre;
     first->centre[0] = centre.x, first->centre[1] = centre.y, first->centre[2] = centre.z;
     first->radius = std::sqrt(get_dot(half, half));
     // The other meshes: nothing drawn (their strips all one index - degenerate).
@@ -306,7 +306,7 @@ bool get_make(const Spec& spec, std::string* why)
         *why = "no level";
         return false;
     }
-    Mesh mesh = get_build(spec);
+    const Mesh mesh = get_build(spec);
     if (mesh.faces.empty()) {
         *why = "the piece has no faces";
         return false;
@@ -322,7 +322,7 @@ bool get_make(const Spec& spec, std::string* why)
             *why = std::string("its material's piece can't be copied: ") + no;
             return false;
         }
-        uint32_t made = scene->clone_sector_named(spec.material, scene, 0, true, name);
+        const uint32_t made = scene->clone_sector_named(spec.material, scene, 0, true, name);
         sector = made ? lookup_sector(scene, made) : nullptr;
         if (!sector) {
             *why = "the material's piece wasn't copied";
@@ -397,10 +397,10 @@ const char* why_not_donor(uint32_t checksum)
         return "nothing drawn";
     if (geom->instance)
         return "an instance";
-    uint32_t meshes = mesh_count_of(geom);
+    const uint32_t meshes = mesh_count_of(geom);
     if (!meshes_of(geom) || meshes == 0 || meshes > 64)
         return "no meshes (or too many)";
-    render::MeshRef* first = meshes_of(geom)[0];
+    const render::MeshRef* first = meshes_of(geom)[0];
     Layout layout;
     if (!first || first->billboard || (first->flags & 0x11))
         return "a billboard or shared mesh";
@@ -414,7 +414,7 @@ const char* why_not_donor(uint32_t checksum)
     const render::MaterialRef* material = first->material;
     if (!material || picking::material_see_through(material->pass_flags_[0], material->blend_modes_[0]))
         return "a see-through material";
-    render::StaticCollider* coll = static_of(sector);
+    const render::StaticCollider* coll = static_of(sector);
     if (!coll || !coll->geometry_ || !coll->geometry_->tri_count_)
         return "no collision";
     return nullptr;
@@ -437,12 +437,13 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                 if (!is_operative(sector) || why_not_donor(checksum))
                     return;
                 const render::TriMeshSource* tri = static_of(sector)->geometry_;
-                V3 c = {(w->spec->x0 + w->spec->x1) * 0.5f, w->spec->base, (w->spec->z0 + w->spec->z1) * 0.5f};
-                V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z},
-                   hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
-                V3 nearest = {std::clamp(c.x, lo.x, hi.x), std::clamp(c.y, lo.y, hi.y), std::clamp(c.z, lo.z, hi.z)};
-                V3 d = nearest - c;
-                float distance = std::sqrt(get_dot(d, d));
+                const V3 c = {(w->spec->x0 + w->spec->x1) * 0.5f, w->spec->base, (w->spec->z0 + w->spec->z1) * 0.5f};
+                const V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
+                const V3 hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+                const V3 nearest = {std::clamp(c.x, lo.x, hi.x), std::clamp(c.y, lo.y, hi.y),
+                                    std::clamp(c.z, lo.z, hi.z)};
+                const V3 d = nearest - c;
+                const float distance = std::sqrt(get_dot(d, d));
                 if (distance < w->best_distance_)
                     w->best = checksum, w->best_distance_ = distance;
                 if (std::fabs(hi.y - c.y) < 30.0f && distance < w->best_floor_distance_)
@@ -460,7 +461,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     spec->material = chosen;
     // What it looks like: its first mesh's average colour, how many units a texture repeat spans, its commonest terrain.
     render::WorldCell* sector = lookup_sector(scenery::main_scene(), chosen);
-    render::MeshRef* mesh = meshes_of(geom_of(sector))[0];
+    const render::MeshRef* mesh = meshes_of(geom_of(sector))[0];
     Layout layout;
     layout_for(vertex_format(mesh), mesh->stride, &layout);
     const uint8_t* data = mesh->vertex_buffers_[0]->data;
@@ -478,22 +479,23 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             colour |= static_cast<uint32_t>(sum[k] / mesh->vertex_count_ + 0.5) << (8 * k);
         spec->colour = colour;
     }
-    render::IdxStore* indices = mesh->index_buffers_[0];
+    const render::IdxStore* indices = mesh->index_buffers_[0];
     if (indices && indices->indices && mesh->index_counts_[0] >= 3) {
         double world = 0.0, texture = 0.0;
         for (uint32_t i = 0; i + 1 < mesh->index_counts_[0]; ++i) {
-            uint16_t a = indices->indices[i], b = indices->indices[i + 1];
+            const uint16_t a = indices->indices[i];
+            const uint16_t b = indices->indices[i + 1];
             if (a == b || a >= mesh->vertex_count_ || b >= mesh->vertex_count_)
                 continue;
             const auto* pa = reinterpret_cast<const float*>(data + a * mesh->stride);
             const auto* pb = reinterpret_cast<const float*>(data + b * mesh->stride);
             const auto* ta = reinterpret_cast<const float*>(data + a * mesh->stride + layout.tex);
             const auto* tb = reinterpret_cast<const float*>(data + b * mesh->stride + layout.tex);
-            double dw = std::sqrt(static_cast<double>(pa[0] - pb[0]) * (pa[0] - pb[0]) +
-                                  static_cast<double>(pa[1] - pb[1]) * (pa[1] - pb[1]) +
-                                  static_cast<double>(pa[2] - pb[2]) * (pa[2] - pb[2]));
-            double dt = std::sqrt(static_cast<double>(ta[0] - tb[0]) * (ta[0] - tb[0]) +
-                                  static_cast<double>(ta[1] - tb[1]) * (ta[1] - tb[1]));
+            const double dw = std::sqrt(static_cast<double>(pa[0] - pb[0]) * (pa[0] - pb[0]) +
+                                        static_cast<double>(pa[1] - pb[1]) * (pa[1] - pb[1]) +
+                                        static_cast<double>(pa[2] - pb[2]) * (pa[2] - pb[2]));
+            const double dt = std::sqrt(static_cast<double>(ta[0] - tb[0]) * (ta[0] - tb[0]) +
+                                        static_cast<double>(ta[1] - tb[1]) * (ta[1] - tb[1]));
             if (dt > 1e-4 && std::isfinite(dt) && std::isfinite(dw)) {
                 world += dw;
                 texture += dt;
@@ -527,10 +529,10 @@ bool find_pit_tiles(Spec* spec, std::string* why)
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
             // (a tile a pit hides now still counts - the pit being edited)
-            bool mine = g_tile_hides.count(checksum) && g_tile_hides[checksum] > 0;
+            const bool mine = g_tile_hides.count(checksum) && g_tile_hides[checksum] > 0;
             if (!w->refused.empty() || g_pool.count(checksum) || (!is_operative(sector) && !mine))
                 return;
-            render::StaticCollider* coll = static_of(sector);
+            const render::StaticCollider* coll = static_of(sector);
             const render::TriMeshSource* tri = coll ? coll->geometry_ : nullptr;
             if (!tri || !tri->faces_ || !tri->vertices_ || ((coll->flag_bits_ & 4) && !mine))
                 return;
@@ -540,18 +542,19 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                 tri->lower_limit_.y > s.base + 40.0f)
                 return;
             bool ground = false;
-            int faces = std::min<int>(tri->tri_count_, 60000);
+            const int faces = std::min<int>(tri->tri_count_, 60000);
             for (int f = 0; f < faces && !ground; ++f) {
-                uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+                const uint16_t flags =
+                    *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
                 if (flags & 0x10)
                     continue;
                 V3 c[3];
                 bool ok = true;
                 for (int k = 0; k < 3 && ok; ++k) {
-                    uint32_t index = tri->face_vertex(f, k);
+                    const uint32_t index = tri->face_vertex(f, k);
                     ok = index < tri->num_vertices_;
                     if (ok) {
-                        maths::Vec4 p = tri->read_stored_vertex(static_cast<int>(index));
+                        const maths::Vec4 p = tri->read_stored_vertex(static_cast<int>(index));
                         c[k] = {p.x, p.y, p.z};
                     }
                 }
@@ -559,8 +562,8 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             }
             if (!ground)
                 return;
-            V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z},
-               hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+            const V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
+            const V3 hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
             if (tile_inside(lo, hi, s, 25.0f)) {
                 w->tiles.push_back(checksum);
                 return;
@@ -599,7 +602,7 @@ bool place_in(const Spec& in, std::string* why)
         return false;
     if (!spec.lower)
         spec.hides.clear();
-    std::vector<Spec> before = g_specs;
+    const std::vector<Spec> before = g_specs;
     if (!get_make(spec, why))
         return false;
     push_module_undo_labelled(std::make_shared<GroundStep>(before), spec.lower ? "Lower ground" : "Raise ground");
@@ -669,14 +672,14 @@ void apply_records(const std::vector<std::string>& lines)
     std::vector<Spec> specs;
     for (const std::string& line : lines) {
         Spec s;
-        std::string body = line.size() > 7 ? line.substr(7) : std::string();
+        const std::string body = line.size() > 7 ? line.substr(7) : std::string();
         if (line.starts_with("ground ") && read_record(body, &s))
             specs.push_back(s);
         else
             get_log("level editor: a layout's ground record isn't readable - skipped: %s", line.c_str());
     }
     std::string message;
-    int placed = apply_to_each(specs, &message);
+    const int placed = apply_to_each(specs, &message);
     if (!specs.empty())
         get_log("level editor: the layout's %d of %u ground pieces put in place", placed,
                 static_cast<unsigned>(specs.size()));
@@ -704,10 +707,12 @@ void reset_all()
 void add_preview(const overlays::Painter& painter, const Spec& spec, uint32_t argb)
 {
     Mesh mesh = get_build(spec);
-    size_t faces = std::min<size_t>(mesh.faces.size(), 3000);
+    const size_t faces = std::min<size_t>(mesh.faces.size(), 3000);
     for (size_t f = 0; f < faces; ++f) {
         const Face& face = mesh.faces[f];
-        V3 a = mesh.vertices[face.a].pos, b = mesh.vertices[face.b].pos, c = mesh.vertices[face.c].pos;
+        const V3 a = mesh.vertices[face.a].pos;
+        const V3 b = mesh.vertices[face.b].pos;
+        const V3 c = mesh.vertices[face.c].pos;
         painter.get_seg(a, b, argb);
         painter.get_seg(b, c, argb);
         painter.get_seg(c, a, argb);

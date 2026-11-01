@@ -55,7 +55,7 @@ float rank_times() { return render::g_float_ten; } // 10
 // rating * 0.000286 * 10 truncated, at most 10 (x87 at 53 bits: each product rounded to double).
 int current_rank(double rating)
 {
-    int rank = static_cast<int>(rating * rank_scale() * rank_times());
+    const int rank = static_cast<int>(rating * rank_scale() * rank_times());
     return rank > kMaxRank ? kMaxRank : rank;
 }
 
@@ -353,7 +353,7 @@ void PersonalStats::get_fill()
     const uint32_t* levels = g_level_checksums;
     SortedList sorted;
     for (int i = 0; i < 15; ++i) {
-        int score = high_scores_[i];
+        const int score = high_scores_[i];
         if (score == 0)
             continue;
         SortEntry* line = new_sort_entry();
@@ -453,8 +453,8 @@ void RankingsManager::start_game()
     prefs::Preferences* prefs = manager->get_online_settings();
     const char* host_name = nullptr;
     prefs->fetch_setting(0x2A5CF019)->fetch_text(0x96875C0Fu, &host_name, 1);
-    int time_limit = prefs->get_setting_value(0xC51BF6E3, 0x906B67BA);
-    int frag_limit = prefs->get_setting_value(0x71CD53A2, 0xCD66C8AE);
+    const int time_limit = prefs->get_setting_value(0xC51BF6E3, 0x906B67BA);
+    const int frag_limit = prefs->get_setting_value(0x71CD53A2, 0xCD66C8AE);
     set_game_string(game_, "hostname", host_name);
     set_game_string(game_, "mapname", manager->get_map_name(true));
     set_game_string(game_, "gametype", active_ruleset_label(manager));
@@ -466,14 +466,14 @@ void RankingsManager::start_game()
     for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
         net::NetMessageInfo desc;
-        int id = static_cast<int>(detail::get_skater_id(detail::player_skater(player)));
+        const int id = static_cast<int>(detail::get_skater_id(detail::player_skater(player)));
         const char* name = detail::player_name(player);
         new_player(game_, id, name);
         char key[64];
         std::snprintf(key, sizeof(key), "%s", "player");
         set_player_string(game_, key, name, id);
         std::snprintf(key, sizeof(key), "%s", "pid");
-        int profile = player->profile_id_;
+        const int profile = player->profile_id_;
         set_player_int(game_, key, profile, id);
         if (profile > 0) {
             // The player's client answers with its response to the challenge.
@@ -496,11 +496,11 @@ void RankingsManager::raise_tallies(bool final)
     if (!game_)
         return;
     push_bottom_up();
-    for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
+    for (const PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
         auto* skater = reinterpret_cast<objects::GameEntity*>(detail::player_skater(player));
         skater->fetch_module(0xD262802F); // (unused)
-        int id = static_cast<int>(detail::get_skater_id(skater));
+        const int id = static_cast<int>(detail::get_skater_id(skater));
         set_player_int(game_, "score", player_points(manager, id), id);
         set_player_int(game_, "combo", player->best_combo_, id);
     }
@@ -542,7 +542,7 @@ int RankingsManager::get_rank() { return current_rank(static_cast<double>(person
 void RankingsManager::read_skill_ratings(char* text)
 {
     push_top_down();
-    for (char* token = text_tools::get_token(text, ":"); token; token = text_tools::get_token(nullptr, ":")) {
+    for (const char* token = text_tools::get_token(text, ":"); token; token = text_tools::get_token(nullptr, ":")) {
         TopEntry* entry = new_entry();
         get_append(&top_lists_[4].entries_, &entry->list_link_);
         entry->points_held_ = std::atol(token);
@@ -567,13 +567,13 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
         text_tools::dup_from(list.title_, text_tools::get_token(text, "\n"));
         text = nullptr;
     }
-    char* token = text_tools::get_token(text, ":");
+    const char* token = text_tools::get_token(text, ":");
     // "Level:<checksum>\n", then its lines "score:rating:name\n" until the next "Level" (anything else first ends it).
     while (token && text::compare_caseless(token, "Level") == 0) {
-        char* value = text_tools::get_token(nullptr, "\n");
+        const char* value = text_tools::get_token(nullptr, "\n");
         if (!value)
             break;
-        int level = std::atol(value);
+        const int level = std::atol(value);
         auto* scores = static_cast<LevelScores*>(memory::alloc_zeroed(sizeof(LevelScores)));
         if (scores) {
             scores->list_link_.make_node(scores);
@@ -677,15 +677,15 @@ void RankingsManager::on_personal_stats(int, int, int, int index, int success, u
             values[0] = std::atol(text_tools::get_token(nullptr, "\\"));
         return;
     }
-    char* key = text_tools::get_token(data, "\\");
+    const char* key = text_tools::get_token(data, "\\");
     if (key) {
         if (text::compare_caseless(key, "THUG2HighScore") == 0) {
-            if (char* value = text_tools::get_token(nullptr, "\\"))
+            if (const char* value = text_tools::get_token(nullptr, "\\"))
                 values[index] = std::atol(value);
             key = text_tools::get_token(nullptr, "\\");
         }
         if (text::compare_caseless(key, "THUG2HighCombo") == 0) { // (null key: a crash, as in the original)
-            if (char* value = text_tools::get_token(nullptr, "\\"))
+            if (const char* value = text_tools::get_token(nullptr, "\\"))
                 values[index + 15] = std::atol(value);
         }
     }
@@ -774,7 +774,7 @@ bool stats_log_off(script::Struct*, script::Script*)
 // indexes 0-15; state 5 until the answer to 14).
 bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    const Hub* manager = net_session_slot();
     const void* callback = reinterpret_cast<const void*>(&RankingsManager::on_personal_stats);
     int profile = manager->presence_service_->account_;
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
@@ -792,7 +792,7 @@ bool need_to_retrieve_top_stats(script::Struct*, script::Script*) { return get_a
 // 0x0054D670: raise_tallies [0x132AA339: the final report]
 bool raise_tallies(script::Struct* params, script::Script*)
 {
-    bool final = params->has_bare_flag(0x132AA339u);
+    const bool final = params->has_bare_flag(0x132AA339u);
     get_attributes()->raise_tallies(final);
     return true;
 }

@@ -108,7 +108,7 @@ void MatrixTranspose::transpose_in_place()
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = r + 1; c < 4; ++c) {
-            float swap = (&row[r].x)[c];
+            const float swap = (&row[r].x)[c];
             (&row[r].x)[c] = (&row[c].x)[r];
             (&row[c].x)[r] = swap;
         }
@@ -210,7 +210,7 @@ void CollScaled::line_to_local(const maths::Seg* line, maths::Seg* out) const
 void CollScaled::update_inverse()
 {
     for (int r = 0; r < 3; ++r) {
-        double inverse = 1.0 / (&size_factor_.x)[r];
+        const double inverse = 1.0 / (&size_factor_.x)[r];
         (&inverse_.row[0].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].x);
         (&inverse_.row[1].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].y);
         (&inverse_.row[2].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].z);
@@ -229,8 +229,8 @@ maths::Vec4* CollScaled::get_absolute_point() { return &basis_frame_.row[3]; }
 // 0x004109D0
 maths::Vec4 CollScaled::read_vertex_point(int index) const
 {
-    maths::Vec4 raw = geometry_->read_stored_vertex(index);
-    maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z, size_factor_.w};
+    const maths::Vec4 raw = geometry_->read_stored_vertex(index);
+    const maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z, size_factor_.w};
     maths::Vec4 out{};
     basis_frame_.xform(out, scaled);
     return out;

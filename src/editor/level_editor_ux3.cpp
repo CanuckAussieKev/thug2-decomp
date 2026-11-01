@@ -67,14 +67,14 @@ bool& unseal(Pane window) { return g_open[window]; }
 
 bool take_similar_menu()
 {
-    bool asked = g_similar_menu;
+    const bool asked = g_similar_menu;
     g_similar_menu = false;
     return asked;
 }
 
 bool take_group_name()
 {
-    bool asked = g_group_name;
+    const bool asked = g_group_name;
     g_group_name = false;
     return asked;
 }
@@ -125,8 +125,8 @@ void prepare_all()
                                         {"pick_scenery", "Pick Scenery", picking::kScenery}};
     // (UX4: the Overlays menu's switches; UX5: a note where the view looks, the budget meter)
     for (const overlays::BitInfo& info : overlays::get_bits()) {
-        uint32_t bit = info.bit;
-        std::string id = "overlay_" + std::to_string(bit);
+        const uint32_t bit = info.bit;
+        const std::string id = "overlay_" + std::to_string(bit);
         add_toggle(
             id.c_str(), (std::string("Overlay ") + info.label).c_str(), info.tip,
             [bit] { return overlays::get_shown(bit) ? 1 : 0; },
@@ -151,7 +151,7 @@ void prepare_all()
         actions::enrol(budget);
     }
     for (const PickToggle& p : kPicks) {
-        uint32_t bit = p.bit;
+        const uint32_t bit = p.bit;
         add_toggle(
             p.id, p.name, "What a click in the view selects",
             [bit] { return (settings_now().pick_filter_ & bit) ? 1 : 0; },
@@ -167,9 +167,9 @@ void tick_frame()
     tasks.swap(g_tasks);
     for (const std::function<void()>& task : tasks)
         task();
-    bool busy = change_under_way();
+    const bool busy = change_under_way();
     // This module's own keys (the others are the editor's: level_editor.cpp reads them).
-    for (int window : {kPalette, kHistory, kChanges, kKeys, kSnapshots}) {
+    for (const int window : {kPalette, kHistory, kChanges, kKeys, kSnapshots}) {
         if (squeezed(window))
             get_pull(window)->run();
     }
@@ -208,8 +208,8 @@ void tick_frame()
         g_group_name = true;
     // The Changes list: refreshed when the history moved (a change made, undone or redone), when asked, or a second on
     // (other changes - a save, an autosave restored - don't move the history).
-    size_t key = undo_history().size() * 1000003u + redo_history().size();
-    uint32_t now = SDL_GetTicks();
+    const size_t key = undo_history().size() * 1000003u + redo_history().size();
+    const uint32_t now = SDL_GetTicks();
     if (key != g_history_key || g_refresh_asked || now - g_changes_at > 1000) {
         g_history_key = key;
         g_refresh_asked = false;
@@ -228,7 +228,7 @@ void refresh_changes()
         return;
     std::vector<std::string> lines;
     for (size_t start = 0; start < text.size();) {
-        size_t end = text.find('\n', start);
+        const size_t end = text.find('\n', start);
         lines.push_back(text.substr(start, end == std::string::npos ? std::string::npos : end - start));
         if (end == std::string::npos)
             break;
@@ -244,7 +244,7 @@ void refresh_changes()
 
 void go_to(const ChangeRow& row)
 {
-    uint32_t id = row.entry.id;
+    const uint32_t id = row.entry.id;
     get_queue([id] {
         if (!id || !go_to_thing(id))
             get_say("Item not found in the level");
@@ -253,7 +253,8 @@ void go_to(const ChangeRow& row)
 
 void revert(const ChangeRow& row)
 {
-    std::string record = row.record, summary = row.entry.summary;
+    const std::string record = row.record;
+    const std::string summary = row.entry.summary;
     get_queue([record, summary] {
         std::string text, message;
         if (!layout::capture_text(&text)) {
@@ -263,8 +264,8 @@ void revert(const ChangeRow& row)
         // (the record as it is now: the line the list showed, found again)
         int line = -1, n = 0;
         for (size_t start = 0; start <= text.size() && line < 0; ++n) {
-            size_t end = text.find('\n', start);
-            std::string one = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
+            const size_t end = text.find('\n', start);
+            const std::string one = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
             if (one == record)
                 line = n;
             if (end == std::string::npos)
@@ -276,7 +277,7 @@ void revert(const ChangeRow& row)
             g_refresh_asked = true;
             return;
         }
-        std::string label = "Revert: " + summary.substr(0, 48);
+        const std::string label = "Revert: " + summary.substr(0, 48);
         if (apply_layout_step(changes::without(text, line), label.c_str(), &message))
             get_say("Reverted: " + summary);
         else

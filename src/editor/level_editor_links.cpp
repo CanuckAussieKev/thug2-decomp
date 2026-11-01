@@ -80,7 +80,7 @@ void get_join(State* state, bool scenery, uint32_t source, const std::vector<Mem
 bool uncouple(State* state, uint32_t id)
 {
     bool is_source = false;
-    int index = group_of(*state, id, &is_source);
+    const int index = group_of(*state, id, &is_source);
     if (index < 0)
         return false;
     GroupSet& group = (*state)[index];
@@ -115,7 +115,7 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
 {
     *ref = RefTo{};
     std::string body = text;
-    size_t at = text.find('@');
+    const size_t at = text.find('@');
     if (at != std::string::npos) {
         if (!member || !scenery || at + 2 != text.size() || text[at + 1] < '0' || text[at + 1] > '3')
             return false;
@@ -126,7 +126,7 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
         if (!scenery)
             return false;
         char* end = nullptr;
-        long n = std::strtol(body.c_str() + 1, &end, 10);
+        const long n = std::strtol(body.c_str() + 1, &end, 10);
         if (*end || n < 0 || n > 1000000)
             return false;
         ref->clone = static_cast<int>(n);
@@ -135,7 +135,7 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
     if (body.size() != 8)
         return false;
     char* end = nullptr;
-    unsigned long v = std::strtoul(body.c_str(), &end, 16);
+    const unsigned long v = std::strtoul(body.c_str(), &end, 16);
     if (*end || !v)
         return false;
     ref->id = static_cast<uint32_t>(v);
@@ -171,8 +171,8 @@ bool read_record(std::istringstream& in, LinkRecord* record)
         return false;
     size_t start = 0;
     while (start <= members.size()) {
-        size_t comma = members.find(',', start);
-        std::string word = members.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        const size_t comma = members.find(',', start);
+        const std::string word = members.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         RefTo ref;
         if (!parse_ref(word, true, record->scenery, &ref))
             return false;
@@ -223,7 +223,7 @@ int relative_quarters(uint32_t sector)
 {
     int q = placement_of(sector).quarters;
     bool is_source = false;
-    int index = group_of(g_state, sector, &is_source);
+    const int index = group_of(g_state, sector, &is_source);
     if (index >= 0 && !is_source) {
         for (const Member& m : g_state[index].members) {
             if (m.id == sector)
@@ -239,7 +239,7 @@ std::string fields_of(uint32_t source)
     if (nodes::get_find(source) < 0)
         return {};
     std::string out;
-    for (uint32_t key : fields::touched_keys(source)) {
+    for (const uint32_t key : fields::touched_keys(source)) {
         fields::Own own;
         if (!fields::get_capture(source, key, &own))
             continue;
@@ -275,7 +275,7 @@ void propagate_scenery(const GroupSet& group)
     if (scenery::get_hidden(group.source) || !scenery::sector_of(group.source))
         return;
     Watch& w = g_watch[group.source];
-    V3 scale = placement_of(group.source).scale;
+    const V3 scale = placement_of(group.source).scale;
     if (!w.init) {
         w.init = true;
         w.scale = scale;
@@ -283,7 +283,7 @@ void propagate_scenery(const GroupSet& group)
     }
     if (same_v3(scale, w.scale))
         return;
-    V3 f = get_ratio(scale, w.scale);
+    const V3 f = get_ratio(scale, w.scale);
     w.scale = scale;
     const std::vector<uint32_t>& saved = scenery::get_selection();
     int done = 0;
@@ -310,14 +310,14 @@ void propagate_objects(const GroupSet& group)
     if (!source)
         return;
     Watch& w = g_watch[group.source];
-    V3 scale = scale_tool::get_object_scale(source);
-    std::string fields = fields_of(group.source);
+    const V3 scale = scale_tool::get_object_scale(source);
+    const std::string fields = fields_of(group.source);
     if (!w.init) {
         w = {true, scale, fields};
         return;
     }
     if (!same_v3(scale, w.scale)) {
-        V3 f = get_ratio(scale, w.scale);
+        const V3 f = get_ratio(scale, w.scale);
         w.scale = scale;
         for (const Member& m : group.members) {
             if (objects::GameEntity* copy = live_object(m.id); copy && scale_tool::object_scalable(copy))
@@ -344,10 +344,10 @@ void run_remakes()
     for (size_t i = 0; i < g_remakes.size();) {
         Remake& r = g_remakes[i];
         ++r.frames;
-        bool gone = objects::find_object(r.name) == nullptr;
+        const bool gone = objects::find_object(r.name) == nullptr;
         if (gone) {
-            V3 pos = {r.state.pos.x, r.state.pos.y, r.state.pos.z};
-            if (objects::GameEntity* made = object_edit::make_copy(r.source, pos, r.name)) {
+            const V3 pos = {r.state.pos.x, r.state.pos.y, r.state.pos.z};
+            if (const objects::GameEntity* made = object_edit::make_copy(r.source, pos, r.name)) {
                 object_edit::State state = r.state;
                 state.id = made->ident_;
                 object_edit::get_restore(state);
@@ -371,18 +371,18 @@ void assign_value(const State& state) { g_state = state; }
 
 bool linked_duplicate()
 {
-    edit::Selected selection = edit::get_selection();
+    const edit::Selected selection = edit::get_selection();
     if (selection.kind != edit::Kind::kObject && selection.kind != edit::Kind::kScenery) {
         hud::get_message("Only objects and scenery can be linked", 4.0);
         return false;
     }
-    bool scenery = selection.kind == edit::Kind::kScenery;
+    const bool scenery = selection.kind == edit::Kind::kScenery;
     std::vector<std::pair<uint32_t, int>> quarters;
     if (scenery) {
-        for (uint32_t s : selection.ids)
+        for (const uint32_t s : selection.ids)
             quarters.emplace_back(s, relative_quarters(s));
     }
-    std::vector<std::pair<uint32_t, uint32_t>> pairs = edit::get_duplicate(nullptr);
+    const std::vector<std::pair<uint32_t, uint32_t>> pairs = edit::get_duplicate(nullptr);
     if (pairs.empty())
         return false;
     for (const auto& pair : pairs) {
@@ -401,10 +401,10 @@ bool linked_duplicate()
 
 bool unlink_selection()
 {
-    edit::Selected selection = edit::get_selection();
+    const edit::Selected selection = edit::get_selection();
     State next = g_state;
     bool any = false;
-    for (uint32_t id : selection.ids)
+    for (const uint32_t id : selection.ids)
         any = uncouple(&next, id) || any;
     if (!any) {
         hud::get_message("Selection is not linked");
@@ -424,7 +424,7 @@ std::string describe()
     if (selection.ids.empty())
         return {};
     bool is_source = false;
-    int index = group_of(g_state, selection.ids.front(), &is_source);
+    const int index = group_of(g_state, selection.ids.front(), &is_source);
     if (index < 0)
         return {};
     const GroupSet& group = g_state[index];
@@ -443,7 +443,7 @@ void tick()
     // (watches of groups gone forgotten: a group linked again starts afresh)
     for (auto it = g_watch.begin(); it != g_watch.end();) {
         bool is_source = false;
-        int index = group_of(g_state, it->first, &is_source);
+        const int index = group_of(g_state, it->first, &is_source);
         it = index >= 0 && is_source ? std::next(it) : g_watch.erase(it);
     }
     run_remakes();
@@ -503,12 +503,12 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
     };
     int groups = 0;
     for (const LinkRecord& record : records) {
-        uint32_t source = resolve(record.source);
+        const uint32_t source = resolve(record.source);
         if (!source)
             continue;
         std::vector<Member> members;
         for (const RefTo& ref : record.members) {
-            if (uint32_t id = resolve(ref))
+            if (const uint32_t id = resolve(ref))
                 members.push_back({id, ref.quarters});
         }
         if (members.empty())

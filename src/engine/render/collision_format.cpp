@@ -49,11 +49,11 @@ bool check_tree(const uint8_t* nodes, uint32_t node_size, const uint8_t* lists, 
     if (depth > 64 || ++*visits > node_size / 8 || !within(node, 8, node_size))
         return false;
     util::ByteReader reader(nodes + node, 8);
-    uint32_t tag = reader.u32();
-    uint32_t link = reader.u32();
+    const uint32_t tag = reader.u32();
+    const uint32_t link = reader.u32();
     if ((tag & 3) == 3) {
-        uint32_t count = (tag >> 16) & 0xFFFF;
-        uint64_t at = static_cast<uint64_t>(link) * 2;
+        const uint32_t count = (tag >> 16) & 0xFFFF;
+        const uint64_t at = static_cast<uint64_t>(link) * 2;
         if (!within(at, static_cast<uint64_t>(count) * 2, list_size))
             return false;
         util::ByteReader faces(lists + at, static_cast<size_t>(count) * 2);
@@ -63,7 +63,7 @@ bool check_tree(const uint8_t* nodes, uint32_t node_size, const uint8_t* lists, 
         }
         return true;
     }
-    uint32_t children = link & ~3u;
+    const uint32_t children = link & ~3u;
     return check_tree(nodes, node_size, lists, list_size, children, face_count, depth + 1, visits) &&
            check_tree(nodes, node_size, lists, list_size, children + 8, face_count, depth + 1, visits);
 }
@@ -92,12 +92,12 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
         return false;
     auto start = reinterpret_cast<uintptr_t>(base);
     // (as the game computes them - in 32 bits on its platform; counts past what a file can hold fail below)
-    uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
-    uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) +
-                                2 * static_cast<uint64_t>(header->float_vertex_count));
-    uint64_t face_size =
+    const uint64_t objects_size = static_cast<uint64_t>(header->object_count) * kObjectSize;
+    const uint64_t vertex_size = 6 * (static_cast<uint64_t>(header->packed_vertex_count) +
+                                      2 * static_cast<uint64_t>(header->float_vertex_count));
+    const uint64_t face_size =
         11 * static_cast<uint64_t>(header->large_face_count) + 8 * static_cast<uint64_t>(header->small_face_count);
-    bool known = size != util::ByteReader::kUnknownSize;
+    const bool known = size != util::ByteReader::kUnknownSize;
     if (known && objects_size + vertex_size + header->vertex_byte_count + face_size > size)
         return false;
     layout->objects = start + kHeaderSize;
@@ -109,7 +109,7 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
     layout->end = known ? start + size : ~static_cast<uintptr_t>(0);
     if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start)
         return false;
-    uint32_t node_size = util::ByteReader(reinterpret_cast<const uint8_t*>(layout->node_size_word), 4).u32();
+    const uint32_t node_size = util::ByteReader(reinterpret_cast<const uint8_t*>(layout->node_size_word), 4).u32();
     layout->nodes = layout->node_size_word + 4;
     layout->face_lists = layout->nodes + node_size;
     return !known || (node_size <= layout->end - layout->nodes);
@@ -119,12 +119,12 @@ bool check_collision_objects(const uint8_t* base, const CollisionHeader& header,
 {
     if (layout.end == ~static_cast<uintptr_t>(0))
         return true;
-    uint64_t vertex_section = layout.vertex_bytes - layout.vertices;
-    uint64_t face_section = layout.face_buffers - layout.faces;
+    const uint64_t vertex_section = layout.vertex_bytes - layout.vertices;
+    const uint64_t face_section = layout.face_buffers - layout.faces;
     auto node_size = static_cast<uint32_t>(layout.face_lists - layout.nodes);
-    uint64_t list_size = layout.end - layout.face_lists;
+    const uint64_t list_size = layout.end - layout.face_lists;
     for (int i = 0; i < header.object_count; ++i) {
-        StoredObject object = read_object(base + kHeaderSize + static_cast<size_t>(i) * kObjectSize);
+        const StoredObject object = read_object(base + kHeaderSize + static_cast<size_t>(i) * kObjectSize);
         uint32_t visits = 0;
         if (!within(object.vertices, static_cast<uint64_t>(object.vertex_count) * (object.packed ? 6 : 12),
                     vertex_section) ||

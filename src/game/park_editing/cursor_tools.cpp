@@ -196,7 +196,7 @@ void BuildPointer::forget_gap_at(PieceGroup* meta)
 {
     CellBox area = meta->cell_footprint_;
     int half = 0;
-    GapDetails* gap = park_owner_->get_gap_info(&area, &half);
+    const GapDetails* gap = park_owner_->get_gap_info(&area, &half);
     if (!gap)
         return;
     if (gap_.halves_placed_ != 1 ||

@@ -147,14 +147,14 @@ void decode_adpcm(int16_t* out, const uint8_t* in, int count)
 {
     int sample = 0, index = 0;
     for (int i = 0; i < count; ++i) {
-        int nibble = (i & 1) ? *in++ >> 4 : *in & 0xF;
-        int magnitude = nibble & 7;
+        const int nibble = (i & 1) ? *in++ >> 4 : *in & 0xF;
+        const int magnitude = nibble & 7;
         index += kIndexSteps[magnitude];
         if (index < 0)
             index = 0;
         else if (index > 88)
             index = 88;
-        int step = kSteps[index];
+        const int step = kSteps[index];
         int change = (step * magnitude >> 2) + (step >> 3);
         if (nibble >> 3)
             change = -change;

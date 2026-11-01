@@ -88,7 +88,7 @@ uint32_t tap_colour(float weight)
 // 0x004DE5E0
 void draw_screen_quad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour, bool shader)
 {
-    bool fog_was_on = g_fog_active != 0;
+    const bool fog_was_on = g_fog_active != 0;
     change_fog(false);
     auto* target_texture = static_cast<IDirect3DTexture9*>(target);
     set_target(target_texture, nullptr);
@@ -160,7 +160,7 @@ void begin_screen_effects()
             set_render_target_and_depth(surface, z_buffer_surface());
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
-    uint32_t colour = (g_fog_setting && g_distance_clipping) ? g_fog_colour : g_camera.background_colour_;
+    const uint32_t colour = (g_fog_setting && g_distance_clipping) ? g_fog_colour : g_camera.background_colour_;
     input_port()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
     surface->Release();
     screen_copy_in_use() = true;
@@ -247,9 +247,9 @@ void get_bloom()
         IDirect3DTexture9* blurred = pass ? screen_copy(7) : screen_copy(3);
         D3DSURFACE_DESC desc;
         current_screen_copy()->GetLevelDesc(0, &desc);
-        double half_x = 0.5 / as_unsigned(desc.Width);
-        double half_y = 0.5 / as_unsigned(desc.Height);
-        uint32_t alpha = pass ? g_bloom_alpha_second : g_bloom_alpha_first;
+        const double half_x = 0.5 / as_unsigned(desc.Width);
+        const double half_y = 0.5 / as_unsigned(desc.Height);
+        const uint32_t alpha = pass ? g_bloom_alpha_second : g_bloom_alpha_first;
         auto half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
         auto width = static_cast<float>(g_back_buffer_width);
         auto height = static_cast<float>(g_back_buffer_height);

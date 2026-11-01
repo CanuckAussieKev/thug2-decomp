@@ -74,7 +74,7 @@ bool cfunc_reinsert_skaters(script::Struct*, script::Script*)
 // score text shown as "0" - "0:00" in king of the hill. Always true.
 bool cfunc_reset_score(script::Struct* params, script::Script*)
 {
-    bool all = params->has_entry_named(kResetAll);
+    const bool all = params->has_entry_named(kResetAll);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (!is_host_local(skater) && !all)
@@ -106,7 +106,7 @@ bool cfunc_update_score(script::Struct*, script::Script*)
 // UseBailStyle). Always true.
 bool cfunc_reset_score_pot(script::Struct* params, script::Script*)
 {
-    bool bail_style = params->has_bare_flag(kUseBailStyle);
+    const bool bail_style = params->has_bare_flag(kUseBailStyle);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (is_host_local(skater))
@@ -129,11 +129,11 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     params->fetch_int_value(kSkipTeam, &exclude_team, 1);
     float radius = 0.0f;
     params->fetch_float(kRadius, &radius, 1);
-    double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
+    const double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
     auto radius_squared = static_cast<float>(inches * inches);
     online::Hub* net = online::g_online_hub;
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
-        objects::Rider* skater = get_skater_at(i);
+        const objects::Rider* skater = get_skater_at(i);
         if (!skater)
             continue;
         auto* info = reinterpret_cast<online::PlayerRecord*>(
@@ -144,10 +144,10 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
             continue;
         if (info->team_ != exclude_team && info->is_carrying_flag())
             continue;
-        double dx = static_cast<double>(skater->at_point_.x) - object->at_point_.x;
-        double dy = static_cast<double>(skater->at_point_.y) - object->at_point_.y;
-        double dz = static_cast<double>(skater->at_point_.z) - object->at_point_.z;
-        double distance_squared = dz * dz + dx * dx + dy * dy;
+        const double dx = static_cast<double>(skater->at_point_.x) - object->at_point_.x;
+        const double dy = static_cast<double>(skater->at_point_.y) - object->at_point_.y;
+        const double dz = static_cast<double>(skater->at_point_.z) - object->at_point_.z;
+        const double distance_squared = dz * dz + dx * dx + dy * dy;
         if (distance_squared < radius_squared && distance_squared < nearest) {
             nearest = static_cast<float>(distance_squared);
             player = skater->ident_;

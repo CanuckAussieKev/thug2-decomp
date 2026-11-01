@@ -68,7 +68,7 @@ void get_matching_cas_options(uint32_t part, uint32_t filter, Struct** out, int*
 {
     Array* list = script::fetch_list(part);
     *count = 0;
-    int size = static_cast<int>(list->extent_);
+    const int size = static_cast<int>(list->extent_);
     for (int i = 0; i < size; ++i) {
         Struct* option = current_option(list, static_cast<uint32_t>(i));
         int allowed = 0;
@@ -90,12 +90,12 @@ Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
     Struct* options[32];
     bool selected[32];
     Array* list = script::fetch_list(part);
-    int size = static_cast<int>(list->extent_);
+    const int size = static_cast<int>(list->extent_);
     int count = 0;
     int already_picked = 0; // (uninitialised in the original: an option without it takes the one before's)
     for (int i = 0; i < size; ++i) {
         Struct* option = current_option(list, static_cast<uint32_t>(i));
-        int allow = allow_random(option);
+        const int allow = allow_random(option);
         if (filter) {
             uint32_t option_filter = 0;
             if (option->read_hash_value(kFilter, &option_filter, 0) && option_filter != filter)
@@ -135,7 +135,7 @@ Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
 Struct* get_cas_option_by_index(uint32_t part, int index, uint32_t filter)
 {
     Array* list = script::fetch_list(part);
-    int size = static_cast<int>(list->extent_);
+    const int size = static_cast<int>(list->extent_);
     if (!filter) {
         for (int i = 0; i < size; ++i) {
             Struct* option = current_option(list, static_cast<uint32_t>(i));
@@ -148,7 +148,7 @@ Struct* get_cas_option_by_index(uint32_t part, int index, uint32_t filter)
     for (;;) {
         for (int i = 0; i < size; ++i) {
             Struct* option = current_option(list, static_cast<uint32_t>(i));
-            int allow = allow_random(option);
+            const int allow = allow_random(option);
             uint32_t option_filter = 0;
             option->read_hash_value(kFilter, &option_filter, 0);
             if (allow && (option_filter == filter || option_filter == 0)) {

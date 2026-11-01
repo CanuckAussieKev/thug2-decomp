@@ -64,7 +64,7 @@ Objective* manager_then_goal(script::Struct* params)
 }
 Objective* name_then_goal(script::Struct* params)
 {
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     return get_objective_board()->goals_.get_pull(name);
 }
 
@@ -186,7 +186,7 @@ bool cfunc_goal_manager_spend_goal_points(script::Struct* params, script::Script
 // 0x00559DF0: at least the unnamed integer's goal points.
 bool cfunc_goal_manager_has_goal_points(script::Struct* params, script::Script*)
 {
-    GoalManager* manager = get_objective_board();
+    const GoalManager* manager = get_objective_board();
     int points = 0;
     params->fetch_int_value(0u, &points, 1);
     return manager->objective_score_ >= points;
@@ -204,8 +204,8 @@ bool cfunc_goal_manager_clear_goal_points(script::Struct*, script::Script*)
 // 0x00559E50: the goal points (with total: all ever got) into the script's goal_points.
 bool cfunc_goal_manager_get_number_of_goal_points(script::Struct* params, script::Script* script)
 {
-    GoalManager* manager = get_objective_board();
-    int points = params->has_bare_flag(kTotal) ? manager->total_goal_points_ : manager->objective_score_;
+    const GoalManager* manager = get_objective_board();
+    const int points = params->has_bare_flag(kTotal) ? manager->total_goal_points_ : manager->objective_score_;
     script->args_->put_int(kGoalScoreValue, points);
     return true;
 }
@@ -360,7 +360,7 @@ bool cfunc_goal_manager_un_pause_competition(script::Struct* params, script::Scr
 // 0x0055A400
 bool cfunc_goal_manager_goal_is_locked(script::Struct* params, script::Script*)
 {
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     return static_cast<uint8_t>(get_objective_board()->is_goal_blocked(name)) != 0; // (AL)
 }
 
@@ -377,11 +377,11 @@ bool cfunc_goal_manager_is_in_competition(script::Struct*, script::Script* scrip
 // 0x0055A470: the goal's pro's animations of `type` as the script's pro_stuff (none: removed).
 bool cfunc_goal_manager_get_goal_animations(script::Struct* params, script::Script* script)
 {
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     const char* type = nullptr;
     params->fetch_text(kType, &type, 0);
     Objective* goal = get_objective_board()->goals_.get_pull(name);
-    uint32_t animations = goal->ped_->get_objective_anim_sets(type);
+    const uint32_t animations = goal->ped_->get_objective_anim_sets(type);
     script->args_->erase_module(kProStuff);
     if (animations)
         script->args_->put_name_key(kProStuff, animations);

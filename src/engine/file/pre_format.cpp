@@ -26,11 +26,11 @@ bool read_file_record(util::ByteReader& reader, FileRecord* out)
     if (!reader.skip(out->name_size) || std::memchr(out->name, 0, out->name_size) == nullptr)
         return false;
     out->data = reader.cursor();
-    uint32_t stored = out->stored_size();
+    const uint32_t stored = out->stored_size();
     if (!reader.skip(stored))
         return false;
     // (the padding: the last file's may be missing at the end of the archive)
-    size_t pad = ((stored + 3) & ~3u) - stored;
+    const size_t pad = ((stored + 3) & ~3u) - stored;
     return reader.skip(pad < reader.remaining() ? pad : reader.remaining());
 }
 
@@ -48,8 +48,8 @@ bool apply_patch(uint8_t* archive, size_t capacity, const uint8_t* patch, size_t
     if (!read_patch_header(reader, &header))
         return false;
     for (uint32_t i = 0; i < header.record_count; ++i) {
-        uint32_t offset = reader.u32();
-        uint32_t length = reader.u32();
+        const uint32_t offset = reader.u32();
+        const uint32_t length = reader.u32();
         const uint8_t* bytes = reader.cursor();
         if (!reader.skip(length) || offset > capacity || length > capacity - offset)
             return false;

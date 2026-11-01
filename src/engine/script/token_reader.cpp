@@ -164,7 +164,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
             break;
         case 0x2F:   // Random(@a @b ...): weighted
         case 0x37: { // the same, from the second random stream
-            uint32_t count = fetch_word32(token + 1);
+            const uint32_t count = fetch_word32(token + 1);
             const uint8_t* weights = token + 5;
             int total = 0;
             for (uint32_t i = 0; i < count; ++i)
@@ -181,7 +181,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
             break;
         }
         case 0x40: { // RandomNoRepeat
-            uint32_t count = fetch_word32(token + 1);
+            const uint32_t count = fetch_word32(token + 1);
             const uint8_t* table = token + 5 + 2 * count;
             StoredRandom* stored = look_up_saved_random(table, 0x40, count);
             if (!stored) {
@@ -198,14 +198,14 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                     break;
                 pick = maths::rnd(static_cast<int>(count));
             }
-            uint32_t choice = static_cast<uint16_t>(pick);
+            const uint32_t choice = static_cast<uint16_t>(pick);
             stored->last_ = choice;
             const uint8_t* offset = table + 4 * choice;
             token = offset + fetch_word32(offset) + 4;
             break;
         }
         case 0x41: { // RandomPermute
-            uint32_t count = fetch_word32(token + 1);
+            const uint32_t count = fetch_word32(token + 1);
             const uint8_t* table = token + 5 + 2 * count;
             StoredRandom* stored = look_up_saved_random(table, 0x41, count);
             if (!stored) {
@@ -242,7 +242,8 @@ const uint8_t* skip_value(const uint8_t* token)
     switch (*token) {
     case 0x03:
     case 0x05: {
-        uint8_t open = *token, close = static_cast<uint8_t>(open + 1);
+        const uint8_t open = *token;
+        const uint8_t close = static_cast<uint8_t>(open + 1);
         int depth = 1;
         do {
             token = step_over_token(token);
@@ -288,24 +289,24 @@ const uint8_t* parse_random_range(const uint8_t* token, Component* out, bool det
         !(std::fabs(static_cast<double>(b) - high) > tolerance)) {
         // Whole numbers: an integer in [low, high].
         if (low > high) {
-            int swapped = low;
+            const int swapped = low;
             low = high;
             high = swapped;
         }
-        int range = high - low + 1;
-        int pick = deterministic ? maths::roll_side_stream(range) : maths::rnd(range);
+        const int range = high - low + 1;
+        const int pick = deterministic ? maths::roll_side_stream(range) : maths::rnd(range);
         out->raw = static_cast<uint32_t>(pick + low);
         change_species(out, kQbvalInteger);
         return token + 9;
     }
     if (a > b) {
-        float swapped = a;
+        const float swapped = a;
         a = b;
         b = swapped;
     }
-    int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
+    const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
     change_species(out, kQbvalFloat);
-    double scale = g_parse_random_scale;
+    const double scale = g_parse_random_scale;
     out->float_value_ = static_cast<float>((static_cast<double>(b) - a) * pick * scale + a);
     return token + 9;
 }
@@ -315,7 +316,7 @@ void evaluate_name_token(Component* component)
 {
     if ((component->type_and_flag_ & 0xFE) != (kQbvalName << 1))
         return;
-    SymbolTableEntry* symbol = resolve_symbol(component->checksum);
+    const SymbolTableEntry* symbol = resolve_symbol(component->checksum);
     if (!symbol)
         return;
     switch (symbol->type) {
@@ -372,7 +373,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     case 0x1B:
     case 0x1C: {
         change_species(out, *token == 0x1B ? kQbvalString : kQbvalInlineText);
-        uint32_t length = fetch_word32(p);
+        const uint32_t length = fetch_word32(p);
         out->string = spawn_text(reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
@@ -420,9 +421,9 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         }
         return token + 1;
     case 0x2D: { // <name>: one of the caller's parameters
-        uint32_t name = fetch_word32(token + 2);
+        const uint32_t name = fetch_word32(token + 2);
         if (args) {
-            if (Component* found = args->find_last_component(name))
+            if (const Component* found = args->find_last_component(name))
                 duplicate_component(out, found, 0);
         }
         return token + 6;
@@ -452,8 +453,9 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         dest->push_float(name, get_as_float(fetch_word32(p)));
         return token + 5;
     case 0x1E: {
-        float x = get_as_float(fetch_word32(p)), y = get_as_float(fetch_word32(token + 5)),
-              z = get_as_float(fetch_word32(token + 9));
+        const float x = get_as_float(fetch_word32(p));
+        const float y = get_as_float(fetch_word32(token + 5));
+        const float z = get_as_float(fetch_word32(token + 9));
         // (a zero vector named 0x9D2D0915 isn't added)
         const float tolerance = render::g_one_percent;
         if (name != 0x9D2D0915 || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
@@ -465,12 +467,12 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         dest->insert_pair(name, get_as_float(fetch_word32(p)), get_as_float(fetch_word32(token + 5)));
         return token + 9;
     case 0x1B: {
-        uint32_t length = fetch_word32(p);
+        const uint32_t length = fetch_word32(p);
         dest->append_word(name, reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
     case 0x1C: {
-        uint32_t length = fetch_word32(p);
+        const uint32_t length = fetch_word32(p);
         dest->append_inline_text(name, reinterpret_cast<const char*>(token + 5));
         return token + 5 + length;
     }
@@ -489,18 +491,18 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         return p;
     }
     case 0x23: { // a script, under its own name
-        uint32_t script_name = fetch_word32(token + 2);
+        const uint32_t script_name = fetch_word32(token + 2);
         const uint8_t* start = token + 6;
         const uint8_t* end = skip_to_end_of_script(start);
         dest->append_script(script_name, start, static_cast<uint32_t>(end - start));
         return end;
     }
     case 0x2D: { // <name>
-        uint32_t reference = fetch_word32(token + 2);
+        const uint32_t reference = fetch_word32(token + 2);
         p = token + 6;
         if (!args)
             return p;
-        Component* found = args->find_last_component(reference);
+        const Component* found = args->find_last_component(reference);
         if (!found)
             return p;
         if (name == 0 && (found->type_and_flag_ & 0xFE) == (kQbvalStruct << 1)) {
@@ -546,7 +548,7 @@ const uint8_t* parse_arguments(Struct* dest, const uint8_t* token, Struct* args)
 {
     for (;;) {
         token = resolve_random_jumps(token);
-        uint8_t t = *token;
+        const uint8_t t = *token;
         if (t == 0x01 || t == 0x02 || t == 0x00 || t == 0x0F)
             return token;
         switch (t) {
@@ -565,7 +567,7 @@ const uint8_t* parse_arguments(Struct* dest, const uint8_t* token, Struct* args)
             token = add_parameter(token, 0, dest, args);
             break;
         case 0x16: {
-            uint32_t name = fetch_word32(token + 1);
+            const uint32_t name = fetch_word32(token + 1);
             const uint8_t* next = resolve_random_jumps(token + 5);
             if (*next != 0x07) {
                 // A bare name: a flag.
@@ -596,7 +598,7 @@ const uint8_t* parse_structure(Struct* dest, const uint8_t* token, Struct* args)
     for (;;) {
         p = skip_end_of_lines_in(p);
         p = resolve_random_jumps(p);
-        uint8_t t = *p;
+        const uint8_t t = *p;
         if (t == 0x04)
             return p + 1;
         switch (t) {
@@ -611,7 +613,7 @@ const uint8_t* parse_structure(Struct* dest, const uint8_t* token, Struct* args)
             ++p;
             break;
         case 0x16: {
-            uint32_t name = fetch_word32(p + 1);
+            const uint32_t name = fetch_word32(p + 1);
             const uint8_t* next = resolve_random_jumps(skip_end_of_lines_in(p + 5));
             if (*next != 0x07) {
                 p = add_parameter(p, 0, dest, args);
@@ -644,7 +646,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
     if (*p == 0x06)
         return p + 1;
     do {
-        uint8_t t = *p;
+        const uint8_t t = *p;
         switch (t) {
         case 0x03:
             type = kQbvalStruct;
@@ -714,7 +716,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
     uint32_t* element = dest->find_array_value();
     p = resolve_random_jumps(first);
     while (*p != 0x06) {
-        uint8_t t = *p;
+        const uint8_t t = *p;
         switch (type) {
         case kQbvalStruct:
             // (no step first; unknown tokens don't move on: the original loops here)
@@ -775,7 +777,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == (type == kQbvalString ? 0x1B : 0x1C)) {
-                uint32_t length = fetch_word32(p);
+                const uint32_t length = fetch_word32(p);
                 p += 4;
                 *element++ = reinterpret_cast<uint32_t>(spawn_text(reinterpret_cast<const char*>(p)));
                 p += length;
@@ -836,7 +838,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
     };
     for (;;) {
         p = resolve_random_jumps(p);
-        uint8_t t = *p;
+        const uint8_t t = *p;
         switch (t) {
         case 0x01:
         case 0x06:
@@ -897,7 +899,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             if (!expect_value)
                 break;
             p = parse_value(p, args, &value);
-            SymbolTableEntry* symbol = after_dot ? nullptr : resolve_symbol(value.checksum);
+            const SymbolTableEntry* symbol = after_dot ? nullptr : resolve_symbol(value.checksum);
             if (symbol) {
                 bool push = true;
                 switch (symbol->type) {
@@ -961,7 +963,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             }
             // A negative number right after a value: a subtraction ("a -1" is compiled as "a" "-1").
             const uint8_t* next = parse_value(p, args, &value);
-            bool negative = t == 0x17 ? value.integer < 0 : value.float_value_ < 0.0f;
+            const bool negative = t == 0x17 ? value.integer < 0 : value.float_value_ < 0.0f;
             if (!negative || !have_value)
                 break;
             evaluator.intake(static_cast<int>(kOperatorMinus));
@@ -989,9 +991,9 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
         case 0x2D: { // <name>
             if (!expect_value)
                 break;
-            uint32_t name = fetch_word32(p + 2);
+            const uint32_t name = fetch_word32(p + 2);
             p += 6;
-            Component* found = args ? args->find_last_component(name) : nullptr;
+            const Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
                 value.type_and_flag_ =
                     static_cast<uint8_t>((value.type_and_flag_ & 1) | (found->type_and_flag_ & 0xFE));

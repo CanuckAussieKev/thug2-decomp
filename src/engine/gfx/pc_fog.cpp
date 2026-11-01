@@ -39,7 +39,8 @@ void set_fog_distance(float start)
 {
     g_fog_begin_distance = start;
     // the end: 7200 further with distance clipping (0x007D643A), else four times as far
-    double end = g_distance_clipping ? static_cast<double>(start) + 7200.0f : static_cast<double>(start) * 3.0f + start;
+    const double end =
+        g_distance_clipping ? static_cast<double>(start) + 7200.0f : static_cast<double>(start) * 3.0f + start;
     g_fog_end = static_cast<float>(end);
     input_port()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fog_begin_distance));
     input_port()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fog_end));
@@ -48,7 +49,10 @@ void set_fog_distance(float start)
 // 0x004B8EE0
 void set_fog_color(uint32_t rgba)
 {
-    uint32_t r = rgba & 0xFF, g = (rgba >> 8) & 0xFF, b = (rgba >> 16) & 0xFF, a = rgba >> 24;
+    const uint32_t r = rgba & 0xFF;
+    const uint32_t g = (rgba >> 8) & 0xFF;
+    const uint32_t b = (rgba >> 16) & 0xFF;
+    const uint32_t a = rgba >> 24;
     if (a && !fog_render_flag()) {
         fog_render_flag() = 1;
         if (!loading_screen_up())
@@ -62,7 +66,7 @@ void set_fog_color(uint32_t rgba)
         density = 0.0;
     float* constant = &g_ps_constant_bank[16];
     constant[0] = constant[1] = constant[2] = static_cast<float>(density);
-    uint32_t color = (r << 16) | (g << 8) | b;
+    const uint32_t color = (r << 16) | (g << 8) | b;
     g_fog_colour = color;
     input_port()->SetRenderState(D3DRS_FOGCOLOR, color);
 }

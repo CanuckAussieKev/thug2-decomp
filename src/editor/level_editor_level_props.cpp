@@ -75,7 +75,7 @@ bool valid_sky(const std::string& sky)
     if (sky.empty() || sky.size() > 64)
         return false;
     std::string lower;
-    for (char c : sky) {
+    for (const char c : sky) {
         if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
             return false;
         lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -121,10 +121,11 @@ bool read_record(std::istringstream& in, Props* props)
     Props p;
     std::string field;
     while (in >> field) {
-        size_t equals = field.find('=');
+        const size_t equals = field.find('=');
         if (equals == std::string::npos || equals == 0)
             return false;
-        std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+        const std::string key = field.substr(0, equals);
+        const std::string value = field.substr(equals + 1);
         if (key == "name") {
             if (!fields::unescape(value, &p.name) || p.name.empty() || p.name.size() > 64)
                 return false;
@@ -170,7 +171,7 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
     if (props.has_ambient_) {
         fields::Value v;
         v.kind = fields::Kind::kIntegers;
-        for (int channel : props.ambient)
+        for (const int channel : props.ambient)
             v.list.push_back(static_cast<uint32_t>(get_channel(channel)));
         out.emplace_back("ed_ambient", v);
     }
@@ -266,8 +267,8 @@ std::vector<Kept> g_kept;
 // The level structure of the level loaded now (Levels.qb's Level_<x>: its load_script is the skate module's level).
 script::Struct* current_level_structure()
 {
-    modules::Skate* skate = modules::g_skate_module;
-    uint32_t load = skate ? skate->level_ : 0;
+    const modules::Skate* skate = modules::g_skate_module;
+    const uint32_t load = skate ? skate->level_ : 0;
     if (!load)
         return nullptr;
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
@@ -302,9 +303,9 @@ void assign_value(const Props& props)
         if (level_defaults(&defaults))
             tod = defaults.tod;
     }
-    bool tod_changed = props.tod != g_props.tod;
-    bool fog_was = g_props.has_fog_ || g_level.has_fog_;
-    bool lighting = !lighting_same(props, g_props);
+    const bool tod_changed = props.tod != g_props.tod;
+    const bool fog_was = g_props.has_fog_ || g_level.has_fog_;
+    const bool lighting = !lighting_same(props, g_props);
     g_props = props;
     install_filter();
     if (tod_changed)
@@ -324,7 +325,7 @@ void on_level_up(bool network)
     Props level;
     if (!network)
         read_override_keys(current_level_structure(), &level);
-    bool changed = !lighting_same(level, g_level);
+    const bool changed = !lighting_same(level, g_level);
     g_level = level;
     if (!changed)
         return;
@@ -423,12 +424,12 @@ void export_to_struct(script::Struct* level, const Props& props)
     restore_structure();
     if (!level)
         return;
-    std::vector<std::pair<const char*, fields::Value>> values = structure_values(props);
+    const std::vector<std::pair<const char*, fields::Value>> values = structure_values(props);
     if (values.empty())
         return;
     g_written = level;
     for (const auto& entry : values) {
-        uint32_t key = checksums::hash_from_text(entry.first);
+        const uint32_t key = checksums::hash_from_text(entry.first);
         g_kept.push_back({key, fields::own_in(level, key, false)});
         fields::Own own;
         own.present = true;

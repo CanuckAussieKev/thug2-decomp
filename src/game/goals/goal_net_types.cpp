@@ -104,7 +104,7 @@ void LetterGameObjective::land()
 {
     script::Array* spots = nullptr;
     args_->fetch_list(kLetterSpots, &spots, 1);
-    int count = static_cast<int>(spots->extent_);
+    const int count = static_cast<int>(spots->extent_);
     int i = 0;
     int score = 0; // (both set before they're read)
     uint32_t flag = 0;
@@ -121,11 +121,11 @@ void LetterGameObjective::land()
     }
     if (i == count)
         return;
-    int landed = static_cast<modules::PointTally*>(
-                     static_cast<objects::Rider*>(skate_calls::get_home_rider())->get_points_total())
-                     ->pot_score_;
+    const int landed = static_cast<modules::PointTally*>(
+                           static_cast<objects::Rider*>(skate_calls::get_home_rider())->get_points_total())
+                           ->pot_score_;
     if (landed > 0) {
-        uint32_t id = get_objective_key();
+        const uint32_t id = get_objective_key();
         GoalManager* manager = get_objective_board();
         if (landed > score) {
             manager->raise_bit(id, flag, 1, 0);

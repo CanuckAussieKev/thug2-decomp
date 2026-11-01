@@ -116,8 +116,8 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
     if (params->has_entry_named(kDuration)) {
         float duration = 0.0f;
         params->fetch_float(kDuration, &duration, 0);
-        int elapsed = frame_clock::game_clock_elapsed();
-        int milliseconds = get_truncated(static_cast<double>(duration) * kMinusMilliseconds);
+        const int elapsed = frame_clock::game_clock_elapsed();
+        const int milliseconds = get_truncated(static_cast<double>(duration) * kMinusMilliseconds);
         end_time_ = static_cast<uint32_t>(elapsed + (g_clock_offset - milliseconds));
     }
 }

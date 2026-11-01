@@ -65,7 +65,7 @@ struct RankingList {
     // The entry after `node` (null at the head).
     static online::ScoreEntry* get_after(memory::ListNode* node)
     {
-        memory::ListNode* next = node->next;
+        const memory::ListNode* next = node->next;
         return next->data == reinterpret_cast<void*>(-1) ? nullptr : static_cast<online::ScoreEntry*>(next->data);
     }
 };
@@ -130,7 +130,7 @@ void add_score_line(Format format, uint32_t id, bool team_score, bool font_first
 void format_score(char* out, size_t size, uint32_t score, int colour, bool coloured)
 {
     if (is_crown_rule_active()) {
-        uint32_t seconds = score / 1000;
+        const uint32_t seconds = score / 1000;
         if (coloured)
             std::snprintf(out, size, "\\c%d%.2d:%.2d", colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
         else
@@ -152,7 +152,7 @@ void fill_elimination_ranking()
     PlayerSearch search;
     RankingList list;
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    bool reset_scores = get_game_mode()->is_true(kShouldResetScores);
+    const bool reset_scores = get_game_mode()->is_true(kShouldResetScores);
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
         online::PlayerRecord* info = as_player(player);
@@ -255,7 +255,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
         for (void* player = net->begin_player_walk(&search, false); player;
              player = net->step_player_walk(&search, false)) {
             online::PlayerRecord* info = as_player(player);
-            uint32_t score = score_of(info);
+            const uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();
             const char* name = info->skater_->fetch_shown_name();
             char* out = entry->text_;

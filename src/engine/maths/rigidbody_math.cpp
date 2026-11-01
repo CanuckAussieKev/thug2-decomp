@@ -19,10 +19,10 @@ float get_narrow(double value) { return static_cast<float>(value); }
 // 0x0042BBF0
 Vec4* Vec4::set_length(float length)
 {
-    double current = std::sqrt((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z);
+    const double current = std::sqrt((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z);
     if (!(current > 0.0))
         return this;
-    double scale = length / current;
+    const double scale = length / current;
     x = get_narrow(scale * x);
     y = get_narrow(scale * y);
     z = get_narrow(scale * z);
@@ -33,20 +33,20 @@ Vec4* Vec4::set_length(float length)
 // others rounded (as the original keeps them).
 Mat4* QuatRotation::fetch_mat(Mat4* out) const
 {
-    double length_sqr = ((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z) + get_wide(w) * w;
-    double s = length_sqr > 0.0 ? 2.0 / length_sqr : 0.0;
-    double xs = s * x;
-    float ys = get_narrow(s * y);
-    float zs = get_narrow(s * z);
-    float wx = get_narrow(xs * w);
-    float wy = get_narrow(get_wide(ys) * w);
-    float wz = get_narrow(get_wide(zs) * w);
-    double xx = xs * x;
-    double xy = get_wide(ys) * x;
-    double xz = get_wide(zs) * x;
-    float yy = get_narrow(get_wide(ys) * y);
-    float yz = get_narrow(get_wide(zs) * y);
-    double zz = get_wide(zs) * z;
+    const double length_sqr = ((get_wide(x) * x + get_wide(y) * y) + get_wide(z) * z) + get_wide(w) * w;
+    const double s = length_sqr > 0.0 ? 2.0 / length_sqr : 0.0;
+    const double xs = s * x;
+    const float ys = get_narrow(s * y);
+    const float zs = get_narrow(s * z);
+    const float wx = get_narrow(xs * w);
+    const float wy = get_narrow(get_wide(ys) * w);
+    const float wz = get_narrow(get_wide(zs) * w);
+    const double xx = xs * x;
+    const double xy = get_wide(ys) * x;
+    const double xz = get_wide(zs) * x;
+    const float yy = get_narrow(get_wide(ys) * y);
+    const float yz = get_narrow(get_wide(zs) * y);
+    const double zz = get_wide(zs) * z;
 
     auto* m = reinterpret_cast<float*>(out);
     m[0] = get_narrow(1.0 - (yy + zz));

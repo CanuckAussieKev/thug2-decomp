@@ -57,17 +57,17 @@ bool BodyDynamicsModule::find_contacts()
             if (!contact.active)
                 continue;
             const maths::Seg& line = feeler.line_;
-            double dz = get_wide(line.end.z) - line.start.z;
-            double dy = get_wide(line.end.y) - line.start.y;
-            float dx = get_narrow(get_wide(line.end.x) - line.start.x);
-            float rest = get_narrow(1.0 - feeler.reach_);
+            const double dz = get_wide(line.end.z) - line.start.z;
+            const double dy = get_wide(line.end.y) - line.start.y;
+            const float dx = get_narrow(get_wide(line.end.x) - line.start.x);
+            const float rest = get_narrow(1.0 - feeler.reach_);
             contact.offset = point;
             contact.normal = feeler.surface_dir_;
             contact.scaled = false;
-            float az = get_narrow(dz * rest);
+            const float az = get_narrow(dz * rest);
             contact.impulse = 0.0f;
-            double depth = ((dy * rest) * contact.normal.y + get_wide(az) * contact.normal.z) +
-                           (get_wide(dx) * rest) * contact.normal.x;
+            const double depth = ((dy * rest) * contact.normal.y + get_wide(az) * contact.normal.z) +
+                                 (get_wide(dx) * rest) * contact.normal.x;
             contact.depth = get_narrow(depth);
             contact.active = depth <= 0.0;
             contact.friction = static_cast<int8_t>(i);
@@ -80,8 +80,9 @@ bool BodyDynamicsModule::find_contacts()
     for (int j = sphere_count_ - 1; j >= 0; --j) {
         const maths::Vec4& centre = world_sphere_centers()[j];
         const Sphere& sphere = spheres_[j];
-        maths::Vec4 at = {get_narrow(get_wide(centre.x) + at_point_.x), get_narrow(get_wide(centre.y) + at_point_.y),
-                          get_narrow(get_wide(at_point_.z) + centre.z), get_narrow(get_wide(centre.w) + at_point_.w)};
+        const maths::Vec4 at = {
+            get_narrow(get_wide(centre.x) + at_point_.x), get_narrow(get_wide(centre.y) + at_point_.y),
+            get_narrow(get_wide(at_point_.z) + centre.z), get_narrow(get_wide(centre.w) + at_point_.w)};
         render::SphereFeeler feeler(&at, sphere.radius);
         feeler.hit_cache_ = body_cache();
         if (!feeler.get_query(0))
@@ -90,25 +91,26 @@ bool BodyDynamicsModule::find_contacts()
             const render::SphereHit& hit = feeler.hits_.hits[k];
             Contact& contact = get_contacts()[contacts_hit_];
             const maths::Vec4& c = feeler.bound_ball_.centre;
-            double ox = get_wide(hit.point.x) - at_point_.x;
-            double oy = get_wide(hit.point.y) - at_point_.y;
+            const double ox = get_wide(hit.point.x) - at_point_.x;
+            const double oy = get_wide(hit.point.y) - at_point_.y;
             contact.offset.z = get_narrow(get_wide(hit.point.z) - at_point_.z);
             contact.offset.w = get_narrow(get_wide(hit.point.w) - at_point_.w);
             contact.offset.x = get_narrow(ox);
             contact.offset.y = get_narrow(oy);
-            double nx = get_wide(hit.point.x) - c.x;
-            double ny = get_wide(hit.point.y) - c.y;
+            const double nx = get_wide(hit.point.x) - c.x;
+            const double ny = get_wide(hit.point.y) - c.y;
             contact.normal.z = get_narrow(get_wide(hit.point.z) - c.z);
             contact.normal.w = get_narrow(get_wide(hit.point.w) - c.w);
             contact.normal.x = get_narrow(nx);
             contact.normal.y = get_narrow(ny);
             maths::Vec4& n = contact.normal;
-            float length = get_narrow(std::sqrt((get_wide(n.x) * n.x + get_wide(n.y) * n.y) + get_wide(n.z) * n.z));
+            const float length =
+                get_narrow(std::sqrt((get_wide(n.x) * n.x + get_wide(n.y) * n.y) + get_wide(n.z) * n.z));
             if (length == 0.0f) {
                 n = {0.0f, 1.0f, 0.0f, 1.0f};
             } else {
                 // (towards the centre: the hit point less the centre, reversed)
-                double inverse = 1.0 / -get_wide(length);
+                const double inverse = 1.0 / -get_wide(length);
                 n = {get_narrow(inverse * n.x), get_narrow(inverse * n.y), get_narrow(inverse * n.z),
                      get_narrow(inverse * n.w)};
             }
@@ -120,7 +122,7 @@ bool BodyDynamicsModule::find_contacts()
                 continue;
             contact.scaled = false;
             contact.impulse = 0.0f;
-            double depth = get_wide(length) - sphere.radius;
+            const double depth = get_wide(length) - sphere.radius;
             contact.depth = get_narrow(depth);
             contact.active = depth <= 0.0;
             contact.friction = static_cast<int8_t>(j);

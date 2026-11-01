@@ -179,15 +179,15 @@ void Hub::start_network_game()
     game_type_ = preference_checksum(game_preferences(this), kGameType, kChecksum);
     choose_start_points(); // the skaters' starting points shuffled
     std::memset(team_objects_, 0, sizeof(team_objects_));
-    uint32_t game_type = game_type_;
-    uint32_t time_limit = prefs->get_setting_value(game_type == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
+    const uint32_t game_type = game_type_;
+    const uint32_t time_limit = prefs->get_setting_value(game_type == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
     level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
     // (the message: gamenet_messages.h; the original left its unused word at +0x10 as the stack held it)
     StartGame info;
     info.game_type = game_type_;
     info.fireball_level = static_cast<uint32_t>(get_fireball_level());
     bool untimed = false;
-    for (uint32_t type : kUntimedTypes)
+    for (const uint32_t type : kUntimedTypes)
         untimed = untimed || info.game_type == type;
     if (untimed)
         info.time_limit = 0;
@@ -316,7 +316,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         break;
     case 6: { // joined
         NewPlayerSearch search;
-        JoinerRecord* info = first_new_player(manager, &search);
+        const JoinerRecord* info = first_new_player(manager, &search);
         for (; info && !(info->flag_bits_ & kNewPlayerLocal); info = next_new_player(manager, &search)) {
         }
         if (info && (info->flag_bits_ & kNewPlayerObserver)) { // the local player joined to observe
@@ -386,7 +386,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     auto* skate = get_skate();
     uint32_t& checked = g_auto_serve_checked; // the link checked last
     if (manager->is_network_game() && frame_clock::get_time() - checked > kLinkCheckInterval) {
-        bool net_game = manager->in_net_game();
+        const bool net_game = manager->in_net_game();
         checked = frame_clock::get_time();
         // the network cable unplugged: a method of the network object (0x006EFDD8) - on the PC the shared
         // return-false stub 0x005B9E50
@@ -417,7 +417,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
                 }
                 if (reason >= 0) {
                     objects::Entity* skater = player_skater(player);
-                    bool observer = is_observer(player);
+                    const bool observer = is_observer(player);
                     manager->evict_player(player, reason);
                     if (!observer)
                         static_cast<modules::Skate*>(skate)->drop_skater_from_roster(

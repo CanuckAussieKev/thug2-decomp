@@ -226,7 +226,7 @@ void Hub::use_network_preferences()
     // The device: its type and the connection type.
     uint32_t device = 0;
     preferences->fetch_setting(kDeviceType)->read_hash_value(kChecksum, &device, 1);
-    bool force_broadband_pc = *script::fetch_text(kForceBroadbandPc) != 0;
+    const bool force_broadband_pc = *script::fetch_text(kForceBroadbandPc) != 0;
     if (*script::fetch_text(kForcePcmcia)) {
         if (ip_override)
             get_run(kSpoofPcmciaAdaptorSetup);

@@ -367,15 +367,15 @@ float Rider::get_scaled_value(script::Struct* params)
     script::Pair range, switch_range;
     params->fetch_pair(0u, &range, false);
     int stat_index = 0;
-    double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
+    const double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
     const float low = range.x, high = range.y;
     auto result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
-    bool goofy = static_cast<Rider*>(core_physics_->entity_)->goofy_;
-    uint8_t flipped = core_physics_->state_->flag(PoseFlag::kFlipped).on;
-    bool riding = goofy ? flipped != 0 : flipped == 0;
+    const bool goofy = static_cast<Rider*>(core_physics_->entity_)->goofy_;
+    const uint8_t flipped = core_physics_->state_->flag(PoseFlag::kFlipped).on;
+    const bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
-        double s = fetch_tally(6);
+        const double s = fetch_tally(6);
         double scale = (static_cast<double>(switch_range.y) - switch_range.x) * s * 0.1f + switch_range.x;
         if (scale < 0.0)
             scale = 0.0;
@@ -508,15 +508,18 @@ void Rider::update_shadow_light(int, int)
         if (lights) {
             const auto* v =
                 reinterpret_cast<const float*>(static_cast<render::ModelLights*>(lights)->read_light_aim(0));
-            double x = v[0] * -1.0, y = v[1] * -1.0, z = v[2] * -1.0, w = v[3] * -1.0;
+            const double x = v[0] * -1.0;
+            const double y = v[1] * -1.0;
+            const double z = v[2] * -1.0;
+            const double w = v[3] * -1.0;
             light[0] = static_cast<float>(x);
             light[1] = static_cast<float>(y);
             const auto z_stored = static_cast<float>(z); // (the original reads z back as stored)
             light[2] = z_stored;
             light[3] = static_cast<float>(w);
             if (y > -0.65f) {
-                double flat = static_cast<double>(z_stored) * z_stored + x * x;
-                double scale = flat > 0.0 ? std::sqrt(0.5775f / flat) : 0.0;
+                const double flat = static_cast<double>(z_stored) * z_stored + x * x;
+                const double scale = flat > 0.0 ? std::sqrt(0.5775f / flat) : 0.0;
                 light[1] = -0.65f;
                 light[0] = static_cast<float>(x * scale);
                 light[2] = static_cast<float>(z_stored * scale);
@@ -525,7 +528,7 @@ void Rider::update_shadow_light(int, int)
     }
     // In the air (or not on the ground): fade towards straight down; else back.
     bool fading = false;
-    RiderBoardPhysics* control = physics_control_;
+    const RiderBoardPhysics* control = physics_control_;
     if (control && !control->pose_->in_vehicle_ && !static_cast<uint32_t>(control->pose_->physics_mode_))
         fading = core_physics_->state_->cur_phase_ == 0;
     else if (!walk_)
@@ -650,7 +653,7 @@ void Rider::reset_state()
 // 0x005811E0
 void Rider::set_up_network()
 {
-    net::AppHost* client = net_link()->fetch_patron(skater_number_);
+    const net::AppHost* client = net_link()->fetch_patron(skater_number_);
     auto* flip_and_rotate = static_cast<RiderSpinAndFlip*>(fetch_module(kSkaterFlipAndRotate));
     flip_and_rotate->apply_board_turned(ident_, false, client->clock_, is_local_skater_ != 0);
     flip_and_rotate->apply_flip_to_anims();
@@ -804,7 +807,7 @@ void Rider::get_freeze()
     composite_flags_ |= 1;
     balance_displays_off(score_holder_->points_held_);
     script::launch_script(0x1277E3FD, nullptr, nullptr, false, nullptr);
-    if (PadInputModule* input = pad_input_)
+    if (const PadInputModule* input = pad_input_)
         input->handler_->dev_->pause_actuators();
     sound::g_audio_mixer->update_voice_volumes();
 }
@@ -816,7 +819,7 @@ void Rider::unpause()
         return;
     is_halted_ = false;
     composite_flags_ &= ~1u;
-    if (PadInputModule* input = pad_input_)
+    if (const PadInputModule* input = pad_input_)
         input->handler_->dev_->unpause_actuators();
     if (auto* component = static_cast<RiderRollingAudio*>(fetch_module(0xB5F1E9D2)))
         component->force_update_ = 1;
@@ -848,12 +851,12 @@ void add_component_from_structure(Rider* skater, Fill fill)
 // 0x00581850
 void Rider::prepare_all(RiderIdentity* profile)
 {
-    modules::Skate* skate = get_skate();
+    const modules::Skate* skate = get_skate();
     memory::Hub* manager = memory::Hub::get_pull();
     if (is_local_skater_) {
         // Its camera: found, or made from skatercam_composite_structure.
         manager->enter_heap_scope(manager->skater_info_heap_);
-        uint32_t camera_name = view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0;
+        const uint32_t camera_name = view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0;
         auto* camera = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(camera_name));
         if (camera) {
             static_cast<RiderChaseView*>(camera->fetch_module(0x5E43A604))->bind_rider(this); // skatercamera
@@ -896,7 +899,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         params->put_int(0xD3982061, 0); // max_bone_skip_lod
     });
     static_cast<AnimBlenderComponent*>(anim_blender_)->set_flag_4c(true);
-    bool local = is_local_skater_ != 0;
+    const bool local = is_local_skater_ != 0;
     add_component_from_structure(this, [local](script::Struct* params) {
         params->put_name_key(0u, 0x10079F2D); // UseModelLights
         params->put_int(0xD223B8BD, 1);       // max_scene_lights
@@ -907,7 +910,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_geom_heaps_[skater_number_]);
     auto* assets = assets::g_asset_manager;
-    bool flag = assets->get_permanent_by_default();
+    const bool flag = assets->get_permanent_by_default();
     assets->set_permanent_by_default(false);
     model_component_->set_up_mesh_from_profile(profile, false, skater_number_, 0);
     assets->set_permanent_by_default(flag);
@@ -945,7 +948,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     update_from_profile(profile);
     set_stats_from_profile(profile);
     if (is_local_skater_) {
-        float max_speed = get_scaled_physics(0xCC5F87AA); // Skater_Max_Max_Speed_Stat
+        const float max_speed = get_scaled_physics(0xCC5F87AA); // Skater_Max_Max_Speed_Stat
         static_cast<RiderSfxPlayer*>(fetch_module(0x187574FA))->full_speed_ = max_speed;
     }
     if (MoveExecutor* state = trick_) {
@@ -1073,7 +1076,7 @@ void Rider::write_cat_info(script::Struct* save)
     for (int i = 0; i < 11; ++i) {
         script::Struct* struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? new (struct_memory) script::Struct : nullptr;
-        goals::CreateATrick* info = trick_slots_[i].get();
+        const goals::CreateATrick* info = trick_slots_[i].get();
         trick->put_sub_struct(kOther, info->other_params_);
         trick->append_array_value(kAnimations, info->animations_);
         trick->append_array_value(kRotations, info->spin_list_);
@@ -1099,19 +1102,20 @@ void Rider::launch_projectile()
     // Its flat heading.
     float heading_x = basis_frame_.row[2].x, heading_y = 0.0f, heading_z = basis_frame_.row[2].z;
     float best = 1000.0f;
-    GameEntity* target = nullptr;
-    double length = std::sqrt(static_cast<double>(heading_z) * heading_z + static_cast<double>(heading_x) * heading_x);
+    const GameEntity* target = nullptr;
+    const double length =
+        std::sqrt(static_cast<double>(heading_z) * heading_z + static_cast<double>(heading_x) * heading_x);
     if (length > 0.0) {
-        double inverse = 1.0 / length;
+        const double inverse = 1.0 / length;
         heading_x = static_cast<float>(heading_x * inverse);
         heading_y = static_cast<float>(0.0 * inverse);
         heading_z = static_cast<float>(heading_z * inverse);
     }
     // From a wrist (the right one, or the left by its stance and whether it's walking).
-    RiderPoseState* walking = physics_control_->pose_;
-    bool flipped = core_physics_->state_->flag(PoseFlag::kFlipped).on != 0;
-    bool walk = !walking->in_vehicle_ && walking->physics_mode_ == 1;
-    uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
+    const RiderPoseState* walking = physics_control_->pose_;
+    const bool flipped = core_physics_->state_->flag(PoseFlag::kFlipped).on != 0;
+    const bool walk = !walking->in_vehicle_ && walking->physics_mode_ == 1;
+    const uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     maths::Vec4 bone, rotated;
     static_cast<BoneRigModule*>(fetch_module(0x222756D5))->get_local_bone_position(wrist, &bone);
     const maths::Vec4* turned = &basis_frame_.rotate_vector(rotated, bone);
@@ -1123,21 +1127,22 @@ void Rider::launch_projectile()
     // that's been shot is left out, and a ped is aimed at a bone it chooses.
     float to_target_x = 0.0f, to_target_z = 0.0f;
     maths::Vec4 aim = {};
-    for (ObjectModule* component = object_hub_slot()->find_first_module_of_kind(0x3618B878); component;
+    for (const ObjectModule* component = object_hub_slot()->find_first_module_of_kind(0x3618B878); component;
          component = component->next_of_type_) {
         GameEntity* object = component->entity_;
         if (!object)
             continue;
         bool ped = false;
         if (object->fetch_module(0x6EFDDFB8)) { // PedLogic
-            uint32_t state = static_cast<PedestrianBrainModule*>(object->fetch_module(0x6EFDDFB8))->get_logic_state();
+            const uint32_t state =
+                static_cast<PedestrianBrainModule*>(object->fetch_module(0x6EFDDFB8))->get_logic_state();
             ped = true;
             if (state == 0x54F87744) // shot
                 continue;
         }
-        double dz = static_cast<double>(object->at_point_.z) - origin.z;
-        double dy = static_cast<double>(object->at_point_.y) - origin.y;
-        double dx = static_cast<double>(object->at_point_.x) - origin.x;
+        const double dz = static_cast<double>(object->at_point_.z) - origin.z;
+        const double dy = static_cast<double>(object->at_point_.y) - origin.y;
+        const double dx = static_cast<double>(object->at_point_.x) - origin.x;
         auto distance = static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz));
         auto to_z = static_cast<float>(dz);
         auto to_x = static_cast<float>(dx);
@@ -1153,7 +1158,7 @@ void Rider::launch_projectile()
                                       static_cast<double>(to_x) * heading_x);
         if (!(script::fetch_float(0x39186247) > distance)) // Physics_Projectile_Targeting_Dist
             continue;
-        double cone = std::cos(script::fetch_float(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle
+        const double cone = std::cos(script::fetch_float(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle
         if (!(cone < dot))
             continue;
         if (!(distance < best))
@@ -1164,7 +1169,7 @@ void Rider::launch_projectile()
         to_target_z = to_z;
         if (ped) {
             script::launch_script(0x5DB74F79, nullptr, nullptr, false, nullptr); // choose_projectile_target_bone
-            uint32_t target_bone = script::get_symbol_value(0x07A15639);         // target_bone
+            const uint32_t target_bone = script::get_symbol_value(0x07A15639);   // target_bone
             maths::Vec4 at;
             static_cast<BoneRigModule*>(object->fetch_module(0x222756D5))->get_local_bone_position(target_bone, &at);
             // (turned by the object's rotation in place: 0x00411840, Nx's VectorTurn::turn_by)
@@ -1322,7 +1327,7 @@ void Rider::reset_components()
 // 0x00583470
 void Rider::relaunch(uint32_t a, uint32_t b)
 {
-    RiderPoseState* walking = physics_control_->pose_;
+    const RiderPoseState* walking = physics_control_->pose_;
     if (!walking->in_vehicle_ && walking->physics_mode_ == 1) {
         // Walking: back to skating first.
         script::Struct* memory = script::spawn_param_bag();
@@ -1381,7 +1386,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     switch (name) {
     case 0x1B572ABF: { // KillSkater
         // (the original keeps the flag in the low byte of its params slot: the restart is told that word)
-        uint32_t walking =
+        const uint32_t walking =
             (reinterpret_cast<uint32_t>(params) & 0xFFFFFF00u) | (params->has_entry_named(0xD6F06BF6) ? 1u : 0u);
         uint32_t prefix = 0;
         const char* text = nullptr;
@@ -1399,10 +1404,10 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         }
         // The first restart linked from the script's node; none: the skate module's (unless in the park editor).
         auto from = static_cast<uint32_t>(script->list_link_);
-        int count = static_cast<int>(level_nodes::get_link_count(from));
+        const int count = static_cast<int>(level_nodes::get_link_count(from));
         int i = 0;
         for (; i < count; ++i) {
-            uint32_t link = level_nodes::fetch_link(from, i);
+            const uint32_t link = level_nodes::fetch_link(from, i);
             if (is_restart_node(link)) {
                 skip_to_restart_virtual(this, link, walking);
                 break;

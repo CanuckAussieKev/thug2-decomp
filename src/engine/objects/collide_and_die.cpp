@@ -80,7 +80,7 @@ void ImpactDestructModule::tick_frame()
 {
     if (!g_online_hub->in_net_game() && reinterpret_cast<DormancyModule*>(suspend_)->far_)
         return;
-    int& offset = g_clock_offset;
+    const int& offset = g_clock_offset;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
         kLifetime) {
         get_kill(entity_);
@@ -89,17 +89,17 @@ void ImpactDestructModule::tick_frame()
             get_kill(entity_);
     } else {
         render::ProbeRay feeler;
-        GameEntity* object = entity_;
+        const GameEntity* object = entity_;
         maths::Vec4 direction = object->vel_;
         direction.make_unit();
         // From where it was (24 up)...
         maths::Vec4 start = first_update_ ? object->at_point_ : last_pos_;
         start.y = start.y + kAbove;
         // ...to where it is (24 up), `radius` on along its velocity.
-        double up = static_cast<double>(object->at_point_.y) + kAbove;
-        float along_w = radius_ * direction.w;
-        float along_z = radius_ * direction.z;
-        float along_y = radius_ * direction.y;
+        const double up = static_cast<double>(object->at_point_.y) + kAbove;
+        const float along_w = radius_ * direction.w;
+        const float along_z = radius_ * direction.z;
+        const float along_y = radius_ * direction.y;
         maths::Vec4 end{};
         end.x = static_cast<float>(static_cast<double>(radius_) * direction.x + object->at_point_.x);
         end.y = static_cast<float>(up + along_y);

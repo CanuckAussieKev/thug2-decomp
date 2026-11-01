@@ -39,8 +39,8 @@ ImposterManager::ImposterManager()
 // 0x0048E260
 void ImposterManager::delete_all()
 {
-    for (ImposterGroup* group = first_group(groups_ptr_); group;) {
-        ImposterGroup* next = next_group(groups_ptr_);
+    for (const ImposterGroup* group = first_group(groups_ptr_); group;) {
+        const ImposterGroup* next = next_group(groups_ptr_);
         delete group;
         group = next;
     }
@@ -53,7 +53,7 @@ void ImposterManager::tick_frame()
     int done = 0;
     for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
         group->tick_frame();
-        float distance = group->distance_to_view();
+        const float distance = group->distance_to_view();
         if (distance <= group->near_range_) { // (NaN: as beyond it)
             group->drop_imposter();
         } else if (!group->has_imposter_) {

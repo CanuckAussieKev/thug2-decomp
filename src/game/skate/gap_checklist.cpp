@@ -343,7 +343,7 @@ int GapTally::get_gap_points(int index) { return get_gap(index)->points_held_; }
 // 0x00579460
 void GapTally::get_gap_positions(int index, maths::Vec4* pos, maths::Vec4* dir)
 {
-    GapEntry* gap = get_gap(index);
+    const GapEntry* gap = get_gap(index);
     *pos = gap->skater_start_pos_;
     *dir = gap->skater_start_dir_;
 }
@@ -401,7 +401,7 @@ bool cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
     int level = 0;
     if (!params->fetch_int_value(kLevel, &level, 0))
         level = current_level(career);
-    GapTally* checklist = level_checklist(career, level);
+    const GapTally* checklist = level_checklist(career, level);
     for (GapEntry* gap = gap_of(checklist->gaps_.next); gap; gap = get_next(gap))
         ++gap->num_;
     return true;

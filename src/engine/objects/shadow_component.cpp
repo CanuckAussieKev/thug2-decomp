@@ -92,7 +92,7 @@ GroundShadowModule::~GroundShadowModule()
 void GroundShadowModule::seal()
 {
     mesh_instance_ = entity_->fetch_module(kModel);
-    uint32_t checksum = *reinterpret_cast<uint32_t*>(model_of(mesh_instance_) + 0x30);
+    const uint32_t checksum = *reinterpret_cast<uint32_t*>(model_of(mesh_instance_) + 0x30);
     void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
     if (shadow_handle_)
         shadow_handle_->change_mesh(reinterpret_cast<render::RenderModel*>(model_of(mesh_instance_)),
@@ -107,7 +107,7 @@ void GroundShadowModule::refresh_shadow()
     uint8_t* model = model_of(mesh_instance_);
     if (!model)
         return;
-    uint8_t flags = model[0x44];
+    const uint8_t flags = model[0x44];
     if (!(flags & 0x2) || (flags & 0x4)) {
         shadow_handle_->hide();
         return;
@@ -115,12 +115,12 @@ void GroundShadowModule::refresh_shadow()
     switch (shadow_kind_of(shadow_handle_.get())) {
     case kShadowDetailed: {
         const GameEntity* object = entity_;
-        maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
+        const maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
                 reinterpret_cast<render::ModelLights*>(reinterpret_cast<render::RenderModel*>(model)->lights_ptr_)) {
             const maths::Vec4* v = lights->read_light_aim(0);
-            maths::Vec4 unused = *v * -1.0f;
+            const maths::Vec4 unused = *v * -1.0f;
             (void)unused;
         }
         shadow_handle_->change_place(above);
@@ -252,7 +252,7 @@ void GroundShadowModule::tick_frame()
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
                 const auto* root = reinterpret_cast<const float*>(hierarchy_of(model) + 0x40);
                 pos = {root[0], root[1], root[2], 0.0f};
-                maths::Mat4 base_mat = *reinterpret_cast<const maths::Mat4*>(hierarchy_of(model) + 0x10);
+                const maths::Mat4 base_mat = *reinterpret_cast<const maths::Mat4*>(hierarchy_of(model) + 0x10);
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity_->at_point_;
                 matrix = maths::MatrixProduct{reinterpret_cast<const maths::Mat4*>(hierarchy_of(model) + 0x10),

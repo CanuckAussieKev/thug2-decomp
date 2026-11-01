@@ -48,7 +48,7 @@ int linked_sprintf(char* out, const char* format, ...)
 {
     va_list args = nullptr;
     va_start(args, format);
-    int written = std::vsnprintf(out, static_cast<size_t>(INT_MAX), format, args); // (unbounded, as sprintf)
+    const int written = std::vsnprintf(out, static_cast<size_t>(INT_MAX), format, args); // (unbounded, as sprintf)
     va_end(args);
     return written;
 }
@@ -100,7 +100,7 @@ void get_exchange(char* a, char* b, size_t width)
     if (a == b)
         return;
     for (size_t i = 0; i < width; ++i) {
-        char t = a[i];
+        const char t = a[i];
         a[i] = b[i];
         b[i] = t;
     }
@@ -134,7 +134,7 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
     char* lo = static_cast<char*>(base);
     char* hi = lo + width * (count - 1);
     for (;;) {
-        size_t size = static_cast<size_t>(hi - lo) / width + 1;
+        const size_t size = static_cast<size_t>(hi - lo) / width + 1;
         if (size <= 8) {
             short_sort(lo, hi, width, compare);
         } else {

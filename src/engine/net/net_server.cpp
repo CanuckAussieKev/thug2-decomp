@@ -59,7 +59,7 @@ void HostEnd::pull_inbound()
             return;
         }
         inbound_byte_total_ += received;
-        int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
+        const int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
         if (Conn* conn = net::find_conn_at_address(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
             char*& read_ptr = conn->read_ptr_;
             if ((is_new(conn) || !(flag_bits_ & kAppSecure)) &&
@@ -129,7 +129,7 @@ void HostEnd::flush_outbox(Conn* conn)
         timestamp_desc.rank_ = kTopRank;
         net::put_on_outbox(this, conn->hdl_, &timestamp_desc);
 
-        int pending_before = get_num_pending_messages(conn);
+        const int pending_before = get_num_pending_messages(conn);
         if (!bundle_messages(conn, kQueueNormal, false))
             done = true;
         if (!bundle_messages(conn, kLaneOrdered, true))
@@ -149,7 +149,7 @@ void HostEnd::flush_outbox(Conn* conn)
         }
 
         char*& write_ptr = conn->write_ptr_;
-        int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
+        const int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
         if (size > 0 && is_off_machine(conn)) {
             if (!net::transmit_to(this, conn->remote_ip_, conn->port_no_, conn->outgoing_bytes_, size, 0)) {
                 mark_messages_for_retry(conn, conn->timestamp_out_);
@@ -177,7 +177,7 @@ int HostEnd::on_link_ask_msg(InboundMsgCtx* context)
     if (context->wire_options_ & kPacketForeign) {
         if (!net::allows_outside_peers(context->receiver_app_))
             return kResultConsumed;
-        Conn* conn = context->sender_conn_;
+        const Conn* conn = context->sender_conn_;
         net::deliver_to(context->receiver_app_, kMsgConnectionAccepted, 0, nullptr, conn->remote_ip_, conn->port_no_,
                         0);
         return kResultPassOn;
@@ -196,7 +196,7 @@ int HostEnd::on_link_drop_ask_msg(InboundMsgCtx* context)
 {
     NetMessageInfo desc;
     construct_msg_desc(&desc);
-    Conn* conn = context->sender_conn_;
+    const Conn* conn = context->sender_conn_;
     if (conn->cur_standing_ & kConnDisconnAccepted)
         return kResultConsumed;
     desc.ident_ = kMsgDisconnAccepted;

@@ -79,7 +79,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
     auto nearest_distance = std::bit_cast<float>(0x56B5E621u); // (far enough)
     maths::Vec4 nearest_point = {0.0f, 0.0f, 0.0f, 1.0f};
     int index = 0;
-    for (ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++index) {
+    for (const ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++index) {
         maths::Vec4 point;
         nodes->xform(&point, &node->pos);
         const maths::Vec4& pos = object->at_point_;
@@ -92,10 +92,10 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
         point.y += pos.y;
         point.z += pos.z;
         point.w += pos.w;
-        double dx = static_cast<double>(point.x) - target->x;
-        double dy = static_cast<double>(point.y) - target->y;
-        double dz = static_cast<double>(point.z) - target->z;
-        double distance = (dz * dz + dy * dy) + dx * dx;
+        const double dx = static_cast<double>(point.x) - target->x;
+        const double dy = static_cast<double>(point.y) - target->y;
+        const double dz = static_cast<double>(point.z) - target->z;
+        const double distance = (dz * dz + dy * dy) + dx * dx;
         if (distance < nearest_distance) {
             nearest_distance = static_cast<float>(distance);
             nearest_point = point;
@@ -117,7 +117,7 @@ bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
         return false;
     place_nodes(nodes, object);
     int i = 0;
-    for (ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++i) {
+    for (const ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++i) {
         if (i != index)
             continue;
         maths::Vec4 point;

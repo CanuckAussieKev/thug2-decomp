@@ -68,9 +68,9 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
         if (!each)
             return;
         each->drop_geoms();
-        int percent = get_rand() % 100;
+        const int percent = get_rand() % 100;
         auto scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
-        maths::Vec4 scales = {scale, scale, scale, 1.0f};
+        const maths::Vec4 scales = {scale, scale, scale, 1.0f};
         each->change_scale(&scales);
         if (!each->add_file_geom(file_name, 0, true, 0, false, true, assert_flag() != 0, true))
             return;
@@ -108,7 +108,7 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
 void ModelParticles::render()
 {
     auto model = [this](unsigned int i) { return model_list_[i]; };
-    int count = particle_count_;
+    const int count = particle_count_;
     if (count == 0) {
         for (unsigned int i = 0; i < drawn_models_; ++i)
             model(i)->change_live(0);
@@ -119,7 +119,7 @@ void ModelParticles::render()
         model(i)->change_live(0);
     auto* rotations = static_cast<maths::QuatRotation*>(unknown_13c_ptr_);
     for (int p = 0; p < count; ++p) {
-        FlexibleParticle& particle = particle_list_[p];
+        const FlexibleParticle& particle = particle_list_[p];
         model(static_cast<unsigned int>(p))->change_live(1);
         float life = particle.age / particle.lifetime;
         const uint8_t* from = nullptr;
@@ -151,10 +151,13 @@ void ModelParticles::render()
         q.y = static_cast<float>(static_cast<double>(particle.velocity[1]) + q.y);
         q.z = static_cast<float>(static_cast<double>(particle.velocity[2]) + q.z);
         q.w = static_cast<float>(static_cast<double>(particle.velocity[0]) + q.w);
-        double x = q.x, y = q.y, z = q.z, w = q.w;
-        double length = std::sqrt(((x * x + y * y) + z * z) + w * w);
+        const double x = q.x;
+        const double y = q.y;
+        const double z = q.z;
+        const double w = q.w;
+        const double length = std::sqrt(((x * x + y * y) + z * z) + w * w);
         if (length > 0.0) {
-            double inverse = 1.0 / length;
+            const double inverse = 1.0 / length;
             q.x = static_cast<float>(inverse * q.x);
             q.y = static_cast<float>(inverse * q.y);
             q.z = static_cast<float>(inverse * q.z);
@@ -167,8 +170,8 @@ void ModelParticles::render()
         q.fetch_mat(&matrix);
         const float* position = position_array_ + p * 3;
         matrix.row[3] = {position[0], position[1], position[2], 1.0f};
-        double shrink = static_cast<double>(p % 4) * kSizeStep;
-        double size = static_cast<double>(particle.start_size_[0]) - shrink;
+        const double shrink = static_cast<double>(p % 4) * kSizeStep;
+        const double size = static_cast<double>(particle.start_size_[0]) - shrink;
         for (int k = 0; k < 3; ++k)
             matrix.row[k][k] = static_cast<float>(size * matrix.row[k][k]);
         model(static_cast<unsigned int>(p))->render(&matrix, true, nullptr);

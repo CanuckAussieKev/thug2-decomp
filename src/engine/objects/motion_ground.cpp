@@ -44,14 +44,14 @@ maths::Vec4 vertex_position3(render::HitMesh* object, int vertex) { return objec
 // 0x00425CB0
 bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out)
 {
-    maths::Vec4 along = {static_cast<float>(static_cast<double>(end->x) - start->x),
-                         static_cast<float>(static_cast<double>(end->y) - start->y),
-                         static_cast<float>(static_cast<double>(end->z) - start->z),
-                         static_cast<float>(static_cast<double>(end->w) - start->w)};
+    const maths::Vec4 along = {static_cast<float>(static_cast<double>(end->x) - start->x),
+                               static_cast<float>(static_cast<double>(end->y) - start->y),
+                               static_cast<float>(static_cast<double>(end->z) - start->z),
+                               static_cast<float>(static_cast<double>(end->w) - start->w)};
     float t = 0.0f;
     if (render::ray_hits_triangle(*start, along, triangle[0], triangle[1], triangle[2], &t)) {
         // (x through the unrounded product, the others rounded first)
-        double x = static_cast<double>(along.x) * t;
+        const double x = static_cast<double>(along.x) * t;
         auto y = static_cast<float>(static_cast<double>(along.y) * t);
         auto z = static_cast<float>(static_cast<double>(along.z) * t);
         auto w = static_cast<float>(static_cast<double>(along.w) * t);
@@ -66,8 +66,8 @@ bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::
         return false;
     // (the face hit becomes the triangle tried first next time)
     render::HitMesh* object = feeler.hit_.object;
-    render::TriMeshSource* geometry = object->geometry_;
-    int face = static_cast<int>(feeler.hit_.face);
+    const render::TriMeshSource* geometry = object->geometry_;
+    const int face = static_cast<int>(feeler.hit_.face);
     for (int corner = 0; corner < 3; ++corner) {
         int vertex = 0;
         if (geometry->small_faces_)
@@ -87,13 +87,13 @@ void KinematicsModule::update_jump()
     float x = pos.x;
     float z = pos.z;
     float w = pos.w;
-    double fall = static_cast<double>(leap_pull_) * step_seconds_;
-    double rise = static_cast<double>(jump_speed_) * step_seconds_ + fall * step_seconds_ * 0.5;
+    const double fall = static_cast<double>(leap_pull_) * step_seconds_;
+    const double rise = static_cast<double>(jump_speed_) * step_seconds_ + fall * step_seconds_ * 0.5;
     if (jump_has_heading_) {
         // (along the heading at the start's speed: x and z through rounded products, w through an unrounded one)
-        float frame = step_seconds_;
-        double speed = jump_start_speed_;
-        double along_w = speed * leap_direction_.w * frame;
+        const float frame = step_seconds_;
+        const double speed = jump_start_speed_;
+        const double along_w = speed * leap_direction_.w * frame;
         auto along_z = static_cast<float>(speed * leap_direction_.z);
         auto along_x = static_cast<float>(speed * leap_direction_.x);
         x = static_cast<float>(static_cast<double>(along_x) * frame + x);
@@ -138,10 +138,10 @@ bool KinematicsModule::stick_to_ground()
         matrix.row[0] = {right_x, right_y, right_z, 0.0f};
         matrix.row[0].make_unit();
         auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * 12.0f);
-        float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0f);
+        const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0f);
         auto w = static_cast<float>(static_cast<double>(pos.w) + 1.0f);
-        maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
-        maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
+        const maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
+        const maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
         maths::Vec4 hit;
         if (!get_ground_hit(ground_triangle_, &end, &start, &hit))
             return false;
@@ -151,7 +151,7 @@ bool KinematicsModule::stick_to_ground()
 
     // Three feelers - behind on the right, behind on the left, ahead in the middle (72 back or ahead, 30 to the
     // side): the ground's points give the height and the orientation.
-    render::ProbeRay feeler; // (made and never used)
+    const render::ProbeRay feeler; // (made and never used)
     maths::Vec4& right = matrix.row[0];
     maths::Vec4& up = matrix.row[1];
     maths::Vec4& at = matrix.row[2];
@@ -177,7 +177,10 @@ bool KinematicsModule::stick_to_ground()
     };
     // (a feeler from DistAbove over the position to DistBelow under it, feet; the products unrounded)
     auto line = [&](maths::Vec4* start, maths::Vec4* end) {
-        float x = pos.x, y = pos.y, z = pos.z, w = pos.w;
+        const float x = pos.x;
+        const float y = pos.y;
+        const float z = pos.z;
+        const float w = pos.w;
         *start = {x, static_cast<float>(static_cast<double>(ground_above_) * 12.0f + y), z, w};
         *end = {x, static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * 12.0f), z, w};
     };
@@ -185,7 +188,7 @@ bool KinematicsModule::stick_to_ground()
     move(ahead, -1.0);
     move(side, 1.0);
     line(&start, &end);
-    bool hit_right = get_ground_hit(ground_triangles_[0], &end, &start, &back_right);
+    const bool hit_right = get_ground_hit(ground_triangles_[0], &end, &start, &back_right);
     move(side, -2.0);
     line(&start, &end);
     bool hit_left = false;
@@ -228,9 +231,9 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::V
 {
     move_target_ = target;
     const maths::Vec4& pos = entity_->at_point_;
-    double dx = static_cast<double>(move_target_.x) - pos.x;
-    double dy = static_cast<double>(move_target_.y) - pos.y;
-    double dz = static_cast<double>(move_target_.z) - pos.z;
+    const double dx = static_cast<double>(move_target_.x) - pos.x;
+    const double dy = static_cast<double>(move_target_.y) - pos.y;
+    const double dz = static_cast<double>(move_target_.z) - pos.z;
     move_acceleration_ = 0.0f;
     move_distance_ = static_cast<float>(std::sqrt((dz * dz + dy * dy) + dx * dx));
     move_start_ = pos;
@@ -310,7 +313,7 @@ void KinematicsModule::move_to_position(script::Struct* params, script::Script* 
 void KinematicsModule::move_to_link(script::Struct* params, script::Script* script)
 {
     int link = 0;
-    int links = static_cast<int>(level_nodes::get_link_count(list_link_));
+    const int links = static_cast<int>(level_nodes::get_link_count(list_link_));
     if (!links)
         return;
     if (params->fetch_int_value(kLinkNum, &link, 0))
@@ -318,7 +321,7 @@ void KinematicsModule::move_to_link(script::Struct* params, script::Script* scri
     else if (links > 1 && params->has_bare_flag(kRandomLink))
         link = maths::rnd(links);
     script::Struct* node = level_nodes::fetch_neighbour_node(list_link_, link);
-    uint32_t name = level_nodes::get_node_name(node);
+    const uint32_t name = level_nodes::get_node_name(node);
     maths::Vec4 pos;
     level_nodes::fetch_place(node, &pos);
     if (move_to(params, script, pos, 0))
@@ -334,13 +337,13 @@ void KinematicsModule::move_along(script::Struct* params, script::Script* script
     float distance = 0.0f;
     params->fetch_float(kDist, &distance, 0);
     const maths::Vec4& pos = entity_->at_point_;
-    double w = static_cast<double>(distance) * direction.w;
+    const double w = static_cast<double>(distance) * direction.w;
     auto z = static_cast<float>(static_cast<double>(distance) * direction.z);
     auto y = static_cast<float>(static_cast<double>(distance) * direction.y);
     auto x = static_cast<float>(static_cast<double>(distance) * direction.x);
-    maths::Vec4 target = {static_cast<float>(static_cast<double>(x) + pos.x),
-                          static_cast<float>(static_cast<double>(y) + pos.y),
-                          static_cast<float>(static_cast<double>(z) + pos.z), static_cast<float>(w + pos.w)};
+    const maths::Vec4 target = {static_cast<float>(static_cast<double>(x) + pos.x),
+                                static_cast<float>(static_cast<double>(y) + pos.y),
+                                static_cast<float>(static_cast<double>(z) + pos.z), static_cast<float>(w + pos.w)};
     move_to(params, script, target, 0);
 }
 

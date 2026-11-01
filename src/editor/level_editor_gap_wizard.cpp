@@ -40,7 +40,7 @@ const char* spot_name(SpotKind kind)
 
 SpotKind kind_of_face(float normal_y, uint16_t face_flags)
 {
-    bool vert = (face_flags & 0x08) != 0;
+    const bool vert = (face_flags & 0x08) != 0;
     if (!vert && normal_y >= 0.7f)
         return SpotKind::kArea;
     if (!vert && std::fabs(normal_y) < 0.2f)
@@ -99,7 +99,7 @@ float get_heading_of(V3 d)
 Gate gate_for(const Spot& spot, V3 toward)
 {
     Gate gate;
-    V3 to = toward - spot.point;
+    const V3 to = toward - spot.point;
     switch (spot.kind) {
     case SpotKind::kRail: {
         // (across the rail, the skater grinding through it: its thin side along the rail, pointing to the other end)
@@ -118,7 +118,7 @@ Gate gate_for(const Spot& spot, V3 toward)
         break;
     case SpotKind::kWall: {
         V3 out = {spot.normal.x, 0.0f, spot.normal.z};
-        float length = std::sqrt(get_dot(out, out));
+        const float length = std::sqrt(get_dot(out, out));
         out = length > 1e-4f ? out * (1.0f / length) : V3{0.0f, 0.0f, 0.0f};
         gate.yaw = get_heading_of(to);
         gate.size = {300.0f, 300.0f, 60.0f};
@@ -162,7 +162,8 @@ bool get_cast(V3 from, V3 to, Hit* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
@@ -176,7 +177,7 @@ bool get_cast(V3 from, V3 to, Hit* hit)
 
 objects::GrindRailHub* get_rails()
 {
-    modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module;
     auto* manager = skate ? skate->rail_manager_.get() : nullptr;
     return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
 }
@@ -184,7 +185,7 @@ objects::GrindRailHub* get_rails()
 // The rail segment nearest the cursor within 14 pixels (and not behind what the ray hits first): the point on it.
 bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot)
 {
-    objects::GrindRailHub* rails = get_rails();
+    const objects::GrindRailHub* rails = get_rails();
     if (!rails)
         return false;
     float best = 14.0f;
@@ -194,20 +195,21 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
         if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
             !(node.flag_bits_ & objects::kRailFlagActive))
             continue;
-        V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
-        V3 b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
+        const V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
+        const V3 b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
             continue;
-        float d = distance_to_segment(x, y, ax, ay, bx, by);
+        const float d = distance_to_segment(x, y, ax, ay, bx, by);
         if (d >= best)
             continue;
         // (where along it: the screen's nearest point, carried to the world segment)
-        float sx = bx - ax, sy = by - ay;
-        float length2 = sx * sx + sy * sy;
-        float t = length2 > 1e-6f ? std::clamp(((x - ax) * sx + (y - ay) * sy) / length2, 0.0f, 1.0f) : 0.0f;
-        V3 p = a + (b - a) * t;
-        V3 to = p - origin;
+        const float sx = bx - ax;
+        const float sy = by - ay;
+        const float length2 = sx * sx + sy * sy;
+        const float t = length2 > 1e-6f ? std::clamp(((x - ax) * sx + (y - ay) * sy) / length2, 0.0f, 1.0f) : 0.0f;
+        const V3 p = a + (b - a) * t;
+        const V3 to = p - origin;
         if (get_dot(to, unit_dir) > max_t + 60.0f)
             continue; // (behind a wall)
         best = d;
@@ -223,8 +225,8 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
 bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
 {
     Hit hit{};
-    bool have_hit = get_cast(origin, origin + unit_dir * 20000.0f, &hit);
-    float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0f;
+    const bool have_hit = get_cast(origin, origin + unit_dir * 20000.0f, &hit);
+    const float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0f;
     if (rail_near(origin, unit_dir, x, y, max_t, spot))
         return true;
     if (!have_hit)
@@ -250,7 +252,8 @@ void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb
 void get_make()
 {
     triggers::Placed start, end;
-    Gate a = gate_for(g_spots[0], g_spots[1].point), b = gate_for(g_spots[1], g_spots[0].point);
+    const Gate a = gate_for(g_spots[0], g_spots[1].point);
+    const Gate b = gate_for(g_spots[1], g_spots[0].point);
     // (a box is the same turned half round: the end's gate facing back to the start lies across the same line)
     start.pos = a.pos, start.yaw = a.yaw, start.spec.size = a.size;
     end.pos = b.pos, end.yaw = b.yaw, end.spec.size = b.size;
@@ -318,16 +321,18 @@ void add_overlay(const overlays::Painter& painter)
         return;
     constexpr uint32_t kStart = 0xFF62E26A, kEnd = 0xFFF2D24A, kHover = 0xC0FFFFFF;
     if (g_picked >= 1) {
-        V3 other = g_picked >= 2 ? g_spots[1].point : g_have_hover ? g_hover.point : g_spots[0].point + V3{0, 0, 1};
+        const V3 other = g_picked >= 2  ? g_spots[1].point
+                         : g_have_hover ? g_hover.point
+                                        : g_spots[0].point + V3{0, 0, 1};
         draw_gate(painter, gate_for(g_spots[0], other), kStart);
         painter.draw_label(g_spots[0].point, kStart, std::string("start: ") + spot_name(g_spots[0].kind));
     }
     if (g_picked >= 2) {
-        Gate b = gate_for(g_spots[1], g_spots[0].point);
+        const Gate b = gate_for(g_spots[1], g_spots[0].point);
         draw_gate(painter, b, kEnd);
         painter.draw_label(g_spots[1].point, kEnd, std::string("end: ") + spot_name(g_spots[1].kind));
         painter.get_seg(g_spots[0].point, g_spots[1].point, 0xFFFFFFFF, 2.0f);
-        V3 d = g_spots[1].point - g_spots[0].point;
+        const V3 d = g_spots[1].point - g_spots[0].point;
         char text[64];
         std::snprintf(text, sizeof(text), "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
                       d.y >= 0.0f ? "up" : "down");
@@ -382,7 +387,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("Not supported in THUG2");
     ImGui::Separator();
-    bool named = std::any_of(g_name, g_name + std::strlen(g_name), [](char c) { return c != ' '; });
+    const bool named = std::any_of(g_name, g_name + std::strlen(g_name), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);
     if (ImGui::Button("Create Gap"))
         g_queue.emplace_back([] {

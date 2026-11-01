@@ -93,8 +93,8 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
     const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer, 0x800);
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
         const TriMeshSource* geometry = geometry_;
-        uint32_t face = faces[i];
-        uint16_t flags =
+        const uint32_t face = faces[i];
+        const uint16_t flags =
             *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;

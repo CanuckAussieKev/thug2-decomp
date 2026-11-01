@@ -269,7 +269,7 @@ void set_random_mode(int mode)
 // 0x00451400
 void apply_track_volume()
 {
-    bool at_music_volume = other_lists_at_music_volume();
+    const bool at_music_volume = other_lists_at_music_volume();
     if (custom_soundtrack_active())
         set_platform_volume(current_music_volume());
     else if (current_playlist() == 1 && !at_music_volume)
@@ -283,7 +283,7 @@ bool is_track_playing(int list, int track)
         return false;
     if (track >= get_playlists()[list].count)
         return false;
-    uint32_t name = checksums::hash_from_text(reinterpret_cast<const char*>(get_playlists()[list].tracks[track]));
+    const uint32_t name = checksums::hash_from_text(reinterpret_cast<const char*>(get_playlists()[list].tracks[track]));
     return checksums::hash_from_text(static_cast<const char*>(special_track())) == name;
 }
 
@@ -300,7 +300,7 @@ const char* track_label_at(int track, int list)
     }
     const char* name = reinterpret_cast<const char*>(get_playlists()[list].tracks[track]);
     const char* file = name;
-    int length = static_cast<int>(std::strlen(name));
+    const int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i)
         if (name[i] == '\\' || name[i] == '/')
             file = name + i + 1;
@@ -349,7 +349,7 @@ void change_track_state(int track, bool off, int list)
         stop_music();
     // Original quirk: every track is tested against both masks (1 << (i - 64) is 0 for i < 64), so any track at
     // all counts as one that's on - only an empty playlist is marked.
-    uint64_t low = playlist.off[0];
+    const uint64_t low = playlist.off[0];
     for (int i = 0; i < playlist.count; ++i) {
         if ((get_bit(i) & low) == 0 || (get_bit(i - 64) & playlist.off[1]) == 0) {
             playlist.unknownca8_ = 0;
@@ -367,16 +367,16 @@ void play_track(const char* name, bool loop)
     char* playing = static_cast<char*>(special_track());
     THUG2_MSVC_WARNING(suppress : 4996) // (40 bytes, as in the original)
     std::strcpy(playing, name);
-    int list = current_playlist();
-    bool at_music_volume = other_lists_at_music_volume();
-    float volume = list != 0 && !at_music_volume ? sfx_volume() : current_music_volume();
+    const int list = current_playlist();
+    const bool at_music_volume = other_lists_at_music_volume();
+    const float volume = list != 0 && !at_music_volume ? sfx_volume() : current_music_volume();
     get_looping() = loop;
     if (play_track_by_name(playing, volume) || game_config::g_from_cd) // (the debug checks)
         return;
     // It doesn't play: switch it off.
     Playlist& playlist = get_playlists()[list];
     for (int i = 0; i < playlist.count; ++i) {
-        uint32_t crc = checksums::hash_from_text(reinterpret_cast<const char*>(playlist.tracks[i]));
+        const uint32_t crc = checksums::hash_from_text(reinterpret_cast<const char*>(playlist.tracks[i]));
         if (checksums::hash_from_text(name) == crc) {
             change_track_state(i, true, list);
             return;
@@ -389,7 +389,7 @@ void play_track(const char* name, bool loop)
 // Rnd(0) is 0, so that's kept for an empty order.)
 int shuffle_random(int n)
 {
-    int game = maths::rnd(n);
+    const int game = maths::rnd(n);
     if (n == 0)
         return game;
     // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
@@ -407,7 +407,7 @@ void play_next_track()
     g_bgm_stream_kind = 0;
     apply_track_volume(); // the music volume
     if (current_playlist() == 1) {
-        int track = script::fetch_int_value(0xF18AB1F9u);
+        const int track = script::fetch_int_value(0xF18AB1F9u);
         if (track < get_playlists()[1].count)
             play_track(reinterpret_cast<const char*>(get_playlists()[1].tracks[track]), false);
         return;
@@ -423,7 +423,7 @@ void play_next_track()
     if (reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
         // here, as our globals aren't laid out as the original's)
-        int last = order_count() > 0 ? get_order()[order_count() - 1] : render::g_movie_dump_count;
+        const int last = order_count() > 0 ? get_order()[order_count() - 1] : render::g_movie_dump_count;
         order_count() = 0;
         int count = 0;
         for (int track = 0; track < list.count; ++track)
@@ -435,18 +435,18 @@ void play_next_track()
         // 2000 swaps of two random places. PartyMod draws them with shuffle_random; the original with
         // maths::Rnd(order_count()).
         for (int i = 0; i < 2000; ++i) {
-            int a = shuffle_random(order_count());
-            int b = shuffle_random(order_count());
+            const int a = shuffle_random(order_count());
+            const int b = shuffle_random(order_count());
             if (a != b) {
-                int swap = get_order()[a];
+                const int swap = get_order()[a];
                 get_order()[a] = get_order()[b];
                 get_order()[b] = swap;
             }
         }
         // Not the last one again first: swap it with another place (this draw is the game's, under PartyMod too).
         if (get_order()[0] == last) {
-            int other = order_count() > 1 ? maths::rnd(order_count() - 1) + 1 : 0;
-            int swap = get_order()[0];
+            const int other = order_count() > 1 ? maths::rnd(order_count() - 1) + 1 : 0;
+            const int swap = get_order()[0];
             get_order()[0] = get_order()[other];
             get_order()[other] = swap;
         }
@@ -464,7 +464,7 @@ void play_next_track()
         return;
     // The track at that position, unless it's off or already played (then nothing). (The original repeats
     // this same test list.count times.)
-    int track = get_order()[position];
+    const int track = get_order()[position];
     if ((get_bit(track) & list.off[0]) == 0 && track < 64 && (get_bit(track) & list.played[0]) == 0) {
         list.played[0] |= get_bit(track);
         start_track(list, track);
@@ -513,7 +513,7 @@ void tick_frame()
         return;
     if (!g_music_header_loaded && !g_streams_on)
         return;
-    int streams = update_streams(); // the stream system's update
+    const int streams = update_streams(); // the stream system's update
     if (streams != 0) {
         if (streams_on())
             halt_streams();
@@ -540,7 +540,7 @@ void tick_frame()
     }
     if (frame_count() & 0x3F)
         return;
-    int playlist = current_playlist();
+    const int playlist = current_playlist();
     if (g_music_volume == 0.0f && playlist != 1) // (the music volume)
         return;
     if (music_is_paused())
@@ -592,19 +592,19 @@ void shuffle_user_soundtrack()
         return;
     if (count > kUserOrderSize)
         count = kUserOrderSize;
-    int last = user_order()[count - 1]; // (the last of the order before - not the track played last)
+    const int last = user_order()[count - 1]; // (the last of the order before - not the track played last)
     for (int i = 0; i < count; ++i)
         user_order()[i] = i;
     for (int i = 0; i < 2000; ++i) {
-        int a = maths::rnd(count);
-        int b = maths::rnd(count);
-        int swap = user_order()[a];
+        const int a = maths::rnd(count);
+        const int b = maths::rnd(count);
+        const int swap = user_order()[a];
         user_order()[a] = user_order()[b];
         user_order()[b] = swap;
     }
     if (user_order()[0] == last) {
-        int other = count > 1 ? maths::rnd(count - 1) + 1 : 0;
-        int swap = user_order()[0];
+        const int other = count > 1 ? maths::rnd(count - 1) + 1 : 0;
+        const int swap = user_order()[0];
         user_order()[0] = user_order()[other];
         user_order()[other] = swap;
     }
@@ -654,7 +654,7 @@ const char* get_soundtrack_name(int index)
     } else {
         std::memcpy(name, "~", 2);
     }
-    int length = static_cast<int>(std::strlen(name));
+    const int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i) {
         auto c = static_cast<signed char>(name[i]);
         if (c >= static_cast<signed char>(0xA1) && c <= static_cast<signed char>(0xAC))

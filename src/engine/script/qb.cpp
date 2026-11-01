@@ -49,7 +49,7 @@ ScriptChecksumName*& script_label_table() { return g_script_labels; }
 
 char* copy_string(const char* string)
 {
-    size_t size = std::strlen(string) + 1;
+    const size_t size = std::strlen(string) + 1;
     auto* copy = static_cast<char*>(memory::alloc_block(static_cast<unsigned int>(size)));
     std::memcpy(copy, string, size);
     return copy;
@@ -202,7 +202,7 @@ const uint8_t* skip_to_end_of_statement(const uint8_t* token)
 {
     int braces = 0, brackets = 0, parentheses = 0;
     for (;;) {
-        uint8_t t = *token;
+        const uint8_t t = *token;
         if (t == 0x03)
             ++braces;
         if (t == 0x04)
@@ -254,7 +254,7 @@ void prepare_script_tokens(uint8_t* token)
             // A statement starting with a name: a call?
             uint8_t* name = token;
             token += 5;
-            if (SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
+            if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type == kQbvalNativeFunc) {
                     name[0] = 0x43;
                     store_word32(name + 1, symbol->raw);
@@ -283,7 +283,7 @@ const char* find_script_checksum_name(uint32_t checksum)
 {
     if (!script_label_table())
         return nullptr;
-    for (ScriptChecksumName* entry = &script_label_table()[checksum & 0xFFF]; entry; entry = entry->next) {
+    for (const ScriptChecksumName* entry = &script_label_table()[checksum & 0xFFF]; entry; entry = entry->next) {
         if (entry->checksum == checksum)
             return entry->name;
     }
@@ -296,7 +296,7 @@ void free_script_checksum_names()
     if (!script_label_table())
         return;
     for (uint32_t i = 0; i < 0x1000; ++i) {
-        ScriptChecksumName& bucket = script_label_table()[i];
+        const ScriptChecksumName& bucket = script_label_table()[i];
         for (ScriptChecksumName* entry = bucket.next; entry;) {
             ScriptChecksumName* next = entry->next;
             memory::free_malloc(entry->name);
@@ -365,17 +365,17 @@ void forget_stored_randoms_of(uint32_t owner)
 // 0x0046F8A0
 void StoredRandom::shuffle(bool avoid_repeat)
 {
-    uint8_t last = order_[num_ - 1];
+    const uint8_t last = order_[num_ - 1];
     for (int swaps = num_ * 10; swaps; --swaps) {
-        int a = maths::rnd(num_);
-        int b = maths::rnd(num_);
-        uint8_t swapped = order_[a];
+        const int a = maths::rnd(num_);
+        const int b = maths::rnd(num_);
+        const uint8_t swapped = order_[a];
         order_[a] = order_[b];
         order_[b] = swapped;
     }
     if (avoid_repeat && order_[0] == last) {
-        int other = maths::rnd(num_ - 1) + 1;
-        uint8_t swapped = order_[0];
+        const int other = maths::rnd(num_ - 1) + 1;
+        const uint8_t swapped = order_[0];
         order_[0] = order_[other];
         order_[other] = swapped;
     }
@@ -461,7 +461,7 @@ void log_script_pool_use(const char* when)
     std::string line;
     for (const Named& p : pools) {
         int used = 0, peak = 0, count = 0;
-        for (memory::SlabBank* pool : p.pair->pools) {
+        for (const memory::SlabBank* pool : p.pair->pools) {
             if (!pool)
                 continue;
             used += pool->taken_count_;
@@ -474,7 +474,7 @@ void log_script_pool_use(const char* when)
         line += part;
     }
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
-    if (memory::SlabBank* items = memory::slot_pool_setup::get_pool(0)) {
+    if (const memory::SlabBank* items = memory::slot_pool_setup::get_pool(0)) {
         char part[96];
         std::snprintf(part, sizeof(part), ", HashItem %d (peak %d) of %d", items->taken_count_, items->peak_used_,
                       items->num_);
@@ -524,7 +524,7 @@ void set_script_flag_6f_2564() { g_evaluator.unknown1f4_ = true; }
 // 0x00470010
 void allocate_script_checksum_names(bool debug_heap)
 {
-    memory::Hub* manager = memory::Hub::get_pull();
+    const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(debug_heap ? manager->debug_heap_ : manager->script_heap_);
     auto* names = static_cast<uint32_t*>(memory::alloc_block(0x1000 * 12));
     reinterpret_cast<uint32_t*&>(g_script_labels) = names;
@@ -588,7 +588,7 @@ void replace_symbol_later(SymbolTableEntry* symbol) { add_pending_symbol(symbol,
 void process_pending_symbols()
 {
     for (int i = 0; i < pending_symbol_count(); ++i) {
-        PendingSymbol& pending = pending_symbols()[i];
+        const PendingSymbol& pending = pending_symbols()[i];
         if (pending.owned) {
             clean_up_and_remove_symbol(pending.symbol);
         } else {

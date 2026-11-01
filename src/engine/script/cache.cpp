@@ -142,7 +142,7 @@ void ScriptStore::make_room(int size, uint32_t /*name*/)
 // 0x00475E80
 uint8_t* ScriptStore::fetch_script(uint32_t name)
 {
-    SymbolTableEntry* symbol = resolve_symbol(name);
+    const SymbolTableEntry* symbol = resolve_symbol(name);
     if (symbol) {
         if (symbol->type != kQbvalScriptBody)
             return nullptr;
@@ -157,8 +157,8 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
         return nullptr;
 
     const auto* stored = reinterpret_cast<const StoredScript*>(symbol->raw);
-    uint32_t size = stored->size;
-    uint32_t stored_size = stored->stored_size_;
+    const uint32_t size = stored->size;
+    const uint32_t stored_size = stored->stored_size_;
     make_room(static_cast<int>(size), name);
     auto* entry = new ScriptCacheEntry{};
     memory::Hub* manager = memory::Hub::get_pull();
@@ -199,7 +199,7 @@ void ScriptStore::mark_stale(uint32_t name)
     auto* entry = static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name));
     if (!entry)
         return;
-    int usage = entry->usage;
+    const int usage = entry->usage;
     delete_entry(entry);
     fetch_script(name);
     static_cast<ScriptCacheEntry*>(entries_->fetch_entry(name, true))->usage = usage;

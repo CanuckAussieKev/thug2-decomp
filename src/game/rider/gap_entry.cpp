@@ -219,7 +219,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         *cancel |= bit;
         *require |= bit << kRequireShift;
     };
-    objects::RiderPoseState* state = state_of(physics_control_);
+    const objects::RiderPoseState* state = state_of(physics_control_);
     if (state->in_vehicle_) {
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
@@ -257,7 +257,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
     objects::RiderPoseState* core_state = get_core_state(core_physics_);
     switch (core_state->cur_phase_) {
     case 0: { // the ground: plain (+0x90 and the balance trick's two clear) or a manual
-        bool balancing = balance_trick_->trick_ != 0 || balance_trick_->started_;
+        const bool balancing = balance_trick_->trick_ != 0 || balance_trick_->started_;
         if (!core_state->flag(PoseFlag::kCancelGround).on && !balancing)
             set(kGapGround);
         if (balancing)
@@ -291,7 +291,7 @@ void RiderGapTracker::scan_for_gaps(uint32_t cancel, uint32_t require)
         TrickListEntry* next = get_next(gap);
         gap_option_labels(gap) &= ~require;
         if (gap_option_labels(gap) & cancel) {
-            if (uint32_t script = gap_trick_script(gap)) {
+            if (const uint32_t script = gap_trick_script(gap)) {
                 for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
                     if (!trick_done(trick) && trick_gap_id(trick) == get_gap_id(gap) &&
                         get_trick_script(trick) == script && trick_node(trick) == gap_node(gap)) {
@@ -346,7 +346,7 @@ void RiderGapTracker::check_gap_tricks(script::Struct* /*params*/)
 // 0x005121A0
 void RiderGapTracker::clear_gap_tricks(script::Struct* params)
 {
-    bool not_this_frame = params->has_bare_flag(kNotInSameFrame);
+    const bool not_this_frame = params->has_bare_flag(kNotInSameFrame);
     for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
         TrickNameEntry* next = get_next(trick);
         if (!not_this_frame || trick_frame(trick) != tick_)
@@ -436,7 +436,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
         gap_option_labels(gap) |= kGapDriving;
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
-    bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
+    const bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
     if (!driving_matters && park_editing::g_park_editor->cur_phase_ == kOff)
         return;
     uint32_t cancel = 0, require = 0;
@@ -527,14 +527,14 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         }
         uint32_t gap_script = 0;
         if (params->read_hash_value(kGapScript, &gap_script, 0)) {
-            bool permanent = params->has_bare_flag(kPermanent);
-            bool replicate_flag = params->has_bare_flag(kOnlineFlag);
+            const bool permanent = params->has_bare_flag(kPermanent);
+            const bool replicate_flag = params->has_bare_flag(kOnlineFlag);
             entity_->start_script_task(gap_script, script->list_link_, replicate_flag, permanent, nullptr);
         }
         script::Struct* continuation = nullptr;
         if (params->read_sub_struct(kContinue, &continuation, 0))
             start_gap(continuation, script);
-        uint32_t success = checksums::fold_text_into_checksum(gap_id, "_Success");
+        const uint32_t success = checksums::fold_text_into_checksum(gap_id, "_Success");
         get_tracker()->launch_event(success, 0xFFFFFFFF, entity_->ident_, params, true, -1.0f);
         // The gap deleted if it's still in the list; then the walk begins again.
         for (auto* other = get_first<TrickListEntry>(gaps_); other; other = get_next(other)) {
@@ -552,10 +552,10 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
 {
     switch (name) {
     case kDuplicateTrigger: {
-        int node = script->list_link_;
+        const int node = script->list_link_;
         if (!node)
             return 1;
-        int links = static_cast<int>(level_nodes::get_link_count(static_cast<uint32_t>(node)));
+        const int links = static_cast<int>(level_nodes::get_link_count(static_cast<uint32_t>(node)));
         for (int i = 0; i < links; ++i) {
             script::Struct* linked = level_nodes::fetch_neighbour_node(static_cast<uint32_t>(node), i);
             uint32_t trigger_script = 0;

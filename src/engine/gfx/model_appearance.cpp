@@ -148,7 +148,7 @@ void ModelLook::resolve_random_parts()
         next = structure_.step_to_entry(component);
         if (component->kind_tag() != script::kQbvalStruct)
             continue;
-        uint32_t part = component->name;
+        const uint32_t part = component->name;
         script::Struct* option = nullptr;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (component->structure->has_bare_flag(kRandomizedDescId)) {
@@ -173,7 +173,7 @@ void ModelLook::resolve_random_parts()
 // 0x00488FD0
 void remove_tattoos(script::Struct* appearance)
 {
-    for (uint32_t tattoo : kTattoos)
+    for (const uint32_t tattoo : kTattoos)
         appearance->erase_module(tattoo);
 }
 

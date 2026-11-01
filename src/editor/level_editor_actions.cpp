@@ -121,10 +121,10 @@ std::string get_lower(std::string text)
 
 std::string get_trim(const std::string& text)
 {
-    size_t a = text.find_first_not_of(" \t");
+    const size_t a = text.find_first_not_of(" \t");
     if (a == std::string::npos)
         return "";
-    size_t b = text.find_last_not_of(" \t");
+    const size_t b = text.find_last_not_of(" \t");
     return text.substr(a, b - a + 1);
 }
 
@@ -185,14 +185,14 @@ bool parse_chord(const std::string& text, Chord* chord)
     Chord c;
     // Modifiers: words before a '+' (the key itself may be "+"-less punctuation; "Keypad+" ends in one).
     for (;;) {
-        size_t plus = rest.find('+');
+        const size_t plus = rest.find('+');
         if (plus == std::string::npos || plus == 0 || plus + 1 >= rest.size())
             break;
-        std::string word = get_lower(get_trim(rest.substr(0, plus)));
-        uint8_t bit = word == "ctrl" || word == "control" ? kCtrl
-                      : word == "shift"                   ? kShift
-                      : word == "alt" || word == "option" ? kAlt
-                                                          : 0;
+        const std::string word = get_lower(get_trim(rest.substr(0, plus)));
+        const uint8_t bit = word == "ctrl" || word == "control" ? kCtrl
+                            : word == "shift"                   ? kShift
+                            : word == "alt" || word == "option" ? kAlt
+                                                                : 0;
         if (!bit)
             break;
         c.mods |= bit;
@@ -209,7 +209,7 @@ std::string format_keys(const std::vector<Chord>& keys)
 {
     std::string text;
     for (const Chord& c : keys) {
-        std::string one = format_chord(c);
+        const std::string one = format_chord(c);
         if (one.empty())
             continue;
         if (!text.empty())
@@ -233,7 +233,7 @@ bool parse_keys(const std::string& text, std::vector<Chord>* keys)
         // ("Ctrl+," would be a chord ending in a comma: a comma right after '+' belongs to the chord)
         while (comma != std::string::npos && comma > 0 && all[comma - 1] == '+')
             comma = all.find(',', comma + 1);
-        std::string part = all.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        const std::string part = all.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         Chord c;
         if (!parse_chord(part, &c))
             return false;
@@ -259,7 +259,7 @@ bool chord_matches(Chord chord, int scancode, uint8_t held)
 int get_specificity(Chord chord)
 {
     int n = 0;
-    for (uint8_t bit : {kCtrl, kShift, kAlt})
+    for (const uint8_t bit : {kCtrl, kShift, kAlt})
         n += (chord.mods & bit) ? 1 : 0;
     return n;
 }
@@ -300,7 +300,7 @@ bool same_binding(Chord a, Chord b) { return a.scancode && a == b; }
 int fuzzy_score(const std::string& query, const std::string& text)
 {
     std::string q;
-    for (char c : query) {
+    for (const char c : query) {
         if (c != ' ')
             q += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
@@ -315,7 +315,7 @@ int fuzzy_score(const std::string& query, const std::string& text)
             run = 0;
             continue;
         }
-        bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(t[ti - 1]));
+        const bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(t[ti - 1]));
         score += 1 + (word_start ? 8 : 0) + run * 4 + (ti == 0 ? 6 : 0);
         ++run;
         ++qi;
@@ -476,20 +476,21 @@ std::vector<ActStep> builtins()
                  "Fit the selection in the view"),
     };
     for (int i = 1; i <= 9; ++i) {
-        std::string n = std::to_string(i);
-        ActStep a = get_make(("bookmark_" + n).c_str(), ("Go to Bookmark " + n).c_str(), "Camera", Kind::kPress,
-                             {get_k(SDL_SCANCODE_1 + i - 1)}, "Move the camera to bookmark n");
+        const std::string n = std::to_string(i);
+        const ActStep a = get_make(("bookmark_" + n).c_str(), ("Go to Bookmark " + n).c_str(), "Camera", Kind::kPress,
+                                   {get_k(SDL_SCANCODE_1 + i - 1)}, "Move the camera to bookmark n");
         b.push_back(a);
     }
     for (int i = 1; i <= 9; ++i) {
-        std::string n = std::to_string(i);
-        ActStep a = get_make(("bookmark_store_" + n).c_str(), ("Set Bookmark " + n).c_str(), "Camera", Kind::kPress,
-                             {get_k(SDL_SCANCODE_1 + i - 1, kCtrl)}, "Store the camera as bookmark n");
+        const std::string n = std::to_string(i);
+        const ActStep a =
+            get_make(("bookmark_store_" + n).c_str(), ("Set Bookmark " + n).c_str(), "Camera", Kind::kPress,
+                     {get_k(SDL_SCANCODE_1 + i - 1, kCtrl)}, "Store the camera as bookmark n");
         b.push_back(a);
     }
     for (ActStep& a : b) {
         // (the bookmarks' tips name their own number)
-        size_t at = a.tip.find("bookmark n");
+        const size_t at = a.tip.find("bookmark n");
         if (at != std::string::npos)
             a.tip.replace(at + 9, 1, a.id.substr(a.id.size() - 1));
     }
@@ -635,7 +636,7 @@ bool is_modifier(int scancode)
 
 void save_keys(const ActStep& a)
 {
-    bool as_default = a.keys == a.defaults;
+    const bool as_default = a.keys == a.defaults;
     WritePrivateProfileStringA("editor_keys", a.id.c_str(), as_default ? nullptr : format_keys(a.keys).c_str(),
                                ini_path().c_str());
 }
@@ -663,9 +664,9 @@ int get_find(const std::string& id)
 int enrol(const ActStep& action)
 {
     std::vector<ActStep>& r = get_registry();
-    int at = get_find(action.id);
+    const int at = get_find(action.id);
     if (at >= 0) {
-        std::vector<Chord> keys = r[at].keys;
+        const std::vector<Chord> keys = r[at].keys;
         r[at] = action;
         r[at].keys = keys;
         return at;
@@ -717,7 +718,7 @@ std::string get_keys_text(int index)
         return a->keys_text_;
     std::string text;
     for (const Chord& c : a->keys) {
-        std::string one = format_chord(c);
+        const std::string one = format_chord(c);
         if (one.empty())
             continue;
         if (!text.empty())
@@ -762,20 +763,20 @@ void begin_frame(const uint8_t* keys)
             g_triggered[i] = false;
         }
     }
-    uint8_t held = held_mods(keys);
+    const uint8_t held = held_mods(keys);
     std::vector<std::vector<Chord>> bound(r.size());
     bool have_bound = false;
     for (int s = 0; s < SDL_NUM_SCANCODES; ++s) {
-        bool pressed = keys[s] && !g_was[s];
+        const bool pressed = keys[s] && !g_was[s];
         g_was[s] = keys[s];
         if (!pressed || is_modifier(s))
             continue;
         if (g_capture >= 0) {
             // (the key being captured: Escape cancels)
             if (s != SDL_SCANCODE_ESCAPE) {
-                if (ActStep* a = get_pull(g_capture)) {
+                if (const ActStep* a = get_pull(g_capture)) {
                     std::vector<Chord> next = a->keys;
-                    Chord chord = {s, held};
+                    const Chord chord = {s, held};
                     if (!*get_key_name(s)) {
                         get_log("level editor: key %d can't be bound (not one the keymap names)", s);
                     } else {
@@ -797,7 +798,7 @@ void begin_frame(const uint8_t* keys)
             }
             have_bound = true;
         }
-        for (int i : settle_up(bound, s, held))
+        for (const int i : settle_up(bound, s, held))
             g_fired[i] = true;
     }
 }
@@ -815,7 +816,7 @@ bool get_held(const uint8_t* keys, int index)
     const ActStep* a = get_pull(index);
     if (!a || g_capture >= 0)
         return false;
-    uint8_t held = held_mods(keys);
+    const uint8_t held = held_mods(keys);
     for (const Chord& c : a->keys) {
         if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && hold_matches(c, keys[c.scancode] != 0, held))
             return true;
@@ -825,7 +826,7 @@ bool get_held(const uint8_t* keys, int index)
 
 void fire_off(int index)
 {
-    std::vector<ActStep>& r = get_registry();
+    const std::vector<ActStep>& r = get_registry();
     if (index < 0 || index >= static_cast<int>(r.size()))
         return;
     g_triggered.resize(r.size(), false);
@@ -834,7 +835,7 @@ void fire_off(int index)
 
 void get_run(int index)
 {
-    ActStep* a = get_pull(index);
+    const ActStep* a = get_pull(index);
     if (!a || !is_switched_on(index))
         return;
     if (a->run)
@@ -865,7 +866,7 @@ void reset_keys(int index)
 void load_keys()
 {
     std::vector<ActStep>& r = get_registry();
-    std::string path = ini_path();
+    const std::string path = ini_path();
     for (ActStep& a : r) {
         if (!a.rebindable)
             continue;

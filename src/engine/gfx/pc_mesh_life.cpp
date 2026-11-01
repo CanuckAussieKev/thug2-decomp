@@ -109,7 +109,7 @@ long MeshRef::apply_vertex_colors()
     uint8_t* out = data + unknown1c_[0];
     const uint32_t* colors = reinterpret_cast<MaterialRef*>(material)->anim_colors_;
     for (uint32_t i = 0; i < vertex_count_; ++i) {
-        int index = static_cast<int8_t>(per_vertex_bytes_[i]);
+        const int index = static_cast<int8_t>(per_vertex_bytes_[i]);
         if (index)
             *reinterpret_cast<uint32_t*>(out) = colors[index - 1];
         out += stride;
@@ -142,15 +142,15 @@ void MeshRef::clean_strip()
     uint32_t a = strip[0], b = strip[1];
     uint32_t run = 0; // degenerate triangles in a row
     for (uint32_t i = 2; i < index_counts_[0]; ++i) {
-        uint32_t c = strip[i];
+        const uint32_t c = strip[i];
         if (a == b || a == c || b == c) {
             ++run;
         } else {
             if (run > 5) { // (a long run of degenerates: cut to the four or five a strip join needs)
-                uint32_t start = i - run;
+                const uint32_t start = i - run;
                 uint16_t* from = &strip[i - 3];
                 *from = strip[i - 2];
-                uint16_t last = strip[start - 1];
+                const uint16_t last = strip[start - 1];
                 strip[start] = last;
                 uint32_t kept = 0;
                 if (!(run & 1)) {
@@ -201,7 +201,7 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
 // 0x004D6720
 uint32_t VertexBuffer::teardown()
 {
-    uint32_t references = static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
+    const uint32_t references = static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
     buffer = nullptr;
     unlist();
     if (data)
@@ -214,7 +214,7 @@ uint32_t VertexBuffer::teardown()
 // 0x004D6790
 uint32_t IdxStore::teardown()
 {
-    uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer)->Release();
+    const uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer)->Release();
     buffer = nullptr;
     unlist();
     if (indices)
@@ -229,7 +229,7 @@ void release_buffers()
 {
     input_port()->SetStreamSource(0, nullptr, 0, 0);
     input_port()->SetIndices(nullptr);
-    for (BufferNode* node = vertex_buffer_list(); node; node = node->next) {
+    for (const BufferNode* node = vertex_buffer_list(); node; node = node->next) {
         auto* vb = static_cast<VertexBuffer*>(node->buffer);
         if (!vb)
             continue;
@@ -247,7 +247,7 @@ void release_buffers()
                 arena->Release();
         node = next;
     }
-    for (BufferNode* node = index_buffer_list(); node; node = node->next) {
+    for (const BufferNode* node = index_buffer_list(); node; node = node->next) {
         auto* ib = static_cast<IdxStore*>(node->buffer);
         if (!ib)
             continue;
@@ -264,10 +264,10 @@ void recreate_buffers()
         memory::ListNode* next = next_scene_node(node);
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
-            IDirect3DVertexBuffer9* old = arena_buffer(meshes);
+            const IDirect3DVertexBuffer9* old = arena_buffer(meshes);
             input_port()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                              &arena_buffer(meshes), nullptr);
-            for (BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
+            for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
                 if (vb && vb->buffer == old)
                     vb->buffer = arena_buffer(meshes); // (the shares moved to the new arena buffer)
@@ -275,10 +275,10 @@ void recreate_buffers()
         }
         node = next;
     }
-    for (BufferNode* node = vertex_buffer_list(); node; node = node->next)
+    for (const BufferNode* node = vertex_buffer_list(); node; node = node->next)
         if (node->buffer)
             static_cast<VertexBuffer*>(node->buffer)->recreate();
-    for (BufferNode* node = index_buffer_list(); node; node = node->next) {
+    for (const BufferNode* node = index_buffer_list(); node; node = node->next) {
         auto* ib = static_cast<IdxStore*>(node->buffer);
         if (!ib)
             continue;

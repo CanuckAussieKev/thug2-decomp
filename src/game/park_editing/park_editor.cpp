@@ -203,7 +203,7 @@ void ParkBuilderMode::transfer_park_file(bool save, int slot, bool defer_regen)
         manager->transfer_park_file(true, slot);
         return;
     }
-    int shell_size = hub()->get_shell_size();
+    const int shell_size = hub()->get_shell_size();
     if (cur_phase_ != kStateOff && !defer_regen && have_cursor())
         get_cursor()->destroy_cursor_meta();
     if (have_cursor())
@@ -221,7 +221,7 @@ void ParkBuilderMode::transfer_park_file(bool save, int slot, bool defer_regen)
 // 0x0058D4E0
 void ParkBuilderMode::apply_map(const CompressedMap* map, int shell_size)
 {
-    bool editing = cur_phase_ == kStateEdit || cur_phase_ == kStateTestPlay;
+    const bool editing = cur_phase_ == kStateEdit || cur_phase_ == kStateTestPlay;
     if (editing && have_cursor())
         get_cursor()->destroy_cursor_meta();
     ParkLayout* manager = hub();
@@ -301,9 +301,9 @@ void ParkBuilderMode::refresh_piece_menu()
 {
     if (!have_cursor())
         return;
-    BuildPointer* cursor = get_cursor();
-    int menu_index = cursor->menu_index_;
-    int set = cursor->paste_set_index_;
+    const BuildPointer* cursor = get_cursor();
+    const int menu_index = cursor->menu_index_;
+    const int set = cursor->paste_set_index_;
     PieceFamily* pieces = hub()->get_piece_family(set, nullptr);
     TopBarMenus::singleton()->select_piece_family(pieces, set, menu_index);
     get_cursor()->on_mode_changed();
@@ -337,11 +337,11 @@ void ParkBuilderMode::Listener::receive(objects::Signal* event)
 bool ParkBuilderMode::is_inside_park(maths::Vec4 pos, float margin)
 {
     maths::Vec4 size;
-    ParkLayout* manager = hub();
-    CellBox bounds = manager->build_area_;
-    maths::Vec4 corner = hub()->cell_to_world_pos(bounds, &size);
-    double x = pos.x;
-    double z = pos.z;
+    const ParkLayout* manager = hub();
+    const CellBox bounds = manager->build_area_;
+    const maths::Vec4 corner = hub()->cell_to_world_pos(bounds, &size);
+    const double x = pos.x;
+    const double z = pos.z;
     return static_cast<double>(corner.x) + margin < x && x < static_cast<double>(size.x) + corner.x - margin &&
            static_cast<double>(corner.z) + margin < z && z < static_cast<double>(size.z) + corner.z - margin;
 }
@@ -451,34 +451,34 @@ void ParkBuilderMode::tick_frame()
 
     if (get_cursor()->mode_sel_ != BuildPointer::kModeAreaSelect)
         get_cursor()->glow_overlapping_pieces(0);
-    uint32_t now = frame_clock::get_time();
-    int elapsed = static_cast<int>(now - static_cast<uint32_t>(last_time_));
+    const uint32_t now = frame_clock::get_time();
+    const int elapsed = static_cast<int>(now - static_cast<uint32_t>(last_time_));
     last_time_ = static_cast<int>(now);
-    double seconds = static_cast<double>(elapsed) * kMillisecond;
+    const double seconds = static_cast<double>(elapsed) * kMillisecond;
 
     // The left stick moves the cursor (turned by the camera's angle).
-    double move_y = dead_zone(pad_ly_);
+    const double move_y = dead_zone(pad_ly_);
     pad_ly_ = static_cast<float>(move_y);
-    double move_x = dead_zone(pad_lx_);
+    const double move_x = dead_zone(pad_lx_);
     pad_lx_ = static_cast<float>(move_x);
-    double b = move_x * move_speed_ * seconds;
-    double a = move_y * move_speed_ * seconds;
+    const double b = move_x * move_speed_ * seconds;
+    const double a = move_y * move_speed_ * seconds;
     float offset_cell_x = 0.0f;
     float offset_cell_z = 0.0f;
     turn_move(static_cast<double>(camera_angle_) * kAngleScaleToRad, a, b, &offset_cell_x, &offset_cell_z);
 
     // The right stick turns (0-360) and tilts (10-90) the camera.
-    double turn_y = dead_zone(pad_ry_);
+    const double turn_y = dead_zone(pad_ry_);
     pad_ry_ = static_cast<float>(turn_y);
-    double turn_x = dead_zone(pad_rx_);
+    const double turn_x = dead_zone(pad_rx_);
     pad_rx_ = static_cast<float>(turn_x);
-    double angle = turn_x * turn_speed_ * seconds + camera_angle_;
+    const double angle = turn_x * turn_speed_ * seconds + camera_angle_;
     camera_angle_ = static_cast<float>(angle);
     if (angle < 0.0)
         camera_angle_ = static_cast<float>(angle + kFullTurn);
     else if (angle >= kFullTurn)
         camera_angle_ = static_cast<float>(angle - kFullTurn);
-    double tilt = camera_tilt_ - seconds * (turn_y * turn_speed_);
+    const double tilt = camera_tilt_ - seconds * (turn_y * turn_speed_);
     camera_tilt_ = static_cast<float>(tilt);
     if (tilt < kMinTilt)
         camera_tilt_ = kMinTilt;
@@ -565,13 +565,13 @@ void ParkBuilderMode::tick_frame()
 
     // Zooming (not with a gap).
     if ((actions_ & kCommandZoomOut) && !is_gap_tool(get_cursor())) {
-        double distance = static_cast<double>(orbit_radius_) + kZoomStep;
+        const double distance = static_cast<double>(orbit_radius_) + kZoomStep;
         orbit_radius_ = static_cast<float>(distance);
         if (distance > kMaxDistance)
             orbit_radius_ = kMaxDistance;
     }
     if ((actions_ & kCommandZoomIn) && !is_gap_tool(get_cursor())) {
-        double distance = static_cast<double>(orbit_radius_) - kZoomStep;
+        const double distance = static_cast<double>(orbit_radius_) - kZoomStep;
         orbit_radius_ = static_cast<float>(distance);
         if (distance < kMinDistance)
             orbit_radius_ = kMinDistance;

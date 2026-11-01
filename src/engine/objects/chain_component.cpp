@@ -298,7 +298,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
     if (name == kSetCollision) {
         uint32_t id = 0;
         params->read_hash_value(kChainId, &id, 1);
-        for (Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
+        for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
             Chain* chain = node->chain;
             if (chain->ident_ != id)
                 continue;
@@ -316,7 +316,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         params->read_hash_value(kChainId, &id, 1);
         maths::Vec4 pos{};
         params->fetch_vec(kLinkPos, reinterpret_cast<script::VectorValue*>(&pos), 1);
-        for (Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
+        for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
             Chain* chain = node->chain;
             if (chain->ident_ != id)
                 continue;
@@ -358,30 +358,31 @@ void ChainComponent::tick_frame()
     joint_world_point(bone_rig_, axis_from_bone_, &axis_from);
     joint_world_point(bone_rig_, axis_to_bone_, &axis_to);
     // The plane's axis (y rounded before it's squared; w the rounded difference).
-    double ax = static_cast<double>(axis_to.x) - axis_from.x;
-    float ay = get_rounded(static_cast<double>(axis_to.y) - axis_from.y);
-    double az = static_cast<double>(axis_to.z) - axis_from.z;
-    float aw = get_rounded(static_cast<double>(axis_to.w) - axis_from.w);
+    const double ax = static_cast<double>(axis_to.x) - axis_from.x;
+    const float ay = get_rounded(static_cast<double>(axis_to.y) - axis_from.y);
+    const double az = static_cast<double>(axis_to.z) - axis_from.z;
+    const float aw = get_rounded(static_cast<double>(axis_to.w) - axis_from.w);
     float axis[3] = {get_rounded(ax), ay, get_rounded(az)};
-    double axis_length = std::sqrt((az * az + static_cast<double>(ay) * ay) + ax * ax);
+    const double axis_length = std::sqrt((az * az + static_cast<double>(ay) * ay) + ax * ax);
     if (axis_length > 0.0) {
-        double inverse = 1.0 / axis_length;
+        const double inverse = 1.0 / axis_length;
         axis[0] = get_rounded(ax * inverse);
         axis[1] = get_rounded(static_cast<double>(ay) * inverse);
         axis[2] = get_rounded(az * inverse);
     }
 
-    for (Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
+    for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
         Chain* chain = node->chain;
         // The steps.
         for (int i = chain->links_ - 1; i >= 0; --i) {
             ChainLink& link = chain->chain_link_[i];
             if (chain->move_with_object_) {
-                double vx = static_cast<double>(velocity.x) * frame;
-                double vy = static_cast<double>(velocity.y) * frame;
-                double vz = static_cast<double>(velocity.z) * frame;
-                float vxf = get_rounded(vx), vzf = get_rounded(vz);
-                float vwf = get_rounded(static_cast<double>(velocity.w) * frame);
+                const double vx = static_cast<double>(velocity.x) * frame;
+                const double vy = static_cast<double>(velocity.y) * frame;
+                const double vz = static_cast<double>(velocity.z) * frame;
+                const float vxf = get_rounded(vx);
+                const float vzf = get_rounded(vz);
+                const float vwf = get_rounded(static_cast<double>(velocity.w) * frame);
                 link.at_point_.x = get_rounded(static_cast<double>(vxf) + link.at_point_.x);
                 link.at_point_.y = get_rounded(vy + link.at_point_.y);
                 link.at_point_.z = get_rounded(vz + link.at_point_.z);
@@ -391,27 +392,27 @@ void ChainComponent::tick_frame()
                 link.last_pos_.z = get_rounded(static_cast<double>(vzf) + link.last_pos_.z);
                 link.last_pos_.w = get_rounded(static_cast<double>(vwf) + link.last_pos_.w);
             }
-            double dx = static_cast<double>(link.at_point_.x) - link.last_pos_.x;
-            double dy = static_cast<double>(link.at_point_.y) - link.last_pos_.y;
-            float dz = get_rounded(static_cast<double>(link.at_point_.z) - link.last_pos_.z);
-            float dw = get_rounded(static_cast<double>(link.at_point_.w) - link.last_pos_.w);
-            float inverse = get_rounded(1.0 / final_frame_);
+            const double dx = static_cast<double>(link.at_point_.x) - link.last_pos_.x;
+            const double dy = static_cast<double>(link.at_point_.y) - link.last_pos_.y;
+            const float dz = get_rounded(static_cast<double>(link.at_point_.z) - link.last_pos_.z);
+            const float dw = get_rounded(static_cast<double>(link.at_point_.w) - link.last_pos_.w);
+            const float inverse = get_rounded(1.0 / final_frame_);
             float vx = get_rounded(dx * inverse);
-            double vy = dy * inverse;
-            double vz = static_cast<double>(inverse) * dz;
-            float vw = get_rounded(static_cast<double>(inverse) * dw);
-            double damping = static_cast<double>(frame) * chain->damping_;
-            float damped_y = get_rounded(damping * vy);
-            float damped_z = get_rounded(damping * vz);
-            float damped_w = get_rounded(damping * vw);
+            const double vy = dy * inverse;
+            const double vz = static_cast<double>(inverse) * dz;
+            const float vw = get_rounded(static_cast<double>(inverse) * dw);
+            const double damping = static_cast<double>(frame) * chain->damping_;
+            const float damped_y = get_rounded(damping * vy);
+            const float damped_z = get_rounded(damping * vz);
+            const float damped_w = get_rounded(damping * vw);
             vx = get_rounded(static_cast<double>(vx) - static_cast<double>(vx) * damping);
-            float vyf = get_rounded(vy - damped_y);
-            double vzd = vz - damped_z;
-            double vwd = static_cast<double>(vw) - damped_w;
-            float step_x = get_rounded(static_cast<double>(vx) * frame);
-            float step_y = get_rounded(static_cast<double>(vyf) * frame);
-            float step_z = get_rounded(vzd * frame);
-            double step_w = vwd * frame;
+            const float vyf = get_rounded(vy - damped_y);
+            const double vzd = vz - damped_z;
+            const double vwd = static_cast<double>(vw) - damped_w;
+            const float step_x = get_rounded(static_cast<double>(vx) * frame);
+            const float step_y = get_rounded(static_cast<double>(vyf) * frame);
+            const float step_z = get_rounded(vzd * frame);
+            const double step_w = vwd * frame;
             link.next_pos_.x = get_rounded(static_cast<double>(step_x) + link.at_point_.x);
             link.next_pos_.y = get_rounded(static_cast<double>(step_y) + link.at_point_.y);
             link.next_pos_.z = get_rounded(static_cast<double>(step_z) + link.at_point_.z);
@@ -426,18 +427,18 @@ void ChainComponent::tick_frame()
         maths::Mat4 bone{};
         skin_matrix_ptr(bone_rig_, chain->bone_start_, &bone);
         bone.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
-        maths::Vec4 turned = chain->start_offset_ * bone;
+        const maths::Vec4 turned = chain->start_offset_ * bone;
         start = {
             get_rounded(static_cast<double>(start.x) + turned.x), get_rounded(static_cast<double>(start.y) + turned.y),
             get_rounded(static_cast<double>(start.z) + turned.z), get_rounded(static_cast<double>(start.w) + turned.w)};
         {
             const maths::Mat4& m = entity_->display_matrix_;
             const maths::Vec4& at = entity_->at_point_;
-            double x = (static_cast<double>(start.z) * m.row[2].x + static_cast<double>(start.y) * m.row[1].x) +
-                       static_cast<double>(start.x) * m.row[0].x;
-            double y = (static_cast<double>(start.z) * m.row[2].y + static_cast<double>(start.y) * m.row[1].y) +
-                       static_cast<double>(start.x) * m.row[0].y;
-            float z =
+            const double x = (static_cast<double>(start.z) * m.row[2].x + static_cast<double>(start.y) * m.row[1].x) +
+                             static_cast<double>(start.x) * m.row[0].x;
+            const double y = (static_cast<double>(start.z) * m.row[2].y + static_cast<double>(start.y) * m.row[1].y) +
+                             static_cast<double>(start.x) * m.row[0].y;
+            const float z =
                 get_rounded((static_cast<double>(start.z) * m.row[2].z + static_cast<double>(start.y) * m.row[1].z) +
                             static_cast<double>(start.x) * m.row[0].z);
             start.x = get_rounded(x + at.x);
@@ -452,21 +453,22 @@ void ChainComponent::tick_frame()
             bone_position(other->fetch_module(kSkeleton), chain->bone_end_, &end);
             const maths::Mat4& m = other->display_matrix_;
             const maths::Vec4& at = other->at_point_;
-            double x = (static_cast<double>(end.y) * m.row[1].x + static_cast<double>(end.z) * m.row[2].x) +
-                       static_cast<double>(end.x) * m.row[0].x;
-            double y = (static_cast<double>(end.y) * m.row[1].y + static_cast<double>(end.z) * m.row[2].y) +
-                       static_cast<double>(end.x) * m.row[0].y;
-            float z = get_rounded((static_cast<double>(end.y) * m.row[1].z + static_cast<double>(end.z) * m.row[2].z) +
-                                  static_cast<double>(end.x) * m.row[0].z);
+            const double x = (static_cast<double>(end.y) * m.row[1].x + static_cast<double>(end.z) * m.row[2].x) +
+                             static_cast<double>(end.x) * m.row[0].x;
+            const double y = (static_cast<double>(end.y) * m.row[1].y + static_cast<double>(end.z) * m.row[2].y) +
+                             static_cast<double>(end.x) * m.row[0].y;
+            const float z =
+                get_rounded((static_cast<double>(end.y) * m.row[1].z + static_cast<double>(end.z) * m.row[2].z) +
+                            static_cast<double>(end.x) * m.row[0].z);
             end.x = get_rounded(x + at.x);
             end.y = get_rounded(y + at.y);
             end.z = get_rounded(static_cast<double>(z) + at.z);
-            double w = static_cast<double>(end.w) + at.w;
-            double last_frame = final_frame_;
-            double carried_x = static_cast<double>(velocity.x) * last_frame;
-            float carried_y = get_rounded(static_cast<double>(velocity.y) * last_frame);
-            float carried_z = get_rounded(static_cast<double>(velocity.z) * last_frame);
-            float carried_w = get_rounded(static_cast<double>(velocity.w) * last_frame);
+            const double w = static_cast<double>(end.w) + at.w;
+            const double last_frame = final_frame_;
+            const double carried_x = static_cast<double>(velocity.x) * last_frame;
+            const float carried_y = get_rounded(static_cast<double>(velocity.y) * last_frame);
+            const float carried_z = get_rounded(static_cast<double>(velocity.z) * last_frame);
+            const float carried_w = get_rounded(static_cast<double>(velocity.w) * last_frame);
             end.x = get_rounded(carried_x + end.x);
             end.y = get_rounded(static_cast<double>(carried_y) + end.y);
             end.z = get_rounded(static_cast<double>(carried_z) + end.z);
@@ -474,7 +476,7 @@ void ChainComponent::tick_frame()
         }
 
         // The constraint passes due (iterations_ a second).
-        double done = static_cast<double>(frame) + step_time_;
+        const double done = static_cast<double>(frame) + step_time_;
         step_time_ = get_rounded(done);
         auto iterations = static_cast<double>(chain->iterations_);
         if (chain->iterations_ < 0)
@@ -482,7 +484,7 @@ void ChainComponent::tick_frame()
         auto steps = static_cast<double>(steps_);
         if (steps_ < 0)
             steps += 4294967296.0;
-        int passes = static_cast<int>(static_cast<int64_t>(iterations * done - steps));
+        const int passes = static_cast<int>(static_cast<int64_t>(iterations * done - steps));
         steps_ += passes;
         if (done >= 1.0) {
             step_time_ = get_rounded(done - 1.0);
@@ -490,30 +492,30 @@ void ChainComponent::tick_frame()
         }
         for (int pass = passes; pass != 0; --pass) {
             ChainLink* link = chain->chain_link_;
-            int last = chain->links_ - 1;
+            const int last = chain->links_ - 1;
             link[0].next_pos_ = start;
             link[last].next_pos_ = end;
             // Each pair pulled (or pushed) half way to its rest length.
             for (int i = 1; i < last; ++i) {
                 maths::Vec4& prev = link[i - 1].next_pos_;
                 maths::Vec4& cur = link[i].next_pos_;
-                double dx = static_cast<double>(cur.x) - prev.x;
-                double dy = static_cast<double>(cur.y) - prev.y;
-                double dz = static_cast<double>(cur.z) - prev.z;
-                double length = std::sqrt((dx * dx + dz * dz) + dy * dy);
-                float dzf = get_rounded(dz);
-                float dwf = get_rounded(static_cast<double>(cur.w) - prev.w);
-                float inverse = get_rounded(1.0 / length);
-                float nx = get_rounded(dx * inverse);
-                float ny = get_rounded(static_cast<double>(inverse) * dy);
-                float nz = get_rounded(static_cast<double>(inverse) * dzf);
-                float nw = get_rounded(static_cast<double>(inverse) * dwf);
-                float half = get_rounded((static_cast<double>(link[i].byte_count_) - length) * 0.5);
-                float cx = get_rounded(static_cast<double>(nx) * half);
-                double cy = static_cast<double>(half) * ny;
-                double cz = static_cast<double>(half) * nz;
-                float czf = get_rounded(cz);
-                float cw = get_rounded(static_cast<double>(half) * nw);
+                const double dx = static_cast<double>(cur.x) - prev.x;
+                const double dy = static_cast<double>(cur.y) - prev.y;
+                const double dz = static_cast<double>(cur.z) - prev.z;
+                const double length = std::sqrt((dx * dx + dz * dz) + dy * dy);
+                const float dzf = get_rounded(dz);
+                const float dwf = get_rounded(static_cast<double>(cur.w) - prev.w);
+                const float inverse = get_rounded(1.0 / length);
+                const float nx = get_rounded(dx * inverse);
+                const float ny = get_rounded(static_cast<double>(inverse) * dy);
+                const float nz = get_rounded(static_cast<double>(inverse) * dzf);
+                const float nw = get_rounded(static_cast<double>(inverse) * dwf);
+                const float half = get_rounded((static_cast<double>(link[i].byte_count_) - length) * 0.5);
+                const float cx = get_rounded(static_cast<double>(nx) * half);
+                const double cy = static_cast<double>(half) * ny;
+                const double cz = static_cast<double>(half) * nz;
+                const float czf = get_rounded(cz);
+                const float cw = get_rounded(static_cast<double>(half) * nw);
                 cur.x = get_rounded(static_cast<double>(cx) + cur.x);
                 cur.y = get_rounded(cy + cur.y);
                 cur.z = get_rounded(cz + cur.z);
@@ -527,23 +529,23 @@ void ChainComponent::tick_frame()
             // The last pair: only the link before the end moves.
             {
                 maths::Vec4& prev = link[last - 1].next_pos_;
-                maths::Vec4& cur = link[last].next_pos_;
-                double dx = static_cast<double>(cur.x) - prev.x;
-                double dy = static_cast<double>(cur.y) - prev.y;
-                double dz = static_cast<double>(cur.z) - prev.z;
-                double length = std::sqrt((dz * dz + dy * dy) + dx * dx);
-                float dzf = get_rounded(dz);
-                float dwf = get_rounded(static_cast<double>(cur.w) - prev.w);
-                float inverse = get_rounded(1.0 / length);
-                float nx = get_rounded(dx * inverse);
-                double ny = dy * inverse;
-                float nz = get_rounded(static_cast<double>(inverse) * dzf);
-                float nw = get_rounded(static_cast<double>(inverse) * dwf);
-                float half = get_rounded((static_cast<double>(link[last].byte_count_) - length) * 0.5);
-                float cx = get_rounded(static_cast<double>(nx) * half);
-                double cy = static_cast<double>(half) * ny;
-                double cz = static_cast<double>(half) * nz;
-                float cw = get_rounded(static_cast<double>(half) * nw);
+                const maths::Vec4& cur = link[last].next_pos_;
+                const double dx = static_cast<double>(cur.x) - prev.x;
+                const double dy = static_cast<double>(cur.y) - prev.y;
+                const double dz = static_cast<double>(cur.z) - prev.z;
+                const double length = std::sqrt((dz * dz + dy * dy) + dx * dx);
+                const float dzf = get_rounded(dz);
+                const float dwf = get_rounded(static_cast<double>(cur.w) - prev.w);
+                const float inverse = get_rounded(1.0 / length);
+                const float nx = get_rounded(dx * inverse);
+                const double ny = dy * inverse;
+                const float nz = get_rounded(static_cast<double>(inverse) * dzf);
+                const float nw = get_rounded(static_cast<double>(inverse) * dwf);
+                const float half = get_rounded((static_cast<double>(link[last].byte_count_) - length) * 0.5);
+                const float cx = get_rounded(static_cast<double>(nx) * half);
+                const double cy = static_cast<double>(half) * ny;
+                const double cz = static_cast<double>(half) * nz;
+                const float cw = get_rounded(static_cast<double>(half) * nw);
                 prev.x = get_rounded(static_cast<double>(prev.x) - cx);
                 prev.y = get_rounded(static_cast<double>(prev.y) - cy);
                 prev.z = get_rounded(static_cast<double>(prev.z) - cz);
@@ -552,36 +554,36 @@ void ChainComponent::tick_frame()
             // The collision range kept to its side of the plane.
             for (int i = chain->collide_first_; i < chain->collide_end_; ++i) {
                 link[i].value40_ = 255.0f;
-                double offset = chain->plane_offset_;
-                double px = static_cast<double>(axis[0]) * offset + plane_point.x;
-                double py = static_cast<double>(plane_point.y) + get_rounded(offset * axis[1]);
-                float pz = get_rounded(static_cast<double>(plane_point.z) + get_rounded(offset * axis[2]));
+                const double offset = chain->plane_offset_;
+                const double px = static_cast<double>(axis[0]) * offset + plane_point.x;
+                const double py = static_cast<double>(plane_point.y) + get_rounded(offset * axis[1]);
+                const float pz = get_rounded(static_cast<double>(plane_point.z) + get_rounded(offset * axis[2]));
                 maths::Vec4& cur = link[i].next_pos_;
-                float dx = get_rounded(static_cast<double>(cur.x) - px);
-                float dy = get_rounded(static_cast<double>(cur.y) - py);
-                float dz = get_rounded(static_cast<double>(cur.z) - pz);
+                const float dx = get_rounded(static_cast<double>(cur.x) - px);
+                const float dy = get_rounded(static_cast<double>(cur.y) - py);
+                const float dz = get_rounded(static_cast<double>(cur.z) - pz);
                 float ux = dx, uy = dy;
                 double uz = dz;
-                double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dz) * dz) +
-                                          static_cast<double>(dy) * dy);
-                float lengthf = get_rounded(length);
+                const double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dz) * dz) +
+                                                static_cast<double>(dy) * dy);
+                const float lengthf = get_rounded(length);
                 if (length > 0.0) {
-                    double inverse = 1.0 / lengthf;
+                    const double inverse = 1.0 / lengthf;
                     ux = get_rounded(dx * inverse);
                     uy = get_rounded(dy * inverse);
                     uz = inverse * dz;
                 }
-                double side = (static_cast<double>(axis[2]) * uz + static_cast<double>(uy) * axis[1]) +
-                              static_cast<double>(ux) * axis[0];
-                bool push = chain->collide_below_ ? side > 0.0 : side < 0.0;
+                const double side = (static_cast<double>(axis[2]) * uz + static_cast<double>(uy) * axis[1]) +
+                                    static_cast<double>(ux) * axis[0];
+                const bool push = chain->collide_below_ ? side > 0.0 : side < 0.0;
                 if (!push)
                     continue;
-                double along = (static_cast<double>(dz) * axis[2] + static_cast<double>(dy) * axis[1]) +
-                               static_cast<double>(dx) * axis[0];
-                double out_x = static_cast<double>(axis[0]) * along;
-                float out_y = get_rounded(along * axis[1]);
-                float out_z = get_rounded(along * axis[2]);
-                float out_w = get_rounded(along * aw);
+                const double along = (static_cast<double>(dz) * axis[2] + static_cast<double>(dy) * axis[1]) +
+                                     static_cast<double>(dx) * axis[0];
+                const double out_x = static_cast<double>(axis[0]) * along;
+                const float out_y = get_rounded(along * axis[1]);
+                const float out_z = get_rounded(along * axis[2]);
+                const float out_w = get_rounded(along * aw);
                 cur.x = get_rounded(static_cast<double>(cur.x) - out_x);
                 cur.y = get_rounded(static_cast<double>(cur.y) - out_y);
                 cur.z = get_rounded(static_cast<double>(cur.z) - out_z);

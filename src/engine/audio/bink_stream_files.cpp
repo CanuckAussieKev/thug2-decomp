@@ -79,7 +79,7 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
             stream_files()[i] = {0xFFFFFFFFu, nullptr, 0, 0};
         stream_files_ready() = true;
     }
-    uint32_t now = ++stream_file_uses();
+    const uint32_t now = ++stream_file_uses();
     int slot = -1;
     bool found_free = false;
     uint32_t longest = 0;
@@ -134,10 +134,10 @@ long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         bink_sound_set() = true;
     }
-    int slot = load_stream_file(key, path, offset, size);
+    const int slot = load_stream_file(key, path, offset, size);
     if (slot < 0)
         return kInvalidArg;
-    void* data = stream_files()[slot].data;
+    const void* data = stream_files()[slot].data;
     void* bink = video_open(data, kBinkFromMemory);
     bink_ = static_cast<render::Bink*>(bink);
     if (!bink)

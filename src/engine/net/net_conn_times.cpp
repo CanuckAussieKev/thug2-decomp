@@ -11,7 +11,7 @@ namespace net {
 // 0x00455920
 void Conn::stamp_last_heard(uint32_t extra)
 {
-    uint32_t time = frame_clock::get_time() + extra;
+    const uint32_t time = frame_clock::get_time() + extra;
     if (time > last_heard_from_)
         last_heard_from_ = time;
 }
@@ -19,7 +19,7 @@ void Conn::stamp_last_heard(uint32_t extra)
 // 0x00455940
 uint32_t Conn::get_silence_duration()
 {
-    uint32_t now = frame_clock::get_time();
+    const uint32_t now = frame_clock::get_time();
     if (now < last_heard_from_)
         return 0;
     return now - last_heard_from_;

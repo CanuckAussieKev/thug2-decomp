@@ -48,7 +48,7 @@ uint32_t scripts_hash()
 {
     if (g_hash_override)
         return g_hash_override;
-    static uint32_t hash = read_scripts_hash();
+    static const uint32_t hash = read_scripts_hash();
     return hash;
 }
 

@@ -155,12 +155,12 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
 {
     char text[0x100];
     std::memcpy(text, "Unknown", 8); // "Unknown"
-    objects::Rider* skater = get_skater(static_cast<uint32_t>(skater_));
+    const objects::Rider* skater = get_skater(static_cast<uint32_t>(skater_));
     switch (which) {
     case kPanelString1:
     case kPanelString2: {
-        int player = which == kPanelString1 ? 0 : 1;
-        text::Chars word = get_letter_string(player);
+        const int player = which == kPanelString1 ? 0 : 1;
+        const text::Chars word = get_letter_string(player);
         std::snprintf(text, sizeof(text), "%s: %s", get_skater(static_cast<uint32_t>(player))->fetch_shown_name(),
                       word.c_str()); // "%s: %s"
         break;
@@ -169,10 +169,10 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
         dup_from(text, panel_);
         break;
     case kYouAreA: {
-        char first = get_upper(word_[0]);
-        bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
+        const char first = get_upper(word_[0]);
+        const bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
         const char* article = script::fetch_text(vowel ? kIsAn : kIsA);
-        text::Chars name = fetch_text(kPlayerName);
+        const text::Chars name = fetch_text(kPlayerName);
         std::snprintf(text, sizeof(text), "%s %s", name.c_str(), article); // "%s %s"
         break;
     }
@@ -201,7 +201,7 @@ void LetterMatch::end_run()
     std::snprintf(panel_, sizeof(panel_), "%s", "unknown"); // "unknown"
     last_skater_ = skater_;
     void* score = get_skater(static_cast<uint32_t>(skater_))->get_points_total();
-    int total = static_cast<modules::PointTally*>(score)->get_total_score();
+    const int total = static_cast<modules::PointTally*>(score)->get_total_score();
     debug::printf("End run = %d\n", total); // "End run = %d\n"
     if (total > points_target_) {
         points_target_ = total;
@@ -236,7 +236,7 @@ void LetterMatch::end_run()
 // 0x005608B0
 void LetterMatch::swap_riders()
 {
-    int id = fetch_next_live_rider();
+    const int id = fetch_next_live_rider();
     last_skater_ = id;
     skater_ = id;
 }

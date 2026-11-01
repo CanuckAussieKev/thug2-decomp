@@ -86,7 +86,7 @@ bool WinRule::is_highest_score(uint32_t player)
             continue;
         auto* mine = get_score_of(get_rider_at(skate, player));
         auto* theirs = get_score_of(get_rider_at(skate, i));
-        int their_score = total_score(theirs);
+        const int their_score = total_score(theirs);
         if (total_score(mine) < their_score)
             return false;
     }
@@ -102,10 +102,10 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
         PlayerSearch search;
         for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
             modules::PointTally* score = get_score_of(player->skater_);
-            int team = player->team_;
+            const int team = player->team_;
             totals[team] += total_score(score);
         }
-        for (int total : totals) {
+        for (const int total : totals) {
             if (total >= points_held_)
                 return true;
         }
@@ -139,14 +139,14 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
     modules::Skate* skate = get_skate();
     GoalManager* goals = get_objective_board(); // the skate module's goal manager
     if (is_squad_match()) {
-        int needed = goals->count_picked_objectives();
+        const int needed = goals->count_picked_objectives();
         for (int team = 0; team < current_num_teams(); ++team) {
             if (net->get_squad_points(team) >= needed)
                 return true;
         }
         return false;
     }
-    uint32_t count =
+    const uint32_t count =
         *reinterpret_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         auto* skater = get_rider_at(skate, i);
@@ -200,7 +200,7 @@ bool EliminationVictoryCondition::rule_satisfied()
 bool EliminationVictoryCondition::has_won_match(uint32_t player)
 {
     online::Hub* net = net_session_slot();
-    objects::Rider* skater = get_rider_at(get_skate(), player);
+    const objects::Rider* skater = get_rider_at(get_skate(), player);
     if (!skater)
         return false;
     PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)); // the skater's player

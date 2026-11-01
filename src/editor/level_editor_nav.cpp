@@ -14,18 +14,18 @@ constexpr float kPi = 3.14159265358979f;
 // Whether the feet can go from `from` by `move` (horizontal): no wall at knee or head height, up to the radius past it.
 bool get_clear(V3 from, V3 move, const Cast& cast)
 {
-    float length = std::sqrt(move.x * move.x + move.z * move.z);
+    const float length = std::sqrt(move.x * move.x + move.z * move.z);
     if (length <= 0.0f)
         return true;
-    V3 dir = {move.x / length, 0.0f, move.z / length};
+    const V3 dir = {move.x / length, 0.0f, move.z / length};
     V3 hit{};
-    for (float height : {kStepHeight + 1.0f, kEyeHeight - 4.0f}) {
-        V3 a = {from.x, from.y + height, from.z};
+    for (const float height : {kStepHeight + 1.0f, kEyeHeight - 4.0f}) {
+        const V3 a = {from.x, from.y + height, from.z};
         if (cast(a, a + dir * (length + kRadius), &hit))
             return false;
         // (and a radius clear of walls along each axis it moves on, from where it gets to: a slanting move stops as far
         // from a wall as a straight one)
-        V3 to = a + move;
+        const V3 to = a + move;
         if (move.x != 0.0f && cast(to, to + V3{move.x > 0.0f ? kRadius : -kRadius, 0.0f, 0.0f}, &hit))
             return false;
         if (move.z != 0.0f && cast(to, to + V3{0.0f, 0.0f, move.z > 0.0f ? kRadius : -kRadius}, &hit))
@@ -48,20 +48,22 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     if (seconds <= 0.0f)
         return;
     // Along the ground: the heading's forward and right (as frame_from_yaw_pitch's at pitch 0).
-    V3 forward = {std::sin(yaw), 0.0f, std::cos(yaw)};
-    V3 right = {-std::cos(yaw), 0.0f, std::sin(yaw)}; // (the frame's right: up x back)
-    float f = std::clamp(input.forward, -1.0f, 1.0f), r = std::clamp(input.right, -1.0f, 1.0f);
+    const V3 forward = {std::sin(yaw), 0.0f, std::cos(yaw)};
+    const V3 right = {-std::cos(yaw), 0.0f, std::sin(yaw)}; // (the frame's right: up x back)
+    const float f = std::clamp(input.forward, -1.0f, 1.0f);
+    const float r = std::clamp(input.right, -1.0f, 1.0f);
     V3 wish = forward * f + right * r;
-    float length = std::sqrt(wish.x * wish.x + wish.z * wish.z);
+    const float length = std::sqrt(wish.x * wish.x + wish.z * wish.z);
     if (length > 1.0f)
         wish = wish * (1.0f / length);
-    V3 move = wish * ((input.run ? kRunSpeed : kWalkSpeed) * seconds);
+    const V3 move = wish * ((input.run ? kRunSpeed : kWalkSpeed) * seconds);
     if (move.x != 0.0f || move.z != 0.0f) {
         if (get_clear(w->feet, move, cast)) {
             w->feet = w->feet + move;
         } else {
             // (sliding: each axis by itself)
-            V3 along_x = {move.x, 0.0f, 0.0f}, along_z = {0.0f, 0.0f, move.z};
+            const V3 along_x = {move.x, 0.0f, 0.0f};
+            const V3 along_z = {0.0f, 0.0f, move.z};
             if (move.x != 0.0f && get_clear(w->feet, along_x, cast))
                 w->feet = w->feet + along_x;
             if (move.z != 0.0f && get_clear(w->feet, along_z, cast))
@@ -69,9 +71,9 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
         }
     }
     // The ground below (from a step's height up: a kerb walked onto is stood on).
-    V3 top = {w->feet.x, w->feet.y + kStepHeight, w->feet.z};
+    const V3 top = {w->feet.x, w->feet.y + kStepHeight, w->feet.z};
     V3 ground{};
-    bool have_ground = cast(top, {top.x, top.y - kGroundSearch, top.z}, &ground);
+    const bool have_ground = cast(top, {top.x, top.y - kGroundSearch, top.z}, &ground);
     if (input.jump && w->grounded) {
         w->vy = kJumpSpeed;
         w->grounded = false;
@@ -88,11 +90,11 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
         return;
     }
     // In the air: gravity; a ceiling stops a jump; the ground stops the fall.
-    float vy0 = w->vy;
+    const float vy0 = w->vy;
     w->vy -= kGravity * seconds;
     float dy = (vy0 + w->vy) * 0.5f * seconds;
     if (dy > 0.0f) {
-        V3 head = {w->feet.x, w->feet.y + kEyeHeight, w->feet.z};
+        const V3 head = {w->feet.x, w->feet.y + kEyeHeight, w->feet.z};
         V3 hit{};
         if (cast(head, {head.x, head.y + dy + 4.0f, head.z}, &hit)) {
             dy = 0.0f;
@@ -118,12 +120,12 @@ bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t s
 
 V3 teleport_target(V3 camera, V3 hit)
 {
-    V3 along = hit - camera;
-    float distance = std::sqrt(get_dot(along, along));
+    const V3 along = hit - camera;
+    const float distance = std::sqrt(get_dot(along, along));
     if (distance < 1.0f)
         return {hit.x, std::max(camera.y, hit.y + kLift), hit.z};
-    V3 dir = along * (1.0f / distance);
-    float back = std::min(kStandOff, distance * 0.8f);
+    const V3 dir = along * (1.0f / distance);
+    const float back = std::min(kStandOff, distance * 0.8f);
     V3 to = hit - dir * back;
     to.y = std::max(to.y, hit.y + kLift);
     return to;
@@ -145,7 +147,7 @@ int drill_index(int current, int steps, int count)
 {
     if (count <= 0)
         return -1;
-    int base = current >= 0 && current < count ? current : (steps > 0 ? -1 : 0);
+    const int base = current >= 0 && current < count ? current : (steps > 0 ? -1 : 0);
     return ((base + steps) % count + count) % count;
 }
 
@@ -157,25 +159,25 @@ int slice_at(float dx, float dy, int count, float deadzone)
     float angle = std::atan2(dx, -dy);
     if (angle < 0.0f)
         angle += 2.0f * kPi;
-    float slice = 2.0f * kPi / static_cast<float>(count);
-    int index = static_cast<int>(std::floor((angle + slice * 0.5f) / slice));
+    const float slice = 2.0f * kPi / static_cast<float>(count);
+    const int index = static_cast<int>(std::floor((angle + slice * 0.5f) / slice));
     return index % count;
 }
 
 void slice_direction(int index, int count, float* dx, float* dy)
 {
-    float angle = count > 0 ? 2.0f * kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0f;
+    const float angle = count > 0 ? 2.0f * kPi * static_cast<float>(index) / static_cast<float>(count) : 0.0f;
     *dx = std::sin(angle);
     *dy = -std::cos(angle);
 }
 
 float get_stick(int raw, float deadzone)
 {
-    float v = static_cast<float>(raw) / (raw < 0 ? 32768.0f : 32767.0f);
-    float a = std::fabs(v);
+    const float v = static_cast<float>(raw) / (raw < 0 ? 32768.0f : 32767.0f);
+    const float a = std::fabs(v);
     if (a <= deadzone || deadzone >= 1.0f)
         return 0.0f;
-    float t = std::min(1.0f, (a - deadzone) / (1.0f - deadzone));
+    const float t = std::min(1.0f, (a - deadzone) / (1.0f - deadzone));
     return (v < 0.0f ? -1.0f : 1.0f) * t * t;
 }
 
@@ -194,7 +196,7 @@ bool store_group(organize::State* state, const std::string& name, const std::vec
 {
     if (members.empty())
         return false;
-    int at = find_group(*state, name);
+    const int at = find_group(*state, name);
     if (at >= 0) {
         state->groups[at].members = members;
     } else {
@@ -211,7 +213,7 @@ bool remove_from_group(organize::State* state, int index, const std::vector<orga
     if (index < 0 || index >= static_cast<int>(state->groups.size()))
         return false;
     std::vector<organize::Member>& in = state->groups[index].members;
-    size_t before = in.size();
+    const size_t before = in.size();
     in.erase(std::remove_if(in.begin(), in.end(),
                             [&](const organize::Member& m) {
                                 return std::find(members.begin(), members.end(), m) != members.end();

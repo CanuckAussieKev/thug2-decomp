@@ -95,7 +95,7 @@ void set_common_states(MaterialRef* material)
     material->update_uv_wibbles();
     material->update_color_anims();
     material->update_texture_anims();
-    uint32_t specular_on = g_specular;
+    const uint32_t specular_on = g_specular;
     D3DMATERIAL9 specular;
     if (material->pass_flags_[0] & kPassSpecular) {
         if (specular_on)
@@ -206,9 +206,9 @@ void MaterialRef::update_color_anims()
     for (uint32_t i = 0; i < color_anim_count_; ++i) {
         const ColorAnim& anim = color_anims_[i];
         const ColorKey* keys = anim.keys;
-        int first = keys[0].time;
-        int period = keys[anim.key_count_ - 1].time - first;
-        int t = period ? (anim.phase + g_step_seconds) % period + first : 1;
+        const int first = keys[0].time;
+        const int period = keys[anim.key_count_ - 1].time - first;
+        const int t = period ? (anim.phase + g_step_seconds) % period + first : 1;
         int key = static_cast<int>(anim.key_count_) - 1;
         while (key >= 0 && t < keys[key].time)
             --key;
@@ -223,18 +223,18 @@ void MaterialRef::update_texture_anims()
 {
     if (!has_texture_anim_)
         return;
-    int now = static_cast<int>(frame_clock::get_time());
-    TextureAnim* anim = texture_anim_;
+    const int now = static_cast<int>(frame_clock::get_time());
+    const TextureAnim* anim = texture_anim_;
     for (int pass = 0; pass < 4; ++pass) {
         if (!(pass_flags_[pass] & kPassTextureAnim))
             continue;
         const TextureKey* keys = anim->keys[pass];
-        int count = static_cast<int>(anim->key_counts_[pass]);
-        int first = keys[0].time;
-        int period = keys[count - 1].time - first;
-        int phase = static_cast<int>(anim->phases[pass]);
+        const int count = static_cast<int>(anim->key_counts_[pass]);
+        const int first = keys[0].time;
+        const int period = keys[count - 1].time - first;
+        const int phase = static_cast<int>(anim->phases[pass]);
         int t = (now + phase) % period + first;
-        int loops = anim->loops[pass];
+        const int loops = anim->loops[pass];
         if (loops > 0 && (now - first) / period >= loops)
             t = (loops * period + phase) % period + first; // (held on the last loop's end)
         int key = count - 1;
@@ -249,13 +249,13 @@ void MaterialRef::update_uv_wibbles()
 {
     if (!has_uv_wibble_)
         return;
-    float t = wibble_time(frame_clock::get_time());
+    const float t = wibble_time(frame_clock::get_time());
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
         if (!(pass_flags_[pass] & kPassUvWibble) || (pass_flags_[pass] & kPassExplicitUv))
             continue;
         UvOscillator* w = uv_wibble_[pass];
-        float u = wibble_offset(t, w->frequency[0], w->phase[0], w->amplitude[0], w->velocity[0], false);
-        float v = wibble_offset(t, w->frequency[1], w->phase[1], w->amplitude[1], w->velocity[1], true);
+        const float u = wibble_offset(t, w->frequency[0], w->phase[0], w->amplitude[0], w->velocity[0], false);
+        const float v = wibble_offset(t, w->frequency[1], w->phase[1], w->amplitude[1], w->velocity[1], true);
         w->offset[0] = u;
         w->offset[1] = v;
     }
@@ -350,7 +350,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
             set_border_color(this, pass, pass);
             if (pass_flags_[pass] & kPassBumpEnv)
                 change_bump_map_matrix(0);
-            uint32_t flags = pass_flags_[pass];
+            const uint32_t flags = pass_flags_[pass];
             if ((flags & kPassEnvironment) && g_near_camera) {
                 float* matrix = g_environment_matrix;
                 matrix[0] = static_cast<float>(reflection_tiling_[pass][0] * 0.5);
@@ -373,7 +373,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                     set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                 if (coordinates != pass)
                     set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
-                uint32_t blend = blend_modes_[pass];
+                const uint32_t blend = blend_modes_[pass];
                 if (blend == 0xC || blend == 0xD) { // (blending with the pass before: its texture on stage 1)
                     set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                     if (static_cast<int>(pass) > 0) {
@@ -396,8 +396,8 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     if (static_cast<int8_t>(pass_flags_[pass] & 0xFF) < 0)
         color = nullptr; // (the pass's colour isn't to be changed)
     const float* own = pass_color_[pass];
-    bool alpha_from_texture = (pass_flags_[pass] & kPassTextureAlpha) != 0;
-    bool blends_with_previous = blend_modes_[pass] == 0xC || blend_modes_[pass] == 0xD;
+    const bool alpha_from_texture = (pass_flags_[pass] & kPassTextureAlpha) != 0;
+    const bool blends_with_previous = blend_modes_[pass] == 0xC || blend_modes_[pass] == 0xD;
     const uint32_t half = 0x3F000000; // 0.5: the colour unchanged
     // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
     if (std::memcmp(&own[0], &half, 4) == 0 && std::memcmp(&own[1], &half, 4) == 0 &&
@@ -428,9 +428,9 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         device_stage_state(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
         device_stage_state(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
         const float* factor = color ? color : own;
-        uint32_t r = factor_channel(factor[0]);
-        uint32_t g = factor_channel(factor[1]);
-        uint32_t b = factor_channel(factor[2]);
+        const uint32_t r = factor_channel(factor[0]);
+        const uint32_t g = factor_channel(factor[1]);
+        const uint32_t b = factor_channel(factor[2]);
         input_port()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFF000000u | r << 16 | g << 8 | b);
         if (alpha_from_texture) {
             device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);

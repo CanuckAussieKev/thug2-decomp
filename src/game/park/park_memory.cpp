@@ -101,10 +101,10 @@ void update_max(MemoryStats& stats, double value, float stored)
 // before the script runs, the park's count after.
 float pool_usage(memory::PoolPair& pair, const char* base_name, const int& items)
 {
-    memory::SlabBank* pool = active_slab_pool(pair);
-    int count = pool->num_;
-    int used = pool->taken_count_;
-    int base = get_memory_value(base_name, -1);
+    const memory::SlabBank* pool = active_slab_pool(pair);
+    const int count = pool->num_;
+    const int used = pool->taken_count_;
+    const int base = get_memory_value(base_name, -1);
     return static_cast<float>(static_cast<double>(items) / (count - used - base));
 }
 
@@ -148,7 +148,7 @@ void add_piece_dma(const void* piece)
     auto* view = static_cast<const PieceView*>(piece);
     if (view->flags & 0x100)
         return;
-    uint32_t type = view->type;
+    const uint32_t type = view->type;
     script::Struct* table = script::read_sub_struct(kPieceDmaTable);
     int pieces = 1;
     table->fetch_int_value(type, &pieces, 0);
@@ -266,7 +266,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     main_pad += park_max_players() * 0x8EF1C - 0x8EF1C;
     stats.main_heap_free_ = main_region->free_byte_count() + main_heap->free_size_;
     stats.main_heap_free_ -= get_memory_value("anim_set_mem", -1) + main_pad; // "anim_set_mem"
-    int park_pad = get_memory_value("park_heap_pad", -1);                     // "park_heap_pad"
+    const int park_pad = get_memory_value("park_heap_pad", -1);               // "park_heap_pad"
     stats.park_bytes_in_use_ = park_heap()->used_size_;
     stats.park_heap_free_ = park_region()->free_byte_count() + (park_heap()->free_size_ - park_pad);
 
@@ -278,25 +278,26 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     } else {
         stats.main_heap_fragmented_ = false;
     }
-    int theme = park_editing::ParkLayout::singleton()->get_shell_size();
+    const int theme = park_editing::ParkLayout::singleton()->get_shell_size();
     stats.main_heap_free_ -= get_memory_value("theme_pad", theme); // "theme_pad"
 
     float main_usage = 1.0f;
     if (stats.main_heap_free_ > 0) {
         auto free = static_cast<float>(stats.main_heap_free_);
-        int base = get_memory_value("main_heap_base", -1); // "main_heap_base"
+        const int base = get_memory_value("main_heap_base", -1); // "main_heap_base"
         main_usage = static_cast<float>(1.0 - static_cast<double>(free) / base);
     }
     stats.main_heap_usage_ = main_usage;
     stats.max_usage_ = main_usage;
 
     auto park_free = static_cast<float>(stats.park_heap_free_);
-    double park = 1.0 - static_cast<double>(park_free) / get_memory_value("park_heap_base", -1); // "park_heap_base"
+    const double park =
+        1.0 - static_cast<double>(park_free) / get_memory_value("park_heap_base", -1); // "park_heap_base"
     stats.park_heap_usage_ = static_cast<float>(park);
     update_max(stats, park, stats.park_heap_usage_);
 
     auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap_->region_->free_byte_count());
-    double top_down =
+    const double top_down =
         2.0 - static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1); // "top_down_required"
     stats.top_down_usage_ = static_cast<float>(top_down);
     if (top_down > stats.max_usage_)
@@ -317,7 +318,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
         stats.max_usage_ = stats.array_usage_;
 
     auto dma = static_cast<float>(dma_pieces());
-    double dma_usage = static_cast<double>(dma) / get_memory_value("max_dma_pieces", -1); // "max_dma_pieces"
+    const double dma_usage = static_cast<double>(dma) / get_memory_value("max_dma_pieces", -1); // "max_dma_pieces"
     stats.dma_usage_ = static_cast<float>(dma_usage);
     update_max(stats, dma_usage, stats.dma_usage_);
 
@@ -328,26 +329,26 @@ MemoryStats* get_memory_stats(MemoryStats* out)
 // 0x0059EAD0
 bool main_heap_has_room(int count, int size)
 {
-    int free = get_attributes().main_heap_free_ - count * size * kFloorPieceMem;
-    double usage = get_usage(1.0f, free, get_memory_value("main_heap_base", -1)); // "main_heap_base"
+    const int free = get_attributes().main_heap_free_ - count * size * kFloorPieceMem;
+    const double usage = get_usage(1.0f, free, get_memory_value("main_heap_base", -1)); // "main_heap_base"
     return !(usage >= g_park_memory_full_usage);                                  // 0.95 (unordered: true)
 }
 
 // 0x0059EB30
 bool pieces_fit(int first, int last)
 {
-    int dma = dma_pieces();
-    int pieces = last - first;
+    const int dma = dma_pieces();
+    const int pieces = last - first;
     if (pieces > get_memory_value("max_dma_pieces", -1) - dma) // "max_dma_pieces"
         return false;
-    int park = get_memory_value("floor_piece_size_park", -1) * pieces; // "floor_piece_size_park"
-    int main = get_memory_value("floor_piece_size_main", -1) * pieces; // "floor_piece_size_main"
+    const int park = get_memory_value("floor_piece_size_park", -1) * pieces; // "floor_piece_size_park"
+    const int main = get_memory_value("floor_piece_size_main", -1) * pieces; // "floor_piece_size_main"
     MemoryStats stats{};
     get_memory_stats(&stats);
     if (get_attributes().park_heap_free_ < park || get_attributes().main_heap_free_ < main)
         return false;
-    double usage = get_usage(1.0f, get_attributes().main_heap_free_ - main,
-                             get_memory_value("main_heap_base", -1)); // "main_heap_base"
+    const double usage = get_usage(1.0f, get_attributes().main_heap_free_ - main,
+                                   get_memory_value("main_heap_base", -1)); // "main_heap_base"
     return !(usage >= g_park_memory_nearly_full_usage);               // 0.9 (unordered: true)
 }
 

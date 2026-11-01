@@ -95,7 +95,7 @@ bool flag_in_chain(const UiWidget* element, uint32_t flag)
 
 bool clips_children(const UiWidget* element)
 {
-    uint32_t type = kind_tag(element);
+    const uint32_t type = kind_tag(element);
     return type == kWindowElement || type == kVScrollingMenu || type == kHScrollingMenu;
 }
 
@@ -123,7 +123,8 @@ Rect2 box_rect(const Cuboid& box)
 // The rectangle around a turned box's corners.
 Rect2 turned_box_rect(const Cuboid& box)
 {
-    double c = std::cos(box.angle), s = std::sin(box.angle);
+    const double c = std::cos(box.angle);
+    const double s = std::sin(box.angle);
     Rect2 rect = {box.x, box.y, box.x, box.y};
     const float corners[3][2] = {{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}};
     for (const auto& corner : corners) {
@@ -152,7 +153,7 @@ bool item_shape(const UiWidget* item, float x, float y, bool turned_in_bounds, R
     bool any = false;
     *turned_hit = false;
     auto visit = [&](const UiWidget* part, bool is_item) {
-        Cuboid box = element_box(part);
+        const Cuboid box = element_box(part);
         if (!is_item && (box.width == 0.0f || box.height == 0.0f))
             return; // (an empty container somewhere: nothing to point at)
         Rect2 rect{};
@@ -177,7 +178,7 @@ Rect2 widen(Rect2 area, const UiWidget* menu)
 {
     if (get_rotated(bearing(menu)))
         return area;
-    Rect2 span = element_rect(menu);
+    const Rect2 span = element_rect(menu);
     if (menu_runs_top_to_bottom(menu)) {
         if (span.right > span.left) {
             area.left = std::min(area.left, span.left);
@@ -215,13 +216,13 @@ void get_visit(Hunt& search, UiWidget* element, bool parent_accepts, int index, 
     Rect2 child_clip = clip;
     bool child_clipped = clipped;
     if (clips_children(element)) {
-        Rect2 own = element_rect(element);
+        const Rect2 own = element_rect(element);
         if (own.right > own.left && own.bottom > own.top) {
             child_clip = clipped ? intersect(clip, own) : own;
             child_clipped = true;
         }
     }
-    bool accepts = is_menu(element) && search.accepts(element);
+    const bool accepts = is_menu(element) && search.accepts(element);
     int child_index = 0;
     for (UiWidget* child = first_child(element); child; child = next_sibling(child), ++child_index)
         get_visit(search, child, accepts, child_index, child_clip, child_clipped);
@@ -264,8 +265,8 @@ bool window_to_layout(const ScreenMapping& mapping, float window_x, float window
         return false;
     // Window -> back buffer (the window may be scaled to show it), then back buffer -> layout (the inverse of
     // back buffer = layout * scale + offset).
-    double back_x = static_cast<double>(window_x) * mapping.back_buffer_width_ / mapping.window_width_;
-    double back_y = static_cast<double>(window_y) * mapping.back_buffer_height_ / mapping.window_height_;
+    const double back_x = static_cast<double>(window_x) * mapping.back_buffer_width_ / mapping.window_width_;
+    const double back_y = static_cast<double>(window_y) * mapping.back_buffer_height_ / mapping.window_height_;
     *layout_x = static_cast<float>((back_x - mapping.offset_x_) / mapping.scale_x_);
     *layout_y = static_cast<float>((back_y - mapping.offset_y_) / mapping.scale_y_);
     return true;
@@ -282,10 +283,12 @@ Rect2 element_rect(const UiWidget* element) { return box_rect(element_box(elemen
 bool box_contains(const Cuboid& box, float x, float y)
 {
     // Back along the angle: the point's offset from the top left in the box's own axes.
-    double c = std::cos(box.angle), s = std::sin(box.angle);
-    double dx = static_cast<double>(x) - box.x, dy = static_cast<double>(y) - box.y;
-    double u = c * dx + s * dy;
-    double v = -s * dx + c * dy;
+    const double c = std::cos(box.angle);
+    const double s = std::sin(box.angle);
+    const double dx = static_cast<double>(x) - box.x;
+    const double dy = static_cast<double>(y) - box.y;
+    const double u = c * dx + s * dy;
+    const double v = -s * dx + c * dy;
     return u >= std::min(0.0f, box.width) && u < std::max(0.0f, box.width) && v >= std::min(0.0f, box.height) &&
            v < std::max(0.0f, box.height);
 }
@@ -298,7 +301,7 @@ bool get_rotated(float angle)
 
 bool is_menu(const UiWidget* element)
 {
-    uint32_t type = kind_tag(element);
+    const uint32_t type = kind_tag(element);
     return type == kVMenu || type == kHMenu;
 }
 
@@ -326,8 +329,8 @@ bool item_focusable(const UiWidget* item)
 bool item_passed_over(const UiWidget* item)
 {
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
-    script::Struct* tags = as_object(item)->tag_table_;
-    for (script::Component* c = tags ? tags->head_ : nullptr; c; c = c->next) {
+    const script::Struct* tags = as_object(item)->tag_table_;
+    for (const script::Component* c = tags ? tags->head_ : nullptr; c; c = c->next) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->name == 0 && c->kind_tag() == script::kQbvalName && c->checksum == kTagBlank)
             return true;
@@ -342,7 +345,7 @@ bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
 {
     Rect2 bounds{};
     bool turned_hit = false;
-    bool any = item_shape(item, x, y, false, &bounds, &turned_hit);
+    const bool any = item_shape(item, x, y, false, &bounds, &turned_hit);
     if (turned_hit)
         return true;
     return any && widen(bounds, menu).get_holds(x, y);
@@ -399,7 +402,7 @@ int step_selection(int target, int count, bool wraps, int (*read)(void* context)
     while (sent < count) {
         send(context, direction);
         ++sent;
-        int next = read(context);
+        const int next = read(context);
         if (next == target || next < 0)
             break;
         int moved = (next - current) * direction;
@@ -418,7 +421,7 @@ Target start_target(int index, int count, bool wraps) { return {index, count, wr
 TargetState advance_target(Target& target, bool wait, int (*read)(void* context),
                            void (*send)(void* context, int direction), void* context)
 {
-    int current = read(context);
+    const int current = read(context);
     if (current == target.index)
         return TargetState::kReached;
     if (current < 0 || target.frames_left_ <= 0)
@@ -426,7 +429,7 @@ TargetState advance_target(Target& target, bool wait, int (*read)(void* context)
     --target.frames_left_;
     if (!wait)
         step_selection(target.index, target.count, target.wraps, read, send, context);
-    int now = read(context);
+    const int now = read(context);
     if (now == target.index)
         return TargetState::kReached;
     if (now < 0)
@@ -443,7 +446,7 @@ TargetState advance_target(Target& target, bool wait, int (*read)(void* context)
 
 int option_side(const Rect2& item, float x)
 {
-    float width = item.right - item.left;
+    const float width = item.right - item.left;
     if (x < item.left + width * 0.3f)
         return -1;
     if (x >= item.right - width * 0.3f)
@@ -530,7 +533,7 @@ bool menu_takes_pad_events(UiWidget* menu)
         return false;
     if (manager->num_priorities_ > 0) {
         bool listed = false;
-        int count = manager->pad_event_kind_count_;
+        const int count = manager->pad_event_kind_count_;
         for (int i = 0; i < count; ++i)
             if (manager->pad_event_types_[i] == kPadChoose)
                 listed = true;
@@ -598,7 +601,7 @@ const char* event_name(uint32_t event)
 
 void log_element(const char* what, const UiWidget* element)
 {
-    Rect2 r = element_rect(element);
+    const Rect2 r = element_rect(element);
     get_log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what,
             ident_no(element), current_type_name(kind_tag(element)), kind_tag(element), r.left, r.top, r.right,
             r.bottom, bearing(element), get_alpha(element), current_flags(element));
@@ -611,7 +614,7 @@ void log_element(const char* what, const UiWidget* element)
 void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 {
     const char* not_sent = nullptr;
-    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0].get();
+    const modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0].get();
     if (front_end->pad_mappings_[0].mapping_ == 0)
         not_sent = "the first controller's pad mapping is inactive";
     else if (front_end->block_menu_input_)
@@ -634,7 +637,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 // The item's own handler for `type` (its script's event handler table).
 bool handles_event(const UiWidget* item, uint32_t type)
 {
-    script::Script* script = as_object(item)->own_script_;
+    const script::Script* script = as_object(item)->own_script_;
     if (!script || !script->signal_routes_)
         return false;
     const objects::SignalRouteTable* table = script->signal_routes_;
@@ -669,7 +672,7 @@ void log_elements_at(UiWidget* element, float x, float y, int& lines)
 {
     if (current_flags(element) & kFlagHidden)
         return;
-    Cuboid box = element_box(element);
+    const Cuboid box = element_box(element);
     if (lines < 12 && box.width != 0.0f && box.height != 0.0f && box_contains(box, x, y)) {
         ++lines;
         log_element("under the cursor:", element);
@@ -699,7 +702,8 @@ int read_stepper(void* context)
 void send_step(void* context, int direction)
 {
     auto* stepper = static_cast<Stepper*>(context);
-    uint32_t event = stepper->vertical ? (direction < 0 ? kPadUp : kPadDown) : (direction < 0 ? kPadLeft : kPadRight);
+    const uint32_t event =
+        stepper->vertical ? (direction < 0 ? kPadUp : kPadDown) : (direction < 0 ? kPadLeft : kPadRight);
     send_pad_event(stepper->front_end_, event);
 }
 
@@ -745,7 +749,7 @@ TargetState advance_pending(modules::FrontEnd* front_end)
     // Nothing to send while the menu doesn't take pad events, or while it is on an item it passes over (its own
     // focus script moves on).
     UiWidget* current = child_at(menu, selected_index(menu));
-    bool wait = !menu_takes_pad_events(menu) || (current && item_passed_over(current));
+    const bool wait = !menu_takes_pad_events(menu) || (current && item_passed_over(current));
     return advance_target(s_pending.target, wait, read_stepper, send_step, &stepper);
 }
 
@@ -754,7 +758,7 @@ bool settle_pending(modules::FrontEnd* front_end, TargetState state)
 {
     if (state == TargetState::kMoving)
         return false;
-    uint32_t event = s_pending.choose_event_;
+    const uint32_t event = s_pending.choose_event_;
     if (state == TargetState::kGaveUp) {
         clear_pending("its menu's selection didn't get there (or the menu / item is gone)");
         return false;
@@ -764,7 +768,7 @@ bool settle_pending(modules::FrontEnd* front_end, TargetState state)
     s_pending.active = false;
     pending_menu().get_release();
     if (event) {
-        bool logging = s_log_events;
+        const bool logging = s_log_events;
         s_log_events = true;
         send_pad_event(front_end, event);
         s_log_events = logging;
@@ -796,7 +800,7 @@ void select_under_cursor(modules::FrontEnd* front_end, float x, float y, bool cl
             s_hover_id = 0;
             return;
         }
-        bool changed = hit.item != s_hover_item || ident_no(hit.item) != s_hover_id;
+        const bool changed = hit.item != s_hover_item || ident_no(hit.item) != s_hover_id;
         s_hover_item = hit.item;
         s_hover_id = ident_no(hit.item);
         if (!changed && !(click && pass == 0))
@@ -810,7 +814,7 @@ void select_under_cursor(modules::FrontEnd* front_end, float x, float y, bool cl
 
 void get_click(modules::FrontEnd* front_end, float x, float y)
 {
-    bool debug = debug_enabled();
+    const bool debug = debug_enabled();
     s_log_events = debug;
     if (debug)
         get_log("mouse: left click at layout (%.1f, %.1f)", x, y);
@@ -829,7 +833,7 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
     uint32_t event = kPadChoose;
     if (menu_runs_top_to_bottom(hit.menu) &&
         (handles_event(hit.item, kPadLeft) || handles_event(hit.item, kPadRight))) {
-        int side = option_side(element_rect(hit.item), x);
+        const int side = option_side(element_rect(hit.item), x);
         if (side < 0)
             event = kPadLeft;
         else if (side > 0)
@@ -837,7 +841,7 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
     }
     if (debug) {
         log_element("item", hit.item);
-        Rect2 area = item_bounds(hit.item, hit.menu);
+        const Rect2 area = item_bounds(hit.item, hit.menu);
         get_log("    index %d, area (%.1f, %.1f)-(%.1f, %.1f)", hit.index, area.left, area.top, area.right,
                 area.bottom);
         log_menu(hit.menu);
@@ -934,7 +938,7 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     if (!is_switched_on())
         return;
-    MouseState input = s_mouse;
+    const MouseState input = s_mouse;
     s_mouse.moved = false;
     s_mouse.left_clicks_ = 0;
     s_mouse.right_clicks_ = 0;
@@ -980,7 +984,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (input.right_clicks_ || input.wheel)
         clear_pending("a right click or the wheel");
     for (int i = 0; i < input.right_clicks_; ++i) {
-        bool any = any_menu(root_element(ui_tree_handle()), menu_takes_pad_events, false);
+        const bool any = any_menu(root_element(ui_tree_handle()), menu_takes_pad_events, false);
         if (debug_enabled())
             get_log("mouse: right click at layout (%.1f, %.1f)%s", x, y,
                     any ? "" : ": no menu takes pad events - nothing sent");

@@ -104,7 +104,7 @@ void for_each_sector(WorldScene* scene, Body body)
 
 void put_sector(WorldScene* scene, WorldCell* sector)
 {
-    uint32_t key = sector->checksum_;
+    const uint32_t key = sector->checksum_;
     scene->sectors_->store_entry(key, sector);
 }
 
@@ -230,8 +230,8 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
             coll_grid_->get_fill(coll_statics_, coll_static_count_);
         }
         for (int i = 0; i < coll_static_count_; ++i) {
-            StaticCollider* coll = coll_static_at(coll_statics_, i);
-            uint32_t name = coll->checksum_;
+            const StaticCollider* coll = coll_static_at(coll_statics_, i);
+            const uint32_t name = coll->checksum_;
             auto* sector = static_cast<WorldCell*>(sectors_->fetch_entry(name));
             if (!sector) {
                 sector = alloc_sector(this);
@@ -291,11 +291,11 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
         }
     });
     if (added && !is_head(added->next) && added->next) {
-        for (memory::ListNode* node = added->next; node;) {
-            memory::ListNode* next = get_next_node(node);
+        for (const memory::ListNode* node = added->next; node;) {
+            const memory::ListNode* next = get_next_node(node);
             auto* sector = static_cast<WorldCell*>(node->data);
             bool listed = false;
-            for (memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed;
+            for (const memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed;
                  removing = get_next_node(removing))
                 listed = removing->data == sector->hit_body_;
             if (!listed) {
@@ -313,7 +313,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
     for (memory::ListNode* node = head_of_scene_list(&to_delete); node;) {
         memory::ListNode* next = get_next_node(node);
         auto* sector = static_cast<WorldCell*>(node->data);
-        uint32_t key = sector->checksum_;
+        const uint32_t key = sector->checksum_;
         sectors_->erase_entry(key);
         sector->clear_flags(kSectorInGrid);
         delete sector;
@@ -345,7 +345,7 @@ bool WorldScene::load_add_scene(const char* name)
                                   &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
-            uint32_t section_id = coll_static_at(add_coll_statics_, i)->checksum_;
+            const uint32_t section_id = coll_static_at(add_coll_statics_, i)->checksum_;
             auto* sector = static_cast<WorldCell*>(sectors_->fetch_entry(section_id));
             if (!sector) {
                 sector = alloc_sector(this);
@@ -370,19 +370,19 @@ bool WorldScene::flip_extra_scene()
         return false;
     added_ = !added_;
     memory::ListNode* hide = added_ ? hidden_sectors_ : add_scene_sectors_;
-    memory::ListNode* show = added_ ? add_scene_sectors_ : hidden_sectors_;
-    for (memory::ListNode* node = head_of_scene_list(hide); node;) {
-        memory::ListNode* next = get_next_node(node);
+    const memory::ListNode* show = added_ ? add_scene_sectors_ : hidden_sectors_;
+    for (const memory::ListNode* node = head_of_scene_list(hide); node;) {
+        const memory::ListNode* next = get_next_node(node);
         auto* sector = static_cast<WorldCell*>(node->data);
         sector->change_bits(kSectorRemoveFromGrid);
         sector_kept_ = true;
-        uint32_t key = sector->checksum_;
+        const uint32_t key = sector->checksum_;
         sectors_->erase_entry(key);
         sector->change_live(false);
         node = next;
     }
-    for (memory::ListNode* node = head_of_scene_list(show); node;) {
-        memory::ListNode* next = get_next_node(node);
+    for (const memory::ListNode* node = head_of_scene_list(show); node;) {
+        const memory::ListNode* next = get_next_node(node);
         auto* sector = static_cast<WorldCell*>(node->data);
         sector->change_bits(kSectorAddToGrid);
         sector_kept_ = true;

@@ -48,7 +48,7 @@ int total_score(modules::PointTally* score) { return score->get_total_score(); }
 // The score so far times the multiplier, truncated as the original's _ftol.
 int score_pot(modules::PointTally* score)
 {
-    double pot = static_cast<double>(score->pot_) * score->multiplier_;
+    const double pot = static_cast<double>(score->pot_) * score->multiplier_;
     return static_cast<int>(static_cast<int64_t>(pot));
 }
 int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
@@ -100,8 +100,8 @@ void RiderPointKeeper::tick_frame()
         return;
     }
     get_score_of(points_held_)->tick_frame();
-    bool always_special = static_cast<Rider*>(entity_)->always_special_ ||
-                          reinterpret_cast<RiderStoryProgress*>(get_career())->is_code_on(kCheatAlwaysSpecial);
+    const bool always_special = static_cast<Rider*>(entity_)->always_special_ ||
+                                reinterpret_cast<RiderStoryProgress*>(get_career())->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
         uint8_t* career = get_career();
         reinterpret_cast<RiderStoryProgress*>(career)->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
@@ -123,27 +123,27 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
 {
     switch (name) {
     case kLastScoreLandedLessThan: {
-        int value = number_parameter(params);
+        const int value = number_parameter(params);
         return last_score_landed(points_held_) < value ? 1 : 0;
     }
     case kLastScoreLandedGreaterThan: {
-        int value = number_parameter(params);
+        const int value = number_parameter(params);
         return last_score_landed(points_held_) > value ? 1 : 0;
     }
     case kTotalScoreLessThan: {
-        int value = number_parameter(params);
+        const int value = number_parameter(params);
         return total_score(points_held_) < value ? 1 : 0;
     }
     case kTotalScoreGreaterThan: {
-        int value = number_parameter(params);
+        const int value = number_parameter(params);
         return total_score(points_held_) > value ? 1 : 0;
     }
     case kCurrentScorePotLessThan: {
-        int value = number_parameter(params);
+        const int value = number_parameter(params);
         return score_pot(points_held_) < value ? 1 : 0;
     }
     case kCurrentScorePotGreaterThan: {
-        int value = number_parameter(params);
+        const int value = number_parameter(params);
         return score_pot(points_held_) > value ? 1 : 0;
     }
     case kGetSpecialValue:
@@ -180,7 +180,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         // A trick by key combo or by name, with its spin (half turns) and taps (1 by default).
         uint32_t key_combo = 0;
         const char* text = nullptr;
-        bool by_key_combo = params->read_hash_value(kKeycombo, &key_combo, 0);
+        const bool by_key_combo = params->read_hash_value(kKeycombo, &key_combo, 0);
         if (!by_key_combo && !params->fetch_text(kTrickText, &text, 0))
             return 2;
         int spin = 0;
@@ -188,7 +188,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
             spin /= 180;
         int taps = 1;
         params->fetch_int_value(kNumTaps, &taps, 0);
-        bool latest =
+        const bool latest =
             by_key_combo
                 ? get_score_of(points_held_)->last_trick_is_key_combo(key_combo, spin, false, taps)
                 : get_score_of(points_held_)->last_trick_is(checksums::hash_from_text(text), spin, false, taps);

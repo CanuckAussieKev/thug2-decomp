@@ -33,7 +33,7 @@ uint32_t save_file_checksum(const uint8_t* file, size_t size)
     if (size < 4)
         return 0;
     constexpr uint8_t kZero[4] = {};
-    uint32_t crc = checksums::extend_crc_with_buffer(kZero, 4, 0xFFFFFFFFu);
+    const uint32_t crc = checksums::extend_crc_with_buffer(kZero, 4, 0xFFFFFFFFu);
     return checksums::extend_crc_with_buffer(file + 4, static_cast<int>(size - 4), crc);
 }
 

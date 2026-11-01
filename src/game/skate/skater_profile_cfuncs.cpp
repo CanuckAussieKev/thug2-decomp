@@ -56,7 +56,7 @@ bool get_option(script::Struct* params, Option option)
 }
 bool set_option(script::Struct* params, Option option, bool on)
 {
-    int player = player_of(params);
+    const int player = player_of(params);
     modules::Skate* skate = modules::Skate::sole();
     switch (option) {
     case kVibration:
@@ -101,7 +101,7 @@ objects::RiderIdentity* template_at(uint32_t index)
 // The template named `name` (by its info's name), or null.
 objects::RiderIdentity* find_template(uint32_t name)
 {
-    int count = static_cast<int>(template_count());
+    const int count = static_cast<int>(template_count());
     for (int i = 0; i < count; ++i) {
         objects::RiderIdentity* profile = template_at(i);
         uint32_t profile_name = 0;
@@ -182,7 +182,7 @@ bool cfunc_reset_all_to_default_stats(script::Struct*, script::Script*)
         int points = 0;
         entry->fetch_int_value(kPointsAvailable, &points, 1);
         stats->put_int(kPointsAvailable, points);
-        uint32_t count = template_count();
+        const uint32_t count = template_count();
         for (uint32_t k = 0; k < count; ++k) {
             objects::RiderIdentity* profile = template_at(k);
             uint32_t profile_name = 0;
@@ -245,7 +245,7 @@ bool cfunc_for_each_skater_name(script::Struct* params, script::Script*)
     params->read_hash_value(kDo, &script, 1);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    int count = static_cast<int>(template_count());
+    const int count = static_cast<int>(template_count());
     for (int i = 0; i < count; ++i) {
         uint32_t name = 0;
         template_at(i)->details_params()->read_hash_value(kName, &name, 1);
@@ -266,7 +266,7 @@ bool cfunc_for_each_skater_profile(script::Struct* params, script::Script*)
     params->read_hash_value(kDo, &script, 1);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    int count = static_cast<int>(template_count());
+    const int count = static_cast<int>(template_count());
     for (int i = 0; i < count; ++i) {
         script::Struct* info = template_at(i)->details_params();
         script::Struct* run = new_params();
@@ -338,7 +338,7 @@ bool cfunc_reset_skaters(script::Struct* params, script::Script*)
     params->fetch_int_value(kResetValue, &unused, 0);
     uint32_t node = 0;
     params->read_hash_value(kNodeName, &node, 0);
-    bool walking = params->has_bare_flag(kRestartWalking);
+    const bool walking = params->has_bare_flag(kRestartWalking);
     modules::Skate::sole()->reset_skaters(node, walking);
     return true;
 }
@@ -390,8 +390,8 @@ bool cfunc_set_classic_stat(script::Struct* params, script::Script*)
 // 0x005AC570: ToggleAlwaysSpecial [on | off] - every skater's always-special flag (+0x168) set, cleared or toggled.
 bool cfunc_toggle_always_special(script::Struct* params, script::Script*)
 {
-    bool on = params->has_bare_flag(kOn);
-    bool off = params->has_bare_flag(kOff);
+    const bool on = params->has_bare_flag(kOn);
+    const bool off = params->has_bare_flag(kOff);
     for (int i = 0; i < 8; ++i) {
         objects::GameEntity* skater = get_rider_at(i);
         if (!skater)
@@ -470,7 +470,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
 {
     objects::ProfileRoster* manager = roster_handle();
     if (params->has_bare_flag(kAll)) {
-        int count = static_cast<int>(manager->templates_.num_);
+        const int count = static_cast<int>(manager->templates_.num_);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
             reinterpret_cast<objects::RiderIdentity*>(
                 reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(i))
@@ -516,7 +516,7 @@ bool cfunc_get_custom_skater_name(script::Struct*, script::Script* script)
 // exist.)
 bool cfunc_get_current_ped_pro_name(script::Struct*, script::Script* script)
 {
-    script::SymbolTableEntry* entry = script::resolve_symbol(kCurrentPedPro);
+    const script::SymbolTableEntry* entry = script::resolve_symbol(kCurrentPedPro);
     if (entry->type != script::kQbvalStruct) // (the original also tests for a name first)
         return false;
     script->args_->put_name_key(kPedProName, entry->name);
@@ -528,9 +528,9 @@ bool cfunc_get_current_ped_pro_name(script::Struct*, script::Script* script)
 // stat.
 bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
 {
-    float forced = modules::g_skate_module->forced_stat_;
+    const float forced = modules::g_skate_module->forced_stat_;
     if (forced != 0.0f) {
-        int value = static_cast<int>(static_cast<int64_t>(forced)); // (the original's _ftol)
+        const int value = static_cast<int>(static_cast<int64_t>(forced)); // (the original's _ftol)
         script->args_->put_name_key(kOverridden, kOverridden);
         script->args_->put_int(kStatValue, value);
         return true;
@@ -556,7 +556,7 @@ bool cfunc_get_num_stat_points_available(script::Struct* params, script::Script*
 {
     int player = 0; // (uninitialised in the original when missing)
     params->fetch_int_value(kPlayer, &player, 1);
-    int points = roster_handle()->fetch_account(player)->get_info_471f_c_4d_d();
+    const int points = roster_handle()->fetch_account(player)->get_info_471f_c_4d_d();
     script->args_->put_int("points_available", points);
     return true;
 }

@@ -201,7 +201,7 @@ void detach_anim_driver(SDL_GameController* controller)
         return;
     }
     // (the player index read before the close - PartyMod read it from the closed, freed controller)
-    int player = SDL_GameControllerGetPlayerIndex(controller);
+    const int player = SDL_GameControllerGetPlayerIndex(controller);
     SDL_GameControllerClose(controller);
     if (player != -1) {
         debug_log::printf(StageMap::kInfo, "Removed player %d\n", player + 1);
@@ -449,7 +449,7 @@ uint8_t s_was_keyboard_on_screen = 0;
 
 void update_menu_keys(const uint8_t* keys)
 {
-    uint8_t keyboard_on_screen = g_keyboard_on_screen;
+    const uint8_t keyboard_on_screen = g_keyboard_on_screen;
     if (s_in_menu != s_was_in_menu || keyboard_on_screen != s_was_keyboard_on_screen) {
         if (s_keys.ollie != SDL_SCANCODE_RETURN && s_menu_keys.affirmative == 1)
             s_menu_keys.affirmative = kLockedOut;
@@ -772,7 +772,7 @@ void handle_input_event(SDL_Event* event)
     case SDL_CONTROLLERBUTTONDOWN: {
         // (the event's controller, read through cdevice: the same place as cbutton's)
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
-        int player = SDL_GameControllerGetPlayerIndex(controller);
+        const int player = SDL_GameControllerGetPlayerIndex(controller);
         if (player == -1)
             enroll_player(controller);
         else if (s_players[player].locked_out_)
@@ -782,7 +782,7 @@ void handle_input_event(SDL_Event* event)
     }
     case SDL_CONTROLLERBUTTONUP: {
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
-        int player = SDL_GameControllerGetPlayerIndex(controller);
+        const int player = SDL_GameControllerGetPlayerIndex(controller);
         if (player != -1 && s_players[player].locked_out_)
             --s_players[player].locked_out_;
         return;
@@ -988,7 +988,7 @@ void init_sdl_input()
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
 
     char mappings[1024];
-    int length =
+    const int length =
         sprintf_s(mappings, sizeof(mappings), "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
     if (length) {
         // (-1, a failure, counts as loaded too)
@@ -1051,7 +1051,7 @@ void process_sdl_device(InputPort* device)
     // Not original - the new front end (frontend/new_frontend.h): while it's up (and until the keys that chose for it
     // are let go) it has the keyboard and the controllers - the game reads nothing pressed.
     // Original behaviour: the keyboard and the controller always read.
-    bool new_frontend = frontend::new_frontend::blocks_game_input();
+    const bool new_frontend = frontend::new_frontend::blocks_game_input();
     if (device->port_no_ == 0) {
         set_usable(device, true);
         set_connected(device, true);

@@ -60,7 +60,7 @@ bool RenderModel::set_display_mode(int mode)
 {
     if (mode == display_mode_)
         return false;
-    bool allowed = allows_display_mode(mode);
+    const bool allowed = allows_display_mode(mode);
     if (allowed)
         display_mode_ = mode;
     return allowed;
@@ -99,7 +99,7 @@ bool RenderModel::change_scale(const maths::Vec4* scale)
     size_factor_ = *scale;
     // (compared as bit patterns)
     const auto* bits = reinterpret_cast<const uint32_t*>(scale);
-    bool scaled = !(bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000);
+    const bool scaled = !(bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000);
     flag_bits_ = set_flag(flag_bits_, kModelScaled, scaled);
     return true;
 }
@@ -131,7 +131,7 @@ uint8_t* RenderModel::get_bone_volumes()
 {
     if (!geom_list_size_)
         return nullptr;
-    ModelGeom* first = first_entry(this);
+    const ModelGeom* first = first_entry(this);
     return first ? first->bone_volumes_ : nullptr;
 }
 
@@ -164,7 +164,7 @@ uint32_t RenderModel::get_strip_break_flags()
 {
     uint32_t flags = 0;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
-        ModelGeom* entry = table_row(node);
+        const ModelGeom* entry = table_row(node);
         if (entry->scene) {
             flags |= *reinterpret_cast<uint32_t*>(entry->scene + 0xB0);
         } else if (entry->asset_name_) {
@@ -193,7 +193,7 @@ void RenderModel::clean_instance_strips()
 // 0x00494B30
 bool RenderModel::break_own_strips()
 {
-    uint32_t mask = get_strip_break_flags();
+    const uint32_t mask = get_strip_break_flags();
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
         break_geom_strips(get_geom(node), mask);
     return true;
@@ -284,7 +284,7 @@ uint8_t* RenderModel::get_geom_textures(int index)
 // 0x00493FB0
 bool RenderModel::clear_geom_color(uint32_t name)
 {
-    bool all = name == kAllGeoms;
+    const bool all = name == kAllGeoms;
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next) {
         if (name == table_row(node)->name || all) {
@@ -325,7 +325,7 @@ bool RenderModel::create_uv_anim_params(uint32_t material, int pass)
 // 0x00494800
 bool RenderModel::conceal_mesh(uint32_t name, bool hide)
 {
-    bool all = name == kAllGeoms;
+    const bool all = name == kAllGeoms;
     bool any = false;
     int index = 0;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next, ++index) {
@@ -355,7 +355,7 @@ bool RenderModel::is_part_concealed(uint32_t name)
 // 0x004948D0
 bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
-    uint32_t rgba =
+    const uint32_t rgba =
         r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
         set_geom_color(get_geom(node), rgba);

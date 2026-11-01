@@ -70,7 +70,7 @@ const char* button_key_name(int button) { return sio::get_button_key_name(button
 int glyph_for_button_tag(char tag, const char* digit)
 {
     if (tag == 'M' || tag == 'm') {
-        char mapped = meta_button(digit);
+        const char mapped = meta_button(digit);
         return text::hex_digit_value(&mapped);
     }
     // Originally from PartyMod Fixes (its call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
@@ -106,7 +106,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
         bool counted = true;
         bool done = false;
         while (*p == '\\' && !done) {
-            char tag = *++p;
+            const char tag = *++p;
             if (tag == '\\')
                 break; // "\\": the second backslash is a character
             switch (tag) {
@@ -121,7 +121,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
             case 'M':
             case 'm': {
                 ++p;
-                int button = glyph_for_button_tag(tag, p);
+                const int button = glyph_for_button_tag(tag, p);
                 if (use_button_glyph(button)) {
                     font = pad_glyph_typeface();
                     glyph = &font->chars[font->special_map_[button]];
@@ -169,8 +169,8 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
 // 0x004CFB20
 void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 {
-    double scale_x = horiz_screen_ratio();
-    double scale_y = vert_screen_ratio();
+    const double scale_x = horiz_screen_ratio();
+    const double scale_y = vert_screen_ratio();
     auto spacing = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
     if (c == ' ') {
         *pen_x = static_cast<float>((font->blank_gap_ * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
@@ -178,11 +178,11 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
     }
     const Char* glyph = &font->chars[font->map[static_cast<uint8_t>(c)]];
     // (x87: top and bottom stay at double precision until stored)
-    double top = static_cast<double>(font->base - glyph->baseline) * yscale * scale_y + pen_y;
-    float left = *pen_x;
+    const double top = static_cast<double>(font->base - glyph->baseline) * yscale * scale_y + pen_y;
+    const float left = *pen_x;
     auto right = static_cast<float>(glyph->w * scale_x * xscale + left);
-    double bottom = glyph->h * scale_y * yscale + top;
-    uint32_t vertex_color = get_vertex_color(color);
+    const double bottom = glyph->h * scale_y * yscale + top;
+    const uint32_t vertex_color = get_vertex_color(color);
     TextVertex* v = get_vertex_buffer() + get_vertex_count();
     v[0] = {left, static_cast<float>(top), z, 1.0f, vertex_color, glyph->u0, glyph->v0};
     v[1] = {left, static_cast<float>(bottom), z, 1.0f, vertex_color, glyph->u0, glyph->v1};
@@ -199,10 +199,10 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 // 0x004CFD00
 void GlyphRun::draw()
 {
-    double scale_x = horiz_screen_ratio();
-    double scale_y = vert_screen_ratio();
-    double offset_x = screen_offset_x();
-    double offset_y = screen_offset_y();
+    const double scale_x = horiz_screen_ratio();
+    const double scale_y = vert_screen_ratio();
+    const double offset_x = screen_offset_x();
+    const double offset_y = screen_offset_y();
     // Screen positions (x87: each sum rounded to float once, when stored).
     auto pos_x = static_cast<float>(scale_x * x + offset_x);
     auto pos_y = static_cast<float>(scale_y * y + offset_y);
@@ -212,19 +212,19 @@ void GlyphRun::draw()
     auto blank_gap = static_cast<float>(font->blank_gap_ * static_cast<double>(xscale));
     if (xscale == 0.0f || yscale == 0.0f) // (0x0066D520)
         return;
-    float cos_a = std::cos(angle);
-    float sin_a = std::sin(angle);
+    const float cos_a = std::cos(angle);
+    const float sin_a = std::sin(angle);
     uint32_t vertex_color = get_vertex_color(color);
     int effect = 0; // byte offset of this character's effect record
     const char* p = text;
     for (;;) {
         TextVertex* v = get_vertex_buffer() + get_vertex_count();
-        TypefaceData* char_font = font;
+        const TypefaceData* char_font = font;
         const Char* glyph = nullptr;
         bool drawn = true;
         bool done = false;
         while (*p == '\\' && !done) {
-            char tag = *++p;
+            const char tag = *++p;
             switch (tag) {
             case '\\':
                 done = true; // the second backslash is drawn
@@ -232,7 +232,7 @@ void GlyphRun::draw()
             case 'C':
             case 'c': {
                 ++p;
-                int index = text::hex_digit_value(p);
+                const int index = text::hex_digit_value(p);
                 ++p;
                 // colour 0, or any colour while the text's is fixed, is the text's own
                 vertex_color = get_vertex_color(index != 0 && !fixed_color_ ? font->get_color(index) : color);
@@ -249,7 +249,7 @@ void GlyphRun::draw()
             case 'M':
             case 'm': {
                 ++p;
-                int button = glyph_for_button_tag(tag, p);
+                const int button = glyph_for_button_tag(tag, p);
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
                     TypefaceData* buttons = pad_glyph_typeface();
@@ -299,31 +299,31 @@ void GlyphRun::draw()
                         : nullptr;
             float right = 0.0f, bottom = 0.0f;
             if (e) {
-                int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
+                const int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
                 right = static_cast<float>(static_cast<double>(w) + e->x + pos_x);
-                int h = ftol(e->yscale * static_cast<double>(kEffectScale) * glyph->h * yscale * scale_y);
+                const int h = ftol(e->yscale * static_cast<double>(kEffectScale) * glyph->h * yscale * scale_y);
                 bottom = static_cast<float>(static_cast<double>(h) + e->y + top);
             } else {
-                int w = ftol(static_cast<double>(glyph->w) * xscale * scale_x);
+                const int w = ftol(static_cast<double>(glyph->w) * xscale * scale_x);
                 right = static_cast<float>(static_cast<double>(w) + pos_x);
-                int h = ftol(static_cast<double>(glyph->h) * yscale * scale_y);
+                const int h = ftol(static_cast<double>(glyph->h) * yscale * scale_y);
                 bottom = static_cast<float>(static_cast<double>(h) + top);
             }
 
             // The corners, relative to the pivot (whole pixels), rotated by the text's angle. The left and top
             // offsets go through floats; the right and bottom ones don't (the same unless they're huge).
-            int pivot_yi = ftol(pivot_screen_y);
-            int top_rel = ftol(static_cast<double>(top) - pivot_yi);
-            int pivot_xi = ftol(pivot_screen_x);
-            int left_rel = ftol(static_cast<double>(pos_x) - pivot_xi);
+            const int pivot_yi = ftol(pivot_screen_y);
+            const int top_rel = ftol(static_cast<double>(top) - pivot_yi);
+            const int pivot_xi = ftol(pivot_screen_x);
+            const int left_rel = ftol(static_cast<double>(pos_x) - pivot_xi);
             double l = static_cast<float>(left_rel);
-            double t = static_cast<float>(top_rel);
+            const double t = static_cast<float>(top_rel);
             int x0 = ftol(l * cos_a - t * sin_a) + pivot_xi; // left, top
             int y0 = ftol(t * cos_a + l * sin_a) + pivot_yi;
-            double r = ftol(static_cast<double>(right) - pivot_xi);
+            const double r = ftol(static_cast<double>(right) - pivot_xi);
             int x1 = ftol(r * cos_a - t * sin_a) + pivot_xi; // right, top
             int y1 = ftol(t * cos_a + r * sin_a) + pivot_yi;
-            double b = ftol(static_cast<double>(bottom) - pivot_yi);
+            const double b = ftol(static_cast<double>(bottom) - pivot_yi);
             l = left_rel;
             int x2 = ftol(l * cos_a - b * sin_a) + pivot_xi; // left, bottom
             int y2 = ftol(b * cos_a + l * sin_a) + pivot_yi;
@@ -336,10 +336,10 @@ void GlyphRun::draw()
                 // corners are turned by (angle - 90 degrees) mirrored. Kept as it is.
                 double a = e->rotation * static_cast<double>(kEffectScale);
                 auto cos_r = static_cast<float>(std::cos(a));
-                int cy = ftol((static_cast<double>(bottom) + top) * kMinusHalf);
-                double oy = static_cast<float>(-pivot_xi - cy);
-                int cx = ftol((static_cast<double>(right) + pos_x) * kMinusHalf);
-                double ox = static_cast<float>(-pivot_xi - cx);
+                const int cy = ftol((static_cast<double>(bottom) + top) * kMinusHalf);
+                const double oy = static_cast<float>(-pivot_xi - cy);
+                const int cx = ftol((static_cast<double>(right) + pos_x) * kMinusHalf);
+                const double ox = static_cast<float>(-pivot_xi - cx);
                 int centre_x = ftol(ox * cos_a - oy * sin_a) + pivot_xi;
                 int centre_y = ftol(oy * cos_a + ox * sin_a) + pivot_xi;
                 auto turn = [&](int& px, int& py) {
@@ -427,10 +427,10 @@ void GlyphRun::close_sketch()
         }
         quad_indices_made() = true;
     }
-    int count = static_cast<int>(get_vertex_count());
+    const int count = static_cast<int>(get_vertex_count());
     if (count <= 0)
         return;
-    TypefaceData* texture_font = get_texture_font() ? get_texture_font() : font;
+    const TypefaceData* texture_font = get_texture_font() ? get_texture_font() : font;
     set_pixel_shader(nullptr, nullptr); // (no pixel shader)
     set_texture_stage_state(0, 1, 5);   // colour: texture x diffuse, doubled
     set_texture_stage_state(0, 2, 2);
@@ -473,7 +473,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
             return nullptr;
         }
         contents.resize(file::get_file_size(file));
-        int read =
+        const int read =
             contents.empty() ? 0 : file::get_take_in(contents.data(), static_cast<int>(contents.size()), 1, file);
         file::shut(file);
         contents.resize(read > 0 ? static_cast<size_t>(read) : 0);
@@ -490,8 +490,8 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     }
     // Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled page has 32-bit BGRA texels and no palette; its
     // glyph rectangles are in the original page's pixels.
-    uint32_t hd_scale = hd_ui::font_scale(page.hd_mark, page.hd_scale);
-    uint32_t size = font_format::texel_count(page);
+    const uint32_t hd_scale = hd_ui::font_scale(page.hd_mark, page.hd_scale);
+    const uint32_t size = font_format::texel_count(page);
     const uint8_t* texels = reader.cursor();
     const uint8_t* palette_bytes = texels + size;
     reader.skip(hd_scale != 1 ? static_cast<size_t>(size) * 4 : size + font_format::kPaletteSize);
@@ -500,7 +500,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         debug::printf("font %s damaged: its page or rectangles cut short\n", from_memory ? "(memory)" : name);
         return nullptr;
     }
-    int count = header.glyph_count;
+    const int count = header.glyph_count;
 
     auto* font = static_cast<TypefaceData*>(memory::alloc(sizeof(TypefaceData)));
     if (font)
@@ -517,11 +517,11 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index).
         for (int i = 0; i < count; ++i) {
             font->chars[i].baseline = entries[i].baseline;
-            int16_t code = entries[i].code();
+            const int16_t code = entries[i].code();
             if (code >= 0) {
                 font->map[code & 0xFF] = static_cast<uint8_t>(i);
             } else {
-                int special = 0xFF - (code & 0xFF);
+                const int special = 0xFF - (code & 0xFF);
                 if (special < font_format::kSpecialGlyphs)
                     font->special_map_[special] = static_cast<uint8_t>(i);
             }
@@ -548,12 +548,12 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 
     // The texture: created on the device, its palette's colours (RGBA, PS2 alpha) made ARGB with alpha doubled
     // (0x80 and over: opaque), and the pixels written through it (the rows packed: the pitch isn't used).
-    uint32_t width = page.width;
-    uint32_t height = page.height;
+    const uint32_t width = page.width;
+    const uint32_t height = page.height;
     if (hd_scale != 1)
         hd_ui::note_font(from_memory ? nullptr : name, hd_scale, width, height);
     IDirect3DTexture9* texture = nullptr;
-    HRESULT created =
+    const HRESULT created =
         g_d3d_device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     font->texture = texture;
     if (created != D3D_OK)
@@ -575,7 +575,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         std::memcpy(indices.get(), texels, size);
         std::memcpy(palette, palette_bytes, font_format::kPaletteSize);
         for (uint32_t& color : palette) {
-            uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
+            const uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
             uint32_t alpha = argb >> 24;
             alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
             color = alpha << 24 | (argb & 0xFFFFFF);
@@ -595,15 +595,15 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 
     // The glyphs' rectangles: texture coordinates (the right/bottom ones from the unrounded left/top) and sizes.
     // (not original - HD menu UI: an upscaled page's size divided by its scale, the rectangles' own pixels)
-    double texels_wide = static_cast<int>(width / hd_scale);
-    double texels_high = static_cast<int>(height / hd_scale);
+    const double texels_wide = static_cast<int>(width / hd_scale);
+    const double texels_high = static_cast<int>(height / hd_scale);
     for (int i = 0; i < count; ++i) {
         const font_format::GlyphRect& rect = rects[i];
         Char& glyph = font->chars[i];
         glyph.w = rect.w;
         glyph.h = rect.h;
-        double u0 = rect.x / texels_wide;
-        double v0 = rect.y / texels_high;
+        const double u0 = rect.x / texels_wide;
+        const double v0 = rect.y / texels_high;
         glyph.u0 = static_cast<float>(u0);
         glyph.v0 = static_cast<float>(v0);
         glyph.u1 = static_cast<float>(glyph.w / texels_wide + u0);

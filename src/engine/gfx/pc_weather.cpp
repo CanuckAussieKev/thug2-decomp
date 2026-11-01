@@ -116,16 +116,16 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
 {
     if (!active_)
         return;
-    int frames = rain_on_ ? rain_frames_ : snow_frames_;
-    float rate = rain_on_ ? rain_rate_ : snow_rate_;
+    const int frames = rain_on_ ? rain_frames_ : snow_frames_;
+    const float rate = rain_on_ ? rain_rate_ : snow_rate_;
     float& due = rain_on_ ? rain_due_ : snow_due_;
     // NOLINTNEXTLINE(bugprone-integer-division): as the original
     auto most = static_cast<float>(0x400 / frames); // (no more than the slots free up)
-    double amount = rate > most ? most : rate;
-    float before = due;
-    double total = amount + due;
+    const double amount = rate > most ? most : rate;
+    const float before = due;
+    const double total = amount + due;
     due = static_cast<float>(total);
-    int count = ftol(total) - ftol(before);
+    const int count = ftol(total) - ftol(before);
     for (int i = 0; i < count; ++i) {
         uint8_t& slot = stage[next];
         if (slot != 0xFF)
@@ -143,7 +143,8 @@ void PcWeather::render()
 {
     if (!active_)
         return;
-    float x = camera_x_, z = camera_z_;
+    const float x = camera_x_;
+    const float z = camera_z_;
     if (rain_on_) {
         render_splashes(x, z);
         render_rain(x, z);
@@ -167,15 +168,18 @@ void PcWeather::render_rain(float x, float z)
 {
     if (!drops_)
         return;
-    int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
-    int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
-    int min_x = cell_x - 16, max_x = cell_x + 16, min_z = cell_z - 16, max_z = cell_z + 16;
+    const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
+    const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
+    const int min_x = cell_x - 16;
+    const int max_x = cell_x + 16;
+    const int min_z = cell_z - 16;
+    const int max_z = cell_z + 16;
     if (max_z < 0 || min_z > depth - 1)
         return;
     uint32_t top = get_argb(rain_top_), bottom = get_argb(rain_bottom_);
     if ((rain_blend_ & 0xFFFFFF) == 10) { // (drawn as mode 9 with the mode's alpha)
         choose_blend_mode(9);
-        uint32_t alpha = rain_blend_ & 0xFF000000;
+        const uint32_t alpha = rain_blend_ & 0xFF000000;
         top = (top & 0xFFFFFF) | alpha;
         bottom = (bottom & 0xFFFFFF) | alpha;
     } else {
@@ -187,13 +191,13 @@ void PcWeather::render_rain(float x, float z)
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     // (in 16ths of a unit)
-    int base_x = ftol(static_cast<double>(origin_x_) * 16.0f);
-    int base_z = ftol(static_cast<double>(origin_z_) * 16.0f);
-    int length = ftol(static_cast<double>(rain_length_) * 16.0f);
+    const int base_x = ftol(static_cast<double>(origin_x_) * 16.0f);
+    const int base_z = ftol(static_cast<double>(origin_z_) * 16.0f);
+    const int length = ftol(static_cast<double>(rain_length_) * 16.0f);
     int fall[0x100], spread[0x100];
     {
-        double frames_f = rain_frames_;
-        double height = rain_height_;
+        const double frames_f = rain_frames_;
+        const double height = rain_height_;
         int t = 0;
         for (int i = 0xFE - rain_frames_; i < 0x100; ++i, ++t)
             fall[i] = ftol((height - t / frames_f * height) * 16.0f);
@@ -204,28 +208,28 @@ void PcWeather::render_rain(float x, float z)
     float* out = nullptr;
     uint32_t used = 0;
     auto flush = [&] {
-        uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
+        const uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
         if (count) {
             input_port()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines, 0x10);
             count_draw(count);
         }
     };
     for (int gz = min_z; gz <= max_z; ++gz) {
-        int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
+        const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
         const WeatherRow& row = rows[row_index];
         if (row.first == 0x4000)
             continue;
         int column_x = (min_x << 11) + base_x;
-        int row_z = (row_index << 11) + base_z;
-        int cell_row = (row_index & 0xF) << 4;
+        const int row_z = (row_index << 11) + base_z;
+        const int cell_row = (row_index & 0xF) << 4;
         int height_at = row.offset - row.first + min_x;
         for (int gx = min_x; gx <= max_x; ++gx, ++height_at) {
-            int column = clamp_column(rows[row_index], gx);
+            const int column = clamp_column(rows[row_index], gx);
             int cell = (column & 0xF) + cell_row;
-            int ground = heights[columns[height_at]];
+            const int ground = heights[columns[height_at]];
             column_x += 0x800;
             for (int k = 0; k < 4; ++k, cell += 0x100) {
-                uint8_t at = stage[cell];
+                const uint8_t at = stage[cell];
                 if (at == 0xFF)
                     continue;
                 auto px = static_cast<float>(spread[offset_x_[cell]] + column_x) * 0.0625f;
@@ -258,9 +262,12 @@ void PcWeather::render_snow(float x, float z)
 {
     if (!drops_)
         return;
-    int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
-    int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
-    int min_x = cell_x - 16, max_x = cell_x + 16, min_z = cell_z - 16, max_z = cell_z + 16;
+    const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
+    const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
+    const int min_x = cell_x - 16;
+    const int max_x = cell_x + 16;
+    const int min_z = cell_z - 16;
+    const int max_z = cell_z + 16;
     if (max_z < 0 || min_z > depth - 1)
         return;
     choose_blend_mode(snow_blend_);
@@ -277,11 +284,12 @@ void PcWeather::render_snow(float x, float z)
     input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    float base_x = origin_x_, base_z = origin_z_;
+    const float base_x = origin_x_;
+    const float base_z = origin_z_;
     float fall[0x100], spread[0x100], sway[0x100];
     {
-        double frames_f = snow_frames_;
-        double height = snow_height_;
+        const double frames_f = snow_frames_;
+        const double height = snow_height_;
         int t = 0;
         for (int i = 0xFE - snow_frames_; i < 0x100; ++i, ++t)
             fall[i] = static_cast<float>(height - t / frames_f * height);
@@ -295,24 +303,25 @@ void PcWeather::render_snow(float x, float z)
     float* out = nullptr;
     uint32_t used = 0;
     for (int gz = min_z; gz <= max_z; ++gz) {
-        int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
+        const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
         const WeatherRow& row = rows[row_index];
         if (row.first == 0x4000)
             continue;
         auto column_x = static_cast<float>(static_cast<double>(min_x) * 128.0f + base_x);
-        int cell_row = (row_index & 0xF) << 4;
+        const int cell_row = (row_index & 0xF) << 4;
         int height_at = row.offset - row.first + min_x;
         auto row_z = static_cast<float>(static_cast<double>(row_index) * 128.0f + base_z);
         for (int gx = min_x; gx <= max_x; ++gx, ++height_at) {
-            int column = clamp_column(rows[row_index], gx);
+            const int column = clamp_column(rows[row_index], gx);
             column_x = static_cast<float>(static_cast<double>(column_x) + 128.0f);
             int cell = (column & 0xF) + cell_row;
             auto ground = static_cast<float>(heights[columns[height_at]] >> 4);
             for (int k = 0; k < 4; ++k, cell += 0x100) {
-                uint8_t at = stage[cell];
+                const uint8_t at = stage[cell];
                 if (at == 0xFF)
                     continue;
-                int zb = offset_z_[cell], xb = offset_x_[cell];
+                const int zb = offset_z_[cell];
+                const int xb = offset_x_[cell];
                 auto px = static_cast<float>(static_cast<double>(sway[(at + zb) & 0xFF]) + spread[xb] + column_x);
                 auto py = static_cast<float>(static_cast<double>(fall[at]) + snow_size_ + ground);
                 auto pz = static_cast<float>(static_cast<double>(sway[(xb + at) & 0xFF]) + spread[zb] + row_z);
@@ -342,8 +351,8 @@ void PcWeather::render_snow(float x, float z)
 // 0x004CCC00
 void PcWeather::render_splashes(float x, float z)
 {
-    float before = splash_due_;
-    double total = static_cast<double>(splash_rate_) + splash_due_;
+    const float before = splash_due_;
+    const double total = static_cast<double>(splash_rate_) + splash_due_;
     splash_due_ = static_cast<float>(total);
     if (ftol(total) - ftol(before) != 0) {
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
@@ -355,7 +364,7 @@ void PcWeather::render_splashes(float x, float z)
         maths::Vec4 at = {camera[0], 50000.0f, camera[2], 1.0f};
         heading.make_unit();
         auto along = static_cast<float>(maths::rnd(0x8000) * (1.0 / 32768.0));
-        double out = static_cast<double>(along) * 2048.0f;
+        const double out = static_cast<double>(along) * 2048.0f;
         at.x = static_cast<float>(heading.x * out + at.x);
         at.y = static_cast<float>(at.y + heading.y * out);
         at.z = static_cast<float>(at.z + heading.z * out);
@@ -370,7 +379,7 @@ void PcWeather::render_splashes(float x, float z)
         feeler.change_origin(&at);
         at.y = -50000.0f;
         feeler.change_finish(&at);
-        float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos_.y : 50000.0f;
+        const float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos_.y : 50000.0f;
         splash_x_[next_splash_] = at.x;
         splash_y_[next_splash_] = static_cast<float>(static_cast<double>(landing) + 4.0f);
         splash_z_[next_splash_] = at.z;
@@ -395,18 +404,18 @@ void PcWeather::render_splashes(float x, float z)
     Vertex* out = quads;
     uint32_t used = 0;
     for (int i = 0; i < 0x20; ++i) {
-        int frames = splash_frames_[i];
+        const int frames = splash_frames_[i];
         if (!frames)
             continue;
-        double half = static_cast<double>(splash_size_) * 0.5f;
+        const double half = static_cast<double>(splash_size_) * 0.5f;
         auto x0 = static_cast<float>(splash_x_[i] - half), x1 = static_cast<float>(half + splash_x_[i]);
         auto z0 = static_cast<float>(splash_z_[i] - half), z1 = static_cast<float>(half + splash_z_[i]);
         uint8_t c[4];
         for (int k = 0; k < 4; ++k)
             c[k] = static_cast<uint8_t>(splash_colour_[k] * frames / splash_life_); // (fading with its frames)
-        uint32_t colour = static_cast<uint32_t>(c[3]) << 24 | static_cast<uint32_t>(c[2]) << 16 |
-                          static_cast<uint32_t>(c[1]) << 8 | c[0];
-        float y = splash_y_[i];
+        const uint32_t colour = static_cast<uint32_t>(c[3]) << 24 | static_cast<uint32_t>(c[2]) << 16 |
+                                static_cast<uint32_t>(c[1]) << 8 | c[0];
+        const float y = splash_y_[i];
         out[0] = {x0, y, z0, colour, 0.0f, 0.0f};
         out[1] = {x1, y, z0, colour, 1.0f, 0.0f};
         out[2] = {x1, y, z1, colour, 1.0f, 1.0f};
@@ -417,7 +426,7 @@ void PcWeather::render_splashes(float x, float z)
         out += 6;
         splash_frames_[i] = frames - 1;
     }
-    uint32_t triangles = used / 6 / 3;
+    const uint32_t triangles = used / 6 / 3;
     if (triangles) {
         input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads, 0x18);
         count_draw(triangles);
@@ -434,22 +443,22 @@ void PcWeather::tick_grid()
     if (!box)
         return;
     auto cell = [](float value) {
-        int v = ftol(value);
+        const int v = ftol(value);
         return v / 128; // (towards zero, as the original's shift with its correction)
     };
     int min_x = cell(box[0]) - 1, max_x = cell(box[4]) + 1;
     int min_z = cell(box[2]) - 1, max_z = cell(box[6]) + 1;
     if (max_x - min_x > 350) {
-        int trim = (max_x - min_x - 350) / 2;
+        const int trim = (max_x - min_x - 350) / 2;
         min_x += trim;
         max_x -= trim;
     }
     if (max_z - min_z > 300) {
-        int trim = (max_z - min_z - 300) / 2;
+        const int trim = (max_z - min_z - 300) / 2;
         min_z += trim;
         max_z -= trim;
     }
-    int rows_count = max_z - min_z + 1;
+    const int rows_count = max_z - min_z + 1;
     depth = rows_count;
     origin_x_ = static_cast<float>(min_x << 7);
     width = max_x - min_x + 1;
@@ -464,16 +473,17 @@ void PcWeather::tick_grid()
     for (int z = min_z, r = 0; z <= max_z; ++z, ++r) {
         auto at_z = static_cast<float>(z << 7);
         for (int x = min_x; x <= max_x; ++x) {
-            int index = width * r - min_x + x;
+            const int index = width * r - min_x + x;
             maths::Vec4 at = {static_cast<float>(x << 7), 50000.0f, at_z, 1.0f};
             feeler.change_origin(&at);
             at.y = -50000.0f;
             feeler.change_finish(&at);
-            int height = feeler.get_hit_shape(false, false) ? ftol(static_cast<double>(feeler.contact_pos_.y) * 16.0f)
-                                                            : kNoGround;
+            const int height = feeler.get_hit_shape(false, false)
+                                   ? ftol(static_cast<double>(feeler.contact_pos_.y) * 16.0f)
+                                   : kNoGround;
             int found = -1;
             for (int i = 0; i < levels; ++i) {
-                int difference = heights[i] - height;
+                const int difference = heights[i] - height;
                 if ((difference < 0 ? -difference : difference) < 480) {
                     found = i;
                     break;
@@ -492,8 +502,8 @@ void PcWeather::tick_grid()
     // as the original).
     for (int r = 0; r < rows_count && min_z <= max_z; ++r) {
         for (int x = min_x; x <= max_x; ++x) {
-            int index = width * r - min_x + x;
-            int below = width * (r + 1) - min_x + x;
+            const int index = width * r - min_x + x;
+            const int below = width * (r + 1) - min_x + x;
             if (heights[grid[index + 1]] > heights[grid[index]])
                 grid[index] = grid[index + 1];
             if (heights[grid[below]] > heights[grid[index]])

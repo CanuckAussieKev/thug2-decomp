@@ -13,10 +13,10 @@ namespace {
 
 std::string get_trim(const std::string& s)
 {
-    size_t a = s.find_first_not_of(" \t\r\n");
+    const size_t a = s.find_first_not_of(" \t\r\n");
     if (a == std::string::npos)
         return {};
-    size_t b = s.find_last_not_of(" \t\r\n");
+    const size_t b = s.find_last_not_of(" \t\r\n");
     return s.substr(a, b - a + 1);
 }
 
@@ -28,7 +28,7 @@ bool get_same(const std::string& a, const std::string& b)
 // A number's value (false if the text isn't one).
 bool get_number(const std::string& text, double* out)
 {
-    std::string t = get_trim(text);
+    const std::string t = get_trim(text);
     if (t.empty())
         return false;
     char* end = nullptr;
@@ -47,9 +47,9 @@ std::vector<Seg> get_lines(const std::string& text)
     std::vector<Seg> lines;
     size_t at = 0;
     while (at < text.size()) {
-        size_t nl = text.find('\n', at);
-        size_t end = nl == std::string::npos ? text.size() : nl;
-        size_t content = end > at && text[end - 1] == '\r' ? end - 1 : end;
+        const size_t nl = text.find('\n', at);
+        const size_t end = nl == std::string::npos ? text.size() : nl;
+        const size_t content = end > at && text[end - 1] == '\r' ? end - 1 : end;
         lines.push_back({at, content, nl == std::string::npos ? text.size() : nl + 1});
         at = nl == std::string::npos ? text.size() : nl + 1;
     }
@@ -62,7 +62,7 @@ bool section_of(const std::string& line, std::string* name)
     std::string t = get_trim(line);
     if (t.size() < 2 || t.front() != '[')
         return false;
-    size_t close = t.find(']');
+    const size_t close = t.find(']');
     if (close == std::string::npos)
         return false;
     *name = get_trim(t.substr(1, close - 1));
@@ -75,7 +75,7 @@ bool get_key_of(const std::string& line, std::string* key, size_t* equals)
     std::string t = get_trim(line);
     if (t.empty() || t[0] == ';' || t[0] == '#' || t[0] == '[')
         return false;
-    size_t eq = line.find('=');
+    const size_t eq = line.find('=');
     if (eq == std::string::npos)
         return false;
     *key = get_trim(line.substr(0, eq));
@@ -190,9 +190,9 @@ int choice_of(const Spec& spec, const std::string& value, bool present)
 {
     if (!present)
         return spec.fallback;
-    std::string v = get_trim(value);
+    const std::string v = get_trim(value);
     double number = 0.0;
-    bool is_number = get_number(v, &number);
+    const bool is_number = get_number(v, &number);
     for (size_t i = 0; i < spec.choices.size(); ++i) {
         const char* choice = spec.choices[i].value;
         double c = 0.0;
@@ -207,7 +207,7 @@ bool ini_get(const std::string& text, const std::string& section, const std::str
 {
     bool in_section = false;
     for (const Seg& l : get_lines(text)) {
-        std::string line = text.substr(l.start, l.end - l.start);
+        const std::string line = text.substr(l.start, l.end - l.start);
         std::string name;
         if (section_of(line, &name)) {
             in_section = get_same(name, section);
@@ -226,12 +226,13 @@ bool ini_get(const std::string& text, const std::string& section, const std::str
 std::string ini_set(const std::string& text, const std::string& section, const std::string& key,
                     const std::string& value)
 {
-    std::string eol = text.find("\r\n") != std::string::npos || text.find('\n') == std::string::npos ? "\r\n" : "\n";
-    std::vector<Seg> lines = get_lines(text);
+    const std::string eol =
+        text.find("\r\n") != std::string::npos || text.find('\n') == std::string::npos ? "\r\n" : "\n";
+    const std::vector<Seg> lines = get_lines(text);
     bool in_section = false, found = false;
     size_t insert_at = std::string::npos; // after the section's last line that isn't blank
     for (const Seg& l : lines) {
-        std::string line = text.substr(l.start, l.end - l.start);
+        const std::string line = text.substr(l.start, l.end - l.start);
         std::string name;
         if (section_of(line, &name)) {
             if (in_section)
@@ -253,7 +254,7 @@ std::string ini_set(const std::string& text, const std::string& section, const s
         if (!get_trim(line).empty())
             insert_at = l.next;
     }
-    std::string added = key + "=" + value;
+    const std::string added = key + "=" + value;
     if (found) {
         std::string before = text.substr(0, insert_at);
         // (the line before has no break when it is the file's last)

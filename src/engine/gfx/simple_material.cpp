@@ -75,7 +75,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
     m->pass_flags_[0] = (texture ? 4 : 0) | 0x40;
-    int first = get_rand();
+    const int first = get_rand();
     m->checksum = static_cast<uint32_t>(first * get_rand()); // the sort key
     m->pass_count_ = 1;                                      // one pass
     m->textures[0] = texture;
@@ -90,7 +90,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
     m->two_sided_ = 1;
     m->has_uv_wibble_ = false;
     material = m;
-    uint32_t mode = m->blend_modes_[0] & 0xFFFFFF;
+    const uint32_t mode = m->blend_modes_[0] & 0xFFFFFF;
     shader = g_pixel_shaders[mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964];
 }
 

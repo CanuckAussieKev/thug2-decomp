@@ -126,7 +126,7 @@ bool cfunc_apply_split_screen_options(script::Struct*, script::Script*)
     load_game_mode(type);
     prefs->get_setting_value(kTimeLimit, kTime);
     if (game_mode_is_true(kIsHorse)) {
-        int time_limit = prefs->get_setting_value(kHorseTimeLimit, kTime);
+        const int time_limit = prefs->get_setting_value(kHorseTimeLimit, kTime);
         const char* word = prefs->get_preference_string(kHorseWord, kUiString);
         // (the string is passed by value: the horse's code destroys it)
         the_horse()->set_letters(text::Chars(word));
@@ -174,7 +174,7 @@ bool cfunc_start_competition_run(script::Struct*, script::Script*)
 // info heap).
 bool cfunc_end_competition_run(script::Struct*, script::Script*)
 {
-    int score = total_score(get_score_of(get_home_rider()));
+    const int score = total_score(get_score_of(get_home_rider()));
     push_skater_info_heap();
     the_competition()->end_run(score);
     the_competition()->show_leader_board();

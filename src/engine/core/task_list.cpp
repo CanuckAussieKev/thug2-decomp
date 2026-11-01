@@ -121,7 +121,7 @@ void LinkChain::clear_job_list()
 {
     ++lock_;
     for (;;) {
-        memory::ListNode* node = get_next_node(&head_);
+        const memory::ListNode* node = get_next_node(&head_);
         if (!node || !node->data)
             break;
         static_cast<SchedulerTask*>(node->data)->drop_out();
@@ -158,7 +158,7 @@ PileUp::~PileUp()
 {
     // (the original counts the lists each time round)
     for (;;) {
-        memory::ListNode* first = lists_.next;
+        const memory::ListNode* first = lists_.next;
         if (first->data == kHeadData || !first)
             break;
         stack_off();
@@ -185,7 +185,7 @@ void PileUp::stack_off()
     memory::ListNode* first = get_next_node(&lists_);
     if (ongoing_ == old) {
         // The current list becomes the one below (an empty stack would crash here, as in the original).
-        memory::ListNode* below = get_next_node(first);
+        const memory::ListNode* below = get_next_node(first);
         ongoing_ = below ? static_cast<StackList*>(below->data) : nullptr;
     } else {
         pushed_ = false;
@@ -225,7 +225,7 @@ void PileUp::work_on(void* unused)
 void PileUp::delete_popped_lists()
 {
     for (;;) {
-        memory::ListNode* node = get_next_node(&popped_lists_);
+        const memory::ListNode* node = get_next_node(&popped_lists_);
         if (!node || !node->data)
             break;
         auto* list = static_cast<StackList*>(node->data);

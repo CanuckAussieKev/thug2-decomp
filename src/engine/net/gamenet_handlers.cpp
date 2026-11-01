@@ -101,7 +101,7 @@ void get_cd_key(char* key)
     if (opened)
         RegCloseKey(handle);
     // (a value filling all 100 bytes has no terminator: the original's strcpy runs on into its stack - here it stops)
-    size_t length = strnlen(value, sizeof(value));
+    const size_t length = strnlen(value, sizeof(value));
     std::memcpy(key, value, length);
     key[length] = '\0';
 }
@@ -195,12 +195,12 @@ int handle_object_update_length(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
     stream.change_intake_contents(context->body_, 0x400);
-    uint32_t present = stream.read_bits(8) & 0xFF;
+    const uint32_t present = stream.read_bits(8) & 0xFF;
     for (int skater = 0; skater < 8; ++skater) {
         if (!(present & (1u << skater)))
             continue;
         stream.read_bits(16); // the time
-        uint32_t flags = stream.read_bits(9);
+        const uint32_t flags = stream.read_bits(9);
         for (int field = 0; field < 6; ++field) { // the position and the rotation
             if (flags & (1u << field))
                 stream.read_signed_bits(16);
@@ -289,7 +289,7 @@ int handle_park_map(net::InboundMsgCtx* context)
         return kContinue;
     park_editing::ParkBuilderMode::sole()->set_packed_park_data(
         reinterpret_cast<const park_editing::CompressedMap*>(context->body_), true);
-    void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
+    const void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
     return kContinue;
 }
@@ -317,7 +317,7 @@ int handle_game_ended(net::InboundMsgCtx* context)
 int handle_choose_team(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
-    int teams = static_cast<int8_t>(get_message(context)[0]);
+    const int teams = static_cast<int8_t>(get_message(context)[0]);
     if (teams <= 0 || is_squad_match()) {
         get_game_mode()->set_num_teams(teams);
         return kContinue;
@@ -354,10 +354,10 @@ int handle_team_object(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     if (!is_squad_match())
         return kContinue;
-    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     if (!player)
         return kDone;
-    uint32_t object = message_word(context, 0);
+    const uint32_t object = message_word(context, 0);
     uint32_t* objects = manager->team_objects_[player->team_]; // five per team
     for (int i = 0; i < 5; ++i) {
         if (!objects[i]) {
@@ -374,8 +374,8 @@ int handle_team_object(net::InboundMsgCtx* context)
 int handle_cd_key_answer(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
-    uint32_t id = player->skater_->ident_; // its skater's id
+    const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
+    const uint32_t id = player->skater_->ident_; // its skater's id
     manager->rating_service_->set_player_auth(static_cast<int>(id), context->body_);
     return kContinue;
 }
@@ -383,17 +383,17 @@ int handle_cd_key_answer(net::InboundMsgCtx* context)
 // 0x0052F400
 int handle_created_data_request(net::InboundMsgCtx* context)
 {
-    uint8_t id = context->type_code_;
+    const uint8_t id = context->type_code_;
     net::AppHost* app = context->receiver_app_;
     Hub* manager = manager_of(context);
     if (id == kMsgRequestRails) {
-        int handle = context->sender_conn_->hdl_;
+        const int handle = context->sender_conn_->hdl_;
         auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
         rail_editor(); // (looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed(); // the rails, packed
         app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->has_created_goals()) {
-        int handle = context->sender_conn_->hdl_;
+        const int handle = context->sender_conn_->hdl_;
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
         app->send_bulk_message(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);

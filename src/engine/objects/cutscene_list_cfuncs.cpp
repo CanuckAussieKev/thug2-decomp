@@ -124,7 +124,7 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     PointerList& list = free_node_chain();
-    Elem* head = list.head_;
+    const Elem* head = list.head_;
     Elem* node = head ? head->next : nullptr;
     for (; node != head; node = node->next)
         if (entry_of(node)->label_ == name)
@@ -158,13 +158,14 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     params->read_hash_value(kCallback, &callback, 0);
     Struct* callback_params = nullptr;
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
-    bool replicate_flag = params->has_bare_flag(kOnlineFlag);
-    bool permanent = params->has_bare_flag(kPermanent);
+    const bool replicate_flag = params->has_bare_flag(kOnlineFlag);
+    const bool permanent = params->has_bare_flag(kPermanent);
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
-    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_,
-                                                   id, replicate_flag, permanent, not_session_specific != 0, false);
-    uint32_t unique_id = spawned->unique_id_;
+    const script::Script* spawned =
+        script::spawn_script(name, script_params, callback, callback_params, script->list_link_, id, replicate_flag,
+                             permanent, not_session_specific != 0, false);
+    const uint32_t unique_id = spawned->unique_id_;
 
     Struct* entry = new_params();
     entry->put_name_key(kName, unique_id);
@@ -184,9 +185,9 @@ bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
 {
     PointerList& list = free_node_chain();
     flushing() = true;
-    Elem* head = list.head_;
+    const Elem* head = list.head_;
     for (Elem* node = head ? head->next : nullptr; node != head; node = node->next) {
-        CutsceneDestroyEntry* entry = entry_of(node);
+        const CutsceneDestroyEntry* entry = entry_of(node);
         script::launch_script(entry->destroy_script_, entry->args_, nullptr, false, nullptr);
         delete_entry(entry_of(node));
     }

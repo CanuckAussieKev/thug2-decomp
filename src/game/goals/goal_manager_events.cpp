@@ -92,7 +92,7 @@ void free_array(script::Array* array)
 int total_with_pending(void* score)
 {
     auto* tally = static_cast<modules::PointTally*>(score);
-    int pending = static_cast<int>(static_cast<double>(tally->pot_) * tally->multiplier_);
+    const int pending = static_cast<int>(static_cast<double>(tally->pot_) * tally->multiplier_);
     return tally->get_total_score() + pending;
 }
 
@@ -111,7 +111,7 @@ void lose_next_frame(Objective* goal)
 void GoalManager::land()
 {
     test_tagged_props();
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (!goal->is_operative())
@@ -142,7 +142,7 @@ void GoalManager::land()
             goal->fetch_args()->fetch_int_value(kScore, &needed, 1);
             if (total_with_pending(score) < needed)
                 continue;
-            int total = total_with_pending(score);
+            const int total = total_with_pending(score);
             goal->fetch_args()->put_int(kWinningScore, total);
             complete_objective(goal->get_objective_key());
             goal->fetch_args()->erase_module(kWinningScore);
@@ -161,7 +161,7 @@ void GoalManager::land()
             goal->fetch_args()->fetch_int_value(kArcadeCurrentScoreTotal, &current, 0);
             if (total_with_pending(score) <= current)
                 continue;
-            int total = total_with_pending(score);
+            const int total = total_with_pending(score);
             goal->fetch_args()->put_int(kArcadeCurrentScoreTotal, total);
         } else if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag)) {
             lose_next_frame(goal);
@@ -172,7 +172,7 @@ void GoalManager::land()
 // 0x0055CBB0
 void GoalManager::get_bail()
 {
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (!goal->is_operative())
@@ -194,16 +194,16 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 {
     script::Struct* by_pro = spawn_param_table(); // each pro: its goals' info by id, and their number
     script::Struct* info = spawn_param_table();
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
-        uint32_t pro = goal->skater_;
+        const uint32_t pro = goal->skater_;
         if (skater && pro != skater)
             continue;
-        uint32_t id = goal->get_objective_key();
-        int beaten = goal->has_won() ? 1 : 0;
-        int locked = goal->is_latched() ? 1 : 0;
+        const uint32_t id = goal->get_objective_key();
+        const int beaten = goal->has_won() ? 1 : 0;
+        const int locked = goal->is_latched() ? 1 : 0;
         script::Struct* params = goal->fetch_args();
         const char* text = nullptr;
         params->fetch_text(kViewGoalsText, &text, 1);
@@ -323,7 +323,7 @@ bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script
     int level = 0;
     params->fetch_int_value(0u, &level, 1);
     GoalManager* manager = get_objective_board();
-    int flag = params->has_bare_flag(kBeatenInLevelFlag);
+    const int flag = params->has_bare_flag(kBeatenInLevelFlag);
     script->args_->put_int(kClearedCount, manager->count_cleared_in_stage(level, flag));
     return true;
 }
@@ -332,9 +332,9 @@ bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script
 bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    bool selected = params->has_bare_flag(kChosenOnly);
-    bool classic = params->has_bare_flag(kClassicOnly);
-    bool created = params->has_bare_flag(kCreatedOnly);
+    const bool selected = params->has_bare_flag(kChosenOnly);
+    const bool classic = params->has_bare_flag(kClassicOnly);
+    const bool created = params->has_bare_flag(kCreatedOnly);
     manager->append_objective_options(selected, classic, created);
     return true;
 }

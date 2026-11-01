@@ -39,7 +39,7 @@ uint32_t get_goal_name(script::Struct* params)
 bool cfunc_goal_manager_edit_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     script::Struct* edits = nullptr;
     params->read_sub_struct(kParams, &edits, 1);
     Objective* goal = manager->goals_.get_pull(name);
@@ -52,8 +52,8 @@ bool cfunc_goal_manager_edit_goal(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_activate_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name = get_goal_name(params);
-    bool dont_assert = params->has_bare_flag(kDontAssert);
+    const uint32_t name = get_goal_name(params);
+    const bool dont_assert = params->has_bare_flag(kDontAssert);
     return manager->engage_objective(name, dont_assert);
 }
 
@@ -115,7 +115,7 @@ bool cfunc_goal_manager_uninitialize_all_goals(script::Struct*, script::Script*)
 bool cfunc_goal_manager_uninitialize_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     if (params->has_bare_flag(kWholeTree)) {
         manager->release_objective_tree(name);
         return true;
@@ -157,7 +157,7 @@ bool cfunc_goal_manager_goal_is_active(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_set_goal_timer(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     int time = -1;
     params->fetch_int_value(kTime, &time, 0);
     Objective* goal = manager->goals_.get_pull(name);
@@ -198,7 +198,7 @@ bool cfunc_goal_manager_un_pause_all_goals(script::Struct*, script::Script*)
 bool cfunc_goal_manager_set_goal_flag(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     uint32_t flag = 0;
     params->read_hash_value(0u, &flag, 1);
     int value = 0;
@@ -230,7 +230,7 @@ bool cfunc_goal_manager_all_flags_set(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_goal_flag_set(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     uint32_t flag = 0;
     params->read_hash_value(kFlag, &flag, 1);
     uint32_t skater = 0;
@@ -263,7 +263,7 @@ bool cfunc_goal_manager_can_start_goal(script::Struct*, script::Script*)
 bool cfunc_goal_manager_next_race_waypoint(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    uint32_t name = get_goal_name(params);
+    const uint32_t name = get_goal_name(params);
     Objective* goal = manager->goals_.get_pull(name);
     return static_cast<RaceObjective*>(goal)->advance_race_gate(name);
 }

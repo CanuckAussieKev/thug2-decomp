@@ -29,12 +29,12 @@ struct Foremost {
 template <typename Item, typename Destroy>
 void delete_each(memory::ListNode* head, Destroy destroy)
 {
-    memory::ListNode* node = head->next;
+    const memory::ListNode* node = head->next;
     if (node->is_head())
         return;
     while (node) {
-        memory::ListNode* next = node->next;
-        memory::ListNode* following = next->is_head() ? nullptr : next;
+        const memory::ListNode* next = node->next;
+        const memory::ListNode* following = next->is_head() ? nullptr : next;
         destroy(static_cast<Item*>(node->data));
         node = following;
     }

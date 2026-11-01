@@ -80,11 +80,11 @@ float fast_atan2(float y, float x)
         return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)));
 
     // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
-    bool x_below_zero = x < 0.0f;
-    bool y_not_positive = y <= 0.0f;
-    double ratio = (y_not_positive ? -static_cast<double>(y) : y) / (x_below_zero ? -static_cast<double>(x) : x);
-    double t = (ratio - 1.0) / (ratio + 1.0);
-    double t2 = t * t;
+    const bool x_below_zero = x < 0.0f;
+    const bool y_not_positive = y <= 0.0f;
+    const double ratio = (y_not_positive ? -static_cast<double>(y) : y) / (x_below_zero ? -static_cast<double>(x) : x);
+    const double t = (ratio - 1.0) / (ratio + 1.0);
+    const double t2 = t * t;
     double p = (t * kAtanC15 * t2 + t * kAtanC13) * t2 - t * kAtanC11;
     p = (p * t2 + t * kAtanC9) * t2 - t * kAtanC7;
     p = (p * t2 + t * kAtanC5) * t2 - t * kAtanC3;
@@ -101,7 +101,7 @@ float fast_atan2(float y, float x)
 // 0x00404010
 float keep_within(float value, float target, float distance)
 {
-    float limit = std::fabs(distance);
+    const float limit = std::fabs(distance);
     if (value >= target) {
         if (limit < value - target)
             return target + limit;
@@ -114,8 +114,8 @@ float keep_within(float value, float target, float distance)
 // 0x004058B0
 void create_rotate_2d(float out[4], float angle)
 {
-    float s = std::sin(angle);
-    float c = std::cos(angle);
+    const float s = std::sin(angle);
+    const float c = std::cos(angle);
     out[0] = c;
     out[1] = s;
     out[2] = -s;
@@ -132,8 +132,8 @@ constexpr float kSinStepsPerRadian = get_bits(0x42963E05);
 // 0x00405FF0
 float fast_sin(float angle)
 {
-    float steps = angle * kSinStepsPerRadian;
-    int index = static_cast<int>(steps); // truncates, like the CRT's _ftol the original calls
+    const float steps = angle * kSinStepsPerRadian;
+    const int index = static_cast<int>(steps); // truncates, like the CRT's _ftol the original calls
     const SinCosEntry& entry = sin_table()[index];
     return (steps - static_cast<float>(index)) * entry.sin_delta_ + entry.sin;
 }
@@ -141,8 +141,8 @@ float fast_sin(float angle)
 // 0x00406020
 float fast_cos(float angle)
 {
-    float steps = angle * kSinStepsPerRadian;
-    int index = static_cast<int>(steps);
+    const float steps = angle * kSinStepsPerRadian;
+    const int index = static_cast<int>(steps);
     const SinCosEntry& entry = sin_table()[index];
     return (steps - static_cast<float>(index)) * entry.cos_delta_ + entry.cos;
 }
@@ -152,7 +152,7 @@ void fill_sine_table()
 {
     SinCosEntry* table = sin_table();
     for (int i = 0; i < kSinTableSize; ++i) {
-        double angle = static_cast<double>(i) * kSinTableStep; // (the FPU's product, not rounded to float)
+        const double angle = static_cast<double>(i) * kSinTableStep; // (the FPU's product, not rounded to float)
         table[i].sin = static_cast<float>(std::sin(angle));
         table[i].cos = static_cast<float>(std::cos(angle));
     }

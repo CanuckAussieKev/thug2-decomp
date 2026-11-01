@@ -59,7 +59,7 @@ void clear_screen_clip() { clear_skin_scaling(); }
 // The scene's hash table size: 2^n entries (n 1-12), the first at least twice the sectors.
 int table_bit_width(int sectors)
 {
-    unsigned int wanted = 2 * static_cast<unsigned int>(sectors);
+    const unsigned int wanted = 2 * static_cast<unsigned int>(sectors);
     unsigned int size = 2;
     int bits = 1;
     while (wanted > size && bits < 12) {
@@ -130,7 +130,7 @@ uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool 
         insert_sector(scene, sector);
     }
     list->update_sphere();
-    int nodes = scene_format::take<int>(in);
+    const int nodes = scene_format::take<int>(in);
     if (nodes > 0 && in.fits(static_cast<uint64_t>(nodes) * sizeof(HierarchyNode))) {
         HierarchyNode* hierarchy = new_hierarchy(nodes);
         list->extra = reinterpret_cast<uint8_t*>(hierarchy);

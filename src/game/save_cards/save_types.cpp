@@ -238,8 +238,8 @@ int make_folder_file_name(uint32_t type, const char* name, char* buffer)
 // 0x005A63E0
 bool is_later(Struct* first, Struct* second)
 {
-    SaveDate a = read_stamped_date(first);
-    SaveDate b = read_stamped_date(second);
+    const SaveDate a = read_stamped_date(first);
+    const SaveDate b = read_stamped_date(second);
     for (int i = 0; i < 6; ++i) {
         if (a.fields[i] != b.fields[i])
             return a.fields[i] > b.fields[i];
@@ -250,7 +250,7 @@ bool is_later(Struct* first, Struct* second)
 // 0x005A6CD0
 int round_up_to_card_block(int size)
 {
-    int block = card_block();
+    const int block = card_block();
     if (size % block == 0)
         return size;
     return (size / block + 1) * block;
@@ -288,9 +288,9 @@ int type_file_size(uint32_t type)
 // 0x005A8470
 int save_blocks(uint32_t type, int size)
 {
-    int platform = os_layer();
-    int block = card_block();
-    int blocks = round_up_to_card_block(size) / block;
+    const int platform = os_layer();
+    const int block = card_block();
+    const int blocks = round_up_to_card_block(size) / block;
     if (platform <= 0)
         return blocks;
     if (platform <= 3)
@@ -430,7 +430,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         objects::Entity* object = objects::g_tracker->look_up_object(kGoalEditor);
         objects::ObjectModule* component = static_cast<objects::GameEntity*>(object)->fetch_module(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
-        int edited = static_cast<park_editing::ObjectiveAuthoring*>(component)->count_used_goals();
+        const int edited = static_cast<park_editing::ObjectiveAuthoring*>(component)->count_used_goals();
         summary->put_int(kNumEditedGoals, edited);
         if (type != kSavePark)
             break;
@@ -454,7 +454,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         Struct* own = objective_board()->goal_data_; // (the shared getter of +0x14)
         Struct* goal_manager_params = nullptr;       // (read, not used)
         own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
-        objects::RiderStoryProgress* career = modules::Skate::sole()->career_.get();
+        const objects::RiderStoryProgress* career = modules::Skate::sole()->career_.get();
         summary->put_int(kTotalScore, career->lifetime_funds_);
         summary->put_int(kTotalScorePotential, career->total_amount_);
         summary->put_int(kTotalGoalsComplete, career->total_counter_);
@@ -486,7 +486,7 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
     objects::ProfileRoster* profiles = objects::g_profile_roster;
     modules::Skate* skate = modules::Skate::sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    int index = profiles->cursor_pos_;
+    const int index = profiles->cursor_pos_;
     auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(index));
     skater->load_cat_info(loaded);
     skater->load_list_44b_66a_9f(loaded);

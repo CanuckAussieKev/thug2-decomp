@@ -62,7 +62,7 @@ script::VectorValue* placed_positions(online::PlayerRecord* player) { return pla
 // The player whose skater the script runs on (null without an object or a player).
 online::PlayerRecord* script_player(script::Script* script)
 {
-    objects::Entity* object = script->entity_.owner_object_;
+    const objects::Entity* object = script->entity_.owner_object_;
     if (!object)
         return nullptr;
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident_));

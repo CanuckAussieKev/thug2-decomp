@@ -79,10 +79,10 @@ void SkaterPhysicsModule::try_start_skitch()
         if (car == object_of(this))
             continue;
         maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
-        int index = closest_tow_point(skitch, &point, &entity_->at_point_);
+        const int index = closest_tow_point(skitch, &point, &entity_->at_point_);
         if (index == -1)
             continue;
-        double distance = length_unrounded(point - entity_->at_point_);
+        const double distance = length_unrounded(point - entity_->at_point_);
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
             found = car;
@@ -102,7 +102,7 @@ void SkaterPhysicsModule::try_start_skitch()
 // 0x00501DB0
 void SkaterPhysicsModule::get_skitch()
 {
-    objects::RideTracker* rider = ride_->ride_;
+    const objects::RideTracker* rider = ride_->ride_;
     objects::PadSnapshot* pad = &input_->pad_primary_;
     objects::GameEntity* car = rider ? rider->entity_.owner_object_ : nullptr;
     if (!car) {
@@ -138,10 +138,10 @@ void SkaterPhysicsModule::get_skitch()
         float reach = kSkitchStep;
         double next = 0.0;
         do {
-            objects::GameEntity* object = object_of(this);
+            const objects::GameEntity* object = object_of(this);
             const maths::Vec4& side = object->basis_frame_.row[0];
             const maths::Vec4& position = object->at_point_;
-            float scale = reach * direction;
+            const float scale = reach * direction;
             auto x = static_cast<float>(static_cast<double>(side.x) * scale);
             auto y = static_cast<float>(static_cast<double>(side.y) * scale);
             auto z = static_cast<float>(static_cast<double>(side.z) * scale);
@@ -151,7 +151,7 @@ void SkaterPhysicsModule::get_skitch()
             target.y = y + position.y;
             target.x = x + position.x;
             maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
-            int index = closest_tow_point(skitch, &point, &target);
+            const int index = closest_tow_point(skitch, &point, &target);
             if (index != skitch_point_) {
                 skitch_point_ = index;
                 skitch_moving_ = 1;
@@ -173,11 +173,11 @@ void SkaterPhysicsModule::get_skitch()
         return;
     objects::GameEntity* object = object_of(this);
     object->at_point_.w = 0.0f;
-    maths::Vec4 back = -static_cast<objects::GameEntity*>(car)->basis_frame_.row[2];
-    float offset = script::fetch_float(kSkitchOffset);
-    maths::Vec4 target = point + offset * back;
+    const maths::Vec4 back = -static_cast<objects::GameEntity*>(car)->basis_frame_.row[2];
+    const float offset = script::fetch_float(kSkitchOffset);
+    const maths::Vec4 target = point + offset * back;
     if (skitch_moving_) {
-        maths::Vec4 moved = ride_->ride_->carried_; // (the ride's last move)
+        const maths::Vec4 moved = ride_->ride_->carried_; // (the ride's last move)
         entity_->at_point_ += moved;
         maths::Vec4 toward = target - entity_->at_point_;
         auto length_sqr = static_cast<float>(length_sqr_unrounded(toward));

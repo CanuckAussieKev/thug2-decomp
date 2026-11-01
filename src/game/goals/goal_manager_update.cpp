@@ -61,7 +61,7 @@ script::Array* alloc_script_array()
 // The active list's nodes, counted (as get_engaged_objective walks them).
 int count_active(memory::ListNode* head)
 {
-    memory::ListNode* node = head->next;
+    const memory::ListNode* node = head->next;
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return 0;
     int count = 0;
@@ -79,12 +79,12 @@ void GoalManager::update_time_display()
 {
     char text[64];
     text[0] = 0;
-    int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (!goal->shows_clock())
             continue;
-        int time = goal->get_seconds_remaining();
+        const int time = goal->get_seconds_remaining();
         int minutes = 0, seconds = 0;
         if (time > 0) {
             minutes = time / 60000;
@@ -102,7 +102,7 @@ void GoalManager::update_time_display()
 // 0x0055DEA0
 bool GoalManager::has_active_gap_goal()
 {
-    int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (!goal->is_operative())
@@ -135,7 +135,7 @@ void GoalManager::revoke_every_clear()
 // 0x0055E050
 void GoalManager::append_objective_list_entries()
 {
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     script::Array* ordered = alloc_script_array();
     script::Array* unordered = alloc_script_array();
     ordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
@@ -154,13 +154,13 @@ void GoalManager::append_objective_list_entries()
     // read through null, as the original).
     for (int slot = 0; slot < num_ordered; ++slot) {
         for (int k = slot; k < num_ordered; ++k) {
-            uint32_t id = ordered->fetch_part(static_cast<uint32_t>(k));
+            const uint32_t id = ordered->fetch_part(static_cast<uint32_t>(k));
             int place = 0;
             goals_.get_pull(id)->fetch_args()->fetch_int_value(kViewGoalsOrder, &place, 1);
             if (place - 1 != slot)
                 continue;
             if (k != slot) {
-                uint32_t other = ordered->fetch_part(static_cast<uint32_t>(slot));
+                const uint32_t other = ordered->fetch_part(static_cast<uint32_t>(slot));
                 int unused = 0;
                 goals_.get_pull(other)->fetch_args()->fetch_int_value(kViewGoalsOrder, &unused, 1);
                 ordered->set_element(static_cast<uint32_t>(slot), id);
@@ -210,8 +210,8 @@ void GoalManager::append_objective_list_entries()
                     } else if (type == kTime) {
                         int ms = 0;
                         params->fetch_int_value(kWinRecord, &ms, 0);
-                        int total_seconds = ms / 1000;
-                        int minutes = total_seconds / 60;
+                        const int total_seconds = ms / 1000;
+                        const int minutes = total_seconds / 60;
                         std::snprintf(record, sizeof(record), "%i:%02i.%02i", minutes, total_seconds - minutes * 60,
                                       (ms % 1000) / 10); // "%i:%02i.%02i"
                         item->append_word(kRecordText, record);
@@ -237,7 +237,7 @@ void GoalManager::append_objective_list_entries()
 // 0x0055E790
 void GoalManager::trick_landed(script::Struct* trick)
 {
-    int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (goal->fetch_args()->has_bare_flag(kTrickBeat))
@@ -248,7 +248,7 @@ void GoalManager::trick_landed(script::Struct* trick)
 // 0x0055E980
 Objective* GoalManager::get_active_net_goal()
 {
-    int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
         if (goal->is_online_objective())
@@ -276,7 +276,7 @@ void GoalManager::tick_frame()
 bool cfunc_goal_manager_has_active_goals(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    bool all = params->has_bare_flag(kCountAll);
+    const bool all = params->has_bare_flag(kCountAll);
     return manager->count_live_goals(all) > 0;
 }
 

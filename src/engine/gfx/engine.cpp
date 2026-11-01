@@ -183,7 +183,7 @@ bool split_skin_name(const char* name, char* base)
 {
     std::strcpy(base, name);
     char* skin = std::strstr(base, ".skin");
-    bool found = skin != nullptr;
+    const bool found = skin != nullptr;
     if (found)
         *skin = '\0';
     if (char* model = std::strstr(base, ".mdl"))
@@ -211,7 +211,7 @@ void build_scene_file_path(char* out, const char* name, uint32_t)
 void* load_model_file(const char* file_name, void* textures, int, bool)
 {
     char base[0x200];
-    bool skinned = split_skin_name(file_name, base);
+    const bool skinned = split_skin_name(file_name, base);
     text::to_lower_text(base);
     char path[0x200];
     std::sprintf(path, kModelFileFormat, base, skinned ? "skin" : "mdl", platform_suffix());

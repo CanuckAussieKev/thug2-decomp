@@ -97,7 +97,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
         if (!gap || !gap->fetch_text(name_hash("name"), &name, 0) || !name || !*name ||
             !gap->fetch_int_value(name_hash("score"), &score, 0) || !score)
             continue;
-        int index = checklist->find_gap(name);
+        const int index = checklist->find_gap(name);
         if (index >= 0 && checklist->count_gaps_found(index) > 0)
             continue; // (landed already)
         checklist->register_gap_entry(name, 1,
@@ -106,7 +106,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
         gap->fetch_vec(name_hash("pos"), &pos, 0);
         checklist->set_gap_positions(name, {pos.x, pos.y, pos.z, 1.0f}, facing);
     }
-    int count = checklist->total_of();
+    const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {
         goals::GapEntry* gap = checklist->get_gap(i);
         if (gap && !gap->num_) {
@@ -139,7 +139,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;
     objects::RiderStoryProgress* career = reinterpret_cast<modules::Skate*>(skate)->career_.get();
-    goals::GoalManager* goal_manager = reinterpret_cast<modules::Skate*>(skate)->goal_manager_.get();
+    const goals::GoalManager* goal_manager = reinterpret_cast<modules::Skate*>(skate)->goal_manager_.get();
     script::Struct* saved = goal_manager ? goal_manager->goal_data_ : nullptr;
     if (!career || !saved)
         return false;
@@ -183,10 +183,10 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     }
     // The classic total complete as the counters add up (the total possible, +0x5EF, is SetClassicTotalGoals').
     int counter_total = 0;
-    for (uint8_t counter : career->counter_)
+    for (const uint8_t counter : career->counter_)
         counter_total += counter;
     career->total_counter_ = static_cast<uint8_t>(counter_total);
-    int stat_goals = complete_stat_goals();
+    const int stat_goals = complete_stat_goals();
     get_log(
         "create 100%% cas: %u levels; %d story goals beaten, story points %u / %u; %d classic goals beaten, classic "
         "goals %u / %u; %d gaps got in %d levels, all gaps got: %d; %d stat challenges done",

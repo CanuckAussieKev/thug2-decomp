@@ -76,7 +76,7 @@ int DispatchMessage(HandlerLists* dispatcher, InboundMsgCtx* context)
 
 uint16_t name_hash(const uint8_t* data, int length)
 {
-    uint32_t crc = checksums::generate_crc_from_buffer(data, length);
+    const uint32_t crc = checksums::generate_crc_from_buffer(data, length);
     return static_cast<uint16_t>(crc + (crc >> 16));
 }
 
@@ -134,7 +134,7 @@ void AppHost::raise_fault()
 // 0x00456B00
 bool AppHost::is_send_due(Conn* conn)
 {
-    uint32_t interval = transmit_period(conn);
+    const uint32_t interval = transmit_period(conn);
     if (clock_ - conn->last_transmit_at_ >= interval)
         return true;
     return send_now(conn);
@@ -204,7 +204,7 @@ bool AppHost::transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int l
                         sizeof(to));
     }
     if (result == SOCKET_ERROR) {
-        int error = WSAGetLastError();
+        const int error = WSAGetLastError();
         if (error != WSAEWOULDBLOCK && error != WSAEINPROGRESS)
             return false;
     }
@@ -323,7 +323,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
         lists::Hunt<OrderedMsgNode> search;
         for (OrderedMsgNode *link = search.head_element(&queue), *next = nullptr; link; link = next) {
             next = search.following_item();
-            uint8_t group = link->bundle_id_;
+            const uint8_t group = link->bundle_id_;
             if (link->order_index_ != conn->sequence_numbers_[group])
                 break; // not its turn yet
             SeqQueuedMsg* msg = link->shared_msg_;
@@ -334,7 +334,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
             context.type_code_ = msg->ident_;
             context.body_size_ = msg->byte_count_;
             ++conn->sequence_numbers_[group];
-            int result = DispatchMessage(&dispatcher_, &context);
+            const int result = DispatchMessage(&dispatcher_, &context);
             if (result == kHandlerKeep)
                 return true;
             if (result == kResultMsgFreed)
@@ -358,7 +358,7 @@ AppHost::~AppHost()
         if (banned)
             banned->destroy_banned(1);
     }
-    for (tasks::SchedulerTask* task : {send_task_, receive_task_, process_task_, metrics_task_})
+    for (const tasks::SchedulerTask* task : {send_task_, receive_task_, process_task_, metrics_task_})
         delete task;
     banned_.uncouple();
     circuits_.uncouple();
@@ -392,16 +392,16 @@ Conn* AppHost::find_conn_with_id(int handle)
 bool AppHost::important_messages_due(Conn* conn)
 {
     lists::Hunt<ReliableMsgNode> important;
-    for (ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
+    for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
          link = important.following_item()) {
-        uint32_t sent = link->stamp_ms_;
+        const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     lists::Hunt<OrderedMsgNode> sequenced;
-    for (OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
+    for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
          link = sequenced.following_item()) {
-        uint32_t sent = link->stamp_ms_;
+        const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ - sent > retransmit_limit(conn))
             return true;
     }
@@ -412,21 +412,21 @@ bool AppHost::important_messages_due(Conn* conn)
 bool AppHost::messages_due(Conn* conn)
 {
     lists::Hunt<MsgNormalLink> normal;
-    for (MsgNormalLink* link = normal.head_element(&conn->normal_msgs_); link; link = normal.following_item()) {
+    for (const MsgNormalLink* link = normal.head_element(&conn->normal_msgs_); link; link = normal.following_item()) {
         if (clock_ >= link->due_time_)
             return true;
     }
     lists::Hunt<ReliableMsgNode> important;
-    for (ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
+    for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
          link = important.following_item()) {
-        uint32_t sent = link->stamp_ms_;
+        const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     lists::Hunt<OrderedMsgNode> sequenced;
-    for (OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
+    for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
          link = sequenced.following_item()) {
-        uint32_t sent = link->stamp_ms_;
+        const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
             return true;
     }

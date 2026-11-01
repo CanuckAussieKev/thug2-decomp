@@ -88,16 +88,16 @@ void RiderPhysicsTweaks::tick_frame()
 // 0x004F8AA0
 void RiderPhysicsTweaks::check_inside_moving_object()
 {
-    maths::Vec4& frame_start = core_ptr_->safe_pos_;
+    const maths::Vec4& frame_start = core_ptr_->safe_pos_;
     if (!ride_->find_contact_ahead(&entity_->at_point_, &frame_start))
         return;
     debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
                   "found to be inside a moving object");
     render::ProbeRay feeler;
     const maths::Vec4& pos = entity_->at_point_;
-    maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
+    const maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
     feeler.change_origin(&start);
-    maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
+    const maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
         reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(feeler.get_hit_object());
@@ -113,7 +113,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
 // 0x004F82F0
 void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
 {
-    bool hit = ground->get_hit_shape(false, false) != 0;
+    const bool hit = ground->get_hit_shape(false, false) != 0;
     render::ProbeRay feeler;
     feeler.copy_construct(*ground);
     feeler.set_excluded(0, 0x20);

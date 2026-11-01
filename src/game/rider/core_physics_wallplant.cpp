@@ -90,7 +90,7 @@ bool button_pressed(SkaterPhysicsModule* component, uint32_t button)
     auto* skater = static_cast<objects::MoveExecutor*>(component->trick_);
     if (skater->is_key_held(button))
         return true;
-    uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
+    const uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
     return static_cast<objects::MoveExecutor*>(component->trick_)->find_press(button, window, 0xFFFFFFFFu);
 }
 
@@ -99,12 +99,12 @@ bool button_pressed(SkaterPhysicsModule* component, uint32_t button)
 bool wall_above_hit(SkaterPhysicsModule* component)
 {
     maths::Vec4 point = component->feeler_.contact_pos_;
-    maths::Vec4 normal = component->feeler_.surface_dir_;
+    const maths::Vec4 normal = component->feeler_.surface_dir_;
     maths::Vec4 rise = {0.0f, object_of(component)->vel_.y * kRiseScale, 0.0f, 1.0f};
     rise.align_to_plane(normal);
     point += rise;
-    maths::Vec4 end = point - normal * kProbe;
-    maths::Vec4 start = point + normal * kProbe;
+    const maths::Vec4 end = point - normal * kProbe;
+    const maths::Vec4 start = point + normal * kProbe;
     render::ProbeRay feeler(&start, &end);
     return feeler.get_hit_shape(true, false) != 0;
 }
@@ -123,10 +123,10 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         return false;
 
     if (!walking) {
-        objects::GameEntity* object = object_of(this);
+        const objects::GameEntity* object = object_of(this);
         if (object->basis_frame_.row[1].y < kMinUp)
             return false;
-        int elapsed = static_cast<int>(get_since(wallplant_time_));
+        const int elapsed = static_cast<int>(get_since(wallplant_time_));
         double since_plant = elapsed;
         if (elapsed < 0)
             since_plant += kUnsignedOffset; // (unsigned)
@@ -143,11 +143,11 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             return false;
         // A wall plant trick pressed? (Not original: THAW 0x005DB1ED - on the bike square held plants without asking
         // the list, and the list is the bike's, bike_Wallplant_Trick.)
-        bool bike = thaw_bmx::live_now(this);
+        const bool bike = thaw_bmx::live_now(this);
         script::Array* tricks = script::fetch_list(bike ? thaw_bmx::wallplant_trick_list() : kWallplantTrick);
         bool pressed = bike && thaw_bmx::wallplant_by_square(this);
         for (uint32_t i = 0; !pressed && i < tricks->extent_; ++i) {
-            uint32_t trick = tricks->fetch_part(i);
+            const uint32_t trick = tricks->fetch_part(i);
             if (static_cast<objects::MoveExecutor*>(trick_)->check_trigger(reinterpret_cast<script::Struct*>(trick), 0,
                                                                            0, true)) {
                 pressed = true;
@@ -167,7 +167,9 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             maths::Vec4 back = {-v.x, 0.0f, -v.z, v.w};
             back.make_unit();
             maths::Vec4& p = o->at_point_;
-            float y = back.y * kBackOff, z = back.z * kBackOff, w = back.w * kBackOff;
+            const float y = back.y * kBackOff;
+            const float z = back.z * kBackOff;
+            const float w = back.w * kBackOff;
             p.z = z + p.z;
             p.w = w + p.w;
             p.x = static_cast<float>(static_cast<double>(back.x) * kBackOff + p.x);
@@ -184,19 +186,21 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             const maths::Vec4& old = o->old_pos_;
             maths::Vec4 move = {position.x - old.x, position.y - old.y, position.z - old.z, position.w - old.w};
             move.make_unit();
-            double height = tuning_float_lookup(kForwardHeight, o);
+            const double height = tuning_float_lookup(kForwardHeight, o);
             const maths::Vec4& up = o->basis_frame_.row[1];
             auto hw = static_cast<float>(height * up.w), hz = static_cast<float>(height * up.z),
                  hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
             const maths::Vec4& last = entity_->old_pos_;
             maths::Vec4& start = probe_start_;
             start = {hx + last.x, hy + last.y, hz + last.z, hw + last.w};
-            double length = tuning_float_lookup(kForwardLength, object_of(this));
+            const double length = tuning_float_lookup(kForwardLength, object_of(this));
             auto lw = static_cast<float>(move.w * length), lz = static_cast<float>(move.z * length),
                  ly = static_cast<float>(move.y * length), lx = static_cast<float>(length * move.x);
             const maths::Vec4& now = entity_->at_point_;
-            double w = static_cast<double>(hw) + now.w; // (left unrounded)
-            float z = hz + now.z, y = hy + now.y, x = hx + now.x;
+            const double w = static_cast<double>(hw) + now.w; // (left unrounded)
+            const float z = hz + now.z;
+            const float y = hy + now.y;
+            const float x = hx + now.x;
             maths::Vec4& end = probe_end_;
             end = {x + lx, y + ly, z + lz, static_cast<float>(w + lw)};
             if (!probe_touches_zone(0x10, 0))
@@ -208,11 +212,11 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         const maths::Vec4& facing = object->basis_frame_.row[2];
         maths::Vec4 direction = {-facing.x, facing.y, -facing.z, facing.w};
         direction.make_unit();
-        float height = tuning_float_lookup(kForwardHeight, object);
-        maths::Vec4 lift = object->basis_frame_.row[1] * height;
+        const float height = tuning_float_lookup(kForwardHeight, object);
+        const maths::Vec4 lift = object->basis_frame_.row[1] * height;
         probe_start_ = entity_->at_point_ + lift;
-        maths::Vec4 reach = direction * kWalkReach;
-        maths::Vec4 base = entity_->at_point_ + lift;
+        const maths::Vec4 reach = direction * kWalkReach;
+        const maths::Vec4 base = entity_->at_point_ + lift;
         probe_end_ = base + reach;
         if (!probe_touches_zone(0x10, 0))
             return false;
@@ -236,9 +240,9 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     wall.y = 0.0f;
     wall.make_unit();
     if (!walking) {
-        double limit = std::sin(static_cast<double>(script::fetch_float(kMinApproachAngle)) * kRadiansPerDegree);
-        double approach = static_cast<double>(heading.x) * wall.x + static_cast<double>(heading.z) * wall.z +
-                          static_cast<double>(wall.y) * heading.y;
+        const double limit = std::sin(static_cast<double>(script::fetch_float(kMinApproachAngle)) * kRadiansPerDegree);
+        const double approach = static_cast<double>(heading.x) * wall.x + static_cast<double>(heading.z) * wall.z +
+                                static_cast<double>(wall.y) * heading.y;
         if (-limit < approach)
             return false;
     }
@@ -258,7 +262,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     maths::Vec4& velocity = object->vel_;
     auto into = static_cast<float>(static_cast<double>(wall.z) * velocity.z + static_cast<double>(wall.y) * velocity.y +
                                    static_cast<double>(wall.x) * velocity.x);
-    maths::Vec4 bounce = into * wall;
+    const maths::Vec4 bounce = into * wall;
     if (!walking) {
         velocity -= 2.0f * bounce;
         maths::Vec4& v = entity_->vel_;
@@ -266,7 +270,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (flat > kMinFlatSpeed) {
             v.y = 0.0f;
             auto reduced = static_cast<float>(flat - static_cast<double>(script::fetch_float(kSpeedLoss)));
-            float least = script::fetch_float(kMinExitSpeed);
+            const float least = script::fetch_float(kMinExitSpeed);
             set_length(entity_->vel_, objects::larger_of(least, reduced));
         } else {
             entity_->vel_ = -script::fetch_float(kMinExitSpeed) * heading;
@@ -279,7 +283,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     // Riding what was hit (if it's an object still there).
     auto* feeler = &feeler_;
     if (feeler->hit_object_alive()) {
-        bool riding = ride_->is_riding();
+        const bool riding = ride_->is_riding();
         if (!riding || *reinterpret_cast<void**>(ride_->ride_) != feeler->get_hit_object()) {
             ride_->stop_riding();
             reinterpret_cast<walk::MovableContact*>(ride_)->start_riding(feeler->get_hit_object());
@@ -287,8 +291,8 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     }
     if (!walking) {
         // Placed Physics_Wallplant_Distance_From_Wall off it (or 0.1 off anything nearer).
-        maths::Vec4& point = feeler_.contact_pos_;
-        maths::Vec4& normal = feeler_.surface_dir_;
+        const maths::Vec4& point = feeler_.contact_pos_;
+        const maths::Vec4& normal = feeler_.surface_dir_;
         feeler->line_.start = point;
         feeler->line_.end = point + script::fetch_float(kDistanceFromWall) * normal;
         if (feeler->get_hit_shape(true, false))
@@ -354,7 +358,7 @@ bool SkaterPhysicsModule::start_wall_ride()
                            static_cast<double>(heading.y) * flat_wall.y);
     if (!(-std::sin(static_cast<double>(script::fetch_float(kUpsideDownAngle)) * kRadiansPerDegree) < wall.y))
         return false;
-    float head_on = std::fabs(facing);
+    const float head_on = std::fabs(facing);
     if (!(std::sin(static_cast<double>(script::fetch_float(kMaxIncidentAngle)) * kRadiansPerDegree) > head_on))
         return false;
     object = object_of(this);
@@ -369,7 +373,7 @@ bool SkaterPhysicsModule::start_wall_ride()
     if (trigger_took_over(this))
         return false;
     // Nothing in the way along the move (turned along the wall, three times as far).
-    maths::Vec4 hit = feeler_.contact_pos_;
+    const maths::Vec4 hit = feeler_.contact_pos_;
     object = object_of(this);
     maths::Vec4 move = object->at_point_ - object->old_pos_;
     move.align_to_plane(wall);
@@ -390,8 +394,8 @@ bool SkaterPhysicsModule::start_wall_ride()
     entity_->basis_frame_.row[0].make_unit();
     display_matrix_ = entity_->basis_frame_;
     const maths::Vec4& velocity = entity_->vel_;
-    double side = static_cast<double>(wall.x) * velocity.z + -static_cast<double>(wall.z) * velocity.x +
-                  static_cast<double>(velocity.y) * 0.0f;
+    const double side = static_cast<double>(wall.x) * velocity.z + -static_cast<double>(wall.z) * velocity.x +
+                        static_cast<double>(velocity.y) * 0.0f;
     skater_object(this)->post_own_event(side < 0.0 ? kWallRideLeft : kWallRideRight, nullptr);
     physics::change_phase(this, 2);
     start_riding_hit_object();

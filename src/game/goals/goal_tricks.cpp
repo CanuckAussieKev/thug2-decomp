@@ -108,7 +108,7 @@ void Objective::no_combo_sequence_left()
 int Objective::pick_key_combo(script::Array* combos)
 {
     script::Struct* mapping = skate_calls::get_profile_from_params(nullptr)->fetch_details_params(kTrickMapping);
-    uint32_t count = combos->extent_;
+    const uint32_t count = combos->extent_;
     uint32_t combo = 0; // (kept from one look-up to the next, as the original's)
     auto combo_at = [combos, &combo](uint32_t index) {
         if (combos->kind_tag_ == script::kQbvalName)
@@ -149,10 +149,10 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
     void* skate = skate_calls::get_skate();
     RiderIdentity* profile = skate_calls::get_profile_from_params(nullptr);
     script::Struct* mapping = profile->fetch_details_params(kTrickMapping);
-    int count = static_cast<int>(key_combos->extent_);
+    const int count = static_cast<int>(key_combos->extent_);
     const char* trick_text = nullptr; // (a slot with no local skater keeps the last one, as the original)
     for (int i = 0; i < count; ++i) {
-        uint32_t combo = key_combos->fetch_part(static_cast<uint32_t>(i));
+        const uint32_t combo = key_combos->fetch_part(static_cast<uint32_t>(i));
         uint32_t trick = 0;
         int slot = 0;
         bool in_slot = false;
@@ -160,7 +160,7 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
             in_slot = true; // (a trick slot of the skater's)
         } else if (!mapping->read_hash_value(combo, &trick, 0)) {
             // A special trick on these keys?
-            int specials = profile->get_max_specials();
+            const int specials = profile->get_max_specials();
             int k = 0;
             for (; k < specials; ++k) {
                 RiderIdentity::SpecialTrick special;
@@ -228,7 +228,7 @@ bool Objective::swap_move_caption()
         args_->fetch_int_value(kPremadeCatIndex, &premade_cat, 1);
     script::Array* key_texts = alloc_script_array();
     script::Array* trick_texts = alloc_script_array();
-    uint32_t count = combos->extent_;
+    const uint32_t count = combos->extent_;
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
     if (!build_trick_texts(combos, key_texts, trick_texts, premade_cat)) {
@@ -252,7 +252,7 @@ bool Objective::swap_move_caption()
         // (the original adds the description as written, not the replaced text)
         args_->append_word(kGoalDescription, text);
     } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
-        uint32_t size = lines->extent_;
+        const uint32_t size = lines->extent_;
         script::Array* replaced = alloc_script_array();
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
@@ -318,7 +318,7 @@ void Objective::tint_tagged_props(int player, bool clear)
     script::Array* clusters = nullptr;
     if (!args_->fetch_list(kKillClusters, &clusters, 0))
         return;
-    int count = static_cast<int>(clusters->extent_);
+    const int count = static_cast<int>(clusters->extent_);
     for (int i = 0; i < count; ++i) {
         uint32_t id = 0;
         reinterpret_cast<script::Struct*>(clusters->fetch_part(static_cast<uint32_t>(i)))->read_hash_value(kId, &id, 1);
@@ -336,7 +336,7 @@ void Objective::tint_tagged_props(int player, bool clear)
 // 0x00557AC0
 bool Objective::award_special_trick()
 {
-    bool cat = args_->has_bare_flag(kCreateATrick);
+    const bool cat = args_->has_bare_flag(kCreateATrick);
     uint32_t type = 0;
     args_->read_hash_value(kTrickType, &type, 1);
     uint32_t trick = 0;
@@ -374,7 +374,7 @@ bool Objective::award_special_trick()
         break;
     }
     RiderIdentity* profile = current_profile();
-    int slots = profile->get_max_specials();
+    const int slots = profile->get_max_specials();
     uint32_t keys = 0;
     bool had = false;
     for (int i = 0; i < slots; ++i) {

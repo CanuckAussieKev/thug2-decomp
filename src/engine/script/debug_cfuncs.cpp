@@ -146,7 +146,7 @@ bool cfunc_unload_qb(script::Struct* params, script::Script*)
 {
     const char* name = nullptr;
     params->fetch_text(0u, &name, 0);
-    uint32_t checksum = checksums::hash_from_text(name);
+    const uint32_t checksum = checksums::hash_from_text(name);
     unload_qb_file(checksum);
     uint32_t* files = level_specific_qb_files();
     for (int i = 0; i < kLevelSpecificQbFiles; ++i) {

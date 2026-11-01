@@ -64,7 +64,7 @@ V3 get_turned(V3 angles, int notches)
 
 float get_heading_degrees(V3 angles)
 {
-    float degrees = wrap_angle(angles.y) * (180.0f / kPi);
+    const float degrees = wrap_angle(angles.y) * (180.0f / kPi);
     return degrees <= -180.0f ? 180.0f : degrees;
 }
 
@@ -77,7 +77,7 @@ V3 with_heading(V3 angles, float degrees)
 Step get_capture(const std::vector<uint32_t>& names, const Reader& read)
 {
     Step step;
-    for (uint32_t name : names) {
+    for (const uint32_t name : names) {
         Values values;
         if (read(name, &values))
             step.nodes.emplace_back(name, values);
@@ -136,7 +136,7 @@ script::Component* own_vector(script::Struct* node, uint32_t name)
 
 void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 {
-    if (script::Component* c = own_vector(node, name)) {
+    if (const script::Component* c = own_vector(node, name)) {
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         c->vector->x = value.x;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
@@ -152,7 +152,7 @@ void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 // lights (up to 256, by their owner) and the level lights (up to 150, by their label).
 void move_lights(uint32_t name, V3 pos)
 {
-    int dynamic_count = render::g_dynamic_light_count;
+    const int dynamic_count = render::g_dynamic_light_count;
     for (int i = 0; i < dynamic_count && i < 256; ++i) {
         render::DynamicLightBase* light = render::g_dynamic_lights[i];
         if (light && light->owner == name) {
@@ -161,7 +161,7 @@ void move_lights(uint32_t name, V3 pos)
             light->pos[2] = pos.z;
         }
     }
-    int level_count = render::g_scene_light_count;
+    const int level_count = render::g_scene_light_count;
     for (int i = 0; i < level_count && i < 150; ++i) {
         render::LevelLamp& lamp = render::g_level_lamps[i];
         if (lamp.label_ == name) {
@@ -175,8 +175,8 @@ void move_lights(uint32_t name, V3 pos)
 // What the game keeps of the node, brought up to date (level_editor_node_edit.h's list).
 void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
 {
-    maths::Vec4 pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
-    nodes::Family family = node ? node->family : nodes::Family::kOther;
+    const maths::Vec4 pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
+    const nodes::Family family = node ? node->family : nodes::Family::kOther;
     if (family == nodes::Family::kFireOff && reinterpret_cast<objects::ProximityRegistry*>(objects::g_proximity_hub)) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name))
             proxim->at_point_ = pos;
@@ -193,7 +193,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         object_edit::State state = object_edit::store_away(object);
         state.pos = pos;
         maths::Mat4 matrix;
-        maths::Vec4 angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
+        const maths::Vec4 angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
         matrix.init_from_angles(angles);
         for (int r = 0; r < 3; ++r)
             state.matrix.row[r] = state.draw_matrix_.row[r] = matrix.row[r];
@@ -209,7 +209,7 @@ script::Struct* struct_named(uint32_t name)
 
 const nodes::Elem* node_named(uint32_t name)
 {
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     return index >= 0 ? &nodes::get_all()[index] : nullptr;
 }
 
@@ -244,7 +244,7 @@ const char* when_applied(const nodes::Elem& node)
 {
     script::Struct* s = nodes::struct_of(node);
     uint32_t shape = 0;
-    bool sector_shape = s && s->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
+    const bool sector_shape = s && s->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
     // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
     case nodes::Family::kRail:
@@ -351,7 +351,7 @@ bool assign_value(uint32_t name, const Values& values)
     if (is_rail(name)) {
         if (!scenery::set_rail_point(name, values.pos))
             return false;
-        int index = nodes::get_find(name);
+        const int index = nodes::get_find(name);
         if (index >= 0)
             nodes::reread(index);
         return true;
@@ -365,7 +365,7 @@ bool assign_value(uint32_t name, const Values& values)
     const nodes::Elem* layer = node_named(name);
     apply_live(layer, name, values);
     entities::node_moved(name, values.pos, values.angles); // (a particle system: its emitter turned and moved, remade)
-    int index = nodes::get_find(name);
+    const int index = nodes::get_find(name);
     if (index >= 0)
         nodes::reread(index);
     return true;
@@ -395,7 +395,7 @@ void get_forget(uint32_t name)
 
 void reset_all()
 {
-    std::vector<Touched> touched = g_touched;
+    const std::vector<Touched> touched = g_touched;
     for (const Touched& t : touched)
         assign_value(t.name, t.origin);
 }

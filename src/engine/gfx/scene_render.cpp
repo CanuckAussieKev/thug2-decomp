@@ -65,7 +65,7 @@ struct Lap {
     // viewport, in view and (with occlusion) not hidden by an occluder.
     bool get_visible(MeshRef* mesh) const
     {
-        uint32_t mesh_flags = mesh_traits(mesh);
+        const uint32_t mesh_flags = mesh_traits(mesh);
         if (!(mesh_flags & 0x40) || (mesh_flags & 0x210))
             return false;
         if (no_culling_)
@@ -73,7 +73,7 @@ struct Lap {
         if (!(mesh->viewports & viewport_bit_))
             return false;
         auto* centre = reinterpret_cast<const maths::Vec4*>(mesh->centre); // (the sphere: centre and radius)
-        float radius = mesh->radius;
+        const float radius = mesh->radius;
         if (!sphere_in_view(centre, radius))
             return false;
         if ((flags & kRenderOcclusion) && sphere_occluded(centre, radius, 1))
@@ -102,8 +102,8 @@ struct Lap {
 // 0x004DA690
 int compare_distances(const void* a, const void* b)
 {
-    float first = static_cast<const DepthOrderedMesh*>(a)->depth;
-    float second = static_cast<const DepthOrderedMesh*>(b)->depth;
+    const float first = static_cast<const DepthOrderedMesh*>(a)->depth;
+    const float second = static_cast<const DepthOrderedMesh*>(b)->depth;
     if (first < second)
         return -1;
     if (first > second)
@@ -138,7 +138,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 pass.blit(mesh);
             } else {
                 // The near ones now; their depth kept for the far ones after. (Not a number: never drawn.)
-                float depth = sphere_depth();
+                const float depth = sphere_depth();
                 if (depth < kNear || depth == kNear)
                     pass.blit(mesh);
                 mesh->depth = sphere_depth();
@@ -146,7 +146,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             pass.remember(mesh);
         }
         if (flags & kRenderNearFirst) {
-            int count = pass.drawn;
+            const int count = pass.drawn;
             for (int j = 0; j < count; ++j) {
                 MeshRef* mesh = get_drawn()[j];
                 if (mesh->depth > kNear)
@@ -188,7 +188,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
     }
     if (scene->flagged_count_ > 0) {
         // The flagged ones, sorted by depth.
-        int end = scene->first_flagged_ + scene->flagged_count_;
+        const int end = scene->first_flagged_ + scene->flagged_count_;
         int sorted = 0;
         for (; i < end; ++i) {
             MeshRef* mesh = scene->meshes[i];

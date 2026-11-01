@@ -38,7 +38,7 @@ uint32_t level_size(const TextureHeader& header, uint32_t level)
     if (height == 0)
         height = 1;
     if (header.compression == 1 || header.compression == 2 || header.compression == 5) {
-        uint32_t blocks = ((width + 3) / 4) * ((height + 3) / 4);
+        const uint32_t blocks = ((width + 3) / 4) * ((height + 3) / 4);
         return blocks * (header.compression == 5 ? 16 : 8);
     }
     return width * height * (header.depth / 8);

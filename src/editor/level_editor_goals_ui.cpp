@@ -27,7 +27,7 @@ bool text_field(const char* label, const std::string& key, std::string* value, s
     TextBuffer& b = g_buffers[key];
     if (!b.editing)
         std::snprintf(b.text, sizeof(b.text), "%s", value->c_str());
-    size_t size = std::min(sizeof(b.text), limit + 1);
+    const size_t size = std::min(sizeof(b.text), limit + 1);
     if (multiline)
         ImGui::InputTextMultiline(label, b.text, size, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 3.2f));
     else
@@ -44,7 +44,7 @@ bool text_field(const char* label, const std::string& key, std::string* value, s
 bool int_field(const char* label, int* value, float speed, int low, int high, const char* format, bool* done)
 {
     ImGui::SetNextItemWidth(150.0f * ImGui::GetFontSize() / 13.0f);
-    bool changed = ImGui::DragInt(label, value, speed, low, high, format, ImGuiSliderFlags_AlwaysClamp);
+    const bool changed = ImGui::DragInt(label, value, speed, low, high, format, ImGuiSliderFlags_AlwaysClamp);
     if (ImGui::IsItemDeactivated())
         *done = true;
     return changed;
@@ -60,7 +60,7 @@ void current_settings(const Goal& goal, ImFont* mono)
 {
     Goal g = goal;
     bool done = false, changed = false;
-    std::string key = g.id + "/";
+    const std::string key = g.id + "/";
     if (text_field("Name##goal", key + "name", &g.name, 16, false))
         changed = done = true; // (Create-a-Goal's keyboard: 16 characters)
     if (ImGui::IsItemHovered())
@@ -197,11 +197,11 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     } else {
         ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.35f, 1.0f), "Not played: %s", why.c_str());
     }
-    int missing = get_missing(g.id);
+    const int missing = get_missing(g.id);
     if (missing > 0) {
         ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "%d point%s deleted", missing, missing == 1 ? "" : "s");
         ImGui::SameLine();
-        std::string goal_id = g.id;
+        const std::string goal_id = g.id;
         if (ImGui::SmallButton("Restore Points"))
             get_queue([goal_id] { restore_points(goal_id); });
     }
@@ -211,9 +211,9 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         float height = changed.points[point].height;
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(150.0f * ImGui::GetFontSize() / 13.0f);
-        bool dragged =
+        const bool dragged =
             ImGui::DragFloat("Height##goalpoint", &height, 0.5f, 0.0f, 1000.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
-        bool done = ImGui::IsItemDeactivated();
+        const bool done = ImGui::IsItemDeactivated();
         ImGui::PopFont();
         if (dragged) {
             changed.points[point].height = height;
@@ -231,14 +231,14 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         if (label.starts_with("Checkpoint "))
             label = "CP" + label.substr(11);
         label += "##goalpt" + std::to_string(k);
-        std::string goal_id = g.id;
-        int index = static_cast<int>(k);
+        const std::string goal_id = g.id;
+        const int index = static_cast<int>(k);
         if (ImGui::SmallButton(label.c_str()))
             get_queue([goal_id, index] { choose_one(goal_id, index); });
     }
     ImGui::PopFont();
     if (g.type == KindTag::kRace) {
-        std::string goal_id = g.id;
+        const std::string goal_id = g.id;
         if (static_cast<int>(g.points.size()) < max_points(g.type) && ImGui::Button("Add checkpoint##goal"))
             get_queue([goal_id] { add_checkpoint(goal_id); });
         if (static_cast<int>(g.points.size()) > min_points(g.type)) {
@@ -249,7 +249,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     }
     current_settings(g, mono);
     ImGui::Spacing();
-    std::string goal_id = g.id;
+    const std::string goal_id = g.id;
     if (ImGui::Button("Copy to Create-a-Goal##goal")) {
         get_queue([goal_id] {
             std::string message;
@@ -284,7 +284,7 @@ void list_section(ImFont* mono, ImFont* small_font)
         ImGui::EndCombo();
     }
     ImGui::SameLine();
-    std::vector<Goal> all = get_all();
+    const std::vector<Goal> all = get_all();
     if (static_cast<int>(all.size()) >= kMaxGoals)
         ImGui::BeginDisabled();
     if (ImGui::Button("New goal")) {
@@ -300,7 +300,7 @@ void list_section(ImFont* mono, ImFont* small_font)
     ImGui::PushFont(mono);
     for (const Goal& g : all) {
         ImGui::PushID(g.id.c_str());
-        bool complete = get_complete(g);
+        const bool complete = get_complete(g);
         ImGui::TextColored(complete ? ImVec4(0.90f, 0.80f, 0.45f, 1.0f) : ImVec4(0.75f, 0.55f, 0.40f, 1.0f), "%s",
                            g.name.c_str());
         if (ImGui::IsItemHovered()) {
@@ -308,7 +308,7 @@ void list_section(ImFont* mono, ImFont* small_font)
             ImGui::SetTooltip("%s - %s", type_title(g.type), get_complete(g, &why) ? "complete" : why.c_str());
         }
         ImGui::SameLine();
-        std::string goal_id = g.id;
+        const std::string goal_id = g.id;
         if (ImGui::SmallButton("Select"))
             get_queue([goal_id] { choose_one(goal_id, 0); });
         ImGui::PopID();

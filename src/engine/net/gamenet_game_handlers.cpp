@@ -143,7 +143,7 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     info->score_ = arrived.score;
     if (!(info->flag_bits_ & 5)) {
         static uint8_t appearance[kAppearanceSize];
-        size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
+        const size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
         std::memset(appearance, 0, sizeof(appearance));
         reader.bytes(appearance, size);
         info->account_->decode_from_bytes(appearance, sizeof(appearance)); // the appearance into its profile
@@ -176,7 +176,7 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
         panel_message(manager, kDroppedCrownOther, nullptr, nullptr);
     } else if (king && player_skater(king)) {
         // the other local player (id 1 if this one's is 0, else 0)
-        PlayerRecord* other =
+        const PlayerRecord* other =
             find_player_slot_by_obj(manager, static_cast<uint16_t>(get_skater_id(player_skater(king)) == 0));
         if (other)
             panel_message(manager, kDroppedCrownOther, nullptr, player_skater(other));
@@ -213,7 +213,7 @@ int handle_fcfs_notice(net::InboundMsgCtx* context)
 {
     PlayerRecord* local = find_own_player_record(manager_of(context));
     util::ByteReader reader(context->body_, context->body_size_);
-    uint32_t checksum = reader.u32();
+    const uint32_t checksum = reader.u32();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return kDone;
     local->set_host_player(); // (its flag 0x200 set)
@@ -229,13 +229,13 @@ int handle_flag_returned(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     util::ByteReader reader(context->body_, context->body_size_);
-    uint8_t id = reader.u8();
+    const uint8_t id = reader.u8();
     if (!reader.ok()) // NOT ORIGINAL: empty - dropped
         return kDone;
     PlayerRecord* player = find_player_slot_by_obj(manager, &id);
     if (!player || !player->is_carrying_flag()) // (carrying a flag: 0 / 1)
         return kContinue;
-    int team = player->get_flag_team(); // the flag's team
+    const int team = player->get_flag_team(); // the flag's team
     char name[64];
     team_name_key(name, team);
     script::Struct* params = new_params();
@@ -289,7 +289,7 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         // {u32 level, the goals as a written structure} (NOT ORIGINAL: read within the message - a short one is
         // dropped, the structure decoded no further than its end)
         util::ByteReader reader(context->body_, context->body_size_);
-        uint32_t level = reader.u32();
+        const uint32_t level = reader.u32();
         if (!reader.ok())
             return kDone;
         park_editing::ObjectiveAuthoring::get_pull()->read_level_goals_from_buffer(level, reader.cursor(),
@@ -356,7 +356,7 @@ int handle_selected_goals(net::InboundMsgCtx* context)
     // (a byte, then the goals' names up to a 0; NOT ORIGINAL: no further than the message's end - the original read
     // on until it found a 0)
     util::ByteReader reader(context->body_, context->body_size_);
-    uint8_t show = reader.u8();
+    const uint8_t show = reader.u8();
     for (uint32_t goal = reader.u32(); reader.ok() && goal; goal = reader.u32()) {
         goals::Objective* entry = get_goal(goals, goal);
         entry->un_beat(); // (the original's vtable +0x74)
@@ -402,7 +402,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
     // Everyone else on the same team: a warning.
     int others = 0;
     bool same_team = true;
-    for (PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
+    for (const PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
          other = step_roster_sweep(manager, &search, false)) {
         if (other == player)
             continue;
@@ -429,16 +429,16 @@ int handle_goal_completed(net::InboundMsgCtx* context)
     goals::Objective* current = static_cast<goals::GoalManager*>(goals)->get_engaged_objective(0);
     if (!goal)
         return kContinue;
-    PlayerRecord* player = find_player_slot_by_obj(manager, msg);
-    PlayerRecord* local = find_own_player_record(manager);
+    const PlayerRecord* player = find_player_slot_by_obj(manager, msg);
+    const PlayerRecord* local = find_own_player_record(manager);
     auto* objective = goal;
     objective->set_net_stage_flag(player_team(player)); // (the original's slot 0x70)
     if (!player_skater(player))
         return kContinue;
     objective->set_stage_flag(static_cast<int>(get_skater_id(player_skater(player)))); // (slot 0x6C)
     if (local == player) {
-        int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
-        int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
+        const int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
+        const int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
         if (total > done) {
             script::Struct* params = new_params();
             params->put_int(kNumGoalsLeft, total - done);
@@ -455,7 +455,7 @@ int handle_goal_completed(net::InboundMsgCtx* context)
     if (!is_squad_match() || player_team(local) != player_team(player))
         return kContinue;
     // A teammate's: the goal (or the last of its chain) ended here too.
-    goals::GoalEdge* next = goal->sub_nodes_;
+    const goals::GoalEdge* next = goal->sub_nodes_;
     if (next->objective_key_) {
         goals::Objective* last = goal;
         while (next && next->objective_key_) {
@@ -470,8 +470,8 @@ int handle_goal_completed(net::InboundMsgCtx* context)
     }
     static_cast<goals::ObjectiveNpc*>(current->ped_)->remove_objective_npc();
     objective->mark_won(); // (slot 0x68)
-    int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
-    int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
+    const int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
+    const int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
     if (total > done) {
         const char* text = nullptr;
         goal->get_objective_list_caption(&text);
@@ -498,7 +498,7 @@ int handle_goal_started(net::InboundMsgCtx* context)
     if (!goal)
         return kContinue;
     const char* text = nullptr;
-    PlayerRecord* player = find_player_slot_by_obj(manager, msg);
+    const PlayerRecord* player = find_player_slot_by_obj(manager, msg);
     if (player_team(find_own_player_record(manager)) != player_team(player))
         return kContinue;
     goal->get_objective_list_caption(&text);
@@ -515,7 +515,7 @@ int handle_eliminated(net::InboundMsgCtx* context)
 {
     if (context->type_code_ != kMsgEliminated)
         return kContinue;
-    int id = static_cast<int>(message_word(context, 0));
+    const int id = static_cast<int>(message_word(context, 0));
     if (id < 0) {
         get_run(kEliminatedNone);
         return kContinue;

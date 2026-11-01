@@ -123,7 +123,7 @@ enum class Recipients { kAll, kRemote, kObservers };
 // `desc` through the server to the players (all, those not local, the observers).
 void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* desc, Recipients recipients)
 {
-    for (memory::ListNode* node = first_player_node(manager); PlayerRecord* player = data_of(node);
+    for (const memory::ListNode* node = first_player_node(manager); PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
         if (recipients == Recipients::kRemote && is_own_player(player))
             continue;
@@ -185,7 +185,7 @@ bool cfunc_spawn_crown(Struct*, Script*)
 {
     Hub* manager = net_link();
     auto* crown = new objects::CrownObject;
-    int spawn = manager->crown_start_;
+    const int spawn = manager->crown_start_;
     manager->crown_ = crown;
     uint32_t names[kMaxCrownSpawns];
     Struct* nodes[kMaxCrownSpawns];
@@ -230,7 +230,7 @@ bool cfunc_start_network_game(Struct*, Script*)
         net_game_start_time() = frame_clock::get_time() + 3000;
     tasks->queue_job(manager->start_game_job_.get());
     if (manager->in_net_game()) {
-        uint32_t text = manager->host_mode_ == 1 ? kAutoStarting : kStarting;
+        const uint32_t text = manager->host_mode_ == 1 ? kAutoStarting : kStarting;
         manager->build_net_notice(true, text, manager->get_game_type_name(), nullptr, nullptr, kNetStatusProps, true,
                                   3000);
         if (is_squad_match()) {
@@ -248,8 +248,8 @@ bool cfunc_start_network_game(Struct*, Script*)
         net::AppHost* server = manager->host_;
         buffer[0] = 1;
         uint8_t* end = buffer + 1;
-        int count = reinterpret_cast<goals::GoalManager*>(goals)
-                        ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
+        const int count = reinterpret_cast<goals::GoalManager*>(goals)
+                              ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
             if (goal->is_picked()) {
@@ -307,7 +307,7 @@ bool cfunc_end_network_game(Struct*, Script*)
 // 0x005388C0: GetMyTeam - the local player's team into the script's team.
 bool cfunc_get_my_team(Struct*, Script* script)
 {
-    if (PlayerRecord* local = net_link()->get_own_player())
+    if (const PlayerRecord* local = net_link()->get_own_player())
         script->args_->put_int(kTeam, player_team(local));
     return true;
 }
@@ -419,7 +419,7 @@ bool cfunc_all_players_are_ready(Struct*, Script*)
     Hub* manager = net_link();
     if (!(manager->flag_bits_ & kFlagsServer))
         return true;
-    for (memory::ListNode* node = first_player_node(manager); PlayerRecord* player = data_of(node);
+    for (const memory::ListNode* node = first_player_node(manager); const PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
         if (!(static_cast<uint8_t>(player->conn_->cur_standing_) & 1))
             return false;
@@ -437,7 +437,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     const char* name = nullptr;
     params->fetch_int_value(kIndex, &index, 0);
     params->fetch_text(kName, &name, 0);
-    memory::ListNode* node = first_player_node(manager);
+    const memory::ListNode* node = first_player_node(manager);
     PlayerRecord* player = data_of(node);
     if (!player)
         return true;
@@ -452,7 +452,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
         return true;
     player->flag_bits_ |= kRemoveMark;
     Struct* dialog = new_params();
-    int profile = player->profile_id_;
+    const int profile = player->profile_id_;
     if ((manager->flag_bits_ & kFlagsInternet) && profile && mark_friend_online(manager)) {
         dialog->put_int(kProfile, player->profile_id_);
         dialog->append_word(kNick, player_name(player));
@@ -474,7 +474,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap_);
     int index = 0;
-    for (memory::ListNode* node = first_player_node(manager); PlayerRecord* player = data_of(node);
+    for (const memory::ListNode* node = first_player_node(manager); PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
         if (is_own_player(player)) {
             ++index;
@@ -486,7 +486,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         script::Array* rgba = array_memory ? new (array_memory) script::Array : nullptr;
         rgba->configure_size_kind(4, script::kQbvalInteger);
         uint32_t blue = 0;
-        int profile = player->profile_id_;
+        const int profile = player->profile_id_;
         if (profile && mark_friend_online(manager)) {
             if (is_buddy(manager, player->profile_id_)) {
                 rgba->set_element(0, 0x80);

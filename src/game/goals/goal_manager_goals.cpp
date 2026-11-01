@@ -129,7 +129,7 @@ memory::owner<Objective*> make_goal(script::Struct* params)
 // 0x0055BA10
 bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
 {
-    bool free_skate = get_game_mode()->is_true(kIsFreeskate);
+    const bool free_skate = get_game_mode()->is_true(kIsFreeskate);
     if (!in_multiplayer_game() && free_skate)
         return false;
     if (get_game_mode()->is_true(kIsCreateGoals) && !params->has_bare_flag(kEditedGoal))
@@ -143,7 +143,7 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
     script::Struct* own = goal->fetch_args();
     script::Array* children = nullptr;
     if (own->fetch_list(kChildren, &children, 0)) {
-        int count = static_cast<int>(children->extent_);
+        const int count = static_cast<int>(children->extent_);
         for (int i = 0; i < count; ++i) {
             children->fetch_part(i); // (read twice, as the original)
             goal->attach_child(children->fetch_part(i));
@@ -261,13 +261,13 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
     params->fetch_list(kButtonSequences, &key_combos, 1);
     script::Array* key_texts = alloc_script_array();
     script::Array* trick_texts = alloc_script_array();
-    uint32_t count = key_combos->extent_;
+    const uint32_t count = key_combos->extent_;
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
     int premade = -1; // (the created trick's number, with create_a_trick)
     if (params->has_bare_flag(kCreateATrick))
         params->fetch_int_value(kTrickName, &premade, 1);
-    bool done = Objective::build_trick_texts(key_combos, key_texts, trick_texts, premade);
+    const bool done = Objective::build_trick_texts(key_combos, key_texts, trick_texts, premade);
     if (done)
         Objective::replace_trick_tokens(text, out, key_texts, trick_texts, size);
     script::release_array_storage(key_texts);
@@ -280,7 +280,7 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
 // 0x0055C6E0
 script::Struct* GoalManager::get_objective_try_details()
 {
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     script::Struct* info = spawn_param_table();
     int attempts = 0;
     for (int i = 0; i < count; ++i) {

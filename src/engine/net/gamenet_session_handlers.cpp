@@ -115,7 +115,7 @@ constexpr uint8_t kMsgGoalsData = 0x87;
 // strncpy(dest, source, 15) and the 16th byte zeroed.
 void copy_name(char* dest, const char* source)
 {
-    size_t length = strnlen(source, kNameSize - 1);
+    const size_t length = strnlen(source, kNameSize - 1);
     std::memcpy(dest, source, length);
     std::memset(dest + length, 0, kNameSize - length);
 }
@@ -177,9 +177,9 @@ int on_server_query_msg(net::InboundMsgCtx* context)
         copy_name(info.players[named], player_name(player));
         ++named;
     }
-    for (JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
+    for (const JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
          added = next_new_player(manager, &new_players)) {
-        uint32_t flags = added->flag_bits_;
+        const uint32_t flags = added->flag_bits_;
         if (!(flags & 0x18) && (flags & 4))
             continue;
         bool known = false;
@@ -247,7 +247,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         {                                                          // time_limit: time_limit_options, with its time
             script::Struct* params = new_params();
             const char* text = option_text(0x834A7C01, request.time_limit);
-            int time = option_field(0x834A7C01, request.time_limit, kTime);
+            const int time = option_field(0x834A7C01, request.time_limit, kTime);
             params->append_word(kUiString, script::kQbvalString, text);
             params->add_component_of_type(kChecksum, script::kQbvalName, request.time_limit);
             params->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
@@ -293,14 +293,14 @@ int handle_host_options(net::InboundMsgCtx* context)
         if (_stricmp(request.name, player_name(player)) != 0)
             return kDone;
         objects::Entity* skater = player_skater(player);
-        bool observer = is_observer(player);
+        const bool observer = is_observer(player);
         manager->evict_player(player, request.kick == 1 ? 3 : 4);
         if (!observer)
             get_skate()->drop_skater_from_roster(static_cast<objects::Rider*>(skater));
         break;
     }
     case 0x62: {
-        uint32_t level = reader.u32();
+        const uint32_t level = reader.u32();
         if (!reader.ok())
             return kDone;
         script::Struct* params = new_params();
@@ -312,7 +312,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         break;
     }
     case 0x64: {
-        uint32_t goal = reader.u32();
+        const uint32_t goal = reader.u32();
         if (!reader.ok())
             return kDone;
         objective_board()->flip_objective_pick(goal);
@@ -336,7 +336,7 @@ int handle_host_options(net::InboundMsgCtx* context)
     }
     case 0x66: {
         // The number of teams.
-        int teams = reader.i8();
+        const int teams = reader.i8();
         if (!reader.ok())
             return kDone;
         script::Struct* count = new_params();
@@ -384,7 +384,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
             manager->level_ = message.level;
         return kDone;
     }
-    uint32_t old_level = manager->level_;
+    const uint32_t old_level = manager->level_;
     manager->level_ = message.level;
     g_level_change_time = frame_clock::get_time() + 3000; // when to change
     if (manager->get_on_server()) {
@@ -547,7 +547,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             info.target_score =
                 static_cast<uint32_t>(manager->get_online_settings()->get_setting_value(kTargetScore, kScore));
             if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
-                bool scavenger = get_game_type() == kNetScavengerHunt;
+                const bool scavenger = get_game_type() == kNetScavengerHunt;
                 auto* goals = objective_board();
                 if (goal_running(get_goal(goals, scavenger ? kScavenger : kElimiskate)))
                     info.variant = 0;
@@ -612,7 +612,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             // An observer of graffiti: the trick objects' state.
             desc = net::NetMessageInfo();
             static uint8_t buffer[0x1100]; // (the original's is on its stack)
-            int size = objects::g_trick_spot_hub->write_graffiti_state(buffer);
+            const int size = objects::g_trick_spot_hub->write_graffiti_state(buffer);
             server->send_bulk_message(player_handle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer,
                                       "TrickObj Buffer", kGroupGame, true, false);
         }
@@ -622,8 +622,8 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         static uint8_t selected[0x1000];
         selected[0] = 0;
         uint8_t* out = selected + 1;
-        int count = reinterpret_cast<goals::GoalManager*>(goals)
-                        ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
+        const int count = reinterpret_cast<goals::GoalManager*>(goals)
+                              ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
             if (goal->is_picked()) {
@@ -639,7 +639,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         server->put_on_outbox(player_handle(player), &desc);
-        if (PlayerRecord* king = is_crown_rule_active(manager)) {
+        if (const PlayerRecord* king = is_crown_rule_active(manager)) {
             desc = net::NetMessageInfo();
             auto id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
             desc.content_ = &id;

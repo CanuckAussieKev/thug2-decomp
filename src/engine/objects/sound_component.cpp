@@ -186,7 +186,7 @@ void AudioEmitterModule::update_props(sound::PlaybackProps* props)
 // 0x00433480
 void AudioEmitterModule::update_waiting_sounds()
 {
-    uint32_t now = frame_clock::get_time();
+    const uint32_t now = frame_clock::get_time();
     for (WaitingSound& waiting : waiting_) {
         sound::PlaybackProps& props = waiting.props;
         if (!props.checksum)
@@ -195,12 +195,12 @@ void AudioEmitterModule::update_waiting_sounds()
         if (waiting.time > now)
             continue;
         float distance = 0.0f; // (no camera: the original's is whatever its stack held)
-        void* camera = nearest_camera(&at_point_, &distance);
+        const void* camera = nearest_camera(&at_point_, &distance);
         // (a dropoff of exactly 0 means the default)
-        float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
+        const float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {props.pitch2, props.volume2, props.dropoff, static_cast<int>(props.falloff)};
-            uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
+            const uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
             if (!id)
                 continue;
             if (sound::PlaybackProps* playing = audio_mixer_handle()->get_positional_props(this, id, false)) {
@@ -214,7 +214,7 @@ void AudioEmitterModule::update_waiting_sounds()
             props.checksum = 0;
         } else {
             // Looked at again later: the further beyond hearing, the later.
-            int sooner = ftol((static_cast<double>(distance) - dropoff) * kThousand * kRetryPerDistance);
+            const int sooner = ftol((static_cast<double>(distance) - dropoff) * kThousand * kRetryPerDistance);
             waiting.time = now - static_cast<uint32_t>(sooner) + kRetryDelay;
         }
     }
@@ -238,7 +238,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         params->fetch_float(0xFA3E14C5, &max_pitch, 0);  // maxPitch
         params->fetch_float(0x1C5EBB24, &min_pitch, 0);  // minPitch
         params->fetch_float(0x9E497FC6, &percent, 1);    // Percent
-        double fraction = static_cast<double>(percent) * kPercent;
+        const double fraction = static_cast<double>(percent) * kPercent;
         volume = static_cast<float>((static_cast<double>(max_volume) - min_volume) * fraction + min_volume);
         pitch = static_cast<float>((static_cast<double>(max_pitch) - min_pitch) * fraction + min_pitch);
     }

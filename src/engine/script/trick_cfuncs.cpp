@@ -157,7 +157,7 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script*)
     uint32_t trick_name = 0;
     params->read_hash_value("trick", &trick_name, 0);
     int trick_number = 0;
-    bool is_number = params->fetch_int_value("trick", &trick_number, 0);
+    const bool is_number = params->fetch_int_value("trick", &trick_number, 0);
     bool update = true;
     int update_mappings = 1;
     params->fetch_int_value("update_mappings", &update_mappings, 0);
@@ -224,7 +224,7 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
         } else {
             if (!params->has_bare_flag(kSpecial))
                 return false;
-            int count = profile->get_max_specials();
+            const int count = profile->get_max_specials();
             if (count <= 0)
                 return false;
             RiderIdentity::SpecialTrick special;
@@ -288,14 +288,14 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
     int cats[128];
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 0);
-    bool special = params->has_bare_flag(kSpecial);
+    const bool special = params->has_bare_flag(kSpecial);
     int trick_count = 0;
     int cat_count = 0;
     Array* configurable = script::fetch_list(kEditableTrickList);
-    int size = static_cast<int>(configurable->extent_);
+    const int size = static_cast<int>(configurable->extent_);
     uint32_t trick_type = 0;
     for (int i = 0; i < size; ++i) {
-        uint32_t name = configurable->fetch_part(i);
+        const uint32_t name = configurable->fetch_part(i);
         Struct* trick = script::read_sub_struct(name);
         if (!trick)
             continue;
@@ -357,7 +357,7 @@ bool cfunc_trick_is_locked(script::Struct* params, script::Script*)
     objects::ProfileRoster* manager = roster_handle();
     if (trick_params->has_bare_flag(kLockedForOthers))
         return manager->fetch_active_account()->fetch_title() != skater;
-    int count = template_count(manager);
+    const int count = template_count(manager);
     for (int i = 0; i < count; ++i) {
         RiderIdentity* profile = template_at(manager, i);
         if (profile->fetch_title() == skater) {
@@ -444,7 +444,7 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
     params->fetch_int_value(kIndex, &index, 0);
     uint32_t value = 0;
     params->read_hash_value(kValue, &value, 1);
-    int size = static_cast<int>(array->extent_);
+    const int size = static_cast<int>(array->extent_);
     for (; index < size; ++index) {
         auto* item = reinterpret_cast<Struct*>(array->fetch_part(index));
         if (!item->has_entry_named(name))
@@ -463,7 +463,7 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
 // parameters. Always true.
 bool cfunc_get_level_records(script::Struct* params, script::Script* script)
 {
-    modules::Skate* skate = get_skate();
+    const modules::Skate* skate = get_skate();
     int level = 0;
     if (!params->fetch_int_value(kLevel, &level, 0))
         level = skate->career_->fetch_stage();
@@ -487,9 +487,9 @@ bool cfunc_get_number_of_trick_occurrences(script::Struct* params, script::Scrip
 {
     const char* text = nullptr;
     params->fetch_text(kTrickText, &text, 1);
-    uint32_t trick = checksums::hash_from_text(text);
+    const uint32_t trick = checksums::hash_from_text(text);
     void* score = skater_score(local_skater());
-    int count = static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, 0, false, 1);
+    const int count = static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, 0, false, 1);
     script->args_->put_int(kNumberOfOccurrences, count);
     return true;
 }
@@ -536,7 +536,7 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script*)
     debug::printf("attempting to bind front end %i to controller %i\n", pad, controller);
     modules::FrontEnd* front_end = modules::front_end_instance();
     int* map = front_end->device_server_map_;
-    int old = map[pad];
+    const int old = map[pad];
     if (map[0] == controller)
         map[0] = old;
     if (map[1] == controller)
@@ -586,14 +586,14 @@ bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::
     params->fetch_list(kTricks, &tricks, 1);
     RiderIdentity* profile = profile_for(nullptr);
     Struct* mapping = profile->fetch_details_params(kTrickMapping);
-    int size = static_cast<int>(tricks->extent_);
+    const int size = static_cast<int>(tricks->extent_);
     Array* key_combos = alloc_script_array();
     key_combos->configure_size_kind(size, script::kQbvalName);
     for (int i = 0; i < size; ++i) {
-        uint32_t trick = tricks->fetch_part(i);
+        const uint32_t trick = tricks->fetch_part(i);
         uint32_t key_combo = key_combo_for_trick(mapping, trick);
         if (!key_combo) {
-            int count = profile->get_max_specials();
+            const int count = profile->get_max_specials();
             for (int slot = 0; slot < count; ++slot) {
                 RiderIdentity::SpecialTrick special;
                 profile->get_special_trick(&special, slot);

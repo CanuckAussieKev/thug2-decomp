@@ -130,7 +130,7 @@ bool cfunc_load_texture(Struct* params, Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
-    bool allocate_vram = !params->has_bare_flag(0x3955FF2Eu); // no_vram_alloc
+    const bool allocate_vram = !params->has_bare_flag(0x3955FF2Eu); // no_vram_alloc
     return read_texture_file(get_textures(), file, true, allocate_vram, true) != nullptr;
 }
 
@@ -238,7 +238,7 @@ bool cfunc_resize_texture_into(Struct* params, Script*)
     params->read_hash_value(kSrc, &source, 0);
     render::BitmapTexture* texture = fetch_skin(get_textures(), id);
     if (texture) {
-        if (render::BitmapTexture* source_texture = fetch_skin(get_textures(), source))
+        if (const render::BitmapTexture* source_texture = fetch_skin(get_textures(), source))
             texture->resize_from(source_texture, 0);
     }
     return true;
@@ -393,8 +393,8 @@ bool cfunc_load_particle_texture(Struct* params, Script*)
     params->fetch_text(0u, &file, 0);
     if (file[0] == '\0')
         return false;
-    render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file);
-    bool permanent = params->has_bare_flag(0xD5928F25u); // perm
+    const render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file);
+    const bool permanent = params->has_bare_flag(0xD5928F25u); // perm
     if (!texture)
         texture = read_texture_file(particle_textures(), file, true, true, permanent);
     return texture != nullptr;

@@ -82,8 +82,8 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, int axis, fl
     float& speed = get_axis(spin_rates_, axis);
     float& deceleration = get_axis(rot_deceleration_, axis);
     float& acceleration = get_axis(rot_acceleration_, axis);
-    uint32_t bit = 1u << axis;
-    uint32_t forever = kMotion2RotateForeverX << axis;
+    const uint32_t bit = 1u << axis;
+    const uint32_t forever = kMotion2RotateForeverX << axis;
     deceleration = 0.0f;
     acceleration = 0.0f;
     target = 0.0f;
@@ -185,8 +185,8 @@ void KinematicsModule::rotate_about_axis(int axis, float angle)
 bool KinematicsModule::update_axis_rotation(int axis)
 {
     float& speed = get_axis(spin_rates_, axis);
-    float& max_speed = get_axis(rot_max_speed_, axis);
-    float& acceleration = get_axis(rot_acceleration_, axis);
+    const float& max_speed = get_axis(rot_max_speed_, axis);
+    const float& acceleration = get_axis(rot_acceleration_, axis);
     float& deceleration = get_axis(rot_deceleration_, axis);
     bool finished = false;
     if (!(acceleration == 0.0f)) {
@@ -196,7 +196,7 @@ bool KinematicsModule::update_axis_rotation(int axis)
             speed = max_speed;
     }
     if (!(deceleration == 0.0f)) {
-        double slowing = static_cast<double>(step_seconds_) * deceleration;
+        const double slowing = static_cast<double>(step_seconds_) * deceleration;
         if (std::fabs(static_cast<double>(speed) - max_speed) < std::fabs(slowing)) {
             // (down to the speed to reach: done slowing - and, at a standstill, done turning; no turn this frame)
             speed = max_speed;
@@ -207,9 +207,9 @@ bool KinematicsModule::update_axis_rotation(int axis)
     }
     auto step = static_cast<float>(static_cast<double>(speed) * step_seconds_);
     if (!(motion_flags2_ & (kMotion2RotateForeverX << axis))) {
-        float target = get_axis(rot_target_, axis);
+        const float target = get_axis(rot_target_, axis);
         float& done = get_axis(rot_done_, axis);
-        bool before = target > done;
+        const bool before = target > done;
         done = static_cast<float>(static_cast<double>(step) + done);
         if (before != (target > done)) {
             // (past the target: only as far as it)
@@ -225,7 +225,7 @@ bool KinematicsModule::update_axis_rotation(int axis)
 void KinematicsModule::update_rotations()
 {
     for (int axis = 0; axis < 3; ++axis) {
-        uint32_t bit = 1u << axis;
+        const uint32_t bit = 1u << axis;
         if ((motion_flags_ & bit) && update_axis_rotation(axis))
             motion_flags_ &= ~bit;
     }
@@ -272,12 +272,12 @@ void KinematicsModule::update_turn()
 bool KinematicsModule::setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis,
                                        float threshold)
 {
-    maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - from->x),
-                          static_cast<float>(static_cast<double>(target->y) - from->y),
-                          static_cast<float>(static_cast<double>(target->z) - from->z),
-                          static_cast<float>(static_cast<double>(target->w) - from->w)};
+    const maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - from->x),
+                                static_cast<float>(static_cast<double>(target->y) - from->y),
+                                static_cast<float>(static_cast<double>(target->z) - from->z),
+                                static_cast<float>(static_cast<double>(target->w) - from->w)};
     get_axis(rot_done_, axis) = 0.0f;
-    float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, reference_axis, axis);
+    const float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, reference_axis, axis);
     get_axis(rot_target_, axis) = angle;
     if (std::fabs(angle) > threshold) {
         motion_flags_ |= 1u << axis;
@@ -294,11 +294,11 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     threshold = static_cast<float>(static_cast<double>(threshold) * kDegrees);
     if (params->has_bare_flag(kInstant)) {
         const maths::Vec4& pos = entity_->at_point_;
-        maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - pos.x),
-                              static_cast<float>(static_cast<double>(target->y) - pos.y),
-                              static_cast<float>(static_cast<double>(target->z) - pos.z),
-                              static_cast<float>(static_cast<double>(target->w) - pos.w)};
-        float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, 2, 1);
+        const maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - pos.x),
+                                    static_cast<float>(static_cast<double>(target->y) - pos.y),
+                                    static_cast<float>(static_cast<double>(target->z) - pos.z),
+                                    static_cast<float>(static_cast<double>(target->w) - pos.w)};
+        const float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, 2, 1);
         if (!(std::fabs(angle) > threshold))
             return false;
         maths::Mat4 rotation;
@@ -330,7 +330,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
             get_axis(rot_acceleration_, axis) = 0.0f;
             get_axis(spin_rates_, axis) = static_cast<float>(static_cast<double>(get_axis(rot_target_, axis)) / time);
         } else {
-            double rate = static_cast<double>(acceleration) * kDegrees;
+            const double rate = static_cast<double>(acceleration) * kDegrees;
             get_axis(rot_acceleration_, axis) = static_cast<float>(rate);
             if (rate == 0.0) {
                 get_axis(spin_rates_, axis) = static_cast<float>(static_cast<double>(speed) * kDegrees);
@@ -348,7 +348,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
 // 0x00425710
 void KinematicsModule::look_at_node_linked(script::Struct* params, script::Script*)
 {
-    int links = static_cast<int>(level_nodes::get_link_count(list_link_));
+    const int links = static_cast<int>(level_nodes::get_link_count(list_link_));
     if (!links)
         return;
     int link = 1;
@@ -409,7 +409,7 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
         default:
             return false;
         }
-        GameEntity* other = entity_->find_nearest_object_of_type(object_type);
+        const GameEntity* other = entity_->find_nearest_object_of_type(object_type);
         if (!other)
             return false;
         return get_look_at(params, &other->at_point_);

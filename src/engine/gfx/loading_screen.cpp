@@ -71,7 +71,7 @@ void set_picture_name(const char* text)
     char*& heap = *reinterpret_cast<char**>(name + 4);
     auto length = static_cast<uint32_t>(std::strlen(text));
     if (length > capacity) {
-        uint32_t new_capacity = length | 15;
+        const uint32_t new_capacity = length | 15;
         char* grown = static_cast<char*>(crt::alloc_block(new_capacity + 1));
         std::memcpy(grown, text, length + 1);
         if (capacity >= 16)
@@ -172,7 +172,7 @@ void draw_loading_screen_picture()
     // evenly - where the original's are stretched)
     float u0 = 0.0f, u1 = 1.0f, v0 = 0.0f, v1 = 1.0f;
     if (s_select_picture && width > 0.0f && height > 0.0f) {
-        float aspect = width / height;
+        const float aspect = width / height;
         if (aspect < kSelectAspect) {
             u0 = (1.0f - aspect / kSelectAspect) * 0.5f;
             u1 = 1.0f - u0;
@@ -242,7 +242,8 @@ void show_loading_screen(const char* name, bool keep, bool black)
         } else {
             std::snprintf(picked, sizeof(picked), "%s", name);
             for (const char* suffix : {"_story", "_classic"}) {
-                size_t length = std::strlen(picked), tail = std::strlen(suffix);
+                const size_t length = std::strlen(picked);
+                const size_t tail = std::strlen(suffix);
                 if (length > tail && std::strcmp(picked + length - tail, suffix) == 0)
                     picked[length - tail] = '\0';
             }
@@ -268,7 +269,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;
-            int language = game_config::g_language;
+            const int language = game_config::g_language;
             if (language == 3 && !is_select_name(name)) { // (no text on a level select picture: one for all languages)
                 std::snprintf(localised, sizeof(localised), "fr/%s", name);
                 file = localised;
@@ -277,7 +278,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
                 file = localised;
             }
             // (no check: a failed allocation calls through null, as the original)
-            bool loaded = reinterpret_cast<render::BitmapTexture*>(picture())->load_by_name(file, 1, 1);
+            const bool loaded = reinterpret_cast<render::BitmapTexture*>(picture())->load_by_name(file, 1, 1);
             if (!loaded) {
                 get_unlock();
                 return;

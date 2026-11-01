@@ -65,7 +65,7 @@ uint32_t created_goal_id(int index)
 // The current level, the park editor's gameplay level counting as the park editor's.
 uint32_t current_level()
 {
-    uint32_t level = modules::Skate::sole()->level_;
+    const uint32_t level = modules::Skate::sole()->level_;
     return level == kParkEditorGameplayLevel ? kParkEditorLevel : level;
 }
 
@@ -142,7 +142,7 @@ ObjectiveAuthoring* ObjectiveAuthoring::get_pull()
 // 0x004E7BE0
 EditedGoal* ObjectiveAuthoring::find_goal_by_name(const char* name)
 {
-    uint32_t level = current_level();
+    const uint32_t level = current_level();
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == level && compare_no_case(goal.label_, name) == 0)
             return &goal;
@@ -153,7 +153,7 @@ EditedGoal* ObjectiveAuthoring::find_goal_by_name(const char* name)
 // 0x004E7C60
 EditedGoal* ObjectiveAuthoring::find_goal_by_id(uint32_t id)
 {
-    uint32_t level = current_level();
+    const uint32_t level = current_level();
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == level && created_goal_id(goal.level_goal_number_) == id)
             return &goal;
@@ -172,7 +172,7 @@ EditedGoal* ObjectiveAuthoring::get_goal_from_params(script::Struct* params)
         return find_goal_by_name(name);
     int index = 0;
     if (params->fetch_int_value(0x474A6A7F, &index, 0)) {
-        uint32_t level = current_level();
+        const uint32_t level = current_level();
         for (EditedGoal& goal : goals_) {
             if (goal.taken_count_ && goal.level_ == level && goal.level_goal_number_ == index)
                 return &goal;
@@ -186,7 +186,7 @@ EditedGoal* ObjectiveAuthoring::get_goal_from_params(script::Struct* params)
 int ObjectiveAuthoring::count_used_goals()
 {
     int count = 0;
-    for (EditedGoal& goal : goals_) {
+    for (const EditedGoal& goal : goals_) {
         if (goal.taken_count_)
             ++count;
     }
@@ -197,7 +197,7 @@ int ObjectiveAuthoring::count_used_goals()
 int ObjectiveAuthoring::count_complete_goals(uint32_t level)
 {
     int count = 0;
-    for (EditedGoal& goal : goals_) {
+    for (const EditedGoal& goal : goals_) {
         if (goal.taken_count_ && (!level || goal.level_ == level) && goal.vertex_total_ >= goal.min_points_)
             ++count;
     }
@@ -207,16 +207,18 @@ int ObjectiveAuthoring::count_complete_goals(uint32_t level)
 // 0x004E8130
 bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float height, uint32_t level, int index)
 {
-    float x = pos.x, y = pos.y + height, z = pos.z;
-    float radius = script::fetch_float(0x71B20276);
-    for (EditedGoal& goal : goals_) {
+    const float x = pos.x;
+    const float y = pos.y + height;
+    const float z = pos.z;
+    const float radius = script::fetch_float(0x71B20276);
+    for (const EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || goal.level_ != level || goal.vertex_total_ <= index)
             continue;
         const EditedGoalPoint& point = goal.path_vertices_[index];
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
         auto dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
-        double dy = (static_cast<double>(point.pos.y) + point.height) - y;
-        double dz = static_cast<double>(point.pos.z) - z;
+        const double dy = (static_cast<double>(point.pos.y) + point.height) - y;
+        const double dz = static_cast<double>(point.pos.z) - z;
         if (std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx) < radius)
             return true;
     }
@@ -255,7 +257,7 @@ void ObjectiveAuthoring::clear_incomplete_goals()
 // 0x004E8300
 bool ObjectiveAuthoring::any_park_goal_outside(float x0, float z0, float x1, float z1)
 {
-    for (EditedGoal& goal : goals_) {
+    for (const EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == kParkEditorLevel && goal.vertex_total_ > 1 &&
             get_outside(goal.path_vertices_[1].pos.x, goal.path_vertices_[1].pos.z, x0, z0, x1, z1))
             return true;
@@ -298,8 +300,8 @@ void ObjectiveAuthoring::drop_objective(EditedGoal* goal)
 // 0x004E7B50
 void ObjectiveAuthoring::update_camera_collision()
 {
-    EditedGoal* goal = active_node_;
-    int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
+    const EditedGoal* goal = active_node_;
+    const int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
     if (kind != kPointPro && kind != kPointStart) {
         view_cam(view_camera_)->simple_collision_ = true;
         return;
@@ -321,7 +323,7 @@ void ObjectiveAuthoring::move_cursor_to_current_point()
 void ObjectiveAuthoring::run_cursor_script()
 {
     script::Struct params;
-    objects::EditorViewModule* camera = view_cam(view_camera_);
+    const objects::EditorViewModule* camera = view_cam(view_camera_);
     const maths::Vec4& cursor = camera->cursor_;
     params.put_vec3(0x7F261953, cursor.x, cursor.y + camera->level_y_, cursor.z);
     params.push_float(0xFF7EBAF6, camera->heading_);
@@ -332,7 +334,7 @@ void ObjectiveAuthoring::run_cursor_script()
 // 0x004EA580
 void ObjectiveAuthoring::refresh_cursor()
 {
-    EditedGoal* goal = active_node_;
+    const EditedGoal* goal = active_node_;
     int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
     const char* model = nullptr;
     if (kind == kPointStart) {
@@ -362,12 +364,12 @@ void ObjectiveAuthoring::refresh_cursor()
 void ObjectiveAuthoring::begin_fresh_objective()
 {
     clear_incomplete_goals();
-    uint32_t level = current_level();
+    const uint32_t level = current_level();
     // The lowest number no complete goal of the level has.
     int index = 0;
     for (bool taken = true; taken;) {
         taken = false;
-        for (EditedGoal& goal : goals_) {
+        for (const EditedGoal& goal : goals_) {
             if (goal.taken_count_ && goal.vertex_total_ >= goal.min_points_ && goal.level_ == level &&
                 goal.level_goal_number_ == index) {
                 ++index;
@@ -409,12 +411,12 @@ void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
     params->fetch_list(kGoalListName, &goals, 0);
     if (!goals)
         return;
-    uint32_t count = goals->extent_;
+    const uint32_t count = goals->extent_;
     for (uint32_t i = 0; i < count; ++i) {
         auto* entry = reinterpret_cast<script::Struct*>(goals->fetch_part(i));
         uint32_t level = 0;
         entry->read_hash_value(0x651533EC, &level, 0);
-        bool park = level == kParkEditorGameplayLevel || level == kParkEditorLevel;
+        const bool park = level == kParkEditorGameplayLevel || level == kParkEditorLevel;
         if (park != (park_only != 0))
             continue;
         for (EditedGoal& goal : goals_) {
@@ -460,7 +462,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
 void ObjectiveAuthoring::write_goals(script::Struct* out)
 {
     uint32_t count = 0;
-    for (EditedGoal& goal : goals_) {
+    for (const EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ != kParkEditorLevel)
             ++count;
     }
@@ -506,7 +508,7 @@ uint32_t ObjectiveAuthoring::write_level_goals_to_buffer(uint32_t level, uint8_t
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     write_level_goals(level, params);
-    uint32_t written = script::emit_into_buffer(params, buffer, size, 1, nullptr);
+    const uint32_t written = script::emit_into_buffer(params, buffer, size, 1, nullptr);
     delete_structure(params);
     return written;
 }
@@ -526,7 +528,7 @@ namespace {
 // goal's start.
 bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float height)
 {
-    EditedGoal* goal = editor->active_node_;
+    const EditedGoal* goal = editor->active_node_;
     if (goal->vertex_total_ && goal->path_vertices_[goal->current_point_].kind == kPointStart &&
         editor->point_near_any_goal(pos, height, goal->level_, 0))
         return true;
@@ -553,9 +555,10 @@ void ObjectiveAuthoring::tick_frame()
     objects::ControlButton* place = get_button(input_ptr_, 0x1C0);
     if (place->fired_) {
         place->reset_activation();
-        objects::EditorViewModule* camera = view_cam(view_camera_);
-        maths::Vec4 pos = camera->cursor_;
-        float height = camera->level_y_, angle = camera->heading_;
+        const objects::EditorViewModule* camera = view_cam(view_camera_);
+        const maths::Vec4 pos = camera->cursor_;
+        const float height = camera->level_y_;
+        const float angle = camera->heading_;
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (near_other_goals(this, pos, height)) {
             script::launch_script(0xAEBC7020, nullptr, entity_, false, nullptr);
@@ -572,9 +575,10 @@ void ObjectiveAuthoring::tick_frame()
     objects::ControlButton* back = get_button(input_ptr_, 0x1A0);
     if (back->fired_) {
         back->reset_activation();
-        objects::EditorViewModule* camera = view_cam(view_camera_);
-        maths::Vec4 pos = camera->cursor_;
-        float height = camera->level_y_, angle = camera->heading_;
+        const objects::EditorViewModule* camera = view_cam(view_camera_);
+        const maths::Vec4 pos = camera->cursor_;
+        const float height = camera->level_y_;
+        const float angle = camera->heading_;
         if (!near_other_goals(this, pos, height) && active_node_->place_point_and_step_back(pos, height, angle)) {
             script::launch_script(0xFA275CC5, nullptr, entity_, false, nullptr);
             refresh_cursor();
@@ -610,7 +614,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
     params->read_hash_value(0x651533EC, &level, 0);
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    int count = count_complete_goals(level);
+    const int count = count_complete_goals(level);
     if (!count)
         return true;
     script::Array* goals = script::alloc_script_array();

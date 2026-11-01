@@ -190,9 +190,9 @@ void read_save_header(Struct* global, Script* script)
         sound->fetch_int_value(kForbiddenTracks2, &tracks[1], 0);
         sound->fetch_int_value(kForbiddenTracks3, &tracks[2], 0);
         sound->fetch_int_value(kForbiddenTracks4, &tracks[3], 0);
-        uint64_t low =
+        const uint64_t low =
             (static_cast<uint64_t>(static_cast<uint32_t>(tracks[0])) << 32) | static_cast<uint32_t>(tracks[1]);
-        uint64_t high =
+        const uint64_t high =
             (static_cast<uint64_t>(static_cast<uint32_t>(tracks[2])) << 32) | static_cast<uint32_t>(tracks[3]);
         audio::set_tracks_off(low, high);
     }
@@ -261,7 +261,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         return;
     case kSaveCat: {
         auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
-        goals::CreateATrick* trick_record = skater->trick_slots_[0].get();
+        const goals::CreateATrick* trick_record = skater->trick_slots_[0].get();
         contents->put_sub_struct("other_params", trick_record->other_params_);
         contents->append_array_value("rotation_info", trick_record->spin_list_);
         contents->append_array_value("animation_info", trick_record->animations_);
@@ -314,7 +314,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
         return;
     case kSaveCat: {
         // the local skater (0x00566520, no source yet)
-        objects::Rider* skater = get_skate()->get_home_rider();
+        const objects::Rider* skater = get_skate()->get_home_rider();
         if (!skater)
             return;
         // (its fields by name: these were the original's byte offsets +4 / +8 / +0xC on a CreateATrick*, which
@@ -363,7 +363,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
             objects::ProfileRoster* profiles = get_profiles();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
-            bool keep = profiles->cursor_pos_ != 0;
+            const bool keep = profiles->cursor_pos_ != 0;
             profiles->read_custom_skater(custom_skater, keep);
             loaded_custom_skater = true;
         }

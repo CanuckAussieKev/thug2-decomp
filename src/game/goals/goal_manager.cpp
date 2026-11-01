@@ -69,7 +69,7 @@ void hide_goal_ped(ObjectiveNpc* ped, bool hide) { ped->conceal(hide); }
 template <typename F>
 Objective* walk_to_root(GoalManager* manager, Objective* goal, const F& on_parent)
 {
-    for (GoalEdge* link = goal->parents_; link && link->objective_key_;) {
+    for (const GoalEdge* link = goal->parents_; link && link->objective_key_;) {
         on_parent(link->objective_key_);
         goal = manager->goals_.get_pull(link->objective_key_);
         link = goal->parents_;
@@ -165,7 +165,7 @@ bool GoalManager::engage_objective(uint32_t id, bool)
     Objective* goal = goals_.get_pull(id);
     if (!goal || goal->is_latched())
         return false;
-    bool started = goal->activate();
+    const bool started = goal->activate();
     if (started && goal->may_try_again() && has_no_parent(goal))
         previous_objective_ = id;
     return started;
@@ -278,7 +278,7 @@ void GoalManager::prepare_every_objective()
             continue;
         if (goal->has_won() && !goal->fetch_args()->has_bare_flag(kAlwaysInitializeGoal))
             continue;
-        GoalEdge* parents = goal->parents_;
+        const GoalEdge* parents = goal->parents_;
         script::Struct* params = goal->fetch_args();
         if (parents->objective_key_)
             continue;
@@ -338,7 +338,7 @@ bool GoalManager::begin_objective_at_once(uint32_t id, bool check_exists)
     if (!goal && check_exists)
         return false;
     goal->set_quick_start(); // (no such goal and not check_exists: written through null, as the original)
-    bool started = goal->activate();
+    const bool started = goal->activate();
     if (started && goal->may_try_again())
         previous_objective_ = id;
     goal->unset_quick_start();
@@ -372,7 +372,7 @@ bool GoalManager::step_to_next_waypoint(uint32_t id) { return goals_.get_pull(id
 // 0x00558770
 void GoalManager::kill_cluster(uint32_t cluster, int score)
 {
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (!goal->is_operative() || goal->is_online_objective())
@@ -557,7 +557,7 @@ Objective* GoalManager::get_active_competition()
 // 0x00558DF0
 void GoalManager::replace_trick_text_all()
 {
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i)
         goals_.get_by_index(i)->swap_move_caption();
 }
@@ -569,11 +569,11 @@ bool GoalManager::goal_exists(uint32_t id) { return goals_.get_pull(id) != nullp
 void GoalManager::test_tagged_props()
 {
     auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
-    int player = static_cast<modules::PointTally*>(skater->get_points_total())->pot_score_;
+    const int player = static_cast<modules::PointTally*>(skater->get_points_total())->pot_score_;
     auto* trick = static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick));
     // The combo's trick objects: up to 512 clusters, then their count (copied first, as the original).
-    objects::HitClusterLog objects = trick->trick_objects_;
-    int count = objects.num_ > 512 ? 512 : objects.num_;
+    const objects::HitClusterLog objects = trick->trick_objects_;
+    const int count = objects.num_ > 512 ? 512 : objects.num_;
     for (int i = 0; i < count; ++i)
         kill_cluster(objects.items_[i], player);
 }
@@ -581,14 +581,14 @@ void GoalManager::test_tagged_props()
 // 0x00558ED0
 void GoalManager::build_goal_tree()
 {
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        uint32_t id = goal->get_objective_key();
-        for (GoalEdge* link = goal->sub_nodes_; link && link->objective_key_; link = link->succ_) {
+        const uint32_t id = goal->get_objective_key();
+        for (const GoalEdge* link = goal->sub_nodes_; link && link->objective_key_; link = link->succ_) {
             Objective* child = goals_.get_pull(link->objective_key_); // (one not in the table is read through null)
             bool linked = false;
-            for (GoalEdge* parent = child->parents_; parent && parent->objective_key_; parent = parent->succ_) {
+            for (const GoalEdge* parent = child->parents_; parent && parent->objective_key_; parent = parent->succ_) {
                 if (parent->objective_key_ == id) {
                     linked = true;
                     break;
@@ -620,7 +620,7 @@ void GoalManager::spawn_objective_props()
 // 0x00559050
 int GoalManager::get_skill_tier(bool career)
 {
-    uint32_t mode = career ? kCareer : get_game_mode()->get_name_key();
+    const uint32_t mode = career ? kCareer : get_game_mode()->get_name_key();
     int level = 0;
     if (!args_->fetch_int_value(mode, &level, 0))
         level = 1;
@@ -654,7 +654,7 @@ bool GoalManager::is_group_locked(int group, int level)
 // 0x00559150
 void GoalManager::trick_object_hit(uint32_t cluster)
 {
-    int count = goals_.num_; // (read once)
+    const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->fetch_args()->has_bare_flag(kTrickObjects))
@@ -665,7 +665,7 @@ void GoalManager::trick_object_hit(uint32_t cluster)
 // 0x0055BEA0
 bool GoalManager::drop_objective(uint32_t id)
 {
-    Objective* goal = goals_.get_pull(id);
+    const Objective* goal = goals_.get_pull(id);
     remove_objective_npc(goal->ped_);
     goals_.drop_out(id);
     if (previous_objective_ == id)
@@ -695,7 +695,7 @@ namespace {
 // The active list's nodes (the walk checks each node's data for -1 before the node for null, as the original).
 int count_active(memory::ListNode* head)
 {
-    memory::ListNode* node = head->next;
+    const memory::ListNode* node = head->next;
     if (node->data == reinterpret_cast<void*>(-1) || !node)
         return 0;
     int count = 0;
@@ -734,12 +734,12 @@ Objective* GoalManager::get_engaged_objective(int index)
 int GoalManager::count_live_goals(bool all)
 {
     int counted = 0;
-    int count = count_active(&active_goals_.list_link_);
+    const int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = count_active(&active_goals_.list_link_)
                               ? static_cast<Objective*>(active_goals_.get_node_at(i)->data)
                               : nullptr;
-        bool counts = goal->is_online_objective() ? all : all || goal->is_operative();
+        const bool counts = goal->is_online_objective() ? all : all || goal->is_operative();
         if (counts)
             ++counted;
     }

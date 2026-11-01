@@ -126,8 +126,8 @@ script::Array* shuffled_numbers(int count)
     for (int i = 0; i < count; ++i)
         numbers->set_element(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));
     for (int i = 0; i < count; ++i) {
-        int other = maths::rnd(count);
-        uint32_t value = numbers->fetch_part(static_cast<uint32_t>(other));
+        const int other = maths::rnd(count);
+        const uint32_t value = numbers->fetch_part(static_cast<uint32_t>(other));
         numbers->set_element(static_cast<uint32_t>(other), numbers->fetch_part(static_cast<uint32_t>(i)));
         numbers->set_element(static_cast<uint32_t>(i), value);
     }
@@ -271,13 +271,13 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
             continue;
         char lip_name[0x100];
         std::snprintf(lip_name, sizeof(lip_name), kLip, name);
-        uint32_t lip_stream = checksums::hash_from_text(lip_name);
+        const uint32_t lip_stream = checksums::hash_from_text(lip_name);
         if (audio::stream_exists(lip_stream)) {
             found = lip_stream;
             lip = true;
             break;
         }
-        uint32_t stream = checksums::hash_from_text(name);
+        const uint32_t stream = checksums::hash_from_text(name);
         if (audio::stream_exists(stream)) {
             found = stream;
             break;
@@ -413,7 +413,7 @@ void ObjectiveNpc::load_anim_bank(uint32_t stream, uint32_t anim_set)
     char path[0x20];
     std::snprintf(path, sizeof(path), "fam\\%08x.fam", stream); // "fam\%08x.fam"
     assets::ResourceRegistry* assets = assets::asset_manager();
-    int previous = assets->unknown18_;
+    const int previous = assets->unknown18_;
     if (assets->load_anim(path, stream, anim_set, false, false))
         fam_ = checksums::hash_from_text(path);
     assets->set_unknown18(previous);
@@ -435,11 +435,11 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     play_params->put_name_key(kStreamChecksum, stream);
     if (!no_anim) {
         play_params->put_int(kUsePosInfo, 0);
-        uint32_t anim_set =
+        const uint32_t anim_set =
             static_cast<objects::AnimBlenderComponent*>(object->fetch_module(kAnimBlender))->get_anim_set();
         if (load_fam)
             load_anim_bank(stream, anim_set);
-        uint32_t handle = audio::prime_stream(stream, 0x66);
+        const uint32_t handle = audio::prime_stream(stream, 0x66);
         play_params->put_name_key(kStreamId, handle);
         feed_ = handle;
         if (assets::asset_manager()->get_asset_data(anim_set + stream, 0)) {
@@ -462,10 +462,10 @@ void ObjectiveNpc::play_opening_voice_line(script::Struct* params)
     params->fetch_int_value(kCamClipIndex, &index, 0);
     const char* speaker = nullptr;
     params->fetch_text(kSpeakerName, &speaker, 0);
-    bool last_anim = params->has_bare_flag(kLastAnim);
+    const bool last_anim = params->has_bare_flag(kLastAnim);
     // (without a stream found the slot keeps what was there: the original's held last_anim's byte)
     uint32_t stream = last_anim ? 1u : 0u;
-    bool lip = get_voice_clip_key(&stream, index, false, speaker, last_anim);
+    const bool lip = get_voice_clip_key(&stream, index, false, speaker, last_anim);
     if (!stream)
         return;
     cut_voice_line();
@@ -482,7 +482,7 @@ void ObjectiveNpc::play_victory_voice_line(script::Struct* params)
     const char* speaker = nullptr;
     params->fetch_text(kSpeakerName, &speaker, 0);
     uint32_t stream = 0;
-    bool lip = get_voice_clip_key(&stream, -1, true, speaker, true);
+    const bool lip = get_voice_clip_key(&stream, -1, true, speaker, true);
     uint32_t speaker_object = 0;
     params->read_hash_value(kSpeakerObjId, &speaker_object, 0);
     if (stream)
@@ -502,10 +502,10 @@ void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by
     const char* display = profile->fetch_shown_name();
     char player[0x80];
     read_leading_name(player, &display, sizeof(player));
-    int total = call_by_name ? count + 20 : count;
+    const int total = call_by_name ? count + 20 : count;
     script::Array* order = shuffled_numbers(total);
     for (int i = 0; i < total; ++i) {
-        int n = static_cast<int>(order->fetch_part(static_cast<uint32_t>(i)));
+        const int n = static_cast<int>(order->fetch_part(static_cast<uint32_t>(i)));
         char name[0x80];
         if (n > count) {
             if (!profile->is_pro())
@@ -534,8 +534,8 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
 {
     if (suspended_)
         return;
-    bool random = params->has_bare_flag(kPlayRandom);
-    bool by_name = params->has_bare_flag(kCallPlayerByName);
+    const bool random = params->has_bare_flag(kPlayRandom);
+    const bool by_name = params->has_bare_flag(kCallPlayerByName);
     uint32_t vo = 0;
     if (params->read_hash_value(kVo, &vo, 0)) {
         play_stream(vo, true, 0, false);

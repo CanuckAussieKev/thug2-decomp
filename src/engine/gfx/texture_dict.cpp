@@ -53,7 +53,7 @@ BitmapTexture* insert_texture(TextureSet* dict, BitmapTexture* texture, bool per
 {
     if (texture) {
         texture->pin_resident(permanent);
-        uint32_t key = texture->checksum_;
+        const uint32_t key = texture->checksum_;
         dict->textures_->store_entry(key, texture);
     }
     return texture;
@@ -105,7 +105,7 @@ BitmapTexture* TextureSet::fetch_skin(uint32_t checksum)
 // 0x0049F560
 BitmapTexture* TextureSet::get_texture_by_name(const char* name)
 {
-    uint32_t checksum = filename_key(name);
+    const uint32_t checksum = filename_key(name);
     if (!textures_)
         return nullptr;
     return static_cast<BitmapTexture*>(textures_->fetch_entry(checksum, true));
@@ -116,7 +116,7 @@ BitmapTexture* TextureSet::find_texture(const char* name)
 {
     auto find = [this](uint32_t checksum) -> BitmapTexture* {
         for (const int* multiplier = key_multipliers(); *multiplier > 0; ++multiplier) {
-            uint32_t key = static_cast<uint32_t>(*multiplier) * checksum;
+            const uint32_t key = static_cast<uint32_t>(*multiplier) * checksum;
             BitmapTexture* texture = textures_ ? static_cast<BitmapTexture*>(textures_->fetch_entry(key)) : nullptr;
             if (texture)
                 return texture;
@@ -127,7 +127,7 @@ BitmapTexture* TextureSet::find_texture(const char* name)
         return texture;
     char other[0x200];
     std::snprintf(other, sizeof(other), "%s", name);
-    size_t length = std::strlen(other);
+    const size_t length = std::strlen(other);
     if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
         std::memcpy(other + length - 4, "_auto32m0.png", 14);
     return find(checksums::hash_from_text(other));
@@ -168,7 +168,7 @@ BitmapTexture* TextureSet::create_texture(uint32_t checksum, uint32_t width, uin
 // 0x0049F500
 bool TextureSet::unload_texture(BitmapTexture* texture)
 {
-    uint32_t key = texture->checksum_;
+    const uint32_t key = texture->checksum_;
     debug_before_unload();
     if (!destroy_texture(texture))
         return false;
@@ -192,7 +192,7 @@ void TextureSet::drop_textures(bool all)
         if (textures_->step_iterator() && textures_->iter_item_)
             next = static_cast<BitmapTexture*>(textures_->iter_item_->value);
         if (all || !(texture->flag_bits_ & kTexturePermanent)) {
-            uint32_t key = texture->checksum_;
+            const uint32_t key = texture->checksum_;
             delete texture;
             textures_->erase_entry(key);
         }
@@ -221,8 +221,8 @@ bool TextureSet::replace_texture_from_file(const char* name, const char* file)
     auto* loaded = load_texture_file(file, 0u, 0u);
     insert_texture(this, loaded, true);
     memory::pop_mem_profile();
-    bool replaced = texture->copy_from(loaded);
-    uint32_t key = loaded->checksum_;
+    const bool replaced = texture->copy_from(loaded);
+    const uint32_t key = loaded->checksum_;
     debug_before_unload();
     if (destroy_texture(loaded))
         textures_->erase_entry(key);
@@ -268,7 +268,7 @@ TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint
     char file[0x80];
     std::snprintf(file, sizeof(file), "%s.%s", path, platform_suffix());
     memory::push_mem_profile(path);
-    uint32_t key = checksums::hash_from_text(path) + offset;
+    const uint32_t key = checksums::hash_from_text(path) + offset;
     TextureSet* dict = find_tex_dict(key);
     if (dict) {
         ++dict->share_count_;
@@ -287,7 +287,7 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
                                       uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
 {
     memory::push_mem_profile("TEX_data_buffer"); // "TEX_data_buffer"
-    uint32_t key = checksum + offset;
+    const uint32_t key = checksum + offset;
     TextureSet* dict = find_tex_dict(key);
     if (!dict) {
         // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone - and,
@@ -304,7 +304,7 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
 TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
 {
     char base[0x200];
-    bool skin = engine::split_skin_name(name, base);
+    const bool skin = engine::split_skin_name(name, base);
     char file[0x200];
     std::snprintf(file, sizeof(file), "%s.tex", base);
     return load_tex_dict(file, 0, offset, skin, a4);
@@ -315,7 +315,7 @@ bool unload_tex_dict(TextureSet* dict)
 {
     if (--dict->share_count_ != 0)
         return false;
-    uint32_t key = dict->checksum_;
+    const uint32_t key = dict->checksum_;
     loaded_tex_dicts().erase_entry(key);
     delete dict; // (through its vtable)
     return true;
@@ -339,7 +339,7 @@ lists::KeyMap g_spare_tex_dict_table{lists::KeyMap::Unconstructed{}};
 // The loaded dictionary named `name` (one more use of it), or a new one, made and listed.
 TextureSet* shared_tex_dict(const char* name)
 {
-    uint32_t checksum = checksums::hash_from_text(name);
+    const uint32_t checksum = checksums::hash_from_text(name);
     if (TextureSet* dict = find_tex_dict(checksum)) {
         ++dict->share_count_;
         return dict;

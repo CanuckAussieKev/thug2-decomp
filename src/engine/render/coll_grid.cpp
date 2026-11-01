@@ -48,7 +48,7 @@ memory::ListNode* masked(memory::ListNode* node) { return is_head(node) ? nullpt
 int len_of(memory::ListNode* head)
 {
     int count = 0;
-    for (memory::ListNode* node = head->next; !is_head(node) && node; node = node->next)
+    for (const memory::ListNode* node = head->next; !is_head(node) && node; node = node->next)
         ++count;
     return count;
 }
@@ -114,8 +114,8 @@ struct CellUpdate {
     // The list's block resized for the new count; the waiting objects added at the end.
     void get_finish()
     {
-        int count = cell->count + delta;
-        uint32_t size = static_cast<uint32_t>(count) * 4;
+        const int count = cell->count + delta;
+        const uint32_t size = static_cast<uint32_t>(count) * 4;
         if (delta < 0) {
             if (!cell->objects || !memory::Hub::get_pull()->trim_block_end(size, cell->objects, nullptr))
                 cell->objects = static_cast<HitMesh**>(memory::regrow(cell->objects, size));
@@ -193,7 +193,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
         auto inverse_width = static_cast<float>(1.0 / cell_span_x_);
         x0 = truncate((static_cast<double>(box->min.x) - box_.min.x) * inverse_width);
         x1 = truncate((static_cast<double>(box->max.x) - box_.min.x) * inverse_width);
-        double inverse_depth = 1.0 / cell_depth_;
+        const double inverse_depth = 1.0 / cell_depth_;
         z0 = truncate((static_cast<double>(box->min.z) - box_.min.z) * inverse_depth);
         z1 = truncate((static_cast<double>(box->max.z) - box_.min.z) * inverse_depth);
         if (x1 >= kSize)
@@ -246,13 +246,15 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
 {
     memory::ListNode pending{};
     pending.make_head();
-    int added_count = len_of(added), removed_count = len_of(removed), moved_count = len_of(moved);
+    const int added_count = len_of(added);
+    const int removed_count = len_of(removed);
+    const int moved_count = len_of(moved);
     for (auto& column : cells_) {
         for (auto& grid_cell : column) {
             CellUpdate update{&grid_cell, &pending};
-            CollGridCell* cell = update.cell;
+            const CollGridCell* cell = update.cell;
             memory::enter_heap_scope(memory::top_down_heap());
-            memory::ListNode* node = masked(removed->next);
+            const memory::ListNode* node = masked(removed->next);
             for (int i = 0; i < removed_count; ++i, node = masked(node->next)) {
                 auto* object = static_cast<HitMesh*>(node->data);
                 if (cell->box.intersects(*cuboid(object)))
@@ -267,7 +269,7 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
             node = masked(moved->next);
             for (int i = 0; i < moved_count; ++i, node = masked(node->next)) {
                 auto* object = static_cast<HitMesh*>(node->data);
-                bool listed = update.get_lists(object);
+                const bool listed = update.get_lists(object);
                 if (cell->box.intersects(*cuboid(object)) != listed) {
                     if (listed)
                         update.take_out(object);
@@ -286,7 +288,7 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
             if (!old)
                 continue;
             if (cell.count != 0) {
-                uint32_t size = static_cast<uint32_t>(cell.count) * 4;
+                const uint32_t size = static_cast<uint32_t>(cell.count) * 4;
                 cell.objects = static_cast<HitMesh**>(memory::alloc_block(size));
                 // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken as an integer, on purpose
                 std::memcpy(cell.objects, old, size);
@@ -303,8 +305,8 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
 // 0x00418710
 HitMesh** CollGrid::objects_in_box(const maths::BBox* box)
 {
-    uint8_t stamp = ++s_stamp;
-    double inverse_width = 1.0 / cell_span_x_;
+    const uint8_t stamp = ++s_stamp;
+    const double inverse_width = 1.0 / cell_span_x_;
     int x0 = truncate((static_cast<double>(box->min.x) - box_.min.x - 0.5f) * inverse_width);
     auto inverse_depth = static_cast<float>(1.0 / cell_depth_);
     int z0 = truncate((static_cast<double>(box->min.z) - box_.min.z - 0.5f) * inverse_depth);
@@ -317,7 +319,7 @@ HitMesh** CollGrid::objects_in_box(const maths::BBox* box)
     int found = 0;
     for (int x = x0; x <= x1; ++x) {
         for (int z = z0; z <= z1; ++z) {
-            CollGridCell& cell = cells_[x][z];
+            const CollGridCell& cell = cells_[x][z];
             for (int i = 0; i < cell.count; ++i) {
                 HitMesh* object = cell.objects[i];
                 if (listable(object) && object->visit_stamp_ != stamp) {
@@ -339,7 +341,7 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     float dy = line->end.y - line->start.y;
     float dz = line->end.z - line->start.z;
     auto dxf = static_cast<float>(dx);
-    double length =
+    const double length =
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dxf) * dxf);
     if (length > 0.0) {
         auto inverse = static_cast<float>(1.0 / static_cast<float>(length));
@@ -347,7 +349,8 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
         dy = static_cast<float>(static_cast<double>(dy) * inverse);
         dz = static_cast<float>(static_cast<double>(dz) * inverse);
     }
-    double ex = dx * 0.5f, ey = static_cast<double>(dy) * 0.5f;
+    const double ex = dx * 0.5f;
+    const double ey = static_cast<double>(dy) * 0.5f;
     auto ez = static_cast<float>(static_cast<double>(dz) * 0.5f);
     maths::Seg longer{};
     longer.start = {static_cast<float>(line->start.x - ex), static_cast<float>(line->start.y - ey),
@@ -355,7 +358,7 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     longer.end = {static_cast<float>(ex + line->end.x), static_cast<float>(ey + line->end.y),
                   static_cast<float>(static_cast<double>(ez) + line->end.z), 0.0f};
 
-    double inverse_width = 1.0 / cell_span_x_;
+    const double inverse_width = 1.0 / cell_span_x_;
     int x0 = truncate((static_cast<double>(longer.start.x) - box_.min.x) * inverse_width);
     auto inverse_depth = static_cast<float>(1.0 / cell_depth_);
     int z0 = truncate((static_cast<double>(longer.start.z) - box_.min.z) * inverse_depth);
@@ -366,27 +369,27 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     x1 = confine(x1, columns_);
     z1 = confine(z1, rows_);
     if (x1 < x0) {
-        int swap = x0;
+        const int swap = x0;
         x0 = x1;
         x1 = swap;
     }
     if (z1 < z0) {
-        int swap = z0;
+        const int swap = z0;
         z0 = z1;
         z1 = swap;
     }
     int found = 0;
     if (x0 == x1 && z0 == z1) {
-        CollGridCell& cell = cells_[x0][z0];
+        const CollGridCell& cell = cells_[x0][z0];
         for (int i = 0; i < cell.count; ++i) {
             if (listable(cell.objects[i]))
                 kFound[found++] = cell.objects[i];
         }
     } else {
-        uint8_t stamp = ++s_stamp;
+        const uint8_t stamp = ++s_stamp;
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z) {
-                CollGridCell& cell = cells_[x][z];
+                const CollGridCell& cell = cells_[x][z];
                 for (int i = 0; i < cell.count; ++i) {
                     HitMesh* object = cell.objects[i];
                     if (listable(object) && object->visit_stamp_ != stamp && found < kMostFound) {

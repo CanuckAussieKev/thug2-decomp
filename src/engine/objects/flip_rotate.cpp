@@ -50,7 +50,7 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
     auto* object = fetch_subject();
     ObjectModule* flip_and_rotate = object->fetch_module(0x488AF07A);
     if (flip_and_rotate && static_cast<RiderSpinAndFlip*>(flip_and_rotate)->deck_turned_) {
-        int bone = reinterpret_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(0x98971FAF);
+        const int bone = reinterpret_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
             auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -70,12 +70,12 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
         r[0] = r[1] = r[2] = 0.0f;
         r[3] = 1.0f;
     }
-    int count = reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones();
+    const int count = reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones();
     std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {
-        int mirror = static_cast<gfx::RigData*>(bones)->fetch_mirror_slot(i);
-        int from = mirror == -1 ? i : mirror;
+        const int mirror = static_cast<gfx::RigData*>(bones)->fetch_mirror_slot(i);
+        const int from = mirror == -1 ? i : mirror;
         auto* rotation = reinterpret_cast<float*>(pose + 0x10 * i);
         auto* translation = reinterpret_cast<float*>(pose + 0x400 + 0x10 * i);
         std::memcpy(rotation, rotations[from], 16);

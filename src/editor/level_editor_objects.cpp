@@ -76,7 +76,7 @@ bool add_copy_node(script::Struct* node)
     level_nodes::NodeManager* manager = get_node_manager();
     if (!manager)
         return false;
-    uint32_t name = copy_nodes_name();
+    const uint32_t name = copy_nodes_name();
     int index = -1;
     for (uint32_t i = 0; i < manager->num_; ++i) {
         if (manager->arrays_[i].label_ == name)
@@ -137,7 +137,7 @@ void pick_one(objects::Entity* object, void* data)
         !model_box(composite, &box))
         return;
     float t = 0.0f;
-    bool hit = ray_box(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);
+    const bool hit = ray_box(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);
     if (hit && walk->all && t < walk->best_t_)
         walk->all->emplace_back(composite, t);
     if (hit && t < walk->best_t_ && !walk->all) {
@@ -226,8 +226,8 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its
     // flags), or one in use (its flags: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
     // off: they are placed through their skeletons, not 0x004219F0's matrix).
-    bool cloned = static_cast<objects::MeshInstanceModule*>(component)->level_object_;
-    uint8_t flags = model->flag_bits_;
+    const bool cloned = static_cast<objects::MeshInstanceModule*>(component)->level_object_;
+    const uint8_t flags = model->flag_bits_;
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
     void* geometry = model->get_geom_by_name(0);
@@ -252,7 +252,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     }
     if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) // (also NaN)
         return false;
-    V3 pos = pos_of(object);
+    const V3 pos = pos_of(object);
     out->min = min;
     out->max = max;
     if (box_looks_world_space(min, max, pos)) {
@@ -308,10 +308,10 @@ V3 current_centre(objects::GameEntity* object)
 {
     OrientedBox box{};
     if (model_box(object, &box)) {
-        V3 mid = (box.min + box.max) * 0.5f;
+        const V3 mid = (box.min + box.max) * 0.5f;
         return box.origin + box.axes[0] * mid.x + box.axes[1] * mid.y + box.axes[2] * mid.z;
     }
-    V3 pos = pos_of(object);
+    const V3 pos = pos_of(object);
     return {pos.x, pos.y + 40.0f, pos.z};
 }
 
@@ -327,13 +327,13 @@ void turn_about(objects::GameEntity* object, V3 pivot, float angle)
     for (int i = 0; i < 3; ++i) {
         for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
             maths::Vec4& row = m->row[i];
-            V3 turned = turn_about_up({row.x, row.y, row.z}, angle);
+            const V3 turned = turn_about_up({row.x, row.y, row.z}, angle);
             row.x = turned.x;
             row.y = turned.y;
             row.z = turned.z;
         }
     }
-    V3 pos = pos_of(object);
+    const V3 pos = pos_of(object);
     get_place(object, pivot + turn_about_up(pos - pivot, angle));
 }
 
@@ -432,7 +432,7 @@ void* resolve_tint(scenery::TintOwner owner)
 
 bool can_copy(uint32_t source)
 {
-    uint32_t cls = node_class_hash(node_of(source));
+    const uint32_t cls = node_class_hash(node_of(source));
     return cls == kLevelObject || cls == kGameObject || cls == kPedestrian || cls == kVehicle || cls == kParticleObject;
 }
 
@@ -470,7 +470,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
                               kEnd = checksums::hash_from_text("EndPosition");
         maths::Vec4 from;
         level_nodes::fetch_place(node, &from);
-        for (uint32_t key : {kMid, kEnd}) {
+        for (const uint32_t key : {kMid, kEnd}) {
             script::VectorValue v{};
             if (copy->fetch_vec(key, &v, 0)) {
                 copy->erase_module(key);
@@ -549,7 +549,7 @@ void forget_level()
 std::vector<TableRow> copyable()
 {
     std::vector<TableRow> entries;
-    level_nodes::NodeManager* manager = level_nodes::g_node_manager;
+    const level_nodes::NodeManager* manager = level_nodes::g_node_manager;
     if (!manager)
         return entries;
     static const uint32_t kModel = checksums::hash_from_text("model");
@@ -559,7 +559,8 @@ std::vector<TableRow> copyable()
             continue;
         for (uint32_t i = 0; i < nodes->extent_; ++i) {
             auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
-            uint32_t cls = node_class_hash(node), name = 0;
+            const uint32_t cls = node_class_hash(node);
+            uint32_t name = 0;
             if ((cls != kLevelObject && cls != kGameObject && cls != kPedestrian && cls != kVehicle) ||
                 !node->read_hash_value(kName, &name, 0))
                 continue;

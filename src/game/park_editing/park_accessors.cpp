@@ -163,7 +163,7 @@ int ParkLayout::get_restart_index(uint32_t name)
 PieceGroup* ParkLayout::fetch_meta_template(uint32_t name, int* index)
 {
     int position = num_abstract_metas_ - 1;
-    for (MapListNode* node = abstract_metas_; node; node = node->following_, --position) {
+    for (const MapListNode* node = abstract_metas_; node; node = node->following_, --position) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
         if (meta->name_key_ == name) {
             if (index)
@@ -184,11 +184,11 @@ int ParkLayout::get_ground_level(CellBox area, bool* uniform)
 {
     if (uniform)
         *uniform = true;
-    int first = floor_[area.x][area.z].level_y_;
+    const int first = floor_[area.x][area.z].level_y_;
     int highest = -10000;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            int height = floor_[x][z].level_y_;
+            const int height = floor_[x][z].level_y_;
             if (uniform && height != first)
                 *uniform = false;
             if (height > highest)
@@ -200,9 +200,9 @@ int ParkLayout::get_ground_level(CellBox area, bool* uniform)
 
 maths::Vec4 ParkLayout::cell_to_world_pos(const CellBox& area, maths::Vec4* dimensions)
 {
-    float x = static_cast<float>(area.x - kGridCentre) * cell_size_x();
-    float y = static_cast<float>(area.y) * cell_size_y();
-    float z = static_cast<float>(area.z - kGridCentre) * cell_size_z();
+    const float x = static_cast<float>(area.x - kGridCentre) * cell_size_x();
+    const float y = static_cast<float>(area.y) * cell_size_y();
+    const float z = static_cast<float>(area.z - kGridCentre) * cell_size_z();
     if (dimensions) {
         dimensions->x = static_cast<float>(area.w) * cell_size_x();
         dimensions->y = static_cast<float>(area.h) * cell_size_y();
@@ -255,7 +255,7 @@ void ParkLayout::destroy_gap_manager_copy()
 
 void ParkLayout::highlight_gap_pieces(bool on, GapDetails* gap)
 {
-    for (MapListNode* node = concrete_metas_; node; node = node->following_) {
+    for (const MapListNode* node = concrete_metas_; node; node = node->following_) {
         if (node->get_piece_group()->get_cast()->flag_bits_ & PieceGroup::kHighlightable)
             node->get_piece_group()->get_cast()->spotlight(on, 1);
     }
@@ -276,7 +276,7 @@ void ParkLayout::clear_floor_change_marks()
             floor_[x][z].delta_ = 0;
         }
     }
-    for (MapListNode* node = concrete_metas_; node; node = node->following_)
+    for (const MapListNode* node = concrete_metas_; node; node = node->following_)
         node->get_piece_group()->get_cast()->flag_bits_ &= ~PieceGroup::kFlag20;
 }
 

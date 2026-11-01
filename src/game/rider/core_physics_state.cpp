@@ -182,7 +182,8 @@ void SkaterPhysicsModule::update_free_revert()
     if (!special_friction_index_)
         return;
     auto start = static_cast<uint32_t>(special_friction_start_);
-    uint32_t wait = ftol(static_cast<double>(script::fetch_float(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
+    const uint32_t wait =
+        ftol(static_cast<double>(script::fetch_float(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
     if (get_since(start) <= wait)
         return;
     --special_friction_index_;
@@ -202,7 +203,7 @@ void SkaterPhysicsModule::update_focus_button()
     }
     if (!button->held_down_)
         return;
-    int wait = script::fetch_int_value(kFocusButtonTime);
+    const int wait = script::fetch_int_value(kFocusButtonTime);
     if (time_since_press(button) > wait) {
         focus_held_ = 1;
         script::launch_script(kToggleBulletTime, nullptr, nullptr, false, nullptr);
@@ -214,7 +215,7 @@ void SkaterPhysicsModule::update_projectiles()
 {
     if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on)
         return;
-    objects::TaggingControlComponent* other = tagging_component_;
+    const objects::TaggingControlComponent* other = tagging_component_;
     if (other->pending_ || other->countdown_ || !(other->cooldown_ == 0.0f))
         return;
     int& wait = throw_wait_;
@@ -228,7 +229,7 @@ void SkaterPhysicsModule::update_projectiles()
         return;
     wait = 30;
     // (0x004FC420: walking.)
-    bool walking = static_cast<objects::RiderBoardPhysics*>(physics_control_)->is_on_foot();
+    const bool walking = static_cast<objects::RiderBoardPhysics*>(physics_control_)->is_on_foot();
     script::launch_script(walking ? kWalkThrow : kSkateThrow, nullptr, skater_object(this), false, nullptr);
 }
 
@@ -238,7 +239,7 @@ void SkaterPhysicsModule::update_model_rotation()
     if (!model_rotating_)
         return;
     auto* model = static_cast<objects::MeshInstanceModule*>(skater_object(this)->fetch_module(kModel));
-    double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
+    const double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
     if (state_->cur_phase_ != 1) {
@@ -287,16 +288,16 @@ void SkaterPhysicsModule::update_special_time()
 // 0x00500DE0
 int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* script)
 {
-    objects::GameEntity* object = object_of(this);
-    float y = object->at_point_.y;
+    const objects::GameEntity* object = object_of(this);
+    const float y = object->at_point_.y;
     auto drop = static_cast<float>(y - (static_cast<double>(y) - state_->height_above_ground_));
-    float upward = object->vel_.y;
-    double down = -current_gravity(this);
+    const float upward = object->vel_.y;
+    const double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.
-    double discriminant = static_cast<double>(upward) * upward + 2.0 * (down * drop);
+    const double discriminant = static_cast<double>(upward) * upward + 2.0 * (down * drop);
     float left = 0.0f;
     if (discriminant >= 0.0 || discriminant != discriminant) {
-        double t = (std::sqrt(discriminant) + upward) / down;
+        const double t = (std::sqrt(discriminant) + upward) / down;
         left = t < 0.0 ? 0.0f : static_cast<float>(t);
     } else {
         left = kNeverLands;
@@ -329,7 +330,7 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         object->own_script_->bind_script(kMotoskateboardGrind, nullptr, object);
     } else {
         // GrindTrickList[the rail's type (0-8; anything else 0)][the four trick buttons as bits 0-3].
-        uint32_t index = rail_type <= 8 ? rail_type : 0;
+        const uint32_t index = rail_type <= 8 ? rail_type : 0;
         auto* tricks = reinterpret_cast<script::Array*>(script::fetch_list(kGrindTrickList)->fetch_part(index));
         uint32_t buttons = trick1 ? 1 : 0;
         if (trick2)

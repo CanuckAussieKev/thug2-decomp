@@ -174,7 +174,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         to = {from.x - zero, from.y - length, from.z - zero, from.w - length};
     } else {
         const maths::Vec4& d = *end;
-        double length_squared =
+        const double length_squared =
             (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) + static_cast<double>(d.z) * d.z;
         if (length_squared > 0.0) {
             to = d;
@@ -224,7 +224,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     maths::Mat4 placed = entity_->basis_frame_;
     placed.row[3] = entity_->at_point_;
     // The bone's matrix in the game's axes: y and z swapped, the new z turned round; moved by the offset.
-    maths::Vec4 up = joint_mat.row[1];
+    const maths::Vec4 up = joint_mat.row[1];
     joint_mat.row[1] = joint_mat.row[2];
     joint_mat.row[2] = {-up.x, -up.y, -up.z, -up.w};
     offset->w = 0.0f;
@@ -244,8 +244,8 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     else
         params->put_vec3(0xC97F3AA9, {-quat.x, -quat.y, -quat.z, -quat.w});
     const maths::Vec4& object_vel = entity_->vel_;
-    maths::Vec4 carried = {velocity_scale * object_vel.x, velocity_scale * object_vel.y, velocity_scale * object_vel.z,
-                           velocity_scale * object_vel.w};
+    const maths::Vec4 carried = {velocity_scale * object_vel.x, velocity_scale * object_vel.y,
+                                 velocity_scale * object_vel.z, velocity_scale * object_vel.w};
     maths::Vec4 turned;
     entity_->basis_frame_.rotate_vector(turned, *velocity);
     params->put_vec3(0x0C4C809E,
@@ -274,16 +274,16 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
     params->read_hash_value(kBone, &bone, 1);
     float scale = 0.0f;
     params->fetch_float(0x13B9DA7B, &scale, 1); // scale
-    bool propagate = params->has_bare_flag(0x4CC196D1);
-    bool reverse = params->has_bare_flag(0xBA05E2DE); // propagate_reverse
-    maths::Vec4 scales = {scale, scale, scale, 0.0f};
+    const bool propagate = params->has_bare_flag(0x4CC196D1);
+    const bool reverse = params->has_bare_flag(0xBA05E2DE); // propagate_reverse
+    const maths::Vec4 scales = {scale, scale, scale, 0.0f};
     if (!reverse) {
         change_bone_sizing(bone_rig_, bone, &scales, !propagate);
         return true;
     }
     // Every bone but this one and those under it.
     auto* data = reinterpret_cast<uint8_t*>(reinterpret_cast<gfx::Rig*>(bone_rig_)->payload_);
-    uint32_t index = bone_index(data, bone);
+    const uint32_t index = bone_index(data, bone);
     for (uint32_t i = 1; i < get_bone_count(data); ++i) {
         if (!is_bone_under(data, i, index) && i != index)
             change_bone_sizing(bone_rig_, bone_name(data, i), &scales, true);
@@ -301,7 +301,7 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
     // (the bone is read into the parameters' own argument slot)
     auto bone = reinterpret_cast<uint32_t>(params);
     params->read_hash_value(kBone, &bone, 1);
-    bool found = get_bone_position(bone, &pos);
+    const bool found = get_bone_position(bone, &pos);
     script->args_->push_float(0x7323E97C, pos.x); // x
     script->args_->push_float(0x0424D9EA, pos.y); // y
     script->args_->push_float(0x9D2D8850, pos.z); // z
@@ -311,8 +311,8 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
 // 0x00432860
 bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*script*/)
 {
-    bool trail = params->has_bare_flag(0x4D977A70);             // trail
-    bool dropdown_vertical = params->has_bare_flag(0x7EE6C892); // dropdown_vertical
+    const bool trail = params->has_bare_flag(0x4D977A70);             // trail
+    const bool dropdown_vertical = params->has_bare_flag(0x7EE6C892); // dropdown_vertical
     // Not original: the size starts at 0 - the original's is left uninitialised (stack garbage) when not given.
     float size = 0.0f;
     params->fetch_float(0x083FDB95, &size, 0); // size
@@ -359,7 +359,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     if (params->has_bare_flag(0x744E673F)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
         const maths::Vec4& at = entity_->basis_frame_.row[2];
-        float side = at.x < 0.0f ? -1.0f : 1.0f;
+        const float side = at.x < 0.0f ? -1.0f : 1.0f;
         spin = static_cast<float>(std::acos(static_cast<double>(at.z)) * side);
     }
     const maths::Vec4 end_vector = {end.x, end.y, end.z, end.w};
@@ -385,8 +385,8 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     params->fetch_vec(0xFB1A83B2, &rotvel, 1);   // rotvel
     float factor = 1.0f;                         // (read into the parameters' own argument slot)
     params->fetch_float(0x8C6A6E08, &factor, 0); // object_vel_factor
-    maths::Vec4 velocity = {vel.x, vel.y, vel.z, vel.w};
-    maths::Vec4 rotation = {rotvel.x, rotvel.y, rotvel.z, rotvel.w};
+    const maths::Vec4 velocity = {vel.x, vel.y, vel.z, vel.w};
+    const maths::Vec4 rotation = {rotvel.x, rotvel.y, rotvel.z, rotvel.w};
     maths::Vec4 at = {offset.x, offset.y, offset.z, offset.w};
     spawn_composite_object_at_bone(bone, components, object_params, factor, &velocity, &rotation, &at);
     return true;

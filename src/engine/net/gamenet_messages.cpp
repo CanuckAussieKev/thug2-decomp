@@ -90,7 +90,7 @@ bool write_session_brief(util::ByteWriter& writer, const SessionBrief& message)
     writer.u32(message.team_graffiti_mode);
     writer.u32(message.time_limit);
     writer.u32(message.target_score);
-    for (uint32_t point : message.start_points)
+    for (const uint32_t point : message.start_points)
         writer.u32(point);
     writer.u32(message.round);
     writer.u8(message.variant);
@@ -135,7 +135,7 @@ bool write_start_game(util::ByteWriter& writer, const StartGame& message)
     writer.u32(message.team_graffiti_mode);
     writer.i8(message.crown_start_slot);
     writer.fill(0, 3);
-    for (uint32_t point : message.start_points)
+    for (const uint32_t point : message.start_points)
         writer.u32(point);
     return writer.ok();
 }
@@ -350,11 +350,11 @@ bool read_rest_string(util::ByteReader& reader, char* out, size_t size)
 {
     size_t length = 0;
     const uint8_t* rest = reader.cursor();
-    size_t remaining = reader.remaining();
+    const size_t remaining = reader.remaining();
     while (length < remaining && rest[length])
         ++length;
-    bool ended = length < remaining;
-    size_t copy = length < size - 1 ? length : size - 1;
+    const bool ended = length < remaining;
+    const size_t copy = length < size - 1 ? length : size - 1;
     std::memcpy(out, rest, copy);
     out[copy] = '\0';
     reader.skip(ended ? length + 1 : length);
@@ -363,7 +363,7 @@ bool read_rest_string(util::ByteReader& reader, char* out, size_t size)
 
 void write_cut_string(util::ByteWriter& writer, const char* text, size_t size)
 {
-    size_t length = strnlen(text, size - 1);
+    const size_t length = strnlen(text, size - 1);
     writer.bytes(text, length);
     writer.u8(0);
 }
@@ -460,8 +460,8 @@ bool read_server_info(util::ByteReader& reader, ServerInfo* message)
 {
     message->time_of_day_ = reader.u32();
     message->weather = reader.u32();
-    uint64_t low = reader.u32();
-    uint64_t high = reader.u32();
+    const uint64_t low = reader.u32();
+    const uint64_t high = reader.u32();
     message->flags = low | high << 32;
     return reader.ok();
 }

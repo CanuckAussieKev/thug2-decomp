@@ -15,7 +15,7 @@ void options_menu_items()
         static const char* const kTips[3] = {"Objects: first object; scenery: its pivot; nodes: their position",
                                              "Centre of the selection's bounds", "Each object about its own position"};
         int i = 0;
-        for (Pivot pivot : {Pivot::kBase, Pivot::kCentre, Pivot::kOwn}) {
+        for (const Pivot pivot : {Pivot::kBase, Pivot::kCentre, Pivot::kOwn}) {
             if (ImGui::MenuItem(pivot_name(pivot), nullptr, settings.pivot == pivot))
                 settings.pivot = pivot;
             if (ImGui::IsItemHovered())
@@ -25,7 +25,7 @@ void options_menu_items()
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Rotation Snap")) {
-        for (float step : angle_steps()) {
+        for (const float step : angle_steps()) {
             char label[16];
             std::snprintf(label, sizeof(label), "%g\xC2\xB0", step);
             if (ImGui::MenuItem(label, nullptr, angle_step() == step))
@@ -36,7 +36,7 @@ void options_menu_items()
     if (ImGui::BeginMenu("Snap To")) {
         static const char* const kKeys[4] = {"Ctrl", "Ctrl+Shift", "Alt+Shift", "Ctrl+Alt"};
         int i = 0;
-        for (SnapTarget target :
+        for (const SnapTarget target :
              {SnapTarget::kGrid, SnapTarget::kWorldGrid, SnapTarget::kSurface, SnapTarget::kVertex}) {
             if (ImGui::MenuItem(target_name(target), kKeys[i], settings.target == target))
                 settings.target = target;
@@ -47,7 +47,7 @@ void options_menu_items()
     ImGui::MenuItem("Align to Slope", nullptr, &settings.align_to_slope_);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Tilt objects to the surface when surface snapping");
-    bool always = fly_always();
+    const bool always = fly_always();
     if (ImGui::MenuItem("WASD Always Flies", nullptr, always))
         set_fly_always(!always);
     if (ImGui::IsItemHovered())

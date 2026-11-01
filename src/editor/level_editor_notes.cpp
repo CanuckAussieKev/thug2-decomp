@@ -30,7 +30,7 @@ bool get_same(const Note& a, const Note& b)
 std::string pack_up(const std::string& text)
 {
     std::string out;
-    for (unsigned char c : text.substr(0, kMaxText)) {
+    for (const unsigned char c : text.substr(0, kMaxText)) {
         if (c == '%' || c == '"' || c == '#' || c < 0x20 || c == 0x7F) {
             char hex[4];
             std::snprintf(hex, sizeof(hex), "%%%02X", c);
@@ -46,7 +46,7 @@ bool decode(const std::string& encoded, std::string* text)
 {
     text->clear();
     for (size_t i = 0; i < encoded.size(); ++i) {
-        char c = encoded[i];
+        const char c = encoded[i];
         if (c == '"' || c == '#')
             return false;
         if (c != '%') {
@@ -70,7 +70,7 @@ bool valid_name(const std::string& name)
 {
     if (name.empty() || name.size() > 63) // (as layout_file.ts's validWord)
         return false;
-    for (char c : name) {
+    for (const char c : name) {
         if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
             return false;
     }
@@ -124,24 +124,25 @@ bool read_record(std::istringstream& in, Note* out)
             break;
         if (text)
             return false; // (text= is last)
-        size_t equals = rest.find('=', at);
+        const size_t equals = rest.find('=', at);
         if (equals == std::string::npos)
             return false;
-        std::string key = rest.substr(at, equals - at);
+        const std::string key = rest.substr(at, equals - at);
         if (key.find(' ') != std::string::npos)
             return false;
         if (key == "text") {
             if (equals + 1 >= rest.size() || rest[equals + 1] != '"')
                 return false;
-            size_t close = rest.find('"', equals + 2);
+            const size_t close = rest.find('"', equals + 2);
             if (close == std::string::npos || !decode(rest.substr(equals + 2, close - equals - 2), &out->text))
                 return false;
             text = true;
             at = close + 1;
             continue;
         }
-        size_t end = rest.find(' ', equals);
-        std::string value = rest.substr(equals + 1, end == std::string::npos ? std::string::npos : end - equals - 1);
+        const size_t end = rest.find(' ', equals);
+        const std::string value =
+            rest.substr(equals + 1, end == std::string::npos ? std::string::npos : end - equals - 1);
         at = end == std::string::npos ? rest.size() : end;
         if (key == "pos") {
             if (pos || !read_triple(value, &out->pos))
@@ -149,7 +150,7 @@ bool read_record(std::istringstream& in, Note* out)
             pos = true;
         } else if (key == "color") {
             char* stop = nullptr;
-            unsigned long rgb = std::strtoul(value.c_str(), &stop, 16);
+            const unsigned long rgb = std::strtoul(value.c_str(), &stop, 16);
             if (colour || value.size() != 6 || *stop)
                 return false;
             out->colour = static_cast<uint32_t>(rgb);
@@ -219,8 +220,8 @@ bool view_point(V3* point)
     ViewNow view{};
     if (!current_view(&view))
         return false;
-    TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    V3 dir = make_unit(frame.back * -1.0f);
+    const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
+    const V3 dir = make_unit(frame.back * -1.0f);
     V3 hit{};
     if (checks::get_cast(view.pos, view.pos + dir * 20000.0f, &hit))
         *point = hit;
@@ -305,11 +306,11 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
                  std::vector<ui::Overlay::OverlayText>* texts)
 {
     for (const Note& note : g_notes) {
-        bool selected = note.name == g_selected;
+        const bool selected = note.name == g_selected;
         // (a pin: a stem from the point up to its head - longer far away, so it stands out - and the text beside the head)
-        float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
-        float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
-        V3 top = note.pos + V3{0.0f, height, 0.0f};
+        const float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
+        const float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
+        const V3 top = note.pos + V3{0.0f, height, 0.0f};
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         float px = 0.0f, py = 0.0f, tx = 0.0f, ty = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, note.pos, near_z, &ax, &ay) ||
@@ -317,15 +318,15 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
             continue;
         ndc_to_pixel(viewport, ax, ay, &px, &py);
         ndc_to_pixel(viewport, bx, by, &tx, &ty);
-        uint32_t argb = 0xFF000000u | (note.colour & 0xFFFFFF);
-        uint32_t stem = selected ? 0xFFFFFFFFu : (0xC0000000u | (note.colour & 0xFFFFFF));
+        const uint32_t argb = 0xFF000000u | (note.colour & 0xFFFFFF);
+        const uint32_t stem = selected ? 0xFFFFFFFFu : (0xC0000000u | (note.colour & 0xFFFFFF));
         lines->push_back({px, py, tx, ty, stem, selected ? 2.0f : 1.5f});
         circles->push_back({tx, ty, selected ? 7.0f : 5.5f, argb, true, 1.0f});
         if (selected)
             circles->push_back({tx, ty, 9.5f, 0xFFFFFFFFu, false, 1.5f});
         circles->push_back({px, py, 2.5f, argb, true, 1.0f});
         // (the label: the first line - all of it when selected - cut short when far)
-        size_t most = selected ? 60 : distance > 6000.0f ? 18 : 36;
+        const size_t most = selected ? 60 : distance > 6000.0f ? 18 : 36;
         texts->push_back({tx + 10.0f, ty - 8.0f, argb, caption(note.text, most)});
     }
 }
@@ -333,7 +334,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
 void outliner_section(ImFont* mono, const char* search)
 {
     ImGui::Spacing();
-    bool open = ImGui::TreeNodeEx("Notes###notesSection", ImGuiTreeNodeFlags_SpanAvailWidth);
+    const bool open = ImGui::TreeNodeEx("Notes###notesSection", ImGuiTreeNodeFlags_SpanAvailWidth);
     ImGui::SameLine();
     if (mono)
         ImGui::PushFont(mono);
@@ -354,17 +355,18 @@ void outliner_section(ImFont* mono, const char* search)
         if (!get_matches(note.name + " " + note.text, search))
             continue;
         ImGui::PushID(static_cast<int>(i));
-        ImVec2 pos = ImGui::GetCursorScreenPos();
-        float h = ImGui::GetTextLineHeight();
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float h = ImGui::GetTextLineHeight();
         ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * 0.25f, pos.y + h * 0.5f), h * 0.22f,
                                                     get_colour(note.colour));
         ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
-        std::string label = caption(note.text, 40);
-        bool clicked = ImGui::Selectable(label.c_str(), note.name == g_selected, ImGuiSelectableFlags_AllowDoubleClick);
+        const std::string label = caption(note.text, 40);
+        const bool clicked =
+            ImGui::Selectable(label.c_str(), note.name == g_selected, ImGuiSelectableFlags_AllowDoubleClick);
         if (clicked) {
-            std::string name = note.name;
-            V3 at = note.pos;
-            bool go = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+            const std::string name = note.name;
+            const V3 at = note.pos;
+            const bool go = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
             g_queue.emplace_back([name, at, go] {
                 g_selected = name;
                 g_edit_for.clear();
@@ -382,7 +384,7 @@ void outliner_section(ImFont* mono, const char* search)
 void pane(float view_x, float view_y, float view_width, float view_height, float scale)
 {
     (void)view_width;
-    Note* note = g_selected.empty() ? nullptr : get_find(g_selected);
+    const Note* note = g_selected.empty() ? nullptr : get_find(g_selected);
     if (!note)
         return;
     if (g_edit_for != note->name) {
@@ -393,7 +395,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
                             ImGuiCond_FirstUseEver, ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(340.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
-    std::string title = "Note " + note->name + "###noteWindow";
+    const std::string title = "Note " + note->name + "###noteWindow";
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         if (!open)
@@ -418,7 +420,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     };
     ImGui::InputTextMultiline("##text", g_edit_text, sizeof(g_edit_text), ImVec2(-1.0f, 90.0f * scale));
     if (ImGui::IsItemEdited()) {
-        std::string text = g_edit_text;
+        const std::string text = g_edit_text;
         g_queue.emplace_back([name, text] {
             if (Note* n = get_find(name))
                 n->text = text;
@@ -430,11 +432,11 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     for (int c = 0; c < kColourCount; ++c) {
         ImGui::SameLine();
         ImGui::PushID(c);
-        bool on = note->colour == kColours[c];
-        ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(kColours[c]));
+        const bool on = note->colour == kColours[c];
+        const ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(kColours[c]));
         if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2(18.0f * scale, 18.0f * scale))) {
-            uint32_t rgb = kColours[c];
+            const uint32_t rgb = kColours[c];
             g_queue.emplace_back([name, rgb] {
                 Note* n = get_find(name);
                 if (!n || n->colour == rgb)
@@ -444,7 +446,8 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
             });
         }
         if (on) {
-            ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+            const ImVec2 a = ImGui::GetItemRectMin();
+            const ImVec2 b = ImGui::GetItemRectMax();
             ImGui::GetWindowDrawList()->AddRect(ImVec2(a.x - 2.0f, a.y - 2.0f), ImVec2(b.x + 2.0f, b.y + 2.0f),
                                                 IM_COL32(255, 255, 255, 255), 3.0f, 0, 2.0f);
         }
@@ -454,7 +457,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     float pos[3] = {note->pos.x, note->pos.y, note->pos.z};
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::DragFloat3("##pos", pos, 5.0f, 0.0f, 0.0f, "%.0f")) {
-        V3 to = {pos[0], pos[1], pos[2]};
+        const V3 to = {pos[0], pos[1], pos[2]};
         g_queue.emplace_back([name, to] {
             if (Note* n = get_find(name))
                 n->pos = to;
@@ -463,7 +466,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     held();
     if (ImGui::Button("Go to"))
         g_queue.emplace_back([name] {
-            if (Note* n = get_find(name))
+            if (const Note* n = get_find(name))
                 go_to_point(n->pos, 400.0f);
         });
     ImGui::SameLine();

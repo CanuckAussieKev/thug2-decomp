@@ -62,11 +62,11 @@ bool read_hex8(const std::string& word, uint32_t* out)
     if (word.size() != 8)
         return false;
     uint32_t value = 0;
-    for (char c : word) {
-        int d = c >= '0' && c <= '9'   ? c - '0'
-                : c >= 'a' && c <= 'f' ? c - 'a' + 10
-                : c >= 'A' && c <= 'F' ? c - 'A' + 10
-                                       : -1;
+    for (const char c : word) {
+        const int d = c >= '0' && c <= '9'   ? c - '0'
+                      : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                      : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                                             : -1;
         if (d < 0)
             return false;
         value = value << 4 | static_cast<uint32_t>(d);
@@ -139,7 +139,7 @@ void unregister(uint32_t name, uint32_t cluster)
     if (!manager || !cluster)
         return;
     if (uint8_t* object = cluster_object(manager, cluster)) {
-        memory::ListNode* head = &reinterpret_cast<objects::TrickObjectCluster*>(object)->entities_;
+        const memory::ListNode* head = &reinterpret_cast<objects::TrickObjectCluster*>(object)->entities_;
         memory::ListNode* node = head->next;
         for (int guard = 0; node && node != head && guard < 100000; ++guard) {
             memory::ListNode* next = node->next;
@@ -165,7 +165,7 @@ void get_live(const Membership& from, const Membership& to)
 // The piece's membership put to `to` (the editor's from now on, unless it's the level's again).
 void place_in(const Membership& to)
 {
-    Membership now = get_now(to.sector);
+    const Membership now = get_now(to.sector);
     if (!g_level.count(to.sector)) {
         Membership level;
         if (!stage_map(to.sector, &level))
@@ -198,7 +198,7 @@ struct Step : ModuleStep {
 std::shared_ptr<Step> get_capture(const std::vector<uint32_t>& sectors)
 {
     auto step = std::make_shared<Step>();
-    for (uint32_t s : sectors)
+    for (const uint32_t s : sectors)
         step->pieces.push_back(get_now(s));
     return step;
 }
@@ -210,13 +210,13 @@ bool stage_map(uint32_t sector, Membership* m)
     script::Struct* node = node_of(sector);
     if (!node)
         return false;
-    bool all = !game_config::g_from_cd && script::fetch_int_value(kAllTrickObjects) != 0;
+    const bool all = !game_config::g_from_cd && script::fetch_int_value(kAllTrickObjects) != 0;
     bool trick = all || node->has_entry_named(kTrickObject);
     // (the load's gate 0x00565BB0: such a node isn't registered - absent from this game)
     if (trick && modules::Skate::should_be_absent(node))
         trick = false;
     uint32_t cluster = 0;
-    bool has = node->read_hash_value(kCluster, &cluster, 0);
+    const bool has = node->read_hash_value(kCluster, &cluster, 0);
     *m = get_from_node(sector, trick, has, cluster);
     return true;
 }
@@ -244,14 +244,14 @@ bool get_override(uint32_t sector, uint32_t* cluster)
 bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t cluster)
 {
     std::vector<uint32_t> pieces;
-    for (uint32_t s : sectors) {
+    for (const uint32_t s : sectors) {
         if (s && !scenery::is_clone(s))
             pieces.push_back(s);
     }
-    std::shared_ptr<Step> before = get_capture(pieces);
+    const std::shared_ptr<Step> before = get_capture(pieces);
     int changed = 0;
-    for (uint32_t s : pieces) {
-        Membership to{s, trick, trick ? (cluster ? cluster : s) : 0};
+    for (const uint32_t s : pieces) {
+        const Membership to{s, trick, trick ? (cluster ? cluster : s) : 0};
         if (get_same(get_now(s), to))
             continue;
         place_in(to);
@@ -274,14 +274,14 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
 bool get_home(const std::vector<uint32_t>& sectors)
 {
     std::vector<uint32_t> pieces;
-    for (uint32_t s : sectors) {
+    for (const uint32_t s : sectors) {
         if (g_set.count(s))
             pieces.push_back(s);
     }
     if (pieces.empty())
         return false;
     push_module_undo(get_capture(pieces));
-    for (uint32_t s : pieces)
+    for (const uint32_t s : pieces)
         place_in(g_level[s]);
     hud::get_message("Trick object reverted");
     return true;
@@ -354,11 +354,11 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     // What the selected pieces are now.
     std::vector<Membership> now;
     bool edited = false;
-    for (uint32_t s : sectors) {
+    for (const uint32_t s : sectors) {
         now.push_back(get_now(s));
         edited = edited || g_set.count(s);
     }
-    bool same = std::all_of(now.begin(), now.end(), [&](const Membership& m) {
+    const bool same = std::all_of(now.begin(), now.end(), [&](const Membership& m) {
         return m.trick == now[0].trick && m.cluster == now[0].cluster;
     });
     ImGui::PushFont(mono);
@@ -381,9 +381,9 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     ImGui::InputTextWithHint("##clustername", "Cluster name", g_typed, sizeof(g_typed));
     ImGui::PopFont();
     const std::vector<uint32_t>& pieces = sectors;
-    std::string typed = g_typed;
+    const std::string typed = g_typed;
     bool valid = !typed.empty();
-    for (char c : typed)
+    for (const char c : typed)
         valid = valid && (std::isalnum(static_cast<unsigned char>(c)) || c == '_');
     ImGui::BeginDisabled(!valid);
     if (ImGui::Button("Set Cluster")) {
@@ -401,7 +401,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Give each piece its own cluster");
     if (same && now[0].trick) {
-        uint32_t cluster = now[0].cluster;
+        const uint32_t cluster = now[0].cluster;
         ImGui::SameLine();
         if (ImGui::SmallButton("Use Name"))
             std::snprintf(g_typed, sizeof(g_typed), "%s", get_name_of(cluster).c_str());

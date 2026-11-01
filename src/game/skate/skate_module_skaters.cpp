@@ -286,7 +286,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
     }
     net->in_net_game();                 // (its answer unused, as the original)
     memory::push_mem_profile("Skater"); // "Skater"
-    int heap = find_free_rider_heap(local);
+    const int heap = find_free_rider_heap(local);
     memory::enter_heap_scope(rider_heap_at(heap));
     auto* skater =
         new objects::Rider(viewport, reinterpret_cast<objects::EntityHub*>(entity_hub_handle()), local, id, heap, 1);
@@ -374,7 +374,7 @@ void Skate::bind_controllers()
         objects::Rider* skater = get_skater_at(i);
         if (!skater || !skater->is_local_skater_)
             continue;
-        int number = skater->get_skater_number();
+        const int number = skater->get_skater_number();
         auto* input = pad_input::g_input_manager;
         int controller = input->get_player_controller(number);
         static_cast<objects::PadInputModule*>(skater->fetch_module(kInput))->link_to_pad(controller);
@@ -394,15 +394,15 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
     auto generic = [] {
         debug::printf(
             "\n\nWARNING - no Player1 restart point, trying Generic\n\n"); // "WARNING - no Player1 restart point, trying Generic"
-        uint32_t node = objects::get_spawn_node(0, 0, 0);
+        const uint32_t node = objects::get_spawn_node(0, 0, 0);
         if (!node)
             debug::printf("\n\nWARNING - No restart points found\n\n"); // "WARNING - No restart points found"
         return node;
     };
     auto found = [&](uint32_t node) { return node ? node : generic(); };
     auto multiplayer = [&](uint32_t start) {
-        uint32_t node = objects::get_spawn_node(kMultiplayer,
-                                                static_cast<int>(net->get_start_info_word(static_cast<int>(start))), 0);
+        const uint32_t node = objects::get_spawn_node(
+            kMultiplayer, static_cast<int>(net->get_start_info_word(static_cast<int>(start))), 0);
         if (node)
             return node;
         debug::printf(
@@ -425,7 +425,8 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
             if (!local)
                 return generic();
             goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);
-            int team = hunt->is_operative() ? local->team_ : (local->team_ + 1) % get_game_mode()->current_num_teams();
+            const int team =
+                hunt->is_operative() ? local->team_ : (local->team_ + 1) % get_game_mode()->current_num_teams();
             if (static_cast<uint32_t>(team) > 3)
                 return generic();
             return kTeamRestarts[team];
@@ -460,7 +461,7 @@ void Skate::reset_skaters(uint32_t node, uint32_t walking)
     for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i); // (no check: as the original)
         if (skater->is_local_skater_) {
-            uint32_t at = node ? node : warp_to_restart(skater->ident_);
+            const uint32_t at = node ? node : warp_to_restart(skater->ident_);
             if (at)
                 skater->jump_to_spawn(at, walking);
         }
@@ -615,7 +616,7 @@ void Skate::test_rider_contacts()
     if (!crown || crown->is_worn())
         return;
     // The crown to the first skater near the local one.
-    objects::Rider* king = nullptr;
+    const objects::Rider* king = nullptr;
     for (uint32_t i = 0; i < 8 && !king; ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (skater && skater->state_history_->is_near_local_skater())
@@ -689,10 +690,10 @@ void Skate::update_records()
     new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
     new_record_ |= records->best_combos_->try_insert_entry(score->top_chain_, 0) != -1;
     auto* balance = static_cast<objects::RiderTeeterMoves*>(skater->fetch_module(kSkaterBalanceTrick));
-    float grind = balance->grind_.best_time_; // (the longest grind, manual and lip trick: seconds)
-    float manual = balance->manual_.best_time_;
-    float lip_trick = balance->lip_.best_time_;
-    int tricks = score->best_tricks_;
+    const float grind = balance->grind_.best_time_; // (the longest grind, manual and lip trick: seconds)
+    const float manual = balance->manual_.best_time_;
+    const float lip_trick = balance->lip_.best_time_;
+    const int tricks = score->best_tricks_;
     new_record_ |= records->grind_record_->try_beat_record(ftol(static_cast<double>(grind) * 100.0), 0);
     new_record_ |= records->longest_manual_->try_beat_record(ftol(static_cast<double>(manual) * 100.0), 0);
     new_record_ |= records->longest_lip_trick_->try_beat_record(ftol(static_cast<double>(lip_trick) * 100.0), 0);
@@ -787,7 +788,7 @@ bool Skate::kill_script()
 // 0x00565DA0 (static): the rails drawn (compiled out: the stub calls stay, with what they were given).
 void Skate::debug_rails()
 {
-    Skate* skate = sole();
+    const Skate* skate = sole();
     if (!skate->debug_rails_)
         return;
     stubs::ignore_argument(0); // (the rail manager's debug drawing)
@@ -802,7 +803,7 @@ void Skate::debug_rails()
         matrix[11] = 0.0f;
         std::memcpy(matrix + 12, &object->at_point_, 12);
         matrix[15] = 1.0f;
-        void* rails = static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
+        const void* rails = static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
         if (rails)
             stubs::ignore_argument(static_cast<int>(reinterpret_cast<uintptr_t>(matrix)));
     }
@@ -877,12 +878,12 @@ void Skate::run_frame_logic()
         entity_hub_handle()->for_each(&update_suspend_visibility, nullptr);
     // The proximity nodes told where the players (and their cameras) are.
     if (get_home_rider()) {
-        int screens = g_viewport_count;
+        const int screens = g_viewport_count;
         if (screens == 1) {
             if (viewport_camera(0)) {
                 const maths::Vec4* camera = viewport_camera(0)->fetch_location();
                 objects::proximity_notify(1, get_home_rider(), camera, 1);
-                maths::Vec4* position = &get_home_rider()->at_point_;
+                const maths::Vec4* position = &get_home_rider()->at_point_;
                 objects::proximity_notify(1, get_home_rider(), position, 2);
             }
         } else if (screens == 2) {
@@ -904,13 +905,13 @@ void Skate::run_frame_logic()
     if (stage_switched_)
         stage_switched_ = false;
     // An unplugged controller: the dialog after controller_unplugged_frame_count frames (leaving a net game).
-    int changing = script::fetch_int_value(kIsChangingLevels);
+    const int changing = script::fetch_int_value(kIsChangingLevels);
     if (!script::fetch_int_value(kCheckForUnpluggedControllers) || changing || !watch_for_unplug_)
         return;
     if (!find_element(kRootWindow) || find_element(kUnpluggedDialogAnchor))
         return;
     bool unplugged = false;
-    objects::PadInputModule::Responder* device = nullptr;
+    const objects::PadInputModule::Responder* device = nullptr;
     for (int i = 0; i < 8; ++i) {
         auto* skater = static_cast<objects::Rider*>(get_rider_at(i));
         if (!skater || !skater->is_local_skater_)
@@ -966,12 +967,12 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
         return;
     // The king's time counts up; the beeps as the target comes near.
     auto* score = static_cast<PointTally*>(king->skater_->get_points_total());
-    int total = score->get_total_score();
+    const int total = score->get_total_score();
     score->set_grand_total(total -
                            ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));
-    int target = get_game_mode()->get_first_condition_value();
-    int current = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? net->get_squad_points(king->team_)
-                                                                          : score->get_total_score();
+    const int target = get_game_mode()->get_first_condition_value();
+    const int current = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? net->get_squad_points(king->team_)
+                                                                                : score->get_total_score();
     skate->timer_beep(static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), 10.0f,
                       10.0f, "timer_runout_beep"); // "timer_runout_beep"
 }
@@ -1049,7 +1050,7 @@ uint32_t Skate::get_cheats()
     static const uint32_t kCheats[] = {0xEEFECF1B, 0xB38341C9, 0xCD09E062, 0x69A1CE96, 0x6B0F24BC,
                                        0x520A66EF, 0xEBA89179, 0xC4FFC672, 0xD5982173};
     uint32_t cheats = 0;
-    for (uint32_t cheat : kCheats)
+    for (const uint32_t cheat : kCheats)
         if (career_->is_code_on(cheat))
             cheats |= cheat;
     return cheats;

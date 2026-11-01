@@ -61,14 +61,14 @@ void parent_world_matrix(maths::Mat4* out, RigData* data, const maths::Mat4* inv
 // The largest of a bone's three scales (a NaN loses each comparison).
 float largest_scale(const Joint* bone)
 {
-    float largest = bone->scale.x > bone->scale.y ? bone->scale.x : bone->scale.y;
+    const float largest = bone->scale.x > bone->scale.y ? bone->scale.x : bone->scale.y;
     return largest > bone->scale.z ? largest : bone->scale.z;
 }
 
 // The capsule from `from` to `to` (all four components), of `radius`.
 maths::Capsule get_between(const maths::Vec4& from, const maths::Vec4& to, float radius)
 {
-    maths::Vec4 offset = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
+    const maths::Vec4 offset = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
     return {from, offset, radius};
 }
 
@@ -76,11 +76,11 @@ maths::Capsule get_between(const maths::Vec4& from, const maths::Vec4& to, float
 // Capsule::Loudness rounds to a float on the way): the cylinder's (length r^2 pi), then the sphere's (r^3 4/3 pi).
 double capsule_volume(const maths::Capsule& capsule)
 {
-    double dx = static_cast<double>(capsule.line.end.x) - capsule.line.start.x;
-    double dy = static_cast<double>(capsule.line.end.y) - capsule.line.start.y;
-    double dz = static_cast<double>(capsule.line.end.z) - capsule.line.start.z;
-    double length = std::sqrt(dz * dz + dx * dx + dy * dy);
-    double r = capsule.radius;
+    const double dx = static_cast<double>(capsule.line.end.x) - capsule.line.start.x;
+    const double dy = static_cast<double>(capsule.line.end.y) - capsule.line.start.y;
+    const double dz = static_cast<double>(capsule.line.end.z) - capsule.line.start.z;
+    const double length = std::sqrt(dz * dz + dx * dx + dy * dy);
+    const double r = capsule.radius;
     return length * r * r * static_cast<double>(3.14159274f) + r * r * r * static_cast<double>(4.18879032f);
 }
 
@@ -110,7 +110,7 @@ BoneVolumes::BoneVolumes(uint32_t count) : num_(count)
 // 0x0048BEA0
 void BoneVolumes::enrol(uint32_t count)
 {
-    int users = users_ + 1;
+    const int users = users_ + 1;
     num_ = count;
     volumes_ = nullptr;
     users_ = users;
@@ -158,18 +158,18 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
                                         uint32_t bone, float scale, float extra_radius, float* distance, float* t)
 {
     RigData* data = skeleton->payload_;
-    maths::Mat4* inverse_binds = data->get_inverse_bind_matrices();
+    const maths::Mat4* inverse_binds = data->get_inverse_bind_matrices();
     if (bone) {
-        int index = skeleton->fetch_bone_slot(bone);
-        Joint* bone_state = skeleton->get_bone(index);
+        const int index = skeleton->fetch_bone_slot(bone);
+        const Joint* bone_state = skeleton->get_bone(index);
         maths::Mat4 pose = skeleton->matrix_array_[index];
         maths::Mat4 at{}, parent{};
         world_matrix(&at, inverse_binds[index], pose, world);
         pose = *bone_state->parent;
         parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
-        BoneVolume* volume = volumes_[index];
-        float radius = volume ? volume->capsule_.radius : 0.0f;
-        maths::Capsule capsule = get_between(at.row[3], parent.row[3], radius);
+        const BoneVolume* volume = volumes_[index];
+        const float radius = volume ? volume->capsule_.radius : 0.0f;
+        const maths::Capsule capsule = get_between(at.row[3], parent.row[3], radius);
         float distance_squared = 0.0f;
         if (!capsule.intersects_segment(*segment, nullptr, t, &distance_squared))
             return 0;
@@ -182,14 +182,14 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
     uint32_t hit = 0;
     maths::Vec4* positions = joint_point_array();
     for (int i = 0; i < skeleton->get_num_bones(); ++i) {
-        Joint* bone_state = skeleton->get_bone(i);
+        const Joint* bone_state = skeleton->get_bone(i);
         maths::Mat4 at{};
         world_matrix(&at, inverse_binds[i], skeleton->matrix_array_[i], world);
         positions[i] = at.row[3];
         if (i == 0)
             continue;
-        maths::Vec4 parent = positions[data->fetch_parent_slot(i)];
-        BoneVolume* volume = volumes_[i];
+        const maths::Vec4 parent = positions[data->fetch_parent_slot(i)];
+        const BoneVolume* volume = volumes_[i];
         if (!volume)
             continue;
         double radius = static_cast<double>(largest_scale(bone_state)) * volume->capsule_.radius;
@@ -197,7 +197,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
             continue;
         if (scale > 0.0f)
             radius *= scale;
-        maths::Capsule capsule = get_between(at.row[3], parent, static_cast<float>(radius + extra_radius));
+        const maths::Capsule capsule = get_between(at.row[3], parent, static_cast<float>(radius + extra_radius));
         float hit_t = 0.0f, distance_squared = 0.0f;
         if (capsule.intersects_segment(*segment, nullptr, &hit_t, &distance_squared) &&
             (!hit || distance_squared < nearest)) {
@@ -217,16 +217,16 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
 bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint32_t bone, float* volume)
 {
     RigData* data = skeleton->payload_;
-    maths::Mat4* inverse_binds = data->get_inverse_bind_matrices();
-    int index = skeleton->fetch_bone_slot(bone);
-    Joint* bone_state = skeleton->get_bone(index);
+    const maths::Mat4* inverse_binds = data->get_inverse_bind_matrices();
+    const int index = skeleton->fetch_bone_slot(bone);
+    const Joint* bone_state = skeleton->get_bone(index);
     maths::Mat4 pose = skeleton->matrix_array_[index];
     maths::Mat4 at{}, parent{};
     world_matrix(&at, inverse_binds[index], pose, world);
     pose = *bone_state->parent;
     parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
     float radius = 0.0f;
-    if (BoneVolume* own = volumes_[index])
+    if (const BoneVolume* own = volumes_[index])
         radius = largest_scale(bone_state) * own->capsule_.radius;
     *volume = static_cast<float>(capsule_volume(get_between(at.row[3], parent.row[3], radius)));
     return true;

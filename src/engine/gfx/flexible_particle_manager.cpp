@@ -65,7 +65,7 @@ FlexibleParticleManager::FlexibleParticleManager()
     temp_heap_ = nullptr;
     systems_ptr_ = memory::ListNode::create_head();
     colour_scale_[0] = colour_scale_[1] = colour_scale_[2] = colour_scale_[3] = 1.0f;
-    float rate = script::fetch_float(kFrameRateSymbol);
+    const float rate = script::fetch_float(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
     frame_time_scale() =
         rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
@@ -118,11 +118,12 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
     auto y1 = static_cast<float>(static_cast<double>(first->at_point_.y) - at.y);
     auto z1 = static_cast<float>(static_cast<double>(first->at_point_.z) - at.z);
     auto x2 = static_cast<float>(static_cast<double>(second->at_point_.x) - at.x);
-    double y2 = static_cast<double>(second->at_point_.y) - at.y;
-    double z2 = static_cast<double>(second->at_point_.z) - at.z;
-    double distance2 = (z2 * z2 + y2 * y2) + static_cast<double>(x2) * x2;
-    double distance1 = (static_cast<double>(z1) * z1 + static_cast<double>(y1) * y1) + static_cast<double>(x1) * x1;
-    int order = truncate(distance2 - distance1);
+    const double y2 = static_cast<double>(second->at_point_.y) - at.y;
+    const double z2 = static_cast<double>(second->at_point_.z) - at.z;
+    const double distance2 = (z2 * z2 + y2 * y2) + static_cast<double>(x2) * x2;
+    const double distance1 =
+        (static_cast<double>(z1) * z1 + static_cast<double>(y1) * y1) + static_cast<double>(x1) * x1;
+    const int order = truncate(distance2 - distance1);
     if (order)
         return order;
     return static_cast<int>(second->rank_) - static_cast<int>(first->rank_);
@@ -140,7 +141,7 @@ void FlexibleParticleManager::render_systems(bool force)
     if (!count)
         return;
     crt::get_qsort(systems, static_cast<size_t>(count), sizeof(systems[0]), &compare_distance); // (the game's qsort)
-    bool always = force || is_game_halted();
+    const bool always = force || is_game_halted();
     for (int i = 0; i < count; ++i)
         systems[i]->render_if_visible(always);
 }
@@ -203,7 +204,7 @@ void FlexibleParticleManager::remove_system(EmitterInstance* system)
 // 0x0049AD90
 void FlexibleParticleManager::destroy_system_now(uint32_t name)
 {
-    if (EmitterInstance* system = find_system(name))
+    if (const EmitterInstance* system = find_system(name))
         delete system;
 }
 

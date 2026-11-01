@@ -141,8 +141,8 @@ void render()
     back_buffer_size(&back_width, &back_height);
     if (back_width <= 0 || back_height <= 0 || data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f)
         return;
-    float sx = static_cast<float>(back_width) / data->DisplaySize.x,
-          sy = static_cast<float>(back_height) / data->DisplaySize.y;
+    const float sx = static_cast<float>(back_width) / data->DisplaySize.x;
+    const float sy = static_cast<float>(back_height) / data->DisplaySize.y;
     if (sx != 1.0f || sy != 1.0f) {
         for (ImDrawList* list : data->CmdLists) {
             for (ImDrawVert& vertex : list->VtxBuffer) {
@@ -182,7 +182,7 @@ uint64_t create_texture(int width, int height, PixelLayout format, const void* d
         return 0;
     util::ComPtr<IDirect3DTexture9> texture;
     // (managed: Direct3D keeps a copy, so a device reset doesn't lose it)
-    D3DFORMAT d3d_format = format == PixelLayout::kDxt1 ? D3DFMT_DXT1 : D3DFMT_A8R8G8B8;
+    const D3DFORMAT d3d_format = format == PixelLayout::kDxt1 ? D3DFMT_DXT1 : D3DFMT_A8R8G8B8;
     if (FAILED(device->CreateTexture(width, height, 1, 0, d3d_format, D3DPOOL_MANAGED, texture.put(), nullptr)) ||
         !texture)
         return 0;
@@ -239,7 +239,7 @@ bool begin_offscreen(int size, uint32_t argb)
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(o.depth);
-    D3DVIEWPORT9 viewport = {0, 0, static_cast<DWORD>(size), static_cast<DWORD>(size), 0.0f, 1.0f};
+    const D3DVIEWPORT9 viewport = {0, 0, static_cast<DWORD>(size), static_cast<DWORD>(size), 0.0f, 1.0f};
     device->SetViewport(&viewport);
     device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (o.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);
     o.active = true;
@@ -362,7 +362,7 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(a.depth);
-    D3DVIEWPORT9 viewport = {
+    const D3DVIEWPORT9 viewport = {
         static_cast<DWORD>(x), static_cast<DWORD>(y), static_cast<DWORD>(size), static_cast<DWORD>(size), 0.0f, 1.0f};
     device->SetViewport(&viewport);
     // (no rectangles: the viewport - the cell - is cleared)

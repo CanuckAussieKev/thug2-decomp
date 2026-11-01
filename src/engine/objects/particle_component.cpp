@@ -126,7 +126,7 @@ void EffectsEmitterModule::conceal(bool hide) { effect_handle_->conceal(hide); }
 // 0x00429970
 bool EffectsEmitterModule::set_emit_rate(script::Struct* params, script::Script*)
 {
-    float value = unnamed_float(params);
+    const float value = unnamed_float(params);
     if (effect_handle_)
         effect_handle_->set_rate(value);
     return true;
@@ -135,7 +135,7 @@ bool EffectsEmitterModule::set_emit_rate(script::Struct* params, script::Script*
 // 0x004299A0
 bool EffectsEmitterModule::set_lifespan(script::Struct* params, script::Script*)
 {
-    float value = unnamed_float(params);
+    const float value = unnamed_float(params);
     if (effect_handle_) {
         effect_handle_->set_lifespan(value);
         get_refresh(effect_handle_);
@@ -146,7 +146,7 @@ bool EffectsEmitterModule::set_lifespan(script::Struct* params, script::Script*)
 // 0x004299E0
 bool EffectsEmitterModule::set_float_19a_f_74d_1(script::Struct* params, script::Script*)
 {
-    float value = unnamed_float(params);
+    const float value = unnamed_float(params);
     if (effect_handle_) {
         effect_handle_->set_colour_mid_percent(value);
         get_refresh(effect_handle_);
@@ -157,7 +157,7 @@ bool EffectsEmitterModule::set_float_19a_f_74d_1(script::Struct* params, script:
 // 0x00429A20
 bool EffectsEmitterModule::change_midpoint_fraction(script::Struct* params, script::Script*)
 {
-    float value = unnamed_float(params);
+    const float value = unnamed_float(params);
     if (effect_handle_) {
         effect_handle_->args_.mid_percent_ = value;
         get_refresh(effect_handle_);
@@ -168,7 +168,7 @@ bool EffectsEmitterModule::change_midpoint_fraction(script::Struct* params, scri
 namespace {
 bool set_reach(EffectsEmitterModule* component, script::Struct* params, int which)
 {
-    float value = unnamed_float(params);
+    const float value = unnamed_float(params);
     if (component->effect_handle_) {
         component->effect_handle_->change_extent(which, value);
         get_refresh(component->effect_handle_);
@@ -327,7 +327,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             orient.row[0].z = static_cast<float>(static_cast<double>(at.x) * 0.0 - static_cast<double>(at.y) * 0.0);
         } else {
             // (across from (0, 1, 0))
-            double y0 = static_cast<double>(at.y) * 0.0;
+            const double y0 = static_cast<double>(at.y) * 0.0;
             orient.row[0].x = static_cast<float>(y0 - at.z);
             orient.row[0].y = static_cast<float>(static_cast<double>(at.z) * 0.0 - static_cast<double>(at.x) * 0.0);
             orient.row[0].z = static_cast<float>(at.x - y0);
@@ -462,7 +462,7 @@ void EffectsEmitterModule::tick_frame()
     for (int i = 0; i < 3; ++i) {
         const float* local = &args.offset_pos_[i].x;
         const maths::Vec4& at = entity_->at_point_;
-        maths::Vec4 pos = {local[0] + at.x, local[1] + at.y, local[2] + at.z, local[3] + at.w};
+        const maths::Vec4 pos = {local[0] + at.x, local[1] + at.y, local[2] + at.z, local[3] + at.w};
         effect_handle_->change_place(i, &pos);
         if (args.orient_with_object_) {
             maths::Mat4 orientation{};

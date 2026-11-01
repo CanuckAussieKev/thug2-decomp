@@ -47,7 +47,7 @@ void restart_section(int node_index)
     const nodes::Elem& node = all[node_index];
     if (node.family != nodes::Family::kSpawn || node.hidden)
         return;
-    uint32_t name = node.name;
+    const uint32_t name = node.name;
     if (ImGui::Button("Play from Here"))
         play_from_restart(name);
     get_tip("Play from this restart  (F5 returns)");
@@ -58,7 +58,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
 {
     if (!window_open())
         return;
-    ImGuiIO& io = ImGui::GetIO();
+    const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.30f, io.DisplaySize.y * 0.18f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(400.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
@@ -153,7 +153,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
     get_tip("Reload trails from disk");
 
     // The gaps validated by skating.
-    std::vector<GapRead> gaps = get_level_gaps();
+    const std::vector<GapRead> gaps = get_level_gaps();
     int landed = 0;
     for (const GapRead& g : gaps)
         landed += gap_landed(g.name) ? 1 : 0;
@@ -168,7 +168,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
         if (small)
             ImGui::PushFont(small);
         for (const GapRead& g : gaps) {
-            bool ok = gap_landed(g.name);
+            const bool ok = gap_landed(g.name);
             if (g_untested_only && ok)
                 continue;
             ImGui::TextColored(ok ? get_colour(0xFF40FF60) : get_colour(0xFFFFB040), "%s",
@@ -183,7 +183,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
         ImGui::EndChild();
 
     current_heading("Simulate", heading);
-    bool simulating = get_simulating();
+    const bool simulating = get_simulating();
     if (ImGui::Button(simulating ? "Stop" : "Simulate"))
         get_request(Ask::kToggleSimulate);
     ImGui::SameLine();

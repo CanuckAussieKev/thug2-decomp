@@ -101,8 +101,8 @@ AnimBlenderComponent::AnimBlenderComponent()
 AnimBlenderComponent::~AnimBlenderComponent()
 {
     lists::delete_each<Channel>(&lanes_, [](Channel* channel) { channel->teardown(1); }); // (0x0057A2F0)
-    auto** sentinel = static_cast<void**>(observers_);
-    for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
+    auto* const* sentinel = static_cast<void**>(observers_);
+    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
          node = static_cast<void**>(node[1])) {
         delete static_cast<BlendObserver*>(node[0]);
     }
@@ -127,7 +127,7 @@ void AnimBlenderComponent::tick_frame()
     int count = 0;
     bool changed = false;
     Channel* channel = masked(lanes_.next);
-    bool ready = static_cast<DormancyModule*>(component18_)->wants_animating(&distance_squared_);
+    const bool ready = static_cast<DormancyModule*>(component18_)->wants_animating(&distance_squared_);
     if (!channel)
         return;
     do {
@@ -162,7 +162,7 @@ void AnimBlenderComponent::tick_frame()
     if (count == 1) {
         notify_observers(gfx::g_blend_buffer);
     } else {
-        uint32_t sets = highest_set + 1;
+        const uint32_t sets = highest_set + 1;
         for (uint32_t set = 0; set != sets;) {
             gfx::Stance* pose = gfx::g_blend_buffer;
             auto bones = static_cast<uint32_t>(skeleton()->get_num_bones());
@@ -230,10 +230,10 @@ int AnimBlenderComponent::invoke_method_by_name(uint32_t name, script::Struct* p
 int AnimBlenderComponent::add_channel_from_script(uint32_t, script::Struct* params, script::Script*)
 {
     uint32_t id = 0;
-    Channel* first = masked(lanes_.next);
+    const Channel* first = masked(lanes_.next);
     params->read_hash_value(kId, &id, 0);
     params->put_name_key(0x52A864B0, first->lookup_key_);
-    bool at_front = params->has_bare_flag(0x580C0963);
+    const bool at_front = params->has_bare_flag(0x580C0963);
     Channel* channel = add_channel(id, at_front);
     channel->configure_from_data(params);
     channel->seal();
@@ -331,7 +331,7 @@ int AnimBlenderComponent::pass_to_channel(uint32_t name, script::Struct* params,
     // before it plays - on the bike his Flip turns the flag only (game/rider/thaw_bmx.h play_flip). 0x0047DC40 with
     // its last argument 0: the flag set, nothing sent. Original behaviour: the channel's flip as it was.
     if ((name == kPlayAnim || name == kObjPlayAnim) && channel && skater::thaw_bmx::is_switched_on()) {
-        int flip = skater::thaw_bmx::play_flip(entity_);
+        const int flip = skater::thaw_bmx::play_flip(entity_);
         if (flip >= 0)
             channel->set_flipped(entity_->ident_, bool_arg(static_cast<uint32_t>(flip)), 0u, bool_arg(0u));
     }
@@ -373,8 +373,8 @@ gfx::BlendChannel* AnimBlenderComponent::add_channel(uint32_t id, bool at_front)
 // 0x0041A220
 void AnimBlenderComponent::notify_observers(gfx::Stance* pose)
 {
-    auto** sentinel = static_cast<void**>(observers_);
-    for (auto** node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
+    auto* const* sentinel = static_cast<void**>(observers_);
+    for (auto* const* node = sentinel ? static_cast<void**>(sentinel[1]) : nullptr; node != observers_;
          node = static_cast<void**>(node[1]))
         static_cast<BlendObserver*>(node[0])->on_pose(pose);
 }
@@ -433,10 +433,10 @@ bool AnimBlenderComponent::all_channels_flag29()
 // 0x00419CA0
 bool AnimBlenderComponent::model_ready()
 {
-    render::RenderModel* thing = static_cast<MeshInstanceModule*>(mesh_instance_)->mesh_instance_;
+    const render::RenderModel* thing = static_cast<MeshInstanceModule*>(mesh_instance_)->mesh_instance_;
     if (!thing)
         return false;
-    uint8_t flags = thing->flag_bits_;
+    const uint8_t flags = thing->flag_bits_;
     return (flags & 2) && !(flags & 4);
 }
 
@@ -501,14 +501,14 @@ void AnimBlenderComponent::set_flag_4c(bool value)
 // 0x00419AB0
 uint32_t AnimBlenderComponent::get_anim_set()
 {
-    Channel* channel = masked(lanes_.next);
+    const Channel* channel = masked(lanes_.next);
     return channel ? channel->lookup_key_ : 0;
 }
 
 // 0x00419AD0
 uint32_t AnimBlenderComponent::get_first_channel58()
 {
-    Channel* channel = masked(lanes_.next);
+    const Channel* channel = masked(lanes_.next);
     return channel ? channel->event_table_ : 0;
 }
 
@@ -536,7 +536,7 @@ bool AnimBlenderComponent::is_clip_done()
 // 0x00419F80
 float AnimBlenderComponent::get_timeline18()
 {
-    Channel* channel = masked(lanes_.next);
+    const Channel* channel = masked(lanes_.next);
     if (!channel)
         return 0.0f;
     memory::ListNode* timeline = channel->timelines_.next;
@@ -548,7 +548,7 @@ float AnimBlenderComponent::get_timeline18()
 // 0x0041A0A0
 uint32_t AnimBlenderComponent::get_timeline30()
 {
-    Channel* channel = masked(lanes_.next);
+    const Channel* channel = masked(lanes_.next);
     if (!channel)
         return 0;
     memory::ListNode* timeline = channel->timelines_.next;
@@ -560,7 +560,7 @@ uint32_t AnimBlenderComponent::get_timeline30()
 // 0x0041A0E0
 void AnimBlenderComponent::get_times(float* start, float* current, float* end)
 {
-    Channel* channel = masked(lanes_.next);
+    const Channel* channel = masked(lanes_.next);
     if (!channel)
         return;
     float s = 0.0f, c = 0.0f, e = 0.0f;

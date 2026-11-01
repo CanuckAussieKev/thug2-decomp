@@ -92,11 +92,11 @@ void ParkLayout::generate_node_array()
         point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kGridStepAlong) + kGridStepAlong * 0.5);
         point.w = 1.0f;
         render::ProbeRay feeler;
-        maths::Vec4 start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
-                             static_cast<float>(static_cast<double>(point.w) + 1.0)};
+        const maths::Vec4 start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
+                                   static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.change_origin(&start);
-        maths::Vec4 end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
-                           static_cast<float>(static_cast<double>(point.w) + 1.0)};
+        const maths::Vec4 end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
+                                 static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.change_finish(&end);
         if (feeler.get_hit_shape(true, false)) {
             if (i >= 2 && i <= 5)
@@ -115,7 +115,7 @@ bool ParkLayout::can_change_floor_here(CellBox area, bool uneven)
 {
     bool ok = false;
     if (!park_is_full()) {
-        MapListHolder metas(collect_pieces_in_region(area));
+        const MapListHolder metas(collect_pieces_in_region(area));
         bool clear = true;
         for (MapListNode* node = metas.list; node; node = node->following_) {
             if (!(node->get_placed_piece()->flag_bits_ & PieceGroup::kBuiltShell)) {
@@ -144,7 +144,7 @@ void ParkLayout::destroy_metas_below(CellBox area)
     CellBox below = area;
     below.y = static_cast<int8_t>(area.y - 1);
     below.h = 1;
-    uint32_t destroyed = free_piece_groups_in_region(below, 4);
+    const uint32_t destroyed = free_piece_groups_in_region(below, 4);
     riser_metas_ += static_cast<int>(destroyed >> 16);
     riser_pieces_ += static_cast<int>(destroyed & 0xFFFF);
 }
@@ -171,8 +171,8 @@ void ParkLayout::move_riser_list(MapListNode* list)
 // 0x0059B320
 void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
 {
-    int x = request->x;
-    int z = request->z;
+    const int x = request->x;
+    const int z = request->z;
     FloorCell* cells = &floor_[0][0];
     auto height_at = [&](int cx, int cz) { return cells[cx * kFloorSize + cz].level_y_; };
 
@@ -212,7 +212,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     uint32_t top = 0;
     uint32_t below = 0;
     int below_y = -15;
-    int height = request->height;
+    const int height = request->height;
     bool in_park = false;
     if (height > 0) {
         char name[128];
@@ -249,9 +249,9 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     }
 
     // Keep what's there already, delete the rest of the inner shell in the cell.
-    CellBox cell = CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
-                                     static_cast<uint8_t>(request->z), 1, 1, 1);
-    MapListHolder metas(collect_pieces_in_region(cell));
+    const CellBox cell = CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
+                                           static_cast<uint8_t>(request->z), 1, 1, 1);
+    const MapListHolder metas(collect_pieces_in_region(cell));
     for (MapListNode* node = metas.list; node;) {
         PieceGroup* meta = node->get_placed_piece();
         node = node->following_;
@@ -289,7 +289,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
 void ParkLayout::rebuild_inner_shell(CellBox bounds)
 {
     build_area_ = bounds;
-    CellBox& park = build_area_;
+    const CellBox& park = build_area_;
     // The four strips round the park (where the walls go).
     blocked_areas_[0].x = static_cast<uint8_t>(park.x - 1);
     blocked_areas_[0].z = static_cast<uint8_t>(park.z - 1);
@@ -311,8 +311,8 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     // Out go the fences and the player's metapieces no longer (wholly) in the park.
     for (MapListNode* node = concrete_metas_; node;) {
         MapListNode* next = node->following_;
-        CellBox area = node->get_placed_piece()->cell_footprint_;
-        uint32_t flags = node->get_placed_piece()->flag_bits_;
+        const CellBox area = node->get_placed_piece()->cell_footprint_;
+        const uint32_t flags = node->get_placed_piece()->flag_bits_;
         bool destroy = false;
         if (flags & PieceGroup::kFence)
             destroy = true;
@@ -397,10 +397,10 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
     if (!area) {
         // The inner shell's pieces outside the park go first.
         for (MapListNode* node = concrete_metas_; node; node = node->following_) {
-            PieceGroup* meta = node->get_piece_group();
+            const PieceGroup* meta = node->get_piece_group();
             if (!(meta->flag_bits_ & PieceGroup::kBuiltShell))
                 continue;
-            CellBox d = meta->cell_footprint_;
+            const CellBox d = meta->cell_footprint_;
             if (d.x >= build_area_.x && d.z >= build_area_.z && d.w + d.x <= build_area_.w + build_area_.x &&
                 d.l + d.z <= build_area_.l + build_area_.z)
                 continue;
@@ -410,7 +410,7 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
         area = &build_area_;
     }
     // Every cell of the area and the ring round it.
-    FloorCell* cells = &floor_[0][0];
+    const FloorCell* cells = &floor_[0][0];
     for (int x = area->x - 1; x < area->w + 1 + area->x; ++x) {
         for (int z = area->z - 1; z < area->l + 1 + area->z; ++z) {
             FloorPieceRequest request{};

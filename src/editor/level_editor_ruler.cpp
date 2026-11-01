@@ -25,7 +25,7 @@ namespace frontend::level_editor::ruler {
 
 Measure measure_of(V3 a, V3 b)
 {
-    V3 d = b - a;
+    const V3 d = b - a;
     Measure m;
     m.distance = std::sqrt(get_dot(d, d));
     m.horizontal = std::sqrt(d.x * d.x + d.z * d.z);
@@ -38,8 +38,9 @@ int nearest_within(const std::vector<std::pair<float, float>>& pixels, float x, 
     int best = -1;
     float best_d2 = radius * radius;
     for (size_t i = 0; i < pixels.size(); ++i) {
-        float dx = pixels[i].first - x, dy = pixels[i].second - y;
-        float d2 = dx * dx + dy * dy;
+        const float dx = pixels[i].first - x;
+        const float dy = pixels[i].second - y;
+        const float d2 = dx * dx + dy * dy;
         if (d2 <= best_d2) {
             best_d2 = d2;
             best = static_cast<int>(i);
@@ -70,7 +71,8 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    maths::Vec4 start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
+    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const float* p = &ray->hit_.point.x;
@@ -83,20 +85,20 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
 {
     std::vector<V3> corners;
-    render::WorldCell* sector = checksum ? scenery::sector_of(checksum) : nullptr;
+    const render::WorldCell* sector = checksum ? scenery::sector_of(checksum) : nullptr;
     if (!sector)
         return corners;
-    render::HitMesh* coll = sector->hit_body_;
+    const render::HitMesh* coll = sector->hit_body_;
     if (!render::is_static_collider(coll))
         return corners;
     const auto* tri = coll->geometry_;
     if (!tri || !tri->vertices_)
         return corners;
-    int count = tri->num_vertices_ < 20000 ? tri->num_vertices_ : 20000;
+    const int count = tri->num_vertices_ < 20000 ? tri->num_vertices_ : 20000;
     for (int i = 0; i < count; ++i) {
-        maths::Vec4 v = tri->read_stored_vertex(i);
-        V3 p = {v.x, v.y, v.z};
-        V3 d = p - near;
+        const maths::Vec4 v = tri->read_stored_vertex(i);
+        const V3 p = {v.x, v.y, v.z};
+        const V3 d = p - near;
         if (get_dot(d, d) <= reach * reach)
             corners.push_back(p);
     }
@@ -135,13 +137,13 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
     if (no_snap || !current_view(&view))
         return;
     // (the corners of the piece hit, near enough to the hit to be within the snap on screen)
-    V3 d = hit - origin;
-    float reach = std::max(50.0f, std::sqrt(get_dot(d, d)) * 0.08f);
-    std::vector<V3> corners = corners_near(sector, hit, reach);
-    TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
+    const V3 d = hit - origin;
+    const float reach = std::max(50.0f, std::sqrt(get_dot(d, d)) * 0.08f);
+    const std::vector<V3> corners = corners_near(sector, hit, reach);
+    const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     std::vector<std::pair<float, float>> pixels;
     std::vector<V3> shown;
-    for (V3 c : corners) {
+    for (const V3 c : corners) {
         float nx = 0.0f, ny = 0.0f, px = 0.0f, py = 0.0f;
         if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny))
             continue;
@@ -149,7 +151,7 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         pixels.emplace_back(px, py);
         shown.push_back(c);
     }
-    int nearest = nearest_within(pixels, x, y, kSnapPixels);
+    const int nearest = nearest_within(pixels, x, y, kSnapPixels);
     if (nearest >= 0) {
         g_hover = shown[nearest];
         g_hover_snapped = true;
@@ -182,8 +184,8 @@ void add_overlay(const overlays::Painter& painter)
     };
     if (g_ends >= 1)
         end(g_a, false);
-    V3 b = g_ends == 2 ? g_b : g_hover;
-    bool have_b = g_ends == 2 || (g_armed && g_ends == 1 && g_have_hover);
+    const V3 b = g_ends == 2 ? g_b : g_hover;
+    const bool have_b = g_ends == 2 || (g_armed && g_ends == 1 && g_have_hover);
     if (g_armed && g_have_hover && g_ends != 1)
         end(g_hover, g_hover_snapped); // (where the next click puts an end)
     if (g_ends >= 1 && have_b) {
@@ -191,11 +193,12 @@ void add_overlay(const overlays::Painter& painter)
             end(b, g_hover_snapped);
         else
             end(b, false);
-        Measure m = measure_of(g_a, b);
+        const Measure m = measure_of(g_a, b);
         painter.get_seg(g_a, b, kRuler, 2.0f);
         // (the horizontal gap at the lower end's height, the rise straight up from it)
-        V3 low = g_a.y <= b.y ? g_a : b, high = g_a.y <= b.y ? b : g_a;
-        V3 corner = {high.x, low.y, high.z};
+        const V3 low = g_a.y <= b.y ? g_a : b;
+        const V3 high = g_a.y <= b.y ? b : g_a;
+        const V3 corner = {high.x, low.y, high.z};
         painter.get_seg(low, corner, kGap, 1.5f);
         painter.get_seg(corner, high, kRise, 1.5f);
         painter.draw_label((g_a + b) * 0.5f, kRuler, arcs::span_to(m.distance));

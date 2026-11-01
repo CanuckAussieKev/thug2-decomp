@@ -93,9 +93,9 @@ void set_identity(float* m)
 // out = a x b (x, y and z; each a difference of products, rounded once).
 void cross_into(float* out, const float* a, const float* b)
 {
-    double x = static_cast<double>(a[1]) * b[2] - static_cast<double>(a[2]) * b[1];
-    double y = static_cast<double>(a[2]) * b[0] - static_cast<double>(a[0]) * b[2];
-    double z = static_cast<double>(a[0]) * b[1] - static_cast<double>(a[1]) * b[0];
+    const double x = static_cast<double>(a[1]) * b[2] - static_cast<double>(a[2]) * b[1];
+    const double y = static_cast<double>(a[2]) * b[0] - static_cast<double>(a[0]) * b[2];
+    const double z = static_cast<double>(a[0]) * b[1] - static_cast<double>(a[1]) * b[0];
     out[0] = static_cast<float>(x);
     out[1] = static_cast<float>(y);
     out[2] = static_cast<float>(z);
@@ -104,7 +104,7 @@ void cross_into(float* out, const float* a, const float* b)
 // Play: the asset's length (its first word) from 0, or backwards from a frame before its end to 0.
 void play_on(AnimTimeline* t, void* anim, int loop_type, bool backwards)
 {
-    float length = *static_cast<float*>(anim);
+    const float length = *static_cast<float*>(anim);
     if (backwards)
         play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0f, loop_type, 0.0f,
                   1.0f);
@@ -120,8 +120,8 @@ bool load_anim(Movie* movie, script::Struct* params)
         void* anim = find_asset(get_name_of(movie));
         if (!anim)
             return false;
-        bool backwards = params->has_bare_flag(kBackwards);
-        int loop_type = params->has_bare_flag(kLooping) ? 1 : 0;
+        const bool backwards = params->has_bare_flag(kBackwards);
+        const int loop_type = params->has_bare_flag(kLooping) ? 1 : 0;
         movie->perform(anim, loop_type, backwards);
     } else {
         int frames = 0;
@@ -220,7 +220,7 @@ void CameraAnimMovie::load_target(script::Struct* params)
     goal_shift_[0] = goal_shift_[1] = goal_shift_[2] = 0.0f;
     goal_shift_[3] = 1.0f;
     params->fetch_vec(0x906642BF, reinterpret_cast<script::VectorValue*>(goal_shift_), 0);
-    float zero = g_float_zero;
+    const float zero = g_float_zero;
     // (not equal, or unordered: a NaN counts as set)
     target_offset_set_ = !(goal_shift_[0] == zero) || !(goal_shift_[1] == zero) || !(goal_shift_[2] == zero);
     look_offset_[0] = look_offset_[1] = look_offset_[2] = 0.0f;
@@ -273,7 +273,7 @@ bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* param
 // 0x00588090
 void CameraAnimMovie::tick_frame()
 {
-    float from = timeline_.ongoing_;
+    const float from = timeline_.ongoing_;
     update_timeline(&timeline_);
     viewer_->remember_prev_pos();
     if (anim_)
@@ -358,11 +358,11 @@ void CameraAnimMovie::place_camera()
         // (x and y stay unrounded; z is stored and squared as its unrounded value times the stored one)
         double x = static_cast<double>(pos[0]) - goal_shift_[0];
         double y = static_cast<double>(pos[1]) - goal_shift_[1];
-        double z_exact = static_cast<double>(pos[2]) - goal_shift_[2];
+        const double z_exact = static_cast<double>(pos[2]) - goal_shift_[2];
         auto z = static_cast<float>(z_exact);
-        double length = std::sqrt(z_exact * z + y * y + x * x);
+        const double length = std::sqrt(z_exact * z + y * y + x * x);
         if (length > g_float_zero) {
-            double inverse = g_anim_movies_one / length;
+            const double inverse = g_anim_movies_one / length;
             x *= inverse;
             y *= inverse;
             z = static_cast<float>(z * inverse);
@@ -374,10 +374,12 @@ void CameraAnimMovie::place_camera()
         m[11] = 0.0f;
         cross_into(m, m + 4, m + 8);
         m[3] = 0.0f;
-        double a = m[0], b = m[1], c = m[2];
-        double size = std::sqrt(a * a + b * b + c * c);
+        const double a = m[0];
+        const double b = m[1];
+        const double c = m[2];
+        const double size = std::sqrt(a * a + b * b + c * c);
         if (size > g_float_zero) {
-            double inverse = g_anim_movies_one / size;
+            const double inverse = g_anim_movies_one / size;
             m[0] = static_cast<float>(inverse * m[0]);
             m[1] = static_cast<float>(inverse * m[1]);
             m[2] = static_cast<float>(m[2] * inverse);
@@ -391,13 +393,13 @@ void CameraAnimMovie::place_camera()
 // 0x005876A0 (and the thunk 0x00587F60)
 void ObjectAnimMovie::tick_frame()
 {
-    float from = timeline_.ongoing_;
+    const float from = timeline_.ongoing_;
     update_timeline(&timeline_);
     if (anim_)
         step_asset(anim_, from, timeline_.ongoing_, viewer_, false);
     // Every object the asset moves: its frame's rotation and position.
     auto* frames = static_cast<gfx::JointClipFrames*>(anim_);
-    int count = frames->bone_count_;
+    const int count = frames->bone_count_;
     auto* quats = static_cast<float*>(memory::alloc(count * 16));
     if (quats) {
         for (int i = 0; i < count; ++i) {
@@ -409,7 +411,7 @@ void ObjectAnimMovie::tick_frame()
     auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count_));
     static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quats, positions, flags, timeline_.ongoing_, 0);
     for (int i = 0; i < frames->bone_count_; ++i) {
-        uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
+        const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
         auto* object = static_cast<GameEntity*>(objects::find_object(name));
         if (!object) {
             debug::printf("object animation:  couldn't find object %s\n", script::find_checksum_name_or_unknown(name));

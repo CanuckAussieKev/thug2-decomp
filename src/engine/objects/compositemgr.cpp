@@ -188,7 +188,7 @@ ObjectModule* EntityHub::find_first_module_of_kind(uint32_t type)
 // 0x0045F3E0
 void EntityHub::attach_module_of_kind(ObjectModule* component)
 {
-    uint32_t type = type_of(component);
+    const uint32_t type = type_of(component);
     for (uint32_t i = 0; i < component_types_; ++i) {
         if (components_[i].type == type) {
             next_of_type(component) = component_list(i);
@@ -201,7 +201,7 @@ void EntityHub::attach_module_of_kind(ObjectModule* component)
 // 0x0045F420. (A type registered twice: the lists of each of its entries are searched, in order.)
 void EntityHub::detach_module_of_kind(ObjectModule* component)
 {
-    uint32_t type = type_of(component);
+    const uint32_t type = type_of(component);
     for (uint32_t i = 0; i < component_types_; ++i) {
         if (components_[i].type != type)
             continue;

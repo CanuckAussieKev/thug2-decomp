@@ -216,7 +216,7 @@ void SkateNet::create_network_tasks()
 // 0x00569530
 void SkateNet::delete_network_tasks()
 {
-    for (tasks::Task<Skate>* task : reinterpret_cast<Skate*>(this)->server_tasks_)
+    for (const tasks::Task<Skate>* task : reinterpret_cast<Skate*>(this)->server_tasks_)
         delete task;
 }
 
@@ -252,18 +252,18 @@ void SkateNet::launch_host()
     append_listener(server, 0x98, handle_graffiti_texture, 0, this);
     append_listener(server, 0x9A, handle_graffiti_texture, 0, this);
     append_listener(server, 0x83, handle_relay, 0, this);
-    for (int id : {0x99, 0x89})
+    for (const int id : {0x99, 0x89})
         append_listener(server, id, handle_relay, 0, nullptr);
     append_listener(server, 0x89, handle_player_value48, 0, nullptr);
     append_listener(server, 0x29, handle_relay, 0, nullptr);
     append_listener(server, 0x2B, handle_relay_nearby, 0, nullptr);
-    for (int id : {0x2A, 0x76, 0x8C, 0x77, 0x78, 0x2C})
+    for (const int id : {0x2A, 0x76, 0x8C, 0x77, 0x78, 0x2C})
         append_listener(server, id, handle_relay, 0, nullptr);
     append_listener(server, 0x3C, handle_relay_nearby, 0, nullptr);
-    for (int id : {0x3D, 0x3E, 0x41})
+    for (const int id : {0x3D, 0x3E, 0x41})
         append_listener(server, id, handle_relay, 0, nullptr);
     append_listener(server, 0x35, handle_relay_nearby, 0, nullptr);
-    for (int id : {0x36, 0x39, 0x3A, 0x37})
+    for (const int id : {0x36, 0x39, 0x3A, 0x37})
         append_listener(server, id, handle_relay, 0, nullptr);
     append_listener(server, 0x38, handle_relay, 2, nullptr);
     append_listener(server, 0x48, handle_relay_sequenced, 2, nullptr);
@@ -277,11 +277,11 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
     append_listener(client, 0x23, handle_object_updates, 3, this);
     append_listener(client, 0x29, handle_skater_messages, 0, this);
     append_listener(client, 0x7F, handle_toggle_cheat, 0, this);
-    for (int id : {0x2B, 0x76, 0x8C, 0x77, 0x78, 0x2A})
+    for (const int id : {0x2B, 0x76, 0x8C, 0x77, 0x78, 0x2A})
         append_listener(client, id, handle_skater_messages, 0, this);
     append_listener(client, 0x2C, handle_skater_messages, 0, this, 0xFF);
     append_listener(client, 0x2C, handle_skater_channel, 0, this);
-    for (int id : {0x3C, 0x3D, 0x3E, 0x41})
+    for (const int id : {0x3C, 0x3D, 0x3E, 0x41})
         append_listener(client, id, handle_skater_messages, 0, this);
     append_listener(client, 0x2D, handle_player_left, 2, this);
     append_listener(client, 0x32, handle_server_quit, 2, this);
@@ -300,7 +300,7 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
     append_listener(client, 0x5B, handle_graffiti_objects, 0, this);
     append_listener(client, 0x5C, handle_graffiti_colors, 0, this);
     append_listener(client, 0x7E, handle_face_texture, 0, this);
-    for (int id : {0x96, 0x97, 0x98, 0x9A})
+    for (const int id : {0x96, 0x97, 0x98, 0x9A})
         append_listener(client, id, handle_graffiti_texture, 0, this);
     append_listener(client, 0x82, on_cheat_state_msg, 0, this);
     append_listener(client, 0x83, on_projectile_msg, 0, this);
@@ -324,7 +324,7 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
         append_listener(client, 0x4B, &objects::RiderHostSync::handle_graffiti_steal, 0, skater);
     }
     if (index == 0) {
-        for (int id : {0x91, 0x92, 0x94})
+        for (const int id : {0x91, 0x92, 0x94})
             append_listener(client, id, handle_scavenger_hunt, 0, this);
     }
     // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (engine/net/thugpro_peer.h)
@@ -335,7 +335,7 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
 // 0x0056C920
 int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
 {
-    Skate* skate = skate_module();
+    const Skate* skate = skate_module();
     online::Hub* net = net_session_slot();
     script::kill_all_child_scripts();
     Struct* params = spawn_param_table();
@@ -409,7 +409,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         params = spawn_param_table();
         params->append_word(kName, local->label_); // (no local player: read through null, as the original)
         if (data[1] == 1 || data[1] == 5) {
-            bool one = data[1] == 1;
+            const bool one = data[1] == 1;
             if (data[0] == local_team) {
                 get_run(one ? kOneLeftYou : kFiveLeftYou);
             } else {
@@ -425,7 +425,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         params = spawn_param_table();
         params->append_word(kName, player->label_);
         if (data[1] == 1 || data[1] == 5) {
-            bool one = data[1] == 1;
+            const bool one = data[1] == 1;
             if (is_own_player(player))
                 get_run(one ? kOneLeftYou : kFiveLeftYou);
             else
@@ -440,7 +440,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
 int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
-    uint32_t id = reader.u32();
+    const uint32_t id = reader.u32();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
     Struct* params = spawn_param_table();
@@ -466,7 +466,7 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
         // NOT ORIGINAL: no positions past the message's end (the original read on)
         if (!online::read_hunt_position(reader, at))
             break;
-        script::VectorValue position = {at[0], at[1], at[2], at[3]};
+        const script::VectorValue position = {at[0], at[1], at[2], at[3]};
         Struct* params = spawn_param_table();
         params->put_int(kIndex, i);
         params->put_int(kObjId, static_cast<int>(player_skater(player)->ident_));
@@ -530,8 +530,8 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         get_game_mode()->set_goal_time_left(static_cast<int>(message->time_left));
     // Each skater's score: the object's id, its score.
     for (int i = 0; i < message->count; ++i) {
-        int8_t id = message->entries[i].id;
-        int value = message->entries[i].score;
+        const int8_t id = message->entries[i].id;
+        const int value = message->entries[i].score;
         objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(static_cast<int>(id)));
         if (!object)
             continue;
@@ -563,15 +563,15 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         get_run(kNotifyCheating);
         net->note_cheating();
     }
-    bool final = message->final;
+    const bool final = message->final;
     char text[128];
     if ((get_game_mode()->is_squad_match() != 0) && get_game_mode()->get_name_key() != kNetElimiskate) {
         // The leading team (none on a tie).
-        int teams = get_game_mode()->current_num_teams();
+        const int teams = get_game_mode()->current_num_teams();
         int best = -1;
         int best_score = 0;
         for (int team = 0; team < teams; ++team) {
-            int score = net->get_squad_points(team);
+            const int score = net->get_squad_points(team);
             if (score > best_score) {
                 best_score = score;
                 best = team;
@@ -611,7 +611,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     int best_score = 0;
     for (PlayerRecord* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
-        int score = net->get_entrant_points(player_skater(player)->ident_);
+        const int score = net->get_entrant_points(player_skater(player)->ident_);
         if (score > best_score) {
             best_score = score;
             best = player;
@@ -694,7 +694,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     }
     // The victory conditions.
     Struct* victory = spawn_param_table();
-    uint32_t mode = brief.game_type;
+    const uint32_t mode = brief.game_type;
     if (mode != kNetLobby) {
         if (brief.time_limit == 0 && mode != kNetCtf && mode != kNetGoalAttack) {
             if (mode != kFirefight && mode != kNetFirefight) {
@@ -733,7 +733,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
         // (the original keeps the script in its argument's slot: with no goal_script, the skate module's address)
         auto script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
-        uint8_t variant = brief.variant;
+        const uint8_t variant = brief.variant;
         if (!variant)
             type->read_hash_value("goal_script", &script, 1);
         else if (brief.game_type == kNetElimiskate)
@@ -777,12 +777,12 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
     stream.change_intake_contents(context->body_, 0x400);
-    uint32_t objects = stream.read_bits(8);
+    const uint32_t objects = stream.read_bits(8);
     for (uint32_t i = 0; i < 8; ++i) {
         if (!(objects & (1u << i)))
             continue;
         auto time = static_cast<uint16_t>(stream.read_bits(16));
-        uint32_t fields = stream.read_bits(9);
+        const uint32_t fields = stream.read_bits(9);
         int16_t pos[3] = {};
         float angles[3] = {};
         uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
@@ -796,7 +796,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
                 angles[k] = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(16)) * (1.0 / 4096.0));
         }
         if (fields & 0x40) {
-            uint32_t bits = stream.read_bits(4);
+            const uint32_t bits = stream.read_bits(4);
             state = static_cast<uint8_t>(bits & 7);
             flag74 = static_cast<uint8_t>((bits >> 7) & 1); // (always 0: the original's)
             value_7c = static_cast<uint8_t>(stream.read_bits(6));
@@ -835,7 +835,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             }
             previous = 0;
         }
-        StateEntry& prev = history->states_[previous];
+        const StateEntry& prev = history->states_[previous];
         StateEntry& cur = history->states_[history->state_count_ % 20];
         for (int k = 0; k < 3; ++k) {
             if (!(fields & (1u << k)))
@@ -844,8 +844,8 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         for (int k = 0; k < 3; ++k)
             cur.pos[k] = pos[k];
         // (TP-R6: whole units in a big level)
-        float position[3] = {thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]),
-                             thugpro::unpack_horizontal(pos[2])};
+        const float position[3] = {thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]),
+                                   thugpro::unpack_horizontal(pos[2])};
         for (int k = 0; k < 3; ++k) {
             if (!(fields & (8u << k)))
                 angles[k] = prev.angles[k];
@@ -895,7 +895,7 @@ uint32_t entry_time(const StateEntry& entry) { return static_cast<uint32_t>(entr
 // The server's frame count (its app: the network manager's +4, read through 0x005480C0 - a folded getter).
 uint32_t server_frame()
 {
-    net::AppHost* server = net_session_slot()->host_;
+    const net::AppHost* server = net_session_slot()->host_;
     return static_cast<uint32_t>(server->frame_count_);
 }
 
@@ -910,16 +910,16 @@ uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t
     auto* entry = static_cast<StateEntry*>(state_entry);
     uint32_t flags = 0;
     // Everything again once 60 of the server's frames have gone by.
-    uint32_t frame = server_frame();
-    uint32_t since = frame > sent->forced_frame_[index] ? server_frame() - sent->forced_frame_[index]
-                                                        : sent->forced_frame_[index] - server_frame();
-    bool force = since >= 60;
+    const uint32_t frame = server_frame();
+    const uint32_t since = frame > sent->forced_frame_[index] ? server_frame() - sent->forced_frame_[index]
+                                                              : sent->forced_frame_[index] - server_frame();
+    const bool force = since >= 60;
     if (force)
         sent->forced_frame_[index] = server_frame();
-    float angles[3] = {entry->angles[0], entry->angles[1], entry->angles[2]};
+    const float angles[3] = {entry->angles[0], entry->angles[1], entry->angles[2]};
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value =
+        const int16_t value =
             k == 1 ? thugpro::pack_height((&entry->position.x)[1]) : thugpro::pack_horizontal((&entry->position.x)[k]);
         if (value != sent->pos_[index][k] || force)
             flags |= 1u << k;
@@ -950,20 +950,20 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent_;
     util::PackedBitBuffer& stream = out->feed_;
     sent->time_[index] = entry_time(entry);
-    float angles[3] = {entry.angles[0], entry.angles[1], entry.angles[2]};
+    const float angles[3] = {entry.angles[0], entry.angles[1], entry.angles[2]};
     stream.write_bits(entry.time, 16);
-    uint32_t flags = get_relay_flags(sent, &entry, index);
+    const uint32_t flags = get_relay_flags(sent, &entry, index);
     stream.write_bits(flags, 9);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value =
+        const int16_t value =
             k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal((&entry.position.x)[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         sent->pos_[index][k] = value;
     }
     for (int k = 0; k < 3; ++k) {
-        int16_t value = pack_angle(angles[k]);
+        const int16_t value = pack_angle(angles[k]);
         if (flags & (8u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         sent->angles_[index][k] = value;
@@ -972,8 +972,11 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     auto signed_byte = [](uint8_t value) {
         return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value)));
     };
-    uint8_t value_7c = entry.value_7c_, state = static_cast<uint8_t>(entry.state), flag74 = entry.flag74;
-    uint8_t flag75 = entry.flag75, flag76 = entry.flag76;
+    const uint8_t value_7c = entry.value_7c_;
+    const uint8_t state = static_cast<uint8_t>(entry.state);
+    const uint8_t flag74 = entry.flag74;
+    const uint8_t flag75 = entry.flag75;
+    const uint8_t flag76 = entry.flag76;
     if (flags & 0x40) {
         stream.write_bits(signed_byte(flag74 ? static_cast<uint8_t>(state | 0x80) : state), 4);
         stream.write_bits(signed_byte(value_7c), 6);
@@ -1008,9 +1011,9 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
         // bits for each position and angle, 12 for the state, 8 for the 0x80 pair, 32 for the last).
         stream.change_intake_contents(context->body_, 0x400);
         stream.read_signed_bits(32);
-        uint32_t fields = stream.read_bits(9);
+        const uint32_t fields = stream.read_bits(9);
         int bits = fields & 1 ? 0x39 : 0x29;
-        for (uint32_t bit : {2u, 4u, 8u, 0x10u, 0x20u}) {
+        for (const uint32_t bit : {2u, 4u, 8u, 0x10u, 0x20u}) {
             if (fields & bit)
                 bits += 0x10;
         }
@@ -1026,7 +1029,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     objects::RiderFrameLog* history = history_of(object);
     StateEntry& cur = history->states_[history->state_count_ % 20];
     // What isn't sent stays as it was (nothing yet: zero).
-    StateEntry* prev = nullptr;
+    const StateEntry* prev = nullptr;
     int16_t pos[3] = {};
     float angles[3] = {};
     uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
@@ -1047,8 +1050,8 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
         }
     }
     stream.change_intake_contents(context->body_, 0x400);
-    uint32_t time = stream.read_bits(32);
-    uint32_t fields = stream.read_bits(9);
+    const uint32_t time = stream.read_bits(32);
+    const uint32_t fields = stream.read_bits(9);
     for (int k = 0; k < 3; ++k) {
         if (fields & (1u << k))
             pos[k] = static_cast<int16_t>(stream.read_signed_bits(16));
@@ -1058,7 +1061,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
             angles[k] = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(16)) * (1.0 / 4096.0));
     }
     if (fields & 0x40) {
-        uint32_t bits = stream.read_bits(4);
+        const uint32_t bits = stream.read_bits(4);
         state = static_cast<uint8_t>(bits & 7);
         flag74 = static_cast<uint8_t>((bits >> 7) & 1); // (always 0: the original's)
         value_7c = static_cast<uint8_t>(stream.read_bits(6));

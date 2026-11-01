@@ -83,14 +83,14 @@ void RiderTurning::tick_frame()
         Turn& turn = turns_[axis];
         if (!turn.active)
             continue;
-        double exact = frame_clock::get_slomo_frame_seconds() * turn.rate;
+        const double exact = frame_clock::get_slomo_frame_seconds() * turn.rate;
         auto step = static_cast<float>(exact);
         auto turned = static_cast<float>(std::fabs(exact) + turn.turned);
         turn.turned = turned;
         if (!(turned < turn.remaining)) {
             // The last step: cut so the turn ends exactly.
             turn.active = false;
-            double sign = step < 0.0f ? -1.0 : 1.0;
+            const double sign = step < 0.0f ? -1.0 : 1.0;
             step = static_cast<float>(step - (static_cast<double>(turned) - turn.remaining) * sign);
         }
         maths::Mat4 rotation;
@@ -128,9 +128,10 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
             maths::Vec4 pos;
             level_nodes::fetch_place(level_nodes::fetch_vertex(node, true), &pos);
             const maths::Vec4& at = entity_->at_point_;
-            maths::Vec4 to_node = {pos.x - at.x, pos.y - at.y, pos.z - at.z, pos.w - at.w};
-            double degrees = static_cast<double>(maths::get_angle_in_plane(entity_->basis_frame_, to_node, 2, 1)) *
-                             kDegreesPerRadian;
+            const maths::Vec4 to_node = {pos.x - at.x, pos.y - at.y, pos.z - at.z, pos.w - at.w};
+            const double degrees =
+                static_cast<double>(maths::get_angle_in_plane(entity_->basis_frame_, to_node, 2, 1)) *
+                kDegreesPerRadian;
             start_turn(turns_[1], degrees, duration);
         }
         hold_off(false);

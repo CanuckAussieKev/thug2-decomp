@@ -144,7 +144,7 @@ void make_model_file_name(const char* name, const char* extension, char* out)
 // 0x00487AD0
 float least_of(float a, float b, float c)
 {
-    float least = b < c ? b : c;
+    const float least = b < c ? b : c;
     return a < least ? a : least;
 }
 
@@ -163,9 +163,9 @@ bool scale_from_args(maths::Vec4* scale, Struct* params)
         if (params->fetch_vec(kScale, reinterpret_cast<script::VectorValue*>(scale), 0))
             return true;
     }
-    bool x = params->fetch_float(kX, &scale->x, 0);
-    bool y = params->fetch_float(kY, &scale->y, 0);
-    bool z = params->fetch_float(kZ, &scale->z, 0);
+    const bool x = params->fetch_float(kX, &scale->x, 0);
+    const bool y = params->fetch_float(kY, &scale->y, 0);
+    const bool z = params->fetch_float(kZ, &scale->z, 0);
     return x || y || z;
 }
 

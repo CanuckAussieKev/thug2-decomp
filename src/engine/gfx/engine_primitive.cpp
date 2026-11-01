@@ -173,7 +173,7 @@ void render_primitives()
         Primitive** at = &drawn_primitives();
         if (*at) {
             for (;;) {
-                int order = primitive->weigh(*at);
+                const int order = primitive->weigh(*at);
                 if (order < 0)
                     break;
                 at = &(*at)->following_;

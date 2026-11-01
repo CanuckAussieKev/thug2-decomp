@@ -153,7 +153,7 @@ std::string get_name_of(uint32_t checksum)
 uint32_t current_load_state() { return modules::g_skate_module ? modules::g_skate_module->level_ : 0; }
 std::string get_level_name()
 {
-    uint32_t load = current_load_state();
+    const uint32_t load = current_load_state();
     if (!load)
         return "-";
     std::string name = get_name_of(load);
@@ -182,8 +182,8 @@ std::string file_stamp(const std::string& path)
 // The level's collision / scene file: the data overlay's converted one, else the game's own packed one.
 std::string level_file_stamp(const std::string& level, const char* kind)
 {
-    std::string overlay = "thug2-decomp-data\\levels\\" + level + "\\" + level + "." + kind + ".xbx";
-    std::string packed = "Data\\pre\\" + level + kind + ".prx";
+    const std::string overlay = "thug2-decomp-data\\levels\\" + level + "\\" + level + "." + kind + ".xbx";
+    const std::string packed = "Data\\pre\\" + level + kind + ".prx";
     for (const std::string& file : {overlay, packed}) {
         std::string stamp = file_stamp(game_folder_path(file.c_str()));
         if (!stamp.empty())
@@ -201,7 +201,7 @@ void* local_skater()
 
 float get_horizontal(const float* v, float* direction)
 {
-    float length = std::sqrt(v[0] * v[0] + v[2] * v[2]);
+    const float length = std::sqrt(v[0] * v[0] + v[2] * v[2]);
     direction[0] = length > 0.0f ? v[0] / length : 0.0f;
     direction[1] = length > 0.0f ? v[2] / length : 0.0f;
     return length;
@@ -228,8 +228,8 @@ void get_reset()
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
 Face get_probe(const float* from, const float* to, bool everything)
 {
-    maths::Vec4 start = {from[0], from[1], from[2], 1.0f};
-    maths::Vec4 end = {to[0], to[1], to[2], 1.0f};
+    const maths::Vec4 start = {from[0], from[1], from[2], 1.0f};
+    const maths::Vec4 end = {to[0], to[1], to[2], 1.0f};
     render::ProbeRay ray_storage(&start, &end);
     render::ProbeRay* feeler = &ray_storage;
     feeler->set_excluded(everything ? 0 : 0x10, 0);
@@ -240,11 +240,13 @@ Face get_probe(const float* from, const float* to, bool everything)
 // Whether to leave this spot out (again within a second); `repeats`: those left out since its last line.
 bool quiet_spot(const float* at, int* repeats)
 {
-    DWORD now = GetTickCount();
+    const DWORD now = GetTickCount();
     for (Spot& spot : g_spots) {
         if (!spot.time)
             continue;
-        float dx = spot.at[0] - at[0], dy = spot.at[1] - at[1], dz = spot.at[2] - at[2];
+        const float dx = spot.at[0] - at[0];
+        const float dy = spot.at[1] - at[1];
+        const float dz = spot.at[2] - at[2];
         if (dx * dx + dy * dy + dz * dz >= kSameSpot * kSameSpot)
             continue;
         if (now - spot.time < kSpotQuietMs) {
@@ -273,9 +275,9 @@ float span_to(const float* a, const float* b)
 // The distance from p to the segment a-b.
 float to_segment(const float* p, const float* a, const float* b)
 {
-    float e[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
-    float w[3] = {p[0] - a[0], p[1] - a[1], p[2] - a[2]};
-    float ee = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
+    const float e[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+    const float w[3] = {p[0] - a[0], p[1] - a[1], p[2] - a[2]};
+    const float ee = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
     float t = ee > 0.0f ? (w[0] * e[0] + w[1] * e[1] + w[2] * e[2]) / ee : 0.0f;
     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
     float q[3] = {a[0] + e[0] * t, a[1] + e[1] * t, a[2] + e[2] * t};
@@ -297,25 +299,29 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
     for (int k = 0; k < 3; ++k) {
         index[k] = geometry->face_vertex(face.index, k);
         raw[k] = geometry->read_stored_vertex(static_cast<int>(index[k]));
-        maths::Vec4 world = object->read_vertex_point(static_cast<int>(index[k])); // (a vertex in the world)
+        const maths::Vec4 world = object->read_vertex_point(static_cast<int>(index[k])); // (a vertex in the world)
         copy3(detail->corners[k], world);
     }
     detail->geometry = true;
     copy3(detail->bounds_low_, geometry->lower_limit_);
     copy3(detail->bounds_high_, geometry->upper_limit_);
     for (int k = 0; k < 3; ++k) {
-        float d = to_segment(spot, detail->corners[k], detail->corners[(k + 1) % 3]);
+        const float d = to_segment(spot, detail->corners[k], detail->corners[(k + 1) % 3]);
         if (detail->edge < 0 || d < detail->edge_distance_) {
             detail->edge = k;
             detail->edge_distance_ = d;
         }
     }
-    int a = detail->edge, b = (a + 1) % 3, c = (a + 2) % 3;
+    const int a = detail->edge;
+    const int b = (a + 1) % 3;
+    const int c = (a + 2) % 3;
     auto same = [&](uint32_t vertex, int k) {
         if (vertex == index[k])
             return true;
-        maths::Vec4 v = geometry->read_stored_vertex(static_cast<int>(vertex));
-        float dx = v.x - raw[k].x, dy = v.y - raw[k].y, dz = v.z - raw[k].z;
+        const maths::Vec4 v = geometry->read_stored_vertex(static_cast<int>(vertex));
+        const float dx = v.x - raw[k].x;
+        const float dy = v.y - raw[k].y;
+        const float dz = v.z - raw[k].z;
         return dx * dx + dy * dy + dz * dz < 0.25f;
     };
     for (int j = 0; j < geometry->tri_count_; ++j) {
@@ -323,7 +329,7 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
             continue;
         bool has_a = false, has_b = false;
         for (int m = 0; m < 3; ++m) {
-            uint32_t v = geometry->face_vertex(j, m);
+            const uint32_t v = geometry->face_vertex(j, m);
             has_a = has_a || same(v, a);
             has_b = has_b || same(v, b);
         }
@@ -339,12 +345,12 @@ void face_geometry(const Face& face, const float* spot, Detail* detail)
     const float* pa = detail->corners[a];
     const float* pb = detail->corners[b];
     const float* pc = detail->corners[c];
-    float e[3] = {pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]};
-    float w[3] = {pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]};
-    float ee = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
-    float t = ee > 0.0f ? (w[0] * e[0] + w[1] * e[1] + w[2] * e[2]) / ee : 0.0f;
-    float out[3] = {-(w[0] - e[0] * t), -(w[1] - e[1] * t), -(w[2] - e[2] * t)};
-    float length = std::sqrt(out[0] * out[0] + out[1] * out[1] + out[2] * out[2]);
+    const float e[3] = {pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]};
+    const float w[3] = {pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]};
+    const float ee = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
+    const float t = ee > 0.0f ? (w[0] * e[0] + w[1] * e[1] + w[2] * e[2]) / ee : 0.0f;
+    const float out[3] = {-(w[0] - e[0] * t), -(w[1] - e[1] * t), -(w[2] - e[2] * t)};
+    const float length = std::sqrt(out[0] * out[0] + out[1] * out[1] + out[2] * out[2]);
     if (length <= 0.0f)
         return;
     float q[3];
@@ -400,7 +406,7 @@ void get_emit(int before)
         const PathRecord& record = g_paths[(g_path_next - g_path_count + i + kPathRecords) % kPathRecords];
         if (record.frame < old.frame || record.frame > now.frame)
             continue;
-        int p = static_cast<int>(record.path);
+        const int p = static_cast<int>(record.path);
         if (!seen[p]) {
             seen[p] = true;
             if (!event.paths.empty())
@@ -424,7 +430,7 @@ void get_emit(int before)
         const Mark& mark = g_marks[(g_mark_next - g_marker_total + i + kMarks) % kMarks];
         if (mark.frame < old.frame || mark.frame > now.frame)
             continue;
-        bool against = mark.vel[0] * dir_old[0] + mark.vel[2] * dir_old[1] < 0.0f;
+        const bool against = mark.vel[0] * dir_old[0] + mark.vel[2] * dir_old[1] < 0.0f;
         if (against && previous) {
             char text[160];
             std::snprintf(text, sizeof(text), "%s>%s@%u", previous->label, mark.label, mark.frame);
@@ -490,10 +496,10 @@ void get_emit(int before)
     event.probe_dir_[2] = direction[1];
     const float* at = event.spot;
     float high[3] = {at[0], at[1] + 48.0f, at[2]}, low[3] = {at[0], at[1] - 200.0f, at[2]};
-    float beyond[3] = {at[0] + direction[0] * 24.0f, at[1], at[2] + direction[1] * 24.0f};
+    const float beyond[3] = {at[0] + direction[0] * 24.0f, at[1], at[2] + direction[1] * 24.0f};
     float beyond_high[3] = {beyond[0], beyond[1] + 48.0f, beyond[2]},
           beyond_low[3] = {beyond[0], beyond[1] - 200.0f, beyond[2]};
-    float lift = script::fetch_float(kForwardHeight);
+    const float lift = script::fetch_float(kForwardHeight);
     float ahead_from[3] = {old.pos[0], old.pos[1] + lift, old.pos[2]};
     float ahead_to[3] = {ahead_from[0] + direction[0] * 120.0f, ahead_from[1], ahead_from[2] + direction[1] * 120.0f};
     for (int everything = 0; everything < 2; ++everything) {
@@ -561,12 +567,12 @@ void detect()
         frames[i].state = s.state;
         std::memcpy(frames[i].vel, s.vel, sizeof(frames[i].vel));
     }
-    int index = find_reversal(frames, g_sample_total);
+    const int index = find_reversal(frames, g_sample_total);
     if (index < 0)
         return;
     get_emit(g_sample_total - 1 - index);
     // (seen once - logged or not: the history starts again from this frame)
-    Sample last = sample_at(0);
+    const Sample last = sample_at(0);
     g_sample_total = 1;
     g_next = 1;
     g_samples[0] = last;
@@ -633,7 +639,8 @@ int find_reversal(const Motion* frames, int count)
             else if (s.state != 0)
                 refused = true;
             float ds[2], dp[2];
-            float vs = get_horizontal(s.vel, ds), vp = get_horizontal(p.vel, dp);
+            const float vs = get_horizontal(s.vel, ds);
+            const float vp = get_horizontal(p.vel, dp);
             if (vs < kStill || vp < kStill || ds[0] * dp[0] + ds[1] * dp[1] < kSudden)
                 sudden = true;
         }
@@ -700,24 +707,24 @@ void end_frame(SkaterPhysicsModule* component)
     }
     // A line once a level, so the log shows the switch was on; the level's files noted for the events.
     static uint32_t s_logged_load = 0;
-    uint32_t load = current_load_state();
+    const uint32_t load = current_load_state();
     if (load != s_logged_load) {
         s_logged_load = load;
-        std::string level = get_level_name();
+        const std::string level = get_level_name();
         g_col_file = level_file_stamp(level, "col");
         g_scn_file = level_file_stamp(level, "scn");
         get_log("collision-event: logging on in %s (col %s, scn %s)", level.c_str(), g_col_file.c_str(),
                 g_scn_file.c_str());
     }
-    objects::GameEntity* object = object_of(component);
+    const objects::GameEntity* object = object_of(component);
     Sample s = {};
     s.frame = frame_loop::frames_run();
     s.state = component->state_->cur_phase_;
     s.physics = component->state_->physics_mode_;
     s.trick = component->state_->in_trick_move_ != 0;
-    objects::RiderTeeterMoves* balance = component->balance_;
+    const objects::RiderTeeterMoves* balance = component->balance_;
     s.balance = balance ? balance->trick_ : 0;
-    if (objects::PadInputModule* input = component->input_) {
+    if (const objects::PadInputModule* input = component->input_) {
         // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
         const objects::ControlButton* buttons = &input->pad_primary_.up_dir_;
         for (int i = 0; i < 16; ++i)
@@ -734,7 +741,9 @@ void end_frame(SkaterPhysicsModule* component)
     s.ground_ray_ = line_of(component->floor_feeler_);
     if (g_sample_total) {
         const Sample& last = sample_at(0);
-        float dx = s.pos[0] - last.pos[0], dy = s.pos[1] - last.pos[1], dz = s.pos[2] - last.pos[2];
+        const float dx = s.pos[0] - last.pos[0];
+        const float dy = s.pos[1] - last.pos[1];
+        const float dz = s.pos[2] - last.pos[2];
         if (s.frame == last.frame) { // (the same frame again: the newer replaces it)
             g_next = (g_next - 1 + kHistory) % kHistory;
             --g_sample_total;

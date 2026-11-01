@@ -187,7 +187,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     params->read_hash_value(kName, &label_, 0);
     float max_float = 1.0f;
     params->fetch_float(kMax, &max_float, 0);
-    int max = get_truncated(max_float);
+    const int max = get_truncated(max_float);
     int max_streams = 2;
     params->fetch_int_value(kMaxStreams, &max_streams, 0);
     uint32_t texture = 0;
@@ -213,7 +213,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     params->fetch_float(kEmitRate, &emit_rate, 0);
     const char* model = nullptr;
     params->fetch_text(kModel, &model, 0);
-    bool use_global_color_modulation = params->has_bare_flag(kUseGlobalColorModulation);
+    const bool use_global_color_modulation = params->has_bare_flag(kUseGlobalColorModulation);
     // A permanent system of this name, if there's one; else a new one, named by the component's address.
     bool found = false;
     if (perm) {
@@ -244,7 +244,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
         set_update_script(system_.get_pull(), update_script, script_params, entity_);
     if (params->has_bare_flag(kEnableRotate))
         rotate_ = true;
-    bool update_brightness = params->has_bare_flag(kUpdateBrightness);
+    const bool update_brightness = params->has_bare_flag(kUpdateBrightness);
     system_.get_pull()->update_brightness_ = false;
     if (update_brightness) {
         uint32_t object_id = unknown28_;
@@ -348,7 +348,7 @@ int FlexibleParticleComponent::invoke_method_by_name(uint32_t name, script::Stru
 {
     switch (name) {
     case kIsEmitting: {
-        render::EmitterInstance* system = system_.get_pull(); // (no null check, as the original)
+        const render::EmitterInstance* system = system_.get_pull(); // (no null check, as the original)
         return system->spewing_ || system->emit_rate_ > 0.0f ? 1 : 0;
     }
     case kApplyEnvBrightness:
@@ -407,7 +407,7 @@ int FlexibleParticleComponent::set_scripts(uint32_t, script::Struct* params, scr
 // 0x0041D8F0
 int FlexibleParticleComponent::should_emit(uint32_t, script::Struct*, script::Script*)
 {
-    render::EmitterInstance* system = system_.get_pull();
+    const render::EmitterInstance* system = system_.get_pull();
     if (!system)
         return 0;
     return system->spewing_ || system->emit_rate_ > 0.0f ? 1 : 0;

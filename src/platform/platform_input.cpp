@@ -198,10 +198,11 @@ DIMOUSESTATE2* read_mouse()
     last.lY = state.lY;
     last.lX = state.lX;
     std::memcpy(&last.lZ, &state.lZ, 3 * sizeof(LONG)); // (z and the first eight buttons)
-    HRESULT result = get_mouse()->GetDeviceState(sizeof(DIMOUSESTATE2), &state);
+    const HRESULT result = get_mouse()->GetDeviceState(sizeof(DIMOUSESTATE2), &state);
     if (state.lX == 0 && state.lY == 0) {
         // No movement this frame: x, then y, keep the last frame's less 2 (none within 2 of 0).
-        LONG x = last.lX, y = last.lY;
+        const LONG x = last.lX;
+        const LONG y = last.lY;
         if (x != 0 || y != 0) {
             if (x != 0) {
                 if (x > 2)
@@ -235,7 +236,7 @@ int joystick_axis(const DIJOYSTATE2* state, int control)
     case 3:
         return state->lZ;
     case 4: { // the hat (hundredths of a degree clockwise from up): right 22.5-157.5, left 202.5-337.5
-        DWORD hat = state->rgdwPOV[0];
+        const DWORD hat = state->rgdwPOV[0];
         if (hat == 0xFFFFFFFF)
             return 0;
         if (hat >= 2250 && hat <= 15750)
@@ -245,7 +246,7 @@ int joystick_axis(const DIJOYSTATE2* state, int control)
         return 0;
     }
     case 5: { // up 292.5-67.5, down 112.5-247.5
-        DWORD hat = state->rgdwPOV[0];
+        const DWORD hat = state->rgdwPOV[0];
         if (hat == 0xFFFFFFFF)
             return 0;
         if (hat >= 29250 || hat <= 6750)
@@ -294,9 +295,9 @@ BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device
     range.lMin = -1000;
     range.lMax = 1000;
     joystick->SetProperty(DIPROP_RANGE, &range.diph);
-    int port = joysticks()[1] == joystick ? 1 : 0;
+    const int port = joysticks()[1] == joystick ? 1 : 0;
     if ((object->dwFlags & DIDOI_FFACTUATOR) && force_axis_counts()[port] < 2) {
-        uint32_t count = force_axis_counts()[port];
+        const uint32_t count = force_axis_counts()[port];
         force_resolutions()[2 * port + count] = object->dwFFForceResolution;
         force_axis_counts()[port] = count + 1;
     }
@@ -306,7 +307,7 @@ BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device
 // 0x005F31D0
 BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
 {
-    DWORD type = device->dwDevType & 0xFF;
+    const DWORD type = device->dwDevType & 0xFF;
     IDirectInputDevice8A* created = nullptr;
     if (type == DI8DEVTYPE_GAMEPAD || type == DI8DEVTYPE_JOYSTICK) {
         int port = -1;
@@ -369,7 +370,7 @@ void read_keyboard()
 {
     IDirectInputDevice8A* keyboard = get_keyboard();
     std::memcpy(last_keys(), get_keys(), 256);
-    HRESULT result = keyboard->GetDeviceState(256, get_keys());
+    const HRESULT result = keyboard->GetDeviceState(256, get_keys());
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
     if (SUCCEEDED(get_keyboard()->Acquire()))
@@ -384,7 +385,7 @@ uint32_t parse_hex(const char** cursor)
     auto digit = [](char c) { return c >= '0' && c <= '9'; };
     uint32_t value = 0;
     while (digit(**cursor) || (**cursor >= 'A' && **cursor <= 'F')) {
-        char c = *(*cursor)++;
+        const char c = *(*cursor)++;
         value = value * 16 + static_cast<uint32_t>(c - (digit(c) ? '0' : 'A' - 10));
     }
     return value;
@@ -516,8 +517,8 @@ int32_t truncate(double value) { return static_cast<int32_t>(value); }
 // A mouse axis as a stick: its movement scaled, within the stick's range.
 double mouse_axis_stick(const DIMOUSESTATE2* state, int control)
 {
-    LONG value = control == 1 ? state->lX : control == 2 ? state->lY : control == 3 ? state->lZ : 0;
-    double stick = static_cast<double>(value) * kMouseStickScale;
+    const LONG value = control == 1 ? state->lX : control == 2 ? state->lY : control == 3 ? state->lZ : 0;
+    const double stick = static_cast<double>(value) * kMouseStickScale;
     if (stick > kStickMax)
         return kStickMax;
     if (stick < kStickMin)
@@ -536,7 +537,7 @@ bool joystick_control_down(const DIJOYSTATE2* state, int control)
     if (control >= 11 && control <= 39)
         return state->rgbButtons[control - 11] != 0;
     if (control >= 1 && control <= 10) {
-        int value = joystick_axis(state, control);
+        const int value = joystick_axis(state, control);
         return value > 200 || value < -200;
     }
     return false;
@@ -548,7 +549,7 @@ bool mouse_control_down(const DIMOUSESTATE2* state, int control)
     if (control >= 4 && control <= 11)
         return (state->rgbButtons[control - 4] >> 7) != 0;
     if (control >= 1 && control <= 3) {
-        LONG value = control == 1 ? state->lX : control == 2 ? state->lY : state->lZ;
+        const LONG value = control == 1 ? state->lX : control == 2 ? state->lY : state->lZ;
         return value > 3 || value < -3;
     }
     return false;
@@ -677,7 +678,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
             pad->buttons |= 0x80;
     }
 
-    int mode = pad_mode_setting();
+    const int mode = pad_mode_setting();
     if (mode == kPadNoKeys)
         return 0;
     auto stick = [&](int index, int key, int16_t value) {

@@ -24,7 +24,7 @@ float& get_pace() { return g_speed; }
 // The original's x87 code: the unsigned difference times the speed, truncated (_ftol: through 64 bits).
 int get_elapsed()
 {
-    int difference = static_cast<int>(get_time() - last_change());
+    const int difference = static_cast<int>(get_time() - last_change());
     auto scaled = static_cast<double>(difference);
     if (difference < 0)
         scaled += 4294967296.0; // (0x006453B4)

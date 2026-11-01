@@ -127,7 +127,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // An angle plus its velocity, brought within one turn (the turns truncated towards zero, so the sign is kept).
 float wrapped(double angle)
 {
-    int turns = get_truncated(angle * inv_two_pi());
+    const int turns = get_truncated(angle * inv_two_pi());
     return static_cast<float>(angle - static_cast<double>(turns) * two_pi());
 }
 
@@ -167,7 +167,7 @@ void ModelWidget::clear_models()
 // 0x004A5E80
 void ModelWidget::apply_viewport()
 {
-    uint32_t mask = 1u << (view_slot_ & 31);
+    const uint32_t mask = 1u << (view_slot_ & 31);
     for (int i = 0; i < model_total_; ++i) {
         if (models_[i].object)
             set_model_viewports(models_[i].object->fetch_module(kModelModuleName), mask);
@@ -194,16 +194,16 @@ void ModelWidget::scale_to_screen_dims()
     // (left uninitialised by the original when the first slot is empty)
     float min_x = 0, min_y = 0, min_z = 0, max_x = 0, max_y = 0, max_z = 0;
     for (int i = 0; i < model_total_; ++i) {
-        ShapeMesh& model = models_[i];
+        const ShapeMesh& model = models_[i];
         if (!model.object)
             continue;
         const maths::Vec4* box = model_bounding_box(model.object->fetch_module(kModelModuleName));
-        double low_x = static_cast<double>(box[0].x) + model.offset.x; // (compared unrounded)
-        float low_y = box[0].y + model.offset.y;
-        float low_z = box[0].z + model.offset.z;
-        float high_x = box[1].x + model.offset.x;
-        float high_y = box[1].y + model.offset.y;
-        float high_z = box[1].z + model.offset.z;
+        const double low_x = static_cast<double>(box[0].x) + model.offset.x; // (compared unrounded)
+        const float low_y = box[0].y + model.offset.y;
+        const float low_z = box[0].z + model.offset.z;
+        const float high_x = box[1].x + model.offset.x;
+        const float high_y = box[1].y + model.offset.y;
+        const float high_z = box[1].z + model.offset.z;
         if (i == 0) {
             min_x = static_cast<float>(low_x);
             min_y = low_y;
@@ -226,11 +226,12 @@ void ModelWidget::scale_to_screen_dims()
         if (high_z > max_z)
             max_z = high_z;
     }
-    double extent_x = static_cast<double>(max_x) - min_x;
-    float extent_y = max_y - min_y;
-    float extent_z = max_z - min_z;
-    double extent = extent_x > extent_z ? extent_x : extent_z;
-    double width = span_, z = camera_z_;
+    const double extent_x = static_cast<double>(max_x) - min_x;
+    const float extent_y = max_y - min_y;
+    const float extent_z = max_z - min_z;
+    const double extent = extent_x > extent_z ? extent_x : extent_z;
+    const double width = span_;
+    const double z = camera_z_;
     auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * 640.0f) / extent);
     double vertical = z * level_y_ / ((width * inv896() + 1.0) * 448.0f) / extent_y;
     horizontal = -horizontal;
@@ -398,7 +399,7 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
         down = static_cast<float>(static_cast<double>(down) * wide_screen());
     }
     across = across * z * minus_inv448();
-    double up = static_cast<double>(down) * z * inv448();
+    const double up = static_cast<double>(down) * z * inv448();
     maths::Vec4 point;
     point.x = static_cast<float>(across + centre->x);
     point.y = static_cast<float>(up + centre->y);
@@ -443,19 +444,19 @@ float widescreen_stretch(const maths::Vec4* corners, int count, const maths::Vec
 {
     if (!render::get_front_end_widescreen() || count <= 0 || !(tan_half_angle > 0.0))
         return 1.0f;
-    double layout_half_width = (4.0 / 3.0) / render::desired_3d_aspect_ratio(); // the 4:3 area, in half-widths
+    const double layout_half_width = (4.0 / 3.0) / render::desired_3d_aspect_ratio(); // the 4:3 area, in half-widths
     double leftmost = 0.0, rightmost = 0.0;
     for (int i = 0; i < count; ++i) {
-        double depth = -(static_cast<double>(corners[i].z) + place.z);
+        const double depth = -(static_cast<double>(corners[i].z) + place.z);
         if (!(depth > 0.0))
             return 1.0f;
-        double seen = (static_cast<double>(corners[i].x) + place.x) / (depth * tan_half_angle);
+        const double seen = (static_cast<double>(corners[i].x) + place.x) / (depth * tan_half_angle);
         if (i == 0 || seen < leftmost)
             leftmost = seen;
         if (i == 0 || seen > rightmost)
             rightmost = seen;
     }
-    double reach = layout_half_width * 0.95;
+    const double reach = layout_half_width * 0.95;
     if (!(leftmost <= -reach && rightmost >= reach))
         return 1.0f;
     // Stretched by k about the place, a corner is at place.x + k * x: the left edge is reached as soon as one
@@ -463,15 +464,15 @@ float widescreen_stretch(const maths::Vec4* corners, int count, const maths::Vec
     double need_left = 0.0, need_right = 0.0;
     bool left = false, right = false;
     for (int i = 0; i < count; ++i) {
-        double x = corners[i].x;
-        double edge = -(static_cast<double>(corners[i].z) + place.z) * tan_half_angle; // the half-width there
+        const double x = corners[i].x;
+        const double edge = -(static_cast<double>(corners[i].z) + place.z) * tan_half_angle; // the half-width there
         if (x < 0.0) {
-            double k = (-edge - place.x) / x;
+            const double k = (-edge - place.x) / x;
             if (!left || k < need_left)
                 need_left = k;
             left = true;
         } else if (x > 0.0) {
-            double k = (edge - place.x) / x;
+            const double k = (edge - place.x) / x;
             if (!right || k < need_right)
                 need_right = k;
             right = true;
@@ -479,7 +480,7 @@ float widescreen_stretch(const maths::Vec4* corners, int count, const maths::Vec
     }
     if (!left || !right)
         return 1.0f;
-    double k = (need_left > need_right ? need_left : need_right) * 1.01;
+    const double k = (need_left > need_right ? need_left : need_right) * 1.01;
     return k > 1.0 ? static_cast<float>(k) : 1.0f;
 }
 
@@ -511,15 +512,15 @@ void ModelWidget::tick_frame()
         maths::Vec4 position;
         node_position(node_structure(attach_to_name_), &position);
         basis_frame_.reset_to_identity();
-        maths::Vec4 offset = anchor_shift_ * basis_frame_;
+        const maths::Vec4 offset = anchor_shift_ * basis_frame_;
         basis_frame_.row[3].z = position.z + offset.z;
         basis_frame_.row[3].w = position.w + offset.w;
         basis_frame_.row[3].x = position.x + offset.x;
         basis_frame_.row[3].y = position.y + offset.y;
     } else {
-        maths::Vec4 centre = {static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
-                              static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
-                              static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), 1.0f};
+        const maths::Vec4 centre = {static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
+                                    static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
+                                    static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), 1.0f};
         auto y = static_cast<float>(get_layout_height() * 0.5f + summed_.top);
         auto x = static_cast<float>(get_layout_width() * 0.5f + summed_.left);
         screen_to_world(&centre, &basis_frame_, view_slot_, x, y, camera_z_, &place);
@@ -535,7 +536,7 @@ void ModelWidget::tick_frame()
         if (point_at_ != kPointAtNothing) {
             // Facing the target (row 2 the direction to it, row 0 across, w 1 - sic), then tilted about the
             // across axis by the tilt plus the tilt times the direction's height (degrees).
-            maths::Vec4 from = basis_frame_.row[3];
+            const maths::Vec4 from = basis_frame_.row[3];
             basis_frame_.reset_to_identity();
             maths::Vec4 direction = target - from;
             direction.make_unit();
@@ -546,7 +547,7 @@ void ModelWidget::tick_frame()
             basis_frame_.row[0].w = 1.0f;
             basis_frame_.row[0].make_unit();
             basis_frame_.square_up_axes(2);
-            double tilt = lean_angle_;
+            const double tilt = lean_angle_;
             basis_frame_.pitch_locally(static_cast<float>((tilt - -(tilt * basis_frame_.row[2].y)) * get_degrees()));
             basis_frame_.get_slide(from);
         }
@@ -558,8 +559,8 @@ void ModelWidget::tick_frame()
     local.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     local.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     local.row[3] = {-pivot_.x, -pivot_.y, -pivot_.z, static_cast<float>(static_cast<double>(-pivot_.w) + 1.0f)};
-    double angle_x = static_cast<double>(angular_velocity_[0]) + angle_[0];
-    double angle_y = static_cast<double>(angular_velocity_[1]) + angle_[1];
+    const double angle_x = static_cast<double>(angular_velocity_[0]) + angle_[0];
+    const double angle_y = static_cast<double>(angular_velocity_[1]) + angle_[1];
     auto angle_z = static_cast<float>(static_cast<double>(angular_velocity_[2]) + angle_[2]);
     angle_[0] = wrapped(angle_x);
     angle_[1] = wrapped(angle_y);
@@ -576,7 +577,7 @@ void ModelWidget::tick_frame()
     void* camera = nullptr;
     // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
     if (size_follows_range_ && (camera = viewport_camera(view_slot_)) != nullptr) {
-        maths::Vec4 away = basis_frame_.row[3] - *viewer_location(camera);
+        const maths::Vec4 away = basis_frame_.row[3] - *viewer_location(camera);
         double distance = std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
                                     static_cast<double>(away.y) * away.y) *
                           distance_scale_;
@@ -607,16 +608,16 @@ void ModelWidget::tick_frame()
                     break;
                 }
                 for (int c = 0; c < 8; ++c) {
-                    maths::Vec4 corner = {(c & 1 ? box[1].x : box[0].x) + models_[i].offset.x,
-                                          (c & 2 ? box[1].y : box[0].y) + models_[i].offset.y,
-                                          (c & 4 ? box[1].z : box[0].z) + models_[i].offset.z, 1.0f};
-                    maths::Vec4 e = corner * local;
+                    const maths::Vec4 corner = {(c & 1 ? box[1].x : box[0].x) + models_[i].offset.x,
+                                                (c & 2 ? box[1].y : box[0].y) + models_[i].offset.y,
+                                                (c & 4 ? box[1].z : box[0].z) + models_[i].offset.z, 1.0f};
+                    const maths::Vec4 e = corner * local;
                     corners[count++] = {e.x * scale.x, e.y * scale.y, e.z * scale.z, 1.0f};
                 }
             }
-            double tan_half_angle =
+            const double tan_half_angle =
                 std::tan(static_cast<double>(camera_angle(view)) * (3.14159265358979323846 / 360.0));
-            float stretch = widescreen_stretch(corners, count, place, tan_half_angle);
+            const float stretch = widescreen_stretch(corners, count, place, tan_half_angle);
             scale.x *= stretch;
         }
     }
@@ -627,21 +628,22 @@ void ModelWidget::tick_frame()
     maths::Vec4 hover = {};
     if (bob_height_ > 0.0f) {
         auto period = static_cast<uint32_t>(bob_period_);
-        uint32_t phase = frame_clock::get_time() % period * 2;
-        double s = std::sin(static_cast<double>(static_cast<int32_t>(phase)) * get_pi() / bob_period_) * bob_height_;
+        const uint32_t phase = frame_clock::get_time() % period * 2;
+        const double s =
+            std::sin(static_cast<double>(static_cast<int32_t>(phase)) * get_pi() / bob_period_) * bob_height_;
         hover.x = static_cast<float>(s * basis_frame_.row[1].x);
         hover.y = static_cast<float>(s * basis_frame_.row[1].y);
         hover.z = static_cast<float>(s * basis_frame_.row[1].z);
         hover.w = static_cast<float>(s * basis_frame_.row[1].w);
     }
-    bool visible = summed_.alpha >= visible_alpha();
+    const bool visible = summed_.alpha >= visible_alpha();
     for (int i = 0; i < model_total_; ++i) {
-        ShapeMesh& model = models_[i];
+        const ShapeMesh& model = models_[i];
         if (!model.object)
             continue;
         objects::ObjectModule* component = model.object->fetch_module(kModelModuleName);
         maths::Vec4 position = model.offset * basis_frame_;
-        maths::Mat4 orientation = basis_frame_;
+        const maths::Mat4 orientation = basis_frame_;
         if (bob_height_ > 0.0f) {
             position.x = hover.x + position.x;
             position.y = position.y + hover.y;

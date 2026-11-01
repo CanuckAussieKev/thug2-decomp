@@ -134,7 +134,7 @@ inline void team_name_key(char* out, int team)
     char digits[12];
     int length = 0;
     auto value = static_cast<unsigned int>(team + 1);
-    bool negative = team + 1 < 0;
+    const bool negative = team + 1 < 0;
     if (negative)
         value = 0u - value;
     do {

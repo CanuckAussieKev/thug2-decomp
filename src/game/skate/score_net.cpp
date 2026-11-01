@@ -48,8 +48,8 @@ void PointTally::note_tagged_prop_ask(int score)
     message.score = static_cast<uint32_t>(score);
     message.game_id = net->get_game_id();
     auto* trick = static_cast<objects::MoveExecutor*>(rider_for_slot(rider_no_)->fetch_module(kTrick));
-    uint32_t bytes = trick->end_trick_objects(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(message.objects)),
-                                              sizeof(message.objects));
+    const uint32_t bytes = trick->end_trick_objects(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(message.objects)),
+                                                    sizeof(message.objects));
     message.count = bytes >> 2;
     debug::printf("Client -> server %d tricks\n", bytes >> 2); // "Client -> server %d tricks\n"
     uint8_t data[online::kTrickObjectsHeaderSize + sizeof(message.objects)];
@@ -74,7 +74,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
     if (send) {
         net::AppHost* server = net->host_; // (0x005480C0)
         net::Conn* conn = nullptr;
-        if (objects::Rider* skater = rider_for_slot(rider_no_)) {
+        if (const objects::Rider* skater = rider_for_slot(rider_no_)) {
             if (auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_))))
                 conn = info->conn_;
         }
@@ -144,9 +144,9 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         if (conn->is_host_local())                                    // (no check: as the original)
             return;
     }
-    int owner = static_cast<uint8_t>(get_game_mode()->is_squad_match())
-                    ? as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater_id)))->team_
-                    : skater_id;
+    const int owner = static_cast<uint8_t>(get_game_mode()->is_squad_match())
+                          ? as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater_id)))->team_
+                          : skater_id;
     for (uint32_t i = 0; i < count; ++i)
         get_trick_objects()->set_object_graffiti_color(objects[i], owner);
 }

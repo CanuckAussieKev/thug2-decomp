@@ -182,14 +182,14 @@ void Hub::get_main_loop()
 {
     // The test runner's EngineStarted stage: every engine module exists, the first frame is next.
 
-    uint8_t done_on_entry = is_finished_;
+    const uint8_t done_on_entry = is_finished_;
     // The screen saver's timeout is set again every 201 frames, which restarts its idle time.
     UINT screen_saver_timeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
     uint32_t frames_since_screen_saver = 0;
     LARGE_INTEGER frequency;
     QueryPerformanceFrequency(&frequency);
-    uint64_t frame_ticks = static_cast<uint64_t>(frequency.QuadPart) / 60; // (an unsigned division)
+    const uint64_t frame_ticks = static_cast<uint64_t>(frequency.QuadPart) / 60; // (an unsigned division)
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
     auto frame_start = static_cast<uint64_t>(counter.QuadPart);
@@ -242,7 +242,7 @@ void Hub::get_main_loop()
         }
         // A frame more than half a frame late isn't drawn - but never more than four in a row, and never while
         // the window is inactive.
-        bool active = app_active();
+        const bool active = app_active();
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (skipped_in_a_row() >= 4 && active) {
             skipped_in_a_row() = 0;

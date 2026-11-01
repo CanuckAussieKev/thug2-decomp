@@ -152,7 +152,7 @@ int SignalRouteTable::list_wait_table(SignalRouteTable* table)
         debug::printf("  Emtpy\n");
     } else {
         for (int i = 0; i < table->num_; ++i) {
-            TableRow& entry = table->entries_[i];
+            const TableRow& entry = table->entries_[i];
             debug::printf("------------------------------------\n");
             debug::printf("  Type     : %s\n", script::find_checksum_name_or_unknown(entry.type));
             debug::printf("  Script   : %s\n", script::find_checksum_name_or_unknown(entry.script));
@@ -171,7 +171,7 @@ int SignalRouteTable::list_wait_table(SignalRouteTable* table)
 void SignalRouteTable::enter_wait_board(Script* script)
 {
     for (int i = 0; i < num_; ++i) {
-        TableRow& entry = entries_[i];
+        const TableRow& entry = entries_[i];
         if (entry.type && entry.script && entry.script != kNullScript)
             tracker_add_listener(entry.type, script);
     }
@@ -181,7 +181,7 @@ void SignalRouteTable::enter_wait_board(Script* script)
 void SignalRouteTable::unregister_with_tracker(Script* script)
 {
     for (int i = 0; i < num_; ++i) {
-        if (uint32_t type = entries_[i].type)
+        if (const uint32_t type = entries_[i].type)
             tracker_remove_listener(type, script);
     }
 }
@@ -303,7 +303,7 @@ void SignalRouteTable::compact()
     }
     if (!removed)
         return;
-    int live = num_ - removed;
+    const int live = num_ - removed;
     altered_ = true;
     if (live == 0) {
         for (int i = 0; i < num_; ++i)
@@ -332,7 +332,7 @@ void SignalRouteTable::compact()
 // 0x004601A0
 void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
 {
-    int count = static_cast<int>(handlers->extent_);
+    const int count = static_cast<int>(handlers->extent_);
     if (replace && count == 0) {
         // An empty array: every handler goes at once (the tracker isn't told; the caller has unregistered).
         if (!entries_)
@@ -353,7 +353,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
     for (int i = 0; i < count; ++i) {
         auto* handler = reinterpret_cast<Struct*>(handlers->fetch_part(static_cast<uint32_t>(i)));
         script::Component* type = handler->step_to_entry(nullptr);
-        script::Component* script = handler->step_to_entry(type);
+        const script::Component* script = handler->step_to_entry(type);
         if (replace)
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
             remove_type(type->checksum);
@@ -384,11 +384,11 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
 // 0x00460470
 void SignalRouteTable::forward_trigger(Signal* event, Script* script)
 {
-    bool was_changed = altered_;
+    const bool was_changed = altered_;
     altered_ = false;
     ++in_use_;
     // (Read once: if a handler adds entries the array moves, altered_ is set and the loop stops after it.)
-    TableRow* entry = entries_;
+    const TableRow* entry = entries_;
     for (int i = 0; i < num_; ++i, ++entry) {
         if (entry->type == event->kind_tag_ && entry->script != kNullScript) {
             // The event's data is added over the handler's own parameters, in a structure of its own.
@@ -411,7 +411,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                     Struct* exception_params = new_empty_struct();
                     exception_params->add_component_of_type(0, script::kQbvalName,
                                                             entry->flags & TableRow::kFlagReplacesRunning);
-                    uint32_t on_exception = script->get_on_exception_script();
+                    const uint32_t on_exception = script->get_on_exception_script();
                     script->set_on_exception_script(0);
                     script->preempt(on_exception, exception_params);
                     if (exception_params)
@@ -422,7 +422,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                     script->bind_script(entry->script, params, script->entity_.get_pull());
                     script->tick_frame();
                 }
-            } else if (Entity* object = script->entity_.get_pull();
+            } else if (const Entity* object = script->entity_.get_pull();
                        object && (object->object_flags_ & objects::kObjectFlagSpawnHandlers)) {
                 // A new spawned script on the object, run at once (a C function as handler returns no script:
                 // null is used [bug: crash]).

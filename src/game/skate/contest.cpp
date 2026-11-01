@@ -114,7 +114,7 @@ int Contest::Leader::best_two(int count) const
     int best = 0;
     int second = 0;
     for (int i = 0; i < count; ++i) {
-        int score = scores_[i];
+        const int score = scores_[i];
         if (score > best) {
             second = best;
             best = score;
@@ -130,7 +130,7 @@ int Contest::Leader::best_two_of_four_words() const
     int best = 0;
     int second = 0;
     for (int i = 0; i < 4; ++i) {
-        int score = get_word(i);
+        const int score = get_word(i);
         if (score > best) {
             second = best;
             best = score;
@@ -161,7 +161,7 @@ bool Contest::is_leading_scorer(int judge)
     for (int i = 0; i < kJudges; ++i) {
         for (int j = i; j < kJudges; ++j) {
             if (judge_scores_[order[i]] < judge_scores_[order[j]]) {
-                int swap = order[i];
+                const int swap = order[i];
                 order[i] = order[j];
                 order[j] = swap;
             }
@@ -185,12 +185,12 @@ bool Contest::is_ended() { return ended_; }
 // 0x00550200
 void Contest::sort_leaders()
 {
-    int count = (ended_ ? 2 : runs_) + 1;
+    const int count = (ended_ ? 2 : runs_) + 1;
     for (int i = 0; i < kLeaders - 1; ++i) {
         int best = i;
         for (int j = i + 1; j < kLeaders; ++j) {
-            int score = leaders_[j].best_two(count);
-            int best_score = leaders_[best].best_two(count);
+            const int score = leaders_[j].best_two(count);
+            const int best_score = leaders_[best].best_two(count);
             if (score > best_score || (leaders_[j].ident_ == 0 && score == best_score))
                 best = j;
         }
@@ -198,10 +198,10 @@ void Contest::sort_leaders()
             // (a leader's copy: the name, the id, the scores and unknown1c_ - not the padding)
             Leader& a = leaders_[best];
             Leader& b = leaders_[i];
-            text::Chars name(a.label_);
-            int id = a.ident_;
-            int scores[kRuns] = {a.scores_[0], a.scores_[1], a.scores_[2]};
-            bool unknown = a.unknown1c_;
+            const text::Chars name(a.label_);
+            const int id = a.ident_;
+            const int scores[kRuns] = {a.scores_[0], a.scores_[1], a.scores_[2]};
+            const bool unknown = a.unknown1c_;
             a.label_ = b.label_;
             a.ident_ = b.ident_;
             for (int k = 0; k < kRuns; ++k)
@@ -240,7 +240,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
     int pros[96]; // (the original's stack room)
     int pro_count = 0;
-    int templates = static_cast<int>(manager->templates_.num_);
+    const int templates = static_cast<int>(manager->templates_.num_);
     for (int i = 0; i < templates; ++i) {
         objects::RiderIdentity* profile = template_at(manager, i);
         if (profile->is_pro() && !profile->has_flag_f_3149a_c5() &&
@@ -249,15 +249,15 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
             pros[pro_count++] = i;
     }
     for (int i = 0; i < pro_count; ++i) {
-        int other = maths::roll_side_stream(pro_count);
-        int swap = pros[i];
+        const int other = maths::roll_side_stream(pro_count);
+        const int swap = pros[i];
         pros[i] = pros[other];
         pros[other] = swap;
     }
     int ids[kLeaders - 1] = {1, 2, 3, 4, 5, 6, 7};
     for (int& id : ids) {
-        int other = maths::roll_side_stream(kLeaders - 1);
-        int swap = id;
+        const int other = maths::roll_side_stream(kLeaders - 1);
+        const int swap = id;
         id = ids[other];
         ids[other] = swap;
     }
@@ -294,7 +294,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
             points = bronze;
         } else {
             auto spread = static_cast<float>(static_cast<double>(bronze) * eighth());
-            double random = maths::plus_or_minus_exact(spread);
+            const double random = maths::plus_or_minus_exact(spread);
             points = static_cast<float>(static_cast<double>(bronze) - spread + random);
             if (!(points < bronze))
                 points = static_cast<float>(static_cast<double>(bronze) - tenth());
@@ -305,12 +305,12 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         auto mirrored = static_cast<float>(static_cast<double>(points) + points - high);
         if (mirrored < high)
             low = mirrored;
-        int first = maths::roll_side_stream(3);
+        const int first = maths::roll_side_stream(3);
         int second = 0;
         do {
             second = maths::roll_side_stream(3);
         } while (second == first);
-        float base = low - two();
+        const float base = low - two();
         for (int& score : leader.scores_)
             score = truncate(maths::plus_or_minus_exact(kScoreSpread) + base + nearly_half());
         leader.scores_[first] = current_round(high);
@@ -319,7 +319,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
 
     debug::printf("\n\n");
     for (int i = 0; i < kLeaders; ++i) {
-        Leader& leader = leaders_[i];
+        const Leader& leader = leaders_[i];
         debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
                       leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
@@ -329,7 +329,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         leaders_[0].label_ = first_place;
     debug::printf("\nSorted\n");
     for (int i = 0; i < kLeaders; ++i) {
-        Leader& leader = leaders_[i];
+        const Leader& leader = leaders_[i];
         debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
                       leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
@@ -348,12 +348,12 @@ void Contest::show_leader_board()
     board->configure_size_kind(5, script::kQbvalStruct);
     debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
-        Leader& leader = leaders_[i];
+        const Leader& leader = leaders_[i];
         debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
                       leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     for (int i = 0; i < 5; ++i) {
-        Leader& leader = leaders_[i];
+        const Leader& leader = leaders_[i];
         script::Struct* entry = spawn_param_table();
         entry->append_word(kName, leader.label_.c_str());
         debug::printf("m_current_round: %i\n", runs_);
@@ -378,7 +378,7 @@ void Contest::end_run(int score)
                   static_cast<double>(silver_score_), static_cast<double>(gold_score_));
 
     // The points: linear between the medal scores (above gold: towards 100 at twice the gold score).
-    double x = score;
+    const double x = score;
     float points = 0.0f;
     if (x < bronze_score_)
         points = static_cast<float>(static_cast<double>(third_mark_) / bronze_score_ * x);
@@ -399,7 +399,7 @@ void Contest::end_run(int score)
     debug::printf("points decremented by %f bail points to %f\n", static_cast<double>(crash_penalty_),
                   static_cast<double>(points));
 
-    float max = max_points();
+    const float max = max_points();
     path_vertices_ = points;
     if (!(points <= max))
         path_vertices_ = max;
@@ -432,12 +432,12 @@ void Contest::end_run(int score)
         static_cast<float>(truncate(static_cast<double>(judges[2]) * ten()) * static_cast<double>(tenth()) + tiny());
     judges[0] = static_cast<float>(
         truncate(truncate(static_cast<double>(judges[0]) * ten()) * static_cast<double>(tenth()) + over_half()));
-    float first = judges[0];
-    double second =
+    const float first = judges[0];
+    const double second =
         truncate(truncate(static_cast<double>(judges[1]) * ten()) * static_cast<double>(tenth()) + over_half());
     judges[1] = static_cast<float>(second);
     judges[2] = static_cast<float>(truncate(static_cast<double>(judges[2]) + nearly_half()));
-    float limit = ninety_nine();
+    const float limit = ninety_nine();
     if (!(first <= limit))
         judges[0] = limit;
     if (!(second <= limit))
@@ -470,9 +470,9 @@ void Contest::end_run(int score)
     if (judges[2] < lowest)
         lowest = judges[2];
     debug::printf("Lowest = %f\n", static_cast<double>(lowest));
-    float base = lowest - spread;
+    const float base = lowest - spread;
     for (int i = 3; i < kJudges; ++i) {
-        double judge = maths::plus_or_minus_exact(spread) + base;
+        const double judge = maths::plus_or_minus_exact(spread) + base;
         judges[i] = static_cast<float>(judge);
         debug::printf("Score %d is %f\n", i, judge); // (the unrounded value)
     }
@@ -482,8 +482,8 @@ void Contest::end_run(int score)
     }
     // The first four shuffled.
     for (int i = 0; i < kJudges - 1; ++i) {
-        int other = maths::roll_side_stream(kJudges);
-        float swap = judges[i];
+        const int other = maths::roll_side_stream(kJudges);
+        const float swap = judges[i];
         judges[i] = judges[other];
         judges[other] = swap;
     }
