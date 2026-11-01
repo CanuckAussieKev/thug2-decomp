@@ -18,6 +18,7 @@
 // PartyMod's UIControls setting (src/engine/pad_input/sdl_input.*) is read but never used; nothing here reads it
 // either - these mappings come from the scripts only.
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -60,10 +61,10 @@ struct FrontEnd final : public PartUnit {
     };
     static constexpr int kMaxButtonEvents = 32;
 
-    FrontEndTask* update_job_;    // +0x14: front_end_tick, priority -2000
-    FrontEndTask* keyboard_task_; // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
+    std::unique_ptr<FrontEndTask> update_job_;    // +0x14: front_end_tick, priority -2000
+    std::unique_ptr<FrontEndTask> keyboard_task_; // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
     uint32_t unknown1c_;
-    FrontEndInputHandler* pad_listeners_[2];           // +0x20: input_logic, priority -1000
+    std::unique_ptr<FrontEndInputHandler> pad_listeners_[2];           // +0x20: input_logic, priority -1000
     int device_server_map_[2];                         // +0x28: which controller each handler listens to (0, 1)
     bool is_halted_;                                   // +0x30
     int hold_repeat_ms_;                               // +0x34: ms (300)

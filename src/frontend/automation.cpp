@@ -1158,7 +1158,7 @@ bool menu_input_blocked(modules::FrontEnd* front_end)
 {
     if (!front_end || front_end->pad_mappings_[0].mapping_ == 0 || front_end->block_menu_input_)
         return true;
-    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0];
+    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0].get();
     return !handler || !handler->dev_;
 }
 

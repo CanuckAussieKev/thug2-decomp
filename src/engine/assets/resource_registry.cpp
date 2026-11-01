@@ -2,6 +2,7 @@
 
 #include "engine/assets/resource_registry.h"
 
+#include <memory>
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -133,7 +134,7 @@ ResourceRegistry::ResourceRegistry()
     pending_ = nullptr;
     ready_flag_ = nullptr;
     unknown15_ = false;
-    task_ = new tasks::Task<ResourceRegistry>(&process_task, this, 0);
+    task_ = std::make_unique<tasks::Task<ResourceRegistry>>(&process_task, this, 0);
 }
 
 // 0x00408930
@@ -149,14 +150,14 @@ ResourceRegistry::~ResourceRegistry()
         }
         memory::Hub::get_pull()->dealloc(table);
     }
-    delete task_;
+    task_.reset();
 }
 
 // 0x00407E90
 void ResourceRegistry::start_callback()
 {
     (&g_main_loop_manager->logic_tasks_)
-        ->queue_job(task_); // the logic tasks
+        ->queue_job(task_.get()); // the logic tasks
 }
 
 // 0x00407AE0

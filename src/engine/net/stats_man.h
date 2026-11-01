@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -168,7 +169,7 @@ public:
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.
     static void __stdcall generate_auth(const char* challenge, const char* password, char* response);
 
-    tasks::SchedulerTask* task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
+    std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
     bool authenticated_;         // +0x004
     uint8_t pad5_[3];
     int cur_phase_;          // +0x008 State

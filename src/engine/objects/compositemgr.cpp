@@ -3,6 +3,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/pager_message.h"
 
+#include <memory>
 #include <cstdint>
 #include <new>
 
@@ -136,8 +137,8 @@ EntityHub*& object_hub_slot() { return g_composite_registry; }
 // 0x0045F6E0
 EntityHub::EntityHub()
 {
-    update_job_ = new tasks::Task<EntityHub>(&composite_object_manager_task, this, kLogicTaskPriority);
-    register_logic_task(update_job_);
+    update_job_ = std::make_unique<tasks::Task<EntityHub>>(&composite_object_manager_task, this, kLogicTaskPriority);
+    register_logic_task(update_job_.get());
     script::register_member_function_table(reinterpret_cast<void*>(kObjectMemberFunctionType),
                                            g_object_member_functions, 0x18);
     script::register_member_function_table(reinterpret_cast<void*>(kCompositeMemberFunctionType),
@@ -148,8 +149,8 @@ EntityHub::EntityHub()
 EntityHub::~EntityHub()
 {
     if (update_job_) {
-        get_remove_task(update_job_);
-        delete update_job_;
+        get_remove_task(update_job_.get());
+        update_job_.reset();
     }
 }
 

@@ -306,9 +306,9 @@ bool __cdecl cfunc_controller_pressed(script::Struct* params, script::Script*)
         return false;
     int controller;
     if (params->fetch_int_value(0u, &controller, 0))
-        return controller_pressed(front_end->pad_listeners_[controller], button);
+        return controller_pressed(front_end->pad_listeners_[controller].get(), button);
     for (int i = 0; i < 2; ++i) {
-        if (controller_pressed(front_end->pad_listeners_[i], button))
+        if (controller_pressed(front_end->pad_listeners_[i].get(), button))
             return true;
     }
     return false;
@@ -321,7 +321,7 @@ bool __cdecl cfunc_get_analogue_info(script::Struct* params, script::Script* scr
     modules::FrontEnd* front_end = modules::front_end_instance();
     int controller = 0;
     params->fetch_int_value(kController, &controller, 0);
-    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[controller];
+    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[controller].get();
     objects::PadSnapshot pad;
     pad.prepare_all();
     pad.tick_frame(reinterpret_cast<const uint8_t*>(handler->control_data_));

@@ -12,6 +12,7 @@
 // commands (park_editor.cpp, park_editor_cfuncs.cpp). The constructor (0x0058FFF0), SetParkEditorState and
 // SetParkEditorPauseMode follow at 0x0058FBD0.
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -169,9 +170,9 @@ public:
     Listener listener_;    // +0x14
     bool action_finished_; // +0x30: a command that changes the park was carried out
     uint8_t pad31[3];
-    ParkEditorTask* editor_update_job_;           // +0x34 (0x0058FFC0, priority 0)
-    ParkEditorTask* draw_job_;                    // +0x38 (the empty 0x005480A0, priority -1000)
-    ParkEditorInputHandler* editor_pad_listener_; // +0x3C (process_pad_input, priority 0)
+    std::unique_ptr<ParkEditorTask> editor_update_job_;           // +0x34 (0x0058FFC0, priority 0)
+    std::unique_ptr<ParkEditorTask> draw_job_;                    // +0x38 (the empty 0x005480A0, priority -1000)
+    std::unique_ptr<ParkEditorInputHandler> editor_pad_listener_; // +0x3C (process_pad_input, priority 0)
     uint32_t cur_phase_;                          // +0x40
     uint32_t actions_;                            // +0x44
     uint32_t flag_bits_;                          // +0x48

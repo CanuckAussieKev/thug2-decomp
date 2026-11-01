@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -43,10 +44,10 @@ struct Viewer final : public PartUnit {
         kCommandShoulderB = 0x4,
     };
 
-    ViewerInputHandler* pad_listener_;  // +0x14 (process_pad_input, priority 0)
-    ViewerInputHandler* shift_handler_; // +0x18 (HandleShift, priority 1000)
-    ViewerTask* task_1c_;               // +0x1C free_camera_task (0x00577870)
-    ViewerTask* task20_;                // +0x20 select_combo_task (0x00577380)
+    std::unique_ptr<ViewerInputHandler> pad_listener_;  // +0x14 (process_pad_input, priority 0)
+    std::unique_ptr<ViewerInputHandler> shift_handler_; // +0x18 (HandleShift, priority 1000)
+    std::unique_ptr<ViewerTask> task_1c_;               // +0x1C free_camera_task (0x00577870)
+    std::unique_ptr<ViewerTask> task20_;                // +0x20 select_combo_task (0x00577380)
     float pad_rx_;                      // +0x24 the sticks (raw, -128..127)
     float pad_ry_;                      // +0x28
     uint8_t unknown2c_[8];

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -60,7 +61,7 @@ public:
     // 0x0045F5D0: kCompositeFlagPaused set (or cleared) on every object it has now - the same walk.
     void get_freeze(bool pause);
 
-    tasks::Task<EntityHub>* update_job_; // +0x40 running composite_object_manager_task
+    std::unique_ptr<tasks::Task<EntityHub>> update_job_; // +0x40 running composite_object_manager_task
     uint32_t component_types_;           // +0x44
     struct ComponentType {
         uint32_t type;

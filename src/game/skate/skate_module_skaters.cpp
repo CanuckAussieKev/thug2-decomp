@@ -4,6 +4,7 @@
 
 #include "game/skate/skate_module.h"
 
+#include <memory>
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -984,7 +985,7 @@ Skate::Skate()
     riders_.list_link_.make_head();
     watch_for_unplug_ = false;
     unplugged_frames_ = 0;
-    update_job_ = new tasks::Task<Skate>(&front_end_tick, this, 0);
+    update_job_ = std::make_unique<tasks::Task<Skate>>(&front_end_tick, this, 0);
     reinterpret_cast<SkateNet*>(this)->create_network_tasks();
     objects::g_profile_roster->reset_templates();
     game_flow_ = new goals::MatchFlow;
@@ -1045,7 +1046,7 @@ Skate::~Skate()
         goals->destroy_body();
         memory::dealloc(goals);
     }
-    delete update_job_;
+    update_job_.reset();
     delete splitscreen_preferences_;
     memory::dealloc(checksums_);
     script::Script::destroy(own_script_);

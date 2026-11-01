@@ -3,6 +3,7 @@
 
 #include "frontend/front_end.h"
 
+#include <memory>
 #include <cstdint>
 #include <new>
 
@@ -185,18 +186,16 @@ void release_front_end()
 // 0x0054EC20
 FrontEnd::~FrontEnd()
 {
-    delete update_job_;
-    // (keyboard_task_ is never deleted)
-    for (FrontEndInputHandler*& handler : pad_listeners_) {
-        delete handler;
-        handler = nullptr;
-    }
+    update_job_.reset();
+    for (std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_)
+        handler.reset();
+    // (keyboard_task_ goes with the object, after these - the original never deleted it)
 }
 
 // 0x0054ECA0
 bool FrontEnd::pads_plugged_in()
 {
-    for (FrontEndInputHandler* handler : pad_listeners_) {
+    for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         if (handler->dev_->is_attached())
             return true;
     }
@@ -204,7 +203,7 @@ bool FrontEnd::pads_plugged_in()
 }
 
 // 0x0054ECD0
-void FrontEnd::unregister_key_listener() { remove_node(keyboard_task_); }
+void FrontEnd::unregister_key_listener() { remove_node(keyboard_task_.get()); }
 
 // 0x0054ECE0
 uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
@@ -278,12 +277,12 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
 void FrontEnd::start_callback()
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    append_vertex(main_loop_manager()->logic_tasks_, update_job_);
+    append_vertex(main_loop_manager()->logic_tasks_, update_job_.get());
     pad_input::Hub* input = input_manager();
-    for (FrontEndInputHandler* handler : pad_listeners_) {
+    for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         // The controller's place in the input manager (see update_input_mappings).
         pad_input::HostEnd& server = input->hosts_[handler->ordinal_];
-        append_vertex(server.handlers_, handler);
+        append_vertex(server.handlers_, handler.get());
         handler->control_data_ = &server.content_;
         handler->dev_ = server.dev_;
     }
@@ -293,16 +292,16 @@ void FrontEnd::start_callback()
 // 0x0054EF30
 void FrontEnd::stop_callback()
 {
-    remove_node(update_job_);
-    for (FrontEndInputHandler* handler : pad_listeners_)
-        remove_node(handler);
+    remove_node(update_job_.get());
+    for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_)
+        remove_node(handler.get());
 }
 
 // 0x0054EF60
 void FrontEnd::register_key_listener(int device)
 {
     keyboard_device_ = device;
-    append_vertex(main_loop_manager()->logic_tasks_, keyboard_task_);
+    append_vertex(main_loop_manager()->logic_tasks_, keyboard_task_.get());
 }
 
 // 0x0054EF80
@@ -626,7 +625,7 @@ void FrontEnd::update_input_mappings()
     InputManagerRef input;
     for (int i = 0; i < 2; ++i) {
         debug::printf("m_device_server_map[%i] = %i\n", i, device_server_map_[i]); // "m_device_server_map[%i] = %i\n"
-        FrontEndInputHandler* handler = pad_listeners_[i];
+        FrontEndInputHandler* handler = pad_listeners_[i].get();
         if (!handler)
             continue;
         debug::printf("got a handler\n"); // "got a handler\n"
@@ -651,10 +650,10 @@ bool __cdecl cfunc_set_analog_stick_active_for_menus(script::Struct* params, scr
 // 0x0054FE00
 FrontEnd::FrontEnd()
 {
-    update_job_ = new FrontEndTask(&front_end_tick, this, -2000);
-    keyboard_task_ = new FrontEndTask(&keyboard_task, this, -1000);
+    update_job_ = std::make_unique<FrontEndTask>(&front_end_tick, this, -2000);
+    keyboard_task_ = std::make_unique<FrontEndTask>(&keyboard_task, this, -1000);
     for (int i = 0; i < 2; ++i) {
-        pad_listeners_[i] = new FrontEndInputHandler(&input_logic, this, -1000, i);
+        pad_listeners_[i] = std::make_unique<FrontEndInputHandler>(&input_logic, this, -1000, i);
         pad_mappings_[i].repeat_state_ = 0;
         pad_mappings_[i].mapping_ = 1;
     }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstdint>
 
 #include "engine/core/mem.h"
@@ -89,13 +90,13 @@ public:
     // 0x005B6BC0
     AsyncLoaderModule();
     // 0x005B6660 / 0x005B6940
-    ~AsyncLoaderModule() override { delete task_; }
+    ~AsyncLoaderModule() override { task_.reset(); }
     // 0x005B6970: the module starts - its task joins the logic tasks.
     void start_callback() override;
     // (the original's slot is the skate module's stop, 0x00564C50 - folded: the task at +0x14 out of its list)
     void stop_callback() override { task_->drop_out(); }
 
-    tasks::Task<AsyncLoaderModule>* task_; // +0x14 running async_loader_task
+    std::unique_ptr<tasks::Task<AsyncLoaderModule>> task_; // +0x14 running async_loader_task
 };
 static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
 AsyncLoaderModule* create_async_loader_module(bool create);

@@ -294,7 +294,7 @@ void CameraAnimMovie::place_camera()
     float* pos = reinterpret_cast<float*>(viewer_->fetch_location());
     float* m = reinterpret_cast<float*>(viewer_->fetch_mat());
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
-    for (pad_input::InputHandler* handler : modules::g_front_end_instance->pad_listeners_) {
+    for (const auto& handler : modules::g_front_end_instance->pad_listeners_) {
         if (handler->control_data_->makes_ & 0x40)
             check_done(true);
     }

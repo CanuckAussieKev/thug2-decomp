@@ -186,13 +186,13 @@ ParkBuilderMode::~ParkBuilderMode() { ParkLayout::discard_occurrence(); }
 void ParkBuilderMode::start_callback()
 {
     frame_loop::Hub* main_loop = get_main_loop();
-    main_loop->logic_tasks_.queue_job(editor_update_job_);
-    ParkEditorInputHandler* handler = editor_pad_listener_;
+    main_loop->logic_tasks_.queue_job(editor_update_job_.get());
+    ParkEditorInputHandler* handler = editor_pad_listener_.get();
     pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
     server.handlers_.queue_job(handler);
     handler->control_data_ = &input_manager()->hosts_[handler->ordinal_].content_;
     handler->dev_ = input_manager()->hosts_[handler->ordinal_].dev_;
-    main_loop->display_tasks_.queue_job(draw_job_);
+    main_loop->display_tasks_.queue_job(draw_job_.get());
 }
 
 // 0x0058D340
@@ -635,7 +635,7 @@ void ParkBuilderMode::update_menu_stick()
 void ParkBuilderMode::link_to_pad(int controller)
 {
     pad_input::Hub* input = pad_input::create_manager(false); // (a single::LazyInstance<pad_input::Hub>)
-    ParkEditorInputHandler* handler = editor_pad_listener_;
+    ParkEditorInputHandler* handler = editor_pad_listener_.get();
     handler->drop_out();
     pad_input::HostEnd& server = input->hosts_[controller];
     server.handlers_.queue_job(handler);

@@ -3,6 +3,7 @@
 
 #include "engine/objects/entity_hub.h"
 
+#include <memory>
 #include <cstdint>
 
 #include "engine/core/manager.h"
@@ -131,8 +132,8 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
 MiscHub::MiscHub()
 {
     dead_objects_.make_head();
-    flush_task_ = new tasks::Task<MiscHub>(&flush_dead_objects_task, this, kFlushTaskPriority);
-    queue_engine_job(flush_task_);
+    flush_task_ = std::make_unique<tasks::Task<MiscHub>>(&flush_dead_objects_task, this, kFlushTaskPriority);
+    queue_engine_job(flush_task_.get());
 }
 
 // 0x00461DF0
@@ -140,7 +141,7 @@ MiscHub::~MiscHub()
 {
     for_each(&get_unlock, nullptr);
     for_each(&dispose_when_free, nullptr);
-    delete flush_task_;
+    flush_task_.reset();
     dead_objects_.uncouple();
 }
 

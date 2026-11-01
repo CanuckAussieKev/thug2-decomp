@@ -1,6 +1,7 @@
 // The viewer module, 0x00576CB0-0x00577F20. See model_viewer.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr: what the game uses
+#include <memory>
 #include <winsock2.h>
 
 #include "engine/sys/model_viewer.h"
@@ -165,10 +166,10 @@ void Viewer::stop_callback()
 {
     delete entity_;
     entity_ = nullptr;
-    remove_node(pad_listener_);
-    remove_node(task_1c_);
-    remove_node(task20_);
-    remove_node(shift_handler_);
+    remove_node(pad_listener_.get());
+    remove_node(task_1c_.get());
+    remove_node(task20_.get());
+    remove_node(shift_handler_.get());
     net_handler_->dispatcher_.tear_down_state();
 }
 
@@ -176,10 +177,10 @@ void Viewer::stop_callback()
 Viewer::~Viewer()
 {
     delete net_handler_; // (deleted directly, not released through the network manager - as the original)
-    delete pad_listener_;
-    delete task_1c_;
-    delete task20_;
-    delete shift_handler_;
+    pad_listener_.reset();
+    task_1c_.reset();
+    task20_.reset();
+    shift_handler_.reset();
     sole() = nullptr;
 }
 
@@ -521,11 +522,11 @@ void Viewer::start_callback()
                                    0x80);
         dispatcher.append_listener(0x2B, &on_remote_script_msg, 3, this, 0x80);
     }
-    append_vertex(main_loop_manager()->logic_tasks_, task_1c_);
-    add_input_handler(pad_listener_);
+    append_vertex(main_loop_manager()->logic_tasks_, task_1c_.get());
+    add_input_handler(pad_listener_.get());
     debug::printf("Adding shift input handlers\n)");
-    add_input_handler(shift_handler_);
-    append_vertex(main_loop_manager()->logic_tasks_, task20_);
+    add_input_handler(shift_handler_.get());
+    append_vertex(main_loop_manager()->logic_tasks_, task20_.get());
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -543,13 +544,13 @@ Viewer::Viewer()
     }
     int controller = script::fetch_int_value(kViewerPadKey);
 
-    task_1c_ = new ViewerTask(&free_camera_task, this, 0);
-    pad_listener_ = new ViewerInputHandler(&handle_viewer_input, this, 0, controller);
+    task_1c_ = std::make_unique<ViewerTask>(&free_camera_task, this, 0);
+    pad_listener_ = std::make_unique<ViewerInputHandler>(&handle_viewer_input, this, 0, controller);
     set_movement_velocity(400.0f);
     set_rotate_velocity(120.0f);
     debug::printf("Creating shift input handlers\n)");
-    task20_ = new ViewerTask(&select_combo_task, this, 0);
-    shift_handler_ = new ViewerInputHandler(&handle_viewer_shift, this, 1000, controller);
+    task20_ = std::make_unique<ViewerTask>(&select_combo_task, this, 0);
+    shift_handler_ = std::make_unique<ViewerInputHandler>(&handle_viewer_shift, this, 1000, controller);
     sole() = this;
 }
 

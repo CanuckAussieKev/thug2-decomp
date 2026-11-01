@@ -6,6 +6,7 @@
 // and the module's own script; its logic task runs the game each frame (run_frame_logic). Its code: 0x00564C10-0x005691EF
 // (skate_module_state.cpp, skate_module_skaters.cpp, skate_rankings.cpp); the network side: skate_net.h.
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -226,7 +227,7 @@ public:
     memory::ListNode* skater_node(uint32_t index);
     objects::Rider* get_skater_at(uint32_t index);
 
-    tasks::Task<Skate>* update_job_;      // +0x14 (front_end_tick)
+    std::unique_ptr<tasks::Task<Skate>> update_job_;      // +0x14 (front_end_tick)
     tasks::Task<Skate>* server_tasks_[2]; // +0x18 (SkateNet::create_network_tasks)
     objects::RiderStoryProgress* career_; // +0x20
     objects::GrindRailHub* rail_manager_; // +0x24

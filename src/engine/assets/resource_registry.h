@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -101,7 +102,7 @@ public:
     void* callback_data1_;  // +0x30
     bool callback_once_;    // +0x34 the callback cleared after one asset
     uint8_t pad35[3];
-    tasks::SchedulerTask* task_; // +0x38 a tasks::Task<ResourceRegistry> running process_task
+    std::unique_ptr<tasks::SchedulerTask> task_; // +0x38 a tasks::Task<ResourceRegistry> running process_task
 };
 static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C &&
                   offsetof(ResourceRegistry, task_) == 0x38,

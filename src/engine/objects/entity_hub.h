@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -75,7 +76,7 @@ public:
     void flush_dead_objects();
 
     memory::ListNode dead_objects_;    // +0x28
-    tasks::Task<MiscHub>* flush_task_; // +0x3C running flush_dead_objects_task
+    std::unique_ptr<tasks::Task<MiscHub>> flush_task_; // +0x3C running flush_dead_objects_task
 };
 
 // 0x00461BB0: the task's code: FlushDeadObjects on its data (the manager).

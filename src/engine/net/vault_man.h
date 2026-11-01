@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -154,7 +155,7 @@ public:
     static int __cdecl on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length,
                                           VaultMan* vault);
 
-    tasks::SchedulerTask* task_;  // +0x000 tasks::Task<VaultMan> (vault_task)
+    std::unique_ptr<tasks::SchedulerTask> task_;  // +0x000 tasks::Task<VaultMan> (vault_task)
     int transfer_;                // +0x004 Transfer
     int progress_;                // +0x008 percent; 100 = finished
     int outcome_val_;             // +0x00C 0 running, 1 done, 2 failed

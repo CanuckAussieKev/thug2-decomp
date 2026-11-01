@@ -609,7 +609,7 @@ void log_element(const char* what, const UiWidget* element)
 void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 {
     const char* not_sent = nullptr;
-    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0];
+    modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0].get();
     if (front_end->pad_mappings_[0].mapping_ == 0)
         not_sent = "the first controller's pad mapping is inactive";
     else if (front_end->block_menu_input_)

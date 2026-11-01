@@ -3,6 +3,7 @@
 #include "engine/net/stats_man.h"
 #include "engine/net/gamespy.h"
 
+#include <memory>
 #include <windows.h>
 
 #include <cstdint>
@@ -383,7 +384,7 @@ RankingsManager* RankingsManager::make_new()
     for (TopList& list : top_lists_)
         list.make_new();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
-    task_ = new tasks::Task<RankingsManager>(&stats_task, this, 0);
+    task_ = std::make_unique<tasks::Task<RankingsManager>>(&stats_task, this, 0);
     authenticated_ = false;
     cur_phase_ = kNone;
     game_ = nullptr;
@@ -395,7 +396,7 @@ RankingsManager* RankingsManager::make_new()
 // 0x0054D610
 void RankingsManager::destroy_body()
 {
-    delete task_;
+    task_.reset();
     for (int i = 4; i >= 0; --i)
         top_lists_[i].destroy_body();
 }
@@ -412,7 +413,7 @@ void RankingsManager::log_in()
     net_session_slot()->set_room_id(id);
     ResumeThread(thread); // (never closed)
     if (!task_->is_on_task_list())
-        get_logic_tasks()->queue_job(task_);
+        get_logic_tasks()->queue_job(task_.get());
     pop_heap();
 }
 

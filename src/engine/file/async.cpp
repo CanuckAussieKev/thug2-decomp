@@ -1,5 +1,6 @@
 #include "engine/file/async.h"
 
+#include <memory>
 #include <windows.h>
 
 #include <cstddef>
@@ -649,9 +650,9 @@ void destroy_async_loader_module()
 }
 
 // 0x005B6BC0
-AsyncLoaderModule::AsyncLoaderModule() { task_ = new tasks::Task<AsyncLoaderModule>(&async_loader_task, this, 0); }
+AsyncLoaderModule::AsyncLoaderModule() { task_ = std::make_unique<tasks::Task<AsyncLoaderModule>>(&async_loader_task, this, 0); }
 
 // 0x005B6970
-void AsyncLoaderModule::start_callback() { register_logic_task(task_); }
+void AsyncLoaderModule::start_callback() { register_logic_task(task_.get()); }
 
 } // namespace file

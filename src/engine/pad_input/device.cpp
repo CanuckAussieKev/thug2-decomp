@@ -6,6 +6,7 @@
 #include "engine/net/buddy_status.h"
 
 #define DIRECTINPUT_VERSION 0x0800
+#include <memory>
 #include <windows.h>
 #include <dinput.h>
 
@@ -755,7 +756,7 @@ void InputPort::pull_data(int)
 Hub::Hub()
 {
     devs_.make_head();
-    task_ = new tasks::Task<memory::ListNode>(&process_task, &devs_, 0);
+    task_ = std::make_unique<tasks::Task<memory::ListNode>>(&process_task, &devs_, 0);
     int index = 0;
     for (int port = 0; port < 2; ++port) {
         auto* device = new InputPort(index, port, 0);
@@ -782,7 +783,7 @@ Hub::~Hub()
         delete device;
         device = next;
     }
-    delete task_;
+    task_.reset();
     stubs::return_zero(); // (a folded empty function - compiled-out code)
     if (!audio::music_off_requested())
         audio::stop_user_soundtrack();

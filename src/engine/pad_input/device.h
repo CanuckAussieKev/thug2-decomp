@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <cstddef>
 #include <cstdint>
 
@@ -148,7 +149,7 @@ public:
     void unpause_devices();
 
     memory::ListNode devs_;               // the list's head
-    tasks::Task<memory::ListNode>* task_; // running process_task with the list as its data
+    std::unique_ptr<tasks::Task<memory::ListNode>> task_; // running process_task with the list as its data
 };
 
 // (0x005BE110, the scalar deleting destructor of a device's list node - lists::Elem<Device> - is

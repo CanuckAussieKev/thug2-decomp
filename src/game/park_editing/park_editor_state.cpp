@@ -1,6 +1,7 @@
 // The park editor module's state commands (SetParkEditorState, SetParkEditorPauseMode), its constructor, its
 // singleton's Create and its logic task's code (park_editing::ParkBuilderMode, park_editor.h; 0x0058FBD0-0x005901AA).
 
+#include <memory>
 #include <cstdint>
 #include <new>
 
@@ -176,9 +177,9 @@ ParkBuilderMode::ParkBuilderMode()
     actions_ = 0;
     flag_bits_ = 0;
     // The logic task (priority 0), the display task (-1000: nothing to do) and the input handler.
-    editor_update_job_ = new ParkEditorTask(&front_end_tick, this, 0);
-    draw_job_ = new ParkEditorTask(&draw_nothing, this, -1000);
-    editor_pad_listener_ = new ParkEditorInputHandler(&process_pad_input, this, 0, 0);
+    editor_update_job_ = std::make_unique<ParkEditorTask>(&front_end_tick, this, 0);
+    draw_job_ = std::make_unique<ParkEditorTask>(&draw_nothing, this, -1000);
+    editor_pad_listener_ = std::make_unique<ParkEditorInputHandler>(&process_pad_input, this, 0, 0);
     move_speed_ = 480.0f;
     turn_speed_ = 120.0f;
     unknown64_ = 0;

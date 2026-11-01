@@ -2,6 +2,7 @@
 
 #include "engine/sys/game_module.h"
 
+#include <memory>
 #include <cstdint>
 
 #include "engine/core/manager.h"
@@ -42,7 +43,7 @@ PartUnit::~PartUnit()
 Hub* Hub::make_new()
 {
     modules_.make_head();
-    task_ = new tasks::Task<Hub>(&tick_modules, this, -1000);
+    task_ = std::make_unique<tasks::Task<Hub>>(&tick_modules, this, -1000);
     command_pending_ = false;
     return this;
 }
@@ -51,7 +52,7 @@ Hub* Hub::make_new()
 void Hub::destroy_body()
 {
     halt_every_module();
-    delete task_;
+    task_.reset();
     modules_.uncouple(); // (0x0044F360: the head's destructor is the node's)
 }
 
