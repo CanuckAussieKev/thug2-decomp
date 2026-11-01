@@ -29,10 +29,10 @@ public:
     ~RigData();
     RigData(const RigData&) = delete;
     RigData& operator=(const RigData&) = delete;
-    // 0x004A39C0: read from a .ske file in memory (+4 the flags, +8 the count, then the names, parents' names and
-    // mirror bones' names, then each bone's bind rotation (a quaternion) and translation): the inverse bind
-    // matrices built down the hierarchy, the mirror pairs found (no mirror: -1). The size and the flag aren't used.
-    // Always true.
+    // 0x004A39C0: read from a .ske file in memory (engine/gfx/skeleton_format.h: the flags, the count, the names,
+    // parents' names and mirror bones' names, then each bone's bind rotation and translation): the inverse bind
+    // matrices built down the hierarchy, the mirror pairs found (no mirror: -1). The flag isn't used; the size (not
+    // original; 0: not known) bounds the reader - a damaged skeleton has no bones. Always true.
     bool read_in(const uint32_t* buffer, uint32_t size, bool unused);
     // 0x004A2C50: bone `index`'s parent's name (0: none).
     uint32_t fetch_parent_hash(int index) { return parent_names_[index]; }

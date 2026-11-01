@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,7 @@
 #include "engine/file/bundle_format.h"
 #include "engine/file/pre_format.h"
 #include "engine/gfx/image_format.h"
+#include "engine/gfx/skeleton_format.h"
 #include "engine/gfx/texture_format.h"
 #include "engine/render/collision_format.h"
 #include "engine/util/byte_stream.h"
@@ -425,6 +427,45 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     check(!collision_format::lay_out_collision(base, short_size, &again, &cut), name + ": cut short");
 }
 
+// --- skeletons (.ske) ----------------------------------------------------------------------------------------------
+
+int g_bones = 0;
+
+void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
+{
+    util::ByteReader reader(data, size);
+    auto skeleton = std::make_unique<skeleton_format::Skeleton>();
+    if (!skeleton_format::read_skeleton(reader, skeleton.get())) {
+        check(false, name + ": skeleton");
+        return;
+    }
+    g_bones += skeleton->count;
+    check(reader.remaining() == 0, name + ": the bones end at the file's end");
+    // the original's reading in place: the flags at +4, the count at +8, then the three name arrays and the poses
+    const auto* words = reinterpret_cast<const uint32_t*>(data);
+    int count = static_cast<int>(words[2]);
+    bool same = words[1] == skeleton->flags && count == skeleton->count;
+    for (int i = 0; same && i < count; ++i) {
+        same = words[3 + i] == skeleton->names[i] && words[3 + count + i] == skeleton->parents[i] &&
+               words[3 + 2 * count + i] == skeleton->mirrors[i];
+        const auto* bind = reinterpret_cast<const float*>(words + 3 + 3 * count) + i * 8;
+        same = same && std::memcmp(bind, skeleton->poses[i].rotation, 16) == 0 &&
+               std::memcmp(bind + 4, skeleton->poses[i].translation, 16) == 0;
+    }
+    check(same, name + ": as read in place");
+    // every parent and mirror is one of the bones (the game looks them up: 0 when not found)
+    for (int i = 0; i < count; ++i) {
+        bool parent = i == 0 || skeleton->parents[i] == 0, mirror = skeleton->mirrors[i] == 0;
+        for (int j = 0; j < count; ++j) {
+            parent = parent || skeleton->names[j] == skeleton->parents[i];
+            mirror = mirror || skeleton->names[j] == skeleton->mirrors[i];
+        }
+        check(parent && mirror, name + ": bone " + std::to_string(i) + "'s parent and mirror are bones");
+    }
+    util::ByteReader cut(data, size - 1);
+    check(!skeleton_format::read_skeleton(cut, skeleton.get()), name + ": cut short");
+}
+
 } // namespace
 
 void register_check(const std::string& extension, FileCheck check_function)
@@ -440,6 +481,7 @@ int run(const std::filesystem::path& data)
     register_check(".tex", check_texture_dictionary);
     register_check(".img", check_image);
     register_check(".col", check_collision);
+    register_check(".ske", check_skeleton);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -473,6 +515,7 @@ int run(const std::filesystem::path& data)
                 g_images.files, g_images.palettized, g_images.plain, g_images.file_size_as_loaded,
                 g_images.memory_size_as_loaded);
     std::printf("collision objects: %d\n", g_collision_objects);
+    std::printf("skeleton bones: %d\n", g_bones);
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());

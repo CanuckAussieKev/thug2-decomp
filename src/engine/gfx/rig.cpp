@@ -7,9 +7,13 @@
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
+#include <memory>
 
+#include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/gfx/skeleton_format.h"
+#include "engine/util/byte_stream.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/debug_lines.h"
 #include "engine/objects/cutscene.h"
@@ -142,23 +146,29 @@ bool RigData::is_descendant(uint32_t bone, uint32_t ancestor)
 }
 
 // 0x004A39C0
-bool RigData::read_in(const uint32_t* buffer, uint32_t, bool)
+bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
 {
-    flag_bits_ = buffer[1];
-    num_ = static_cast<int>(buffer[2]);
-    const uint32_t* p = buffer + 3;
-    std::memcpy(names_, p, 4u * num_);
-    p += num_;
-    std::memcpy(parent_names_, p, 4u * num_);
-    p += num_;
-    std::memcpy(flip_names_, p, 4u * num_);
-    p += num_;
-    const auto* bind = reinterpret_cast<const float*>(p);
+    // Read through skeleton_format's reader, bounded by the file's size (0: not known). Not original - a skeleton
+    // cut short or with more than 64 bones (the arrays' size: the original copied any count into them) is read as
+    // having no bones.
+    auto skeleton = std::make_unique<skeleton_format::Skeleton>();
+    util::ByteReader reader(buffer, size ? size : util::ByteReader::kUnknownSize);
+    if (!skeleton_format::read_skeleton(reader, skeleton.get())) {
+        debug::printf("a damaged skeleton: no bones\n");
+        skeleton->count = 0;
+    }
+    flag_bits_ = skeleton->flags;
+    num_ = skeleton->count;
+    std::memcpy(names_, skeleton->names, sizeof(names_));
+    std::memcpy(parent_names_, skeleton->parents, sizeof(parent_names_));
+    std::memcpy(flip_names_, skeleton->mirrors, sizeof(flip_names_));
     inverse_bind_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(num_) << 6));
     bind_translations_ = static_cast<maths::Vec4*>(memory::alloc(static_cast<uint32_t>(num_) << 4));
-    for (int i = 0; i < num_; ++i, bind += 8) {
-        float rotation[4] = {bind[0], bind[1], bind[2], bind[3]};
-        maths::Vec4 translation = {bind[4], bind[5], bind[6], bind[7]};
+    for (int i = 0; i < num_; ++i) {
+        const skeleton_format::BindPose& bind = skeleton->poses[i];
+        float rotation[4] = {bind.rotation[0], bind.rotation[1], bind.rotation[2], bind.rotation[3]};
+        maths::Vec4 translation = {bind.translation[0], bind.translation[1], bind.translation[2],
+                                   bind.translation[3]};
         bind_translations_[i] = translation;
         maths::Mat4 matrix;
         objects::quat_to_matrix(rotation, &translation.x, &matrix.row[0].x);
