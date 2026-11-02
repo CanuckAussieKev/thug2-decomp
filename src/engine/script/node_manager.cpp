@@ -6,6 +6,8 @@
 
 #include <cstdint>
 #include <cstring>
+#include <span>
+#include <string_view>
 #include <vector>
 
 #include "engine/assets/resource_entry.h"
@@ -23,6 +25,7 @@
 #include <array>
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 
 namespace level_nodes {
 
@@ -86,28 +89,31 @@ bool is_big(const NodeManager* m) { return m == g_big_owner && !g_big_slots.empt
 class Slots {
 public:
     explicit Slots(NodeManager* m)
-        : small_(m->slots_.data()), big_(is_big(m) ? g_big_slots.data() : nullptr),
-          skip_bits_(big_ ? static_cast<uint32_t>(g_big_slots.size()) - 1 : NodeManager::kSlots - 1)
+        : small_(m->slots_), big_(is_big(m) ? std::span<BigSlot>(g_big_slots) : std::span<BigSlot>()),
+          skip_bits_(!big_.empty() ? static_cast<uint32_t>(g_big_slots.size()) - 1 : NodeManager::kSlots - 1)
     {}
     [[nodiscard]] uint32_t get_mask() const { return skip_bits_; }
     [[nodiscard]] bool vacant(uint32_t i) const { return elem(i) == -1; }
-    [[nodiscard]] int elem(uint32_t i) const { return big_ ? big_[i].list_link_ : small_[i].list_link_; }
+    [[nodiscard]] int elem(uint32_t i) const
+    {
+        return !big_.empty() ? core::at(big_, i).list_link_ : core::at(small_, i).list_link_;
+    }
     [[nodiscard]] uint32_t get_array(uint32_t i) const
     {
-        return big_ ? big_[i].element_list_ : small_[i].element_list_;
+        return !big_.empty() ? core::at(big_, i).element_list_ : core::at(small_, i).element_list_;
     }
     void assign_value(uint32_t i, uint32_t array, int node)
     {
-        if (big_)
-            big_[i] = {array, node};
+        if (!big_.empty())
+            core::at(big_, i) = {array, node};
         else
-            small_[i] = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
+            core::at(small_, i) = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
     }
     void get_clear(uint32_t i) { assign_value(i, get_array(i), -1); }
 
 private:
-    NodeSlot* small_;
-    BigSlot* big_;
+    std::span<NodeSlot> small_;
+    std::span<BigSlot> big_;
     uint32_t skip_bits_;
 };
 
@@ -401,20 +407,19 @@ bool NodeManager::remove_node_array(uint32_t name)
 bool NodeManager::remove_node_array_of_file(const char* path) { return remove_node_array(node_array_checksum(path)); }
 
 // 0x0045D2A0
-bool make_node_array_name(const char* path, char* out)
+bool make_node_array_name(const char* path, std::span<char> out)
 {
-    const char* p = path;
-    while (*p)
-        ++p;
-    --p;
-    while (*p != '\\' && *p != '/') // (no check for the start of the string)
-        --p;
-    ++p;
-    text::copy_unbounded(out, p);
-    char* extension = out;
-    while (*extension && *extension != '.')
-        ++extension;
-    std::memcpy(extension, "_nodearray", sizeof("_nodearray")); // (the original: sprintf(extension, "_nodearray"))
+    // The file's name without its folders (a path without one: the original walked back before the path's start;
+    // here the whole path is the name), cut at its first '.', then "_nodearray".
+    const std::string_view full(path);
+    const std::size_t slash = full.find_last_of("\\/");
+    const std::string_view base = slash == std::string_view::npos ? full : full.substr(slash + 1);
+    const std::string_view stem = base.substr(0, base.find('.'));
+    constexpr std::string_view kSuffix = "_nodearray";
+    core::copy_into(std::span<const char>(stem.data(), stem.size()), out.first(stem.size()));
+    const std::span<char> tail = out.subspan(stem.size(), kSuffix.size() + 1); // (the terminator too)
+    core::copy_into(std::span<const char>(kSuffix.data(), kSuffix.size()), tail.first(kSuffix.size()));
+    core::at(tail, kSuffix.size()) = '\0';
     return true;
 }
 
@@ -422,7 +427,7 @@ bool make_node_array_name(const char* path, char* out)
 uint32_t node_array_checksum(const char* path)
 {
     std::array<char, 256> name = {};
-    make_node_array_name(path, name.data());
+    make_node_array_name(path, name);
     return checksums::hash_from_text(name.data());
 }
 

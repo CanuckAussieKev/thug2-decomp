@@ -2,10 +2,12 @@
 
 #include "engine/script/node_prefixes.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -18,6 +20,8 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
+#include "engine/core/cursor.h"
 
 namespace level_nodes {
 
@@ -45,13 +49,14 @@ PrefixTables*& node_prefixes() { return g_node_prefixes; }
 // 0x0045BDA0
 void PrefixNodes::append_one(uint16_t index)
 {
-    indices_[num_] = index;
+    // (the block holds the count rounded up to the next kGrowBy)
+    core::at(std::span<uint16_t>(indices_, static_cast<std::size_t>((num_ / kGrowBy + 1) * kGrowBy)), num_) = index;
     ++num_;
     if (num_ % kGrowBy == 0) {
         uint16_t* old = indices_;
         indices_ = static_cast<uint16_t*>(memory::alloc_block((num_ + kGrowBy) * sizeof(uint16_t)));
-        for (int i = 0; i < num_; ++i)
-            indices_[i] = old[i];
+        std::ranges::copy(std::span<const uint16_t>(old, static_cast<std::size_t>(num_)),
+                          std::span<uint16_t>(indices_, static_cast<std::size_t>(num_ + kGrowBy)).begin());
         memory::free_malloc(old);
     }
 }
@@ -118,8 +123,7 @@ void PrefixTable::compact()
             break;
         uint16_t* old = nodes->indices_;
         nodes->indices_ = static_cast<uint16_t*>(memory::alloc_block(nodes->num_ * sizeof(uint16_t)));
-        for (int i = 0; i < nodes->num_; ++i)
-            nodes->indices_[i] = old[i];
+        std::ranges::copy(std::span<const uint16_t>(old, static_cast<std::size_t>(nodes->num_)), nodes->index_run().begin());
         memory::free_malloc(old);
     }
 }
@@ -146,27 +150,28 @@ void PrefixTables::add_node_array(uint32_t name)
         // part before it is a prefix (unless it's "TRG"), and both it and it with the '_' become known names; a
         // name ending in digits has the part before them as a prefix too.
         std::array<char, 1000> buffer{};
-        char* digits = nullptr;
-        for (const char* p = text; *p; ++p) {
-            char* at = buffer.data() + (p - text);
-            *at = *p;
+        std::size_t digits = buffer.size(); // (where the trailing digits start; the size: none)
+        std::size_t place = 0;
+        for (core::CStringCursor p(text); *p; ++p, ++place) {
+            char& at = core::at(buffer, place);
+            at = *p;
             const char c = *p;
             if (c < '0' || c > '9')
-                digits = nullptr;
-            else if (!digits)
-                digits = at;
+                digits = buffer.size();
+            else if (digits == buffer.size())
+                digits = place;
             if (c == '_') {
-                *at = '\0';
+                at = '\0';
                 if (_stricmp(buffer.data(), "TRG") != 0)
                     table->append_one(checksums::hash_from_text(buffer.data()), static_cast<uint16_t>(i));
                 script::register_name_hash(checksums::hash_from_text(buffer.data()), buffer.data());
-                at[0] = '_';
-                at[1] = '\0';
+                at = '_';
+                core::at(buffer, place + 1) = '\0';
                 script::register_name_hash(checksums::hash_from_text(buffer.data()), buffer.data());
             }
         }
-        if (digits) {
-            *digits = '\0';
+        if (digits != buffer.size()) {
+            core::at(buffer, digits) = '\0';
             const uint32_t prefix = checksums::hash_from_text(buffer.data());
             table->append_one(prefix, static_cast<uint16_t>(i));
             script::register_name_hash(prefix, buffer.data());
@@ -196,7 +201,7 @@ void PrefixTables::remove_node_array(uint32_t name)
 }
 
 // 0x0045BE90
-uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
+std::span<const uint32_t> PrefixTables::get_nodes(uint32_t prefix)
 {
     auto& names = node_names();
     int found = 0;
@@ -205,15 +210,14 @@ uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
         if (!nodes)
             continue;
         auto n = static_cast<uint16_t>(nodes->num_);
-        const uint16_t* indices = nodes->indices_;
+        const std::span<uint16_t> indices = nodes->index_run();
         if (!n)
             continue;
         Array* array = script::fetch_list(table->node_array_);
-        for (int i = 0; std::cmp_less(i, n); ++i) // (the buffer's size isn't checked)
-            core::at(names, found++) = get_node_name(array->struct_at(indices[i]));
+        for (int i = 0; std::cmp_less(i, n); ++i) // (the buffer's size is checked)
+            core::at(names, found++) = get_node_name(array->struct_at(core::at(indices, i)));
     }
-    *count = static_cast<uint16_t>(found);
-    return names.data();
+    return std::span<const uint32_t>(names).first(static_cast<std::size_t>(found));
 }
 
 // 0x0045C900
@@ -235,22 +239,22 @@ void add_node_array_prefixes(uint32_t name)
 void remove_node_array_prefixes(uint32_t name) { node_prefixes()->remove_node_array(name); }
 
 // 0x0045BF90
-uint32_t* collect_nodes_by_prefix(uint32_t prefix, uint16_t* count)
+std::span<const uint32_t> collect_nodes_by_prefix(uint32_t prefix)
 {
-    return node_prefixes()->get_nodes(prefix, count);
+    return node_prefixes()->get_nodes(prefix);
 }
 
 // 0x0045BFB0
-uint32_t* collect_nodes_by_prefix(const char* prefix, uint16_t* count)
+std::span<const uint32_t> collect_nodes_by_prefix(const char* prefix)
 {
     std::array<char, 100> buffer{};
     const size_t length = std::strlen(prefix);
     if (length && prefix[length - 1] == '_') {
-        std::memcpy(buffer.data(), prefix, length + 1); // (unchecked: the original's too)
+        core::copy_into(std::span<const char>(prefix, length + 1), std::span<char>(buffer).first(length + 1)); // (the original's unchecked)
         core::at(buffer, length - 1) = '\0';
         prefix = buffer.data();
     }
-    return node_prefixes()->get_nodes(checksums::hash_from_text(prefix), count);
+    return node_prefixes()->get_nodes(checksums::hash_from_text(prefix));
 }
 
 } // namespace level_nodes

@@ -157,12 +157,10 @@ bool cfunc_fake_lights(script::Struct* params, script::Script*)
     uint32_t prefix = 0;
     if (!params->hash_from_name_or_text(kPrefix, &prefix, 0))
         return false;
-    uint16_t count = 0;
     const bool is_prefix = !params->has_bare_flag(kFakeLightsExact);
     // (the original passes is_prefix too: 0x0045BF90 takes two arguments and ignores it)
     (void)is_prefix;
-    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
-    render::queue_scene_lights({nodes, count}, time, params);
+    render::queue_scene_lights(level_nodes::collect_nodes_by_prefix(prefix), time, params);
     return true;
 }
 

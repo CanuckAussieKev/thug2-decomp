@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -156,9 +157,10 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
                     auto* vertices =
                         static_cast<maths::Vec4*>(mem_manager()->carve(count * sizeof(maths::Vec4), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
-                    geom->get_vertices({vertices, static_cast<size_t>(count)});
-                    for (int i = 0; i < count; ++i)
-                        box.append_spot(vertices[i]);
+                    const std::span<maths::Vec4> vertex_run(vertices, static_cast<size_t>(count));
+                    geom->get_vertices(vertex_run);
+                    for (const maths::Vec4& vertex : vertex_run)
+                        box.append_spot(vertex);
                     mem_manager()->dealloc(vertices);
                 }
             }
@@ -187,7 +189,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
         distance = 1000.0f;
     maths::Mat4& m = camera->basis_frame_;
     for (int row = 0; row < 4; ++row) {
-        float* r = &core::at(m.row, row).x;
+        maths::Vec4& r = core::at(m.row, row);
         for (int column = 0; column < 4; ++column)
             r[column] = row == column ? 1.0f : 0.0f;
     }
@@ -201,14 +203,14 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
     turn(&maths::make_yaw_matrix, angle_y);
     turn(&maths::make_roll_matrix, angle_z);
     const double back = static_cast<double>(distance) * scale * scale;
-    const float* at = &core::at(m.row, 2).x;
-    auto bx = static_cast<float>(back * at[0]);
-    auto by = static_cast<float>(back * at[1]);
-    auto bz = static_cast<float>(back * at[2]);
+    const maths::Vec4& at = core::at(m.row, 2);
+    auto bx = static_cast<float>(back * at.x);
+    auto by = static_cast<float>(back * at.y);
+    auto bz = static_cast<float>(back * at.z);
     camera->at_point_.x = static_cast<float>(static_cast<double>(bx) + centre.x);
     camera->at_point_.y = static_cast<float>(static_cast<double>(by) + centre.y);
     camera->at_point_.z = static_cast<float>(static_cast<double>(bz) + centre.z);
-    camera->at_point_.w = static_cast<float>(back * at[3] + centre.w);
+    camera->at_point_.w = static_cast<float>(back * at.w + centre.w);
 }
 
 // 0x005A2D60: CenterCamera [scale (0.9)] [x (-45)] [y (45)] [z (0)] [id=<sector>]: the viewer's camera fitted to each
@@ -821,12 +823,10 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
         return true;
     uint32_t prefix = 0;
     if (params->hash_from_name_or_text(0x6C4E7971u, &prefix, 0)) { // "prefix"
-        uint16_t count = 0;
         const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
-        const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
-        for (int i = 0; std::cmp_less(i, count); ++i) {
-            if (node_command(nodes[i], action, script, params) && action == 5)
+        for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
+            if (node_command(node, action, script, params) && action == 5)
                 break;
         }
         return true;

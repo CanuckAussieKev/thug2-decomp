@@ -27,7 +27,10 @@
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 #include <gsl/pointers>
+#include <span>
+#include <string_view>
 
 
 namespace commands {
@@ -180,13 +183,11 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
     const char* path = nullptr;
     params->fetch_text(kPath, &path, 1);
     std::array<char, 32> name{};
-    const int length = static_cast<int>(std::strlen(path));
-    int i = length;
-    for (; i >= 0; --i)
-        if (path[i] == '/' || path[i] == '\\')
-            break;
-    for (int from = i + 1; from <= length; ++from)
-        core::at(name, from - (i + 1)) = path[from];
+    const std::string_view full(path);
+    const std::size_t slash = full.find_last_of("\\/");
+    const std::string_view base = slash == std::string_view::npos ? full : full.substr(slash + 1);
+    core::copy_into(std::span<const char>(base.data(), base.size()), std::span<char>(name).first(base.size()));
+    core::at(name, base.size()) = '\0';
     script->args_->append_word(kTexture, name.data());
     return true;
 }

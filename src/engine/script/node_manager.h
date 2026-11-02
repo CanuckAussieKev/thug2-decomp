@@ -5,6 +5,7 @@
 
 #include <gsl/pointers>
 #include <array>
+#include <span>
 #include "engine/core/mem.h"
 
 // The node arrays the level's objects come from (level_nodes::CNodeManager, a reference-counted singleton at
@@ -106,7 +107,7 @@ void use_big_name_hash(NodeManager* manager, uint32_t slots);
 
 // 0x0045D2A0 (cdecl): `out` = the file name of `path` (after its last \ or /) with its extension replaced by
 // "_nodearray" (sprintf). True.
-bool make_node_array_name(const char* path, char* out);
+bool make_node_array_name(const char* path, std::span<char> out);
 // 0x0045D310 (cdecl): the checksum of make_node_array_name(path).
 uint32_t node_array_checksum(const char* path);
 

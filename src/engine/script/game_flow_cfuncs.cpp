@@ -10,6 +10,9 @@
 #include <cstring>
 
 #include <cstdio>
+#include <iterator>
+#include <span>
+#include <string_view>
 #include <utility>
 #include <array>
 
@@ -63,6 +66,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 
 
 namespace commands {
@@ -204,7 +208,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     std::array<char, 0x400> text{};
     const int length =
         wsprintfA(text.data(), "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);          // "%4d total kb..."
-    wsprintfA(text.data() + length, "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);     // "%4d  free kb..."
+    wsprintfA(std::span(text).subspan(static_cast<std::size_t>(length)).data(), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);     // "%4d  free kb..."
     OutputDebugStringA(text.data());
     if (skate_module()->in_net_game_level())
         mem_manager()->create_net_scratch_zone();
@@ -284,15 +288,14 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     const char* prefix = nullptr;
     if (!params->fetch_text(kPrefix, &prefix, 0))
         return false;
-    uint16_t count = 0;
-    const uint32_t* nodes =
-        level_nodes::collect_nodes_by_prefix(prefix, &count); // (the original passes a third argument, 1)
+    const std::span<const uint32_t> nodes =
+        level_nodes::collect_nodes_by_prefix(prefix); // (the original passes a third argument, 1)
     command.data.value = value;
     command.data.action = action;
     command.data.found = false;
     command.data.result = false;
-    for (int i = 0; std::cmp_less(i, count); ++i) {
-        command.id = nodes[i];
+    for (const uint32_t node : nodes) {
+        command.id = node;
         object_edit()->for_each(&apply_flag_command_to_object, &command);
     }
     return command.data.result;
@@ -705,12 +708,12 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
     for (int round = 0; round < 100000; ++round) {
         std::sprintf(buffer.data(), "%d", static_cast<int>(round + checksum));
         core::at(buffer, std::strlen(buffer.data())) = 'X';
-        for (const char* c = buffer.data(); *c; ++c)
+        for (core::CStringCursor c(buffer.data()); *c; ++c)
             sum += static_cast<signed char>(*c) * 0x3FF;
         checksum = checksums::hash_from_text(buffer.data());
     }
     THUG2_MSVC_WARNING(pop)
-    const uint32_t c1 = checksums::hash_from_text(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
+    const uint32_t c1 = checksums::hash_from_text(std::next(text, static_cast<std::ptrdiff_t>(std::strlen(text) / 3))) ^ static_cast<uint32_t>(sum);
     const uint32_t c2 = checksums::hash_from_text(buffer.data()) ^ static_cast<uint32_t>(sum);
     debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2,
                   text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."

@@ -22,6 +22,7 @@
 #include "engine/gfx/engine_scene.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include <span>
 #include <vector>
 #include <utility>
 
@@ -79,19 +80,19 @@ void get_positions(void* geometry, script::VectorValue* out)
 {
     as_geom(geometry)->get_vertices({out, as_geom(geometry)->fetch_vertex_tally()}); // (x, y, z, w each)
 }
-void get_colours(void* geometry, colour::Bytes* out)
+void get_colours(void* geometry, std::span<colour::Bytes> out)
 {
     static_assert(sizeof(colour::Bytes) == sizeof(uint32_t));
     std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
     static_cast<render::Geom*>(geometry)->fetch_tints(words);
     for (size_t i = 0; i < words.size(); ++i)
-        out[i] = colour::bytes_of(core::at(words, i));
+        core::at(out, i) = colour::bytes_of(core::at(words, i));
 }
-void set_colours(void* geometry, const colour::Bytes* colours)
+void set_colours(void* geometry, std::span<const colour::Bytes> colours)
 {
     std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
     for (size_t i = 0; i < words.size(); ++i)
-        core::at(words, i) = colour::packed_of(colours[i]);
+        core::at(words, i) = colour::packed_of(core::at(colours, i));
     as_geom(geometry)->change_colors(words);
 }
 
@@ -228,11 +229,12 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
         if (!count)
             return;
         // (the original runs an empty constructor over the array: 0x005902E0)
-        auto* colours = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
+        auto* colour_block = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
+        const std::span<colour::Bytes> colours(colour_block, static_cast<std::size_t>(count));
         get_colours(geometry, colours);
         if (target != 0.0f || factor != 0.0f) {
             for (int i = 0; i < count; ++i) {
-                colour::Bytes& colour = colours[i];
+                colour::Bytes& colour = core::at(colours, i);
                 // x87: in double, rounded only by the truncation
                 for (int channel = 0; channel < 3; ++channel)
                     core::at(colour, channel) =
@@ -240,7 +242,7 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
             }
         }
         set_colours(geometry, colours);
-        memory::dealloc(colours);
+        memory::dealloc(colour_block);
     });
 }
 
@@ -276,13 +278,15 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
         if (!count)
             return;
         // (the original runs an empty constructor over both arrays: 0x005902E0)
-        auto* positions = static_cast<script::VectorValue*>(memory::alloc(static_cast<unsigned int>(count) * 16));
-        auto* colours = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
-        get_positions(geometry, positions);
+        auto* position_block = static_cast<script::VectorValue*>(memory::alloc(static_cast<unsigned int>(count) * 16));
+        auto* colour_block = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
+        const std::span<script::VectorValue> positions(position_block, static_cast<std::size_t>(count));
+        const std::span<colour::Bytes> colours(colour_block, static_cast<std::size_t>(count));
+        get_positions(geometry, position_block);
         get_colours(geometry, colours);
         for (int i = 0; i < count; ++i) {
-            const script::VectorValue& position = positions[i];
-            colour::Bytes& colour = colours[i];
+            const script::VectorValue& position = core::at(positions, i);
+            colour::Bytes& colour = core::at(colours, i);
             auto hash = static_cast<uint32_t>(ftol(static_cast<double>(position.x) * 16.0)) *
                         static_cast<uint32_t>(ftol(static_cast<double>(position.y) * 16.0));
             hash = (hash ^ static_cast<uint32_t>(ftol(static_cast<double>(position.z) * 16.0))) & 0x7FFF;
@@ -296,8 +300,8 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
             std::get<2>(colour) = channel_byte(blue);
         }
         set_colours(geometry, colours);
-        memory::dealloc(positions);
-        memory::dealloc(colours);
+        memory::dealloc(position_block);
+        memory::dealloc(colour_block);
     });
 }
 

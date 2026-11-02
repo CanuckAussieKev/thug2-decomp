@@ -26,6 +26,7 @@
 #include "engine/objects/stream_component.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
+#include <span>
 
 
 namespace commands {
@@ -59,9 +60,9 @@ void toggle_metrics_display() { render::engine::toggle_metrics(); }
 // `count` bytes as "%02x " each, then a new line.
 void print_bytes(const void* data, int count)
 {
-    auto* bytes = static_cast<const uint8_t*>(data);
-    for (int i = 0; i < count; ++i)
-        debug::printf("%02x ", bytes[i]);
+    const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data), static_cast<std::size_t>(count));
+    for (const uint8_t byte : bytes)
+        debug::printf("%02x ", byte);
     debug::printf("\n");
 }
 
@@ -131,10 +132,9 @@ bool cfunc_load_qb(script::Struct* params, script::Script*)
         load_qb_file(name, false);
         return true;
     }
-    uint32_t* files = level_specific_qb_files().data();
-    for (int i = 0; i < kLevelSpecificQbFiles; ++i) {
-        if (!files[i]) {
-            files[i] = checksums::hash_from_text(name);
+    for (uint32_t& file : level_specific_qb_files()) {
+        if (!file) {
+            file = checksums::hash_from_text(name);
             break;
         }
     }
@@ -149,10 +149,9 @@ bool cfunc_unload_qb(script::Struct* params, script::Script*)
     params->fetch_text(0u, &name, 0);
     const uint32_t checksum = checksums::hash_from_text(name);
     unload_qb_file(checksum);
-    uint32_t* files = level_specific_qb_files().data();
-    for (int i = 0; i < kLevelSpecificQbFiles; ++i) {
-        if (files[i] == checksum)
-            files[i] = 0;
+    for (uint32_t& file : level_specific_qb_files()) {
+        if (file == checksum)
+            file = 0;
     }
     return true;
 }

@@ -395,7 +395,7 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
 {
     source_path_ = checksums::hash_from_text(args_);
     std::array<char, 128> array_name{};
-    level_nodes::make_node_array_name(args_, array_name.data());
+    level_nodes::make_node_array_name(args_, array_name);
     parse_qb_file(args_, buffer, size);
     level_nodes::node_manager_instance()->add_node_array(level_nodes::node_array_checksum(args_), owned_);
     script::free_script_checksum_names();

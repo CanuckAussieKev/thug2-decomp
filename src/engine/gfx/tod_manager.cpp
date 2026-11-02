@@ -467,11 +467,9 @@ void CtodManager::build_tod_objects(script::Struct* params, script::Script* /*sc
         return;
     // (NoPrefixWarning: passed on as the third argument of 0x0045BF90, which doesn't use it)
     params->has_bare_flag(kNoPrefixWarning);
-    uint16_t count = 0;
-    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
-    for (int i = 0; std::cmp_less(i, count); ++i) {
-        if (!dead_objects_->fetch_entry(nodes[i]))
-            create_from_node(nodes[i]);
+    for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
+        if (!dead_objects_->fetch_entry(node))
+            create_from_node(node);
     }
 }
 
@@ -809,11 +807,9 @@ void CtodManager::mark_permanently_dead(script::Struct* params)
     if (!params->hash_from_name_or_text(kPrefix, &prefix, 0))
         return;
     params->has_bare_flag(kNoPrefixWarning); // (see build_tod_objects)
-    uint16_t count = 0;
-    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
-    for (int i = 0; std::cmp_less(i, count); ++i) {
-        if (!dead_objects_->fetch_entry(nodes[i]))
-            dead_objects_->store_entry(nodes[i], this);
+    for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
+        if (!dead_objects_->fetch_entry(node))
+            dead_objects_->store_entry(node, this);
     }
 }
 

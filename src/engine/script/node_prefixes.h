@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 // The nodes by name prefix (level_nodes): when a node array is added, each node name's prefixes - the part before
 // each '_' (but not "TRG") and the name without its trailing digits - get the node's index, in one table per node
@@ -19,6 +20,8 @@ struct PrefixNodes {
 
     int num_;
     uint16_t* indices_;
+    // NOT ORIGINAL: the indices as a run of num_.
+    [[nodiscard]] std::span<uint16_t> index_run() const { return {indices_, static_cast<std::size_t>(num_)}; }
     uint32_t name_prefix_;
 };
 static_assert(sizeof(PrefixNodes) == 0xC, "allocated as 0xC bytes");
@@ -50,7 +53,7 @@ struct PrefixTables {
     void remove_node_array(uint32_t name);
     // 0x0045BE90: the names of the nodes with `prefix` in every node array (in a static buffer; `count` = how
     // many).
-    uint32_t* get_nodes(uint32_t prefix, uint16_t* count);
+    std::span<const uint32_t> get_nodes(uint32_t prefix);
 
     PrefixTable* first_ptr_;
 };
@@ -62,8 +65,8 @@ void add_node_array_prefixes(uint32_t name);
 // 0x0045CE40: remove_node_array(name).
 void remove_node_array_prefixes(uint32_t name);
 // 0x0045BF90: get_nodes on the instance.
-uint32_t* collect_nodes_by_prefix(uint32_t prefix, uint16_t* count);
+std::span<const uint32_t> collect_nodes_by_prefix(uint32_t prefix);
 // 0x0045BFB0: the same by text (a trailing '_' is dropped) [the name is copied to 100 bytes unchecked].
-uint32_t* collect_nodes_by_prefix(const char* prefix, uint16_t* count);
+std::span<const uint32_t> collect_nodes_by_prefix(const char* prefix);
 
 } // namespace level_nodes
