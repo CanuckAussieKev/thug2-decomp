@@ -432,7 +432,7 @@ void PedestrianBrainModule::end_grind(script::Struct*)
 void PedestrianBrainModule::get_jump(script::Struct* node, bool vert)
 {
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
-    script::Struct* params = nullptr;
+    gsl::owner<script::Struct*> params = nullptr;
     uint32_t state = 0;
     if (vert) {
         flag_bits_ &= ~kPedFlagMoving;
@@ -483,7 +483,7 @@ void PedestrianBrainModule::manual_down(script::Struct* node)
 // 0x004F1CE0
 void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
 {
-    script::Struct* params = nullptr;
+    gsl::owner<script::Struct*> params = nullptr;
     if (vert) {
         flag_bits_ &= ~kPedFlagMoving;
         params = leap_node_params(node, vert);

@@ -116,7 +116,7 @@ void ObjectProximityComponent::tick_frame()
     bool dead = false;
     auto event = [this](uint32_t type, script::Struct* data) { entity_->post_own_event(type, data); };
     auto new_data = []() {
-        script::Struct* data = script::spawn_param_bag();
+        gsl::owner<script::Struct*> data = script::spawn_param_bag();
         return data ? memory::construct_in<script::Struct>(data) : nullptr;
     };
     auto delete_data = [](script::Struct* data) {

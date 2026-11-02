@@ -314,7 +314,7 @@ void EngineAudioModule::update_collide_sound()
     collide_time_ = get_now(frame_clock::game_clock_elapsed());
 
     // The skater told how hard (0-1). (Out of memory, the original adds to a null structure - kept.)
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->push_float(0x29461E27, level);

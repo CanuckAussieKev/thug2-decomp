@@ -119,7 +119,7 @@ void ImpactDestructModule::tick_frame()
                 static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset + static_cast<int>(kDyingTime));
             if (on_collide_script_) {
                 maths::Vec4 point = feeler.contact_pos_;
-                script::Struct* params = script::spawn_param_bag();
+                gsl::owner<script::Struct*> params = script::spawn_param_bag();
                 if (params)
                     new (params) script::Struct;
                 params->put_vec3(kPos, *&point);

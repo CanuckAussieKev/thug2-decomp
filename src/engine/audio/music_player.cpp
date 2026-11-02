@@ -25,6 +25,7 @@
 #include "engine/objects/stream_component.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace audio {
 
@@ -108,7 +109,7 @@ void start_track(Playlist& list, int track)
 {
     play_track(core::at(list.tracks, track).data(), false);
     current_track() = track;
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     params = params ? new (params) script::Struct : nullptr;
     params->put_int(0x8D02705Du, current_track());
     script::launch_script(0x300CAD34u, params, nullptr, false, nullptr);

@@ -67,7 +67,7 @@ bool UserClipKey::process_if_active(void* object)
 bool CameraFovKey::work_on(void* camera)
 {
     read_debug_global();
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     params->push_float(0u, field_of_view_);
     script::launch_script(kSetHfovRadians, params, static_cast<objects::Entity*>(camera), false, nullptr);
@@ -171,7 +171,7 @@ void AnimScriptKey::assign_value(int frame, uint32_t event, script::Struct* para
     tick_ = frame;
     armed_ = false;
     kind_tag_ = event;
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     call_args_ = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     call_args_->append_structure_if_any(params);
 }

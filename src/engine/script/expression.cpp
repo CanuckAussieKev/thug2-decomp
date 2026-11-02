@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <gsl/pointers>
 
 
 namespace script {
@@ -77,7 +78,7 @@ Vector* new_result_vector()
 Struct* new_result_structure()
 {
     set_result_type(kQbvalStruct);
-    Struct* structure = spawn_param_bag();
+    gsl::owner<Struct*> structure = spawn_param_bag();
     structure = structure ? new (structure) script::Struct : nullptr;
     get_result().value.set_structure(structure);
     return structure;
@@ -143,7 +144,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
             to->type_and_flag_ = static_cast<uint8_t>((to->type_and_flag_ & 1) | (kQbvalStructRef << 1));
             to->value.set_word(array->fetch_part(index));
         } else {
-            Struct* structure = spawn_param_bag();
+            gsl::owner<Struct*> structure = spawn_param_bag();
             to->value.set_structure(structure ? memory::construct_in<script::Struct>(structure) : nullptr);
             to->value.structure()->append_structure_if_any(array->struct_at(index));
         }
@@ -153,7 +154,7 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
             to->type_and_flag_ = static_cast<uint8_t>((to->type_and_flag_ & 1) | (kEsymboltypeArraypointer << 1));
             to->value.set_word(array->fetch_part(index));
         } else {
-            Array* copy = alloc_script_array();
+            gsl::owner<Array*> copy = alloc_script_array();
             to->value.set_array(copy ? memory::construct_in<script::Array>(copy) : nullptr);
             duplicate_array(to->value.array(), array->array_at(index));
         }
@@ -537,7 +538,7 @@ void ValueResolver::execute()
                     "Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
                 break;
             }
-            Array* array = alloc_script_array();
+            gsl::owner<Array*> array = alloc_script_array();
             array = array ? new (array) script::Array : nullptr;
             set_result_type(kQbvalArray);
             result.value.set_array(array);

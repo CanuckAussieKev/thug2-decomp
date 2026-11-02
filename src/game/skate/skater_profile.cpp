@@ -370,7 +370,7 @@ bool RiderIdentity::get_reset(script::Struct* params)
     reset_appearance(this);
     script::Struct* mine = details_params();
     mine->get_clear();
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     mine->append_struct_ref(
         kTrickStyle, memory ? memory::construct_in<script::Struct>(memory) : nullptr);
     memory = script::spawn_param_bag();

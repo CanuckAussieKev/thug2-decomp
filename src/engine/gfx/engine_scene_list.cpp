@@ -25,6 +25,7 @@
 #include "platform/code_address.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/pc_scene.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -241,14 +242,14 @@ bool cfunc_toggle_add_scenes(script::Struct* /*params*/, script::Script* /*scrip
 void get_scene_debug_info(script::Struct* info)
 {
     if (get_main_scene()) {
-        script::Struct* main = script::spawn_param_bag();
+        gsl::owner<script::Struct*> main = script::spawn_param_bag();
         if (main)
             new (main) script::Struct;
         get_main_scene()->fetch_diagnostics(main);
         info->append_struct_ref(0x9B10525Cu, main);
     }
     if (get_sky_scene()) {
-        script::Struct* sky = script::spawn_param_bag();
+        gsl::owner<script::Struct*> sky = script::spawn_param_bag();
         if (sky)
             new (sky) script::Struct;
         get_sky_scene()->fetch_diagnostics(sky);

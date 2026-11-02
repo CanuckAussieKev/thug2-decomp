@@ -21,6 +21,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -129,7 +130,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
     script::Struct* points = nullptr;
     bool made = false;
     if (!script->args_->read_sub_struct(kCurrentFacePoints, &points, 0)) {
-        script::Struct* memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         points = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         made = true;
     }
@@ -321,7 +322,7 @@ bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     // (the original checked the appearance structure's address - the profile's +0x4C - for null: never true)
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     copy->append_structure_if_any(appearance_structure(profile));
     script->args_->append_struct_ref("profile", copy);
@@ -360,7 +361,7 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script*)
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = appearance_part(profile, part);
     if (!slot) {
-        script::Struct* memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         slot = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         appearance_structure(profile)->append_struct_ref(part, slot);
     }

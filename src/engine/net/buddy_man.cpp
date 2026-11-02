@@ -548,7 +548,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             buddy->pending_ = false;
             prefs::Preferences* prefs = net_session_slot()->get_online_settings();
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
-            script::Array* memory = script::alloc_script_array();
+            gsl::owner<script::Array*> memory = script::alloc_script_array();
             script::Array* buddies = memory ? memory::construct_in<script::Array>(memory) : nullptr;
             buddies->configure_size_kind(old->extent_ + 1, script::kQbvalStruct);
             uint32_t i = 0;

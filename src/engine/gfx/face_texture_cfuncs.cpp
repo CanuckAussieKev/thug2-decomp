@@ -17,6 +17,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -88,7 +89,7 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // A new integer array for the converted colour: 3 elements, or 4 with the source's fourth copied.
 Array* new_colour_array(Array* source)
 {
-    Array* memory = script::alloc_script_array();
+    gsl::owner<Array*> memory = script::alloc_script_array();
     Array* colour = memory ? new (memory) script::Array : nullptr;
     if (source->extent_ == 4) {
         colour->configure_size_kind(4, script::kQbvalInteger);

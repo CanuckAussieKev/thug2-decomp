@@ -24,6 +24,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -188,7 +189,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
             if (!entry.used)
                 continue;
             any = true;
-            Struct* memory = script::spawn_param_bag();
+            gsl::owner<Struct*> memory = script::spawn_param_bag();
             Struct* swap = memory ? new (memory) script::Struct : nullptr;
             swap->put_name_key(kObj1, entry.key);
             swap->put_name_key(kObj2, entry.value);

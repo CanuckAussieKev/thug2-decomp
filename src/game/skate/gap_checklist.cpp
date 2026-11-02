@@ -289,7 +289,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
         script->args_->put_int(kGapsFoundCount, count);
         return false;
     }
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* list = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     list->configure_size_kind(count, script::kQbvalStruct);
     int got = 0;

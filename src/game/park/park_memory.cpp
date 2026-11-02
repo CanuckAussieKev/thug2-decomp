@@ -18,6 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace park_editing {
 
@@ -232,10 +233,10 @@ void power_down()
 // 0x0059E5C0
 int get_memory_value(const char* name, int index)
 {
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
-    script::Struct* results = script::spawn_param_bag();
+    gsl::owner<script::Struct*> results = script::spawn_param_bag();
     if (results)
         new (results) script::Struct;
     int value = 0;

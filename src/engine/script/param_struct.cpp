@@ -547,16 +547,16 @@ void free_string(char* string)
 }
 
 // 0x00409030 / 0x00409070
-Struct* spawn_param_bag() { return struct_pools().allocate<Struct>(); }
+gsl::owner<Struct*> spawn_param_bag() { return struct_pools().allocate<Struct>(); }
 
 gsl::owner<Struct*> new_struct()
 {
-    Struct* memory = spawn_param_bag();
+    gsl::owner<Struct*> memory = spawn_param_bag();
     return memory ? memory::construct_in<Struct>(memory) : nullptr;
 }
 gsl::owner<Array*> new_array()
 {
-    Array* memory = alloc_script_array();
+    gsl::owner<Array*> memory = alloc_script_array();
     return memory ? memory::construct_in<Array>(memory) : nullptr;
 }
 void free_struct(gsl::owner<Struct*> structure)
@@ -576,7 +576,7 @@ void free_array(gsl::owner<Array*> array)
 }
 void delete_struct(Struct* structure) { struct_pools().dealloc(structure); }
 // 0x00408F90 / 0x00408FD0
-Array* alloc_script_array() { return array_pools().allocate<Array>(); }
+gsl::owner<Array*> alloc_script_array() { return array_pools().allocate<Array>(); }
 void delete_array(Array* array) { array_pools().dealloc(array); }
 void free_component(Component* component) { component_pools().dealloc(component); }
 
@@ -748,7 +748,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
             dest->value.set_structure(source->value.structure());
             break;
         }
-        Struct* structure = spawn_param_bag();
+        gsl::owner<Struct*> structure = spawn_param_bag();
         if (structure)
             new (structure) script::Struct;
         dest->value.set_structure(structure);
@@ -760,7 +760,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
     }
     case kQbvalArray: {
         if (!reference) {
-            Array* array = alloc_script_array();
+            gsl::owner<Array*> array = alloc_script_array();
             if (array)
                 new (array) script::Array;
             dest->value.set_array(array);
@@ -1077,7 +1077,7 @@ void Struct::append_struct_ref(const char* name, Struct* value)
 void Struct::put_sub_struct(uint32_t name, Struct* value)
 {
     gsl::owner<Component*> component = new_typed_component(name, kQbvalStruct);
-    Struct* copy = spawn_param_bag();
+    gsl::owner<Struct*> copy = spawn_param_bag();
     if (copy)
         new (copy) script::Struct;
     component->value.set_structure(copy);
@@ -1328,7 +1328,7 @@ void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_
         case kQbvalStruct:
             if (!element.empty()) {
                 Struct* from = element.structure();
-                Struct* structure = spawn_param_bag();
+                gsl::owner<Struct*> structure = spawn_param_bag();
                 if (structure)
                     new (structure) script::Struct;
                 if (from != structure) {

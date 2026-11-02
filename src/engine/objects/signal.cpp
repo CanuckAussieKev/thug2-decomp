@@ -45,7 +45,7 @@ void tracker_log_event_read(Signal* event, uint32_t how, uint32_t script)
 // `new CStruct` / `new CStruct(*source)` (null if the pool is full) and `delete structure`.
 Struct* new_struct_copy(Struct* source)
 {
-    Struct* structure = script::spawn_param_bag();
+    gsl::owner<Struct*> structure = script::spawn_param_bag();
     return structure ? structure->init_copy(source) : nullptr;
 }
 // An entry's parameters go (and the pointer is cleared).

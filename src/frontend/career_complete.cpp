@@ -20,6 +20,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::career_complete {
 
@@ -64,7 +65,7 @@ void store_beaten_goal(script::Struct* saved, uint32_t name, int level, uint32_t
     script::Struct* old = nullptr;
     if (saved->read_sub_struct(name, &old, 0) && old)
         old->fetch_int_value(kRecord, &record, 0);
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* goal = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     if (!goal)
         return;

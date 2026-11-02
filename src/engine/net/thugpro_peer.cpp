@@ -374,7 +374,7 @@ public:
 private:
     static script::Struct* new_params()
     {
-        script::Struct* params = script::spawn_param_bag();
+        gsl::owner<script::Struct*> params = script::spawn_param_bag();
         return params ? memory::construct_in<script::Struct>(params) : nullptr;
     }
     static void delete_params(script::Struct* params)

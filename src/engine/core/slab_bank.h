@@ -4,6 +4,7 @@
 #include <new>
 #include <utility>
 #include <array>
+#include <gsl/pointers>
 
 namespace memory {
 
@@ -32,7 +33,7 @@ public:
     int num_;
     int slot_bytes_;
     int taken_count_;
-    FreeSlot* free_list_;
+    gsl::owner<FreeSlot*> free_list_;
     std::array<char, 64> label_{};
     int peak_used_;
 };

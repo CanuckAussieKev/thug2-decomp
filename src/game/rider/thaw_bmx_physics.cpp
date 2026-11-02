@@ -46,6 +46,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace skater::thaw_bmx {
 
@@ -918,7 +919,7 @@ void manual_pitch(SkaterPhysicsModule* core)
         break;
     case bike::ManualEvent::kEnterEndo: {
         state.endo_velocity_ = object->vel_;
-        script::Struct* params = script::spawn_param_bag();
+        gsl::owner<script::Struct*> params = script::spawn_param_bag();
         params->put_int(kEndo, 1);
         run_bike_script(core, kEnterNoseManualScript, params);
         script::delete_struct(params);

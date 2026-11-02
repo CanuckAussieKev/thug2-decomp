@@ -287,7 +287,7 @@ void EffectsDirector::retire_particle(Sparkle* particle)
         if (node == systems_.head)
             return;
     }
-    auto* found = node->value;
+    gsl::owner<Sparkle*> found = memory::adopt<Sparkle*>(node->value);
     found->get_release();
     delete found;
     if (node != systems_.head) {
@@ -331,7 +331,7 @@ void EffectsDirector::kill_every_particle()
 {
     for (const auto* node = systems_.first(); node != systems_.head;
          node = node->next) {
-        auto* particle = node->value;
+        gsl::owner<Sparkle*> particle = memory::adopt<Sparkle*>(node->value);
         particle->get_release();
         delete particle;
     }

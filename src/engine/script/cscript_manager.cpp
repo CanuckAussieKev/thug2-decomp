@@ -38,6 +38,7 @@
 #include "wire/play_messages.h"
 #include "engine/core/pointer_cell.h"
 #include "platform/code_address.h"
+#include <gsl/pointers>
 
 
 namespace script {
@@ -176,7 +177,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
                                                 (pause_with_object ? kScriptFlagPauseWithObject : 0));
     if (callback) {
         script->on_finish_script_ = callback;
-        Struct* copy = spawn_param_bag();
+        gsl::owner<Struct*> copy = spawn_param_bag();
         copy = copy ? new (copy) script::Struct : nullptr;
         script->callback_params_ = copy;
         if (callback_params)

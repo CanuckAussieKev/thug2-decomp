@@ -56,7 +56,7 @@ bool is_squad_match() { return goals::g_game_mode->is_squad_match() != 0; }
 // `name` run with a structure holding only id = `label_id`.
 void run_with_label_id(uint32_t name, uint32_t label_id)
 {
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
     params->put_name_key(kId, label_id);
@@ -107,7 +107,7 @@ void RiderOverheadTag::tick_frame()
         return;
     }
     const float height = find_own_player_record() == player ? kLocalHeight : kOtherHeight;
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
     params->put_name_key(kId, label_id_);

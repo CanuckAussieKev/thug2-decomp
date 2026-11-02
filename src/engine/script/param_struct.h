@@ -223,9 +223,9 @@ inline StructPtr make_struct() { return StructPtr(new_struct()); }
 inline ArrayPtr make_array() { return ArrayPtr(new_array()); }
 
 // The pooled allocations of the script's value objects.
-Struct* spawn_param_bag();
+gsl::owner<Struct*> spawn_param_bag();
 void delete_struct(Struct* structure);
-Array* alloc_script_array();
+gsl::owner<Array*> alloc_script_array();
 void delete_array(Array* array);
 void free_component(Component* component);
 // A new, empty component (from the component pool).

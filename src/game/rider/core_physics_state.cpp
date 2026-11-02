@@ -278,7 +278,7 @@ void SkaterPhysicsModule::update_special_time()
         score->focus_time_limit_ = score->focus_time_limit_ - frame_length_;
         return;
     }
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     params = params ? new (params) script::Struct : nullptr;
     params->put_name_key(kTimeLimit, 1);
     script::launch_script(kKillSpecial, params, skater_object(this), false, nullptr);

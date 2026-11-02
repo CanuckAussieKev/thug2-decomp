@@ -917,7 +917,7 @@ void TrickBeatGoal::reset_clock() { last_time_ = game_clock(); }
 // 0x00574C40
 TrickBeatGoal::TrickBeatGoal(script::Struct* params) : Objective(params)
 {
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     pattern_ = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     pattern_->configure_size_kind(kBeats, script::kQbvalStruct);
     script::Array* pattern = nullptr;

@@ -17,6 +17,7 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/down_cast.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -74,7 +75,7 @@ uint32_t movie_key_from_params(script::Struct* params, int assert)
 // 0x005ADF60
 CutsceneDestroyEntry::CutsceneDestroyEntry()
 {
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     args_ = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 

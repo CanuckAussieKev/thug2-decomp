@@ -459,7 +459,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
     }
     if (!count)
         return;
-    script::Array* goals = script::alloc_script_array();
+    gsl::owner<script::Array*> goals = script::alloc_script_array();
     goals = goals ? new (goals) script::Array : nullptr;
     goals->configure_size_kind(count, script::kQbvalStruct);
     uint32_t index = 0;
@@ -478,7 +478,7 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
 {
     // (sized by the complete goals, filled with every used one: as the original)
     auto count = static_cast<uint32_t>(count_complete_goals(level));
-    script::Array* goals = script::alloc_script_array();
+    gsl::owner<script::Array*> goals = script::alloc_script_array();
     goals = goals ? new (goals) script::Array : nullptr;
     goals->configure_size_kind(count, script::kQbvalStruct);
     uint32_t index = 0;
@@ -609,7 +609,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
     const int count = count_complete_goals(level);
     if (!count)
         return true;
-    script::Array* goals = script::alloc_script_array();
+    gsl::owner<script::Array*> goals = script::alloc_script_array();
     goals = goals ? new (goals) script::Array : nullptr;
     goals->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     uint32_t index = 0;

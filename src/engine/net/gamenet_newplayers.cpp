@@ -89,7 +89,7 @@ int skater_count(modules::Skate* skate)
 void Hub::add_new_player(JoinerRecord* info)
 {
     modules::Skate* skate = skate_module();
-    objects::Entity* skater = nullptr;
+    gsl::owner<objects::Entity*> skater = nullptr;
     auto obj_id = static_cast<int8_t>(info->entity_key_);
     const uint32_t flags = info->flag_bits_;
     if (!(flags & kNewObserver)) {

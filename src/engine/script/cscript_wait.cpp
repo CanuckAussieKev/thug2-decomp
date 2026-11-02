@@ -53,7 +53,7 @@ gsl::owner<SignalRouteTable*> new_event_handler_table()
 // A new, empty structure.
 Struct* new_empty_struct()
 {
-    Struct* structure = spawn_param_bag();
+    gsl::owner<Struct*> structure = spawn_param_bag();
     if (structure)
         new (structure) script::Struct;
     return structure;

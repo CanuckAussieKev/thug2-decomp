@@ -26,6 +26,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -361,7 +362,7 @@ void clear_scene_light_queue()
 void queue_scene_lights(const uint32_t* nodes, int count, int frames, script::Struct* params)
 {
     clear_scene_light_queue();
-    script::Struct* copy = script::spawn_param_bag();
+    gsl::owner<script::Struct*> copy = script::spawn_param_bag();
     if (copy)
         new (copy) script::Struct;
     queue_params() = copy;

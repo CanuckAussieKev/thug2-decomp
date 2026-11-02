@@ -190,7 +190,7 @@ void TextureSet::drop_textures(bool all)
     table->iter_item_ = nullptr;
     if (!table->step_iterator() || !table->iter_item_)
         return;
-    auto* texture = static_cast<BitmapTexture*>(table->iter_item_->value);
+    gsl::owner<BitmapTexture*> texture = memory::adopt<BitmapTexture*>(table->iter_item_->value);
     while (texture) {
         BitmapTexture* next = nullptr;
         if (textures_->step_iterator() && textures_->iter_item_)

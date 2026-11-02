@@ -286,7 +286,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     for (int i = 0; i < 10; ++i)
         core::at(stats, i) = profile->fetch_tally(core::at(kStats, i));
     const int max_specials = profile->get_max_specials();
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* specials = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     specials->append_structure_if_any(profile->get_specials());
     script::Struct* info = nullptr;

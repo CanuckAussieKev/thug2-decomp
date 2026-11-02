@@ -7,6 +7,7 @@
 #include "engine/core/manager.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/gap_entry.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -34,7 +35,7 @@ TrickListEntry::TrickListEntry()
     trick_count_ = 0;
     spin_ = 0;
     perfect_ = false;
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     element_list_ = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     tricks_count_ = 0;
     taps_ = 0;

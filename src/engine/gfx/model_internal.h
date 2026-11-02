@@ -15,6 +15,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/net/buddy_status.h"
 #include "engine/gfx/pc_mesh.h"
+#include <gsl/pointers>
 
 namespace render::model_geoms {
 

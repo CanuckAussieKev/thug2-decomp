@@ -24,6 +24,7 @@
 #include "engine/objects/entity_hub.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -352,7 +353,7 @@ void GameEntity::create_component_from_structure(Struct* params, Struct* extra)
         component->configure_from_data(params);
         return;
     }
-    Struct* memory = script::spawn_param_bag();
+    gsl::owner<Struct*> memory = script::spawn_param_bag();
     Struct* merged = memory ? new (memory) script::Struct : nullptr;
     merged->merge_structure(params);
     merged->merge_structure(extra);

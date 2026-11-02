@@ -51,6 +51,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -441,7 +442,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     if (start.time_limit == 0 && start.game_type != kNetGoalAttack) {
         victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
         if (start.game_type != kFirefight && start.game_type != kNetFirefight) {
-            script::Array* conditions = script::alloc_script_array();
+            gsl::owner<script::Array*> conditions = script::alloc_script_array();
             conditions = conditions ? new (conditions) script::Array : nullptr;
             script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
             auto* condition = conditions->struct_at(0);
@@ -451,7 +452,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     } else {
         victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, start.time_limit);
         if (start.game_type == kNetCtf) {
-            script::Array* conditions = script::alloc_script_array();
+            gsl::owner<script::Array*> conditions = script::alloc_script_array();
             conditions = conditions ? new (conditions) script::Array : nullptr;
             script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
             victory->append_array_value(kVictoryConditions, conditions);

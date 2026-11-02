@@ -28,6 +28,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace skater {
 
@@ -392,7 +393,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     drop_last_matrix_ = start;
 
     // SkaterAcidDropTriggered with DropHeight (how far above the hit's height the skater is).
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     params = params ? new (params) script::Struct : nullptr;
     params->push_float(kDropHeight, static_cast<float>(entity_->at_point_.y - static_cast<double>(drop->hit_height_)));
     skater_object(this)->start_script_task(kAcidDropTriggered, -1, false, false, params);

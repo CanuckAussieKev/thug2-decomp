@@ -143,7 +143,7 @@ void CinematicTable::add_objects(script::Struct* params)
     bool wants_skater = false; // (an object of kind 0x6218C3C9: script 0xF37D9F53 runs...)
     bool has_skater = false;   // (...unless a skater object was added)
     for (uint32_t i = 0; i < objects->extent_; ++i) {
-        auto* object = objects->struct_at(i);
+        script::Struct* object = objects->struct_at(i);
         gsl::owner<script::Struct*> params2 = make_struct();
         uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
         bool is_skater = false, is_skater2 = false, special = false;

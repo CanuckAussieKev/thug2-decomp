@@ -28,7 +28,7 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
     peak_used_ = 0;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     // Link every item to the next (from the last, which ends the list); the first heads it.
-    FreeSlot* next = nullptr;
+    gsl::owner<FreeSlot*> next = nullptr;
     for (int i = num_ - 1; i >= 0; --i)
         next = memory::construct_in<FreeSlot>(block + i * slot_bytes_, next);
     free_list_ = next;

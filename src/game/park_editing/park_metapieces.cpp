@@ -17,6 +17,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace park_editing {
 
@@ -294,7 +295,7 @@ void PieceGroup::get_piece_list(script::Array* out)
     out->configure_size_kind(filled_slots_, script::kQbvalStruct);
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
-        script::Struct* memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         piece->put_name_key(0u, entry->name_); // (out of memory crashes, as in the original)
         maths::Vec4 position;

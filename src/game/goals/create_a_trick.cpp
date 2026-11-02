@@ -15,6 +15,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -48,7 +49,7 @@ CreateATrick::CreateATrick()
 {
     debug::printf("creating a CCreateATrick\n");                               // "creating a CCreateATrick\n"
     script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     other_params_ = params ? memory::construct_in<script::Struct>(params) : nullptr;
     other_params_->append_structure_if_any(other);
     script::Array* rotations = script::fetch_list("Default_CAT_rotation_info"); // "Default_CAT_rotation_info"

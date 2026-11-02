@@ -41,7 +41,7 @@ char* created_goal_name() { return g_created_goal_name.data(); } // the shared C
 
 script::Array* new_array_of(uint32_t size, uint32_t type)
 {
-    script::Array* array = script::alloc_script_array();
+    gsl::owner<script::Array*> array = script::alloc_script_array();
     array = array ? new (array) script::Array : nullptr;
     array->configure_size_kind(size, static_cast<script::QbValueKind>(type));
     return array;
@@ -110,7 +110,7 @@ bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, float height,
     --current_point_;
     run_marker_object_script(current_point_);
     if (current_point_ == 0) {
-        script::Struct* params = script::spawn_param_bag();
+        gsl::owner<script::Struct*> params = script::spawn_param_bag();
         params = params ? new (params) script::Struct : nullptr;
         params->put_name_key(0u, 0x7F1538E0u);
         script::launch_script(0xD066A889, params, nullptr, false, nullptr);
@@ -380,7 +380,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     if (core::at(win_message_, 0)) {
         // The win message's dialog: a copy of the global template array with the text and the pro's node.
         script::Array* source = script::fetch_list(0x8070C110);
-        script::Array* dialog = script::alloc_script_array();
+        gsl::owner<script::Array*> dialog = script::alloc_script_array();
         dialog = dialog ? new (dialog) script::Array : nullptr;
         script::duplicate_array(dialog, source);
         structure_element(dialog, 0)->append_word(0xA7AB3B6D, win_message_.data());

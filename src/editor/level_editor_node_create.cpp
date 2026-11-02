@@ -32,6 +32,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::node_create {
 
@@ -556,7 +557,7 @@ void on_array_removed(uint32_t name)
 
 script::Struct* get_build(const Spec& spec)
 {
-    script::Struct* node = script::spawn_param_bag();
+    gsl::owner<script::Struct*> node = script::spawn_param_bag();
     if (!node)
         return nullptr;
     new (node) script::Struct;
@@ -600,7 +601,7 @@ script::Struct* get_build(const Spec& spec)
             break;
         case Prop::kNames:
         case Prop::kIntegers: {
-            script::Array* array = script::alloc_script_array();
+            gsl::owner<script::Array*> array = script::alloc_script_array();
             if (!array)
                 break;
             new (array) script::Array;
@@ -633,7 +634,7 @@ void write_links(script::Struct* node, const std::vector<uint32_t>& links)
     node->erase_module(kLinks);
     if (links.empty())
         return;
-    script::Array* array = script::alloc_script_array();
+    gsl::owner<script::Array*> array = script::alloc_script_array();
     if (!array)
         return;
     new (array) script::Array;

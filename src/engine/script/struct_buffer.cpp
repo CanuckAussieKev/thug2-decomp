@@ -15,6 +15,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 
 namespace script {
@@ -396,7 +397,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             break;
         }
         case kQbvalStruct: {
-            Struct* inner = spawn_param_bag();
+            gsl::owner<Struct*> inner = spawn_param_bag();
             if (inner)
                 new (inner) script::Struct;
             decode_structure(inner, reader);
@@ -404,7 +405,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             break;
         }
         case kQbvalArray: {
-            Array* inner = alloc_script_array();
+            gsl::owner<Array*> inner = alloc_script_array();
             if (inner)
                 new (inner) script::Array;
             decode_array(inner, reader);
@@ -488,7 +489,7 @@ void decode_array(Array* array, util::ByteReader& reader)
         break;
     case kQbvalStruct:
         for (uint32_t i = 0; i < count; ++i) {
-            Struct* inner = spawn_param_bag();
+            gsl::owner<Struct*> inner = spawn_param_bag();
             if (inner)
                 new (inner) script::Struct;
             decode_structure(inner, reader);
@@ -497,7 +498,7 @@ void decode_array(Array* array, util::ByteReader& reader)
         break;
     case kQbvalArray:
         for (uint32_t i = 0; i < count; ++i) {
-            Array* inner = alloc_script_array();
+            gsl::owner<Array*> inner = alloc_script_array();
             if (inner)
                 new (inner) script::Array;
             decode_array(inner, reader);

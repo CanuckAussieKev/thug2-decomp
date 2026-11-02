@@ -93,11 +93,11 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
     params->put_int(kVersion, static_cast<int>(table[0]));
     const int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* objects = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     for (int i = 0; i < count; ++i, entry += 5) {
-        script::Struct* block = script::spawn_param_bag();
+        gsl::owner<script::Struct*> block = script::spawn_param_bag();
         script::Struct* object = block ? memory::construct_in<script::Struct>(block) : nullptr;
         object->put_name_key(kName, entry[0]);
         object->put_name_key(kModel, entry[1]);
@@ -314,7 +314,7 @@ void CinematicTable::restart_objects()
 // 0x00466490
 CinematicEntry::CinematicEntry(const CutsceneSkater* settings)
 {
-    script::Struct* block = script::spawn_param_bag();
+    gsl::owner<script::Struct*> block = script::spawn_param_bag();
     args_ = block ? memory::construct_in<script::Struct>(block) : nullptr;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     skater_ = *settings;

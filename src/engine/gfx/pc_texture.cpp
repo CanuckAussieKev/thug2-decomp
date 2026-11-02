@@ -954,7 +954,7 @@ BitmapTexture* PcTexDict::load_texture_data(const uint8_t* data, uint32_t size, 
 BitmapTexture* PcTexDict::make_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel,
                                        uint32_t a4, uint32_t a5)
 {
-    auto* texture = static_cast<BitmapTexture*>(textures_->fetch_entry(checksum));
+    gsl::owner<BitmapTexture*> texture = memory::adopt<BitmapTexture*>(textures_->fetch_entry(checksum));
     if (!texture)
         texture = alloc_pc_texture();
     texture->BitmapTexture::fabricate(checksum, width, height, bits_per_pixel, a4, a5);

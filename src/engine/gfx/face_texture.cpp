@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace gfx {
 
@@ -106,7 +107,7 @@ bool read_point(Struct* params, uint32_t name, int* point)
 // A new integer array of two holding `point`.
 Array* new_point_array(const int* point)
 {
-    Array* memory = script::alloc_script_array();
+    gsl::owner<Array*> memory = script::alloc_script_array();
     Array* array = memory ? new (memory) script::Array : nullptr;
     array->configure_size_kind(2, script::kQbvalInteger);
     array->set_element(0, static_cast<uint32_t>(point[0]));
@@ -342,7 +343,7 @@ void FaceSkin::load_from_structure(Struct* params)
 // 0x00487680
 void FaceSkin::save_to_structure(Struct* params)
 {
-    Array* memory = script::alloc_script_array();
+    gsl::owner<Array*> memory = script::alloc_script_array();
     Array* image = memory ? new (memory) script::Array : nullptr;
     constexpr uint32_t kWords = kTexelEdge / 4;
     image->configure_size_kind(kWords, script::kQbvalName);

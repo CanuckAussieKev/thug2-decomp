@@ -23,6 +23,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace surface_kind {
 
@@ -414,7 +415,7 @@ bool load_terrain_sounds(uint32_t checksum)
     script::read_sub_struct(kTerrainDefault)->read_sub_struct(kSoundActions, &default_actions, 1);
     Struct* terrain_actions = nullptr;
     if (get_terrain_structure(terrain, &terrain_actions, kSoundActions)) {
-        Struct* merged = script::spawn_param_bag();
+        gsl::owner<Struct*> merged = script::spawn_param_bag();
         if (merged)
             new (merged) script::Struct;
         merged->append_structure_if_any(default_actions);

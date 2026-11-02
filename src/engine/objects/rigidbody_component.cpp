@@ -62,7 +62,7 @@ void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat
 // A structure copied into a new one (from the script pools), and one deleted.
 script::Struct* copy_of(script::Struct* source)
 {
-    script::Struct* copy = script::spawn_param_bag();
+    gsl::owner<script::Struct*> copy = script::spawn_param_bag();
     if (copy)
         new (copy) script::Struct;
     copy->merge_structure(source); // (out of memory: through null, as the original)

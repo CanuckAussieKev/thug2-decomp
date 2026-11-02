@@ -25,6 +25,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include <bit>
+#include <gsl/pointers>
 
 namespace sun {
 
@@ -152,7 +153,7 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 script::VectorValue get_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
 script::Struct* new_params()
 {
-    Struct* structure = script::spawn_param_bag();
+    gsl::owner<Struct*> structure = script::spawn_param_bag();
     if (structure)
         new (structure) script::Struct;
     return structure;

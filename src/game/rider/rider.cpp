@@ -93,6 +93,7 @@
 #include "engine/gfx/model.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -833,7 +834,7 @@ constexpr uint32_t kCustomSkater = 0x0A7BE964; // custom
 template <typename Fill>
 void add_component_from_structure(Rider* skater, Fill fill)
 {
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     fill(params);
     skater->create_component_from_structure(params, nullptr);
@@ -861,7 +862,7 @@ void Rider::prepare_all(RiderIdentity* profile)
             walk_camera->bind_rider(this);
             walk_camera->instant_frames_ = 3;
         } else {
-            script::Struct* memory = script::spawn_param_bag();
+            gsl::owner<script::Struct*> memory = script::spawn_param_bag();
             script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
             params->put_name_key(0x4C48DA58, ident_);
             params->put_name_key(kNameChecksum, camera_name);
@@ -1037,7 +1038,7 @@ void Rider::run_state_script(bool walk, bool other)
     }
     script::Struct* params = nullptr;
     if (walk || other) {
-        script::Struct* memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         if (walk)
             params->put_name_key(0u, 0x726E85AA); // Walk
@@ -1068,11 +1069,11 @@ void Rider::switch_to_script(uint32_t name, script::Struct* params)
 // 0x005825E0
 void Rider::write_cat_info(script::Struct* save)
 {
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* tricks = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     tricks->configure_size_kind(11, script::kQbvalStruct);
     for (int i = 0; i < 11; ++i) {
-        script::Struct* struct_memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
         const goals::CreateATrick* info = core::at(trick_slots_, i).get();
         trick->put_sub_struct(kOther, info->other_params_);
@@ -1086,7 +1087,7 @@ void Rider::write_cat_info(script::Struct* save)
 // 0x00582740
 void Rider::write_list_44b_66a_9f(script::Struct* save)
 {
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* entries = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     entries->configure_size_kind(0x46, script::kQbvalInteger);
     for (int i = 0; i < 0x46; ++i)
@@ -1183,7 +1184,7 @@ void Rider::launch_projectile()
         }
     }
     // LaunchProjectile from there (at the target, when there is one beyond 100).
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     params->put_vec3("pos", {origin.x, origin.y, origin.z, origin.w});
     if (target && best > 100.0f) {
@@ -1236,7 +1237,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     walk_ = nullptr;
     physics_control_ = nullptr;
     // Its components, one structure (component = ...) changed for each.
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     auto add = [this, params](uint32_t type) {
         params->put_name_key(kPartHash, type);
@@ -1288,7 +1289,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     state_history_ = core::down_cast<RiderFrameLog>(fetch_module(0x18223FD6));
     add(kSkaterFlipAndRotate);
     // The controls, told its skater number.
-    script::Struct* extra_memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> extra_memory = script::spawn_param_bag();
     script::Struct* extra = extra_memory ? memory::construct_in<script::Struct>(extra_memory) : nullptr;
     extra->put_int(0xA2B033FD, skater_number_);
     params->put_name_key(kPartHash, 0x5B512EDC);
@@ -1328,7 +1329,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
     const RiderPoseState* walking = physics_control_->pose_;
     if (!walking->in_vehicle_ && walking->physics_mode_ == 1) {
         // Walking: back to skating first.
-        script::Struct* memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         params->put_name_key(0x91D0D784, 0x1DDE4804);
         switch_to_script(0x93A4E402, params);

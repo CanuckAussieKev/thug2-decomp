@@ -206,7 +206,7 @@ void BestEntryList::decode_from_struct(script::Struct* params)
 // 0x0057F4E0
 void BestEntryList::write_to_structure(script::Struct* params)
 {
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(num_, script::kQbvalStruct);
     for (int i = 0; i < num_; ++i)
@@ -334,7 +334,7 @@ void BestResults::decode_from_struct(script::Struct* params)
 // 0x0057FC50
 void BestResults::write_to_structure(script::Struct* params)
 {
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(level_count_, script::kQbvalStruct);
     for (int i = 0; i < level_count_; ++i) {

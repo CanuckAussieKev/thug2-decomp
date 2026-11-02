@@ -29,6 +29,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace skater {
 
@@ -305,7 +306,7 @@ int SkaterPhysicsModule::set_ammo(script::Struct* params, script::Script*)
     const int before = ammo;
     params->fetch_int_value(uint32_t{0}, &ammo, 0); // (the unnamed integer)
     const int change = ammo - before;
-    script::Struct* changed = script::spawn_param_bag();
+    gsl::owner<script::Struct*> changed = script::spawn_param_bag();
     changed = changed ? new (changed) script::Struct : nullptr;
     changed->put_int(kCount, change); // (on a null structure if out of memory, as the original)
     script::end_child_scripts_of_entity_by_name(skater_object(this), kAmmoMeterChange, nullptr);

@@ -19,6 +19,7 @@
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's copies of the gap names)
 
@@ -185,7 +186,7 @@ void GapRegistry::fire_gap(int index, script::Script* script)
 {
     for (int i = 0; i < 2; ++i) {
         const int half = core::at(started_first_, index) ? i : 1 - i;
-        script::Struct* memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         const Gap* gap = core::at(gaps_ptr_, index);
         params->put_name_key(kGapId, core::at(gap->ids_, half));

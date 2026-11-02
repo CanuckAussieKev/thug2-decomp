@@ -27,6 +27,7 @@
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 
 namespace commands {
@@ -113,7 +114,7 @@ bool array_has(Array* array, uint32_t name)
 // true.
 bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script)
 {
-    Struct* memory = script::spawn_param_bag();
+    gsl::owner<Struct*> memory = script::spawn_param_bag();
     Struct* result = memory ? new (memory) script::Struct : nullptr;
     Struct* a = nullptr;
     params->read_sub_struct(kA, &a, 1);
@@ -367,7 +368,7 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
     params->fetch_text(kString, &string, 1);
     const char* field = nullptr;
     params->fetch_text("field", &field, 1);
-    Struct* memory = script::spawn_param_bag();
+    gsl::owner<Struct*> memory = script::spawn_param_bag();
     Struct* value = memory ? new (memory) script::Struct : nullptr;
     value->append_word(kUiString, script::kQbvalString, string);
     uint32_t checksum = 0;

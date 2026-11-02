@@ -26,6 +26,7 @@
 #include "platform/run_log.h"
 #include "engine/util/unique_handle.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects::thugpro_cas {
 
@@ -449,7 +450,7 @@ void load_once()
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(manager->script_heap_);
     for (const Target& target : targets) {
-        script::Array* theirs = script::alloc_script_array();
+        gsl::owner<script::Array*> theirs = script::alloc_script_array();
         if (!theirs)
             break;
         new (theirs) script::Array;

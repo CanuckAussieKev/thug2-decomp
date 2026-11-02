@@ -325,7 +325,7 @@ constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 
 script::Array* alloc_script_array(uint32_t size, script::QbValueKind type)
 {
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(size, type);
     return array;
@@ -531,9 +531,9 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->put_name_key(0xE3335D2F, modules::g_skate_module->level_);
     career->put_name_key(0x2CC06F5E, goals::g_game_mode->get_name_key());
     // (both made first, then sized, as the original)
-    script::Array* cash_memory = script::alloc_script_array();
+    gsl::owner<script::Array*> cash_memory = script::alloc_script_array();
     script::Array* cash = cash_memory ? memory::construct_in<script::Array>(cash_memory) : nullptr;
-    script::Array* amount_memory = script::alloc_script_array();
+    gsl::owner<script::Array*> amount_memory = script::alloc_script_array();
     script::Array* amounts = amount_memory ? memory::construct_in<script::Array>(amount_memory) : nullptr;
     cash->configure_size_kind(kLevels, script::kQbvalInteger);
     amounts->configure_size_kind(kLevels, script::kQbvalInteger);

@@ -75,7 +75,7 @@ ScriptStore::~ScriptStore()
     entries_->iter_bucket_ = -1;
     entries_->iter_item_ = nullptr;
     while (entries_->step_iterator() && entries_->iter_item_) {
-        auto* entry = static_cast<ScriptCacheEntry*>(entries_->iter_item_->value);
+        gsl::owner<ScriptCacheEntry*> entry = memory::adopt<ScriptCacheEntry*>(entries_->iter_item_->value);
         if (!entry)
             break;
         entries_->erase_entry(entry->name);

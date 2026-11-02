@@ -24,6 +24,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace park_editing {
 
@@ -388,7 +389,7 @@ void ParkLayout::update_percent_bar()
         percent = 0.0f;
     else if (full > 1.0f)
         percent = 1.0f;
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     params->push_float(0x6D6C056Du, percent);  // park_percent (out of memory crashes, as in the original)
     if (get_attributes().max_usage_ >= 1.0f)   // (0x007CE644: the park memory stats' largest usage)
@@ -411,7 +412,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
     if (park_built_)
         write_compressed_map();
     flag_bits_ &= ~kMapNotSavedLocal;
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
     std::array<uint32_t, kParkMapWords> words{};
@@ -419,7 +420,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
     for (uint32_t i = 0; i < kParkMapWords; ++i)
         map->set_element(i, core::at(words, i));
     out->append_array_ref(0x337C5289u, map); // Park_editor_map
-    script::Struct* struct_memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
     script::Struct* goals = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
     // the goal editor (module GoalEditor, 0x004E8470) writes the park's goals (level Load_Sk5Ed)
     ObjectiveAuthoring::get_pull()->write_level_goals(0xE8B4B836, goals);

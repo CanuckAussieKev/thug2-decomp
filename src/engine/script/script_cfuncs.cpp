@@ -18,6 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/pointer_cell.h"
+#include <gsl/pointers>
 
 
 namespace commands {
@@ -284,7 +285,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
         break;
     case script::kQbvalStruct: {
         entry->type = script::kQbvalStruct;
-        script::Struct* memory = script::spawn_param_bag();
+        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* structure = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         entry->value.set_structure(structure);
         structure->append_structure_if_any(copy.value.structure());
@@ -292,7 +293,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
     }
     case script::kQbvalArray: {
         entry->type = script::kQbvalArray;
-        script::Array* memory = script::alloc_script_array();
+        gsl::owner<script::Array*> memory = script::alloc_script_array();
         script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
         entry->value.set_array(array);
         script::duplicate_array(array, copy.value.array());

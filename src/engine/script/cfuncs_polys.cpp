@@ -140,7 +140,7 @@ void free_spawned_poly_details(void* details) { spawned_poly_pools().dealloc(det
 // Always true.
 bool cfunc_spawn_poly(Struct* params, Script*)
 {
-    auto* details = spawned_poly_pools().allocate<render::SpawnedPoly>();
+    auto details = memory::adopt<render::SpawnedPoly*>(spawned_poly_pools().allocate<render::SpawnedPoly>());
     if (details)
         details = memory::construct_in<render::SpawnedPoly>(details);
     // (a failed allocation writes through null below, as in the original)

@@ -109,7 +109,7 @@ script::Script* object_script(MoveExecutor* self) { return self->entity_->own_sc
 // A new structure, as the original's inlined `new CStruct` (from the structure pool; null if that fails).
 script::Struct* new_struct_copy(script::Struct* source)
 {
-    script::Struct* structure = script::spawn_param_bag();
+    gsl::owner<script::Struct*> structure = script::spawn_param_bag();
     return structure ? structure->init_copy(source) : nullptr;
 }
 

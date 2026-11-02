@@ -237,7 +237,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
         for (int i = 0; i < coll_static_count_; ++i) {
             const StaticCollider* coll = coll_static_at(coll_statics_, i);
             const uint32_t name = coll->checksum_;
-            auto* sector = static_cast<WorldCell*>(sectors_->fetch_entry(name));
+            gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(name));
             if (!sector) {
                 sector = alloc_sector(this);
                 sector->checksum_ = name;
@@ -317,7 +317,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
     delete_nodes(&moved);
     for (memory::ListNode* node = head_of_scene_list(&to_delete); node;) {
         memory::ListNode* next = get_next_node(node);
-        auto* sector = static_cast<WorldCell*>(node->data);
+        gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(node->data);
         const uint32_t key = sector->checksum_;
         sectors_->erase_entry(key);
         sector->clear_flags(kSectorInGrid);
@@ -351,7 +351,7 @@ bool WorldScene::load_add_scene(const char* name)
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
             const uint32_t section_id = coll_static_at(add_coll_statics_, i)->checksum_;
-            auto* sector = static_cast<WorldCell*>(sectors_->fetch_entry(section_id));
+            gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(section_id));
             if (!sector) {
                 sector = alloc_sector(this);
                 sector->checksum_ = section_id;

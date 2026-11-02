@@ -426,7 +426,7 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script*)
     params->read_hash_value(kStreamId, &stream, 1);
     float level = 100.0f;
     params->fetch_float(kVolume, &level, 0);
-    auto* volume = static_cast<sound::VolumeRef*>(memory::alloc(sizeof(sound::VolumeRef)));
+    gsl::owner<sound::VolumeRef*> volume = memory::adopt<sound::VolumeRef*>(memory::alloc(sizeof(sound::VolumeRef)));
     if (volume)
         volume = new (volume) sound::VolumeRef;
     core::at(volume->lanes_, 0) = level;

@@ -752,7 +752,7 @@ void add_bloom_params(int on, int bloom1, int bloom2, uint32_t strength, uint32_
     out->put_int(kOn, on);
     out->put_int(kBloom1, bloom1);
     out->put_int(kBloom2, bloom2);
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
     array->set_element(0, strength & 0xFF);
@@ -1284,7 +1284,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     out->put_int(kBloomOn, p.bloom_on_);
     out->put_int(kBloom1, p.bloom1);
     out->put_int(kBloom2, p.bloom2);
-    script::Array* memory = script::alloc_script_array();
+    gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
     array->set_element(0, p.bloom_strength_ & 0xFF);

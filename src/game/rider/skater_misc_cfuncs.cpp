@@ -24,6 +24,7 @@
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -167,7 +168,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     params->fetch_int_value(kStreamCount, &count, 0);
 
     // the stream numbers 1..count, shuffled
-    Array* memory = script::alloc_script_array();
+    gsl::owner<Array*> memory = script::alloc_script_array();
     Array* order = memory ? new (memory) script::Array : nullptr;
     order->configure_size_kind(count, script::kQbvalInteger);
     for (int i = 0; i < count; ++i)
@@ -213,7 +214,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         std::snprintf(stream.data(), sizeof(stream), "%s_%s%02i", voice.data(), type, static_cast<int>(order->fetch_part(i)));
         if (!audio::stream_exists(checksums::hash_from_text(stream.data())))
             continue;
-        Struct* struct_memory = script::spawn_param_bag();
+        gsl::owner<Struct*> struct_memory = script::spawn_param_bag();
         Struct* stream_params = struct_memory ? new (struct_memory) script::Struct : nullptr;
         stream_params->put_name_key(kStreamChecksum, checksums::hash_from_text(stream.data()));
         script::launch_script(kSkaterPlayBailStream, stream_params, script->entity_.get_pull(), false, nullptr);

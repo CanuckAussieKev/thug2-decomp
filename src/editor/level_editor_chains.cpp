@@ -49,6 +49,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::chains {
 
@@ -855,7 +856,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
             own->value.array()->set_element(static_cast<uint32_t>(i), core::at(links, i));
         return;
     }
-    script::Array* array = script::alloc_script_array();
+    gsl::owner<script::Array*> array = script::alloc_script_array();
     if (!array)
         return;
     new (array) script::Array;

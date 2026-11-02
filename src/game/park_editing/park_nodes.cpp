@@ -26,6 +26,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace park_editing {
 
@@ -130,7 +131,7 @@ float restart_angle(int rot) { return static_cast<float>((rot + 2.0) * static_ca
 // A new script array of one `type` element.
 Array* new_array_of(script::QbValueKind type, uint32_t value)
 {
-    Array* array = script::alloc_script_array();
+    gsl::owner<Array*> array = script::alloc_script_array();
     if (array)
         new (array) script::Array;
     array->configure_size_kind(1, type);

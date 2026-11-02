@@ -429,12 +429,12 @@ int NodeTableResource::offload()
 // 0x004090D0
 void* NodeTableResource::build_node_table(uint32_t name, int count)
 {
-    script::Array* array = script::alloc_script_array();
+    gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         new (array) script::Array;
     array->configure_size_kind(count, script::kQbvalStruct);
     for (int i = 0; i < count; ++i) {
-        Struct* node = script::spawn_param_bag();
+        gsl::owner<Struct*> node = script::spawn_param_bag();
         if (node)
             new (node) script::Struct;
         array->set_cell(i, script::Cell::of(node));

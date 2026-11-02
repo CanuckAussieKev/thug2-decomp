@@ -25,6 +25,7 @@
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
 #include "engine/core/down_cast.h"
+#include <gsl/pointers>
 
 
 namespace commands {
@@ -73,7 +74,7 @@ uint32_t* level_specific_qb_files() { return g_level_qb_files.data(); }
 bool cfunc_display_free_mem(script::Struct*, script::Script*)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    script::Struct* memory = script::spawn_param_bag();
+    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region_;

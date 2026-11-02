@@ -63,7 +63,7 @@ void run_creation_script(GameEntity* object, script::Struct* params)
     if (!params->fetch_int_value(kCreationValue, &value, 0))
         return;
     const uint32_t name = level_nodes::get_node_name(params);
-    script::Struct* data = script::spawn_param_bag();
+    gsl::owner<script::Struct*> data = script::spawn_param_bag();
     if (data)
         new (data) script::Struct;
     data->put_name_key(kName, name);
@@ -170,7 +170,7 @@ VideoEntry::~VideoEntry()
 void VideoEntry::configure_from_data(script::Struct* params)
 {
     if (!args_) {
-        script::Struct* created = script::spawn_param_bag();
+        gsl::owner<script::Struct*> created = script::spawn_param_bag();
         args_ = created ? memory::construct_in<script::Struct>(created) : nullptr;
     }
     args_->get_clear();

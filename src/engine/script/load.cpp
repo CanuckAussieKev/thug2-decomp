@@ -72,14 +72,14 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
     }
     case 0x03: {
         symbol->type = kQbvalStruct;
-        Struct* structure = spawn_param_bag();
+        gsl::owner<Struct*> structure = spawn_param_bag();
         structure = structure ? new (structure) script::Struct : nullptr;
         symbol->value.set_structure(structure);
         return parse_structure(structure, token, nullptr);
     }
     case 0x05: {
         symbol->type = kQbvalArray;
-        Array* array = alloc_script_array();
+        gsl::owner<Array*> array = alloc_script_array();
         array = array ? new (array) script::Array : nullptr;
         symbol->value.set_array(array);
         return parse_array(array, token, nullptr);
