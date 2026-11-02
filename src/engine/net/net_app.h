@@ -29,9 +29,10 @@ class Task;
 namespace net {
 
 struct AppHost;
+class Hub;
 
 // What an App does with a packet from an address that isn't one of its connections (+0x1E88).
-using UnknownPacketCallback = void (*)(char* data, int size, sockaddr* from);
+using UnknownPacketCallback = void (*)(const uint8_t* data, int size, sockaddr* from);
 
 // A message to be sent (0x20 bytes; the constructor 0x004549F0 sets every field: zero, priority 0x80).
 struct NetMessageInfo {
@@ -125,7 +126,7 @@ struct AppHost {
     tasks::SchedulerTask* process_task() { return process_task_; }
     tasks::SchedulerTask* metrics_task() { return metrics_task_; }
     // 0x00456AF0
-    void* net_session_slot() { return supervisor_; }
+    Hub* net_session_slot() { return supervisor_; }
     // 0x00456B60
     uint32_t get_socket() { return sock_; }
     // 0x00456B70
@@ -263,7 +264,7 @@ struct AppHost {
     uint32_t sock_{};               // +0x1428
     std::array<uint8_t, 0x10> local_address_{}; // +0x142C sockaddr_in (Bind)
     bool linked_up_{};              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
-    void* supervisor_{};            // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
+    Hub* supervisor_{};             // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
     gsl::owner<tasks::SchedulerTask*> process_task_; // +0x1444
@@ -273,7 +274,7 @@ struct AppHost {
     int open_links_{};                   // +0x1454 (zeroed by Init)
     int peer_cap_{};                     // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
     std::array<uint8_t, 0x514> scrambled_{};         // +0x145C a secure packet being sent
-    std::array<char, 0x514> receive_buffer_{};       // +0x1970
+    std::array<uint8_t, 0x514> receive_buffer_{};     // +0x1970
     uint32_t flag_bits_;                 // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
     memory::ListNode circuits_{};               // +0x1E8C head (data -1)

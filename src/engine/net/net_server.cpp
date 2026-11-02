@@ -10,7 +10,6 @@
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
 #include "engine/net/net_client.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/sockets.h"
@@ -56,7 +55,7 @@ void HostEnd::pull_inbound()
         return;
     int received = 0;
     do {
-        char* buffer = receive_buffer_.data();
+        uint8_t* buffer = receive_buffer_.data();
         received = sockets::receive_bytes_from(sock_, buffer, kReceiveBufferSize, 0, &from, &from_length);
         if (received < 0) {
             WSAGetLastError();
@@ -65,7 +64,7 @@ void HostEnd::pull_inbound()
         inbound_byte_total_ += received;
         const int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
         if (Conn* conn = net::find_conn_at_address(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
-            char*& read_ptr = conn->read_ptr_;
+            uint8_t*& read_ptr = conn->read_ptr_;
             if ((is_new(conn) || !(flag_bits_ & kAppSecure)) &&
                 read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
                 if (pull_datagram(this, buffer, read_ptr, received)) {
@@ -152,7 +151,7 @@ void HostEnd::flush_outbox(Conn* conn)
                 change_throughput(conn, kMinBandwidth);
         }
 
-        char*& write_ptr = conn->write_ptr_;
+        uint8_t*& write_ptr = conn->write_ptr_;
         const int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
         if (size > 0 && is_off_machine(conn)) {
             if (!net::transmit_to(this, conn->remote_ip_, conn->port_no_, conn->outgoing_bytes_, size, 0)) {

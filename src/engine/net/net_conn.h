@@ -109,10 +109,10 @@ struct Conn {
     uint32_t ident_;                  // +0x44 a running number (0x0067D800, counted by the constructor)
     uint16_t port_no_{};              // +0x48
     std::array<uint8_t, 2> pad4a_{};
-    char* outgoing_bytes_;      // +0x4C the packet being built (0x514 bytes): its start
-    char* write_ptr_;           // +0x50 and end
-    char* read_buffer_;         // +0x54 received data (0xA28 bytes): its start
-    char* read_ptr_;            // +0x58 and end
+    uint8_t* outgoing_bytes_;   // +0x4C the packet being built (0x514 bytes): its start
+    uint8_t* write_ptr_;        // +0x50 and end
+    uint8_t* read_buffer_;      // +0x54 received data (0xA28 bytes): its start
+    uint8_t* read_ptr_;         // +0x58 and end
     uint32_t unknown5c_{};      // +0x5C (never touched by the library)
     uint32_t cur_standing_;     // +0x60 kStatus...
     uint32_t flag_bits_;        // +0x64 kFlag...

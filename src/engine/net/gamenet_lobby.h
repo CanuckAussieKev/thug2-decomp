@@ -93,7 +93,7 @@ public:
     static void nat_negotiation_completed(int result, int socket, const void* address, int user_data);
     // 0x0053F6C0 (an app's foreign packet): qr2 queries ("\" or FE FD) and NAT negotiation packets (FD FC 1E 66 6A
     // B2...) copied into the queue (at most 199) for the query task.
-    static void queue_packet(char* data, int length, const void* from);
+    static void queue_packet(const uint8_t* data, int length, const void* from);
     // Tasks (tasks::Task code: the task's +0x1C is the lobby).
     // 0x00540040 (+0x148): the peer thinks while connected; a lost connection reported (lost_connection_to_gamespy).
     static void think_task(tasks::Task<RoomManager>* task);

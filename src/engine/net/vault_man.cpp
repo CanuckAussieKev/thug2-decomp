@@ -32,7 +32,6 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
@@ -115,9 +114,9 @@ void game_crt_free(void* memory) { crt::dealloc(memory); }
 // The GameSpy SDK's id of this machine (GOAGetUniqueID).
 const char* game_spy_unique_id() { return game_spy::get_unique_id(); }
 // 0x005A8EB0: a downloaded item (`size` bytes) loaded from `buffer` by the type's script.
-void load_downloaded_item(char* buffer, size_t size, uint32_t script)
+void load_downloaded_item(const void* buffer, size_t size, uint32_t script)
 {
-    save_cards::keep_loaded_contents(raw::bytes(buffer), size, script);
+    save_cards::keep_loaded_contents(static_cast<const uint8_t*>(buffer), size, script);
 }
 
 // The folder of an item type ("levels"...; null for an unknown type).
@@ -566,8 +565,9 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
     // others).
     auto write_data = [&]() {
         size = script::measure_buffer_bytes(vault->content_, kListBufferSize);
-        buffer = static_cast<char*>(memory::alloc(size));
-        script::emit_into_buffer(vault->content_, raw::bytes(buffer), size, 1, nullptr);
+        void* block = memory::alloc(size);
+        buffer = static_cast<char*>(block); // (bytes: the text functions' and GameSpy's char)
+        script::emit_into_buffer(vault->content_, static_cast<uint8_t*>(block), size, 1, nullptr);
         const uint32_t checksum = checksums::generate_crc_caseless(buffer, static_cast<int>(size));
         text_tools::dup_from(file_name.data(), vault->source_path_.data());
         return checksum;

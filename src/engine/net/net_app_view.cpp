@@ -23,7 +23,6 @@
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_messages.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "platform/sockets.h"
@@ -162,7 +161,7 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
     local.sin_port = htons(port);
     // (The original asks the manager for its +0x128 value and sets the address to INADDR_ANY unless it's 1 - it's
     // INADDR_ANY already either way.)
-    if (static_cast<Hub*>(supervisor_)->get_net_link_kind() != Hub::kConnectionModem)
+    if (supervisor_->get_net_link_kind() != Hub::kConnectionModem)
         local.sin_addr.s_addr = INADDR_ANY;
     if (sockets::bind_to(sock_, local) < 0) {
         if (WSAGetLastError() != WSAEADDRINUSE) {

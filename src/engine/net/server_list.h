@@ -52,6 +52,9 @@ struct HostListing : memory::ListNode {
     std::array<uint8_t, 2> pad8e_{};
     void* sb_server_{nullptr};        // +0x90 GameSpy's SBServer (internet)
     memory::ListNode participants_{}; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings
+    // NOT ORIGINAL: its id in the server menu and for fetch_host - a running number (the original used its SBServer's
+    // address on the internet and its own on the LAN: ids that were addresses).
+    uint32_t id_{0};
 
     // 0x00545F60: an empty one: one of eight players, one of one observer, skill level 2, mode and level "None",
     // reachable.

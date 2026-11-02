@@ -833,6 +833,8 @@ public:
     CompressedMap* get_packed_park_data(bool flag_clean);
     // 0x00595050: take a whole compressed map (loaded or received).
     void set_packed_park_data(const CompressedMap* map, bool flag_dirty);
+    // NOT ORIGINAL: the same from a received map's bytes (a whole map's worth).
+    void set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty);
     // 0x00595090: the compressed map is valid and saved.
     bool has_local_park_copy();
     // 0x005950B0: the compressed map's shell size (0 when it isn't readable).

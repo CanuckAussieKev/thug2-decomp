@@ -164,7 +164,7 @@ int server_get_ping(void* server);
 // HTTP (ghttp); requests are ints (-1: failed)
 // `progress`: void(request, int state, const char*, int64 length, int64 received, int64 total, void* param);
 // `completed`: int(request, int result, char* buffer, int64 length, void* param) - nonzero: the SDK frees the buffer
-int http_get_ex(const char* url, const char* headers, char* buffer, int size, void* post, int throttle, int blocking,
+int http_get_ex(const char* url, const char* headers, void* buffer, int size, void* post, int throttle, int blocking,
                 HookFn progress, HookFn completed, void* param);
 int http_post_ex(const char* url, const char* headers, void* post, int throttle, int blocking, HookFn progress,
                  HookFn completed, void* param);

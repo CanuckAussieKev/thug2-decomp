@@ -42,8 +42,6 @@
 #include "engine/sys/mlp.h"
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's own)
 
@@ -164,11 +162,11 @@ void RoomManager::disconnected_callback(void*, const char* reason, void* param)
 }
 
 // 0x0053F6C0
-void RoomManager::queue_packet(char* data, int length, const void* from)
+void RoomManager::queue_packet(const uint8_t* data, int length, const void* from)
 {
     if (queued_count() >= kMaxQueued)
         return;
-    const auto* bytes = raw::bytes(data);
+    const uint8_t* bytes = data;
     int type = 0;
     if ((bytes[0] == 0xFE && bytes[1] == 0xFD) || bytes[0] == '\\')
         type = kPacketQuery;
@@ -347,7 +345,7 @@ void RoomManager::start_hosting()
 {
     tasks::PileUp* tasks = get_logic_tasks();
     net::AppHost* server = net_session_slot()->host_;
-    server->set_outside_packet_hook([](char* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
+    server->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     clear_queue();
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
         1) // reporting on its socket

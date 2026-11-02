@@ -58,6 +58,14 @@ void ParkLayout::set_packed_park_data(const CompressedMap* map, bool flag_dirty)
         flag_bits_ |= kMapNotSavedLocal;
 }
 
+void ParkLayout::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty)
+{
+    std::memcpy(&map_, bytes, sizeof(map_));
+    flag_bits_ |= kMapInSync | kMapNewerThanPark;
+    if (flag_dirty)
+        flag_bits_ |= kMapNotSavedLocal;
+}
+
 bool ParkLayout::has_local_park_copy()
 {
     return (flag_bits_ & (kMapValid | kMapNewerThanPark)) && !(flag_bits_ & kMapNotSavedLocal);

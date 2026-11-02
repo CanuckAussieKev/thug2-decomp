@@ -15,7 +15,6 @@
 #include "engine/net/net_guards.h"
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace net {
@@ -128,15 +127,15 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     context.wire_options_ = flags;
     context.body_ = buffer.data();
     context.body_size_ = 0;
-    char*& read_buffer = conn->read_buffer_;
-    char*& read_ptr = conn->read_ptr_;
+    uint8_t*& read_buffer = conn->read_buffer_;
+    uint8_t*& read_ptr = conn->read_ptr_;
     void* metrics = &conn->receive_metrics_;
 
     // (the messages one after another: net_wire.h)
     util::ByteReader packet(read_buffer, static_cast<size_t>(read_ptr - read_buffer));
     for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size_)) {
         context.type_code_ = packet.u8();
-        uint8_t* table = fetch_hub(conn->owner_app_);
+        Hub* table = fetch_hub(conn->owner_app_);
         const bool has_length = !(message_flags(table, context.type_code_) & kMsgNoLength);
         if (has_length) {
             context.body_size_ = packet.u16();

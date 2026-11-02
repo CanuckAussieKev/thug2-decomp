@@ -13,7 +13,6 @@
 #include "engine/net/net_manager.h"
 #include "engine/net/net_metrics.h"
 #include "engine/net/net_messages.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
 namespace net {
@@ -86,14 +85,11 @@ inline bool over_bandwidth_budget(AppHost* app, Conn* conn) { return app->over_b
 // with the packet so it gets acked.
 inline bool timestamp_due(AppHost* app, Conn* conn) { return app->important_messages_due(conn); }
 // A packet to ip:port (sendto) / on the connected socket.
-inline bool transmit_to(AppHost* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
+inline bool transmit_to(AppHost* app, uint32_t ip, uint16_t port, const uint8_t* data, int size, int flags)
 {
-    return app->transmit_to(ip, port, raw::bytes(data), size, flags);
+    return app->transmit_to(ip, port, data, size, flags);
 }
-inline bool post_out(AppHost* app, char* data, int size, int flags)
-{
-    return app->post_out(raw::bytes(data), size, flags);
-}
+inline bool post_out(AppHost* app, const uint8_t* data, int size, int flags) { return app->post_out(data, size, flags); }
 // App flag 0x8: the App has no socket of its own (nothing to receive).
 inline bool has_no_socket(AppHost* app) { return app->is_host_local(); }
 // App flag 0x10: connection requests from foreign addresses are answered.
@@ -107,10 +103,7 @@ inline Conn* opened_link(AppHost* app, uint32_t ip, uint16_t port, int flags)
     return app->opened_link(static_cast<int>(ip), port, flags);
 }
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
-inline bool pull_datagram(AppHost* app, char* packet, char* to, int size)
-{
-    return app->decrypt(raw::bytes(packet), raw::bytes(to), size);
-}
+inline bool pull_datagram(AppHost* app, uint8_t* packet, uint8_t* to, int size) { return app->decrypt(packet, to, size); }
 // A message straight to ip:port, not through a connection.
 inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
                        int flags)
@@ -119,12 +112,9 @@ inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* da
 }
 inline void sever_link(AppHost* app, Conn* conn) { app->sever_link(conn); }
 inline void report_socket_error(AppHost* app) { app->raise_fault(); }
-inline uint8_t* fetch_hub(AppHost* app) { return static_cast<uint8_t*>(app->net_session_slot()); }
+inline Hub* fetch_hub(AppHost* app) { return app->net_session_slot(); }
 // NetLink::Hub's flags for a message id (0x00454980).
-inline uint8_t message_flags(uint8_t* manager, uint8_t id)
-{
-    return static_cast<uint8_t>(raw::as<Hub>(manager)->get_msg_options(id));
-}
+inline uint8_t message_flags(Hub* manager, uint8_t id) { return static_cast<uint8_t>(manager->get_msg_options(id)); }
 
 // Conn's methods (net_conn.cpp). Its flags (+0x64): 1 local (the App's own client/server in this process),
 // 2 remote, 4 foreign (created for a packet from an unknown address: opened_link's flags 6).

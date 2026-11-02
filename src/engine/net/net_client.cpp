@@ -14,7 +14,6 @@
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/sockets.h"
@@ -106,7 +105,7 @@ void Guest::pull_inbound()
         return;
     int received = 0;
     do {
-        char* buffer = receive_buffer_.data();
+        uint8_t* buffer = receive_buffer_.data();
         const SOCKET socket = sock_;
         if (!linked_up_)
             received =
@@ -122,7 +121,7 @@ void Guest::pull_inbound()
         sockaddr_in server{};
         std::memcpy(&server, host_sock_addr_.data(), sizeof(server));
         if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
-            char*& read_ptr = conn->read_ptr_;
+            uint8_t*& read_ptr = conn->read_ptr_;
             if (read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
                 const uint32_t time = frame_clock::get_time();
                 if (pull_datagram(this, buffer, read_ptr, received)) {
@@ -205,10 +204,10 @@ void Guest::flush_outbox(Conn* conn)
             done = true;
         if (!bundle_messages(conn, kLanePriority, false))
             done = true;
-        char*& write_ptr = conn->write_ptr_;
+        uint8_t*& write_ptr = conn->write_ptr_;
         const int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
         if (size > 0 && is_off_machine(conn)) {
-            char* packet = conn->outgoing_bytes_;
+            const uint8_t* packet = conn->outgoing_bytes_;
             const bool sent = linked_up_ ? net::post_out(this, packet, size, 0)
                                          : net::transmit_to(this, conn->remote_ip_, conn->port_no_, packet, size, 0);
             if (!sent) {

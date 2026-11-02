@@ -26,7 +26,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -54,8 +53,8 @@ ListNode* normal_queue(Conn* conn) { return &conn->normal_msgs_; }
 ListNode* important_queue(Conn* conn) { return &conn->important_msgs_; }
 ListNode* sequenced_queue(Conn* conn) { return &conn->sequenced_msgs_; }
 // The receive buffer's read and write positions (its start and end).
-char*& read_position(Conn* conn) { return conn->read_buffer_; }
-char*& write_position(Conn* conn) { return conn->read_ptr_; }
+uint8_t*& read_position(Conn* conn) { return conn->read_buffer_; }
+uint8_t*& write_position(Conn* conn) { return conn->read_ptr_; }
 // Status: 1 ready, bit 2 invalid, bit 3 disconnecting.
 uint32_t& get_standing(Conn* conn) { return conn->cur_standing_; }
 constexpr uint32_t kConnReady = Conn::kConnReady;
@@ -69,8 +68,8 @@ void* in_metrics(Conn* conn) { return &conn->receive_metrics_; }   // NetLink::G
 void* out_metrics(Conn* conn) { return &conn->send_metrics_; }
 // The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
 // in this process) straight into its own receive buffer.
-char*& send_buffer_start(Conn* conn) { return conn->outgoing_bytes_; }
-char*& send_buffer_end(Conn* conn) { return conn->write_ptr_; }
+uint8_t*& send_buffer_start(Conn* conn) { return conn->outgoing_bytes_; }
+uint8_t*& send_buffer_end(Conn* conn) { return conn->write_ptr_; }
 
 // Conn's methods (net_conn.cpp).
 gsl::owner<Conn*> construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
@@ -93,7 +92,7 @@ void update_metrics(void* metrics, uint32_t time)
     static_cast<Gauges*>(metrics)->calculate_usage(static_cast<int>(time));
 }
 // The app's manager: the bandwidth allowed over all connections.
-int total_bandwidth(void* manager) { return static_cast<Hub*>(manager)->fetch_throughput(); }
+int total_bandwidth(Hub* manager) { return manager->fetch_throughput(); }
 // 1 = a modem: a slow connection.
 int connection_type(void* manager) { return static_cast<Hub*>(manager)->get_net_link_kind(); }
 

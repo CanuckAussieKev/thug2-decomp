@@ -696,7 +696,7 @@ public:
     uint32_t room_id_{};            // +0x9950 (set_room_id)
     std::array<std::array<char, 16>, 10> master_servers_{}; // +0x9954 the master servers' names (use_network_preferences)
     std::array<uint8_t, 0x6400> news_buffer_{}; // +0x99F4 the news / message of the day downloaded
-    uint8_t* motd_text_{};          // +0xFDF4 the message of the day in news_buffer_
+    const char* motd_text_{};       // +0xFDF4 the message of the day in news_buffer_
     uint8_t* pending_data_{};       // +0xFDF8 the rest of the download after it
     uint32_t pending_data_size_{};  // +0xFDFC
     int request_{};                 // +0xFE00 the current ghttp request

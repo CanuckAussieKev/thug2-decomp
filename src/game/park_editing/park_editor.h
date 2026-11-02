@@ -105,6 +105,7 @@ public:
     void write_compressed_map_if_built();                                 // 0x0058D680
     CompressedMap* get_packed_park_data(bool flag_clean);                 // 0x0058D690
     void set_packed_park_data(const CompressedMap* map, bool flag_dirty); // 0x0058D6B0
+    void set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty);    // NOT ORIGINAL: from a received map
     // 0x0058D6D0: whether the main heap has room for `count` * `size` floor pieces (park_editing::main_heap_has_room).
     bool main_heap_has_room(int count, int size);
     // 0x0058D6F0: the cursor's position.

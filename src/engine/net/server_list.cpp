@@ -48,8 +48,6 @@
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strncpy, kept)
@@ -164,11 +162,16 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
     head->prev = node;
 }
 
-// A server's id in the menu and in fetch_host: its SBServer on the internet, itself on the LAN.
-uint32_t server_id(Hub* manager, HostListing* server)
+// A server's id in the menu and in fetch_host (HostListing::id_).
+uint32_t server_id(const HostListing* server) { return server->id_; }
+
+// NOT ORIGINAL: the next server's id (never 0).
+uint32_t next_server_id()
 {
-    return manager->in_internet_mode() ? cell::of(server->sb_server_)
-                                       : cell::of(server);
+    static uint32_t last = 0;
+    if (++last == 0)
+        ++last;
+    return last;
 }
 
 // The waiting servers moved to the list (and the menu), after the "none found" message.
@@ -193,7 +196,7 @@ void move_waiting_servers(Hub* manager)
 // --- HostListing ---
 
 // 0x00545F60
-HostListing::HostListing() : ListNode()
+HostListing::HostListing() : ListNode(), id_(next_server_id())
 {
     make_node(this);
     participants_.make_head();
@@ -398,7 +401,7 @@ void Hub::show_server_in_menu(void* item, int index)
     params->append_word(kText, server->label_.data());
     params->append_word(kMode, server->mode_sel_.data());
     debug::printf("The game mode is: %s\n", server->mode_sel_.data());
-    const uint32_t id = server_id(this, server);
+    const uint32_t id = server_id(server);
     params->put_name_key(kId, id);
     params->put_name_key(kParent, kServerListMenu);
     params->put_name_key(kPadChooseScript, kChooseSelectedServer);
@@ -446,7 +449,7 @@ void* Hub::fetch_host(uint32_t id)
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             return nullptr;
-        if (id == server_id(this, server))
+        if (id == server_id(server))
             return server;
     }
     return nullptr;
@@ -517,7 +520,7 @@ unsigned long __stdcall news_thread(void* argument)
     std::sprintf(url.data(), commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
     manager->request_ =
-        game_spy::http_get_ex(url.data(), nullptr, raw::chars(buffer), static_cast<int>(kNewsBufferSize), nullptr,
+        game_spy::http_get_ex(url.data(), nullptr, buffer, static_cast<int>(kNewsBufferSize), nullptr,
                               0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
     ram_stats()->leave_heap_scope();
     return 0;
@@ -558,12 +561,12 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     util::ByteReader reader(buffer, static_cast<size_t>(size));
     News news;
     if (!read_news(reader, &news) ||
-        news.checksum != checksums::generate_crc_caseless(raw::chars(news.data), news.size)) {
+        news.checksum != checksums::generate_crc_caseless(news.motd, news.size)) { // (motd: the data's start)
         manager->service_state_ = kStateNewsFailed;
         return 1;
     }
     uint8_t* text = buffer + (news.data - buffer);
-    manager->motd_text_ = text;
+    manager->motd_text_ = news.motd;
     manager->pending_data_size_ = news.size - news.motd_size;
     manager->pending_data_ = text + news.motd_size;
     manager->motd_received_ = true;

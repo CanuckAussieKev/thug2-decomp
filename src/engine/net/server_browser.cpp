@@ -35,8 +35,6 @@
 #include "engine/gfx/loading_bar.h"
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
@@ -401,11 +399,12 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         break;
     }
     case kListingRemove: {
+        HostListing* server = find_by_sb(manager, sb);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kServerId, cell::of(sb));
+        params->put_name_key(kServerId, server ? server->id_ : 0); // (the original: the SBServer's address)
         get_run(kDestroyLobbyServer, params.get());
         params.reset();
-        if (HostListing* server = find_by_sb(manager, sb))
+        if (server)
             server->teardown(1);
         get_run(kUpdateServerList);
         break;
@@ -436,7 +435,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
             server->detailed_ = true;
             if (server->chosen_) {
                 const script::StructPtr params = script::make_struct();
-                params->put_name_key(kId, cell::of(sb));
+                params->put_name_key(kId, server->id_);
                 get_run(kDescribeSelectedServer, params.get());
             }
         }

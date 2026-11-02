@@ -32,7 +32,6 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
-#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -199,7 +198,7 @@ void service_task(tasks::Task<online::Hub>* task)
     case 9: { // show the message of the day
         ghttp_cleanup();
         script::StructPtr params = script::make_struct();
-        params->append_word(kText, raw::chars(manager->motd_text_));
+        params->append_word(kText, manager->motd_text_);
         launch_script(0xF17B894C, params.get());
         params.reset();
         manager->service_state_ = 0;

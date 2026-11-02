@@ -47,7 +47,6 @@
 #include "engine/sys/mlp.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
 #include "platform/registry.h"
@@ -291,8 +290,7 @@ int handle_park_map(net::InboundMsgCtx* context)
     // NOT ORIGINAL: a map shorter than a map is dropped (the original copied a whole map's worth from it)
     if (context->body_size_ < static_cast<uint32_t>(kParkMapSize))
         return kContinue;
-    park_editing::ParkBuilderMode::sole()->set_packed_park_data(
-        raw::as<const park_editing::CompressedMap>(context->body_), true);
+    park_editing::ParkBuilderMode::sole()->set_packed_park_bytes(context->body_, true);
     const void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
     return kContinue;

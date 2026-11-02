@@ -383,10 +383,10 @@ int server_get_ping(void* server) { return SBServerGetPing(get_sb(server)); }
 
 // --- HTTP ---
 
-int http_get_ex(const char* url, const char* headers, char* buffer, int size, void* post, int throttle, int blocking,
+int http_get_ex(const char* url, const char* headers, void* buffer, int size, void* post, int throttle, int blocking,
                 HookFn progress, HookFn completed, void* param)
 {
-    return ghttpGetEx(url, headers, buffer, size, static_cast<GHTTPPost>(post), static_cast<GHTTPBool>(throttle),
+    return ghttpGetEx(url, headers, static_cast<char*>(buffer), size, static_cast<GHTTPPost>(post), static_cast<GHTTPBool>(throttle),
                       static_cast<GHTTPBool>(blocking), as<ghttpProgressCallback>(progress),
                       as<ghttpCompletedCallback>(completed), param);
 }

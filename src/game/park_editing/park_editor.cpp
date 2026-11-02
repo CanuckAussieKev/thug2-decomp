@@ -257,6 +257,10 @@ void ParkBuilderMode::set_packed_park_data(const CompressedMap* map, bool flag_d
 {
     hub()->set_packed_park_data(map, flag_dirty);
 }
+void ParkBuilderMode::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty)
+{
+    hub()->set_packed_park_bytes(bytes, flag_dirty);
+}
 bool ParkBuilderMode::main_heap_has_room(int count, int size) { return park_editing::main_heap_has_room(count, size); }
 maths::Vec4* ParkBuilderMode::get_cursor_pos() { return &get_cursor()->at_point_; }
 void ParkBuilderMode::set_daylight_script(uint32_t script) { lighting_script_ = script; }

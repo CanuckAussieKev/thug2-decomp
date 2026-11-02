@@ -91,8 +91,8 @@ Conn::Conn(int flags)
 
     flag_bits_ = static_cast<uint32_t>(flags);
     cur_standing_ = kConnReady;
-    read_buffer_ = read_ptr_ = static_cast<char*>(memory::alloc(kRecvChunkBytes));
-    outgoing_bytes_ = write_ptr_ = static_cast<char*>(memory::alloc(kWriteBufferSize));
+    read_buffer_ = read_ptr_ = static_cast<uint8_t*>(memory::alloc(kRecvChunkBytes));
+    outgoing_bytes_ = write_ptr_ = static_cast<uint8_t*>(memory::alloc(kWriteBufferSize));
     tx_spacing_ms_ = 0;
     last_transmit_at_ = 0;
     send_now_ = false;
