@@ -50,7 +50,11 @@ pointer in an integer - `cell::` (`engine/core/pointer_cell.h`), `raw::` (`engin
 `memory::bits_as`, `function_at` - are used only there. Above it every field has its member and every pointer its
 type; data from outside is decoded where it arrives. `npm test` forbids the helpers above the boundary
 (`tools/layering.ts`). The QB bytecode readers (`engine/script/qb.cpp`,
-`token_reader.cpp`, `precompiled.cpp`) count as boundary until the script runtime is replaced.
+`token_reader.cpp`, `precompiled.cpp`) count as boundary until the script runtime is replaced. They read the tokens
+through `script::Tokens` (`engine/script/tokens.h`: a `core::Cursor` over the block of code, every read checked
+against its extent); the runtime keeps plain pointers into code (a script's place, its loops, its callers' return
+points) and `tokens_at` finds a pointer's block in a table of the blocks of code, noted where each is made and freed
+(outside the game's heaps).
 `.clang-tidy` keeps `reinterpret_cast` and integer-to-pointer casts out of `src/` entirely.
 
 **The script values** are `script::Cell`s (`engine/script/cell.h`): a component's, a global symbol's or an array

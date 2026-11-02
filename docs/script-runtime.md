@@ -27,7 +27,7 @@ layout is in cscript.h. The parts that matter for scheduling are:
 
 | field | meaning |
 |---|---|
-| `pc_` +0x0C | the next token. Null means not running ("finished"). |
+| `pc_` +0x0C | the next token. Null means not running ("finished"). (Ours reads the tokens through a cursor over pc_'s block of code - engine/script/tokens.h - taken up again whenever something the statement called moved pc_; the semantics below are unchanged.) |
 | `args_` +0x14 | the current level's parameters: the defaults from the script's first line, plus the caller's arguments, plus `name = value` assignments, plus whatever C functions leave there. |
 | `stmt_args_` +0x10 | the arguments of the statement being run, parsed again for every statement. |
 | `innermost_repeat_` / `loops_` | one loop stack shared by all call levels: 1 inline entry, moved to 10 on the script heap. |
