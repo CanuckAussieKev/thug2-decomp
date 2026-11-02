@@ -7,6 +7,7 @@
 // 0x00463AA0-0x004680B0) is still in the game.
 
 #include <memory>
+#include <span>
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -70,7 +71,7 @@ struct IdentityQuat {
 const char* skater_model_name(script::Struct* params);
 // 0x00463DA0: a colour from the structure `name` in `params` ({r, g, b} in percent unless 0x5A96985D is set);
 // white otherwise. Returns `out`.
-float* read_colour(float* out, script::Struct* params, uint32_t name);
+std::span<float, 4> read_colour(std::span<float, 4> out, script::Struct* params, uint32_t name);
 // 0x00463E80 / 0x00463ED0: the lights of the nodes named in array 0x2A79C44E added (0x00490570: a light from a
 // node's colour and radii) / taken away again (0x0048FCA0, by node name).
 void add_cutscene_lights();

@@ -90,20 +90,22 @@ inline void debug_draw_box(const void*, const void*, const float*, int, int, int
 // 0x00465510
 bool objects_from_table(script::Struct* params, const uint32_t* table)
 {
-    params->put_int(kVersion, static_cast<int>(table[0]));
-    const int count = static_cast<int>(table[1]);
-    const uint32_t* entry = table + 2;
+    std::span<const uint32_t> words(table, 2);
+    params->put_int(kVersion, static_cast<int>(core::at(words, 0)));
+    const int count = static_cast<int>(core::at(words, 1));
+    words = std::span<const uint32_t>(table, 2 + (static_cast<size_t>(count) * 5)); // (a version, a count, 5 words each)
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> objects = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
-    for (int i = 0; i < count; ++i, entry += 5) {
+    for (int i = 0; i < count; ++i) {
+        const std::span<const uint32_t, 5> entry = std::span<const uint32_t>(words).subspan(2 + (static_cast<size_t>(i) * 5)).first<5>();
         gsl::owner<script::Struct*> block = script::spawn_param_bag();
         script::Struct* object = block ? memory::construct_in<script::Struct>(block) : nullptr;
-        object->put_name_key(kName, entry[0]);
-        object->put_name_key(kModel, entry[1]);
-        object->put_name_key(kSkeleton, entry[2]);
-        object->put_name_key(kAnim, entry[3]);
-        const uint32_t flags = entry[4];
+        object->put_name_key(kName, core::at(entry, 0));
+        object->put_name_key(kModel, core::at(entry, 1));
+        object->put_name_key(kSkeleton, core::at(entry, 2));
+        object->put_name_key(kAnim, core::at(entry, 3));
+        const uint32_t flags = core::at(entry, 4);
         if (flags >> 30 & 1)
             object->put_name_key(kUnnamed, kIsSkaterMarker);
         if (flags >> 31 & 1)
@@ -206,7 +208,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
             maths::Mat4 matrix{};
             matrix = object->display_matrix_;
-            std::memcpy(matrix.data() + 12, &object->at_point_, 16);
+            matrix[3] = object->at_point_; // (its position row)
             static_cast<render::RenderModel*>(level_model)
                 ->render(&matrix, false,
                          core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_);
@@ -261,9 +263,9 @@ void CinematicTable::update_object_transforms()
             static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, &bone);
             turned =
                 bone * parent->display_matrix_;
-            const float* offset = turned.data();
-            const float* at = &parent->at_point_.x;
-            auto* position = &object->at_point_.x;
+            const maths::Vec4& offset = turned;
+            const maths::Vec4& at = parent->at_point_;
+            maths::Vec4& position = object->at_point_;
             position[2] = static_cast<float>(static_cast<double>(at[2]) + offset[2]);
             position[3] = static_cast<float>(static_cast<double>(at[3]) + offset[3]);
             position[0] = static_cast<float>(static_cast<double>(offset[0]) + at[0]);
@@ -273,7 +275,7 @@ void CinematicTable::update_object_transforms()
             static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, &joint_mat);
             std::array<float, 16> owner_mat{};
             std::memcpy(owner_mat.data(), &parent->display_matrix_, 64);
-            std::memcpy(owner_mat.data() + 12, at, 16);
+            std::memcpy(std::span(owner_mat).subspan(12, 4).data(), &at, 16);
             core::at(owner_mat, 3) = 0.0f;
             core::at(owner_mat, 7) = 0.0f;
             core::at(owner_mat, 11) = 0.0f;

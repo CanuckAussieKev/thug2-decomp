@@ -2,6 +2,7 @@
 // bundle and its destructor (0x00466620-0x00467707). See cutscene.h.
 
 #include <memory>
+#include <span>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -392,11 +393,13 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         if (!part2)
             part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartB));
         float* skin = g_skin_colours.data();
-        skin[0] = skin[1] = skin[2] = skin[3] = 1.0f;
+        core::at(g_skin_colours, 0) = core::at(g_skin_colours, 1) = core::at(g_skin_colours, 2) =
+            core::at(g_skin_colours, 3) = 1.0f;
         for (int k = 0; k < 4; ++k) {
             std::array<float, 4> colour{};
             script::Struct* from = part1->has_entry_named(core::at(kColourNames, k)) ? part1 : part2;
-            std::memcpy(skin + 4 * (k + 1), read_colour(colour.data(), from, core::at(kColourNames, k)), 16);
+            std::memcpy(std::span(g_skin_colours).subspan(4 * (static_cast<size_t>(k) + 1), 4).data(),
+                        read_colour(colour, from, core::at(kColourNames, k)).data(), 16);
         }
         // Not original - the colours read within their asset (bundle_format.h): a count past it reads none (the
         // original's table ran past the asset).

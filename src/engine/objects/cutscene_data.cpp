@@ -147,7 +147,7 @@ const char* skater_model_name(script::Struct* params)
 }
 
 // 0x00463DA0
-float* read_colour(float* out, script::Struct* params, uint32_t name)
+std::span<float, 4> read_colour(std::span<float, 4> out, script::Struct* params, uint32_t name)
 {
     script::Struct* colour = nullptr;
     if (params->read_sub_struct(name, &colour, 0)) {
@@ -158,14 +158,14 @@ float* read_colour(float* out, script::Struct* params, uint32_t name)
             colour->fetch_int_value(kRed, &red, 1);
             colour->fetch_int_value(kGreen, &green, 1);
             colour->fetch_int_value(kBlue, &blue, 1);
-            out[3] = 1.0f;
-            out[0] = static_cast<float>(red * static_cast<double>(0.0099999998f));
-            out[1] = static_cast<float>(green * static_cast<double>(0.0099999998f));
-            out[2] = static_cast<float>(blue * static_cast<double>(0.0099999998f));
+            core::at(out, 3) = 1.0f;
+            core::at(out, 0) = static_cast<float>(red * static_cast<double>(0.0099999998f));
+            core::at(out, 1) = static_cast<float>(green * static_cast<double>(0.0099999998f));
+            core::at(out, 2) = static_cast<float>(blue * static_cast<double>(0.0099999998f));
             return out;
         }
     }
-    out[0] = out[1] = out[2] = out[3] = 1.0f;
+    core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = core::at(out, 3) = 1.0f;
     return out;
 }
 

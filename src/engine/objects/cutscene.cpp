@@ -5,6 +5,8 @@
 #include "engine/core/str.h"
 
 #include <cstdint>
+#include <string>
+#include <string_view>
 #include <cstdio>
 #include <cstring>
 #include <array>
@@ -40,12 +42,10 @@ std::array<char, 256>& name_buffer() { return g_cutscene_name_buffer; }
 const char* cutscene_name_from_path(const char* path)
 {
     char* name = name_buffer().data();
-    for (int i = static_cast<int>(std::strlen(path)); i >= 0; --i) {
-        if (path[i] == '\\' || path[i] == '/') {
-            // (copied forwards a byte at a time, as the original)
-            text::copy_unbounded(name, path + i + 1);
-            break;
-        }
+    const std::string_view text(path);
+    if (const size_t slash = text.find_last_of("\\/"); slash != std::string_view::npos) {
+        // (copied forwards a byte at a time, as the original)
+        text::copy_unbounded(name, std::string(text.substr(slash + 1)).c_str());
     }
     if (char* extension = std::strstr(name, "."))
         *extension = '\0';
