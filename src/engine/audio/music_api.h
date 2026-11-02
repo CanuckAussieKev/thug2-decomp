@@ -78,13 +78,4 @@ struct FamData {
 };
 static_assert(sizeof(FamData) == 0x1008, "layout must match the original");
 
-extern int g_frame_count;
-extern int g_current_track_index;
-extern int g_current_playlist;
-extern bool g_initialised;
-extern bool g_custom_playlist_on;
-extern int g_user_soundtrack;
-
-extern uint32_t g_user_track;
-extern uint32_t g_user_position;
 } // namespace audio

@@ -18,43 +18,23 @@
 #include "formats/stream_index_format.h"
 #include "formats/byte_stream.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/no_destroy.h"
+#include "engine/audio/audio_state.h"
 #include <gsl/pointers>
 
 namespace audio {
 
-void* g_wad_file{INVALID_HANDLE_VALUE};
-WadEntry* g_wad_entries;
-void* g_stream_lock; // a mutex (HANDLE), made at start-up
+WadState& wad_state()
+{
+    static core::NoDestroy<WadState> state;
+    return state.get();
+}
 
 namespace {
 
 // The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
-HANDLE stream_lock() { return g_stream_lock; }
+HANDLE stream_lock() { return wad_state().stream_lock_; }
 
-int g_next_overlapped;
-uint32_t g_wad_entry_count;
-HANDLE g_thread_handle;
-bool g_stop_thread;
-bool g_soundtracks_counted;
-int g_soundtrack_count;
-
-HANDLE& thread_handle() { return g_thread_handle; }
-bool& stop_thread() { return g_stop_thread; }
-
-// pcm.wad (opened for streaming) and pcm.dat's index of it.
-HANDLE& get_wad_file() { return g_wad_file; }
-WadEntry*& wad_entries() { return g_wad_entries; }
-uint32_t& wad_entry_count() { return g_wad_entry_count; }
-
-// The ring of OVERLAPPED blocks streams read with, and the next one to try.
-std::array<OVERLAPPED, 256> g_overlapped;
-std::array<OVERLAPPED, 256>& get_overlapped() { return g_overlapped; }
-constexpr int kOverlapSlots = 256;
-int& next_overlapped() { return g_next_overlapped; }
-
-// The user soundtracks (0x4C bytes each at 0x006EE024: the track count, then the name at +8).
-bool& soundtracks_counted() { return g_soundtracks_counted; }
-int& soundtrack_count() { return g_soundtrack_count; }
 // (Never filled on PC - the count stays 0 - so the slots are only the original's room: 99 of them before the next variable.)
 // A user soundtrack (0x4C bytes): its track count and name (none on PC).
 struct UserSoundtrack {
@@ -63,8 +43,45 @@ struct UserSoundtrack {
     std::array<wchar_t, 0x22> name;
 };
 constexpr int kSoundtrackSlots = 99;
-std::array<UserSoundtrack, kSoundtrackSlots> g_soundtracks;
-UserSoundtrack& get_soundtrack(int index) { return core::at(g_soundtracks, index); }
+
+// NOT ORIGINAL grouping - the stream thread, the OVERLAPPED ring, the user soundtracks and the stream slots. Made on
+// first use, never destroyed (stream_io_state()).
+struct StreamIoState {
+    int next_overlapped_{};
+    uint32_t wad_entry_count_{};
+    HANDLE thread_handle_{};
+    bool stop_thread_{};
+    bool soundtracks_counted_{};
+    int soundtrack_count_{};
+    // The ring of OVERLAPPED blocks streams read with, and the next one to try.
+    std::array<OVERLAPPED, 256> overlapped_{};
+    std::array<UserSoundtrack, kSoundtrackSlots> soundtracks_{};
+    std::array<StreamSlot, 3> stream_slots_{};
+    StreamSlot music_slot_{};
+};
+
+StreamIoState& stream_io_state()
+{
+    static core::NoDestroy<StreamIoState> state;
+    return state.get();
+}
+
+HANDLE& thread_handle() { return stream_io_state().thread_handle_; }
+bool& stop_thread() { return stream_io_state().stop_thread_; }
+
+// pcm.wad (opened for streaming) and pcm.dat's index of it.
+HANDLE& get_wad_file() { return wad_state().wad_file_; }
+WadEntry*& wad_entries() { return wad_state().wad_entries_; }
+uint32_t& wad_entry_count() { return stream_io_state().wad_entry_count_; }
+
+std::array<OVERLAPPED, 256>& get_overlapped() { return stream_io_state().overlapped_; }
+constexpr int kOverlapSlots = 256;
+int& next_overlapped() { return stream_io_state().next_overlapped_; }
+
+// The user soundtracks (0x4C bytes each at 0x006EE024: the track count, then the name at +8).
+bool& soundtracks_counted() { return stream_io_state().soundtracks_counted_; }
+int& soundtrack_count() { return stream_io_state().soundtrack_count_; }
+UserSoundtrack& get_soundtrack(int index) { return core::at(stream_io_state().soundtracks_, index); }
 
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 
@@ -114,17 +131,15 @@ bool prefetch_complete(const StreamSlot& slot)
     return true;
 }
 
-std::array<StreamSlot, 3> g_stream_slots;
 } // namespace
 
-std::array<StreamSlot, 3>& stream_slots() { return g_stream_slots; }
-std::span<WadEntry> wad_entry_run() { return {g_wad_entries, g_wad_entry_count}; }
+std::array<StreamSlot, 3>& stream_slots() { return stream_io_state().stream_slots_; }
+std::span<WadEntry> wad_entry_run() { return {wad_state().wad_entries_, stream_io_state().wad_entry_count_}; }
 
 namespace {
-StreamSlot g_music_slot;
 } // namespace
 
-StreamSlot& music_slot() { return g_music_slot; }
+StreamSlot& music_slot() { return stream_io_state().music_slot_; }
 
 // --- StreamSlot --------------------------------------------------------------------------------------------
 
@@ -411,6 +426,6 @@ int user_soundtrack_tracks(int index)
 namespace audio {
 
 // 0x006409D0 (a static initialiser): the streams' lock, a mutex nobody owns.
-void create_stream_lock() { g_stream_lock = CreateMutexA(nullptr, FALSE, nullptr); }
+void create_stream_lock() { wad_state().stream_lock_ = CreateMutexA(nullptr, FALSE, nullptr); }
 
 } // namespace audio

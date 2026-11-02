@@ -21,35 +21,47 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/viewport.h"
 #include "engine/core/checked_index.h"
+#include "engine/audio/audio_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace audio {
 
 namespace {
 
-bool sound_on() { return g_sound_device && game_config::g_platform != 2; }
-bool& stream_header_loaded() { return g_streams_on; }
+bool sound_on() { return music_state().sound_device_ && game_config::g_platform != 2; }
+bool& stream_header_loaded() { return music_state().streams_on_; }
 bool streams_on() { return sound_on() && stream_header_loaded(); }
 
-int g_last_stream;
-bool g_streams_held;
-bool g_streams_blocked;
-bool g_streams_paused_before;
+// NOT ORIGINAL grouping - the last stream started and the streams' hold / block / pause flags. Made on first use, never
+// destroyed (stream_command_state()).
+struct StreamCommandState {
+    int last_stream_{};
+    bool streams_held_{};
+    bool streams_blocked_{};
+    bool streams_paused_before_{};
+    std::array<StreamAmpCurve, 1> frame_amps_{}; // (one slot; a checksum of 0 marks it free)
+};
 
-bool& streaming_halted() { return g_streams_held; }
-bool& streams_paused_before() { return g_streams_paused_before; }
+StreamCommandState& stream_command_state()
+{
+    static core::NoDestroy<StreamCommandState> state;
+    return state.get();
+}
+
+bool& streaming_halted() { return stream_command_state().streams_held_; }
+bool& streams_paused_before() { return stream_command_state().streams_paused_before_; }
 // Set: no new streams play (nothing in the game sets it).
-bool streams_blocked() { return g_streams_blocked; }
+bool streams_blocked() { return stream_command_state().streams_blocked_; }
 
-std::array<Stream, 3>& get_streams() { return g_streams; }
+std::array<Stream, 3>& get_streams() { return music_state().streams_; }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id.
-std::array<objects::AudioStreamModule*, 3>& get_owners() { return g_stream_owners; }
+std::array<objects::AudioStreamModule*, 3>& get_owners() { return music_state().stream_owners_; }
 uint32_t& owner_id(objects::AudioStreamModule* owner, int stream) { return core::at(owner->streams_, stream); }
 // The stream PlayStream started last.
-int& last_stream() { return g_last_stream; }
+int& last_stream() { return stream_command_state().last_stream_; }
 
-std::array<StreamAmpCurve, 1> g_frame_amps; // (one slot; a checksum of 0 marks it free)
-std::array<StreamAmpCurve, 1>& frame_amps() { return g_frame_amps; }
+std::array<StreamAmpCurve, 1>& frame_amps() { return stream_command_state().frame_amps_; }
 constexpr int kFrameAmps = 1;
 
 // The platform's streams (stream.h): whether a channel is free (stream_status: 1), pause (streams: 0), stop a

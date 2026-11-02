@@ -17,6 +17,4 @@ struct CachedStreamFile {
 };
 static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
 
-extern std::array<CachedStreamFile, 12> g_stream_files;
-
 } // namespace audio

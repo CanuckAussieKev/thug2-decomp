@@ -18,26 +18,38 @@
 #include "platform/bink.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/audio/audio_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace audio {
 
 namespace {
 
-HANDLE stream_lock() { return g_stream_lock; }
-HANDLE get_wad_file() { return g_wad_file; }
+HANDLE stream_lock() { return wad_state().stream_lock_; }
+HANDLE get_wad_file() { return wad_state().wad_file_; }
 
-uint32_t g_last_music_track;
+// NOT ORIGINAL grouping - the last music track and streams played and their read buffers. Made on first use, never
+// destroyed (stream_play_state()).
+struct StreamPlayState {
+    uint32_t last_music_track_{};
+    std::array<uint32_t, 3> last_streams_{};
+    // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
+    std::array<uint8_t, 0x14000> user_track_buffer_{};
+    std::array<uint8_t, 3 * 0x14000> stream_buffers_{};
+};
 
-uint32_t& last_music_track() { return g_last_music_track; }
-std::array<uint32_t, 3> g_last_streams;
-std::array<uint32_t, 3>& last_streams() { return g_last_streams; }
-// Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
-std::array<uint8_t, 0x14000> g_user_track_buffer;
-std::array<uint8_t, 0x14000>& user_track_buffer() { return g_user_track_buffer; }
-std::array<uint8_t, 3 * 0x14000> g_stream_buffers;
+StreamPlayState& stream_play_state()
+{
+    static core::NoDestroy<StreamPlayState> state;
+    return state.get();
+}
+
+uint32_t& last_music_track() { return stream_play_state().last_music_track_; }
+std::array<uint32_t, 3>& last_streams() { return stream_play_state().last_streams_; }
+std::array<uint8_t, 0x14000>& user_track_buffer() { return stream_play_state().user_track_buffer_; }
 void* stream_buffer(int slot)
 {
-    return std::span(g_stream_buffers).subspan(static_cast<std::size_t>(slot) * 0x14000, 0x14000).data();
+    return std::span(stream_play_state().stream_buffers_).subspan(static_cast<std::size_t>(slot) * 0x14000, 0x14000).data();
 }
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
@@ -47,7 +59,6 @@ const char* data_root() { return game_config::get_bootstrap_prefix(); }
 void create_sound_manager() { sound::create_manager(false); }
 void release_sound_manager() { sound::release_manager(); }
 float sound_volume() { return sound::fetch_master_loudness(); }
-
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

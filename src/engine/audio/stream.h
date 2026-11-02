@@ -306,10 +306,4 @@ int user_soundtrack_tracks(int index);
 // NOT ORIGINAL: pcm.wad's index as a run of its entries.
 [[nodiscard]] std::span<WadEntry> wad_entry_run();
 
-extern void* g_wad_file;
-extern bool g_bink_sound_set;
-extern uint32_t g_stream_file_uses;
-extern WadEntry* g_wad_entries;
-extern void* g_stream_lock;
-
 } // namespace audio

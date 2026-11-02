@@ -212,7 +212,6 @@ uint32_t& get_saved_min_filter() { return g_saved_min_filter; }
 // The renderer's cached states (change_phase: 1 the z write, 2 the z test).
 void set_renderer_sampler(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 
-
 } // namespace
 
 // 0x0044F8C0
@@ -298,7 +297,7 @@ constexpr uint32_t kCross = 0x0040;
 // 0x0044FDC0
 void play_movie_file(const char* name)
 {
-    if (!bink::use_direct_sound(audio::g_sound_device))
+    if (!bink::use_direct_sound(audio::get_sound_device()))
         debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
     create_sound_manager();
     const float music = current_music_volume();

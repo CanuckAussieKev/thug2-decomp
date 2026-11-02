@@ -35,7 +35,8 @@ AudioMixer* get_audio_mixer() { return sound_state().audio_mixer_.get(); }
 std::span<const SoundWaveSlot, 256> loaded_level_waves() { return sound_state().level_waves_; }
 int level_wave_count() { return sound_state().level_count_; }
 namespace {
-// NOT ORIGINAL grouping - the mixer's volume scale, master volume, pitch and the positional sounds' entries. Made on first
+// NOT ORIGINAL grouping - the mixer's volume scale, master volume, pitch and the positional sounds' entries. Made on
+// first
 // use, never destroyed (mix_state()).
 struct MixState {
     float volume_scale_{100.0f};
@@ -158,7 +159,7 @@ float VolumeRef::find_peak_channel()
 // 0x0047B010
 bool no_sound()
 {
-    if (!audio::g_sound_device)
+    if (!audio::get_sound_device())
         return true;
     const int platform = game_config::g_platform;
     return platform == 2 || platform == 6;

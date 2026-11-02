@@ -13,7 +13,6 @@
 #include "platform/mute_audio.h"
 #include "engine/gfx/device.h"
 #include "engine/audio/music_player.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 
 namespace os_layer {
@@ -36,7 +35,7 @@ HWND& game_window() { return render::g_game_window; }
 int& get_frame_left() { return g_frame_left; }
 int& frame_top() { return g_frame_top; }
 
-IDirectSound8*& direct_sound() { return memory::bits_as<IDirectSound8*>(audio::g_sound_device); }
+IDirectSound8* direct_sound() { return static_cast<IDirectSound8*>(audio::get_sound_device()); }
 
 // IMA ADPCM's tables (0x0068E0C0, 0x0068E0E0).
 const std::array<int, 8> kIndexSteps = {{-1, -1, -1, -1, 2, 4, 6, 8}};
@@ -125,7 +124,9 @@ HWND create_game_window(const char* class_name, const char* title, int x, int y,
 // 0x005F59D0
 void init_direct_sound(HWND window)
 {
-    DirectSoundCreate8(nullptr, &direct_sound(), nullptr);
+    IDirectSound8* device = nullptr;
+    DirectSoundCreate8(nullptr, &device, nullptr);
+    audio::set_sound_device(device);
     if (direct_sound())
         direct_sound()->SetCooperativeLevel(window, DSSCL_PRIORITY);
     // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
@@ -139,7 +140,7 @@ void release_direct_sound()
 {
     if (direct_sound()) {
         direct_sound()->Release();
-        direct_sound() = nullptr;
+        audio::set_sound_device(nullptr);
     }
     // NOT ORIGINAL: unmuted again, or Windows would keep the session muted for the exe's next run
     if (sound::audio_muted())

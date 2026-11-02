@@ -75,11 +75,6 @@ static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
 // The music's data (music_player.cpp): the playlists and their track titles (100 characters per track, those of playlist 0),
 // the three streams and the objects that started them, and the user soundtrack's shuffled order.
-extern std::array<Playlist, 2> g_playlists;
-extern std::array<std::array<char, 100>, 80> g_track_titles;
-extern std::array<Stream, 3> g_streams;
-extern std::array<objects::AudioStreamModule*, 3> g_stream_owners;
-extern std::array<int, 600> g_user_order;
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
 // 0x00450220: whether no stream with this id is playing.
@@ -166,12 +161,8 @@ void change_track_state(int track, bool off, int list);
 // start is switched off in the current playlist (unless the debug checks are on). Not while a music stream plays.
 void play_track(const char* name, bool loop);
 
-extern bool g_music_header_loaded;
-extern bool g_streams_on;
-extern float g_music_volume;
-extern float g_music_stream_volume;
-extern int g_bgm_stream_kind;
-extern bool g_shuffle_user;
-extern void* g_sound_device;
+// NOT ORIGINAL - the DirectSound device (0x007D6A38; null without sound), as the audio code keeps it.
+void* get_sound_device();
+void set_sound_device(void* device);
 
 } // namespace audio

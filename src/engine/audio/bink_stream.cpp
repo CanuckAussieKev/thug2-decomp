@@ -12,11 +12,12 @@
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/movie.h"
-#include "engine/audio/music_player.h"
 #include "platform/mute_audio.h"
 #include "platform/winmain.h"
 #include "engine/audio/stream_files.h"
 #include "platform/bink.h"
+#include "engine/audio/audio_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace audio {
 
@@ -33,19 +34,29 @@ constexpr uint32_t kBinkFileHandle = 0x04000000; // video_open: the name is (the
 constexpr uint32_t kIoSize = 0x40000;
 constexpr Result kInvalidArgument = static_cast<Result>(0x80070057);
 
-bool g_pause_locked;
-uint32_t g_io_size;
+// NOT ORIGINAL grouping - the Bink streams' pause lock and read size. Made on first use, never destroyed
+// (bink_io_state()).
+struct BinkIoState {
+    bool pause_locked_{};
+    uint32_t io_size_{};
+};
 
-bool& sound_system_set() { return g_bink_sound_set; } // also set by 0x00452C60
-uint32_t& io_size() { return g_io_size; }
-bool pause_locked() { return g_pause_locked; }
+BinkIoState& bink_io_state()
+{
+    static core::NoDestroy<BinkIoState> state;
+    return state.get();
+}
+
+bool& sound_system_set() { return stream_file_state().bink_sound_set_; } // also set by 0x00452C60
+uint32_t& io_size() { return bink_io_state().io_size_; }
+bool pause_locked() { return bink_io_state().pause_locked_; }
 bool get_focused() { return sys::g_app_active; }
-void* sound_device() { return g_sound_device; }
+void* sound_device() { return music_state().sound_device_; }
 
 // The pcm.wad entries open as Bink streams (the stream files, stream_files.h; opened by 0x00452A90): when last let go
 // of (the counter at 0x0069CB9C), and how many streams use it.
-CachedStreamFile& wad_file(int index) { return core::at(g_stream_files, index); }
-uint32_t use_counter() { return g_stream_file_uses; }
+CachedStreamFile& wad_file(int index) { return core::at(stream_file_state().stream_files_, index); }
+uint32_t use_counter() { return stream_file_state().stream_file_uses_; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

@@ -21,52 +21,51 @@
 #include "engine/objects/anim_movies.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
+#include "engine/audio/audio_state.h"
 
 namespace audio {
 
-int g_frame_count{1};
-int g_current_track_index;
-int g_current_playlist;
-bool g_initialised;
-bool g_custom_playlist_on;
-int g_user_soundtrack;
-uint32_t g_user_track;
-uint32_t g_user_position;
+MusicApiState& music_api_state()
+{
+    static core::NoDestroy<MusicApiState> state;
+    return state.get();
+}
 
 namespace {
 
-bool sound_available() { return g_sound_device && game_config::g_platform != 2; }
-bool music_on() { return sound_available() && g_music_header_loaded; }
-bool streams_on() { return sound_available() && g_streams_on; }
+bool sound_available() { return music_state().sound_device_ && game_config::g_platform != 2; }
+bool music_on() { return sound_available() && music_state().music_header_loaded_; }
+bool streams_on() { return sound_available() && music_state().streams_on_; }
 
-bool& initialised() { return g_initialised; }
+bool& initialised() { return music_api_state().initialised_; }
 // The music stream: 0 none, 1 playing, 2 preloaded.
-int& music_channel_kind() { return g_bgm_stream_kind; }
+int& music_channel_kind() { return music_state().bgm_stream_kind_; }
 constexpr int kMusicStreamNone = 0;
 constexpr int kMusicStreamNormal = 1;
 constexpr int kMusicStreamPreload = 2;
 // Frames until play_next_track is next tried (Update counts them).
-int& frame_count() { return g_frame_count; }
-float& default_stream_volume() { return g_music_volume; }
-float& base_music_gain() { return g_music_stream_volume; }
+int& frame_count() { return music_api_state().frame_count_; }
+float& default_stream_volume() { return music_state().music_volume_; }
+float& base_music_gain() { return music_state().music_stream_volume_; }
 float get_zero() { return objects::g_float_zero; }
-int& current_track_index() { return g_current_track_index; }
+int& current_track_index() { return music_api_state().current_track_index_; }
 
 // The three streams (music_player.h).
-Stream* stream_at(int index) { return &core::at(g_streams, index); }
+Stream* stream_at(int index) { return &core::at(music_state().streams_, index); }
 constexpr int kStreams = 3;
 // The objects that started each stream (null: none); each notes the ids of the streams it started at
 // +0x18 + 4 * slot.
-std::array<objects::AudioStreamModule*, 3>& get_owners() { return g_stream_owners; }
+std::array<objects::AudioStreamModule*, 3>& get_owners() { return music_state().stream_owners_; }
 
 // The user soundtrack (see music_player.cpp).
-int& user_soundtrack() { return g_user_soundtrack; }
-bool custom_soundtrack_active() { return g_custom_playlist_on; }
-std::array<int, 600>& user_order() { return g_user_order; }
-uint32_t& user_track() { return g_user_track; }
-uint32_t& user_position() { return g_user_position; }
-bool shuffle_user() { return g_shuffle_user; }
-int current_playlist() { return g_current_playlist; }
+int& user_soundtrack() { return music_api_state().user_soundtrack_; }
+bool custom_soundtrack_active() { return music_api_state().custom_playlist_on_; }
+std::array<int, 600>& user_order() { return music_state().user_order_; }
+uint32_t& user_track() { return music_api_state().user_track_; }
+uint32_t& user_position() { return music_api_state().user_position_; }
+bool shuffle_user() { return music_state().shuffle_user_; }
+int current_playlist() { return music_api_state().current_playlist_; }
 
 // The platform layer (stream.h). The original passes the music's stop 1 (StopMusic) or 0 (the music streams),
 // which it doesn't use; the stream's stop is given 1 (unused too).
@@ -359,7 +358,7 @@ bool update_stream_volume(int slot)
 void prepare_all()
 {
     get_owners().fill(nullptr);
-    if (sound_available() && (g_music_header_loaded || streams_on())) {
+    if (sound_available() && (music_state().music_header_loaded_ || streams_on())) {
         init_platform();
         initialised() = true;
         default_stream_volume() = static_cast<float>(script::fetch_int_value(0xABD4A575u));
@@ -368,7 +367,7 @@ void prepare_all()
         base_music_gain() = static_cast<float>(script::fetch_int_value(0x73F8E03Bu));
         if (base_music_gain() == get_zero())
             base_music_gain() = 100.0f;
-        auto& playlists = g_playlists;
+        auto& playlists = music_state().playlists_;
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
             Playlist& list = core::at(playlists, i);
             list.count = 0;

@@ -11,29 +11,35 @@
 #include "engine/audio/stream_commands.h"
 
 #include "engine/core/dbg.h"
-#include "engine/audio/music_player.h"
 #include "engine/audio/stream.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
 #include "platform/bink.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"
+#include "engine/audio/audio_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace audio {
 
-bool g_bink_sound_set;
-uint32_t g_stream_file_uses;
-std::array<CachedStreamFile, 12> g_stream_files;
+StreamFileState& stream_file_state()
+{
+    static core::NoDestroy<StreamFileState> state;
+    return state.get();
+}
 
 namespace {
 
-std::array<CachedStreamFile, 12>& stream_files() { return g_stream_files; }
+std::array<CachedStreamFile, 12>& stream_files() { return stream_file_state().stream_files_; }
 constexpr int kStreamFiles = 12;
 
-bool g_stream_files_ready;
-
-bool& stream_files_ready() { return g_stream_files_ready; }
-uint32_t& stream_file_uses() { return g_stream_file_uses; }
+// Whether the stream files' table is set up (NOT ORIGINAL: a function-local static, was a global).
+bool& stream_files_ready()
+{
+    static bool ready = false;
+    return ready;
+}
+uint32_t& stream_file_uses() { return stream_file_state().stream_file_uses_; }
 
 // The game's C runtime (its heap and files; until the runtime is linked).
 gsl::owner<FILE*> crt_fopen(const char* path, const char* mode) { return crt::get_fopen(path, mode); }
@@ -48,7 +54,7 @@ void get_crt_free(gsl::owner<void*> block) { crt::dealloc(block); }
 
 constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
-bool& bink_sound_set() { return g_bink_sound_set; }
+bool& bink_sound_set() { return stream_file_state().bink_sound_set_; }
 
 // The next of the platform's 256 OVERLAPPED blocks (0x14 bytes each, at 0x0069CBB8) not in use.
 void* next_stream_buffer() { return new_overlapped(); }
@@ -115,7 +121,7 @@ BinkStream::BinkStream(bool unknown19, int plays) : unknown19_(unknown19), plays
 long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!bink_sound_set()) {
-        if (!bink::use_direct_sound(g_sound_device))
+        if (!bink::use_direct_sound(music_state().sound_device_))
             debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
         bink_sound_set() = true;
     }

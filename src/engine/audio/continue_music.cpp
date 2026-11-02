@@ -14,7 +14,12 @@ namespace {
 
 constexpr uint32_t kCleanupBeforeLoading = 0x65ED88DA; // cleanup_before_loading_level
 
-int g_holds;
+// How many holds keep the music going (NOT ORIGINAL: a function-local static, was a global).
+int& music_holds()
+{
+    static int holds = 0;
+    return holds;
+}
 
 } // namespace
 
@@ -43,15 +48,15 @@ bool skips_script_pause(const script::Script* script)
 Hold::Hold() : held_(is_switched_on())
 {
     if (held_)
-        ++g_holds;
+        ++music_holds();
 }
 
 Hold::~Hold()
 {
     if (held_)
-        --g_holds;
+        --music_holds();
 }
 
-bool is_held() { return g_holds > 0; }
+bool is_held() { return music_holds() > 0; }
 
 } // namespace audio::continue_music

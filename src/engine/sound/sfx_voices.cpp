@@ -94,7 +94,7 @@ bool& has_3d() { return voice_state().has_3d_; }
 int& voice_count() { return voice_state().voice_count_; }
 int& last_voice() { return voice_state().last_voice_; }
 void*& get_listener() { return voice_state().listener_; }
-void* input_port() { return audio::g_sound_device; }
+void* input_port() { return audio::get_sound_device(); }
 float voice_volume() { return voice_state().voice_volume_; }
 
 // The DirectSound objects the voices hold as void* (the original's layout).
