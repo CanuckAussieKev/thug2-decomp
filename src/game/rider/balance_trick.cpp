@@ -162,7 +162,7 @@ Balance* RiderTeeterMoves::at_hand() { return balance_of(this); }
 const Balance* RiderTeeterMoves::at_hand() const { return balance_of(this); }
 
 // 0x004F8E20
-void RiderTeeterMoves::get_buttons(int* count, uint32_t* buttons) const
+void RiderTeeterMoves::get_buttons(int* count, std::span<uint32_t> buttons) const
 {
     const Balance* balance = at_hand();
     if (!balance) {
@@ -170,8 +170,8 @@ void RiderTeeterMoves::get_buttons(int* count, uint32_t* buttons) const
         return;
     }
     *count = 2;
-    buttons[0] = balance->left_button_;
-    buttons[1] = balance->right_press_;
+    core::at(buttons, 0) = balance->left_button_;
+    core::at(buttons, 1) = balance->right_press_;
 }
 
 // 0x004F8F20

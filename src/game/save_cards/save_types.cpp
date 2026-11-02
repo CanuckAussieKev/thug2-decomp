@@ -93,37 +93,37 @@ SaveDate read_stamped_date(Struct* summary)
 } // namespace
 
 // 0x005A5F70
-char* make_file_name(const char* name, char* buffer, uint32_t type)
+char* make_file_name(const char* name, std::span<char> buffer, uint32_t type)
 {
     uint32_t value = checksums::hash_from_text(name);
     for (int i = 0; i < 8; ++i) {
-        buffer[i] = static_cast<char>('a' + value % 26);
+        core::at(buffer, i) = static_cast<char>('a' + value % 26);
         value /= 26;
     }
     switch (type) {
     case kSaveCreatedGoals:
-        buffer[7] = 'g';
+        core::at(buffer, 7) = 'g';
         break;
     case kSaveCat:
-        buffer[7] = 'f';
+        core::at(buffer, 7) = 'f';
         break;
     case kSavePark:
-        buffer[7] = 'c';
+        core::at(buffer, 7) = 'c';
         break;
     case kSaveCreatedGraphic:
-        buffer[7] = 'h';
+        core::at(buffer, 7) = 'h';
         break;
     case kSaveNetworkSettings:
-        buffer[7] = 'e';
+        core::at(buffer, 7) = 'e';
         break;
     case kSaveOptionsAndPros:
-        buffer[7] = 'a';
+        core::at(buffer, 7) = 'a';
         break;
     default:
         break;
     }
-    buffer[8] = '\0';
-    return buffer;
+    core::at(buffer, 8) = '\0';
+    return buffer.data();
 }
 
 // 0x005A60C0
@@ -235,7 +235,7 @@ const char* get_type_file_name(uint32_t type, const char* name)
 int make_folder_file_name(uint32_t type, const char* name, char* buffer)
 {
     std::array<char, 20> file{};
-    make_file_name(name, file.data(), type);
+    make_file_name(name, file, type);
     const char* folder = game_config::get_path_prefix();
     return std::snprintf(buffer, 0x100, "/%s%s", folder, file.data()); // (no limit in the original)
 }

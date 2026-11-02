@@ -426,7 +426,7 @@ void ParkLayout::commission(uint32_t level)
     script::Array* standard = script::fetch_list("Ed_standard_metapieces"); // "Ed_standard_metapieces"
     int end = static_cast<int>(standard->extent_);
     for (int i = num_sets() - 1; i >= 0; --i) {
-        TileFamilyRef& set = get_sets(this)[i];
+        TileFamilyRef& set = core::at(get_sets(this), i);
         auto* description = sets->struct_at(static_cast<uint32_t>(i));
         set.label_ = nullptr;
         description->fetch_text("name", &set.label_, 1); // "name"

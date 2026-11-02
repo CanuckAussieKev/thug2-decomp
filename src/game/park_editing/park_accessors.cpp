@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string_view>
 #include <array>
 
 #include "engine/core/checksums.h"
@@ -33,10 +34,12 @@ float cell_size_z() { return g_park_cell_size_z; }
 constexpr int kGridCentre = 29;
 
 // strcpy (the original copies with no length limit).
-void copy_text(char* to, const char* from)
+void copy_text(std::span<char> to, const char* from)
 {
-    while ((*to++ = *from++) != '\0') {
-    }
+    size_t at = 0;
+    for (const char c : std::string_view(from))
+        core::at(to, at++) = c;
+    core::at(to, at) = '\0';
 }
 
 } // namespace
@@ -90,8 +93,8 @@ void ParkLayout::set_park_name(const char* name)
 {
     if (map_.version() != kParkMapVersion)
         return;
-    copy_text(map_.name().data(), name);
-    copy_text(park_name_.data(), name);
+    copy_text(map_.name(), name);
+    copy_text(park_name_, name);
 }
 
 void ParkLayout::rebuild_park_geometry(int how)

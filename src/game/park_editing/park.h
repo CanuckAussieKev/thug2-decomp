@@ -1129,7 +1129,7 @@ static_assert(offsetof(ParkLayout, shell_blocks_) == 0x14 && offsetof(ParkLayout
                   offsetof(ParkLayout, restart_pieces_) == 0x177A4 && offsetof(ParkLayout, gap_registry_) == 0x177C4 &&
                   sizeof(ParkLayout) == 0x177CC,
               "layout must match the original");
-inline PieceFamily* get_sets(ParkLayout* manager) { return manager->sets_.data(); }
+inline std::span<PieceFamily> get_sets(ParkLayout* manager) { return manager->sets_; }
 
 // The cursor (200 bytes): the box the player moves over the grid, with the piece to place (or the copy to paste).
 extern BuildPointer* g_cursor;

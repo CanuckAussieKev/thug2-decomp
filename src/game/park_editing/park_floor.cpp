@@ -176,8 +176,9 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
 {
     const int x = request->x;
     const int z = request->z;
-    FloorCell* cells = &core::at(core::at(floor_, 0), 0);
-    auto height_at = [&](int cx, int cz) { return cells[cx * kFloorSize + cz].level_y_; };
+    // (the floor's rows one after the other: the original indexed them as one run)
+    const std::span<FloorCell> cells(&core::at(core::at(floor_, 0), 0), size_t{kFloorSize} * kFloorSize);
+    auto height_at = [&](int cx, int cz) { return core::at(cells, cx * kFloorSize + cz).level_y_; };
 
     // The lowest neighbour (outside the shell counts as 0).
     int lowest = 10000;
@@ -413,11 +414,11 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
         area = &build_area_;
     }
     // Every cell of the area and the ring round it.
-    const FloorCell* cells = &core::at(core::at(floor_, 0), 0);
+    const std::span<const FloorCell> cells(&core::at(core::at(floor_, 0), 0), size_t{kFloorSize} * kFloorSize);
     for (int x = area->x - 1; x < area->w + 1 + area->x; ++x) {
         for (int z = area->z - 1; z < area->l + 1 + area->z; ++z) {
             FloorPieceRequest request{};
-            request.height = cells[x * kFloorSize + z].level_y_;
+            request.height = core::at(cells, x * kFloorSize + z).level_y_;
             request.index = request.height - 1;
             request.x = x;
             request.z = z;

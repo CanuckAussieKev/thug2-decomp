@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 namespace memory {
 struct ListNode;
@@ -26,7 +27,7 @@ constexpr uint32_t kSaveReplay = 0x26C80B0D;          // "Replay" (.REP; only a 
 
 // 0x005A5F70 (returns the buffer): 8 letters a-z from the name's
 // checksum (base 26, lowest digit first), the last replaced by the type's letter (kept for an unknown type).
-char* make_file_name(const char* name, char* buffer, uint32_t type);
+char* make_file_name(const char* name, std::span<char> buffer, uint32_t type);
 // 0x005A60C0: the save type of a file name's letter a-h (0 for d and any other).
 uint32_t type_from_letter(char letter);
 // 0x005A6180: the global integer <type>icon_space_required (0 for an unknown type).

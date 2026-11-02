@@ -72,8 +72,8 @@ bool is_file(const std::string& path)
 std::string get_relative(const char* path)
 {
     std::string out;
-    for (const char* c = path; *c; ++c)
-        out += *c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
+    for (const char c : std::string_view(path))
+        out += c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     if (out.starts_with("data\\"))
         out.erase(0, 5);
     return out;
@@ -208,7 +208,7 @@ std::string install_folder()
 
 } // namespace
 
-std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size)
+std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, size_t size)
 {
     std::array<uint8_t, 4096> window{};
     std::memset(window.data(), ' ', sizeof(window));
@@ -220,19 +220,19 @@ std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size)
     while (out.size() < size && i < length) {
         flags >>= 1;
         if (!(flags & 0x100))
-            flags = in[i++] | 0xFF00u;
+            flags = core::at(in, i++) | 0xFF00u;
         if (flags & 1) {
             if (i >= length)
                 break;
-            const uint8_t c = in[i++];
+            const uint8_t c = core::at(in, i++);
             out.push_back(c);
             core::at(window, r) = c;
             r = (r + 1) & 4095;
         } else {
             if (i + 1 >= length)
                 break;
-            const uint32_t position = in[i] | ((in[i + 1] & 0xF0u) << 4);
-            const uint32_t last = (in[i + 1] & 0x0Fu) + 2;
+            const uint32_t position = core::at(in, i) | ((core::at(in, i + 1) & 0xF0u) << 4);
+            const uint32_t last = (core::at(in, i + 1) & 0x0Fu) + 2;
             i += 2;
             for (uint32_t k = 0; k <= last && out.size() < size; ++k) {
                 const uint8_t c = core::at(window, (position + k) & 4095);
@@ -254,7 +254,7 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         return false;
     auto u32 = [&archive](size_t at) {
         uint32_t value = 0;
-        std::memcpy(&value, archive.data() + at, 4);
+        std::memcpy(&value, std::span<const uint8_t>(archive).subspan(at, 4).data(), 4);
         return value;
     };
     const uint32_t count = u32(8);
@@ -265,21 +265,21 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         const uint32_t size = u32(offset);
         const uint32_t compressed = u32(offset + 4);
         uint16_t name_size = 0;
-        std::memcpy(&name_size, archive.data() + offset + 8, 2);
+        std::memcpy(&name_size, std::span<const uint8_t>(archive).subspan(offset + 8, 2).data(), 2);
         const size_t body = offset + 16 + name_size;
         const size_t stored = compressed ? compressed : size;
         if (body > archive.size() || stored > archive.size() - body)
             return false;
         std::string name(name_size, char{});
-        std::memcpy(name.data(), archive.data() + offset + 16, name_size);
+        std::memcpy(name.data(), std::span<const uint8_t>(archive).subspan(offset + 16, name_size).data(), name_size);
         name.resize(strnlen(name.c_str(), name_size));
         const std::string key = get_relative(name.c_str());
         for (const std::string& wanted : names) {
             if (key != wanted)
                 continue;
-            const uint8_t* data = archive.data() + body;
-            std::vector<uint8_t> file =
-                compressed ? expand_lzss(data, stored, size) : std::vector<uint8_t>(data, data + size);
+            const std::span<const uint8_t> data = std::span<const uint8_t>(archive).subspan(body, stored);
+            std::vector<uint8_t> file = compressed ? expand_lzss(data, stored, size)
+                                                   : std::vector<uint8_t>(data.begin(), data.begin() + static_cast<std::ptrdiff_t>(size));
             if (file.size() == size) // (a file that doesn't decompress to its size is left out)
                 out->emplace_back(key, std::move(file));
         }

@@ -720,7 +720,7 @@ void MoveExecutor::tick_frame()
         return;
     }
     update_buttons();
-    balance_trick_->get_buttons(&ignored_count_, &core::at(ignored_, 0));
+    balance_trick_->get_buttons(&ignored_count_, ignored_);
     update_extra_tricks();
     queue_all_done_tricks();
     update_manual_tricks();

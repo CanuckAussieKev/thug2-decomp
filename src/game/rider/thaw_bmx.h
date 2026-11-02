@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/maths/vec4.h"
 
@@ -393,11 +394,11 @@ enum StickButtonIndex : uint8_t {
 };
 // The eight directions (a bit each, 1 << StickButtonIndex) from a pad's data: its bytes 0-3, the tolerance-centred
 // right x, y and left x, y (0x80 the middle).
-uint32_t stick_directions(const uint8_t* data);
+uint32_t stick_directions(std::span<const uint8_t> data);
 // THAW's names of the pad's stick buttons (by StickButtonIndex).
 uint32_t stick_button_name(int index);
 // From PadSnapshot::tick_frame / Reset (the feature on): the pad's stick buttons from `data` (null: all up).
-void update_pad_sticks(const void* pad, const uint8_t* data);
+void update_pad_sticks(const void* pad, std::span<const uint8_t> data);
 // From PadSnapshot::read_button (the feature on): the pad's stick button named `name`, or null.
 void* pad_stick_button(const void* pad, uint32_t name);
 // The trick component's direction (0 none, 1-8 as d_pad_direction) of one stick's four buttons, and its name (0 for 0).

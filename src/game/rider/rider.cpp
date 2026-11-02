@@ -506,12 +506,11 @@ void Rider::update_shadow_light()
         // 0x00456B30)
         void* lights = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_->lights_ptr_.get();
         if (lights) {
-            const auto* v =
-                (static_cast<render::ModelLights*>(lights)->read_light_aim(0))->data();
-            const double x = v[0] * -1.0;
-            const double y = v[1] * -1.0;
-            const double z = v[2] * -1.0;
-            const double w = v[3] * -1.0;
+            const maths::Vec4& aim = *static_cast<render::ModelLights*>(lights)->read_light_aim(0);
+            const double x = aim.x * -1.0;
+            const double y = aim.y * -1.0;
+            const double z = aim.z * -1.0;
+            const double w = aim.w * -1.0;
             light.x = static_cast<float>(x);
             light.y = static_cast<float>(y);
             const auto z_stored = static_cast<float>(z); // (the original reads z back as stored)
@@ -598,7 +597,11 @@ void Rider::update_from_profile(RiderIdentity* profile)
     info->read_hash_value(kSkateStyle, &style_, 0);
     const char* first_name = nullptr;
     info->fetch_text(kFirstName, &first_name, 1);
-    for (int i = 0; (core::at(given_name_, i) = first_name[i]) != 0; ++i) { // (copied inline, unchecked)
+    {
+        // (copied inline, unchecked in the original: a name too long for the array ends the game with a report here)
+        const std::string_view first(first_name);
+        for (size_t i = 0; i <= first.size(); ++i)
+            core::at(given_name_, i) = i < first.size() ? core::at(first, i) : '\0';
     }
     label_ = profile->fetch_title();
     if (is_local_skater_) {

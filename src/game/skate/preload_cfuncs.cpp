@@ -104,7 +104,7 @@ script::Struct* customise_choice(uint32_t part, uint32_t descriptor_id, bool ass
 {
     return objects::find_cas_option(part, descriptor_id, assert);
 }
-void matching_options(uint32_t part, uint32_t filter, script::Struct** out, int* count)
+void matching_options(uint32_t part, uint32_t filter, std::span<script::Struct*> out, int* count)
 {
     objects::get_matching_cas_options(part, filter, out, count);
 }
@@ -316,17 +316,17 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
         wanted = candidates;
     std::array<script::Struct*, 64> matching{};
     int count = 0;
-    matching_options(part, 0, matching.data(), &count);
+    matching_options(part, 0, matching, &count);
     if (count) {
         get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
     } else {
-        matching_options(part, kLight, matching.data(), &count);
+        matching_options(part, kLight, matching, &count);
         get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
         --wanted;
-        matching_options(part, kTan, matching.data(), &count);
+        matching_options(part, kTan, matching, &count);
         get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
         --wanted;
-        matching_options(part, kDark, matching.data(), &count);
+        matching_options(part, kDark, matching, &count);
         get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
     }
     --wanted;

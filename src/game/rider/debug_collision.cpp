@@ -105,14 +105,14 @@ const objects::Rider* skater_of_feeler(const void* feeler)
     return nullptr;
 }
 
-bool get_skater_position(const objects::Rider* skater, float* position)
+bool get_skater_position(const objects::Rider* skater, std::array<float, 3>& position)
 {
     if (!skater)
         return false;
     const objects::GameEntity* object = skater;
-    position[0] = object->at_point_.x;
-    position[1] = object->at_point_.y;
-    position[2] = object->at_point_.z;
+    core::at(position, 0) = object->at_point_.x;
+    core::at(position, 1) = object->at_point_.y;
+    core::at(position, 2) = object->at_point_.z;
     return true;
 }
 
@@ -184,7 +184,7 @@ void log_hit(const void* feeler, uint32_t caller)
 
     std::array<char, 64> skater = {""};
     std::array<float, 3> position{};
-    if (get_skater_position(skater_feeler, position.data()))
+    if (get_skater_position(skater_feeler, position))
         std::snprintf(skater.data(), sizeof(skater), " skater (%.1f %.1f %.1f)", core::at(position, 0), core::at(position, 1), core::at(position, 2));
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "

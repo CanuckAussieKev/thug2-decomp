@@ -155,8 +155,9 @@ constexpr float kTooClose = 0.0001f; // 0x006453D4
 void copy_name(std::array<char, 0x20>& name, const char* from)
 {
     size_t i = 0;
-    for (; i < sizeof(name) && from[i]; ++i)
-        core::at(name, i) = from[i];
+    const std::string_view text(from);
+    for (; i < sizeof(name) && i < text.size(); ++i)
+        core::at(name, i) = core::at(text, i);
     for (; i < sizeof(name); ++i)
         core::at(name, i) = 0;
 }
@@ -524,7 +525,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     std::memcpy(name.data(), kSomeone, 8);
     const bool other_driving = (ran_into.object_id >> 7) & 1;
     // (the driving bit cleared in the message itself, as the original: the next local skater's handler sees it so)
-    context->body_[0] = static_cast<char>(ran_into.object_id & 0x7F);
+    core::at(std::span<uint8_t>(context->body_, context->body_size_), 0) = static_cast<uint8_t>(ran_into.object_id & 0x7F);
     online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(ran_into.object_id & 0x7F));
     if (id == kMsgRanIntoAck) {
         if (player)

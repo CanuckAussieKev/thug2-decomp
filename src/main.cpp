@@ -12,6 +12,7 @@
 
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "platform/run_log.h"
 #include "engine/sys/startup_init.h"
@@ -30,7 +31,7 @@ void load_system_direct_input()
     const UINT length = GetSystemDirectoryA(path.data(), MAX_PATH);
     if (length == 0 || length + sizeof("\\dinput8.dll") > MAX_PATH)
         return;
-    std::memcpy(path.data() + length, "\\dinput8.dll", sizeof("\\dinput8.dll"));
+    std::memcpy(std::span<char>(path).subspan(length).data(), "\\dinput8.dll", sizeof("\\dinput8.dll"));
     LoadLibraryExA(path.data(), nullptr, 0);
 }
 

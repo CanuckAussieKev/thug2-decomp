@@ -66,7 +66,7 @@ Struct* find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
 }
 
 // 0x00485D70
-void get_matching_cas_options(uint32_t part, uint32_t filter, Struct** out, int* count)
+void get_matching_cas_options(uint32_t part, uint32_t filter, std::span<Struct*> out, int* count)
 {
     Array* list = script::fetch_list(part);
     *count = 0;
@@ -80,7 +80,7 @@ void get_matching_cas_options(uint32_t part, uint32_t filter, Struct** out, int*
         uint32_t option_filter = 0;
         option->read_hash_value(kFilter, &option_filter, 0);
         if (option_filter == filter) {
-            *out++ = option;
+            core::at(out, *count) = option;
             ++*count;
         }
     }

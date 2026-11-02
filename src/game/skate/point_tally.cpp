@@ -178,17 +178,18 @@ int PointTally::point_gain(int value)
 void PointTally::set_rider_number(int16_t id) { rider_no_ = id; }
 
 // 0x005612A0
-void PointTally::escape_spaces(char* out, const char* text)
+void PointTally::escape_spaces(std::span<char> out, const char* text)
 {
-    for (; *text; ++text) {
-        if (*text == ' ') {
-            *out++ = '\\';
-            *out++ = '_';
+    size_t at = 0;
+    for (const char c : std::string_view(text)) {
+        if (c == ' ') {
+            core::at(out, at++) = '\\';
+            core::at(out, at++) = '_';
         } else {
-            *out++ = *text;
+            core::at(out, at++) = c;
         }
     }
-    *out = 0;
+    core::at(out, at) = 0;
 }
 
 // 0x005612D0

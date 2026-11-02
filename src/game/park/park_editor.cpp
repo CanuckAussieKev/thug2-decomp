@@ -227,7 +227,7 @@ void BuildPointer::step_piece_family(int dir)
     auto count_visible = [this]() {
         int visible = 0;
         for (int i = 0; i < set_index(); ++i) {
-            if (get_sets(hub())[i].is_displayed_)
+            if (core::at(get_sets(hub()), i).is_displayed_)
                 ++visible;
         }
         visible_set_slot() = visible;
@@ -239,11 +239,11 @@ void BuildPointer::step_piece_family(int dir)
         if (set_index() >= hub()->num_sets())
             set_index() = 0;
         count_visible();
-        if (get_sets(hub())[set_index()].is_displayed_)
+        if (core::at(get_sets(hub()), set_index()).is_displayed_)
             break;
     }
     count_visible();
-    const TileFamilyRef& set = get_sets(hub())[set_index()];
+    const TileFamilyRef& set = core::at(get_sets(hub()), set_index());
     if (!set.is_clipboard_) {
         change_piece(core::at(set.entries_, set.selected_).checksum);
         return;

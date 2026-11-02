@@ -210,11 +210,13 @@ void ParkAssembler::light_piece(ParkTile* p)
     const render::TriMeshSource* collision = get_hit_shape(geometry);
     const render::TriMeshSource* source_collision = get_hit_shape(source_geometry);
     const int vertices = collision->num_vertices_;
+    const std::span<const uint8_t> source_bytes = source_collision->vertex_byte_run();
+    const std::span<uint8_t> target_bytes(collision->vertex_bytes_, collision->num_vertices_);
     for (int i = 0; i < vertices; ++i) {
-        const uint8_t grey = source_collision->vertex_bytes_[i];
+        const uint8_t grey = core::at(source_bytes, i);
         const maths::Vec4 position = collision->read_stored_vertex(i);
         const uint32_t rgba = sample_light_colour(&position, 0xFF000000u | grey | (uint32_t{grey} << 8) | (uint32_t{grey} << 16));
-        collision->vertex_bytes_[i] = static_cast<uint8_t>(((rgba & 0xFF) + ((rgba >> 8) & 0xFF) + ((rgba >> 16) & 0xFF)) / 3);
+        core::at(target_bytes, i) = static_cast<uint8_t>(((rgba & 0xFF) + ((rgba >> 8) & 0xFF) + ((rgba >> 16) & 0xFF)) / 3);
     }
 }
 

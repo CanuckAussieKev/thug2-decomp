@@ -91,9 +91,10 @@ void RiderPhysicsTweaks::keep_above_ground()
         if (!((state == 4 || state == 3) && park_editor->cur_phase_ == kParkEditorTestPlay)) {
             uber_frigged_ = 1;
             if (uber_frig_tries_ < 5) {
-                const float* offset = core::at(kUberFrigOffsets, uber_frig_tries_++).data();
+                const auto& offset = core::at(kUberFrigOffsets, uber_frig_tries_++);
                 const maths::Vec4& from = core->safe_pos_;
-                position = {offset[0] + from.x, from.y + offset[1], from.z + offset[2], from.w + offset[3]};
+                position = {core::at(offset, 0) + from.x, from.y + core::at(offset, 1), from.z + core::at(offset, 2),
+                            from.w + core::at(offset, 3)};
             } else {
                 uber_frig_tries_ = 0;
             }

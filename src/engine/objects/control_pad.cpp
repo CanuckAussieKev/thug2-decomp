@@ -177,7 +177,7 @@ void PadSnapshot::get_reset()
     core::at(polar_, 1) = {0.0f, 0.0f};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
     if (skater::thaw_bmx::is_switched_on())
-        skater::thaw_bmx::update_pad_sticks(this, nullptr);
+        skater::thaw_bmx::update_pad_sticks(this, {});
 }
 
 // 0x0046BC60
@@ -262,7 +262,7 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/rider/thaw_bmx.h. Original behaviour: none.
     if (skater::thaw_bmx::is_switched_on())
-        skater::thaw_bmx::update_pad_sticks(this, data.data());
+        skater::thaw_bmx::update_pad_sticks(this, data);
 }
 
 // 0x0046C270

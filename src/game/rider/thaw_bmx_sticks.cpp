@@ -77,10 +77,11 @@ void add_stick_event(objects::MoveExecutor* trick, uint32_t name, bool pressed)
 
 } // namespace
 
-uint32_t stick_directions(const uint8_t* data)
+uint32_t stick_directions(std::span<const uint8_t> data)
 {
     uint32_t bits = 0;
-    const uint8_t right_x = data[0], right_y = data[1], left_x = data[2], left_y = data[3];
+    const uint8_t right_x = core::at(data, 0), right_y = core::at(data, 1), left_x = core::at(data, 2),
+                  left_y = core::at(data, 3);
     // the right stick (THAW 0x435530): x past 0xCB right, under 0x35 left; y under 0x35 up, past 0xCB down
     if (right_x > kRightOver)
         bits |= 1u << kRightRight;
@@ -110,12 +111,12 @@ uint32_t stick_button_name(int index)
     return core::at(names, index);
 }
 
-void update_pad_sticks(const void* pad, const uint8_t* data)
+void update_pad_sticks(const void* pad, std::span<const uint8_t> data)
 {
-    if (!data && !get_pads().count(pad))
+    if (data.empty() && !get_pads().count(pad))
         return;
     PadSticks& sticks = sticks_of(pad);
-    const uint32_t bits = data ? stick_directions(data) : 0;
+    const uint32_t bits = !data.empty() ? stick_directions(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
     for (int i = 0; i < 8; ++i)
         core::at(sticks.buttons, i).tick_frame((bits >> i) & 1 ? 0xFF : 0);

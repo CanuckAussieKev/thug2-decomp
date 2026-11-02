@@ -121,17 +121,21 @@ bool delete_mem_card_file(Struct* params, Script*)
         const char* path = card_file_name;
         if (!path) {
             const char* folder = save_folder();
-            make_file_name(user_file_name, file.data(), type);
+            make_file_name(user_file_name, file, type);
             std::snprintf(full_name.data(), sizeof(full_name), "/%s%s/%s%s", folder, file.data(), folder, file.data());
             path = full_name.data();
         }
-        const uint32_t file_type = type_from_letter(path[std::strlen(path) - 1]);
+        const std::string_view path_text(path);
+        const uint32_t file_type = type_from_letter(core::at(path_text, path_text.size() - 1));
         // the folder: the first character, then up to the next '/'
         std::array<char, 100> directory{};
-        core::at(directory, 0) = path[0];
+        core::at(directory, 0) = core::at(path_text, 0);
         int length = 1;
-        for (const char* p = path + 1; *p && *p != '/'; ++p)
-            core::at(directory, length++) = *p;
+        for (const char c : path_text.substr(1)) {
+            if (c == '/')
+                break;
+            core::at(directory, length++) = c;
+        }
         core::at(directory, length) = '\0';
         if (!delete_card_file(card, path))
             deleted = false;
@@ -183,7 +187,7 @@ bool delete_mem_card_file(Struct* params, Script*)
             break;
         }
         const char* folder = save_folder();
-        make_file_name(user_file_name, file.data(), type);
+        make_file_name(user_file_name, file, type);
         std::array<char, 104> full_name{};
         std::snprintf(full_name.data(), sizeof(full_name), "%s%s%s%s", folder, file.data(), folder, file.data());
         removed = delete_card_file(card, full_name.data());
@@ -243,7 +247,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
     case 5: {
         const char* folder = save_folder();
         std::array<char, 20> file{};
-        make_file_name(name, file.data(), type);
+        make_file_name(name, file, type);
         std::snprintf(path.data(), sizeof(path), "/%s%s/%s%s", folder, file.data(), folder, file.data());
         break;
     }
@@ -369,7 +373,8 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
         // (the music and sounds kept going while the files are read)
         audio::tick_frame();
         sound::update_voice_states();
-        const char* extension = file->label_.data() + std::strlen(file->label_.data()) - 4;
+        const std::string_view label(file->label_.data());
+        const char* extension = label.size() >= 4 ? label.substr(label.size() - 4).data() : label.data();
         if (_stricmp(extension, ".NWS") == 0)
             return kSaveNetworkSettings;
         if (_stricmp(extension, ".SKA") == 0)
@@ -641,15 +646,15 @@ bool save_to_memory_card(Struct* params, Script*)
                 file_header.version = type_version(type);
                 file_header.size = static_cast<int>(total);
                 file_header.summary_size = static_cast<int>(summary_size);
-                uint8_t* data = header + kSaveFileHeaderSize;
+                const std::span<uint8_t> body = std::span<uint8_t>(header, total).subspan(kSaveFileHeaderSize);
                 const bool pc = os_layer() == 4 || os_layer() == 7;
-                script::emit_into_buffer(summary, data, summary_size, 0, pc ? keep_sound_going : nullptr);
-                file_header.summary_crc = checksums::generate_crc_from_buffer(data, static_cast<int>(summary_size));
-                data += summary_size;
-                script::emit_into_buffer(contents, data, main_size, 0, nullptr);
+                script::emit_into_buffer(summary, body.data(), summary_size, 0, pc ? keep_sound_going : nullptr);
+                file_header.summary_crc = checksums::generate_crc_from_buffer(body.data(), static_cast<int>(summary_size));
+                const std::span<uint8_t> main_part = body.subspan(summary_size);
+                script::emit_into_buffer(contents, main_part.data(), main_size, 0, nullptr);
                 if (type == kSaveNetworkSettings) {
-                    for (uint32_t i = 0; i < main_size; ++i)
-                        data[i] += kSaveFileMask; // (read back with the mask taken off)
+                    for (uint8_t& byte : main_part.first(main_size))
+                        byte += kSaveFileMask; // (read back with the mask taken off)
                 }
                 util::ByteWriter header_writer(header, kSaveFileHeaderSize);
                 write_save_file_header(header_writer, file_header);

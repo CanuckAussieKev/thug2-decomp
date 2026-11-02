@@ -138,7 +138,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         case 3: { // console folders: /<dir><file>/<dir><file>
             const char* folder = game_config::get_path_prefix();
             std::array<char, 20> file{};
-            make_file_name(name, file.data(), type);
+            make_file_name(name, file, type);
             std::snprintf(path.data(), sizeof(path), "/%s%s/%s%s", folder, file.data(), folder, file.data());
             break;
         }
@@ -181,12 +181,13 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                           file_header.version != type_version(type);
                     if (!bad) {
                         auto end = static_cast<size_t>(file_header.size);
-                        uint8_t* rest = read_structure(header, data + kSaveFileHeaderSize, end - kSaveFileHeaderSize);
+                        const std::span<uint8_t> file_bytes(data, static_cast<size_t>(size));
+                        uint8_t* rest = read_structure(header, file_bytes.subspan(kSaveFileHeaderSize).data(), end - kSaveFileHeaderSize);
                         auto used = static_cast<size_t>(rest - data);
                         const size_t count = used < end ? end - used : 0;
-                        if (type == kObfuscatedType) {
-                            for (size_t i = 0; i < count; ++i)
-                                rest[i] -= kSaveFileMask;
+                        if (type == kObfuscatedType && count != 0) {
+                            for (uint8_t& byte : file_bytes.subspan(used, count))
+                                byte -= kSaveFileMask;
                         }
                         read_structure(contents, rest, count);
                         if (no_apply == 0) {

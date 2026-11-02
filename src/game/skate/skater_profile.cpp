@@ -440,7 +440,7 @@ RiderIdentity::RiderIdentity()
 uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
 {
     // (Not original: `size` - each part decoded within the buffer's bytes)
-    const uint8_t* limit = buffer + size;
+    const uint8_t* limit = std::span<uint8_t>(buffer, size).subspan(size).data();
     push_script_heap();
     uint8_t* at = appearance()->decode_from_bytes(buffer, size); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
@@ -473,21 +473,22 @@ uint8_t* RiderIdentity::read_info_from_buffer(uint8_t* buffer, const uint8_t* li
 int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
 {
     push_script_heap();
+    const std::span<uint8_t> all(buffer, size > 0 ? static_cast<size_t>(size) : 0);
     int total = appearance()->emit_into_buffer(
         buffer, size, static_cast<uint8_t>(flags) != 0); // the appearance
     size -= total;
-    buffer += total;
+    auto at = static_cast<size_t>(total);
     script::Struct* part = nullptr; // (the original's: the flags argument's slot)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
-    int written = write_struct(part, buffer, size);
+    int written = write_struct(part, all.subspan(at).data(), size);
     total += written;
     size -= written;
-    buffer += written;
+    at += static_cast<size_t>(written);
     details_params()->read_sub_struct(kSpecials, &part, 1);
-    written = write_struct(part, buffer, size);
+    written = write_struct(part, all.subspan(at).data(), size);
     size -= written;
     total += written;
-    const int info = write_info_to_buffer(buffer + written, size);
+    const int info = write_info_to_buffer(all.subspan(at + static_cast<size_t>(written)).data(), size);
     pop_heap();
     return info + total;
 }

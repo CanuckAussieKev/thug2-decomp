@@ -46,7 +46,7 @@ bool file_path(const char* relative, std::array<char, 260>& path);
 bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::string>& names,
                   std::vector<std::pair<std::string, std::vector<uint8_t>>>* out);
 // The archives' LZSS (a 4 KB window of spaces, written from 4078): `size` bytes out, or fewer if the input runs out.
-std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size);
+std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, size_t size);
 // A .qb file's top-level `name = [` arrays: their names and where each array starts (its '[' token). `qb` is the file
 // (`size` bytes) and zeros after it; the walk stops at its end token, at `size` bytes, or at a token it can't move past.
 std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<const uint8_t> qb, size_t size);

@@ -690,7 +690,8 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
         // round)
         if (!size)
             return 4;
-        const uint8_t id = *data++;
+        const uint8_t id = *data;
+        data = std::next(data);
         --size;
         player = by_object_id(id);
     }

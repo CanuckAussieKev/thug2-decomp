@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string_view>
 #include <utility>
 #include <array>
 
@@ -71,10 +72,12 @@ void read_structure(script::Struct* structure, void* buffer, size_t size)
 }
 
 // strcpy (inline in the original: no limit).
-void copy_string(char* dest, const char* source)
+void copy_string(std::span<char> dest, const char* source)
 {
-    while ((*dest++ = *source++) != '\0') {
-    }
+    size_t at = 0;
+    for (const char c : std::string_view(source))
+        core::at(dest, at++) = c;
+    core::at(dest, at) = '\0';
 }
 
 
@@ -261,8 +264,8 @@ void ParkLayout::reset_park()
     }
     write_compressed_map();
     if (map_.version() == kMapVersion) {
-        copy_string(map_.name().data(), "unnamed park");
-        copy_string(park_name_.data(), "unnamed park");
+        copy_string(map_.name(), "unnamed park");
+        copy_string(park_name_, "unnamed park");
     }
     flag_bits_ = (flag_bits_ & ~kFlag8) | kMapUpToDate;
 }

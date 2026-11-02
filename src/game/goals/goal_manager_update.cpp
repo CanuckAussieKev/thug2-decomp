@@ -187,7 +187,7 @@ void GoalManager::append_objective_list_entries()
                                      : value == 3 ? "rd place"      // "rd place"
                                                   : "";
                 std::size_t length = std::strlen(record.data());
-                std::snprintf(record.data() + length, sizeof(record) - length, "%s", suffix);
+                std::snprintf(std::span<char>(record).subspan(length).data(), sizeof(record) - length, "%s", suffix);
                 item->append_word(kRecordText, record.data());
             } else {
                 uint32_t type = 0;

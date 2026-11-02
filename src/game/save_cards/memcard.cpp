@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <string_view>
 #include <cstring>
 #include <array>
 #include <iterator>
@@ -89,10 +90,10 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
     fault_ = 0;
     // (with '/' turned into '\')
     auto& path = path_buffer();
-    for (size_t i = 0;; ++i) {
-        core::at(path, i) = name[i] == '/' ? '\\' : name[i];
-        if (!name[i])
-            break;
+    const std::string_view text(name);
+    for (size_t i = 0; i <= text.size(); ++i) {
+        const char c = i < text.size() ? core::at(text, i) : '\0';
+        core::at(path, i) = c == '/' ? '\\' : c;
     }
     DWORD access = 0, disposition = 0;
     switch (mode) {

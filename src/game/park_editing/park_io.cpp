@@ -48,7 +48,7 @@ uint32_t editor_value78()
 {
     return g_park_editor->lighting_script_;
 }
-uint8_t generator_max_players(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
+uint8_t generator_max_players(ParkAssembler* generator) { return static_cast<uint8_t>(generator->get_player_limit()); }
 
 TileTemplate* piece_source(ParkAssembler* generator, uint32_t name) { return generator->get_piece_source(name); }
 void get_footprint_size(TileTemplate* piece, CellBox* dims) { piece->get_footprint_size(dims); }
@@ -336,7 +336,7 @@ void ParkLayout::set_up_road_mask()
     // original does)
     for (uint32_t i = 4; i < num_blocked_areas_ + 4; ++i) {
         auto* rect = roads->array_at(i);
-        CellBox& mask = (&core::at(blocked_areas_, 0))[i]; // (past the eighth: over the length itself, as in the original)
+        CellBox& mask = core::at(blocked_areas_, i); // (the original went on past the eighth, over the count itself; Ed_Roadmask has four at most)
         mask.x = byte_at(rect, 0);
         mask.z = byte_at(rect, 1);
         mask.w = byte_at(rect, 2);

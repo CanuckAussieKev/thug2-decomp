@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 namespace script {
 class Struct;
@@ -20,7 +21,7 @@ bool part_is_created_graphic(void* appearance, uint32_t part);
 script::Struct* find_cas_option(uint32_t part, uint32_t descriptor_id, bool assert);
 // 0x00485D70: the options of `part`'s list that are allowed_to_pick and whose filter is `filter` (0: none) into `out`
 // (unbounded), their count in `count`.
-void get_matching_cas_options(uint32_t part, uint32_t filter, script::Struct** out, int* count);
+void get_matching_cas_options(uint32_t part, uint32_t filter, std::span<script::Struct*> out, int* count);
 // 0x00485E20: a random option of `part`'s list (at most 32 - unbounded, as the original): one allowed at random
 // (allow_random, by default unless no_random) and matching `filter` (an option without a filter matches any; filter 0:
 // all), preferring those not already_selected (all of them again once every one has been); marked already_selected.

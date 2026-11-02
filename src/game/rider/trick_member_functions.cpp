@@ -70,10 +70,12 @@ constexpr uint32_t kBailed = 0x13A8, kBailedPanel = 0x13A9, kTrickCount = 0x13AC
                    kTrickObjects = 0x13B4, kQuickGetupDone = 0x1BB8;
 
 // strcpy (inline in the original: no length limit).
-void copy_text(char* to, const char* from)
+void copy_text(std::span<char> to, const char* from)
 {
-    while ((*to++ = *from++) != '\0') {
-    }
+    size_t at = 0;
+    for (const char c : std::string_view(from))
+        core::at(to, at++) = c;
+    core::at(to, at) = '\0';
 }
 // The original's _ftol (0x006236FC): truncated toward zero.
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -89,12 +91,12 @@ void score_trick(MoveExecutor* self, const char* name, int score, uint32_t flags
 void score_spin(MoveExecutor* self, int degrees) { self->score_->change_spin_degrees(degrees); }
 
 // The trick names of unnamed name components (SetQueueTricks and the others): into `arrays`, counted at `count`.
-void collect_names(script::Struct* params, int& count, uint32_t* arrays)
+void collect_names(script::Struct* params, int& count, std::span<uint32_t> arrays)
 {
     count = 0;
     for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
         if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
-            arrays[count++] = c->value.word();
+            core::at(arrays, count++) = c->value.word();
     }
 }
 
@@ -193,7 +195,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         script->args_->push_float(kSpin, static_cast<float>(truncate(std::fabs(spin_total_))));
         return 1;
     case kSetManualTricks:
-        collect_names(params, manual_.count_, &core::at(manual_.arrays_, 0));
+        collect_names(params, manual_.count_, manual_.arrays_);
         manual_.special_ = 0;
         params->read_hash_value(kSpecial, &manual_.special_, 0);
         return 1;
@@ -214,7 +216,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         const char* text = nullptr;
         params->fetch_text(0u, &text, 0);
         if (text)
-            copy_text(&core::at(trick_name_, 0), text);
+            copy_text(trick_name_, text);
         else
             core::at(trick_name_, 0) = 0;
         return 1;
@@ -267,7 +269,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kSetExtraGrindTricks:
-        collect_names(params, grind_.count_, &core::at(grind_.arrays_, 0));
+        collect_names(params, grind_.count_, grind_.arrays_);
         grind_.special_ = 0;
         params->read_hash_value(kSpecial, &grind_.special_, 0);
         return 1;
@@ -363,7 +365,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         clear_event_buffer();
         return 1;
     case kSetQueueTricks:
-        collect_names(params, extra_list_count_, &core::at(extra_lists_, 0));
+        collect_names(params, extra_list_count_, extra_lists_);
         if (extra_list_count_ == 1 && !script::fetch_list(core::at(extra_lists_, 0)))
             core::at(extra_lists_, 0) = kNoQueue;
         manual_list_ = 0;
@@ -409,7 +411,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         modules::PointTally* score = score_;
         int add_spin = 0;
         if (params->has_bare_flag(kDeferred)) {
-            copy_text(&core::at(deferred_name_, 0), &core::at(trick_name_, 0));
+            copy_text(deferred_name_, trick_name_.data());
             deferred_score_ = trick_score_;
             if (is_switch(this))
                 deferred_flags_ |= 4;

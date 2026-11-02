@@ -118,7 +118,7 @@ public:
     // 0x00561290
     void set_rider_number(int16_t id);
     // 0x005612A0: `text` into `out` with each space as "\_" (`this` unused).
-    void escape_spaces(char* out, const char* text);
+    void escape_spaces(std::span<char> out, const char* text);
     // 0x005612D0: special_bar_colors and special_bar_interpolator_rate.
     void set_special_bar_colors();
     // 0x00561360 (cdecl): the trick `trick`'s name checksum after `taps` - 1 of its ExtraTricks.

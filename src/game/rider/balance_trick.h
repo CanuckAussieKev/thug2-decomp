@@ -65,7 +65,7 @@ public:
     // 0x004F8EE0: every balance stopped (manual, grind, lip, skitch); no trick, not started.
     void halt();
     // 0x004F8E20: the current balance's two buttons into `buttons` (`*count` 2), or `*count` 0 without one.
-    void get_buttons(int* count, uint32_t* buttons) const;
+    void get_buttons(int* count, std::span<uint32_t> buttons) const;
     // 0x004F8F20: the current balance's lean (0 without one; the original also leaves the balance in EAX).
     [[nodiscard]] float get_lean() const;
     // 0x004F90A0: the physics value `name` scaled for the skater, from DoBalanceTrick's structure if there is one,

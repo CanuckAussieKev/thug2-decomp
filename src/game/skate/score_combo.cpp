@@ -386,7 +386,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     core::at(trick->shown_, 0) = 0;
     trick->rotation_deg_ = 0;
     if (!unnamed) {
-        escape_spaces(trick->text_.data(), text);
+        escape_spaces(trick->text_, text);
         const char* format = nullptr;
         if (flags & kTrickColour3)
             format = "\\c3%s%s\\c0 "; // "\c3%s%s\c0 "

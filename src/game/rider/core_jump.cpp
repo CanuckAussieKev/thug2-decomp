@@ -158,10 +158,10 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         tense = max_tense;
     const bool from_vert =
         bit_mark(this, PoseFlag::kVertAir) || (state_of(this) == kGround && bit_mark(this, PoseFlag::kOnVert));
-    const uint32_t* names = core::at(core::at(kJumpSpeed, params->has_bare_flag(kBonelessHeight)), from_vert).data();
+    const auto& names = core::at(core::at(kJumpSpeed, params->has_bare_flag(kBonelessHeight)), from_vert);
     objects::GameEntity* object = object_of(this);
-    const float most = scaled_physics(object, names[0]);
-    const float least = scaled_physics(object_of(this), names[1]);
+    const float most = scaled_physics(object, core::at(names, 0));
+    const float least = scaled_physics(object_of(this), core::at(names, 1));
     const double held = static_cast<double>(tense) / static_cast<double>(max_tense);
     auto speed = static_cast<float>((static_cast<double>(most) - least) * held + least);
     params->fetch_float(kSpeed, &speed, 0);
