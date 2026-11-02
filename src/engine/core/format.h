@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <span>
 #include <string>
 #include <string_view>
@@ -277,6 +278,15 @@ std::string format(FormatFor<Args...> format, Args... args)
 {
     const std::array<FormatArg, sizeof...(Args)> packed{format_detail::make_arg(args)...};
     return format_runtime(format.view(), packed);
+}
+
+// printf: the text to the standard output (all of it - a %c of 0 included).
+template <typename... Args>
+void print(FormatFor<Args...> format, Args... args)
+{
+    const std::array<FormatArg, sizeof...(Args)> packed{format_detail::make_arg(args)...};
+    const std::string made = format_runtime(format.view(), packed);
+    std::fwrite(made.data(), 1, made.size(), stdout);
 }
 
 // The text added to the end of `out`.

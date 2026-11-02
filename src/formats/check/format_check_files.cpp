@@ -39,6 +39,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/cursor.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace format_check_files {
 
@@ -50,7 +51,7 @@ void check(bool condition, const std::string& what)
 {
     if (!condition) {
         ++g_failures;
-        std::printf("  FAIL %s\n", what.c_str());
+        text::print("  FAIL %s\n", what.c_str());
     }
 }
 
@@ -267,7 +268,7 @@ void check_archive(const std::string& name, const std::vector<uint8_t>& archive,
         // (the last file's padding may be cut off without harm; its data not)
         check(!all || archive.size() % 4 == 0, name + ": cut short");
     }
-    std::printf("archive %s: %d files (%zu compressed)\n", name.c_str(), header.file_count, compressed);
+    text::print("archive %s: %d files (%zu compressed)\n", name.c_str(), header.file_count, compressed);
 }
 
 void check_patch(const std::filesystem::path& patch_path, const std::filesystem::path& archive_path)
@@ -389,7 +390,7 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
             at += 4 + static_cast<size_t>(level_bytes);
             if (level_bytes != texture_format::level_size(texture, level)) {
                 if (g_level_size_mismatches++ < 5)
-                    std::printf("  note %s level %u: %u bytes, %ux%u depth %u compression %u expects %u\n",
+                    text::print("  note %s level %u: %u bytes, %ux%u depth %u compression %u expects %u\n",
                                 what.c_str(), level, level_bytes, texture.width, texture.height, texture.depth,
                                 texture.compression, texture_format::level_size(texture, level));
             }
@@ -1010,7 +1011,7 @@ void check_stream_index(const std::filesystem::path& data)
     check(reader.remaining() == 0, "pcm.dat: the entries end at the file's end");
     util::ByteReader cut(file.data(), file.size() - 1);
     check(!stream_index_format::read_count(cut, &count), "pcm.dat: cut short");
-    std::printf("pcm.dat: %u streams (%d outside pcm.wad's %llu bytes)\n", count, outside,
+    text::print("pcm.dat: %u streams (%d outside pcm.wad's %llu bytes)\n", count, outside,
                 static_cast<unsigned long long>(wad_size));
 }
 
@@ -1066,30 +1067,30 @@ int run(const std::filesystem::path& data)
             check_file(std::filesystem::relative(entry.path(), data).string(), file.data(), file.size());
         }
     }
-    std::printf("texture levels not of their computed size: %d\n", g_level_size_mismatches);
-    std::printf("images: %d (%d palettized, %d plain); the file loader's bytes within %d, the memory loader's %d\n",
+    text::print("texture levels not of their computed size: %d\n", g_level_size_mismatches);
+    text::print("images: %d (%d palettized, %d plain); the file loader's bytes within %d, the memory loader's %d\n",
                 g_images.files, g_images.palettized, g_images.plain, g_images.file_size_as_loaded,
                 g_images.memory_size_as_loaded);
-    std::printf("cutscene skin colour tables: %d", g_skin_colour_tables);
-    std::printf(" - collision objects: %d\n", g_collision_objects);
-    std::printf("skeleton bones: %d\n", g_bones);
-    std::printf("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", g_anims.files,
+    text::print("cutscene skin colour tables: %d", g_skin_colour_tables);
+    text::print(" - collision objects: %d\n", g_collision_objects);
+    text::print("skeleton bones: %d\n", g_bones);
+    text::print("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", g_anims.files,
                 g_anims.float_keys, g_anims.compressed, g_anims.neither, g_anims.custom_keys);
-    std::printf("scenes: %d (%d materials, %d sectors, %d meshes - %d skinned; %d with bytes past the hierarchy); "
+    text::print("scenes: %d (%d materials, %d sectors, %d meshes - %d skinned; %d with bytes past the hierarchy); "
                 "skins %d (%d strip breaks)\n",
                 g_scenes.files, g_scenes.materials, g_scenes.sectors, g_scenes.meshes, g_scenes.skinned_meshes,
                 g_scenes.trailing, g_scenes.skins, g_scenes.breaks);
-    std::printf("fonts: %d (%d glyphs; %d special glyphs, %d past the special map; %d upscaled pages)\n", g_fonts.files,
+    text::print("fonts: %d (%d glyphs; %d special glyphs, %d past the special map; %d upscaled pages)\n", g_fonts.files,
                 g_fonts.glyphs, g_fonts.specials, g_fonts.specials_past_map, g_fonts.hd_pages);
-    std::printf("sound effects: %d (%d looping; %d with less data than they decode, %d formats past 0x14 bytes);"
+    text::print("sound effects: %d (%d looping; %d with less data than they decode, %d formats past 0x14 bytes);"
                 " format sizes:",
                 wave_stats().files, wave_stats().looping, wave_stats().short_data, wave_stats().long_format);
     for (const auto& [format_size, count] : wave_stats().format_sizes)
-        std::printf(" 0x%X x%d", format_size, count);
-    std::printf("\n");
+        text::print(" 0x%X x%d", format_size, count);
+    text::print("\n");
     for (const auto& [extension, count] : checked_by_extension())
-        std::printf("files %s: %d checked\n", extension.c_str(), count);
-    std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());
+        text::print("files %s: %d checked\n", extension.c_str(), count);
+    text::print("data %s: %zu archives\n", data.string().c_str(), archives.size());
     return g_failures;
 }
 

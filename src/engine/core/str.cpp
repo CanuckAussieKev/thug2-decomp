@@ -8,6 +8,7 @@
 
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "engine/core/format.h"
 #include "engine/sys/game_config.h"
 
 namespace text {
@@ -71,7 +72,7 @@ const char* format_with_separators(int value)
     }
 
     std::array<char, 32> digits{};
-    snprintf(digits.data(), sizeof(digits), "%d", value);
+    text::format_to(digits, "%d", value);
 
     char separator = 0;
     switch (game_config::g_language) { // the game's language setting

@@ -33,6 +33,7 @@
 #include "formats/check/format_check_files.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace {
 
@@ -42,7 +43,7 @@ void check(bool condition, const std::string& what)
 {
     if (!condition) {
         ++g_failures;
-        std::printf("  FAIL %s\n", what.c_str());
+        text::print("  FAIL %s\n", what.c_str());
     }
 }
 
@@ -304,7 +305,7 @@ void find_park_maps(const Structure& structure, std::vector<const ArrayValue*>* 
 void check_park_map(const ArrayValue& array, const std::string& what)
 {
     using namespace park_editing;
-    std::printf("  park map in %s\n", what.c_str());
+    text::print("  park map in %s\n", what.c_str());
     check(array.type == kInteger && array.elements.size() * 4 == kParkMapBytes, what + ": park map size");
     if (array.elements.size() * 4 != kParkMapBytes)
         return;
@@ -370,7 +371,7 @@ void check_park_maps_in(const Structure& structure, const std::string& what)
 // A bare structure file (Data/CustomParks/custom<n>.prk): decoded and encoded again, its park map checked.
 void check_structure_file(const std::filesystem::path& path, const std::vector<uint8_t>& file)
 {
-    std::printf("structure file %s\n", path.string().c_str());
+    text::print("structure file %s\n", path.string().c_str());
     const std::string name = path.filename().string();
     Structure tree;
     const size_t used = check_structure_round_trip(file.data(), file.size(), name, &tree);
@@ -409,7 +410,7 @@ void check_save_file(const std::filesystem::path& path)
         check_structure_file(path, file);
         return;
     }
-    std::printf("save %s\n", path.string().c_str());
+    text::print("save %s\n", path.string().c_str());
     auto size = static_cast<size_t>(header.size);
     check(save_cards::save_file_checksum(file.data(), size) == header.checksum, name + ": file CRC");
     check(header.summary_size <= save_cards::kMaxSummarySize, name + ": summary size");
@@ -450,7 +451,7 @@ void check_save_file(const std::filesystem::path& path)
 
 void check_byte_stream()
 {
-    std::printf("byte stream\n");
+    text::print("byte stream\n");
     std::array<uint8_t, 16> buffer = {};
     util::ByteWriter writer(buffer.data(), 11);
     writer.u8(0x12);
@@ -492,13 +493,13 @@ static_assert(sizeof(ReferenceStreamStart) == 0x130 && offsetof(ReferenceStreamS
 
 void check_wire_messages()
 {
-    std::printf("wire messages\n");
+    text::print("wire messages\n");
     for (const size_t piece_size : {size_t{0}, size_t{1}, size_t{100}, size_t{0x100}}) {
         std::vector<uint8_t> piece(piece_size);
         for (size_t i = 0; i < piece_size; ++i)
             core::at(piece, i) = static_cast<uint8_t>(i * 7 + 3);
         ReferenceStreamStart reference = {};
-        std::snprintf(reference.desc.data(), sizeof(reference.desc), "%s", "Appearance");
+        text::format_to(reference.desc, "%s", "Appearance");
         reference.total_size = 0x1234;
         reference.stream_id = 77;
         reference.checksum = 0xDEADBEEF;
@@ -508,7 +509,7 @@ void check_wire_messages()
         const size_t reference_size = piece_size + 0x30;
 
         net::wire::StreamStart start;
-        std::snprintf(start.desc.data(), sizeof(start.desc), "%s", "Appearance");
+        text::format_to(start.desc, "%s", "Appearance");
         start.total_size = 0x1234;
         start.stream_id = 77;
         start.checksum = 0xDEADBEEF;
@@ -649,18 +650,18 @@ void check_server_info()
     reference.password = 1;
     info.password = true;
     reference.host_mode = info.host_mode = 2;
-    std::snprintf(reference.name.data(), sizeof(reference.name), "%s", "Kevin's park");
-    std::snprintf(info.name.data(), sizeof(info.name), "%s", "Kevin's park");
-    std::snprintf(reference.level.data(), sizeof(reference.level), "%s", "Barcelona");
-    std::snprintf(info.level.data(), sizeof(info.level), "%s", "Barcelona");
-    std::snprintf(reference.mode.data(), sizeof(reference.mode), "%s", "Trick Attack");
-    std::snprintf(info.mode.data(), sizeof(info.mode), "%s", "Trick Attack");
+    text::format_to(reference.name, "%s", "Kevin's park");
+    text::format_to(info.name, "%s", "Kevin's park");
+    text::format_to(reference.level, "%s", "Barcelona");
+    text::format_to(info.level, "%s", "Barcelona");
+    text::format_to(reference.mode, "%s", "Trick Attack");
+    text::format_to(info.mode, "%s", "Trick Attack");
     reference.skill_level = info.skill_level = 4;
     reference.time = info.time = 123456;
     const std::array<const char*, 3> names = {{"one", "fifteen_chars__", "x"}};
     for (int i = 0; i < 3; ++i) {
-        std::snprintf(core::at(reference.players, i).data(), sizeof(core::at(reference.players, i)), "%s", core::at(names, i));
-        std::snprintf(core::at(info.players, i).data(), sizeof(core::at(info.players, i)), "%s", core::at(names, i));
+        text::format_to(core::at(reference.players, i), "%s", core::at(names, i));
+        text::format_to(core::at(info.players, i), "%s", core::at(names, i));
     }
     std::array<uint8_t, 0xE0> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
@@ -758,7 +759,7 @@ void check_session_messages()
 
 void check_skate_messages()
 {
-    std::printf("skate messages\n");
+    text::print("skate messages\n");
     for (const int count : {1, 3, 8}) {
         ReferenceScores reference = {};
         reference.time_left = 95;
@@ -825,7 +826,10 @@ int run_checks(int argc, char** argv)
             check_save_file(path);
         }
     }
-    std::printf(g_failures ? "%d FAILED\n" : "all passed\n", g_failures);
+    if (g_failures)
+        text::print("%d FAILED\n", g_failures);
+    else
+        text::print("all passed\n");
     return g_failures ? 1 : 0;
 }
 } // namespace
@@ -836,7 +840,7 @@ int main(int argc, char** argv)
     try {
         return run_checks(argc, argv);
     } catch (const std::exception& error) {
-        std::printf("format check stopped: %s\n", error.what());
+        text::print("format check stopped: %s\n", error.what());
         return 2;
     }
 }

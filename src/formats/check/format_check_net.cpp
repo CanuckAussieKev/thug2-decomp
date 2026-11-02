@@ -21,6 +21,7 @@
 #include "formats/rail_buffer_format.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)
 
@@ -34,7 +35,7 @@ void check(bool condition, const std::string& what)
 {
     if (!condition) {
         ++g_failures;
-        std::printf("  FAIL %s\n", what.c_str());
+        text::print("  FAIL %s\n", what.c_str());
     }
 }
 
@@ -862,7 +863,7 @@ void check_rails()
 // NOLINTNEXTLINE(misc-use-internal-linkage): format_check.cpp declares it
 int run()
 {
-    std::printf("game messages (batch 9 on)\n");
+    text::print("game messages (batch 9 on)\n");
     check_skater_messages();
     check_graffiti_messages();
     check_play_messages();
