@@ -14,6 +14,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/core/stubs.h"
+#include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"
 #include "engine/script/param_struct.h"

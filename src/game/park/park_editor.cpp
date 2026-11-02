@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "engine/core/manager.h"
+#include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
