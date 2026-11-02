@@ -276,11 +276,12 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
 {
     if (!path_group_)
         return nullptr;
-    const SharedRef<Entity>* slot = path_group_->slots_;
-    int count = path_group_->extent_;
+    const std::span<const SharedRef<Entity>> slots = path_group_->slots();
+    const int count = path_group_->extent_;
     GameEntity* nearest = nullptr;
     float nearest_distance = 0.0f; // (only read once there is a nearest)
-    for (; count > 0; --count, ++slot) {
+    for (int k = 0; k < count; ++k) {
+        const SharedRef<Entity>* slot = &core::at(slots, k);
         auto* other = core::down_cast<GameEntity>(slot->get_pull());
         if (!other || other == entity_)
             continue;

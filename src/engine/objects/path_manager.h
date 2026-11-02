@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/objects/smtptr.h"
 
@@ -37,8 +38,14 @@ public:
     // 0x004695D0: `object` into the first empty slot (nothing if they're all taken).
     void append_one(Entity* object);
 
+    // NOT ORIGINAL - the slots as a run of their count.
+    [[nodiscard]] std::span<SharedRef<Entity>> slots() const
+    {
+        return {slots_, slots_ ? static_cast<std::size_t>(extent_) : 0};
+    }
+
     SharedRef<Entity>* slots_{nullptr};
-    int extent_{0};
+    int extent_{0}; // the slots' count (the original also kept it in the word before them, as new[] does)
 };
 
 class PathManager {
@@ -58,7 +65,13 @@ public:
     // 0x00469960: `groups` groups of `group_size` slots and an extra group of `extraSize` (bottom-up heap).
     void carve(int groups, int group_size, int extra_size);
 
-    ObjectGroup* groups_; // +0x00 (new[]: the count before it)
+    // NOT ORIGINAL - the groups as a run of their count.
+    [[nodiscard]] std::span<ObjectGroup> groups() const
+    {
+        return {groups_, groups_ ? static_cast<std::size_t>(group_count_) : 0};
+    }
+
+    ObjectGroup* groups_; // +0x00 (the original's new[]: the count also in the word before them)
     ObjectGroup* extra_;  // +0x04
     int path_count_;      // +0x08
     int group_count_;     // +0x0C

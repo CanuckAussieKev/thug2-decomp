@@ -276,16 +276,17 @@ bool PedestrianBrainModule::avoid_peds()
     bool avoided = false;
     if (!peds_)
         return false;
-    const SharedRef<Entity>* slot = peds_->slots_;
+    const std::span<const SharedRef<Entity>> slots = peds_->slots();
     const maths::Mat4 m = entity_->display_matrix_;
     const maths::Vec4& at = core::at(m.row, 2);
     const float range = script::fetch_float(kAvoidPedRange);
     const float bias = script::fetch_float(kPedDodgeBias);
     const KinematicsModule* motion = get_motion(entity_);
-    int count = peds_->extent_;
+    const int count = peds_->extent_;
     if (count <= 0)
         return false;
-    for (; count; --count, ++slot) {
+    for (int k = 0; k < count; ++k) {
+        const SharedRef<Entity>* slot = &core::at(slots, k);
         auto* other = core::down_cast<GameEntity>(slot->get_pull());
         if (!other || other == entity_)
             continue;

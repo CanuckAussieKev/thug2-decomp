@@ -4,12 +4,15 @@
 
 #include <cstdint>
 #include <new>
+#include <ranges>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/objects/entity.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -22,17 +25,14 @@ constexpr uint32_t kType = 0x7321A8D6;    // type
 
 PathManager*& instance_pointer() { return g_path_manager; }
 
-// An array new[] of `count` elements of `size` bytes from the current heap: the count in the word before them.
+// An array of `count` elements of `size` bytes from the current heap. The original's was an array new[]: the count in
+// a word before the elements. The count is the owner's member here (ObjectGroup::extent_, PathManager::group_count_);
+// the word's room is still asked for, so the heap's use is the same.
 void* alloc_script_array(int count, unsigned int size)
 {
-    auto* block = static_cast<int*>(memory::alloc(static_cast<unsigned int>(count) * size + 4));
-    if (!block)
-        return nullptr;
-    block[0] = count;
-    return block + 1;
+    return memory::alloc(static_cast<unsigned int>(count) * size + sizeof(int));
 }
-void delete_array(void* elements) { memory::Hub::get_pull()->dealloc(static_cast<int*>(elements) - 1); }
-int element_total(const void* elements) { return static_cast<const int*>(elements)[-1]; }
+void delete_array(void* elements) { memory::Hub::get_pull()->dealloc(elements); }
 
 // A slot let go (and cleared again, as the original).
 void release_slot(SharedRef<Entity>* slot)
@@ -48,8 +48,9 @@ ObjectGroup::~ObjectGroup()
 {
     if (!slots_)
         return;
-    for (int i = element_total(slots_) - 1; i >= 0; --i)
-        slots_[i].get_release();
+    const std::span<SharedRef<Entity>> slots = this->slots();
+    for (auto& slot : std::views::reverse(slots))
+        slot.get_release();
     delete_array(slots_);
     slots_ = nullptr;
 }
@@ -57,13 +58,10 @@ ObjectGroup::~ObjectGroup()
 // 0x004698C0
 void ObjectGroup::prepare_all(int size)
 {
-    auto* slots = static_cast<SharedRef<Entity>*>(alloc_script_array(size, sizeof(SharedRef<Entity>)));
-    if (slots) {
-        for (int i = 0; i < size; ++i)
-            new (&slots[i]) SharedRef<Entity>(); // (0x0042B580: all three words cleared)
-    }
-    slots_ = slots;
+    slots_ = static_cast<SharedRef<Entity>*>(alloc_script_array(size, sizeof(SharedRef<Entity>)));
     extent_ = size;
+    for (SharedRef<Entity>& slot : slots())
+        new (&slot) SharedRef<Entity>(); // (0x0042B580: all three words cleared)
     release_all();
 }
 
@@ -71,15 +69,16 @@ void ObjectGroup::prepare_all(int size)
 void ObjectGroup::release_all()
 {
     for (int i = 0; i < extent_; ++i)
-        release_slot(&slots_[i]);
+        release_slot(&core::at(slots(), i));
 }
 
 // 0x00469580
 void ObjectGroup::drop_out(Entity* object)
 {
     for (int i = 0; i < extent_; ++i) {
-        if (slots_[i].get_pull() == object)
-            release_slot(&slots_[i]);
+        SharedRef<Entity>& slot = core::at(slots(), i);
+        if (slot.get_pull() == object)
+            release_slot(&slot);
     }
 }
 
@@ -87,8 +86,9 @@ void ObjectGroup::drop_out(Entity* object)
 void ObjectGroup::append_one(Entity* object)
 {
     for (int i = 0; i < extent_; ++i) {
-        if (!slots_[i].get_pull()) {
-            slots_[i].assign_value(object);
+        SharedRef<Entity>& slot = core::at(slots(), i);
+        if (!slot.get_pull()) {
+            slot.assign_value(object);
             return;
         }
     }
@@ -116,8 +116,9 @@ ObjectGroup* PathManager::add_to_path(Entity* object, uint32_t node)
     script::Struct* params = level_nodes::fetch_vertex(node, true);
     int path = 0;
     params->fetch_int_value(kPathNum, &path, 0);
-    groups_[path].append_one(object);
-    return &groups_[path];
+    ObjectGroup& group = core::at(groups(), path);
+    group.append_one(object);
+    return &group;
 }
 
 // 0x00469670
@@ -136,7 +137,7 @@ void PathManager::number_paths()
     if (!groups_)
         return;
     for (int i = 0; i < group_count_; ++i)
-        groups_[i].release_all();
+        core::at(groups(), i).release_all();
     path_count_ = 0;
     level_nodes::start_node_walk(0);
     for (script::Struct* start = level_nodes::get_next_node(); start; start = level_nodes::get_next_node()) {
@@ -179,18 +180,20 @@ void PathManager::dealloc()
     if (!groups_)
         return;
     for (int i = 0; i < group_count_; ++i)
-        groups_[i].release_all();
-    if (ObjectGroup* groups = groups_) {
-        for (int i = element_total(groups) - 1; i >= 0; --i)
-            groups[i].~ObjectGroup();
-        delete_array(groups);
+        core::at(groups(), i).release_all();
+    if (groups_) {
+        const std::span<ObjectGroup> groups = this->groups();
+        for (auto& group : std::views::reverse(groups))
+            group.~ObjectGroup();
+        delete_array(groups_);
     }
     ObjectGroup* extra = extra_;
     groups_ = nullptr;
     if (extra) {
         if (extra->slots_) {
-            for (int i = element_total(extra->slots_) - 1; i >= 0; --i)
-                extra->slots_[i].get_release();
+            const std::span<SharedRef<Entity>> slots = extra->slots();
+            for (auto& slot : std::views::reverse(slots))
+                slot.get_release();
             delete_array(extra->slots_);
             extra->slots_ = nullptr;
         }
@@ -205,14 +208,11 @@ void PathManager::carve(int groups, int group_size, int extra_size)
     group_count_ = groups;
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->bottom_up_heap_);
-    auto* made = static_cast<ObjectGroup*>(alloc_script_array(group_count_, sizeof(ObjectGroup)));
-    if (made) {
-        for (int i = 0; i < group_count_; ++i)
-            new (&made[i]) ObjectGroup;
-    }
-    groups_ = made;
+    groups_ = static_cast<ObjectGroup*>(alloc_script_array(group_count_, sizeof(ObjectGroup)));
+    for (ObjectGroup& group : this->groups())
+        new (&group) ObjectGroup;
     for (int i = 0; i < group_count_; ++i)
-        groups_[i].prepare_all(group_size);
+        core::at(this->groups(), i).prepare_all(group_size);
     void* block = memory::alloc(sizeof(ObjectGroup));
     ObjectGroup* extra = block ? memory::construct_in<ObjectGroup>(block) : nullptr;
     extra_ = extra;
