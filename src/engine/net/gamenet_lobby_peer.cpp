@@ -43,6 +43,7 @@
 #include "engine/sys/mlp.h"
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
+#include "engine/core/mem.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's own)
 
@@ -105,13 +106,13 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
 // The game's C runtime (the queue's copies are freed by the original's code too).
 gsl::owner<void*> game_malloc(size_t size) { return crt::alloc_block(size); }
-void game_free(void* memory) { crt::dealloc(memory); }
+void game_free(gsl::owner<void*> memory) { crt::dealloc(memory); }
 
 // The queue emptied (its copies freed).
 void clear_queue()
 {
     for (int i = 0; i < queued_count(); ++i)
-        game_free(get_queue()[i].data);
+        game_free(memory::owned_element(get_queue()[i].data));
     queued_count() = 0;
 }
 
@@ -323,7 +324,7 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
                                        static_cast<void*>(packet.from.data()));
         else if (packet.type == kPacketNatNegotiation)
             game_spy::nat_process_data(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from.data()));
-        game_free(packet.data);
+        game_free(memory::owned_element(packet.data)); // (the queue's copy)
     }
     queued_count() = 0;
     Hub* manager = net_session_slot();

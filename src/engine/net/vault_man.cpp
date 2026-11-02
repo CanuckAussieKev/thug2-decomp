@@ -110,7 +110,7 @@ int ghttp_post_ex(const char* url, const char* headers, void* post, int throttle
 }
 // The GameSpy SDK's strdup (goastrdup, the game's C runtime malloc) and the game runtime's free for it.
 char* game_spy_strdup(const char* text) { return game_spy::game_strdup(text); }
-void game_crt_free(void* memory) { crt::dealloc(memory); }
+void game_crt_free(gsl::owner<void*> memory) { crt::dealloc(memory); }
 // The GameSpy SDK's id of this machine (GOAGetUniqueID).
 const char* game_spy_unique_id() { return game_spy::get_unique_id(); }
 // 0x005A8EB0: a downloaded item (`size` bytes) loaded from `buffer` by the type's script.
@@ -543,7 +543,7 @@ unsigned long __stdcall VaultMan::download_thread(void* url)
     manager->vault_man_->req_ = request;
     pop_heap();
     get_release(manager->vault_man_->semaphore_);
-    game_crt_free(url);
+    game_crt_free(memory::owned_element(url)); // (the thread's: its starter made the copy)
     return 0;
 }
 

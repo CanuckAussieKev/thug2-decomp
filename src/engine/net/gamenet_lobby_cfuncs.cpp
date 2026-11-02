@@ -35,6 +35,8 @@
 #include "engine/net/stats_man.h"
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/mem.h"
+#include <gsl/pointers>
 
 namespace online {
 
@@ -105,7 +107,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
     client->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     tasks->queue_job(lobby->hosting_task_.get());
     for (int i = 0; i < queued_count(); ++i)
-        crt::dealloc(get_queue()[i].data); // (the game's C runtime free)
+        crt::dealloc(memory::owned_element(get_queue()[i].data)); // (the game's C runtime free; the queue's copy)
     queued_count() = 0;
     pop_heap();
     return true;

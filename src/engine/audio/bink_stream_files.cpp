@@ -17,6 +17,7 @@
 #include "platform/crt.h"
 #include "platform/bink.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 
 namespace audio {
 
@@ -41,9 +42,9 @@ size_t crt_fread(void* buffer, size_t size, size_t count, FILE* file)
 {
     return crt::get_fread(buffer, size, count, file);
 }
-int crt_fclose(FILE* file) { return crt::get_fclose(file); }
+int crt_fclose(gsl::owner<FILE*> file) { return crt::get_fclose(file); }
 gsl::owner<void*> get_crt_malloc(size_t size) { return crt::alloc_block(size); }
-void get_crt_free(void* block) { crt::dealloc(block); }
+void get_crt_free(gsl::owner<void*> block) { crt::dealloc(block); }
 
 constexpr uint32_t kBinkFromMemory = 0x04000000;
 constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
@@ -83,17 +84,18 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
     }
     if (slot == -1)
         return -1;
-    FILE* in = crt_fopen(path, "rb"); // "rb"
+    gsl::owner<FILE*> in = crt_fopen(path, "rb"); // "rb"
     if (!in)
         return -1;
     CachedStreamFile& file = stream_files()[slot];
     if (file.data)
-        get_crt_free(file.data);
+        get_crt_free(memory::owned_element(file.data)); // (each slot's own)
     ++file.users;
     file.data = nullptr;
     file.last_use_ = stream_file_uses();
     crt_fseek(in, offset, SEEK_SET);
-    file.data = get_crt_malloc(size);
+    gsl::owner<void*> block = get_crt_malloc(size);
+    file.data = block;
     crt_fread(file.data, size, 1, in);
     file.key = key;
     crt_fclose(in);

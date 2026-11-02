@@ -15,6 +15,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
+#include "engine/core/mem.h"
 
 namespace render {
 
@@ -24,7 +25,7 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The game's C runtime heap (the nodes, copies and buffers are freed through it).
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
-void dealloc(void* memory) { crt::dealloc(memory); }
+void dealloc(gsl::owner<void*> memory) { crt::dealloc(memory); }
 
 buffer_lists::Node* g_vertex_buffer_list = nullptr; // (the original's 0x007865E4)
 buffer_lists::Node* g_index_buffer_list = nullptr;  // (0x007865E8)
@@ -64,7 +65,7 @@ void unlist(BufferNode*& head, const void* buffer)
     node->buffer = nullptr;
     node->prev = nullptr;
     node->next = nullptr;
-    dealloc(node);
+    dealloc(memory::owned_element(node)); // (the list's)
 }
 
 IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer); }
@@ -191,9 +192,9 @@ uint32_t VertexBuffer::teardown()
     buffer = nullptr;
     unlist();
     if (data)
-        dealloc(data);
+        dealloc(memory::owned_element(data));
     std::memset(this, 0, sizeof(*this));
-    dealloc(this);
+    dealloc(memory::owned_element(this)); // (its own block)
     return references;
 }
 
@@ -204,9 +205,9 @@ uint32_t IdxStore::teardown()
     buffer = nullptr;
     unlist();
     if (indices)
-        dealloc(indices);
+        dealloc(memory::owned_element(indices));
     std::memset(this, 0, sizeof(*this));
-    dealloc(this);
+    dealloc(memory::owned_element(this)); // (its own block)
     return references;
 }
 
