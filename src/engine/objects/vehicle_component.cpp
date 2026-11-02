@@ -43,7 +43,6 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/input_component.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
@@ -76,7 +75,7 @@ const float kHundredth = 0.00999999978f; // 0x0064544C
 void DrivableModule::update_wheel_rotations()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         const double rotation =
             (static_cast<double>(wheel.spin) - static_cast<double>(wheel.torque) * step_length_ * kHalf) *
                 step_length_ +
@@ -447,13 +446,7 @@ DrivableModule::DrivableModule()
 // 0x0043B990 (0x0043C1A0 the deleting one)
 DrivableModule::~DrivableModule()
 {
-    if (wheels_) {
-        // (as `delete[]`: the count before the array, the wheels destroyed last to first)
-        int* block = raw::as<int>(wheels_) - 1;
-        for (int i = *block - 1; i >= 0; --i)
-            wheels_[i].~Wheel();
-        memory::Hub::get_pull()->dealloc(block);
-    }
+    wheels_.clear(); // (as `delete[]`: the wheels destroyed first in the destructor)
     // (then contact_memo_ unregistered by its destructor)
 }
 
@@ -584,32 +577,23 @@ void DrivableModule::configure_from_data(script::Struct* params)
         params->fetch_list(0xB3F8557E, &wheels, 1);
         const int count = static_cast<int>(wheels->extent_);
         wheel_count_ = count;
-        if (!wheels_) {
-            if (!memory::g_manager_ready)
-                memory::ensure_manager();
-            auto* block = static_cast<int*>(
-                memory::Hub::get_pull()->carve(static_cast<uint32_t>(count) * sizeof(Wheel) + 4, 1, nullptr));
-            Wheel* array = nullptr;
-            if (block) {
-                *block = count;
-                array = raw::as<Wheel>(block + 1);
-                for (int i = 0; i < count; ++i)
-                    new (&array[i]) Wheel; // (default-initialised: only the feeler is set up)
-            }
-            wheels_ = array;
+        if (wheels_.empty()) {
+            // (the original's new[] took them from the memory manager's current heap, default-initialised: only the
+            // feeler set up - a vector here, value-initialised)
+            wheels_ = std::vector<Wheel>(static_cast<size_t>(count));
         }
         for (int i = wheel_count_ - 1; i >= 0; --i)
-            read_wheel(&wheels_[i], wheels->struct_at(static_cast<uint32_t>(i)));
+            read_wheel(&core::at(wheels_, i), wheels->struct_at(static_cast<uint32_t>(i)));
     }
     if (params->has_entry_named(0x371BADFF)) {
         script::Struct* all = nullptr;
         params->read_sub_struct(0x371BADFF, &all, 1);
         for (int i = wheel_count_ - 1; i >= 0; --i)
-            read_wheel(&wheels_[i], all);
+            read_wheel(&core::at(wheels_, i), all);
     }
     drive_wheel_count_ = 0;
     for (int i = wheel_count_ - 1; i >= 0; --i)
-        if (wheels_[i].drive)
+        if (core::at(wheels_, i).drive)
             ++drive_wheel_count_;
 
     // The orientation from the object's matrix (or Save's Orientation: the object's matrix from it); the position
@@ -649,7 +633,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     clear_to_w1(force_);
     clear_to_w1(twist_force_);
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         wheel.y = wheel.rest_y_;
         wheel.state = kWheelInAir;
         wheel.rotation = 0.0f;
@@ -677,7 +661,7 @@ void DrivableModule::seal()
     // The wheels' places from the model (z up there; always four).
     for (int i = 3; i >= 0; --i) {
         const maths::Vec4& place = wheel_place(geometry, i);
-        wheels_[i].offset = {-place.x, place.z, -place.y, 1.0f};
+        core::at(wheels_, i).offset = {-place.x, place.z, -place.y, 1.0f};
     }
     const maths::Mat4 bone = geometry[1].matrix;
     skater_bone_ = {-core::at(bone.row, 3).x, core::at(bone.row, 3).z, -core::at(bone.row, 3).y, 1.0f};
@@ -685,7 +669,7 @@ void DrivableModule::seal()
     // each kind (-1 when there's none - read before the first, as the original).
     int fixed = -1, left = -1, right = -1;
     for (int i = 3; i >= 0; --i) {
-        switch (wheels_[i].steering_side_) {
+        switch (core::at(wheels_, i).steering_side_) {
         case 0:
             fixed = i;
             break;
@@ -706,7 +690,7 @@ void DrivableModule::seal()
     // The suspension: the wheel's place raised by its diameter; its rest extension down from there, sagged by its
     // share of the weight.
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         const double y = wheel.offset.y;
         const double raised = (static_cast<double>(wheel.radius) + wheel.radius) + y;
         wheel.offset.y = static_cast<float>(raised);
@@ -737,8 +721,8 @@ void DrivableModule::seal()
     // Everything made relative to the wheels' centre (x, z) and the colliders' lowest point.
     double sum_x = 0.0, sum_z = 0.0;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        sum_x += wheels_[i].offset.x;
-        sum_z += wheels_[i].offset.z;
+        sum_x += core::at(wheels_, i).offset.x;
+        sum_z += core::at(wheels_, i).offset.z;
     }
     const double share = 1.0 / as_unsigned(wheel_count_);
     auto centre_x = static_cast<float>(sum_x * share);
@@ -749,7 +733,7 @@ void DrivableModule::seal()
         v.z = static_cast<float>(v.z - centre_z);
     };
     for (int i = wheel_count_ - 1; i >= 0; --i)
-        recentre(wheels_[i].offset);
+        recentre(core::at(wheels_, i).offset);
     for (int i = 1; i >= 0; --i)
         recentre(core::at(colliders_, i).corner);
     recentre(skater_bone_);
@@ -781,7 +765,7 @@ void DrivableModule::tick_frame()
         update_steering();
         if (brake_)
             for (int i = wheel_count_ - 1; i >= 0; --i)
-                wheels_[i].spin = 0.0f;
+                core::at(wheels_, i).spin = 0.0f;
         update_wheel_rotations();
         refresh_bone_rig();
         update_skater();
@@ -817,7 +801,7 @@ void DrivableModule::tick_frame()
         clear_to_w1(force_);
         clear_to_w1(twist_force_);
         for (int i = wheel_count_ - 1; i >= 0; --i)
-            wheels_[i].torque = 0.0f;
+            core::at(wheels_, i).torque = 0.0f;
         if (!passive_) {
             collide();
             if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
@@ -874,7 +858,7 @@ void DrivableModule::refresh_bone_rig()
             core::at(bone.row, 3) = skater_bone_;
             continue;
         }
-        const Wheel& wheel = wheels_[b - 2];
+        const Wheel& wheel = core::at(wheels_, b - 2);
         core::at(bone.row, 0).x = -1.0f;
         core::at(bone.row, 1).z = 1.0f;
         core::at(bone.row, 2).y = 1.0f;
@@ -923,7 +907,7 @@ void DrivableModule::debug_draw()
     if (!debug_mode_)
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        const Wheel& wheel = wheels_[i];
+        const Wheel& wheel = core::at(wheels_, i);
         uint32_t colour = 0;
         switch (wheel.state) {
         case kWheelStaticSlow:
@@ -990,7 +974,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     const double count = as_unsigned(wheel_count_);
     double height = 0.0;
     for (int i = 3; i >= 0; --i) {
-        const Wheel& wheel = wheels_[i];
+        const Wheel& wheel = core::at(wheels_, i);
         const double rest =
             static_cast<double>(kGravity) / (static_cast<double>(wheel.spring_rate_) * inv_mass_ * count) +
             wheel.offset.y + wheel.rest_y_;
@@ -1007,12 +991,12 @@ void DrivableModule::glide_to_node(script::Struct* node)
     // The node marks the fixed axle (the first fixed wheel from the last): back along the node's facing by its place.
     int fixed = -1;
     for (int i = 3; i >= 0; --i) {
-        if (wheels_[i].steering_side_ == 0) {
+        if (core::at(wheels_, i).steering_side_ == 0) {
             fixed = i;
             break;
         }
     }
-    const double back = wheels_[fixed].offset.z;
+    const double back = core::at(wheels_, fixed).offset.z;
     const maths::Vec4& at = core::at(matrix.row, 2);
     at_point_.x = pos.x = static_cast<float>(pos.x - at.x * back);
     at_point_.y = pos.y = static_cast<float>(pos.y - at.y * back);
@@ -1027,7 +1011,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     passive_ = true;
     for (int n = 60; n != 0; --n) {
         for (int i = wheel_count_ - 1; i >= 0; --i)
-            wheels_[i].spin = 0.0f;
+            core::at(wheels_, i).spin = 0.0f;
         tick_frame();
     }
     passive_ = false;

@@ -25,7 +25,7 @@ namespace render {
 namespace {
 
 ShadowVolume** shadow_volumes() { return g_shadow_volumes.data(); }
-lists::KeyMap& edge_table() { return g_shadow_edge_table; }
+lists::ObjectSet<ShadowEdges>& edge_table() { return g_shadow_edge_table; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).
@@ -187,7 +187,7 @@ ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance)
     v.make_unit();
     look_along(view_camera_.get(), v);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    model_key_ = 0;
+    model_key_ = nullptr;
     edges_ = nullptr;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
@@ -237,10 +237,13 @@ void remove_shadow_volume(ShadowVolume* volume)
 }
 
 // 0x004A1EF0
-ShadowEdges* find_shadow_edges(uint32_t key) { return static_cast<ShadowEdges*>(edge_table().fetch_entry(key)); }
+ShadowEdges* find_shadow_edges(const TriMeshSource* key)
+{
+    return edge_table().find_if([key](const ShadowEdges* edges) { return edges->key == key; });
+}
 
 // 0x004A1F30
-void release_shadow_edges(uint32_t key)
+void release_shadow_edges(const TriMeshSource* key)
 {
     ShadowEdges* edges = find_shadow_edges(key);
     if (!edges || --edges->users != 0)
@@ -249,7 +252,7 @@ void release_shadow_edges(uint32_t key)
         memory::Hub::get_pull()->dealloc(edges->edges);
         edges->edges = nullptr;
     }
-    edge_table().erase_entry(key);
+    edge_table().erase(edges);
     memory::Hub::get_pull()->dealloc(edges);
 }
 

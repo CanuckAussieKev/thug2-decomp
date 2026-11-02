@@ -20,11 +20,10 @@
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
+#include "engine/gfx/engine_mesh.h"
 
 namespace objects {
 
@@ -99,10 +98,9 @@ void GroundShadowModule::seal()
 {
     mesh_instance_ = entity_->fetch_module(kModel);
     const uint32_t checksum = model_of(mesh_instance_)->source_path_;
-    void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
+    const void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
     if (shadow_handle_)
-        shadow_handle_->change_mesh(model_of(mesh_instance_),
-                                    static_cast<uint8_t*>(asset));
+        shadow_handle_->change_mesh(model_of(mesh_instance_), static_cast<const render::SubMesh*>(asset));
 }
 
 // 0x00431450

@@ -12,7 +12,6 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
@@ -204,8 +203,9 @@ void PadSnapshot::get_clear()
 }
 
 // 0x0046BDA0
-void PadSnapshot::tick_frame(const uint8_t* data)
+void PadSnapshot::tick_frame(const pad_input::Payload* payload)
 {
+    const uint8_t* data = payload->incident_.data(); // (the sticks, then a pressure per button)
     up_dir_.tick_frame(get_full(data[6] != 0));
     btn_down_.tick_frame(get_full(data[7] != 0));
     left_side_.tick_frame(get_full(data[5] != 0));
@@ -218,7 +218,7 @@ void PadSnapshot::tick_frame(const uint8_t* data)
     shoulder_right_a_.tick_frame(get_full(data[0xD] != 0));
     shoulder_left_b_.tick_frame(get_full(data[0xE] != 0));
     shoulder_right_b_.tick_frame(get_full(data[0xF] != 0));
-    const uint32_t bits = *raw::field_at<const uint32_t>(data, 0x1C);
+    const uint32_t bits = payload->buttons_;
     stick_click_left_.tick_frame(get_full((bits & 0x200) != 0));
     stick_click_right_.tick_frame(get_full((bits & 0x400) != 0));
     button_choose_.tick_frame(get_full((bits & 0x100) != 0));

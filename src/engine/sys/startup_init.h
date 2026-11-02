@@ -30,7 +30,6 @@ void construct_loaded_tex_dicts();        // 0x00640BF0
 void set_up_game_texture_dict();          // 0x00640C10
 void set_up_particle_texture_dict();      // 0x00640C60
 void construct_spare_tex_dict_table();    // 0x00640CB0
-void construct_shadow_edge_table();       // 0x00640CD0
 void create_screen_mutex();               // 0x00640D10
 void construct_projection_batches();      // 0x00640D30
 void construct_grass_textures();          // 0x00640D90

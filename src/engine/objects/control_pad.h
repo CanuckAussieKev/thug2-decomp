@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include "engine/pad_input/input_hub.h"
 
 namespace objects {
 
@@ -53,7 +54,7 @@ public:
     void get_clear();
     // 0x0046BDA0: the buttons and sticks from the controller's data (the PS2 pad layout: pressures 4-0xF, the
     // sticks 0-3 and 0x12-0x15 around 0x80, more buttons in the bits of +0x1C).
-    void tick_frame(const uint8_t* data);
+    void tick_frame(const pad_input::Payload* payload);
     // 0x0046C270: the button named `name` (null if none).
     ControlButton* read_button(uint32_t name);
 

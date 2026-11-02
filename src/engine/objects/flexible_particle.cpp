@@ -23,7 +23,6 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -370,8 +369,7 @@ int ObjectModule::dispatch_named_script_method(const script::MemberFunctionEntry
                                                script::Script* script)
 {
     if (entry->method_code_) {
-        return entry->method_code_(raw::bytes(this) + entry->this_adjustment_, entry->callsign_, params,
-                                   script);
+        return entry->method_code_(this, entry->callsign_, params, script); // (this_adjustment_ is always 0)
     }
     return invoke_method_by_name(entry->callsign_, params, script);
 }

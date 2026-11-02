@@ -89,7 +89,7 @@ void steering_angles(const DrivableModule* vehicle, float steering, float* inner
 void DrivableModule::update_wheel_friction()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         if (wheel.state == kWheelInAir)
             continue;
         // The velocity at the wheel along the ground.
@@ -137,8 +137,8 @@ void DrivableModule::refresh_hit_cache()
 {
     maths::BBox box;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        box.append_spot(wheels_[i].feeler_start_);
-        box.append_spot(wheels_[i].feeler_end_);
+        box.append_spot(core::at(wheels_, i).feeler_start_);
+        box.append_spot(core::at(wheels_, i).feeler_end_);
     }
     for (int i = 1; i >= 0; --i) {
         const Collider& c = core::at(colliders_, i);
@@ -177,7 +177,7 @@ void DrivableModule::update_steering()
     steering_angles(this, steering_, &inner, &outer);
     steering_angles(this, display, &display_inner, &display_outer);
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         if (wheel.steering_side_ == 0)
             continue;
         wheel.steering = wheel.steering_side_ == 1 ? inner : static_cast<float>(outer);
@@ -249,7 +249,7 @@ void DrivableModule::apply_gravity()
 void DrivableModule::apply_suspension()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         if (wheel.state == kWheelInAir) {
             // (In the air the history gets an even share of the weight; the average isn't updated.)
             core::at(wheel.load_history_, load_index_) =
@@ -286,7 +286,7 @@ void DrivableModule::apply_suspension()
 void DrivableModule::apply_tyre_forces()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         if (wheel.state == kWheelInAir)
             continue;
         // The slip velocity: the ground velocity less the tyre's rolling (as update_wheel_friction).
@@ -355,7 +355,7 @@ void DrivableModule::apply_engine_braking()
     if (throttle_ || reverse_ || brake_)
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         if (!wheel.drive || wheel.state == kWheelInAir)
             continue;
         const int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
@@ -379,7 +379,7 @@ void DrivableModule::apply_drive_torque()
     if (!(throttle_ || reverse_) || brake_)
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         if (!wheel.drive || (handbrake_ && wheel.steering_side_ != 0))
             continue;
         float spin = 0.0f;
@@ -404,7 +404,7 @@ void DrivableModule::apply_brakes()
     if (!brake_)
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         double braking = wheel.brake_torque_;
         const float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
         if (braking > stop) {
@@ -423,7 +423,7 @@ void DrivableModule::apply_brakes()
 void DrivableModule::apply_handbrake(float scale)
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         double braking = static_cast<double>(scale) * wheel.handbrake_torque_;
         const float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
         if (braking > stop) {
@@ -444,7 +444,7 @@ void DrivableModule::apply_brake_excess()
     if (!brake_)
         return;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         if (wheel.brake_excess_ == 0.0f)
             continue;
         double braking = wheel.brake_excess_;
@@ -498,8 +498,8 @@ void DrivableModule::apply_wheel_forces()
     // The handbrake without throttle locks the wheels.
     apply_tyre_forces();
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        wheels_[i].spin = 0.0f;
-        wheels_[i].torque = 0.0f;
+        core::at(wheels_, i).spin = 0.0f;
+        core::at(wheels_, i).torque = 0.0f;
     }
 }
 
@@ -514,7 +514,7 @@ void DrivableModule::update_dependents()
     step_vehicle_speeds();
     const maths::Vec4* r = basis_frame_.row.data();
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         // The suspension's top: the wheel's place turned and moved (x summed unrounded).
         const maths::Vec4& o = wheel.offset;
         double x =
@@ -598,7 +598,7 @@ void DrivableModule::update_wheel_contacts()
     feeler.hit_cache_ = &contact_memo_;
     wheels_in_contact_ = 0;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         feeler.line_.start = wheel.feeler_start_;
         feeler.line_.end = wheel.feeler_end_;
         feeler.set_excluded(0x10, 0);
@@ -646,7 +646,7 @@ void DrivableModule::update_wheel_contacts()
     // The contact points (relative to the body's position, turned) and the body's velocity there.
     const maths::Vec4* r = basis_frame_.row.data();
     for (int i = wheel_count_ - 1; i >= 0; --i) {
-        Wheel& wheel = wheels_[i];
+        Wheel& wheel = core::at(wheels_, i);
         maths::Vec4& p = wheel.pos;
         p = wheel.offset;
         p.y = static_cast<float>((static_cast<double>(wheel.y) - wheel.radius) + p.y);
@@ -697,7 +697,7 @@ void DrivableModule::check_sleep()
     force_ = {0.0f, 0.0f, 0.0f, 1.0f};
     twist_force_ = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int i = wheel_count_ - 1; i >= 0; --i)
-        wheels_[i].torque = 0.0f;
+        core::at(wheels_, i).torque = 0.0f;
     awake_ = 0;
 }
 

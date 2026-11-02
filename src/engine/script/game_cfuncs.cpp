@@ -61,7 +61,6 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/script/cfuncs_scene.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -336,7 +335,7 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     params->fetch_int_value(kController, &controller, 0);
     const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners_, controller).get();
     objects::PadSnapshot pad;
-    pad.tick_frame(raw::bytes(handler->control_data_));
+    pad.tick_frame(handler->control_data_);
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return false;

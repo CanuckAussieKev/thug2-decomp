@@ -48,7 +48,8 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
     // trees not within it) is refused: no collision objects.
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
-    hit_shape_ = data + collision_format::kHeaderSize;
+    uint8_t* objects = data + collision_format::kHeaderSize;
+    hit_shape_ = collision_format::object_record<TriMeshSource>(objects, 0);
     if (!collision_format::lay_out_collision(data, size, &header, &layout) ||
         !collision_format::check_collision_objects(data, header, layout)) {
         collision_count_ = 0;
@@ -56,8 +57,8 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
     }
     collision_count_ = header.object_count;
     for (int i = 0; i < header.object_count; ++i) {
-        collision_format::relocate_object(hit_shape_, i, layout);
-        auto* object = collision_format::object_record<TriMeshSource>(hit_shape_, i);
+        collision_format::relocate_object(objects, i, layout);
+        auto* object = collision_format::object_record<TriMeshSource>(objects, i);
         object->set_up_all_faces();
         box_.append_spot(object->bounds_.min);
         box_.append_spot(object->bounds_.max);

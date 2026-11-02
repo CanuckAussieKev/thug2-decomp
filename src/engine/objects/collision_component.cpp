@@ -27,10 +27,10 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/engine_mesh.h"
 
 namespace objects {
 
@@ -107,12 +107,10 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
         return;
     }
     const render::RenderModel* model = model_of(entity_->fetch_module(kModelModuleName));
-    auto* data = static_cast<uint8_t*>(
-        assets::asset_manager()->get_asset_data(model->source_path_, 0));
+    const auto* data =
+        static_cast<const render::SubMesh*>(assets::asset_manager()->get_asset_data(model->source_path_, 0));
     if (data) {
-        hit_shape_ =
-            render::build_dynamic_hit_mesh(type, *raw::field_at<render::TriMeshSource*>(data, 0x8C),
-                                           *raw::field_at<int>(data, 0x88), entity_);
+        hit_shape_ = render::build_dynamic_hit_mesh(type, data->hit_shape_, data->collision_count_, entity_);
     } else {
         hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, entity_);
     }

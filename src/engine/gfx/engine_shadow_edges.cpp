@@ -13,31 +13,19 @@
 #include "engine/lists/key_map.h"
 #include "engine/render/coll_tri.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/engine_mesh.h"
 
 namespace render {
 
 std::array<ShadowVolume*, 16> g_shadow_volumes;
-lists::KeyMap g_shadow_edge_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+lists::ObjectSet<ShadowEdges> g_shadow_edge_table;
 
 namespace {
 
-// An edge (0x50 bytes): its two ends as each of the two faces sharing it sees them - [0] / [2] the first face's
-// ends, [1] / [3] the second's (set when it's found) - each with the face's normal.
-struct EdgeCorner {
-    uint16_t vertex;
-    uint16_t pad; // (stack garbage in the original's records: zeroed here)
-    maths::Vec4 normal;
-};
-struct ShadowSilhouetteEdge {
-    std::array<EdgeCorner, 4> corners;
-};
-static_assert(sizeof(ShadowSilhouetteEdge) == 0x50, "layout must match the original");
 
 ShadowVolume** shadow_volumes() { return g_shadow_volumes.data(); }
-lists::KeyMap& edge_table() { return g_shadow_edge_table; }
+lists::ObjectSet<ShadowEdges>& edge_table() { return g_shadow_edge_table; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void add_shadow_volume(ShadowVolume* volume)
@@ -50,8 +38,8 @@ void add_shadow_volume(ShadowVolume* volume)
     }
 }
 
-// The meshes of the model's collision scene: +0x88 their count, +0x8C the array (the volumes' key).
-int get_mesh_count(const uint8_t* asset_data) { return *raw::field_at<const int>(asset_data, 0x88); }
+// The meshes of the model's collision scene: their count (the array is the volumes' key).
+int get_mesh_count(const SubMesh* asset_data) { return asset_data->collision_count_; }
 
 bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & 0x40) != 0; }
 
@@ -60,7 +48,7 @@ bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & 0x40)
 // as the original).
 void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const maths::Vec4& normal)
 {
-    auto* all = raw::as<ShadowSilhouetteEdge>(edges->edges);
+    ShadowSilhouetteEdge* all = edges->edges;
     int i = 0;
     for (; i < count; ++i) {
         ShadowSilhouetteEdge& edge = all[i];
@@ -90,18 +78,18 @@ void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const 
 } // namespace
 
 // 0x004A22F0
-void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
+void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
 {
     if (asset_data)
-        model_key_ = *raw::field_at<uint32_t>(asset_data, 0x8C);
+        model_key_ = asset_data->hit_shape_;
     edges_ = find_shadow_edges(model_key_);
     if (edges_) {
         ++edges_->users;
         add_shadow_volume(this);
         return;
     }
-    edges_ = static_cast<ShadowEdges*>(memory::alloc_zeroed(0x10)); // (not checked, as the original)
-    auto* meshes = cell::pointer<TriMeshSource>(model_key_);
+    edges_ = static_cast<ShadowEdges*>(memory::alloc_zeroed(sizeof(ShadowEdges))); // (not checked, as the original)
+    const TriMeshSource* meshes = model_key_;
     // (with a key but no asset data, read through null - as the original)
     int faces = 0, vertices = 0;
     if (model_key_) {
@@ -115,7 +103,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
     const int estimate = vertices + faces - 2; // (Euler's formula for a closed convex mesh)
     if (estimate >= 1) {
         const uint32_t size = static_cast<uint32_t>(estimate) * sizeof(ShadowSilhouetteEdge);
-        edges_->edges = static_cast<uint8_t*>(memory::alloc(size));
+        edges_->edges = static_cast<ShadowSilhouetteEdge*>(memory::alloc(size));
         std::memset(edges_->edges, 0, size);
     }
     int count = 0;
@@ -140,8 +128,8 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
     if (count <= estimate && count > 0) {
         edges_->count = count;
         ++edges_->users;
-        const uint32_t key = model_key_;
-        edge_table().store_entry(key, edges_);
+        edges_->key = model_key_;
+        edge_table().insert(edges_);
         add_shadow_volume(this);
         return;
     }
@@ -157,9 +145,3 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
 
 } // namespace render
 
-namespace render {
-
-// 0x00640CD0 (a static initialiser): the shadow edges' table, 256 buckets.
-void construct_shadow_edge_table() { new (&g_shadow_edge_table) lists::KeyMap(8); }
-
-} // namespace render

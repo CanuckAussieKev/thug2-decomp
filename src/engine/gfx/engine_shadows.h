@@ -9,6 +9,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
+#include "engine/lists/object_set.h"
 
 namespace gfx {
 class ViewCam;
@@ -25,6 +26,8 @@ namespace render {
 
 class RenderModel;
 class BitmapTexture;
+class SubMesh;
+struct TriMeshSource;
 
 // The base (8 bytes, vtable 0x00649E78).
 class ShadowBase : public memory::HeapObject {
@@ -49,7 +52,7 @@ public:
     virtual void hide() {}
     virtual void show() {}
     // [7]: the model it's the shadow of, and the model's asset data.
-    virtual void change_mesh(RenderModel* /*model*/, uint8_t* /*asset_data*/) {}
+    virtual void change_mesh(RenderModel* /*model*/, const SubMesh* /*asset_data*/) {}
 
     int kind_tag_; // +0x04 1 detailed, 2 simple, 3 volume
 };
@@ -102,12 +105,24 @@ public:
 };
 static_assert(sizeof(BlobShadow) == 0x14, "the original's size");
 
-// A model's silhouette edges (0x10 bytes; in the table at 0x00701418 by the model's asset data, shared).
+// An edge of a model's silhouette: its two ends as each of the two faces sharing it sees them - [0] / [2] the first face's
+// ends, [1] / [3] the second's (set when it's found) - each with the face's normal.
+struct EdgeCorner {
+    uint16_t vertex;
+    uint16_t pad; // (stack garbage in the original's records: zeroed here)
+    maths::Vec4 normal;
+};
+struct ShadowSilhouetteEdge {
+    std::array<EdgeCorner, 4> corners;
+};
+
+// A model's silhouette edges (in the table at 0x00701418 by the model's asset data, shared).
 struct ShadowEdges {
-    uint8_t* edges; // 0x50 bytes each
+    ShadowSilhouetteEdge* edges;
     int count;      // +0x04
     int last_mesh_; // +0x08 the last mesh read
     int users;      // +0x0C
+    const TriMeshSource* key; // the model's collision meshes they were made from (the table's key)
 };
 
 // The shadow volume (0x68 bytes, vtable 0x00649ED8).
@@ -127,11 +142,11 @@ public:
     void change_mat(const maths::Mat4* matrix) override;
     // 0x004A22F0 (virtual [7]): the edges of `asset_data`'s meshes (by the asset data's +0x8C - the key: none, the one
     // kept) found or built, and this volume put in the volumes' list.
-    void change_mesh(RenderModel* model, uint8_t* asset_data) override;
+    void change_mesh(RenderModel* model, const SubMesh* asset_data) override;
 
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
     maths::Mat4 basis_frame_{};                 // +0x0C
-    uint32_t model_key_;                        // +0x4C the asset data's meshes
+    const TriMeshSource* model_key_;            // +0x4C the asset data's collision meshes
     maths::Vec4 direction_{};                   // +0x50
     ShadowEdges* edges_;                        // +0x60
     float reach_;                               // +0x64
@@ -143,11 +158,11 @@ static_assert(offsetof(ShadowVolume, model_key_) == 0x4C && offsetof(ShadowVolum
 // 0x004A1E40: a volume taken out of the volumes drawn (0x007013D8, 16 slots).
 void remove_shadow_volume(ShadowVolume* volume);
 // 0x004A1EF0: the edges kept under `key` (null: none).
-ShadowEdges* find_shadow_edges(uint32_t key);
+ShadowEdges* find_shadow_edges(const TriMeshSource* key);
 // 0x004A1F30: one user fewer of the edges under `key`; with none left they're freed and taken out of the table.
-void release_shadow_edges(uint32_t key);
+void release_shadow_edges(const TriMeshSource* key);
 
 extern std::array<ShadowVolume*, 16> g_shadow_volumes;
-extern lists::KeyMap g_shadow_edge_table; // 0x00701418: the silhouette edges by model
+extern lists::ObjectSet<ShadowEdges> g_shadow_edge_table; // 0x00701418: the silhouette edges by model
 
 } // namespace render

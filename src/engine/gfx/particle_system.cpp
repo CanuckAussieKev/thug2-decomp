@@ -24,7 +24,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -58,16 +57,13 @@ namespace particle_parts {
 // The particles: `count` after their count (the compiler's array new; their constructor and destructor are empty).
 FlexibleParticle* new_particles(int count)
 {
-    auto* memory = static_cast<int*>(carve(static_cast<unsigned int>(count) * sizeof(FlexibleParticle) + 4));
-    if (!memory)
-        return nullptr;
-    *memory = count; // (then the empty constructor run over each: 0x0062388B with 0x005902E0)
-    return raw::as<FlexibleParticle>(memory + 1);
+    // (the original's array new kept the count before them; nothing reads it - their destructor is empty)
+    return static_cast<FlexibleParticle*>(carve(static_cast<unsigned int>(count) * sizeof(FlexibleParticle)));
 }
 void delete_particles(FlexibleParticle* particles)
 {
     // (the empty destructor run over each first: 0x0062382B with 0x005480A0)
-    memory::dealloc(raw::as<int>(particles) - 1);
+    memory::dealloc(particles);
 }
 
 // The three colour arrays, `count` RGBA colours each (the constructor iterator 0x00401020 runs an empty one over

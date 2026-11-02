@@ -58,9 +58,9 @@ public:
     static void handler_code2(Responder* handler);
     // 0x0041F090: unless its object is paused: the pad events (update_events), then the pad updated from `data` - or,
     // with input disabled (or net disabled) or blocked (is_input_blocked), reset (and, blocked, no events this frame).
-    void update_pad(const uint8_t* data);
+    void update_pad(const pad_input::Payload* data);
     // 0x0041F100: the same for the second pad, without the events.
-    void update_pad2(const uint8_t* data);
+    void update_pad2(const pad_input::Payload* data);
     // 0x0041EF20: in a network game, whether something on screen takes the input: the screen element
     // controller_unplugged_dialog_anchor, or root_window with menu_state = on in its tags, or keyboard_anchor. False
     // outside network games.

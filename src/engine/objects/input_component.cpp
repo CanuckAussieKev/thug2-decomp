@@ -28,7 +28,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -184,21 +183,21 @@ void PadInputModule::link_to_pad(int controller)
 // 0x0041F170
 void PadInputModule::handler_code(Responder* handler)
 {
-    handler->content_->update_pad(raw::bytes(handler->control_data_));
+    handler->content_->update_pad(handler->control_data_);
 }
 
 // 0x0041F190
 void PadInputModule::handler_code2(Responder* handler)
 {
-    handler->content_->update_pad2(raw::bytes(handler->control_data_));
+    handler->content_->update_pad2(handler->control_data_);
 }
 
 // 0x0041F090
-void PadInputModule::update_pad(const uint8_t* data)
+void PadInputModule::update_pad(const pad_input::Payload* data)
 {
     if (entity_->composite_flags_ & kCompositeFlagPaused)
         return;
-    update_events(data);
+    update_events(data->incident_.data());
     const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
         pad_primary_.tick_frame(data);
@@ -210,7 +209,7 @@ void PadInputModule::update_pad(const uint8_t* data)
 }
 
 // 0x0041F100
-void PadInputModule::update_pad2(const uint8_t* data)
+void PadInputModule::update_pad2(const pad_input::Payload* data)
 {
     if (entity_->composite_flags_ & kCompositeFlagPaused)
         return;

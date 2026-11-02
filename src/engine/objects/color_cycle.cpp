@@ -19,8 +19,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
@@ -74,8 +72,8 @@ void ColorCycleComponent::change_colors(script::Array* colors)
     const int count = static_cast<int>(colors->extent_);
     color_count_ = count;
     for (int i = 0; i < count; ++i) {
-        auto* vector = cell::pointer<const float>(colors->fetch_part(static_cast<uint32_t>(i)));
-        core::at(colors_, i) = {vector[1], vector[2], vector[3], 1.0f}; // (a CVector: its coordinates from +4)
+        const script::Vector* vector = colors->vector_at(static_cast<uint32_t>(i));
+        core::at(colors_, i) = {vector->x, vector->y, vector->z, 1.0f};
     }
     ongoing_ = 0;
 }
@@ -154,9 +152,10 @@ int ColorCycleComponent::set_period_from_script(script::Struct* params, script::
 // 0x0041B390
 int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::Script*)
 {
-    auto* colors = raw::as<script::Array>(params); // (the original's slot for it: the params argument)
+    script::Array* colors = nullptr; // (the original's default was the parameters' address, read as an array)
     params->fetch_list(0u, &colors, 1);
-    change_colors(colors);
+    if (colors)
+        change_colors(colors);
     return 1;
 }
 

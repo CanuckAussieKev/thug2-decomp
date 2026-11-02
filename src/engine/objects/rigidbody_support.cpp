@@ -24,7 +24,6 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
@@ -89,8 +88,7 @@ int ObjectModule::dispatch_script_method(const script::MemberFunctionEntry* entr
                                          script::Script* script)
 {
     if (entry->method_code_) {
-        void* self = raw::bytes(this) + entry->this_adjustment_;
-        return entry->method_code_(self, entry->callsign_, params, script);
+        return entry->method_code_(this, entry->callsign_, params, script); // (this_adjustment_ is always 0)
     }
     return invoke_method_by_name(entry->callsign_, params, script);
 }

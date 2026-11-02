@@ -11,6 +11,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include <vector>
 
 namespace script {
 class Script;
@@ -354,7 +355,7 @@ public:
     maths::Vec4 skater_bone_{};            // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
     bool can_dismount_{};                  // +0x2CC Exitable
     bool handbrake_disabled_{};            // +0x2CD no_handbrake
-    Wheel* wheels_{nullptr};               // +0x2D0
+    std::vector<Wheel> wheels_;            // +0x2D0 (made once, by configure_from_data)
     float engine_torque_{};                // +0x2D4 drive_torque (engine; * 12)
     float engine_braking_{};               // +0x2D8 (0xB2268648, * 12) engine braking without throttle
     int gear_count_{};                     // +0x2DC gear_ratios

@@ -19,8 +19,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/wait_and_die.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
 
 namespace render {
 
@@ -54,9 +54,10 @@ void fetch_tint(script::Struct* params, uint32_t name, uint32_t* color, int asse
 {
     if (!params->fetch_list(name, &bytes, assert))
         return;
-    auto* out = raw::bytes(color);
+    colour::Bytes out{};
     for (uint32_t i = 0; i < 4; ++i)
-        out[i] = static_cast<uint8_t>(bytes->fetch_part(i));
+        core::at(out, i) = static_cast<uint8_t>(bytes->fetch_part(i));
+    *color = colour::packed_of(out);
 }
 
 // An unsigned value as FILD (plus 2^32 when the top bit is set) loads it.
@@ -97,9 +98,10 @@ void DynamicLightComponent::configure_from_data(script::Struct* params)
     params->fetch_float(kStartRadius, &start_radius_, 1);
     params->fetch_float(kStartIntensity, &start_intensity_, 1);
     params->fetch_list(kStartColor, &bytes, 1);
-    auto* start = raw::bytes(&start_color_);
+    colour::Bytes start{};
     for (uint32_t i = 0; i < 4; ++i) // (read whether found or not, as the original does)
-        start[i] = static_cast<uint8_t>(bytes->fetch_part(i));
+        core::at(start, i) = static_cast<uint8_t>(bytes->fetch_part(i));
+    start_color_ = colour::packed_of(start);
     middle_radius_ = start_radius_;
     end_radius_ = start_radius_;
     middle_color_ = start_color_;
@@ -183,11 +185,10 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
     case kSetColor: {
         script::Array* bytes = nullptr;
         params->fetch_list(kColor, &bytes, 1);
-        uint32_t color = 0;
-        auto* out = raw::bytes(&color);
+        colour::Bytes out{};
         for (uint32_t i = 0; i < 4; ++i)
-            out[i] = static_cast<uint8_t>(bytes->fetch_part(i));
-        light_->colour = color;
+            core::at(out, i) = static_cast<uint8_t>(bytes->fetch_part(i));
+        light_->colour = colour::packed_of(out);
         return 1;
     }
     default:

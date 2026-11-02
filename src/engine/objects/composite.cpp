@@ -22,8 +22,6 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/entity_hub.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -180,8 +178,8 @@ float feet_as_inches() { return g_composite_feet_to_inches; } // 12
 bool Entity::invoke_method(const MemberFunctionEntry* entry, Struct* params, Script* script)
 {
     if (entry->method_code_) {
-        void* self = raw::bytes(this) + entry->this_adjustment_;
-        return entry->method_code_(self, entry->callsign_, params, script) != 0;
+        // (this_adjustment_ is 0 in every table: the entry's code casts the object to its own class)
+        return entry->method_code_(this, entry->callsign_, params, script) != 0;
     }
     return invoke_method_by_name(entry->callsign_, params, script);
 }
@@ -416,7 +414,7 @@ bool GameEntity::invoke_method_by_name(uint32_t name, Struct* params, Script* sc
 // 0x0045D7F0: the unnamed string (the details' title) is read for the debug output.
 bool GameEntity::obj_print_details(Struct* params, Script* /*script*/)
 {
-    const char* text = raw::chars(params);
+    const char* text = ""; // (the original's default was the parameters' own address, read as text)
     params->fetch_text(kUnnamed, &text, 0);
     print_object_details(text);
     return true;

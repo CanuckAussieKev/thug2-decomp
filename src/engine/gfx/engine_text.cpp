@@ -11,7 +11,6 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include <gsl/pointers>
-#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -35,19 +34,17 @@ CharEffect* new_effects()
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->front_end_heap_);
-    auto* memory = static_cast<int*>(memory::alloc(4 + kCharEffects * sizeof(CharEffect)));
-    CharEffect* effects = nullptr;
-    if (memory) {
-        *memory = kCharEffects;
-        effects = raw::as<CharEffect>(memory + 1);
+    // (the original's array new kept the count before them; the count is fixed)
+    auto* effects = static_cast<CharEffect*>(memory::alloc(kCharEffects * sizeof(CharEffect)));
+    if (effects) {
         for (int i = 0; i < kCharEffects; ++i)
-            new (&effects[i]) CharEffect;
+            memory::construct_in<CharEffect>(&effects[i]);
     }
     memory::Hub::get_pull()->leave_heap_scope();
     return effects;
 }
 // (their destructor is empty: the compiler's array helper runs 0x005480A0 over them)
-void delete_effects(CharEffect* effects) { memory::dealloc(raw::as<int>(effects) - 1); }
+void delete_effects(CharEffect* effects) { memory::dealloc(effects); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 16 bits kept.
 int16_t get_fixed(float value)

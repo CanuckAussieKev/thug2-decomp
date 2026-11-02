@@ -25,7 +25,6 @@
 #include "engine/script/script_startup.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -532,13 +531,11 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             // is skipped.
             using Pointer = SharedRef<SharedBase>;
             auto* scripts = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
-            Pointer* pointers = nullptr;
-            if (auto* block =
-                    static_cast<uint32_t*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
-                block[0] = static_cast<uint32_t>(count);
-                pointers = raw::as<Pointer>(block + 1);
+            // (the original's new[]: its count before them - here the count is the local one)
+            auto* pointers = static_cast<Pointer*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer)));
+            if (pointers) {
                 for (int i = 0; i < count; ++i)
-                    new (&pointers[i]) Pointer();
+                    memory::construct_in<Pointer>(&pointers[i]);
             }
             const ScriptNode* node = list->following_->is_head() ? nullptr : list->following_;
             for (int i = 0; node; ++i) {
@@ -553,10 +550,9 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
                     scripts[i]->receive_event(&event);
             }
             if (pointers) {
-                uint32_t* block = raw::as<uint32_t>(pointers) - 1;
-                for (int i = static_cast<int>(block[0]) - 1; i >= 0; --i)
+                for (int i = count - 1; i >= 0; --i)
                     pointers[i].get_release(); // (the destructors, last first)
-                memory::dealloc(block);
+                memory::dealloc(pointers);
             }
             memory::dealloc(static_cast<void*>(scripts));
         }
