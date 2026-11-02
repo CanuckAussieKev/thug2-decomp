@@ -14,6 +14,8 @@ class Struct;
 // 0xEA7BA666, 0xEC414B76).
 namespace park_editing {
 
+class EditedGoal;
+
 // 0x004E6600 (type in ECX, index in EDX): the model of the goal's object `index` (null without one).
 const char* goal_object_model(uint32_t type, int index);
 // 0x004E66A0 (type in ECX, index in EDX): the name checksum of the goal's object `index` (0 without one).
@@ -30,7 +32,7 @@ script::Struct* goal_type_defaults(uint32_t type);
 int goal_editor_constant82();
 // 0x004E69D0 (the goal in ECX): an edited goal's defaults (the SKATE letters; 100, 120, 3000, 360... and the
 // thirteen entries cleared).
-void init_edited_goal(uint8_t* goal);
+void init_edited_goal(EditedGoal* goal);
 // 0x004E6AE0: GoalEditorMarkerObject<index> passed to the script 0xDCF3A25E as 0xA1DC81F9.
 void run_marker_object_script(int index);
 

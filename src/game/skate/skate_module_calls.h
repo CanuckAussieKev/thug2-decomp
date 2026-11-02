@@ -9,7 +9,6 @@
 #include "game/skate/career.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/raw_view.h"
 #include "game/rider/rider.h"
 
 namespace objects {
@@ -23,8 +22,8 @@ namespace skate_calls {
 inline modules::Skate* get_skate() { return modules::Skate::sole(); }
 inline objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 inline bool& end_run_flag() { return get_skate()->run_over_; }
-inline uint8_t* get_competition() { return raw::bytes(get_skate()->competition_.get()); }
-inline uint8_t* get_horse() { return raw::bytes(get_skate()->horse_.get()); }
+inline modules::Contest* get_competition() { return get_skate()->competition_.get(); }
+inline modules::LetterMatch* get_horse() { return get_skate()->horse_.get(); }
 
 // 0x005665C0: skater `index` of the list (null past the end). 0x00566520: the first local skater (null: none).
 // 0x00566600: the skater whose object id is `id` (null: none).

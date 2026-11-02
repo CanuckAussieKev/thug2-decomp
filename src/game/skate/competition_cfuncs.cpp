@@ -72,13 +72,13 @@ constexpr auto kSetTrackTrickScore = &goals::MatchRules::set_trick_score_trackin
 // The competition (modules::Contest, no source for these yet): 0x00550560 started with the medal scores and the
 // bail penalty; 0x00550EF0 a run ended with the local skater's score; 0x00550B50 the standings sorted; 0x005501A0
 // the place is `place`; 0x005501C0 the round is `round` (the runs + 1); 0x005501E0 ended; 0x005501F0 whether ended.
-modules::Contest* the_competition() { return raw::as<modules::Contest>(get_competition()); }
+modules::Contest* the_competition() { return get_competition(); }
 
 // The horse game (no source yet): 0x00560100 started; 0x00560180 a run started; 0x00560720 a run ended; 0x005608B0
 // the next player; 0x00560380 whether it's over; 0x00560190 its status is the one `params` names; 0x00560440 one of
 // its strings (`which`); 0x005601F0 its word (H-O-R-S-E) set. The current skater's id is its +0x04 (0x005480C0).
-modules::LetterMatch* the_horse() { return raw::as<modules::LetterMatch>(get_horse()); }
-uint32_t current_horse_skater() { return *raw::field_at<uint32_t>(get_horse(), 4); }
+modules::LetterMatch* the_horse() { return get_horse(); }
+uint32_t current_horse_skater() { return static_cast<uint32_t>(get_horse()->skater_); }
 // The horse's string `which`, built in `storage` (the caller destroys it).
 text::Chars* get_horse_string(void* storage, uint32_t which)
 {

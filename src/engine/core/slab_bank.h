@@ -60,7 +60,7 @@ namespace memory {
 // default heap when it doesn't exist; freed items go back to whichever pool holds them.
 struct PoolPair {
     int current;
-    int unknown4;
+    std::array<uint8_t, 4> made_here_; // per pool: made by its owner here (and deleted by it), not handed in
     std::array<SlabBank*, 2> pools;
 
     void* carve(unsigned int size);

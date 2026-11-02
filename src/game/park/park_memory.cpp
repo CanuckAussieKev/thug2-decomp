@@ -17,7 +17,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace park_editing {
@@ -58,7 +57,7 @@ memory::PoolPair& array_pools() { return script::g_array_pools; }
 // was made here (and is deleted by power_down).
 memory::PoolPair& clipboard_entry_pools() { return g_clipboard_entry_pools; }
 memory::PoolPair& map_list_node_pools() { return g_node_pools; }
-uint8_t& pool_made_here(memory::PoolPair& pair) { return raw::bytes(&pair.unknown4)[pair.current]; }
+uint8_t& pool_made_here(memory::PoolPair& pair) { return core::at(pair.made_here_, pair.current); }
 memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return core::at(pair.pools, pair.current); }
 
 int& unknown_7c_e_68c() { return g_park_memory_unknown_7c_e_68c; }

@@ -36,7 +36,6 @@
 #include "platform/run_log.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -535,65 +534,60 @@ float get_heading_of(float image_angle) { return image_angle - kPi; }
 void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers,
                 GoalImage* out)
 {
-    uint8_t* b = out->bytes.data();
-    std::memset(b, 0, kTexelEdge);
-    auto u32 = [b](uint32_t offset) -> uint32_t& { return *raw::field_at<uint32_t>(b, offset); };
-    auto f32 = [b](uint32_t offset) -> float& { return *raw::field_at<float>(b, offset); };
-    auto text = [b](uint32_t offset, const std::string& value, size_t room) {
+    park_editing::EditedGoal& g = out->goal;
+    g = park_editing::EditedGoal{}; // (cleared, then init_edited_goal: the record's constructor)
+    auto text = [](auto& field, const std::string& value, size_t room) {
         const size_t n = std::min(value.size(), room - 1);
-        std::memcpy(b + offset, value.data(), n);
-        b[offset + n] = 0;
+        std::copy_n(value.begin(), n, field.begin());
+        core::at(field, n) = 0;
     };
     // decode_from_struct (0x004E96D0): init_edited_goal, used, not won, level, level_goal_index, the type (change_species: the
     // points' kinds, the counts; the pro's / start's height 0), then the fields.
-    park_editing::init_edited_goal(b);
-    b[0x28A] = 1;
-    b[0x289] = 0;
-    u32(0x0) = level;
-    u32(0x28C) = static_cast<uint32_t>(level_goal_index);
-    u32(0x114) = get_kind_hash(goal.type);
+    g.taken_count_ = true;
+    g.won_ = false;
+    g.level_ = level;
+    g.level_goal_number_ = level_goal_index;
+    g.kind_tag_ = get_kind_hash(goal.type);
     for (int i = 0; i < kMaxPoints; ++i) {
-        u32(0x118 + 0x1C * i) = static_cast<uint32_t>(point_kind(goal.type, i));
-        f32(0x12C + 0x1C * i) = 0.0f;
+        park_editing::EditedGoalPoint& point = core::at(g.path_vertices_, i);
+        point.kind = point_kind(goal.type, i);
+        point.height = 0.0f;
     }
-    b[0x285] = static_cast<uint8_t>(min_points(goal.type));
-    b[0x284] = static_cast<uint8_t>(max_points(goal.type));
+    g.min_points_ = static_cast<uint8_t>(min_points(goal.type));
+    g.max_points_ = static_cast<uint8_t>(max_points(goal.type));
     if (goal.type == KindTag::kTrickBeat)
-        u32(0x2B8) = 0;
-    u32(0x298) = static_cast<uint32_t>(goal.score);
-    u32(0x290) = static_cast<uint32_t>(goal.time);
-    u32(0x294) = goal.walk ? 0x726E85AAu : 0x54166ACDu; // (control_type: Walk / Skate)
-    text(0x4, goal.name, 0x36 - 0x4);
-    text(0x4B, goal.text, 0xAF - 0x4B);
-    text(0xAF, goal.win, 0x113 - 0xAF);
-    text(0x36, goal.ped, 0x4B - 0x36);
+        g.twist_rate_ = 0;
+    g.points_held_ = goal.score;
+    g.time_limit_ = goal.time;
+    g.control_type_ = goal.walk ? 0x726E85AAu : 0x54166ACDu; // (control_type: Walk / Skate)
+    text(g.label_, goal.name, 0x32);
+    text(g.summary_text_, goal.text, 0x64);
+    text(g.win_message_, goal.win, 0x64);
+    text(g.ped_name_, goal.ped, 0x15);
     const int count = std::min(static_cast<int>(goal.points.size()), max_points(goal.type));
-    b[0x286] = static_cast<uint8_t>(count);
+    g.vertex_total_ = static_cast<uint8_t>(count);
     for (int i = 0; i < count; ++i) {
         const Point& p = core::at(goal.points, i);
-        const uint32_t at = 0x11C + 0x1C * i;
-        f32(at) = p.pos.x;
-        f32(at + 4) = p.pos.y;
-        f32(at + 8) = p.pos.z;
-        f32(at + 12) = 1.0f;
-        f32(at + 16) = p.height;
-        f32(at + 20) = get_image_angle(p.heading);
+        park_editing::EditedGoalPoint& point = core::at(g.path_vertices_, i);
+        point.pos = {p.pos.x, p.pos.y, p.pos.z, 1.0f};
+        point.height = p.height;
+        point.angle = get_image_angle(p.heading);
     }
     // The type's own (set_goal_specific_params' fields, 0x004E7590).
     switch (goal.type) {
     case KindTag::kRace:
-        u32(0x29C) = static_cast<uint32_t>(goal.laps);
-        u32(0x2A0) = static_cast<uint32_t>(goal.checkpoint_time_);
+        g.race_total_laps_ = goal.laps;
+        g.race_per_checkpoint_time_ = goal.checkpoint_time_;
         break;
     case KindTag::kGap: {
-        text(0x303, goal.trick, kTexelEdge - 0x303);
+        text(g.required_trick_, goal.trick, g.required_trick_.size());
         int n = 0;
         for (const int number : gap_numbers) {
             if (n >= 10 || number < 0 || number > 255)
                 continue;
-            b[0x2F8 + n++] = static_cast<uint8_t>(number);
+            core::at(g.gaps_, n++) = static_cast<uint8_t>(number);
         }
-        b[0x302] = static_cast<uint8_t>(n);
+        g.num_gaps_ = static_cast<uint8_t>(n);
         break;
     }
     default:
@@ -604,21 +598,21 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
         // Skate-Tricks the shared ones (0x004E74F0); every trick goal its key combo sets (0x004E73F0) - Trick to the
         // Beat only those, its spin staying change_species's 0)
         if (goal.type == KindTag::kComboSkatetris) {
-            u32(0x2C0) = static_cast<uint32_t>(goal.combo_size_);
+            g.chain_length_ = goal.combo_size_;
             if (goal.single_combo_)
-                b[0x2BC] = 1;
+                g.single_combo_ = true;
         }
         if (goal.type == KindTag::kTrickTris) {
-            u32(0x2C4) = static_cast<uint32_t>(goal.block_size_);
-            u32(0x2C8) = static_cast<uint32_t>(goal.to_win_);
+            g.stack_block_span_ = goal.block_size_;
+            g.tricktris_total_to_win_ = goal.to_win_;
         }
         if (goal.type != KindTag::kTrickBeat) {
-            u32(0x2A4) = static_cast<uint32_t>(goal.accel_interval_);
-            f32(0x2A8) = goal.accel_percent_;
-            u32(0x2AC) = static_cast<uint32_t>(goal.combo_time_);
-            u32(0x2B0) = static_cast<uint32_t>(goal.stop_at_);
-            u32(0x2B4) = static_cast<uint32_t>(goal.max_tricks_);
-            u32(0x2B8) = static_cast<uint32_t>(goal.spin);
+            g.acceleration_interval_ = goal.accel_interval_;
+            g.acceleration_percent_ = goal.accel_percent_;
+            g.trick_time_ = goal.combo_time_;
+            g.time_to_stop_adding_tricks_ = goal.stop_at_;
+            g.max_tricks_ = goal.max_tricks_;
+            g.twist_rate_ = goal.spin;
         }
         // (the key combo sets as AddKeyComboSet set_index=<i> adds them - 0x004E6C40: {set, require_perfect 0, spin
         // 0, num_taps 0})
@@ -626,10 +620,10 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
         for (int i = 0; i < combo_set_count(goal.type) && sets < 10; ++i) {
             if (!(goal.sets & (1u << i)))
                 continue;
-            b[0x2CC + 4 * sets] = static_cast<uint8_t>(i);
+            core::at(g.key_combo_sets_, sets).set = static_cast<uint8_t>(i);
             ++sets;
         }
-        u32(0x2F4) = static_cast<uint32_t>(sets);
+        g.num_key_combo_sets_ = sets;
     }
 }
 
@@ -1005,7 +999,7 @@ void put_in_play()
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
         GoalImage image{};
         fill_image(*goal, level, index, gap_ordinals(*goal), &image);
-        raw::as<park_editing::EditedGoal>(image.bytes.data())->add_to_goal_manager(true);
+        image.goal.add_to_goal_manager(true);
         const uint32_t id = get_checksums(get_goal_id(index));
         if (!goal_exists(id)) {
             get_log("level editor: goal %s - the goal manager didn't take it", goal->id.c_str());
@@ -1231,7 +1225,8 @@ bool export_goal(const std::string& id, std::string* message)
     }
     // The goal editor's component (the object GoalEditor, CreateGoalEditor at start-up: its goaleditor 0x81F01058).
     auto* editor = core::down_cast<objects::GameEntity>(objects::find_object(get_checksums("GoalEditor")));
-    uint8_t* component = editor ? raw::bytes(editor->fetch_module(0x81F01058)) : nullptr;
+    auto* component =
+        editor ? core::down_cast<park_editing::ObjectiveAuthoring>(editor->fetch_module(0x81F01058)) : nullptr;
     const uint32_t level = current_level();
     if (!component || !level) {
         *message = "Goal editor unavailable";
@@ -1240,11 +1235,10 @@ bool export_goal(const std::string& id, std::string* message)
     // (as NewEditorGoal 0x004EA6C0: the first level_goal_index no goal of this level has, then a free slot; at most 10
     // a level - MaxEditedGoalsReached)
     constexpr int kSlots = 50;
-    constexpr uint32_t kSlotSize = 0x338;
-    uint8_t* slots = component + 0x18;
-    auto used = [&](int s) { return slots[s * kSlotSize + 0x28A] != 0; };
-    auto level_of = [&](int s) { return *raw::field_at<uint32_t>(slots, s * kSlotSize); };
-    auto index_of = [&](int s) { return *raw::field_at<int>(slots, s * kSlotSize + 0x28C); };
+    auto& slots = component->goals_;
+    auto used = [&](int s) { return core::at(slots, s).taken_count_; };
+    auto level_of = [&](int s) { return core::at(slots, s).level_; };
+    auto index_of = [&](int s) { return core::at(slots, s).level_goal_number_; };
     int index = -1;
     for (int candidate = 0; candidate < kMaxGoals && index < 0; ++candidate) {
         bool taken = false;
@@ -1263,7 +1257,7 @@ bool export_goal(const std::string& id, std::string* message)
     }
     GoalImage image{};
     fill_image(g, level, index, gap_ordinals(g), &image);
-    std::memcpy(slots + slot * kSlotSize, image.bytes.data(), kSlotSize);
+    core::at(slots, slot) = image.goal;
     *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) + "";
     get_log("level editor: goal %s exported to the goal editor (slot %d, CreatedGoal%d)", g.id.c_str(), slot, index);
     return true;

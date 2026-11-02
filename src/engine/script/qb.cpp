@@ -24,7 +24,6 @@
 #include "engine/script/cscript.h"
 #include "platform/run_log.h"
 #include "engine/core/bits_as.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 
@@ -79,7 +78,7 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
     void* memory = memory::Hub::get_pull()->carve(sizeof(memory::SlabBank), 1, nullptr);
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
     core::at(pools.pools, pools.current) = pool;
-    raw::bytes(&pools.unknown4)[pools.current] = 1;
+    core::at(pools.made_here_, pools.current) = 1;
 }
 
 // 0x0046F690

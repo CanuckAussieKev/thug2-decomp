@@ -26,7 +26,6 @@
 #include "engine/script/struct_buffer.h"
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -222,7 +221,7 @@ void ObjectiveAuthoring::clear_level_goals()
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ != kParkEditorLevel)
-            init_edited_goal(raw::bytes(&goal));
+            init_edited_goal(&goal);
     }
     active_node_ = nullptr;
 }
@@ -232,7 +231,7 @@ void ObjectiveAuthoring::clear_park_goals()
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == kParkEditorLevel)
-            init_edited_goal(raw::bytes(&goal));
+            init_edited_goal(&goal);
     }
     active_node_ = nullptr;
 }
@@ -242,7 +241,7 @@ void ObjectiveAuthoring::clear_incomplete_goals()
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.vertex_total_ < goal.min_points_)
-            init_edited_goal(raw::bytes(&goal));
+            init_edited_goal(&goal);
     }
 }
 
@@ -284,7 +283,7 @@ void ObjectiveAuthoring::drop_objective(EditedGoal* goal)
         if (manager->goal_exists(created_goal_id(goal->level_goal_number_)))
             manager->drop_objective(created_goal_id(goal->level_goal_number_));
     }
-    init_edited_goal(raw::bytes(goal));
+    init_edited_goal(goal);
     if (active_node_ == goal)
         active_node_ = nullptr;
 }
@@ -374,7 +373,7 @@ void ObjectiveAuthoring::begin_fresh_objective()
         if (goal.taken_count_)
             continue;
         active_node_ = &goal;
-        init_edited_goal(raw::bytes(&goal));
+        init_edited_goal(&goal);
         active_node_->taken_count_ = true;
         active_node_->level_ = level;
         active_node_->level_goal_number_ = index;
@@ -430,7 +429,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
     const uint8_t* end = script::decode_from_bytes(params, buffer, size);
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == level)
-            init_edited_goal(raw::bytes(&goal));
+            init_edited_goal(&goal);
     }
     active_node_ = nullptr;
     script::Array* goals = nullptr;

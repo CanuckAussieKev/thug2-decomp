@@ -18,7 +18,6 @@
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
@@ -47,7 +46,7 @@ uint32_t current_level() { return modules::Skate::sole()->level_; }
 } // namespace
 
 // 0x004E93C0
-EditedGoal::EditedGoal() { init_edited_goal(raw::bytes(this)); }
+EditedGoal::EditedGoal() { init_edited_goal(this); }
 
 // 0x004E6B80
 void EditedGoal::drop_gap_entry(uint8_t gap)

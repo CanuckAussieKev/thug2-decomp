@@ -17,8 +17,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 #include "platform/compiler.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
@@ -126,7 +124,7 @@ bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, float height,
 // 0x004E96D0
 void EditedGoal::decode_from_struct(script::Struct* params)
 {
-    init_edited_goal(raw::bytes(this));
+    init_edited_goal(this);
     taken_count_ = true;
     won_ = false;
     uint32_t level = 0;

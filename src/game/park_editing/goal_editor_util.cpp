@@ -10,8 +10,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/goal_editor.h"
 
 namespace park_editing {
 
@@ -181,45 +181,44 @@ script::Struct* goal_type_defaults(uint32_t type)
 int goal_editor_constant82() { return 0x82; }
 
 // 0x004E69D0
-void init_edited_goal(uint8_t* goal)
+void init_edited_goal(EditedGoal* goal)
 {
-    auto u32 = [goal](uint32_t offset) -> uint32_t& { return *raw::field_at<uint32_t>(goal, offset); };
-    u32(0x2A4) = 5;
-    u32(0x2B0) = 5;
-    goal[0x28A] = 0;
-    u32(0) = 0;
-    goal[0x4] = 0;
-    goal[0x4B] = 0;
-    goal[0xAF] = 0;
-    goal[0x36] = 0;
-    u32(0x114) = 0;
-    goal[0x286] = 0;
-    goal[0x285] = 0;
-    goal[0x284] = 0;
-    goal[0x287] = 0;
-    goal[0x288] = 0;
-    goal[0x289] = 0;
-    u32(0x298) = 100;
-    u32(0x290) = 120;
-    u32(0x29C) = 1;
-    u32(0x2A0) = 0;
-    u32(0x2A8) = 0x3DCCCCCD; // 0.1f
-    u32(0x2AC) = 3000;
-    u32(0x2B4) = 11;
-    u32(0x2B8) = 360;
-    goal[0x2BC] = 0;
-    u32(0x2C0) = 2;
-    u32(0x2C4) = 3;
-    u32(0x2C8) = 8;
-    u32(0x2F4) = 0;
-    u32(0x294) = kSkate;
-    goal[0x302] = 0;
-    goal[0x303] = 0;
-    for (uint32_t i = 0; i < 13; ++i) { // the thirteen 0x1C-byte entries from +0x118
-        u32(0x118 + 0x1C * i) = 0;
-        u32(0x12C + 0x1C * i) = 0;
+    goal->acceleration_interval_ = 5;
+    goal->time_to_stop_adding_tricks_ = 5;
+    goal->taken_count_ = false;
+    goal->level_ = 0;
+    goal->label_.front() = 0;
+    goal->summary_text_.front() = 0;
+    goal->win_message_.front() = 0;
+    goal->ped_name_.front() = 0;
+    goal->kind_tag_ = 0;
+    goal->vertex_total_ = 0;
+    goal->min_points_ = 0;
+    goal->max_points_ = 0;
+    goal->current_point_ = 0;
+    goal->last_point_placed_ = false;
+    goal->won_ = false;
+    goal->points_held_ = 100;
+    goal->time_limit_ = 120;
+    goal->race_total_laps_ = 1;
+    goal->race_per_checkpoint_time_ = 0;
+    goal->acceleration_percent_ = 0.1f;
+    goal->trick_time_ = 3000;
+    goal->max_tricks_ = 11;
+    goal->twist_rate_ = 360;
+    goal->single_combo_ = false;
+    goal->chain_length_ = 2;
+    goal->stack_block_span_ = 3;
+    goal->tricktris_total_to_win_ = 8;
+    goal->num_key_combo_sets_ = 0;
+    goal->control_type_ = kSkate;
+    goal->num_gaps_ = 0;
+    goal->required_trick_.front() = 0;
+    for (EditedGoalPoint& point : goal->path_vertices_) { // (each point's kind and height)
+        point.kind = 0;
+        point.height = 0.0f;
     }
-    u32(0x28C) = 0;
+    goal->level_goal_number_ = 0;
 }
 
 // 0x004E6AE0

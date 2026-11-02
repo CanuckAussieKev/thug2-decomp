@@ -10,6 +10,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
+#include "game/park_editing/goal_editor.h"
 
 struct ImFont;
 
@@ -179,7 +180,7 @@ bool read_record(const std::string& text, Goal* out);
 // left out).
 constexpr size_t kTexelEdge = 0x338;
 struct GoalImage {
-    alignas(4) std::array<uint8_t, kTexelEdge> bytes;
+    park_editing::EditedGoal goal;
 };
 void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers,
                 GoalImage* out);

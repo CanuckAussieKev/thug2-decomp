@@ -22,7 +22,6 @@
 #include "engine/objects/entity_hub.h"
 #include "game/park/park_memory.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -62,7 +61,7 @@ uint32_t& next_rail_id() { return g_next_rail_id; }
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 
 // A pool pair's "made here" flags (one byte each, +0x04).
-uint8_t& get_owned(memory::PoolPair& pair, int which) { return raw::bytes(&pair.unknown4)[which]; }
+uint8_t& get_owned(memory::PoolPair& pair, int which) { return core::at(pair.made_here_, which); }
 
 // A pool made for a pair's current slot (owned).
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)

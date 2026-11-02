@@ -19,8 +19,6 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/rider.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {
@@ -53,7 +51,7 @@ int score_pot(modules::PointTally* score)
 int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-uint8_t* get_career() { return raw::bytes(modules::g_skate_module->career_.get()); }
+RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.
@@ -100,10 +98,9 @@ void RiderPointKeeper::tick_frame()
     }
     get_score_of(points_held_)->tick_frame();
     const bool always_special = core::down_cast<Rider>(entity_)->always_special_ ||
-                                raw::as<RiderStoryProgress>(get_career())->is_code_on(kCheatAlwaysSpecial);
+                                get_career()->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
-        uint8_t* career = get_career();
-        raw::as<RiderStoryProgress>(career)->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
+        get_career()->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
         get_score_of(points_held_)->fill_special();
         online::g_cheat_flag = true;
     }

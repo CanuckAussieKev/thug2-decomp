@@ -52,8 +52,6 @@
 #include "engine/sys/mlp.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -145,7 +143,7 @@ objects::ObjectHubBase* entity_hub_handle()
 {
     return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
 }
-uint8_t* objective_board() { return raw::bytes(goals::get_objective_board()); }
+goals::GoalManager* objective_board() { return goals::get_objective_board(); }
 
 void get_run(uint32_t name, Struct* params = nullptr, objects::Entity* object = nullptr)
 {
@@ -165,13 +163,10 @@ void set_last_leading_team(online::Hub* net, int team) { net->last_leading_team_
 objects::Entity* player_skater(const PlayerRecord* player) { return player->skater_; }
 
 // A goal by name (the goal manager's 0x00557F90) and two of its virtuals: +0xC is it active, +0x14 its update.
-uint8_t* get_goal(uint8_t* manager, uint32_t name)
-{
-    return raw::bytes(raw::as<goals::GoalManager>(manager)->get_goal(name, 1));
-}
+goals::Objective* get_goal(goals::GoalManager* manager, uint32_t name) { return manager->get_goal(name, 1); }
 // A goal active (the original's vtable +0x0C) / expired (+0x14).
-bool goal_active(uint8_t* goal) { return raw::as<goals::Objective>(goal)->is_operative(); }
-void expire_goal(uint8_t* goal) { raw::as<goals::Objective>(goal)->expire(); }
+bool goal_active(goals::Objective* goal) { return goal->is_operative(); }
+void expire_goal(goals::Objective* goal) { goal->expire(); }
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
 using PlayerSearch = online::PlayerSearch;
@@ -349,14 +344,14 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         get_run(kScavengerAddTime);
         return 1;
     case 0x92: {
-        uint8_t* goal = get_goal(objective_board(), kScavenger);
+        goals::Objective* goal = get_goal(objective_board(), kScavenger);
         if (goal_active(goal))
             expire_goal(goal);
         return 1;
     }
     case 0x93: {
-        uint8_t* manager = objective_board();
-        uint8_t* interval = get_goal(manager, kScavengerInterval);
+        goals::GoalManager* manager = objective_board();
+        goals::Objective* interval = get_goal(manager, kScavengerInterval);
         if (goal_active(interval)) {
             expire_goal(interval);
         } else if (goal_active(get_goal(manager, kScavenger))) {
@@ -365,7 +360,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         return 1;
     }
     case 0x94: {
-        uint8_t* goal = get_goal(objective_board(), kScavengerCollectPeriod);
+        goals::Objective* goal = get_goal(objective_board(), kScavengerCollectPeriod);
         if (goal_active(goal))
             expire_goal(goal);
         return 1;
