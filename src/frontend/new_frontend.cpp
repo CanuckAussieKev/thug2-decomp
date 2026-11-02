@@ -459,8 +459,8 @@ paint::Art load_image_file(const std::string& name)
     const uint8_t* rows_data = texels;
     if (powers) {
         plain.resize(count * (bits / 8));
-        os_layer::unswizzle(plain.data(), texels, static_cast<int>(width), static_cast<int>(height),
-                            static_cast<int>(bits / 8));
+        os_layer::unswizzle(plain, std::span<const uint8_t>(texels, plain.size()), static_cast<int>(width),
+                            static_cast<int>(height), static_cast<int>(bits / 8));
         rows_data = plain.data();
     }
     std::vector<uint8_t> bgra(count * 4);

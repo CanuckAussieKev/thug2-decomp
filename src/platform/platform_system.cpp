@@ -146,11 +146,12 @@ void release_direct_sound()
 }
 
 // 0x005F5A20
-void decode_adpcm(int16_t* out, const uint8_t* in, int count)
+void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in)
 {
     int sample = 0, index = 0;
-    for (int i = 0; i < count; ++i) {
-        const int nibble = (i & 1) ? *in++ >> 4 : *in & 0xF;
+    size_t read = 0;
+    for (size_t i = 0; i < out.size(); ++i) {
+        const int nibble = (i & 1) ? core::at(in, read++) >> 4 : core::at(in, read) & 0xF;
         const int magnitude = nibble & 7;
         index += core::at(kIndexSteps, magnitude);
         if (index < 0)
@@ -166,15 +167,15 @@ void decode_adpcm(int16_t* out, const uint8_t* in, int count)
             sample = 32767;
         else if (sample < -32768)
             sample = -32768;
-        *out++ = static_cast<int16_t>(sample);
+        core::at(out, i) = static_cast<int16_t>(sample);
     }
 }
 
 // 0x005F5AF0
-void* unswizzle(void* out, const void* in, int width, int height, uint32_t bytes_per_texel)
+void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, int width, int height, uint32_t bytes_per_texel)
 {
     auto count = static_cast<uint32_t>(width * height);
-    auto* from = static_cast<const uint8_t*>(in);
+    size_t from = 0; // (the next texel in `in`)
     for (uint32_t i = 0; i < count; ++i) {
         // The index's bits dealt out to x and y in turn (x first) while each has bits left.
         auto x_bits = static_cast<uint32_t>(width >> 1), y_bits = static_cast<uint32_t>(height >> 1);
@@ -195,11 +196,10 @@ void* unswizzle(void* out, const void* in, int width, int height, uint32_t bytes
                 bit <<= 1;
             }
         }
-        std::memcpy(static_cast<uint8_t*>(out) + (y * static_cast<uint32_t>(width) + x) * bytes_per_texel, from,
-                    bytes_per_texel);
+        std::memcpy(out.subspan((y * static_cast<uint32_t>(width) + x) * bytes_per_texel, bytes_per_texel).data(),
+                    in.subspan(from, bytes_per_texel).data(), bytes_per_texel);
         from += bytes_per_texel;
     }
-    return out;
 }
 
 } // namespace os_layer

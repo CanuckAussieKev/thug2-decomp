@@ -37,7 +37,10 @@ using image_format::ImageHeader;
 // The swizzled texels into rows and 8-bit indices through a palette (the platform layer's).
 void unswizzle(void* out, const void* in, uint32_t width, uint32_t height, uint32_t bytes_per_pixel)
 {
-    os_layer::unswizzle(out, in, static_cast<int>(width), static_cast<int>(height), bytes_per_pixel);
+    const size_t bytes = static_cast<size_t>(width) * height * bytes_per_pixel;
+    os_layer::unswizzle(std::span<uint8_t>(static_cast<uint8_t*>(out), bytes),
+                        std::span<const uint8_t>(static_cast<const uint8_t*>(in), bytes), static_cast<int>(width),
+                        static_cast<int>(height), bytes_per_pixel);
 }
 void expand_palette(void* out, const void* indices, uint32_t size, const void* palette)
 {

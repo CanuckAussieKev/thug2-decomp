@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <span>
 
 // The Win32 platform layer's system side (0x005F5740-0x005F5AF0): finding the game's CD, the game window (PartyMod's
 // SDL window replaces it: platform/sdl_window.h), DirectSound, and two decoders - the sound files' 4-bit ADPCM and
@@ -26,10 +27,10 @@ void release_direct_sound();
 
 // 0x005F5A20 (cdecl): `count` 16-bit samples from 4-bit ADPCM (two to a byte, the low nibble first): each nibble
 // moves the step index first, then adds +-(step x magnitude / 4 + step / 8), within 16 bits.
-void decode_adpcm(int16_t* out, const uint8_t* in, int count);
+void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in);
 
 // 0x005F5AF0 (cdecl): width x height texels of `bytes_per_texel` from swizzled order (the bits of x and y
 // interleaved, x's first) into rows. Returns out.
-void* unswizzle(void* out, const void* in, int width, int height, uint32_t bytes_per_texel);
+void unswizzle(std::span<uint8_t> out, std::span<const uint8_t> in, int width, int height, uint32_t bytes_per_texel);
 
 } // namespace os_layer

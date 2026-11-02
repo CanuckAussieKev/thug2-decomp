@@ -681,7 +681,8 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     uint32_t size = bytes_per_second_;
     bytes_per_second_ = bits_per_sample_ * samples_per_second_ >> 3;
     void* converted = memory::alloc(size);
-    os_layer::decode_adpcm(static_cast<int16_t*>(converted), wave.samples, static_cast<int>(size) >> 1);
+    os_layer::decode_adpcm(std::span<int16_t>(static_cast<int16_t*>(converted), size >> 1),
+                           std::span<const uint8_t>(wave.samples, wave.sample_bytes));
     data = static_cast<uint8_t*>(converted);
     data_size_ = size;
     desc_size_ = 0;
