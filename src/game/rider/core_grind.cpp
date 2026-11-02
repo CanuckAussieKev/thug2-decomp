@@ -41,18 +41,11 @@
 #include "game/rider/skater_score.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "game/rider/shared_state.h"
+#include "game/rider/rider_shared.h"
 
 namespace skater {
 
 using namespace core_fields;
-
-CoreGrindShared& core_grind_shared()
-{
-    static core::NoDestroy<CoreGrindShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -89,7 +82,6 @@ constexpr float kDegrees = 0.0174532924f; // (degrees to radians, 0x00645464)
 constexpr float kNearPoint = 36.0f;       // (6 squared: how far from the point a hit may be)
 
 // The acid drop's hold velocity (debugging: "GRINDING FROM ACID DROP").
-maths::Vec4& acid_hold() { return core_grind_shared().acid_hold_; }
 
 const maths::Vec4 kUpAxis = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
 
@@ -360,14 +352,14 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
         // (From an acid drop: its hold velocity added.)
         debug::printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9116,
                       "GRINDING FROM ACID DROP"); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
-        const maths::Vec4& hold = acid_hold();
+        const maths::Vec4& hold = rider_shared().acid_hold();
         debug::printf("D:%s:%i: acid_hold = %g, %g, %g\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9117,
                       static_cast<double>(hold.x), static_cast<double>(hold.y), static_cast<double>(hold.z));
         maths::Vec4& v = object_of(c)->vel_;
-        v.x = acid_hold().x + v.x;
-        v.y = acid_hold().y + v.y;
-        v.z = acid_hold().z + v.z;
-        v.w = acid_hold().w + v.w;
+        v.x = rider_shared().acid_hold().x + v.x;
+        v.y = rider_shared().acid_hold().y + v.y;
+        v.z = rider_shared().acid_hold().z + v.z;
+        v.w = rider_shared().acid_hold().w + v.w;
     }
     prepare_velocity(c, true, from_object);
 

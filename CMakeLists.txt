@@ -794,6 +794,7 @@ add_executable(thug2 WIN32
     src/game/rider/core_jump.cpp
     src/game/rider/core_collision.cpp
     src/game/rider/core_grind.cpp
+    src/game/rider/rider_shared.cpp
     src/game/rider/core_states.cpp
     src/game/rider/core_rail.cpp
     src/game/rider/core_ground.cpp

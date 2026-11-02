@@ -25,7 +25,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "game/rider/shared_state.h"
+#include "game/rider/rider_shared.h"
 #include <gsl/pointers>
 
 namespace skater {
@@ -336,7 +336,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     flat.w = 1.0f;
     flat.x = direction.x * speed;
     flat.z = direction.z * speed;
-    core_grind_shared().acid_hold_ = state_->drop_velocity_; // (a copy kept for debugging, it seems)
+    rider_shared().acid_hold() = state_->drop_velocity_; // (a copy kept for debugging, it seems)
     drop_target_height_ = drop->point.y;
     set_timed_flag(this, PoseFlag::kAcidDrop, 1);
     set_timed_flag(this, PoseFlag::kVertAir, 1);
