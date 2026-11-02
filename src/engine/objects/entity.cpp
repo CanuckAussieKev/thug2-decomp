@@ -13,8 +13,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -423,7 +421,7 @@ bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag
 // pointer `params` is taken for one [bug].
 bool Entity::obj_get_named_tags(Struct* params, Script* script)
 {
-    auto* names = raw::as<Array>(params);
+    Array* names = nullptr; // (the original: the structure's own pointer read as the array [bug])
     params->fetch_list(kUnnamed, &names, 1);
     return fetch_labels(names, script->args_);
 }

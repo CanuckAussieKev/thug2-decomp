@@ -26,14 +26,13 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/render/coll_cache.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
 
 std::array<float, 8> g_rigid_body_pusher_reach;
-RigidBodyCacheStorage g_rigid_body_cache;
+std::optional<render::HitMeshCache> g_rigid_body_cache;
 std::array<BodyDynamicsModule::Contact, 24> g_rigid_body_contacts;
 std::array<maths::Vec4, 24> g_rigid_body_world_contact_points;
 std::array<maths::Vec4, 24> g_rigid_body_world_sphere_centers;
@@ -224,8 +223,9 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
         erase_one(bounce_sfx_);
     bounce_sfx_ = copy_of(sound);
     if (sounds->has_entry_named(0x3818EE47)) { // CollideMuteDelay
-        // (read into the argument slot, which then holds the copy's allocation)
-        int delay = static_cast<int>(cell::of(bounce_sfx_));
+        // (read into the argument slot - the original's then held the copy's allocation; it's there, so the read
+        // replaces it)
+        int delay = 0;
         sounds->fetch_int_value(0x3818EE47, &delay, 0);
         impact_quiet_ms_ = delay;
     }
@@ -669,6 +669,6 @@ namespace objects {
 
 // 0x00640900 (a static initialiser): the rigid bodies' collision cache (registered among the caches, empty).
 // (never destroyed: it stays registered to the end)
-void construct_rigid_body_cache() { new (&g_rigid_body_cache) render::HitMeshCache; }
+void construct_rigid_body_cache() { g_rigid_body_cache.emplace(); }
 
 } // namespace objects

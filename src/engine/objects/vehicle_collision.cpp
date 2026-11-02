@@ -22,7 +22,6 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -61,11 +60,6 @@ bool get_interrupted(const DrivableModule* vehicle)
     return vehicle->cut_short_ || (vehicle->entity_->object_flags_ & kObjectFlagDead);
 }
 
-// A slerp between two matrices, on the stack without a constructor (as the original's).
-struct SlerpStorage {
-    alignas(maths::ArcRotationBlender) std::array<uint8_t, sizeof(maths::ArcRotationBlender)> bytes;
-    maths::ArcRotationBlender* get_pull() { return raw::as<maths::ArcRotationBlender>(bytes.data()); }
-};
 
 } // namespace
 
@@ -321,8 +315,8 @@ void DrivableModule::update_righting()
     core::at(target.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
     core::at(target.row, 2) = forward;
     core::at(target.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f}; // (the original leaves its stack there)
-    SlerpStorage storage{};
-    maths::ArcRotationBlender* slerp = storage.get_pull();
+    maths::ArcRotationBlender blend{}; // (on the stack without a constructor in the original: zeroed here)
+    maths::ArcRotationBlender* slerp = &blend;
     slerp->set_matrices(basis_frame_, target);
     const double t = frame_clock::get_slomo_frame_seconds() / slerp->angle * kRightingRate;
     slerp->fetch_mat(basis_frame_, t > 1.0 ? 1.0f : static_cast<float>(t));
@@ -366,8 +360,8 @@ void DrivableModule::align_in_air()
     core::at(target.row, 1) = maths::cross_vec(at, core::at(target.row, 0));
     core::at(target.row, 2) = at;
     core::at(target.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    SlerpStorage storage{};
-    maths::ArcRotationBlender* slerp = storage.get_pull();
+    maths::ArcRotationBlender blend{}; // (on the stack without a constructor in the original: zeroed here)
+    maths::ArcRotationBlender* slerp = &blend;
     slerp->set_matrices(basis_frame_, target);
     // The turn ramps in over alignTime of free fall; slower under 350.
     vx = vel_.x;

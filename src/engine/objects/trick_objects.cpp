@@ -36,7 +36,6 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/lists/chain_start.h"
 
@@ -93,9 +92,8 @@ void release_trick_object_manager()
 }
 
 // 0x00588120
-ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter)
+ClusterCount* count_object_in_cluster(const TrickObjectCluster* cluster, ClusterCount* counter)
 {
-    const auto* cluster = raw::as<const TrickObjectCluster>(object);
     if (cluster->owned_ && counter->cluster == ints::as_unsigned(cluster->owner_))
         counter->count += 1;
     return counter;

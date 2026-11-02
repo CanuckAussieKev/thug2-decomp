@@ -66,9 +66,9 @@ void Sparkle::set_lifespan(float value) { args_.lifetime_ = value; }
 void Sparkle::change_extent(int which, float size) { core::at(args_.extent_, which) = through_x87(size); }
 
 // 0x00494EC0
-void Sparkle::change_colour(int which, const uint32_t* colour)
+void Sparkle::change_colour(int which, const Rgba& colour)
 {
-    std::memcpy(core::at(args_.shade_, which).data(), colour, 4);
+    core::at(args_.shade_, which) = colour;
     on_colour_changed();
 }
 

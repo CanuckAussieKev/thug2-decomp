@@ -66,10 +66,7 @@ constexpr int kAssetKindSkeleton = 6;                   // (the asset type)
 // separator (0x004879D0, in the CAS code - not rewritten yet - makes it as a temporary String).
 void set_model_path(text::Chars& path, const char* name, const char* extension)
 {
-    alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> temporary{};
-    gfx::make_model_path(raw::as<text::Chars>(temporary.data()), name, extension);
-    path = *raw::as<text::Chars>(temporary.data());
-    raw::as<text::Chars>(temporary.data())->~Chars();
+    path = gfx::make_model_path(name, extension);
 }
 
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).

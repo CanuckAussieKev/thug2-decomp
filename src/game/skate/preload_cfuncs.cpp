@@ -86,11 +86,8 @@ void ingest_mesh(render::RenderModel* model, const char* file, int a, int b, int
 {
     model->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
 }
-// 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String made in `out`, returned).
-text::Chars* model_path(void* out, const char* name, const char* extension)
-{
-    return gfx::make_model_path(static_cast<text::Chars*>(out), name, extension);
-}
+// 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String, returned).
+text::Chars model_path(const char* name, const char* extension) { return gfx::make_model_path(name, extension); }
 // 0x0048BFE0 (cdecl): a model file's base name (without its extension) into `base`.
 void get_base_name(const char* name, char* base) { render::engine::split_skin_name(name, base); }
 
@@ -155,12 +152,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
         if (_stricmp("none", model) == 0)
             continue;
         text::Chars path;
-        {
-            alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
-            text::Chars* made = model_path(storage.data(), model, ".mdl");
-            path = *made;
-            made->~Chars();
-        }
+        path = model_path(model, ".mdl");
         gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
         ingest_mesh(nx_model, path.c_str(), 0, 1, 0, node->has_bare_flag(kAllowReplaceTex), 0, 1, 0);
         if (!node->has_bare_flag(kNoCollision)) {
@@ -217,20 +209,14 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         const char* model = nullptr;
         if (node->fetch_text(kModel, &model, 0) && checksums::hash_from_text(model) != kNone) {
             text::Chars path;
-            alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
-            text::Chars* made = model_path(storage.data(), model, ".skin");
-            path = *made;
-            made->~Chars();
+            path = model_path(model, ".skin");
             gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
             ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             delete_model(nx_model);
         }
         if (node->fetch_text(kSecondModel, &model, 0)) {
             text::Chars path;
-            alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
-            text::Chars* made = model_path(storage.data(), model, ".mdl");
-            path = *made;
-            made->~Chars();
+            path = model_path(model, ".mdl");
             gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
             ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             delete_model(nx_model);

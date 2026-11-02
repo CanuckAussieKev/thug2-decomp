@@ -19,7 +19,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -57,8 +56,12 @@ void MeshLightingModule::configure_from_data(script::Struct* params)
         light_flags_ &= ~kModelLightOnce;
     gap_time_ = 0;
     counter_ = 0;
-    if (params->fetch_int_value(kInterval, &gap_time_, 0))
-        counter_ = cell::of(this) % gap_time_ + 1;
+    if (params->fetch_int_value(kInterval, &gap_time_, 0)) {
+        // (a start in the interval that differs between components: the original used the component's address;
+        // NOT ORIGINAL: a running number - addresses aren't values)
+        static uint32_t s_made = 0;
+        counter_ = ++s_made % gap_time_ + 1;
+    }
 }
 
 // 0x00422DA0

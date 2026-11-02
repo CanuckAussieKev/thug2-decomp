@@ -96,7 +96,7 @@ public:
     int destroy_particles(uint32_t name, script::Struct* params, script::Script* script);
 
     SharedRef<render::EmitterInstance> system_; // +0x18
-    uint32_t label_{0};                         // +0x24 name (or the component's address)
+    uint32_t label_{0};                         // +0x24 name (or a running number: next_unnamed_label)
     uint32_t unknown28_{0};                     // +0x28 0x184197D5 (given to the system's +0x78)
     float clock_{0.0f};                         // +0x2C the time not yet given to the system
     DormancyModule* suspend_{nullptr};          // +0x30 the suspend component

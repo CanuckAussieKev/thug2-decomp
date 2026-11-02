@@ -19,7 +19,6 @@
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -47,7 +46,7 @@ EmitterInstance* system_of(memory::ListNode* node)
 {
     if (node->data == memory::ListNode::head_marker() || !node)
         return nullptr;
-    return raw::owner_of<EmitterInstance>(node, offsetof(EmitterInstance, list_link_));
+    return static_cast<EmitterInstance*>(node->data); // (its node's data: the system - the original took its address)
 }
 EmitterInstance* first_system(memory::ListNode* head) { return head ? system_of(head->next) : nullptr; }
 EmitterInstance* next_system(EmitterInstance* system) { return system_of(system->list_link_.next); }

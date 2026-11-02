@@ -20,8 +20,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -233,18 +231,18 @@ void PedestrianBrainModule::choose_node_after()
 // 0x004EEFA0
 void PedestrianBrainModule::run_waypoint_actions(script::Struct* node)
 {
-    // (Both values are read over the `node` argument's slot - missing, both are asserted, it keeps what it held: the
-    // pointer's bits, or the percent read before.)
-    auto slot = static_cast<uint32_t>(cell::address(node));
+    // (The original read both values over the `node` argument's slot - missing, both are asserted, it kept what it
+    // held: the pointer's bits, or the percent read before. Here each has its own, 0 when missing.)
     if (node->has_bare_flag(kChangePaceFlag) && get_chance(node, kAdjustSpeedWeight)) {
-        node->fetch_float(kAdjustSpeedPercent, raw::as<float>(&slot), 1);
-        auto percent = std::bit_cast<float>(slot);
+        float percent = 0.0f;
+        node->fetch_float(kAdjustSpeedPercent, &percent, 1);
         KinematicsModule* motion = get_motion(entity_);
         motion->path_max_speed_ = percent * motion->path_max_speed_;
     }
     if (node->has_bare_flag(kLaunchNodeScript) && get_chance(node, kRunScriptWeight)) {
-        node->read_hash_value(kNodeScriptKey, &slot, 1);
-        script::Script* script = script::spawn_script(slot, nullptr, 0, nullptr, 0, 0, false, false, false, false);
+        uint32_t name = 0;
+        node->read_hash_value(kNodeScriptKey, &name, 1);
+        script::Script* script = script::spawn_script(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
         script->entity_.assign_value(entity_);
     }
 }

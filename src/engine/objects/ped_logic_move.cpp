@@ -31,7 +31,6 @@
 #include "game/rider/looping_sound.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/entity_hub.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -621,18 +620,21 @@ void PedestrianBrainModule::stick_to_ground_ped()
                              static_cast<float>(static_cast<double>(dy) + pos.y), static_cast<float>(dz + pos.z),
                              static_cast<float>(static_cast<double>(dw) + pos.w)};
     maths::Vec4 point;
-    if (probe_ground(&start, &end, &point, raw::as<GroundTriangle>(&core::at(motion->ground_triangle_, 0))))
+    GroundTriangle last{motion->ground_triangle_}; // (the motion's last ground triangle, tried first and kept)
+    const bool found = probe_ground(&start, &end, &point, &last);
+    motion->ground_triangle_ = last.corners;
+    if (found)
         entity_->at_point_ = point;
 }
 
 // 0x004EF090
 void PedestrianBrainModule::align_to_ground()
 {
-    KinematicsModule* motion = get_motion(entity_);
+    const KinematicsModule* motion = get_motion(entity_);
     if (!motion)
         return;
     GroundTriangle t{};
-    t.get_assign(*raw::as<GroundTriangle>(&core::at(motion->ground_triangle_, 0)));
+    t.get_assign(GroundTriangle{motion->ground_triangle_});
     const maths::Vec4* c = t.corners.data();
     const double e1x = static_cast<double>(c[1].x) - c[0].x;
     const double e1y = static_cast<double>(c[1].y) - c[0].y;

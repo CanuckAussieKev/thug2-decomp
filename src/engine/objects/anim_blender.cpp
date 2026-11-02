@@ -32,8 +32,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {
@@ -57,8 +55,9 @@ constexpr float kMinWeight = 0.00001f;
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 
 using Channel = gfx::BlendChannel;
-memory::ListNode* get_link(Channel* channel) { return raw::as<memory::ListNode>(channel); }
-Channel* as_channel(memory::ListNode* node) { return raw::as<Channel>(node); }
+memory::ListNode* get_link(Channel* channel) { return &channel->list_link_; }
+// (a channel's node's data is the channel - the original took the node's address as it)
+Channel* as_channel(memory::ListNode* node) { return static_cast<Channel*>(node->data); }
 // A node as the original masks it: null when it's the head.
 Channel* masked(memory::ListNode* node) { return is_head(node) ? nullptr : as_channel(node); }
 // The next channel after `channel` (or the head).
@@ -567,7 +566,5 @@ void get_channel_times(gfx::BlendChannel* channel, float* start, float* current,
 // 0x004196B0
 float larger_of(float a, float b) { return a > b ? a : b; }
 
-// 0x0041A680
-maths::Vec4 VectorAt1c::get_pull() const { return vector_; }
 
 } // namespace objects

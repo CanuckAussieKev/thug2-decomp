@@ -138,13 +138,7 @@ bool cfunc_preload_model(Struct* params, Script*)
     gsl::owner<render::RenderModel*> model = spawn_model(1);
     const bool allow_replace_tex = params->has_bare_flag(kAllowReplaceTex);
     text::Chars file;
-    {
-        // <name>.mdl (0x004879D0 returns a String: made in `storage`)
-        alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
-        gsl::owner<text::Chars*> path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), name, ".mdl");
-        file = *path;
-        path->~Chars();
-    }
+    file = gfx::make_model_path(name, ".mdl"); // <name>.mdl (0x004879D0 returns a String: a temporary)
     load_model_file(model, file.c_str(), allow_replace_tex);
     destroy_model(model);
     return true;

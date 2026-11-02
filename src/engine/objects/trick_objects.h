@@ -29,7 +29,8 @@ struct ClusterCount {
     int count;
     uint32_t cluster;
 };
-ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter);
+struct TrickObjectCluster;
+ClusterCount* count_object_in_cluster(const TrickObjectCluster* cluster, ClusterCount* counter);
 
 // A list in the skater's trick component (its +0x13B4): 0x00588170 the constructor (no entries; its count at +0x800);
 // 0x00588180 emptied (true). Its entries are the names of the clusters the skater's current trick (or combo) hit -

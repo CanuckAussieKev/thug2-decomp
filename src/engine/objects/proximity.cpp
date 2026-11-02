@@ -19,7 +19,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -51,11 +50,11 @@ Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(
 const maths::BBox* sector_box(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_bounds(); }
 const maths::Mat4* sector_world_matrix(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_facing(); }
 // The sector's collision asked whether `point` is inside (the original's vtable +0x48, slot 18: is_point_behind_faces;
-// `offset` gets the point from the node, passed as its second argument).
-bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* offset)
+// the original passed `offset`'s address as its second argument, which isn't read).
+bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* /*offset*/)
 {
     render::HitMesh* collision = static_cast<render::WorldCell*>(sector)->hit_body_;
-    return collision->is_point_behind_faces(point, static_cast<int>(cell::of(offset)));
+    return collision->is_point_behind_faces(point, 0);
 }
 // The level sector named `name` (null if none).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }

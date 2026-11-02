@@ -22,7 +22,6 @@
 #include "engine/gfx/engine.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -42,6 +41,16 @@ void EmitterInstance::set_flag(int bit, bool on)
 namespace objects {
 
 namespace {
+
+// NOT ORIGINAL: the name of a system made without one - a running number (the original named it by the component's
+// address: unique among the live components, as these are).
+uint32_t next_unnamed_label()
+{
+    static uint32_t s_last = 0;
+    if (++s_last == 0)
+        ++s_last;
+    return s_last;
+}
 float g_particle_update_time{1.0f};
 } // namespace
 std::array<script::MemberFunctionEntry, 26> g_flexible_particle_member_functions{{
@@ -225,8 +234,8 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
         found = system_.get_pull() != nullptr;
     }
     if (!found) {
-        label_ = cell::of(this);
-        system_.assign_value(start_subsystem(cell::of(this), type, max, max_streams, texture,
+        label_ = next_unnamed_label();
+        system_.assign_value(start_subsystem(label_, type, max, max_streams, texture,
                                              blend_mode, unknowna605b89f, segments, unknown4e0a65ee, history, perm,
                                              use_global_color_modulation, model));
         if (!system_.get_pull())

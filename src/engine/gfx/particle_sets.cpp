@@ -18,7 +18,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/particle_maths.h"
 #include "engine/objects/movie_manager.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
@@ -200,7 +199,7 @@ void Sparkle::spin_by(int which, const maths::Mat4* matrix)
 }
 
 // 0x00496190
-void Sparkle::change_colour(const uint8_t* rgba)
+void Sparkle::change_colour(const Rgba* rgba)
 {
     if (!rgba) {
         on_colour_changed();
@@ -208,7 +207,7 @@ void Sparkle::change_colour(const uint8_t* rgba)
     }
     if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
-            core::at(args_.colour_scale_, i) = static_cast<float>(rgba[i]) * kByteToUnit;
+            core::at(args_.colour_scale_, i) = static_cast<float>(core::at(*rgba, i)) * kByteToUnit;
         on_colour_changed();
     }
 }

@@ -155,15 +155,6 @@ public:
 // 0x004196B0 (cdecl): the larger of `a` and `b` (`b` when they're equal or NaN).
 float larger_of(float a, float b);
 
-// 0x0041A680: the Vector at +0x1C of the object it's called on (a component the debug-info code at 0x00421F18
-// asks).
-struct VectorAt1c {
-    [[nodiscard]] maths::Vec4 get_pull() const;
-
-    std::array<uint8_t, 0x1C> unknown00_;
-    maths::Vec4 vector_; // +0x1C
-};
-static_assert(offsetof(VectorAt1c, vector_) == 0x1C, "layout must match the original");
 
 } // namespace objects
 

@@ -28,8 +28,6 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -647,8 +645,9 @@ bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script
                 uint32_t name = 0;
                 skater->read_hash_value(kName, &name, 1);
                 if (name == profile_name) {
-                    // (Read over the slot that held `this`: missing - it's asserted - it stays that pointer.)
-                    const char* last_name = raw::chars(this);
+                    // (Read over the slot that held `this`: missing - it's asserted - the original's text was that
+                    // pointer; empty here.)
+                    const char* last_name = "";
                     skater->fetch_text(kLastName, &last_name, 1);
                     script->args_->append_word(kVoicePrefix, last_name);
                     return true;

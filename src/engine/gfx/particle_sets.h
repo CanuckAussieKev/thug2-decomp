@@ -17,6 +17,9 @@
 // colours and destroys them. (The flexible particle component's systems are another family: particle_system.h.)
 namespace render {
 
+// A colour as four bytes: r, g, b, a.
+using Rgba = std::array<uint8_t, 4>;
+
 // The parameters a particle system is made from (0x15C bytes; kept as the system's +4). Only what the particle
 // component fills is named; names from the script parameters where known.
 struct SparkleConfig {
@@ -112,7 +115,7 @@ struct Sparkle : memory::HeapObject {
     void spin_by(int which, const maths::Mat4* matrix);
     // 0x00496190: with the manager's colour (flag158_), its colour scale from `rgba` (bytes, in 128ths), then
     // on_colour_changed. Null: only on_colour_changed.
-    void change_colour(const uint8_t* rgba);
+    void change_colour(const Rgba* rgba);
     // 0x00496210: with the manager's colour (flag158_), its colour scale = `rgba`, then on_colour_changed.
     void set_colour_scale(const float* rgba);
     // 0x004963B0: the emit script: the old one's spawned scripts killed (by its name), then `script` spawned with
@@ -134,7 +137,7 @@ struct Sparkle : memory::HeapObject {
     void change_extent(int which, float size);
     // 0x00494EC0 / 0x00494EE0 / 0x00494EF0: colour `which`, the brightness and the colour mid percentage set - then
     // on_colour_changed.
-    void change_colour(int which, const uint32_t* colour);
+    void change_colour(int which, const Rgba& colour);
     void set_brightness(float value);
     void set_colour_mid_percent(float percent);
 };

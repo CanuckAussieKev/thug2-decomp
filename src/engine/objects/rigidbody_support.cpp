@@ -24,7 +24,7 @@
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {
@@ -55,11 +55,8 @@ bool& draw_details() { return g_rigid_body_draw_details; }
 SharedRef<GameEntity>* get_pushers() { return g_rigid_body_pushers.data(); }
 float* pusher_reach() { return g_rigid_body_pusher_reach.data(); }
 
-// The matrix's element at byte offset `offset` from its start.
-double get_m(const maths::Mat4& m, int offset)
-{
-    return *raw::field_at<const float>(&m, offset);
-}
+// The matrix's element at byte offset `offset` from its start (the original's: row offset / 16, column 4 bytes each).
+double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset / 16)[(offset % 16) / 4]; }
 
 } // namespace
 

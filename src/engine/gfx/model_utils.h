@@ -25,9 +25,9 @@ bool get_anim_loop_type(int* loop_type, script::Struct* params);
 // current / end by name, or a number (frames - truncated, at 60 a second - unless `seconds`); 0 and the duration by
 // default. With `backwards` the two are swapped. True.
 bool fetch_anim_durations(float* start, float* end, float current, float duration, script::Struct* params);
-// 0x004879D0: "models\<name>\<name><extension>" made in `out` (a new String) - or "models\<name>" when the name
-// has a path separator. Returns out.
-gsl::owner<text::Chars*> make_model_path(text::Chars* out, const char* name, const char* extension);
+// 0x004879D0: "models\<name>\<name><extension>" as a new String - or "models\<name>" when the name
+// has a path separator.
+text::Chars make_model_path(const char* name, const char* extension);
 // 0x00487A70: the same into `out`'s characters.
 void make_model_file_name(const char* name, const char* extension, char* out);
 // 0x00487AD0: the least of three (a NaN loses each comparison it's second in).

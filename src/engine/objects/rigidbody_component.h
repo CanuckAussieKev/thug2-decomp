@@ -12,6 +12,7 @@
 #include "engine/render/coll_cache.h"
 #include <gsl/pointers>
 #include <array>
+#include <optional>
 
 namespace script {
 class Array;
@@ -280,11 +281,8 @@ extern std::array<maths::Vec4, 24> g_rigid_body_world_sphere_centers;     // 0x0
 extern std::array<maths::Vec4, 2> g_rigid_body_world_spring_points;       // 0x00695130
 extern std::array<BodyDynamicsModule::Contact, 24> g_rigid_body_contacts; // 0x006949B0
 extern std::array<SharedRef<GameEntity>, 8> g_rigid_body_pushers;         // 0x00695150
-// (the cache is raw zeroed storage: the cache fills it before it looks)
-struct RigidBodyCacheStorage {
-    alignas(8) std::array<uint8_t, sizeof(render::HitMeshCache)> bytes;
-};
-extern RigidBodyCacheStorage g_rigid_body_cache; // 0x006939E0
+// (made by the start-up's construct_rigid_body_cache; never destroyed - the game ends with a quick exit)
+extern std::optional<render::HitMeshCache> g_rigid_body_cache; // 0x006939E0
 extern std::array<float, 8> g_rigid_body_pusher_reach;
 extern float g_rigid_body_pusher_height;
 extern bool g_rigid_body_draw_shape;

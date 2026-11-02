@@ -125,11 +125,11 @@ bool fetch_anim_durations(float* start, float* end, float current, float duratio
 }
 
 // 0x004879D0
-gsl::owner<text::Chars*> make_model_path(text::Chars* out, const char* name, const char* extension)
+text::Chars make_model_path(const char* name, const char* extension)
 {
     std::array<char, 512> path{};
     make_model_file_name(name, extension, path.data());
-    return new (out) text::Chars(path.data());
+    return {path.data()};
 }
 
 // 0x00487A70

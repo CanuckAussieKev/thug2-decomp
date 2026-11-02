@@ -22,8 +22,6 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -44,16 +42,9 @@ constexpr uint32_t kSuspend = 0xCE0CA665;           // "suspend"
 constexpr uint32_t kSkater = 0x5B8AB877;            // "Skater"
 const char* const kPedShadow = "Ped_Shadow";        // "Ped_Shadow"
 
-// The swaps made (0x007CEDE0, five entries): each object's id and the id of the object whose model it wears now.
-struct SwapEntry {
-    bool used;
-    std::array<uint8_t, 3> pad1;
-    uint32_t id;
-    uint32_t current;
-};
-static_assert(sizeof(SwapEntry) == 12, "layout must match the original");
-static_assert(sizeof(commands::SwapSlot) == sizeof(SwapEntry), "one table, two views");
-SwapEntry* get_swaps() { return raw::as<SwapEntry>(commands::g_swap_table.data()); } // (profile_cfuncs.cpp owns it)
+// The swaps made (0x007CEDE0, five entries - profile_cfuncs.cpp owns them): each object's id (key) and the id of the
+// object whose model it wears now (value).
+commands::SwapSlot* get_swaps() { return commands::g_swap_table.data(); }
 constexpr int kSwapCount = 5;
 
 // 0x005AA930 (commands::swap_mapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
@@ -166,8 +157,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
         follow_position(model_b->mesh_instance_, &b->at_point_);
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            if (get_swaps()[i].used && get_swaps()[i].current == 0) {
-                skater->unknown31c_ = get_swaps()[i].id;
+            if (get_swaps()[i].used && get_swaps()[i].value == 0) {
+                skater->unknown31c_ = get_swaps()[i].key;
                 found = true;
             }
         }
@@ -193,14 +184,14 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
     for (;;) {
         bool any = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            const SwapEntry& entry = get_swaps()[i];
+            const commands::SwapSlot& entry = get_swaps()[i];
             if (!entry.used)
                 continue;
             any = true;
             Struct* memory = script::spawn_param_bag();
             Struct* swap = memory ? new (memory) script::Struct : nullptr;
-            swap->put_name_key(kObj1, entry.id);
-            swap->put_name_key(kObj2, entry.current);
+            swap->put_name_key(kObj1, entry.key);
+            swap->put_name_key(kObj2, entry.value);
             cfunc_swap_object_models(swap, script);
             if (swap) {
                 // (delete inlined: the structure pool pair's Free)

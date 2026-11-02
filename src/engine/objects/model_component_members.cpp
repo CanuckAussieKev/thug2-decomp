@@ -21,7 +21,6 @@
 #include "engine/gfx/engine_geom.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <cstring>
 
@@ -205,7 +204,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjGetScaling:
         if (mesh_instance_) {
-            const maths::Vec4 scale = raw::as<VectorAt1c>(mesh_instance_)->get_pull();
+            const maths::Vec4 scale = mesh_instance_->size_factor_; // (0x0041A680: its +0x1C)
             script->args_->put_vec3(kScaling, script::VectorValue{scale.x, scale.y, scale.z, scale.w});
         }
         break;

@@ -28,7 +28,6 @@
 #include "engine/objects/model_component.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -79,14 +78,11 @@ constexpr uint32_t kEmitting = 0x2299A9F2;   // (its name unknown): the particle
 constexpr uint32_t kGroundTest = 0x96896315; // (its name unknown)
 
 // The unnamed array's first four integers' low bytes (r, g, b, a).
-struct Colour {
-    std::array<uint8_t, 4> rgba;
-};
-Colour colour_of(script::Array* array)
+render::Rgba colour_of(script::Array* array)
 {
-    Colour colour{};
+    render::Rgba colour{};
     for (uint32_t i = 0; i < 4; ++i)
-        core::at(colour.rgba, i) = static_cast<uint8_t>(array->fetch_part(i));
+        core::at(colour, i) = static_cast<uint8_t>(array->fetch_part(i));
     return colour;
 }
 
@@ -202,8 +198,8 @@ bool change_colour(EffectsEmitterModule* component, script::Struct* params, int 
     script::Array* array = nullptr;
     params->fetch_list(0u, &array, 1);
     if (component->effect_handle_) {
-        Colour colour = colour_of(array);
-        component->effect_handle_->change_colour(which, raw::as<const uint32_t>(&colour));
+        const render::Rgba colour = colour_of(array);
+        component->effect_handle_->change_colour(which, colour);
     }
     return true;
 }
@@ -283,8 +279,8 @@ bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::S
     script::Array* array = nullptr;
     params->fetch_list(0u, &array, 1);
     if (effect_handle_) {
-        Colour colour = colour_of(array);
-        effect_handle_->change_colour(raw::bytes(&colour));
+        const render::Rgba colour = colour_of(array);
+        effect_handle_->change_colour(&colour);
     }
     return true;
 }

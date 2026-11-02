@@ -33,7 +33,6 @@
 #include "engine/objects/path_follower.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -237,13 +236,7 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     core::at(suspend->lod_distances_, 2) = 1000002.0f;
     core::at(suspend->lod_distances_, 3) = 1000003.0f;
     text::Chars file;
-    {
-        // The model's path (0x004879D0 returns a String: made in `storage`).
-        alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
-        gsl::owner<text::Chars*> path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), "crown", ".mdl");
-        file = *path;
-        path->~Chars();
-    }
+    file = gfx::make_model_path("crown", ".mdl"); // (0x004879D0 returns a String: a temporary)
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
     void* model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance_;
     static_cast<render::RenderModel*>(model_data)->add_file_geom(file.c_str(), 0, true, 0, false, false, true, false);
