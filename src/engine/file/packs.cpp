@@ -155,7 +155,7 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
         }
     }
 
-    *slot = {data, checksum, size, 1};
+    *slot = {.data = data, .checksum = checksum, .size = size, .ref_count_ = 1};
     return data;
 }
 

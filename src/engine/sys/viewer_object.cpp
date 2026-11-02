@@ -195,7 +195,7 @@ PreviewEntity::~PreviewEntity()
 }
 
 namespace {
-maths::Vec4 g_origin_position{0.0f, 0.0f, 0.0f, 1.0f};
+maths::Vec4 g_origin_position{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 } // namespace
 
 // 0x00589910
@@ -423,11 +423,11 @@ void PreviewEntity::own_update()
         uint32_t viewer_command_;
     };
     static const auto kViewerCommands = std::to_array<ViewerCommand>({
-        {kCommandToggleMode, 0x4000},
-        {kCommandCameraUp, modules::Viewer::kCommandShoulderA},
-        {kCommandCameraDown, modules::Viewer::kCommandShoulderB},
-        {kCommandRollLeft, 0x10000},
-        {kCommandRollRight, 0x20000},
+        {.command = kCommandToggleMode, .viewer_command_ = 0x4000},
+        {.command = kCommandCameraUp, .viewer_command_ = modules::Viewer::kCommandShoulderA},
+        {.command = kCommandCameraDown, .viewer_command_ = modules::Viewer::kCommandShoulderB},
+        {.command = kCommandRollLeft, .viewer_command_ = 0x10000},
+        {.command = kCommandRollRight, .viewer_command_ = 0x20000},
     });
     for (const auto& c : kViewerCommands) {
         if (actions_ & c.command) {

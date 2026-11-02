@@ -309,7 +309,7 @@ bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script*)
         uint32_t id;
         uint8_t bit;
         std::array<uint8_t, 3> pad; // (the original's stack)
-    } request = {id, static_cast<uint8_t>(bit), {0, 0, 0}};
+    } request = {.id = id, .bit = static_cast<uint8_t>(bit), .pad = {0, 0, 0}};
     send_request(manager, kMsgToggleProSetRequest, &request, sizeof(request));
     return true;
 }

@@ -39,8 +39,8 @@ int scale_tool(uint32_t sample, int n) { return static_cast<int>(sample * static
 // 0x00403DA0
 void seed_random(uint32_t seed)
 {
-    stream1() = {kInitialAdd, kInitialMul, seed};
-    stream2() = {kInitialAdd, kInitialMul, seed};
+    stream1() = {.add = kInitialAdd, .mul = kInitialMul, .value = seed};
+    stream2() = {.add = kInitialAdd, .mul = kInitialMul, .value = seed};
 }
 
 // 0x00403DE0

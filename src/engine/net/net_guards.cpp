@@ -69,7 +69,7 @@ int leave_server(net::InboundMsgCtx* context)
     return modules::SkateNet::handle_server_removed_you(&moved);
 }
 
-const Lookups kGameLookups = {animation_loaded, structure_exists, game_mode_exists, script_exists, leave_server};
+const Lookups kGameLookups = {.animation_loaded_ = animation_loaded, .structure_exists_ = structure_exists, .game_mode_exists_ = game_mode_exists, .script_exists_ = script_exists, .leave_server_ = leave_server};
 Lookups s_lookups = kGameLookups;
 
 // Each name logged once (a THUGPRO player can send the same animation many times a second).

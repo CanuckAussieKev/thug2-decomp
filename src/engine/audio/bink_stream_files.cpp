@@ -60,7 +60,7 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!stream_files_ready()) {
         for (int i = 0; i < kStreamFiles; ++i)
-            core::at(stream_files(), i) = {0xFFFFFFFFu, nullptr, 0, 0};
+            core::at(stream_files(), i) = {.key = 0xFFFFFFFFu, .data = nullptr, .last_use_ = 0, .users = 0};
         stream_files_ready() = true;
     }
     const uint32_t now = ++stream_file_uses();

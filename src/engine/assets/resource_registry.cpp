@@ -41,8 +41,8 @@ struct ExtensionType {
     int type;
 };
 // (the extensions are the exe's strings; the table's last entry stays null)
-std::array<ExtensionType, 13> g_extensions{{{"BIN", 1}, {"COL", 4}, {"SCN", 2},  {"GEOM", 2}, {"MDL", 7}, {"SKA", 5},
-                               {"FAM", 5}, {"SKE", 6}, {"SKIN", 7}, {"TEX", 3},  {"CUT", 9}, {"QB", 10}}};
+std::array<ExtensionType, 13> g_extensions{{{.extension = "BIN", .type = 1}, {.extension = "COL", .type = 4}, {.extension = "SCN", .type = 2},  {.extension = "GEOM", .type = 2}, {.extension = "MDL", .type = 7}, {.extension = "SKA", .type = 5},
+                               {.extension = "FAM", .type = 5}, {.extension = "SKE", .type = 6}, {.extension = "SKIN", .type = 7}, {.extension = "TEX", .type = 3},  {.extension = "CUT", .type = 9}, {.extension = "QB", .type = 10}}};
 const std::array<ExtensionType, 13>& get_extensions() { return g_extensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.

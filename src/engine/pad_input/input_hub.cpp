@@ -45,10 +45,10 @@ struct DigitalToAnalog {
     int event;
 };
 // (pairs of {mask, event} up to and including the first with a mask of 0 or less)
-std::array<DigitalToAnalog, 18> g_digital_to_analog{{{0x200, 16},   {0x400, 17},   {0x1, 14},   {0x2, 15},   {0x4, 12},
-                                        {0x8, 13},     {0x10, 8},     {0x20, 9},   {0x40, 10},  {0x80, 11},
-                                        {0x1000, 6},   {0x2000, 4},   {0x4000, 7}, {0x8000, 5}, {0x10000, 22},
-                                        {0x20000, 23}, {0x40000, 24}, {0x0, 0}}};
+std::array<DigitalToAnalog, 18> g_digital_to_analog{{{.mask = 0x200, .event = 16},   {.mask = 0x400, .event = 17},   {.mask = 0x1, .event = 14},   {.mask = 0x2, .event = 15},   {.mask = 0x4, .event = 12},
+                                        {.mask = 0x8, .event = 13},     {.mask = 0x10, .event = 8},     {.mask = 0x20, .event = 9},   {.mask = 0x40, .event = 10},  {.mask = 0x80, .event = 11},
+                                        {.mask = 0x1000, .event = 6},   {.mask = 0x2000, .event = 4},   {.mask = 0x4000, .event = 7}, {.mask = 0x8000, .event = 5}, {.mask = 0x10000, .event = 22},
+                                        {.mask = 0x20000, .event = 23}, {.mask = 0x40000, .event = 24}, {.mask = 0x0, .event = 0}}};
 const std::array<DigitalToAnalog, 18>& digital_to_analog_table() { return g_digital_to_analog; }
 
 bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }

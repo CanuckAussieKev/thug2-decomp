@@ -14,7 +14,7 @@ constexpr float kPi = 3.14159265f;
 } // namespace
 
 // 0x004033E0
-BBox::BBox() : min{kHuge, kHuge, kHuge, 1.0f}, max{-kHuge, -kHuge, -kHuge, 1.0f} {}
+BBox::BBox() : min{.x = kHuge, .y = kHuge, .z = kHuge, .w = 1.0f}, max{.x = -kHuge, .y = -kHuge, .z = -kHuge, .w = 1.0f} {}
 
 // 0x00403410
 BBox::BBox(const Vec4& point) noexcept : min(point), max(point) {}
@@ -66,7 +66,7 @@ Rect2::Rect2(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) 
 // 0x00403BB0
 Vec4& BBox::get_center(Vec4& out) const
 {
-    out = {(max.x - min.x) * 0.5f + min.x, (max.y - min.y) * 0.5f + min.y, (max.z - min.z) * 0.5f + min.z, 1.0f};
+    out = {.x = (max.x - min.x) * 0.5f + min.x, .y = (max.y - min.y) * 0.5f + min.y, .z = (max.z - min.z) * 0.5f + min.z, .w = 1.0f};
     return out;
 }
 
@@ -141,8 +141,8 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
         const double k = (1.0 / dx) * (static_cast<double>(max.x) - s.x);
         auto y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
-            hit = {max.x, y, z, 1.0f};
-            normal = {1.0f, 0.0f, 0.0f, 0.0f};
+            hit = {.x = max.x, .y = y, .z = z, .w = 1.0f};
+            normal = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
             return true;
         }
     }
@@ -150,8 +150,8 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
         const double k = (1.0 / dx) * (static_cast<double>(min.x) - s.x);
         auto y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
-            hit = {min.x, y, z, 1.0f};
-            normal = {-1.0f, 0.0f, 0.0f, 0.0f};
+            hit = {.x = min.x, .y = y, .z = z, .w = 1.0f};
+            normal = {.x = -1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
             return true;
         }
     }
@@ -159,8 +159,8 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
         const double k = (1.0 / dy) * (static_cast<double>(max.y) - s.y);
         auto x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
-            hit = {x, max.y, z, 1.0f};
-            normal = {0.0f, 1.0f, 0.0f, 0.0f};
+            hit = {.x = x, .y = max.y, .z = z, .w = 1.0f};
+            normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
             return true;
         }
     }
@@ -168,8 +168,8 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
         const double k = (1.0 / dy) * (static_cast<double>(min.y) - s.y);
         auto x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
-            hit = {x, min.y, z, 1.0f};
-            normal = {0.0f, -1.0f, 0.0f, 0.0f};
+            hit = {.x = x, .y = min.y, .z = z, .w = 1.0f};
+            normal = {.x = 0.0f, .y = -1.0f, .z = 0.0f, .w = 0.0f};
             return true;
         }
     }
@@ -177,8 +177,8 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
         const double k = (1.0 / dz) * (static_cast<double>(max.z) - s.z);
         auto x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
-            hit = {x, y, max.z, 1.0f};
-            normal = {0.0f, 0.0f, 1.0f, 0.0f};
+            hit = {.x = x, .y = y, .z = max.z, .w = 1.0f};
+            normal = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
             return true;
         }
     }
@@ -186,8 +186,8 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
         const double k = (1.0 / dz) * (static_cast<double>(min.z) - s.z);
         auto x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
-            hit = {x, y, min.z, 1.0f};
-            normal = {0.0f, 0.0f, -1.0f, 0.0f};
+            hit = {.x = x, .y = y, .z = min.z, .w = 1.0f};
+            normal = {.x = 0.0f, .y = 0.0f, .z = -1.0f, .w = 0.0f};
             return true;
         }
     }
@@ -285,8 +285,8 @@ float Seg::distance_sqr_to_point(const Vec4& point, Vec4* offset) const
         result = point - end;
     } else {
         const float t = along / squared_len;
-        result = {point.x - (dx * t + start.x), point.y - (dy * t + start.y), point.z - (dz * t + start.z),
-                  point.w - (dw * t + start.w)};
+        result = {.x = point.x - (dx * t + start.x), .y = point.y - (dy * t + start.y), .z = point.z - (dz * t + start.z),
+                  .w = point.w - (dw * t + start.w)};
     }
     if (offset)
         *offset = result;
@@ -531,8 +531,8 @@ bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec
     if (clamp)
         t = clamp01(t);
 
-    point_a = {ux * s + a.start.x, uy * s + a.start.y, uz * s + a.start.z, (a.end.w - a.start.w) * s + a.start.w};
-    point_b = {vx * t + b.start.x, vy * t + b.start.y, vz * t + b.start.z, (b.end.w - b.start.w) * t + b.start.w};
+    point_a = {.x = ux * s + a.start.x, .y = uy * s + a.start.y, .z = uz * s + a.start.z, .w = (a.end.w - a.start.w) * s + a.start.w};
+    point_b = {.x = vx * t + b.start.x, .y = vy * t + b.start.y, .z = vz * t + b.start.z, .w = (b.end.w - b.start.w) * t + b.start.w};
     return true;
 }
 

@@ -242,7 +242,7 @@ void async_add_callback(AsyncFileHandle* file, int event, int value)
 {
     const int list = current_list();
     const int index = core::at(callback_counts(), list)++;
-    core::at(core::at(callback_lists(), list), index) = {file, event, value};
+    core::at(core::at(callback_lists(), list), index) = {.file = file, .event = event, .value = value};
 }
 
 // 0x005B9770 (platform: start filling the other list)

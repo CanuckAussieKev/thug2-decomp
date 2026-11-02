@@ -21,7 +21,7 @@ KeyMap::KeyMap(int bits)
     : bits_(bits), buckets_(static_cast<Item*>(memory::alloc(static_cast<unsigned int>(1 << bits) * sizeof(Item)))),
       extent_(0), flag_(false)
 {
-    std::ranges::fill(bucket_run(), Item{0, nullptr, nullptr});
+    std::ranges::fill(bucket_run(), Item{.key = 0, .value = nullptr, .next = nullptr});
 }
 
 // 0x005B89D0
@@ -53,7 +53,7 @@ bool KeyMap::store_entry(const uint32_t& key, void* value)
     if (bucket->value) {
         // The bucket's own slot is taken: chain a new item right after it.
         auto* item = static_cast<Item*>(memory::slot_pool_setup::create_item(0));
-        *item = {key, value, bucket->next};
+        *item = {.key = key, .value = value, .next = bucket->next};
         bucket->next = item;
     } else {
         bucket->value = value;
@@ -98,7 +98,7 @@ void KeyMap::empty_table()
             memory::slot_pool_setup::return_entry(0, item);
             item = next;
         }
-        bucket = {0, nullptr, nullptr};
+        bucket = {.key = 0, .value = nullptr, .next = nullptr};
     }
     extent_ = 0;
 }

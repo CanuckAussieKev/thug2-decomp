@@ -131,7 +131,7 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     util::ByteWriter writer(conn->outgoing_.vacant().first(packet_space_left(conn)));
     writer.u8(kMsgSequenced);
     writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
-    wire::write_sequenced_header(writer, {link->bundle_id_, link->order_index_, msg->ident_});
+    wire::write_sequenced_header(writer, {.group = link->bundle_id_, .sequence = link->order_index_, .id = msg->ident_});
     writer.bytes(msg->content_, msg->byte_count_);
     conn->outgoing_.used += writer.position();
     add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);

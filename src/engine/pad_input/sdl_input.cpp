@@ -152,7 +152,7 @@ struct PlayerSlot {
 };
 constexpr int kMaxPlayers = 2;
 uint8_t s_seats_in_use = 0;
-std::array<PlayerSlot, kMaxPlayers> s_players = {{{nullptr, 0}, {nullptr, 0}}};
+std::array<PlayerSlot, kMaxPlayers> s_players = {{{.controller = nullptr, .locked_out_ = 0}, {.controller = nullptr, .locked_out_ = 0}}};
 
 void attach_controller(int index)
 {

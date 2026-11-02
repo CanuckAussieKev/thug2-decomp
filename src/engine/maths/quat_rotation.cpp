@@ -64,12 +64,12 @@ QuatRotation& QuatRotation::operator*=(const QuatRotation& q)
 // 0x00420B50
 Vec4* QuatRotation::spin_by(Vec4* out, const Vec4& v) const
 {
-    const QuatRotation conjugate = {-x, -y, -z, w};
-    const QuatRotation point = {v.x, v.y, v.z, 1.0f};
+    const QuatRotation conjugate = {.x = -x, .y = -y, .z = -z, .w = w};
+    const QuatRotation point = {.x = v.x, .y = v.y, .z = v.z, .w = 1.0f};
     QuatRotation result = *this;
     result *= point;
     result *= conjugate;
-    *out = {result.x, result.y, result.z, result.w};
+    *out = {.x = result.x, .y = result.y, .z = result.z, .w = result.w};
     return out;
 }
 

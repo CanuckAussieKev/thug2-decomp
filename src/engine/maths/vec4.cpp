@@ -101,7 +101,7 @@ Vec4& Vec4::align_to_plane(const Vec4& normal)
 Vec4& Vec4::change_heading(const Vec4& direction)
 {
     const float length = std::sqrt(z * z + y * y + x * x);
-    *this = {length * direction.x, length * direction.y, length * direction.z, length * direction.w};
+    *this = {.x = length * direction.x, .y = length * direction.y, .z = length * direction.z, .w = length * direction.w};
     return *this;
 }
 
@@ -111,8 +111,8 @@ Vec4& Vec4::project_onto(const Vec4& axis)
     // As the original's x87 code: the dot product stays in double, each component rounded once.
     const double dot =
         (static_cast<double>(axis.x) * x + static_cast<double>(z) * axis.z) + static_cast<double>(y) * axis.y;
-    *this = {static_cast<float>(dot * axis.x), static_cast<float>(dot * axis.y), static_cast<float>(dot * axis.z),
-             static_cast<float>(dot * axis.w)};
+    *this = {.x = static_cast<float>(dot * axis.x), .y = static_cast<float>(dot * axis.y), .z = static_cast<float>(dot * axis.z),
+             .w = static_cast<float>(dot * axis.w)};
     return *this;
 }
 
@@ -223,19 +223,19 @@ void Vec4::negate_x_rotate_x90()
 }
 
 // 0x00402440
-Vec4 operator+(const Vec4& a, const Vec4& b) { return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w}; }
+Vec4 operator+(const Vec4& a, const Vec4& b) { return {.x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z, .w = a.w + b.w}; }
 
 // 0x00402470
-Vec4 operator-(const Vec4& a, const Vec4& b) { return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w}; }
+Vec4 operator-(const Vec4& a, const Vec4& b) { return {.x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z, .w = a.w - b.w}; }
 
 // 0x004024A0
-Vec4 operator*(const Vec4& v, float scale) { return {v.x * scale, v.y * scale, v.z * scale, v.w * scale}; }
+Vec4 operator*(const Vec4& v, float scale) { return {.x = v.x * scale, .y = v.y * scale, .z = v.z * scale, .w = v.w * scale}; }
 
 // 0x004024D0
 Vec4 operator*(float scale, const Vec4& v) { return v * scale; }
 
 // 0x00402500
-Vec4 operator-(const Vec4& v) { return {-v.x, -v.y, -v.z, -v.w}; }
+Vec4 operator-(const Vec4& v) { return {.x = -v.x, .y = -v.y, .z = -v.z, .w = -v.w}; }
 
 // 0x00402530
 float dot_vec(const Vec4& a, const Vec4& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
@@ -246,7 +246,7 @@ Vec4 cross_vec(const Vec4& a, const Vec4& b)
     auto term = [](float p, float q, float r, float s) {
         return static_cast<float>(static_cast<double>(p) * q - static_cast<double>(r) * s);
     };
-    return {term(a.y, b.z, a.z, b.y), term(a.z, b.x, a.x, b.z), term(a.x, b.y, a.y, b.x), 0.0f};
+    return {.x = term(a.y, b.z, a.z, b.y), .y = term(a.z, b.x, a.x, b.z), .z = term(a.x, b.y, a.y, b.x), .w = 0.0f};
 }
 
 // 0x00402600
@@ -263,7 +263,7 @@ Vec4 operator/(const Vec4& v, float divisor)
 {
     const double inverse = 1.0 / static_cast<double>(divisor);
     auto rounded = static_cast<float>(inverse);
-    return {rounded * v.x, rounded * v.y, rounded * v.z, static_cast<float>(inverse * v.w)};
+    return {.x = rounded * v.x, .y = rounded * v.y, .z = rounded * v.z, .w = static_cast<float>(inverse * v.w)};
 }
 
 // 0x00423650

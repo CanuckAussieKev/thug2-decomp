@@ -58,7 +58,7 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     const Vec4 from = core::at(start.row, 3);
     const Vec4 to = core::at(end.row, 3);
     auto lerp = [t](const Vec4& a, const Vec4& b) {
-        return Vec4{(b.x - a.x) * t + a.x, (b.y - a.y) * t + a.y, (b.z - a.z) * t + a.z, (b.w - a.w) * t + a.w};
+        return Vec4{.x = (b.x - a.x) * t + a.x, .y = (b.y - a.y) * t + a.y, .z = (b.z - a.z) * t + a.z, .w = (b.w - a.w) * t + a.w};
     };
 
     if (small_rotation_) {
@@ -73,7 +73,7 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     }
 
     out = start;
-    core::at(out.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(out.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     out.spin_by(axis, t * angle);
     core::at(out.row, 3) = lerp(from, to);
     core::at(out.row, 3).w = 1.0f;

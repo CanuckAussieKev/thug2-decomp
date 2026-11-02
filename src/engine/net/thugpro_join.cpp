@@ -36,13 +36,13 @@ struct ReasonText {
     const char* words;
 };
 constexpr auto kReasons = std::to_array<ReasonText>({
-    {0xD9658C73, "tp_net_reason_version_low", "The host runs a newer THUGPRO than this game speaks."},
-    {0x3CE70459, "tp_net_reason_modifications", "The host doesn't allow modified scripts (THUGPRO's mods setting)."},
-    {0xCAAD4ABB, "tp_net_reason_release_type", "The host doesn't accept this kind of release."},
-    {0xD039C57D, "tp_net_reason_player_name_dupe", "A player with your name is already in this game."},
-    {0xD32BAEE3, "tp_net_reason_player_name_tooshort", "Your player name is too short for this host."},
-    {0xB82CAE9B, "tp_net_reason_banned", "You have been banned from this server."},
-    {0x1F8DF1D2, "tp_net_reason_test", "Connection refused (THUGPRO's test refusal)."},
+    {.name = 0xD9658C73, .name_text_ = "tp_net_reason_version_low", .words = "The host runs a newer THUGPRO than this game speaks."},
+    {.name = 0x3CE70459, .name_text_ = "tp_net_reason_modifications", .words = "The host doesn't allow modified scripts (THUGPRO's mods setting)."},
+    {.name = 0xCAAD4ABB, .name_text_ = "tp_net_reason_release_type", .words = "The host doesn't accept this kind of release."},
+    {.name = 0xD039C57D, .name_text_ = "tp_net_reason_player_name_dupe", .words = "A player with your name is already in this game."},
+    {.name = 0xD32BAEE3, .name_text_ = "tp_net_reason_player_name_tooshort", .words = "Your player name is too short for this host."},
+    {.name = 0xB82CAE9B, .name_text_ = "tp_net_reason_banned", .words = "You have been banned from this server."},
+    {.name = 0x1F8DF1D2, .name_text_ = "tp_net_reason_test", .words = "Connection refused (THUGPRO's test refusal)."},
 });
 
 } // namespace

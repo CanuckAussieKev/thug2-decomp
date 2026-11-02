@@ -114,7 +114,7 @@ float dead_zone(float value)
 // `object` rolled by `angle` about the world's z axis (the rotation before its matrix).
 void get_roll(objects::GameEntity* object, float angle)
 {
-    const maths::Vec4 axis = {0.0f, 0.0f, 1.0f, 1.0f};
+    const maths::Vec4 axis = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     maths::Mat4 rotation{};
     maths::build_axis_angle_matrix(rotation, axis, angle);
     maths::get_multiply(object->basis_frame_, rotation, object->basis_frame_);
@@ -328,19 +328,19 @@ void select_combo_task(ViewerTask* task)
         uint32_t script;
     };
     static const auto kCombos = std::to_array<SelectCombo>({
-        {0x10, 0xCBB91022},   // UserSelectTriangle
-        {0x80, 0xE69691FA},   // UserSelectSquare
-        {0x20, 0xFFC29C2A},   // UserSelectCircle
-        {0x800, 0x51B0E413},  // UserSelectStart
-        {0x40, 0x746D2598},   // UserSelectX
-        {0x4, 0x81D0A13C},    // UserSelectL1
-        {0x1, 0x18D9F086},    // UserSelectL2
-        {0x8, 0x55919EE3},    // UserSelectR1
-        {0x2, 0xCC98CF59},    // UserSelectR2
-        {0x1000, 0x1B0B7922}, // UserSelectUp
-        {0x4000, 0xBBC0E36A}, // UserSelectDown
-        {0x8000, 0xDD589439}, // UserSelectLeft
-        {0x2000, 0x7A03C488}, // UserSelectRight
+        {.button = 0x10, .script = 0xCBB91022},   // UserSelectTriangle
+        {.button = 0x80, .script = 0xE69691FA},   // UserSelectSquare
+        {.button = 0x20, .script = 0xFFC29C2A},   // UserSelectCircle
+        {.button = 0x800, .script = 0x51B0E413},  // UserSelectStart
+        {.button = 0x40, .script = 0x746D2598},   // UserSelectX
+        {.button = 0x4, .script = 0x81D0A13C},    // UserSelectL1
+        {.button = 0x1, .script = 0x18D9F086},    // UserSelectL2
+        {.button = 0x8, .script = 0x55919EE3},    // UserSelectR1
+        {.button = 0x2, .script = 0xCC98CF59},    // UserSelectR2
+        {.button = 0x1000, .script = 0x1B0B7922}, // UserSelectUp
+        {.button = 0x4000, .script = 0xBBC0E36A}, // UserSelectDown
+        {.button = 0x8000, .script = 0xDD589439}, // UserSelectLeft
+        {.button = 0x2000, .script = 0x7A03C488}, // UserSelectRight
     });
     const uint32_t makes = viewer->shift_makes_;
     for (const auto& combo : kCombos) {
@@ -400,10 +400,10 @@ bool Viewer::place_camera(script::Struct* params)
     if (!camera)
         return true;
     maths::Mat4 identity{};
-    core::at(identity.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(identity.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(identity.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(identity.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(identity.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(identity.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(identity.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(identity.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     camera->basis_frame_ = identity;
     script::VectorValue at{};
     float x = 0.0f, y = 0.0f, z = 0.0f;
@@ -444,7 +444,7 @@ void free_camera_task(ViewerTask* task)
         if (viewer->mode_sel_ == 0) {
             if (viewer->pad_ly_ != 0.0f) {
                 // Up / down: about its own x axis.
-                const maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
+                const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly_ * seconds * kDegrees);
                 camera->basis_frame_.turn_in_own_frame(axis, angle);
@@ -464,20 +464,20 @@ void free_camera_task(ViewerTask* task)
         }
         if (viewer->pad_rx_ != 0.0f || viewer->pad_ry_ != 0.0f) {
             const double step = static_cast<double>(movement_velocity()) * seconds;
-            const maths::Vec4 offset = {static_cast<float>(step * viewer->pad_rx_), 0.0f,
-                                        static_cast<float>(step * viewer->pad_ry_), 1.0f};
+            const maths::Vec4 offset = {.x = static_cast<float>(step * viewer->pad_rx_), .y = 0.0f,
+                                        .z = static_cast<float>(step * viewer->pad_ry_), .w = 1.0f};
             move_object_local(camera, &offset);
         }
     }
     // (from here on the original doesn't check for the camera object)
     if (viewer->actions_ & Viewer::kCommandShoulderA) {
-        const maths::Vec4 offset = {0.0f, static_cast<float>(static_cast<double>(movement_velocity()) * seconds), 0.0f,
-                                    1.0f};
+        const maths::Vec4 offset = {.x = 0.0f, .y = static_cast<float>(static_cast<double>(movement_velocity()) * seconds), .z = 0.0f,
+                                    .w = 1.0f};
         move_object_local(camera, &offset);
     }
     if (viewer->actions_ & Viewer::kCommandShoulderB) {
-        const maths::Vec4 offset = {0.0f, static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)),
-                                    0.0f, 1.0f};
+        const maths::Vec4 offset = {.x = 0.0f, .y = static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)),
+                                    .z = 0.0f, .w = 1.0f};
         move_object_local(camera, &offset);
     }
     if (!script::fetch_int_value(kNoRoll)) {

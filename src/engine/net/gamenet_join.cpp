@@ -244,87 +244,87 @@ struct HandlerEntry {
     int priority;
 };
 constexpr auto kClientHandlers = std::to_array<HandlerEntry>({
-    {0x42, &online::handle_ready_to_play, kRunWhenLate, true, kMidPriority},  // proceed to play
-    {0x4D, &online::on_spectate_msg, kRunWhenLate, true, kMidPriority},       // observe proceed
-    {0x4E, &online::handle_observers_full, kRunWhenLate, true, kMidPriority}, // observe refused
-    {kMsgJoinRefused, &Hub::on_turned_away_msg, kRunWhenLate, true, kMidPriority},
-    {kMsgJoinProceed, &Hub::on_go_ahead_msg, kRunWhenLate, true, kMidPriority},
-    {0x25, &online::on_ready_ask_msg, kRunWhenLate, true, kMidPriority},          // ready query
-    {0x26, &online::on_ready_reply_msg, kRunWhenLate, true, kMidPriority},        // ready response
-    {0x53, &online::on_admitted_msg, kRunWhenLate, true, kMidPriority},           // player info ack request
-    {0x58, &online::handle_crown_spawn, 0, true, kMidPriority},                   // the king dropped the crown
-    {0x75, &online::handle_flag_returned, 0, true, kMidPriority},                 // a player dropped a flag
-    {0x3F, &online::on_hud_notice_msg, kRunWhenLate, true, kMidPriority},         // panel message
-    {0x5E, &online::handle_auto_server_notice, kRunWhenLate, true, kMidPriority}, // auto server notification
-    {0x5F, &online::handle_fcfs_notice, kRunWhenLate, true, kMidPriority},        // first-come-first-served assignment
-    {0x68, &online::handle_joined_team, kRunWhenLate, true, kMidPriority},        // team change
-    {0x69, &online::handle_choose_team, kRunWhenLate, true, kMidPriority},        // number of teams
-    {0x4C, &online::on_chat_msg, kRunWhenLate, false, kMidPriority},              // chat
-    {0x7C, &online::handle_cd_key_challenge, kRunWhenLate, true, kMidPriority},   // challenge
+    {.id = 0x42, .code = &online::handle_ready_to_play, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},  // proceed to play
+    {.id = 0x4D, .code = &online::on_spectate_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},       // observe proceed
+    {.id = 0x4E, .code = &online::handle_observers_full, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // observe refused
+    {.id = kMsgJoinRefused, .code = &Hub::on_turned_away_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = kMsgJoinProceed, .code = &Hub::on_go_ahead_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = 0x25, .code = &online::on_ready_ask_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},          // ready query
+    {.id = 0x26, .code = &online::on_ready_reply_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // ready response
+    {.id = 0x53, .code = &online::on_admitted_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},           // player info ack request
+    {.id = 0x58, .code = &online::handle_crown_spawn, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                   // the king dropped the crown
+    {.id = 0x75, .code = &online::handle_flag_returned, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                 // a player dropped a flag
+    {.id = 0x3F, .code = &online::on_hud_notice_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},         // panel message
+    {.id = 0x5E, .code = &online::handle_auto_server_notice, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // auto server notification
+    {.id = 0x5F, .code = &online::handle_fcfs_notice, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // first-come-first-served assignment
+    {.id = 0x68, .code = &online::handle_joined_team, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // team change
+    {.id = 0x69, .code = &online::handle_choose_team, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // number of teams
+    {.id = 0x4C, .code = &online::on_chat_msg, .flags = kRunWhenLate, .manager_data_ = false, .priority = kMidPriority},              // chat
+    {.id = 0x7C, .code = &online::handle_cd_key_challenge, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},   // challenge
 });
 constexpr auto kGameClientHandlers = std::to_array<HandlerEntry>({
-    {0x6D, &online::handle_selected_goals, 0, true, kMidPriority},    // selected goals
-    {0x34, &online::handle_start_game, 0, true, kMidPriority},        // game info
-    {0x7A, &online::handle_kill_team_flags, 0, true, kMidPriority},   // kill the team flags
-    {0x6E, &online::handle_goal_completed, 0, true, kMidPriority},    // a goal beaten (relayed)
-    {0x6F, &online::handle_goal_started, 0, true, kMidPriority},      // a goal started (relayed)
-    {0x70, &online::handle_nothing, 0, true, kMidPriority},           // toggle pro set (nothing)
-    {0x46, &online::on_level_switch_msg, 0, true, kTopRank},          // change level
-    {0x46, &online::handle_nothing, 0, true, kTopRank},               // (and nothing)
-    {0x6C, &online::handle_park_map, 0, true, kTopRank},              // level data
-    {0x88, &online::handle_rails_data, kRunOnBadCrc, true, kTopRank}, // rail data
-    {0x87, &online::on_goal_sync_msg, kRunOnBadCrc, true, kTopRank},  // goals data
-    {0x80, &online::handle_checksum_request, 0, true, kMidPriority},  // cheat checksum request
+    {.id = 0x6D, .code = &online::handle_selected_goals, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // selected goals
+    {.id = 0x34, .code = &online::handle_start_game, .flags = 0, .manager_data_ = true, .priority = kMidPriority},        // game info
+    {.id = 0x7A, .code = &online::handle_kill_team_flags, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // kill the team flags
+    {.id = 0x6E, .code = &online::handle_goal_completed, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // a goal beaten (relayed)
+    {.id = 0x6F, .code = &online::handle_goal_started, .flags = 0, .manager_data_ = true, .priority = kMidPriority},      // a goal started (relayed)
+    {.id = 0x70, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kMidPriority},           // toggle pro set (nothing)
+    {.id = 0x46, .code = &online::on_level_switch_msg, .flags = 0, .manager_data_ = true, .priority = kTopRank},          // change level
+    {.id = 0x46, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kTopRank},               // (and nothing)
+    {.id = 0x6C, .code = &online::handle_park_map, .flags = 0, .manager_data_ = true, .priority = kTopRank},              // level data
+    {.id = 0x88, .code = &online::handle_rails_data, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank}, // rail data
+    {.id = 0x87, .code = &online::on_goal_sync_msg, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank},  // goals data
+    {.id = 0x80, .code = &online::handle_checksum_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // cheat checksum request
 });
 constexpr auto kRemoteGameClientHandlers = std::to_array<HandlerEntry>({
-    {0x22, &online::on_player_added_msg, 0, true, kMidPriority},    // player create
-    {0x79, &online::handle_flush_important, 0, true, kMidPriority}, // join accepted
+    {.id = 0x22, .code = &online::on_player_added_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // player create
+    {.id = 0x79, .code = &online::handle_flush_important, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // join accepted
 });
 constexpr auto kGameClientHandlers2 = std::to_array<HandlerEntry>({
-    {0x7B, &online::handle_keep_alive, 0, true, kMidPriority},    // wait n seconds
-    {0x55, &online::on_crown_change_msg, 0, true, kMidPriority},  // new king
-    {0x72, &online::on_flag_scored_msg, 0, true, kMidPriority},   // captured flag
-    {0x74, &online::on_flag_swiped_msg, 0, true, kMidPriority},   // stole flag
-    {0x71, &online::on_flag_grabbed_msg, 0, true, kMidPriority},  // took flag
-    {0x73, &online::on_flag_returned_msg, 0, true, kMidPriority}, // retrieved flag
-    {0x5A, &online::on_match_end_msg, 0, true, kMidPriority},     // game over
-    {0x6A, &online::handle_game_ended, 0, true, kMidPriority},    // end game
-    {0x23, &online::handle_object_update_length, kRunForForeign | kRunWhenLate, true,
-     kTopRank},                                                // object updates (their length)
-    {0x8D, &online::handle_eliminated, 0, true, kMidPriority}, // a skater eliminated
-    {0x8E, &online::handle_eliminated, 0, true, kMidPriority},
+    {.id = 0x7B, .code = &online::handle_keep_alive, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // wait n seconds
+    {.id = 0x55, .code = &online::on_crown_change_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // new king
+    {.id = 0x72, .code = &online::on_flag_scored_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // captured flag
+    {.id = 0x74, .code = &online::on_flag_swiped_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // stole flag
+    {.id = 0x71, .code = &online::on_flag_grabbed_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // took flag
+    {.id = 0x73, .code = &online::on_flag_returned_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // retrieved flag
+    {.id = 0x5A, .code = &online::on_match_end_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},     // game over
+    {.id = 0x6A, .code = &online::handle_game_ended, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // end game
+    {.id = 0x23, .code = &online::handle_object_update_length, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true,
+     .priority = kTopRank},                                                // object updates (their length)
+    {.id = 0x8D, .code = &online::handle_eliminated, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // a skater eliminated
+    {.id = 0x8E, .code = &online::handle_eliminated, .flags = 0, .manager_data_ = true, .priority = kMidPriority},
 });
 // The server's lobby handlers (0x0053C380; taken out once the game starts).
 constexpr auto kServerHandlers = std::to_array<HandlerEntry>({
-    {kMsgConnectionRequest, &Hub::on_link_established, kRunForForeign | kRunWhenLate, true, kBottomRank},
-    {0x90, &online::handle_team_object, 0, true, kTopRank}, // a scavenger-hunt object picked up
-    {kMsgJoinRequest, &Hub::on_admission_ask_msg, kRunWhenLate, true, kMidPriority},
-    {0x11, &online::on_server_query_msg, kRunForForeign | kRunWhenLate, true, kMidPriority}, // find server
-    {0x0B, &online::on_peer_left_msg, kRunWhenLate, true, kMidPriority},                     // disconnection request
-    {0x4A, &online::handle_observe_request, kRunWhenLate, true, kMidPriority},               // observe
-    {0x26, &online::on_ready_reply_msg, kRunWhenLate, true, kMidPriority},                   // ready response
-    {0x54, &online::handle_send_game_state, 0, true, kMidPriority},                          // player info ack
-    {0x57, &online::handle_drop_carried, 0, true, kMidPriority},                             // moved to a restart
-    {0x59, &online::handle_game_ended_report, 0, true, kMidPriority},                        // the run ended
-    {0x60, &online::handle_host_options, kRunWhenLate, true,
-     kMidPriority}, // first-come-first-served requests: start game,
-    {0x61, &online::handle_host_options, kRunWhenLate, true,
-     kMidPriority}, // ban player, change level, toggle pro set, goal
-    {0x62, &online::handle_host_options, kRunWhenLate, true, kMidPriority}, // selection, end game, number of teams
-    {0x63, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
-    {0x64, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
-    {0x65, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
-    {0x66, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
-    {0x67, &online::on_switch_squad_msg, kRunWhenLate, true, kMidPriority},          // team change request
-    {0x6B, &online::handle_request_game_data, kRunWhenLate, true, kMidPriority},     // level request
-    {0x6E, &online::handle_goal_completed_report, kRunWhenLate, true, kMidPriority}, // a goal beaten
-    {0x6F, &online::handle_goal_started_report, kRunWhenLate, true, kMidPriority},   // a goal started
-    {0x6C, &online::handle_park_map, 0, true, kTopRank},                             // level data
-    {0x88, &online::handle_rails_data, 0, true, kTopRank},                           // rail data
-    {0x7D, &online::handle_cd_key_answer, 0, true, kMidPriority},                    // challenge response
-    {0x81, &online::handle_checksum_response, 0, true, kMidPriority},                // cheat checksum response
-    {0x8B, &online::handle_created_data_request, 0, true, kMidPriority},             // rails / goals data requests
-    {0x8A, &online::handle_created_data_request, 0, true, kMidPriority},
+    {.id = kMsgConnectionRequest, .code = &Hub::on_link_established, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kBottomRank},
+    {.id = 0x90, .code = &online::handle_team_object, .flags = 0, .manager_data_ = true, .priority = kTopRank}, // a scavenger-hunt object picked up
+    {.id = kMsgJoinRequest, .code = &Hub::on_admission_ask_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = 0x11, .code = &online::on_server_query_msg, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // find server
+    {.id = 0x0B, .code = &online::on_peer_left_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},                     // disconnection request
+    {.id = 0x4A, .code = &online::handle_observe_request, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},               // observe
+    {.id = 0x26, .code = &online::on_ready_reply_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},                   // ready response
+    {.id = 0x54, .code = &online::handle_send_game_state, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                          // player info ack
+    {.id = 0x57, .code = &online::handle_drop_carried, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                             // moved to a restart
+    {.id = 0x59, .code = &online::handle_game_ended_report, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                        // the run ended
+    {.id = 0x60, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true,
+     .priority = kMidPriority}, // first-come-first-served requests: start game,
+    {.id = 0x61, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true,
+     .priority = kMidPriority}, // ban player, change level, toggle pro set, goal
+    {.id = 0x62, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // selection, end game, number of teams
+    {.id = 0x63, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = 0x64, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = 0x65, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = 0x66, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = 0x67, .code = &online::on_switch_squad_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},          // team change request
+    {.id = 0x6B, .code = &online::handle_request_game_data, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},     // level request
+    {.id = 0x6E, .code = &online::handle_goal_completed_report, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // a goal beaten
+    {.id = 0x6F, .code = &online::handle_goal_started_report, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},   // a goal started
+    {.id = 0x6C, .code = &online::handle_park_map, .flags = 0, .manager_data_ = true, .priority = kTopRank},                             // level data
+    {.id = 0x88, .code = &online::handle_rails_data, .flags = 0, .manager_data_ = true, .priority = kTopRank},                           // rail data
+    {.id = 0x7D, .code = &online::handle_cd_key_answer, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                    // challenge response
+    {.id = 0x81, .code = &online::handle_checksum_response, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                // cheat checksum response
+    {.id = 0x8B, .code = &online::handle_created_data_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},             // rails / goals data requests
+    {.id = 0x8A, .code = &online::handle_created_data_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},
 });
 
 template <size_t N>

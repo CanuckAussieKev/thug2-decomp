@@ -134,14 +134,14 @@ struct ProSetPrefixes {
     const char* trg_not_;
 };
 constexpr std::array<ProSetPrefixes, 8> kProSets = {{
-    {"Proset1", "TRG_Proset1", nullptr, "PROSET1NOT", "TRG_PROSET1NOT"},
-    {"Proset2", "TRG_Proset2", nullptr, "PROSET2NOT", "TRG_PROSET2NOT"},
-    {"Proset3", "TRG_Proset3", nullptr, "PROSET3NOT", "TRG_PROSET3NOT"},
-    {"Proset4", "TRG_Proset4", nullptr, "PROSET4NOT", "TRG_PROSET4NOT"},
-    {"Proset5", "TRG_Proset5", nullptr, "PROSET5NOT", "TRG_PROSET5NOT"},
-    {"Proset6", "TRG_Proset6", nullptr, "PROSET6NOT", "TRG_PROSET6NOT"},
-    {"Proset7", "TRG_Proset7", nullptr, "PROSET7NOT", "TRG_PROSET7NOT"},
-    {"G_COMP", "TRG_G_COMP", "TRG_COMP", "G_COMPNOT", "TRG_G_COMPNOT"},
+    {.geo = "Proset1", .trg = "TRG_Proset1", .trg2 = nullptr, .geo_not_ = "PROSET1NOT", .trg_not_ = "TRG_PROSET1NOT"},
+    {.geo = "Proset2", .trg = "TRG_Proset2", .trg2 = nullptr, .geo_not_ = "PROSET2NOT", .trg_not_ = "TRG_PROSET2NOT"},
+    {.geo = "Proset3", .trg = "TRG_Proset3", .trg2 = nullptr, .geo_not_ = "PROSET3NOT", .trg_not_ = "TRG_PROSET3NOT"},
+    {.geo = "Proset4", .trg = "TRG_Proset4", .trg2 = nullptr, .geo_not_ = "PROSET4NOT", .trg_not_ = "TRG_PROSET4NOT"},
+    {.geo = "Proset5", .trg = "TRG_Proset5", .trg2 = nullptr, .geo_not_ = "PROSET5NOT", .trg_not_ = "TRG_PROSET5NOT"},
+    {.geo = "Proset6", .trg = "TRG_Proset6", .trg2 = nullptr, .geo_not_ = "PROSET6NOT", .trg_not_ = "TRG_PROSET6NOT"},
+    {.geo = "Proset7", .trg = "TRG_Proset7", .trg2 = nullptr, .geo_not_ = "PROSET7NOT", .trg_not_ = "TRG_PROSET7NOT"},
+    {.geo = "G_COMP", .trg = "TRG_G_COMP", .trg2 = "TRG_COMP", .geo_not_ = "G_COMPNOT", .trg_not_ = "TRG_G_COMPNOT"},
 }};
 
 } // namespace
@@ -423,7 +423,7 @@ const char* current_level_prefix()
 struct Session {
     bool have = false;    // server info (or an update) received
     bool applied = false; // applied since the level's last load
-    HostListing info = {gfx::kAfternoon, kWeatherDefault, 0};
+    HostListing info = {.time_of_day_ = gfx::kAfternoon, .weather = kWeatherDefault, .flags = 0};
     uint32_t level = 0; // the network level (load script) and the skater it was applied with
     void* skater = nullptr;
     int settle = 0; // frames the level has been up
@@ -655,7 +655,7 @@ void tick_frame()
 
 HostListing host_server_info()
 {
-    HostListing info = {gfx::kAfternoon, g_host.weather, make_flags(g_host.level_options_, g_host.pro_sets_)};
+    HostListing info = {.time_of_day_ = gfx::kAfternoon, .weather = g_host.weather, .flags = make_flags(g_host.level_options_, g_host.pro_sets_)};
     if (const gfx::CtodManager* manager = gfx::tod_manager()) {
         const uint32_t state = manager->current_state();
         if (is_time_of_day(state))

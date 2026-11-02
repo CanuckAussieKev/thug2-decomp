@@ -473,7 +473,7 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
         uint32_t param;
         uint8_t bit;
         std::array<uint8_t, 3> pad; // (the original's stack)
-    } message = {param, bit, {0, 0, 0}};
+    } message = {.param = param, .bit = bit, .pad = {0, 0, 0}};
     script_flag_bits_ ^= 1u << (bit & 31);
     desc.byte_count_ = sizeof(message);
     desc.group_id_ = kGroupGame;
@@ -809,9 +809,9 @@ void carried_flags_task(tasks::Task<Hub>*)
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};
         d_3d_x_matrix_multiply(matrix, &maths::make_pitch_matrix(turn, kQuarterTurn), matrix);
-        matrix->offset_local(maths::Vec4{0.0f, 12.0f, 0.0f, 0.0f}); // (moved along its own axes)
+        matrix->offset_local(maths::Vec4{.x = 0.0f, .y = 12.0f, .z = 0.0f, .w = 0.0f}); // (moved along its own axes)
         const maths::Vec4 offset = core::at(matrix->row, 3);                  // its translation row, taken out
-        core::at(matrix->row, 3) = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
+        core::at(matrix->row, 3) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const maths::Mat4* skater_matrix = &skater->basis_frame_;
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
         maths::Vec4 moved{};

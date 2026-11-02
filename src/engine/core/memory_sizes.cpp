@@ -11,14 +11,14 @@ namespace memory::sizes {
 
 namespace {
 
-constexpr Pools kOriginal = {300, 86000, 19800, 9500, 800, 7000, 12500, 300, 100, 190000, 7000, 10000};
+constexpr Pools kOriginal = {.script_cache_entries_ = 300, .components = 86000, .structs = 19800, .vectors = 9500, .pairs = 800, .arrays = 7000, .symbols = 12500, .scripts = 300, .stored_randoms_ = 100, .string_bytes_ = 190000, .strings = 7000, .hash_items_ = 10000};
 // THUGPRO's shipped thugpro.dll: the CreateScriptPools pushes 0x0046F559... 0x0046F667 and Main's HashItem push
 // 0x004E211B (CStoredRandom untouched).
-constexpr Pools kThugpro = {1200, 184000, 49600, 19000, 1600, 16000, 45000, 1200, 100, 0x100000, 28000, 40000};
+constexpr Pools kThugpro = {.script_cache_entries_ = 1200, .components = 184000, .structs = 49600, .vectors = 19000, .pairs = 1600, .arrays = 16000, .symbols = 45000, .scripts = 1200, .stored_randoms_ = 100, .string_bytes_ = 0x100000, .strings = 28000, .hash_items_ = 40000};
 // Ours: THUGPRO's, the CComponent / CStruct / CVector / CArray / HashItem pools bigger - THP8's whole town
 // (thug2-thp8-level-converter/thp8_levels, ~34,000 nodes) took 284,043 / 43,362 / 37,294 / 19,691 / 39,923 at its peak (THUGPRO's: 184,000 /
 // 49,600 / 19,000 / 16,000 / 40,000); a quarter or more as headroom. They cost ~3.7 MB more of the main block.
-constexpr Pools kDefaults = {1200, 360000, 64000, 48000, 1600, 26000, 45000, 1200, 100, 0x100000, 28000, 56000};
+constexpr Pools kDefaults = {.script_cache_entries_ = 1200, .components = 360000, .structs = 64000, .vectors = 48000, .pairs = 1600, .arrays = 26000, .symbols = 45000, .scripts = 1200, .stored_randoms_ = 100, .string_bytes_ = 0x100000, .strings = 28000, .hash_items_ = 56000};
 
 constexpr uint32_t kOriginalScriptRegion = 0x434770;
 constexpr uint32_t kOriginalMainBlock = 0x4000000; // 64 MB

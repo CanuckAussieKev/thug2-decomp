@@ -35,8 +35,8 @@ public:
 };
 
 // Quaternions kept as a Vec4 (x, y, z, w) - the objects' and nodes' orientations - turned into and from one.
-inline QuatRotation quat_of(const Vec4& v) { return {v.x, v.y, v.z, v.w}; }
-inline Vec4 vec4_of(const QuatRotation& q) { return {q.x, q.y, q.z, q.w}; }
+inline QuatRotation quat_of(const Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
+inline Vec4 vec4_of(const QuatRotation& q) { return {.x = q.x, .y = q.y, .z = q.z, .w = q.w}; }
 // fetch_mat / from_matrix / make_unit / *= on a quaternion kept as a Vec4.
 inline void quat_to_matrix(const Vec4& quat, Mat4* matrix) { quat_of(quat).fetch_mat(matrix); }
 inline Vec4 quat_from_matrix(const Mat4& matrix)

@@ -54,19 +54,19 @@ consteval ArgType classify()
     if constexpr (std::is_enum_v<Value>)
         return classify<std::underlying_type_t<Value>>();
     else if constexpr (std::is_same_v<Value, bool>)
-        return {ArgKind::kSigned, sizeof(int)};
+        return {.kind = ArgKind::kSigned, .size = sizeof(int)};
     else if constexpr (std::is_integral_v<Value>)
         return {std::is_signed_v<Value> ? ArgKind::kSigned : ArgKind::kUnsigned, sizeof(Value)};
     else if constexpr (std::is_floating_point_v<Value>)
-        return {ArgKind::kFloat, sizeof(Value)};
+        return {.kind = ArgKind::kFloat, .size = sizeof(Value)};
     else if constexpr (std::is_null_pointer_v<Value>)
-        return {ArgKind::kNull, sizeof(void*)};
+        return {.kind = ArgKind::kNull, .size = sizeof(void*)};
     else if constexpr (std::is_pointer_v<Value> && std::is_same_v<Bare<Value>, char>)
-        return {ArgKind::kText, sizeof(void*)};
+        return {.kind = ArgKind::kText, .size = sizeof(void*)};
     else if constexpr (std::is_pointer_v<Value> && std::is_same_v<Bare<Value>, wchar_t>)
-        return {ArgKind::kWideText, sizeof(void*)};
+        return {.kind = ArgKind::kWideText, .size = sizeof(void*)};
     else if constexpr (std::is_pointer_v<Value> && !std::is_function_v<std::remove_pointer_t<Value>>)
-        return {ArgKind::kPointer, sizeof(void*)};
+        return {.kind = ArgKind::kPointer, .size = sizeof(void*)};
     else
         return {};
 }

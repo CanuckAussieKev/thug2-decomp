@@ -91,8 +91,8 @@ Conn::Conn(int flags)
 
     flag_bits_ = static_cast<uint32_t>(flags);
     cur_standing_ = kConnReady;
-    incoming_ = {{static_cast<uint8_t*>(memory::alloc(kRecvChunkBytes)), kRecvChunkBytes}, 0};
-    outgoing_ = {{static_cast<uint8_t*>(memory::alloc(kWriteBufferSize)), kWriteBufferSize}, 0};
+    incoming_ = {.bytes = {static_cast<uint8_t*>(memory::alloc(kRecvChunkBytes)), kRecvChunkBytes}, .used = 0};
+    outgoing_ = {.bytes = {static_cast<uint8_t*>(memory::alloc(kWriteBufferSize)), kWriteBufferSize}, .used = 0};
     tx_spacing_ms_ = 0;
     last_transmit_at_ = 0;
     send_now_ = false;

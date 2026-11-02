@@ -108,9 +108,9 @@ void tick_frame(modules::FrontEnd* front_end)
     const platform::KeyState keys = platform::keyboard_keys();
     if (keys.empty())
         return;
-    static Key f9{SDL_SCANCODE_F9, false}, f10{SDL_SCANCODE_F10, false}, f11{SDL_SCANCODE_F11, false},
-        f12{SDL_SCANCODE_F12, false}, tab{SDL_SCANCODE_TAB, false}, t{SDL_SCANCODE_T, false},
-        home{SDL_SCANCODE_HOME, false};
+    static Key f9{.code = SDL_SCANCODE_F9, .was_down_ = false}, f10{.code = SDL_SCANCODE_F10, .was_down_ = false}, f11{.code = SDL_SCANCODE_F11, .was_down_ = false},
+        f12{.code = SDL_SCANCODE_F12, .was_down_ = false}, tab{.code = SDL_SCANCODE_TAB, .was_down_ = false}, t{.code = SDL_SCANCODE_T, .was_down_ = false},
+        home{.code = SDL_SCANCODE_HOME, .was_down_ = false};
     // (every key's state noted each frame, so a press counts once wherever it happened)
     const bool pressed_f9 = f9.squeezed(keys);
     const bool pressed_f10 = f10.squeezed(keys);

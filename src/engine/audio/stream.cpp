@@ -278,7 +278,7 @@ void init_platform()
                 debug::printf("pcm.dat: stream %08x outside pcm.wad, dropped\n", entry.checksum);
                 continue;
             }
-            core::at(table, wad_entry_count()++) = WadEntry{entry.checksum, entry.offset, entry.size};
+            core::at(table, wad_entry_count()++) = WadEntry{.checksum = entry.checksum, .offset = entry.offset, .size = entry.size};
         }
     }
     // Sorted by checksum for find_wad_entry (an exchange sort).

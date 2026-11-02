@@ -66,7 +66,7 @@ bool AssetBundle::get_split(int /*unused*/, int size)
         return false;
     num_ = count;
     for (int i = 0; i < num_; ++i)
-        core::at(entries_, i) = {core::at(table, i).offset, core::at(table, i).size, core::at(table, i).name, core::at(table, i).type};
+        core::at(entries_, i) = {.offset = core::at(table, i).offset, .size = core::at(table, i).size, .name = core::at(table, i).name, .type = core::at(table, i).type};
 
     const std::span<uint8_t> file_bytes(loaded_data_, size > 0 ? static_cast<size_t>(size) : 0);
     for (int i = 0; i < num_; ++i)
