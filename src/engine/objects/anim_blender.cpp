@@ -7,7 +7,9 @@
 #include <cstring>
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/anim_blend.h"

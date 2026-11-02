@@ -7,7 +7,9 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
+#include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/compositemgr.h"

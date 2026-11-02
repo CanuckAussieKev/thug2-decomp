@@ -6,16 +6,19 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/gfx/anim_controller.h"
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/cutscene.h"
+#include "engine/objects/movie_manager.h"
 #include "engine/objects/node_objects.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"

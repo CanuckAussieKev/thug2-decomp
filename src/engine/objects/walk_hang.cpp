@@ -23,6 +23,7 @@
 #include "engine/objects/ride_tracker.h"
 #include "engine/objects/smtptr.h"
 #include "engine/objects/trigger_component.h"
+#include "engine/script/member_code.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/walk_camera.h"

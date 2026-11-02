@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

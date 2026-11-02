@@ -3,6 +3,7 @@
 
 #include "engine/objects/node_objects.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 

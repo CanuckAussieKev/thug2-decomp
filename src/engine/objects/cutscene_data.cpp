@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"

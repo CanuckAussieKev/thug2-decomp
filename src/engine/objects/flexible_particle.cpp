@@ -12,7 +12,9 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/maths/mat4.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/objects/entity.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"

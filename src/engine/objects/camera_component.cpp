@@ -16,6 +16,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include <gsl/pointers>
+#include <memory>
 
 namespace objects {
 

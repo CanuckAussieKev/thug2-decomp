@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/objects/vehicle_component.h"
+#include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/pointer_cell.h"

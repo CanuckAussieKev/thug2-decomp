@@ -10,6 +10,8 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/lists/chain_start.h"
+#include "engine/objects/signal.h"
+#include "engine/objects/tracker.h"
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/entity.h"

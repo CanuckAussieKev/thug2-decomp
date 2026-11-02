@@ -5,6 +5,7 @@
 // it stores to memory a float - each value is rounded where the original rounds it, and sums keep its grouping.
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 

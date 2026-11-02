@@ -11,6 +11,7 @@
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/rig.h"
+#include "engine/maths/mat4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"

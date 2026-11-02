@@ -9,6 +9,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/motion_path.h"
 #include "engine/objects/entity.h"

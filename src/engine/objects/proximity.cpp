@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/sector.h"
+#include "engine/maths/shape_tests.h"
 #include "engine/render/coll_obj.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/compositemgr.h"

@@ -3,12 +3,16 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/objects/proximity_component.h"
 
 #include "engine/maths/shape_tests.h"
+#include "engine/maths/vec4.h"
+#include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
 #include "engine/script/cscript.h"
+#include "engine/script/member_code.h"
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"

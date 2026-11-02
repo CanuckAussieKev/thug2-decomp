@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <span>
 #include <array>
@@ -16,6 +17,10 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/lists/key_map.h"
+#include "engine/maths/vec4.h"
+#include "engine/objects/signal.h"
+#include "engine/objects/smtptr.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"

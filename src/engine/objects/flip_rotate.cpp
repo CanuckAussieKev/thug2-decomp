@@ -10,6 +10,7 @@
 
 #include "engine/core/manager.h"
 #include "engine/maths/quat_rotation.h"
+#include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/vehicle_component.h"
 #include "engine/script/param_struct.h"

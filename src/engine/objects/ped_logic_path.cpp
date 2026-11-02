@@ -13,6 +13,7 @@
 #include "engine/maths/random.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/anim_blender.h"
+#include "engine/objects/entity.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/path_manager.h"
 #include "engine/objects/ped_logic.h"

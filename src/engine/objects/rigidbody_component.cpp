@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <new>
+#include <optional>
 #include <span>
 #include <utility>
 #include <gsl/pointers>
@@ -14,6 +15,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
+#include "engine/maths/quat_rotation.h"
 #include "engine/maths/random.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/smtptr.h"

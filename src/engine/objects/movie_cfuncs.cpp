@@ -7,6 +7,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/objects/movie_manager.h"

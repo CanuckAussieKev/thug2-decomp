@@ -5,6 +5,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include <gsl/pointers>
 

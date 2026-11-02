@@ -7,7 +7,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <span>
 
+#include "engine/core/arena_alloc.h"
+#include "engine/objects/smtptr.h"
 #include "game/rider/rider.h"
 #include "platform/d3dx.h"
 #include "engine/core/manager.h"

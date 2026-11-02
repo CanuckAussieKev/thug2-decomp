@@ -9,6 +9,8 @@
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/task_list.h"
+#include "engine/objects/control_pad.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"

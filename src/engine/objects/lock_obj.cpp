@@ -10,6 +10,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/random.h"
 #include "engine/objects/compositemgr.h"
+#include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"

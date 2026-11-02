@@ -9,6 +9,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/pad_input/input_hub.h"
 #include "game/rider/thaw_bmx.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"

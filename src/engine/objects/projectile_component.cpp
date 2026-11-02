@@ -2,6 +2,7 @@
 
 #include "engine/objects/projectile_component.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>

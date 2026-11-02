@@ -10,6 +10,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/objects/entity.h"
+#include "engine/objects/smtptr.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"

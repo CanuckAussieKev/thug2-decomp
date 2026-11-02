@@ -9,6 +9,7 @@
 
 #include <bit>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <span>
@@ -17,6 +18,7 @@
 #include "engine/gfx/debug_lines.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
+#include "engine/objects/entity.h"
 #include "engine/render/coll_rect.h"
 #include "engine/objects/vehicle_internal.h"
 #include "platform/game_clock.h"

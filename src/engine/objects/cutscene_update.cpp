@@ -4,8 +4,11 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
+#include "engine/script/cell.h"
 #include "platform/d3dx.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/boned_anim_frame_data.h"

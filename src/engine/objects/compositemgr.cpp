@@ -12,6 +12,8 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
