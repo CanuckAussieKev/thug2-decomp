@@ -1,12 +1,15 @@
 #include "engine/util/lzss.h"
 
 #include <cstdint>
+#include <algorithm>
 #include <cstring>
+#include <span>
 #include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 
 namespace lzss {
 
@@ -17,11 +20,10 @@ constexpr int kF = 18;              // longest match
 constexpr int kLiteralRunLimit = 2; // matches this short or shorter are stored as literals
 constexpr int kNil = kN;            // "no node" in the search tree
 
-std::array<uint8_t, 4096> g_decode_window;
-int* g_tree_parent;
-int* g_tree_right;
-int* g_tree_left;
-uint8_t* g_window;
+std::span<int> g_tree_parent;
+std::span<int> g_tree_right;
+std::span<int> g_tree_left;
+std::span<uint8_t> g_window;
 int g_longest_run;
 int g_dict_hit_offset;
 uint32_t g_bytes_in;
@@ -29,25 +31,29 @@ uint32_t g_bytes_out;
 uint32_t g_emit_counter;
 
 // Encoder state, kept in the exe's globals.
-uint8_t*& pane() { return g_window; }            // N + F - 1 bytes
-int*& get_left() { return g_tree_left; }         // N + 1 entries
-int*& get_right() { return g_tree_right; }       // N + 257 entries (256 tree roots)
-int*& current_parent() { return g_tree_parent; } // N + 1 entries
+std::span<uint8_t>& pane() { return g_window; }            // N + F - 1 bytes
+std::span<int>& get_left() { return g_tree_left; }         // N + 1 entries
+std::span<int>& get_right() { return g_tree_right; }       // N + 257 entries (256 tree roots)
+std::span<int>& current_parent() { return g_tree_parent; } // N + 1 entries
 int& longest_run_ref() { return g_longest_run; }
 int& window_match_offset() { return g_dict_hit_offset; }
 uint32_t& bytes_in() { return g_bytes_in; }
 uint32_t& bytes_out() { return g_bytes_out; }
 uint32_t& emit_counter() { return g_emit_counter; }
 
-// The decoder's window is a fixed array in the exe.
-uint8_t* decode_window() { return g_decode_window.data(); }
-
 void free_tree()
 {
-    memory::dealloc(current_parent());
-    memory::dealloc(get_right());
-    memory::dealloc(get_left());
-    memory::dealloc(pane());
+    memory::dealloc(current_parent().data());
+    memory::dealloc(get_right().data());
+    memory::dealloc(get_left().data());
+    memory::dealloc(pane().data());
+}
+
+// `count` elements of the heap's memory.
+template <typename T>
+std::span<T> allocate_run(std::size_t count)
+{
+    return {static_cast<T*>(memory::alloc(count * sizeof(T))), count};
 }
 
 } // namespace
@@ -56,52 +62,52 @@ void free_tree()
 void reset_match_tree()
 {
     memory::enter_heap_scope(memory::top_down_heap());
-    pane() = static_cast<uint8_t*>(memory::alloc(kN + kF - 1));
-    get_left() = static_cast<int*>(memory::alloc((kN + 1) * sizeof(int)));
-    get_right() = static_cast<int*>(memory::alloc((kN + 257) * sizeof(int)));
-    current_parent() = static_cast<int*>(memory::alloc((kN + 1) * sizeof(int)));
+    pane() = allocate_run<uint8_t>(kN + kF - 1);
+    get_left() = allocate_run<int>(kN + 1);
+    get_right() = allocate_run<int>(kN + 257);
+    current_parent() = allocate_run<int>(kN + 1);
     memory::leave_heap_scope();
 
     for (int i = kN + 1; i <= kN + 256; ++i)
-        get_right()[i] = kNil; // tree roots, one per first byte
+        core::at(get_right(), i) = kNil; // tree roots, one per first byte
     for (int i = 0; i < kN; ++i)
-        current_parent()[i] = kNil;
+        core::at(current_parent(), i) = kNil;
 }
 
 // 0x00401290
 // Insert the string at window position r into the tree, and record the longest match found on the way.
 void add_match_node(int r)
 {
-    const uint8_t* window = pane();
-    int* left = get_left();
-    int* right = get_right();
-    int* parent = current_parent();
-    const uint8_t* key = &window[r];
+    const std::span<const uint8_t> window = pane();
+    const std::span<int> left = get_left();
+    const std::span<int> right = get_right();
+    const std::span<int> parent = current_parent();
+    const std::span<const uint8_t> key = window.subspan(static_cast<std::size_t>(r));
 
     int cmp = 1;
-    int p = kN + 1 + key[0];
-    right[r] = left[r] = kNil;
+    int p = kN + 1 + core::at(key, 0);
+    core::at(right, r) = core::at(left, r) = kNil;
     longest_run_ref() = 0;
     for (;;) {
         if (cmp >= 0) {
-            if (right[p] == kNil) {
-                right[p] = r;
-                parent[r] = p;
+            if (core::at(right, p) == kNil) {
+                core::at(right, p) = r;
+                core::at(parent, r) = p;
                 return;
             }
-            p = right[p];
+            p = core::at(right, p);
         } else {
-            if (left[p] == kNil) {
-                left[p] = r;
-                parent[r] = p;
+            if (core::at(left, p) == kNil) {
+                core::at(left, p) = r;
+                core::at(parent, r) = p;
                 return;
             }
-            p = left[p];
+            p = core::at(left, p);
         }
 
         int i = 1;
         for (; i < kF; ++i) {
-            cmp = key[i] - window[p + i];
+            cmp = core::at(key, i) - core::at(window, p + i);
             if (cmp != 0)
                 break;
         }
@@ -114,63 +120,66 @@ void add_match_node(int r)
     }
 
     // A full-length match: replace node p with r.
-    parent[r] = parent[p];
-    left[r] = left[p];
-    right[r] = right[p];
-    parent[left[p]] = r;
-    parent[right[p]] = r;
-    if (right[parent[p]] == p)
-        right[parent[p]] = r;
+    core::at(parent, r) = core::at(parent, p);
+    core::at(left, r) = core::at(left, p);
+    core::at(right, r) = core::at(right, p);
+    core::at(parent, core::at(left, p)) = r;
+    core::at(parent, core::at(right, p)) = r;
+    if (core::at(right, core::at(parent, p)) == p)
+        core::at(right, core::at(parent, p)) = r;
     else
-        left[parent[p]] = r;
-    parent[p] = kNil;
+        core::at(left, core::at(parent, p)) = r;
+    core::at(parent, p) = kNil;
 }
 
 // 0x004013E0
 // Remove node p from the tree.
 void unlink_list_node(int p)
 {
-    int* left = get_left();
-    int* right = get_right();
-    int* parent = current_parent();
-    if (parent[p] == kNil)
+    const std::span<int> left = get_left();
+    const std::span<int> right = get_right();
+    const std::span<int> parent = current_parent();
+    if (core::at(parent, p) == kNil)
         return;
 
     int q = 0;
-    if (right[p] == kNil) {
-        q = left[p];
-    } else if (left[p] == kNil) {
-        q = right[p];
+    if (core::at(right, p) == kNil) {
+        q = core::at(left, p);
+    } else if (core::at(left, p) == kNil) {
+        q = core::at(right, p);
     } else {
-        q = left[p];
-        if (right[q] != kNil) {
+        q = core::at(left, p);
+        if (core::at(right, q) != kNil) {
             do {
-                q = right[q];
-            } while (right[q] != kNil);
-            right[parent[q]] = left[q];
-            parent[left[q]] = parent[q];
-            left[q] = left[p];
-            parent[left[p]] = q;
+                q = core::at(right, q);
+            } while (core::at(right, q) != kNil);
+            core::at(right, core::at(parent, q)) = core::at(left, q);
+            core::at(parent, core::at(left, q)) = core::at(parent, q);
+            core::at(left, q) = core::at(left, p);
+            core::at(parent, core::at(left, p)) = q;
         }
-        right[q] = right[p];
-        parent[right[p]] = q;
+        core::at(right, q) = core::at(right, p);
+        core::at(parent, core::at(right, p)) = q;
     }
-    parent[q] = parent[p];
-    if (right[parent[p]] == p)
-        right[parent[p]] = q;
+    core::at(parent, q) = core::at(parent, p);
+    if (core::at(right, core::at(parent, p)) == p)
+        core::at(right, core::at(parent, p)) = q;
     else
-        left[parent[p]] = q;
-    parent[p] = kNil;
+        core::at(left, core::at(parent, p)) = q;
+    core::at(parent, p) = kNil;
 }
 
 // 0x00401700
-int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
+int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool print_stats)
 {
+    core::Cursor<const uint8_t> in(input);
+    core::Cursor<uint8_t> out(output);
+    int size = static_cast<int>(input.size());
     bytes_in() = 0;
     bytes_out() = 0;
     emit_counter() = 0;
     reset_match_tree();
-    uint8_t* window = pane();
+    const std::span<uint8_t> window = pane();
 
     // code[0] holds the flag bits for up to 8 items; each item takes 1 byte (literal) or 2 (reference).
     std::array<uint8_t, 17> code{};
@@ -179,11 +188,11 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     uint8_t mask = 1;
     int s = 0;
     int r = kN - kF;
-    std::memset(window, ' ', r);
+    std::fill_n(window.begin(), r, ' ');
 
     int length = 0;
     for (; length < kF && size != 0; ++length, --size)
-        window[r + length] = *in++;
+        core::at(window, r + length) = *in++;
     bytes_in() = length;
     if (length == 0) {
         free_tree();
@@ -200,7 +209,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
         if (longest_run_ref() <= kLiteralRunLimit) {
             longest_run_ref() = 1;
             core::at(code, 0) |= mask;
-            core::at(code, code_size++) = window[r];
+            core::at(code, code_size++) = core::at(window, r);
         } else {
             core::at(code, code_size++) = static_cast<uint8_t>(window_match_offset());
             core::at(code, code_size++) = static_cast<uint8_t>(((window_match_offset() >> 4) & 0xF0) |
@@ -210,7 +219,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
         const bool group_full = (mask & 0x80) != 0;
         mask = static_cast<uint8_t>(mask << 1);
         if (group_full) {
-            std::memcpy(out, code.data(), code_size);
+            std::copy_n(code.begin(), code_size, out.rest().begin());
             out += code_size;
             bytes_out() += code_size;
             core::at(code, 0) = 0;
@@ -223,9 +232,9 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
         for (; i < last_match && size != 0; ++i, --size) {
             const uint8_t c = *in++;
             unlink_list_node(s);
-            window[s] = c;
+            core::at(window, s) = c;
             if (s < kF - 1)
-                window[s + kN] = c; // mirror the start so matches can run past the end
+                core::at(window, s + kN) = c; // mirror the start so matches can run past the end
             s = (s + 1) & (kN - 1);
             r = (r + 1) & (kN - 1);
             add_match_node(r);
@@ -241,7 +250,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
     } while (length > 0);
 
     if (code_size > 1) {
-        std::memcpy(out, code.data(), code_size);
+        std::copy_n(code.begin(), code_size, out.rest().begin());
         bytes_out() += code_size;
     }
 
@@ -253,52 +262,6 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
 
     free_tree();
     return static_cast<int>(bytes_out());
-}
-
-// 0x004014F0
-// Ghidra shows this as returning nothing, but the original keeps the output pointer in EAX throughout, and
-// its callers rely on getting it back (one computes the decompressed size from it, the file loader pads the
-// data after it). Returning nothing here left garbage in EAX and corrupted memory while loading files.
-uint8_t* decode(const uint8_t* in, uint8_t* out, int size)
-{
-    uint8_t* window = decode_window();
-    std::memset(window, ' ', kN - kF);
-    int r = kN - kF;
-    unsigned int flags = 0;
-
-    for (;;) {
-        flags >>= 1;
-        if ((flags & 0x100) == 0) {
-            if (size == 0)
-                return out;
-            flags = *in++ | 0xFF00; // the high byte counts the 8 flags off
-            --size;
-        }
-        if (flags & 1) {
-            if (size == 0)
-                return out;
-            --size;
-            const uint8_t c = *in++;
-            *out++ = c;
-            window[r] = c;
-            r = (r + 1) & (kN - 1);
-        } else {
-            if (size == 0)
-                return out;
-            int position = in[0];
-            const int info = in[1];
-            in += 2;
-            size -= 2;
-            position |= (info & 0xF0) << 4;
-            const int last = (info & 0x0F) + kLiteralRunLimit;
-            for (int k = 0; k <= last; ++k) {
-                const uint8_t c = window[(position + k) & (kN - 1)];
-                *out++ = c;
-                window[r] = c;
-                r = (r + 1) & (kN - 1);
-            }
-        }
-    }
 }
 
 } // namespace lzss

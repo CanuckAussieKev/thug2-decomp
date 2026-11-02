@@ -15,7 +15,7 @@
 #include "engine/net/net_lzham.h"
 #include "wire/net_wire.h"
 #include "formats/byte_stream.h"
-#include "engine/util/lzss.h"
+#include "formats/lzss.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 
@@ -314,8 +314,12 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
-        size = static_cast<int>(lzss::decode(stream, data, stream_size) - data);
-        if (expected_size != size) {
+        // (bounded by the header's size: the stream fits it, checked above)
+        size_t unpacked = 0;
+        const bool whole = lzss::unpack(stream, static_cast<size_t>(stream_size), data,
+                                        static_cast<size_t>(expected_size), &unpacked);
+        size = static_cast<int>(unpacked);
+        if (!whole || expected_size != size) {
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }

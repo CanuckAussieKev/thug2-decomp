@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <cstring>
 
 #include "engine/core/checksums.h"
@@ -97,7 +98,7 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
     // that doesn't compress)
     const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
     auto* buffer = static_cast<uint8_t*>(memory::alloc_block(room));
-    int stored = lzss::pack_up(code, buffer, static_cast<int>(size), false);
+    int stored = lzss::pack_up(std::span<const uint8_t>(code, size), std::span<uint8_t>(buffer, room), false);
     if (stored >= ints::as_signed(size)) {
         // (no smaller: kept as it is)
         for (uint32_t i = 0; i < size; ++i)

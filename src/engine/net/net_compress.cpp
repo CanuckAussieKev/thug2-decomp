@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <cstring>
 #include <utility>
 #include <array>
@@ -164,7 +165,8 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
         compressed_size = rle_compress(message, size, compressed + 3, max_size);
         debug::printf("RLE : New payload len : %d, New size : %d\n", size, compressed_size);
     } else if (method == kMethodLzss) {
-        compressed_size = lzss::pack_up(message, compressed + 3, size, false);
+        compressed_size = lzss::pack_up(std::span<const uint8_t>(message, static_cast<size_t>(size)),
+                                         std::span<uint8_t>(compressed, static_cast<size_t>(max_size) + 3).subspan(3), false);
         debug::printf("LZSS : New payload len : %d, New size : %d\n", size, compressed_size);
     } else if (method == lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11). A stream that fails or doesn't fit counts as "no smaller".
