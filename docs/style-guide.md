@@ -130,8 +130,14 @@ keep a check carry a `NOLINT` with their reason:
   custom teardown takes the object out with `release()`. `memory::construct_in` returns `gsl::owner<T*>` (a factory:
   the caller ends the object). Script structures and arrays: `script::new_struct()` / `free_struct()` (and the array
   pair), `script::StructPtr` / `ArrayPtr` for a scope's or member's own - never a per-file copy of the pool
-  factory. `gsl::owner<T*>` (Microsoft GSL) marks the raw owners left where a smart pointer can't be used yet
+  factory. `gsl::owner<T*>` (Microsoft GSL) marks the raw owners left where a smart pointer can't be used yet: a
+  holder of what it made (a local, a member, a function's result) is spelt `gsl::owner<T*>`; one made with `new` or
+  a cast is made by a call instead - `memory::make_owned<T>(args)` (`new T` / `new T(args)`), `make_owned_value<T>()`
+  (`new T()`), `memory::adopt<T*>(block)` (an allocator's void*) - held with `auto`, which keeps the owner
   (cppcoreguidelines-owning-memory is still off: .clang-tidy says why).
+- **Sets of objects known by their address** (what the original kept in a KeyMap keyed by each object's address) are
+  `lists::ObjectSet<T>` (`engine/lists/object_set.h`): exact pointer keys, in insertion order, a walk that may drop the
+  object it visits.
 - **Pools** (`memory::PoolPair`, `SlabBank`) are sized by `sizeof` of what they hold; a pool's `carve` refuses an
   object bigger than its items (a class that grew past the original's byte size ends the game with a report).
 - **The rule of five** is kept as the Guidelines' C.21 allows: a defaulted destructor alone, and classes that copy

@@ -19,7 +19,8 @@ everything above it uses the game's own types and may change them freely.
 
 - `formats/` (static library `thug2_formats`): a reader - and, where the game writes the format, a writer - for each
   file the game loads or saves (and, for the files used in place - collision, animation keys - the accessors that read
-  their records, e.g. `collision_format::FaceTable` for a collision object's faces): PRE archives and their LZSS (`pre_format`, `lzss`), cutscene bundles, texture
+  their records, e.g. `collision_format::FaceTable` for a collision object's faces, `relocate_object` /
+  `object_record` / the tree's link accessors for its fix-up in place): PRE archives and their LZSS (`pre_format`, `lzss`), cutscene bundles, texture
   dictionaries and images, scenes / models / skins (`scene_format`), collision, skeletons, animations, fonts, sound
   effects, the streamed sounds' index, the park map and its rails, the save file. Each takes a byte span
   (`ByteReader` / `ByteWriter`, `byte_stream.h`: little-endian, unaligned, bounds-checked) and gives plain records.
@@ -37,7 +38,9 @@ everything above it uses the game's own types and may change them freely.
   DirectSound, the C runtime's differences from the original's, crash reports, the GameSpy SDK's glue, and code
   addresses as plain pointers (`code_address`, `function_at`, `crt::library_function`); the Bink SDK (`bink.h`),
   Winsock with IPv4 addresses and byte buffers (`sockets.h`), Direct3D's matrices over the game's (`d3d_matrix.h`),
-  the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records) and the registry's values (`registry.h`).
+  the GameSpy SDK's glue (`gamespy.h`: its callbacks as typed records), the registry's values (`registry.h`), D3DX
+  behind the game's own calls (`d3dx.h`), the Windows audio session API (`mute_audio.h`) and the pointer whose bits are
+  all ones (`all_ones.h`: INVALID_HANDLE_VALUE, the list heads' marker).
 
 `formats/` and `wire/` depend only on the standard library and `engine/core`'s leaf headers (`ints.h`,
 `checksums.h`, `pointer_cell.h`, `raw_view.h`); they build and are checked without the game.
