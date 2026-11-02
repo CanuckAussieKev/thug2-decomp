@@ -9,6 +9,7 @@
 #include <array>
 
 #include "engine/assets/resource_entry.h"
+#include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -26,6 +27,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/entity.h"
+#include "engine/script/cell.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/qb.h"
 #include "engine/script/script_startup.h"
