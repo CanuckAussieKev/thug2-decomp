@@ -21,6 +21,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace audio {
 
@@ -402,7 +403,7 @@ bool disc_mode_active()
 bool FamData::read_in(uint32_t fam_name)
 {
     std::array<char, 256> path{};
-    std::snprintf(path.data(), sizeof(path), "fam\\%x.fam", fam_name);
+    text::format_to(path, "fam\\%x.fam", fam_name);
     file::AsyncFileHandle* file = file::async_open(path.data(), true, 100);
     if (!file)
         return false;

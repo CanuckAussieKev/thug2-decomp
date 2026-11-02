@@ -44,6 +44,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/render_state.h"
 #include "engine/core/mem.h"
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -266,7 +267,7 @@ CinematicTable::~CinematicTable()
         if (flag_34b_0_) {
             get_run(0x7216D8DA);
             std::array<char, 256> file_name{};
-            std::snprintf(file_name.data(), sizeof(file_name), "%08x.qb", label_);
+            text::format_to(file_name, "%08x.qb", label_);
             script::unload_qb(checksums::hash_from_text(file_name.data()));
         }
     }
@@ -294,7 +295,7 @@ void CinematicTable::load_from_bundle()
         case kTypeQb:
             if (flag_34b_0_) {
                 std::array<char, 256> file_name{};
-                std::snprintf(file_name.data(), sizeof(file_name), "%08x.qb", label_);
+                text::format_to(file_name, "%08x.qb", label_);
                 script::load_qb_data(file_name.data(), std::span<uint8_t>(static_cast<uint8_t*>(data), entry->size), 1, 0, 0);
             }
             break;

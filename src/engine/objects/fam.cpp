@@ -26,6 +26,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -99,8 +100,8 @@ void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
 {
     unload_fam();
     std::array<char, 32> file_name{};
-    std::snprintf(file_name.data(), sizeof(file_name), "fam\\%08x.fam",
-                  name); // (the original: the game's sprintf, 0x006234FE)
+    text::format_to(file_name, "fam\\%08x.fam",
+                    name); // (the original: the game's sprintf, 0x006234FE)
     debug::printf("loading %s\n", file_name.data());
     assets::ResourceRegistry* assets = asset_manager();
     const int saved = assets->unknown18_;

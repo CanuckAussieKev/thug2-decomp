@@ -645,7 +645,9 @@ const char* get_soundtrack_name(int index)
         for (const wchar_t unit : std::wstring_view(wide)) {
             std::array<wchar_t, 2> one = {{unit, 0}};
             std::array<char, 12> converted{};
-            wsprintfA(converted.data(), "%ls", one.data());
+            // (the original: wsprintfA "%ls" - the system code page's character, '?' for one it lacks)
+            WideCharToMultiByte(CP_ACP, 0, one.data(), 1, converted.data(), static_cast<int>(converted.size() - 1),
+                                nullptr, nullptr);
             if (length < 99) {
                 core::at(name, length) = core::at(converted, 0) ? core::at(converted, 0) : '~';
                 ++length;

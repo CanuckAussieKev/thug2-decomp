@@ -23,6 +23,7 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
@@ -135,11 +136,10 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
     if (flag_34b_0_) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
         std::array<char, 256> stream{};
-        std::snprintf(stream.data(), sizeof(stream), "%s_%s", name,
-                      skater_model_name(skater_details_));
+        text::format_to(stream, "%s_%s", name, skater_model_name(skater_details_));
         if (!audio::prime_music_track(checksums::hash_from_text(stream.data()))) {
             audio::stop_music();
-            std::snprintf(stream.data(), sizeof(stream), "%s", name);
+            text::format_to(stream, "%s", name);
             if (!audio::prime_music_track(checksums::hash_from_text(stream.data())))
                 ready_ = true;
         }
@@ -211,11 +211,10 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         gsl::owner<script::Struct*> info = script::new_struct();
         const int frame = fixed_frame();
         std::array<char, 128> line{};
-        std::snprintf(line.data(), sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
+        text::format_to(line, "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
         info->append_word("line1", line.data());
         std::array<char, 128> line2{};
-        std::snprintf(line2.data(), sizeof(line2), "time = %f sec. / %f sec.", static_cast<double>(clock_),
-                      static_cast<double>(end_time_));
+        text::format_to(line2, "time = %f sec. / %f sec.", static_cast<double>(clock_), static_cast<double>(end_time_));
         info->append_word("line2", line2.data());
         script::launch_script(kInfoScript, info, nullptr, false, nullptr);
         if (info) {
@@ -224,7 +223,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         }
         if (fixed && fixed_frame() > 0) {
             std::array<char, 128> shot{};
-            std::snprintf(shot.data(), sizeof(shot), "%s%04d", shot_name().data(), fixed_frame() - 1);
+            text::format_to(shot, "%s%04d", shot_name().data(), fixed_frame() - 1);
             render::screen_shot(shot.data(), 1); // (a screenshot)
         }
     }

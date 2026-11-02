@@ -25,6 +25,7 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace pre {
 
@@ -308,7 +309,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         return;
 
     std::array<char, 256> path{};
-    std::snprintf(path.data(), sizeof(path), "pre\\%s", name);
+    text::format_to(path, "pre\\%s", name);
     if (std::strrchr(name, '.') && std::strlen(path.data()) > 4)
         core::at(path, std::strlen(path.data()) - 1) = 'x'; // .pre -> .prx
     const int start = time_milliseconds();

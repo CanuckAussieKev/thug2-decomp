@@ -994,10 +994,9 @@ void init_sdl_input()
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
 
     std::array<char, 1024> mappings{};
-    const int length =
-        sprintf_s(mappings.data(), sizeof(mappings), "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
-    if (length) {
-        // (-1, a failure, counts as loaded too)
+    const size_t length = text::format_to(mappings, "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
+    if (length != 0) {
+        // (sprintf_s's -1, a failure, counted as loaded too; a path too long for the buffer is cut now)
         if (SDL_GameControllerAddMappingsFromFile(mappings.data()))
             debug_log::printf(StageMap::kInfo, "Loaded mappings\n");
         else

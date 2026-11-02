@@ -44,6 +44,7 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace sio {
 
@@ -491,11 +492,11 @@ const char* get_button_key_name(int button)
     const bool menu_keys = !piece_menu && menu && !typing;
     const int code = menu_keys ? get_menu_key(button) : typing ? typing_key(button) : play_key(button);
     convert_key_name(code);
-    std::snprintf(key_name_result().data(), sizeof(key_name_result()), "%s", name_buffer().data());
+    text::format_to(key_name_result(), "%s", name_buffer().data());
     if (button == 0x12) {
         // two keys: "first+second"
         convert_key_name(key_binding(16));
-        std::snprintf(key_name_result().data(), sizeof(key_name_result()), "%s+", name_buffer().data());
+        text::format_to(key_name_result(), "%s+", name_buffer().data());
         convert_key_name(key_binding(17));
         const size_t used = std::strlen(key_name_result().data()); // (the original's strcat is unbounded)
         size_t length = std::strlen(name_buffer().data());

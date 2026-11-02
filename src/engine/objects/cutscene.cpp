@@ -18,6 +18,7 @@
 #include "engine/pad_input/device.h"
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -58,7 +59,7 @@ uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
     if (number == -1)
         return checksums::fold_text_into_checksum(label_, suffix);
     std::array<char, 0x200> text{};
-    std::snprintf(text.data(), sizeof(text), "%s%d\n", suffix, number);
+    text::format_to(text, "%s%d\n", suffix, number);
     return checksums::fold_text_into_checksum(label_, text.data());
 }
 

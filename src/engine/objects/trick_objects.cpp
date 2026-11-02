@@ -40,6 +40,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/lists/chain_start.h"
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -538,7 +539,7 @@ void TrickSpotHub::apply_player_graffiti()
 {
     for (int player = 0; player < 8; ++player) {
         std::array<char, 32> name{};
-        std::snprintf(name.data(), sizeof(name), "Skater%d", player);
+        text::format_to(name, "Skater%d", player);
         script::Array* objects = nullptr;
         if (!args_->fetch_list(name.data(), &objects, 0))
             continue;

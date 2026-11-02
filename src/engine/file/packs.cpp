@@ -26,6 +26,7 @@
 #include "engine/gfx/loading_console.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace packs {
 
@@ -210,7 +211,7 @@ void load_pre(const char* name)
     }
 
     std::array<char, 500> path{};
-    std::snprintf(path.data(), sizeof(path), "pre\\%s", name);
+    text::format_to(path, "pre\\%s", name);
     // The block starts with the archive's name, padded to 16 bytes.
     auto prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~static_cast<size_t>(0xF));
     const size_t length = std::strlen(path.data());

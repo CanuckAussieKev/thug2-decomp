@@ -18,6 +18,7 @@
 #include "platform/crt.h"
 #include "platform/bink.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace audio {
 
@@ -104,7 +105,7 @@ bool load_music_track(uint32_t checksum)
     WaitForSingleObject(stream_lock(), INFINITE);
     music.fabricate(1, false, 1);
     std::array<char, 256> path{};
-    std::snprintf(path.data(), sizeof(path), "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
+    text::format_to(path, "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
     const Result result = music.bink ? music.bink->unseal(path.data()) : -1;
     if (music.wad)
         music.wad->change_loudness(music.volume);
@@ -271,7 +272,7 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
     if (preload)
         set_started(slot, false);
     std::array<char, 256> path{};
-    std::snprintf(path.data(), sizeof(path), "%s%s", data_root(), R"(data\streams\pcm\pcm.wad)");
+    text::format_to(path, "%s%s", data_root(), R"(data\streams\pcm\pcm.wad)");
     if (slot.unseal(checksum, path.data(), get_wad_file(), offset, size, stream_buffer(slot_index)) != 0) {
         slot.dealloc();
         ReleaseMutex(stream_lock());

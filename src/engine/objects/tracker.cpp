@@ -29,6 +29,7 @@
 #include "engine/core/checked_index.h"
 #include "platform/all_ones.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -286,7 +287,7 @@ uint32_t EventWaitBoard::fetch_distinct_id()
     uint32_t checksum = 0;
     do {
         std::array<char, 64> name{};
-        std::snprintf(name.data(), sizeof(name), "autoid%d", next_auto_id_++); // "autoid%d"
+        text::format_to(name, "autoid%d", next_auto_id_++); // "autoid%d"
         if (next_auto_id_ >= 1000000)
             next_auto_id_ = 0;
         checksum = checksums::hash_from_text(name.data());

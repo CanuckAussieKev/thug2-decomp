@@ -30,6 +30,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend {
 
@@ -145,7 +146,7 @@ void FloatingTextComponent::tick_frame()
     // (the original: the game's sprintf, 0x006234FE, into 64 bytes - a text of more than about 60 characters overran
     // them into the stack cookie, ending the game; here it's cut short)
     std::array<char, 0x40> text{};
-    std::snprintf(text.data(), sizeof(text), "\\c%d%s", tint_, text_.data());
+    text::format_to(text, "\\c%d%s", tint_, text_.data());
     params->append_word(kText, text.data());
     const maths::Vec4& pos = entity_->at_point_;
     params->put_vec3(kPos3d, pos.x, pos.y + y_offset_, pos.z);

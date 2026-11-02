@@ -44,6 +44,7 @@
 #include "engine/gfx/rig.h"
 #include "wire/net_wire.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -209,7 +210,7 @@ void PreviewEntity::read_in(script::Struct* params)
     const char* name = nullptr;
     for (int i = 0; i < 4; ++i) {
         std::array<char, 260> key{};
-        std::snprintf(key.data(), sizeof(key), "model%d", i);
+        text::format_to(key, "model%d", i);
         if (params->fetch_text(key.data(), &name, 0))
             drop_cached_model(name);
     }
@@ -376,23 +377,22 @@ void PreviewEntity::update_panel()
             std::array<char, 128> line2{};
             std::array<char, 128> line3{};
             std::array<char, 128> text_row4{};
-            std::snprintf(line1.data(), sizeof(line1), "name %s", "Unknown");
+            text::format_to(line1, "name %s", "Unknown");
             params->append_word(kLine1, line1.data());
-            std::snprintf(line2.data(), sizeof(line2), "speed %f", is_halted_ ? 0.0 : static_cast<double>(speed_));
+            text::format_to(line2, "speed %f", is_halted_ ? 0.0 : static_cast<double>(speed_));
             params->append_word(kLine2, line2.data());
             // (Each value looked up again for each line, the length before the time.)
             uint32_t current = get_animation(this)->get_timeline30();
             float length = get_animation(this)->fetch_value(current);
             float time = get_animation(this)->get_timeline18();
-            std::snprintf(line3.data(), sizeof(line3), "time %f of %f", static_cast<double>(time),
-                          static_cast<double>(length));
+            text::format_to(line3, "time %f of %f", static_cast<double>(time), static_cast<double>(length));
             params->append_word(kLine3, line3.data());
             current = get_animation(this)->get_timeline30();
             length = get_animation(this)->fetch_value(current);
             const int last_frame = static_cast<int>(static_cast<double>(length) * 60.0);
             time = get_animation(this)->get_timeline18();
             const int frame = static_cast<int>(static_cast<double>(time) * 60.0);
-            std::snprintf(text_row4.data(), sizeof(text_row4), "frame %d of %d", frame, last_frame);
+            text::format_to(text_row4, "frame %d of %d", frame, last_frame);
             params->append_word(kLine4, text_row4.data());
             script::launch_script(kDrawViewerObjectPanel, params.get(), nullptr, false, nullptr);
         }
@@ -547,7 +547,7 @@ int handle_run_anim_view_script(net::InboundMsgCtx* context)
     const char* message = net::wire::text_of(context->body_);
     PreviewEntity* object = object_of(context);
     std::array<char, 260> path{};
-    std::snprintf(path.data(), sizeof(path), "scripts\\animview\\%s.qb", message);
+    text::format_to(path, "scripts\\animview\\%s.qb", message);
     script::load_qb(path.data(), 0, 0);
     script::Script* script = script::spawn_script(message, nullptr, 0, nullptr, 0, 0, false, false, false, false);
     script->entity_.assign_value(object); // (not null-checked: as the original)
