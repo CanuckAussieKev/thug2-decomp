@@ -160,9 +160,9 @@ public:
     };
     // The shape turned to the world this frame (from the centre of mass): the contact points (0x00694E30), the
     // spheres' centres (0x00694FB0), the springs' points (0x00695130); and the contacts (0x006949B0).
-    static maths::Vec4* world_contact_points();
-    static maths::Vec4* world_sphere_centers();
-    static maths::Vec4* world_spring_points();
+    static std::array<maths::Vec4, 24>& world_contact_points();
+    static std::array<maths::Vec4, 24>& world_sphere_centers();
+    static std::array<maths::Vec4, 2>& world_spring_points();
     static Contact* get_contacts();
 
     // 0x00430E20 (vtable slot 1): disabled: nothing. The push cooldown counted down, else the pushers felt

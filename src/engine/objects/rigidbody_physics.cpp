@@ -79,7 +79,7 @@ double BodyDynamicsModule::impulse_scale(const maths::Vec4* normal, const maths:
 // 0x0042CF90
 void BodyDynamicsModule::apply_springs()
 {
-    const maths::Vec4* world = world_spring_points();
+    const auto& world = world_spring_points();
     // The springs' points held still: each moving point's velocity taken out by an impulse, round after round.
     int round = 0;
     bool settled = false;
@@ -89,7 +89,7 @@ void BodyDynamicsModule::apply_springs()
             --i;
             if (!springs_[i].active)
                 continue;
-            const maths::Vec4& r = world[i];
+            const maths::Vec4& r = core::at(world, i);
             // its velocity: vel + rotvel x r
             const double cx = get_wide(r.z) * rot_vel_.y - get_wide(r.y) * rot_vel_.z;
             const double cy = get_wide(rot_vel_.z) * r.x - get_wide(r.z) * rot_vel_.x;
@@ -137,7 +137,7 @@ void BodyDynamicsModule::apply_springs()
         const Spring& spring = springs_[i];
         if (!spring.active)
             continue;
-        const maths::Vec4& r = world[i];
+        const maths::Vec4& r = core::at(world, i);
         const float px = get_narrow(get_wide(at_point_.x) + r.x);
         const double py = get_wide(at_point_.y) + r.y;
         const double pz = get_wide(at_point_.z) + r.z;
@@ -192,27 +192,27 @@ void BodyDynamicsModule::debug_draw()
         return maths::Vec4{p.x + at_point_.x, p.y + at_point_.y, p.z + at_point_.z, p.w + at_point_.w};
     };
     // Every pair of contact points.
-    const maths::Vec4* points = world_contact_points();
+    const auto& points = world_contact_points();
     for (int i = contact_count_ - 1; i > 0; --i)
         for (int j = 0; j < i; ++j) {
-            const maths::Vec4 from = at(points[i]);
-            const maths::Vec4 to = at(points[j]);
+            const maths::Vec4 from = at(core::at(points, i));
+            const maths::Vec4 to = at(core::at(points, j));
             gfx::push_diag_line(&from, &to, colour, 0, 1);
         }
-    const maths::Vec4* centers = world_sphere_centers();
+    const auto& centers = world_sphere_centers();
     for (int i = sphere_count_; i != 0;) {
         --i;
-        const maths::Vec4 center = at(centers[i]);
+        const maths::Vec4 center = at(core::at(centers, i));
         gfx::add_debug_sphere(&center, spheres_[i].radius, &basis_frame_, 12, colour, 1);
     }
     if (draw_details())
         gfx::push_diag_marker(at_point_, 36.0f, 0xFFC800C8, 1);
-    const maths::Vec4* springs = world_spring_points();
+    const auto& springs = world_spring_points();
     for (int i = spring_count_; i != 0;) {
         --i;
         if (!springs_[i].active)
             continue;
-        gfx::push_diag_marker(at(springs[i]), 24.0f, 0xFFC86400, 1);
+        gfx::push_diag_marker(at(core::at(springs, i)), 24.0f, 0xFFC86400, 1);
         gfx::push_diag_marker(springs_[i].anchor, 24.0f, 0xFFC80064, 1);
     }
 }
@@ -272,7 +272,7 @@ void BodyDynamicsModule::integrate(float dt)
         --i;
         const maths::Vec4& c = contacts_[i];
         const double x = c.x, y = c.y, z = c.z;
-        world_contact_points()[i] = {get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + get_at(t, 0, 0) * x),
+        core::at(world_contact_points(), i) = {get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + get_at(t, 0, 0) * x),
                                      get_narrow((get_at(t, 0, 1) * x + get_at(t, 2, 1) * z) + y * get_at(t, 1, 1)),
                                      get_narrow((get_at(t, 2, 2) * z + y * get_at(t, 1, 2)) + get_at(t, 0, 2) * x),
                                      c.w};
@@ -281,7 +281,7 @@ void BodyDynamicsModule::integrate(float dt)
         --i;
         const maths::Vec4& c = spheres_[i].center;
         const double x = c.x, y = c.y, z = c.z;
-        world_sphere_centers()[i] = {get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + x * get_at(t, 0, 0)),
+        core::at(world_sphere_centers(), i) = {get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + x * get_at(t, 0, 0)),
                                      get_narrow((x * get_at(t, 0, 1) + get_at(t, 2, 1) * z) + y * get_at(t, 1, 1)),
                                      get_narrow((get_at(t, 2, 2) * z + x * get_at(t, 0, 2)) + y * get_at(t, 1, 2)),
                                      c.w};
@@ -292,7 +292,7 @@ void BodyDynamicsModule::integrate(float dt)
             continue;
         const maths::Vec4& c = springs_[i].point;
         const double x = c.x, y = c.y, z = c.z;
-        world_spring_points()[i] = {get_narrow((get_at(t, 2, 0) * z + get_at(t, 1, 0) * y) + x * get_at(t, 0, 0)),
+        core::at(world_spring_points(), i) = {get_narrow((get_at(t, 2, 0) * z + get_at(t, 1, 0) * y) + x * get_at(t, 0, 0)),
                                     get_narrow((get_at(t, 2, 1) * z + get_at(t, 1, 1) * y) + get_at(t, 0, 1) * x),
                                     get_narrow((get_at(t, 2, 2) * z + get_at(t, 1, 2) * y) + get_at(t, 0, 2) * x), c.w};
     }

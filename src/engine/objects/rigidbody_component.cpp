@@ -39,9 +39,9 @@ std::array<maths::Vec4, 24> g_rigid_body_world_sphere_centers;
 std::array<maths::Vec4, 2> g_rigid_body_world_spring_points;
 std::array<SharedRef<GameEntity>, 8> g_rigid_body_pushers;
 
-maths::Vec4* BodyDynamicsModule::world_contact_points() { return g_rigid_body_world_contact_points.data(); }
-maths::Vec4* BodyDynamicsModule::world_sphere_centers() { return g_rigid_body_world_sphere_centers.data(); }
-maths::Vec4* BodyDynamicsModule::world_spring_points() { return g_rigid_body_world_spring_points.data(); }
+std::array<maths::Vec4, 24>& BodyDynamicsModule::world_contact_points() { return g_rigid_body_world_contact_points; }
+std::array<maths::Vec4, 24>& BodyDynamicsModule::world_sphere_centers() { return g_rigid_body_world_sphere_centers; }
+std::array<maths::Vec4, 2>& BodyDynamicsModule::world_spring_points() { return g_rigid_body_world_spring_points; }
 BodyDynamicsModule::Contact* BodyDynamicsModule::get_contacts() { return g_rigid_body_contacts.data(); }
 float g_rigid_body_pusher_height;
 
