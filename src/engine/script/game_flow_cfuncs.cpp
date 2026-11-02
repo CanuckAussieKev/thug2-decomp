@@ -66,17 +66,10 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
-#include "engine/script/shared_state.h"
-#include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
+#include "engine/script/script_state.h"
 
 namespace commands {
-
-GameFlowCfuncsShared& game_flow_cfuncs_shared()
-{
-    static core::NoDestroy<GameFlowCfuncsShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -119,7 +112,7 @@ inline void compiled_out_debug_call() {}
 // A .qb file's scripts unloaded and the global 0xC472ECC5 cleared (0x005A59B0).
 void unload_qb_file(uint32_t file) { script::unload_qb_file(file); }
 // The level's .qb files to unload with it (0x00696900, 15).
-std::array<uint32_t, 15>& level_qb_files() { return debug_cfuncs_shared().level_qb_files_; }
+
 constexpr int kLevelQbFiles = 15;
 
 // The object's part of a manager walk's command (what 0x005A0120 is given).
@@ -183,8 +176,8 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     if (const script::SymbolTableEntry* qb = script::find_symbol(kQbSymbol))
         unload_qb_file(qb->unknown8);
     for (int i = 0; i < kLevelQbFiles; ++i) {
-        unload_qb_file(core::at(level_qb_files(), i));
-        core::at(level_qb_files(), i) = 0;
+        unload_qb_file(core::at(script::script_state().level_qb_files(), i));
+        core::at(script::script_state().level_qb_files(), i) = 0;
     }
     debug::printf(
         "Starting to unload Geometry from the engine .....\n"); // "Starting to unload Geometry from the engine .....\n"
@@ -601,8 +594,6 @@ constexpr uint32_t kCheatFailed = 0x323D63FF; // (names unknown) its scripts: no
 constexpr uint32_t kCheatFound = 0xB95B735C;  // a cheat (before the cheat's own script)
 constexpr uint32_t kCheatList = 0x75A23DA4;   // (name unknown) the global array of {c1 c2 cheatscript}
 
-uint32_t& last_broadcasted_omnigon() { return game_flow_cfuncs_shared().last_broadcasted_omnigon_; }
-
 // A skater's score (0x00580480; null if none) and its display brought up to date (0x005626E0).
 void update_score_display(objects::Rider* skater)
 {
@@ -630,7 +621,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kOmnigon, &omnigon, true);
     const bool flag = params->has_entry_named(kOmnigonFlag);
-    last_broadcasted_omnigon() = omnigon;
+    script::script_state().last_broadcasted_omnigon() = omnigon;
     net::AppHost* server = game_net->host_;
     for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search)) {
         if (!conn->is_off_machine())
@@ -648,9 +639,9 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = 8;
         server->put_on_outbox(conn->hdl_, &desc);
-        last_broadcasted_omnigon() = omnigon;
+        script::script_state().last_broadcasted_omnigon() = omnigon;
     }
-    last_broadcasted_omnigon() = omnigon;
+    script::script_state().last_broadcasted_omnigon() = omnigon;
     return true;
 }
 

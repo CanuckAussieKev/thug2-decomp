@@ -25,7 +25,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/no_destroy.h"
-#include "engine/script/shared_state.h"
+#include "engine/script/script_state.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -33,11 +33,6 @@ namespace script {
 namespace {
 constexpr float kParseRandomScale{0.000030525032f};
 } // namespace
-TokenReaderShared& token_reader_shared()
-{
-    static core::NoDestroy<TokenReaderShared> state;
-    return state.get();
-}
 
 namespace {
 // NOT ORIGINAL grouping - token_reader.cpp's state (the original's globals). Made on first use, never destroyed
@@ -81,11 +76,11 @@ Tokens skip_end_of_lines_in(Tokens p)
 }
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
-ValueResolver& get_evaluator() { return token_reader_shared().evaluator_; }
+
 Component& get_scratch() { return token_reader_state().parse_scratch_; }
 
 // The stored randoms: newest first (next = older), at most 100.
-StoredRandom*& stored_randoms_newest() { return token_reader_shared().stored_randoms_newest_; }
+
 StoredRandom*& stored_randoms_oldest() { return token_reader_state().stored_randoms_oldest_; }
 int& stored_random_count() { return token_reader_state().stored_random_count_; }
 
@@ -133,7 +128,7 @@ Script* step_script_list(Script* script) { return script ? *raw::as<Script*>(scr
 StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
 {
     const Script* script = get_running_script();
-    for (StoredRandom* stored = stored_randoms_newest(); stored; stored = stored->succ_) {
+    for (StoredRandom* stored = script_state().stored_randoms_newest(); stored; stored = stored->succ_) {
         if (stored->lookup_table_ == table && stored->kind_tag_ == type && stored->num_ == count &&
             (stored->owner_ == script || stored->owner_ == nullptr))
             return stored;
@@ -153,16 +148,16 @@ StoredRandom* new_stored_random()
         if (newer)
             newer->succ_ = nullptr;
     }
-    auto* stored = qb_shared().stored_random_pools_.allocate<StoredRandom>();
+    auto* stored = script_state().stored_random_pools().allocate<StoredRandom>();
     if (stored) {
         ++stored_random_count();
         stored->succ_ = nullptr;
         stored->previous_ = nullptr;
     }
-    StoredRandom* newest = stored_randoms_newest();
+    StoredRandom* newest = script_state().stored_randoms_newest();
     stored->previous_ = nullptr;
     stored->succ_ = newest;
-    stored_randoms_newest() = stored;
+    script_state().stored_randoms_newest() = stored;
     if (newest)
         newest->previous_ = stored;
     else
@@ -840,7 +835,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
 // 0x004712B0
 Tokens parse_expression(Tokens token, Struct* args, Component* result)
 {
-    ValueResolver& evaluator = get_evaluator();
+    ValueResolver& evaluator = script_state().get_evaluator();
     Component& value = get_scratch();
     evaluator.reset_if_dirty();
     evaluator.set_read_cursor(token.address());
@@ -1047,7 +1042,7 @@ Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name)
 }
 
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
-void construct_evaluator() { token_reader_shared().evaluator_.prepare_all(); }
+void construct_evaluator() { script_state().get_evaluator().prepare_all(); }
 
 const MemberFunctionEntry* member_entry_at(Tokens p) { return cell::pointer<const MemberFunctionEntry>(fetch_word32(p)); }
 NativeFunction native_function_at(Tokens p)

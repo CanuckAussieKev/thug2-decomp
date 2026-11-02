@@ -861,6 +861,7 @@ add_executable(thug2 WIN32
     src/engine/script/script_startup.cpp
     src/engine/script/precompiled.cpp
     src/engine/script/qb.cpp
+    src/engine/script/script_state.cpp
     src/engine/script/param_struct.cpp
     src/engine/script/skate_cfuncs.cpp
     src/engine/script/trick_cfuncs.cpp

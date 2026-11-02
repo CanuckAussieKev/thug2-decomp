@@ -38,8 +38,8 @@
 #include "game/rider/core_physics.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/script/shared_state.h"
 #include "engine/net/net_game_state.h"
+#include "engine/script/script_state.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -536,7 +536,7 @@ bool cfunc_device_chosen(script::Struct*, script::Script*) { return network_pref
 bool cfunc_game_is_over(script::Struct*, script::Script*) { return online_hub_handle()->has_match_ended(); }
 
 namespace {
-bool& trying_to_join() { return game_cfuncs_shared().trying_to_join_; }
+
 // gethostbyname through the game's import (0x005BEABA).
 uint32_t host_first_address(const char* name) { return crt::host_first_address(name); }
 } // namespace
@@ -548,7 +548,7 @@ bool cfunc_try_join_internet_game(script::Struct*, script::Script*)
     const uint32_t server = online::net_game_state().command_line_server();
     if (server != 0xFFFFFFFF)
         online_hub_handle()->find_server_at(server);
-    trying_to_join() = true;
+    script::script_state().trying_to_join() = true;
     debug::printf("ScriptTryJoinInternetGame\n"); // "ScriptTryJoinInternetGame\n"
     return true;
 }
@@ -564,7 +564,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
         ip = host_first_address(address); // (its h_addr_list[0], or none)
     }
     if (ip != 0xFFFFFFFF) {
-        trying_to_join() = true;
+        script::script_state().trying_to_join() = true;
         online_hub_handle()->find_server_at(ip);
     }
     debug::printf("ScriptTryJoinServerIP\n"); // "ScriptTryJoinServerIP\n"
@@ -575,7 +575,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
 bool cfunc_try_join_server_ip_cancel(script::Struct*, script::Script*)
 {
     online_hub_handle()->find_server_at(0);
-    trying_to_join() = false;
+    script::script_state().trying_to_join() = false;
     debug::printf("ScriptTryJoinServerIPCancel\n"); // "ScriptTryJoinServerIPCancel\n"
     return true;
 }

@@ -71,18 +71,12 @@
 #include <span>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/script/shared_state.h"
 #include "engine/sys/game_config.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "engine/script/script_state.h"
 
 namespace commands {
-
-GameCfuncsShared& game_cfuncs_shared()
-{
-    static core::NoDestroy<GameCfuncsShared> state;
-    return state.get();
-}
 
 namespace {
 // NOT ORIGINAL grouping - game_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
@@ -152,8 +146,6 @@ gfx::ViewCam* viewpoint_camera(objects::ObjectModule* camera)
 prefs::Preferences* get_preferences_of_type(uint32_t type) { return modules::Skate::get_player_options(type); }
 
 // The network game flags (online).
-
-bool& trying_to_join() { return game_cfuncs_shared().trying_to_join_; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
 int& view_mode() { return game_cfuncs_state().view_mode_cfunc_; }
@@ -246,12 +238,12 @@ bool cfunc_is_joining_internet_game(script::Struct*, script::Script*)
 }
 
 // 0x0059F7A0: TryingToJoinGame.
-bool cfunc_trying_to_join_game(script::Struct*, script::Script*) { return trying_to_join(); }
+bool cfunc_trying_to_join_game(script::Struct*, script::Script*) { return script::script_state().trying_to_join(); }
 
 // 0x0059F7B0: TryJoinServerIPSuccess: whether joining by IP worked (forgotten once no join is being tried; logged).
 bool cfunc_try_join_server_ip_success(script::Struct*, script::Script*)
 {
-    if (!trying_to_join())
+    if (!script::script_state().trying_to_join())
         online::net_game_state().set_join_server_ip_succeeded(false);
     debug::printf("ScriptTryJoinServerIPSuccess %d\n",
                   online::net_game_state().join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
@@ -381,7 +373,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
-    text::copy_unbounded(game_cfuncs_shared().node_list_name_.data(), file);
+    text::copy_unbounded(script::script_state().node_table_key_text().data(), file);
     assets::asset_manager()->load_asset(file, 11, 0, 0, false, false, false, nullptr, nullptr);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;

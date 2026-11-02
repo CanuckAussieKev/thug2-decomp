@@ -26,7 +26,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/script/shared_state.h"
+#include "engine/script/script_state.h"
 
 namespace commands {
 
@@ -64,10 +64,9 @@ constexpr uint32_t kDumpScriptsFlag = 0x2AB71EEF;    // (name unknown) passed to
 int glyph_for_button_tag(uint32_t button) { return pad_input::glyph_for_button_tag(button); }
 
 // The last Omnigon checksum sent to the other players (0x007CEBC8).
-uint32_t& last_broadcasted_omnigon() { return game_flow_cfuncs_shared().last_broadcasted_omnigon_; }
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
-std::array<char, 128>& node_table_key_text() { return game_cfuncs_shared().node_list_name_; }
+
 std::array<char, 64>& get_level_name() { return skate_cfuncs_state().level_name_; }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
@@ -199,7 +198,7 @@ bool cfunc_load_node_array(script::Struct* params, script::Script*)
     script::kill_all_child_scripts();
     const char* name = nullptr;
     params->fetch_text(0u, &name, 0);
-    text::copy_unbounded(node_table_key_text().data(), name); // (no length limit, as the original)
+    text::copy_unbounded(script::script_state().node_table_key_text().data(), name); // (no length limit, as the original)
     script::load_qb_file(name, 0);
     level_nodes::get_last_node_array();
     memory::pop_mem_profile();
@@ -341,7 +340,7 @@ bool cfunc_last_broadcasted_omnigon_was(script::Struct* params, script::Script*)
 {
     uint32_t omnigon = 0; // (the original leaves it unset when missing - an asserted parameter)
     params->read_hash_value(kOmnigon, &omnigon, 1);
-    return last_broadcasted_omnigon() == omnigon;
+    return script::script_state().last_broadcasted_omnigon() == omnigon;
 }
 
 // 0x0059F590: OmnigonAllowed <0xAE94C183=checksum>: reads the parameter, always true.

@@ -17,8 +17,7 @@
 #include "formats/lzss.h"
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/script/shared_state.h"
+#include "engine/script/script_state.h"
 
 namespace script {
 
@@ -28,13 +27,7 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
                   offsetof(ScriptStore, oldest_unused_) == 0x1C && offsetof(ScriptStore, delete_unused_) == 0x20,
               "layout must match the original");
 
-script::ScriptStore* script_store() { return cache_shared().script_store_.get(); }
-
-CacheShared& cache_shared()
-{
-    static core::NoDestroy<CacheShared> state;
-    return state.get();
-}
+script::ScriptStore* script_store() { return script_state().script_store().get(); }
 
 namespace {
 
@@ -43,18 +36,17 @@ uint32_t& cache_references()
     static uint32_t cache_references{};
     return cache_references;
 }
-memory::PoolPair& entry_pools() { return cache_shared().cache_entry_pools_; }
 
 } // namespace
 
 // 0x00475AC0
 void* ScriptCacheEntry::operator new(size_t size) noexcept
 {
-    return entry_pools().carve(static_cast<unsigned int>(size));
+    return script_state().entry_pools().carve(static_cast<unsigned int>(size));
 }
 
 // 0x00475B00
-void ScriptCacheEntry::operator delete(void* entry) { entry_pools().dealloc(entry); }
+void ScriptCacheEntry::operator delete(void* entry) { script_state().entry_pools().dealloc(entry); }
 
 // 0x00475DD0
 ScriptStore::ScriptStore()
@@ -142,7 +134,7 @@ void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
     while (size > static_cast<int>(memory::Hub::get_pull()->script_heap_->largest_free()) - 0x80)
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
-    while (core::at(entry_pools().pools, entry_pools().current)->taken_count_ >= 100 && oldest_unused_)
+    while (core::at(script_state().entry_pools().pools, script_state().entry_pools().current)->taken_count_ >= 100 && oldest_unused_)
         delete_entry(oldest_unused_);
 }
 
@@ -216,11 +208,11 @@ void ScriptStore::mark_stale(uint32_t name)
 // 0x00476040
 ScriptStore* create_script_cache(bool create)
 {
-    if (!cache_shared().script_store_ && create) {
-        cache_shared().script_store_ = std::make_unique<ScriptStore>();
+    if (!script_state().script_store() && create) {
+        script_state().script_store() = std::make_unique<ScriptStore>();
     }
     ++cache_references();
-    return cache_shared().script_store_.get();
+    return script_state().script_store().get();
 }
 
 // 0x00475A00
@@ -230,7 +222,7 @@ void release_script_cache()
         --cache_references();
         return;
     }
-    memory::destroy_then_clear(cache_shared().script_store_);
+    memory::destroy_then_clear(script_state().script_store());
     cache_references() = 0;
 }
 

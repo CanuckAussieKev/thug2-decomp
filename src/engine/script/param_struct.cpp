@@ -22,7 +22,7 @@
 #include "engine/script/tokens.h"
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
-#include "engine/script/shared_state.h"
+#include "engine/script/script_state.h"
 
 namespace script {
 
@@ -55,12 +55,6 @@ memory::PoolPair& component_pools()
 {
     static core::NoDestroy<memory::PoolPair> component_pools;
     return component_pools.get();
-}
-
-ParamStructShared& param_struct_shared()
-{
-    static core::NoDestroy<ParamStructShared> state;
-    return state.get();
 }
 
 memory::PoolPair& symbol_pools()
@@ -482,41 +476,32 @@ namespace {
 
 // The pool pairs of the script's value objects.
 
-
-memory::PoolPair& pair_pools() { return param_struct_shared().pair_pools_; }
-
-
 // The permanent string cache (used while loading the game's scripts): one block, strings shared by checksum.
 bool& use_permanent_strings() { return param_struct_state().use_permanent_strings_; }
-char*& permanent_strings_start() { return param_struct_shared().permanent_strings_start_; }
-char*& permanent_strings_next() { return param_struct_shared().permanent_strings_next_; }
-uint32_t& permanent_strings_size() { return param_struct_shared().permanent_strings_size_; }
-PermanentString*& permanent_string_table() { return param_struct_shared().permanent_string_table_; }
-uint32_t& permanent_string_count() { return param_struct_shared().permanent_string_count_; }
 
 // 0x00476260 (the string in EAX: called only by spawn_text, so registered source-only)
 char* create_permanent_string(const char* string)
 {
     const int length = static_cast<int>(std::strlen(string));
     const uint32_t checksum = checksums::generate_crc_from_buffer(string, length);
-    const std::span<PermanentString> table(permanent_string_table(), param_struct_shared().permanent_string_capacity_);
-    for (uint32_t i = 0; i < permanent_string_count(); ++i) {
+    const std::span<PermanentString> table(script_state().permanent_string_table(), script_state().permanent_string_capacity());
+    for (uint32_t i = 0; i < script_state().permanent_string_count(); ++i) {
         if (core::at(table, i).checksum == checksum)
             return core::at(table, i).string;
     }
     // (the strings' block: the copy where the last one ended)
-    const std::span<char> strings(permanent_strings_start(), permanent_strings_size());
+    const std::span<char> strings(script_state().permanent_strings_start(), script_state().permanent_strings_size());
     const std::span<char> copy =
-        strings.subspan(static_cast<size_t>(permanent_strings_next() - permanent_strings_start()),
+        strings.subspan(static_cast<size_t>(script_state().permanent_strings_next() - script_state().permanent_strings_start()),
                         static_cast<size_t>(length) + 1);
     std::memcpy(copy.data(), string, copy.size());
-    permanent_strings_next() = strings.subspan(static_cast<size_t>(copy.data() - strings.data()) + copy.size()).data();
-    core::at(table, permanent_string_count()) = {.checksum = checksum, .string = copy.data()};
-    ++permanent_string_count();
+    script_state().permanent_strings_next() = strings.subspan(static_cast<size_t>(copy.data() - strings.data()) + copy.size()).data();
+    core::at(table, script_state().permanent_string_count()) = {.checksum = checksum, .string = copy.data()};
+    ++script_state().permanent_string_count();
     return copy.data();
 }
 
-void delete_pair(Pair* pair) { pair_pools().dealloc(pair); }
+void delete_pair(Pair* pair) { script_state().pair_pools().dealloc(pair); }
 void delete_vector(Vector* vector) { vector_pools().dealloc(vector); }
 
 void merge_structure(Struct* to, Struct* from) { to->merge_structure(from); }
@@ -543,9 +528,9 @@ void begin_permanent_strings() { use_permanent_strings() = true; }
 void end_permanent_strings()
 {
     use_permanent_strings() = false;
-    if (permanent_string_table()) {
-        memory::free_malloc(permanent_string_table());
-        permanent_string_table() = nullptr;
+    if (script_state().permanent_string_table()) {
+        memory::free_malloc(script_state().permanent_string_table());
+        script_state().permanent_string_table() = nullptr;
     }
 }
 
@@ -590,8 +575,8 @@ char* get_script_string(int index) { return script_string_slot(index); }
 // 0x00476340 (strings in the permanent block are never freed)
 void free_string(char* string)
 {
-    const char* start = permanent_strings_start();
-    if (start && !std::less<>()(string, start) && std::cmp_less(string - start, permanent_strings_size()))
+    const char* start = script_state().permanent_strings_start();
+    if (start && !std::less<>()(string, start) && std::cmp_less(string - start, script_state().permanent_strings_size()))
         return;
     memory::free_malloc(string);
 }
@@ -756,7 +741,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         dest->value.set_text(spawn_text(source->value.text()));
         break;
     case kQbvalPair: {
-        auto* pair = pair_pools().allocate<Pair>();
+        auto* pair = script_state().pair_pools().allocate<Pair>();
         if (pair) {
             // (the constructor: only the first byte of the first word is cleared)
             pair->y = 0.0f;
@@ -1086,7 +1071,7 @@ void Struct::put_vec3(const char* name, VectorValue value)
 void Struct::insert_pair(uint32_t name, float x, float y)
 {
     gsl::owner<Component*> component = new_typed_component(name, kQbvalPair);
-    auto* pair = pair_pools().allocate<Pair>();
+    auto* pair = script_state().pair_pools().allocate<Pair>();
     if (pair) {
         pair->y = 0.0f;
         pair->x = 0.0f;
@@ -1252,7 +1237,7 @@ int& struct_copy_peak() { return param_struct_state().struct_copy_peak_; }
 } // namespace
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
-Pair* new_pair() { return param_struct_shared().pair_pools_.allocate<Pair>(); }
+Pair* new_pair() { return script_state().pair_pools().allocate<Pair>(); }
 Vector* alloc_script_vector() { return vector_pools().allocate<Vector>(); }
 
 // 0x0047AC00

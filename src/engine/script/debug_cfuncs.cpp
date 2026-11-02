@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <cstring>
-#include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
@@ -26,18 +25,11 @@
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
 #include "engine/core/down_cast.h"
-#include "engine/core/no_destroy.h"
-#include "engine/script/shared_state.h"
+#include "engine/script/script_state.h"
 #include <gsl/pointers>
 #include <span>
 
 namespace commands {
-
-DebugCfuncsShared& debug_cfuncs_shared()
-{
-    static core::NoDestroy<DebugCfuncsShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -73,8 +65,6 @@ void print_bytes(const void* data, int count)
 }
 
 } // namespace
-
-std::array<uint32_t, 15>& level_specific_qb_files() { return debug_cfuncs_shared().level_qb_files_; }
 
 // 0x004489B0: DisplayFreeMem: for every heap of the memory manager, run UpdateDisplayFreeMemory with id=<the
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.
@@ -138,7 +128,7 @@ bool cfunc_load_qb(script::Struct* params, script::Script*)
         load_qb_file(name, false);
         return true;
     }
-    for (uint32_t& file : level_specific_qb_files()) {
+    for (uint32_t& file : script::script_state().level_specific_qb_files()) {
         if (!file) {
             file = checksums::hash_from_text(name);
             break;
@@ -155,7 +145,7 @@ bool cfunc_unload_qb(script::Struct* params, script::Script*)
     params->fetch_text(0u, &name, 0);
     const uint32_t checksum = checksums::hash_from_text(name);
     unload_qb_file(checksum);
-    for (uint32_t& file : level_specific_qb_files()) {
+    for (uint32_t& file : script::script_state().level_specific_qb_files()) {
         if (file == checksum)
             file = 0;
     }

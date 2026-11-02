@@ -29,7 +29,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/script/shared_state.h"
+#include "engine/script/script_state.h"
 
 namespace script {
 
@@ -49,12 +49,6 @@ static_assert(offsetof(StoredRandom, order_) == 0x12, "layout must match the ori
 static_assert(offsetof(StoredRandom, last_) == 0x54 && offsetof(StoredRandom, succ_) == 0x58,
               "layout must match the original");
 static_assert(sizeof(StoredRandom) == 0x60, "layout must match the original");
-
-QbShared& qb_shared()
-{
-    static core::NoDestroy<QbShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -393,7 +387,7 @@ void add_script_checksum_name(uint32_t checksum, const char* name)
 void forget_stored_randoms_of(const Script* owner)
 {
     // The stored random states (newest first), their owning scripts let go of.
-    for (StoredRandom* entry = token_reader_shared().stored_randoms_newest_; entry; entry = entry->succ_) {
+    for (StoredRandom* entry = script_state().stored_randoms_newest(); entry; entry = entry->succ_) {
         if (entry->owner_ == owner)
             entry->owner_ = nullptr;
     }
@@ -421,13 +415,13 @@ void StoredRandom::shuffle(bool avoid_repeat)
 // 0x00476210
 void allocate_permanent_string_heap(uint32_t size, uint32_t count)
 {
-    param_struct_shared().permanent_strings_size_ = size;
-    param_struct_shared().permanent_string_capacity_ = count;
+    script_state().permanent_strings_size() = size;
+    script_state().set_permanent_string_capacity(count);
     char* strings = static_cast<char*>(memory::alloc_block(size));
-    param_struct_shared().permanent_strings_start_ = strings;
-    param_struct_shared().permanent_strings_next_ = strings;
-    memory::bits_as<void*>(param_struct_shared().permanent_string_table_) = memory::alloc_block(count * 8);
-    param_struct_shared().permanent_string_count_ = 0;
+    script_state().permanent_strings_start() = strings;
+    script_state().permanent_strings_next() = strings;
+    memory::bits_as<void*>(script_state().permanent_string_table()) = memory::alloc_block(count * 8);
+    script_state().permanent_string_count() = 0;
 }
 
 // 0x0046F520
@@ -445,7 +439,7 @@ void create_script_pools()
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
     memory::push_mem_profile("CScriptCacheEntry");
-    create_pool(cache_shared().cache_entry_pools_, 0x14, sizes.script_cache_entries_, "CScriptCacheEntry");
+    create_pool(script_state().entry_pools(), 0x14, sizes.script_cache_entries_, "CScriptCacheEntry");
     memory::pop_mem_profile();
     memory::push_mem_profile("CComponent and Reserve CComponent");
     create_pool(component_pools(), 0x10, sizes.components, "CComponent");
@@ -457,7 +451,7 @@ void create_script_pools()
     create_pool(vector_pools(), 0x10, sizes.vectors, "CVector");
     memory::pop_mem_profile();
     memory::push_mem_profile("CPair");
-    create_pool(param_struct_shared().pair_pools_, 0x0C, sizes.pairs, "CPair");
+    create_pool(script_state().pair_pools(), 0x0C, sizes.pairs, "CPair");
     memory::pop_mem_profile();
     memory::push_mem_profile("CArray");
     create_pool(array_pools(), 0x0C, sizes.arrays, "CArray");
@@ -469,7 +463,7 @@ void create_script_pools()
     create_pool(script_pools(), 0xF4, sizes.scripts, "CScript");
     memory::pop_mem_profile();
     memory::push_mem_profile("CStoredRandom");
-    create_pool(qb_shared().stored_random_pools_, 0x60, sizes.stored_randoms_, "CStoredRandom");
+    create_pool(script_state().stored_random_pools(), 0x60, sizes.stored_randoms_, "CStoredRandom");
     memory::pop_mem_profile();
     memory::push_mem_profile("AllocatePermanentStringHeap");
     allocate_permanent_string_heap(sizes.string_bytes_, sizes.strings);
@@ -492,7 +486,7 @@ void log_script_pool_use(const char* when)
         memory::PoolPair* pair;
     };
     const auto pools = std::to_array<Named>({{.name = "CComponent", .pair = &component_pools()}, {.name = "CStruct", .pair = &struct_pools()},
-                           {.name = "CVector", .pair = &vector_pools()},       {.name = "CPair", .pair = &param_struct_shared().pair_pools_},
+                           {.name = "CVector", .pair = &vector_pools()},       {.name = "CPair", .pair = &script_state().pair_pools()},
                            {.name = "CArray", .pair = &array_pools()},         {.name = "CSymbolTableEntry", .pair = &symbol_pools()},
                            {.name = "CScript", .pair = &script_pools()}});
     std::string line;
@@ -525,7 +519,7 @@ void log_script_pool_use(const char* when)
 namespace script {
 
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
-ScriptStore* script_store_instance() { return cache_shared().script_store_.get(); }
+ScriptStore* script_store_instance() { return script_state().script_store().get(); }
 
 void remove_from_script_cache(uint32_t name) { script_store_instance()->mark_stale(name); }
 
@@ -560,8 +554,8 @@ void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
 } // namespace
 
 // 0x00470000 / 0x0046FFF0
-void clear_script_flag_6f_2564() { token_reader_shared().evaluator_.unknown1f4_ = false; } // (0x006F2564: the evaluator's +0x1F4)
-void set_script_flag_6f_2564() { token_reader_shared().evaluator_.unknown1f4_ = true; }
+void clear_script_flag_6f_2564() { script_state().get_evaluator().unknown1f4_ = false; } // (0x006F2564: the evaluator's +0x1F4)
+void set_script_flag_6f_2564() { script_state().get_evaluator().unknown1f4_ = true; }
 
 // 0x00470010
 void allocate_script_checksum_names(bool debug_heap)
@@ -575,9 +569,9 @@ void allocate_script_checksum_names(bool debug_heap)
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
-void free_pair(void* pair) { param_struct_shared().pair_pools_.dealloc(pair); }
+void free_pair(void* pair) { script_state().pair_pools().dealloc(pair); }
 void free_vector(void* vector) { vector_pools().dealloc(vector); }
-void free_stored_random(void* random) { qb_shared().stored_random_pools_.dealloc(random); }
+void free_stored_random(void* random) { script_state().stored_random_pools().dealloc(random); }
 void free_symbol(SymbolTableEntry* symbol) { symbol_pools().dealloc(symbol); }
 
 // 0x004711D0

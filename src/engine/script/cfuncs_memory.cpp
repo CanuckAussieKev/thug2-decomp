@@ -23,8 +23,8 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
-#include "engine/script/shared_state.h"
 #include "engine/sys/game_config.h"
+#include "engine/script/script_state.h"
 
 namespace commands {
 
@@ -210,7 +210,7 @@ void dump_pool_usage(bool to_dump_file, bool print)
     pool("CComponent:        %5d of %5d, max %5d\n", current(script::component_pools()));       // CComponent
     pool("CSymbolTableEntry: %5d of %5d, max %5d\n", current(script::symbol_pools()));          // CSymbolTableEntry
     pool("CVector:           %5d of %5d, max %5d\n", current(script::vector_pools()));          // CVector
-    pool("CPair:             %5d of %5d, max %5d\n", current(script::param_struct_shared().pair_pools_));            // CPair
+    pool("CPair:             %5d of %5d, max %5d\n", current(script::script_state().pair_pools()));            // CPair
     pool("CArray:            %5d of %5d, max %5d\n", current(script::array_pools()));           // CArray
     pool("CScript:           %5d of %5d, max %5d\n", current(script::script_pools()));          // CScript
     pool("CHashItem:\t%5d of %5d, max %5d\n", memory::slot_pool_setup::get_pool(0));            // CHashItem
