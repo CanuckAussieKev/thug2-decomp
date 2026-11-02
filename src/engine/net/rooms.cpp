@@ -45,6 +45,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/format.h"
+#include "engine/net/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy, kept)
 
@@ -253,8 +254,8 @@ void RoomManager::start_listing_games()
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->set_service_state(14); // (the server list's state)
     unknowne430() = 0;
-    g_listing_asked = false;
-    g_listing_found = false;
+    gamenet_lobby_menus_shared().listing_asked_ = false;
+    gamenet_lobby_menus_shared().listing_found_ = false;
     game_spy::peer_list_group_rooms(remote_, R"(\maxplayers\neversoft\maxrating\minrating)",
                                     code_address(online::RoomManager::group_room_callback), this,
                                     0); // (the group rooms listed)

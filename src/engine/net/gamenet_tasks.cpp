@@ -33,6 +33,7 @@
 #include "engine/net/stats_man.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -94,7 +95,7 @@ void level_change_task(tasks::Task<Hub>* task)
 {
     PlayerSearch search;
     Hub* manager = task_manager(task);
-    if (frame_clock::get_time() < g_level_change_time)
+    if (frame_clock::get_time() < gamenet_session_handlers_shared().level_change_time_)
         return;
     get_skate()->change_level(manager->level_); // the level changed
     if (PlayerRecord* king = is_crown_rule_active(manager))

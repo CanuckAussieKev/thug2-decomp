@@ -47,6 +47,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's own)
 
@@ -90,8 +91,8 @@ constexpr uint32_t kNewPlayerObserver = 0x04;
 
 Hub* net_session_slot() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
-std::array<QueuedPacket, 200>& get_queue() { return g_queued_packets; }
-int& queued_count() { return g_queued_count; }
+std::array<QueuedPacket, 200>& get_queue() { return gamenet_lobby_cfuncs_shared().queued_packets_; }
+int& queued_count() { return gamenet_lobby_cfuncs_shared().queued_count_; }
 RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }
 
 // The heaps the lobby's SDK work allocates from.
@@ -151,8 +152,12 @@ GamenetLobbyPeerState& gamenet_lobby_peer_state()
 }
 
 } // namespace
-uint32_t g_connection_timer;
-bool g_game_posted;
+GamenetLobbyPeerShared& gamenet_lobby_peer_shared()
+{
+    static core::NoDestroy<GamenetLobbyPeerShared> state;
+    return state.get();
+}
+
 // 0x0053F570
 void RoomManager::disconnected_callback(void*, const char* reason, void* param)
 {
@@ -200,7 +205,7 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
 // 0x0053FB80
 void RoomManager::player_key_callback(void*, int key, int index, void* buffer, void*)
 {
-    g_game_posted = true;
+    gamenet_lobby_peer_shared().game_posted_ = true;
     if (key == kKeyPing) {
         buffer_add(buffer, "");
         return;
@@ -339,7 +344,7 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
     }
     queued_count() = 0;
     Hub* manager = net_session_slot();
-    if (!g_game_posted && manager->in_net_game() && manager->get_on_server()) { // not reported yet
+    if (!gamenet_lobby_peer_shared().game_posted_ && manager->in_net_game() && manager->get_on_server()) { // not reported yet
         if (now - gamenet_lobby_peer_state().hosting_since_ > kNotPostedTime) {
             if (!gamenet_lobby_peer_state().not_posted_shown_) {
                 get_run(kCreateNotPostedDialog);
@@ -365,10 +370,10 @@ void RoomManager::start_hosting()
         peer_state_changed(remote_);
     const uint32_t now = frame_clock::get_time();
     gamenet_lobby_peer_state().hosting_since_ = now;    // hosting since
-    g_connection_timer = now; // the connection timer
+    gamenet_lobby_peer_shared().connection_timer_ = now; // the connection timer
     gamenet_lobby_peer_state().last_report_time_ = now; // reported last
     gamenet_lobby_peer_state().not_posted_shown_ = false;
-    g_game_posted = false;
+    gamenet_lobby_peer_shared().game_posted_ = false;
     tasks->queue_job(hosting_task_.get());
     hosting_ = true;
 }

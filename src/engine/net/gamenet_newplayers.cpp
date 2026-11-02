@@ -38,6 +38,7 @@
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
+#include "engine/net/shared_state.h"
 #include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
@@ -421,7 +422,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     memory::Hub::get_pull()->leave_heap_scope();
     Hub* global = g_online_hub;
     global->update_lobby_server();
-    if (g_online_active && global->in_net_game() && g_query_reporting)
+    if (g_online_active && global->in_net_game() && gamenet_members_shared().query_reporting_)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
 

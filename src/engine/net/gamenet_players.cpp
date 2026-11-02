@@ -50,6 +50,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "wire/gamenet_messages.h"
+#include "engine/net/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -286,7 +288,11 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t
 }
 
 bool g_online_active;
-bool g_open_waiting;
+GamenetPlayersShared& gamenet_players_shared()
+{
+    static core::NoDestroy<GamenetPlayersShared> state;
+    return state.get();
+}
 
 // 0x0053C950
 void Hub::remove_player_record(PlayerRecord* player)
@@ -306,7 +312,7 @@ void Hub::remove_player_record(PlayerRecord* player)
         player->teardown(1); // (its scalar deleting destructor, the original's slot 0)
     update_lobby_server();
     if (g_online_active && g_online_hub->in_net_game() &&
-        g_query_reporting)                         // (reported to GameSpy's qr2: the player count changed)
+        gamenet_members_shared().query_reporting_)                         // (reported to GameSpy's qr2: the player count changed)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
 
@@ -399,8 +405,8 @@ void Hub::evict_player(PlayerRecord* player, int reason)
 void Hub::re_add_pending_players()
 {
     update_lobby_server();
-    g_open_waiting = true;
-    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting && g_open_waiting != 1) // (just set: never)
+    gamenet_players_shared().open_waiting_ = true;
+    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_ != 1) // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
     int frames = 10;
     PlayerSearch search;
@@ -559,7 +565,7 @@ void Hub::set_host_mode(int mode)
     host_mode_ = mode;
     if (mode == kHostModeAutoServe) {
         send_observe_request();
-        g_auto_serve_start = frame_clock::get_time(); // (the auto-serve task waits 2 s from here)
+        gamenet_flow_shared().auto_serve_start_ = frame_clock::get_time(); // (the auto-serve task waits 2 s from here)
         get_logic_tasks()->queue_job(auto_serve_job_.get());
     } else if (mode == kHostModeFcfs) {
         send_observe_request();

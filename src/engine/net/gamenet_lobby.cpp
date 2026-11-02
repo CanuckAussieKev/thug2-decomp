@@ -20,6 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "platform/compiler.h"
+#include "engine/net/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the server's name)
 
@@ -96,7 +97,7 @@ bool RoomManager::in_group_room() { return in_group_room_; }
 // 0x0053F8A0
 bool cfunc_reset_connection_timer(script::Struct*, script::Script*)
 {
-    g_connection_timer = frame_clock::get_time();
+    gamenet_lobby_peer_shared().connection_timer_ = frame_clock::get_time();
     return true;
 }
 
@@ -159,7 +160,7 @@ void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
         buffer_add(buffer, "");
         break;
     }
-    g_game_posted = true;
+    gamenet_lobby_peer_shared().game_posted_ = true;
 }
 
 // 0x0053FEC0

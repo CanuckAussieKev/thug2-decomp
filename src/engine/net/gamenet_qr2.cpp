@@ -36,6 +36,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
+#include "engine/net/shared_state.h"
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {
@@ -127,9 +128,9 @@ void server_key_callback(int key, void* buffer, void*)
         buffer_add_int(buffer, manager->get_player_limit());
         return;
     case kKeyGamemode:
-        if (g_game_reported)
+        if (gamenet_game_commands_shared().game_reported_)
             buffer_add(buffer, "openplaying");
-        else if (g_open_waiting)
+        else if (gamenet_players_shared().open_waiting_)
             buffer_add(buffer, "openwaiting");
         else
             buffer_add(buffer, "closedwaiting");
@@ -201,7 +202,7 @@ void start_query_reporting(bool keep_map_name)
         net_game_options(net_session_slot())->fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
         std::strcpy(fallback_map_name().data(), text);
     }
-    bool& reporting = g_query_reporting;
+    bool& reporting = gamenet_members_shared().query_reporting_;
     if (reporting)
         return;
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)

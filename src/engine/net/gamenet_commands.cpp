@@ -37,6 +37,8 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -44,7 +46,11 @@ using namespace detail;
 using script::Script;
 using script::Struct;
 
-uint32_t g_net_game_start_time;
+GamenetCommandsShared& gamenet_commands_shared()
+{
+    static core::NoDestroy<GamenetCommandsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -98,7 +104,7 @@ uint32_t& last_flag_base_warning()
     static uint32_t last_flag_base_warning{};
     return last_flag_base_warning;
 }
-uint32_t& net_game_start_time() { return g_net_game_start_time; }
+uint32_t& net_game_start_time() { return gamenet_commands_shared().net_game_start_time_; }
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 Hub* net_link() { return g_online_hub; }

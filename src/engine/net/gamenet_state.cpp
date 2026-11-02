@@ -16,6 +16,7 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -162,7 +163,7 @@ void Hub::scan_local_network()
         return;
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
     std::array<uint32_t, 3> message = {{frame_clock::get_time(), 0, 0}};
-    uint32_t& asked_for = g_asked_for;
+    uint32_t& asked_for = gamenet_settings_shared().asked_for_;
     if (asked_for) {
         browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), asked_for, kLanPort, 0);
         asked_for = 0;

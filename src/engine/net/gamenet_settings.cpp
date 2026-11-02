@@ -36,6 +36,8 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace online {
 
@@ -365,7 +367,12 @@ void Hub::cancel_connect_to_internet()
     }
 }
 
-uint32_t g_asked_for;
+GamenetSettingsShared& gamenet_settings_shared()
+{
+    static core::NoDestroy<GamenetSettingsShared> state;
+    return state.get();
+}
+
 bool g_join_server_ip_succeeded;
 
 // 0x00536490
@@ -378,14 +385,14 @@ void Hub::find_server_at(uint32_t ip)
     if (!browser_client_)
         start_matchmaking_client();
     if (!ip) {
-        g_asked_for = 0;
+        gamenet_settings_shared().asked_for_ = 0;
         return;
     }
     if (browser_client_) {
         std::array<uint32_t, 3> request{}; // (the time; the rest is the original's stack)
         core::at(request, 0) = frame_clock::get_time();
         core::at(request, 1) = core::at(request, 2) = 0;
-        g_asked_for = ip;
+        gamenet_settings_shared().asked_for_ = ip;
         browser_client_->deliver_to(kMsgServerQuery, sizeof(request), request.data(), ip, kLanPort, 0);
     }
 }
@@ -394,7 +401,7 @@ void Hub::find_server_at(uint32_t ip)
 void Hub::service_game_spy()
 {
     game_spy::cd_key_think();
-    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting)
+    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_)
         game_spy::get_qr2_think(nullptr);
 }
 
@@ -426,8 +433,8 @@ void Hub::change_arena(uint32_t level)
     if (peer && game_spy::peer_is_connected(peer) && lobby_service_->is_hosting())
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
-    g_open_waiting = false;
-    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting && g_open_waiting)
+    gamenet_players_shared().open_waiting_ = false;
+    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_)
         game_spy::qr2_send_state_changed(nullptr);
 }
 

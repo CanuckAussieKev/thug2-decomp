@@ -287,6 +287,4 @@ bool cfunc_set_quiet_mode(script::Struct* params, script::Script* script);
 // lobby's +0x30 is below its +0x2C.
 bool cfunc_can_host_game(script::Struct* params, script::Script* script);
 
-extern std::array<QueuedPacket, 200> g_queued_packets;
-
 } // namespace online

@@ -36,6 +36,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/net/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strncpy, kept)
 
@@ -303,8 +304,8 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 int on_server_reply_msg(net::InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content_);
-    if (g_asked_for) {
-        g_asked_for = context->sender_conn_->remote_ip_;
+    if (gamenet_settings_shared().asked_for_) {
+        gamenet_settings_shared().asked_for_ = context->sender_conn_->remote_ip_;
         g_join_server_ip_succeeded = true;
     }
     if (context->body_size_ != kServerResponseSize)

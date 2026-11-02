@@ -29,6 +29,8 @@
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -125,7 +127,11 @@ Hub::Hub()
     core::at(challenge_, kChallengeLength) = '\0';
 }
 
-uint32_t g_game_net_references;
+GamenetManagerCreateShared& gamenet_manager_create_shared()
+{
+    static core::NoDestroy<GamenetManagerCreateShared> state;
+    return state.get();
+}
 
 // 0x0053F520
 Hub* Hub::fabricate(bool create)
@@ -135,7 +141,7 @@ Hub* Hub::fabricate(bool create)
         void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1);
         instance = memory ? memory::construct_in<Hub>(memory) : nullptr;
     }
-    ++g_game_net_references; // (the references)
+    ++gamenet_manager_create_shared().game_net_references_; // (the references)
     return instance;
 }
 

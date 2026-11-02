@@ -52,6 +52,7 @@
 #include "engine/core/format.h"
 #include "wire/gamenet_messages.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
 
@@ -295,7 +296,11 @@ int HostListing::get_entrant_rank(int index)
 void Hub::set_next_service_state(int state) { next_service_state_ = state; }
 int Hub::get_service_state() { return service_state_; }
 
-uint32_t g_news_message_count;
+ServerListShared& server_list_shared()
+{
+    static core::NoDestroy<ServerListShared> state;
+    return state.get();
+}
 
 // 0x005453E0
 void Hub::set_service_state(int state)
@@ -304,7 +309,7 @@ void Hub::set_service_state(int state)
     if (state == kStateWake) {
         get_logic_tasks()->queue_job(service_job_.get());
         set_service_state(next_service_state_);
-        g_news_message_count = 0;
+        server_list_shared().news_message_count_ = 0;
     } else if (state == kStateStopped) {
         service_job_->drop_out();
     }

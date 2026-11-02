@@ -37,15 +37,19 @@
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/mem.h"
+#include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 #include <gsl/pointers>
 
 namespace online {
 
 using namespace detail;
 
-int g_queued_count;
-
-std::array<QueuedPacket, 200> g_queued_packets;
+GamenetLobbyCfuncsShared& gamenet_lobby_cfuncs_shared()
+{
+    static core::NoDestroy<GamenetLobbyCfuncsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -73,8 +77,8 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }
 void nat_think() { game_spy::nat_think(); }
 void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
-std::array<QueuedPacket, 200>& get_queue() { return g_queued_packets; }
-int& queued_count() { return g_queued_count; }
+std::array<QueuedPacket, 200>& get_queue() { return gamenet_lobby_cfuncs_shared().queued_packets_; }
+int& queued_count() { return gamenet_lobby_cfuncs_shared().queued_count_; }
 
 } // namespace
 

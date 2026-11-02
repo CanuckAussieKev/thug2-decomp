@@ -719,20 +719,8 @@ extern int g_net_skill_level;
 extern int g_net_max_players;
 extern uint32_t g_command_line_server;
 extern bool g_online_active;
-extern uint32_t g_asked_for;
 extern bool g_join_server_ip_succeeded;
-extern uint32_t g_level_change_time;
-extern uint32_t g_auto_serve_start;
 extern Hub* g_online_hub;
-extern uint32_t g_game_net_references;
-extern bool g_query_reporting;
-extern bool g_open_waiting;
-extern uint8_t g_game_reported;
-extern bool g_listing_asked;
-extern bool g_listing_found;
-extern uint32_t g_connection_timer;
-extern bool g_game_posted;
-extern int g_queued_count;
 extern bool g_cheat_flag;
 
 // The command line's login (-email / -password, buddy_status.cpp) and a session's password to join with

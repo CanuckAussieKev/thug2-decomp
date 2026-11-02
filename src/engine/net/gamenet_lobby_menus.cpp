@@ -21,6 +21,8 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strncpy: the original's own)
 
@@ -242,8 +244,11 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     pop_heap();
 }
 
-bool g_listing_asked;
-bool g_listing_found;
+GamenetLobbyMenusShared& gamenet_lobby_menus_shared()
+{
+    static core::NoDestroy<GamenetLobbyMenusShared> state;
+    return state.get();
+}
 
 // 0x00541690
 void RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name, int num_waiting,
@@ -255,8 +260,8 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
         set_state(kLobbyStateFailed);
         return;
     }
-    bool& asked = g_listing_asked; // a room was asked for (by its lobby_num)
-    bool& found = g_listing_found;
+    bool& asked = gamenet_lobby_menus_shared().listing_asked_; // a room was asked for (by its lobby_num)
+    bool& found = gamenet_lobby_menus_shared().listing_found_;
     if (group_id == 0) { // the list's end
         set_state(!asked || found ? kLobbyStateListed : kLobbyStateFailed);
         return;

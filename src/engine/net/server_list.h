@@ -114,6 +114,4 @@ int on_server_reply_msg(net::InboundMsgCtx* context);
 void listing_games_callback(void* peer, int success, const char* name, void* sb, int staging, int message, int progress,
                             Hub* manager);
 
-extern uint32_t g_news_message_count;
-
 } // namespace online

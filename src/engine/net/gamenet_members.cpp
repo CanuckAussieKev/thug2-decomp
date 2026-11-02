@@ -52,6 +52,8 @@
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -437,7 +439,11 @@ void Hub::unlink_all_nodes(memory::ListNode* head)
     }
 }
 
-bool g_query_reporting;
+GamenetMembersShared& gamenet_members_shared()
+{
+    static core::NoDestroy<GamenetMembersShared> state;
+    return state.get();
+}
 
 // 0x00536D70
 Hub::~Hub()
@@ -445,9 +451,9 @@ Hub::~Hub()
     // GameSpy shut down (the SDK's), its reporting if it's up.
     game_spy::cd_key_disconnect_all(1003);
     game_spy::cd_key_shutdown();
-    if (g_query_reporting) {
+    if (gamenet_members_shared().query_reporting_) {
         game_spy::get_qr2_shutdown(nullptr);
-        g_query_reporting = false;
+        gamenet_members_shared().query_reporting_ = false;
     }
     // The lobby, the vault, the presence and the stats: each one's destructor, then freed (each while the hub still
     // points at it).

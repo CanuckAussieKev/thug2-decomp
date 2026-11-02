@@ -60,6 +60,4 @@ bool cfunc_toggle_pro_set(script::Struct* params, script::Script* script);      
 // (the first-come-first-served start request, message 0x60 - the host's game options from the network preferences:
 // StartRequest in gamenet_messages.h)
 
-extern uint32_t g_net_game_start_time;
-
 } // namespace online

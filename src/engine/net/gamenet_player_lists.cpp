@@ -61,6 +61,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -566,9 +567,9 @@ void Hub::disconnect_clients()
         spectator_pad_listener_ = nullptr;
     }
     g_text_entry = false;
-    if (g_query_reporting) {
+    if (gamenet_members_shared().query_reporting_) {
         game_spy::get_qr2_shutdown(nullptr);
-        g_query_reporting = false;
+        gamenet_members_shared().query_reporting_ = false;
     }
     game_spy::cd_key_disconnect_all(1003);
     keyboard_job_->drop_out();
@@ -823,7 +824,7 @@ void carried_flags_task(tasks::Task<Hub>*)
 // 0x005395C0 (no `this`): the manager released - its reference count (0x007CCE18) down, or (the last) destroyed.
 void release_manager()
 {
-    uint32_t& references = g_game_net_references;
+    uint32_t& references = gamenet_manager_create_shared().game_net_references_;
     if (references > 1) {
         --references;
         return;

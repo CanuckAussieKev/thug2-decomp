@@ -46,6 +46,8 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/shared_state.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace online {
@@ -54,7 +56,11 @@ using namespace detail;
 using script::Script;
 using script::Struct;
 
-uint8_t g_game_reported;
+GamenetGameCommandsShared& gamenet_game_commands_shared()
+{
+    static core::NoDestroy<GamenetGameCommandsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -118,8 +124,8 @@ uint32_t& last_team_request()
     static uint32_t last_team_request{};
     return last_team_request;
 }
-uint32_t& net_game_start_time() { return g_net_game_start_time; }
-uint8_t& game_reported() { return g_game_reported; } // GameSpy told a game is on
+uint32_t& net_game_start_time() { return gamenet_commands_shared().net_game_start_time_; }
+uint8_t& game_reported() { return gamenet_game_commands_shared().game_reported_; } // GameSpy told a game is on
 
 bool is_head(const memory::ListNode* node) { return node->is_head(); }
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
@@ -160,7 +166,7 @@ void report_game_state(Hub* manager, bool on)
     if (on ? reported == 1 : reported == 0)
         return;
     reported = on ? 1 : 0;
-    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting)
+    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_)
         game_spy::qr2_send_state_changed(nullptr);
 }
 
