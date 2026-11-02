@@ -197,31 +197,39 @@ keep a check carry a `NOLINT` with their reason:
   - A trivially destructible record is held directly with a constexpr constructor - a constant-initialised static, no
     guard; any other is constructed in place in static storage (the function-local static's guard). Its address is
     stable, so members may be registered elsewhere. Static storage, as the globals were: the game's heaps don't change.
-  - A record is a plain struct (data members only, `name_`), its comment naming the original's addresses where known.
-    What one file uses is that file's record in its unnamed namespace (one record per run of definitions, named for
-    what it holds); what several files of a folder share is a record in the folder's own header (`sound/sound_state.h`,
-    `audio/audio_state.h`, `render/collision_state.h`, or `<folder>/shared_state.h` with one record per defining file),
-    included only by that folder. Other subsystems get functions (`sound::get_audio_mixer()`,
-    `game_config::frame_rate()`), never the record. A file's single global is its accessor's function-local static
-    (`core::NoDestroy` when the type has a destructor). The state of the original's start-up initialisers
-    (`sys::run_startup_initialisers`) is still built there, in that order, over its record.
+  - What one file uses is that file's record in its unnamed namespace: a plain struct (data members only, `name_`, its
+    comment naming the original's addresses where known), private by linkage. What several files share - or other
+    subsystems reach - is a **state class** of the subsystem with private members and the methods its users need
+    (`render::renderer()`, `render::light_sets()`, `online::net_game_state()`, `script::script_state()`,
+    `park_editing::park_editing_state()`, `objects::objects_shared()`...), one header each, its members grouped under a
+    comment naming the file that uses them. A getter for what is only read, a `set_` setter for what is assigned, a
+    reference accessor only for what is used in place (a container, an owner, an out-parameter), and a named operation
+    where one reads better (`renderer().count_draw(triangles)`, `save_view()` / `restore_view()`). Classes stay
+    cohesive: a subsystem with unrelated parts gets one class per part (gfx: the renderer, the lights, the 2D layer,
+    the effects, the views, the mesh pass, the engine's parts), and the hot per-frame state stays in trivially
+    destructible classes (constant-initialised: no guard). The older single-record folder headers (`sound/sound_state.h`,
+    `audio/audio_state.h`, `render/collision_state.h`) follow the same rule. A file's single global is its accessor's
+    function-local static (`core::NoDestroy` when the type has a destructor). The state of the original's start-up
+    initialisers (`sys::run_startup_initialisers`) is still built there, in that order, over its record.
   - A manager's owner (`std::unique_ptr` / `memory::HeapUnique`) is a member of its record; the record's file defines
     the getter the other files call (`pad_input::get_input_manager()`, `assets::get_main_loop_manager()`). Raw owners
     become `std::unique_ptr` members: freed with `memory::destroy_then_clear` where the original deleted them, given up
     with `memory::let_go` where the original left them.
-  - What other subsystems use is declared in the defining file's header, where the `extern` was: a getter for what
-    they only read (`render::d3d_device()`, `online::online_hub()`), a getter and `set_` setter for what they write
-    (`render::set_device_lost()`, `online::set_net_max_players()` - no `bits_as` views of another subsystem's
-    state), an accessor of what is used in place (`render::view_matrix()`, the memory pools, the script tables) and
-    an owner's getter (`objects::get_tracker()`, `park_editing::ParkBuilderMode::sole()`). A singleton's existing
-    accessor (`sole()`, `node_manager_instance()`, `gfx::tod_manager()`) holds the storage itself, out of the header
-    into the defining .cpp. Where a folder's files call these functions too, the record stays in its .cpp (gfx); no
-    file keeps a one-line wrapper of another file's state.
+  - What other subsystems use is a method of the state class or a function in the defining file's header (where the
+    `extern` was) - no `bits_as` views of another subsystem's state. A singleton's existing accessor (`sole()`,
+    `node_manager_instance()`, `gfx::tod_manager()`) holds the storage itself, out of the header into the defining
+    .cpp. No file keeps a one-line wrapper of another file's state.
   - Hot paths take the reference once (`auto& voices = voice_state();`) rather than calling the accessor per element.
   - Tables that never change are `constexpr` / `const` (`k` names), not state; a cache of a pure result is a
     function-local static of its one function.
   - Globals whose construction may throw are behind an accessor the same way; allocation failures don't count as an
     escaping exception (`IgnoredExceptions`: the game ends either way).
+- **Private data** (`misc-non-private-member-variables-in-classes`, on once it reaches 0): a class with member functions
+  keeps its data private; what other components, script commands and helpers read is a const getter, what they assign
+  a `set_` setter (`assign_` where a script member function already has the `set_` name), what they use in place a
+  reference accessor beside the const one, and a lookup a method (`MoveExecutor::mapped_slot()`) rather than handing
+  out an owning pointer. Members keep their order and size (pools are sized by `sizeof`). A plain record without
+  member functions keeps public data (C.4: its helpers are free functions).
 - File-local names live in **unnamed namespaces**; **`[[nodiscard]]`** marks results not to drop, and `(void)` the
   ones dropped on purpose; **enums** take the smallest type their values need, except where a value comes from
   outside as an int (the pad bindings' ini numbers); `std::numbers` only where a literal is exactly the constant
