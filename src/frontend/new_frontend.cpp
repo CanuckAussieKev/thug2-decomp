@@ -1768,6 +1768,12 @@ void mirror_mouse(modules::FrontEnd* front_end)
 Cover s_cover;
 mirror::Tracker s_cover_tracker;
 float s_cover_scroll = 0.0f;
+// A dialog box in the front end (QUIT?, the warnings): the restyled screen it came up over, drawn under it (dimmed by the
+// dialog's own ground) - the front end's 3D scene (the skate shop, the skater standing) is never seen through a dialog
+// (the user's report, 2026-11-02: Quit showed the skate shop).
+mirror::Tracker s_dialog_under;
+bool s_dialog_under_on = false;
+float s_dialog_under_scroll = 0.0f;
 bool s_mirror_would_restyle = false; // (this frame's decision: the menu up is one to restyle)
 // The original's elements held hidden though nothing is restyled yet: frames left while a menu that would be (or is
 // still being built - View::unsettled) went; frames a menu has stayed unsettled (shown as the game made it after
@@ -1884,6 +1890,20 @@ void update_mirror(float dt, bool allowed)
     }
     if (up || s_hold_frames > 0)
         hide_root(true);
+    // (the screen under a dialog: the restyled one it replaced; kept while the dialog - or the cover drawing it - is up)
+    const bool dialog_now = up && s_mirror.get_shown().kind == mirror::Kind::kDialog;
+    if (dialog_now && was_up && before.get_shown().kind != mirror::Kind::kDialog) {
+        s_dialog_under = before;
+        s_dialog_under_scroll = s_mirror_scroll;
+        s_dialog_under_on = true;
+    } else if (dialog_now && !was_up && s_cover.get_drawn() == Cover::Over::kRestyled &&
+               s_cover_tracker.get_shown().kind != mirror::Kind::kDialog) {
+        s_dialog_under = s_cover_tracker;
+        s_dialog_under_scroll = s_cover_scroll;
+        s_dialog_under_on = true;
+    } else if ((up && !dialog_now) || (!up && s_cover.get_drawn() != Cover::Over::kRestyled)) {
+        s_dialog_under_on = false;
+    }
 }
 
 // Once a frame while a cover is on (and ours isn't up): off once the screen the hand-off went to is ready. When it ends
@@ -2770,6 +2790,16 @@ void blit()
         if (!showing() && (s_mirror.get_up() || s_cover.get_drawn() == Cover::Over::kRestyled)) {
             // (an original screen restyled - phase 3; or, under a cover, the one last up)
             const paint::Extras pause = restyle_extras();
+            const mirror::Tracker& drawn = s_mirror.get_up() ? s_mirror : s_cover_tracker;
+            if (drawn.get_shown().kind == mirror::Kind::kDialog && !drawn.get_shown().over_game_) {
+                // (a dialog in the front end: over the screen it came from, else over the front end's ground and art -
+                // never over the 3D scene)
+                if (s_dialog_under_on)
+                    paint::restyled(s_dialog_under, frame, static_cast<float>(w), static_cast<float>(h), nullptr,
+                                    &s_dialog_under_scroll, &pause);
+                else
+                    paint::get_waiting(frame, static_cast<float>(w), static_cast<float>(h), pause, "career");
+            }
             if (s_mirror.get_up())
                 paint::restyled(s_mirror, frame, static_cast<float>(w), static_cast<float>(h), &s_mirror_hits,
                                 &s_mirror_scroll, &pause);
