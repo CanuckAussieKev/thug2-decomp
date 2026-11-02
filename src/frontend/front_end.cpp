@@ -41,8 +41,6 @@
 
 namespace modules {
 
-std::unique_ptr<modules::FrontEnd> g_front_end_instance;
-
 namespace {
 
 bool& stored_menus_active()
@@ -197,7 +195,11 @@ bool anchor_exists(script::Struct* params, uint32_t id, bool clear = true)
 
 } // namespace
 
-std::unique_ptr<modules::FrontEnd>& front_end_instance() { return g_front_end_instance; }
+std::unique_ptr<modules::FrontEnd>& front_end_instance()
+{
+    static core::NoDestroy<std::unique_ptr<modules::FrontEnd>> front_end_instance;
+    return front_end_instance.get();
+}
 
 // 0x0054EBE0
 void release_front_end()

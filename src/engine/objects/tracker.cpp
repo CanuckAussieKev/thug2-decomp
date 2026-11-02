@@ -39,7 +39,8 @@
 
 namespace objects {
 
-std::unique_ptr<objects::EventWaitBoard> g_tracker;
+objects::EventWaitBoard* get_tracker() { return entity_hub_shared().tracker_.get(); }
+
 memory::PoolPair& script_list_pools()
 {
     static core::NoDestroy<memory::PoolPair> script_list_pools;
@@ -68,7 +69,6 @@ constexpr int kWaiters = 40;
 
 // The pool pair of the listener lists (ScriptList).
 
-
 // --- the objects ---
 uint32_t& current_object_id(Entity* object) { return object->ident_; }
 // The tracker's aliases of it (compared as a signed count by the original).
@@ -82,13 +82,13 @@ void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_scri
 // The object with this id (the object manager 0x006F0FB8's look_up_entity).
 Entity* find_object_by_id(uint32_t id)
 {
-    return static_cast<ObjectHubBase*>(g_composite_registry.get())->look_up_entity(id);
+    return static_cast<ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(id);
 }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool get_object_id(script::Struct* params, uint32_t name, uint32_t* id)
 {
-    return frontend::g_ui_element_hub->resolve_id(params, name, id);
+    return frontend::UiTree::sole()->resolve_id(params, name, id);
 }
 
 // 0x004A1090: give an event listener the event (the subclass's filter).
@@ -604,10 +604,10 @@ void EventWaitBoard::log_frame() { log_.add_row(0, 0, 0, 0, 0, SignalTrace::kFra
 // 0x00463730
 EventWaitBoard* create_tracker(bool create)
 {
-    if (!g_tracker && create)
-        g_tracker = std::make_unique<EventWaitBoard>(); // (null when the heap is full)
+    if (!entity_hub_shared().tracker_ && create)
+        entity_hub_shared().tracker_ = std::make_unique<EventWaitBoard>(); // (null when the heap is full)
     ++entity_hub_shared().tracker_references_;
-    return g_tracker.get();
+    return entity_hub_shared().tracker_.get();
 }
 
 // --- the script commands ---------------------------------------------------------------------------------

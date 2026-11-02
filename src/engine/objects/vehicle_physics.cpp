@@ -640,7 +640,7 @@ void DrivableModule::update_wheel_contacts()
             wheel.y = wheel.rest_y_;
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
-        if (park_editing::g_park_editor->cur_phase_ != kParkEditorOff) {
+        if (park_editing::ParkBuilderMode::sole()->cur_phase_ != kParkEditorOff) {
             feeler.set_excluded(0, 0x50);
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);

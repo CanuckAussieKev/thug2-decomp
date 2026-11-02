@@ -41,6 +41,7 @@ namespace objects {
 // first use, never destroyed (entity_hub_shared()).
 struct EntityHubShared {
     uint32_t tracker_references_{};
+    std::unique_ptr<objects::EventWaitBoard> tracker_{};
 };
 EntityHubShared& entity_hub_shared();
 

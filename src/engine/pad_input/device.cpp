@@ -217,7 +217,6 @@ void InputPort::stop_actuators()
 
 namespace {
 
-
 // NOT ORIGINAL grouping - the keyboard's buffers, characters and key names, the device manager's references. Made on
 // first use, never destroyed (keyboard_device_state()).
 struct KeyboardState {
@@ -363,7 +362,7 @@ namespace {
 
 bool& quit_requested() { return render::g_quit_requested; }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
-int key_binding(int action) { return core::at(os_layer::g_input_map.front().keys, action); }
+int key_binding(int action) { return core::at(os_layer::get_controls().front().keys, action); }
 // The platform layer's key names.
 const wchar_t* key_name_w(int code) { return os_layer::get_key_name(code); }
 std::array<char, 256>& name_buffer() { return keyboard_device_state().name_buffer_; }
@@ -708,11 +707,11 @@ void InputPort::pull_data(int)
         second ^= core::at(p, 0) >= 0x20 ? 0x40 : 0;
     second ^= core::at(p, 2) >= 0x20 ? 0x80 : 0;
     const uint8_t buttons_so_far = second;
-    const park_editing::ParkBuilderMode* editor = park_editing::g_park_editor.get();
+    const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
     if (editor && editor->cur_phase_ == park_editing::ParkBuilderMode::kStateEdit) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;
-        if (frontend::g_ui_element_hub) {
+        if (frontend::UiTree::sole()) {
             frontend::ElementPtr found;
             frontend::fetch_part(&found, 0x31631B98);
             editor_element = found.get_pull() != nullptr;

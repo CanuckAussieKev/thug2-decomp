@@ -276,7 +276,7 @@ gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params)
 {
     auto object = memory::make_owned<GameEntity>();
     object->change_species(kCutsceneObjectType);
-    g_composite_registry->enrol_subject(object);
+    objects::object_hub_slot()->enrol_subject(object);
     params->put_int(kFlagParam, flag_34b_0_);
     script::launch_script(kCreateScript, params, object, false, nullptr);
     object->seal();

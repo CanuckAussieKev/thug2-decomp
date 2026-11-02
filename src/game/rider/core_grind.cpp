@@ -583,7 +583,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     maths::Vec4 now = object->at_point_;
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float min_alignment = 1.0f;
-    if (park_editing::g_park_editor->cur_phase_ != kParkEditorLevel &&
+    if (park_editing::ParkBuilderMode::sole()->cur_phase_ != kParkEditorLevel &&
         static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_time_)) < static_cast<uint32_t>(rail_wait_))
         min_alignment =
             static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));

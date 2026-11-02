@@ -523,7 +523,6 @@ void handle_mouse_event(SDL_Event* event)
     }
 }
 
-void* ui_tree_handle() { return frontend::g_ui_element_hub.get(); }
 UiWidget* root_element(void* manager) { return static_cast<UiTree*>(manager)->tree_root_.get_pull(); }
 
 bool in_park_editor()
@@ -816,7 +815,7 @@ void select_under_cursor(modules::FrontEnd* front_end, float x, float y, bool cl
 {
     for (int pass = 0; pass < 4; ++pass) {
         Hit hit{};
-        if (!find_item_at(root_element(ui_tree_handle()), x, y, menu_takes_pad_events, &hit)) {
+        if (!find_item_at(root_element(frontend::UiTree::sole()), x, y, menu_takes_pad_events, &hit)) {
             mouse_menus_state().hover_item_ = nullptr;
             mouse_menus_state().hover_id_ = 0;
             return;
@@ -841,11 +840,11 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
         get_log("mouse: left click at layout (%.1f, %.1f)", x, y);
     select_under_cursor(front_end, x, y, true);
     Hit hit{};
-    if (!find_item_at(root_element(ui_tree_handle()), x, y, menu_takes_pad_events, &hit)) {
+    if (!find_item_at(root_element(frontend::UiTree::sole()), x, y, menu_takes_pad_events, &hit)) {
         if (debug) {
             get_log("  no item of a menu that takes pad events under the cursor - nothing sent");
             int lines = 0;
-            if (UiWidget* root = root_element(ui_tree_handle()))
+            if (UiWidget* root = root_element(frontend::UiTree::sole()))
                 log_elements_at(root, x, y, lines);
         }
         log_events() = false;
@@ -966,7 +965,7 @@ void tick_frame(modules::FrontEnd* front_end)
     mouse_menus_state().mouse_.wheel = 0;
 
     // The front end, or a level's pause menu; never the park editor's own cursor.
-    void* manager = ui_tree_handle();
+    void* manager = frontend::UiTree::sole();
     bool menus = manager && root_element(manager) && (render::current_level() == 0 || front_end->is_halted_);
     if (menus && in_park_editor() && !front_end->is_halted_)
         menus = false;
@@ -1005,7 +1004,7 @@ void tick_frame(modules::FrontEnd* front_end)
     if (input.right_clicks_ || input.wheel)
         clear_pending("a right click or the wheel");
     for (int i = 0; i < input.right_clicks_; ++i) {
-        const bool any = any_menu(root_element(ui_tree_handle()), menu_takes_pad_events, false);
+        const bool any = any_menu(root_element(frontend::UiTree::sole()), menu_takes_pad_events, false);
         if (debug_enabled())
             get_log("mouse: right click at layout (%.1f, %.1f)%s", x, y,
                     any ? "" : ": no menu takes pad events - nothing sent");
@@ -1016,7 +1015,7 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     int notches = std::max(-5, std::min(5, input.wheel));
     for (; notches != 0; notches += notches > 0 ? -1 : 1)
-        if (any_menu(root_element(ui_tree_handle()), menu_takes_pad_events, true))
+        if (any_menu(root_element(frontend::UiTree::sole()), menu_takes_pad_events, true))
             send_pad_event(front_end, notches > 0 ? kPadUp : kPadDown);
 }
 

@@ -128,7 +128,6 @@ void set_node_array_removed_hook(NodeArrayRemovedHook hook);
 using NodeArrayAddedHook = void (*)(uint32_t name);
 void set_node_array_added_hook(NodeArrayAddedHook hook);
 
-extern memory::HeapUnique<level_nodes::NodeManager> g_node_manager;
-inline memory::HeapUnique<NodeManager>& node_manager_instance() { return g_node_manager; }
+inline memory::HeapUnique<NodeManager>& node_manager_instance();
 void release_node_manager();
 } // namespace level_nodes

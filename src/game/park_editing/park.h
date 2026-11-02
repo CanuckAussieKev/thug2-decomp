@@ -573,11 +573,10 @@ static_assert(kFloorSize * kFloorSize == 58 * 58, "park_map_format.h's kParkMapF
 
 // The gap manager (the singleton 0x007CE5D4; the park manager keeps it at +0x177C4): the gaps placed in the park.
 class GapRegistry;
-extern GapRegistry* g_gap_registry;
 
 class GapRegistry {
 public:
-    static GapRegistry*& sole() { return g_gap_registry; }
+    static GapRegistry*& sole();
 
     // --- gap_slots.cpp (0x0058C990-0x0058CD3F) ---
     // 0x0058CBB0 (the getter the game calls)
@@ -856,8 +855,6 @@ struct FloorPieceRequest {
     int height;
 };
 
-extern ParkLayout* g_park_layout;
-
 class ParkLayout {
 public:
     // flag_bits_: the compressed map's state (meanings partly guessed from where they're set)
@@ -873,7 +870,7 @@ public:
     static constexpr int kNumRestartPieces = 8;
 
     // The one instance.
-    static ParkLayout*& sole() { return g_park_layout; }
+    static ParkLayout*& sole();
     // 0x00595200 (the getter the game calls)
     static ParkLayout* singleton();
 
@@ -1132,7 +1129,6 @@ static_assert(offsetof(ParkLayout, shell_blocks_) == 0x14 && offsetof(ParkLayout
 inline std::span<PieceFamily> get_sets(ParkLayout* manager) { return manager->sets_; }
 
 // The cursor (200 bytes): the box the player moves over the grid, with the piece to place (or the copy to paste).
-extern BuildPointer* g_cursor;
 
 class BuildPointer {
 public:
@@ -1148,7 +1144,7 @@ public:
     };
 
     // The one instance.
-    static BuildPointer*& sole() { return g_cursor; }
+    static BuildPointer*& sole();
     // 0x00595330 (the getter the game calls)
     static BuildPointer* singleton();
 
@@ -1309,7 +1305,6 @@ bool cfunc_get_park_editor_max_players_possible(script::Struct* params, script::
 inline constexpr float kParkCellSizeX{120.0f};
 inline constexpr float kParkCellSizeY{48.0f};
 inline constexpr float kParkCellSizeZ{120.0f};
-extern memory::PoolPair g_clipboard_pools;
 memory::PoolPair& clipboard_entry_pools();
 memory::PoolPair& node_pools();
 

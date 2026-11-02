@@ -406,7 +406,7 @@ void EditorViewModule::tick_frame()
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
-        if (park_editing::g_park_editor->cur_phase_ == 0x7ECA21E5) {
+        if (park_editing::ParkBuilderMode::sole()->cur_phase_ == 0x7ECA21E5) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {

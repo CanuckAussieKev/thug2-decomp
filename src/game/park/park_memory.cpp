@@ -44,7 +44,6 @@ ParkMemoryState& park_memory_state()
 }
 
 } // namespace
-memory::Arena* g_park_heap;
 namespace {
 
 constexpr uint32_t kPieceDmaTable = 0x9547DA8D; // the global structure of DMA pieces per piece type
@@ -56,7 +55,6 @@ constexpr uint32_t kTopDownLevel = 0xCD3682C1; // the level whose park heap is i
 constexpr int kFloorPieceMem = 40000;
 
 // The script's object pools (CPoolable pairs): components, vectors, arrays.
-
 
 // The park editor's: CClipboard, CClipboardEntry, CMapListNode. The second word's bytes say whether each pool
 // was made here (and is deleted by power_down).
@@ -118,9 +116,17 @@ float pool_usage(memory::PoolPair& pair, const char* base_name, const int& items
 
 } // namespace
 
-memory::PoolPair& clipboard_pools() { return g_clipboard_pools; }
+memory::PoolPair& clipboard_pools()
+{
+    static core::NoDestroy<memory::PoolPair> clipboard_pools;
+    return clipboard_pools.get();
+}
 MemoryStats& get_attributes() { return park_memory_state().park_memory_stats_; }
-memory::Arena*& park_heap() { return g_park_heap; }
+memory::Arena*& park_heap()
+{
+    static memory::Arena* park_heap{};
+    return park_heap;
+}
 int& dma_pieces() { return park_memory_state().dma_pieces_; }
 bool& counts_dirty() { return park_memory_state().counts_dirty_; }
 

@@ -61,7 +61,4 @@ bool cfunc_init_sun(script::Struct* params, script::Script* script);
 // true.
 bool cfunc_update_lens_flare(script::Struct* params, script::Script* script);
 
-extern bool g_got_extra_memory;
-
-extern int g_config_ntsc;
 } // namespace commands

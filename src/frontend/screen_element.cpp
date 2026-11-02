@@ -66,7 +66,6 @@ void launch_event(uint32_t type, uint32_t target)
     objects::get_tracker()->launch_event(type, target, kSystem, nullptr, false, -1.0f);
 }
 
-void* hub() { return g_ui_element_hub.get(); }
 
 // The screen element manager's pieces.
 UiTree* get_elements(void* manager) { return static_cast<UiTree*>(manager); }
@@ -847,7 +846,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
     }
     if (name == kDie) {
         // the parent's focus flag dropped (its event sent) while the element goes, and set again after
-        void* manager = hub();
+        void* manager = UiTree::sole();
         ElementPtr parent;
         parent.assign_value(container_.get_pull());
         if (parent->object_flags_ & kFocusSent) {
@@ -956,7 +955,7 @@ void UiWidget::blend_towards(script::Struct* params)
     }
 }
 
-void fetch_part(ElementPtr* out, uint32_t id) { get_look_up(hub(), out, id, 0); }
+void fetch_part(ElementPtr* out, uint32_t id) { get_look_up(UiTree::sole(), out, id, 0); }
 
 } // namespace frontend
 

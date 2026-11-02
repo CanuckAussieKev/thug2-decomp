@@ -79,7 +79,6 @@ CompositemgrState& compositemgr_state()
 }
 
 } // namespace
-std::unique_ptr<objects::EntityHub> g_composite_registry;
 namespace {
 
 constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
@@ -153,7 +152,11 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
 
 } // namespace
 
-std::unique_ptr<objects::EntityHub>& object_hub_slot() { return g_composite_registry; }
+std::unique_ptr<objects::EntityHub>& object_hub_slot()
+{
+    static core::NoDestroy<std::unique_ptr<objects::EntityHub>> composite_registry;
+    return composite_registry.get();
+}
 
 // 0x0045F6E0
 EntityHub::EntityHub()

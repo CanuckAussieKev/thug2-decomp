@@ -880,7 +880,7 @@ int32_t direct_input_key(SDL_Scancode scan_code)
 // The bindings in the game's table (0x007D6770, port 0's actions), for the menus' key hints.
 void write_game_key_bindings()
 {
-    std::array<int32_t, os_layer::kBindings>& binds = os_layer::g_input_map.front().keys;
+    std::array<int32_t, os_layer::kBindings>& binds = os_layer::get_controls().front().keys;
     core::at(binds, 0) = direct_input_key(sdl_input_state().keys_.up);
     core::at(binds, 1) = direct_input_key(sdl_input_state().keys_.down);
     core::at(binds, 2) = direct_input_key(sdl_input_state().keys_.left);

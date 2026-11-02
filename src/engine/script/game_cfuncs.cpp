@@ -72,6 +72,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/script/shared_state.h"
+#include "engine/sys/game_config.h"
 
 namespace commands {
 
@@ -97,7 +98,6 @@ GameCfuncsState& game_cfuncs_state()
 }
 
 } // namespace
-bool g_got_extra_memory;
 
 namespace {
 
@@ -133,7 +133,7 @@ objects::Rider* get_rider_at(int index)
 // The object manager (0x006F0FB8).
 objects::ObjectHubBase* object_edit()
 {
-    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
+    return static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
 }
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
@@ -536,13 +536,13 @@ bool cfunc_reload_anim(script::Struct* params, script::Script*)
     if (!asset)
         return false;
     assets->discard_loaded_item(asset);
-    const bool debug_heap = g_got_extra_memory;
+    const bool debug_heap = game_config::get_extra_memory();
     if (debug_heap) {
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap_));
     }
     assets->load_anim(file, base, anim, false, false);
-    if (g_got_extra_memory)
+    if (game_config::get_extra_memory())
         memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }
@@ -560,7 +560,7 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
     params->fetch_float(0x906B67BAu, &time, 0); // "time"
     int release = 0;
     params->fetch_int_value(0x1A4E0EF9u, &release, 0);
-    auto* objects = objects::g_composite_registry.get();
+    auto* objects = objects::object_hub_slot().get();
     for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input;
          input = input->next_of_type_)
         core::down_cast<objects::PadInputModule>(input)->lock_button(button, time, release != 0);
@@ -837,7 +837,7 @@ bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.
 bool cfunc_set_scene_color(script::Struct* params, script::Script*)
 {
-    g_tod_manager->set_scene_color(params);
+    gfx::tod_manager()->set_scene_color(params);
     return true;
 }
 

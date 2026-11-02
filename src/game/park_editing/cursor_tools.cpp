@@ -11,11 +11,15 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include "game/park/park_memory.h"
 
 namespace park_editing {
 
-memory::PoolPair g_clipboard_pools;
-BuildPointer* g_cursor;
+BuildPointer*& BuildPointer::sole()
+{
+    static BuildPointer* cursor{};
+    return cursor;
+}
 
 namespace {
 
@@ -24,9 +28,9 @@ void store_gap_details(int tab, GapDetails* info) { GapRegistry::sole()->store_g
 
 } // namespace
 
-void Clipboard::dealloc(void* item) { g_clipboard_pools.dealloc(item); }
+void Clipboard::dealloc(void* item) { park_editing::clipboard_pools().dealloc(item); }
 
-BuildPointer* BuildPointer::singleton() { return g_cursor; }
+BuildPointer* BuildPointer::singleton() { return park_editing::BuildPointer::sole(); }
 
 void BuildPointer::hide_clipboards()
 {

@@ -34,7 +34,6 @@
 
 namespace objects {
 
-
 namespace {
 
 constexpr uint32_t kNoAsset = 0xEE721991; // a timer, not an asset
@@ -281,7 +280,7 @@ void CameraAnimMovie::place_camera()
     maths::Mat4* mat = viewer_->fetch_mat();
     const std::span<float, 16> m(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
-    for (const auto& handler : modules::g_front_end_instance->pad_listeners_) {
+    for (const auto& handler : modules::front_end_instance()->pad_listeners_) {
         if (handler->control_data_->makes_ & 0x40)
             check_done(true);
     }
@@ -311,7 +310,7 @@ void CameraAnimMovie::place_camera()
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
         auto* object = core::down_cast<GameEntity>(
-            static_cast<ObjectHubBase*>(g_composite_registry.get())->look_up_entity(aim_point_));
+            static_cast<ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(aim_point_));
         if (!object)
             return;
         std::array<float, 4> target = {{object->at_point_.x, object->at_point_.y, object->at_point_.z, 1.0f}};

@@ -86,7 +86,7 @@ Struct* preferences_structure(prefs::Preferences* preferences) { return &prefere
 // The goal editor's component (its object's, both named GoalEditor).
 objects::ObjectModule* goal_editor_component()
 {
-    objects::Entity* object = objects::g_tracker->look_up_object(kGoalEditor);
+    objects::Entity* object = objects::get_tracker()->look_up_object(kGoalEditor);
     return core::down_cast<objects::GameEntity>(object)->fetch_module(kGoalEditor);
 }
 

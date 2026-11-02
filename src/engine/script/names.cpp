@@ -16,11 +16,11 @@
 #include "engine/script/cscript.h"
 #include "engine/script/member_code.h"
 #include "engine/script/param_struct.h"
-#include "engine/script/cfuncs_scene.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/sys/game_config.h"
 
 namespace script {
 
@@ -78,7 +78,7 @@ int hex_digit(char c)
 
 } // namespace
 
-bool checksum_names_enabled() { return commands::g_got_extra_memory; }
+bool checksum_names_enabled() { return game_config::get_extra_memory(); }
 
 // 0x0046CF00
 void allocate_checksum_name_lookup_tables()

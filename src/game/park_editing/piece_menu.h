@@ -10,12 +10,11 @@
 namespace park_editing {
 
 class TopBarMenus;
-extern TopBarMenus* g_top_bar_menus;
 
 class TopBarMenus {
 public:
     // The one instance.
-    static TopBarMenus*& sole() { return g_top_bar_menus; }
+    static TopBarMenus*& sole();
 
     // 0x00598DA0: close the menus and delete the instance
     static void discard_occurrence();

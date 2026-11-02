@@ -140,7 +140,7 @@ uint32_t trick_type_of(Struct* trick, uint32_t* type)
 // 0x005B0A40: FlushDeadObjects: the object manager's dead objects deleted now. Always true.
 bool cfunc_flush_dead_objects(script::Struct*, script::Script*)
 {
-    static_cast<objects::MiscHub*>(objects::g_composite_registry.get())->flush_dead_objects();
+    static_cast<objects::MiscHub*>(objects::object_hub_slot().get())->flush_dead_objects();
     return true;
 }
 

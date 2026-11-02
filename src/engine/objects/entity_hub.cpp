@@ -232,7 +232,7 @@ void release_tracker()
         --references;
         return;
     }
-    memory::destroy_then_clear(g_tracker);
+    memory::destroy_then_clear(entity_hub_shared().tracker_);
     references = 0;
 }
 

@@ -238,6 +238,4 @@ bool flag_command_by_name(script::Struct* params, script::Script* script, int ac
 // object has the id.
 void apply_flag_command_to_object(objects::Entity* object, void* data);
 
-extern gfx::CtodManager* g_tod_manager;
-
 } // namespace commands

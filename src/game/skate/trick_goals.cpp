@@ -166,7 +166,7 @@ int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, bo
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
 // makes is let go at once, as in the original), the containers and text elements made for the tricks.
 using frontend::ElementPtr;
-void* ui_tree_handle() { return frontend::g_ui_element_hub.get(); }
+
 frontend::UiTree* hub(void* manager) { return static_cast<frontend::UiTree*>(manager); }
 frontend::UiWidget* element_by_id(void* manager, uint32_t id)
 {
@@ -328,7 +328,7 @@ void FallingTricksGoal::update_alphas()
     int check = 0; // (only read when given)
     const bool check_given = args_->fetch_int_value(kNoAlphaCheck, &check, 0);
     modules::PointTally* score = get_score_of(local_skater());
-    void* manager = ui_tree_handle();
+    void* manager = frontend::UiTree::sole();
     const float faded = script::fetch_float(kFadedAlpha);
     const float unfaded = script::fetch_float(kUnfadedAlpha);
     for (const StackedTrickEntry& t : tricks_) {
@@ -378,7 +378,7 @@ void FallingTricksGoal::clear_tricks_and_menu()
         core::at(group_used_, i) = false;
     }
     args_->remove_flag(kTricksAdded);
-    hub(ui_tree_handle())->dismantle_part(kTetrisMenu, 1, 1, nullptr);
+    hub(frontend::UiTree::sole())->dismantle_part(kTetrisMenu, 1, 1, nullptr);
 }
 
 // 0x0056F610
@@ -396,7 +396,7 @@ void FallingTricksGoal::drop_move_entry(int index)
     int max_tricks = 0;
     args_->fetch_int_value(kMaxTricksName, &max_tricks, 1);
     const uint32_t id = core::at(tricks_, index).element;
-    void* manager = ui_tree_handle();
+    void* manager = frontend::UiTree::sole();
     ElementPtr element;
     hub(manager)->fetch_part(&element, id, 1);
     script::StructPtr params = script::make_struct();
@@ -465,7 +465,7 @@ void FallingTricksGoal::add_tricks(int count)
         }
     }
     for (int remaining = count; remaining > 0; --remaining) {
-        void* manager = ui_tree_handle();
+        void* manager = frontend::UiTree::sole();
         script::Array* key_combos = nullptr;
         args_->fetch_list(kTetrisKeyCombos, &key_combos, 0);
         uint32_t key_combo = 0;
@@ -886,7 +886,7 @@ void TrickBeatGoal::trick_landed(script::Struct* trick)
     const uint32_t checksum = checksums::hash_from_text(name);
     if (!in_window_)
         return;
-    void* manager = ui_tree_handle();
+    void* manager = frontend::UiTree::sole();
     const float alpha = script::fetch_float(kBeatFadedAlpha);
     for (BeatTrick& t : tricks_) {
         if (t.free || t.landed || t.trick != checksum)
@@ -899,7 +899,7 @@ void TrickBeatGoal::trick_landed(script::Struct* trick)
 // 0x00574B90
 void TrickBeatGoal::clear_landed()
 {
-    void* manager = ui_tree_handle();
+    void* manager = frontend::UiTree::sole();
     const float alpha = script::fetch_float(kBeatUnfadedAlpha);
     for (BeatTrick& t : tricks_) {
         if (t.free || !t.landed)
@@ -942,7 +942,7 @@ void TrickBeatGoal::pulse_tricks()
     for (const BeatTrick& t : tricks_) {
         if (t.free || t.landed)
             continue;
-        frontend::UiWidget* element = element_by_id(ui_tree_handle(), t.element);
+        frontend::UiWidget* element = element_by_id(frontend::UiTree::sole(), t.element);
         script::StructPtr params = script::make_struct();
         auto window = static_cast<float>(window_time_);
         params->put_int(kWaitTime, ftol(window / static_cast<double>(frame_clock::get_time_scale())));
@@ -957,7 +957,7 @@ void TrickBeatGoal::drop_move_entry(int index)
 {
     const uint32_t id = core::at(tricks_, index).element;
     ElementPtr element;
-    hub(ui_tree_handle())->fetch_part(&element, id, 1);
+    hub(frontend::UiTree::sole())->fetch_part(&element, id, 1);
     script::StructPtr params = script::make_struct();
     params->put_name_key(kId, id);
     get_run(kBeatResetContainer, params.get());
@@ -1051,7 +1051,7 @@ void TrickBeatGoal::update_beat()
 void TrickBeatGoal::add_tricks(int count)
 {
     for (int remaining = count; remaining > 0; --remaining) {
-        void* manager = ui_tree_handle();
+        void* manager = frontend::UiTree::sole();
         script::Array* key_combos = nullptr;
         args_->fetch_list(kBeatKeyCombos, &key_combos, 0);
         uint32_t key_combo = 0;

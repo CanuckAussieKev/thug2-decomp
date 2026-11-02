@@ -18,6 +18,7 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/down_cast.h"
+#include "engine/sys/game_config.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -216,7 +217,7 @@ bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script*)
 // the asset reloaded from the file (in the debug heap). Its result; false without both parameters.
 bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
 {
-    if (!g_got_extra_memory)
+    if (!game_config::get_extra_memory())
         return false;
     uint32_t name = 0;
     const char* file = nullptr;

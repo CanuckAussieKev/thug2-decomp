@@ -176,7 +176,7 @@ bool is_multiplayer() { return modules::Skate::is_multiplayer() & 1; }
 // The game mode's name (modules::Skate's game mode 0x007CE470).
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
 // The front end (0x007CE464): +0x30 paused.
-bool is_game_halted() { return modules::g_front_end_instance->is_halted_; }
+bool is_game_halted() { return modules::front_end_instance()->is_halted_; }
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.
 void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
 
@@ -1137,7 +1137,11 @@ bool CtodManager::can_set_tod_instant(uint32_t state) const
     return false;
 }
 
-CtodManager*& tod_manager() { return commands::g_tod_manager; }
+CtodManager*& tod_manager()
+{
+    static gfx::CtodManager* tod_manager{};
+    return tod_manager;
+}
 namespace {
 uint32_t& ref_tally()
 {

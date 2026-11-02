@@ -17,7 +17,11 @@
 
 namespace park_editing {
 
-TopBarMenus* g_top_bar_menus;
+TopBarMenus*& TopBarMenus::sole()
+{
+    static TopBarMenus* top_bar_menus{};
+    return top_bar_menus;
+}
 
 namespace {
 
@@ -172,7 +176,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         first = first + (count - last) - 1;
         last = count - 1;
     }
-    void* elements = frontend::g_ui_element_hub.get();
+    void* elements = frontend::UiTree::sole();
     frontend::ElementPtr slider;
     fetch_part(elements, &slider, kPieceSlider);
     float x = 0.0f;

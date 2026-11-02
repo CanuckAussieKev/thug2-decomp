@@ -22,8 +22,16 @@
 
 namespace park_editing {
 
-GapRegistry* g_gap_registry;
-ParkLayout* g_park_layout;
+GapRegistry*& GapRegistry::sole()
+{
+    static GapRegistry* gap_registry{};
+    return gap_registry;
+}
+ParkLayout*& ParkLayout::sole()
+{
+    static ParkLayout* park_layout{};
+    return park_layout;
+}
 
 namespace {
 
@@ -46,7 +54,7 @@ void copy_text(std::span<char> to, const char* from)
 
 } // namespace
 
-ParkLayout* ParkLayout::singleton() { return g_park_layout; }
+ParkLayout* ParkLayout::singleton() { return park_editing::ParkLayout::sole(); }
 
 ParkMap* ParkLayout::get_packed_park_data(bool flag_clean)
 {
@@ -241,7 +249,7 @@ bool ParkLayout::is_area_blocked(CellBox area)
 namespace {
 
 // GapRegistry (0xA8 bytes): the instance in use (sSingleton, 0x0058CBB0), constructor, copying and destructor.
-GapRegistry*& gap_manager_instance() { return g_gap_registry; }
+GapRegistry*& gap_manager_instance() { return park_editing::GapRegistry::sole(); }
 
 } // namespace
 

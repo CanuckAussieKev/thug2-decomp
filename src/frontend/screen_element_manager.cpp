@@ -23,10 +23,21 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend {
 
-std::unique_ptr<UiTree> g_ui_element_hub;
+namespace {
+
+std::unique_ptr<UiTree>& stored_ui_element_hub()
+{
+    static core::NoDestroy<std::unique_ptr<UiTree>> ui_element_hub;
+    return ui_element_hub.get();
+}
+
+} // namespace
+
+UiTree* UiTree::sole() { return stored_ui_element_hub().get(); }
 
 namespace {
 
@@ -653,9 +664,9 @@ uint32_t& screen_element_manager_uses()
 // 0x004ACAF0
 void create_screen_element_manager(bool create)
 {
-    if (!g_ui_element_hub && create) {
-        g_ui_element_hub = std::make_unique<UiTree>(); // (zeroed, from the current heap; null when it's full)
-        if (g_ui_element_hub) {
+    if (!stored_ui_element_hub() && create) {
+        stored_ui_element_hub() = std::make_unique<UiTree>(); // (zeroed, from the current heap; null when it's full)
+        if (stored_ui_element_hub()) {
             ++screen_element_manager_uses();
             return;
         }
@@ -671,7 +682,7 @@ void delete_screen_element_manager()
         --uses;
         return;
     }
-    memory::destroy_then_clear(g_ui_element_hub);
+    memory::destroy_then_clear(stored_ui_element_hub());
     uses = 0;
 }
 

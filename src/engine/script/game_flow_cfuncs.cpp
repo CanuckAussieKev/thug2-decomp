@@ -103,7 +103,7 @@ objects::Rider* get_rider_at(int index) { return core::down_cast<objects::Rider>
 objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
 
 // The object manager (0x006F0FB8).
-objects::EntityHub* object_edit() { return objects::g_composite_registry.get(); }
+objects::EntityHub* object_edit() { return objects::object_hub_slot().get(); }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
 goals::MatchRules* game_mode_object() { return static_cast<goals::MatchRules*>(get_game_mode()); }
@@ -149,7 +149,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     goals::GoalManager* skater_info = goals::get_objective_board();
     skater_info->disengage_every_objective(false);
     skater_info->wipe_objectives();
-    g_tod_manager->clear_dead_objects();
+    gfx::tod_manager()->clear_dead_objects();
     park_editing::ParkBuilderMode::sole()->get_leave();
     compiled_out_debug_call();
     bool preserve_skaters = false;

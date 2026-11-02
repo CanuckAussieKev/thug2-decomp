@@ -53,7 +53,7 @@ constexpr uint32_t kRestart = 0x1806DDF8;        // Restart
 // The skaters by object id (0-31).
 constexpr int kSkaterSlots = 32;
 
-EntityHub* entity_hub_handle() { return g_composite_registry.get(); }
+EntityHub* entity_hub_handle() { return objects::object_hub_slot().get(); }
 Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(id); }
 
 // A level sector's bounding box and world matrix (not rewritten yet).

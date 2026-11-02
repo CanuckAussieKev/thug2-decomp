@@ -24,6 +24,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/script/shared_state.h"
+#include "engine/sys/game_config.h"
 
 namespace commands {
 
@@ -108,7 +109,7 @@ bool cfunc_mem_view_toggle(Struct*, Script*)
 }
 
 // 0x004480A0: GotExtraMemory: whether the machine has the extra memory (0x007CEFAC).
-bool cfunc_got_extra_memory(Struct*, Script*) { return g_got_extra_memory != 0; }
+bool cfunc_got_extra_memory(Struct*, Script*) { return game_config::get_extra_memory() != 0; }
 
 // 0x004480B0: MemPushContext <heap name> | 0 (the bottom-up heap; another number does nothing): allocations go to
 // that heap until MemPopContext. Always true.

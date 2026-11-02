@@ -35,8 +35,7 @@ struct PortControls {
 static_assert(offsetof(PortControls, joystick) == 0x60 && offsetof(PortControls, gamepad) == 0x70 &&
                   offsetof(PortControls, mouse) == 0xD0 && sizeof(PortControls) == 0x130,
               "layout must match the original");
-extern std::array<PortControls, kPorts> g_input_map;
-inline std::array<PortControls, kPorts>& get_controls() { return g_input_map; }
+inline std::array<PortControls, kPorts>& get_controls();
 
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
 // [Graphics] in thug2-decomp.ini, engine/gfx/settings.h).

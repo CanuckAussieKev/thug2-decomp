@@ -12,7 +12,6 @@
 #include <array>
 
 #include "engine/core/dbg.h"
-#include "engine/script/cfuncs_scene.h"
 #include "engine/core/checked_index.h"
 #include "platform/registry.h"
 #include "engine/core/no_destroy.h"
@@ -35,6 +34,8 @@ struct ConfigState {
     std::array<char, 128> path_prefix_{};
     std::array<char, 128> bootstrap_argument_{};
     std::array<char, 128> bootstrap_return_{};
+    int display_type_{1};      // (the script commands' NTSC setting: 1)
+    bool got_extra_memory_{}; // (the script commands' GotExtraMemory)
 };
 
 ConfigState& config_state()
@@ -47,10 +48,10 @@ ConfigState& config_state()
 int& get_language() { return config_state().language_; }
 int& territory() { return config_state().territory_; }
 int& hardware() { return config_state().platform_; }
-int& display_type() { return commands::g_config_ntsc; }
+int& display_type() { return config_state().display_type_; }
 int& frame_rate() { return config_state().frame_rate_; }
 bool& from_cd() { return config_state().from_cd_; }
-bool& get_extra_memory() { return commands::g_got_extra_memory; }
+bool& get_extra_memory() { return config_state().got_extra_memory_; }
 bool& bootstrap() { return config_state().config_bootstrap_; }
 bool& ntsc_flag() { return config_state().ntsc_flag_; }
 

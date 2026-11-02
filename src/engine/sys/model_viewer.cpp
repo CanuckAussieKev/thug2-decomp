@@ -62,7 +62,6 @@ constexpr uint32_t kUserViewerCircle = 0xB6E7047D;     // UserViewerCircle
 constexpr uint32_t kUserViewerTriangle = 0xC09789E2;   // UserViewerTriangle
 constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
 
-
 // NOT ORIGINAL grouping - the model viewer's speeds, viewer and last time. Made on first use, never destroyed
 // (model_viewer_state()).
 struct ModelViewerState {
@@ -79,7 +78,6 @@ ModelViewerState& model_viewer_state()
 }
 
 Viewer*& sole() { return model_viewer_state().viewer_; }
-
 
 // A task or input handler off its list (0x004068F0).
 void remove_node(tasks::SchedulerTask* node) { node->drop_out(); }
@@ -295,7 +293,7 @@ int handle_remove_viewer_object(net::InboundMsgCtx* context)
 void Viewer::create_viewer_object(void* data)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(manager->debug_heap_)
+    manager->enter_heap_scope(game_config::get_extra_memory() ? static_cast<memory::MemSource*>(manager->debug_heap_)
                                                            : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
     drop_viewer_entity();
     entity_ = std::make_unique<objects::PreviewEntity>(net_handler_.get());

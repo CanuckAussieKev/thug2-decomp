@@ -36,7 +36,7 @@ void get_launch(uint32_t type, uint32_t target, Struct* data)
 }
 
 // The screen element manager (0x00701440) and its pieces.
-void* hub() { return g_ui_element_hub.get(); }
+
 UiTree* get_elements(void* manager) { return static_cast<UiTree*>(manager); }
 bool uses_priorities(void* manager) { return get_elements(manager)->has_priorities(); }
 bool is_priority_event(void* manager, uint32_t type) { return get_elements(manager)->is_pad_event(type); }
@@ -160,7 +160,7 @@ void MenuBase::get_step(int direction)
         UiWidget* item = nullptr;
         {
             ElementPtr found;
-            item = get_look_up(hub(), &found, chosen_item_id_, 0)->get_pull();
+            item = get_look_up(UiTree::sole(), &found, chosen_item_id_, 0)->get_pull();
         }
         if (item)
             item->read_int_tag(kTagGridIndex, &grid_index);

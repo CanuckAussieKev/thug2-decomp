@@ -462,7 +462,7 @@ Entity* Rider::get_skater_camera()
 // 0x005808A0
 void Rider::set_pause_state(int state)
 {
-    void* front_end = modules::g_front_end_instance.get();
+    void* front_end = modules::front_end_instance().get();
     if (pause_state_ == state || !fetch_module(kSkaterPhysicsControl))
         return;
     pause_state_ = state;
@@ -1428,7 +1428,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
                 break;
             }
         }
-        if (i == count && park_editing::g_park_editor->cur_phase_ != 0xD443A2BC)
+        if (i == count && park_editing::ParkBuilderMode::sole()->cur_phase_ != 0xD443A2BC)
             modules::Skate::sole()->teleport_to_spawn(this, 0, walking);
         return true;
     }

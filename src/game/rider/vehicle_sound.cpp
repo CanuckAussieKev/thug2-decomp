@@ -53,7 +53,6 @@ sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
 int get_clock() { return frame_clock::game_clock_elapsed(); }
 
-
 // A float of the global structure kRates (asserted).
 float get_rate(uint32_t name)
 {
@@ -120,7 +119,7 @@ SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() = default;
 // 0x0051AE60
 void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
 {
-    park_editor_level_ = park_editing::g_park_editor->cur_phase_ != kParkEditorOff;
+    park_editor_level_ = park_editing::ParkBuilderMode::sole()->cur_phase_ != kParkEditorOff;
 }
 
 // 0x0051B8E0

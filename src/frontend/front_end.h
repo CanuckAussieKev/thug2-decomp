@@ -147,5 +147,4 @@ void set_menus_active(bool value);
 bool pending_script();
 void set_pending_script(bool value);
 
-extern std::unique_ptr<modules::FrontEnd> g_front_end_instance;
 } // namespace modules

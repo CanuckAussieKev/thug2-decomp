@@ -162,7 +162,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
     } else if (!same_rail()) {
         // Another rail. In a created park, only if its ends are all more than 6 from the last one's (pieces' rails
         // meet end to end).
-        if (park_editing::g_park_editor->cur_phase_ == kOff || !last->last_value_ || !node->last_value_) {
+        if (park_editing::ParkBuilderMode::sole()->cur_phase_ == kOff || !last->last_value_ || !node->last_value_) {
             new_rail = true;
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)

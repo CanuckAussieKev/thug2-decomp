@@ -206,7 +206,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
 // 0x004FE860
 void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
 {
-    if (park_editing::g_park_editor->cur_phase_ != kOff && normal.y > 0.0f) {
+    if (park_editing::ParkBuilderMode::sole()->cur_phase_ != kOff && normal.y > 0.0f) {
         const maths::Vec4& position = entity_->at_point_;
         maths::Vec4 end;
         end.x = static_cast<float>(static_cast<float>(normal.x * static_cast<double>(kNormalFeeler)) + position.x);

@@ -95,6 +95,4 @@ bool pieces_fit(int first, int last);
 // else in the bottom-up one) and the three pools in it; figures cleared.
 void prepare_all(uint32_t level);
 
-extern memory::Arena* g_park_heap;
-
 } // namespace park_editing

@@ -1050,7 +1050,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
             return true;
         }
     }
-    if (park_editing::g_park_editor->cur_phase_ == kParkEditor)
+    if (park_editing::ParkBuilderMode::sole()->cur_phase_ == kParkEditor)
         return true;
     glide_to_node(level_nodes::fetch_vertex(skate_restart(0), true));
     return true;

@@ -46,7 +46,6 @@ constexpr std::array<std::array<float, 4>, 5> kUberFrigOffsets = {{
     {0.0f, 0.0f, -0.2f, 1.0f}, {0.2f, 0.0f, 0.0f, 1.0f},
 }};
 
-
 int state_of(skater::SkaterPhysicsModule* core) { return core->state_->cur_phase_; }
 void change_phase(skater::SkaterPhysicsModule* core, int state) { core->set_physics_state(state); }
 
@@ -82,7 +81,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (raise != 0.0f)
         start.y += raise;
     auto* physics = static_cast<skater::SkaterPhysicsModule*>(core);
-    const park_editing::ParkBuilderMode* park_editor = park_editing::g_park_editor.get();
+    const park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::sole();
 
     if (!physics->probe_touches_zone(0x10, 0)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame

@@ -218,7 +218,7 @@ bool cfunc_spawn_crown(Struct*, Script*)
     Struct* node = core::at(nodes, spawn % count); // (no node of the type divides by zero, as in the original)
     maths::Vec4 position;
     level_nodes::fetch_place(node, &position);
-    manager->crown_->init_from_node(objects::g_composite_registry.get(), node);
+    manager->crown_->init_from_node(objects::object_hub_slot().get(), node);
     if (auto* king = manager->get_hill_ruler())
         manager->crown_->put_on(core::down_cast<objects::GameEntity>(player_skater(king)));
     return true;

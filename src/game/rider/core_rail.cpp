@@ -54,7 +54,7 @@ constexpr float kRaiseEnd = 6.1f;    // 0x0064BDA8: its end
 constexpr float kFeelerAhead = 6.0f; // (the feeler past the move: 6 along it)
 constexpr float kTurnFacing = 0.3f;  // (how far the display facing turns to the rail each frame)
 
-bool in_park_editor() { return park_editing::g_park_editor->cur_phase_ == kParkEditorLevel; }
+bool in_park_editor() { return park_editing::ParkBuilderMode::sole()->cur_phase_ == kParkEditorLevel; }
 void change_state(SkaterPhysicsModule* component, int state)
 {
     static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);

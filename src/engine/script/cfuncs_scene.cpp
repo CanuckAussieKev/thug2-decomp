@@ -30,8 +30,6 @@ namespace commands {
 using script::Script;
 using script::Struct;
 
-int g_config_ntsc{1};
-
 namespace {
 
 constexpr uint32_t kTerrain = 0x3789AC4E;               // "Terrain"
@@ -72,8 +70,8 @@ constexpr uint32_t kLensFlareData = 0x04CBD07F;         // "lens_flare_data"
 // the extra memory of a development kit, the TV standard (0 PAL, 1 NTSC) and the frame rate.
 int& config_language() { return game_config::get_language(); }
 bool& config_cd() { return game_config::from_cd(); }
-bool& config_got_extra_memory() { return g_got_extra_memory; }
-int& config_ntsc() { return g_config_ntsc; }
+bool& config_got_extra_memory() { return game_config::get_extra_memory(); }
+int& config_ntsc() { return game_config::display_type(); }
 int& config_framerate() { return game_config::frame_rate(); }
 bool& config_bootstrap() { return game_config::bootstrap(); }
 // The configuration's names (cdecl): the hardware, the display type for a frame rate, the language, the territory.

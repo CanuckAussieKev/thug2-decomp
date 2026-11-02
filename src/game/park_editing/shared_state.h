@@ -65,3 +65,14 @@ struct ParkMapShared {
 ParkMapShared& park_map_shared();
 
 } // namespace park_editing
+
+namespace park_editing {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (park_io_shared()).
+struct ParkIoShared {
+    std::unique_ptr<park_editing::ParkBuilderMode> park_editor_{};
+};
+ParkIoShared& park_io_shared();
+
+} // namespace park_editing

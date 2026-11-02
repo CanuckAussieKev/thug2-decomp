@@ -14,10 +14,15 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/sys/model_viewer.h"
+#include "game/park_editing/shared_state.h"
 
 namespace park_editing {
 
-uint32_t g_park_editor_references;
+uint32_t& ParkBuilderMode::ref_tally()
+{
+    static uint32_t park_editor_references{};
+    return park_editor_references;
+}
 namespace {
 
 // The display task's code: 0x005480A0, the empty function.
@@ -199,7 +204,7 @@ ParkBuilderMode::ParkBuilderMode()
 ParkBuilderMode* ParkBuilderMode::fabricate(bool create)
 {
     if (!sole() && create) {
-        g_park_editor = std::make_unique<ParkBuilderMode>(); // (null when the heap is full)
+        park_io_shared().park_editor_ = std::make_unique<ParkBuilderMode>(); // (null when the heap is full)
         if (sole()) {
             ++ref_tally();
             return sole();

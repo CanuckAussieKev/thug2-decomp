@@ -137,7 +137,7 @@ online::Hub* net_session_slot() { return online::online_hub(); }
 
 objects::ObjectHubBase* entity_hub_handle()
 {
-    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
+    return static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
 }
 goals::GoalManager* objective_board() { return goals::get_objective_board(); }
 

@@ -182,8 +182,7 @@ public:
 };
 
 // The tracker (null until made).
-extern std::unique_ptr<EventWaitBoard> g_tracker;
-inline EventWaitBoard* get_tracker() { return g_tracker.get(); }
+EventWaitBoard* get_tracker();
 // 0x00463730: make the tracker if there's none and `create`; count a use either way. Returns it.
 EventWaitBoard* create_tracker(bool create);
 

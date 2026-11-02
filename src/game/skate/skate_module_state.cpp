@@ -365,7 +365,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         net::NetMessageInfo desc;
         uint32_t now = frame_clock::get_time();
         if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
-            void* map = park_editing::g_park_editor->get_packed_park_data(false)->bytes().data();
+            void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
             int handle = info->get_link_handle();
             server->send_bulk_message(handle, kMsgParkMap, 15000, map, "level data", kGroupGame, false,
                                       true);     // "level data"

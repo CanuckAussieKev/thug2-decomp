@@ -434,7 +434,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
     const bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
-    if (!driving_matters && park_editing::g_park_editor->cur_phase_ == kOff)
+    if (!driving_matters && park_editing::ParkBuilderMode::sole()->cur_phase_ == kOff)
         return;
     uint32_t cancel = 0, require = 0;
     fetch_gap_condition_masks(&cancel, &require);

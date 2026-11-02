@@ -49,7 +49,11 @@ IDirectInputDevice8A* keyboard_device() { return stored_keyboard_device(); }
 void set_keyboard_device(IDirectInputDevice8A* value) { stored_keyboard_device() = value; }
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
-std::array<PortControls, kPorts> g_input_map;
+std::array<PortControls, kPorts>& get_controls()
+{
+    static std::array<PortControls, kPorts> input_map{};
+    return input_map;
+}
 constexpr int kKeyNameLength = 15;
 namespace {
 // NOT ORIGINAL grouping - platform_input.cpp's state (the original's globals). Made on first use, never destroyed
@@ -78,7 +82,6 @@ namespace {
 
 // DirectInput and its devices (the keyboard and mouse are the first of each found).
 IDirectInput8A*& get_direct_input() { return platform_input_shared().direct_input_; }
-
 
 constexpr uint8_t kMouseInvertX{0};
 constexpr uint8_t kMouseInvertY{0};

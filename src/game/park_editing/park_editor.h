@@ -37,8 +37,6 @@ class ParkBuilderMode;
 using ParkEditorTask = tasks::Task<ParkBuilderMode>;
 using ParkEditorInputHandler = pad_input::Responder<ParkBuilderMode>;
 
-extern std::unique_ptr<ParkBuilderMode> g_park_editor;
-extern uint32_t g_park_editor_references;
 
 // The park editor module (vtable 0x0064F234).
 class ParkBuilderMode final : public modules::PartUnit {
@@ -73,8 +71,8 @@ public:
     static constexpr uint32_t kCommandWidenGapLeft = 0x8000;   // button 0x10000 pressed
     static constexpr uint32_t kCommandNarrowGapLeft = 0x10000; // button 0x20000 pressed
 
-    static ParkBuilderMode* sole() { return g_park_editor.get(); }
-    static uint32_t& ref_tally() { return g_park_editor_references; }
+    static ParkBuilderMode* sole();
+    static uint32_t& ref_tally();
 
     // --- the module (park_editor.cpp) ---
     // 0x0058D290: single::LazyInstance<ParkBuilderMode>'s release: a reference dropped; the last deletes the instance.

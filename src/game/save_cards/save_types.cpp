@@ -438,7 +438,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     case kSavePark:
     case kSaveCreatedGoals: {
         constexpr uint32_t kGoalEditor = 0x81F01058; // "GoalEditor": the object and its component
-        objects::Entity* object = objects::g_tracker->look_up_object(kGoalEditor);
+        objects::Entity* object = objects::get_tracker()->look_up_object(kGoalEditor);
         objects::ObjectModule* component = core::down_cast<objects::GameEntity>(object)->fetch_module(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
         const int edited = core::down_cast<park_editing::ObjectiveAuthoring>(component)->count_used_goals();

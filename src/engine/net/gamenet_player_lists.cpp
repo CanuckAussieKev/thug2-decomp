@@ -450,7 +450,7 @@ void Hub::launch_queued_scripts()
         auto* next = data_of<PendingScriptItem>(node);
         script::Script* script = script::spawn_script(queued->own_script_, nullptr, 0, nullptr, queued->list_link_, 0,
                                                       false, false, false, false);
-        objects::Entity* object = objects::g_composite_registry
+        objects::Entity* object = objects::object_hub_slot()
                                       ->look_up_entity(queued->entity_key_);
         script->entity_.assign_value(object);
         while (script->tick_frame() != script::kScriptOutcomeFinished) {

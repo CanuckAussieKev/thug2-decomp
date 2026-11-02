@@ -28,7 +28,11 @@
 
 namespace level_nodes {
 
-memory::HeapUnique<level_nodes::NodeManager> g_node_manager;
+memory::HeapUnique<NodeManager>& node_manager_instance()
+{
+    static core::NoDestroy<memory::HeapUnique<level_nodes::NodeManager>> node_manager;
+    return node_manager.get();
+}
 
 using script::Array;
 using script::Struct;
@@ -40,7 +44,7 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;    // links
 constexpr uint32_t kPosition = 0xB9D31B0A; // position
 constexpr uint32_t kPos = 0x7F261953;      // pos
 
-memory::HeapUnique<NodeManager>& sole() { return g_node_manager; }
+memory::HeapUnique<NodeManager>& sole() { return level_nodes::node_manager_instance(); }
 uint32_t& ref_tally()
 {
     static uint32_t node_manager_references{};

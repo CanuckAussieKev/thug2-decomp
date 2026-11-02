@@ -158,7 +158,7 @@ constexpr uint8_t kGroupGame = 8;
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
 online::Hub* net_session_slot() { return online::online_hub(); }
-objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::g_composite_registry.get()); }
+objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::object_hub_slot().get()); }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -572,7 +572,7 @@ void Skate::reset_level()
     else
         goals->prepare_every_objective();
     goals->spawn_objective_props();
-    commands::g_tod_manager->clear_dead_objects();
+    gfx::tod_manager()->clear_dead_objects();
     script::launch_script(kResetLevel, nullptr, nullptr, false, nullptr);
 }
 
@@ -580,7 +580,7 @@ void Skate::reset_level()
 void Skate::launch_game()
 {
     online::Hub* net = net_session_slot();
-    g_front_end_instance->get_pause_game(false);
+    modules::front_end_instance()->get_pause_game(false);
     memory::enter_heap_scope(memory::bottom_up_heap());
     debug::printf("\nLAUNCH GAME CALLED with %d skaters \n\n",
                   count_riders()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
@@ -861,7 +861,7 @@ void Skate::update_suspend_visibility(objects::Entity* object, void*)
 // 0x00567710
 void Skate::run_frame_logic()
 {
-    commands::g_tod_manager->tick_frame();
+    gfx::tod_manager()->tick_frame();
     objects::next_suspend_frame();
     if (!objects::simulation_halted() && !objects::view_mode()) {
         stubs::do_nothing();
@@ -995,7 +995,7 @@ Skate::Skate()
     objects::g_profile_roster->reset_templates();
     game_flow_ = std::make_unique<goals::MatchFlow>();
     goal_manager_ = memory::make_zeroed<goals::GoalManager>();
-    render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry.get()));
+    render::engine::change_entity_hub(static_cast<void*>(objects::object_hub_slot().get()));
     career_ = std::make_unique<objects::RiderStoryProgress>();
     rail_manager_ = memory::make_zeroed<objects::GrindRailHub>(); // (0x54 bytes)
     checksums_ = memory::make_zeroed<objects::ChecksumSet>();     // (0x404 bytes)

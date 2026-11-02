@@ -69,7 +69,7 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     core::at(platform_input_shared().force_resolutions_, 1) = 0;
     core::at(platform_input_shared().force_resolutions_, 2) = 0;
     core::at(platform_input_shared().force_resolutions_, 3) = 0;
-    std::memset(os_layer::g_input_map.data(), 0xFF, sizeof(os_layer::g_input_map));
+    std::memset(os_layer::get_controls().data(), 0xFF, sizeof(os_layer::get_controls()));
     render::g_antialiasing = false;
     render::g_hq_shadows = 0;
     render::g_fog_setting = false;

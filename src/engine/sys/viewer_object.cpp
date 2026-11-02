@@ -45,6 +45,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/sys/game_config.h"
 
 namespace objects {
 
@@ -215,7 +216,7 @@ void PreviewEntity::read_in(script::Struct* params)
     add_motion_components(this);
     add_node_components(this, params);
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(memory->debug_heap_)
+    memory->enter_heap_scope(game_config::get_extra_memory() ? static_cast<memory::MemSource*>(memory->debug_heap_)
                                                           : static_cast<memory::MemSource*>(memory->bottom_up_heap_));
     const char* name = nullptr;
     for (int i = 0; i < 4; ++i) {

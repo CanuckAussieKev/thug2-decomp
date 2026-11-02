@@ -129,7 +129,7 @@ online::Hub* net_link() { return online::online_hub(); }
 
 objects::ObjectHubBase* entity_hub_handle()
 {
-    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
+    return static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
 }
 
 PlayerRecord* by_connection(net::Conn* conn) { return net_link()->find_player_by_sender(conn); }
