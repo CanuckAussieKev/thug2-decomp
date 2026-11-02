@@ -303,6 +303,7 @@ add_executable(thug2 WIN32
     src/editor/level_editor_scale.cpp
     src/editor/level_editor_shared_coll.cpp
     src/editor/level_editor_ui.cpp
+    src/editor/level_editor_gui_text.cpp
     src/editor/level_editor_camera.cpp
     src/editor/level_editor_play.cpp
     src/editor/level_editor_playtest.cpp

@@ -22,6 +22,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::gap_wizard {
 
@@ -372,7 +373,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
             g_queue.emplace_back([] { set_armed(false); });
         return;
     }
-    ImGui::TextDisabled("From %s to %s", spot_name(core::at(g_spots, 0).kind), spot_name(core::at(g_spots, 1).kind));
+    gui::text_disabled("From %s to %s", spot_name(core::at(g_spots, 0).kind), spot_name(core::at(g_spots, 1).kind));
     ImGui::InputText("Name", g_name.data(), sizeof(g_name));
     ImGui::SliderInt("Score", &g_score, kMinScore, kMaxScore, "%d", ImGuiSliderFlags_AlwaysClamp);
     for (int t = 0; t < kTypes; ++t) {
@@ -383,12 +384,12 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     std::string flags;
     for (const std::string& f : flags_for(static_cast<KindTag>(g_type)))
         flags += (flags.empty() ? "" : ", ") + f;
-    ImGui::TextDisabled("StartGap flags: %s", flags.c_str());
+    gui::text_disabled("StartGap flags: %s", flags.c_str());
     ImGui::BeginDisabled();
     ImGui::RadioButton("Skitch", false);
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("Not supported in THUG2");
+        gui::tooltip("Not supported in THUG2");
     ImGui::Separator();
     const bool named = std::ranges::any_of(std::string_view(g_name.data()), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);

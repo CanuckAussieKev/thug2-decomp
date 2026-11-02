@@ -13,6 +13,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -27,7 +28,7 @@ ImVec4 get_colour(uint32_t argb)
 void get_tip(const char* text)
 {
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", text);
+        gui::tooltip("%s", text);
 }
 
 void current_heading(const char* title, ImFont* heading)
@@ -82,18 +83,18 @@ void pane(float scale, ImFont* heading, ImFont* small)
     for (int m = 0; m < kMotions; ++m) {
         if (m % 5)
             ImGui::SameLine();
-        ImGui::TextColored(get_colour(motion_colour(static_cast<Motion>(m))), "%s",
+        gui::text_colored(get_colour(motion_colour(static_cast<Motion>(m))), "%s",
                            motion_name(static_cast<Motion>(m)));
     }
-    ImGui::TextColored(get_colour(0xFF40FF60), "o gap landed");
+    gui::text_colored(get_colour(0xFF40FF60), "o gap landed");
     ImGui::SameLine();
-    ImGui::TextColored(get_colour(0xFFFF4040), "o gap lost");
+    gui::text_colored(get_colour(0xFFFF4040), "o gap lost");
     ImGui::SameLine();
-    ImGui::TextColored(get_colour(0xFFFFE040), "o pending");
+    gui::text_colored(get_colour(0xFFFFE040), "o pending");
     ImGui::SameLine();
-    ImGui::TextColored(get_colour(0xFFFF3030), "x bail");
+    gui::text_colored(get_colour(0xFFFF3030), "x bail");
     if (!trails || trails->runs.empty()) {
-        ImGui::TextDisabled("No runs recorded");
+        gui::text_disabled("No runs recorded");
     } else if (ImGui::BeginTable("##runs", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
         ImGui::TableSetupColumn("");
         ImGui::TableSetupColumn("Run");
@@ -112,7 +113,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
             if (ImGui::Checkbox("##v", &visible))
                 set_run_visible(run.number, visible);
             ImGui::TableNextColumn();
-            ImGui::Text("%d%s", run.number, run.full ? "+" : "");
+            gui::text("%d%s", run.number, run.full ? "+" : "");
             if (ImGui::IsItemHovered()) {
                 std::string text;
                 std::array<char, 64> part{};
@@ -123,17 +124,17 @@ void pane(float scale, ImFont* heading, ImFont* small)
                                     core::at(run.motion_seconds_, m));
                     text += part.data();
                 }
-                ImGui::SetTooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
+                gui::tooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
                                   run.full ? " (full)" : "");
             }
             ImGui::TableNextColumn();
-            ImGui::Text("%.1f s", run.seconds);
+            gui::text("%.1f s", run.seconds);
             ImGui::TableNextColumn();
-            ImGui::Text("%d", run.gaps_landed());
+            gui::text("%d", run.gaps_landed());
             ImGui::TableNextColumn();
-            ImGui::Text("%d", run.bails());
+            gui::text("%d", run.bails());
             ImGui::TableNextColumn();
-            ImGui::Text("%d", run.top_combo_value());
+            gui::text("%d", run.top_combo_value());
             ImGui::SameLine();
             if (ImGui::SmallButton("x"))
                 remove = run.number;
@@ -167,7 +168,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
     static bool g_untested_only;
     ImGui::Checkbox("Untested Only", &g_untested_only);
     if (gaps.empty()) {
-        ImGui::TextDisabled("No gaps");
+        gui::text_disabled("No gaps");
     } else if (ImGui::BeginChild("##gaps", ImVec2(0.0f, 150.0f * scale), ImGuiChildFlags_Borders)) {
         if (small)
             ImGui::PushFont(small);
@@ -175,10 +176,10 @@ void pane(float scale, ImFont* heading, ImFont* small)
             const bool ok = gap_landed(g.name);
             if (g_untested_only && ok)
                 continue;
-            ImGui::TextColored(ok ? get_colour(0xFF40FF60) : get_colour(0xFFFFB040), "%s",
+            gui::text_colored(ok ? get_colour(0xFF40FF60) : get_colour(0xFFFFB040), "%s",
                                ok ? "landed  " : "untested");
             ImGui::SameLine();
-            ImGui::Text("%s  (%d)", g.name.c_str(), g.score);
+            gui::text("%s  (%d)", g.name.c_str(), g.score);
         }
         if (small)
             ImGui::PopFont();
@@ -195,7 +196,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
     if (ImGui::Checkbox("Keep Positions", &keep))
         get_request(Ask::kToggleKeepSimulation);
     get_tip("Keep objects where they are when stopping");
-    ImGui::TextDisabled("%s", get_standing().c_str());
+    gui::text_disabled("%s", get_standing().c_str());
     ImGui::End();
     if (!open)
         window_open() = false;

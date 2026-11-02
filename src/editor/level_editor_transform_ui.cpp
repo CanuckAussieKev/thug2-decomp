@@ -8,6 +8,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::xform {
 
@@ -22,7 +23,7 @@ void options_menu_items()
             if (ImGui::MenuItem(pivot_name(pivot), nullptr, settings.pivot == pivot))
                 settings.pivot = pivot;
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", core::at(kTips, i));
+                gui::tooltip("%s", core::at(kTips, i));
             ++i;
         }
         ImGui::EndMenu();
@@ -49,11 +50,11 @@ void options_menu_items()
     }
     ImGui::MenuItem("Align to Slope", nullptr, &settings.align_to_slope_);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Tilt objects to the surface when surface snapping");
+        gui::tooltip("Tilt objects to the surface when surface snapping");
     const bool always = fly_always();
     if (ImGui::MenuItem("WASD Always Flies", nullptr, always))
         set_fly_always(!always);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Fly without holding the right mouse button");
+        gui::tooltip("Fly without holding the right mouse button");
 }
 } // namespace frontend::level_editor::xform

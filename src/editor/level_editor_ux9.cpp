@@ -28,6 +28,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ux9 {
 
@@ -157,9 +158,9 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     }
     ImGui::DragFloat("Ramp length", &d.length, 1.0f, 0.0f, ground::kMaxLength, d.length > 0.0f ? "%.0f" : "auto");
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("0: automatic");
+        gui::tooltip("0: automatic");
     ImGui::DragFloat("Grid", &g_grid, 1.0f, 0.0f, 500.0f, g_grid > 0.0f ? "%.0f" : "off");
-    ImGui::TextDisabled("Material: %s", d.material ? object_edit::caption(d.material).c_str() : "(automatic)");
+    gui::text_disabled("Material: %s", d.material ? object_edit::caption(d.material).c_str() : "(automatic)");
     if (ImGui::Button("Use Selected Material"))
         g_queue.emplace_back([] {
             const std::vector<uint32_t>& selection = scenery::get_selection();
@@ -174,9 +175,9 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                 g_draft.terrain = spec.terrain, g_form_message.clear();
         });
     if (d.lower)
-        ImGui::TextDisabled("Pits need floor pieces inside the rectangle");
+        gui::text_disabled("Pits need floor pieces inside the rectangle");
     if (!g_form_message.empty())
-        ImGui::TextWrapped("%s", g_form_message.c_str());
+        gui::text_wrapped("%s", g_form_message.c_str());
     ImGui::Separator();
     if (ImGui::Button(g_editing ? "Apply" : "Make"))
         g_queue.emplace_back([] { get_apply(); });

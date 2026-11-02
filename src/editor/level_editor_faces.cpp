@@ -28,6 +28,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::faces {
 
@@ -600,13 +601,13 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     if (!ImGui::CollapsingHeader("Collision faces###faceflags", ImGuiTreeNodeFlags_DefaultOpen))
         return;
     ImGui::PushFont(small_font);
-    ImGui::TextDisabled("%s", g_picking ? "Click a face to select, Shift+click to add" : "Face Select is off");
+    gui::text_disabled("%s", g_picking ? "Click a face to select, Shift+click to add" : "Face Select is off");
     ImGui::PopFont();
     bool picking = g_picking;
     if (ImGui::Checkbox("Face Select Mode", &picking))
         g_queue.emplace_back([picking] { set_picking(picking); });
     if (g_selection.empty()) {
-        ImGui::TextDisabled("No faces selected");
+        gui::text_disabled("No faces selected");
         return;
     }
     std::vector<uint16_t> flags;
@@ -620,10 +621,10 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     }
     ImGui::PushFont(mono);
     if (g_selection.size() == 1 && !flags.empty())
-        ImGui::Text("face %u of %s: 0x%04X", static_cast<unsigned>(core::at(g_selection, 0).face),
+        gui::text("face %u of %s: 0x%04X", static_cast<unsigned>(core::at(g_selection, 0).face),
                     piece_label(core::at(g_selection, 0).checksum).c_str(), core::at(flags, 0));
     else
-        ImGui::Text("%u faces in %u piece%s", static_cast<unsigned>(g_selection.size()),
+        gui::text("%u faces in %u piece%s", static_cast<unsigned>(g_selection.size()),
                     static_cast<unsigned>(pieces.size()), pieces.size() == 1 ? "" : "s");
     ImGui::PopFont();
     for (int i = 0; i < kFlagCount; ++i) {
@@ -638,7 +639,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
             g_queue.emplace_back([bit, set] { set_flag(bit, set); });
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", info.what);
+            gui::tooltip("%s", info.what);
     }
     if (ImGui::Button("Home (the level's flags)##faces"))
         g_queue.emplace_back([] { home_selection(); });
@@ -653,7 +654,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
                 hud::get_message("Selected all faces of " + piece_label(piece));
         });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Select all faces of this piece");
+        gui::tooltip("Select all faces of this piece");
     if (scenery::has_selection()) {
         ImGui::SameLine();
         if (ImGui::Button("Select All Faces"))

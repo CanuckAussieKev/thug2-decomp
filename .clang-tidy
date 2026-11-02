@@ -26,8 +26,6 @@ Checks:
   - '-misc-include-cleaner'
   # The game's globals are the original's state (g_ names).
   - '-cppcoreguidelines-avoid-non-const-global-variables'
-  # The game's printf-style formatting is kept for its exact output (std::format would change it).
-  - '-cppcoreguidelines-pro-type-vararg'
   # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
   # id types) and parameter structs once the boundary layer keeps the layouts apart.
   - '-bugprone-easily-swappable-parameters'

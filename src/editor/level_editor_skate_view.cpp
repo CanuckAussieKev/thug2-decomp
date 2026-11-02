@@ -27,6 +27,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::skate_view {
 
@@ -346,16 +347,16 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
         ImGui::Dummy(ImVec2(box, box));
         ImGui::SameLine();
         if (count >= 0)
-            ImGui::Text("%s  %d", name, count);
+            gui::text("%s  %d", name, count);
         else
             ImGui::TextUnformatted(name);
     };
     for (int k = 1; k < kKinds; ++k)
         row(get_colour(static_cast<Kind>(k)), get_name(static_cast<Kind>(k)), core::at(g_counts, k));
     row(kRail, "Grind rail (the rail manager's)", g_rail_segments);
-    ImGui::TextDisabled("Slope limit: normal y %.2f", game_threshold());
+    gui::text_disabled("Slope limit: normal y %.2f", game_threshold());
     if (g_capped)
-        ImGui::TextDisabled("(nearest %d faces)", kMaxFaces);
+        gui::text_disabled("(nearest %d faces)", kMaxFaces);
     ImGui::End();
 }
 

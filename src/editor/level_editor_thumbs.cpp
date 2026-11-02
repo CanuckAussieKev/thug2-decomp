@@ -21,6 +21,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::thumbs {
 
@@ -348,7 +349,7 @@ bool star_button(const char* id, ImVec2 centre, float radius, bool on)
     const bool clicked = ImGui::InvisibleButton(id, ImVec2(radius * 2.0f, radius * 2.0f));
     const bool hovered = ImGui::IsItemHovered();
     if (hovered)
-        ImGui::SetTooltip(on ? "Remove from Favourites" : "Add to Favourites");
+        gui::tooltip("%s", on ? "Remove from Favourites" : "Add to Favourites");
     ImDrawList* draw = ImGui::GetWindowDrawList();
     if (on || hovered)
         star(draw, centre, radius, on ? IM_COL32(255, 205, 60, 255) : IM_COL32(255, 205, 60, 150), true);
@@ -368,7 +369,7 @@ void chip(const char* label, int mode, const char* tip)
     if (on)
         ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", tip);
+        gui::tooltip("%s", tip);
 }
 
 } // namespace
@@ -435,9 +436,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     int hovered = -1;
     ImGui::BeginChild("##items", ImVec2(0.0f, height), ImGuiChildFlags_Borders);
     if (items.empty())
-        ImGui::TextDisabled(tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
+        gui::text_disabled("%s", tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
     else if (shown.empty())
-        ImGui::TextDisabled(g_list_mode == 1   ? "(none placed yet)"
+        gui::text_disabled("%s", g_list_mode == 1 ? "(none placed yet)"
                             : g_list_mode == 2 ? "(no favourites)"
                                                : "(no matches)");
     if (!grid) {
@@ -517,7 +518,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 const bool hover = ImGui::IsItemHovered();
                 if (hover) {
                     hovered = i;
-                    ImGui::SetTooltip("%s\nDouble-click to place", core::at(items, i).label.c_str());
+                    gui::tooltip("%s\nDouble-click to place", core::at(items, i).label.c_str());
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
                 const uint64_t key = get_key(tab, core::at(items, i).id);

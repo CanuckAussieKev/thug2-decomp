@@ -20,6 +20,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -118,7 +119,7 @@ bool sound_combo(std::string* sound)
     static bool editing;
     changed |= name_field("Sound Name", sound, typed.data(), sizeof(typed), &editing);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Must be a sound the level loads");
+        gui::tooltip("Must be a sound the level loads");
     return changed;
 }
 
@@ -131,7 +132,7 @@ void proxim_section(uint32_t node)
     const ProximEdit* now = proxim_of(node);
     ProximEdit e = now ? *now : ProximEdit{};
     e.node = node;
-    ImGui::TextDisabled("Scripts run on enter and exit");
+    gui::text_disabled("Scripts run on enter and exit");
     static std::array<char, 64> g_enter_buffer;
     static std::array<char, 64> g_exit_buffer;
     static bool g_enter_editing, g_exit_editing;
@@ -140,7 +141,7 @@ void proxim_section(uint32_t node)
     changed |= name_field("Or by name##enter", &e.enter, g_enter_buffer.data(), sizeof(g_enter_buffer), &g_enter_editing);
     changed |= name_combo("On leaving", &e.exit, g_scripts);
     changed |= name_field("Or by name##exit", &e.exit, g_exit_buffer.data(), sizeof(g_exit_buffer), &g_exit_editing);
-    ImGui::TextDisabled("(none: node's own script)");
+    gui::text_disabled("(none: node's own script)");
     int shape = e.shape ? (e.box ? 2 : 1) : 0;
     ImGui::TextUnformatted("Shape");
     ImGui::SameLine();
@@ -178,11 +179,11 @@ void proxim_section(uint32_t node)
         if (ImGui::IsItemActivated())
             get_queue([] { begin_edit(); });
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("World-aligned box");
+            gui::tooltip("World-aligned box");
     }
     if (now && ImGui::Button("Revert"))
         get_queue([node] { set_proxim(ProximEdit{node}, true); });
-    ImGui::TextDisabled("Drag the handles to resize");
+    gui::text_disabled("Drag the handles to resize");
     if (changed)
         get_queue([e] { set_proxim(e, true); });
 }
@@ -207,35 +208,35 @@ const LevelTrigger* level_named(uint32_t sector)
 
 void level_trigger_details(const LevelTrigger& l)
 {
-    ImGui::TextColored(get_colour(l.off ? 0xFFA0A0A0u : kind_colour(l.kind)), "%s", describe_level_trigger(l).c_str());
-    ImGui::TextDisabled("Level trigger %s: %d trigger faces%s", nodes::caption(l.sector).c_str(), l.face_count_,
+    gui::text_colored(get_colour(l.off ? 0xFFA0A0A0u : kind_colour(l.kind)), "%s", describe_level_trigger(l).c_str());
+    gui::text_disabled("Level trigger %s: %d trigger faces%s", nodes::caption(l.sector).c_str(), l.face_count_,
                         l.has_node_ ? "" : " (no node)");
-    ImGui::TextDisabled("TriggerScript: %s", l.script ? nodes::caption(l.script).c_str() : "(none)");
-    ImGui::TextDisabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", l.min.x, l.min.y, l.min.z, l.max.x, l.max.y,
+    gui::text_disabled("TriggerScript: %s", l.script ? nodes::caption(l.script).c_str() : "(none)");
+    gui::text_disabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", l.min.x, l.min.y, l.min.z, l.max.x, l.max.y,
                         l.max.z);
     const uint32_t sector = l.sector;
     const bool switchable = l.wall || l.all_trigger_;
     if (l.off)
-        ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.4f, 1.0f), "Disabled");
+        gui::text_colored(ImVec4(1.0f, 0.75f, 0.4f, 1.0f), "Disabled");
     ImGui::BeginDisabled(!switchable);
     if (ImGui::Button(l.off ? "Switch on" : "Switch off"))
         get_queue([sector, off = !l.off] { turn_off(sector, off); });
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip(switchable ? "Enable or disable this trigger" : "Has non-trigger faces; can't be disabled");
+        gui::tooltip("%s", switchable ? "Enable or disable this trigger" : "Has non-trigger faces; can't be disabled");
     if (l.wall) {
         ImGui::SameLine();
         if (ImGui::Button("Move it"))
             get_queue([sector] { select_wall(sector); });
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Move as an invisible wall (size is fixed)");
+            gui::tooltip("Move as an invisible wall (size is fixed)");
     }
     ImGui::BeginDisabled(!switchable || !l.script);
     if (ImGui::Button("Make Editable Copy"))
         get_queue([sector] { make_editable(sector); });
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("Replace with an editable trigger volume; the original is disabled");
+        gui::tooltip("Replace with an editable trigger volume; the original is disabled");
 }
 
 } // namespace
@@ -257,48 +258,48 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
             get_queue([] { set_shown(false); });
         return;
     }
-    ImGui::TextDisabled("Add at view center:");
+    gui::text_disabled("Add at view center:");
     if (ImGui::Button("Kill zone"))
         get_queue([] { add_kill(false); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Bail and respawn at a restart");
+        gui::tooltip("Bail and respawn at a restart");
     ImGui::SameLine();
     if (ImGui::Button("Water"))
         get_queue([] { add_kill(true); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Splash and respawn at a restart");
+        gui::tooltip("Splash and respawn at a restart");
     ImGui::SameLine();
     if (ImGui::Button("Teleport"))
         get_queue([] { add_teleport(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Teleport the skater to a node");
+        gui::tooltip("Teleport the skater to a node");
     ImGui::SameLine();
     if (ImGui::Button("Script"))
         get_queue([] { append_script(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Run a level script");
+        gui::tooltip("Run a level script");
     ImGui::SameLine();
     if (ImGui::Button("Gap"))
         get_queue([] { register_gap_entry(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Gap start and end");
+        gui::tooltip("Gap start and end");
     ImGui::SameLine();
     if (ImGui::Button("Jump boost"))
         get_queue([] { add_boost(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Launch the skater upward");
+        gui::tooltip("Launch the skater upward");
     ImGui::SameLine();
     if (ImGui::Button("Camera"))
         get_queue([] { add_camera(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Play a camera shot");
-    ImGui::TextDisabled("%s", describe().c_str());
-    ImGui::TextDisabled("Breakables: select scenery, then Breaks When Hit");
+        gui::tooltip("Play a camera shot");
+    gui::text_disabled("%s", describe().c_str());
+    gui::text_disabled("Breakables: select scenery, then Breaks When Hit");
     // The legend.
     for (int k = 0; k < kKinds; ++k) {
         if (k % 5)
             ImGui::SameLine();
-        ImGui::TextColored(get_colour(kind_colour(static_cast<Kind>(k))), "%s", kind_name(static_cast<Kind>(k)));
+        gui::text_colored(get_colour(kind_colour(static_cast<Kind>(k))), "%s", kind_name(static_cast<Kind>(k)));
     }
     ImGui::Separator();
     // The nearest (the editor's, then the level's), a click selects / inspects.
@@ -369,11 +370,11 @@ void inspector_section(int index)
     bool changed = false;
     if (s.kind == Kind::kBreak) {
         // (a breakable: its piece and sound - its box is the piece's)
-        ImGui::TextColored(get_colour(kind_colour(s.kind)), "Breakable: %s%s", s.target.c_str(),
+        gui::text_colored(get_colour(kind_colour(s.kind)), "Breakable: %s%s", s.target.c_str(),
                            a->broken ? " (broken)" : "");
         if (sound_combo(&s.sound))
             get_queue([key, s] { set_spec(key, s, true); });
-        ImGui::TextDisabled("Shatters when hit");
+        gui::text_disabled("Shatters when hit");
         return;
     }
     // The kind.
@@ -400,7 +401,7 @@ void inspector_section(int index)
     if (ImGui::IsItemActivated())
         get_queue([] { begin_edit(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Width, height, depth");
+        gui::tooltip("Width, height, depth");
     static std::array<char, 64> target;
     static std::array<char, 64> script;
     static std::array<char, 64> text;
@@ -418,20 +419,20 @@ void inspector_section(int index)
         changed |= name_combo("Script", &s.script, g_scripts);
         changed |= name_field("Or by name", &s.script, script.data(), sizeof(script), &g_script_editing);
         if (!a->problem && (a->calls.kill || a->calls.teleport || a->calls.end_gap_ || a->calls.start_gap_))
-            ImGui::TextDisabled("It calls: %s", kind_name(kind_of_calls(a->calls, true)));
+            gui::text_disabled("It calls: %s", kind_name(kind_of_calls(a->calls, true)));
         break;
     case Kind::kGapStart:
     case Kind::kGapEnd: {
-        ImGui::TextDisabled("Gap %s (%s)", s.gap.c_str(), s.kind == Kind::kGapStart ? "StartGap here" : "EndGap here");
+        gui::text_disabled("Gap %s (%s)", s.gap.c_str(), s.kind == Kind::kGapStart ? "StartGap here" : "EndGap here");
         if (!s.text.empty()) {
             // (validated by skating - level_editor_playtest.h)
             const bool landed = play_test::gap_landed(clean_text(s.text));
-            ImGui::TextColored(landed ? ImVec4(0.25f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.25f, 1.0f), "%s",
+            gui::text_colored(landed ? ImVec4(0.25f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.25f, 1.0f), "%s",
                                landed ? "Landed in a test run" : "Not yet landed in a test run");
         }
         changed |= name_field("Name", &s.text, text.data(), sizeof(text), &g_text_editing);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Gap name");
+            gui::tooltip("Gap name");
         int score = s.score;
         if (ImGui::InputInt("Score", &score, 50, 500) && score != s.score) {
             s.score = std::max(0, std::min(1000000, score));
@@ -465,7 +466,7 @@ void inspector_section(int index)
         if (ImGui::IsItemActivated())
             get_queue([] { begin_edit(); });
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Upward speed (600 hop, 900 jump, 2000+ launch)");
+            gui::tooltip("Upward speed (600 hop, 900 jump, 2000+ launch)");
         break;
     }
     case Kind::kViewCam: {
@@ -473,7 +474,7 @@ void inspector_section(int index)
         changed |= name_combo("Camera", &s.target, g_cameras);
         changed |= name_field("Or a node", &s.target, target.data(), sizeof(target), &g_target_editing);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Camera node");
+            gui::tooltip("Camera node");
         float seconds = s.seconds;
         if (ImGui::SliderFloat("Seconds", &seconds, kCameraMinSeconds, kCameraMaxSeconds, "%.1f",
                                ImGuiSliderFlags_AlwaysClamp) &&
@@ -484,7 +485,7 @@ void inspector_section(int index)
         }
         if (ImGui::IsItemActivated())
             get_queue([] { begin_edit(); });
-        ImGui::TextDisabled("LevelEditor_PlayCamera camera=%s time=%.1f",
+        gui::text_disabled("LevelEditor_PlayCamera camera=%s time=%.1f",
                             s.target.empty() ? "<camera>" : s.target.c_str(), s.seconds);
         break;
     }
@@ -494,13 +495,13 @@ void inspector_section(int index)
     }
     changed |= ImGui::Checkbox("Also on Exit", &s.exit);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Run the script when leaving too");
+        gui::tooltip("Run the script when leaving too");
     if (s.replaces)
-        ImGui::TextDisabled("Replaces %s", nodes::caption(s.replaces).c_str());
+        gui::text_disabled("Replaces %s", nodes::caption(s.replaces).c_str());
     if (a->problem)
-        ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.45f, 1.0f), "Not active: %s", a->problem);
+        gui::text_colored(ImVec4(1.0f, 0.55f, 0.45f, 1.0f), "Not active: %s", a->problem);
     else
-        ImGui::TextColored(get_colour(kind_colour(s.kind)), "Runs %s on enter%s", get_script_name(s).c_str(),
+        gui::text_colored(get_colour(kind_colour(s.kind)), "Runs %s on enter%s", get_script_name(s).c_str(),
                            s.exit ? " and exit" : "");
 
     if (changed)
@@ -517,7 +518,7 @@ void scenery_section(uint32_t sector)
     if (ImGui::Checkbox("Breaks When Hit", &on))
         get_queue([sector, on] { set_breakable(sector, on); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Shatter when the skater hits it");
+        gui::tooltip("Shatter when the skater hits it");
     if (!a)
         return;
     Spec s = a->spec;
@@ -525,7 +526,7 @@ void scenery_section(uint32_t sector)
     if (sound_combo(&s.sound))
         get_queue([key, s] { set_spec(key, s, true); });
     if (a->broken)
-        ImGui::TextDisabled("Broken in play; restored in the editor");
+        gui::text_disabled("Broken in play; restored in the editor");
 }
 
 } // namespace frontend::level_editor::triggers

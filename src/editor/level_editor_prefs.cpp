@@ -12,6 +12,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::prefs {
 
@@ -121,9 +122,9 @@ void save_all()
 void get_tip(const char* text)
 {
     ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
+    gui::text_disabled("(?)");
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", text);
+        gui::tooltip("%s", text);
 }
 
 } // namespace
@@ -225,7 +226,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
             changed = true;
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", accent_name(i));
+            gui::tooltip("%s", accent_name(i));
         ImGui::PopID();
     }
     ux8::prefs_section(); // (UX8: controller mode - level_editor_ux8.h)
@@ -240,7 +241,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
     ImGui::Separator();
     if (small)
         ImGui::PushFont(small);
-    ImGui::TextDisabled("Saved in thug2-decomp.ini [editor]");
+    gui::text_disabled("Saved in thug2-decomp.ini [editor]");
     if (small)
         ImGui::PopFont();
     if (ImGui::Button("Defaults")) {
@@ -304,7 +305,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
             ImGui::TableNextColumn();
             if (mono)
                 ImGui::PushFont(mono);
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", core::at(tip, 0));
+            gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", core::at(tip, 0));
             if (mono)
                 ImGui::PopFont();
             ImGui::TableNextColumn();
@@ -317,7 +318,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     ImGui::Spacing();
     const bool dismiss = ImGui::Button("Got it");
     ImGui::SameLine();
-    ImGui::TextDisabled("(Help > Show Tips shows this again)");
+    gui::text_disabled("(Help > Show Tips shows this again)");
     ImGui::End();
     if (dismiss || !open) {
         g_tips = false;

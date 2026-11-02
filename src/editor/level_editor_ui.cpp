@@ -52,6 +52,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ui {
 
@@ -141,7 +142,7 @@ void get_mono(text::FormatFor<Args...> format, Args... args)
     ImGui::PopFont();
 }
 
-void get_muted(const char* text) { ImGui::TextDisabled("%s", text); }
+void get_muted(const char* text) { gui::text_disabled("%s", text); }
 
 // A key in a key cap, then what it does.
 void key_hint(const char* key, const char* what)
@@ -224,7 +225,7 @@ void collision_legend(const ShapeMesh& model)
     if (ImGui::SmallButton("Hide##collisionLegend"))
         get_ask(Request::Kind::kCollision); // (value 0: off)
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Hide Collision  (C)");
+        gui::tooltip("Hide Collision  (C)");
     for (int i = 0; i < static_cast<int>(view::Surface::kCount); ++i) {
         auto surface = static_cast<view::Surface>(i);
         const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -235,10 +236,10 @@ void collision_legend(const ShapeMesh& model)
         ImGui::SameLine();
         ImGui::TextUnformatted(view::surface_name(surface));
     }
-    ImGui::TextDisabled("%d faces, %d pieces, %d invisible walls%s", model.view.triangles, model.view.sectors,
+    gui::text_disabled("%d faces, %d pieces, %d invisible walls%s", model.view.triangles, model.view.sectors,
                         model.view.walls, model.view.capped ? " (nearest)" : "");
     if (model.view.off > 0)
-        ImGui::TextDisabled("Faded / dashed: collision off (%d)", model.view.off);
+        gui::text_disabled("Faded / dashed: collision off (%d)", model.view.off);
     // (a moved piece's shared collision - level_editor_shared_coll.h - and the level's triggers by kind)
     auto swatch_line = [](uint32_t argb, const char* text) {
         const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -253,7 +254,7 @@ void collision_legend(const ShapeMesh& model)
     swatch_line(view::kTakenEdge, "Original collision position (off)");
     swatch_line(view::kHoverWall, "Wall under cursor (Shift)");
     if (model.view.companions > 0 || model.view.taken > 0)
-        ImGui::TextDisabled("%d moved pieces, %d faces moved", model.view.companions, model.view.taken);
+        gui::text_disabled("%d moved pieces, %d faces moved", model.view.companions, model.view.taken);
     if (ImGui::TreeNode("Triggers")) {
         for (int k = 0; k < triggers::kKinds; ++k) {
             auto kind = static_cast<triggers::Kind>(k);
@@ -265,10 +266,10 @@ void collision_legend(const ShapeMesh& model)
             ImGui::SameLine();
             ImGui::TextUnformatted(triggers::kind_name(kind));
         }
-        ImGui::TextDisabled("%d trigger faces", model.view.triggers);
+        gui::text_disabled("%d trigger faces", model.view.triggers);
         ImGui::TreePop();
     }
-    ImGui::TextDisabled("Not shown: camera pass-through, not taggable");
+    gui::text_disabled("Not shown: camera pass-through, not taggable");
     ImGui::PopFont();
     ImGui::End();
 }
@@ -280,31 +281,31 @@ void view_section(const ShapeMesh& model)
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::PushFont(g_heading);
-        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.9f, 1.0f), "%s", model.view.wall_name_.c_str());
+        gui::text_colored(ImVec4(1.0f, 0.35f, 0.9f, 1.0f), "%s", model.view.wall_name_.c_str());
         ImGui::PopFont();
         get_muted("Invisible wall");
         ImGui::SameLine();
         get_mono("0x%08X", model.view.wall);
         ImGui::PushFont(g_mono);
-        ImGui::TextWrapped("%s", model.view.wall_info_.c_str());
+        gui::text_wrapped("%s", model.view.wall_info_.c_str());
         ImGui::PopFont();
         // (level_editor_walls.h: the game's own switch, WorldCell::change_live; moved and turned as scenery)
         if (model.view.wall_off_)
-            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s", model.view.wall_state_.c_str());
+            gui::text_colored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s", model.view.wall_state_.c_str());
         else
-            ImGui::TextWrapped("%s", model.view.wall_state_.c_str());
+            gui::text_wrapped("%s", model.view.wall_state_.c_str());
         if (model.view.wall_off_) {
             if (ImGui::Button("Restore Collision"))
                 get_ask(Request::Kind::kWallCollision, 1);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Turn collision back on  (Del)");
+                gui::tooltip("Turn collision back on  (Del)");
         } else {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
             if (ImGui::Button("Disable Collision"))
                 get_ask(Request::Kind::kWallCollision, 0);
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Turn this wall's collision off  (Del)");
+                gui::tooltip("Turn this wall's collision off  (Del)");
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!model.view.wall_moved_ && !model.view.wall_off_);
@@ -325,7 +326,7 @@ void view_section(const ShapeMesh& model)
         if (ImGui::Checkbox(model.view.scenery_collision_ == 2 ? "Collision (mixed)" : "Collision", &on))
             get_ask(Request::Kind::kSceneryCollision, on ? 1 : 0);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Off: visible but not solid");
+            gui::tooltip("Off: visible but not solid");
     }
     if (model.view.can_hide_ || model.view.hidden > 0) {
         ImGui::Spacing();
@@ -335,18 +336,18 @@ void view_section(const ShapeMesh& model)
         if (ImGui::Button("Hide"))
             get_ask(Request::Kind::kViewHide);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Hide Selection  (H)");
+            gui::tooltip("Hide Selection  (H)");
         ImGui::SameLine();
         if (ImGui::Button("Isolate"))
             get_ask(Request::Kind::kViewIsolate);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Isolate Selection  (I)");
+            gui::tooltip("Isolate Selection  (I)");
         ImGui::EndDisabled();
         if (model.view.hidden > 0) {
             ImGui::SameLine();
             if (ImGui::Button("Show All"))
                 get_ask(Request::Kind::kViewShowAll);
-            ImGui::TextDisabled("%d hidden", model.view.hidden);
+            gui::text_disabled("%d hidden", model.view.hidden);
         }
     }
     faces::inspector_section(g_mono, g_small); // (map3: the collision faces selected - level_editor_faces.h)
@@ -403,7 +404,7 @@ void get_toolbar(const ShapeMesh& model)
     if (out.budget_hovered_)
         budget::tooltip();
     if (out.level_hovered_)
-        ImGui::SetTooltip(
+        gui::tooltip(
             "Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.level_title_.c_str(),
             model.edited_saved_ ? (model.unsaved ? "saved, with unsaved changes" : "saved") : "not saved yet");
     for (const ui_strip::Occurrence& e : out.events) {
@@ -537,7 +538,7 @@ void family_chips(const ShapeMesh& model)
             get_ask(Request::Kind::kFamilies, 0, model.nodes.families ^ nodes::get_bit(family));
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%d %s - click to %s", core::at(counts, f), name, on ? "hide" : "show");
+            gui::tooltip("%d %s - click to %s", core::at(counts, f), name, on ? "hide" : "show");
     }
     ImGui::PopStyleVar(2);
     ImGui::PopFont();
@@ -557,18 +558,18 @@ void get_outliner(const ShapeMesh& model)
         text::format_to(g_outliner_search, "%s", asked.c_str());
     ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6", g_outliner_search.data(), sizeof(g_outliner_search));
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Filter by name. Prefixes: rail: spawn: object: group:<name> label: locked: hidden:");
+        gui::tooltip("Filter by name. Prefixes: rail: spawn: object: group:<name> label: locked: hidden:");
     // (only the rows the editor has changed - those with markers)
     ImGui::Checkbox("Changed Only", &g_changed_only);
     if (ImGui::IsItemHovered()) {
         std::string legend = "Show changed items only. Markers:";
         for (int bit = 0; bit < kMaxMarkers; ++bit)
             legend += std::string("\n") + mark_letter(bit) + "  " + mark_name(bit);
-        ImGui::SetTooltip("%s", legend.c_str());
+        gui::tooltip("%s", legend.c_str());
     }
     if (!model.marks.empty()) {
         ImGui::SameLine();
-        ImGui::TextDisabled("%d changed", static_cast<int>(model.marks.size()));
+        gui::text_disabled("%d changed", static_cast<int>(model.marks.size()));
     }
     family_chips(model);
     ImGui::Separator();
@@ -603,7 +604,7 @@ void get_outliner(const ShapeMesh& model)
         const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
         ImGui::SameLine();
         ImGui::PushFont(g_mono);
-        ImGui::TextDisabled("%d", static_cast<int>(shown.size()));
+        gui::text_disabled("%d", static_cast<int>(shown.size()));
         ImGui::PopFont();
         if (!open)
             continue;
@@ -651,7 +652,7 @@ void get_outliner(const ShapeMesh& model)
                         get_ask(Request::Kind::kGoToNode, i);
                 }
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Click to select, double-click to focus");
+                    gui::tooltip("Click to select, double-click to focus");
                 const std::string tag = row_tag(node);
                 // (the markers - what the editor has done to it - at the row's end, the tag before them)
                 auto found = model.marks.find(node.name);
@@ -666,7 +667,7 @@ void get_outliner(const ShapeMesh& model)
                 if (!tag.empty()) {
                     const float width = ImGui::CalcTextSize(tag.c_str()).x;
                     ImGui::SameLine(std::max(ImGui::GetCursorPosX(), row_right - marks_width - width));
-                    ImGui::TextColored(ImVec4(0.6f, 0.61f, 0.63f, 1.0f), "%s", tag.c_str());
+                    gui::text_colored(ImVec4(0.6f, 0.61f, 0.63f, 1.0f), "%s", tag.c_str());
                 }
                 if (!letters.empty()) {
                     ImGui::SameLine(std::max(ImGui::GetCursorPosX(), row_right - marks_width + 6.0f * g_scale));
@@ -677,10 +678,10 @@ void get_outliner(const ShapeMesh& model)
                         if (!first)
                             ImGui::SameLine(0.0f, 0.0f);
                         first = false;
-                        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(get_colour(mark_colour(bit))), "%c",
+                        gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(mark_colour(bit))), "%c",
                                            mark_letter(bit));
                         if (ImGui::IsItemHovered())
-                            ImGui::SetTooltip("%s", mark_name(bit));
+                            gui::tooltip("%s", mark_name(bit));
                     }
                 }
                 ux3::row_toggles(node, row_right); // (the eye, the lock, selectable - level_editor_organize.h)
@@ -728,7 +729,7 @@ void node_section(const ShapeMesh& model, int index)
     const nodes::Elem& node = core::at(nodes, index);
     if (model.nodes.node_only_) {
         ImGui::PushFont(g_heading);
-        ImGui::TextWrapped("%s", node.name ? nodes::caption(node.name).c_str() : "(no name)");
+        gui::text_wrapped("%s", node.name ? nodes::caption(node.name).c_str() : "(no name)");
         ImGui::PopFont();
     } else {
         ImGui::Spacing();
@@ -739,7 +740,7 @@ void node_section(const ShapeMesh& model, int index)
         cls += " \xC2\xB7 " + nodes::caption(node.type);
     get_muted(cls.c_str());
     ImGui::PushFont(g_mono);
-    ImGui::TextDisabled("node %d in %s", node.index, nodes::caption(nodes::get_array_name(node)).c_str());
+    gui::text_disabled("node %d in %s", node.index, nodes::caption(nodes::get_array_name(node)).c_str());
     ImGui::PopFont();
     if (node.added) {
         ImGui::PushFont(g_small);
@@ -751,7 +752,7 @@ void node_section(const ShapeMesh& model, int index)
         ImGui::PushFont(g_small);
         badge("Hidden", IM_COL32(110, 110, 110, 220));
         ImGui::NewLine();
-        ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", "Hidden in game. Revert to show.");
+        gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", "Hidden in game. Revert to show.");
         ImGui::PopFont();
     }
     // Online: spawns, crowns and flags in a level shared with THUGPRO.
@@ -760,9 +761,9 @@ void node_section(const ShapeMesh& model, int index)
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.18f, 0.37f, 0.6f, 0.35f));
         ImGui::BeginChild("##online", ImVec2(0.0f, 0.0f), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
         ImGui::PushFont(g_heading);
-        ImGui::TextColored(ImVec4(0.56f, 0.71f, 0.92f, 1.0f), "Online");
+        gui::text_colored(ImVec4(0.56f, 0.71f, 0.92f, 1.0f), "Online");
         ImGui::PopFont();
-        ImGui::TextWrapped("Shared with THUGPRO (ported from %s). %s affect online play.", model.nodes.shared_game_,
+        gui::text_wrapped("Shared with THUGPRO (ported from %s). %s affect online play.", model.nodes.shared_game_,
                            nodes::family_name(node.family));
         ImGui::EndChild();
         ImGui::PopStyleColor();
@@ -799,7 +800,7 @@ void node_section(const ShapeMesh& model, int index)
                 if (ImGui::Checkbox(label.data(), &whole))
                     get_ask(Request::Kind::kReqEntireRail, whole ? 1 : 0);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Move all points together  (L)");
+                    gui::tooltip("Move all points together  (L)");
             }
             if (moved || turned) {
                 const V3 angles = turned ? node_edit::with_heading(model.nodes.angles, heading) : model.nodes.angles;
@@ -867,8 +868,8 @@ void node_section(const ShapeMesh& model, int index)
                     get_ask(Request::Kind::kCrownMove, -1);
                 ImGui::EndDisabled();
                 if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    ImGui::SetTooltip(node.added ? "Move earlier in crown order"
-                                                 : "Only added crowns can be reordered");
+                    gui::tooltip("%s", node.added ? "Move earlier in crown order"
+                                                       : "Only added crowns can be reordered");
                 ImGui::SameLine();
                 ImGui::BeginDisabled(!model.nodes.crown_down_);
                 if (ImGui::SmallButton("Move Down"))
@@ -908,16 +909,16 @@ void node_section(const ShapeMesh& model, int index)
     }
     if (editable) {
         ImGui::PushFont(g_small);
-        ImGui::TextDisabled("Applies: %s", model.nodes.when_applied_);
+        gui::text_disabled("Applies: %s", model.nodes.when_applied_);
         if (model.nodes.moved) {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "Modified");
+            gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "Modified");
         }
         ImGui::PopFont();
         if (ImGui::Button("Drop to Ground"))
             get_ask(Request::Kind::kDrop);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Drop to Ground  (G)");
+            gui::tooltip("Drop to Ground  (G)");
         ImGui::SameLine();
         ImGui::BeginDisabled(!model.nodes.moved && !model.nodes.hidden);
         if (ImGui::Button(model.nodes.hidden ? "Show" : "Revert"))
@@ -930,14 +931,14 @@ void node_section(const ShapeMesh& model, int index)
                 get_ask(Request::Kind::kRemoveNodeAction);
             ImGui::PopStyleColor();
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip(model.nodes.added ? "Delete  (Del)" : "Hide original node  (Del)");
+                gui::tooltip("%s", model.nodes.added ? "Delete  (Del)" : "Hide original node  (Del)");
             ImGui::SameLine();
         } else if (!model.nodes.added && !model.nodes.hidden && !model.nodes.why_no_hide_.empty()) {
             ImGui::BeginDisabled(true);
             ImGui::Button("Hide");
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("%s", model.nodes.why_no_hide_.c_str());
+                gui::tooltip("%s", model.nodes.why_no_hide_.c_str());
             ImGui::SameLine();
         }
     }
@@ -995,7 +996,7 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
         if (ImGui::SmallButton("x"))
             get_ask(Request::Kind::kMemberRemove, rail, member.id);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Remove from selection");
+            gui::tooltip("Remove from selection");
         ImGui::SameLine();
         if (ImGui::SmallButton("Only"))
             get_ask(Request::Kind::kMemberKeep, rail, member.id);
@@ -1034,10 +1035,10 @@ void get_inspector(const ShapeMesh& model)
             goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, g_mono,
                                          g_small); // (a goal's point)
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
-        ImGui::TextDisabled("Nothing selected");
+        gui::text_disabled("Nothing selected");
     } else if (s.objects > 0 || s.sectors > 0) {
         ImGui::PushFont(g_heading);
-        ImGui::TextWrapped("%s", s.name.c_str());
+        gui::text_wrapped("%s", s.name.c_str());
         ImGui::PopFont();
         get_muted(s.kind.c_str());
         if (s.checksum) {
@@ -1092,13 +1093,13 @@ void get_inspector(const ShapeMesh& model)
                     if (ImGui::IsItemDeactivated())
                         get_ask(Request::Kind::kScaleDone);
                     if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Local %c scale (%.2f to %.0f)", core::at(kAxisLetters, axis), scale_tool::kMin,
+                        gui::tooltip("Local %c scale (%.2f to %.0f)", core::at(kAxisLetters, axis), scale_tool::kMin,
                                           scale_tool::kMax);
                 }
                 ImGui::PopFont();
                 ImGui::Checkbox("Uniform##scalelock", &g_scale_locked);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Scale all axes together");
+                    gui::tooltip("Scale all axes together");
             }
             if (s.objects > 1 || s.sectors > 1) {
                 ImGui::TableNextRow();
@@ -1114,23 +1115,23 @@ void get_inspector(const ShapeMesh& model)
         if (s.sectors > 0 && s.objects == 0)
             clusters::inspector_section(scenery::get_selection(), g_mono, g_small);
         ImGui::Spacing();
-        ImGui::TextWrapped("%s", model.selected.c_str());
+        gui::text_wrapped("%s", model.selected.c_str());
         ImGui::Spacing();
         if (ImGui::Button("Drop to Ground"))
             get_ask(Request::Kind::kDrop);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Drop to Ground  (G)");
+            gui::tooltip("Drop to Ground  (G)");
         ImGui::SameLine();
         if (ImGui::Button("Deselect"))
             get_ask(Request::Kind::kDeselect);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Deselect  (Esc)");
+            gui::tooltip("Deselect  (Esc)");
         if (model.selection_lockable_) {
             ImGui::SameLine();
             if (ImGui::Button(model.selection_locked_ ? "Unlock" : "Lock"))
                 get_ask(Request::Kind::kToggleLock);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Prevent selection in the view  (L)");
+                gui::tooltip("Prevent selection in the view  (L)");
         }
         if (s.objects == 0 && s.sectors == 1)
             triggers::scenery_section(s.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
@@ -1147,9 +1148,9 @@ void get_inspector(const ShapeMesh& model)
     const std::vector<nodes::Elem>& all = nodes::get_all();
     if (model.nodes.hovered >= 0 && std::cmp_less(model.nodes.hovered, all.size())) {
         const nodes::Elem& node = core::at(all, model.nodes.hovered);
-        ImGui::TextWrapped("%s (%s)", nodes::caption(node.name).c_str(), nodes::caption(node.cls).c_str());
+        gui::text_wrapped("%s (%s)", nodes::caption(node.name).c_str(), nodes::caption(node.cls).c_str());
     } else {
-        ImGui::TextWrapped("%s", model.hover.c_str());
+        gui::text_wrapped("%s", model.hover.c_str());
     }
     view_section(model);
     entities::view_options(); // (Show uncreated objects)
@@ -1258,7 +1259,7 @@ void get_help(const ShapeMesh& model)
                 ImGui::PopTextWrapPos();
                 ImGui::PopFont();
                 ImGui::TableNextColumn();
-                ImGui::TextWrapped("%s", row.what);
+                gui::text_wrapped("%s", row.what);
             }
             ImGui::EndTable();
         }
@@ -1308,10 +1309,10 @@ void browser_preview(const ShapeMesh& model)
         g_requests.push_back(request);
     }
     if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture)
-        ImGui::SetTooltip("Drag to rotate, wheel to zoom");
+        gui::tooltip("Drag to rotate, wheel to zoom");
     if (!preview.name.empty()) {
         ImGui::PushFont(g_mono);
-        ImGui::TextWrapped("%s", preview.name.c_str());
+        gui::text_wrapped("%s", preview.name.c_str());
         ImGui::PopFont();
         ImGui::PushFont(g_small);
         if (!preview.size.empty())
@@ -1402,7 +1403,7 @@ void autosave_offer(const ShapeMesh& model)
     if (ImGui::Button("Restore"))
         get_ask(Request::Kind::kRestoreAutosave);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Restore Autosave  (Ctrl+R)");
+        gui::tooltip("Restore Autosave  (Ctrl+R)");
     ImGui::SameLine();
     if (ImGui::Button("Discard"))
         get_ask(Request::Kind::kDiscardAutosave);
@@ -1427,7 +1428,7 @@ void online_warning(const ShapeMesh& model)
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     ImGui::PopStyleColor(2);
-    ImGui::TextWrapped("This level (ported from %s) is shared with THUGPRO. Changing spawns, crowns or flags makes "
+    gui::text_wrapped("This level (ported from %s) is shared with THUGPRO. Changing spawns, crowns or flags makes "
                        "it differ from other players' copies. Layouts are not used online.",
                        model.nodes.shared_game_);
     ImGui::Spacing();
@@ -1476,7 +1477,7 @@ void get_place(const ShapeMesh& model)
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", can ? "Click, then click in the view. Double-click: place at view center"
+            gui::tooltip("%s", can ? "Click, then click in the view. Double-click: place at view center"
                                         : e.why.c_str());
         ImGui::PopID();
     }
@@ -1484,7 +1485,7 @@ void get_place(const ShapeMesh& model)
     ImGui::Separator();
     ImGui::PushFont(g_small);
     if (model.place.armed >= 0 && std::cmp_less(model.place.armed, entries.size()))
-        ImGui::TextWrapped("Click to place %s. Shift+click: place more. Esc: cancel.",
+        gui::text_wrapped("Click to place %s. Shift+click: place more. Esc: cancel.",
                            core::at(entries, model.place.armed).label.c_str());
     else
         get_muted("Choose an item, then click in the view.");
@@ -1506,9 +1507,9 @@ void confirm_reset(const ShapeMesh& model)
     ImGui::Begin("Reset Level###confirmreset", nullptr,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-    ImGui::TextWrapped("Revert all changes to %s and delete its saved layout and autosave?",
+    gui::text_wrapped("Revert all changes to %s and delete its saved layout and autosave?",
                        model.level_title_.c_str());
-    ImGui::TextDisabled("Undo restores the changes until you leave the level.");
+    gui::text_disabled("Undo restores the changes until you leave the level.");
     ImGui::Spacing();
     if (ImGui::Button("Cancel"))
         get_ask(Request::Kind::kResetCancelled);
@@ -1536,8 +1537,8 @@ void confirm_hide(const ShapeMesh& model)
     ImGui::TextUnformatted(model.confirm.name.c_str());
     ImGui::PopFont();
     ImGui::SameLine();
-    ImGui::TextWrapped("belongs to %s.", model.level.c_str());
-    ImGui::TextWrapped("%s", model.confirm.crown ? "Original nodes are hidden, not deleted. Later crowns move up one."
+    gui::text_wrapped("belongs to %s.", model.level.c_str());
+    gui::text_wrapped("%s", model.confirm.crown ? "Original nodes are hidden, not deleted. Later crowns move up one."
                                                  : "Original nodes are hidden, not deleted. Revert shows it again.");
     ImGui::Spacing();
     if (ImGui::Button("Cancel"))

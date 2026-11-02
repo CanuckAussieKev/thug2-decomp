@@ -14,6 +14,7 @@
 #include "engine/script/param_struct.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ui {
 
@@ -55,7 +56,7 @@ void spawn_section(int node_index, std::vector<Request>* requests)
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", node.added ? "Set by the spawn type" : "Use as a HORSE spot");
+        gui::tooltip("%s", node.added ? "Set by the spawn type" : "Use as a HORSE spot");
 }
 
 } // namespace frontend::level_editor::ui

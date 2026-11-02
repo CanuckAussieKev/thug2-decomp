@@ -19,6 +19,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::entities {
 
@@ -79,12 +80,12 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
                 field_request(requests, id, kModel, fields::Kind::kChars, chosen);
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", core::at(models, i).c_str());
+                gui::tooltip("%s", core::at(models, i).c_str());
             ImGui::PopID();
         }
         ImGui::EndCombo();
     }
-    ImGui::TextDisabled("Models already loaded by this level");
+    gui::text_disabled("Models already loaded by this level");
 }
 
 void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>* requests)
@@ -105,7 +106,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
                 continue;
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::TextDisabled("%s", field);
+            gui::text_disabled("%s", field);
             ImGui::TableNextColumn();
             const std::string text = fields::get_format(row->value, fields::get_name_of);
             if (!row->editable) {
@@ -119,16 +120,16 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             if (ImGui::InputText("##v", buffer.data(), sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer.data())
                 field_request(requests, name, key, row->value.kind, buffer.data());
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Applies on reload");
+                gui::tooltip("Applies on reload");
             ImGui::PopID();
         }
         script::Array* contacts = nullptr;
         if (s->fetch_list(kContacts, &contacts, 0) && contacts) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::TextDisabled("contacts");
+            gui::text_disabled("contacts");
             ImGui::TableNextColumn();
-            ImGui::Text("%u points", static_cast<unsigned>(contacts->extent_));
+            gui::text("%u points", static_cast<unsigned>(contacts->extent_));
         }
         ImGui::EndTable();
     }
@@ -145,7 +146,7 @@ void moving_section(uint32_t id)
     if (ImGui::Checkbox("Path speed", &own))
         get_queue([id, own] { detail::change_speed(id, own ? detail::default_mph(id) : 0.0f); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Override the scripted path speed");
+        gui::tooltip("Override the scripted path speed");
     if (own) {
         ImGui::SameLine();
         float mph = set;
@@ -165,10 +166,10 @@ void moving_section(uint32_t id)
         ImGui::SameLine();
         if (ImGui::Button("Stop"))
             get_queue([] { stop_preview(); });
-        ImGui::TextDisabled("%.0f of %.0f along the path at %.1f mph", detail::preview_distance(),
+        gui::text_disabled("%.0f of %.0f along the path at %.1f mph", detail::preview_distance(),
                             detail::preview_length(), detail::default_mph(id));
     } else {
-        ImGui::TextDisabled("Preview along the path");
+        gui::text_disabled("Preview along the path");
     }
 }
 
@@ -224,11 +225,11 @@ void sound_section(uint32_t name)
         }
         active = active || ImGui::IsItemActive();
     } else {
-        ImGui::TextDisabled("Area set by its level sector");
+        gui::text_disabled("Area set by its level sector");
     }
     if (active)
         detail::set_ui_active(true);
-    ImGui::TextDisabled("Loops while in range");
+    gui::text_disabled("Loops while in range");
 }
 
 } // namespace
@@ -260,7 +261,7 @@ void inspector_section(int node, uint32_t object, ImFont* mono, std::vector<ui::
                (family == static_cast<int>(nodes::Family::kObject) && !get_live(name))) {
         ImGui::Spacing();
         ImGui::SeparatorText(family == static_cast<int>(nodes::Family::kParticle) ? "Particle System" : "Not Spawned");
-        ImGui::TextWrapped("%s", when_applied(name, family));
+        gui::text_wrapped("%s", when_applied(name, family));
     }
     if (family == static_cast<int>(nodes::Family::kObject) && get_live(name)) {
         model_section(name, s, requests);
@@ -273,7 +274,7 @@ void view_options()
 {
     ImGui::Checkbox("Show Unspawned Objects", &show_uncreated());
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Show objects created later by scripts");
+        gui::tooltip("Show objects created later by scripts");
 }
 
 } // namespace frontend::level_editor::entities

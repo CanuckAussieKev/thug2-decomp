@@ -33,6 +33,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::cameras {
 
@@ -649,19 +650,19 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     const V3 target = target_of(c->pos, c->angles, c->distance);
     const V3 offset = position_offset(c->pos, c->angles, c->distance);
     ImGui::PushFont(small_font);
-    ImGui::Text("targetOffset   (%.1f, %.1f, %.1f)", target.x, target.y, target.z);
-    ImGui::Text("positionOffset (%.1f, %.1f, %.1f)", offset.x, offset.y, offset.z);
+    gui::text("targetOffset   (%.1f, %.1f, %.1f)", target.x, target.y, target.z);
+    gui::text("positionOffset (%.1f, %.1f, %.1f)", offset.x, offset.y, offset.z);
     ImGui::PopFont();
     ImGui::PopFont();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Computed from position and heading");
+        gui::tooltip("Computed from position and heading");
     if (ImGui::Button("Look through##camera"))
         g_queue.emplace_back([node] { get_preview(node); });
     ImGui::SameLine();
     if (ImGui::Button("Put at the view##camera"))
         g_queue.emplace_back([node] { aim_from_view(node); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Move the camera to the current view");
+        gui::tooltip("Move the camera to the current view");
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Delete##camera"))
@@ -676,13 +677,13 @@ void list_section(ImFont* mono, ImFont* small_font)
     if (!ImGui::CollapsingHeader("Cameras###cameras"))
         return;
     ImGui::PushFont(small_font);
-    ImGui::TextDisabled("Camera nodes, saved with the layout");
+    gui::text_disabled("Camera nodes, saved with the layout");
     ImGui::PopFont();
     if (ImGui::Button("New Camera from View"))
         g_queue.emplace_back([] { create_from_view(); });
     const std::vector<ViewCam> all = get_all();
     if (all.empty())
-        ImGui::TextDisabled("None yet.");
+        gui::text_disabled("None yet.");
     ImGui::PushFont(mono);
     for (const ViewCam& c : all) {
         const uint32_t name = node_create::name_hash(c.name);

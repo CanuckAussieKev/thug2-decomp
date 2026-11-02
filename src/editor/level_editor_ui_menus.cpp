@@ -14,6 +14,7 @@
 #include "editor/level_editor_ui_strip.h"
 #include "editor/level_editor_ux8.h"
 #include "imgui.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ui {
 
@@ -33,7 +34,7 @@ void get_item(const char* id, const char* label = nullptr)
         actions::get_run(index);
     if (!action->tip.empty() &&
         ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", action->tip.c_str());
+        gui::tooltip("%s", action->tip.c_str());
 }
 
 void get_items(std::initializer_list<const char*> ids)

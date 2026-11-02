@@ -11,6 +11,7 @@
 #include "editor/level_editor_ui.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ui {
 
@@ -33,7 +34,7 @@ void op_button(const char* label, bool can, const char* what, const char* why_no
         get_ask(requests, op);
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", can ? what : why_not);
+        gui::tooltip("%s", can ? what : why_not);
 }
 
 // "TERRAIN_GRINDMETAL" -> "Metal" (the list's labels).
@@ -55,39 +56,39 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
     if (chain.object) {
         ImGui::SeparatorText("Path");
         if (chain.path_start_.empty())
-            ImGui::TextDisabled("No path");
+            gui::text_disabled("No path");
         else
-            ImGui::Text("Starts at %s", chain.path_start_.c_str());
+            gui::text("Starts at %s", chain.path_start_.c_str());
         if (ImGui::Button("Assign Path..."))
             get_ask(requests, chains::kOpAssignArm);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Click the first waypoint in the view");
+            gui::tooltip("Click the first waypoint in the view");
         ImGui::SameLine();
         ImGui::BeginDisabled(chain.path_start_.empty());
         if (ImGui::Button("No path"))
             get_ask(requests, chains::kOpUnassign);
         ImGui::EndDisabled();
         if (chain.waiting)
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
+            gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
         return;
     }
     const char* noun = chain.path ? "path" : chain.ladder ? "ladder" : chain.ledge ? "ledge" : "rail";
     ImGui::SeparatorText(chain.path ? "Path" : chain.ladder ? "Ladder" : chain.ledge ? "Ledge" : "Rail");
-    ImGui::Text("%d point%s%s", chain.points, chain.points == 1 ? "" : "s", chain.added ? " (added)" : "");
+    gui::text("%d point%s%s", chain.points, chain.points == 1 ? "" : "s", chain.added ? " (added)" : "");
     if (!chain.prev.empty())
-        ImGui::TextDisabled("after %s", chain.prev.c_str());
+        gui::text_disabled("after %s", chain.prev.c_str());
     if (!chain.next.empty())
-        ImGui::TextDisabled("before %s", chain.next.c_str());
+        gui::text_disabled("before %s", chain.next.c_str());
     if (!chain.why.empty()) {
-        ImGui::TextWrapped("%s", chain.why.c_str());
+        gui::text_wrapped("%s", chain.why.c_str());
         return;
     }
     if (chain.ladder) {
         // (phase 4b: turned and deleted whole; its foot / top moved as points - L off)
-        ImGui::Text("Facing %.0f\xC2\xB0%s", static_cast<double>(chain.facing_degrees_),
+        gui::text("Facing %.0f\xC2\xB0%s", static_cast<double>(chain.facing_degrees_),
                     chain.turned ? " (turned)" : "");
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Direction the skater faces when climbing");
+            gui::tooltip("Direction the skater faces when climbing");
         if (ImGui::Button("Turn Left"))
             get_ask(requests, chains::kOpTurn, static_cast<uint32_t>(-1));
         ImGui::SameLine();
@@ -97,9 +98,9 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         op_button("Revert Facing", chain.turned, "Restore original facing", "Already original", requests,
                   chains::kOpFacingHome);
         op_button("Delete Ladder", chain.can_delete_, "Delete the ladder  (Del)", "", requests, chains::kOpDelete);
-        ImGui::TextDisabled("Turn off Whole Ladder to move the foot or top");
+        gui::text_disabled("Turn off Whole Ladder to move the foot or top");
         if (chain.waiting)
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
+            gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
         return;
     }
     op_button("Insert", chain.can_insert_, "Insert a point after this one  (Insert)", "Last point: use Extend",
@@ -127,7 +128,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             ImGui::EndCombo();
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Grind sound and sparks for the whole %s", noun);
+            gui::tooltip("Grind sound and sparks for the whole %s", noun);
     }
     if (chain.rail) {
         // (phase 4b: trick objects, grinding on flat ground - level_editor_chains.h)
@@ -137,17 +138,17 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             get_ask(requests, chains::kOpTrickObject, trick ? 1u : 0u);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", chain.can_trick_object_ ? "Counts as a trick object for scoring and graffiti"
+            gui::tooltip("%s", chain.can_trick_object_ ? "Counts as a trick object for scoring and graffiti"
                                                             : "Original rails keep their setting");
         if (chain.trick_object_ && !chain.cluster.empty()) {
             ImGui::SameLine();
-            ImGui::TextDisabled("cluster %s", chain.cluster.c_str());
+            gui::text_disabled("cluster %s", chain.cluster.c_str());
         }
         bool flat = chain.grind_flat_;
         if (ImGui::Checkbox("Grind on Flat Ground", &flat))
             get_ask(requests, chains::kOpGrindFlat, flat ? 1u : 0u);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Allow grinding where ground is level with the rail (this game only)");
+            gui::tooltip("Allow grinding where ground is level with the rail (this game only)");
     }
     if (chain.ledge) {
         // (the feature map: a ledge's side to hang from - THUG2's HangLeft / HangRight flags, the whole ledge)
@@ -158,13 +159,13 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             get_ask(requests, chains::kOpHang, static_cast<uint32_t>(side));
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", chain.added ? "Side the skater hangs from" : "Original ledges keep their setting");
-        ImGui::TextDisabled("Hang and shimmy ledge");
+            gui::tooltip("%s", chain.added ? "Side the skater hangs from" : "Original ledges keep their setting");
+        gui::text_disabled("Hang and shimmy ledge");
     }
     if (chain.rail) {
         // (the feature map: a speed-up - THAW's RailAccelerate - on this point's segment, or the whole rail)
         if (chain.level_speed_)
-            ImGui::TextDisabled("Original speed-up: +%.1f%% per frame",
+            gui::text_disabled("Original speed-up: +%.1f%% per frame",
                                 static_cast<double>(chain.level_rate_ * 100.0f));
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
@@ -172,7 +173,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                     on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Speed up the skater while grinding uphill");
+            gui::tooltip("Speed up the skater while grinding uphill");
         if (on) {
             static float s_percent = -1.0f;
             float percent = s_percent >= 0.0f ? s_percent : chain.speed * 100.0f;
@@ -189,13 +190,13 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                 s_percent = -1.0f;
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Speed gain per frame (typical: 2-10%%)");
+                gui::tooltip("Speed gain per frame (typical: 2-10%%)");
             ImGui::SameLine();
             if (ImGui::SmallButton("Whole rail"))
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
                 get_ask(requests, chains::kOpSpeedRail, static_cast<uint32_t>(chain.speed * 10000.0f + 0.5f));
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Apply to the whole rail");
+                gui::tooltip("Apply to the whole rail");
         } else if (chain.points > 1) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Clear Whole Rail"))
@@ -203,7 +204,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         }
     }
     if (chain.waiting)
-        ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
+        gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
 }
 
 } // namespace frontend::level_editor::ui

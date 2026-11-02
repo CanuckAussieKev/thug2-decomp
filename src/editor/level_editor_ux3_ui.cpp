@@ -24,6 +24,7 @@
 #include "imgui_internal.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -140,23 +141,23 @@ void get_palette()
         if (r == g_highlight && (ImGui::IsKeyPressed(ImGuiKey_DownArrow) || ImGui::IsKeyPressed(ImGuiKey_UpArrow)))
             ImGui::SetScrollHereY(0.5f);
         if (ImGui::IsItemHovered() && !a.tip.empty())
-            ImGui::SetTooltip("%s%s", a.tip.c_str(), a.kind == actions::Kind::kDetailsOf ? "\n(mouse gesture)" : "");
+            gui::tooltip("%s%s", a.tip.c_str(), a.kind == actions::Kind::kDetailsOf ? "\n(mouse gesture)" : "");
         ImGui::SameLine(0.0f, 10.0f * current_s());
-        ImGui::TextColored(kMuted, "%s", a.category.c_str());
+        gui::text_colored(kMuted, "%s", a.category.c_str());
         const std::string keys = actions::get_keys_text(i);
         if (!keys.empty()) {
             if (g_fonts.mono)
                 ImGui::PushFont(g_fonts.mono);
             const float width = ImGui::CalcTextSize(keys.c_str()).x;
             ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 8.0f * current_s(), get_right_edge() - width));
-            ImGui::TextColored(kKeyColour, "%s", keys.c_str());
+            gui::text_colored(kKeyColour, "%s", keys.c_str());
             if (g_fonts.mono)
                 ImGui::PopFont();
         }
         ImGui::PopID();
     }
     if (found.empty())
-        ImGui::TextDisabled("Nothing matches");
+        gui::text_disabled("Nothing matches");
     ImGui::EndChild();
     if (enter && !found.empty())
         run = core::at(found, g_highlight).second;
@@ -189,7 +190,7 @@ void history_window()
         return;
     }
     std::vector<EditorUndoRecord> undo = undo_history(), redo = redo_history();
-    ImGui::TextDisabled("%d undo, %d redo", static_cast<int>(undo.size()), static_cast<int>(redo.size()));
+    gui::text_disabled("%d undo, %d redo", static_cast<int>(undo.size()), static_cast<int>(redo.size()));
     ImGui::Separator();
     ImGui::BeginChild("##steps");
     int jump = 0;
@@ -204,7 +205,7 @@ void history_window()
         if (ImGui::Selectable(text.data(), current))
             jump = -(static_cast<int>(undo.size()) - 1 - i), any = true;
         if (ImGui::IsItemHovered() && !core::at(undo, i).detail.empty())
-            ImGui::SetTooltip("Selection: %s", core::at(undo, i).detail.c_str());
+            gui::tooltip("Selection: %s", core::at(undo, i).detail.c_str());
         if (current)
             ImGui::SetItemDefaultFocus();
         ImGui::PopID();
@@ -219,7 +220,7 @@ void history_window()
             jump = j + 1, any = true;
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered() && !core::at(redo, j).detail.empty())
-            ImGui::SetTooltip("Selection: %s", core::at(redo, j).detail.c_str());
+            gui::tooltip("Selection: %s", core::at(redo, j).detail.c_str());
         ImGui::PopID();
     }
     ImGui::EndChild();
@@ -245,13 +246,13 @@ void changes_window()
         return;
     }
     const std::vector<ChangeRow>& rows = change_list();
-    ImGui::TextDisabled("%d changes", static_cast<int>(rows.size()));
+    gui::text_disabled("%d changes", static_cast<int>(rows.size()));
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_changes_filter.data(), sizeof(g_changes_filter));
     ImGui::Separator();
     ImGui::BeginChild("##changes");
     if (rows.empty())
-        ImGui::TextDisabled("No changes");
+        gui::text_disabled("No changes");
     for (const char* group : changes::bunches()) {
         std::vector<const ChangeRow*> in;
         for (const ChangeRow& row : rows) {
@@ -272,7 +273,7 @@ void changes_window()
             ImGui::TextUnformatted(row->entry.summary.c_str());
             ImGui::PopTextWrapPos();
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", row->record.c_str());
+                gui::tooltip("%s", row->record.c_str());
             ImGui::SameLine(get_right_edge() - buttons + 6.0f * current_s());
             ImGui::BeginDisabled(row->entry.id == 0);
             if (ImGui::SmallButton("Go to"))
@@ -282,7 +283,7 @@ void changes_window()
             if (ImGui::SmallButton("Revert"))
                 revert(*row);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Revert this change");
+                gui::tooltip("Revert this change");
             ImGui::PopID();
         }
     }
@@ -340,8 +341,8 @@ void snapshots_window()
         g_snapshots_stale = false;
     }
     const std::string active = organize::active_snapshot();
-    ImGui::TextDisabled("Named versions of the layout");
-    ImGui::Text("Active: %s", active.empty() ? "(none)" : active.c_str());
+    gui::text_disabled("Named versions of the layout");
+    gui::text("Active: %s", active.empty() ? "(none)" : active.c_str());
     ImGui::Separator();
     ImGui::SetNextItemWidth(200.0f * current_s());
     const bool enter = ImGui::InputTextWithHint("##name", "Name", g_snapshot_name.data(), sizeof(g_snapshot_name),
@@ -359,12 +360,12 @@ void snapshots_window()
     }
     ImGui::BeginChild("##snapshots");
     if (g_snapshots.empty())
-        ImGui::TextDisabled("No snapshots");
+        gui::text_disabled("No snapshots");
     for (const std::string& name : g_snapshots) {
         ImGui::PushID(name.c_str());
         const bool is_active = name == active;
         if (is_active)
-            ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s  (active)", name.c_str());
+            gui::text_colored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s  (active)", name.c_str());
         else
             ImGui::TextUnformatted(name.c_str());
         ImGui::SameLine(get_right_edge() - ImGui::CalcTextSize("Switch to  Delete").x - 30.0f * current_s());
@@ -377,7 +378,7 @@ void snapshots_window()
             g_snapshots_stale = true;
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Load this snapshot");
+            gui::tooltip("Load this snapshot");
         ImGui::SameLine();
         if (ImGui::SmallButton("Delete") && ImGui::GetIO().KeyShift) {
             get_queue([name] {
@@ -388,7 +389,7 @@ void snapshots_window()
             g_snapshots_stale = true;
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Shift+click to delete");
+            gui::tooltip("Shift+click to delete");
         ImGui::PopID();
     }
     ImGui::EndChild();
@@ -426,7 +427,7 @@ void get_menus()
             if (ImGui::MenuItem(item.name))
                 get_queue([by] { organize::select_similar(by); });
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", item.tip);
+                gui::tooltip("%s", item.tip);
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Same Family (All)"))
@@ -550,7 +551,7 @@ void help_from_registry()
         if (std::ranges::find(categories, a.category) == categories.end())
             categories.push_back(a.category);
     }
-    ImGui::TextDisabled("All commands and their keys");
+    gui::text_disabled("All commands and their keys");
     if (ImGui::SmallButton("Keys..."))
         unseal(kKeysWindow) = true;
     if (!ImGui::BeginTable("##registry", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg))
@@ -574,14 +575,14 @@ void help_from_registry()
                 ImGui::PushFont(g_fonts.mono);
             ImGui::PushTextWrapPos(0.0f);
             const std::string keys = actions::get_keys_text(i);
-            ImGui::TextColored(kKeyColour, "%s", keys.empty() ? "-" : keys.c_str());
+            gui::text_colored(kKeyColour, "%s", keys.empty() ? "-" : keys.c_str());
             ImGui::PopTextWrapPos();
             if (g_fonts.mono)
                 ImGui::PopFont();
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(a.name.c_str());
             if (ImGui::IsItemHovered() && !a.tip.empty())
-                ImGui::SetTooltip("%s", a.tip.c_str());
+                gui::tooltip("%s", a.tip.c_str());
         }
     }
     ImGui::EndTable();
@@ -590,7 +591,7 @@ void help_from_registry()
 void keys_section()
 {
     const std::vector<actions::ActStep>& all = actions::get_all();
-    ImGui::TextDisabled("Click a key to rebind, + to add, right-click to remove");
+    gui::text_disabled("Click a key to rebind, + to add, right-click to remove");
     ImGui::SetNextItemWidth(220.0f * current_s());
     ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", g_keys_filter.data(), sizeof(g_keys_filter));
     ImGui::SameLine();
@@ -599,10 +600,10 @@ void keys_section()
             actions::reset_keys(i);
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Shift+click to reset all keys");
+        gui::tooltip("Shift+click to reset all keys");
     if (actions::get_capturing()) {
         const actions::ActStep* a = actions::get_pull(actions::capturing_index());
-        ImGui::TextColored(kKeyColour, "Press a key for \"%s\" (Esc: cancel)", a ? a->name.c_str() : "?");
+        gui::text_colored(kKeyColour, "Press a key for \"%s\" (Esc: cancel)", a ? a->name.c_str() : "?");
     }
     ImGui::Separator();
     ImGui::BeginChild("##keys");
@@ -621,12 +622,12 @@ void keys_section()
             ImGui::TableNextColumn();
             if (a.category != category) {
                 category = a.category;
-                ImGui::TextColored(kMuted, "%s", category.c_str());
+                gui::text_colored(kMuted, "%s", category.c_str());
                 ImGui::SameLine();
             }
             ImGui::TextUnformatted(a.name.c_str());
             if (ImGui::IsItemHovered() && !a.tip.empty())
-                ImGui::SetTooltip("%s", a.tip.c_str());
+                gui::tooltip("%s", a.tip.c_str());
             ImGui::TableNextColumn();
             if (g_fonts.mono)
                 ImGui::PushFont(g_fonts.mono);
@@ -653,7 +654,7 @@ void keys_section()
             std::vector<int> clashes = actions::conflicts(i);
             if (!clashes.empty()) {
                 ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "also: %s%s", core::at(all, clashes.front()).name.c_str(),
+                gui::text_colored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "also: %s%s", core::at(all, clashes.front()).name.c_str(),
                                    clashes.size() > 1 ? " ..." : "");
             }
             ImGui::TableNextColumn();
@@ -663,7 +664,7 @@ void keys_section()
                 actions::reset_keys(i);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("Default: %s", actions::format_keys(a.defaults).c_str());
+                gui::tooltip("Default: %s", actions::format_keys(a.defaults).c_str());
             ImGui::PopID();
         }
         ImGui::EndTable();
@@ -703,7 +704,7 @@ void bunches()
     text::format_to(header, "Groups###ux3groups");
     const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::SameLine();
-    ImGui::TextDisabled("%d", static_cast<int>(state.groups.size()));
+    gui::text_disabled("%d", static_cast<int>(state.groups.size()));
     if (!open)
         return;
     for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
@@ -714,7 +715,7 @@ void bunches()
         if (ImGui::Selectable(text.data()))
             get_queue([i] { organize::select_group(i); });
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Click to select; right-click for options");
+            gui::tooltip("Click to select; right-click for options");
         if (ImGui::BeginPopupContextItem("##groupmenu")) {
             if (ImGui::MenuItem("Add Selection"))
                 get_queue([i] { organize::add_to_group(i); });
@@ -769,7 +770,7 @@ void row_toggles(const nodes::Elem& node, float x)
         ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", toggle.tip);
+            gui::tooltip("%s", toggle.tip);
         if (clicked) {
             const nodes::Elem& copy = node;
             const bool value = !toggle.state;
@@ -840,7 +841,7 @@ void inspector_section(const ui::ShapeMesh& model)
             });
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", actions::get_keys_text(actions::kCopyProps).c_str());
+            gui::tooltip("%s", actions::get_keys_text(actions::kCopyProps).c_str());
         ImGui::SameLine();
         ImGui::BeginDisabled(!any || !clip::have_transform());
         if (ImGui::SmallButton("Paste Transform"))
@@ -851,7 +852,7 @@ void inspector_section(const ui::ShapeMesh& model)
             });
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", actions::get_keys_text(actions::kPasteTransform).c_str());
+            gui::tooltip("%s", actions::get_keys_text(actions::kPasteTransform).c_str());
         ImGui::SameLine();
         ImGui::BeginDisabled(!any || clip::field_count() == 0);
         if (ImGui::SmallButton("Paste fields"))
@@ -861,7 +862,7 @@ void inspector_section(const ui::ShapeMesh& model)
                 show_message(m);
             });
         ImGui::EndDisabled();
-        ImGui::TextDisabled("Copied: %s", clip::describe().c_str());
+        gui::text_disabled("Copied: %s", clip::describe().c_str());
     }
     // Several selected: their shared fields.
     std::vector<uint32_t> nodes;
@@ -903,10 +904,10 @@ void inspector_section(const ui::ShapeMesh& model)
             shared.push_back({row.key, row.value.kind, text, mixed});
     }
     if (shared.empty()) {
-        ImGui::TextDisabled("No shared editable fields");
+        gui::text_disabled("No shared editable fields");
         return;
     }
-    ImGui::TextDisabled("Applies to all %d", static_cast<int>(nodes.size()));
+    gui::text_disabled("Applies to all %d", static_cast<int>(nodes.size()));
     if (!ImGui::BeginTable("##shared", 2, ImGuiTableFlags_SizingFixedFit))
         return;
     ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, 120.0f * current_s());
@@ -917,7 +918,7 @@ void inspector_section(const ui::ShapeMesh& model)
         const Shared& f = core::at(shared, i);
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
-        ImGui::TextDisabled("%s", fields::get_name_text(f.key, fields::get_name_of).c_str());
+        gui::text_disabled("%s", fields::get_name_text(f.key, fields::get_name_of).c_str());
         ImGui::TableNextColumn();
         ImGui::PushID(static_cast<int>(f.key));
         SharedEdit& edit = core::at(g_shared, i);
@@ -939,7 +940,7 @@ void inspector_section(const ui::ShapeMesh& model)
         else if (g_shared_active == id)
             g_shared_active = 0;
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s - %s", fields::kind_name(f.kind), f.mixed ? "mixed values" : "same on all");
+            gui::tooltip("%s - %s", fields::kind_name(f.kind), f.mixed ? "mixed values" : "same on all");
         if (enter) {
             FieldSet set;
             set.key = f.key;

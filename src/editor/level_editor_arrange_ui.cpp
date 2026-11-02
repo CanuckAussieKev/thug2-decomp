@@ -15,6 +15,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -26,7 +27,7 @@ void get_later(std::function<void()> action) { g_queue.push_back(std::move(actio
 void get_tip(const char* text)
 {
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", text);
+        gui::tooltip("%s", text);
 }
 
 } // namespace
@@ -99,7 +100,7 @@ void pane(float ui_scale)
     if (ImGui::Button("Unlink"))
         get_later([] { links::unlink_selection(); });
     const std::string linked = links::describe();
-    ImGui::TextDisabled("%s", linked.empty() ? "(not linked)" : linked.c_str());
+    gui::text_disabled("%s", linked.empty() ? "(not linked)" : linked.c_str());
 
     ImGui::SeparatorText("Rail Along Edge");
     bool picking = edge_picking();
@@ -222,9 +223,9 @@ void get_panel(float x, float y, float ui_scale)
     ImGui::EndDisabled();
     editing = ImGui::IsAnyItemActive() && ImGui::IsWindowFocused();
     if (!adjustable)
-        ImGui::TextDisabled("Only the last operation can be adjusted");
+        gui::text_disabled("Only the last operation can be adjusted");
     else if (edit.kind == Kind::kDuplicate)
-        ImGui::TextDisabled("Release to apply");
+        gui::text_disabled("Release to apply");
     ImGui::End();
     if (adjustable && (live || done))
         get_request(edit, done);

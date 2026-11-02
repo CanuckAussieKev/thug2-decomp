@@ -47,6 +47,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::checks {
 
@@ -1235,20 +1236,23 @@ void problems_tab(float scale, ImFont* mono)
     text::format_to(label, "Original Level (%d)", own);
     ImGui::Checkbox(label.data(), &g_show_own);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Problems present in the original level");
+        gui::tooltip("Problems present in the original level");
     ImGui::SameLine();
     text::format_to(label, "Ignored (%d)", ignored);
     ImGui::Checkbox(label.data(), &g_show_ignored);
     ImGui::SameLine();
-    ImGui::TextDisabled(g_checked_once ? "%.0f ms" : "not checked", g_last_seconds * 1000.0);
+    if (g_checked_once)
+        gui::text_disabled("%.0f ms", g_last_seconds * 1000.0);
+    else
+        gui::text_disabled("not checked");
     ImGui::Separator();
     int shown = 0;
     for (const Issue& issue : g_issues)
         shown += get_shown(issue);
     if (!shown) {
-        ImGui::TextColored(ImVec4(0.45f, 0.80f, 0.50f, 1.0f), "No problems");
+        gui::text_colored(ImVec4(0.45f, 0.80f, 0.50f, 1.0f), "No problems");
         if (own)
-            ImGui::TextDisabled("(%d in the original level)", own);
+            gui::text_disabled("(%d in the original level)", own);
         return;
     }
     if (!ImGui::BeginTable("##problems", 3,
@@ -1268,12 +1272,12 @@ void problems_tab(float scale, ImFont* mono)
         ImGui::PushID(static_cast<int>(i));
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
-        ImGui::TextColored(severity_colour(issue.severity), "%s", severity_name(issue.severity));
+        gui::text_colored(severity_colour(issue.severity), "%s", severity_name(issue.severity));
         ImGui::TableNextColumn();
         if (is_ignored || issue.level_own_)
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-        ImGui::TextDisabled("%s%s", rule_name(issue.rule), issue.level_own_ ? " (original)" : "");
-        ImGui::TextWrapped("%s", issue.text.c_str());
+        gui::text_disabled("%s%s", rule_name(issue.rule), issue.level_own_ ? " (original)" : "");
+        gui::text_wrapped("%s", issue.text.c_str());
         if (is_ignored || issue.level_own_)
             ImGui::PopStyleColor();
         ImGui::TableNextColumn();
@@ -1291,7 +1295,7 @@ void problems_tab(float scale, ImFont* mono)
                 g_queue.emplace_back([copy] { fix(copy); });
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"
+                gui::tooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"
                                         : issue.rule == Rule::kHiddenCollision ? "Turn the collision off"
                                         : issue.rule == Rule::kLayoutRecord
                                             ? "Drop the record: the next save leaves it out "
@@ -1306,7 +1310,7 @@ void problems_tab(float scale, ImFont* mono)
                 ignored_state().insert(issue.key);
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Ignore until the level reloads");
+            gui::tooltip("Ignore until the level reloads");
         ImGui::PopID();
     }
     ImGui::EndTable();

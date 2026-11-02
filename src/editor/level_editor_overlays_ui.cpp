@@ -11,6 +11,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::overlays {
 
@@ -19,7 +20,7 @@ namespace {
 void get_tip(const char* text)
 {
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", text);
+        gui::tooltip("%s", text);
 }
 
 } // namespace

@@ -17,6 +17,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ux8 {
 
@@ -185,7 +186,7 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
                 if (used + gap + ImGui::CalcTextSize(ellipsis).x <= max_width) {
                     if (i)
                         ImGui::SameLine(0.0f, gap);
-                    ImGui::TextDisabled("%s", ellipsis);
+                    gui::text_disabled("%s", ellipsis);
                     ui_strip::get_note("HintMore");
                 }
                 break;
@@ -199,7 +200,7 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
         for (size_t t = 0; t < tokens.size(); ++t) {
             if (t) {
                 ImGui::SameLine(0.0f, 1.0f * s);
-                ImGui::TextDisabled("+");
+                gui::text_disabled("+");
                 ImGui::SameLine(0.0f, 1.0f * s);
             }
             token_glyph(core::at(tokens, t), fonts);
@@ -294,7 +295,7 @@ void sets_menu(const Fonts& fonts)
     if (!ImGui::BeginMenu("Selection Sets"))
         return;
     const organize::State& state = organize::at_hand();
-    ImGui::TextDisabled("Quick Sets");
+    gui::text_disabled("Quick Sets");
     for (int i = 1; i <= nav::kQuickSets; ++i) {
         const std::string name = nav::quick_set_name(i);
         const int at = nav::find_group(state, name);
@@ -315,12 +316,12 @@ void sets_menu(const Fonts& fonts)
             if (ImGui::SmallButton("+"))
                 ux3::get_queue([at] { add_to_set(at); });
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Add selection to set");
+                gui::tooltip("Add selection to set");
             ImGui::SameLine();
             if (ImGui::SmallButton("-"))
                 ux3::get_queue([at] { take_from_set(at); });
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Remove selection from set");
+                gui::tooltip("Remove selection from set");
         }
         ImGui::PopID();
     }
@@ -332,7 +333,7 @@ void sets_menu(const Fonts& fonts)
             continue;
         if (!any) {
             ImGui::Separator();
-            ImGui::TextDisabled("Groups");
+            gui::text_disabled("Groups");
             any = true;
         }
         ImGui::PushID(100 + g);
@@ -360,7 +361,7 @@ void prefs_section()
     if (ImGui::Checkbox("Controller Mode", &pad))
         set_pad_mode(pad);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Use a game controller in the editor");
+        gui::tooltip("Use a game controller in the editor");
 }
 
 } // namespace frontend::level_editor::ux8

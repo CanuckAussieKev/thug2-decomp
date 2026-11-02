@@ -32,6 +32,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::budget {
 
@@ -355,14 +356,14 @@ void tooltip()
     if (worst < 0)
         return;
     ImGui::BeginTooltip();
-    ImGui::Text("Budget: %s %s (click for details)", core::at(meters, worst).name, used_text(core::at(meters, worst)).c_str());
+    gui::text("Budget: %s %s (click for details)", core::at(meters, worst).name, used_text(core::at(meters, worst)).c_str());
     ImGui::Separator();
     for (const Meter& m : meters) {
         const StageMap l = get_level_of(m.used, m.limit);
-        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))), "%s", "\xE2\x97\x8F");
+        gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(level_colour(l))), "%s", "\xE2\x97\x8F");
         ImGui::SameLine();
         const std::string added = added_text(m);
-        ImGui::Text("%s: %s%s%s", m.name, used_text(m).c_str(), added.empty() ? "" : "  (edits ",
+        gui::text("%s: %s%s%s", m.name, used_text(m).c_str(), added.empty() ? "" : "  (edits ",
                     added.empty() ? "" : (added + ")").c_str());
     }
     ImGui::EndTooltip();
@@ -371,10 +372,10 @@ void get_table()
 {
     const std::vector<Meter>& meters = get_cached();
     if (meters.empty()) {
-        ImGui::TextDisabled("No level loaded");
+        gui::text_disabled("No level loaded");
         return;
     }
-    ImGui::TextDisabled("Usage against engine limits. Amber: 80%% or more; red: over.");
+    gui::text_disabled("Usage against engine limits. Amber: 80%% or more; red: over.");
     if (!ImGui::BeginTable("##budgetTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
         return;
     ImGui::TableSetupColumn("What");
@@ -387,7 +388,7 @@ void get_table()
         ImGui::TableNextColumn();
         ImGui::TextUnformatted(m.name);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", m.where);
+            gui::tooltip("%s", m.where);
         ImGui::TableNextColumn();
         ImGui::TextUnformatted(used_text(m).c_str());
         ImGui::TableNextColumn();
@@ -397,7 +398,7 @@ void get_table()
             ImGui::ProgressBar(static_cast<float>(std::min(1.0, get_fill(m.used, m.limit))), ImVec2(-1.0f, 0.0f), "");
             ImGui::PopStyleColor();
         } else {
-            ImGui::TextDisabled("(count)");
+            gui::text_disabled("(count)");
         }
         ImGui::TableNextColumn();
         ImGui::TextUnformatted(added_text(m).c_str());

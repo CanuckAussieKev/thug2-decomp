@@ -11,6 +11,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -71,7 +72,7 @@ void current_settings(const Goal& goal, ImFont* mono)
     if (text_field("Name##goal", key + "name", &g.name, 16, false))
         changed = done = true; // (Create-a-Goal's keyboard: 16 characters)
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Name shown in View Goals");
+        gui::tooltip("Name shown in View Goals");
     if (text_field("Ped name##goal", key + "ped", &g.ped, 16, false))
         changed = done = true;
     ImGui::TextUnformatted("Goal text");
@@ -113,7 +114,7 @@ void current_settings(const Goal& goal, ImFont* mono)
                 gaps.push_back(name); // (one the list hasn't now: shown so it can be taken off)
         }
         if (gaps.empty())
-            ImGui::TextDisabled("No gaps");
+            gui::text_disabled("No gaps");
         ImGui::BeginChild("##goalgaps", ImVec2(0.0f, std::min(160.0f, 22.0f * static_cast<float>(gaps.size()) + 4.0f)),
                           true);
         for (const std::string& name : gaps) {
@@ -197,16 +198,16 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     ImGui::Separator();
     if (!ImGui::CollapsingHeader("Goal###goal", ImGuiTreeNodeFlags_DefaultOpen))
         return;
-    ImGui::TextWrapped("%s - %s (%s)", g.name.c_str(), type_title(g.type), point_label(g.type, point).c_str());
+    gui::text_wrapped("%s - %s (%s)", g.name.c_str(), type_title(g.type), point_label(g.type, point).c_str());
     std::string why;
     if (get_complete(g, &why)) {
-        ImGui::TextColored(ImVec4(0.55f, 0.85f, 0.55f, 1.0f), "Complete");
+        gui::text_colored(ImVec4(0.55f, 0.85f, 0.55f, 1.0f), "Complete");
     } else {
-        ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.35f, 1.0f), "Not played: %s", why.c_str());
+        gui::text_colored(ImVec4(0.95f, 0.65f, 0.35f, 1.0f), "Not played: %s", why.c_str());
     }
     const int missing = get_missing(g.id);
     if (missing > 0) {
-        ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "%d point%s deleted", missing, missing == 1 ? "" : "s");
+        gui::text_colored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "%d point%s deleted", missing, missing == 1 ? "" : "s");
         ImGui::SameLine();
         const std::string goal_id = g.id;
         if (ImGui::SmallButton("Restore Points"))
@@ -265,7 +266,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         });
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Copy to the game's Create-a-Goal list");
+        gui::tooltip("Copy to the game's Create-a-Goal list");
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Delete goal##goal"))
@@ -280,7 +281,7 @@ void list_section(ImFont* mono, ImFont* small_font)
     if (!ImGui::CollapsingHeader("Goals###goals"))
         return;
     ImGui::PushFont(small_font);
-    ImGui::TextDisabled("Goals for this level, saved with the layout");
+    gui::text_disabled("Goals for this level, saved with the layout");
     ImGui::PopFont();
     ImGui::SetNextItemWidth(170.0f * ImGui::GetFontSize() / 13.0f);
     if (ImGui::BeginCombo("##goaltype", type_title(static_cast<KindTag>(g_new_type)))) {
@@ -301,18 +302,18 @@ void list_section(ImFont* mono, ImFont* small_font)
     if (static_cast<int>(all.size()) >= kMaxGoals)
         ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Add at view center");
+        gui::tooltip("Add at view center");
     if (all.empty())
-        ImGui::TextDisabled("No goals (max 10)");
+        gui::text_disabled("No goals (max 10)");
     ImGui::PushFont(mono);
     for (const Goal& g : all) {
         ImGui::PushID(g.id.c_str());
         const bool complete = get_complete(g);
-        ImGui::TextColored(complete ? ImVec4(0.90f, 0.80f, 0.45f, 1.0f) : ImVec4(0.75f, 0.55f, 0.40f, 1.0f), "%s",
+        gui::text_colored(complete ? ImVec4(0.90f, 0.80f, 0.45f, 1.0f) : ImVec4(0.75f, 0.55f, 0.40f, 1.0f), "%s",
                            g.name.c_str());
         if (ImGui::IsItemHovered()) {
             std::string why;
-            ImGui::SetTooltip("%s - %s", type_title(g.type), get_complete(g, &why) ? "complete" : why.c_str());
+            gui::tooltip("%s - %s", type_title(g.type), get_complete(g, &why) ? "complete" : why.c_str());
         }
         ImGui::SameLine();
         const std::string goal_id = g.id;

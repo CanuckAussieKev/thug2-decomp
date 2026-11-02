@@ -10,6 +10,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::ui_strip {
 
@@ -170,9 +171,9 @@ void get_tip(const char* what, const std::string& keys = std::string())
     if (!ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
         return;
     if (keys.empty())
-        ImGui::SetTooltip("%s", what);
+        gui::tooltip("%s", what);
     else
-        ImGui::SetTooltip("%s  (%s)", what, keys.c_str());
+        gui::tooltip("%s  (%s)", what, keys.c_str());
 }
 
 std::string get_key_of(const State& s, const char* id) { return s.key_of_ ? s.key_of_(id) : std::string(); }
@@ -370,7 +371,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         // (text, set on the buttons' baseline)
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + ImGui::GetStyle().FramePadding.y));
-        ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s", get_level_text(s, scale).c_str());
+        gui::text_colored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s", get_level_text(s, scale).c_str());
         out->level_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         get_note("Level");
         break;
@@ -408,7 +409,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         ImGui::PopStyleColor(colours);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
             const std::string keys = get_key_of(s, "problems");
-            ImGui::SetTooltip("%d errors, %d warnings%s%s%s", s.errors, s.warnings, keys.empty() ? "" : "  (",
+            gui::tooltip("%d errors, %d warnings%s%s%s", s.errors, s.warnings, keys.empty() ? "" : "  (",
                               keys.c_str(), keys.empty() ? "" : ")");
         }
         get_note("Problems");
@@ -474,7 +475,7 @@ void status_row(const std::string& message, const std::vector<std::pair<std::str
     const float right_width = right_text.empty() ? 0.0f : ImGui::CalcTextSize(right_text.c_str()).x;
     if (!right_text.empty()) {
         ImGui::SetCursorScreenPos(ImVec2(x + width - right_width, y));
-        ImGui::TextDisabled("%s", right_text.c_str());
+        gui::text_disabled("%s", right_text.c_str());
         get_note("StatusRight");
     }
     if (fonts.mono)
@@ -486,9 +487,9 @@ void status_row(const std::string& message, const std::vector<std::pair<std::str
     if (!message.empty()) {
         const std::string text = elide(message, left_width);
         if (!text.empty()) {
-            ImGui::TextColored(ImVec4(1.0f, 0.86f, 0.5f, 1.0f), "%s", text.c_str());
+            gui::text_colored(ImVec4(1.0f, 0.86f, 0.5f, 1.0f), "%s", text.c_str());
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip) && text != message)
-                ImGui::SetTooltip("%s", message.c_str());
+                gui::tooltip("%s", message.c_str());
             get_note("StatusMessage");
         }
     } else {

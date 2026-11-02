@@ -30,6 +30,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::clusters {
 
@@ -375,16 +376,16 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     if (!same)
         ImGui::TextUnformatted("(mixed)");
     else if (core::at(now, 0).trick)
-        ImGui::Text("cluster %s", get_name_of(core::at(now, 0).cluster).c_str());
+        gui::text("cluster %s", get_name_of(core::at(now, 0).cluster).c_str());
     else
         ImGui::TextUnformatted("not a trick object");
     ImGui::PopFont();
     if (edited) {
         ImGui::SameLine();
-        ImGui::TextColored(ImVec4(1.0f, 0.65f, 0.3f, 1.0f), "(edited)");
+        gui::text_colored(ImVec4(1.0f, 0.65f, 0.3f, 1.0f), "(edited)");
     }
     ImGui::PushFont(small_font);
-    ImGui::TextDisabled("Tricks count toward the cluster (graffiti, goals)");
+    gui::text_disabled("Tricks count toward the cluster (graffiti, goals)");
     ImGui::PopFont();
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::PushFont(mono);
@@ -404,12 +405,12 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Add the selection to the named cluster");
+        gui::tooltip("Add the selection to the named cluster");
     ImGui::SameLine();
     if (ImGui::Button("Separate Clusters"))
         g_queue.emplace_back([pieces] { assign_value(pieces, true, 0); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Give each piece its own cluster");
+        gui::tooltip("Give each piece its own cluster");
     if (same && core::at(now, 0).trick) {
         const uint32_t cluster = core::at(now, 0).cluster;
         ImGui::SameLine();

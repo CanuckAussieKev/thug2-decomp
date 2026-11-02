@@ -20,6 +20,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor_gui_text.h"
 
 namespace frontend::level_editor::notes {
 
@@ -342,18 +343,18 @@ void outliner_section(ImFont* mono, const char* search)
     ImGui::SameLine();
     if (mono)
         ImGui::PushFont(mono);
-    ImGui::TextDisabled("%d", static_cast<int>(g_notes.size()));
+    gui::text_disabled("%d", static_cast<int>(g_notes.size()));
     if (mono)
         ImGui::PopFont();
     ImGui::SameLine();
     if (ImGui::SmallButton("+ Note here"))
         g_queue.emplace_back([] { add_here(); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Add a note at the view center");
+        gui::tooltip("Add a note at the view center");
     if (!open)
         return;
     if (g_notes.empty())
-        ImGui::TextDisabled("No notes");
+        gui::text_disabled("No notes");
     for (size_t i = 0; i < g_notes.size(); ++i) {
         const Note& note = core::at(g_notes, i);
         if (!get_matches(note.name + " " + note.text, search))
@@ -379,7 +380,7 @@ void outliner_section(ImFont* mono, const char* search)
             });
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s\n%s", note.name.c_str(), note.text.empty() ? "(empty)" : note.text.c_str());
+            gui::tooltip("%s\n%s", note.name.c_str(), note.text.empty() ? "(empty)" : note.text.c_str());
         ImGui::PopID();
     }
     ImGui::TreePop();
@@ -407,7 +408,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         return;
     }
     std::string name = note->name;
-    ImGui::TextDisabled("Editor only");
+    gui::text_disabled("Editor only");
     // The text and the place: changed live, one undo step from the field taken to the field let go (pushed then - the
     // change complete: the autosave's snapshot follows it).
     auto held = [] {
@@ -432,7 +433,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     }
     held();
     // The colour.
-    ImGui::TextDisabled("Colour");
+    gui::text_disabled("Colour");
     for (int c = 0; c < kColourCount; ++c) {
         ImGui::SameLine();
         ImGui::PushID(c);
@@ -484,7 +485,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
             n->pos = at;
         });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Move to the view center");
+        gui::tooltip("Move to the view center");
     ImGui::SameLine();
     if (ImGui::Button("Delete"))
         g_queue.emplace_back([name] {
