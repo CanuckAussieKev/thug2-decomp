@@ -20,6 +20,7 @@
 #include <optional>
 #include <span>
 
+#include "formats/park_map_format.h"
 #include "game/park_editing/park_rails.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
@@ -566,30 +567,8 @@ struct FloorCell {
 static_assert(sizeof(FloorCell) == 16, "grid cell");
 
 // The park as saved (0x3A98 bytes): a header, the floor heights, then the metapieces (8 bytes each: name index,
-// cell, height, turn) and the gaps (0x30 bytes each) - park_map_format.h, whose readers / writers do the records.
-// The park layout keeps the map as these bytes (saved as an integer array, sent to the other players as they are):
-// a view of the file format, its asserts the format's.
-struct CompressedMap {
-    uint32_t checksum_;   // +0x00: CRC of everything after it
-    uint16_t extent_;     // +0x04: bytes used
-    uint16_t rev_;        // +0x06: kVersion (gaps 0x30 bytes); older parks have 0x2C-byte gaps
-    uint16_t shell_size_; // +0x08: the park manager's shell_size_ (the shell model, the bounds)
-    uint16_t unknown0a_;
-    uint8_t pos_x_, depth_cell_, w_, l_; // +0x0C: the park's bounds
-    uint16_t composite_count_;           // +0x10
-    uint16_t num_gaps_;                  // +0x12
-    uint8_t max_players_;                // +0x14
-    std::array<uint8_t, 3> pad15;
-    uint32_t style_set_;                            // +0x18: the park editor's (+0x78); 0 reads as "Default"
-    std::array<char, 0x40> label_;                              // +0x1C
-    std::array<int8_t, kFloorSize * kFloorSize> floor_heights_; // +0x5C
-    std::array<uint8_t, 0x3A98 - 0x5C - kFloorSize * kFloorSize> rest_;
-
-    static constexpr uint16_t kVersion = 20004;
-};
-static_assert(offsetof(CompressedMap, composite_count_) == 0x10 && offsetof(CompressedMap, label_) == 0x1C &&
-                  offsetof(CompressedMap, floor_heights_) == 0x5C && sizeof(CompressedMap) == 0x3A98,
-              "the park map's file format (park_map_format.h)");
+// cell, height, turn) and the gaps (0x30 bytes each). The park layout keeps the map as these bytes (saved as an
+// integer array, sent to the other players as they are): ParkMap (park_map_format.h) reads and writes them.
 static_assert(kFloorSize * kFloorSize == 58 * 58, "park_map_format.h's kParkMapFloorCells");
 
 // The gap manager (the singleton 0x007CE5D4; the park manager keeps it at +0x177C4): the gaps placed in the park.
@@ -900,9 +879,9 @@ public:
 
     // --- park_accessors.cpp (0x00595030-0x00595D40) ---
     // 0x00595030: the compressed map; `flag_clean` clears kMapNotSavedLocal.
-    CompressedMap* get_packed_park_data(bool flag_clean);
+    ParkMap* get_packed_park_data(bool flag_clean);
     // 0x00595050: take a whole compressed map (loaded or received).
-    void set_packed_park_data(const CompressedMap* map, bool flag_dirty);
+    void set_packed_park_data(const ParkMap* map, bool flag_dirty);
     // NOT ORIGINAL: the same from a received map's bytes (a whole map's worth).
     void set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty);
     // 0x00595090: the compressed map is valid and saved.
@@ -923,7 +902,7 @@ public:
     // 0x00595210: piece set `index`; `menu_index` gets how many sets before it are shown.
     PieceFamily* get_piece_family(int index, int* menu_index);
     // 0x00595250: header fields of a compressed map.
-    void get_map_info(const CompressedMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size, uint32_t* theme,
+    void get_map_info(const ParkMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size, uint32_t* theme,
                       int* width, int* length);
     // 0x005952B0: undo the marked floor changes (clamping every height to -16..15)
     void restore_floor_heights();
@@ -1127,7 +1106,7 @@ public:
     std::array<std::array<FloorCell, kFloorSize>, kFloorSize> floor_{}; // +0x352C: [x][z]
     std::array<PieceFamily, kMaxSets> sets_{};              // +0x1076C
     int num_sets_{};                            // +0x13C8C
-    CompressedMap map_{};                       // +0x13C90
+    ParkMap map_{};                             // +0x13C90
     uint32_t flag_bits_;                      // +0x17728
     std::array<char, 0x40> park_name_{};                  // +0x1772C
     std::array<CellBox, 8> blocked_areas_{};              // +0x1776C: (the first four: the strips round the park; then Ed_Roadmask)

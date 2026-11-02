@@ -410,7 +410,7 @@ void ParkLayout::commission(uint32_t level)
     gap_registry_ = block ? memory::construct_in<GapRegistry>(block, this) : nullptr;
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();
-    const int theme = (current_flags() & 2) ? map_.shell_size_ : 0;
+    const int theme = (current_flags() & 2) ? map_.shell_size() : 0;
     builder_->load_pieces(level, theme);
     set_up_abstract_metas();
     set_up_road_mask();

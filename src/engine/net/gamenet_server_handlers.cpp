@@ -136,7 +136,7 @@ int handle_request_game_data(net::InboundMsgCtx* context)
         return kDone;
     net::AppHost* app = context->receiver_app_;
     int handle = context->sender_conn_->hdl_;
-    void* park_map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
+    void* park_map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
     app->send_bulk_message(handle, kMsgParkMap, kParkMapSize, park_map, "level data", kGroupGame, false, true);
     handle = context->sender_conn_->hdl_;
     auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };

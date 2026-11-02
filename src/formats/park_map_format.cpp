@@ -5,6 +5,9 @@
 #include "engine/core/checksums.h"
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/raw_view.h"
+
+#include <gsl/assert>
 #include <array>
 #include <span>
 
@@ -109,19 +112,64 @@ bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
     return writer.ok();
 }
 
-void park_map_to_words(const void* map, std::span<uint32_t> words)
+void park_map_to_words(std::span<const uint8_t, kParkMapBytes> map, std::span<uint32_t> words)
 {
-    util::ByteReader reader(map, kParkMapBytes);
+    util::ByteReader reader(map);
     for (uint32_t i = 0; i < kParkMapWords; ++i)
         core::at(words, i) = reader.u32();
 }
 
-void park_map_from_words(void* map, std::span<const uint32_t> words)
+void park_map_from_words(std::span<uint8_t, kParkMapBytes> map, std::span<const uint32_t> words)
 {
-    util::ByteWriter writer(map, kParkMapBytes);
+    util::ByteWriter writer(map);
     for (uint32_t i = 0; i < words.size() && i < kParkMapWords; ++i)
         writer.u32(core::at(words, i));
     writer.fill(0, writer.remaining());
+}
+
+void ParkMap::set_area(uint8_t x, uint8_t z, uint8_t width, uint8_t length)
+{
+    core::at(bytes_, 0x0C) = x;
+    core::at(bytes_, 0x0D) = z;
+    core::at(bytes_, 0x0E) = width;
+    core::at(bytes_, 0x0F) = length;
+}
+
+std::span<char, 0x40> ParkMap::name() { return std::span<char, 0x40>(raw::chars(&core::at(bytes_, 0x1C)), 0x40); }
+std::span<const char, 0x40> ParkMap::name() const
+{
+    return std::span<const char, 0x40>(raw::chars(&core::at(bytes_, 0x1C)), 0x40);
+}
+
+int8_t ParkMap::floor_height(size_t cell) const
+{
+    return static_cast<int8_t>(core::at(bytes_, kParkMapHeaderSize + cell));
+}
+void ParkMap::set_floor_height(size_t cell, int8_t height)
+{
+    Expects(cell < kParkMapFloorCells);
+    core::at(bytes_, kParkMapHeaderSize + cell) = static_cast<uint8_t>(height);
+}
+
+uint16_t ParkMap::half_at(size_t offset) const
+{
+    util::ByteReader reader(std::span<const uint8_t>(bytes_).subspan(offset, 2));
+    return reader.u16();
+}
+uint32_t ParkMap::word_at(size_t offset) const
+{
+    util::ByteReader reader(std::span<const uint8_t>(bytes_).subspan(offset, 4));
+    return reader.u32();
+}
+void ParkMap::put_half(size_t offset, uint16_t value)
+{
+    util::ByteWriter writer(std::span<uint8_t>(bytes_).subspan(offset, 2));
+    writer.u16(value);
+}
+void ParkMap::put_word(size_t offset, uint32_t value)
+{
+    util::ByteWriter writer(std::span<uint8_t>(bytes_).subspan(offset, 4));
+    writer.u32(value);
 }
 
 uint32_t park_map_checksum(std::span<const uint8_t> map)

@@ -239,26 +239,24 @@ void ParkLayout::write_compressed_map()
 {
     if (flag_bits_ & kMapNewerThanPark)
         return;
-    CompressedMap& map = map_;
-    std::memset(&map, 0, sizeof(map));
+    ParkMap& map = map_;
+    map = ParkMap{};
     script::Array* save_names = script::fetch_list("Ed_Save_Map"); // the palette names, by save index
     const uint32_t name_total = save_names->extent_;
-    map.rev_ = CompressedMap::kVersion;
-    map.shell_size_ = static_cast<uint16_t>(shell_size_);
-    map.unknown0a_ = 0;
-    map.pos_x_ = build_area_.x;
-    map.depth_cell_ = build_area_.z;
-    map.w_ = build_area_.w;
-    map.l_ = build_area_.l;
-    map.style_set_ = editor_value78();
-    map.max_players_ = generator_max_players(builder_);
-    text::copy_unbounded(map.label_.data(), park_name_.data());
+    map.set_version(kParkMapVersion);
+    map.set_shell_size(static_cast<uint16_t>(shell_size_));
+    map.set_reserved_0a(0);
+    map.set_area(build_area_.x, build_area_.z, build_area_.w, build_area_.l);
+    map.set_theme(editor_value78());
+    map.set_max_players(generator_max_players(builder_));
+    text::copy_unbounded(map.name().data(), park_name_.data());
     for (int x = 0; x < kFloorSize; ++x)
         for (int z = 0; z < kFloorSize; ++z)
-            core::at(map.floor_heights_, x * kFloorSize + z) = static_cast<int8_t>(core::at(core::at(floor_, x), z).level_y_);
+            map.set_floor_height(static_cast<size_t>(x * kFloorSize + z),
+                                 static_cast<int8_t>(core::at(core::at(floor_, x), z).level_y_));
     // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
     // (the original wrote on past it)
-    util::ByteWriter out(&map, sizeof(map));
+    util::ByteWriter out(map.bytes());
     out.seek(kParkMapRecordsStart);
 
     int num_metas = 0;
@@ -283,7 +281,7 @@ void ParkLayout::write_compressed_map()
             break;
         ++num_metas;
     }
-    map.composite_count_ = static_cast<uint16_t>(num_metas);
+    map.set_piece_count(static_cast<uint16_t>(num_metas));
 
     std::array<GapDetails*, 32> gaps{};
     int num_gaps = 0;
@@ -314,12 +312,12 @@ void ParkLayout::write_compressed_map()
             break;
         ++gaps_written;
     }
-    map.num_gaps_ = static_cast<uint16_t>(gaps_written);
-    map.extent_ = static_cast<uint16_t>(out.position());
+    map.set_gap_count(static_cast<uint16_t>(gaps_written));
+    map.set_extent(static_cast<uint16_t>(out.position()));
     if (!(flag_bits_ & (kMapValid | kMapNewerThanPark)))
         flag_bits_ |= kMapNotSavedLocal;
     flag_bits_ = (flag_bits_ & ~kMapNewerThanPark) | kMapValid | kMapInSync;
-    map.checksum_ = checksums::generate_crc_from_buffer(&map.extent_, sizeof(map) - 4);
+    map.set_checksum(park_map_checksum(map.bytes()));
 }
 
 void ParkLayout::set_default_bounds()
@@ -416,7 +414,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
     gsl::owner<script::Array*> map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
     std::array<uint32_t, kParkMapWords> words{};
-    park_map_to_words(&map_, words);
+    park_map_to_words(map_.bytes(), words);
     for (uint32_t i = 0; i < kParkMapWords; ++i)
         map->set_element(i, core::at(words, i));
     out->append_array_ref(0x337C5289u, map); // Park_editor_map
@@ -439,25 +437,25 @@ void ParkLayout::set_shell_size(int theme)
 void ParkLayout::clear_compressed_map()
 {
     set_default_bounds();
-    CompressedMap& map = map_;
-    map.rev_ = CompressedMap::kVersion;
-    map.shell_size_ = static_cast<uint16_t>(shell_size_);
-    map.unknown0a_ = 0;
-    map.pos_x_ = build_area_.x;
-    map.depth_cell_ = build_area_.z;
-    map.w_ = build_area_.w;
-    map.l_ = build_area_.l;
-    map.style_set_ = static_cast<void*>(g_park_editor.get()) ? editor_value78() : 0;
-    map.max_players_ = 2;
-    std::memcpy(map.label_.data(), "Unnamed park", 13); // "Unnamed park"
-    std::memset(map.floor_heights_.data(), 0, kFloorSize * kFloorSize);
-    map.composite_count_ = 0;
-    const uint32_t used = offsetof(CompressedMap, floor_heights_) + kFloorSize * kFloorSize;
+    ParkMap& map = map_;
+    map.set_version(kParkMapVersion);
+    map.set_shell_size(static_cast<uint16_t>(shell_size_));
+    map.set_reserved_0a(0);
+    map.set_area(build_area_.x, build_area_.z, build_area_.w, build_area_.l);
+    map.set_theme(static_cast<void*>(g_park_editor.get()) ? editor_value78() : 0);
+    map.set_max_players(2);
+    std::memcpy(map.name().data(), "Unnamed park", 13); // "Unnamed park"
+    for (size_t cell = 0; cell < kParkMapFloorCells; ++cell)
+        map.set_floor_height(cell, 0);
+    map.set_piece_count(0);
+    const uint32_t used = kParkMapRecordsStart;
     // (the checksum is taken before the size and the gap count are set, as in the original)
-    const uint32_t checksum = checksums::generate_crc_from_buffer(&map.extent_, static_cast<int>(used - 4));
-    map.extent_ = static_cast<uint16_t>(used);
-    map.checksum_ = checksum;
-    map.num_gaps_ = 0;
+    const std::span<const uint8_t> after_checksum = std::span<const uint8_t>(map.bytes()).subspan(4, used - 4);
+    const uint32_t checksum =
+        checksums::generate_crc_from_buffer(after_checksum.data(), static_cast<int>(after_checksum.size()));
+    map.set_extent(static_cast<uint16_t>(used));
+    map.set_checksum(checksum);
+    map.set_gap_count(0);
     if (!(flag_bits_ & (kMapValid | kMapNewerThanPark)))
         flag_bits_ |= kMapNotSavedLocal;
     flag_bits_ = (flag_bits_ & ~kMapNewerThanPark) | kMapValid | kMapInSync;

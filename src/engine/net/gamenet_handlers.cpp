@@ -291,7 +291,7 @@ int handle_park_map(net::InboundMsgCtx* context)
     if (context->body_size_ < static_cast<uint32_t>(kParkMapSize))
         return kContinue;
     park_editing::ParkBuilderMode::sole()->set_packed_park_bytes(context->body_, true);
-    const void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
+    const void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
     return kContinue;
 }

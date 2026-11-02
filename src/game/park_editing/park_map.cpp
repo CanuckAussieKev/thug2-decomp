@@ -99,7 +99,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
     params->fetch_int_value(kMaxPlayers, &max_players, 0);
     sole()->builder_->set_player_cap(max_players);
 
-    const uint16_t map_size = (flag_bits_ & kMapLoaded) ? map_.shell_size_ : 0;
+    const uint16_t map_size = (flag_bits_ & kMapLoaded) ? map_.shell_size() : 0;
     if (park_built_)
         write_compressed_map();
     script::Array* map = nullptr;
@@ -107,7 +107,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
         // (NOT ORIGINAL: no more words than the array has - the original read a whole map's worth past a short one's
         // end - and the rest of the map zeroed)
         const std::vector<uint32_t> words = script::words_of(map);
-        park_map_from_words(&map_, words);
+        park_map_from_words(map_.bytes(), words);
         if (apply_to_editor) {
             ParkBuilderMode::fabricate(false)->apply_map(&map_, map_size);
             ParkBuilderMode::get_release();
@@ -172,7 +172,7 @@ void ParkLayout::read_from_old_compressed_map() { read_compressed_map(script::fe
 void ParkLayout::read_from_compressed_map()
 {
     script::Array* names = script::fetch_list(kEdSaveMap);
-    if (map_.rev_ != kMapVersion) {
+    if (map_.version() != kMapVersion) {
         read_from_old_compressed_map();
         builder_->set_player_cap(1);
         return;
@@ -185,26 +185,26 @@ void ParkLayout::read_from_compressed_map()
 // on the stack.
 void ParkLayout::read_compressed_map(script::Array* names, bool current)
 {
-    build_area_.x = map_.pos_x_;
-    build_area_.z = map_.depth_cell_;
-    build_area_.w = map_.w_;
-    build_area_.l = map_.l_;
-    shell_size_ = map_.shell_size_;
-    set_theme(map_.style_set_);
-    builder_->set_player_cap(map_.max_players_);
+    build_area_.x = map_.area_x();
+    build_area_.z = map_.area_z();
+    build_area_.w = map_.area_width();
+    build_area_.l = map_.area_length();
+    shell_size_ = map_.shell_size();
+    set_theme(map_.theme());
+    builder_->set_player_cap(map_.max_players());
     for (int x = 0; x < kFloorSize; ++x) {
         for (int z = 0; z < kFloorSize; ++z) {
-            core::at(core::at(floor_, x), z).level_y_ = int{core::at(map_.floor_heights_, x * kFloorSize + z)};
+            core::at(core::at(floor_, x), z).level_y_ = int{map_.floor_height(static_cast<size_t>(x * kFloorSize + z))};
             core::at(core::at(floor_, x), z).heights_used_ = 0;
         }
     }
 
     // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
     // (the original read on past it for counts too big)
-    util::ByteReader in(&map_, sizeof(map_));
+    util::ByteReader in(map_.bytes());
     in.seek(kParkMapRecordsStart);
     // The metapieces: the name's index, x, z; the height and rotation.
-    for (int i = 0; std::cmp_less(i, map_.composite_count_); ++i) {
+    for (int i = 0; std::cmp_less(i, map_.piece_count()); ++i) {
         ParkMapPiece piece;
         if (!read_park_map_piece(in, &piece))
             break;
@@ -221,7 +221,7 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     }
 
     // The gaps (0x30 bytes each, 0x2C in older parks): both ends, their sides, the name and score.
-    for (int i = 0; std::cmp_less(i, map_.num_gaps_); ++i) {
+    for (int i = 0; std::cmp_less(i, map_.gap_count()); ++i) {
         ParkMapGap record;
         if (!read_park_map_gap(in, &record, current))
             break;
@@ -260,8 +260,8 @@ void ParkLayout::reset_park()
         }
     }
     write_compressed_map();
-    if (map_.rev_ == kMapVersion) {
-        copy_string(map_.label_.data(), "unnamed park");
+    if (map_.version() == kMapVersion) {
+        copy_string(map_.name().data(), "unnamed park");
         copy_string(park_name_.data(), "unnamed park");
     }
     flag_bits_ = (flag_bits_ & ~kFlag8) | kMapUpToDate;

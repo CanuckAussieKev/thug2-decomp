@@ -43,16 +43,16 @@ void copy_text(char* to, const char* from)
 
 ParkLayout* ParkLayout::singleton() { return g_park_layout; }
 
-CompressedMap* ParkLayout::get_packed_park_data(bool flag_clean)
+ParkMap* ParkLayout::get_packed_park_data(bool flag_clean)
 {
     if (flag_clean)
         flag_bits_ &= ~kMapNotSavedLocal;
     return &map_;
 }
 
-void ParkLayout::set_packed_park_data(const CompressedMap* map, bool flag_dirty)
+void ParkLayout::set_packed_park_data(const ParkMap* map, bool flag_dirty)
 {
-    std::memcpy(&map_, map, sizeof(map_));
+    map_ = *map;
     flag_bits_ |= kMapInSync | kMapNewerThanPark;
     if (flag_dirty)
         flag_bits_ |= kMapNotSavedLocal;
@@ -60,7 +60,8 @@ void ParkLayout::set_packed_park_data(const CompressedMap* map, bool flag_dirty)
 
 void ParkLayout::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty)
 {
-    std::memcpy(&map_, bytes, sizeof(map_));
+    const std::span<const uint8_t, kParkMapBytes> received(bytes, kParkMapBytes);
+    std::ranges::copy(received, map_.bytes().begin());
     flag_bits_ |= kMapInSync | kMapNewerThanPark;
     if (flag_dirty)
         flag_bits_ |= kMapNotSavedLocal;
@@ -74,22 +75,22 @@ bool ParkLayout::has_local_park_copy()
 int ParkLayout::get_shell_size()
 {
     if (flag_bits_ & kMapInSync)
-        return map_.shell_size_;
+        return map_.shell_size();
     return 0;
 }
 
 const char* ParkLayout::get_park_name()
 {
-    if (map_.rev_ == CompressedMap::kVersion)
-        return map_.label_.data();
+    if (map_.version() == kParkMapVersion)
+        return map_.name().data();
     return nullptr;
 }
 
 void ParkLayout::set_park_name(const char* name)
 {
-    if (map_.rev_ != CompressedMap::kVersion)
+    if (map_.version() != kParkMapVersion)
         return;
-    copy_text(map_.label_.data(), name);
+    copy_text(map_.name().data(), name);
     copy_text(park_name_.data(), name);
 }
 
@@ -113,8 +114,8 @@ void ParkLayout::rebuild_park_geometry(int how)
 uint32_t ParkLayout::get_shell_checksum()
 {
     std::array<char, 40> name{};
-    if ((flag_bits_ & kMapInSync) && map_.shell_size_ != 0)
-        std::snprintf(name.data(), sizeof(name), "sk5ed%d_shell", map_.shell_size_ + 1); // 0x0064F650
+    if ((flag_bits_ & kMapInSync) && map_.shell_size() != 0)
+        std::snprintf(name.data(), sizeof(name), "sk5ed%d_shell", map_.shell_size() + 1); // 0x0064F650
     else
         std::memcpy(name.data(), "sk5ed_shell", 12); // 0x0064F644
     return checksums::hash_from_text(name.data());
@@ -134,15 +135,15 @@ PieceFamily* ParkLayout::get_piece_family(int index, int* used_before)
     return &core::at(sets_, index);
 }
 
-void ParkLayout::get_map_info(const CompressedMap* map, int* num_gaps, int* num_metas, uint16_t* theme,
+void ParkLayout::get_map_info(const ParkMap* map, int* num_gaps, int* num_metas, uint16_t* theme,
                               uint32_t* unknown18, int* width, int* length)
 {
-    *width = map->w_;
-    *length = map->l_;
-    *num_gaps = map->num_gaps_;
-    *num_metas = map->composite_count_;
-    *theme = map->shell_size_;
-    *unknown18 = map->style_set_ ? map->style_set_ : 0x1CA1FF20; // Default
+    *width = map->area_width();
+    *length = map->area_length();
+    *num_gaps = map->gap_count();
+    *num_metas = map->piece_count();
+    *theme = map->shell_size();
+    *unknown18 = map->theme() ? map->theme() : 0x1CA1FF20; // Default
 }
 
 void ParkLayout::restore_floor_heights()

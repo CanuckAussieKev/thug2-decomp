@@ -5,12 +5,14 @@
 #include <span>
 #include <array>
 
+#include "engine/core/checked_index.h"
+
 namespace util {
 class ByteReader;
 class ByteWriter;
 } // namespace util
 
-// NOT ORIGINAL (the format is the original's) - the park map's bytes (CompressedMap in park.h: the park as it is
+// NOT ORIGINAL (the format is the original's) - the park map's bytes (ParkMap below: the park as it is
 // saved in a Park save's Park_editor_map integer array, in Data/CustomParks/custom<n>.prk's structure, and sent to
 // the other players). 0x3A98 bytes, little-endian:
 //
@@ -89,8 +91,57 @@ uint32_t park_map_checksum(std::span<const uint8_t> map);
 // The map as the integer array it is saved as (Park_editor_map: its bytes as little-endian words).
 constexpr uint32_t kParkMapWords = kParkMapBytes / 4;
 // The map's words into `words` (kParkMapWords of them).
-void park_map_to_words(const void* map, std::span<uint32_t> words);
+void park_map_to_words(std::span<const uint8_t, kParkMapBytes> map, std::span<uint32_t> words);
 // The map from `words` (at most kParkMapWords of them; the rest of the map zeroed).
-void park_map_from_words(void* map, std::span<const uint32_t> words);
+void park_map_from_words(std::span<uint8_t, kParkMapBytes> map, std::span<const uint32_t> words);
+
+// The park map as the park editor keeps it (park_editing::ParkLayout's +0x13C90): its bytes - saved and sent to the
+// other players as they are - and its header's fields and floor heights read and written in place, at their places in
+// the bytes (what the editor doesn't set stays as it was, as the original's in-place map kept it). The metapieces and
+// gaps are read and written through the records above.
+class ParkMap {
+public:
+    [[nodiscard]] std::span<uint8_t, kParkMapBytes> bytes() { return bytes_; }
+    [[nodiscard]] std::span<const uint8_t, kParkMapBytes> bytes() const { return bytes_; }
+
+    [[nodiscard]] uint32_t checksum() const { return word_at(0x00); }
+    void set_checksum(uint32_t checksum) { put_word(0x00, checksum); }
+    [[nodiscard]] uint16_t extent() const { return half_at(0x04); }
+    void set_extent(uint16_t extent) { put_half(0x04, extent); }
+    [[nodiscard]] uint16_t version() const { return half_at(0x06); }
+    void set_version(uint16_t version) { put_half(0x06, version); }
+    [[nodiscard]] uint16_t shell_size() const { return half_at(0x08); }
+    void set_shell_size(uint16_t size) { put_half(0x08, size); }
+    void set_reserved_0a(uint16_t value) { put_half(0x0A, value); }
+    // The build area: x, z, width, length.
+    [[nodiscard]] uint8_t area_x() const { return core::at(bytes_, 0x0C); }
+    [[nodiscard]] uint8_t area_z() const { return core::at(bytes_, 0x0D); }
+    [[nodiscard]] uint8_t area_width() const { return core::at(bytes_, 0x0E); }
+    [[nodiscard]] uint8_t area_length() const { return core::at(bytes_, 0x0F); }
+    void set_area(uint8_t x, uint8_t z, uint8_t width, uint8_t length);
+    [[nodiscard]] uint16_t piece_count() const { return half_at(0x10); }
+    void set_piece_count(uint16_t count) { put_half(0x10, count); }
+    [[nodiscard]] uint16_t gap_count() const { return half_at(0x12); }
+    void set_gap_count(uint16_t count) { put_half(0x12, count); }
+    [[nodiscard]] uint8_t max_players() const { return core::at(bytes_, 0x14); }
+    void set_max_players(uint8_t players) { core::at(bytes_, 0x14) = players; }
+    [[nodiscard]] uint32_t theme() const { return word_at(0x18); }
+    void set_theme(uint32_t theme) { put_word(0x18, theme); }
+    // The park's name in place (0x40 characters, terminated within them when it is shorter).
+    [[nodiscard]] std::span<char, 0x40> name();
+    [[nodiscard]] std::span<const char, 0x40> name() const;
+    // The floor heights, cell x * 58 + z.
+    [[nodiscard]] int8_t floor_height(size_t cell) const;
+    void set_floor_height(size_t cell, int8_t height);
+
+private:
+    [[nodiscard]] uint16_t half_at(size_t offset) const;
+    [[nodiscard]] uint32_t word_at(size_t offset) const;
+    void put_half(size_t offset, uint16_t value);
+    void put_word(size_t offset, uint32_t value);
+
+    std::array<uint8_t, kParkMapBytes> bytes_{};
+};
+static_assert(sizeof(ParkMap) == kParkMapBytes, "the park editor keeps the map's bytes");
 
 } // namespace park_editing

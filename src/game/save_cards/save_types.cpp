@@ -319,7 +319,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
     // The park map's numbers, in get_map_info's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
     // length.
-    auto add_map_info = [&](const park_editing::CompressedMap* map) {
+    auto add_map_info = [&](const park_editing::ParkMap* map) {
         int gaps = 0;
         int pieces = 0;
         uint16_t theme = 0;
@@ -363,9 +363,9 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             saved->fetch_list(0x337C5289u, &map, 1); // Park_editor_map
             // (the map's words into a map of its own: NOT ORIGINAL - the original read the array's storage as
             // a map, past the end of a short one)
-            auto copy = std::make_unique<park_editing::CompressedMap>();
+            auto copy = std::make_unique<park_editing::ParkMap>();
             const std::vector<uint32_t> words = script::words_of(map);
-            park_editing::park_map_from_words(copy.get(), words);
+            park_editing::park_map_from_words(copy->bytes(), words);
             add_map_info(copy.get());
             break;
         }

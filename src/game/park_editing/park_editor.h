@@ -96,15 +96,15 @@ public:
     void transfer_park_file(bool save, int slot, bool defer_regen);
     // 0x0058D4E0: a whole compressed map taken (loaded or received); while editing or test playing, the park
     // rebuilt from it (or the level changed to load_sk5ed again if the shell size isn't `shell_size`).
-    void apply_map(const CompressedMap* map, int shell_size);
+    void apply_map(const ParkMap* map, int shell_size);
     // The park manager's own, for the rest of the game (`this` isn't used):
     void export_to_struct(script::Struct* params);                         // 0x0058D600
     void decode_from_struct(script::Struct* params, bool apply_to_editor); // 0x0058D620
-    void get_map_info(const CompressedMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size, uint32_t* theme,
+    void get_map_info(const ParkMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size, uint32_t* theme,
                       int* width, int* length);                           // 0x0058D640
     void write_compressed_map_if_built();                                 // 0x0058D680
-    CompressedMap* get_packed_park_data(bool flag_clean);                 // 0x0058D690
-    void set_packed_park_data(const CompressedMap* map, bool flag_dirty); // 0x0058D6B0
+    ParkMap* get_packed_park_data(bool flag_clean);                 // 0x0058D690
+    void set_packed_park_data(const ParkMap* map, bool flag_dirty); // 0x0058D6B0
     void set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty);    // NOT ORIGINAL: from a received map
     // 0x0058D6D0: whether the main heap has room for `count` * `size` floor pieces (park_editing::main_heap_has_room).
     bool main_heap_has_room(int count, int size);

@@ -366,7 +366,7 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
                 core::at(core::at(floor_, x), z).level_y_ = 0;
         }
     }
-    builder_->update_bounds((flag_bits_ & kMapLoaded) ? map_.shell_size_ : 0);
+    builder_->update_bounds((flag_bits_ & kMapLoaded) ? map_.shell_size() : 0);
     mark_progress("RebuildInnerShell-End");
 }
 

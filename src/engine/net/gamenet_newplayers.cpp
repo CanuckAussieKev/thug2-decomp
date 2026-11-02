@@ -393,7 +393,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     auto* park = park_editing::ParkBuilderMode::sole();
                     park->write_compressed_map_if_built();
                     server->send_bulk_message(player_handle(player), kMsgParkMap, kParkMapSize,
-                                              park->get_packed_park_data(false), "level data", kGroupGame, false, true);
+                                              park->get_packed_park_data(false)->bytes().data(), "level data", kGroupGame, false, true);
                     park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
                     void* rails =
                         static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();

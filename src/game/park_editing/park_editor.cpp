@@ -221,7 +221,7 @@ void ParkBuilderMode::transfer_park_file(bool save, int slot, bool defer_regen)
 }
 
 // 0x0058D4E0
-void ParkBuilderMode::apply_map(const CompressedMap* map, int shell_size)
+void ParkBuilderMode::apply_map(const ParkMap* map, int shell_size)
 {
     const bool editing = cur_phase_ == kStateEdit || cur_phase_ == kStateTestPlay;
     if (editing && have_cursor())
@@ -243,17 +243,17 @@ void ParkBuilderMode::decode_from_struct(script::Struct* params, bool apply_to_e
 {
     hub()->decode_from_struct(params, apply_to_editor);
 }
-void ParkBuilderMode::get_map_info(const CompressedMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size,
+void ParkBuilderMode::get_map_info(const ParkMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size,
                                    uint32_t* theme, int* width, int* length)
 {
     hub()->get_map_info(map, num_gaps, num_metas, shell_size, theme, width, length);
 }
 void ParkBuilderMode::write_compressed_map_if_built() { hub()->write_compressed_map_if_built(); }
-CompressedMap* ParkBuilderMode::get_packed_park_data(bool flag_clean)
+ParkMap* ParkBuilderMode::get_packed_park_data(bool flag_clean)
 {
     return hub()->get_packed_park_data(flag_clean);
 }
-void ParkBuilderMode::set_packed_park_data(const CompressedMap* map, bool flag_dirty)
+void ParkBuilderMode::set_packed_park_data(const ParkMap* map, bool flag_dirty)
 {
     hub()->set_packed_park_data(map, flag_dirty);
 }
