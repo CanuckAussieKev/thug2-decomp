@@ -9,6 +9,7 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"

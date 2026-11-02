@@ -12,6 +12,7 @@
 #include "engine/core/mem.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/sound/sfx.h"
 #include "engine/sound/surface_kind.h"
 #include "game/rider/thaw_bmx.h"
 #include "platform/stopwatch.h"

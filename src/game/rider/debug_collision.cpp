@@ -53,6 +53,7 @@
 #include <cstdio>
 #include <windows.h>
 #include <array>
+#include <span>
 
 #include "game/rider/debug_collision.h"
 #include "engine/render/coll_obj.h"

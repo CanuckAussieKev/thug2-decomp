@@ -6,11 +6,13 @@
 #include <new>
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/objects/anim_blender.h"
+#include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"

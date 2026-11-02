@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <utility>
 #include <gsl/pointers>
 #include <array>

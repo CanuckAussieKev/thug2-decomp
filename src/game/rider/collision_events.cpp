@@ -11,11 +11,13 @@
 #include <cstring>
 #include <initializer_list>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <array>
 
 #include "engine/maths/vec4.h"
+#include "engine/objects/control_pad.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"

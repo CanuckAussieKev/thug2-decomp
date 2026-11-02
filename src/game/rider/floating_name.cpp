@@ -9,6 +9,8 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/maths/vec4.h"
+#include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"

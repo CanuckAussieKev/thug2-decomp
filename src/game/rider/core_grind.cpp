@@ -1,5 +1,6 @@
 // The skater's core physics component: getting onto a rail - a point rail's kick or spin, a lip trick, a grind.
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <new>

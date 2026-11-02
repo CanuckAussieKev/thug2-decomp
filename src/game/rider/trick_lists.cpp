@@ -4,7 +4,9 @@
 
 #include <new>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/gap_entry.h"
 #include <gsl/pointers>

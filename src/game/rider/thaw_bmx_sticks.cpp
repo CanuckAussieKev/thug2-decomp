@@ -5,6 +5,7 @@
 // 0x470EAB, the look-around's update 0x5B08F0. THUG2's own code calls these only while the feature is on.
 
 #include <cstdint>
+#include <span>
 #include <unordered_map>
 #include <array>
 

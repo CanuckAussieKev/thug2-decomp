@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/maths/vec4.h"
+#include "engine/objects/control_pad.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/trigger_component.h"

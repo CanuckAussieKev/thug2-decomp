@@ -4,6 +4,7 @@
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles, rounded
 // to float only where the original stores them.
 
+#include <array>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -11,6 +12,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/objects/control_pad.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/trigger_component.h"

@@ -3,6 +3,7 @@
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles, rounded
 // to float only where the original stores them.
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 

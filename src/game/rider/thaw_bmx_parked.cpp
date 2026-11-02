@@ -4,9 +4,11 @@
 
 #include <cmath>
 #include <array>
+#include <cstdint>
 #include <span>
 
 #include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"
 #include "engine/gfx/screen.h"
@@ -16,6 +18,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "game/skate/skate_module.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"

@@ -3,6 +3,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "platform/keyboard.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <unordered_map>
@@ -13,6 +14,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
+#include "engine/maths/vec4.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor.h"
 #include "engine/gfx/screen.h"

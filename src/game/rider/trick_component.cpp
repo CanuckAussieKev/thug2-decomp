@@ -9,6 +9,7 @@
 #include <array>
 
 #include "engine/core/dbg.h"
+#include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"

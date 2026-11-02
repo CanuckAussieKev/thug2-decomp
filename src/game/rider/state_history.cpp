@@ -8,6 +8,8 @@
 #include <cstring>
 #include <gsl/pointers>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

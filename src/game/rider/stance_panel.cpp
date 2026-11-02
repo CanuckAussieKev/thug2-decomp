@@ -6,8 +6,10 @@
 #include <gsl/pointers>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/sprite_element.h"
 #include "engine/objects/smtptr.h"

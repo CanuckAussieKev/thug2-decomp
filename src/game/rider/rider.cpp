@@ -7,9 +7,12 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <array>
+#include <string_view>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/net/buddy_status.h"
 #include "engine/gfx/engine_model_lights.h"
@@ -21,6 +24,7 @@
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_dispatcher.h"
+#include "engine/script/cell.h"
 #include "engine/script/nodes.h"
 #include "engine/pad_input/device.h"
 #include "game/skate/profile_manager.h"
