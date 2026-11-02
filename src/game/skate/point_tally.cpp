@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <span>
+#include <string_view>
 #include <utility>
 #include <array>
 
@@ -14,10 +15,13 @@
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
+#include "engine/lists/dynamic_table.h"
+#include "frontend/screen_element_manager.h"
 #include "frontend/text_block.h"
 #include "frontend/text_element.h"
 #include "engine/script/cscript.h"
 #include "engine/script/game_cfuncs.h"
+#include "game/rider/rider.h"
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/score_internal.h"
@@ -27,6 +31,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/format.h"
+#include "game/skate/skate_module.h"
+#include "game/skate/skate_module_calls.h"
 
 namespace lists {
 

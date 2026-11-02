@@ -7,12 +7,15 @@
 
 #include <atomic>
 #include <cctype>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <map>
 #include <set>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 #include <array>
@@ -21,6 +24,8 @@
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
+#include "engine/script/cell.h"
+#include "engine/script/tokens.h"
 #include "frontend/data_overlay.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"

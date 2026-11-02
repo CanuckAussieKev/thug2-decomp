@@ -34,6 +34,7 @@
 #include "engine/script/struct_buffer.h"
 #include "game/rider/local_net_logic.h"
 #include "game/rider/rider.h"
+#include "game/rider/skater_state.h"
 #include "game/rider/state_history.h"
 #include "engine/util/bitstream.h"
 #include "game/goals/goal_manager.h"

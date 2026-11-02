@@ -12,11 +12,14 @@
 #include <span>
 
 #include "engine/core/dbg.h"
+#include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/player_info.h"
+#include "engine/objects/trick_objects.h"
+#include "game/skate/skate_module_calls.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
 #include "game/skate/game_mode.h"

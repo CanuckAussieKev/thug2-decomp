@@ -6,6 +6,7 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
@@ -20,6 +21,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_cfuncs.h"
+#include "game/skate/skate_module.h"
 #include "platform/code_address.h"
 #include "game/skate/skate_module_calls.h"
 #include "engine/gfx/engine.h"

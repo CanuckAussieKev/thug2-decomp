@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 #include <new>
 
 #include "game/skate/game_mode.h"
@@ -9,10 +10,12 @@
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/script/param_struct.h"
 #include "game/goals/objective.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
+#include "game/skate/skate_module.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"

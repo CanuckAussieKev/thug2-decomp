@@ -1,8 +1,10 @@
 // The skater profile's own code, 0x00585ED0-0x005871A0. See profile_manager.h.
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <new>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/stubs.h"

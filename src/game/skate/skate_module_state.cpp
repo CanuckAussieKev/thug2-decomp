@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <array>
+#include <memory>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"

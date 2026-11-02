@@ -3,14 +3,18 @@
 
 #include "game/skate/highscores.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <algorithm>
 #include <initializer_list>
 #include <memory>
+#include <span>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "editor/level_editor_layout.h"
+#include "engine/script/cell.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/skate_module.h"

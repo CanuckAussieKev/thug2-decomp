@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "game/skate/cas_options.h"
 

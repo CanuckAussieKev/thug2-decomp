@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "editor/level_editor_career.h"
 #include "engine/maths/vec4.h"
+#include "engine/script/cell.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/gap_checklist.h"
