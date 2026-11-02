@@ -152,7 +152,7 @@ gpu::VertexWriter locked_writer(uint32_t count, uint32_t stride, IDirect3DVertex
                                 uint32_t* room)
 {
     void* where = os_layer::lock_dynamic_vertices(count, stride, buffer, first_vertex, room);
-    return {static_cast<uint8_t*>(where), stride};
+    return {static_cast<uint8_t*>(where), stride, *room};
 }
 
 // lerp_colour of two colours (copies).

@@ -68,7 +68,8 @@ void add_bone(float* blended, const SkinVertex& v, uint8_t bone, float weight)
 // exactly 1 - scaled by it and the others' added (the third's only when its weight isn't 0).
 void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 {
-    const gpu::VertexView vertices(mesh->per_vertex_data_, sizeof(SkinVertex)); // (the CPU copy: SkinVertex records)
+    const gpu::VertexView vertices(mesh->per_vertex_data_, sizeof(SkinVertex), mesh->vertex_count_); // (the CPU copy: SkinVertex records)
+    const gpu::VertexWriter written(out, mesh->stride, mesh->vertex_count_);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         const auto vertex = vertices.value<SkinVertex>(i, 0);
         const SkinVertex* v = &vertex;
@@ -82,12 +83,10 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
             if (bones > 2 && !(core::at(v->weights, 2) == 0.0f))
                 add_bone(blended.data(), *v, core::at(v->bones, 2), core::at(v->weights, 2));
         }
-        const gpu::VertexWriter written(out, mesh->stride);
-        written.set_floats<6>(0, 0, blended); // the position and normal
-        written.set_word(0, 0x18, v->color);
+        written.set_floats<6>(i, 0, blended); // the position and normal
+        written.set_word(i, 0x18, v->color);
         for (uint32_t k = 0; k < 2 * mesh->unknowna4_; ++k)
-            written.set_value(0, 0x1C + 4 * k, core::at(v->uv, k));
-        out += mesh->stride;
+            written.set_value(i, 0x1C + 4 * k, core::at(v->uv, k));
     }
 }
 

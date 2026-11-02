@@ -110,7 +110,7 @@ uint32_t vertex_format(uint32_t type)
 void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertices, uint32_t stride)
 {
     const size_t count = records.size() / scene_format::kScaledVertexSize;
-    const gpu::VertexWriter out(vertices, stride);
+    const gpu::VertexWriter out(vertices, stride, count);
     for (size_t i = 0; i < count; ++i) {
         ScaledVertex v{};
         std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
@@ -211,15 +211,17 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
 } // namespace
 
 // 0x004D5940
-void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexArena* arena)
+void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena* arena)
 {
     const uint32_t sets = material->pass_count_; // (a texture coordinate set a pass)
     auto* out_bytes = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
     per_vertex_data_ = out_bytes;
     // Each vertex: the position, the normal (float3s), the colour, the texture coordinates (a float2 a set), the
     // four bone indexes (bytes, at 0x3C) and the weights (float3 at 0x40) - from the packed vertex's.
-    const gpu::VertexView in(packed, stride);
-    const gpu::VertexWriter out(out_bytes, 0x4C);
+    // (the packed vertices: the mesh body's vertex bytes - the last vertex's texture coordinates may run past its
+    // stride into them)
+    const gpu::VertexView in(std::span<const uint8_t>(packed, bytes), stride);
+    const gpu::VertexWriter out(out_bytes, 0x4C, vertex_count_);
     uint32_t bones = 1;
     const bool suspect = vertex_count_ == 0x280 && core::at(index_counts_, 0) == 0x6A3; // (a debugging check the original kept)
     auto unpack11 = [](uint32_t bits) {

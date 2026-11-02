@@ -72,7 +72,7 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
                      uint32_t index_count, float best)
 {
     auto at = [&](uint16_t i) {
-        const auto f = gpu::VertexView(positions, stride).float3(i);
+        const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
         return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
     };
     for (uint32_t i = 2; i < index_count; ++i) {

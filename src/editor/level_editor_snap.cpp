@@ -139,7 +139,7 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
         if (!vertices || !vertices->data || mesh->stride < 12)
             continue;
         for (uint32_t v = 0; v < mesh->vertex_count_ && out.size() < limit; ++v) {
-            const auto p = gpu::VertexView(vertices->data, mesh->stride).float3(v);
+            const auto p = gpu::VertexView(vertices->data, mesh->stride, mesh->vertex_count_).float3(v);
             out.push_back({core::at(p, 0), core::at(p, 1), core::at(p, 2)});
         }
     }

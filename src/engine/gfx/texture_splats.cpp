@@ -271,9 +271,9 @@ bool split_next_triangle(uint8_t** out, const MeshRef* format)
     pop_vertex(v1);
     pop_vertex(v0);
     const uint32_t size = get_vertex_size();
-    const auto p0 = gpu::VertexView(v0, size).float3(0);
-    const auto p1 = gpu::VertexView(v1, size).float3(0);
-    const auto p2 = gpu::VertexView(v2, size).float3(0);
+    const auto p0 = gpu::VertexView(v0, size, 1).float3(0);
+    const auto p1 = gpu::VertexView(v1, size, 1).float3(0);
+    const auto p2 = gpu::VertexView(v2, size, 1).float3(0);
     // the edges from v0 and their cross product (as the original: some parts rounded to floats on the way)
     const double ax = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
     const double ay = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
@@ -301,7 +301,7 @@ bool split_next_triangle(uint8_t** out, const MeshRef* format)
     std::memcpy(m01, v0, size);
     std::memcpy(m12, v1, size);
     std::memcpy(m20, v2, size);
-    gpu::VertexWriter(m01, size).set_float3(0, 0, static_cast<float>(ax * 0.5 + core::at(p0, 0)),
+    gpu::VertexWriter(m01, size, 1).set_float3(0, 0, static_cast<float>(ax * 0.5 + core::at(p0, 0)),
                                             static_cast<float>(static_cast<double>(ayf) * 0.5 + core::at(p0, 1)),
                                             static_cast<float>(static_cast<double>(azf) * 0.5 + core::at(p0, 2)));
     std::array<float, 3> q12{};
@@ -310,8 +310,8 @@ bool split_next_triangle(uint8_t** out, const MeshRef* format)
         core::at(q12, k) = midpoint(core::at(p1, k), core::at(p2, k));
     for (int k = 0; k < 3; ++k)
         core::at(q20, k) = midpoint(core::at(p2, k), core::at(p0, k));
-    gpu::VertexWriter(m12, size).set_floats(0, 0, q12);
-    gpu::VertexWriter(m20, size).set_floats(0, 0, q20);
+    gpu::VertexWriter(m12, size, 1).set_floats(0, 0, q12);
+    gpu::VertexWriter(m20, size, 1).set_floats(0, 0, q20);
     if (const uint8_t c = format->color_offset_) {
         for (int k = 0; k < 4; ++k) {
             m01[c + k] = byte_midpoint(v0[c + k], v1[c + k]);
@@ -320,9 +320,9 @@ bool split_next_triangle(uint8_t** out, const MeshRef* format)
         }
     }
     if (const uint8_t t = format->uv_offset_) {
-        const auto uv0 = gpu::VertexView(v0, size).float2(0, t);
-        const auto uv1 = gpu::VertexView(v1, size).float2(0, t);
-        const auto uv2 = gpu::VertexView(v2, size).float2(0, t);
+        const auto uv0 = gpu::VertexView(v0, size, 1).float2(0, t);
+        const auto uv1 = gpu::VertexView(v1, size, 1).float2(0, t);
+        const auto uv2 = gpu::VertexView(v2, size, 1).float2(0, t);
         std::array<float, 2> uv01{};
         std::array<float, 2> uv12{};
         std::array<float, 2> uv20{};
@@ -331,9 +331,9 @@ bool split_next_triangle(uint8_t** out, const MeshRef* format)
             core::at(uv12, k) = midpoint(core::at(uv1, k), core::at(uv2, k));
             core::at(uv20, k) = midpoint(core::at(uv2, k), core::at(uv0, k));
         }
-        gpu::VertexWriter(m01, size).set_floats(0, t, uv01);
-        gpu::VertexWriter(m12, size).set_floats(0, t, uv12);
-        gpu::VertexWriter(m20, size).set_floats(0, t, uv20);
+        gpu::VertexWriter(m01, size, 1).set_floats(0, t, uv01);
+        gpu::VertexWriter(m12, size, 1).set_floats(0, t, uv12);
+        gpu::VertexWriter(m20, size, 1).set_floats(0, t, uv20);
     }
     for (const uint8_t* v : {v0, m01, m20, m01, v1, m12, m01, m12, m20, m20, m12, v2})
         push_vertex(v);
@@ -486,7 +486,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                 continue;
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers_, 0)->get_lock(0, 0, &vertices, 0x10);
-            const gpu::VertexView mesh_vertices(vertices, mesh->stride);
+            const gpu::VertexView mesh_vertices(vertices, mesh->stride, mesh->vertex_count_);
             uint16_t* indices = nullptr;
             core::at(mesh->index_buffers_, 0)->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
@@ -595,8 +595,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     ;
                 // the pieces inside the projection, each into a triangle of the set
                 bool kept = false;
-                const gpu::VertexView piece_vertices(pieces, sizeof(ProjectedVertex));
                 const auto piece_count = static_cast<size_t>(cursor - pieces) / sizeof(ProjectedVertex);
+                const gpu::VertexView piece_vertices(pieces, sizeof(ProjectedVertex), piece_count);
                 for (size_t first = 0; first != piece_count; first += 3) {
                     const std::array<ProjectedVertex, 3> piece = {
                         {piece_at(piece_vertices, first), piece_at(piece_vertices, first + 1),

@@ -106,7 +106,7 @@ void MeshRef::move_to(const maths::Vec4* position)
     transform[14] = position->z;
     transform[15] = position->w;
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
-        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride);
+        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride, vertex_count_);
         for (uint32_t v = 0; v < vertex_count_; ++v) {
             auto p = vertices.view().point<maths::Vec4>(v);
             p.x = dx + p.x;
@@ -136,7 +136,7 @@ void MeshRef::turn_y(int turns)
         get_identity(transform);
     }
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
-        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride);
+        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride, vertex_count_);
         // (the transform's position re-read for every vertex, as the original does)
         switch (turns) {
         case 1:
@@ -267,7 +267,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     // The quad's plane from its first triangle.
     VertexBuffer* buffer = core::at(vertex_buffers_, 0);
     uint8_t* data = get_lock(buffer, 0x10);
-    const gpu::VertexWriter vertices(data, stride);
+    const gpu::VertexWriter vertices(data, stride, vertex_count_);
     IdxStore* indices = core::at(index_buffers_, 0);
     const auto p0 = vertices.view().point<maths::Vec4>(indices->indices[0]);
     const auto p1 = vertices.view().point<maths::Vec4>(indices->indices[1]);

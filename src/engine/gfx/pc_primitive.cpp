@@ -9,6 +9,7 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <span>
 #include <cstring>
 #include <array>
 
@@ -63,11 +64,11 @@ static_assert(sizeof(VertexColour) == 0x10 && sizeof(VertexColourUv) == 0x18 && 
 
 // The vertex `index` in the layout V / its position (any layout, by the stride): gpu/vertex_view.h.
 template <typename V>
-V& vertex_at(uint8_t* vertices, int index)
+V& vertex_at(std::span<uint8_t> vertices, int index)
 {
     return gpu::record_at<V>(vertices, static_cast<size_t>(index));
 }
-float* position_at(uint8_t* vertices, int stride, int index)
+std::span<float, 3> position_at(std::span<uint8_t> vertices, int stride, int index)
 {
     return gpu::position_at(vertices, static_cast<size_t>(stride), static_cast<size_t>(index));
 }
@@ -252,111 +253,111 @@ void PcPrimitive::blit(const float* positions, const uint32_t* colours, const fl
 // 0x004C5B20
 void PcPrimitive::change_place(int index, float x, float y, float z)
 {
-    position_at(vertices_, stride_, index)[0] = x;
-    position_at(vertices_, stride_, index)[1] = y;
-    position_at(vertices_, stride_, index)[2] = z;
+    core::at(position_at(vertex_bytes(), stride_, index), 0) = x;
+    core::at(position_at(vertex_bytes(), stride_, index), 1) = y;
+    core::at(position_at(vertex_bytes(), stride_, index), 2) = z;
 }
 // 0x004C5B60
-void PcPrimitive::set_x(int index, float x) { position_at(vertices_, stride_, index)[0] = x; }
+void PcPrimitive::set_x(int index, float x) { core::at(position_at(vertex_bytes(), stride_, index), 0) = x; }
 // 0x004C5B80
-void PcPrimitive::set_y(int index, float y) { position_at(vertices_, stride_, index)[1] = y; }
+void PcPrimitive::set_y(int index, float y) { core::at(position_at(vertex_bytes(), stride_, index), 1) = y; }
 // 0x004C5BA0
-void PcPrimitive::set_z(int index, float z) { position_at(vertices_, stride_, index)[2] = z; }
+void PcPrimitive::set_z(int index, float z) { core::at(position_at(vertex_bytes(), stride_, index), 2) = z; }
 
 // 0x004C5BC0
 void PcPrimitive::set_normal(int index, float x, float y, float z)
 {
-    std::get<0>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = x;
-    std::get<1>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = y;
-    std::get<2>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = z;
+    std::get<0>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = x;
+    std::get<1>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = y;
+    std::get<2>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = z;
 }
 // 0x004C5BF0
-void PcPrimitive::set_normal_x(int index, float x) { std::get<0>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = x; }
+void PcPrimitive::set_normal_x(int index, float x) { std::get<0>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = x; }
 // 0x004C5C10
-void PcPrimitive::set_normal_y(int index, float y) { std::get<1>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = y; }
+void PcPrimitive::set_normal_y(int index, float y) { std::get<1>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = y; }
 // 0x004C5C30
-void PcPrimitive::set_normal_z(int index, float z) { std::get<2>(vertex_at<VertexNormalColourUv>(vertices_, index).normal) = z; }
+void PcPrimitive::set_normal_z(int index, float z) { std::get<2>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal) = z; }
 
 // 0x004C56E0
 void PcPrimitive::set_vertex_colour(int index, uint32_t rgba)
 {
     const uint32_t bgra = get_swapped(rgba);
     if (vertex_format_ == 0x42)
-        vertex_at<VertexColour>(vertices_, index).colour = bgra;
+        vertex_at<VertexColour>(vertex_bytes(), index).colour = bgra;
     else if (vertex_format_ == 0x142)
-        vertex_at<VertexColourUv>(vertices_, index).colour = (bgra & 0xFFFFFF) | 0x80000000;
+        vertex_at<VertexColourUv>(vertex_bytes(), index).colour = (bgra & 0xFFFFFF) | 0x80000000;
     else if (vertex_format_ == 0x152)
-        vertex_at<VertexNormalColourUv>(vertices_, index).colour = bgra;
+        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).colour = bgra;
 }
 
 // 0x004C5760
 void PcPrimitive::set_uv(int index, float u, float v)
 {
     if (vertex_format_ == 0x142) {
-        vertex_at<VertexColourUv>(vertices_, index).u = u;
-        vertex_at<VertexColourUv>(vertices_, index).v = v;
+        vertex_at<VertexColourUv>(vertex_bytes(), index).u = u;
+        vertex_at<VertexColourUv>(vertex_bytes(), index).v = v;
     } else if (vertex_format_ == 0x152) {
-        vertex_at<VertexNormalColourUv>(vertices_, index).u = u;
-        vertex_at<VertexNormalColourUv>(vertices_, index).v = v;
+        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u = u;
+        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v = v;
     }
 }
 // 0x004C57C0
 void PcPrimitive::choose_u(int index, float u)
 {
     if (vertex_format_ == 0x142)
-        vertex_at<VertexColourUv>(vertices_, index).u = u;
+        vertex_at<VertexColourUv>(vertex_bytes(), index).u = u;
     else if (vertex_format_ == 0x152)
-        vertex_at<VertexNormalColourUv>(vertices_, index).u = u;
+        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u = u;
 }
 // 0x004C5800
 void PcPrimitive::choose_v(int index, float v)
 {
     if (vertex_format_ == 0x142)
-        vertex_at<VertexColourUv>(vertices_, index).v = v;
+        vertex_at<VertexColourUv>(vertex_bytes(), index).v = v;
     else if (vertex_format_ == 0x152)
-        vertex_at<VertexNormalColourUv>(vertices_, index).v = v;
+        vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v = v;
 }
 
 // 0x004C5C50
-float PcPrimitive::fetch_pos_x(int index) { return position_at(vertices_, stride_, index)[0]; }
+float PcPrimitive::fetch_pos_x(int index) { return core::at(position_at(vertex_bytes(), stride_, index), 0); }
 // 0x004C5C70
-float PcPrimitive::fetch_pos_y(int index) { return position_at(vertices_, stride_, index)[1]; }
+float PcPrimitive::fetch_pos_y(int index) { return core::at(position_at(vertex_bytes(), stride_, index), 1); }
 // 0x004C5C90
-float PcPrimitive::fetch_pos_z(int index) { return position_at(vertices_, stride_, index)[2]; }
+float PcPrimitive::fetch_pos_z(int index) { return core::at(position_at(vertex_bytes(), stride_, index), 2); }
 // 0x004C5CB0
-float PcPrimitive::get_normal_x(int index) { return std::get<0>(vertex_at<VertexNormalColourUv>(vertices_, index).normal); }
+float PcPrimitive::get_normal_x(int index) { return std::get<0>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal); }
 // 0x004C5CD0
-float PcPrimitive::get_normal_y(int index) { return std::get<1>(vertex_at<VertexNormalColourUv>(vertices_, index).normal); }
+float PcPrimitive::get_normal_y(int index) { return std::get<1>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal); }
 // 0x004C5CF0
-float PcPrimitive::get_normal_z(int index) { return std::get<2>(vertex_at<VertexNormalColourUv>(vertices_, index).normal); }
+float PcPrimitive::get_normal_z(int index) { return std::get<2>(vertex_at<VertexNormalColourUv>(vertex_bytes(), index).normal); }
 
 // 0x004C5840
 uint32_t PcPrimitive::get_vertex_colour(int index)
 {
     if (vertex_format_ == 0x42)
-        return vertex_at<VertexColour>(vertices_, index).colour;
+        return vertex_at<VertexColour>(vertex_bytes(), index).colour;
     if (vertex_format_ == 0x142)
-        return vertex_at<VertexColourUv>(vertices_, index).colour;
+        return vertex_at<VertexColourUv>(vertex_bytes(), index).colour;
     if (vertex_format_ == 0x152)
-        return vertex_at<VertexNormalColourUv>(vertices_, index).colour;
+        return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).colour;
     return 0;
 }
 // 0x004C5890
 float PcPrimitive::get_u(int index)
 {
     if (vertex_format_ == 0x142)
-        return vertex_at<VertexColourUv>(vertices_, index).u;
+        return vertex_at<VertexColourUv>(vertex_bytes(), index).u;
     if (vertex_format_ == 0x152)
-        return vertex_at<VertexNormalColourUv>(vertices_, index).u;
+        return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).u;
     return 0.0f;
 }
 // 0x004C58D0
 float PcPrimitive::get_v(int index)
 {
     if (vertex_format_ == 0x142)
-        return vertex_at<VertexColourUv>(vertices_, index).v;
+        return vertex_at<VertexColourUv>(vertex_bytes(), index).v;
     if (vertex_format_ == 0x152)
-        return vertex_at<VertexNormalColourUv>(vertices_, index).v;
+        return vertex_at<VertexNormalColourUv>(vertex_bytes(), index).v;
     return 0.0f;
 }
 
@@ -364,28 +365,28 @@ float PcPrimitive::get_v(int index)
 void PcPrimitive::get_slide(float x, float y, float z)
 {
     for (int i = 0; i < vertex_count_; ++i) {
-        position_at(vertices_, stride_, i)[0] = x + position_at(vertices_, stride_, i)[0];
-        position_at(vertices_, stride_, i)[1] = y + position_at(vertices_, stride_, i)[1];
-        position_at(vertices_, stride_, i)[2] = z + position_at(vertices_, stride_, i)[2];
+        core::at(position_at(vertex_bytes(), stride_, i), 0) = x + core::at(position_at(vertex_bytes(), stride_, i), 0);
+        core::at(position_at(vertex_bytes(), stride_, i), 1) = y + core::at(position_at(vertex_bytes(), stride_, i), 1);
+        core::at(position_at(vertex_bytes(), stride_, i), 2) = z + core::at(position_at(vertex_bytes(), stride_, i), 2);
     }
 }
 // 0x004C5D80
 void PcPrimitive::translate_x(float x)
 {
     for (int i = 0; i < vertex_count_; ++i)
-        position_at(vertices_, stride_, i)[0] = x + position_at(vertices_, stride_, i)[0];
+        core::at(position_at(vertex_bytes(), stride_, i), 0) = x + core::at(position_at(vertex_bytes(), stride_, i), 0);
 }
 // 0x004C5DC0
 void PcPrimitive::translate_y(float y)
 {
     for (int i = 0; i < vertex_count_; ++i)
-        position_at(vertices_, stride_, i)[1] = y + position_at(vertices_, stride_, i)[1];
+        core::at(position_at(vertex_bytes(), stride_, i), 1) = y + core::at(position_at(vertex_bytes(), stride_, i), 1);
 }
 // 0x004C5E00
 void PcPrimitive::translate_z(float z)
 {
     for (int i = 0; i < vertex_count_; ++i)
-        position_at(vertices_, stride_, i)[2] = z + position_at(vertices_, stride_, i)[2];
+        core::at(position_at(vertex_bytes(), stride_, i), 2) = z + core::at(position_at(vertex_bytes(), stride_, i), 2);
 }
 
 // 0x004C5910
@@ -393,11 +394,11 @@ void PcPrimitive::scroll_uv(float u, float v)
 {
     for (int i = 0; i < vertex_count_; ++i) {
         if (vertex_format_ == 0x142) {
-            vertex_at<VertexColourUv>(vertices_, i).u = u + vertex_at<VertexColourUv>(vertices_, i).u;
-            vertex_at<VertexColourUv>(vertices_, i).v = v + vertex_at<VertexColourUv>(vertices_, i).v;
+            vertex_at<VertexColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexColourUv>(vertex_bytes(), i).u;
+            vertex_at<VertexColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexColourUv>(vertex_bytes(), i).v;
         } else if (vertex_format_ == 0x152) {
-            vertex_at<VertexNormalColourUv>(vertices_, i).u = u + vertex_at<VertexNormalColourUv>(vertices_, i).u;
-            vertex_at<VertexNormalColourUv>(vertices_, i).v = v + vertex_at<VertexNormalColourUv>(vertices_, i).v;
+            vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u;
+            vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v;
         }
     }
 }
@@ -406,9 +407,9 @@ void PcPrimitive::scroll_u(float u)
 {
     for (int i = 0; i < vertex_count_; ++i) {
         if (vertex_format_ == 0x142)
-            vertex_at<VertexColourUv>(vertices_, i).u = u + vertex_at<VertexColourUv>(vertices_, i).u;
+            vertex_at<VertexColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexColourUv>(vertex_bytes(), i).u;
         else if (vertex_format_ == 0x152)
-            vertex_at<VertexNormalColourUv>(vertices_, i).u = u + vertex_at<VertexNormalColourUv>(vertices_, i).u;
+            vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u = u + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).u;
     }
 }
 // 0x004C59D0
@@ -416,9 +417,9 @@ void PcPrimitive::scroll_v(float v)
 {
     for (int i = 0; i < vertex_count_; ++i) {
         if (vertex_format_ == 0x142)
-            vertex_at<VertexColourUv>(vertices_, i).v = v + vertex_at<VertexColourUv>(vertices_, i).v;
+            vertex_at<VertexColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexColourUv>(vertex_bytes(), i).v;
         else if (vertex_format_ == 0x152)
-            vertex_at<VertexNormalColourUv>(vertices_, i).v = v + vertex_at<VertexNormalColourUv>(vertices_, i).v;
+            vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v = v + vertex_at<VertexNormalColourUv>(vertex_bytes(), i).v;
     }
 }
 

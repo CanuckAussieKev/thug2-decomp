@@ -161,9 +161,12 @@ V3 get_rebuilt(V3 p, V3 from, V3 to, int quarters, V3 scale)
 void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, V3 from, V3 to,
                        int quarters, V3 scale)
 {
-    for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
-        const V3 p = get_rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
-        gpu::VertexWriter(data, stride).set_float3(0, 0, p.x, p.y, p.z);
+    const gpu::VertexWriter vertices(data, stride, count);
+    const std::span<const float> positions(original, 3 * static_cast<std::size_t>(count));
+    for (uint32_t v = 0; v < count; ++v) {
+        const V3 p = get_rebuilt({core::at(positions, 3 * v), core::at(positions, 3 * v + 1), core::at(positions, 3 * v + 2)},
+                                 from, to, quarters, scale);
+        vertices.set_float3(v, 0, p.x, p.y, p.z);
     }
 }
 
@@ -180,9 +183,12 @@ V3 scaled_normal(V3 n, V3 scale, int quarters)
 void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
                      int quarters)
 {
-    for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
-        const V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
-        gpu::VertexWriter(data, stride).set_float3(0, offset, n.x, n.y, n.z);
+    const gpu::VertexWriter vertices(data, stride, count);
+    const std::span<const float> normals(original, 3 * static_cast<std::size_t>(count));
+    for (uint32_t v = 0; v < count; ++v) {
+        const V3 n = scaled_normal({core::at(normals, 3 * v), core::at(normals, 3 * v + 1), core::at(normals, 3 * v + 2)},
+                                   scale, quarters);
+        vertices.set_float3(v, offset, n.x, n.y, n.z);
     }
 }
 

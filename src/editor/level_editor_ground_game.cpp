@@ -502,10 +502,10 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             const uint16_t b = indices->indices[i + 1];
             if (a == b || a >= mesh->vertex_count_ || b >= mesh->vertex_count_)
                 continue;
-            const auto pa = gpu::VertexView(data, mesh->stride).float3(a);
-            const auto pb = gpu::VertexView(data, mesh->stride).float3(b);
-            const auto ta = gpu::VertexView(data, mesh->stride).float2(a, layout.tex);
-            const auto tb = gpu::VertexView(data, mesh->stride).float2(b, layout.tex);
+            const auto pa = gpu::VertexView(data, mesh->stride, mesh->vertex_count_).float3(a);
+            const auto pb = gpu::VertexView(data, mesh->stride, mesh->vertex_count_).float3(b);
+            const auto ta = gpu::VertexView(data, mesh->stride, mesh->vertex_count_).float2(a, layout.tex);
+            const auto tb = gpu::VertexView(data, mesh->stride, mesh->vertex_count_).float2(b, layout.tex);
             const double dw = std::sqrt(static_cast<double>(core::at(pa, 0) - core::at(pb, 0)) * (core::at(pa, 0) - core::at(pb, 0)) +
                                         static_cast<double>(core::at(pa, 1) - core::at(pb, 1)) * (core::at(pa, 1) - core::at(pb, 1)) +
                                         static_cast<double>(core::at(pa, 2) - core::at(pb, 2)) * (core::at(pa, 2) - core::at(pb, 2)));

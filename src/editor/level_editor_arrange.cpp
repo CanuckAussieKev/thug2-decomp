@@ -856,7 +856,7 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         auto at = [&](uint16_t k) {
-            const auto f = gpu::VertexView(vertices->data, mesh->stride).float3(k);
+            const auto f = gpu::VertexView(vertices->data, mesh->stride, mesh->vertex_count_).float3(k);
             return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
         };
         const uint16_t* index = indices->indices;

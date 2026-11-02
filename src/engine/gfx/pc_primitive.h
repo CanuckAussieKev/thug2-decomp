@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <array>
 
 #include "engine/gfx/engine_primitive.h"
@@ -82,6 +83,12 @@ public:
     int weigh(const Primitive* other) override;
 
     uint32_t unknown20_{};   // +0x20
+    // NOT ORIGINAL - the vertices' bytes (vertex_count_ of stride_ each).
+    [[nodiscard]] std::span<uint8_t> vertex_bytes() const
+    {
+        return {vertices_, vertices_ ? static_cast<std::size_t>(vertex_count_) * static_cast<std::size_t>(stride_) : 0};
+    }
+
     uint8_t* vertices_{nullptr}; // +0x24
     uint32_t vertex_format_{2};  // +0x28: D3DFVF (2, 0x42, 0x102, 0x142, 0x152)
     uint32_t layout_{};      // +0x2C: as given to prepare_all (1 colour, 2 texture, 4 normal)

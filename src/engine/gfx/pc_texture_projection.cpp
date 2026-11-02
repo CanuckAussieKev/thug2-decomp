@@ -171,7 +171,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 continue;
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers_, 0)->get_lock(0, 0, &vertices, 0x10);
-            const gpu::VertexView mesh_vertices(vertices, mesh->stride);
+            const gpu::VertexView mesh_vertices(vertices, mesh->stride, mesh->vertex_count_);
             uint16_t* indices = nullptr;
             core::at(mesh->index_buffers_, 0)->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
@@ -262,8 +262,8 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 };
                 if (fineness_) {
                     // the pieces (made by the splitter as bytes, a projected vertex each)
-                    const gpu::VertexView made(pieces, sizeof(ProjectedVertex));
                     const auto made_count = static_cast<size_t>(end - pieces) / sizeof(ProjectedVertex);
+                    const gpu::VertexView made(pieces, sizeof(ProjectedVertex), made_count);
                     for (size_t first = 0; first + 2 < made_count && !full; first += 3)
                         place({{made.value<ProjectedVertex>(first, 0), made.value<ProjectedVertex>(first + 1, 0),
                                 made.value<ProjectedVertex>(first + 2, 0)}});

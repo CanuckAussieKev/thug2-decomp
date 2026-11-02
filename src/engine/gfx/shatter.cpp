@@ -132,7 +132,7 @@ uint16_t* lock_indices(IdxStore* buffer)
 void update_shatter(PcShatter* shatter, float step)
 {
     const uint32_t stride = shatter->mesh->stride;
-    const gpu::VertexWriter out(shatter->vertices, stride);
+    const gpu::VertexWriter out(shatter->vertices, stride, 3 * static_cast<size_t>(shatter->triangle_count_));
     const gpu::VertexView in = out.view();
     for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
         const auto v0 = static_cast<size_t>(3 * i);
@@ -201,7 +201,7 @@ void shatter_geom(PcGeom* geom)
         g_vertex_stack.vertex_size_ = stride; // (the vertex stack's vertex size)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
         const uint8_t* vertices = lock_vertices(vertex_buffer);
-        const gpu::VertexView view(vertices, stride);
+        const gpu::VertexView view(vertices, stride, mesh->vertex_count_);
         const uint16_t* indices = lock_indices(core::at(mesh->index_buffers_, 0));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
@@ -260,8 +260,8 @@ void shatter_geom(PcGeom* geom)
         uint8_t* cursor = shatter->vertices;
         while (split_next_triangle(&cursor, mesh))
             ;
-        const gpu::VertexView pieces(shatter->vertices, stride);
         const auto piece_count = static_cast<size_t>(cursor - shatter->vertices) / stride;
+        const gpu::VertexView pieces(shatter->vertices, stride, piece_count);
         int j = 0;
         for (size_t t = 0; t < piece_count; t += 3, ++j) {
             maths::Vec4& centre = shatter->centres[j];

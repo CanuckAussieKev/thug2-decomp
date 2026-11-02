@@ -115,7 +115,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     mesh->pixel_shader_ = core::at(g_pixel_shaders, kPixelShader924);
     uint8_t* vertices = nullptr;
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
-    const gpu::VertexWriter grass(vertices, mesh->stride);
+    const gpu::VertexWriter grass(vertices, mesh->stride, mesh->vertex_count_);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         const auto v = grass.view().point<maths::Vec4>(i);
         const float x = v.x;
@@ -162,7 +162,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         material->sort_key_ = height;
         uint8_t* vertices = nullptr;
         copy->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked)
-        const gpu::VertexWriter layer_vertices(vertices, copy->stride);
+        const gpu::VertexWriter layer_vertices(vertices, copy->stride, copy->vertex_count_);
         const double lift = static_cast<double>(layer + 1) * step;
         for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
             auto v = layer_vertices.view().point<maths::Vec4>(i);

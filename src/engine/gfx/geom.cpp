@@ -556,7 +556,7 @@ void PcGeom::change_scale(const maths::Vec4* new_scale)
         maths::Vec4 centre = {0.0f, 0.0f, 0.0f, 1.0f};
         mesh_position(mesh, &centre);
         VertexBuffer* buffer = get_vertex_buffer(mesh, 0);
-        const gpu::VertexWriter vertices(get_lock(buffer, 0), mesh->stride);
+        const gpu::VertexWriter vertices(get_lock(buffer, 0), mesh->stride, mesh->vertex_count_);
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v) {
             auto p = vertices.view().point<maths::Vec4>(v);
             for (int k = 0; k < 3; ++k) {
@@ -628,7 +628,7 @@ void PcGeom::get_vertices(maths::Vec4* out)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
-        const gpu::VertexView vertices(get_lock(get_vertex_buffer(mesh, 0), kReadOnly), mesh->stride);
+        const gpu::VertexView vertices(get_lock(get_vertex_buffer(mesh, 0), kReadOnly), mesh->stride, mesh->vertex_count_);
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v, ++out)
             *out = vertices.point<maths::Vec4>(v);
         get_unlock(get_vertex_buffer(mesh, 0));
