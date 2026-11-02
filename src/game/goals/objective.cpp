@@ -12,7 +12,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/core/pointer_cell.h"
 
 namespace goals {
 
@@ -109,14 +108,15 @@ bool Objective::bit_matches(uint32_t flag, int value, uint32_t sub)
 {
     script::Struct* flags = goal_flags_;
     if (sub) {
-        // (a sub-structure that isn't there leaves the name itself as the pointer, as the original)
-        flags = cell::pointer<script::Struct>(sub);
+        // (a sub-structure that isn't there: null - the original left the name itself as the pointer; both crash)
+        flags = nullptr;
         goal_flags_->read_sub_struct(sub, &flags, 1);
     }
     if (!flags->has_entry_named(flag))
         return false;
-    // (the original's local is the sub-structure argument's slot: what the lookup left there, or 0)
-    int set = sub ? static_cast<int>(cell::address(flags)) : 0;
+    // (the original's local is the sub-structure argument's slot - the structure's address; the flag is there, so
+    // the read below always replaces it)
+    int set = 0;
     flags->fetch_int_value(flag, &set, 1);
     return value == set;
 }
@@ -194,7 +194,7 @@ bool Objective::bit_is_on(uint32_t flag, uint32_t sub)
 {
     script::Struct* flags = goal_flags_;
     if (sub) {
-        auto* found = cell::pointer<script::Struct>(sub); // (as bit_matches)
+        script::Struct* found = nullptr; // (as bit_matches)
         flags->read_sub_struct(sub, &found, 1);
         flags = found;
     }

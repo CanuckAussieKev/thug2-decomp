@@ -38,7 +38,6 @@
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/skater_score.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -509,9 +508,8 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     flip_and_rotate->do_after_anim();
     if (rail_node_ != node) {
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
-        const uint32_t index =
-            static_cast<uint32_t>(raw::bytes(node) - raw::bytes(manager->nodes_)) /
-            sizeof(objects::GrindPoint);
+        const auto index =
+            static_cast<uint32_t>(node - manager->nodes_);
         static_cast<modules::PointTally*>(score_->points_held_)->refresh_bot_check(static_cast<int>(index));
     }
     rail_manager_ = manager;

@@ -154,7 +154,7 @@ int SaveCard::get_free_blocks()
 }
 
 // 0x005BCAE0
-bool SaveCard::list_save_files(const char* pattern, FileLoad* list)
+bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
 {
     char* path = path_buffer();
     std::snprintf(path, MAX_PATH, "Save\\%s", pattern);
@@ -181,10 +181,10 @@ bool SaveCard::list_save_files(const char* pattern, FileLoad* list)
         file->extent_ = found.nFileSizeLow;
         file->unknown48_ = 0;
         // At the end of the list.
-        file->list_link_.prev = list->list_link_.prev;
-        file->list_link_.next = &list->list_link_;
-        list->list_link_.prev->next = &file->list_link_;
-        list->list_link_.prev = &file->list_link_;
+        file->list_link_.prev = list->prev;
+        file->list_link_.next = list;
+        list->prev->next = &file->list_link_;
+        list->prev = &file->list_link_;
     } while (FindNextFileA(search, &found));
     FindClose(search);
     return true;

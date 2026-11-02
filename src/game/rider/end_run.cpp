@@ -120,7 +120,7 @@ void RiderSessionEnd::end_run(bool force)
 }
 
 // 0x00510F10
-void RiderSessionEnd::finish_objective_run(void* /*unused*/)
+void RiderSessionEnd::finish_objective_run()
 {
     flag_bits_ &= ~kEndRunGoalDone;
     entity_->post_own_event(kGoalHasEnded, nullptr);

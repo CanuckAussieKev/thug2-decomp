@@ -37,7 +37,6 @@
 #include "game/rider/core_physics.h"
 #include "game/skate/point_tally.h"
 #include "engine/objects/rail_manager.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -85,10 +84,10 @@ bool trigger_done(MoveExecutor* self, script::Struct* trigger, uint32_t kind, in
 {
     return self->check_trigger(trigger, kind, static_cast<uint32_t>(ignore), option);
 }
-// (trick_named: `ignore` is the trick name to compare, a string pointer kept in a word)
-bool matches_ignore(MoveExecutor* self, script::Struct* trick, uint32_t ignore)
+// (trick_named: `ignore` is the trick name to compare - the original kept the text's pointer in a word)
+bool matches_ignore(MoveExecutor* self, script::Struct* trick, const char* ignore)
 {
-    return self->trick_named(trick, cell::pointer<const char>(static_cast<uintptr_t>(ignore)));
+    return self->trick_named(trick, ignore);
 }
 void set_button(MoveExecutor* self, int button, bool pressed) { self->update_button(button, pressed); }
 void check_manual_tricks(MoveExecutor* self, uint32_t array, int ignore, bool special)
@@ -297,10 +296,10 @@ void MoveExecutor::reset_trick_objects()
 }
 
 // 0x00523310
-uint32_t MoveExecutor::end_trick_objects(uint32_t a, uint32_t b)
+uint32_t MoveExecutor::end_trick_objects(uint32_t* out, uint32_t max_bytes)
 {
     HitClusterLog& list = trick_objects_;
-    const uint32_t result = list.copy_cluster_names(cell::pointer<uint32_t>(a), b);
+    const uint32_t result = list.copy_cluster_names(out, max_bytes);
     trick_objects_on_ = false;
     list.get_clear();
     return result;
@@ -551,7 +550,7 @@ void MoveExecutor::update_extra_grind_tricks()
 }
 
 // 0x00521D80
-uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
+uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, const char* ignore)
 {
     script::Array* tricks = script::fetch_list(array);
     const int count = static_cast<int>(tricks->extent_); // (the original doesn't check the array exists)
@@ -564,7 +563,7 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
 }
 
 // 0x00521DF0
-void MoveExecutor::ignore_tricks(uint32_t ignore)
+void MoveExecutor::ignore_tricks(const char* ignore)
 {
     for (int i = 0; i < extra_.count_; ++i)
         core::at(extra_.masks_, i) |= fetch_skip_mask(core::at(extra_.arrays_, i), ignore);
@@ -671,14 +670,14 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     extra_.special_mask_ = 0;
     const char* ignore = ""; // ("")
     if (params->fetch_text(kIgnore, &ignore, 0)) {
-        ignore_tricks(cell::of(ignore)); // (the string's address as a name, as the original)
+        ignore_tricks(ignore);
         return;
     }
     script::Array* ignored = nullptr;
     if (params->fetch_list(kIgnore, &ignored, 0)) {
         const int n = static_cast<int>(ignored->extent_);
         for (int i = 0; i < n; ++i)
-            ignore_tricks(cell::of(ignored->fetch_text(i)));
+            ignore_tricks(ignored->fetch_text(i));
     }
 }
 

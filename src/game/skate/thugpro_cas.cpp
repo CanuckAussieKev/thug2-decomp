@@ -25,8 +25,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/util/unique_handle.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects::thugpro_cas {
@@ -131,15 +129,15 @@ void collect_array_paths(script::Array* array, std::vector<const char*>* out, in
     if (!array || depth > 4)
         return;
     for (uint32_t i = 0; i < array->extent_; ++i) {
-        const uint32_t element = array->fetch_part(i);
-        if (!element)
+        const script::Cell element = array->cell_at(i);
+        if (element.empty())
             continue;
-        if (array->kind_tag_ == script::kQbvalString && is_path(cell::pointer<const char>(element)))
-            out->push_back(cell::pointer<const char>(element));
+        if (array->kind_tag_ == script::kQbvalString && is_path(element.text()))
+            out->push_back(element.text());
         else if (array->kind_tag_ == script::kQbvalStruct)
-            collect_paths(cell::pointer<script::Struct>(element), out, depth + 1);
+            collect_paths(element.structure(), out, depth + 1);
         else if (array->kind_tag_ == script::kQbvalArray)
-            collect_array_paths(cell::pointer<script::Array>(element), out, depth + 1);
+            collect_array_paths(element.array(), out, depth + 1);
     }
 }
 void collect_paths(script::Struct* part, std::vector<const char*>* out, int depth)
@@ -269,8 +267,9 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
         const size_t stored = compressed ? compressed : size;
         if (body > archive.size() || stored > archive.size() - body)
             return false;
-        const std::string name(raw::chars(archive.data() + offset + 16),
-                               strnlen(raw::chars(archive.data() + offset + 16), name_size));
+        std::string name(name_size, char{});
+        std::memcpy(name.data(), archive.data() + offset + 16, name_size);
+        name.resize(strnlen(name.c_str(), name_size));
         const std::string key = get_relative(name.c_str());
         for (const std::string& wanted : names) {
             if (key != wanted)

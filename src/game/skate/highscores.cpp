@@ -4,6 +4,7 @@
 #include "game/skate/highscores.h"
 
 #include <cstdint>
+#include <algorithm>
 #include <initializer_list>
 #include <memory>
 
@@ -16,8 +17,6 @@
 #include "platform/run_log.h"
 #include <gsl/pointers>
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 
 namespace highscores {
 
@@ -55,10 +54,10 @@ void copy_initials(char* to, const char* from)
 // A 4-byte buffer for initials (zeroed if it was made).
 char* new_initials()
 {
-    auto* memory = static_cast<uint32_t*>(memory::alloc_zeroed(4));
-    if (memory)
-        *memory = 0;
-    return raw::chars(memory);
+    auto* text = static_cast<char*>(memory::alloc_zeroed(4));
+    if (text)
+        std::fill_n(text, 4, static_cast<char>(0));
+    return text;
 }
 
 
@@ -137,14 +136,12 @@ void BestEntry::decode_from_struct(script::Struct* params)
 // 0x0057EF60
 BestEntryList::BestEntryList(int count) : num_(count)
 {
-    // (as new[]: the count before the records)
-    auto* memory = static_cast<int*>(memory::alloc_zeroed(count * sizeof(BestEntry) + 4));
-    if (!memory) {
+    // (the original's new[] kept the count before the records; num_ holds it)
+    auto* records = static_cast<BestEntry*>(memory::alloc_zeroed(count * sizeof(BestEntry)));
+    if (!records) {
         records_ = nullptr;
         return;
     }
-    *memory = count;
-    auto* records = raw::as<BestEntry>(memory + 1);
     for (int i = 0; i < count; ++i)
         new (&records[i]) BestEntry;
     records_ = records;
@@ -153,10 +150,9 @@ BestEntryList::BestEntryList(int count) : num_(count)
 void BestEntryList::erase_one()
 {
     if (BestEntry* records = records_) {
-        int* memory = raw::as<int>(records) - 1;
-        for (int i = *memory; i-- > 0;) // (as delete[]: the last first)
+        for (int i = num_; i-- > 0;) // (as delete[]: the last first)
             memory::dealloc(records[i].tag_);
-        memory::Hub::get_pull()->dealloc(memory);
+        memory::Hub::get_pull()->dealloc(records);
     }
     memory::Hub::get_pull()->dealloc(this);
 }
@@ -310,13 +306,12 @@ StageBests* BestResults::get_level_records(int level) { return &levels_[level]; 
 void BestResults::init_levels(int count)
 {
     level_count_ = count;
-    auto* memory = static_cast<int*>(memory::alloc_zeroed(count * sizeof(StageBests) + 4));
-    if (!memory) {
+    // (the original's new[] kept the count before the levels; level_count_ holds it)
+    auto* levels = static_cast<StageBests*>(memory::alloc_zeroed(count * sizeof(StageBests)));
+    if (!levels) {
         levels_ = nullptr;
         return;
     }
-    *memory = count;
-    auto* levels = raw::as<StageBests>(memory + 1);
     for (int i = 0; i < count; ++i)
         new (&levels[i]) StageBests;
     levels_ = levels;
@@ -371,10 +366,9 @@ void BestResults::get_release()
     }
     if (BestResults* records = sole().release()) { // (no destructor: its blocks given back)
         if (StageBests* levels = records->levels_) {
-            int* memory = raw::as<int>(levels) - 1;
-            for (int i = *memory; i-- > 0;) // (as delete[]: the last first)
+            for (int i = records->level_count_; i-- > 0;) // (as delete[]: the last first)
                 levels[i].destroy_body();
-            memory::Hub::get_pull()->dealloc(memory);
+            memory::Hub::get_pull()->dealloc(levels);
         }
         memory::Hub::get_pull()->dealloc(records->default_initials_);
         memory::Hub::get_pull()->dealloc(records);

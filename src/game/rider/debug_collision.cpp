@@ -64,7 +64,6 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace collision_overlay {
@@ -118,7 +117,7 @@ bool get_skater_position(const objects::Rider* skater, float* position)
 }
 
 struct Recent {
-    uintptr_t what;
+    const void* what;
     int face;
     DWORD time;
 };
@@ -127,7 +126,7 @@ int g_next_recent = 0;
 DWORD g_second_start = 0;
 int g_lines_this_second = 0;
 
-bool should_log(uintptr_t what, int face)
+bool should_log(const void* what, int face)
 {
     const DWORD now = GetTickCount();
     if (now - g_second_start >= 1000) {
@@ -170,7 +169,7 @@ void log_hit(const void* feeler, uint32_t caller)
     const objects::Rider* skater_feeler = skater_of_feeler(feeler);
     if (get_mode() == 1 && (!skater_feeler || normal[1] > 0.7f))
         return;
-    if (!should_log(object ? cell::address(object) : cell::address(coll_object), face))
+    if (!should_log(object ? object : static_cast<const void*>(coll_object), face))
         return;
 
     std::array<char, 160> what{};

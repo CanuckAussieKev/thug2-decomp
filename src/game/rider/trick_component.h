@@ -242,8 +242,8 @@ public:
     void set_extra_tricks(script::Struct* params, script::Script* script);
     // 0x00521D80: the bits of `array`'s tricks that 0x0051EF50 matches `ignore` with (the array must exist).
     // 0x00521DF0: those bits added to each extra trick array's mask (and the special one's).
-    uint32_t fetch_skip_mask(uint32_t array, uint32_t ignore);
-    void ignore_tricks(uint32_t ignore);
+    uint32_t fetch_skip_mask(uint32_t array, const char* ignore);
+    void ignore_tricks(const char* ignore);
 
     // --- the button buffer ---
     // 0x00522030: button mashing's speed-up: the presses / releases (not triangle) within BashPeriod marked used,
@@ -265,7 +265,7 @@ public:
     void reset_trick_objects();
     void set_trick_objects(bool on);
     void pass_to_trick_objects(uint32_t value);
-    uint32_t end_trick_objects(uint32_t a, uint32_t b);
+    uint32_t end_trick_objects(uint32_t* out, uint32_t max_bytes);
 
     // 0x00523560 (slot 12; trick_member_functions.cpp): its script member functions - Released / Held (a button,
     // or buttons=), GetSpazzFactor, GetSpin / GetActualSpin / ResetSpin, the trick arrays (SetQueueTricks,

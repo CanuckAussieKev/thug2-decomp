@@ -43,7 +43,6 @@
 #include "game/rider/skater_score.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -184,13 +183,13 @@ int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* param
 {
     switch (name) {
     case 0x19504222: { // SetGraffitiTexture
-        const char* texture = cell::pointer<const char>(name);
+        const char* texture = nullptr; // (the original read into its argument slot: the method's name)
         if (params->fetch_text(0u, &texture, 0))
             set_graffiti_texture(texture);
         return 1;
     }
     case 0x90042D4A: { // SetStickerTexture
-        const char* texture = cell::pointer<const char>(name);
+        const char* texture = nullptr; // (the original read into its argument slot: the method's name)
         if (params->fetch_text(0u, &texture, 0))
             set_sticker_texture(texture);
         return 1;

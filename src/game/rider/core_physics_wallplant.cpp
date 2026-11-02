@@ -25,7 +25,6 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/ride_tracker.h"
 
@@ -150,8 +149,8 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         script::Array* tricks = script::fetch_list(bike ? thaw_bmx::wallplant_trick_list() : kWallplantTrick);
         bool pressed = bike && thaw_bmx::wallplant_by_square(this);
         for (uint32_t i = 0; !pressed && i < tricks->extent_; ++i) {
-            const uint32_t trick = tricks->fetch_part(i);
-            if (static_cast<objects::MoveExecutor*>(trick_)->check_trigger(cell::pointer<script::Struct>(trick), 0,
+            script::Struct* trick = tricks->struct_at(i);
+            if (static_cast<objects::MoveExecutor*>(trick_)->check_trigger(trick, 0,
                                                                            0, true)) {
                 pressed = true;
                 break;

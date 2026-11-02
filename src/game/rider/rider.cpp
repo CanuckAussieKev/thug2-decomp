@@ -91,8 +91,6 @@
 #include "engine/render/coll_obj.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/gfx/model.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -101,8 +99,8 @@ namespace objects {
 namespace {
 // (4 floats each: the light's direction while in the air - straight down - and on the ground. They were declared
 // as single floats and written as four: the writes ran on over whatever followed - the Direct3D device pointer, once.)
-std::array<float, 4> g_skater_down_light_colour;
-std::array<float, 4> g_skater_light_colour;
+maths::Vec4 g_skater_down_light_colour;
+maths::Vec4 g_skater_light_colour;
 uint32_t g_skater_lights_made;
 
 // Names.
@@ -487,18 +485,18 @@ void Rider::set_pause_state(int state)
 }
 
 // 0x005809C0
-void Rider::update_shadow_light(int, int)
+void Rider::update_shadow_light()
 {
     uint32_t& made = g_skater_lights_made;
-    float* light = g_skater_light_colour.data();
-    float* down = g_skater_down_light_colour.data();
+    maths::Vec4& light = g_skater_light_colour;
+    maths::Vec4& down = g_skater_down_light_colour;
     if (!(made & 1)) {
         made |= 1;
-        light[0] = 0.8f, light[1] = -0.8f, light[2] = 0.3f, light[3] = 1.0f;
+        light.x = 0.8f, light.y = -0.8f, light.z = 0.3f, light.w = 1.0f;
     }
     if (!(made & 2)) {
         made |= 2;
-        down[0] = 0.0f, down[1] = -1.0f, down[2] = 0.0f, down[3] = 1.0f;
+        down.x = 0.0f, down.y = -1.0f, down.z = 0.0f, down.w = 1.0f;
     }
     // The model's light, reversed; kept at least 0.65 below the horizon.
     if (fetch_module(kModelModuleName) &&
@@ -513,17 +511,17 @@ void Rider::update_shadow_light(int, int)
             const double y = v[1] * -1.0;
             const double z = v[2] * -1.0;
             const double w = v[3] * -1.0;
-            light[0] = static_cast<float>(x);
-            light[1] = static_cast<float>(y);
+            light.x = static_cast<float>(x);
+            light.y = static_cast<float>(y);
             const auto z_stored = static_cast<float>(z); // (the original reads z back as stored)
-            light[2] = z_stored;
-            light[3] = static_cast<float>(w);
+            light.z = z_stored;
+            light.w = static_cast<float>(w);
             if (y > -0.65f) {
                 const double flat = static_cast<double>(z_stored) * z_stored + x * x;
                 const double scale = flat > 0.0 ? std::sqrt(0.5775f / flat) : 0.0;
-                light[1] = -0.65f;
-                light[0] = static_cast<float>(x * scale);
-                light[2] = static_cast<float>(z_stored * scale);
+                light.y = -0.65f;
+                light.x = static_cast<float>(x * scale);
+                light.z = static_cast<float>(z_stored * scale);
             }
         }
     }
@@ -541,7 +539,7 @@ void Rider::update_shadow_light(int, int)
     else
         shadow_fade_ = shadow_fade_ < 16 ? shadow_fade_ + 1 : 16;
     maths::Vec4 direction;
-    walk::get_lerp(&direction, raw::as<const maths::Vec4>(light), raw::as<const maths::Vec4>(down),
+    walk::get_lerp(&direction, &light, &down,
                    static_cast<float>(shadow_fade_) * 0.0625f);
     static_cast<GroundShadowModule*>(shadow_)->set_light_direction(&direction);
 }
@@ -726,9 +724,7 @@ void Rider::show_board_element(uint32_t type)
     element->write_back(1, nullptr);
     const char* model = nullptr;
     params->fetch_text(0x49B318FD, &model, 1);
-    // (the third is a checksum where swap_texture takes a texture name: passed on as it is)
-    core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))
-        ->swap_texture(model_swap, model, cell::pointer<const char>(static_cast<uintptr_t>(model_swap2)));
+    core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->swap_texture(model_swap, model, model_swap2);
     if (second)
         static_cast<render::TextureSet*>(get_elements())->unload_texture(overlay);
     static_cast<render::TextureSet*>(get_elements())->unload_texture(element);

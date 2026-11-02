@@ -31,7 +31,6 @@
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
 #include "game/goals/create_a_trick.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -448,8 +447,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveNetworkSettings: {
-        auto* preferences = raw::bytes(online::g_online_hub->get_online_settings());
-        auto* settings = raw::field_at<Struct>(preferences, 4);
+        Struct* settings = &online::g_online_hub->get_online_settings()->top_entry_;
         Struct* network_id = nullptr;
         settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
         const char* text = empty;

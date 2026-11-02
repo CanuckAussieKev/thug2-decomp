@@ -30,7 +30,6 @@
 #include "engine/gfx/model_utils.h"
 #include "game/skate/cas_options.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -363,17 +362,16 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
 {
     auto* objects = objects::g_composite_registry.get();
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
-    std::array<uint32_t, 32> seen{};
+    std::array<const render::TextureSet*, 32> seen{};
     int seen_count = 0;
     for (objects::ObjectModule* component = objects->find_first_module_of_kind(kModel); component;
          component = component->next_of_type_) {
         if (component->entity_->kind_tag_ != kCarType)
             continue;
-        void* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+        render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
         bool added = false;
-        for (int i = 0; i < static_cast<render::RenderModel*>(model)->fetch_geom_total(); ++i) {
-            auto textures = static_cast<uint32_t>(
-                cell::address(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
+        for (int i = 0; i < model->fetch_geom_total(); ++i) {
+            const render::TextureSet* textures = model->get_geom_textures(i);
             bool found = false;
             for (int k = 0; k < seen_count; ++k) {
                 if (core::at(seen, k) == textures)

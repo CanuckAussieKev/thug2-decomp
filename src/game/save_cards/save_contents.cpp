@@ -30,8 +30,6 @@
 #include "engine/sys/game_config.h"
 #include "game/goals/objective.h"
 #include "engine/gfx/rig.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -81,11 +79,8 @@ int os_layer() { return game_config::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 prefs::Preferences* split_screen_preferences() { return get_skate()->get_split_view_settings(); }
-// A preferences object's structure (+4).
-Struct* preferences_structure(prefs::Preferences* preferences)
-{
-    return raw::field_at<Struct>(preferences, 4);
-}
+// A preferences object's structure.
+Struct* preferences_structure(prefs::Preferences* preferences) { return &preferences->top_entry_; }
 
 // The goal editor's component (its object's, both named GoalEditor).
 objects::ObjectModule* goal_editor_component()

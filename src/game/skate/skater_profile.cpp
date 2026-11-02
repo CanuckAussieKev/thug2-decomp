@@ -16,7 +16,6 @@
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/rider/rider.h"
@@ -450,7 +449,7 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
     appearance_guard::sanitise(&appearance()->structure_);
-    auto* part = raw::as<script::Struct>(buffer); // (the argument's slot)
+    script::Struct* part = nullptr; // (the original read into its argument's slot: the buffer's address)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     part->get_clear();
     details_params()->read_sub_struct(kTrickStyle, &part, 1);

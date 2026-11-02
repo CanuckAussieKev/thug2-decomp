@@ -34,8 +34,6 @@
 #include "engine/objects/input_component.h"
 #include "game/rider/rotate_component.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -82,7 +80,6 @@ objects::ActivationZoneModule* trigger_of(SkaterPhysicsModule* component)
 {
     return static_cast<objects::ActivationZoneModule*>(component->trigger_);
 }
-const int* get_events(uint32_t address) { return cell::pointer<const int>(address); }
 void stop_riding(void* ride) { static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding(); }
 
 // The two triggers: both held - or, under PartyMod's PS2 controls (its JZ -> JNZ at each check), either.
@@ -407,10 +404,10 @@ void SkaterPhysicsModule::check_for_ground()
             set_timed_flag(state_, PoseFlag::kLeftVert, 0);
     } else if (triggers_held(input)) {
         // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
-        std::array<uint8_t, 40> drop{};
+        AcidDrop drop{};
         objects::GameEntity* o = entity_;
-        if (find_acid_drop(true, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop.data())))
-            start_acid_drop(raw::as<const AcidDrop>(drop.data()));
+        if (find_acid_drop(true, &o->at_point_, &o->old_pos_, &o->vel_, &drop))
+            start_acid_drop(&drop);
     }
     trigger_of(this)->probe_touches_zone(kOtherFeelerLeaveEvents.data(), &floor_feeler_);
 }
@@ -740,10 +737,10 @@ void SkaterPhysicsModule::do_air_physics()
     bool recent = false;
     if (air_start_ > ints::as_unsigned(leap_time_))
         recent = static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(air_start_))) < 0xFA;
-    std::array<uint8_t, 40> drop{};
+    AcidDrop drop{};
     objects::GameEntity* o = object_of(this);
-    if (find_acid_drop(recent, &o->at_point_, &o->old_pos_, &o->vel_, raw::as<AcidDrop>(drop.data())))
-        start_acid_drop(raw::as<const AcidDrop>(drop.data()));
+    if (find_acid_drop(recent, &o->at_point_, &o->old_pos_, &o->vel_, &drop))
+        start_acid_drop(&drop);
 }
 
 // (Part of 0x0050CA00: landing on something skatable.)

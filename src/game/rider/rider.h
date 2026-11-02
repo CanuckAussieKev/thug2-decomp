@@ -105,7 +105,7 @@ public:
     void set_pause_state(int state);
     // 0x005809C0: its shadow's light direction (the model's light, clamped below the horizon), faded in or out
     // over 16 frames as it is in the air or not.
-    void update_shadow_light(int unused1, int unused2);
+    void update_shadow_light();
     // 0x00580BE0: the ten stats from `profile` (or, in classic mode, the skate module's classic stats).
     void set_stats_from_profile(RiderIdentity* profile);
     // 0x00580EB0: its looks and identity from `profile` (in its skater heap): push style, stance, pro, display name,

@@ -54,7 +54,7 @@ public:
     void end_run(bool force);
     // 0x00510F10: the goal's run is over: kEndRunGoalDone cleared and the skater sent GoalHasEnded. (`unused` isn't
     // read.)
-    void finish_objective_run(void* unused);
+    void finish_objective_run();
     // 0x00510F30 / 0x00510F40 / 0x00510F50: kEndRunDone, kEndRunGoalDone, kEndRunStarted set.
     bool run_done();
     bool goal_run_done();

@@ -18,7 +18,6 @@
 #include "game/skate/skate_module.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -150,8 +149,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
         }
         return false;
     }
-    const uint32_t count =
-        *raw::as<uint32_t>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
+    const auto count = static_cast<uint32_t>(goals->goals_.num_); // (the goals there are - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         auto* skater = get_rider_at(skate, i);
         if (count == 0)

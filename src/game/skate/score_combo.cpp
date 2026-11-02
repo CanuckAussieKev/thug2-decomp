@@ -30,9 +30,8 @@
 #include "platform/stopwatch.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "game/rider/adjust_physics.h"
 #include "engine/core/checked_index.h"
 
 namespace modules {
@@ -81,11 +80,11 @@ int tricks_since_no_spin(PointTally* score)
     return since;
 }
 
-// The skater's adjust-physics component holding the tricks' points (its +0x1C).
+// The skater's adjust-physics component's uber-frig flag (the tricks' points are held while it's set).
 bool points_held(objects::Rider* skater)
 {
-    auto* adjust = raw::bytes(skater->fetch_module(kSkaterAdjustPhysics));
-    return adjust && adjust[0x1C];
+    const objects::ObjectModule* adjust = skater->fetch_module(kSkaterAdjustPhysics);
+    return adjust && core::down_cast<const objects::RiderPhysicsTweaks>(adjust)->uber_frigged_;
 }
 
 // `points` to the server (message `id`, the client of the skater's viewport).
@@ -355,7 +354,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     auto* physics_skater = core::down_cast<objects::Rider>(physics->entity_);
     const uint8_t flipped = physics->state_->flag(objects::PoseFlag::kFlipped).on;
     const int stance = physics_skater->goofy_ ? flipped : !flipped;
-    stats->set10(static_cast<int>(cell::address(text)), score, stance);
+    stats->set10(text, score, stance);
     if (tricks_ > 249) {
         trim_log();
         if (tricks_ > 249) {

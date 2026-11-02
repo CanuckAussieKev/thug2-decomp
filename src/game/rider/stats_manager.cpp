@@ -28,8 +28,6 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -245,10 +243,10 @@ bool AttributeTracker::is_operative()
 }
 
 // 0x0051C9D0
-void AttributeTracker::set10(int a, int b, int)
+void AttributeTracker::set10(const char* text, int score, int)
 {
-    if (is_operative() && b != value14_)
-        value10_ = a;
+    if (is_operative() && score != value14_)
+        last_text_ = text;
 }
 
 // 0x0051CA00

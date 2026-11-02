@@ -32,8 +32,6 @@
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace save_cards {
@@ -53,7 +51,8 @@ Struct* result_params(Script* script) { return script->args_; }
 const char* save_folder() { return game_config::get_path_prefix(); }
 
 // The card's delete of a console file or folder entry: on the PC the shared always-true method (0x005BC7F0).
-bool delete_card_file(SaveCard* card, const char* name) { return card->always_true(static_cast<int>(cell::of(name))); }
+// (the original passed the name's address: not read)
+bool delete_card_file(SaveCard* card, const char* /*name*/) { return card->always_true(0); }
 
 // A save file's handle deleted (its scalar deleting destructor).
 void DeleteFile(FileLoad* file) { file->teardown(1); }
@@ -417,7 +416,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     // the card's files (a lists::Foremost<File> on the stack)
     memory::ListNode head;
     head.make_head();
-    card->list_save_files("*", raw::as<FileLoad>(&head));
+    card->list_save_files("*", &head);
 
     // into the temporary component and structure pools, if they exist
     bool switched = false;

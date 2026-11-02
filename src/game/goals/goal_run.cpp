@@ -29,7 +29,6 @@
 #include "engine/gfx/tod_manager.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 
 namespace goals {
@@ -185,7 +184,7 @@ bool Objective::is_expired_at_end_of_run(bool force)
     // Out of time: the run is ended, the goal expires once it's done.
     if (run_ending_ == 0) {
         flag_bits_ |= kFlagEndOfRunStarted;
-        end_run->finish_objective_run(cell::pointer<void>(static_cast<uintptr_t>(force)));
+        end_run->finish_objective_run(); // (the original passed `force`: not read)
     } else if (run_ending_ == 1) {
         flag_bits_ |= kFlagEndOfRunStarted;
         end_run->end_run(force);

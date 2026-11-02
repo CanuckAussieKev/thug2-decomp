@@ -21,7 +21,6 @@
 #include "game/skate/score_internal.h"
 #include "game/rider/trick_component.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -52,7 +51,7 @@ void PointTally::note_tagged_prop_ask(int score)
     message.score = static_cast<uint32_t>(score);
     message.game_id = net->get_game_id();
     auto* trick = core::down_cast<objects::MoveExecutor>(rider_for_slot(rider_no_)->fetch_module(kTrick));
-    const uint32_t bytes = trick->end_trick_objects(static_cast<uint32_t>(cell::address(message.objects.data())),
+    const uint32_t bytes = trick->end_trick_objects(message.objects.data(),
                                                     sizeof(message.objects));
     message.count = bytes >> 2;
     debug::printf("Client -> server %d tricks\n", bytes >> 2); // "Client -> server %d tricks\n"

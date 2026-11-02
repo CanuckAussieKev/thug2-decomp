@@ -16,7 +16,6 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_sound.h"
 #include "engine/objects/trigger_events.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -36,17 +35,10 @@ constexpr uint32_t kSideHeight = 0xB45B39E2;        // Skater_side_collide_heigh
 constexpr uint32_t kSideLength = 0x406B425F;        // Skater_side_collide_length
 constexpr uint32_t kAirExtraSide = 0x1C58C8B4;      // Skater_air_extra_side_col
 
-// A stack feeler: raw storage (see copy_feeler).
-struct alignas(16) FeelerStorage {
-    std::array<uint8_t, sizeof(render::ProbeRay)> bytes;
-    render::ProbeRay* operator->() { return raw::as<render::ProbeRay>(bytes.data()); }
-    render::ProbeRay* get() { return raw::as<render::ProbeRay>(bytes.data()); }
-};
-
 // The smart pointer of a stack feeler let go inline (the original's code on some paths instead of the destructor).
-void release_feeler_object(FeelerStorage& feeler)
+void release_feeler_object(render::ProbeRay& feeler)
 {
-    feeler->entity_.get_release(); // (the original left the pointer set: the storage is let go next)
+    feeler.entity_.get_release();
 }
 
 } // namespace
@@ -110,8 +102,8 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
             return false;
     }
 
-    FeelerStorage hit{};
-    copy_feeler(hit.get(), &feeler_);
+    render::ProbeRay hit; // (the original: raw storage, copy-constructed in place)
+    copy_feeler(&hit, &feeler_);
     const bool steep = feeler_.surface_dir_.y < 0.1f;
     // Try the skater at the feeler's end (lowered back): 0x004FFDB0 may take it there - then stopped, when going up
     // fast or the wall is steep (left there).
@@ -126,22 +118,22 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         return true;
     }
     entity_->at_point_ = saved;
-    assign_feeler(&feeler_, hit.get());
+    assign_feeler(&feeler_, &hit);
 
     // A ledge: snap up onto it (going up, upright, against a flat-topped wall) - the feeler raised by the snap height,
     // then lowered 2 at a time until it hits (the snap height going down with it, to 4).
     const objects::GameEntity* o = object_of(this);
     if (core::at(o->basis_frame_.row, 1).y > 0.5f && o->vel_.y > 0.0f && normal.y < 0.01f) {
         float snap = tuning_float_lookup(kAirSnapUp, object);
-        hit->line_.start.y = hit->line_.start.y + snap;
-        hit->line_.end.y = hit->line_.end.y + snap;
-        if (!hit->get_hit_shape(true, false)) {
+        hit.line_.start.y = hit.line_.start.y + snap;
+        hit.line_.end.y = hit.line_.end.y + snap;
+        if (!hit.get_hit_shape(true, false)) {
             if (snap > 4.0f) {
                 double lower = 0.0;
                 do {
-                    hit->line_.start.y = hit->line_.start.y - 2.0f;
-                    hit->line_.end.y = hit->line_.end.y - 2.0f;
-                    if (hit->get_hit_shape(true, false))
+                    hit.line_.start.y = hit.line_.start.y - 2.0f;
+                    hit.line_.end.y = hit.line_.end.y - 2.0f;
+                    if (hit.get_hit_shape(true, false))
                         break;
                     lower = static_cast<double>(snap) - 2.0;
                     snap = static_cast<float>(lower);
@@ -149,7 +141,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
             }
             maths::Vec4& position2 = entity_->at_point_;
             position2.y = snap + position2.y;
-            destroy_feeler(hit.get());
+            destroy_feeler(&hit);
             return true;
         }
     }
@@ -248,7 +240,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         }
         collision_events::note_path(this, collision_events::RouteWay::kAirBonk, entry_velocity); // (not original)
     }
-    destroy_feeler(hit.get());
+    destroy_feeler(&hit);
     return false;
 }
 
@@ -326,21 +318,20 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     const maths::Vec4& point = feeler_.contact_pos_;
     const maths::Vec4 outer = point + normal * length;
     const maths::Vec4 inner = point + normal;
-    FeelerStorage feeler{};
-    new (feeler.bytes.data()) render::ProbeRay(&inner, &outer);
-    if (feeler->get_hit_shape(true, false)) {
-        destroy_feeler(feeler.get());
+    render::ProbeRay feeler(&inner, &outer);
+    if (feeler.get_hit_shape(true, false)) {
+        destroy_feeler(&feeler);
         return false;
     }
     trigger_feeler(this, kBonkEvents.data(), &feeler_);
     if (trigger_took_over(this)) {
-        destroy_feeler(feeler.get());
+        destroy_feeler(&feeler);
         return false;
     }
     objects::GameEntity* skater = object_of(this);
     const float lower = script::fetch_float(kSideHeight);
-    skater->at_point_ = feeler->line_.end - core::at(skater->basis_frame_.row, 1) * lower;
-    destroy_feeler(feeler.get());
+    skater->at_point_ = feeler.line_.end - core::at(skater->basis_frame_.row, 1) * lower;
+    destroy_feeler(&feeler);
     return true;
 }
 

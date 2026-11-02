@@ -19,7 +19,6 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace skater {
@@ -33,10 +32,9 @@ int& os_layer() { return game_config::g_platform; }
 constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 
 // The physics' acid drop search: fills `velocity` if there's somewhere to drop in.
-bool find_acid_drop(objects::FootMovement* walk, float* velocity)
+bool find_acid_drop(objects::FootMovement* walk, maths::Vec4* velocity)
 {
-    return walk->core_physics_->find_acid_drop(false, &walk->pos_, &walk->old_pos_,
-                                               raw::as<maths::Vec4>(velocity), &walk->acid_drop_);
+    return walk->core_physics_->find_acid_drop(false, &walk->pos_, &walk->old_pos_, velocity, &walk->acid_drop_);
 }
 
 // The two buttons; PartyMod's PS2 controls skip the first (its NOP at 0x00527546 / 0x00527636).
@@ -51,15 +49,15 @@ bool buttons_held(objects::FootMovement* walk)
 }
 
 // The velocity (x, y, z, w) and the up speed after it: the flat velocity and its y as the up speed.
-void begin_drop_in(objects::FootMovement* walk, const float* velocity)
+void begin_drop_in(objects::FootMovement* walk, const maths::Vec4& velocity)
 {
     maths::Vec4& v = walk->vel_;
-    v.x = velocity[0];
-    v.w = velocity[3];
-    v.y = velocity[1];
-    v.z = velocity[2];
+    v.x = velocity.x;
+    v.w = velocity.w;
+    v.y = velocity.y;
+    v.z = velocity.z;
     v.y = 0.0f;
-    std::memcpy(&walk->up_speed_, &velocity[1], 4);
+    walk->up_speed_ = velocity.y;
     walk->leave_for_ = 2;
     walk->anim_state_ = kAcidDropState;
 }
@@ -90,11 +88,11 @@ bool try_walk_acid_drop(objects::FootMovement* walk)
 {
     if (!buttons_held(walk))
         return false;
-    std::array<float, 4> velocity = {{walk->vel_.x, walk->up_speed_, walk->vel_.z, 1.0f}};
-    if (!find_acid_drop(walk, velocity.data()))
+    maths::Vec4 velocity = {walk->vel_.x, walk->up_speed_, walk->vel_.z, 1.0f};
+    if (!find_acid_drop(walk, &velocity))
         return false;
     walk->ride_->start_riding(&walk->feeler_);
-    begin_drop_in(walk, velocity.data());
+    begin_drop_in(walk, velocity);
     return true;
 }
 
@@ -103,10 +101,10 @@ bool try_acid_drop(objects::FootMovement* walk)
 {
     if (!buttons_held(walk))
         return false;
-    std::array<float, 4> velocity = {{walk->vel_.x, walk->vel_.y, walk->vel_.z, walk->vel_.w}};
+    maths::Vec4 velocity = walk->vel_;
     // (a physics value, 0xC0491D2E, as the second component)
-    core::at(velocity, 1) = objects::FootMovement::get_param(0xC0491D2E);
-    if (!find_acid_drop(walk, velocity.data()))
+    velocity.y = objects::FootMovement::get_param(0xC0491D2E);
+    if (!find_acid_drop(walk, &velocity))
         return false;
     if (walk->feeler_hit_) {
         walk->trigger_->probe_touches_zone(kWalkEvents0064c63c.data(), &walk->feeler_);
@@ -114,7 +112,7 @@ bool try_acid_drop(objects::FootMovement* walk)
             return true;
     }
     walk->change_phase(1);
-    begin_drop_in(walk, velocity.data());
+    begin_drop_in(walk, velocity);
     return true;
 }
 

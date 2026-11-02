@@ -125,7 +125,7 @@ public:
     // 0x00420100
     [[nodiscard]] uint32_t get_linked_entity_name() const { return linked_entity_label_; }
     // 0x00420110: the model's texture `src` replaced by `dest` in `mesh` (All: in every mesh); false without a model.
-    bool swap_texture(uint32_t mesh, const char* src, const char* dest);
+    bool swap_texture(uint32_t mesh, const char* src, uint32_t dest);
     // 0x004202A0: geom `name` hidden or shown (sent to the server first when `send` and its player is this machine's).
     // True.
     bool conceal_mesh(uint32_t name, bool hide, bool send);

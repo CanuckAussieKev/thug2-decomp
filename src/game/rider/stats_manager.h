@@ -73,8 +73,8 @@ public:
     // 0x0051C950: whether the goals are checked: a skater, the game mode's flag 0x1DED1EA4, activated, the skate
     // module not in mode 0xE92ECAFE, and the first profile's name 0x0A7BE964.
     bool is_operative();
-    // 0x0051C9D0: +0xA10 = `a` unless `b` is +0xA14 (checked). `c` isn't used.
-    void set10(int a, int b, int c);
+    // 0x0051C9D0: the last trick's text kept (+0xA10) unless `score` is +0xA14 (checked). `c` isn't used.
+    void set10(const char* text, int score, int c);
     // 0x0051CA00: back to before the combo (script 0xD44EA68F): goals met but not done unmarked, the air and jump
     // phases and the two counters cleared, the starts back to the ends.
     void get_reset();
@@ -117,7 +117,7 @@ public:
     int last_points_{};                  // +0xA04
     float multiplier_{};                 // +0xA08
     float last_multiplier_{};            // +0xA0C
-    int value10_{};                      // +0xA10
+    const char* last_text_{};            // +0xA10 (written, never read)
     int value14_{};                      // +0xA14
     int difficulty_{};                   // +0xA18
     uint32_t cur_phase_{};               // +0xA1C this frame's (0x26A7CADF, 0xB39B4F1B, 0x439F4704)

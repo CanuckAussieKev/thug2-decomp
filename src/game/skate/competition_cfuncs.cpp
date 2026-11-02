@@ -21,7 +21,6 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 
@@ -265,9 +264,11 @@ bool cfunc_get_horse_string(script::Struct* params, script::Script* script)
 bool cfunc_is_current_horse_skater(script::Struct* params, script::Script*)
 {
     int id = 0; // (uninitialised in the original)
-    if (!params->fetch_int_value(0u, &id, 0))
-        params->read_hash_value(0u, raw::as<uint32_t>(&id), 1);
-    return current_horse_skater() == static_cast<uint32_t>(id);
+    if (params->fetch_int_value(0u, &id, 0))
+        return current_horse_skater() == static_cast<uint32_t>(id);
+    uint32_t name = 0; // (read into the same slot in the original: 0 here as the integer was)
+    params->read_hash_value(0u, &name, 1);
+    return current_horse_skater() == name;
 }
 
 // 0x005AFB40: TrickOffAllObjects <player> - the trick objects nobody holds given to the player (not with the debug

@@ -36,7 +36,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
 
@@ -623,7 +622,7 @@ void FallingTricksGoal::add_tricks(int count)
             change_owner(manager, container, key_text);
             script::free_struct(params);
         }
-        t.element = *raw::as<uint32_t>(static_cast<uint8_t*>(container) + 0x14); // its id
+        t.element = static_cast<objects::Entity*>(container)->ident_; // its id
         ++trick_total_;
 
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
@@ -981,18 +980,6 @@ void TrickBeatGoal::drop_move_entry(int index)
     core::at(tricks_, index).free = true;
 }
 
-namespace {
-// A sound's volume (sound::VolumeRef, 0x2C bytes; 0x0047B030 constructs it, 0x0047AD60 silences it; its destructor is
-// the empty function 0x005480A0).
-struct SoundVolume {
-    std::array<float, 5> channels;
-    int type;
-    std::array<uint8_t, 0x14> unknown18;
-};
-static_assert(sizeof(SoundVolume) == 0x2C, "layout must match the original");
-inline void destroy_sound_volume(SoundVolume*) {}
-} // namespace
-
 // 0x00575140
 TrickBeatGoal::~TrickBeatGoal()
 {
@@ -1033,14 +1020,11 @@ void TrickBeatGoal::update_beat()
                 sound->fetch_float(kVol, &volume, 0);
                 sound->fetch_float(kPitch, &pitch, 0);
                 pitch = static_cast<float>(static_cast<double>(pitch) * slomo);
-                SoundVolume level{};
-                auto* volume_of = raw::as<sound::VolumeRef>(&level);
-                new (volume_of) sound::VolumeRef;
-                volume_of->change_muted();
-                core::at(level.channels, 0) = volume;
-                core::at(level.channels, 1) = volume;
-                sound::g_audio_mixer->emit_sound(name, volume_of, pitch, 0, nullptr, 0);
-                destroy_sound_volume(&level);
+                sound::VolumeRef level;
+                level.change_muted();
+                core::at(level.lanes_, 0) = volume;
+                core::at(level.lanes_, 1) = volume;
+                sound::g_audio_mixer->emit_sound(name, &level, pitch, 0, nullptr, 0);
             }
         }
         if (++beat_ > kBeats - 1) {
@@ -1220,7 +1204,7 @@ void TrickBeatGoal::add_tricks(int count)
             change_owner(manager, container, key_text);
             script::free_struct(params);
         }
-        t.element = *raw::as<uint32_t>(static_cast<uint8_t*>(container) + 0x14);
+        t.element = static_cast<objects::Entity*>(container)->ident_;
         ++trick_total_;
         params = script::new_struct();
         if (!key_combo_text)

@@ -33,7 +33,6 @@
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -329,8 +328,7 @@ void RiderStateReset::seal() { state_ref_ = entity_->fetch_module(kSkaterState);
 void RiderStateReset::tick_frame()
 {
     GameEntity* skater = entity_;
-    core::down_cast<Rider>(skater)->update_shadow_light(static_cast<int>(cell::of(&skater->at_point_)),
-                                                          static_cast<int>(cell::of(&skater->basis_frame_)));
+    core::down_cast<Rider>(skater)->update_shadow_light(); // (the original passed the position and matrix: not read)
 }
 
 // 0x004FBE20

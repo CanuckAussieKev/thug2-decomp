@@ -47,7 +47,7 @@ public:
     // Free space, in 16 KB blocks (0 without a card).
     int get_free_blocks();
     // Add every file matching `pattern` in Save\ to `list` (a list head), with its date and size.
-    bool list_save_files(const char* pattern, FileLoad* list);
+    bool list_save_files(const char* pattern, memory::ListNode* list);
     // (shared with other classes: always true)
     bool always_true(int unused);
 

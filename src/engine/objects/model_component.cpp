@@ -29,7 +29,6 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -51,9 +50,9 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // (0x004939E0), and its lights (+0x2C, the folded getter 0x00532EB0).
 void model_hide(render::RenderModel* model, bool hide) { model->conceal(hide); }
 void model_hide_geom(render::RenderModel* model, uint32_t name, bool hide) { model->conceal_mesh(name, hide); }
-bool model_replace_texture(render::RenderModel* model, uint32_t mesh, const char* src, const char* dest)
+bool model_replace_texture(render::RenderModel* model, uint32_t mesh, const char* src, uint32_t dest)
 {
-    return model->replace_texture_with(mesh, src, cell::of(dest));
+    return model->replace_texture_with(mesh, src, dest);
 }
 render::Geom* model_geom(render::RenderModel* model, int index) { return model->fetch_geom(index); }
 void* model_bone_volumes(render::RenderModel* model) { return model->get_bone_volumes(); }
@@ -279,7 +278,7 @@ void MeshInstanceModule::rebuild_from_profile(void* profile, uint32_t build_scri
 }
 
 // 0x00420110
-bool MeshInstanceModule::swap_texture(uint32_t mesh, const char* src, const char* dest)
+bool MeshInstanceModule::swap_texture(uint32_t mesh, const char* src, uint32_t dest)
 {
     return mesh_instance_ && model_replace_texture(mesh_instance_, mesh, src, dest);
 }
