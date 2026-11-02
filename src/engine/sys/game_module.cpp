@@ -2,7 +2,6 @@
 
 #include "engine/sys/game_module.h"
 
-#include <cstdint>
 #include <memory>
 #include <new>
 

@@ -6,16 +6,13 @@
 
 #include <cctype>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <iterator>
-#include <span>
 #include <string_view>
 #include <array>
 
 #include "engine/core/dbg.h"
 #include "engine/script/cfuncs_scene.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "platform/registry.h"
 

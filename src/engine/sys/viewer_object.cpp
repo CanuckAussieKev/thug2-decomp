@@ -6,7 +6,6 @@
 #include <bit>
 #include <cstdint>
 #include <span>
-#include <cstdio>
 #include <cstring>
 #include <array>
 
@@ -34,8 +33,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/model_viewer.h"
-#include "platform/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/objects/model_component.h"

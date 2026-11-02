@@ -4,8 +4,6 @@
 #include "platform/keyboard.h"
 
 #include <cstdint>
-#include <cstring>
-
 #include <SDL2/SDL.h>
 #include <array>
 

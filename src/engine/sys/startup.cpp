@@ -5,7 +5,6 @@
 
 #include <windows.h>
 
-#include <cstdint>
 #include <cstring>
 
 #include "engine/assets/resource_registry.h"

@@ -11,7 +11,6 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "editor/level_editor_ui.h"
 #include "engine/core/task_list.h"
