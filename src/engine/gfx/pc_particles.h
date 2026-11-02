@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/gfx/particle_sets.h"
 #include "engine/maths/mat4.h"
@@ -59,6 +60,9 @@ struct PcParticleSystem final : Sparkle {
     // 0x004BBD20 (Ghidra never made it: 0x004BC240's tail): the path from the positions and sizes (through the mid
     // when useMid), less 1.5 times the spread.
     void update_path();
+
+    // The ring of bursts as a run.
+    [[nodiscard]] std::span<ParticleBurst> burst_ring() const { return {bursts, static_cast<std::size_t>(capacity)}; }
 
     bool emitting{}; // +0x190
     std::array<uint8_t, 3> unknown191{};

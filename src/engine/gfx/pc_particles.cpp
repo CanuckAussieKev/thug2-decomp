@@ -12,6 +12,7 @@
 #include <initializer_list>
 #include <span>
 
+#include "engine/core/cursor.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/surface_material.h"
@@ -79,8 +80,9 @@ double random_scale(uint32_t a)
 
 ParticleBurst* get_next(const PcParticleSystem* system, ParticleBurst* burst)
 {
-    ++burst;
-    return burst == system->bursts + system->capacity ? system->bursts : burst;
+    const std::span<ParticleBurst> ring = system->burst_ring();
+    const auto after = static_cast<std::size_t>(burst - ring.data()) + 1;
+    return &core::at(ring, after == ring.size() ? 0 : after);
 }
 
 // A quadratic through three points (x, y, z, w) at 0, `mid` and `end` (or a straight line from the first to the
@@ -91,13 +93,13 @@ struct Fit {
     float by, bz, bw;
     std::array<float, 4> c;
 };
-Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float mid, bool use_mid, bool spread_rounding)
+Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::span<const float, 4> p2, float end, float mid, bool use_mid, bool spread_rounding)
 {
     Fit fit{};
-    const double dx2 = static_cast<double>(p2[0]) - p0[0];
-    const double dy2 = static_cast<double>(p2[1]) - p0[1];
-    auto z2 = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
-    auto w2 = static_cast<float>(static_cast<double>(p2[3]) - p0[3]);
+    const double dx2 = static_cast<double>(core::at(p2, 0)) - core::at(p0, 0);
+    const double dy2 = static_cast<double>(core::at(p2, 1)) - core::at(p0, 1);
+    auto z2 = static_cast<float>(static_cast<double>(core::at(p2, 2)) - core::at(p0, 2));
+    auto w2 = static_cast<float>(static_cast<double>(core::at(p2, 3)) - core::at(p0, 3));
     if (!use_mid) {
         auto inverse = static_cast<float>(1.0f / static_cast<double>(end));
         fit.bx = dx2 * inverse;
@@ -112,10 +114,10 @@ Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float 
     const double dy2_mid2 = dy2 * mid2;
     const double z2_mid2 = static_cast<double>(z2) * mid2;
     auto w2_mid2 = static_cast<float>(static_cast<double>(w2) * mid2);
-    const double dx1 = static_cast<double>(p1[0]) - p0[0];
-    const double dy1 = static_cast<double>(p1[1]) - p0[1];
-    auto z1 = static_cast<float>(static_cast<double>(p1[2]) - p0[2]);
-    auto w1 = static_cast<float>(static_cast<double>(p1[3]) - p0[3]);
+    const double dx1 = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
+    const double dy1 = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
+    auto z1 = static_cast<float>(static_cast<double>(core::at(p1, 2)) - core::at(p0, 2));
+    auto w1 = static_cast<float>(static_cast<double>(core::at(p1, 3)) - core::at(p0, 3));
     auto dx1f = static_cast<float>(dx1), dy1f = static_cast<float>(dy1);
     auto end2 = static_cast<float>(static_cast<double>(end) * end);
     auto dx1_end2 = static_cast<float>(dx1 * end2);
@@ -225,7 +227,7 @@ void PcParticleSystem::initialise()
     capacity = 5;
     live = 0;
     bursts = static_cast<ParticleBurst*>(memory::alloc(0x8C));
-    newest = bursts + capacity - 1;
+    newest = &core::at(burst_ring(), capacity - 1);
     oldest = bursts;
     emitting = false;
 
@@ -251,7 +253,7 @@ void PcParticleSystem::initialise()
     std::array<float, 4> start = {{core::at(args_.box_, 0).x, core::at(args_.box_, 0).y, core::at(args_.box_, 0).z, core::at(args_.radius_, 0)}};
     std::array<float, 4> middle = {{core::at(args_.box_, 1).x, core::at(args_.box_, 1).y, core::at(args_.box_, 1).z, core::at(args_.radius_, 1)}};
     std::array<float, 4> last = {{core::at(args_.box_, 2).x, core::at(args_.box_, 2).y, core::at(args_.box_, 2).z, core::at(args_.radius_, 2)}};
-    const Fit fit = get_fit(start.data(), middle.data(), last.data(), args_.lifetime_, get_mid_time(this), args_.use_mid_, true);
+    const Fit fit = get_fit(start, middle, last, args_.lifetime_, get_mid_time(this), args_.use_mid_, true);
     spread.a = {core::at(start, 0), core::at(start, 1), core::at(start, 2), core::at(start, 3)};
     spread.b = {static_cast<float>(fit.bx), fit.by, fit.bz, fit.bw};
     spread.c = {core::at(fit.c, 0), core::at(fit.c, 1), core::at(fit.c, 2), core::at(fit.c, 3)};
@@ -267,7 +269,7 @@ void PcParticleSystem::update_path()
     std::array<float, 4> start = {{core::at(args_.at_point_, 0).x, core::at(args_.at_point_, 0).y, core::at(args_.at_point_, 0).z, core::at(args_.extent_, 0)}};
     std::array<float, 4> middle = {{core::at(args_.at_point_, 1).x, core::at(args_.at_point_, 1).y, core::at(args_.at_point_, 1).z, core::at(args_.extent_, 1)}};
     std::array<float, 4> last = {{core::at(args_.at_point_, 2).x, core::at(args_.at_point_, 2).y, core::at(args_.at_point_, 2).z, core::at(args_.extent_, 2)}};
-    const Fit fit = get_fit(start.data(), middle.data(), last.data(), args_.lifetime_, get_mid_time(this), args_.use_mid_, false);
+    const Fit fit = get_fit(start, middle, last, args_.lifetime_, get_mid_time(this), args_.use_mid_, false);
     // Less 1.5 times the spread: its x and w products unrounded, its y and z rounded first.
     auto less = [](double value, float spread_value, bool rounded) {
         const double offset = static_cast<double>(spread_value) * 1.5f;
@@ -368,10 +370,12 @@ void PcParticleSystem::draw(bool advance)
         for (int k = 0; k < 4; ++k)
             core::at(core::at(colour_table, i), k) = static_cast<float>(static_cast<double>(core::at(core::at(args_.shade_, i), k)) * (1.0f / 255.0f));
 
-    const ParticleBurst* burst = oldest;
-    for (int b = 0; b < live; ++b, ++burst) {
-        if (burst == bursts + capacity)
-            burst = bursts;
+    const std::span<ParticleBurst> ring = burst_ring();
+    auto place = static_cast<std::size_t>(oldest - ring.data());
+    for (int b = 0; b < live; ++b, ++place) {
+        if (place == ring.size())
+            place = 0;
+        const ParticleBurst* burst = &core::at(ring, place);
         auto colour_mid = static_cast<float>(static_cast<double>(args_.colour_mid_percent_) * 0.01f * args_.lifetime_);
         float age = burst->age;
         random_a() = core::at(burst->seed, 0);
@@ -382,8 +386,9 @@ void PcParticleSystem::draw(bool advance)
         while (remaining != 0) {
             IDirect3DVertexBuffer9* buffer = nullptr;
             uint32_t first_vertex = 0, room = 0;
-            auto* vertex = static_cast<ParticleVertex*>(
+            auto* locked = static_cast<ParticleVertex*>(
                 os_layer::lock_dynamic_vertices(remaining * 4, sizeof(ParticleVertex), &buffer, &first_vertex, &room));
+            core::Cursor<ParticleVertex> vertex(std::span<ParticleVertex>(locked, room));
             room >>= 2;
             if (room > 0x1000)
                 room = 0x1000;
@@ -406,23 +411,23 @@ void PcParticleSystem::draw(bool advance)
                     random_c() = c;
 
                     // The colour: start to end, or through the mid.
-                    const float* from = core::at(colour_table, 0).data();
-                    const float* to = core::at(colour_table, 2).data();
+                    const std::array<float, 4>* from = &core::at(colour_table, 0);
+                    const std::array<float, 4>* to = &core::at(colour_table, 2);
                     double fraction = 0.0;
                     if (args_.colour_use_mid_) {
                         if (t > colour_mid) {
                             fraction = (t - colour_mid) / (static_cast<double>(args_.lifetime_) - colour_mid);
-                            from = core::at(colour_table, 1).data();
+                            from = &core::at(colour_table, 1);
                         } else {
                             fraction = t / colour_mid;
-                            to = core::at(colour_table, 1).data();
+                            to = &core::at(colour_table, 1);
                         }
                     } else {
                         fraction = t / args_.lifetime_;
                     }
                     auto channel = [&](int k) {
                         return static_cast<uint32_t>(
-                                   truncate(((static_cast<double>(to[k]) - from[k]) * fraction + from[k]) * 255.0f)) &
+                                   truncate(((static_cast<double>(core::at(*to, k)) - core::at(*from, k)) * fraction + core::at(*from, k)) * 255.0f)) &
                                0xFF;
                     };
                     const uint32_t alpha = channel(3);
