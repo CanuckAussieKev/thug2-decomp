@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "engine/core/no_destroy.h"
 
 namespace lzss {
 
@@ -20,26 +21,36 @@ constexpr int kF = 18;              // longest match
 constexpr int kLiteralRunLimit = 2; // matches this short or shorter are stored as literals
 constexpr int kNil = kN;            // "no node" in the search tree
 
-std::span<int> g_tree_parent;
-std::span<int> g_tree_right;
-std::span<int> g_tree_left;
-std::span<uint8_t> g_window;
-int g_longest_run;
-int g_dict_hit_offset;
-uint32_t g_bytes_in;
-uint32_t g_bytes_out;
-uint32_t g_emit_counter;
+// NOT ORIGINAL grouping - the compressor's search tree, window, match and counts while it runs. Made on first use,
+// never destroyed (lzss_state()).
+struct LzssState {
+    std::span<int> tree_parent_{};
+    std::span<int> tree_right_{};
+    std::span<int> tree_left_{};
+    std::span<uint8_t> window_{};
+    int longest_run_{};
+    int dict_hit_offset_{};
+    uint32_t bytes_in_{};
+    uint32_t bytes_out_{};
+    uint32_t emit_counter_{};
+};
+
+LzssState& lzss_state()
+{
+    static core::NoDestroy<LzssState> state;
+    return state.get();
+}
 
 // Encoder state, kept in the exe's globals.
-std::span<uint8_t>& pane() { return g_window; }            // N + F - 1 bytes
-std::span<int>& get_left() { return g_tree_left; }         // N + 1 entries
-std::span<int>& get_right() { return g_tree_right; }       // N + 257 entries (256 tree roots)
-std::span<int>& current_parent() { return g_tree_parent; } // N + 1 entries
-int& longest_run_ref() { return g_longest_run; }
-int& window_match_offset() { return g_dict_hit_offset; }
-uint32_t& bytes_in() { return g_bytes_in; }
-uint32_t& bytes_out() { return g_bytes_out; }
-uint32_t& emit_counter() { return g_emit_counter; }
+std::span<uint8_t>& pane() { return lzss_state().window_; }            // N + F - 1 bytes
+std::span<int>& get_left() { return lzss_state().tree_left_; }         // N + 1 entries
+std::span<int>& get_right() { return lzss_state().tree_right_; }       // N + 257 entries (256 tree roots)
+std::span<int>& current_parent() { return lzss_state().tree_parent_; } // N + 1 entries
+int& longest_run_ref() { return lzss_state().longest_run_; }
+int& window_match_offset() { return lzss_state().dict_hit_offset_; }
+uint32_t& bytes_in() { return lzss_state().bytes_in_; }
+uint32_t& bytes_out() { return lzss_state().bytes_out_; }
+uint32_t& emit_counter() { return lzss_state().emit_counter_; }
 
 void free_tree()
 {

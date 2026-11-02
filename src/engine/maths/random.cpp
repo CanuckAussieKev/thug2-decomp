@@ -13,11 +13,16 @@ struct RandomState {
     uint32_t value;
 };
 
-RandomState g_stream1;
-RandomState g_stream2;
-
-RandomState& stream1() { return g_stream1; }
-RandomState& stream2() { return g_stream2; }
+RandomState& stream1()
+{
+    static RandomState stream1{};
+    return stream1;
+}
+RandomState& stream2()
+{
+    static RandomState stream2{};
+    return stream2;
+}
 
 constexpr uint32_t kInitialMul = 0x12B9B0A1;
 constexpr uint32_t kInitialAdd = 0x0AA2FB3F;

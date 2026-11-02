@@ -12,11 +12,11 @@ static_assert(offsetof(ArcRotationBlender, axis) == 0x80 && offsetof(ArcRotation
               "layout must match the original");
 
 namespace {
-float g_slerp_small_rotation_threshold{0.034906585f};
+constexpr float kSlerpSmallRotationThreshold{0.034906585f};
 
 // Below this angle the rotation counts as small. It lives in the exe's writable data (0x0067C648, 2 degrees
 // by default), so it is read from there rather than copied.
-float small_rotation_threshold() { return g_slerp_small_rotation_threshold; }
+float small_rotation_threshold() { return kSlerpSmallRotationThreshold; }
 
 } // namespace
 
