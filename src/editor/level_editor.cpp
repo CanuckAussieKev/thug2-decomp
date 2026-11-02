@@ -2537,7 +2537,8 @@ constexpr uint32_t kHoverTint = 0x8098C8C8;       // RGBA: warmer and brighter
 constexpr uint32_t kSelectedTintLow = 0x80D0A060; // a cyan pulse
 constexpr uint32_t kSelectedTintHigh = 0x80FFD850;
 constexpr uint32_t kBrowseTint = 0x8060E0E0; // the browser's entry: yellow
-bool g_hover_tinted, g_selected_tinted;      // (else their boxes are drawn)
+bool g_hover_tinted; // (else their boxes are drawn)
+bool g_selected_tinted;
 
 bool tint_sectors(const std::vector<uint32_t>& sectors, uint32_t rgba)
 {

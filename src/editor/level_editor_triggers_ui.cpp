@@ -37,7 +37,9 @@ ImVec4 get_colour(uint32_t argb)
 std::string get_name_of(uint32_t checksum) { return name_for(checksum, script::kept_qb_name(checksum)); }
 
 // The level's restarts (names), and the scripts its nodes' TriggerScripts name - made again when the nodes change.
-std::vector<std::string> g_restarts, g_scripts, g_cameras; // (map4: the editor's camera nodes)
+std::vector<std::string> g_restarts; // (map4: the editor's camera nodes)
+std::vector<std::string> g_scripts;
+std::vector<std::string> g_cameras;
 uint32_t g_lists_generation = 0xFFFFFFFF;
 void update_lists()
 {
