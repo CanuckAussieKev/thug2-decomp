@@ -62,7 +62,6 @@ uint32_t host_first_address(const char* name)
 void c_exit() { _cexit(); }
 unsigned get_instant() { return linked_time(nullptr); }
 
-
 // --- atof ---
 
 // The game's atof reads only [space] [sign] digits [. digits] [e|E|d|D [sign] digits] - no hexadecimal, no inf / nan
@@ -264,10 +263,15 @@ int game_stricmp(const char* a, const char* b)
 // --- rand ---
 
 namespace {
-thread_local GameRandom g_t_random;
+// Each thread's own sequence.
+GameRandom& thread_random()
+{
+    thread_local GameRandom random;
+    return random;
 }
+} // namespace
 
-void game_srand(unsigned seed) { g_t_random.state = seed; }
-int game_rand() { return g_t_random.get_next(); }
+void game_srand(unsigned seed) { thread_random().state = seed; }
+int game_rand() { return thread_random().get_next(); }
 
 } // namespace crt

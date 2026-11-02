@@ -29,13 +29,35 @@
 
 namespace script {
 
-Script* g_running_script;
-Script* g_script_list_head;
-bool g_one_per_frame_released;
-int g_script_count;
-uint32_t g_next_script_unique_id;
-bool g_updating_spawned_scripts;
-bool g_delete_spawned_scripts_pending;
+namespace {
+
+// NOT ORIGINAL grouping - the scripts' list and counters (the original's globals). Made on first use, never destroyed
+// (script_run_state()).
+struct ScriptRunState {
+    Script* running_script_{};
+    Script* script_list_head_{};
+    bool one_per_frame_released_{};
+    int script_count_{};
+    uint32_t next_script_unique_id_{};
+    bool updating_spawned_scripts_{};
+    bool delete_spawned_scripts_pending_{};
+};
+
+ScriptRunState& script_run_state()
+{
+    static core::NoDestroy<ScriptRunState> state;
+    return state.get();
+}
+
+} // namespace
+
+Script*& script_list_head() { return script_run_state().script_list_head_; }
+Script*& current_script_var() { return script_run_state().running_script_; }
+int& script_count() { return script_run_state().script_count_; }
+uint32_t& next_script_unique_id() { return script_run_state().next_script_unique_id_; }
+bool& updating_spawned_scripts() { return script_run_state().updating_spawned_scripts_; }
+bool& delete_spawned_scripts_pending() { return script_run_state().delete_spawned_scripts_pending_; }
+bool& one_per_frame_released() { return script_run_state().one_per_frame_released_; }
 memory::PoolPair& script_pools()
 {
     static core::NoDestroy<memory::PoolPair> script_pools;

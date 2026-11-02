@@ -2591,7 +2591,11 @@ constexpr uint32_t kHoverTint = 0x8098C8C8;       // RGBA: warmer and brighter
 constexpr uint32_t kSelectedTintLow = 0x80D0A060; // a cyan pulse
 constexpr uint32_t kSelectedTintHigh = 0x80FFD850;
 constexpr uint32_t kBrowseTint = 0x8060E0E0; // the browser's entry: yellow
-bool g_hover_tinted; // (else their boxes are drawn)
+bool& hover_tinted() // (else their boxes are drawn)
+{
+    static bool hover_tinted{};
+    return hover_tinted;
+}
 bool& selected_tinted()
 {
     static bool selected_tinted{};
@@ -2620,13 +2624,13 @@ void update_highlights()
         selected_tinted() &= object_edit::get_tint(object, pulse);
     if (objects.empty() && scenery::has_selection())
         selected_tinted() = tint_sectors(scenery::get_selection(), pulse);
-    g_hover_tinted = true;
+    hover_tinted() = true;
     objects::GameEntity* hover = drag_state().dragging_ ? nullptr : get_live(drag_state().hover_);
     if (hover && !is_picked(hover))
-        g_hover_tinted = object_edit::get_tint(hover, kHoverTint);
+        hover_tinted() = object_edit::get_tint(hover, kHoverTint);
     else if (!drag_state().dragging_ && drag_state().hover_sector_ && !scenery::get_selected(drag_state().hover_sector_) &&
              !scenery::why_not_movable(drag_state().hover_sector_))
-        g_hover_tinted = tint_sectors(core::at(platform::keyboard_keys(), SDL_SCANCODE_LALT) ||
+        hover_tinted() = tint_sectors(core::at(platform::keyboard_keys(), SDL_SCANCODE_LALT) ||
                                               core::at(platform::keyboard_keys(), SDL_SCANCODE_RALT)
                                           ? std::vector<uint32_t>{drag_state().hover_sector_}
                                           : scenery::hover_group(drag_state().hover_sector_),
@@ -6620,7 +6624,7 @@ void blit()
     OrientedBox box{};
     // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
     // its one piece with Alt)
-    if (!g_hover_tinted || ui::underway()) {
+    if (!hover_tinted() || ui::underway()) {
         if (hover && !is_picked(hover) && object_edit::model_box(hover, &box)) {
             add_box(box, frame, 0xFFFFFF00, &lines);
         } else if (!drag_state().dragging_ && drag_state().hover_sector_ && !scenery::get_selected(drag_state().hover_sector_)) {

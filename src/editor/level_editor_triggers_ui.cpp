@@ -37,12 +37,12 @@ ImVec4 get_colour(uint32_t argb)
 
 std::string get_name_of(uint32_t checksum) { return name_for(checksum, script::kept_qb_name(checksum)); }
 
-// The level's restarts (names), and the scripts its nodes' TriggerScripts name - made again when the nodes change.
-std::vector<std::string> g_restarts; // (map4: the editor's camera nodes)
-std::vector<std::string> g_scripts;
 // NOT ORIGINAL grouping - level_editor_triggers_ui.cpp's state (were globals). Made on first use, never destroyed
 // (level_editor_triggers_ui_state()).
 struct LevelEditorTriggersUiState {
+    // The level's restarts (names), and the scripts its nodes' TriggerScripts name - made again when the nodes change.
+    std::vector<std::string> restarts_{}; // (map4: the editor's camera nodes)
+    std::vector<std::string> scripts_{};
     std::vector<std::string> cameras_{};
     uint32_t lists_generation_ = 0xFFFFFFFF;
 };
@@ -58,26 +58,26 @@ void update_lists()
     if (level_editor_triggers_ui_state().lists_generation_ == nodes::get_generation())
         return;
     level_editor_triggers_ui_state().lists_generation_ = nodes::get_generation();
-    g_restarts.clear();
-    g_scripts.clear();
+    level_editor_triggers_ui_state().restarts_.clear();
+    level_editor_triggers_ui_state().scripts_.clear();
     level_editor_triggers_ui_state().cameras_.clear();
     for (const cameras::ViewCam& camera : cameras::get_all())
         level_editor_triggers_ui_state().cameras_.push_back(camera.name);
     static const uint32_t kTriggerScript = 0x2CA8A299;
     for (const nodes::Elem& node : nodes::get_all()) {
         if (node.family == nodes::Family::kSpawn && !node.hidden && node.name)
-            g_restarts.push_back(get_name_of(node.name));
+            level_editor_triggers_ui_state().restarts_.push_back(get_name_of(node.name));
         if (!node.trigger_script_ || node.added)
             continue;
         script::Struct* s = nodes::struct_of(node);
         uint32_t script = 0;
         if (s && s->read_hash_value(kTriggerScript, &script, 0) && script) {
             const std::string name = get_name_of(script);
-            if (std::ranges::find(g_scripts, name) == g_scripts.end())
-                g_scripts.push_back(name);
+            if (std::ranges::find(level_editor_triggers_ui_state().scripts_, name) == level_editor_triggers_ui_state().scripts_.end())
+                level_editor_triggers_ui_state().scripts_.push_back(name);
         }
     }
-    std::ranges::sort(g_scripts);
+    std::ranges::sort(level_editor_triggers_ui_state().scripts_);
 }
 
 // A name field: typed, applied when let go (Enter or leaving it). Its buffer follows `value` while it isn't edited.
@@ -153,9 +153,9 @@ void proxim_section(uint32_t node)
     static std::array<char, 64> g_exit_buffer;
     static bool g_enter_editing, g_exit_editing;
     bool changed = false;
-    changed |= name_combo("On entering", &e.enter, g_scripts);
+    changed |= name_combo("On entering", &e.enter, level_editor_triggers_ui_state().scripts_);
     changed |= name_field("Or by name##enter", &e.enter, g_enter_buffer.data(), sizeof(g_enter_buffer), &g_enter_editing);
-    changed |= name_combo("On leaving", &e.exit, g_scripts);
+    changed |= name_combo("On leaving", &e.exit, level_editor_triggers_ui_state().scripts_);
     changed |= name_field("Or by name##exit", &e.exit, g_exit_buffer.data(), sizeof(g_exit_buffer), &g_exit_editing);
     gui::text_disabled("(none: node's own script)");
     int shape = e.shape ? (e.box ? 2 : 1) : 0;
@@ -424,15 +424,15 @@ void inspector_section(int index)
     static bool g_target_editing, g_script_editing, g_text_editing;
     switch (s.kind) {
     case Kind::kKill:
-        changed |= name_combo("Restart", &s.target, g_restarts);
+        changed |= name_combo("Restart", &s.target, level_editor_triggers_ui_state().restarts_);
         changed |= ImGui::Checkbox("Water", &s.water);
         break;
     case Kind::kJumpTo:
-        changed |= name_combo("To", &s.target, g_restarts);
+        changed |= name_combo("To", &s.target, level_editor_triggers_ui_state().restarts_);
         changed |= name_field("Or a node", &s.target, target.data(), sizeof(target), &g_target_editing);
         break;
     case Kind::kScripts:
-        changed |= name_combo("Script", &s.script, g_scripts);
+        changed |= name_combo("Script", &s.script, level_editor_triggers_ui_state().scripts_);
         changed |= name_field("Or by name", &s.script, script.data(), sizeof(script), &g_script_editing);
         if (!a->problem && (a->calls.kill || a->calls.teleport || a->calls.end_gap_ || a->calls.start_gap_))
             gui::text_disabled("It calls: %s", kind_name(kind_of_calls(a->calls, true)));

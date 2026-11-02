@@ -552,7 +552,13 @@ struct Install {
         net::set_enqueue_filter(filter_outgoing);
         gfx::set_multiplayer_unlock(unlock_time_of_day);
     }
-} g_install;
+};
+
+Install& install()
+{
+    static core::NoDestroy<Install> state;
+    return state.get();
+}
 
 } // namespace
 

@@ -559,13 +559,18 @@ void remove_light(uint32_t name) { render::delete_scene_light(name); }
 
 void get_forget();
 
-void (*g_array_removed_listener)(uint32_t name); // (set_array_removed_listener)
+using ArrayRemovedListener = void (*)(uint32_t name);
+ArrayRemovedListener& array_removed_listener() // (set_array_removed_listener)
+{
+    static ArrayRemovedListener listener{};
+    return listener;
+}
 
 // The node manager's hook: the level's array going takes the overlay with it.
 void on_array_removed(uint32_t name)
 {
-    if (g_array_removed_listener)
-        g_array_removed_listener(name);
+    if (array_removed_listener())
+        array_removed_listener()(name);
     if (name == nodes::overlay_array() || !level_editor_node_create_state().registered_ || name != level_editor_node_create_state().level_array_)
         return;
     get_log("level editor: the level's node array left - its %u added nodes go with it",
@@ -796,7 +801,7 @@ bool in_level()
 
 void set_array_removed_listener(void (*listener)(uint32_t name))
 {
-    g_array_removed_listener = listener;
+    array_removed_listener() = listener;
     level_nodes::set_node_array_removed_hook(&on_array_removed);
 }
 

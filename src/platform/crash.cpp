@@ -44,6 +44,7 @@ struct CrashState {
     // The exception the vectored logger reported last (the unhandled filter doesn't report it twice).
     const EXCEPTION_RECORD* reported_record_ = nullptr;
     uintptr_t reported_address_ = 0;
+    void (*crash_hook_)() = nullptr; // (set_crash_hook)
 };
 
 CrashState& crash_state()
@@ -52,12 +53,10 @@ CrashState& crash_state()
     return state.get();
 }
 
-void (*g_crash_hook)() = nullptr;
-
 void run_crash_hook()
 {
-    if (g_crash_hook)
-        g_crash_hook();
+    if (crash_state().crash_hook_)
+        crash_state().crash_hook_();
 }
 
 // The end of every fatal report: the crash hook, the exit code logged, the process ended. A second thread that
@@ -325,7 +324,7 @@ constexpr auto kFaultNames = std::to_array<FaultName>({
 
 } // namespace
 
-void set_crash_hook(void (*hook)()) { g_crash_hook = hook; }
+void set_crash_hook(void (*hook)()) { crash_state().crash_hook_ = hook; }
 
 bool is_fatal_exception(uint32_t code, bool* any_module)
 {

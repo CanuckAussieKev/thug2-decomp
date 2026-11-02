@@ -425,7 +425,13 @@ struct BoxDrag {
     bool armed = false, pressed = false, active = false;
     float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     uint8_t mods = 0;
-} g_box;
+};
+
+BoxDrag& box_drag()
+{
+    static core::NoDestroy<BoxDrag> state;
+    return state.get();
+}
 
 struct OrganizeStep : ModuleStep {
     State state;
@@ -828,28 +834,28 @@ bool in_group(const std::string& group, const nodes::Elem& node)
 
 void arm_box()
 {
-    g_box.armed = true;
+    box_drag().armed = true;
     show_message("Box Select: drag in the view");
 }
-bool box_armed() { return g_box.armed; }
+bool box_armed() { return box_drag().armed; }
 
 void box_press(float x, float y, uint8_t mods)
 {
-    g_box.armed = false;
-    g_box.pressed = true;
-    g_box.active = false;
-    g_box.x0 = g_box.x1 = x;
-    g_box.y0 = g_box.y1 = y;
-    g_box.mods = mods;
+    box_drag().armed = false;
+    box_drag().pressed = true;
+    box_drag().active = false;
+    box_drag().x0 = box_drag().x1 = x;
+    box_drag().y0 = box_drag().y1 = y;
+    box_drag().mods = mods;
 }
 
 namespace {
 
 void apply_box()
 {
-    const Rect2 box = rect_of(g_box.x0, g_box.y0, g_box.x1, g_box.y1);
-    const bool crossing = crossing_drag(g_box.x0, g_box.x1);
-    const int op = (g_box.mods & actions::kShift) ? 1 : (g_box.mods & actions::kCtrl) ? 2 : 0;
+    const Rect2 box = rect_of(box_drag().x0, box_drag().y0, box_drag().x1, box_drag().y1);
+    const bool crossing = crossing_drag(box_drag().x0, box_drag().x1);
+    const int op = (box_drag().mods & actions::kShift) ? 1 : (box_drag().mods & actions::kCtrl) ? 2 : 0;
     const uint32_t filter = pick_filter_now();
     std::vector<uint32_t> objects, sectors;
     if (filter & picking::kObjects) {
@@ -922,29 +928,29 @@ void apply_box()
 
 void box_track(bool down, float x, float y)
 {
-    if (!g_box.pressed)
+    if (!box_drag().pressed)
         return;
     if (down) {
-        g_box.x1 = x;
-        g_box.y1 = y;
-        if (!g_box.active && std::fabs(x - g_box.x0) + std::fabs(y - g_box.y0) >= 6.0f)
-            g_box.active = true;
+        box_drag().x1 = x;
+        box_drag().y1 = y;
+        if (!box_drag().active && std::fabs(x - box_drag().x0) + std::fabs(y - box_drag().y0) >= 6.0f)
+            box_drag().active = true;
         return;
     }
-    g_box.pressed = false;
-    if (g_box.active)
+    box_drag().pressed = false;
+    if (box_drag().active)
         apply_box();
-    g_box.active = false;
+    box_drag().active = false;
 }
 
-bool box_active() { return g_box.pressed && g_box.active; }
+bool box_active() { return box_drag().pressed && box_drag().active; }
 
 bool box_outline(Rect2* rect, bool* crossing)
 {
     if (!box_active())
         return false;
-    *rect = rect_of(g_box.x0, g_box.y0, g_box.x1, g_box.y1);
-    *crossing = crossing_drag(g_box.x0, g_box.x1);
+    *rect = rect_of(box_drag().x0, box_drag().y0, box_drag().x1, box_drag().y1);
+    *crossing = crossing_drag(box_drag().x0, box_drag().x1);
     return true;
 }
 

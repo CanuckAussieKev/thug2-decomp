@@ -2588,7 +2588,13 @@ struct LastView {
     Lens lens = {};
     std::array<uint32_t, 4> viewport = {};
     float near_z_ = 1.0f;
-} g_last_view;
+};
+
+LastView& last_view()
+{
+    static core::NoDestroy<LastView> state;
+    return state.get();
+}
 struct DrawnHandle {
     int handle;
     float x, y;
@@ -2614,17 +2620,23 @@ struct ResizeDrag {
     V3 pos0 = {}, size0 = {}, start = {}, direction = {};
     float yaw = 0.0f, s0 = 0.0f;
     bool proxim = false, sphere = false; // (a proximity node's shape)
-} g_resize;
+};
+
+ResizeDrag& resize_drag()
+{
+    static core::NoDestroy<ResizeDrag> state;
+    return state.get();
+}
 
 void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z)
 {
-    g_last_view.have = true;
-    g_last_view.camera = camera;
-    g_last_view.frame = frame;
-    g_last_view.lens = lens;
+    last_view().have = true;
+    last_view().camera = camera;
+    last_view().frame = frame;
+    last_view().lens = lens;
     for (int i = 0; i < 4; ++i)
-        core::at(g_last_view.viewport, i) = core::at(viewport, i);
-    g_last_view.near_z_ = near_z;
+        core::at(last_view().viewport, i) = core::at(viewport, i);
+    last_view().near_z_ = near_z;
 }
 
 const Added* alive_named(uint32_t node)
@@ -2700,15 +2712,15 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
 {
     trigger_handles().drawn_handles_.clear();
     HandleShape shape;
-    if (!g_last_view.have || !shape_for(stored_selected_node(), &shape))
+    if (!last_view().have || !shape_for(stored_selected_node(), &shape))
         return;
     for (int h = 0; h < 6; ++h) {
         const V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
         float nx = 0.0f, ny = 0.0f, x = 0.0f, y = 0.0f;
-        if (!cast_onto(g_last_view.camera, g_last_view.frame, g_last_view.lens, p, g_last_view.near_z_, &nx, &ny))
+        if (!cast_onto(last_view().camera, last_view().frame, last_view().lens, p, last_view().near_z_, &nx, &ny))
             continue;
-        ndc_to_pixel(g_last_view.viewport, nx, ny, &x, &y);
-        const bool lit = h == trigger_handles().hover_handle_ || (g_resize.on && h == g_resize.handle);
+        ndc_to_pixel(last_view().viewport, nx, ny, &x, &y);
+        const bool lit = h == trigger_handles().hover_handle_ || (resize_drag().on && h == resize_drag().handle);
         const uint32_t colour = lit ? 0xFFFFFF40u : core::at(kHandleColours, h >> 1);
         circles->push_back({.x = x, .y = y, .radius = lit ? 7.0f : 5.5f, .argb = colour, .filled = true, .thickness = 1.0f});
         circles->push_back({.x = x, .y = y, .radius = lit ? 7.0f : 5.5f, .argb = 0xFF101010u, .filled = false, .thickness = 1.0f});
@@ -2752,40 +2764,40 @@ bool begin_resize(int handle, V3 origin, V3 dir)
     if (!closest_on_axis(r.start, r.direction, origin, dir, &r.s0))
         return false; // (looking along the axis: no grip on it)
     r.on = true;
-    g_resize = r;
+    resize_drag() = r;
     note_undo(); // (the state before: one undo step, taken by the editor next frame)
     return true;
 }
 
 void rescale(V3 origin, V3 dir, bool snap)
 {
-    if (!g_resize.on)
+    if (!resize_drag().on)
         return;
     float s = 0.0f;
-    if (!closest_on_axis(g_resize.start, g_resize.direction, origin, dir, &s))
+    if (!closest_on_axis(resize_drag().start, resize_drag().direction, origin, dir, &s))
         return;
-    float along = s - g_resize.s0;
+    float along = s - resize_drag().s0;
     if (!std::isfinite(along) || std::fabs(along) > 50000.0f)
         return; // (the ray nearly along the axis: far off)
-    const int axis = g_resize.handle >> 1;
-    const float size0 = axis == 0 ? g_resize.size0.x : axis == 1 ? g_resize.size0.y : g_resize.size0.z;
+    const int axis = resize_drag().handle >> 1;
+    const float size0 = axis == 0 ? resize_drag().size0.x : axis == 1 ? resize_drag().size0.y : resize_drag().size0.z;
     if (snap)
         along = snap_to_grid(size0 + along, 25.0f) - size0;
     V3 pos{}, size{};
-    resize_face(g_resize.pos0, g_resize.yaw, g_resize.size0, g_resize.handle, along, &pos, &size);
-    if (g_resize.proxim) {
+    resize_face(resize_drag().pos0, resize_drag().yaw, resize_drag().size0, resize_drag().handle, along, &pos, &size);
+    if (resize_drag().proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
         // its middle kept as an offset from the node)
-        const objects::ProximNode* p = is_proxim(g_resize.node) ? objects::proxim_get_node(g_resize.node) : nullptr;
+        const objects::ProximNode* p = is_proxim(resize_drag().node) ? objects::proxim_get_node(resize_drag().node) : nullptr;
         if (!p) {
-            g_resize.on = false;
+            resize_drag().on = false;
             return;
         }
-        ProximEdit e = proxim_of(g_resize.node) ? *proxim_of(g_resize.node) : ProximEdit{};
-        e.node = g_resize.node;
+        ProximEdit e = proxim_of(resize_drag().node) ? *proxim_of(resize_drag().node) : ProximEdit{};
+        e.node = resize_drag().node;
         e.shape = true;
-        e.box = !g_resize.sphere;
-        if (g_resize.sphere) {
+        e.box = !resize_drag().sphere;
+        if (resize_drag().sphere) {
             e.radius = std::max(kProximMin, std::min(kProximMax, size0 * 0.5f + along));
         } else {
             e.size = size;
@@ -2794,27 +2806,27 @@ void rescale(V3 origin, V3 dir, bool snap)
         set_proxim(e, false);
         return;
     }
-    const int i = spec_index(g_resize.name);
+    const int i = spec_index(resize_drag().name);
     if (i < 0) {
-        g_resize.on = false;
+        resize_drag().on = false;
         return;
     }
     Spec spec = core::at(level_editor_triggers_state().specs_, i);
     if (spec.size.x != size.x || spec.size.y != size.y || spec.size.z != size.z) {
         spec.size = size;
-        set_spec(g_resize.name, spec, false);
+        set_spec(resize_drag().name, spec, false);
     }
     node_edit::Values values;
-    if (node_edit::get_take_in(g_resize.node, &values) &&
+    if (node_edit::get_take_in(resize_drag().node, &values) &&
         (values.pos.x != pos.x || values.pos.y != pos.y || values.pos.z != pos.z)) {
         values.pos = pos;
-        node_edit::assign_value(g_resize.node, values);
+        node_edit::assign_value(resize_drag().node, values);
     }
 }
 
-void end_resize() { g_resize.on = false; }
+void end_resize() { resize_drag().on = false; }
 
-bool resizing() { return g_resize.on; }
+bool resizing() { return resize_drag().on; }
 
 // --- leaving (exit triggers) ---
 

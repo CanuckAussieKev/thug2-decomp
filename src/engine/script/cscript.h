@@ -355,22 +355,15 @@ constexpr uint8_t kScriptFlagPaused = 0x04;
 constexpr uint8_t kScriptFlagPauseWithObject = 0x08; // not updated while its object says no (vtable +0x1C)
 constexpr uint8_t kScriptFlagTrackerBlocked = 0x10;  // Block registered it with the tracker
 
-// The globals.
-extern Script* g_script_list_head;
-extern Script* g_running_script;
-extern int g_script_count;
-extern uint32_t g_next_script_unique_id;
-extern bool g_updating_spawned_scripts;
-extern bool g_delete_spawned_scripts_pending;
-extern bool g_one_per_frame_released; // kSuspendOnFrame
+// The scripts' shared state (the original's globals; cscript_core.cpp's record).
 memory::PoolPair& script_pools();
-inline Script*& script_list_head() { return g_script_list_head; }
-inline Script*& current_script_var() { return g_running_script; } // get_running_script 0x004728C0
-inline int& script_count() { return g_script_count; }
-inline uint32_t& next_script_unique_id() { return g_next_script_unique_id; }
-inline bool& updating_spawned_scripts() { return g_updating_spawned_scripts; }
-inline bool& delete_spawned_scripts_pending() { return g_delete_spawned_scripts_pending; }
-inline bool& one_per_frame_released() { return g_one_per_frame_released; }
+Script*& script_list_head();
+Script*& current_script_var(); // get_running_script 0x004728C0
+int& script_count();
+uint32_t& next_script_unique_id();
+bool& updating_spawned_scripts();
+bool& delete_spawned_scripts_pending();
+bool& one_per_frame_released(); // kSuspendOnFrame
 // (also: the CScript pool pair 0x006F3548 - qb.cpp creates it; the script cache 0x006F3558 - cache.h; the object
 // tracker 0x006F0FC0; online::Hub 0x007CCE14; the game clock offset 0x00696D60)
 

@@ -43,6 +43,7 @@
 #include "engine/core/cursor.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace format_check_files {
 
@@ -419,8 +420,14 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct ImageStats {
     int files = 0, file_size_as_loaded = 0, memory_size_as_loaded = 0, palettized = 0, plain = 0;
-} g_images;
+};
 // NOLINTEND(readability-identifier-naming)
+
+ImageStats& image_stats()
+{
+    static core::NoDestroy<ImageStats> state;
+    return state.get();
+}
 
 void check_image(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -430,7 +437,7 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
         check(false, name + ": image header");
         return;
     }
-    ++g_images.files;
+    ++image_stats().files;
     // the original's struct copied in place
     // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
     struct ReferenceHeader {
@@ -450,12 +457,12 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
     bool palettized = false;
     image_format::decode_format(header.format, &bits, &palettized);
     if (palettized) {
-        ++g_images.palettized;
+        ++image_stats().palettized;
         check(header.palette_size <= image_format::kPaletteCapacity, name + ": the palette fits the loaders' 0x400");
     }
     const bool plain = image_format::stored_plain(header, false);
     if (plain) {
-        ++g_images.plain;
+        ++image_stats().plain;
         // the plain texels are read into the texture made of the header's sizes
         check(static_cast<uint32_t>(header.image_width) * header.image_height <= header.width * header.height,
               name + ": the image within its texture");
@@ -464,8 +471,8 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
         image_format::kHeaderSize + (palettized ? header.palette_size : 0) + image_format::texel_size(header, plain);
     const size_t memory_size = image_format::kHeaderSize + (palettized ? image_format::kPaletteCapacity : 0) +
                                image_format::texel_size(header, image_format::stored_plain(header, true));
-    g_images.file_size_as_loaded += file_size <= size;
-    g_images.memory_size_as_loaded += memory_size <= size;
+    image_stats().file_size_as_loaded += file_size <= size;
+    image_stats().memory_size_as_loaded += memory_size <= size;
     // (the texels' padding may be missing at the file's end: fonts/TestTitleFont/testtitle.img's)
     check(file_size - 3 <= size, name + ": the file loader's bytes within the file");
 }
@@ -568,8 +575,14 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct SceneStats {
     int files = 0, materials = 0, sectors = 0, meshes = 0, skinned_meshes = 0, trailing = 0, skins = 0, breaks = 0;
-} g_scenes;
+};
 // NOLINTEND(readability-identifier-naming)
+
+SceneStats& scene_stats()
+{
+    static core::NoDestroy<SceneStats> state;
+    return state.get();
+}
 
 // The original's reading in place (the old loaders' pointer arithmetic, from memory): where the scene ends and what
 // it counted. False if the walk ran past `limit` (the copy is padded past the file).
@@ -681,7 +694,7 @@ bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
 
 void check_scene(const std::string& name, const uint8_t* data, size_t size)
 {
-    ++g_scenes.files;
+    ++scene_stats().files;
     // the new readers, record by record (as the loaders read them)
     scene_format::MemoryStream in(data, size);
     in.skip(scene_format::kHeaderSize);
@@ -718,7 +731,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
             // the vertices the loader draws or unpacks are within the first buffer
             uint32_t vertex_size = body.stride;
             if (!core::at(body.vertex_types, 0)) {
-                ++g_scenes.skinned_meshes;
+                ++scene_stats().skinned_meshes;
                 auto found = passes.find(mesh.material);
                 check(found != passes.end(), name + ": a skinned mesh's material is in the scene");
                 vertex_size = 0x20 + (found != passes.end() ? found->second : 0) * 8;
@@ -737,11 +750,11 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
         check(false, name + ": scene cut short");
         return;
     }
-    g_scenes.materials += static_cast<int>(materials);
-    g_scenes.sectors += static_cast<int>(sectors);
-    g_scenes.meshes += static_cast<int>(meshes);
+    scene_stats().materials += static_cast<int>(materials);
+    scene_stats().sectors += static_cast<int>(sectors);
+    scene_stats().meshes += static_cast<int>(meshes);
     if (in.position() != size)
-        ++g_scenes.trailing;
+        ++scene_stats().trailing;
     // as the original read it
     std::vector<uint8_t> copy(size + 0x10000);
     std::memcpy(copy.data(), data, size);
@@ -762,14 +775,14 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
 
 void check_skin(const std::string& name, const uint8_t* data, size_t size)
 {
-    ++g_scenes.skins;
+    ++scene_stats().skins;
     scene_format::MemoryStream in(data, size);
     scene_format::Skin skin;
     if (!scene_format::read_skin(in, &skin)) {
         check(false, name + ": skin");
         return;
     }
-    g_scenes.breaks += static_cast<int>(skin.break_count);
+    scene_stats().breaks += static_cast<int>(skin.break_count);
     // the original's reading in place: version, bone count from version 2, break count, the breaks
     const std::span<const uint8_t> bytes(data, size);
     const size_t at = word_at(bytes, 0) >= 2 ? 2 : 1;
@@ -788,12 +801,18 @@ void check_skin(const std::string& name, const uint8_t* data, size_t size)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct FontStats {
     int files = 0, glyphs = 0, specials = 0, specials_past_map = 0, hd_pages = 0;
-} g_fonts;
+};
 // NOLINTEND(readability-identifier-naming)
+
+FontStats& font_stats()
+{
+    static core::NoDestroy<FontStats> state;
+    return state.get();
+}
 
 void check_font(const std::string& name, const uint8_t* data, size_t size)
 {
-    ++g_fonts.files;
+    ++font_stats().files;
     util::ByteReader reader(data, size);
     font_format::Header header;
     if (!font_format::read_header(reader, &header)) {
@@ -813,14 +832,14 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     check(font_format::read_glyph_rects(reader, header.glyph_count, rects), name + ": glyph rectangles");
     if (!reader.ok())
         return;
-    g_fonts.glyphs += header.glyph_count;
-    g_fonts.hd_pages += hd;
+    font_stats().glyphs += header.glyph_count;
+    font_stats().hd_pages += hd;
     check(reader.remaining() == 0, name + ": the rectangles end at the file's end");
     for (int i = 0; i < header.glyph_count; ++i) {
         if (header.format == 1 && core::at(entries, i).code() < 0) {
-            ++g_fonts.specials;
+            ++font_stats().specials;
             if (0xFF - (core::at(entries, i).code() & 0xFF) >= font_format::kSpecialGlyphs)
-                ++g_fonts.specials_past_map;
+                ++font_stats().specials_past_map;
         }
         check(static_cast<uint32_t>(core::at(rects, i).x + core::at(rects, i).w) <= page.width / scale &&
                   static_cast<uint32_t>(core::at(rects, i).y + core::at(rects, i).h) <= page.height / scale,
@@ -917,8 +936,14 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct AnimStats {
     int files = 0, float_keys = 0, compressed = 0, custom_keys = 0, neither = 0;
-} g_anims;
+};
 // NOLINTEND(readability-identifier-naming)
+
+AnimStats& anim_stats()
+{
+    static core::NoDestroy<AnimStats> state;
+    return state.get();
+}
 
 // Offsets in the animation's image (the game's files are 16-byte aligned: an offset's alignment is the address's).
 std::ptrdiff_t reference_aligned(std::ptrdiff_t offset) { return offset + ((4 - (offset & 3)) & 3); }
@@ -929,7 +954,7 @@ std::ptrdiff_t reference_past_bone_bits(std::span<const uint8_t> image, std::ptr
 
 void check_animation(const std::string& name, const uint8_t* data, size_t size)
 {
-    ++g_anims.files;
+    ++anim_stats().files;
     std::vector<uint8_t> copy(size + 16);
     auto* base =
         cell::pointer<uint8_t>((cell::address(copy.data()) + 15) & ~static_cast<uintptr_t>(15));
@@ -939,7 +964,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     const std::span<const uint8_t> image(base, size);
     const uint32_t flags = size >= 8 ? word_at(image, 4) : 0;
     if (!(flags & anim_format::kFloatKeys) && !(flags & anim_format::kCompressed)) {
-        ++g_anims.neither; // (the frame data loads nothing of it)
+        ++anim_stats().neither; // (the frame data loads nothing of it)
         return;
     }
     if (!anim_format::lay_out_animation(base, size, &header, &layout)) {
@@ -953,7 +978,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     const int bones = static_cast<int>(word(0));
     std::ptrdiff_t events = 0;
     if (flags & anim_format::kFloatKeys) {
-        ++g_anims.float_keys;
+        ++anim_stats().float_keys;
         std::ptrdiff_t p = keys + 0x10;
         if (flags & 0x1000000)
             p += bones * 4;
@@ -971,7 +996,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
                   layout.translation_keys == address + static_cast<uintptr_t>(translation),
               name + ": float keys as the original's arithmetic");
     } else {
-        ++g_anims.compressed;
+        ++anim_stats().compressed;
         std::ptrdiff_t p = keys + 0x18 + bones * 2;
         p = reference_aligned(p + bones * 2);
         if (flags & 0x2000)
@@ -997,7 +1022,7 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
             check(false, name + ": custom key " + std::to_string(i));
             break;
         }
-        ++g_anims.custom_keys;
+        ++anim_stats().custom_keys;
     }
     anim_format::AnimHeader again;
     anim_format::AnimLayout cut;
@@ -1092,19 +1117,19 @@ int run(const std::filesystem::path& data)
     }
     text::print("texture levels not of their computed size: %d\n", level_size_mismatches());
     text::print("images: %d (%d palettized, %d plain); the file loader's bytes within %d, the memory loader's %d\n",
-                g_images.files, g_images.palettized, g_images.plain, g_images.file_size_as_loaded,
-                g_images.memory_size_as_loaded);
+                image_stats().files, image_stats().palettized, image_stats().plain, image_stats().file_size_as_loaded,
+                image_stats().memory_size_as_loaded);
     text::print("cutscene skin colour tables: %d", skin_colour_tables());
     text::print(" - collision objects: %d\n", collision_objects());
     text::print("skeleton bones: %d\n", stored_bones());
-    text::print("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", g_anims.files,
-                g_anims.float_keys, g_anims.compressed, g_anims.neither, g_anims.custom_keys);
+    text::print("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", anim_stats().files,
+                anim_stats().float_keys, anim_stats().compressed, anim_stats().neither, anim_stats().custom_keys);
     text::print("scenes: %d (%d materials, %d sectors, %d meshes - %d skinned; %d with bytes past the hierarchy); "
                 "skins %d (%d strip breaks)\n",
-                g_scenes.files, g_scenes.materials, g_scenes.sectors, g_scenes.meshes, g_scenes.skinned_meshes,
-                g_scenes.trailing, g_scenes.skins, g_scenes.breaks);
-    text::print("fonts: %d (%d glyphs; %d special glyphs, %d past the special map; %d upscaled pages)\n", g_fonts.files,
-                g_fonts.glyphs, g_fonts.specials, g_fonts.specials_past_map, g_fonts.hd_pages);
+                scene_stats().files, scene_stats().materials, scene_stats().sectors, scene_stats().meshes, scene_stats().skinned_meshes,
+                scene_stats().trailing, scene_stats().skins, scene_stats().breaks);
+    text::print("fonts: %d (%d glyphs; %d special glyphs, %d past the special map; %d upscaled pages)\n", font_stats().files,
+                font_stats().glyphs, font_stats().specials, font_stats().specials_past_map, font_stats().hd_pages);
     text::print("sound effects: %d (%d looping; %d with less data than they decode, %d formats past 0x14 bytes);"
                 " format sizes:",
                 wave_stats().files, wave_stats().looping, wave_stats().short_data, wave_stats().long_format);

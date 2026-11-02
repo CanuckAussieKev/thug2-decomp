@@ -26,6 +26,7 @@
 #include "game/rider/core_physics.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace skater::thaw_bmx {
 
@@ -58,7 +59,13 @@ struct StageMap {
     int frames = 0;
     bool noted = false;
     Kickoff start;
-} g_level;
+};
+
+StageMap& stage_map()
+{
+    static core::NoDestroy<StageMap> state;
+    return state.get();
+}
 
 objects::Rider* local_skater()
 {
@@ -167,10 +174,10 @@ bool cfunc_home_spot(script::Struct*, script::Script* script)
     float heading = 0.0f;
     const char* from = "THAW's place";
     if (!thaw_spot(&pos, &heading)) {
-        if (!g_level.start.valid)
+        if (!stage_map().start.valid)
             return false;
-        pos = g_level.start.pos;
-        heading = g_level.start.heading;
+        pos = stage_map().start.pos;
+        heading = stage_map().start.heading;
         from = "near the start";
     }
     script->args_->put_vec3("pos", pos.x, pos.y, pos.z);
@@ -286,27 +293,27 @@ void update_parked(modules::FrontEnd* front_end)
     const objects::Rider* skater = local_skater();
     const uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params_ : 0;
     if (!skater || !structure || render::current_level() == 0) {
-        g_level.frames = 0;
+        stage_map().frames = 0;
         return;
     }
-    if (structure != g_level.structure) {
-        g_level = {};
-        g_level.structure = structure;
+    if (structure != stage_map().structure) {
+        stage_map() = {};
+        stage_map().structure = structure;
     }
-    ++g_level.frames;
-    if (!g_level.noted) {
-        if (g_level.frames < kSettleFrames)
+    ++stage_map().frames;
+    if (!stage_map().noted) {
+        if (stage_map().frames < kSettleFrames)
             return;
         // (where the skater is now: where the level started it)
         const Point pos = point_of(skater->at_point_);
         const float heading = get_heading_of(core::at(skater->basis_frame_.row, 2).x, core::at(skater->basis_frame_.row, 2).z);
-        g_level.start = find_start_spot(pos, heading);
-        g_level.noted = true;
-        if (!g_level.start.valid)
+        stage_map().start = find_start_spot(pos, heading);
+        stage_map().noted = true;
+        if (!stage_map().start.valid)
             get_log("thaw_bmx: no room for the level's bike near the start (%.0f, %.0f, %.0f)", pos.x, pos.y, pos.z);
         launch_script(kLevelStartScript);
     }
-    if (g_level.frames % kCheckFrames != 0 || on_bike(skater->core_physics_) ||
+    if (stage_map().frames % kCheckFrames != 0 || on_bike(skater->core_physics_) ||
         objects::find_object(name_hash(kHomeBike)))
         return;
     launch_script(kHomeScript);

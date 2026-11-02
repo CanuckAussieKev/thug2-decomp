@@ -86,7 +86,13 @@ struct View {
     std::array<float, 3> forward;
     uint32_t frame;
     bool noted;
-} g_view;
+};
+
+View& view()
+{
+    static core::NoDestroy<View> state;
+    return state.get();
+}
 
 // The writer: one picture at a time, on its own thread (made RGB, PNG-encoded, written with its sidecar). The main
 // thread reads `done` and then the rest.
@@ -248,9 +254,9 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     sections.push_back(skater);
 
     Section camera{.title = "camera", .fields = {}};
-    if (g_view.noted && frame_loop::frames_run() - g_view.frame < 10) {
-        camera.fields.push_back({.key = "position", .value = vec(g_view.pos)});
-        camera.fields.push_back({.key = "looking along", .value = vec(g_view.forward, 3)});
+    if (view().noted && frame_loop::frames_run() - view().frame < 10) {
+        camera.fields.push_back({.key = "position", .value = vec(view().pos)});
+        camera.fields.push_back({.key = "looking along", .value = vec(view().forward, 3)});
     }
     sections.push_back(camera);
 
@@ -703,11 +709,11 @@ std::string series_result() { return series_result_state(); }
 
 bool last_view(std::span<float, 3> position, std::span<float, 3> forward)
 {
-    if (!g_view.noted || frame_loop::frames_run() - g_view.frame >= 10)
+    if (!view().noted || frame_loop::frames_run() - view().frame >= 10)
         return false;
     for (int i = 0; i < 3; ++i) {
-        core::at(position, i) = core::at(g_view.pos, i);
-        core::at(forward, i) = core::at(g_view.forward, i);
+        core::at(position, i) = core::at(view().pos, i);
+        core::at(forward, i) = core::at(view().forward, i);
     }
     return true;
 }
@@ -717,11 +723,11 @@ void note_view(int viewport, std::span<const float, 3> position, std::span<const
     if (viewport != 0)
         return;
     for (int i = 0; i < 3; ++i) {
-        core::at(g_view.pos, i) = core::at(position, i);
-        core::at(g_view.forward, i) = core::at(forward, i);
+        core::at(view().pos, i) = core::at(position, i);
+        core::at(view().forward, i) = core::at(forward, i);
     }
-    g_view.frame = frame_loop::frames_run();
-    g_view.noted = true;
+    view().frame = frame_loop::frames_run();
+    view().noted = true;
 }
 
 } // namespace sys::screenshot

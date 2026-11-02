@@ -134,7 +134,8 @@ int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, gam
 {
     return game_spy::nat_begin_with_socket(socket, cookie, client_index, progress, completed, user_data);
 }
-void* const kNoProgress = code_address(stubs::do_nothing); // (an empty function: no progress callback)
+// An empty function: no progress callback.
+void* no_progress() { return code_address(stubs::do_nothing); }
 
 // NOT ORIGINAL grouping - gamenet_lobby_peer.cpp's state (the original's globals). Made on first use, never destroyed
 // (gamenet_lobby_peer_state()).
@@ -449,7 +450,7 @@ void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
         return; // (one at a time)
     net::AppHost* server = manager->host_;
     push_internet_heap();
-    if (nat_begin(server->get_socket(), cookie, 0, kNoProgress, &RoomManager::nat_negotiation_completed, cookie)) {
+    if (nat_begin(server->get_socket(), cookie, 0, no_progress(), &RoomManager::nat_negotiation_completed, cookie)) {
         nat_cancel(cookie);
         nat_think();
         pop_heap();

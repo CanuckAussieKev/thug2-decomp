@@ -514,7 +514,7 @@ V3 get_limit(render::WorldCell* sector, V3 world_scale)
 namespace {
 
 constexpr uint32_t kModelModuleName = 0x286A8D26;
-void* const kListHeadData = memory::ListNode::head_marker();
+const void* const kListHeadData = memory::ListNode::head_marker();
 
 // A scaled object: its collision object then, its triangle objects' own geometries (copied, as they were unscaled)
 // and its boxes as they were, and the scale.

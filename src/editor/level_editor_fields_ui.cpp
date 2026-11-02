@@ -21,6 +21,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::ui {
 
@@ -312,7 +313,13 @@ namespace {
 struct LevelTyping {
     ScratchBuf name = {};
     bool name_active_ = false;
-} g_level;
+};
+
+LevelTyping& level_typing()
+{
+    static core::NoDestroy<LevelTyping> state;
+    return state.get();
+}
 
 void send_props(std::vector<Request>* requests, const level_props::Props& props, bool done)
 {
@@ -358,15 +365,15 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TableNextColumn();
         gui::text_disabled("Name");
         ImGui::TableNextColumn();
-        if (!g_level.name_active_)
-            dup_from(&g_level.name, props.name);
+        if (!level_typing().name_active_)
+            dup_from(&level_typing().name, props.name);
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         const bool enter = ImGui::InputTextWithHint("##name", level.have_defaults_ ? own.name.c_str() : "Original",
-                                                    g_level.name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
+                                                    level_typing().name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
         const bool left = ImGui::IsItemDeactivatedAfterEdit();
-        g_level.name_active_ = ImGui::IsItemActive();
-        if ((enter || left) && props.name != g_level.name.data()) {
-            props.name = g_level.name.data();
+        level_typing().name_active_ = ImGui::IsItemActive();
+        if ((enter || left) && props.name != level_typing().name.data()) {
+            props.name = level_typing().name.data();
             send_props(requests, props, true);
         }
         get_when(small_font, "level select", "Name in the level select. Empty: original name.");

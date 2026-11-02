@@ -18,6 +18,7 @@
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::test_view {
 
@@ -35,7 +36,13 @@ struct Lock {
     bool on;
     Vec3 pos, right, up, back, drift;
     uint32_t frame; // (the game frame it was locked at)
-} g_lock;
+};
+
+Lock& lock()
+{
+    static core::NoDestroy<Lock> state;
+    return state.get();
+}
 
 maths::Vec4 get_row(Vec3 v, float w) { return {.x = v.x, .y = v.y, .z = v.z, .w = w}; }
 
@@ -156,7 +163,7 @@ bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift)
     Vec3 right{}, up{}, back{};
     if (!camera_rows(direction, &right, &up, &back))
         return false;
-    g_lock = {.on = true, .pos = position, .right = right, .up = up, .back = back, .drift = drift, .frame = frame_loop::frames_run()};
+    lock() = {.on = true, .pos = position, .right = right, .up = up, .back = back, .drift = drift, .frame = frame_loop::frames_run()};
     get_log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, "
             "%.3f) a "
             "frame",
@@ -166,24 +173,24 @@ bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift)
 
 void unlock_camera()
 {
-    if (g_lock.on)
+    if (lock().on)
         get_log("test view: camera unlocked");
-    g_lock.on = false;
+    lock().on = false;
 }
 
-bool camera_locked() { return g_lock.on; }
+bool camera_locked() { return lock().on; }
 
 void place_camera(gfx::ViewCam* camera, int viewport)
 {
-    if (!g_lock.on || !camera || viewport != 0)
+    if (!lock().on || !camera || viewport != 0)
         return;
-    auto frames = static_cast<float>(frame_loop::frames_run() - g_lock.frame);
-    camera->at_point_ = get_row({.x = g_lock.pos.x + g_lock.drift.x * frames, .y = g_lock.pos.y + g_lock.drift.y * frames,
-                                 .z = g_lock.pos.z + g_lock.drift.z * frames},
+    auto frames = static_cast<float>(frame_loop::frames_run() - lock().frame);
+    camera->at_point_ = get_row({.x = lock().pos.x + lock().drift.x * frames, .y = lock().pos.y + lock().drift.y * frames,
+                                 .z = lock().pos.z + lock().drift.z * frames},
                                 1.0f);
-    core::at(camera->basis_frame_.row, 0) = get_row(g_lock.right, 0.0f);
-    core::at(camera->basis_frame_.row, 1) = get_row(g_lock.up, 0.0f);
-    core::at(camera->basis_frame_.row, 2) = get_row(g_lock.back, 0.0f);
+    core::at(camera->basis_frame_.row, 0) = get_row(lock().right, 0.0f);
+    core::at(camera->basis_frame_.row, 1) = get_row(lock().up, 0.0f);
+    core::at(camera->basis_frame_.row, 2) = get_row(lock().back, 0.0f);
 }
 
 void register_script_functions()

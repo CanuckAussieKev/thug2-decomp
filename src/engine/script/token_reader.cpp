@@ -124,10 +124,10 @@ Tokens add_named_expression(Tokens token, uint32_t name, Struct* dest, Struct* a
 } // namespace
 
 // 0x004728C0
-Script* get_running_script() { return g_running_script; }
+Script* get_running_script() { return current_script_var(); }
 
 // 0x004728D0
-Script* step_script_list(Script* script) { return script ? *raw::as<Script*>(script) : g_script_list_head; }
+Script* step_script_list(Script* script) { return script ? *raw::as<Script*>(script) : script_list_head(); }
 
 // 0x0046F7A0
 StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)

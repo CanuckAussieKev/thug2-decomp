@@ -27,6 +27,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::clip {
 
@@ -174,7 +175,13 @@ struct Props {
     TransformValues transform;
     std::string from;
     std::vector<FieldSet> fields;
-} g_props;
+};
+
+Props& copied_props()
+{
+    static core::NoDestroy<Props> state;
+    return state.get();
+}
 
 std::vector<uint32_t> selected_nodes()
 {
@@ -364,18 +371,18 @@ bool copy_props(std::string* message)
         *message = "Nothing selected";
         return false;
     }
-    g_props = props;
+    copied_props() = props;
     *message = "Copied " + describe() + "";
     return true;
 }
 
 bool paste_transform(std::string* message)
 {
-    if (!g_props.have_transform_) {
+    if (!copied_props().have_transform_) {
         *message = "No transform copied";
         return false;
     }
-    if (!set_selection_transform(g_props.transform)) {
+    if (!set_selection_transform(copied_props().transform)) {
         *message = "Nothing selected";
         return false;
     }
@@ -385,7 +392,7 @@ bool paste_transform(std::string* message)
 
 bool paste_fields(std::string* message)
 {
-    if (g_props.fields.empty()) {
+    if (copied_props().fields.empty()) {
         *message = "No fields copied";
         return false;
     }
@@ -395,27 +402,27 @@ bool paste_fields(std::string* message)
         return false;
     }
     std::string why;
-    const int set = set_fields_on_nodes(nodes, g_props.fields, "Paste fields", &why);
+    const int set = set_fields_on_nodes(nodes, copied_props().fields, "Paste fields", &why);
     *message = set ? "Pasted " + std::to_string(set) + " fields onto " + std::to_string(nodes.size()) + " nodes" +
                          (why.empty() ? "" : " (" + why + ")")
                    : "No field pasted: " + why;
     return set > 0;
 }
 
-bool have_transform() { return g_props.have_transform_; }
-int field_count() { return static_cast<int>(g_props.fields.size()); }
+bool have_transform() { return copied_props().have_transform_; }
+int field_count() { return static_cast<int>(copied_props().fields.size()); }
 
 std::string describe()
 {
     std::string text;
-    if (g_props.have_transform_) {
+    if (copied_props().have_transform_) {
         std::array<char, 96> t{};
-        text::format_to(t, "transform (%.0f, %.0f, %.0f)", g_props.transform.pos.x, g_props.transform.pos.y,
-                        g_props.transform.pos.z);
+        text::format_to(t, "transform (%.0f, %.0f, %.0f)", copied_props().transform.pos.x, copied_props().transform.pos.y,
+                        copied_props().transform.pos.z);
         text = t.data();
     }
-    if (!g_props.fields.empty())
-        text += (text.empty() ? "" : " and ") + std::to_string(g_props.fields.size()) + " fields of " + g_props.from;
+    if (!copied_props().fields.empty())
+        text += (text.empty() ? "" : " and ") + std::to_string(copied_props().fields.size()) + " fields of " + copied_props().from;
     return text.empty() ? "nothing" : text;
 }
 

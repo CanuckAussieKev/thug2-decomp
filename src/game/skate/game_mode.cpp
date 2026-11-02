@@ -77,7 +77,7 @@ constexpr uint32_t kModeInfo = 0xCA5F7FFB;           // mode_info
 constexpr uint32_t kDefinition = 0x97CFD027;         // definition
 constexpr uint32_t kFreeskate = 0x34861A16;          // freeskate
 
-WinRule* const kHeadMarker = platform::all_ones_pointer<WinRule>();
+WinRule* head_marker() { return platform::all_ones_pointer<WinRule>(); }
 
 // (the getters' local when an asserted integer isn't there: the original's is the pushed `this`'s address - 0 here,
 // as round 3c's argument-slot defaults)
@@ -106,9 +106,9 @@ uint32_t count_conditions(MatchRules::ConditionNode* head)
 {
     uint32_t count = 0;
     const MatchRules::ConditionNode* node = head->succ_;
-    if (node->condition_ == kHeadMarker || !node)
+    if (node->condition_ == head_marker() || !node)
         return 0;
-    for (bool again = true; again; again = node->condition_ != kHeadMarker && node) {
+    for (bool again = true; again; again = node->condition_ != head_marker() && node) {
         node = node->succ_;
         ++count;
     }
@@ -117,11 +117,11 @@ uint32_t count_conditions(MatchRules::ConditionNode* head)
 MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_t index)
 {
     MatchRules::ConditionNode* node = head->succ_;
-    if (node->condition_ == kHeadMarker || !node)
+    if (node->condition_ == head_marker() || !node)
         return nullptr;
     for (uint32_t left = index; left; --left) {
         node = node->succ_;
-        if (node->condition_ == kHeadMarker || !node)
+        if (node->condition_ == head_marker() || !node)
             return nullptr;
     }
     return node;
@@ -185,7 +185,7 @@ void MatchRules::get_release()
 // 0x00553D30
 MatchRules::MatchRules()
 {
-    conditions_.condition_ = kHeadMarker;
+    conditions_.condition_ = head_marker();
     conditions_.rank_ = 0;
     conditions_.succ_ = &conditions_;
     conditions_.last_value_ = &conditions_;
@@ -221,10 +221,10 @@ void MatchRules::get_reset()
 void MatchRules::clear_victory_conditions()
 {
     ConditionNode* node = conditions_.succ_;
-    if (node->condition_ == kHeadMarker || !node)
+    if (node->condition_ == head_marker() || !node)
         return;
     while (node) {
-        ConditionNode* next = node->succ_->condition_ == kHeadMarker ? nullptr : node->succ_;
+        ConditionNode* next = node->succ_->condition_ == head_marker() ? nullptr : node->succ_;
         node->last_value_->succ_ = node->succ_;
         node->succ_->last_value_ = node->last_value_;
         node->succ_ = node;
