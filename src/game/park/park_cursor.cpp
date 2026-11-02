@@ -1,10 +1,7 @@
 // The park editor's cursor: placing pieces and restart points, gaps, area selection, raising and lowering the
 // floor; and the park manager's set-up (0x0059D120-0x0059E0F7, see park_editor.h).
 
-#include "game/park/park_editor.h"
-
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <array>
 
