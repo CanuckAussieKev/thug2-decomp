@@ -9,6 +9,8 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <algorithm>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -204,7 +206,7 @@ void set_fog_color(uint32_t rgba)
 }
 
 // 0x00491290
-void set_level_color(const float* color) { std::memcpy(g_level_color.data(), color, 16); }
+void set_level_color(std::span<const float, 4> color) { std::ranges::copy(color, g_level_color.begin()); }
 
 // 0x00491110
 void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,

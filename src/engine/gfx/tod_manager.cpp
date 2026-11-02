@@ -174,7 +174,7 @@ void set_light_direction_vector(int index, const maths::Vec4* direction) { rende
 // The sun: its parameters (theta, phi, colour as r g b 128, shown) by mask.
 constexpr uint32_t kSunAngles = sun::kTheta | sun::kPhi, kSunColor = sun::kColor, kSunShown = 0x80;
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
-void set_level_color(const float* color)
+void set_level_color(std::span<const float, 4> color)
 {
     objects::g_particle_hub->change_colour(color);
     static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->set_colour_scale(color);
@@ -714,7 +714,7 @@ void CtodManager::apply_tod_params(TodParams params)
         return static_cast<float>(scaled + scaled);
     };
     std::array<float, 4> color = {{channel(params.lev_red_), channel(params.lev_green_), channel(params.lev_blue_), 1.0f}};
-    set_level_color(color.data());
+    set_level_color(color);
 }
 
 // 0x00572BD0

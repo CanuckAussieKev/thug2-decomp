@@ -213,11 +213,11 @@ void Sparkle::change_colour(const Rgba* rgba)
 }
 
 // 0x00496210
-void Sparkle::set_colour_scale(const float* rgba)
+void Sparkle::set_colour_scale(std::span<const float, 4> rgba)
 {
     if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
-            core::at(args_.colour_scale_, i) = rgba[i];
+            core::at(args_.colour_scale_, i) = core::at(rgba, i);
         on_colour_changed();
     }
 }
@@ -265,7 +265,7 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
         if (particle->args_.flag158_) {
             for (int i = 0; i < 4; ++i)
                 core::at(particle->args_.colour_scale_, i) = core::at(shade_, i);
-            particle->set_colour_scale(shade_.data());
+            particle->set_colour_scale(shade_);
         }
         systems_.push_back(particle);
     }
@@ -317,13 +317,13 @@ void EffectsDirector::tick_particles()
 }
 
 // 0x004966B0
-void EffectsDirector::change_colour(const float* rgba)
+void EffectsDirector::change_colour(std::span<const float, 4> rgba)
 {
     for (const auto* node = systems_.first(); node != systems_.head;
          node = node->next)
         node->value->set_colour_scale(rgba);
     for (int i = 0; i < 4; ++i)
-        core::at(shade_, i) = rgba[i];
+        core::at(shade_, i) = core::at(rgba, i);
 }
 
 // 0x00496700

@@ -35,6 +35,12 @@ void* allocate_zeroed(unsigned int size)
 {
     return memory::Hub::get_pull()->allocate_zeroed(size, assert_flag(), nullptr);
 }
+// `count` words of type T at what the allocator gave (none if it gave nothing).
+template <typename T>
+std::span<T> counted_words(void* memory, std::size_t count)
+{
+    return memory ? std::span<T>(static_cast<T*>(memory), count) : std::span<T>();
+}
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 gsl::owner<RenderModel*> spawn_render_model(int) { return render::spawn_model(); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
@@ -48,15 +54,15 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
 {
     label_ = name;
     std::array<char, 512> file_name = {};
-    position_array_ = nullptr;
-    particle_list_ = nullptr;
+    position_array_ = {};
+    particle_list_ = {};
     particle_count_ = 0;
     max_particles_ = particle_cap;
     particle_list_ = particle_parts::new_particles(particle_cap);
-    if (!particle_list_)
+    if (particle_list_.empty())
         return;
-    position_array_ = static_cast<float*>(carve(model_count_ * 12));
-    if (!position_array_)
+    position_array_ = counted_words<float>(carve(model_count_ * 12), model_count_ * 3);
+    if (position_array_.empty())
         return;
     model_path_for(model, kModelExtension, file_name.data());
     text::to_lower_text(file_name.data());
@@ -65,10 +71,11 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
         return;
     if (memory::malloc_available() < model_count_ * kMemoryPerModel)
         return;
+    const std::span<RenderModel*> models(model_list_, model_count_);
     for (unsigned int i = 0; i < model_count_; ++i) {
         gsl::owner<RenderModel*> made = spawn_render_model(assert_flag()); // (the system's list owns them)
-        model_list_[i] = made;
-        RenderModel* each = model_list_[i];
+        core::at(models, i) = made;
+        RenderModel* each = core::at(models, i);
         if (!each)
             return;
         each->drop_geoms();
@@ -80,27 +87,27 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
             return;
     }
     auto* rotations = static_cast<maths::QuatRotation*>(carve(model_count_ * sizeof(maths::QuatRotation)));
-    if (rotations) {
-        for (unsigned int i = 0; i < model_count_; ++i)
-            rotations[i] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the constructor 0x00464340)
-    }
+    const std::span<maths::QuatRotation> turns(rotations, rotations ? model_count_ : 0);
+    for (maths::QuatRotation& turn : turns)
+        turn = {0.0f, 0.0f, 0.0f, 1.0f}; // (the constructor 0x00464340)
     unknown_13c_ptr_ = rotations;
     if (!rotations)
         return;
-    start_colour_ = static_cast<uint32_t*>(carve(4));
-    if (!start_colour_)
+    start_colour_ = counted_words<uint32_t>(carve(4), 1);
+    if (start_colour_.empty())
         return;
-    mid_colour_ = static_cast<uint32_t*>(carve(4));
-    if (!mid_colour_)
+    mid_colour_ = counted_words<uint32_t>(carve(4), 1);
+    if (mid_colour_.empty())
         return;
-    end_colour_ = static_cast<uint32_t*>(carve(4));
-    if (!end_colour_)
+    end_colour_ = counted_words<uint32_t>(carve(4), 1);
+    if (end_colour_.empty())
         return;
     for (unsigned int i = 0; i < model_count_; ++i) {
-        rotations[i].x = static_cast<float>(get_rand() % 100);
-        rotations[i].y = static_cast<float>(get_rand() % 100);
-        rotations[i].z = static_cast<float>(get_rand() % 100);
-        rotations[i].w = static_cast<float>(get_rand() % 100);
+        maths::QuatRotation& turn = core::at(turns, i);
+        turn.x = static_cast<float>(get_rand() % 100);
+        turn.y = static_cast<float>(get_rand() % 100);
+        turn.z = static_cast<float>(get_rand() % 100);
+        turn.w = static_cast<float>(get_rand() % 100);
         static_cast<maths::QuatRotation*>(unknown_13c_ptr_)->make_unit(1.0f); // (the first, each time: the original's)
     }
     colour_mid_ = -1.0f;
@@ -111,7 +118,8 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
 // 0x0049A4C0
 void ModelParticles::render()
 {
-    auto model = [this](unsigned int i) { return model_list_[i]; };
+    const std::span<RenderModel*> models(model_list_, model_count_);
+    auto model = [models](unsigned int i) { return core::at(models, i); };
     const int count = particle_count_;
     if (count == 0) {
         for (unsigned int i = 0; i < drawn_models_; ++i)
@@ -121,13 +129,13 @@ void ModelParticles::render()
     // (from the last particle's model: it's shown again below)
     for (auto i = static_cast<unsigned int>(count - 1); i < drawn_models_; ++i)
         model(i)->change_live(0);
-    auto* rotations = static_cast<maths::QuatRotation*>(unknown_13c_ptr_);
+    const std::span<maths::QuatRotation> rotations(static_cast<maths::QuatRotation*>(unknown_13c_ptr_), model_count_);
     for (int p = 0; p < count; ++p) {
-        const FlexibleParticle& particle = particle_list_[p];
+        const FlexibleParticle& particle = core::at(particle_list_, p);
         model(static_cast<unsigned int>(p))->change_live(1);
         float life = particle.age / particle.lifetime;
-        const uint32_t* from = nullptr;
-        const uint32_t* to = nullptr;
+        std::span<const uint32_t> from;
+        std::span<const uint32_t> to;
         if (!(colour_mid_ >= 0.0f)) { // (no mid colour; NaN too)
             from = start_colour_;
             to = end_colour_;
@@ -142,12 +150,12 @@ void ModelParticles::render()
             to = end_colour_;
         }
         uint32_t colour = 0;
-        colour = *lerp_colour(&colour, colour::bytes_of(*from), colour::bytes_of(*to), life);
+        colour = *lerp_colour(&colour, colour::bytes_of(core::at(from, 0)), colour::bytes_of(core::at(to, 0)), life);
         model(static_cast<unsigned int>(p))
             ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
                           static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
         // the rotation moved by the velocity (w by its x too), then normalised
-        maths::QuatRotation& q = rotations[p];
+        maths::QuatRotation& q = core::at(rotations, p);
         q.x = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + q.x);
         q.y = static_cast<float>(static_cast<double>(core::at(particle.velocity, 1)) + q.y);
         q.z = static_cast<float>(static_cast<double>(core::at(particle.velocity, 2)) + q.z);
@@ -169,8 +177,8 @@ void ModelParticles::render()
             for (int c = 0; c < 4; ++c)
                 core::at(matrix.row, r)[c] = r == c ? 1.0f : 0.0f;
         q.fetch_mat(&matrix);
-        const float* position = position_array_ + p * 3;
-        core::at(matrix.row, 3) = {position[0], position[1], position[2], 1.0f};
+        const std::span<const float, 3> position = place_at(position_array_, max_particles_, 0, p);
+        core::at(matrix.row, 3) = {core::at(position, 0), core::at(position, 1), core::at(position, 2), 1.0f};
         const double shrink = static_cast<double>(p % 4) * kSizeStep;
         const double size = static_cast<double>(core::at(particle.start_size_, 0)) - shrink;
         for (int k = 0; k < 3; ++k)

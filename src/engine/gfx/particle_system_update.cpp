@@ -56,9 +56,9 @@ int sphere_hidden(const maths::Vec4* centre, float radius)
     return engine::sphere_visible_in_one_viewport(centre, radius);
 }
 
-float* position_of(EmitterInstance* system, int particle, int step)
+std::span<float, 3> position_of(EmitterInstance* system, int particle, int step)
 {
-    return system->position_array_ + 3 * (system->max_particles_ * step + particle);
+    return place_at(system->position_array_, system->max_particles_, step, particle);
 }
 
 // The member functions' names and parameters.
@@ -159,16 +159,16 @@ void EmitterInstance::get_emit(int count)
     maths::Mat4 m{};
     get_emit_matrix(&m);
     for (int i = first; i < last; ++i) {
-        FlexibleParticle& p = particle_list_[i];
+        FlexibleParticle& p = core::at(particle_list_, i);
         if (!moving_) {
             set_sizes(this, p);
             p.age = 0.0f;
             p.lifetime = static_cast<float>(random_between(core::at(age_left_, 0), core::at(age_left_, 1)));
             for (int step = 0; step < get_num_vertex_lists(); ++step) {
-                float* pos = position_of(this, i, step);
-                pos[0] = 0.0f;
-                pos[1] = 0.0f;
-                pos[2] = 0.0f;
+                const std::span<float, 3> pos = position_of(this, i, step);
+                core::at(pos, 0) = 0.0f;
+                core::at(pos, 1) = 0.0f;
+                core::at(pos, 2) = 0.0f;
             }
             continue;
         }
@@ -242,17 +242,17 @@ void EmitterInstance::get_emit(int count)
         for (int k = 0; k < 3; ++k)
             core::at(p.velocity, k) = core::at(velocity, k);
         for (int step = 0; step < get_num_vertex_lists(); ++step) {
-            float* pos = position_of(this, i, step);
+            const std::span<float, 3> pos = position_of(this, i, step);
             if (emitter_independent_) {
                 auto world_z = static_cast<float>(static_cast<double>(pos_z) + at_point_.z);
                 auto world_y = static_cast<float>(static_cast<double>(pos_y) + at_point_.y);
-                pos[0] = static_cast<float>(static_cast<double>(pos_x) + at_point_.x);
-                pos[1] = world_y;
-                pos[2] = world_z;
+                core::at(pos, 0) = static_cast<float>(static_cast<double>(pos_x) + at_point_.x);
+                core::at(pos, 1) = world_y;
+                core::at(pos, 2) = world_z;
             } else {
-                pos[0] = pos_x;
-                pos[1] = pos_y;
-                pos[2] = pos_z;
+                core::at(pos, 0) = pos_x;
+                core::at(pos, 1) = pos_y;
+                core::at(pos, 2) = pos_z;
             }
         }
     }
@@ -316,9 +316,9 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
             for (int i = first; i < last + 1; ++i) {
                 if (i >= get_num_colours())
                     continue;
-                colour::Bytes end = colour::bytes_of(end_colour_[i]);
-                colour::Bytes mid = colour::bytes_of(mid_colour_[i]);
-                colour::Bytes start = colour::bytes_of(start_colour_[i]);
+                colour::Bytes end = colour::bytes_of(core::at(end_colour_, i));
+                colour::Bytes mid = colour::bytes_of(core::at(mid_colour_, i));
+                colour::Bytes start = colour::bytes_of(core::at(start_colour_, i));
                 for (int k = 0; k < 4; ++k) {
                     if (params->fetch_int_value(core::at(kEndChannels, k), &value, 0)) {
                         core::at(end, k) = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
@@ -340,9 +340,9 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
                             core::at(end, k) = byte;
                     }
                 }
-                end_colour_[i] = colour::packed_of(end);
-                mid_colour_[i] = colour::packed_of(mid);
-                start_colour_[i] = colour::packed_of(start);
+                core::at(end_colour_, i) = colour::packed_of(end);
+                core::at(mid_colour_, i) = colour::packed_of(mid);
+                core::at(start_colour_, i) = colour::packed_of(start);
             }
         }
         params->fetch_float(kMidTime, &colour_mid_, 0);
@@ -465,23 +465,23 @@ void EmitterInstance::update_ground_brightness(bool movables)
 void EmitterInstance::remove_particle(int index, bool through_accessors)
 {
     --particle_count_;
-    particle_list_[index] = particle_list_[particle_count_];
+    core::at(particle_list_, index) = core::at(particle_list_, particle_count_);
     for (int step = 0; step < get_num_vertex_lists(); ++step) {
         if (through_accessors) {
             float x = 0.0f, y = 0.0f, z = 0.0f;
             fetch_place(particle_count_, step, &x, &y, &z);
             change_place(index, step, x, y, z);
         } else {
-            const float* from = position_of(this, particle_count_, step);
-            float* to = position_of(this, index, step);
-            to[0] = from[0];
-            to[1] = from[1];
-            to[2] = from[2];
+            const std::span<const float, 3> from = position_of(this, particle_count_, step);
+            const std::span<float, 3> to = position_of(this, index, step);
+            core::at(to, 0) = core::at(from, 0);
+            core::at(to, 1) = core::at(from, 1);
+            core::at(to, 2) = core::at(from, 2);
         }
-        float* gone = position_of(this, particle_count_, step);
-        gone[0] = kFarAway;
-        gone[1] = kFarAway;
-        gone[2] = kFarAway;
+        const std::span<float, 3> gone = position_of(this, particle_count_, step);
+        core::at(gone, 0) = kFarAway;
+        core::at(gone, 1) = kFarAway;
+        core::at(gone, 2) = kFarAway;
     }
 }
 
@@ -505,7 +505,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         unknown130_ = false;
         if (emit_rate_ == 0.0f) { // out of view and not emitting: the particles only age
             for (int i = 0; i < particle_count_; ++i) {
-                FlexibleParticle& p = particle_list_[i];
+                FlexibleParticle& p = core::at(particle_list_, i);
                 const double age = static_cast<double>(time) + p.age;
                 p.age = static_cast<float>(age);
                 if (age > p.lifetime) {
@@ -533,23 +533,23 @@ void EmitterInstance::tick_frame(float time, bool skip)
         update_ground_brightness(false);
     auto dt = static_cast<float>(static_cast<double>(g_frame_time_scale) * time);
     for (int i = 0; i < particle_count_; ++i) {
-        FlexibleParticle& p = particle_list_[i];
+        FlexibleParticle& p = core::at(particle_list_, i);
         p.age = static_cast<float>(static_cast<double>(time) + p.age);
         for (int k = 0; k < 3; ++k)
             core::at(p.velocity, k) = static_cast<float>(static_cast<double>(dt) * core::at(p.force, k) + core::at(p.velocity, k));
         for (int step = get_num_vertex_lists() - 1; step > 0; --step) { // the history moves on a step
-            const float* from = position_of(this, i, step - 1);
-            float* to = position_of(this, i, step);
-            to[0] = from[0];
-            to[1] = from[1];
-            to[2] = from[2];
+            const std::span<const float, 3> from = position_of(this, i, step - 1);
+            const std::span<float, 3> to = position_of(this, i, step);
+            core::at(to, 0) = core::at(from, 0);
+            core::at(to, 1) = core::at(from, 1);
+            core::at(to, 2) = core::at(from, 2);
         }
-        float* pos = position_of(this, i, 0);
+        const std::span<float, 3> pos = position_of(this, i, 0);
         for (int k = 0; k < 3; ++k)
-            pos[k] = static_cast<float>(static_cast<double>(dt) * core::at(p.velocity, k) + pos[k]);
+            core::at(pos, k) = static_cast<float>(static_cast<double>(dt) * core::at(p.velocity, k) + core::at(pos, k));
     }
     for (int i = 0; i < particle_count_; ++i) { // the expired
-        if (particle_list_[i].age > particle_list_[i].lifetime) {
+        if (core::at(particle_list_, i).age > core::at(particle_list_, i).lifetime) {
             remove_particle(i, false);
             --i;
         }

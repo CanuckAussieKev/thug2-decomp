@@ -1,5 +1,7 @@
 #pragma once
 
+#include "engine/core/cursor.h"
+
 #include <windows.h>
 #include <d3d9.h>
 
@@ -29,6 +31,14 @@ HRESULT create_quad_index_buffer(uint32_t quads);
 // back. Returns where to write.
 void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
                             uint32_t* room);
+// lock_dynamic_vertices for vertices of type V (the stride sizeof(V)): the vertices that fit, as a checked cursor at the
+// first. `room` is how many fit.
+template <typename V>
+core::Cursor<V> lock_vertices(uint32_t count, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex, uint32_t* room)
+{
+    void* where = lock_dynamic_vertices(count, sizeof(V), buffer, first_vertex, room);
+    return core::Cursor<V>(std::span<V>(static_cast<V*>(where), *room));
+}
 // 0x005F4800 (cdecl): unlocked after writing `count` vertices of `stride` bytes; the next go after them (32-byte
 // aligned).
 void unlock_dynamic_vertices(uint32_t count, uint32_t stride);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 #include "engine/gfx/particle_system.h"
 
@@ -8,8 +9,8 @@
 namespace render::particle_parts {
 
 // The particles: `count` after their count (the compiler's array new; null if no memory) / freed.
-FlexibleParticle* new_particles(int count);
-void delete_particles(FlexibleParticle* particles);
+std::span<FlexibleParticle> new_particles(int count);
+void delete_particles(std::span<FlexibleParticle> particles);
 // The three colour arrays, `count` RGBA colours each, each allocated only if the one before was; all grey once the
 // three are there. Whether they are.
 bool new_colours(EmitterInstance* system, int count);

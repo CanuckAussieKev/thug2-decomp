@@ -51,8 +51,9 @@ CheckOptions:
   # Only a literal that is exactly the constant's value (the original's own digits otherwise stay).
   modernize-use-std-numbers.DiffThreshold: '0'
   # The maths types check their own index (Vec4's component, Mat4's row: an index outside them ends the game with a
-  # report), as core::at does for the containers.
-  cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses: '::std::map;::std::unordered_map;::std::flat_map;::maths::Vec4;::maths::Mat4'
+  # report), as core::at does for the containers; so does core::Cursor (a position in a run of elements: the element read
+  # or written is checked against the run).
+  cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses: '::std::map;::std::unordered_map;::std::flat_map;::maths::Vec4;::maths::Mat4;::core::Cursor'
   # The rule of five, as the Guidelines' C.21 allows it: a defaulted destructor alone, and classes that only copy
   # (their copies stand in for moves).
   cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true

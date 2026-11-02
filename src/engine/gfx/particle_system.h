@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/packed_colour.h"
 
@@ -11,6 +12,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/smtptr.h"
 #include <gsl/pointers>
+#include "engine/core/checked_index.h"
 
 namespace script {
 class Script;
@@ -92,16 +94,16 @@ struct EmitterInstance : objects::SharedBase {
     float brightness_{};                // +0xEC (a model's +0x22C, update_Brightness; the ground's brightness)
     uint32_t label_{};                  // +0xF0
     uint32_t group_id_{};               // +0xF4 groupID
-    FlexibleParticle* particle_list_{}; // +0xF8 (max_particles_ of them, after their count)
+    std::span<FlexibleParticle> particle_list_; // +0xF8 (max_particles_ of them, after their count)
     script::Script* emit_script_ptr_{}; // +0xFC emitscript (run each emit... update)
     script::Script* tick_script_{};     // +0x100 UpdateScript
     gsl::owner<script::Struct*> script_args_{};     // +0x104 their params
     float colour_mid_{};       // +0x108 setColor midTime: when the mid colour is, a fraction of a life (below 0: none)
-    uint32_t* start_colour_{}; // +0x10C RGBA words (r the low byte; the types with segments: one a segment and three more)
-    uint32_t* mid_colour_{};   // +0x110
-    uint32_t* end_colour_{};   // +0x114
+    std::span<uint32_t> start_colour_; // +0x10C RGBA words (r the low byte; the types with segments: one a segment and three more)
+    std::span<uint32_t> mid_colour_; // +0x110
+    std::span<uint32_t> end_colour_; // +0x114
     int history_length_{};     // +0x118 (the glow ribbon trail's history steps)
-    float* position_array_{};  // +0x11C: three floats a particle a history step (step-major)
+    std::span<float> position_array_;  // +0x11C: three floats a particle a history step (step-major)
     uint32_t flag_bits_{0};    // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
                                // spread (0xDB8621F7), 0x100 setCircularEmit; 0x4000 UseRandomUVQuadrants, 0x8000
                                // 0x5446AF14, 0x10000 takes the level's colour)
@@ -145,7 +147,7 @@ struct EmitterInstance : objects::SharedBase {
     // particle goes in its longest life (the largest force and the top speed).
     void update_bounds();
     // 0x00496CE0: with 0x10000 (it takes the level's colour), the colour scale = `rgba`.
-    void set_colour_scale(const float* rgba);
+    void set_colour_scale(std::span<const float, 4> rgba);
     // 0x00496F60: the emit script run on; once it ends, deleted.
     void run_emit_script();
     // 0x00496FA0: when shown and updated this frame (unknown12f_, unknown130_), or when `force`: render, and flag 1
@@ -301,5 +303,13 @@ struct ModelParticles final : EmitterInstance {
 };
 
 extern uint8_t g_alloc_assert_flag;
+
+// A particle's place (three floats) at a history step in the step-major positions: checked against the array's extent.
+inline std::span<float, 3> place_at(std::span<float> positions, int max_particles, int step, int particle)
+{
+    const auto first = static_cast<std::size_t>(3 * (max_particles * step + particle));
+    (void)core::at(positions, first + 2);
+    return positions.subspan(first, 3).first<3>();
+}
 
 } // namespace render

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/gfx/texture_splats.h"
 #include "engine/maths/vec4.h"
@@ -42,7 +43,7 @@ void set_fog_distance(float distance);
 void set_fog_exponent(float exponent);
 void set_fog_color(uint32_t rgba);
 // 0x00491290: the level colour kept (0x007004F0).
-void set_level_color(const float* color);
+void set_level_color(std::span<const float, 4> color);
 
 // 0x00491110 (the Shatter command's settings): the velocity the pieces get (0x007004D0) and a vector (0x007004E0,
 // the command's 0x210EA9E1), 0x0067DDDC = `value_c483` squared, the triangle split limit (0x0067DDF0) `area` squared

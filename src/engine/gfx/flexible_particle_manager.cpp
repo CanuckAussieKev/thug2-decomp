@@ -184,7 +184,7 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
     system->spewing_ = false;
     if (use_level_colour) {
         system->flag_bits_ |= 0x10000u;
-        system->set_colour_scale(colour_scale_.data());
+        system->set_colour_scale(colour_scale_);
     }
     memory::ListNode* node = &system->list_link_;
     node->prev = systems_ptr_->prev;
@@ -253,7 +253,7 @@ void FlexibleParticleManager::destroy_non_persistent()
 }
 
 // 0x0049AE80
-void FlexibleParticleManager::set_colour_scale(const float* rgba)
+void FlexibleParticleManager::set_colour_scale(std::span<const float, 4> rgba)
 {
     if (!systems_ptr_)
         return;
@@ -262,7 +262,7 @@ void FlexibleParticleManager::set_colour_scale(const float* rgba)
             system->set_colour_scale(rgba);
     }
     for (int i = 0; i < 4; ++i)
-        core::at(colour_scale_, i) = rgba[i];
+        core::at(colour_scale_, i) = core::at(rgba, i);
 }
 
 } // namespace render

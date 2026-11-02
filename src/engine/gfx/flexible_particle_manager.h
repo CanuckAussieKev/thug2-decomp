@@ -5,6 +5,7 @@
 
 #include <gsl/pointers>
 #include <array>
+#include <span>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 
@@ -62,7 +63,7 @@ struct FlexibleParticleManager : memory::HeapObject {
     // 0x0049AE30: every system not made persistent destroyed.
     void destroy_non_persistent();
     // 0x0049AE80: the level's colour: given to every system that takes it, and kept.
-    void set_colour_scale(const float* rgba);
+    void set_colour_scale(std::span<const float, 4> rgba);
 
     // 0x0049A8F0 (cdecl; qsort's): the order of two systems (pointers to them) - the farther from viewport 0x006FA7B8's
     // camera first (the difference of the squared distances, truncated), else the higher priority (+0x124) first.

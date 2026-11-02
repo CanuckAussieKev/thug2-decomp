@@ -55,30 +55,32 @@ void* allocate_zeroed(unsigned int size)
 namespace particle_parts {
 
 // The particles: `count` after their count (the compiler's array new; their constructor and destructor are empty).
-FlexibleParticle* new_particles(int count)
+std::span<FlexibleParticle> new_particles(int count)
 {
     // (the original's array new kept the count before them; nothing reads it - their destructor is empty)
-    return static_cast<FlexibleParticle*>(carve(static_cast<unsigned int>(count) * sizeof(FlexibleParticle)));
+    auto* particles = static_cast<FlexibleParticle*>(carve(static_cast<unsigned int>(count) * sizeof(FlexibleParticle)));
+    return particles ? std::span<FlexibleParticle>(particles, static_cast<std::size_t>(count)) : std::span<FlexibleParticle>();
 }
-void delete_particles(FlexibleParticle* particles)
+void delete_particles(std::span<FlexibleParticle> particles)
 {
     // (the empty destructor run over each first: 0x0062382B with 0x005480A0)
-    memory::dealloc(particles);
+    memory::dealloc(particles.data());
 }
 
 // The three colour arrays, `count` RGBA colours each (the constructor iterator 0x00401020 runs an empty one over
 // them), each allocated only if the one before was; all grey once the three are there. Whether they are.
 bool new_colours(EmitterInstance* system, int count)
 {
-    const std::array<uint32_t**, 3> colours = {{&system->start_colour_, &system->mid_colour_, &system->end_colour_}};
-    for (uint32_t** colour : colours) {
-        *colour = static_cast<uint32_t*>(carve(static_cast<unsigned int>(count) * sizeof(uint32_t)));
-        if (!*colour)
+    const std::array<std::span<uint32_t>*, 3> colours = {{&system->start_colour_, &system->mid_colour_, &system->end_colour_}};
+    for (std::span<uint32_t>* const colour : colours) {
+        auto* words = static_cast<uint32_t*>(carve(static_cast<unsigned int>(count) * sizeof(uint32_t)));
+        if (!words)
             return false;
+        *colour = std::span<uint32_t>(words, static_cast<std::size_t>(count));
     }
     for (int i = 0; i < count; ++i)
-        for (uint32_t* const* colour : colours)
-            (*colour)[i] = 0x80808080; // (each byte 0x80)
+        for (const std::span<uint32_t>* const colour : colours)
+            core::at(*colour, i) = 0x80808080; // (each byte 0x80)
     return true;
 }
 
@@ -91,12 +93,12 @@ bool construct_parts(EmitterInstance* system, uint32_t name, int particle_cap, u
     system->max_particles_ = particle_cap;
     system->particle_count_ = 0;
     system->particle_list_ = new_particles(particle_cap);
-    if (!system->particle_list_)
+    if (system->particle_list_.empty())
         return false;
-    system->position_array_ =
-        static_cast<float*>(positions_zeroed ? allocate_zeroed(positions_size) : carve(positions_size));
-    if (!system->position_array_)
+    auto* positions = static_cast<float*>(positions_zeroed ? allocate_zeroed(positions_size) : carve(positions_size));
+    if (!positions)
         return false;
+    system->position_array_ = std::span<float>(positions, positions_size / sizeof(float));
     return new_colours(system, colours);
 }
 
@@ -189,15 +191,15 @@ EmitterInstance::~EmitterInstance()
         params->get_clear();
         script::delete_struct(params);
     }
-    if (start_colour_)
-        memory::dealloc(start_colour_);
-    if (mid_colour_)
-        memory::dealloc(mid_colour_);
-    if (end_colour_)
-        memory::dealloc(end_colour_);
-    if (position_array_)
-        memory::dealloc(position_array_);
-    if (particle_list_)
+    if (!start_colour_.empty())
+        memory::dealloc(start_colour_.data());
+    if (!mid_colour_.empty())
+        memory::dealloc(mid_colour_.data());
+    if (!end_colour_.empty())
+        memory::dealloc(end_colour_.data());
+    if (!position_array_.empty())
+        memory::dealloc(position_array_.data());
+    if (!particle_list_.empty())
         delete_particles(particle_list_);
     // the particle manager lets go of it
     static_cast<FlexibleParticleManager*>(particle_hub_handle())->remove_system(this);
@@ -245,19 +247,19 @@ void EmitterInstance::change_spin(float x, float y, float z)
 // 0x00496970
 void EmitterInstance::fetch_place(int particle, int step, float* x, float* y, float* z)
 {
-    const float* position = position_array_ + 3 * (max_particles_ * step + particle);
-    *x = position[0];
-    *y = position[1];
-    *z = position[2];
+    const std::span<const float, 3> position = place_at(position_array_, max_particles_, step, particle);
+    *x = core::at(position, 0);
+    *y = core::at(position, 1);
+    *z = core::at(position, 2);
 }
 
 // 0x004969B0
 void EmitterInstance::change_place(int particle, int step, float x, float y, float z)
 {
-    float* position = position_array_ + 3 * (max_particles_ * step + particle);
-    position[0] = x;
-    position[1] = y;
-    position[2] = z;
+    const std::span<float, 3> position = place_at(position_array_, max_particles_, step, particle);
+    core::at(position, 0) = x;
+    core::at(position, 1) = y;
+    core::at(position, 2) = z;
 }
 
 // 0x004969F0
@@ -335,11 +337,11 @@ void EmitterInstance::update_bounds()
 }
 
 // 0x00496CE0
-void EmitterInstance::set_colour_scale(const float* rgba)
+void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
 {
     if (flag_bits_ & 0x10000) {
         for (int i = 0; i < 4; ++i)
-            core::at(colour_scale_, i) = rgba[i];
+            core::at(colour_scale_, i) = core::at(rgba, i);
     }
 }
 
@@ -457,9 +459,9 @@ FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32
 // 0x00499200
 FlatRibbonParticles::~FlatRibbonParticles()
 {
-    if (particle_list_) {
+    if (!particle_list_.empty()) {
         delete_particles(particle_list_);
-        particle_list_ = nullptr;
+        particle_list_ = {};
     }
 }
 
@@ -516,7 +518,7 @@ ModelParticles::~ModelParticles()
     }
     if (model_list_) {
         for (unsigned int i = 0; i < model_count_; ++i) {
-            gsl::owner<RenderModel*> model = memory::owned_element(model_list_[i]); // (the list's)
+            gsl::owner<RenderModel*> model = memory::owned_element(core::at(std::span<RenderModel*>(model_list_, model_count_), i)); // (the list's)
             delete model; // (through 0x0048C3C0)
         }
         memory::dealloc(static_cast<void*>(model_list_));

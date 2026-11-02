@@ -26,6 +26,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/packed_colour.h"
 
@@ -91,10 +92,10 @@ uint8_t clamped_byte(double value)
 uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const colour::Bytes& from, const colour::Bytes& to,
                       float t)
 {
-    const float* colour_scale = system.colour_scale_.data();
+    const std::array<float, 4>& colour_scale = system.colour_scale_;
     const float brightness = system.brightness_;
-    const double red = static_cast<double>(colour_scale[0]) * brightness;
-    const double green = static_cast<double>(colour_scale[1]) * brightness;
+    const double red = static_cast<double>(core::at(colour_scale, 0)) * brightness;
+    const double green = static_cast<double>(core::at(colour_scale, 1)) * brightness;
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(core::at(from, k) +
                                     truncate(static_cast<double>(core::at(to, k) - core::at(from, k)) * t));
@@ -103,7 +104,7 @@ uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const colour
     const uint8_t g = lerp(1);
     const uint8_t r = lerp(0);
     const uint8_t a = lerp(3);
-    const double blue = static_cast<double>(colour_scale[2]) * brightness;
+    const double blue = static_cast<double>(core::at(colour_scale, 2)) * brightness;
     std::array<uint8_t, 4> bytes = {{clamped_byte(blue * b), clamped_byte(green * g), clamped_byte(red * r), a}};
     std::memcpy(out, bytes.data(), 4);
     return out;
@@ -124,25 +125,34 @@ void emit_for_frame(EmitterInstance& system, float& accumulator)
 
 // Which colours a particle `life` of the way through its life is between, and how far.
 struct ColourSpan {
-    const uint32_t* from;
-    const uint32_t* to;
+    core::Cursor<const uint32_t> from;
+    core::Cursor<const uint32_t> to;
     float t;
 };
 ColourSpan colour_span(const EmitterInstance& system, float life)
 {
     const float colour_mid = system.colour_mid_;
-    ColourSpan span{system.start_colour_, system.end_colour_, life};
+    ColourSpan span{core::Cursor<const uint32_t>(system.start_colour_), core::Cursor<const uint32_t>(system.end_colour_), life};
     if (colour_mid >= 0.0f) {
         if (life < colour_mid) {
             span.t = static_cast<float>(static_cast<double>(life) / colour_mid);
-            span.to = system.mid_colour_;
+            span.to = core::Cursor<const uint32_t>(system.mid_colour_);
         } else {
             span.t =
                 static_cast<float>((static_cast<double>(life) - colour_mid) / (1.0f - static_cast<double>(colour_mid)));
-            span.from = system.mid_colour_;
+            span.from = core::Cursor<const uint32_t>(system.mid_colour_);
         }
     }
     return span;
+}
+
+// The dynamic vertex buffer locked for `count` vertices of `stride` bytes: written by vertex index (the vertices that
+// fit are `room`).
+gpu::VertexWriter locked_writer(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
+                                uint32_t* room)
+{
+    void* where = os_layer::lock_dynamic_vertices(count, stride, buffer, first_vertex, room);
+    return {static_cast<uint8_t*>(where), stride};
 }
 
 // lerp_colour of two colours (copies).
@@ -279,15 +289,15 @@ void PcNewFlatParticles::render()
         set_material(material->material);
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
         set_pixel_shader(default_pixel_shader(), nullptr);
-        const float* place = position_array_;
-        const FlexibleParticle* particle = particle_list_;
+        core::Cursor<const float> place(position_array_);
+        core::Cursor<const FlexibleParticle> particle(particle_list_);
         int remaining = particle_count_;
         int index = 0;
         while (remaining != 0) {
             IDirect3DVertexBuffer9* buffer = nullptr;
             uint32_t first_vertex = 0, room = 0;
-            auto* vertex = static_cast<QuadVertex*>(os_layer::lock_dynamic_vertices(
-                particle_count_ * 4, sizeof(QuadVertex), &buffer, &first_vertex, &room));
+            auto vertex = os_layer::lock_vertices<QuadVertex>(
+                particle_count_ * 4, &buffer, &first_vertex, &room);
             uint32_t quads = 0;
             if (index < particle_count_) {
                 for (;;) {
@@ -384,7 +394,7 @@ static_assert(sizeof(TrailVertex) == 0x10, "layout must match the original");
 // A particle's position (`index` in the positions), the emitter's added unless emitterIndependent.
 void place_of(const EmitterInstance* system, int index, std::span<float, 3> out)
 {
-    const float* p = system->position_array_ + 3 * index;
+    const core::Cursor<const float> p(system->position_array_, 3 * index);
     if (system->emitter_independent_) {
         core::at(out, 0) = p[0], core::at(out, 1) = p[1], core::at(out, 2) = p[2];
     } else {
@@ -451,14 +461,13 @@ void PcFlatRibbonParticles::render()
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
 
     // The ribbons.
-    const FlexibleParticle* particle = particle_list_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
     int remaining = (segments_ - 1) * particle_count_ * 4;
     int index = 0;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<TrailVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<TrailVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count_) {
             for (uint32_t bytes = particle_bytes; bytes <= 0x7FF; bytes += particle_bytes) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -472,8 +481,8 @@ void PcFlatRibbonParticles::render()
                     static_cast<float>((static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
                                        core::at(particle->start_size_, 0));
                 const ColourSpan span = colour_span(*this, life);
-                const uint32_t* from = span.from;
-                const uint32_t* to = span.to;
+                core::Cursor<const uint32_t> from(span.from);
+                core::Cursor<const uint32_t> to(span.to);
                 uint32_t previous_colour = get_colour(*this, *from++, *to++, span.t);
 
                 // The head end's edge points.
@@ -544,14 +553,13 @@ void PcFlatRibbonParticles::render()
     // The heads.
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(default_pixel_shader(), nullptr);
-    particle = particle_list_;
+    particle = core::Cursor<const FlexibleParticle>(particle_list_);
     remaining = particle_count_ * 4;
     index = 0;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<QuadVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(QuadVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<QuadVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count_) {
             for (uint32_t bytes = sizeof(QuadVertex); bytes <= 0x7FF; bytes += sizeof(QuadVertex)) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -562,7 +570,7 @@ void PcFlatRibbonParticles::render()
                      r2 = static_cast<float>(r.z * size);
                 auto u0 = static_cast<float>(u.x * size), u1 = static_cast<float>(u.y * size);
                 const double u2 = u.z * size;
-                const float* p = position_array_ + 3 * index;
+                const core::Cursor<const float> p(position_array_, 3 * index);
                 double px = 0.0, py = 0.0;
                 float pz = 0.0f;
                 if (emitter_independent_) {
@@ -656,12 +664,12 @@ void PcGlowParticles::render()
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
-    const FlexibleParticle* particle = particle_list_;
-    const float* place = position_array_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
+    core::Cursor<const float> place(position_array_);
     int index = 0;
     std::array<TrailVertex, 0x200> buffer{};
     while (remaining > 0) {
-        TrailVertex* vertex = buffer.data();
+        core::Cursor<TrailVertex> vertex(buffer);
         uint32_t words = 0;
         const int total = particle_count_;
         for (uint32_t budget = particle_words; index < total && budget <= 0x7FF; budget += particle_words) {
@@ -793,12 +801,11 @@ void PcLineParticles::render()
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
     int remaining = particle_count_ * 2;
     int index = 0;
-    const FlexibleParticle* particle = particle_list_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, lines = 0;
-        auto* vertex = static_cast<TrailVertex*>(
-            os_layer::lock_dynamic_vertices(particle_count_ * 2, sizeof(TrailVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<TrailVertex>(particle_count_ * 2, &buffer, &first_vertex, &room);
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             std::array<float, 3> p0{};
@@ -864,16 +871,15 @@ void PcRibbonParticles::render()
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
         set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
     }
-    const FlexibleParticle* particle = particle_list_;
-    const float* head = position_array_;
-    const float* tail = position_array_ + 3 * (steps_ - 1) * max_particles_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
+    core::Cursor<const float> head(position_array_);
+    core::Cursor<const float> tail(position_array_, 3 * (steps_ - 1) * max_particles_);
     int index = 0;
     int remaining = particle_count_ * 4;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* out =
-            static_cast<uint8_t*>(os_layer::lock_dynamic_vertices(remaining, stride, &buffer, &first_vertex, &room));
+        const gpu::VertexWriter out = locked_writer(remaining, stride, &buffer, &first_vertex, &room);
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double hx = 0.0, hy = 0.0;
@@ -929,14 +935,13 @@ void PcRibbonParticles::render()
                     const QuadVertex vertex = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1),
                                                core::at(core::at(corners, k), 2), colour, core::at(core::at(kUv, k), 0),
                                                core::at(core::at(kUv, k), 1)};
-                    gpu::VertexWriter(out, sizeof(QuadVertex)).set_value(static_cast<size_t>(k), 0, vertex);
+                    out.set_value(vertices + static_cast<size_t>(k), 0, vertex);
                 } else {
                     const TrailVertex vertex = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1),
                                                 core::at(core::at(corners, k), 2), colour};
-                    gpu::VertexWriter(out, sizeof(TrailVertex)).set_value(static_cast<size_t>(k), 0, vertex);
+                    out.set_value(vertices + static_cast<size_t>(k), 0, vertex);
                 }
             }
-            out += 4 * stride;
             vertices += 4;
             triangles += 2;
             if (vertices >= room - 4)
@@ -1003,14 +1008,13 @@ void PcRibbonTrailParticles::render()
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
-    const FlexibleParticle* particle = particle_list_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
     int remaining = (steps_ - 1) * particle_count_ * 4;
     int index = 0;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<TrailVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<TrailVertex>(remaining, &buffer, &first_vertex, &room);
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             std::array<float, 3> p0{};
@@ -1037,8 +1041,8 @@ void PcRibbonTrailParticles::render()
                 static_cast<float>((static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
                                    core::at(particle->start_size_, 0));
             const ColourSpan span = colour_span(*this, life);
-            const uint32_t* from = span.from;
-            const uint32_t* to = span.to;
+            core::Cursor<const uint32_t> from(span.from);
+            core::Cursor<const uint32_t> to(span.to);
             uint32_t previous_colour = head_colour(*from++, *to++, span.t);
             double n0w = static_cast<double>(core::at(n, 0)) * w, n1w = static_cast<double>(core::at(n, 1)) * w,
                    n2w = static_cast<double>(core::at(n, 2)) * w;
@@ -1139,15 +1143,14 @@ void PcShadedParticles::render()
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(material->shader, nullptr);
-    const FlexibleParticle* particle = particle_list_;
-    const float* place = position_array_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
+    core::Cursor<const float> place(position_array_);
     int index = 0;
     int remaining = particle_count_ * 4;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<QuadVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(QuadVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<QuadVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count_) {
             for (uint32_t bytes = sizeof(QuadVertex); bytes <= 0x7FF; bytes += sizeof(QuadVertex)) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -1278,15 +1281,14 @@ void PcSmoothParticles::render()
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     set_pixel_shader(default_pixel_shader(), nullptr);
-    const FlexibleParticle* particle = particle_list_;
-    const float* place = position_array_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
+    core::Cursor<const float> place(position_array_);
     int index = 0;
     int remaining = particle_count_ * 12;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<QuadVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(QuadVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<QuadVertex>(remaining, &buffer, &first_vertex, &room);
         while (index < particle_count_) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             const double across = (static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
@@ -1386,16 +1388,15 @@ void PcSmoothRibbonParticles::render()
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
-    const float* head = position_array_;
-    const float* tail = position_array_ + 3 * (segments - 1) * max_particles_;
-    const FlexibleParticle* particle = particle_list_;
+    core::Cursor<const float> head(position_array_);
+    core::Cursor<const float> tail(position_array_, 3 * (segments - 1) * max_particles_);
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
     int index = 0;
     int remaining = particle_count_ * 8;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<TrailVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<TrailVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count_) {
             for (uint32_t bytes = 0x20; bytes <= 0x7FF; bytes += 0x20) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
@@ -1406,8 +1407,8 @@ void PcSmoothRibbonParticles::render()
                     core::at(t, 0) = tail[0], core::at(t, 1) = tail[1], core::at(t, 2) = tail[2];
                 } else {
                     for (int k = 0; k < 3; ++k) {
-                        core::at(h, k) = static_cast<float>(static_cast<double>(head[k]) + (&at_point_.x)[k]);
-                        core::at(t, k) = static_cast<float>(static_cast<double>(tail[k]) + (&at_point_.x)[k]);
+                        core::at(h, k) = static_cast<float>(static_cast<double>(head[k]) + at_point_[k]);
+                        core::at(t, k) = static_cast<float>(static_cast<double>(tail[k]) + at_point_[k]);
                     }
                 }
                 auto dx = static_cast<float>(static_cast<double>(core::at(t, 0)) - core::at(h, 0)),
@@ -1507,16 +1508,15 @@ void PcSmoothStarParticles::render()
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
-    const FlexibleParticle* particle = particle_list_;
-    const float* place = position_array_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
+    core::Cursor<const float> place(position_array_);
     int index = 0;
     int remaining = segments_ * particle_count_ * 8;
     constexpr float kDegrees = 0.0174532924f; // (0x00645464)
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<TrailVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<TrailVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count_) {
             auto sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
             for (;;) {
@@ -1680,16 +1680,15 @@ void PcStarParticles::render()
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(g_pixel_shaders, kPixelShader95c), material->material);
-    const FlexibleParticle* particle = particle_list_;
-    const float* place = position_array_;
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
+    core::Cursor<const float> place(position_array_);
     int index = 0;
     int remaining = segments_ * particle_count_ * 4;
     constexpr float kDegrees = 0.0174532924f; // (0x00645464)
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* vertex = static_cast<TrailVertex*>(
-            os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
+        auto vertex = os_layer::lock_vertices<TrailVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count_) {
             auto sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
             for (;;) {
@@ -1855,17 +1854,16 @@ void PcGlowRibbonTrailParticles::render()
     uint32_t first_vertex = 0, room = 0;
     const uint32_t total_vertices = (segments_ * 9 + (history_length_ * 3 - 3) * 2) * particle_count_;
     const uint32_t total_triangles = (segments_ * 3 - 2 + history_length_ * 2) * particle_count_;
-    auto* vertex = static_cast<TrailVertex*>(
-        os_layer::lock_dynamic_vertices(total_vertices, sizeof(TrailVertex), &buffer, &first_vertex, &room));
-    const FlexibleParticle* particle = particle_list_;
+    auto vertex = os_layer::lock_vertices<TrailVertex>(total_vertices, &buffer, &first_vertex, &room);
+    core::Cursor<const FlexibleParticle> particle(particle_list_);
     int index = 0;
     while (remaining > 0) {
         for (; index < particle_count_; ++index, ++particle) {
             const double life = static_cast<double>(particle->age) / particle->lifetime;
-            const float* p = position_array_ + 3 * index;
+            const core::Cursor<const float> p(position_array_, 3 * index);
             std::array<float, 3> p0 = {{p[0], p[1], p[2]}};
             std::array<float, 3> p1{};
-            const float* q = position_array_ + 3 * (max_particles_ + index);
+            const core::Cursor<const float> q(position_array_, 3 * (max_particles_ + index));
             core::at(p1, 0) = q[0], core::at(p1, 1) = q[1], core::at(p1, 2) = q[2];
             // Across the trail's first segment, normalised (unrounded).
             std::array<double, 3> n{};
@@ -1891,16 +1889,16 @@ void PcGlowRibbonTrailParticles::render()
                 static_cast<float>((static_cast<double>(core::at(particle->end_size_, 1)) - core::at(particle->start_size_, 1)) * life +
                                    core::at(particle->start_size_, 1));
             // The colours (unrounded fraction): the trail's from index 3 on.
-            const uint32_t* from = start_colour_;
-            const uint32_t* to = end_colour_;
+            core::Cursor<const uint32_t> from(start_colour_);
+            core::Cursor<const uint32_t> to(end_colour_);
             double t = life;
             if (colour_mid_ >= 0.0f) {
                 if (life < colour_mid_) {
                     t = life / colour_mid_;
-                    to = mid_colour_;
+                    to = core::Cursor<const uint32_t>(mid_colour_);
                 } else {
                     t = (life - colour_mid_) / (1.0f - static_cast<double>(colour_mid_));
-                    from = mid_colour_;
+                    from = core::Cursor<const uint32_t>(mid_colour_);
                 }
             }
             uint32_t previous_colour = fine_colour(from[3], to[3], t);
@@ -1926,7 +1924,7 @@ void PcGlowRibbonTrailParticles::render()
             for (int k = 1; k < history_length_; ++k) {
                 const uint32_t colour = fine_colour(*from++, *to++, t);
                 if (k > 1) {
-                    const float* next = position_array_ + 3 * (max_particles_ * k + index);
+                    const core::Cursor<const float> next(position_array_, 3 * (max_particles_ * k + index));
                     core::at(p1, 0) = next[0], core::at(p1, 1) = next[1], core::at(p1, 2) = next[2];
                     const double dx = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
                     const double dy = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
@@ -1970,22 +1968,22 @@ void PcGlowRibbonTrailParticles::render()
             }
 
             // The glow about the head: its colours from the colour fraction gone through the selection again.
-            std::memcpy(p0.data(), p, sizeof(p0));
+            std::copy_n(p.rest().begin(), p0.size(), p0.begin());
             const std::array<float, 3> rr = {{static_cast<float>(static_cast<double>(core::at(r, 0)) * size0),
                                  static_cast<float>(static_cast<double>(core::at(r, 1)) * size0),
                                  static_cast<float>(static_cast<double>(core::at(r, 2)) * size0)}};
             const std::array<float, 3> uu = {{static_cast<float>(static_cast<double>(core::at(u, 0)) * size1),
                                  static_cast<float>(static_cast<double>(core::at(u, 1)) * size1),
                                  static_cast<float>(static_cast<double>(core::at(u, 2)) * size1)}};
-            const uint32_t* glow_from = start_colour_;
-            const uint32_t* glow_to = end_colour_;
+            core::Cursor<const uint32_t> glow_from(start_colour_);
+            core::Cursor<const uint32_t> glow_to(end_colour_);
             if (colour_mid_ >= 0.0f) {
                 if (t < colour_mid_) {
                     t = t / colour_mid_;
-                    glow_to = mid_colour_;
+                    glow_to = core::Cursor<const uint32_t>(mid_colour_);
                 } else {
                     t = (t - colour_mid_) / (1.0f - static_cast<double>(colour_mid_));
-                    glow_from = mid_colour_;
+                    glow_from = core::Cursor<const uint32_t>(mid_colour_);
                 }
             }
             std::array<uint32_t, 3> glow{};

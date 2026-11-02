@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "engine/maths/shape_tests.h"
@@ -117,7 +118,7 @@ struct Sparkle : memory::HeapObject {
     // on_colour_changed. Null: only on_colour_changed.
     void change_colour(const Rgba* rgba);
     // 0x00496210: with the manager's colour (flag158_), its colour scale = `rgba`, then on_colour_changed.
-    void set_colour_scale(const float* rgba);
+    void set_colour_scale(std::span<const float, 4> rgba);
     // 0x004963B0: the emit script: the old one's spawned scripts killed (by its name), then `script` spawned with
     // {0x40C698AF: objectId}.
     void set_emit_script(uint32_t script, uint32_t object_id);
@@ -172,7 +173,7 @@ struct EffectsDirector : memory::HeapObject {
     // 0x00496680: each updated.
     void tick_particles();
     // 0x004966B0: each given `rgba` (set_colour_scale), and the manager's colour = `rgba`.
-    void change_colour(const float* rgba);
+    void change_colour(std::span<const float, 4> rgba);
     // 0x00496700: each released and deleted, the list emptied.
     void kill_every_particle();
 };

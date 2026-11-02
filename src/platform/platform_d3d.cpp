@@ -3,6 +3,7 @@
 #include "platform/platform_d3d.h"
 
 #include <cstdint>
+#include <span>
 #include <unordered_map>
 
 #include "engine/gfx/device.h"
@@ -112,7 +113,7 @@ void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuff
     if (room)
         *room = (dynamic_vertices_size() - start) / stride;
     dynamic_vertices()->Lock(0, 0, raw::as<void*>(&dynamic_vertices_locked()), D3DLOCK_NOOVERWRITE);
-    return dynamic_vertices_locked() + start;
+    return std::span<uint8_t>(dynamic_vertices_locked(), dynamic_vertices_size()).subspan(start).data();
 }
 
 // 0x005F4800
