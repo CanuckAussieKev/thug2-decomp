@@ -311,6 +311,24 @@ public:
     int wait_stop(script::Struct* params, script::Script* script);
 
 
+    // The fields other code reads and sets.
+    uint32_t& motion_flags() { return motion_flags_; }
+    [[nodiscard]] uint32_t motion_flags() const { return motion_flags_; }
+    uint32_t& motion_flags2() { return motion_flags2_; }
+    [[nodiscard]] uint32_t motion_flags2() const { return motion_flags2_; }
+    void assign_path_acceleration(float value) { path_acceleration_ = value; }
+    void assign_path_deceleration(float value) { path_deceleration_ = value; }
+    [[nodiscard]] float path_max_speed() const { return path_max_speed_; }
+    void set_path_max_speed(float value) { path_max_speed_ = value; }
+    [[nodiscard]] float path_speed() const { return path_speed_; }
+    void set_path_speed(float value) { path_speed_ = value; }
+    void set_path_stop_distance(float value) { path_stop_distance_ = value; }
+    [[nodiscard]] const std::array<maths::Vec4, 3>& ground_triangle() const { return ground_triangle_; }
+    void set_ground_triangle(const std::array<maths::Vec4, 3>& value) { ground_triangle_ = value; }
+    void set_ground_height_only(bool value) { ground_height_only_ = value; }
+    [[nodiscard]] const std::unique_ptr<PathFollower>& path_follower() const { return path_follower_; }
+
+private:
     uint32_t motion_flags_{};          // +0x18 MOTION_*
     uint32_t motion_flags2_{};         // +0x1C MOTION2_*
     float move_speed_{};               // +0x20 moving to a point: the speed now (per second)

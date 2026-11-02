@@ -55,12 +55,12 @@ PadSticks& sticks_of(const void* pad)
 }
 
 // The trick component's pad (the input component's).
-const void* trick_pad(const objects::MoveExecutor* trick) { return &trick->input_->pad_primary_; }
+const void* trick_pad(const objects::MoveExecutor* trick) { return &trick->input()->pad_primary_; }
 
 // The bike state of `trick`'s skater while it rides the bike, else null.
 BikeState* riding_state(const objects::MoveExecutor* trick)
 {
-    const SkaterPhysicsModule* core = trick->core_physics_;
+    const SkaterPhysicsModule* core = trick->core_physics();
     if (!core || !live_now(core))
         return nullptr;
     return state_of(core, false);
@@ -70,8 +70,8 @@ BikeState* riding_state(const objects::MoveExecutor* trick)
 // buttons: not for an ignored button.
 void add_stick_event(objects::MoveExecutor* trick, uint32_t name, bool pressed)
 {
-    for (int i = 0; i < trick->ignored_count_; ++i)
-        if (core::at(trick->ignored_, i) == name)
+    for (int i = 0; i < trick->ignored_count(); ++i)
+        if (core::at(trick->ignored(), i) == name)
             return;
     trick->append_incident(pressed ? 1 : 2)->button = name;
 }
@@ -152,7 +152,7 @@ uint32_t trick_stick_name(bool right, int direction)
 void update_trick_sticks(void* trick_component)
 {
     auto* trick = static_cast<objects::MoveExecutor*>(trick_component);
-    const SkaterPhysicsModule* core = trick->core_physics_;
+    const SkaterPhysicsModule* core = trick->core_physics();
     BikeState* state = core ? state_of(core, false) : nullptr;
     if (!state)
         return;

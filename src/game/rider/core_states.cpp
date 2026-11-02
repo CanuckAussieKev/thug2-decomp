@@ -112,7 +112,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         change_state(this, kAir);
         old_state_ = kAir;
         set_flag(this, PoseFlag::kNoSecondSpin, 1);
-        if (static_cast<uint8_t>(walk_->off_vert_))
+        if (static_cast<uint8_t>(walk_->off_vert()))
             set_flag(this, PoseFlag::kNoAcidDrop, 1);
     }
     state_changed_at_ = get_now();
@@ -150,9 +150,9 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
             ride->ride_ = nullptr;
             ride->stop_time_ = get_now();
         }
-        if (objects::GameEntity* object = grind_from->grind_object_)
+        if (objects::GameEntity* object = grind_from->grind_object())
             ride_->ride_on(object);
-        start_grind(&grind_from->grind_point_, grind_from->grind_node_, grind_from->grind_rails_, true, true);
+        start_grind(&grind_from->grind_point(), grind_from->grind_node(), grind_from->grind_rails(), true, true);
         safe_pos_ = entity_->at_point_;
         entity_->old_pos_ = safe_pos_;
     } else if (acid_drop) {

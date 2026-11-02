@@ -180,10 +180,10 @@ void RiderBoardPhysics::remount_board()
     set_walking(pose_, false);
     freeze_module(static_cast<ObjectModule*>(core_physics_), false);
     // The walk's ground state (0) and what it leaves for: 1 its grind, 2 its acid drop.
-    const int hold = walk->leave_for_;
-    const skater::AcidDrop* acid_drop = hold == 2 ? &walk->acid_drop_ : nullptr;
+    const int hold = walk->leave_for();
+    const skater::AcidDrop* acid_drop = hold == 2 ? &walk->acid_drop() : nullptr;
     const FootMovement* grind_from = hold == 1 ? walk : nullptr;
-    core_returning(core_physics_, walk->state_ == 0, grind_from, acid_drop);
+    core_returning(core_physics_, walk->get_state() == 0, grind_from, acid_drop);
     freeze_module(entity_->fetch_module(kSkaterRotate), false);
     freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), false);
     freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), false);

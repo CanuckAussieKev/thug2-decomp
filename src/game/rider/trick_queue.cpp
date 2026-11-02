@@ -98,9 +98,9 @@ bool pressed_within(MoveExecutor* self, uint32_t button, int ms, int ignore)
 }
 
 // SkaterFlipAndRotate's do_after_anim (before a trick's script starts).
-void prepare_flip_and_rotate(MoveExecutor* self) { self->flip_rotate_->do_after_anim(); }
+void prepare_flip_and_rotate(MoveExecutor* self) { self->flip_rotate()->do_after_anim(); }
 // The state component told a trick started.
-void trick_started(MoveExecutor* self) { self->skater_state_->in_trick_move_ = true; }
+void trick_started(MoveExecutor* self) { self->skater_state()->in_trick_move_ = true; }
 
 script::Script* object_script(MoveExecutor* self) { return self->entity_->own_script_; }
 
@@ -122,8 +122,7 @@ script::Struct* mapped_trick(MoveExecutor* self, script::Struct* trick)
     trick->read_hash_value(kTrickSlot, &slot, 0);
     if (!slot)
         return nullptr;
-    uint32_t mapped = 0;
-    self->trick_lists_->read_hash_value(slot, &mapped, 0);
+    const uint32_t mapped = self->mapped_slot(slot);
     if (!mapped)
         return nullptr;
     return script::read_sub_struct(mapped);
@@ -133,9 +132,9 @@ script::Struct* mapped_trick(MoveExecutor* self, script::Struct* trick)
 template <typename Visit>
 void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 {
-    int index = self->event_head_;
-    for (int i = 0; std::cmp_less(i, self->event_count_); ++i) {
-        TrickEvent* event = &core::at(self->events_, index);
+    int index = self->event_head();
+    for (int i = 0; std::cmp_less(i, self->event_count()); ++i) {
+        TrickEvent* event = &core::at(self->get_events(), index);
         if (frame_clock::get_time() - event->time >= period)
             break;
         visit(event);
@@ -145,6 +144,14 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 }
 
 } // namespace
+
+// The trick mappings' value for a trick slot.
+uint32_t MoveExecutor::mapped_slot(uint32_t slot) const
+{
+    uint32_t mapped = 0;
+    trick_lists_->read_hash_value(slot, &mapped, 0);
+    return mapped;
+}
 
 // 0x00523490
 gsl::owner<ObjectModule*> MoveExecutor::fabricate() { return new MoveExecutor; }

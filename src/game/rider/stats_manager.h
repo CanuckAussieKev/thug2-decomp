@@ -104,6 +104,12 @@ public:
     bool get_last_air_combo_score(script::Struct* params, script::Script* script);   // 0x0051CB70
     bool clear_last_air_combo_score(script::Struct* params, script::Script* script); // 0x0051C580
 
+    // The fields other code reads and sets.
+    void set_first_update(bool value) { first_update_ = value; }
+    [[nodiscard]] const std::array<Goal, kGoals>& goals() const { return goals_; }
+    std::array<Goal, kGoals>& goals() { return goals_; }
+
+private:
     bool first_update_{}; // +0x18 the next update only clears the phases
     std::array<uint8_t, 3> pad19{};
     std::array<Goal, kGoals> goals_{}; // +0x1C

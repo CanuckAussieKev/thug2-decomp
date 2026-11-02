@@ -72,15 +72,15 @@ void get_back(const GameEntity* object, std::span<float, 4> back)
 // The node a path follower is headed for (kMotionFollowingPath and a follower), or 0; and its last node.
 uint32_t path_node(const KinematicsModule* motion)
 {
-    if (!(motion->motion_flags_ & kMotionFollowingPath) || !motion->path_follower_)
+    if (!(motion->motion_flags() & kMotionFollowingPath) || !motion->path_follower())
         return 0;
-    return motion->path_follower_->list_link_;
+    return motion->path_follower()->list_link_;
 }
 uint32_t path_last_node(const KinematicsModule* motion)
 {
-    if (!(motion->motion_flags_ & kMotionFollowingPath) || !motion->path_follower_)
+    if (!(motion->motion_flags() & kMotionFollowingPath) || !motion->path_follower())
         return 0;
-    return motion->path_follower_->last_node_;
+    return motion->path_follower()->last_node_;
 }
 
 } // namespace

@@ -148,7 +148,7 @@ void FootView::reset_now()
 void FootView::apply_queued_change()
 {
     flush_ = true;
-    walk_->locked_to_heading_ = true;
+    walk_->set_locked_to_heading(true);
     free_look_->heading_ = 0.0f;
     free_look_->lean_angle_ = 0.0f;
     free_look_->factor_ = 1.0f;
@@ -194,7 +194,7 @@ void FootView::restore_state(const WalkCameraState* state)
     turn_cosine_ = state->turn_cosine_;
     zoom_ = state->zoom;
     flush_ = false;
-    walk_->locked_to_heading_ = false;
+    walk_->set_locked_to_heading(false);
     instant_frames_ = 0;
     free_look_->heading_ = 0.0f;
     free_look_->locked_ = false;
@@ -357,7 +357,7 @@ void FootView::tick_frame()
             aligned(core::at(look.row, 2), core::at(matrix.row, 2))) {
             if (flush_) {
                 flush_ = false;
-                walk_->locked_to_heading_ = false;
+                walk_->set_locked_to_heading(false);
             }
         } else {
             // Slerped toward it: at matrix_slerp_rate, faster running (and twice that hanging or climbing), with
@@ -366,9 +366,9 @@ void FootView::tick_frame()
             float base = 0.0f;
             script::read_sub_struct(kParameters)->fetch_float(kMatrixSlerpRate, &base, 1);
             float rate = base;
-            if (walk_->running_)
+            if (walk_->running())
                 rate = static_cast<float>(static_cast<double>(get_param(kRunSlerpFactor)) * base);
-            const int state = walk_->state_;
+            const int state = walk_->get_state();
             if (state == 4 || state == 3)
                 rate = rate + rate;
             if (!(turn == 0.0f) && !flush_) {
@@ -376,7 +376,7 @@ void FootView::tick_frame()
                 rate = static_cast<float>(static_cast<double>(control) * std::fabs(turn) * rate);
             }
             if (flush_) {
-                walk_->locked_to_heading_ = true;
+                walk_->set_locked_to_heading(true);
                 rate = static_cast<float>(static_cast<double>(get_param(kFlushSlerpFactor)) * rate);
             }
             if (override_) {

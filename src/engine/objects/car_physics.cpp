@@ -81,7 +81,7 @@ std::span<maths::Mat4> rig_matrix_block(void* skeleton) { return static_cast<gfx
 int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->bone_total_; }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
-float motion_speed(KinematicsModule* motion) { return motion->path_speed_; }
+float motion_speed(KinematicsModule* motion) { return motion->path_speed(); }
 PathFollower* motion_path_follower(KinematicsModule* motion)
 {
     return motion->get_path_follower();

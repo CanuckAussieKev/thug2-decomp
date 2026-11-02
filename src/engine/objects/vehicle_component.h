@@ -310,6 +310,25 @@ public:
     bool is_rider_shown(script::Struct* params, script::Script* script);
 
     // --- the fields ---
+    // The fields other code reads and sets.
+    maths::Vec4& vel() { return vel_; }
+    [[nodiscard]] const maths::Vec4& vel() const { return vel_; }
+    [[nodiscard]] int wheels_in_contact() const { return wheels_in_contact_; }
+    [[nodiscard]] bool cut_short() const { return cut_short_; }
+    [[nodiscard]] float get_max_steering_angle() const { return max_steering_angle_; }
+    [[nodiscard]] float wheelbase() const { return wheelbase_; }
+    [[nodiscard]] float track() const { return track_; }
+    [[nodiscard]] const std::vector<Wheel>& get_wheels() const { return wheels_; }
+    [[nodiscard]] bool throttle() const { return throttle_; }
+    [[nodiscard]] bool brake() const { return brake_; }
+    [[nodiscard]] bool get_handbrake() const { return handbrake_; }
+    [[nodiscard]] bool get_reverse() const { return reverse_; }
+    [[nodiscard]] uint32_t sounds_name() const { return sounds_name_; }
+    [[nodiscard]] float air_time() const { return air_time_; }
+    [[nodiscard]] float collision_impulse() const { return collision_impulse_; }
+    [[nodiscard]] GameEntity* rider_ref() const { return rider_ref_; }
+
+private:
     maths::Vec4 at_point_{};        // +0x18 the centre of mass (world)
     maths::Vec4 linear_momentum_{}; // +0x28 linear momentum
     maths::Vec4 orientation_{};     // +0x38 a quaternion (x, y, z, w)

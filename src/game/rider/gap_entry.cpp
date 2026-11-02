@@ -223,14 +223,14 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         *require |= kGapDriving << kRequireShift;
         auto* vehicle = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(kPlayerVehicle));
         auto* physics = core::down_cast<DrivableModule>(vehicle->fetch_module(kVehicle));
-        set(physics->wheels_in_contact_ != 0 ? kGapGround : kGapAir);
+        set(physics->wheels_in_contact() != 0 ? kGapGround : kGapAir);
         return;
     }
     if (state->physics_mode_ != 0) {
         // Walking: the walk component's state.
         *cancel = kGapWalking;
         *require |= kGapWalking << kRequireShift;
-        switch (walk_->state_) {
+        switch (walk_->get_state()) {
         case 0:
             set(kGapGround);
             break;
@@ -518,7 +518,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         int points = 0;
         if (params->fetch_int_value(kScore, &points, 0) && entity_->is_local_skater_) {
             add_gap_score(points_held_, coloured.data(), points, 0x10);
-            core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))->bailed_ = true;
+            core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))->set_get_bailed(true);
             gap_tally_ref()->register_gap_hit(text);
             entity_->start_script_task(kDefaultGapScript, 0, false, false, nullptr);
         }

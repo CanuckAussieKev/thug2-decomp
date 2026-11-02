@@ -123,14 +123,14 @@ void spawn_pedestrian(script::Struct* params)
     ped->seal();
     script::launch_script(kPedInitModel, params, ped, false, nullptr);
     auto* motion = core::down_cast<KinematicsModule>(ped->fetch_module(kMotion));
-    motion->path_max_speed_ = 44.0f;
-    motion->path_acceleration_ = 48.0f;
-    motion->path_deceleration_ = 12.0f;
-    motion->path_stop_distance_ = 24.0f;
+    motion->set_path_max_speed(44.0f);
+    motion->assign_path_acceleration(48.0f);
+    motion->assign_path_deceleration(12.0f);
+    motion->set_path_stop_distance(24.0f);
     motion->init_path_follower(ped);
     auto* path = motion->get_path_follower();
     path->corner_distance_ = 24.0f;
-    motion->motion_flags2_ |= 0x400;
+    motion->motion_flags2() |= 0x400;
     update_model(ped->fetch_module(kModel));
     script::launch_script(kPedDisableBones, nullptr, ped, false, nullptr);
 }
@@ -141,10 +141,10 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
     add_motion_components(car);
     add_node_components(car, params);
     auto* motion = core::down_cast<KinematicsModule>(car->fetch_module(kMotion));
-    motion->path_max_speed_ = 528.0f;
-    motion->path_acceleration_ = 216.0f;
-    motion->path_deceleration_ = 384.0f;
-    motion->ground_height_only_ = false;
+    motion->set_path_max_speed(528.0f);
+    motion->assign_path_acceleration(216.0f);
+    motion->assign_path_deceleration(384.0f);
+    motion->set_ground_height_only(false);
     motion->init_path_follower(car);
     auto* extra = motion->get_path_follower();
     extra->corner_distance_ = 240.0f;

@@ -854,7 +854,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
     // from the snap's feeler start to 200 below): either off the ground, the turn is undone (the skater's and the
     // display's matrices turned back - not the velocity - and the wheel points put back along the old facing).
     if (state.manual) {
-        float& total = core->trick_->spin_total_;
+        float& total = core->trick_->spin_total();
         total = step * kDegreesPerRadian + total;
         void* display = core->score_->points_held_;
         static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
@@ -1072,7 +1072,7 @@ void air_rotation(SkaterPhysicsModule* core)
     if (spin_step != 0.0f || pitch_step != 0.0f) {
         // The trick's rotation total, shown as THUG2's Spin shows it (short of a whole turn by more than the slop
         // in vert, not; THAW shows the flips too - THUG2's display has no place for them).
-        float& total = core->trick_->spin_total_;
+        float& total = core->trick_->spin_total();
         total = spin_step * kDegreesPerRadian + total;
         bool show = true;
         if (flags->flag(PoseFlag::kVertAir).on && !flags->flag(PoseFlag::kAcidDrop).on && !pitched) {

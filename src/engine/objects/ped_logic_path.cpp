@@ -237,7 +237,7 @@ void PedestrianBrainModule::run_waypoint_actions(script::Struct* node)
         float percent = 0.0f;
         node->fetch_float(kAdjustSpeedPercent, &percent, 1);
         KinematicsModule* motion = get_motion(entity_);
-        motion->path_max_speed_ = percent * motion->path_max_speed_;
+        motion->set_path_max_speed(percent * motion->path_max_speed());
     }
     if (node->has_bare_flag(kLaunchNodeScript) && get_chance(node, kRunScriptWeight)) {
         uint32_t name = 0;
@@ -490,7 +490,7 @@ void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
         params->put_name_key(0u, kIsVert);
     } else {
         params = get_state_params(node);
-        const bool jumping = (get_motion(entity_)->motion_flags_ & 0x100) != 0;
+        const bool jumping = (get_motion(entity_)->motion_flags() & 0x100) != 0;
         if (!jumping) {
             const float speed = script::fetch_float(kJumpSpeedGlobal);
             const double gravity = script::fetch_float(kLeapGravity);
@@ -528,7 +528,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
         flag_bits_ &= ~kPedFlagMoving;
         params->put_name_key(0u, kIsVert);
     }
-    params->put_int(kIsJumping, (motion->motion_flags_ & 0x100) ? 1 : 0);
+    params->put_int(kIsJumping, (motion->motion_flags() & 0x100) ? 1 : 0);
     if (node->has_bare_flag(kJumpToNextNode))
         flag_bits_ = (flag_bits_ & ~kPedFlagMoving) | kPedFlagJumpingToNode;
     change_phase(kStateFlip, kTable, params);
@@ -673,7 +673,7 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
     choose_node_after();
     flag_bits_ |= kPedFlagMoving;
     peds_ = PathManager::sole()->add_to_extra_group(entity_, next_node_);
-    get_motion(entity_)->motion_flags_ |= 0x10;
+    get_motion(entity_)->motion_flags() |= 0x10;
     // Facing along the way to the first waypoint.
     float dx = next_node_pos_.x - node_pos_.x, dy = next_node_pos_.y - node_pos_.y, dz = next_node_pos_.z - node_pos_.z,
           dw = next_node_pos_.w - node_pos_.w;

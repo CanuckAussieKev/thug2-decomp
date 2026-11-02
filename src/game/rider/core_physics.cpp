@@ -361,7 +361,7 @@ void SkaterPhysicsModule::check_for_ground()
                             return;
                     }
                     objects::MoveExecutor* skater = trick_;
-                    if (!skater->trick_objects_on_)
+                    if (!skater->trick_objects_on())
                         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
                     floor_feeler_.get_assign(feeler_);
                     sound_->last_ground_ = floor_feeler_.hit_.terrain;
@@ -433,7 +433,7 @@ void SkaterPhysicsModule::ground_under_wheels(bool hit)
             return;
     }
     objects::MoveExecutor* skater = trick_;
-    if (!skater->trick_objects_on_)
+    if (!skater->trick_objects_on())
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     floor_feeler_.get_assign(feeler_);
     sound_->last_ground_ = floor_feeler_.hit_.terrain;
@@ -763,7 +763,7 @@ void SkaterPhysicsModule::land_from_air()
         static_cast<objects::RiderSfxPlayer*>(sound_)->play_land(speed / scale, static_cast<int>(which));
     }
     objects::MoveExecutor* skater = trick_;
-    if (!skater->trick_objects_on_)
+    if (!skater->trick_objects_on())
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     remember_floor_probe(&feeler_);
     trigger_of(this)->probe_touches_zone(kSkaterEvents0064bB98, &floor_feeler_);

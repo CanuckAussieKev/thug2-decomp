@@ -59,7 +59,7 @@ void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, fl
 
 bool get_interrupted(const DrivableModule* vehicle)
 {
-    return vehicle->cut_short_ || (vehicle->entity_->object_flags_ & kObjectFlagDead);
+    return vehicle->cut_short() || (vehicle->entity_->object_flags_ & kObjectFlagDead);
 }
 
 } // namespace

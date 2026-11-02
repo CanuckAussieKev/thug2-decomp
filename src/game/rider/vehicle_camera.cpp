@@ -123,7 +123,7 @@ bool CarView::vehicle_camera_reset(script::Struct* params, script::Script* /*scr
 // 0x00524550
 void CarView::update_target_direction()
 {
-    const auto& velocity = vehicle_->vel_;
+    const auto& velocity = vehicle_->vel();
     float x = -velocity[0];
     float y = 0.0f;
     float z = -velocity[2];
@@ -136,7 +136,7 @@ void CarView::update_target_direction()
         y = static_cast<float>(0.0f * inverse);
         z = static_cast<float>(z * inverse);
     }
-    if (vehicle_->wheels_in_contact_ < 2) {
+    if (vehicle_->wheels_in_contact() < 2) {
         if (!(speed < kMinFlatSpeed))
             target_direction_ = {.x = x, .y = y, .z = z, .w = w};
         return;

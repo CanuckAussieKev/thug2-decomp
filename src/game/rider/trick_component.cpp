@@ -53,9 +53,9 @@ constexpr uint32_t kSecond = 1000; // the sequences' window (ms)
 template <typename Visit>
 void for_each_event(MoveExecutor* trick, Visit visit)
 {
-    int index = trick->event_head_;
-    for (int n = 0; std::cmp_less(n, trick->event_count_); ++n) {
-        if (!visit(index, core::at(trick->events_, index)))
+    int index = trick->event_head();
+    for (int n = 0; std::cmp_less(n, trick->event_count()); ++n) {
+        if (!visit(index, core::at(trick->get_events(), index)))
             return;
         if (--index < 0)
             index += MoveExecutor::kEvents;

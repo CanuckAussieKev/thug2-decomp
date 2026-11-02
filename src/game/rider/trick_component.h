@@ -284,6 +284,34 @@ public:
     // params. True.
     int get_current_bail_endpose(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] modules::PointTally* get_score() const { return score_; }
+    void set_get_score(modules::PointTally* value) { score_ = value; }
+    PadInputModule*& input() { return input_; }
+    [[nodiscard]] PadInputModule* input() const { return input_; }
+    [[nodiscard]] skater::SkaterPhysicsModule* core_physics() const { return core_physics_; }
+    [[nodiscard]] RiderSpinAndFlip* flip_rotate() const { return flip_rotate_; }
+    RiderPoseState*& skater_state() { return skater_state_; }
+    [[nodiscard]] RiderPoseState* skater_state() const { return skater_state_; }
+    [[nodiscard]] const std::array<TrickEvent, kEvents>& get_events() const { return events_; }
+    std::array<TrickEvent, kEvents>& get_events() { return events_; }
+    [[nodiscard]] uint16_t event_count() const { return event_count_; }
+    [[nodiscard]] uint16_t event_head() const { return event_head_; }
+    [[nodiscard]] int ignored_count() const { return ignored_count_; }
+    [[nodiscard]] const std::array<uint32_t, 2>& ignored() const { return ignored_; }
+    void set_starting_special(bool value) { starting_special_ = value; }
+    // The trick mappings' value for a trick slot (0: none).
+    [[nodiscard]] uint32_t mapped_slot(uint32_t slot) const;
+    [[nodiscard]] const std::array<char, 0x33>& trick_name() const { return trick_name_; }
+    float& spin_total() { return spin_total_; }
+    [[nodiscard]] float spin_total() const { return spin_total_; }
+    [[nodiscard]] bool get_bailed() const { return bailed_; }
+    void set_get_bailed(bool value) { bailed_ = value; }
+    [[nodiscard]] bool bailed_panel() const { return bailed_panel_; }
+    [[nodiscard]] bool trick_objects_on() const { return trick_objects_on_; }
+    [[nodiscard]] const HitClusterLog& trick_objects() const { return trick_objects_; }
+
+private:
     int busy_{};                                // +0x18 (counted up and down round a trick's script)
     modules::PointTally* score_{nullptr};       // +0x1C the skater's score (set by the skater)
     PadInputModule* input_{nullptr};            // +0x20 (its disabled_ / net_disabled_: no tricks)

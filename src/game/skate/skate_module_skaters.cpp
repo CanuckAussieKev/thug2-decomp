@@ -731,16 +731,16 @@ bool Skate::first_trick_started()
 {
     objects::Rider* skater = get_rider_by_number(static_cast<uint32_t>(horse_->skater_));
     auto* trick = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
-    if (trick->bailed_)
+    if (trick->get_bailed())
         core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun))->end_run(false);
-    return trick->bailed_;
+    return trick->get_bailed();
 }
 
 // 0x005676E0
 bool Skate::first_trick_completed()
 {
     objects::Rider* skater = get_rider_by_number(static_cast<uint32_t>(horse_->skater_));
-    return core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->bailed_panel_;
+    return core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->bailed_panel();
 }
 
 // --- the per-player settings ----------------------------------------------------------------------------------------

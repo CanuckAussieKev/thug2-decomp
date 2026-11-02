@@ -349,7 +349,7 @@ void SkaterPhysicsModule::turn_round_if_backwards()
         special = trick == kBalanceTrickA || trick == kBalanceTrickB;
     }
     if (special) {
-        const uint32_t board = checksums::hash_from_text(trick_->trick_name_.data());
+        const uint32_t board = checksums::hash_from_text(trick_->trick_name().data());
         bool plain = false;
         for (const uint32_t b : kBoards)
             plain = plain || board == b;

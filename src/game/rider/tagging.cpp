@@ -387,7 +387,7 @@ bool TaggingControlComponent::try_tagging()
     }
     if (countdown_ > 0)
         return false;
-    const int walk_state = walk_->state_;
+    const int walk_state = walk_->get_state();
     if (walk_state != 2 && walk_state != 0)
         return false;
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
@@ -404,13 +404,13 @@ bool TaggingControlComponent::try_tagging()
     render::ProbeRay feeler;
     maths::Vec4 joint_world;
     core::down_cast<BoneRigModule>(skeleton)->get_bone_position(bone, &joint_world);
-    if (walk_->state_ == 2)
+    if (walk_->get_state() == 2)
         joint_world.y = static_cast<float>(joint_world.y - 10.0); // 0x00646710
     std::array<maths::Vec4, 6> hits{};
     std::array<float, 6> distances{};
     auto rise = static_cast<float>(reach * 0.0);
     bool found = false;
-    const maths::Vec4& heading = walk_->facing_;
+    const maths::Vec4& heading = walk_->facing_value();
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
     auto direction = [&](int index, float& dx, float& dz) {
         const double angle = index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au)) -
@@ -478,7 +478,7 @@ bool TaggingControlComponent::try_tagging()
 
     if (!pending_) {
         pending_ = true;
-        script::launch_script(walk_->state_ == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity_, false, nullptr);
+        script::launch_script(walk_->get_state() == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity_, false, nullptr);
         countdown_ = 30;
         return true;
     }

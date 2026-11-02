@@ -409,6 +409,57 @@ public:
     void update_ladder();
 
     // The fields after the base's (+0x18-+0x195F). The skater's other components read a few of them.
+    // The fields other code reads and sets.
+    [[nodiscard]] int get_state() const { return state_; }
+    maths::Vec4& pos() { return pos_; }
+    [[nodiscard]] const maths::Vec4& pos() const { return pos_; }
+    maths::Vec4& vel() { return vel_; }
+    [[nodiscard]] const maths::Vec4& vel() const { return vel_; }
+    [[nodiscard]] float up_speed() const { return up_speed_; }
+    void set_up_speed(float value) { up_speed_ = value; }
+    maths::Vec4& facing_value() { return facing_; }
+    [[nodiscard]] const maths::Vec4& facing_value() const { return facing_; }
+    maths::Vec4& old_pos() { return old_pos_; }
+    [[nodiscard]] const maths::Vec4& old_pos() const { return old_pos_; }
+    void set_anim_state(uint32_t value) { anim_state_ = value; }
+    [[nodiscard]] float frame_length() const { return frame_length_; }
+    [[nodiscard]] bool off_vert() const { return off_vert_; }
+    [[nodiscard]] const std::array<objects::WalkContact, 8>& get_contacts() const { return contacts_; }
+    std::array<objects::WalkContact, 8>& get_contacts() { return contacts_; }
+    float& get_speed() { return speed_; }
+    [[nodiscard]] float get_speed() const { return speed_; }
+    void set_locked_to_heading(bool value) { locked_to_heading_ = value; }
+    maths::Vec4& critical_point_offset() { return critical_point_offset_; }
+    [[nodiscard]] const maths::Vec4& critical_point_offset() const { return critical_point_offset_; }
+    [[nodiscard]] int leave_for() const { return leave_for_; }
+    void set_leave_for(int value) { leave_for_ = value; }
+    maths::Vec4& grind_point() { return grind_point_; }
+    [[nodiscard]] const maths::Vec4& grind_point() const { return grind_point_; }
+    [[nodiscard]] objects::GrindRailHub* grind_rails() const { return grind_rails_; }
+    [[nodiscard]] objects::GrindPoint* grind_node() const { return grind_node_; }
+    [[nodiscard]] objects::GameEntity* grind_object() const { return grind_object_; }
+    skater::AcidDrop& acid_drop() { return acid_drop_; }
+    [[nodiscard]] const skater::AcidDrop& acid_drop() const { return acid_drop_; }
+    [[nodiscard]] objects::GrindPoint* hang_node() const { return hang_node_; }
+    [[nodiscard]] objects::GrindRailHub* rail_manager() const { return rail_manager_; }
+    objects::GrindRailHub*& rail_manager() { return rail_manager_; }
+    objects::PadInputModule*& input() { return input_; }
+    [[nodiscard]] objects::PadInputModule* input() const { return input_; }
+    [[nodiscard]] objects::ActivationZoneModule* trigger() const { return trigger_; }
+    [[nodiscard]] objects::RiderBoardPhysics* physics_control() const { return physics_control_; }
+    [[nodiscard]] objects::MovingSurfaceModule* ride() const { return ride_; }
+    [[nodiscard]] skater::SkaterPhysicsModule* core_physics() const { return core_physics_; }
+    [[nodiscard]] bool running() const { return running_; }
+    render::ProbeRay& get_feeler() { return feeler_; }
+    [[nodiscard]] const render::ProbeRay& get_feeler() const { return feeler_; }
+    [[nodiscard]] bool feeler_hit() const { return feeler_hit_; }
+    void set_get_blocked(bool value) { blocked_ = value; }
+    maths::Vec4& push_normal() { return push_normal_; }
+    [[nodiscard]] const maths::Vec4& push_normal() const { return push_normal_; }
+    objects::AnimDoneCallback& anim_done() { return anim_done_; }
+    [[nodiscard]] const objects::AnimDoneCallback& anim_done() const { return anim_done_; }
+
+private:
     int state_{};                      // +0x18 0 walking, 1 in the air, 2 hanging, 3 on a ladder, 4 an animated move
     int state_time_{};                 // +0x1C the game clock when the state changed
     int previous_state_{};             // +0x20

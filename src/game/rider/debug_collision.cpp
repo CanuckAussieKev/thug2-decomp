@@ -101,7 +101,7 @@ const objects::Rider* skater_of_feeler(const void* feeler)
         const skater::SkaterPhysicsModule* core = rider->core_physics_;
         if (core && (feeler == &core->feeler_ || feeler == &core->floor_feeler_))
             return rider;
-        if (rider->walk_ && feeler == &rider->walk_->feeler_)
+        if (rider->walk_ && feeler == &rider->walk_->get_feeler())
             return rider;
     }
     return nullptr;

@@ -133,7 +133,7 @@ float walk_parameter(uint32_t name)
 int get_now() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 
 // The walk halted (the trigger component's +0x26: what it does this frame is over).
-bool halted(const FootMovement* walk) { return static_cast<bool>(walk->physics_control_->flag26_); }
+bool halted(const FootMovement* walk) { return static_cast<bool>(walk->physics_control()->flag26_); }
 
 // Nx's current collision cache (0x00691974), cleared after each state's update.
 void clear_current_cache() { render::set_current_cache(nullptr); }
@@ -171,15 +171,15 @@ void put_off(maths::Vec4* position, const render::ProbeRay* feeler, float gap)
 // One of the eight contacts (+0xA0, 0xCC each): what feeler 0-6 (around it, a seventh of a turn apart from the facing)
 // or 7 (along the fall) found.
 using Contact = WalkContact;
-Contact& contact_at(FootMovement* walk, int index) { return core::at(walk->contacts_, index); }
-const Contact& contact_at(const FootMovement* walk, int index) { return core::at(walk->contacts_, index); }
+Contact& contact_at(FootMovement* walk, int index) { return core::at(walk->get_contacts(), index); }
+const Contact& contact_at(const FootMovement* walk, int index) { return core::at(walk->get_contacts(), index); }
 
 // Where it hangs along the hang's facing (+0x18B4): (the position plus the ride check's offset) . that facing.
 float hang_plane(const FootMovement* walk)
 {
-    const maths::Vec4& position = walk->pos_;
-    const maths::Vec4& offset = walk->critical_point_offset_;
-    const maths::Vec4& facing = walk->push_normal_;
+    const maths::Vec4& position = walk->pos();
+    const maths::Vec4& offset = walk->critical_point_offset();
+    const maths::Vec4& facing = walk->push_normal();
     const double x = static_cast<double>(position.x) + offset.x;
     const double y = static_cast<double>(position.y) + offset.y;
     const double z = static_cast<double>(position.z) + offset.z;
@@ -189,11 +189,11 @@ float hang_plane(const FootMovement* walk)
 // Stopped by what it walks into: no velocity, the run animation's speed down to min_anim_run_speed, blocked.
 void halt(FootMovement* walk)
 {
-    walk->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    walk->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const float minimum = walk_parameter(kMinAnimRunSpeed);
-    float& speed = walk->speed_;
+    float& speed = walk->get_speed();
     speed = minimum < speed ? minimum : speed;
-    walk->blocked_ = true;
+    walk->set_get_blocked(true);
 }
 
 // a + b in the x87's double precision, stored as a float.

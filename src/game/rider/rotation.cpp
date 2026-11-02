@@ -233,7 +233,7 @@ void SkaterPhysicsModule::get_spin()
     auto step = static_cast<float>(static_cast<double>(speed) * frame_length());
     body_transform(object).yaw_locally(step);
     display_matrix_.yaw_locally(step);
-    float& total = trick_->spin_total_;
+    float& total = trick_->spin_total();
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer (the C runtime's _ftol2: truncated) - except when the flags say not to and the total
     // is short of a whole turn by more than the snap (360 - snap + 0.1).

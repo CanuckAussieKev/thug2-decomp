@@ -548,7 +548,7 @@ void Rider::update_shadow_light()
     else if (!walk_)
         fading = true;
     else
-        fading = static_cast<uint32_t>(walk_->state_) != 1;
+        fading = static_cast<uint32_t>(walk_->get_state()) != 1;
     if (fading)
         shadow_fade_ = shadow_fade_ > 0 ? shadow_fade_ - 1 : 0;
     else
@@ -972,7 +972,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         tricks->clear_queue();
         tricks->clear_block1238();
         tricks->clear_block1280();
-        trick_->score_ = score_holder_->points_held_;
+        trick_->set_get_score(score_holder_->points_held_);
     }
     if (RiderGapTracker* other = gap_tracker_)
         other->points_held_ = score_holder_->points_held_;
@@ -1550,7 +1550,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
         pad_input_->disabled_ = false;
         unpause();
         if (AttributeTracker* list = stats_)
-            list->first_update_ = true;
+            list->set_first_update(true);
         if (net->in_net_game()) {
             commands::cfunc_notify_bail_done(nullptr, nullptr);
             core_physics_->state_->set_flag(PoseFlag::kBailing, 0);

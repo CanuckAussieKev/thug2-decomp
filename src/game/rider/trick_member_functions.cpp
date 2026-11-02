@@ -83,13 +83,13 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 
 // The rest of the component (0x0051EA90-0x00521B8F) and its neighbours, not rewritten here.
 bool is_pad_held(MoveExecutor* self, uint32_t button) { return self->is_key_held(button); }
-bool is_switch(MoveExecutor* self) { return (self->core_physics_->is_sides_swapped() & 0xFF) != 0; }
+bool is_switch(MoveExecutor* self) { return (self->core_physics()->is_sides_swapped() & 0xFF) != 0; }
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void score_trick(MoveExecutor* self, const char* name, int score, uint32_t flags)
 {
-    self->score_->fire_off(name, score, flags);
+    self->get_score()->fire_off(name, score, flags);
 }
-void score_spin(MoveExecutor* self, int degrees) { self->score_->change_spin_degrees(degrees); }
+void score_spin(MoveExecutor* self, int degrees) { self->get_score()->change_spin_degrees(degrees); }
 
 // The trick names of unnamed name components (SetQueueTricks and the others): into `arrays`, counted at `count`.
 void collect_names(script::Struct* params, int& count, std::span<uint32_t> arrays)
@@ -104,7 +104,7 @@ void collect_names(script::Struct* params, int& count, std::span<uint32_t> array
 // The combo the score holds (its +0x14 times its +0x60) handed to SkaterExitCombo listeners with the object's id.
 void exit_combo(MoveExecutor* self)
 {
-    const modules::PointTally* score = self->score_;
+    const modules::PointTally* score = self->get_score();
     if (!truncate(static_cast<double>(score->pot_) * score->multiplier_))
         return;
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
@@ -122,7 +122,7 @@ void exit_combo(MoveExecutor* self)
 // less the skater's spin_count_slop, with 0.1 to spare.
 bool spin_counts(MoveExecutor* self, bool full_turn)
 {
-    const float spin = std::fabs(self->spin_total_);
+    const float spin = std::fabs(self->spin_total());
     const double slop = read_tuning_float(kSpinCountSlop, 1, static_cast<GameEntity*>(self->entity_));
     const double threshold = (static_cast<double>(full_turn ? kFullTurn : kHalfTurn) - slop) + kSpinMargin;
     return threshold <= spin;
@@ -131,7 +131,7 @@ bool spin_counts(MoveExecutor* self, bool full_turn)
 // Whether the score shows the trick named (its 0x00561640 against the name's checksum, taken first).
 bool same_trick_shown(MoveExecutor* self, void* score)
 {
-    const uint32_t name = checksums::hash_from_text(&core::at(self->trick_name_, 0));
+    const uint32_t name = checksums::hash_from_text(&core::at(self->trick_name(), 0));
     return static_cast<modules::PointTally*>(score)->fetch_newest_trick_key() == name;
 }
 

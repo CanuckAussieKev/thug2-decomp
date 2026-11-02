@@ -97,7 +97,7 @@ void RiderRunClock::fetch_diagnostics(script::Struct* params)
 void RiderRunClock::tick_frame()
 {
     if (cur_phase_ == kClockTicking) {
-        const int walk_state = walk_->state_;
+        const int walk_state = walk_->get_state();
         double elapsed = 0.0;
         if (walk_state >= 2 && walk_state <= 4) {
             const float adjustment = script::fetch_float(kHangSpeedAdjustment);

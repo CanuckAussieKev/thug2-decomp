@@ -118,7 +118,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     objects::RiderPoseState* flags = state_;
     if (!flags->flag(PoseFlag::kVertAir).on || !flags->flag(PoseFlag::kJumped).on)
         return false;
-    if (!(trick_->spin_total_ == 0.0f) || vert_wallplanted_)
+    if (!(trick_->spin_total() == 0.0f) || vert_wallplanted_)
         return false;
     // The wall within reach below the skater's up axis.
     objects::GameEntity* object = object_of(this);

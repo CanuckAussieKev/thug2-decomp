@@ -311,7 +311,7 @@ bool PedestrianBrainModule::avoid_peds()
                 continue;
         }
         const KinematicsModule* other_motion = get_motion(other);
-        if (heading_dot > 0.0f && other_motion->path_max_speed_ >= motion->path_max_speed_)
+        if (heading_dot > 0.0f && other_motion->path_max_speed() >= motion->path_max_speed())
             continue;
         const double dx = static_cast<double>(entity_->at_point_.x) - other->at_point_.x;
         const double dy = static_cast<double>(entity_->at_point_.y) - other->at_point_.y;
@@ -417,7 +417,7 @@ void PedestrianBrainModule::move_steered()
     const float side = steer_sideways();
     const double forward = steer_forward();
     push_position();
-    const double step = static_cast<double>(step_seconds_) * motion->path_speed_;
+    const double step = static_cast<double>(step_seconds_) * motion->path_speed();
     auto side_step = static_cast<float>(side * step);
     auto forward_step = static_cast<float>(step * forward);
     const maths::Mat4 m = entity_->display_matrix_;
@@ -488,7 +488,7 @@ bool PedestrianBrainModule::turn_towards_node_after()
                 const double corner = maths::read_turn_angle(in, out) * kToRadians;
                 const double reach =
                     std::sqrt(std::sqrt((std::cos(corner) + 1.0) * (static_cast<double>(distance_sqr) + distance_sqr)));
-                turn_frames_ = truncate(reach / motion->path_max_speed_ * kFramesPerSecond);
+                turn_frames_ = truncate(reach / motion->path_max_speed() * kFramesPerSecond);
                 if (turn_frames_ <= 0)
                     turn_frames_ = 1;
             }
@@ -623,9 +623,9 @@ void PedestrianBrainModule::stick_to_ground_ped()
                              .y = static_cast<float>(static_cast<double>(dy) + pos.y), .z = static_cast<float>(dz + pos.z),
                              .w = static_cast<float>(static_cast<double>(dw) + pos.w)};
     maths::Vec4 point;
-    GroundTriangle last{motion->ground_triangle_}; // (the motion's last ground triangle, tried first and kept)
+    GroundTriangle last{motion->ground_triangle()}; // (the motion's last ground triangle, tried first and kept)
     const bool found = probe_ground(&start, &end, &point, &last);
-    motion->ground_triangle_ = last.corners;
+    motion->set_ground_triangle(last.corners);
     if (found)
         entity_->at_point_ = point;
 }
@@ -637,7 +637,7 @@ void PedestrianBrainModule::align_to_ground()
     if (!motion)
         return;
     GroundTriangle t{};
-    t.get_assign(GroundTriangle{motion->ground_triangle_});
+    t.get_assign(GroundTriangle{motion->ground_triangle()});
     const auto& c = t.corners;
     const double e1x = static_cast<double>(core::at(c, 1).x) - core::at(c, 0).x;
     const double e1y = static_cast<double>(core::at(c, 1).y) - core::at(c, 0).y;
@@ -811,8 +811,8 @@ void PedestrianBrainModule::skater_move_update()
 {
     KinematicsModule* motion = get_motion(entity_);
     motion->update_path_speed();
-    auto step = static_cast<float>(static_cast<double>(step_seconds_) * motion->path_speed_);
-    const bool airborne = (motion->motion_flags_ & 0x100) != 0;
+    auto step = static_cast<float>(static_cast<double>(step_seconds_) * motion->path_speed());
+    const bool airborne = (motion->motion_flags() & 0x100) != 0;
     if (flag_bits_ & kPedFlagGrinding) {
         if (const GameEntity* skater = local_skater()) {
             const maths::Vec4& at = entity_->at_point_;
@@ -911,9 +911,9 @@ void PedestrianBrainModule::skater_move_update()
     if (sound >= 0)
         set_sound_state(sound);
     if (flag_bits_ & kPedFlagMoving)
-        speed_ratio_ = motion->path_max_speed_ == 0.0f
+        speed_ratio_ = motion->path_max_speed() == 0.0f
                            ? 0.0f
-                           : static_cast<float>(static_cast<double>(motion->path_speed_) / motion->path_max_speed_);
+                           : static_cast<float>(static_cast<double>(motion->path_speed()) / motion->path_max_speed());
     else
         speed_ratio_ = 0.0f;
     if (auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound))) {
@@ -927,7 +927,7 @@ void PedestrianBrainModule::bail_move_update()
 {
     KinematicsModule* motion = get_motion(entity_);
     motion->update_path_speed();
-    auto step = static_cast<float>(static_cast<double>(step_seconds_) * motion->path_speed_);
+    auto step = static_cast<float>(static_cast<double>(step_seconds_) * motion->path_speed());
     if (!(flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing))) {
         // The bail's over: back to skating.
         update_type_ = kSkaterMoveUpdate;
@@ -980,7 +980,7 @@ void PedestrianBrainModule::go_home_update()
     push_position();
     maths::Vec4& pos = entity_->at_point_;
     const maths::Vec4 old = pos;
-    const double step = static_cast<double>(step_seconds_) * motion->path_max_speed_;
+    const double step = static_cast<double>(step_seconds_) * motion->path_max_speed();
     auto step_f = static_cast<float>(step);
     pos.w = 1.0f;
     pos.x = static_cast<float>(step * home.x + old.x);
@@ -1031,12 +1031,12 @@ void PedestrianBrainModule::chase_update()
     }
     if (cur_phase_ != kStateChase)
         change_phase(kStateChase, 0, nullptr);
-    motion->path_max_speed_ = kChaseSpeed;
+    motion->set_path_max_speed(kChaseSpeed);
     toward_player.make_unit();
     push_position();
     maths::Vec4& pos = entity_->at_point_;
     const maths::Vec4 old = pos;
-    const double step = static_cast<double>(step_seconds_) * motion->path_max_speed_;
+    const double step = static_cast<double>(step_seconds_) * motion->path_max_speed();
     auto step_f = static_cast<float>(step);
     pos.w = 1.0f;
     pos.x = static_cast<float>(step * toward_player.x + old.x);
@@ -1141,12 +1141,12 @@ void PedestrianBrainModule::blocker_update()
         entity_->post_own_event(kBlockerRun, nullptr);
     }
     float speed_needed = needed > kMinBlockerSpeed ? needed : kMinBlockerSpeed;
-    motion->path_max_speed_ = speed_needed;
+    motion->set_path_max_speed(speed_needed);
     if (!(speed_needed < kMaxBlockerSpeed))
         speed_needed = kMaxBlockerSpeed;
-    motion->path_max_speed_ = speed_needed;
+    motion->set_path_max_speed(speed_needed);
     push_position();
-    const double step = static_cast<double>(step_seconds_) * motion->path_max_speed_;
+    const double step = static_cast<double>(step_seconds_) * motion->path_max_speed();
     maths::Vec4& pos = entity_->at_point_;
     pos.w = 1.0f;
     pos.x = static_cast<float>(static_cast<double>(to_point.x) * step + pos.x);

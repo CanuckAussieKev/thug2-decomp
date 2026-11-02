@@ -78,7 +78,7 @@ constexpr const char* kAdjustmentFormat = "D:%s:%i: required_pos_adjustment = %g
 constexpr const char* kOffsetFormat = "D:%s:%i: m_critical_point_offset = %g, %g, %g\n";
 constexpr const char* kTrackingFormat = "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n";
 
-double get_frame_length(FootMovement* walk) { return walk->frame_length_; }
+double get_frame_length(FootMovement* walk) { return walk->frame_length(); }
 
 } // namespace
 

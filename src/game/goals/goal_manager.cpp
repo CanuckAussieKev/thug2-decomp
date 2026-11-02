@@ -571,7 +571,7 @@ void GoalManager::test_tagged_props()
     const int player = skater->get_points_total()->pot_score_;
     auto* trick = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
     // The combo's trick objects: up to 512 clusters, then their count (copied first, as the original).
-    const objects::HitClusterLog objects = trick->trick_objects_;
+    const objects::HitClusterLog objects = trick->trick_objects();
     const int count = objects.num_ > 512 ? 512 : objects.num_;
     for (int i = 0; i < count; ++i)
         kill_cluster(core::at(objects.items_, i), player);

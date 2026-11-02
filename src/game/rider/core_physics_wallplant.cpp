@@ -369,7 +369,7 @@ bool SkaterPhysicsModule::start_wall_ride()
           core::at(object->basis_frame_.row, 1).y))
         return false;
     objects::MoveExecutor* skater = trick_;
-    if (!skater->trick_objects_on_)
+    if (!skater->trick_objects_on())
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     remember_floor_probe(&feeler_);
     check_triggers(this, kSkaterEvents0064bB98, &floor_feeler_);

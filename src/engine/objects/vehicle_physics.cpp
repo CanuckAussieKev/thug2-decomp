@@ -78,9 +78,9 @@ void steering_angles(const DrivableModule* vehicle, float steering, float* inner
         *outer = 0.0;
         return;
     }
-    const double radius = vehicle->wheelbase_ / std::tan(static_cast<double>(vehicle->max_steering_angle_) * steering);
-    const double half_track = static_cast<double>(vehicle->track_) * kHalf;
-    const double wheelbase = vehicle->wheelbase_;
+    const double radius = vehicle->wheelbase() / std::tan(static_cast<double>(vehicle->get_max_steering_angle()) * steering);
+    const double half_track = static_cast<double>(vehicle->track()) * kHalf;
+    const double wheelbase = vehicle->wheelbase();
     if (radius > 0.0) {
         *inner = static_cast<float>(-std::atan2(wheelbase, radius - half_track));
         *outer = -std::atan2(wheelbase, half_track + radius);

@@ -141,7 +141,7 @@ void EngineAudioModule::fetch_diagnostics(script::Struct* info)
 // 0x0043CE70
 void EngineAudioModule::read_settings()
 {
-    script::read_sub_struct(kAllSettings)->read_sub_struct(vehicle_ptr_->sounds_name_, &settings_, 1);
+    script::read_sub_struct(kAllSettings)->read_sub_struct(vehicle_ptr_->sounds_name(), &settings_, 1);
     settings_->read_hash_value(0x306F8A9F, &engine_sound_name_, 0);
     settings_->read_hash_value(0x667FA96A, &skid_sound_name_, 0);
     script::Array* gears = nullptr;
@@ -171,7 +171,7 @@ void EngineAudioModule::tick_engine()
     // The slowest driven wheel (always four looked at, the last first).
     float slowest = kNoWheel;
     for (int i = 3; i >= 0; --i) {
-        const DrivableModule::Wheel& wheel = core::at(vehicle->wheels_, i);
+        const DrivableModule::Wheel& wheel = core::at(vehicle->get_wheels(), i);
         if (!wheel.drive)
             continue;
         auto speed = static_cast<float>(std::fabs(static_cast<double>(wheel.spin)) * wheel.radius);
@@ -179,7 +179,7 @@ void EngineAudioModule::tick_engine()
             slowest = speed;
     }
     auto speed = static_cast<float>(slowest * kToMph);
-    if (!(vehicle->throttle_ || vehicle->reverse_) || vehicle->brake_)
+    if (!(vehicle->throttle() || vehicle->get_reverse()) || vehicle->brake())
         speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
 
     // The speed eased towards the wheels', each step limited by the rates (as the original compares them, a step
@@ -198,7 +198,7 @@ void EngineAudioModule::tick_engine()
     }
 
     // The gear: shifted at the gear's speeds while a wheel touches; back to the first after a while in the air.
-    if (vehicle_ptr_->wheels_in_contact_ != 0) {
+    if (vehicle_ptr_->wheels_in_contact() != 0) {
         const int gear = gear_;
         if (gear < gear_count_ - 1 && speed_ > core::at(gear_steps_, gear).up_at_) {
             gear_ = gear + 1;
@@ -209,7 +209,7 @@ void EngineAudioModule::tick_engine()
         }
     } else {
         const float delay = get_rate(0xC0F451D4);
-        if (vehicle_ptr_->air_time_ > delay)
+        if (vehicle_ptr_->air_time() > delay)
             gear_ = 0;
     }
 
@@ -258,9 +258,9 @@ void EngineAudioModule::update_skid()
     // The fastest slip of a sliding wheel (always four looked at, the last first), while braking.
     float slip = 0.0f;
     const DrivableModule* vehicle = vehicle_ptr_;
-    if (vehicle->brake_ || vehicle->handbrake_) {
+    if (vehicle->brake() || vehicle->get_handbrake()) {
         for (int i = 3; i >= 0; --i) {
-            const DrivableModule::Wheel& wheel = core::at(vehicle->wheels_, i);
+            const DrivableModule::Wheel& wheel = core::at(vehicle->get_wheels(), i);
             const int state = wheel.state;
             const bool sliding =
                 state == DrivableModule::kWheelStaticToDynamic || state == DrivableModule::kWheelDynamic ||
@@ -305,7 +305,7 @@ void EngineAudioModule::update_collide_sound()
     if (as_unsigned(since) < delay)
         return;
     const float full_collision = get_setting(settings_, 0xCEA59D0B);
-    auto strength = static_cast<float>(static_cast<double>(vehicle_ptr_->collision_impulse_) / full_collision);
+    auto strength = static_cast<float>(static_cast<double>(vehicle_ptr_->collision_impulse()) / full_collision);
     const float cutoff = get_rate(0xF6981837);
     if (!(strength > cutoff))
         return;
@@ -318,7 +318,7 @@ void EngineAudioModule::update_collide_sound()
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
     event->push_float(0x29461E27, level);
-    vehicle_ptr_->rider_ref_->post_own_event(0xC4A60423, event);
+    vehicle_ptr_->rider_ref()->post_own_event(0xC4A60423, event);
     if (event) {
         event->get_clear();
         script::delete_struct(event);

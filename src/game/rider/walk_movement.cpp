@@ -68,7 +68,7 @@ maths::Vec4* get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4*
     return walk::get_lerp(out, a, b, t);
 }
 
-double get_frame_length(FootMovement* walk) { return walk->frame_length_; }
+double get_frame_length(FootMovement* walk) { return walk->frame_length(); }
 
 } // namespace
 

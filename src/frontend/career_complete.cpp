@@ -50,7 +50,7 @@ int complete_stat_goals()
                          : nullptr;
     if (!stats)
         return 0;
-    for (objects::AttributeTracker::Goal& goal : stats->goals_) {
+    for (objects::AttributeTracker::Goal& goal : stats->goals()) {
         goal.cur_standing_ = 1;
         goal.met_ = false;
     }

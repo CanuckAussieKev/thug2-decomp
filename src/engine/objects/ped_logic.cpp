@@ -367,10 +367,10 @@ void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct*
 // 0x004F1E10
 bool PedestrianBrainModule::get_bail()
 {
-    if (get_motion(entity_)->motion_flags_ & 0x100)
+    if (get_motion(entity_)->motion_flags() & 0x100)
         return false;
     if (stored_max_velocity_ > 0.0f)
-        get_motion(entity_)->path_max_speed_ = stored_max_velocity_;
+        get_motion(entity_)->set_path_max_speed(stored_max_velocity_);
     change_phase((flag_bits_ & kPedFlagGrinding) ? kStateBailGrind : kStateBail, kSkaterPedStateTable, nullptr);
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     return true;
@@ -499,14 +499,14 @@ bool PedestrianBrainModule::ped_near_vert_node(script::Struct*, script::Script*)
 // 0x004EDDA0
 bool PedestrianBrainModule::ped_get_current_velocity(script::Struct*, script::Script* script)
 {
-    script->args_->push_float(kVelocity, get_motion(entity_)->path_speed_);
+    script->args_->push_float(kVelocity, get_motion(entity_)->path_speed());
     return true;
 }
 
 // 0x004EDDD0
 bool PedestrianBrainModule::ped_store_max_velocity(script::Struct*, script::Script*)
 {
-    stored_max_velocity_ = get_motion(entity_)->path_max_speed_;
+    stored_max_velocity_ = get_motion(entity_)->path_max_speed();
     return true;
 }
 
@@ -524,10 +524,10 @@ bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script
     if (params->fetch_float(kPercent, &boost, 0))
         boost = static_cast<float>(static_cast<double>(boost) * kPercentScale + 1.0);
     if (KinematicsModule* motion = get_motion(entity_)) {
-        const double speed = static_cast<double>(boost) * motion->path_max_speed_;
-        motion->path_max_speed_ = static_cast<float>(speed);
+        const double speed = static_cast<double>(boost) * motion->path_max_speed();
+        motion->set_path_max_speed(static_cast<float>(speed));
         if (speed > kMaxBoostedSpeed)
-            motion->path_max_speed_ = kMaxBoostedSpeed;
+            motion->set_path_max_speed(kMaxBoostedSpeed);
     }
     return true;
 }
@@ -536,7 +536,7 @@ bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script
 bool PedestrianBrainModule::ped_remove_speed_boost(script::Struct*, script::Script*)
 {
     if (KinematicsModule* motion = get_motion(entity_))
-        motion->path_speed_ = motion->path_max_speed_;
+        motion->set_path_speed(motion->path_max_speed());
     return true;
 }
 
@@ -552,8 +552,8 @@ bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Sc
     }
     kind_ = 2;
     if (KinematicsModule* motion = get_motion(entity_)) {
-        motion->path_acceleration_ = script::fetch_float(kDeltaV);
-        motion->path_deceleration_ = script::fetch_float(kDeltaV);
+        motion->assign_path_acceleration(script::fetch_float(kDeltaV));
+        motion->assign_path_deceleration(script::fetch_float(kDeltaV));
     }
     return true;
 }

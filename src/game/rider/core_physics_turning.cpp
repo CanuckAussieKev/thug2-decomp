@@ -228,7 +228,7 @@ void SkaterPhysicsModule::natas_spin()
     last_spin_backside_ = rate > 0.0 ? 1 : 0;
     auto step = static_cast<float>(rate * frame_length_);
     turn_matrices(this, step);
-    float& total = trick_->spin_total_;
+    float& total = trick_->spin_total();
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.
     objects::RiderPoseState* flags = state_;
@@ -239,7 +239,7 @@ void SkaterPhysicsModule::natas_spin()
         show = snap <= size;
     }
     if (show) {
-        const int shown = static_cast<int>(ftol(trick_->spin_total_));
+        const int shown = static_cast<int>(ftol(trick_->spin_total()));
         void* display = score_->points_held_;
         static_cast<modules::PointTally*>(display)->advance_turn(shown);
     }

@@ -319,7 +319,7 @@ void start_lip_trick(SkaterPhysicsModule* c, const maths::Vec4* point)
         static_cast<objects::GameEntity*>(object_of(c))->fetch_module(kSkaterGap));
     gap->scan_for_gaps(0, 0x100000);
     c->trigger_rail_script(kLipEvents);
-    c->trick_->starting_special_ = false;
+    c->trick_->set_starting_special(false);
     auto* skater = static_cast<objects::Entity*>(object_of(c));
     if (!skater->own_script_) {
         static_cast<objects::Entity*>(object_of(c))->own_script_ = script::Script::create();
@@ -479,7 +479,7 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
             c->rail_backwards_ = 1;
     }
     objects::MoveExecutor* skater = c->trick_;
-    skater->starting_special_ = false;
+    skater->set_starting_special(false);
     // The grind trick: the skater component's (0x00522E80), else the physics' pick by the d-pad (0x005004B0).
     if (!static_cast<objects::MoveExecutor*>(skater)->do_extra_grind_trick(left_side, sideways, c->rail_backwards_ != 0,
                                                                            bit_mark(c, PoseFlag::kFlipped) != 0)) {

@@ -116,8 +116,8 @@ constexpr uint32_t kAnimLadderOffBottom = 0x4DB1BBB1;       // "LadderOffBottom"
 constexpr uint32_t kAnimLadderOffTop = 0x12521BFB;          // "LadderOffTop"
 
 objects::GameEntity* object_of(objects::FootMovement* walk) { return walk->entity_; }
-objects::GrindRailHub*& get_rails_of(objects::FootMovement* walk) { return walk->rail_manager_; }
-skater::SkaterPhysicsModule* physics_of(objects::FootMovement* walk) { return walk->core_physics_; }
+objects::GrindRailHub*& get_rails_of(objects::FootMovement* walk) { return walk->rail_manager(); }
+skater::SkaterPhysicsModule* physics_of(objects::FootMovement* walk) { return walk->core_physics(); }
 
 // What find_rail finds (its 0x34-byte record, filled by check_rail): the hang point, the direction to face (out from
 // the wall), how far along, out and up from the rail, the animation, and the rail's node.
@@ -126,7 +126,7 @@ using objects::RailHit;
 // A feeler copied (its assignment 0x0043A930).
 void assign_feeler(render::ProbeRay* to, const render::ProbeRay* from) { to->get_assign(*from); }
 // The movable contact: no ride any more (0x00427C70).
-void stop_riding(objects::FootMovement* walk) { walk->ride_->stop_riding(); }
+void stop_riding(objects::FootMovement* walk) { walk->ride()->stop_riding(); }
 // A rail manager component's object's matrix (0x0042BA10) and its rail manager (the original's vtable +0x34, the
 // shared getter of +0x18).
 void object_matrix_of(objects::ObjectModule* component, maths::Mat4* matrix)
@@ -145,8 +145,8 @@ void grabbed_ladder(objects::FootMovement* walk)
 {
     get_rails_of(walk) = get_level_rails();
     stop_riding(walk);
-    walk->up_speed_ = 0.0f;
-    walk->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    walk->set_up_speed(0.0f);
+    walk->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // find_rail for a walk component between `start` and `end`: the level's rails, else each moving rail manager's (its
@@ -176,7 +176,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
         towards = direction(walk, &buffer);
         snap = script::fetch_float(margin);
         if (get_rails_of(walk)->find_rail(&local_start, &local_end, towards, walk, found, snap)) {
-            walk->ride_->ride_on(component->entity_);
+            walk->ride()->ride_on(component->entity_);
             return true;
         }
     }
@@ -184,16 +184,16 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
 }
 const maths::Vec4* facing_away(objects::FootMovement* walk, maths::Vec4* buffer)
 {
-    const maths::Vec4& facing = walk->facing_;
+    const maths::Vec4& facing = walk->facing_value();
     *buffer = {.x = -facing.x, .y = -facing.y, .z = -facing.z, .w = -facing.w};
     return buffer;
 }
-const maths::Vec4* current_facing(objects::FootMovement* walk, maths::Vec4*) { return &walk->facing_; }
+const maths::Vec4* current_facing(objects::FootMovement* walk, maths::Vec4*) { return &walk->facing_value(); }
 
 // The animation-end callback (+0x1948): the code, no adjustment.
 void set_anim_done(objects::FootMovement* walk, script::ObjectCallback code)
 {
-    objects::AnimDoneCallback& callback = walk->anim_done_;
+    objects::AnimDoneCallback& callback = walk->anim_done();
     callback.code_ = code;
     callback.this_adjust_ = 0;
     callback.unknown8_ = 0;
@@ -203,7 +203,7 @@ void set_anim_done(objects::FootMovement* walk, script::ObjectCallback code)
 // The skater core's rail node (its +0x22C), if there is one.
 void tell_physics_node(objects::FootMovement* walk)
 {
-    if (objects::GrindPoint* node = walk->hang_node_)
+    if (objects::GrindPoint* node = walk->hang_node())
         physics_of(walk)->rail_node_ = node;
 }
 
@@ -222,8 +222,8 @@ void trigger_rail_script(objects::FootMovement* walk, const std::array<int, 3>& 
 void set_hang_offset(objects::FootMovement* walk)
 {
     const float horiz = objects::FootMovement::get_param(kHangCriticalPointHorizOffset);
-    const maths::Vec4& facing = walk->facing_;
-    maths::Vec4& offset = walk->critical_point_offset_;
+    const maths::Vec4& facing = walk->facing_value();
+    maths::Vec4& offset = walk->critical_point_offset();
     offset.z = horiz * facing.z;
     offset.w = horiz * facing.w;
     offset.x = horiz * facing.x;
@@ -234,9 +234,9 @@ void set_hang_offset(objects::FootMovement* walk)
 // The trigger component told a feeler hit something (for `events`), and the movable contact the feeler's hit.
 void trigger_feeler(objects::FootMovement* walk, const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
-    walk->trigger_->probe_touches_zone(events, feeler);
+    walk->trigger()->probe_touches_zone(events, feeler);
 }
-void contact_feeler(objects::FootMovement* walk, render::ProbeRay* feeler) { walk->ride_->start_riding(feeler); }
+void contact_feeler(objects::FootMovement* walk, render::ProbeRay* feeler) { walk->ride()->start_riding(feeler); }
 
 // The game's clock with its offset.
 int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }

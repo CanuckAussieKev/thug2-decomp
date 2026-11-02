@@ -108,14 +108,14 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         direction = {.x = static_cast<float>(inverse * x), .y = static_cast<float>(0.0f * inverse),
                      .z = static_cast<float>(z * inverse), .w = static_cast<float>(velocity->w * inverse)};
     } else {
-        direction = walk_->facing_;
+        direction = walk_->facing_value();
     }
     maths::Vec4 base = *last_position;
     if (position->y > last_position->y)
         base.y = position->y;
     float reach = kSearchReach, lift = 0.0f;
     if (walking_state(this, 1)) {
-        if (!static_cast<uint32_t>(walk_->state_)) {
+        if (!static_cast<uint32_t>(walk_->get_state())) {
             reach = script::fetch_float(kWalkSearchDistance);
             lift = kWalkLift;
         } else {
@@ -174,7 +174,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
             flat.make_unit();
             const double facing = static_cast<double>(flat.z) * direction.z +
                                   static_cast<double>(flat.y) * direction.y + static_cast<double>(flat.x) * direction.x;
-            const bool walking_in = walking_state(this, 1) && walk_->state_ == 1;
+            const bool walking_in = walking_state(this, 1) && walk_->get_state() == 1;
             if ((walking_in && facing <= kWalkFacing) || facing >= kFacing) {
                 found = true;
                 break;
@@ -221,9 +221,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         auto least = static_cast<float>(walk_->run_speed());
         if (horizontal < least) {
             auto* walk = core::down_cast<objects::FootMovement>(skater_object(this)->fetch_module(kWalk));
-            velocity->x = static_cast<float>(static_cast<double>(least) * walk->facing_.x);
+            velocity->x = static_cast<float>(static_cast<double>(least) * walk->facing_value().x);
             walk = core::down_cast<objects::FootMovement>(skater_object(this)->fetch_module(kWalk));
-            velocity->z = static_cast<float>(static_cast<double>(least) * walk->facing_.z);
+            velocity->z = static_cast<float>(static_cast<double>(least) * walk->facing_value().z);
             horizontal = least;
         }
     }
@@ -234,7 +234,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const float upward = velocity->y;
         velocity->y = upward > least ? upward : least;
     }
-    if (!walking_state(this, 1) || static_cast<uint32_t>(walk_->state_)) {
+    if (!walking_state(this, 1) || static_cast<uint32_t>(walk_->get_state())) {
         // At most twice that.
         const double most = static_cast<double>(tuning_float_lookup(kPopSpeed, object)) * 2.0;
         const float upward = velocity->y;
