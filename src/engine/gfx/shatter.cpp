@@ -228,10 +228,10 @@ void shatter_geom(PcGeom* geom)
                 const double limit = g_split_area_limit;
                 if (area > limit) {
                     int pieces = 1;
-                    do {
+                    for (bool again = true; again; again = area > limit) {
                         area *= 0.0625f; // (0x00645A84)
                         pieces <<= 2;
-                    } while (area > limit);
+                    }
                     count += pieces - 1;
                 }
             }

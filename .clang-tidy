@@ -31,8 +31,6 @@ Checks:
   - '-bugprone-easily-swappable-parameters'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
-  # The original's loop shapes, kept for comparison with the disassembly.
-  - '-cppcoreguidelines-avoid-do-while'
 
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']

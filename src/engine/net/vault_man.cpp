@@ -408,13 +408,13 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         // (an empty list leaves the transfer as it is: it's read again next time)
         const char* line = text_tools::get_token(vault->octets_, "\r\n");
         if (line) {
-            do {
+            for (bool again = true; again; again = line) {
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
                 VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
                 prepend(&vault->categories_, &category->list_link_);
                 text_tools::dup_from(category->label_.data(), line);
                 line = text_tools::get_token(nullptr, "\r\n");
-            } while (line);
+            }
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
             if (vault->category_->skip_)
                 vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());

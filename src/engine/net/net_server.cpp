@@ -54,7 +54,7 @@ void HostEnd::pull_inbound()
     if (has_no_socket(this))
         return;
     int received = 0;
-    do {
+    for (bool again = true; again; again = received > 0) {
         uint8_t* buffer = receive_buffer_.data();
         received = sockets::receive_bytes_from(sock_, buffer, kReceiveBufferSize, 0, &from, &from_length);
         if (received < 0) {
@@ -89,7 +89,7 @@ void HostEnd::pull_inbound()
                 memory::Hub::get_pull()->dealloc(fresh);
             }
         }
-    } while (received > 0);
+    }
 }
 
 // 0x0045B920
@@ -100,7 +100,7 @@ void HostEnd::flush_outbox(Conn* conn)
     if (!transmit_due_now(this, conn))
         return;
     bool done = false;
-    do {
+    for (bool again = true; again; again = !done) {
         if (!outgoing_backlog(this, conn) || net::over_bandwidth_budget(this, conn))
             break;
         if (is_off_machine(conn) && !is_outsider(conn) && (flag_bits_ & kAppMeasureLatency)) {
@@ -166,7 +166,7 @@ void HostEnd::flush_outbox(Conn* conn)
             conn->outgoing_.used = 0;
         }
         ++conn->timestamp_out_;
-    } while (!done);
+    }
 
     if (net::over_bandwidth_budget(this, conn) && get_num_pending_messages(conn) == 0)
         change_throughput(conn, fetch_throughput(conn) + kIdleBandwidthStep); // limited, though nothing is waiting

@@ -1122,12 +1122,12 @@ bool FootMovement::try_barrier_jump()
         end.w = reach + start.w;
         int tries = 8;
         bool hit = false;
-        do {
+        for (bool again = true; again; again = !hit && tries != 0) {
             start.y = start.y - step;
             end.y = end.y - step;
             --tries;
             hit = feeler->get_hit_shape(true, false);
-        } while (!hit && tries != 0);
+        }
         if (top > start.y)
             top = start.y;
     }

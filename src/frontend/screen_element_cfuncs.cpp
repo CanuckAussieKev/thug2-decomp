@@ -520,7 +520,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         }
     };
     int result = 0;
-    do {
+    for (bool again = true; again; again = result != 2) {
         result = text::next_word(word, cursor);
         if (texts && result == 2 && text_index < texts->extent_ - 1) {
             // the next string of the array, a space between
@@ -553,7 +553,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         if (result == 2 && !new_line)
             make_element();
         previous = result;
-    } while (result != 2);
+    }
     return true;
 }
 

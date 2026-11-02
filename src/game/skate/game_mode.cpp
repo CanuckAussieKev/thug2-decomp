@@ -91,10 +91,10 @@ uint32_t count_conditions(MatchRules::ConditionNode* head)
     const MatchRules::ConditionNode* node = head->succ_;
     if (node->condition_ == kHeadMarker || !node)
         return 0;
-    do {
+    for (bool again = true; again; again = node->condition_ != kHeadMarker && node) {
         node = node->succ_;
         ++count;
-    } while (node->condition_ != kHeadMarker && node);
+    }
     return count;
 }
 MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_t index)

@@ -432,10 +432,10 @@ void Rider::move_to_random_restart()
     modules::Skate* skate = get_skate();
     uint32_t restart = 0;
     int tries = 0;
-    do {
+    for (bool again = true; again; again = restart == last_restart_ && tries < 20) {
         restart = skate->warp_to_restart(static_cast<uint32_t>(maths::rnd(8)));
         ++tries;
-    } while (restart == last_restart_ && tries < 20);
+    }
     last_restart_ = restart;
     if (restart)
         jump_to_spawn(restart, 0);

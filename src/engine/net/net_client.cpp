@@ -104,7 +104,7 @@ void Guest::pull_inbound()
     if (has_no_socket(this))
         return;
     int received = 0;
-    do {
+    for (bool again = true; again; again = received > 0) {
         uint8_t* buffer = receive_buffer_.data();
         const SOCKET socket = sock_;
         if (!linked_up_)
@@ -149,7 +149,7 @@ void Guest::pull_inbound()
                 }
             }
         }
-    } while (received > 0);
+    }
 }
 
 // 0x00459FD0
@@ -158,7 +158,7 @@ void Guest::flush_outbox(Conn* conn)
     if (!transmit_due_now(this, conn))
         return;
     bool done = false;
-    do {
+    for (bool again = true; again; again = !done) {
         if (!outgoing_backlog(this, conn))
             return;
         if (net::over_bandwidth_budget(this, conn))
@@ -222,7 +222,7 @@ void Guest::flush_outbox(Conn* conn)
             conn->outgoing_.used = 0;
         }
         ++conn->timestamp_out_;
-    } while (!done);
+    }
 }
 
 // 0x0045ABC0

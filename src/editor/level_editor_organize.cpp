@@ -1018,11 +1018,11 @@ std::vector<std::string> snapshots()
     HANDLE find = FindFirstFileA((layouts_folder() + "\\" + hex_text(scene) + ".*.txt").c_str(), &found);
     if (find == INVALID_HANDLE_VALUE)
         return names;
-    do {
+    for (bool again = true; again; again = FindNextFileA(find, &found)) {
         std::string name;
         if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && snapshot_of(std::data(found.cFileName), scene, &name))
             names.push_back(name);
-    } while (FindNextFileA(find, &found));
+    }
     FindClose(find);
     std::ranges::sort(names);
     return names;

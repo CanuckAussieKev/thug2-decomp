@@ -513,7 +513,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     GrindPoint* node = rails->find_node(history_frame(past_frames_, play_idx_)->value80);
     if (!node || !(left > 0.0f))
         return;
-    do {
+    for (bool again = true; again; again = left > 0.0f) {
         node = move_along_rail(node, left > frame_seconds_ ? frame_seconds_ : left);
         if (!node) {
             // Off the rail's end: from the played position, as on the ground.
@@ -522,7 +522,7 @@ void RiderRemoteSync::extrapolate_on_rail()
             return;
         }
         left = left - frame_seconds_;
-    } while (left > 0.0f);
+    }
 }
 
 // 0x00516180 (its EAX - left over from the loop - isn't read)
@@ -536,7 +536,7 @@ void RiderRemoteSync::play_history_events()
     auto& messages = past_frames_->messages_;
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_);
     int i = first;
-    do {
+    for (bool again = true; again; again = i != first) {
         StateHistoryMessage* msg = &core::at(messages, i);
         if (msg->get_time() > last_event_time_ && msg->get_time() <= now) {
             switch (msg->ident_) {
@@ -614,7 +614,7 @@ void RiderRemoteSync::play_history_events()
             }
         }
         i = (i + 1) % kHistory;
-    } while (i != first);
+    }
     last_event_time_ = now;
 }
 

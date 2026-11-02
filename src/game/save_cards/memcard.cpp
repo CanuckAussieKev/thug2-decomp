@@ -164,7 +164,7 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
     HANDLE search = FindFirstFileA(path, &found);
     if (search == INVALID_HANDLE_VALUE)
         return true;
-    do {
+    for (bool again = true; again; again = FindNextFileA(search, &found)) {
         if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             continue;
         FileLoad* file = new_file(nullptr, this);
@@ -187,7 +187,7 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
         file->list_link_.next = list;
         list->prev->next = &file->list_link_;
         list->prev = &file->list_link_;
-    } while (FindNextFileA(search, &found));
+    }
     FindClose(search);
     return true;
 }

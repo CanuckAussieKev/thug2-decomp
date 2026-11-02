@@ -246,13 +246,13 @@ Tokens skip_value(Tokens token)
         const uint8_t open = *token;
         const auto close = static_cast<uint8_t>(open + 1);
         int depth = 1;
-        do {
+        for (bool again = true; again; again = depth) {
             token = step_over_token(token);
             if (*token == open)
                 ++depth;
             else if (*token == close)
                 --depth;
-        } while (depth);
+        }
         return token + 1;
     }
     case 0x16:
@@ -648,7 +648,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
     uint32_t count = 0;
     if (*p == 0x06)
         return p + 1;
-    do {
+    for (bool again = true; again; again = *p != 0x06) {
         const uint8_t t = *p;
         switch (t) {
         case 0x03:
@@ -707,7 +707,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
             break;
         }
         p = resolve_random_jumps(p);
-    } while (*p != 0x06);
+    }
     if (type == 0)
         return p + 1;
 

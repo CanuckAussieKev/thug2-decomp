@@ -16,10 +16,10 @@ void* ResolveMap::fetch_entry_at(const int* index, uint32_t* key)
 {
     if (cursor_ && cursor_index_ != *index) {
         if (cursor_index_ < *index) {
-            do {
+            for (bool again = true; again; again = cursor_index_ < *index) {
                 ++cursor_index_;
                 cursor_ = cursor_->next;
-            } while (cursor_index_ < *index);
+            }
         } else {
             cursor_ = nullptr;
         }

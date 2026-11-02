@@ -340,15 +340,15 @@ void PreviewEntity::spin_wheels()
     double angle = static_cast<double>(script::fetch_float(kMaxWheelSpeed)) * speed_ + wheel_angle();
     wheel_angle() = static_cast<float>(angle);
     if (angle > 360.0) {
-        do
+        angle -= 360.0;
+        while (angle > 360.0)
             angle -= 360.0;
-        while (angle > 360.0);
         wheel_angle() = static_cast<float>(angle);
     }
     if (angle < 0.0) {
-        do
+        angle += 360.0;
+        while (angle < 0.0)
             angle += 360.0;
-        while (angle < 0.0);
         wheel_angle() = static_cast<float>(angle);
     }
     if (get_bone_count(nx_model) <= 5)

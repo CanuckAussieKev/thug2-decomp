@@ -97,7 +97,7 @@ void LinkChain::work_on(void* /*unused*/, uint32_t mask)
     if (lock_ != 0)
         return;
     ++pass_count_;
-    do {
+    for (bool again = true; again; again = altered_) {
         memory::ListNode* node = get_next_node(&head_);
         SchedulerTask* task = node ? static_cast<SchedulerTask*>(node->data) : nullptr;
         altered_ = false;
@@ -115,7 +115,7 @@ void LinkChain::work_on(void* /*unused*/, uint32_t mask)
             node = next_node;
             task = next;
         }
-    } while (altered_);
+    }
 }
 
 // 0x00406BB0

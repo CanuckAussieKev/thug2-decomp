@@ -237,15 +237,15 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     double hue = static_cast<int>(hsv->fetch_part(0)) * static_cast<double>(kSixtieth);
     auto h = static_cast<float>(hue);
     if (!(hue < 6.0)) {
-        do
+        hue -= 6.0;
+        while (!(hue < 6.0))
             hue -= 6.0;
-        while (!(hue < 6.0));
         h = static_cast<float>(hue);
     }
     if (hue < 0.0) {
-        do
+        hue += 6.0;
+        while (hue < 0.0)
             hue += 6.0;
-        while (hue < 0.0);
         h = static_cast<float>(hue);
     }
     auto s = static_cast<float>(static_cast<int>(hsv->fetch_part(1)) * static_cast<double>(kNinetieth));

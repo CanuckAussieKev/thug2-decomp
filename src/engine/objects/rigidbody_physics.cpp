@@ -84,7 +84,7 @@ void BodyDynamicsModule::apply_springs()
     // The springs' points held still: each moving point's velocity taken out by an impulse, round after round.
     int round = 0;
     bool settled = false;
-    do {
+    for (bool again = true; again; again = ++round != kMaxRounds && spring_count_ != 1 && !settled) {
         settled = true;
         for (int i = spring_count_; i != 0;) {
             --i;
@@ -129,7 +129,7 @@ void BodyDynamicsModule::apply_springs()
                         get_narrow(get_wide(get_narrow(ty * m)) + rot_vel_.y),
                         get_narrow(get_wide(get_narrow(tz * m)) + rot_vel_.z), get_narrow(m * kZero + rot_vel_.w)};
         }
-    } while (++round != kMaxRounds && spring_count_ != 1 && !settled);
+    }
 
     // Each point pulled towards its anchor.
     const float dt = get_narrow(frame_clock::get_slomo_frame_seconds());

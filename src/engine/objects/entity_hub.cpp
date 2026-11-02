@@ -110,7 +110,7 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
     walking_ |= bit;
     for (memory::ListNode* node = get_next_node(&entities_); node && node->data; node = get_next_node(node))
         static_cast<Entity*>(node->data)->visited_mask_ &= ~bit;
-    do {
+    for (bool again = true; again; again = restart_walks_ & bit) {
         restart_walks_ &= ~bit;
         memory::ListNode* node = get_next_node(&entities_);
         Entity* object = object_of(node);
@@ -126,7 +126,7 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
             node = next_node;
             object = next;
         }
-    } while (restart_walks_ & bit);
+    }
     walking_ &= ~bit;
 }
 
@@ -164,7 +164,7 @@ void MiscHub::flush_dead_objects()
     memory::ListNode* node = dead_objects_.next;
     if (node->data == memory::ListNode::head_marker() || !node)
         return;
-    do {
+    for (bool again = true; again; again = node) {
         memory::ListNode* next = get_next_node(node);
         node->prev->next = node->next;
         node->next->prev = node->prev;
@@ -173,7 +173,7 @@ void MiscHub::flush_dead_objects()
         gsl::owner<Entity*> entity = memory::adopt<Entity*>(node->data); // (the list's)
         delete entity;
         node = next;
-    } while (node);
+    }
 }
 
 // 0x00461BB0

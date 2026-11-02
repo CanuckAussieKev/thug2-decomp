@@ -523,7 +523,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     if (listed) {
         // newest first (a bubble sort by the dates)
         bool swapped = false;
-        do {
+        for (bool again = true; again; again = swapped) {
             swapped = false;
             for (int j = 0; j < listed - 1; ++j) {
                 if (is_later(core::at(entries, j + 1), core::at(entries, j))) {
@@ -533,7 +533,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
                     swapped = true;
                 }
             }
-        } while (swapped);
+        }
         gsl::owner<script::Array*> listing = script::alloc_script_array();
         if (listing)
             listing = new (listing) script::Array;

@@ -1298,11 +1298,11 @@ std::vector<uint32_t> saved_scenes()
     HANDLE find = FindFirstFileA((get_folder() + "\\*.txt").c_str(), &found);
     if (find == INVALID_HANDLE_VALUE)
         return scenes;
-    do {
+    for (bool again = true; again; again = FindNextFileA(find, &found)) {
         uint32_t scene = 0;
         if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && saved_layout_scene(std::data(found.cFileName), &scene))
             scenes.push_back(scene);
-    } while (FindNextFileA(find, &found));
+    }
     FindClose(find);
     return scenes;
 }

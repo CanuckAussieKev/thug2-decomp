@@ -514,7 +514,7 @@ void UiTree::listener_receive(objects::Signal* event)
     for (FocusEntry* entry = core::at(manager->focus_lists_, controller); entry; entry = entry->next)
         entry->tried = false;
     core::at(manager->focus_dirty_, controller) = true;
-    do {
+    for (bool again = true; again; again = core::at(manager->focus_dirty_, controller)) {
         core::at(manager->focus_dirty_, controller) = false;
         for (FocusEntry* entry = core::at(manager->focus_lists_, controller); entry; entry = entry->next) {
             if (!entry->tried && !entry->marked && !entry->element->input_suppressed()) {
@@ -530,7 +530,7 @@ void UiTree::listener_receive(objects::Signal* event)
             if (core::at(manager->focus_dirty_, controller))
                 break;
         }
-    } while (core::at(manager->focus_dirty_, controller));
+    }
 }
 
 // --- pad-event priorities -------------------------------------------------------------------------------------

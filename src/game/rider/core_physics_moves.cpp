@@ -135,7 +135,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
     float distance = kTargetFirst;
     double along = 0.0;
     bool found = false;
-    do {
+    for (;;) {
         const maths::Vec4& position = entity_->at_point_;
         const double w = static_cast<double>(distance) * direction->w;
         auto z = static_cast<float>(static_cast<double>(distance) * direction->z);
@@ -163,7 +163,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
         distance = static_cast<float>(next);
         if (!(next < kTargetLast))
             break;
-    } while (true);
+    }
     if (!found) {
         return false;
     }

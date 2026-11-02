@@ -44,13 +44,13 @@ void Router::prepare_all()
         // (the head check comes before the null check)
         if (node->data == memory::ListNode::head_marker() || !node)
             continue;
-        do {
+        for (bool again = true; again; again = node) {
             const memory::ListNode* next = node->next;
             if (next->data == memory::ListNode::head_marker())
                 next = nullptr;
             static_cast<NoteHandler*>(node->data)->teardown(1); // (the handler is its node)
             node = next;
-        } while (node);
+        }
     }
 }
 

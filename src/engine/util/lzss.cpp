@@ -150,9 +150,9 @@ void unlink_list_node(int p)
     } else {
         q = core::at(left, p);
         if (core::at(right, q) != kNil) {
-            do {
+            for (bool again = true; again; again = core::at(right, q) != kNil) {
                 q = core::at(right, q);
-            } while (core::at(right, q) != kNil);
+            }
             core::at(right, core::at(parent, q)) = core::at(left, q);
             core::at(parent, core::at(left, q)) = core::at(parent, q);
             core::at(left, q) = core::at(left, p);
@@ -203,7 +203,7 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
         add_match_node(r - i);
     add_match_node(r);
 
-    do {
+    for (bool again = true; again; again = length > 0) {
         if (longest_run_ref() > length)
             longest_run_ref() = length;
         if (longest_run_ref() <= kLiteralRunLimit) {
@@ -247,7 +247,7 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
             if (--length != 0)
                 add_match_node(r);
         }
-    } while (length > 0);
+    }
 
     if (code_size > 1) {
         std::copy_n(code.begin(), code_size, out.rest().begin());

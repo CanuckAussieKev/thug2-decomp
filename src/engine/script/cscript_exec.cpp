@@ -501,7 +501,7 @@ void Script::run_loop_exit(Tokens& pc)
 {
     int depth = 0;
     bool searching = true;
-    do {
+    for (bool again = true; again; again = searching) {
         const uint8_t token = *pc;
         if (token == 0x20) {
             ++depth;
@@ -512,7 +512,7 @@ void Script::run_loop_exit(Tokens& pc)
                 searching = false;
         }
         pc = step_over_token(pc);
-    } while (searching);
+    }
     pc_ = pc.address();
     stmt_args_->get_clear();
     pc = parse_arguments(stmt_args_.get(), pc, nullptr);

@@ -336,9 +336,9 @@ Resource* ResourceRegistry::obtain_loaded_item(uint32_t checksum, int /*unused*/
 {
     Resource* asset = get_find(assets_, checksum);
     if (asset && !asset->is_loaded() && !asset->is_loaded()) { // (asked twice in the original)
-        do
+        file::async_wait_for_io(false);
+        while (!asset->is_loaded())
             file::async_wait_for_io(false);
-        while (!asset->is_loaded());
     }
     return asset;
 }

@@ -601,20 +601,20 @@ void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t li
     if (!sector)
         return;
     if (!light_group) {
-        do {
+        for (bool again = true; again; again = (sector = next()) != nullptr) {
             if (remaining-- == 0)
                 return;
             colour(sector, color);
-        } while ((sector = next()) != nullptr);
+        }
     } else if (!reset_light_group) {
-        do {
+        for (bool again = true; again; again = (sector = next()) != nullptr) {
             if (remaining-- == 0)
                 return;
             if (sector->light_group_ == light_group)
                 colour(sector, color);
-        } while ((sector = next()) != nullptr);
+        }
     } else {
-        do {
+        for (bool again = true; again; again = (sector = next()) != nullptr) {
             if (remaining-- == 0)
                 return;
             const uint32_t group = sector->light_group_;
@@ -622,7 +622,7 @@ void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t li
                 colour(sector, color);
             else if (group == reset_light_group)
                 colour(sector, kNeutralColor);
-        } while ((sector = next()) != nullptr);
+        }
     }
 }
 } // namespace

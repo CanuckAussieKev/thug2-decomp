@@ -155,16 +155,16 @@ void AutomobileDynamicsModule::update_angles()
     wheel_spin_ = static_cast<float>(spin);
     if (spin > kFullTurn) {
         double turned = wheel_spin_;
-        do
+        turned -= kFullTurn;
+        while (turned > kFullTurn)
             turned -= kFullTurn;
-        while (turned > kFullTurn);
         wheel_spin_ = static_cast<float>(turned);
     }
     if (wheel_spin_ < 0.0f) {
         double turned = wheel_spin_;
-        do
+        turned += kFullTurn;
+        while (turned < 0.0)
             turned += kFullTurn;
-        while (turned < 0.0);
         wheel_spin_ = static_cast<float>(turned);
     }
     // The steering.

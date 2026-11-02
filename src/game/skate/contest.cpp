@@ -285,9 +285,9 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
             low = mirrored;
         const int first = maths::roll_side_stream(3);
         int second = 0;
-        do {
+        for (bool again = true; again; again = second == first) {
             second = maths::roll_side_stream(3);
-        } while (second == first);
+        }
         const float base = low - two();
         for (int& score : leader.scores_)
             score = truncate(maths::plus_or_minus_exact(kScoreSpread) + base + nearly_half());

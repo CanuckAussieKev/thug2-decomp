@@ -489,11 +489,11 @@ int PointTally::count_tricks_named(const char* text)
 bool PointTally::last_trick_is(uint32_t name, int spin, bool perfect, int taps)
 {
     int index = tricks_;
-    do {
+    for (bool again = true; again; again = !core::at(get_trick(index)->text_, 0)) {
         if (index <= 0)
             return false;
         --index;
-    } while (!core::at(get_trick(index)->text_, 0));
+    }
     const uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
     return is_trick_at(index, trick, spin, perfect);
 }
@@ -502,11 +502,11 @@ bool PointTally::last_trick_is(uint32_t name, int spin, bool perfect, int taps)
 bool PointTally::last_trick_is_key_combo(uint32_t key_combo, int spin, bool perfect, int taps)
 {
     int index = tricks_;
-    do {
+    for (bool again = true; again; again = !core::at(get_trick(index)->text_, 0)) {
         if (index <= 0)
             return false;
         --index;
-    } while (!core::at(get_trick(index)->text_, 0));
+    }
     uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return false;

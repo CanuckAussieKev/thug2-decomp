@@ -121,24 +121,24 @@ int rle_decompress(std::span<const uint8_t> input, std::span<uint8_t> output, in
             // code + 1 bytes as they are. (A code longer than what's left reads on past the end, as the
             // original does: `size` goes below 0 and the loop doesn't stop there.)
             uint8_t copied = 0;
-            do {
+            for (bool again = true; again; again = copied <= code) {
                 if (written >= *out_size)
                     return -1;
                 *out++ = *in++;
                 ++written;
                 --size;
                 ++copied;
-            } while (copied <= code);
+            }
         } else {
             const int count = (code & 0x7F) + 2;
             uint8_t copied = 0;
-            do {
+            for (bool again = true; again; again = std::cmp_less(copied, count)) {
                 if (written >= *out_size)
                     return -1;
                 *out++ = *in;
                 ++written;
                 ++copied;
-            } while (std::cmp_less(copied, count));
+            }
             ++in;
             --size;
         }

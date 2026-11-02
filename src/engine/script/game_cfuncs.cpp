@@ -914,7 +914,7 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
     if (search == INVALID_HANDLE_VALUE)
         return false;
     int count = 0;
-    do {
+    for (bool again = true; again; again = count < 11 && FindNextFileA(search, &found)) {
         if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(std::data(found.cFileName)) <= 90) {
             std::array<char, 0x110> file{};
             std::array<char, 0xC8> name{};
@@ -928,7 +928,7 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
             script::launch_script("add_item_to_face_menu", item.get(), nullptr, false); // "add_item_to_face_menu"
             ++count;
         }
-    } while (count < 11 && FindNextFileA(search, &found));
+    }
     FindClose(search);
     return true;
 }

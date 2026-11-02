@@ -236,11 +236,12 @@ void JointClipFrames::build_cache(int format)
     core::at(trans_offsets, 0) = 0;
     for (;;) {
         if (core::at(sizes, bone) == 0) {
-            do {
+            for (bool again = true; again;
+                 again = static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && core::at(sizes, bone) == 0) {
                 end = cursor + size_after(sizes, bone);
                 ++bone;
                 core::at(rot_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
-            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && core::at(sizes, bone) == 0);
+            }
             if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }
@@ -272,11 +273,12 @@ void JointClipFrames::build_cache(int format)
     bone = 0;
     for (;;) {
         if (core::at(sizes, bone) == 0) {
-            do {
+            for (bool again = true; again;
+                 again = static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && core::at(sizes, bone) == 0) {
                 end = cursor + size_after(sizes, bone);
                 ++bone;
                 core::at(trans_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
-            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && core::at(sizes, bone) == 0);
+            }
             if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }

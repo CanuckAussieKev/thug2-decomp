@@ -140,7 +140,7 @@ void SkaterPhysicsModule::get_skitch()
         // Further and further along the skater's side (6 at a time, short of 120) until another point is nearest.
         float reach = kSkitchStep;
         double next = 0.0;
-        do {
+        for (bool again = true; again; again = next < kSkitchReach) {
             const objects::GameEntity* object = object_of(this);
             const maths::Vec4& side = core::at(object->basis_frame_.row, 0);
             const maths::Vec4& position = object->at_point_;
@@ -164,7 +164,7 @@ void SkaterPhysicsModule::get_skitch()
             }
             next = static_cast<double>(reach) + kSkitchStep;
             reach = static_cast<float>(next);
-        } while (next < kSkitchReach);
+        }
     }
 
     // Held at the skitch point, Skitch_Offset behind it along the car; while moving to a new one, pulled towards it

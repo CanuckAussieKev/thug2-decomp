@@ -126,10 +126,10 @@ inline void team_name_key(std::array<char, 64>& out, int team)
     const bool negative = team + 1 < 0;
     if (negative)
         value = 0u - value;
-    do {
+    for (bool again = true; again; again = value) {
         core::at(digits, length++) = static_cast<char>('0' + value % 10);
         value /= 10;
-    } while (value);
+    }
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     size_t at = 0;
     for (const char letter : std::string_view("team_"))

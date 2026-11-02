@@ -43,10 +43,10 @@ uint32_t skater_count(modules::Skate* skate)
     uint32_t count = 0;
     if (node->is_head() || !node) // (read before the null check, as in the original)
         return 0;
-    do {
+    for (bool again = true; again; again = !node->is_head() && node) {
         node = node->next;
         ++count;
-    } while (!node->is_head() && node);
+    }
     return count;
 }
 objects::Rider* get_rider_at(modules::Skate* skate, uint32_t index)

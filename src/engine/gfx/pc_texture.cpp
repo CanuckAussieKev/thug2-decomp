@@ -1038,12 +1038,12 @@ lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
     uint32_t size = 2, bits = 1;
     const uint32_t wanted = count * 2;
     if (wanted > size) {
-        do {
+        for (bool again = true; again; again = wanted > size) {
             if (bits >= 12)
                 break;
             size <<= 1;
             ++bits;
-        } while (wanted > size);
+        }
     }
     memory::MemSource* heap =
         memory::fetch_chunk_prefix(table)->allocator; // (read before the null test, as the original)

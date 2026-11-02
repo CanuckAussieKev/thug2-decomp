@@ -451,11 +451,11 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
     if (!name) {
         // (a name no object has: "level_editor_copy_<source>_<n>", shown as "<source's name> copy <n>")
         std::array<char, 64> text{};
-        do {
+        for (bool again = true; again; again = objects::find_object(name)) {
             ++g_copy_counter;
             text::format_to(text, "level_editor_copy_%08X_%d", source, g_copy_counter);
             name = checksums::hash_from_text(text.data());
-        } while (objects::find_object(name));
+        }
         text::format_to(text, "%s copy %d", caption(source).c_str(), g_copy_counter);
         script::note_qb_name(name, text.data());
     }

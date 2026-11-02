@@ -131,12 +131,12 @@ bool KeyMap::step_iterator()
 
     // Move on to the next bucket with anything in it.
     Item* bucket = nullptr;
-    do {
+    for (bool again = true; again; again = !bucket->value && !bucket->next) {
         if (++iter_bucket_ >= 1 << bits_)
             return false;
         bucket = &core::at(bucket_run(), iter_bucket_);
         iter_item_ = bucket;
-    } while (!bucket->value && !bucket->next);
+    }
     if (!bucket->value)
         iter_item_ = bucket->next; // empty slot with a chain behind it
     return true;

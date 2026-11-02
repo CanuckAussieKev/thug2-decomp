@@ -703,10 +703,10 @@ int count_active(memory::ListNode* head)
     if (node->data == memory::ListNode::head_marker() || !node)
         return 0;
     int count = 0;
-    do {
+    for (bool again = true; again; again = node->data != memory::ListNode::head_marker() && node) {
         node = node->next;
         ++count;
-    } while (node->data != memory::ListNode::head_marker() && node);
+    }
     return count;
 }
 

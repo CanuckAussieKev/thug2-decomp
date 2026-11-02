@@ -367,16 +367,16 @@ void EditorViewModule::tick_frame()
     heading_ = static_cast<float>(heading);
     if (heading > kTwoPi) {
         double h = heading_;
-        do
+        h -= kTwoPi;
+        while (h > kTwoPi)
             h -= kTwoPi;
-        while (h > kTwoPi);
         heading_ = static_cast<float>(h);
     }
     if (heading_ < 0.0f) {
         double h = heading_;
-        do
+        h += kTwoPi;
+        while (h < 0.0f)
             h += kTwoPi;
-        while (h < 0.0f);
         heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.

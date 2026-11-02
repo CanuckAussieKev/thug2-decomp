@@ -230,10 +230,10 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
     int length = 0;
     const core::CStringCursor at(prefix); // (an empty one reads 0 after its end where the original read what follows)
     if (at[1]) {
-        do {
+        for (bool again = true; again; again = at[static_cast<std::size_t>(length) + 1]) {
             core::at(text, length) = at[static_cast<std::size_t>(length)];
             ++length;
-        } while (at[static_cast<std::size_t>(length) + 1]);
+        }
     }
     core::at(text, length) = 0;
     get_append(text.data(), "NOT_"); // "NOT_"

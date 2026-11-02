@@ -207,9 +207,9 @@ void Hub::start_network_game()
     game_preferences(this)->fetch_setting(kGoals)->read_hash_value("checksum", &value, 1);
     info.goals = value;
     info.team_graffiti_mode = get_team_graffiti_mode();
-    do
+    info.game_id = static_cast<uint8_t>(maths::rnd(0xFF) + 1);
+    while (info.game_id == ended_game_id_)
         info.game_id = static_cast<uint8_t>(maths::rnd(0xFF) + 1);
-    while (info.game_id == ended_game_id_);
     info.crown_start_slot = static_cast<int8_t>(crown_start_);
     static_assert(sizeof(info.start_points) == sizeof(start_points_));
     std::memcpy(info.start_points.data(), start_points_.data(), sizeof(info.start_points));

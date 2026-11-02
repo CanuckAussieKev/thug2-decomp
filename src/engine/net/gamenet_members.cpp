@@ -382,12 +382,12 @@ void Hub::choose_start_points()
     for (int i = 0; i < count; ++i) {
         // Drawn again until it's one no other slot has.
         bool taken = false;
-        do {
+        for (bool again = true; again; again = taken) {
             core::at(points, i) = maths::rnd(count);
             taken = false;
             for (int j = 0; j < count && !taken; ++j)
                 taken = i != j && core::at(points, i) == core::at(points, j);
-        } while (taken);
+        }
     }
     for (int i = 0; i < count; ++i)
         core::at(points, i) += offset;

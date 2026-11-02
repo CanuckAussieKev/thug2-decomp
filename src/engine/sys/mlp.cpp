@@ -191,7 +191,7 @@ void Hub::get_main_loop()
     QueryPerformanceCounter(&counter);
     auto frame_start = static_cast<uint64_t>(counter.QuadPart);
     is_finished_ = false;
-    do {
+    for (bool repeat = true; repeat; repeat = !is_finished_) {
         ++frames_run(); // (not original - see frames_run)
         if (screen_saver_timeout && frames_since_screen_saver++ >= 200) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
@@ -209,10 +209,10 @@ void Hub::get_main_loop()
         if (!app_active()) {
             if (!text_entry()) {
                 // Inactive: idle until the window is active again (nothing else runs meanwhile).
-                do {
+                for (bool again = true; again; again = !app_active()) {
                     Sleep(100);
                     os_layer::process_window_events();
-                } while (!app_active());
+                }
                 continue;
             }
             omit_from_draw() = true;
@@ -279,7 +279,7 @@ void Hub::get_main_loop()
         }
         frame_clock::update_frame_length();
         profiling_ = 0;
-    } while (!is_finished_);
+    }
     is_finished_ = done_on_entry;
 }
 

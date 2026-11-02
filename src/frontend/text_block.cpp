@@ -122,7 +122,7 @@ void ParagraphWidget::add_words(const char* text)
     core::CStringCursor cursor(text);
     int previous = 0;
     int result = 0;
-    do {
+    for (bool again = true; again; again = result != 2) {
         std::array<char, 0x64> word{};
         result = text::next_word(word, cursor);
         float width = 0.0f, height = 0.0f;
@@ -146,7 +146,7 @@ void ParagraphWidget::add_words(const char* text)
         line_length_ += static_cast<int>(std::strlen(word.data()));
         line_width_ = static_cast<float>(static_cast<double>(width) + line_width_);
         previous = result;
-    } while (result != 2);
+    }
 }
 
 // 0x004B0CD0

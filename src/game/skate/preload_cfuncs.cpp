@@ -333,10 +333,10 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     for (int n = 0; n < wanted; ++n) {
         int allowed = 0;
         script::Struct* option = nullptr;
-        do {
+        for (bool again = true; again; again = !allowed) {
             option = get_element(list, static_cast<uint32_t>(maths::rnd(static_cast<int>(size))));
             option->fetch_int_value(kPickPermitted, &allowed, 1);
-        } while (!allowed);
+        }
         get_choose(option, n);
     }
     return true;

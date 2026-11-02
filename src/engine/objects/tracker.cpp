@@ -285,13 +285,13 @@ Entity* EventWaitBoard::look_up_by_nickname(uint32_t alias)
 uint32_t EventWaitBoard::fetch_distinct_id()
 {
     uint32_t checksum = 0;
-    do {
+    for (bool again = true; again; again = entity_list_->fetch_entry(checksum)) {
         std::array<char, 64> name{};
         text::format_to(name, "autoid%d", next_auto_id_++); // "autoid%d"
         if (next_auto_id_ >= 1000000)
             next_auto_id_ = 0;
         checksum = checksums::hash_from_text(name.data());
-    } while (entity_list_->fetch_entry(checksum));
+    }
     return checksum;
 }
 

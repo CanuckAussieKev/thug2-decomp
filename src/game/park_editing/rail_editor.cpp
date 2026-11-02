@@ -554,13 +554,13 @@ void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int in
         z1 = t;
     }
     bool changed = false;
-    do {
+    for (bool again = true; again; again = changed) {
         changed = false;
         for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
             if (cut_point_in_or_out(rail, x0, z0, x1, z1, inside))
                 changed = true;
         }
-    } while (changed);
+    }
     delete_short_rails();
 }
 

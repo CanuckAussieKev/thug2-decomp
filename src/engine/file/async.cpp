@@ -309,10 +309,10 @@ AsyncFileHandle* async_get_handle()
             core::at(slab_bank(), first_free) = swap;
         } else {
             const AsyncFileHandle* busy = core::at(slab_bank(), first_free);
-            do {
+            for (bool again = true; again; again = busy->in_flight_ops_ > 0) {
                 async_execute_callbacks();
                 first_free = handles_in_use();
-            } while (busy->in_flight_ops_ > 0);
+            }
         }
     }
     AsyncFileHandle* file = core::at(slab_bank(), first_free);

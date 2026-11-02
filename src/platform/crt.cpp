@@ -178,18 +178,18 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
             std::ptrdiff_t hi_guy = hi;
             for (;;) {
                 if (mid > lo_guy) {
-                    do
+                    ++lo_guy;
+                    while (lo_guy < mid && compare(elements.at(lo_guy), elements.at(mid)) <= 0)
                         ++lo_guy;
-                    while (lo_guy < mid && compare(elements.at(lo_guy), elements.at(mid)) <= 0);
                 }
                 if (mid <= lo_guy) {
-                    do
+                    ++lo_guy;
+                    while (lo_guy <= hi && compare(elements.at(lo_guy), elements.at(mid)) <= 0)
                         ++lo_guy;
-                    while (lo_guy <= hi && compare(elements.at(lo_guy), elements.at(mid)) <= 0);
                 }
-                do
+                --hi_guy;
+                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) > 0)
                     --hi_guy;
-                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) > 0);
                 if (hi_guy < lo_guy)
                     break;
                 elements.exchange(lo_guy, hi_guy);
@@ -199,14 +199,14 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
             // (the elements equal to the partition element next to it are left out of the lower side)
             ++hi_guy;
             if (mid < hi_guy) {
-                do
+                --hi_guy;
+                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) == 0)
                     --hi_guy;
-                while (hi_guy > mid && compare(elements.at(hi_guy), elements.at(mid)) == 0);
             }
             if (mid >= hi_guy) {
-                do
+                --hi_guy;
+                while (hi_guy > lo && compare(elements.at(hi_guy), elements.at(mid)) == 0)
                     --hi_guy;
-                while (hi_guy > lo && compare(elements.at(hi_guy), elements.at(mid)) == 0);
             }
             if (hi_guy - lo >= hi - lo_guy) {
                 if (lo < hi_guy) {

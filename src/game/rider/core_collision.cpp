@@ -130,14 +130,14 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         if (!hit.get_hit_shape(true, false)) {
             if (snap > 4.0f) {
                 double lower = 0.0;
-                do {
+                for (bool again = true; again; again = lower > 4.0) {
                     hit.line_.start.y = hit.line_.start.y - 2.0f;
                     hit.line_.end.y = hit.line_.end.y - 2.0f;
                     if (hit.get_hit_shape(true, false))
                         break;
                     lower = static_cast<double>(snap) - 2.0;
                     snap = static_cast<float>(lower);
-                } while (lower > 4.0); // (the unrounded value compared)
+                } // (the unrounded value compared)
             }
             maths::Vec4& position2 = entity_->at_point_;
             position2.y = snap + position2.y;

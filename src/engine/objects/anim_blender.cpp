@@ -116,7 +116,7 @@ void AnimBlenderComponent::tick_frame()
     const bool ready = core::down_cast<DormancyModule>(component18_)->wants_animating(&distance_squared_);
     if (!channel)
         return;
-    do {
+    for (;;) {
         if (!(channel->ongoing_ >= kMinWeight) && count != 0) {
             // a channel after the first with (next to) no weight: only reset
             channel->update_blend();
@@ -138,7 +138,7 @@ void AnimBlenderComponent::tick_frame()
         if (is_over(next))
             break;
         channel = as_channel(next);
-    } while (true);
+    }
     if (!changed)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)

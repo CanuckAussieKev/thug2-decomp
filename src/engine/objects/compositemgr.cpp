@@ -112,7 +112,7 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
     manager->walking_ |= bit;
     for (memory::ListNode* node = get_next_node(&manager->entities_); node && node->data; node = get_next_node(node))
         static_cast<Entity*>(node->data)->visited_mask_ &= ~bit;
-    do {
+    for (bool again = true; again; again = manager->restart_walks_ & bit) {
         manager->restart_walks_ &= ~bit;
         memory::ListNode* node = get_next_node(&manager->entities_);
         GameEntity* object = object_of(node);
@@ -128,7 +128,7 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
             node = next_node;
             object = next;
         }
-    } while (manager->restart_walks_ & bit);
+    }
     manager->walking_ &= ~bit;
 }
 
@@ -326,7 +326,7 @@ void destroy_coim_heap()
         MaterializeNode* head = instance_list_head();
         MaterializeNode* node = head ? head->next : nullptr;
         if (node != head) {
-            do {
+            for (bool again = true; again; again = node != instance_list_head()) {
                 if (node->value) {
                     gsl::owner<decltype(node->value)> owned = memory::owned_element(node->value); // (the table's)
                     delete owned;
@@ -340,7 +340,7 @@ void destroy_coim_heap()
                     --instance_count();
                 }
                 node = next;
-            } while (node != instance_list_head());
+            }
         }
         head = instance_list_head();
         MaterializeNode* result = nullptr;
