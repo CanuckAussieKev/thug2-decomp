@@ -38,8 +38,10 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/format.h"
+#include "platform/crt.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unbounded as it builds them)
 
 namespace render {
 
@@ -54,8 +56,8 @@ namespace {
 
 constexpr uint32_t kCameraFov = 0x99529205;                     // camera_fov
 constexpr float kAspectRatio = 1.33333337f;                     // 0x3FAAAAAB (4:3)
-const char* const kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A20 (the third: "", 0x006469B4)
-const char* const kModelFileFormat = "%s.%s.%s";                // 0x006458F4
+constexpr const char* kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A20 (the third: "", 0x006469B4)
+constexpr const char* kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 
 // The scenes' list (0x006FA7E0: its head, data -1; the first node at +0xC, the last at +0x10).
 memory::ListNode& scene_list() { return g_scene_list; }
@@ -207,7 +209,7 @@ gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* dat
 // 0x0048C390
 void build_scene_file_path(char* out, const char* name, uint32_t)
 {
-    std::sprintf(out, kSceneFileFormat, name, name, "", platform_suffix());
+    crt::get_sprintf(out, kSceneFileFormat, name, name, "", platform_suffix());
 }
 
 // 0x0048C3D0
@@ -217,7 +219,7 @@ gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures,
     const bool skinned = split_skin_name(file_name, base.data());
     text::to_lower_text(base.data());
     std::array<char, 0x200> path{};
-    std::sprintf(path.data(), kModelFileFormat, base.data(), skinned ? "skin" : "mdl", platform_suffix());
+    text::format_to(path, kModelFileFormat, base.data(), skinned ? "skin" : "mdl", platform_suffix());
     memory::push_mem_profile(path.data());
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
@@ -250,7 +252,7 @@ WorldCell* look_up_sector(uint32_t checksum)
 void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
 {
     std::array<char, 0x80> file{};
-    std::sprintf(file.data(), kSceneFileFormat, name, name, "", platform_suffix());
+    text::format_to(file, kSceneFileFormat, name, name, "", platform_suffix());
     scene->checksum_ = checksums::hash_from_text(name);
     scene->texture_set_ = static_cast<TextureSet*>(textures);
     if (!loaded)

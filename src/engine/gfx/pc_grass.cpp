@@ -34,6 +34,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/gfx/pc_scene.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -149,7 +150,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         memory::Hub::get_pull()->leave_heap_scope();
         copy->flags |= 0x182;
         std::array<char, 64> name{};
-        std::snprintf(name.data(), sizeof(name), "Grass-Grass_Layer%d", layer);
+        text::format_to(name, "Grass-Grass_Layer%d", layer);
         const uint32_t checksum = checksums::generate_crc_from_buffer(name.data(), static_cast<int>(std::strlen(name.data())));
         const SceneRef* scene = geom->scene->meshes;
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));

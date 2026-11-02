@@ -31,6 +31,7 @@
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "platform/crt.h"
 
 namespace render {
 
@@ -125,7 +126,7 @@ gsl::owner<WorldCell*> WorldScene::spawn_sector()
 int make_collision_file_name(char* out, const char* level)
 {
     const char* extension = platform_suffix();
-    return std::snprintf(out, 0x7FFFFFFF, "levels\\%s\\%s%s.col.%s", level, level, "", extension);
+    return crt::get_sprintf(out, "levels\\%s\\%s%s.col.%s", level, level, "", extension);
 }
 
 // 0x0049CB00

@@ -30,6 +30,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/texture_dict.h"
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -195,7 +196,7 @@ gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data
                               TextureSet* textures)
 {
     std::array<char, 16> name{};
-    std::snprintf(name.data(), sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
+    text::format_to(name, "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
     gsl::owner<PcScene*> scene = load_scene_from_memory(data, size, textures, false, false, false); // (the mesh's, below)
     scene->checksum_ = checksums::hash_from_text(name.data());
     scene->texture_set_ = textures;

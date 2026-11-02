@@ -13,6 +13,7 @@
 #include "engine/script/params.h"
 #include <gsl/pointers>
 #include "engine/core/mem.h"
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -56,7 +57,7 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
 
     // (the original sprintf's into the 128 bytes unchecked; the empty string is a platform suffix)
     std::array<char, 128> texture_path{};
-    std::snprintf(texture_path.data(), sizeof(texture_path), "levels\\%s\\%s%s.tex", name, name, "");
+    text::format_to(texture_path, "levels\\%s\\%s%s.tex", name, name, "");
     void* tex_dict = read_texture_dictionary(texture_path.data(), 1, 0, 0, 0);
 
     // A structure describing the load is built here and never used (left from an older interface).

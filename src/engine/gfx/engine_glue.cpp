@@ -42,6 +42,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
 #include "platform/crt.h"
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -135,15 +136,15 @@ void screen_shot(const char* name, int /*unused*/)
     // (the original sprintfs into these 32 bytes; ours truncates a longer name)
     std::array<char, 32> file{};
     if (screen_shot_name_exact()) {
-        std::snprintf(file.data(), sizeof(file), "%s.jpg", name);
+        text::format_to(file, "%s.jpg", name);
     } else {
         // the first numbered name with no file yet
         int number = 0;
-        std::snprintf(file.data(), sizeof(file), "%s%03d.jpg", name, number);
+        text::format_to(file, "%s%03d.jpg", name, number);
         while (gsl::owner<FILE*> existing = memory::adopt<FILE*>(_fsopen(file.data(), "rb", _SH_DENYNO))) { // (fopen)
             crt::get_fclose(existing);
             ++number;
-            std::snprintf(file.data(), sizeof(file), "%s%03d.jpg", name, number);
+            text::format_to(file, "%s%03d.jpg", name, number);
         }
     }
     D3DDISPLAYMODE mode;

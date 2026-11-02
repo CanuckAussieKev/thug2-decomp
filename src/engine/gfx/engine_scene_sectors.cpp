@@ -29,6 +29,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <span>
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -261,7 +262,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
 // 0x0049DF70 (the original sprintfs into its 128 bytes unbounded)
 bool WorldScene::load_collision_file(const char* name, int flag)
 {
-    std::snprintf(pip_name_.data(), sizeof(pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
+    text::format_to(pip_name_, "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
     auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr));
     if (!data)
         return false;
@@ -347,7 +348,7 @@ bool WorldScene::load_add_scene(const char* name)
     maths::BBox box;
     if (!coll_statics_)
         return false;
-    std::snprintf(add_pip_name_.data(), sizeof(add_pip_name_), "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
+    text::format_to(add_pip_name_, "levels\\%s\\%s%s.col.%s", name, name, "", platform_suffix());
     // (the base's collision file, not the one just named - as the original)
     if (auto* data = static_cast<uint8_t*>(packs::read_in(pip_name_.data(), false, nullptr, nullptr, nullptr)))
         scene_load_collision_data(this, data, static_cast<size_t>(packs::get_file_size(pip_name_.data())),

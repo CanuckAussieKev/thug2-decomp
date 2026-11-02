@@ -22,6 +22,7 @@
 #include "platform/compiler.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
+#include "platform/crt.h"
 
 namespace gfx {
 
@@ -136,13 +137,10 @@ text::Chars make_model_path(const char* name, const char* extension)
 // 0x00487A70
 void make_model_file_name(const char* name, const char* extension, char* out)
 {
-    THUG2_MSVC_WARNING(push)
-    THUG2_MSVC_WARNING(disable : 4996)
     if (std::strstr(name, "/") || std::strstr(name, "\\"))
-        std::sprintf(out, "models\\%s", name);
+        crt::get_sprintf(out, "models\\%s", name);
     else
-        std::sprintf(out, "models\\%s\\%s%s", name, name, extension);
-    THUG2_MSVC_WARNING(pop)
+        crt::get_sprintf(out, "models\\%s\\%s%s", name, name, extension);
 }
 
 // 0x00487AD0

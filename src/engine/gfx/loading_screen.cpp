@@ -30,6 +30,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <string>
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -209,7 +210,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
         if (!select_enabled()) {
             name = original_of(name);
         } else {
-            std::snprintf(picked.data(), sizeof(picked), "%s", name);
+            text::format_to(picked, "%s", name);
             for (const char* suffix : {"_story", "_classic"}) {
                 const size_t length = std::strlen(picked.data());
                 const size_t tail = std::strlen(suffix);
@@ -240,10 +241,10 @@ void show_loading_screen(const char* name, bool keep, bool black)
             const char* file = name;
             const int language = game_config::g_language;
             if (language == 3 && !is_select_name(name)) { // (no text on a level select picture: one for all languages)
-                std::snprintf(localised.data(), sizeof(localised), "fr/%s", name);
+                text::format_to(localised, "fr/%s", name);
                 file = localised.data();
             } else if (language == 5 && !is_select_name(name)) {
-                std::snprintf(localised.data(), sizeof(localised), "gr/%s", name);
+                text::format_to(localised, "gr/%s", name);
                 file = localised.data();
             }
             // (no check: a failed allocation calls through null, as the original)

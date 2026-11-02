@@ -11,6 +11,7 @@
 #include "engine/core/checksums.h"
 #include "engine/gfx/viewport.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -18,12 +19,12 @@ namespace render {
 bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
 {
     std::array<char, 0x200> path{};
-    std::snprintf(path.data(), sizeof(path), "%s", name);
+    text::format_to(path, "%s", name);
     if (static_cast<uint8_t>(in_images)) {
         if (std::string_view(name).starts_with("../"))
-            std::snprintf(path.data(), sizeof(path), "%s", std::next(name, 3));
+            text::format_to(path, "%s", std::next(name, 3));
         else
-            std::snprintf(path.data(), sizeof(path), "images/%s", name);
+            text::format_to(path, "images/%s", name);
     }
     int start = static_cast<int>(std::strlen(path.data()));
     while (start > 0 && core::at(path, start - 1) != '\\' && core::at(path, start - 1) != '/')

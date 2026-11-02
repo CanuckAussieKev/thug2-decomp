@@ -12,6 +12,7 @@
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/core/format.h"
 
 namespace gfx::screenshot_capture {
 
@@ -54,7 +55,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
     IDirect3DSurface9 *back = nullptr, *resolved = nullptr, *system = nullptr;
     auto fail = [&](const char* why, HRESULT hr) {
         std::array<char, 128> text{};
-        std::snprintf(text.data(), sizeof(text), "%s (0x%08lX)", why, static_cast<unsigned long>(hr));
+        text::format_to(text, "%s (0x%08lX)", why, static_cast<unsigned long>(hr));
         *error = text.data();
         get_release(system);
         get_release(resolved);

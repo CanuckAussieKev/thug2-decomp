@@ -32,6 +32,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -478,7 +479,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     // (the original could also parse a font already in memory: nothing asks for that)
     std::vector<uint8_t> contents;
     std::array<char, 128> path{}; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
-    std::snprintf(path.data(), sizeof(path), "fonts/%s.fnt.xbx", name);
+    text::format_to(path, "fonts/%s.fnt.xbx", name);
     file::Hdl file = file::unseal(path.data(), "rb");
     if (!file) {
         debug::printf("font %s: no file\n", path.data());

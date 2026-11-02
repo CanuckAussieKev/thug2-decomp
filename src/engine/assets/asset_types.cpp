@@ -31,6 +31,7 @@
 #include "engine/script/script_startup.h"
 #include "engine/script/param_struct.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace assets {
 
@@ -186,7 +187,7 @@ void free_malloc_buffer(void*& buffer)
 void* group_data(Resource* asset) { return asset->bundle_->get_data(); }
 const char* platform_name(const char* name, char* out)
 {
-    std::snprintf(out, 256, "%s.%s", name, render::platform_suffix());
+    text::format_to(std::span(out, 256), "%s.%s", name, render::platform_suffix());
     return out;
 }
 void copy_words(void* to, const void* from, int words) { std::memcpy(to, from, 4 * static_cast<size_t>(words)); }
@@ -726,7 +727,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")
     const char* kind = has_cas ? "skin" : "mdl";
     std::array<char, 512> file{};
-    std::snprintf(file.data(), sizeof(file), "%s.%s.%s", base.data(), kind, render::platform_suffix());
+    text::format_to(file, "%s.%s.%s", base.data(), kind, render::platform_suffix());
     args_->has_cas_ = has_cas;
     ++files_reading_;
     uint32_t size = 0;
@@ -739,7 +740,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     }
     if (has_cas) {
         std::array<char, 512> cas{};
-        std::snprintf(cas.data(), sizeof(cas), "%s.cas.%s", base.data(), render::platform_suffix());
+        text::format_to(cas, "%s.cas.%s", base.data(), render::platform_suffix());
         ++files_reading_;
         cas_file_ = file::async_open(cas.data(), !async, 100);
         if (!cas_file_)

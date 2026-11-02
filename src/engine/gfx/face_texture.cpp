@@ -22,6 +22,7 @@
 #include <gsl/pointers>
 #include <iterator>
 #include <span>
+#include "engine/core/format.h"
 
 namespace gfx {
 
@@ -258,8 +259,7 @@ FaceSkin::FaceSkin()
 void FaceSkin::load_image_file(const char* name, bool full_path)
 {
     std::array<char, 512> path{};
-    THUG2_MSVC_WARNING(suppress : 4996)
-    std::sprintf(path.data(), full_path ? "%s.img.xbx" : "images\\%s.img.xbx", name);
+    text::format_to(path, "%s%s.img.xbx", full_path ? "" : "images\\", name); // "%s.img.xbx" / "images\%s.img.xbx"
     int size = 0; // (uninitialised in the original: a file that can't be loaded copies from null)
     auto* data = static_cast<uint8_t*>(packs::load_file_into(path.data(), &size, nullptr));
     std::memcpy(image_.data(), data, static_cast<size_t>(size));

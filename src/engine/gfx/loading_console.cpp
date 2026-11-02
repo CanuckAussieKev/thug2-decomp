@@ -34,6 +34,7 @@
 #include "engine/util/com_ptr.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "engine/core/format.h"
 
 namespace gfx::loading_console {
 
@@ -50,11 +51,11 @@ std::string size_text(long long bytes)
 {
     std::array<char, 32> text{};
     if (bytes < 1024)
-        std::snprintf(text.data(), sizeof(text), "%lld B", bytes);
+        text::format_to(text, "%lld B", bytes);
     else if (bytes < 1024LL * 1024)
-        std::snprintf(text.data(), sizeof(text), "%.1f KB", static_cast<double>(bytes) / 1024.0);
+        text::format_to(text, "%.1f KB", static_cast<double>(bytes) / 1024.0);
     else
-        std::snprintf(text.data(), sizeof(text), "%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
+        text::format_to(text, "%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
     return text.data();
 }
 
@@ -109,9 +110,9 @@ std::vector<std::string> Ring::final_one(size_t n) const
         const Seg& line = core::at(lines, (count - i) % kRingLines);
         std::array<char, kLineWidth + 32> text{};
         if (line.repeat > 1)
-            std::snprintf(text.data(), sizeof(text), "[%6.1f] %s (x%u)", line.time, line.text.data(), line.repeat);
+            text::format_to(text, "[%6.1f] %s (x%u)", line.time, line.text.data(), line.repeat);
         else
-            std::snprintf(text.data(), sizeof(text), "[%6.1f] %s", line.time, line.text.data());
+            text::format_to(text, "[%6.1f] %s", line.time, line.text.data());
         out.emplace_back(text.data());
     }
     return out;
@@ -306,11 +307,11 @@ void get_layout(double now)
 
     std::array<char, 48> left{};
     std::array<char, 64> right{};
-    std::snprintf(left.data(), sizeof(left), "LOADING %.1f s", now - started);
+    text::format_to(left, "LOADING %.1f s", now - started);
     if (stalled)
-        std::snprintf(right.data(), sizeof(right), "NO ACTIVITY - last %.1f s ago", idle);
+        text::format_to(right, "NO ACTIVITY - last %.1f s ago", idle);
     else
-        std::snprintf(right.data(), sizeof(right), "last activity %.1f s ago", idle);
+        text::format_to(right, "last activity %.1f s ago", idle);
     float y = y0 + pad;
     draw_text(x0 + pad, y, left.data(), columns, 0xFFFFFFFFu);
     const size_t right_length = std::strlen(right.data());

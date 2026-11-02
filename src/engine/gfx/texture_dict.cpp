@@ -23,6 +23,7 @@
 #include "engine/lists/key_map.h"
 #include "engine/sys/startup_init.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -135,7 +136,7 @@ BitmapTexture* TextureSet::find_texture(const char* name)
     if (BitmapTexture* texture = find(checksums::hash_from_text(name)))
         return texture;
     std::array<char, 0x200> other{};
-    std::snprintf(other.data(), sizeof(other), "%s", name);
+    text::format_to(other, "%s", name);
     const size_t length = std::strlen(other.data());
     if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
         std::memcpy(std::span(other).subspan(length - 4).data(), "_auto32m0.png", 14);
@@ -276,7 +277,7 @@ TextureSet* find_tex_dict(uint32_t checksum)
 TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
 {
     std::array<char, 0x80> file{};
-    std::snprintf(file.data(), sizeof(file), "%s.%s", path, platform_suffix());
+    text::format_to(file, "%s.%s", path, platform_suffix());
     memory::push_mem_profile(path);
     const uint32_t key = checksums::hash_from_text(path) + offset;
     TextureSet* dict = find_tex_dict(key);
@@ -318,7 +319,7 @@ TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
     std::array<char, 0x200> base{};
     const bool skin = engine::split_skin_name(name, base.data());
     std::array<char, 0x200> file{};
-    std::snprintf(file.data(), sizeof(file), "%s.tex", base.data());
+    text::format_to(file, "%s.tex", base.data());
     return load_tex_dict(file.data(), 0, offset, skin, a4);
 }
 
@@ -335,7 +336,10 @@ bool unload_tex_dict(TextureSet* dict)
 }
 
 // 0x0049EF90 (the original sprintfs unbounded)
-void tex_dict_file_name(char* out, const char* name) { std::snprintf(out, 256, "%s.%s", name, platform_suffix()); }
+void tex_dict_file_name(char* out, const char* name)
+{
+    text::format_to(std::span(out, 256), "%s.%s", name, platform_suffix());
+}
 
 // 0x0049EFB0
 void drop_particle_textures(bool all) { g_particle_texture_dict->drop_textures(all); }

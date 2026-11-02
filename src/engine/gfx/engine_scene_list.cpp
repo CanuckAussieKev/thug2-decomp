@@ -27,6 +27,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/pc_scene.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -78,7 +79,7 @@ bool plat_load_add_scene(WorldScene* /*scene*/, const char* /*fileName*/) { retu
 // "levels\<name>\<name>.scn.<the platform's extension>" (the original's sprintf; no length limit there).
 void build_scene_file_path(char* out, size_t size, const char* name)
 {
-    std::snprintf(out, size, "levels\\%s\\%s%s.scn.%s", name, name, "", platform_suffix());
+    text::format_to(std::span(out, size), "levels\\%s\\%s%s.scn.%s", name, name, "", platform_suffix());
 }
 
 } // namespace
@@ -298,7 +299,7 @@ WorldScene* add_scene(const char* scene_name, const char* add_name)
     std::array<char, 0x80> file{};
     std::array<char, 0x80> tex_file{};
     build_scene_file_path(file.data(), sizeof(file), add_name);
-    std::snprintf(tex_file.data(), sizeof(tex_file), "levels\\%s\\%s.tex", add_name, add_name);
+    text::format_to(tex_file, "levels\\%s\\%s.tex", add_name, add_name);
     WorldScene* scene = look_up_scene(checksums::hash_from_text(scene_name));
     if (std::strcmp(scene->add_name_.data(), file.data()) == 0) {
         scene->unload_added_scene();

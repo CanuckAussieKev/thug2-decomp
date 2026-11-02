@@ -40,6 +40,7 @@
 #include "platform/bink.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace render {
 
@@ -146,7 +147,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     set_texture(0, nullptr);          // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
     std::array<char, 256> dump_name{};
-    std::snprintf(dump_name.data(), sizeof(dump_name), "e:\\movietest\\movie%04d.bmp", g_movie_dump_count);
+    text::format_to(dump_name, "e:\\movietest\\movie%04d.bmp", g_movie_dump_count);
     ++g_movie_dump_count;
     // Originally from PartyMod Fixes (its call at 0x0044FB8C): set_movie_texture in place of the renderer's texture set (0x004DA730)
     set_movie_texture(0, texture, 0);
