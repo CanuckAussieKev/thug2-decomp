@@ -1,6 +1,8 @@
 // NOT ORIGINAL - the level editor's navigation and hints: the game side (ours). See level_editor_ux8.h.
 
 #include "editor/level_editor_ux8.h"
+#include "platform/keyboard.h"
+#include "engine/core/span_copy.h"
 
 #include <SDL2/SDL.h>
 #include <windows.h>
@@ -309,12 +311,12 @@ Pad read_pad()
     return p;
 }
 
-const uint8_t* pad_keys(const uint8_t* keys, const Pad& pad)
+platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
 {
     static std::array<uint8_t, SDL_NUM_SCANCODES> merged;
     if (!pad.active)
         return keys;
-    std::memcpy(merged.data(), keys, sizeof(merged));
+    core::copy_into(keys.first(merged.size()), std::span(merged));
     auto hold = [&](int action) {
         const actions::ActStep* a = actions::get_pull(action);
         if (!a)
@@ -336,7 +338,7 @@ const uint8_t* pad_keys(const uint8_t* keys, const Pad& pad)
         hold(actions::kNudgeRight);
     if (pad.fast)
         core::at(merged, SDL_SCANCODE_LSHIFT) = 1;
-    return merged.data();
+    return merged;
 }
 
 bool get_pad_cursor(const Pad& pad, bool mouse_moved, float* x, float* y)

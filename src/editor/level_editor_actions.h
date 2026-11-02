@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+
+#include "platform/keyboard.h"
 #include <functional>
 #include <string>
 #include <vector>
@@ -215,11 +217,11 @@ std::vector<int> conflicts(int index);
 
 // The keyboard this frame (SDL_GetKeyboardState; all up while the UI types): which actions' keys were pressed.
 // `suspended`: none fire (a key being captured for rebinding).
-void begin_frame(const uint8_t* keys);
+void begin_frame(platform::KeyState keys);
 // The editor starting: the keys down now count as already down (the key that opened it doesn't act at once).
-void seed_keys(const uint8_t* keys);
+void seed_keys(platform::KeyState keys);
 bool squeezed(int index);
-bool get_held(const uint8_t* keys, int index);
+bool get_held(platform::KeyState keys, int index);
 // As if its key had been pressed: Pressed is true next frame (the command search, menus).
 void fire_off(int index);
 // The search / a menu: `run`, else Trigger (nothing when not Enabled).

@@ -1,6 +1,7 @@
 // The restart tester (frontend/restart_tester.h).
 
 #include "frontend/restart_tester.h"
+#include "platform/keyboard.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -177,8 +178,8 @@ void tick_frame(modules::FrontEnd* front_end)
 {
     if (!is_switched_on())
         return;
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    const bool down = keys && keys[kKey];
+    const platform::KeyState keys = platform::keyboard_keys();
+    const bool down = !keys.empty() && core::at(keys, kKey);
     const bool pressed = down && s_key_up;
     s_key_up = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||

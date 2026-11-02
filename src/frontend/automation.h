@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -122,7 +123,7 @@ bool& is_switched_on();
 void tick_frame(modules::FrontEnd* front_end);
 // The buttons a `press` holds, added to port 0's PS2-format control data (Sio's process_sdl_device, before the bits
 // are inverted: a set bit is a button down).
-void add_pad_buttons(int port, uint8_t* data);
+void add_pad_buttons(int port, std::span<uint8_t> data);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 

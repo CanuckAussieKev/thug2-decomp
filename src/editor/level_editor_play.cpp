@@ -1,6 +1,7 @@
 // NOT ORIGINAL - play from here (ours). See level_editor_play.h.
 
 #include "editor/level_editor_play.h"
+#include "platform/keyboard.h"
 
 #include <cstdint>
 #include <SDL2/SDL.h>
@@ -25,12 +26,12 @@ Step on_key(bool pressed, bool in_level, bool paused, bool offered)
     return Step::kPauseThenEnter;
 }
 
-bool get_key_down(const uint8_t* keys)
+bool get_key_down(platform::KeyState keys)
 {
-    if (!keys)
+    if (keys.empty())
         return false;
-    const bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
-    return keys[SDL_SCANCODE_F5] || (ctrl && keys[SDL_SCANCODE_P]);
+    const bool ctrl = core::at(keys, SDL_SCANCODE_LCTRL) || core::at(keys, SDL_SCANCODE_RCTRL);
+    return core::at(keys, SDL_SCANCODE_F5) || (ctrl && core::at(keys, SDL_SCANCODE_P));
 }
 
 namespace {
@@ -93,7 +94,7 @@ void tick_frame(modules::FrontEnd* front_end)
 {
     if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0)
         return;
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+    const platform::KeyState keys = platform::keyboard_keys();
     const bool down = get_key_down(keys);
     const bool pressed = down && g_key_up;
     g_key_up = !down;

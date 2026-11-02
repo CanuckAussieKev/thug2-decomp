@@ -1,6 +1,7 @@
 // Debug mode (engine/sys/debug_mode.h).
 
 #include "engine/sys/debug_mode.h"
+#include "platform/keyboard.h"
 
 #include <cstdint>
 #include <cstring>
@@ -59,9 +60,9 @@ bool in_view_mode() { return objects::g_view_mode != 0; }
 struct Key {
     SDL_Scancode code;
     bool was_down_;
-    bool squeezed(const uint8_t* keys)
+    bool squeezed(platform::KeyState keys)
     {
-        const bool down = keys[code] != 0;
+        const bool down = core::at(keys, code) != 0;
         const bool pressed = down && !was_down_;
         was_down_ = down;
         return pressed;
@@ -103,8 +104,8 @@ void tick_frame(modules::FrontEnd* front_end)
     if (!is_switched_on() ||
         frame_loop::frames_run() == 0) // (not in the early self-tests, which run this on stand-in state)
         return;
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    if (!keys)
+    const platform::KeyState keys = platform::keyboard_keys();
+    if (keys.empty())
         return;
     static Key f9{SDL_SCANCODE_F9, false}, f10{SDL_SCANCODE_F10, false}, f11{SDL_SCANCODE_F11, false},
         f12{SDL_SCANCODE_F12, false}, tab{SDL_SCANCODE_TAB, false}, t{SDL_SCANCODE_T, false},
@@ -153,18 +154,18 @@ bool keyboard_viewer(float* left_x, float* left_y, float* right_x, float* right_
 {
     if (!is_switched_on() || frontend::level_editor::live_now())
         return false;
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    if (!keys)
+    const platform::KeyState keys = platform::keyboard_keys();
+    if (keys.empty())
         return false;
     auto axis = [keys](SDL_Scancode minus, SDL_Scancode plus) {
-        return (keys[plus] ? 127.0f : 0.0f) - (keys[minus] ? 127.0f : 0.0f);
+        return (core::at(keys, plus) ? 127.0f : 0.0f) - (core::at(keys, minus) ? 127.0f : 0.0f);
     };
     const float move_x = axis(SDL_SCANCODE_A, SDL_SCANCODE_D);
     const float move_z = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);
     const float turn_x = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT);
     const float turn_y = axis(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
-    const bool up = keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_PAGEUP];
-    const bool down = keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_PAGEDOWN];
+    const bool up = core::at(keys, SDL_SCANCODE_E) || core::at(keys, SDL_SCANCODE_PAGEUP);
+    const bool down = core::at(keys, SDL_SCANCODE_Q) || core::at(keys, SDL_SCANCODE_PAGEDOWN);
     if (move_x == 0.0f && move_z == 0.0f && turn_x == 0.0f && turn_y == 0.0f && !up && !down)
         return false;
     // (the right stick moves - x across, y along the view: up is -127 -, the left stick turns; a key held wins over

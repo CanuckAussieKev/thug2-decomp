@@ -3,6 +3,7 @@
 // context, the automation channel's commands.
 
 #include "frontend/new_frontend.h"
+#include "platform/keyboard.h"
 
 #include <windows.h>
 
@@ -1728,7 +1729,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
 
 // --- input ---
 
-bool get_key_down(SDL_Scancode key) { return SDL_GetKeyboardState(nullptr)[key] != 0; }
+bool get_key_down(SDL_Scancode key) { return core::at(platform::keyboard_keys(), key) != 0; }
 
 void press_direction(modules::FrontEnd* front_end, Intake input)
 {

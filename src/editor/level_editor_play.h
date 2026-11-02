@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "editor/level_editor.h"
+#include "platform/keyboard.h"
 
 namespace modules {
 struct FrontEnd;
@@ -50,6 +51,6 @@ void tick_frame(modules::FrontEnd* front_end);
 enum class Step : uint8_t { kNone, kPauseThenEnter };
 Step on_key(bool pressed, bool in_level, bool paused, bool offered);
 // Whether the play key is down: F5, or Ctrl+P (pure, from SDL's keyboard state).
-bool get_key_down(const uint8_t* keys);
+bool get_key_down(platform::KeyState keys);
 
 } // namespace frontend::level_editor::perform

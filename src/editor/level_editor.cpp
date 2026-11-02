@@ -2,6 +2,7 @@
 // level_editor.h.
 
 #include "editor/level_editor.h"
+#include "platform/keyboard.h"
 
 #include <SDL2/SDL.h>
 
@@ -2544,8 +2545,8 @@ void update_highlights()
         g_hover_tinted = object_edit::get_tint(hover, kHoverTint);
     else if (!g_dragging && g_hover_sector && !scenery::get_selected(g_hover_sector) &&
              !scenery::why_not_movable(g_hover_sector))
-        g_hover_tinted = tint_sectors(SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LALT] ||
-                                              SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RALT]
+        g_hover_tinted = tint_sectors(core::at(platform::keyboard_keys(), SDL_SCANCODE_LALT) ||
+                                              core::at(platform::keyboard_keys(), SDL_SCANCODE_RALT)
                                           ? std::vector<uint32_t>{g_hover_sector}
                                           : scenery::hover_group(g_hover_sector),
                                       kHoverTint);
@@ -2662,7 +2663,7 @@ bool cfunc_start(script::Struct*, script::Script*)
     g_speed = static_cast<float>(prefs::get_pull().fly_speed_);
     view_cam::kickoff(scenery::world_scene_key(scenery::main_scene()));
     play_test::on_editor_start(); // (the trail's run ends; the level's trails file read - level_editor_playtest.h)
-    actions::seed_keys(SDL_GetKeyboardState(nullptr)); // (the key that opened the editor doesn't act at once)
+    actions::seed_keys(platform::keyboard_keys()); // (the key that opened the editor doesn't act at once)
     render::occlusion_off() = g_occlusion_off;
     g_hud_taken_down = 0;
     g_families = static_cast<uint32_t>(config_int("editor", "families", static_cast<int>(nodes::kAllFamilies))) &
@@ -3611,13 +3612,13 @@ std::vector<ui::BrowserItem> g_ui_browser_items;
 std::vector<std::pair<std::string, std::string>> keys_now()
 {
     hints::CtxInfo c;
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+    const platform::KeyState keys = platform::keyboard_keys();
     if (ui::keys_to_editor()) {
-        if (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL])
+        if (core::at(keys, SDL_SCANCODE_LCTRL) || core::at(keys, SDL_SCANCODE_RCTRL))
             c.mods |= actions::kCtrl;
-        if (keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT])
+        if (core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT))
             c.mods |= actions::kShift;
-        if (keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT])
+        if (core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT))
             c.mods |= actions::kAlt;
     }
     c.rmb = g_mouse.right;
@@ -4672,18 +4673,18 @@ void get_look_at(V3 target, float distance)
 }
 
 // A key's press (true once per press).
-bool squeezed(const uint8_t* keys, SDL_Scancode key, bool* was)
+bool squeezed(platform::KeyState keys, SDL_Scancode key, bool* was)
 {
-    const bool down = keys[key] != 0;
+    const bool down = core::at(keys, key) != 0;
     const bool pressed = down && !*was;
     *was = down;
     return pressed;
 }
 
 // A key's press and, held, its repeats (after 0.4 s, 12 a second): the browser's list.
-bool get_repeated(const uint8_t* keys, SDL_Scancode key, uint32_t* since)
+bool get_repeated(platform::KeyState keys, SDL_Scancode key, uint32_t* since)
 {
-    if (!keys[key]) {
+    if (!core::at(keys, key)) {
         *since = 0;
         return false;
     }
@@ -5395,7 +5396,7 @@ void teleport_to(V3 dir)
 
 // Walk mode's frame: the mouse (captured) and the right stick look, the fly keys / left stick walk, the fly-up key /
 // A jump, Shift / L3 run; Escape (or B) stops.
-void walk_frame(const Mouse& input, const uint8_t* keys, const ux8::Pad& pad, double seconds)
+void walk_frame(const Mouse& input, platform::KeyState keys, const ux8::Pad& pad, double seconds)
 {
     if (g_cancel_requested || (pad.active && pad.b)) {
         g_cancel_requested = false;
@@ -5419,7 +5420,7 @@ void walk_frame(const Mouse& input, const uint8_t* keys, const ux8::Pad& pad, do
                                   (actions::get_held(keys, actions::kLeft) ? 1 : 0)) +
                pad.move_x_;
     in.jump = (jump_key && !g_jump_was) || pad.a_presses_ > 0;
-    in.run = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT] || pad.fast;
+    in.run = core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT) || pad.fast;
     g_jump_was = jump_key;
     nav::Walker& walker = ux8::walker_state();
     nav::get_step(&walker, g_yaw, in, static_cast<float>(seconds), get_cast);
@@ -5430,7 +5431,7 @@ void walk_frame(const Mouse& input, const uint8_t* keys, const ux8::Pad& pad, do
 // The transform tools' keys (level_editor_transform.h): the modes (wasd_flies=0: W / E / R while the right button isn't
 // held; both: Space cycles - with wasd_flies=1 only with a selection, Space flying up without one), ` World / Local,
 // Alt+G the modal transform; F (UX1's frame) lets the camera follow the selection again.
-void transform_keys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const Mouse& input, V3 dir, bool have_ray,
+void transform_keys(platform::KeyState keys, bool ctrl, bool shift, bool alt, const Mouse& input, V3 dir, bool have_ray,
                     const TickCycle& frame)
 {
     // (the keys from the keymap - level_editor_actions.h: W / E / R, Space, `, Alt+G, F)
@@ -5540,11 +5541,11 @@ void tick_frame()
     g_mouse.middle_presses_ = 0;
     if (!g_camera)
         return;
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+    platform::KeyState keys = platform::keyboard_keys();
     // (the UI is typing: the editor's keys rest - level_editor_ui.h)
     static const std::array<uint8_t, SDL_NUM_SCANCODES> kNoKeys = {};
     if (!ui::keys_to_editor())
-        keys = kNoKeys.data();
+        keys = kNoKeys;
     // (UX8: a game controller in controller mode - level_editor_ux8.h: A as the left button at the crosshair, the
     // D-pad as the nudge keys, L3 as Shift, B as Escape; the sticks below)
     const ux8::Pad pad = ux8::read_pad();
@@ -5563,9 +5564,9 @@ void tick_frame()
         if (ux8::pad_cancel(pad))
             g_cancel_requested = true;
     }
-    const bool shift = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-    const bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
-    const bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
+    const bool shift = core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT);
+    const bool ctrl = core::at(keys, SDL_SCANCODE_LCTRL) || core::at(keys, SDL_SCANCODE_RCTRL);
+    const bool alt = core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT);
     const double boost = shift ? 4.0 : 1.0;
     if (!have_selection())
         g_dragging = false;
@@ -5573,8 +5574,8 @@ void tick_frame()
     view_cam::filter_mouse(rig_now(),
                            {&input.left_presses_, &input.left_releases_, input.left, input.right, &input.rel_x_,
                             &input.rel_y_, &input.wheel},
-                           SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LALT] ||
-                               SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RALT],
+                           core::at(platform::keyboard_keys(), SDL_SCANCODE_LALT) ||
+                               core::at(platform::keyboard_keys(), SDL_SCANCODE_RALT),
                            g_last_have_ray, g_last_ray);
     // The keys from the keymap (level_editor_actions.h: rebindable, [editor_keys] in the ini; the command search runs
     // them the same way).
@@ -6000,7 +6001,7 @@ void tick_frame()
             r = (actions::get_held(keys, actions::kRight) || actions::get_held(keys, actions::kNudgeRight) ? 1 : 0) -
                 (actions::get_held(keys, actions::kLeft) || actions::get_held(keys, actions::kNudgeLeft) ? 1 : 0);
             u = (actions::get_held(keys, actions::kNudgeUp) ||
-                         (actions::get_held(keys, actions::kFlyUp) && !keys[SDL_SCANCODE_SPACE])
+                         (actions::get_held(keys, actions::kFlyUp) && !core::at(keys, SDL_SCANCODE_SPACE))
                      ? 1
                      : 0) -
                 (actions::get_held(keys, actions::kNudgeDown) || actions::get_held(keys, actions::kFlyDown) ? 1 : 0);
@@ -6510,9 +6511,9 @@ void blit()
         if (hover && !is_picked(hover) && object_edit::model_box(hover, &box)) {
             add_box(box, frame, 0xFFFFFF00, &lines);
         } else if (!g_dragging && g_hover_sector && !scenery::get_selected(g_hover_sector)) {
-            const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+            const platform::KeyState keys = platform::keyboard_keys();
             const bool one =
-                keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT] || scenery::why_not_movable(g_hover_sector);
+                core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT) || scenery::why_not_movable(g_hover_sector);
             const std::vector<uint32_t>& group = scenery::hover_group(g_hover_sector);
             if (one || group.empty()) {
                 if (scenery::cuboid(g_hover_sector, &box))

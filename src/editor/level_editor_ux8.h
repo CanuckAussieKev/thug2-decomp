@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "editor/level_editor_nav.h"
+#include "platform/keyboard.h"
 
 struct ImFont;
 
@@ -70,7 +71,7 @@ Pad read_pad();
 bool pad_mode();
 void set_pad_mode(bool on); // (written to the ini)
 // The keyboard with the controller's held buttons added (the D-pad as the nudge actions' keys, L3 as Shift) - a copy.
-const uint8_t* pad_keys(const uint8_t* keys, const Pad& pad);
+platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad);
 // Whether the crosshair (the viewport's middle) is the cursor: since the controller was last used, the mouse hasn't
 // moved. `x`, `y`: where (window pixels).
 bool get_pad_cursor(const Pad& pad, bool mouse_moved, float* x, float* y);
@@ -87,7 +88,7 @@ struct TickCycle {
     bool right = false;
     bool dragging = false;
     bool browser = false;
-    const uint8_t* keys = nullptr;
+    platform::KeyState keys;
     Pad pad;
     bool have_selection_ = false;
 };

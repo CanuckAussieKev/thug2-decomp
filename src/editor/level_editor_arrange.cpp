@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's arrange tools (ours; see level_editor_arrange.h).
 
 #include "editor/level_editor_arrange.h"
+#include "platform/keyboard.h"
 
 #include <SDL2/SDL.h>
 
@@ -952,8 +953,8 @@ bool edge_click(float x, float y)
         hud::get_message(message.empty() ? std::string("Rail along an edge: couldn't add the rail") : message, 4.0);
         return true;
     }
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    const bool more = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
+    const platform::KeyState keys = platform::keyboard_keys();
+    const bool more = core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT);
     std::array<char, 128> text{};
     std::snprintf(text.data(), sizeof(text), "Rail added: %d points, %.0f long", static_cast<int>(run.points.size()),
                   run.length);

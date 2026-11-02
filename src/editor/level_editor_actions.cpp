@@ -1,6 +1,8 @@
 // NOT ORIGINAL - the level editor's actions and keymap (ours). See level_editor_actions.h.
 
 #include "editor/level_editor_actions.h"
+#include "platform/keyboard.h"
+#include "engine/core/span_copy.h"
 
 #include <SDL2/SDL_scancode.h>
 #include <windows.h>
@@ -618,14 +620,14 @@ int g_capture = -1, g_capture_slot = 0;
 
 std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 
-uint8_t held_mods(const uint8_t* keys)
+uint8_t held_mods(platform::KeyState keys)
 {
     uint8_t held = 0;
-    if (keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL])
+    if (core::at(keys, SDL_SCANCODE_LCTRL) || core::at(keys, SDL_SCANCODE_RCTRL))
         held |= kCtrl;
-    if (keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT])
+    if (core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT))
         held |= kShift;
-    if (keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT])
+    if (core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT))
         held |= kAlt;
     return held;
 }
@@ -755,7 +757,7 @@ std::vector<int> conflicts(int index)
     return out;
 }
 
-void begin_frame(const uint8_t* keys)
+void begin_frame(platform::KeyState keys)
 {
     std::vector<ActStep>& r = get_registry();
     g_fired.assign(r.size(), false);
@@ -770,8 +772,8 @@ void begin_frame(const uint8_t* keys)
     std::vector<std::vector<Chord>> bound(r.size());
     bool have_bound = false;
     for (int s = 0; s < SDL_NUM_SCANCODES; ++s) {
-        const bool pressed = keys[s] && !core::at(g_was, s);
-        core::at(g_was, s) = keys[s];
+        const bool pressed = core::at(keys, s) && !core::at(g_was, s);
+        core::at(g_was, s) = core::at(keys, s);
         if (!pressed || is_modifier(s))
             continue;
         if (g_capture >= 0) {
@@ -806,22 +808,22 @@ void begin_frame(const uint8_t* keys)
     }
 }
 
-void seed_keys(const uint8_t* keys)
+void seed_keys(platform::KeyState keys)
 {
-    std::memcpy(g_was.data(), keys, sizeof(g_was));
+    core::copy_into(keys.first(g_was.size()), std::span(g_was));
     g_triggered.assign(g_triggered.size(), false);
 }
 
 bool squeezed(int index) { return index >= 0 && std::cmp_less(index, g_fired.size()) && core::at(g_fired, index); }
 
-bool get_held(const uint8_t* keys, int index)
+bool get_held(platform::KeyState keys, int index)
 {
     const ActStep* a = get_pull(index);
     if (!a || g_capture >= 0)
         return false;
     const uint8_t held = held_mods(keys);
     for (const Chord& c : a->keys) {
-        if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && hold_matches(c, keys[c.scancode] != 0, held))
+        if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && hold_matches(c, core::at(keys, c.scancode) != 0, held))
             return true;
     }
     return false;

@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's camera tools (ours). See level_editor_camera.h.
 
 #include "editor/level_editor_camera.h"
+#include "platform/keyboard.h"
 
 #include <SDL2/SDL.h>
 
@@ -457,7 +458,7 @@ void apply_orbit(const Rig& rig)
     *rig.pos = pos;
 }
 
-void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
+void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_open)
 {
     // (the keys from the keymap - level_editor_actions.h: rebindable)
     (void)keys;
@@ -482,7 +483,7 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
         }
     }
     // 1..9 recall a bookmark, Ctrl+1..9 store it. (Alt+1..4 are the view modes - level_editor_overlays.h.)
-    const bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
+    const bool alt = core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT);
     for (int i = 0; i < kBookmarks; ++i) {
         const bool store = actions::squeezed(actions::kBookmarkStore1 + i);
         if (alt || (!store && !actions::squeezed(actions::kBookmark1 + i)))

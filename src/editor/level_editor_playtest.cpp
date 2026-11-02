@@ -1,6 +1,7 @@
 // NOT ORIGINAL - play testing from the level editor (ours). See level_editor_playtest.h.
 
 #include "game/rider/rider.h"
+#include "platform/keyboard.h"
 #include "editor/level_editor_playtest.h"
 
 #include <SDL2/SDL.h>
@@ -766,7 +767,7 @@ void simulate_event(SDL_Event* event)
     if (!g_simulating || !level_editor::live_now())
         return;
     if (event->type == SDL_KEYDOWN && !event->key.repeat && ui::keys_to_editor()) {
-        const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+        const platform::KeyState keys = platform::keyboard_keys();
         const bool ctrl = (event->key.keysym.mod & KMOD_CTRL) != 0;
         const bool alt = (event->key.keysym.mod & KMOD_ALT) != 0;
         int x = 0, y = 0;

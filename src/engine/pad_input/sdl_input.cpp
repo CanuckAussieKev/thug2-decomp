@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include "engine/pad_input/sdl_input.h"
+#include "platform/keyboard.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -295,17 +296,17 @@ uint8_t s_editing_park = 0;
 // (PressTwoAnyOrder, 400 ms); without, the Xbox one, black (the original PC game's Key Pad 1 / spin left key). Not in a
 // menu or while editing a park, where those mean something else.
 // Original behaviour (PartyMod v1.0.4): the binding is read, nothing presses it.
-void press_caveman(uint8_t* data)
+void press_caveman(std::array<uint8_t, 32>& data)
 {
     if (s_in_menu || s_editing_park)
         return;
     if (!s_settings.ps2_controls_) {
-        data[20] |= 1 << 0; // black
+        core::at(data, 20) |= 1 << 0; // black
         return;
     }
-    data[3] |= (1 << 2) | (1 << 3); // L1, R1
-    data[16] = 0xFF;
-    data[17] = 0xFF;
+    core::at(data, 3) |= (1 << 2) | (1 << 3); // L1, R1
+    core::at(data, 16) = 0xFF;
+    core::at(data, 17) = 0xFF;
 }
 
 // The control data's bytes: 2 and 3 the button bits (set while down here; inverted at the end - the game's
@@ -315,117 +316,117 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
 {
     if (!SDL_GameControllerGetAttached(controller))
         return;
-    uint8_t* data = device->control_data_.data();
+    std::array<uint8_t, 32>& data = device->control_data_;
     device->is_usable_ = 1;
     device->is_connected_ = true;
 
     if (is_controller_button_held(controller, s_pad.menu))
-        data[2] |= 1 << 3;
+        core::at(data, 2) |= 1 << 3;
     if (is_controller_button_held(controller, s_pad.camera_toggle_))
-        data[2] |= 1 << 0;
+        core::at(data, 2) |= 1 << 0;
     if (is_controller_button_held(controller, s_pad.camera_swivel_lock_))
-        data[2] |= 1 << 2;
+        core::at(data, 2) |= 1 << 2;
     if (is_controller_button_held(controller, s_pad.focus))
-        data[2] |= 1 << 1;
+        core::at(data, 2) |= 1 << 1;
 
     if (is_controller_button_held(controller, s_pad.grind)) {
-        data[3] |= 1 << 4;
-        data[12] = 0xFF;
+        core::at(data, 3) |= 1 << 4;
+        core::at(data, 12) = 0xFF;
     }
     if (is_controller_button_held(controller, s_pad.grab)) {
-        data[3] |= 1 << 5;
-        data[13] = 0xFF;
+        core::at(data, 3) |= 1 << 5;
+        core::at(data, 13) = 0xFF;
     }
     if (is_controller_button_held(controller, s_pad.ollie)) {
-        data[3] |= 1 << 6;
-        data[14] = 0xFF;
+        core::at(data, 3) |= 1 << 6;
+        core::at(data, 14) = 0xFF;
     }
     if (is_controller_button_held(controller, s_pad.kick)) {
-        data[3] |= 1 << 7;
-        data[15] = 0xFF;
+        core::at(data, 3) |= 1 << 7;
+        core::at(data, 15) = 0xFF;
     }
 
     // the shoulders
     if (s_settings.ps2_controls_) {
         if (is_controller_button_held(controller, s_pad.left_spin_)) {
-            data[3] |= 1 << 2;
-            data[16] = 0xFF;
+            core::at(data, 3) |= 1 << 2;
+            core::at(data, 16) = 0xFF;
         }
         if (is_controller_button_held(controller, s_pad.right_spin_)) {
-            data[3] |= 1 << 3;
-            data[17] = 0xFF;
+            core::at(data, 3) |= 1 << 3;
+            core::at(data, 17) = 0xFF;
             if (s_editing_park)
-                data[20] |= 1 << 0; // black, editing a park
+                core::at(data, 20) |= 1 << 0; // black, editing a park
         }
         if (is_controller_button_held(controller, s_pad.nollie)) {
-            data[3] |= 1 << 0;
-            data[18] = 0xFF;
+            core::at(data, 3) |= 1 << 0;
+            core::at(data, 18) = 0xFF;
             if (s_in_menu)
-                data[20] |= 1 << 1; // white, in a menu
+                core::at(data, 20) |= 1 << 1; // white, in a menu
         }
         if (is_controller_button_held(controller, s_pad.switch_revert_)) {
-            data[3] |= 1 << 1;
-            data[19] = 0xFF;
+            core::at(data, 3) |= 1 << 1;
+            core::at(data, 19) = 0xFF;
             if (s_in_menu)
-                data[20] |= 1 << 0; // black, in a menu
+                core::at(data, 20) |= 1 << 0; // black, in a menu
             else if (s_editing_park)
-                data[20] |= 1 << 1; // white, editing a park
+                core::at(data, 20) |= 1 << 1; // white, editing a park
         }
     } else if (s_editing_park && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
         if (is_controller_button_held(controller, s_pad.switch_revert_)) {
-            data[3] |= 1 << 2;
-            data[16] = 0xFF;
+            core::at(data, 3) |= 1 << 2;
+            core::at(data, 16) = 0xFF;
         }
         if (is_controller_button_held(controller, s_pad.nollie)) {
-            data[3] |= 1 << 0;
-            data[18] = 0xFF;
+            core::at(data, 3) |= 1 << 0;
+            core::at(data, 18) = 0xFF;
         }
         if (is_controller_button_held(controller, s_pad.left_spin_))
-            data[20] |= 1 << 1;
+            core::at(data, 20) |= 1 << 1;
         if (is_controller_button_held(controller, s_pad.right_spin_))
-            data[20] |= 1 << 0;
+            core::at(data, 20) |= 1 << 0;
     } else {
         if (is_controller_button_held(controller, s_pad.nollie)) {
-            data[3] |= 1 << 2;
-            data[16] = 0xFF;
-            data[3] |= 1 << 0;
-            data[18] = 0xFF;
+            core::at(data, 3) |= 1 << 2;
+            core::at(data, 16) = 0xFF;
+            core::at(data, 3) |= 1 << 0;
+            core::at(data, 18) = 0xFF;
         }
         if (is_controller_button_held(controller, s_pad.switch_revert_)) {
-            data[3] |= 1 << 3;
-            data[17] = 0xFF;
-            data[3] |= 1 << 1;
-            data[19] = 0xFF;
+            core::at(data, 3) |= 1 << 3;
+            core::at(data, 17) = 0xFF;
+            core::at(data, 3) |= 1 << 1;
+            core::at(data, 19) = 0xFF;
         }
         if (is_controller_button_held(controller, s_pad.left_spin_))
-            data[20] |= 1 << 1;
+            core::at(data, 20) |= 1 << 1;
         if (is_controller_button_held(controller, s_pad.right_spin_))
-            data[20] |= 1 << 0;
+            core::at(data, 20) |= 1 << 0;
     }
     if (is_controller_button_held(controller, s_pad.caveman))
         press_caveman(data);
 
     // the d-pad (plain buttons: not the triggers)
     if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.up))) {
-        data[2] |= 1 << 4;
-        data[10] = 0xFF;
+        core::at(data, 2) |= 1 << 4;
+        core::at(data, 10) = 0xFF;
     }
     if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.right))) {
-        data[2] |= 1 << 5;
-        data[8] = 0xFF;
+        core::at(data, 2) |= 1 << 5;
+        core::at(data, 8) = 0xFF;
     }
     if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.down))) {
-        data[2] |= 1 << 6;
-        data[11] = 0xFF;
+        core::at(data, 2) |= 1 << 6;
+        core::at(data, 11) = 0xFF;
     }
     if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.left))) {
-        data[2] |= 1 << 7;
-        data[9] = 0xFF;
+        core::at(data, 2) |= 1 << 7;
+        core::at(data, 9) = 0xFF;
     }
 
-    read_stick(controller, s_pad.camera, &data[4], &data[5]);
-    read_stick(controller, s_pad.movement, &data[6], &data[7]);
+    read_stick(controller, s_pad.camera, &core::at(data, 4), &core::at(data, 5));
+    read_stick(controller, s_pad.movement, &core::at(data, 6), &core::at(data, 7));
 }
 
 // --- the keyboard -----------------------------------------------------------------------------------------------
@@ -452,7 +453,7 @@ MenuKeys s_menu_keys;
 uint8_t s_was_in_menu = 0;
 uint8_t s_was_keyboard_on_screen = 0;
 
-void update_menu_keys(const uint8_t* keys)
+void update_menu_keys(platform::KeyState keys)
 {
     const uint8_t keyboard_on_screen = g_keyboard_on_screen;
     if (s_in_menu != s_was_in_menu || keyboard_on_screen != s_was_keyboard_on_screen) {
@@ -493,8 +494,8 @@ void update_menu_keys(const uint8_t* keys)
 
     // a key's state, except while it's locked out and still down
     auto update = [keys](uint8_t& state, SDL_Scancode key) {
-        if (!(state == kLockedOut && keys[key]))
-            state = keys[key];
+        if (!(state == kLockedOut && core::at(keys, key)))
+            state = core::at(keys, key);
     };
     update(s_menu_keys.affirmative, SDL_SCANCODE_RETURN);
     update(s_menu_keys.negative, SDL_SCANCODE_ESCAPE);
@@ -511,9 +512,9 @@ void update_menu_keys(const uint8_t* keys)
 
 // A bound key (its scan code's low byte, as the bindings are passed): a menu key doesn't count as a binding in a
 // menu or while locked out.
-uint8_t get_key_down(const uint8_t* keys, uint8_t key)
+uint8_t get_key_down(platform::KeyState keys, uint8_t key)
 {
-    auto menu_key = [keys, key](uint8_t state) -> uint8_t { return state != kLockedOut && (!s_in_menu && keys[key]); };
+    auto menu_key = [keys, key](uint8_t state) -> uint8_t { return state != kLockedOut && (!s_in_menu && core::at(keys, key)); };
     switch (key) {
     case SDL_SCANCODE_RETURN:
         return menu_key(s_menu_keys.affirmative);
@@ -538,17 +539,17 @@ uint8_t get_key_down(const uint8_t* keys, uint8_t key)
     case SDL_SCANCODE_MINUS:
         return menu_key(s_menu_keys.zoom);
     default:
-        return keys[key];
+        return core::at(keys, key);
     }
 }
 
 void poll_keyboard(InputPort* device)
 {
-    uint8_t* data = device->control_data_.data();
+    std::array<uint8_t, 32>& data = device->control_data_;
     device->is_usable_ = 1;
     device->is_connected_ = true;
 
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+    const platform::KeyState keys = platform::keyboard_keys();
     update_menu_keys(keys);
     if (get_keyboard_on_screen())
         return;
@@ -561,147 +562,147 @@ void poll_keyboard(InputPort* device)
     // editor started; nothing else.
     // Original behaviour: every binding is read.
     if (frontend::level_editor::live_now()) {
-        if (frontend::level_editor::pass_pause_key(keys[s_keys.menu] != 0))
-            data[2] |= 1 << 3;
+        if (frontend::level_editor::pass_pause_key(core::at(keys, s_keys.menu) != 0))
+            core::at(data, 2) |= 1 << 3;
         return;
     }
 
     if (down(s_keys.menu))
-        data[2] |= 1 << 3;
+        core::at(data, 2) |= 1 << 3;
     if (down(s_keys.camera_toggle_))
-        data[2] |= 1 << 0;
+        core::at(data, 2) |= 1 << 0;
     if (down(s_keys.focus))
-        data[2] |= 1 << 1;
+        core::at(data, 2) |= 1 << 1;
     if (down(s_keys.camera_swivel_lock_))
-        data[2] |= 1 << 2;
+        core::at(data, 2) |= 1 << 2;
 
     if (down(s_keys.grind) || menu_down(s_menu_keys.extra)) {
-        data[3] |= 1 << 4;
-        data[12] = 0xFF;
+        core::at(data, 3) |= 1 << 4;
+        core::at(data, 12) = 0xFF;
     }
     if (down(s_keys.grab) || menu_down(s_menu_keys.negative)) {
-        data[3] |= 1 << 5;
-        data[13] = 0xFF;
+        core::at(data, 3) |= 1 << 5;
+        core::at(data, 13) = 0xFF;
     }
     if (down(s_keys.ollie) || menu_down(s_menu_keys.affirmative)) {
-        data[3] |= 1 << 6;
-        data[14] = 0xFF;
+        core::at(data, 3) |= 1 << 6;
+        core::at(data, 14) = 0xFF;
     }
     if (down(s_keys.kick) || menu_down(s_menu_keys.menu)) {
-        data[3] |= 1 << 7;
-        data[15] = 0xFF;
+        core::at(data, 3) |= 1 << 7;
+        core::at(data, 15) = 0xFF;
     }
 
     // the shoulders
     if (s_settings.ps2_controls_) {
         if (down(s_keys.left_spin_) || menu_down(s_menu_keys.rotate_left_)) {
-            data[3] |= 1 << 2;
-            data[16] = 0xFF;
+            core::at(data, 3) |= 1 << 2;
+            core::at(data, 16) = 0xFF;
         }
         if (down(s_keys.right_spin_) || menu_down(s_menu_keys.rotate_right_)) {
-            data[3] |= 1 << 3;
-            data[17] = 0xFF;
+            core::at(data, 3) |= 1 << 3;
+            core::at(data, 17) = 0xFF;
             if (s_editing_park)
-                data[20] |= 1 << 0; // black, editing a park
+                core::at(data, 20) |= 1 << 0; // black, editing a park
         }
         if (down(s_keys.nollie)) {
-            data[3] |= 1 << 0;
-            data[18] = 0xFF;
+            core::at(data, 3) |= 1 << 0;
+            core::at(data, 18) = 0xFF;
             if (s_in_menu)
-                data[20] |= 1 << 1; // white, in a menu
+                core::at(data, 20) |= 1 << 1; // white, in a menu
         }
         if (down(s_keys.switch_revert_) || menu_down(s_menu_keys.zoom)) {
-            data[3] |= 1 << 1;
-            data[19] = 0xFF;
+            core::at(data, 3) |= 1 << 1;
+            core::at(data, 19) = 0xFF;
             if (s_in_menu)
-                data[20] |= 1 << 0; // black, in a menu
+                core::at(data, 20) |= 1 << 0; // black, in a menu
             else if (s_editing_park)
-                data[20] |= 1 << 1; // white, editing a park
+                core::at(data, 20) |= 1 << 1; // white, editing a park
         }
     } else if (s_editing_park && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
         if (down(s_keys.switch_revert_)) {
-            data[3] |= 1 << 2;
-            data[16] = 0xFF;
+            core::at(data, 3) |= 1 << 2;
+            core::at(data, 16) = 0xFF;
         }
         if (down(s_keys.nollie)) {
-            data[3] |= 1 << 0;
-            data[18] = 0xFF;
+            core::at(data, 3) |= 1 << 0;
+            core::at(data, 18) = 0xFF;
         }
         if (down(s_keys.left_spin_))
-            data[20] |= 1 << 1;
+            core::at(data, 20) |= 1 << 1;
         if (down(s_keys.right_spin_))
-            data[20] |= 1 << 0;
+            core::at(data, 20) |= 1 << 0;
     } else {
         if (down(s_keys.nollie) || menu_down(s_menu_keys.rotate_left_)) {
-            data[3] |= 1 << 2;
-            data[16] = 0xFF;
-            data[3] |= 1 << 0;
-            data[18] = 0xFF;
+            core::at(data, 3) |= 1 << 2;
+            core::at(data, 16) = 0xFF;
+            core::at(data, 3) |= 1 << 0;
+            core::at(data, 18) = 0xFF;
         }
         if (down(s_keys.switch_revert_) || menu_down(s_menu_keys.rotate_right_)) {
-            data[3] |= 1 << 3;
-            data[17] = 0xFF;
-            data[3] |= 1 << 1;
-            data[19] = 0xFF;
+            core::at(data, 3) |= 1 << 3;
+            core::at(data, 17) = 0xFF;
+            core::at(data, 3) |= 1 << 1;
+            core::at(data, 19) = 0xFF;
         }
         // Not PartyMod's - without UsePS2Controls, the spin keys the original PC game's way round (its keyboard,
         // 0x005F5BC0: the key table's spin left -> the Xbox pad's black, spin right -> white). The game reads the Xbox
         // triggers then (Component::platform_structure), where black steps off the board (SwitchControl_Trigger's
         // Xbox_Trigger): spin left alone does it, as in the original game.
         // Original behaviour (PartyMod v1.0.4): the other way round - spin left white, spin right black:
-        //     if (down(s_keys.left_spin_)) data[20] |= 1 << 1;
-        //     if (down(s_keys.right_spin_) || menu_down(s_menu_keys.zoom)) data[20] |= 1 << 0;
+        //     if (down(s_keys.left_spin_)) core::at(data, 20) |= 1 << 1;
+        //     if (down(s_keys.right_spin_) || menu_down(s_menu_keys.zoom)) core::at(data, 20) |= 1 << 0;
         if (down(s_keys.left_spin_))
-            data[20] |= 1 << 0; // black
+            core::at(data, 20) |= 1 << 0; // black
         if (down(s_keys.right_spin_))
-            data[20] |= 1 << 1; // white
+            core::at(data, 20) |= 1 << 1; // white
         if (menu_down(s_menu_keys.zoom))
-            data[20] |= 1 << 0;
+            core::at(data, 20) |= 1 << 0;
     }
     if (down(s_keys.caveman))
         press_caveman(data);
 
     // the d-pad: the item keys
     if (down(s_keys.item_up_) || menu_down(s_menu_keys.up)) {
-        data[2] |= 1 << 4;
-        data[10] = 0xFF;
+        core::at(data, 2) |= 1 << 4;
+        core::at(data, 10) = 0xFF;
     }
     if (down(s_keys.item_right_) || menu_down(s_menu_keys.right)) {
-        data[2] |= 1 << 5;
-        data[8] = 0xFF;
+        core::at(data, 2) |= 1 << 5;
+        core::at(data, 8) = 0xFF;
     }
     if (down(s_keys.item_down_) || menu_down(s_menu_keys.down)) {
-        data[2] |= 1 << 6;
-        data[11] = 0xFF;
+        core::at(data, 2) |= 1 << 6;
+        core::at(data, 11) = 0xFF;
     }
     if (down(s_keys.item_left_) || menu_down(s_menu_keys.left)) {
-        data[2] |= 1 << 7;
-        data[9] = 0xFF;
+        core::at(data, 2) |= 1 << 7;
+        core::at(data, 9) = 0xFF;
     }
 
     // the sticks: opposite keys together cancel out
     if (down(s_keys.camera_left_) && !down(s_keys.camera_right_))
-        data[4] = 0;
+        core::at(data, 4) = 0;
     if (down(s_keys.camera_right_) && !down(s_keys.camera_left_))
-        data[4] = 255;
+        core::at(data, 4) = 255;
     if (down(s_keys.camera_up_) && !down(s_keys.camera_down_))
-        data[5] = 0;
+        core::at(data, 5) = 0;
     if (down(s_keys.camera_down_) && !down(s_keys.camera_up_))
-        data[5] = 255;
+        core::at(data, 5) = 255;
     // Not original - THAW's half-stick key (PartyMod's THAW build: Feeble, 64 / 192 instead of 0 / 255) while THAW's
     // BMX is ridden (game/rider/thaw_bmx.h half_stick_key): its grind pick reads how far the stick is pushed.
     // Original behaviour: the Feeble binding is read but unused - the movement keys always give 0 / 255.
     const bool half = down(s_keys.feeble) && skater::thaw_bmx::half_stick_key();
     const uint8_t low = half ? 64 : 0, high = half ? 192 : 255;
     if (down(s_keys.left) && !down(s_keys.right))
-        data[6] = low;
+        core::at(data, 6) = low;
     if (down(s_keys.right) && !down(s_keys.left))
-        data[6] = high;
+        core::at(data, 6) = high;
     if (down(s_keys.up) && !down(s_keys.down))
-        data[7] = low;
+        core::at(data, 7) = low;
     if (down(s_keys.down) && !down(s_keys.up))
-        data[7] = high;
+        core::at(data, 7) = high;
 }
 
 // --- typed keys -----------------------------------------------------------------------------------------------
@@ -745,7 +746,7 @@ void text_typed(const char* text)
     if (!get_keyboard_on_screen())
         return;
     if (std::strlen(text) == 1)
-        key_input(text[0], 0);
+        key_input(*text, 0);
     else
         debug_log::printf(StageMap::kDebug, "Input text '%s' > 1 byte!!\n", text);
 }
@@ -1038,20 +1039,20 @@ void process_sdl_device(InputPort* device)
 
     set_usable(device, false);
     set_connected(device, false);
-    uint8_t* data = device->control_data_.data();
-    data[0] = 0;
-    data[1] = 0x70;
+    std::array<uint8_t, 32>& data = device->control_data_;
+    core::at(data, 0) = 0;
+    core::at(data, 1) = 0x70;
     // The button bits are set for buttons down while the keyboard and the controller are read (so both can add
     // to them) and inverted at the end.
-    data[2] = 0;
-    data[3] = 0;
+    core::at(data, 2) = 0;
+    core::at(data, 3) = 0;
     for (int i = 12; i < 20; ++i) // the button and shoulder pressures
-        data[i] = 0;
+        core::at(data, i) = 0;
     for (int i = 8; i < 12; ++i) // the d-pad's
-        data[i] = 0;
+        core::at(data, i) = 0;
     for (int i = 4; i < 8; ++i) // the sticks, centred
-        data[i] = 127;
-    data[20] = 0;
+        core::at(data, i) = 127;
+    core::at(data, 20) = 0;
 
     // Not original - the new front end (frontend/new_frontend.h): while it's up (and until the keys that chose for it
     // are let go) it has the keyboard and the controllers - the game reads nothing pressed.
@@ -1069,10 +1070,10 @@ void process_sdl_device(InputPort* device)
     // (not original: the buttons the test-automation channel presses - frontend/automation.h)
     frontend::automation::add_pad_buttons(device->port_no_, data);
 
-    data[2] = static_cast<uint8_t>(~data[2]);
-    data[3] = static_cast<uint8_t>(~data[3]);
-    set_held_down(device, (0xFFFF ^ (data[2] << 8 | data[3])) != 0);
-    device->start_or_a_ = ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0;
+    core::at(data, 2) = static_cast<uint8_t>(~core::at(data, 2));
+    core::at(data, 3) = static_cast<uint8_t>(~core::at(data, 3));
+    set_held_down(device, (0xFFFF ^ (core::at(data, 2) << 8 | core::at(data, 3))) != 0);
+    device->start_or_a_ = ((~core::at(data, 2) & (1 << 3)) || (~core::at(data, 3) & (1 << 6))) ? 1 : 0;
 
     // (typed text only works with these set)
     online::g_text_entry = true;

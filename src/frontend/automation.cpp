@@ -1809,16 +1809,16 @@ bool params_denied(script::Struct* params) { return struct_denied(params, 0); }
 
 std::string element_refusal(const UiWidget* element) { return refusal_of_element(element); }
 
-void add_pad_buttons(int port, uint8_t* data)
+void add_pad_buttons(int port, std::span<uint8_t> data)
 {
     if (port != 0 || !is_switched_on())
         return;
     for (const Button* button : {get_state().held, get_state().hold_button_}) {
         if (!button)
             continue;
-        data[button->byte] |= static_cast<uint8_t>(1u << button->bit);
+        ::core::at(data, button->byte) |= static_cast<uint8_t>(1u << button->bit);
         if (button->pressure)
-            data[button->pressure] = 0xFF;
+            ::core::at(data, button->pressure) = 0xFF;
     }
 }
 

@@ -1,6 +1,7 @@
 // NOT ORIGINAL - THAW's BMX ridden in THUG2 (game/rider/thaw_bmx.h).
 
 #include "game/rider/thaw_bmx.h"
+#include "platform/keyboard.h"
 
 #include <cstdio>
 #include <string>
@@ -410,8 +411,8 @@ void tick_frame(modules::FrontEnd* front_end)
         note_d_pad_camera(false);
         get_log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
     }
-    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-    const bool down = keys && g_key > 0 && g_key < SDL_NUM_SCANCODES && keys[g_key];
+    const platform::KeyState keys = platform::keyboard_keys();
+    const bool down = !keys.empty() && g_key > 0 && g_key < SDL_NUM_SCANCODES && core::at(keys, g_key);
     const bool pressed = down && g_key_up;
     g_key_up = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
