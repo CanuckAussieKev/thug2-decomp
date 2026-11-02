@@ -20,7 +20,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/pointer_cell.h"
 #include <gsl/pointers>
-
+#include "engine/core/format.h"
 
 namespace commands {
 
@@ -194,22 +194,21 @@ int format_text(script::Struct* results, script::Struct* params)
         switch (value.kind_tag()) {
         case script::kQbvalInteger:
             if (params->has_bare_flag(kUseCommas)) {
-                std::snprintf(text.data(), sizeof(text), "%s", text::format_with_separators(value.value.integer()));
+                text::format_to(text, "%s", text::format_with_separators(value.value.integer()));
             } else {
                 int width = 0;
                 if (params->fetch_int_value(kIntegerWidth, &width, 0))
-                    std::snprintf(text.data(), sizeof(text), "%0*d", width, value.value.integer());
+                    text::format_to(text, "%0*d", width, value.value.integer());
                 else
-                    std::snprintf(text.data(), sizeof(text), "%d", value.value.integer());
+                    text::format_to(text, "%d", value.value.integer());
             }
             used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalFloat: {
             int places = 3;
             params->fetch_int_value(kDecimalPlaces, &places, 0);
-            std::array<char, 16> float_format{};
-            std::snprintf(float_format.data(), sizeof(float_format), "%%.%df", places);
-            std::snprintf(text.data(), sizeof(text), float_format.data(), static_cast<double>(value.value.real()));
+            text::format_to(text, "%.*f", places,
+                            static_cast<double>(value.value.real())); // (the original: "%.<places>f")
             used = get_append(buffer, used, text.data());
             break;
         }
@@ -219,18 +218,18 @@ int format_text(script::Struct* results, script::Struct* params)
                 ::core::at(buffer, used++) = c;
             break;
         case script::kQbvalPair:
-            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x),
-                          static_cast<double>(value.value.pair()->y));
+            text::format_to(text, "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x),
+                            static_cast<double>(value.value.pair()->y));
             used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalVector:
-            std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.value.vector()->x),
-                          static_cast<double>(value.value.vector()->y), static_cast<double>(value.value.vector()->z));
+            text::format_to(text, "(%.3f,%.3f,%.3f)", static_cast<double>(value.value.vector()->x),
+                            static_cast<double>(value.value.vector()->y), static_cast<double>(value.value.vector()->z));
             used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalName:
             result = 2;
-            std::snprintf(text.data(), sizeof(text), "%s", script::find_checksum_name_or_unknown(value.value.word()));
+            text::format_to(text, "%s", script::find_checksum_name_or_unknown(value.value.word()));
             used = get_append(buffer, used, text.data());
             break;
         default:

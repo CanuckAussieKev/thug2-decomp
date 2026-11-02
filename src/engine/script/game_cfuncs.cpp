@@ -66,6 +66,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <span>
+#include "engine/core/format.h"
 
 namespace commands {
 
@@ -792,7 +793,7 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
     params->fetch_text("string", &name, 1); // "string"
     std::array<char, 0x80> path{};
     THUG2_MSVC_WARNING(suppress : 4996)    // (unbounded: as in the original)
-    std::sprintf(path.data(), "faces\\%s", name); // "faces\%s"
+    text::format_to(path, "faces\\%s", name);               // "faces\%s"
     gsl::owner<void*> file = game_fopen(path.data(), "rb"); // "rb"
     if (!file)
         return false;

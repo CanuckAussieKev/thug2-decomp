@@ -26,6 +26,7 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/script/game_cfuncs.h"
 #include "platform/compiler.h"
+#include "engine/core/format.h"
 
 namespace commands {
 
@@ -347,8 +348,7 @@ bool cfunc_set_level_name(script::Struct* params, script::Script*)
 {
     const char* name = nullptr;
     params->fetch_text(0u, &name, 1);
-    THUG2_MSVC_WARNING(suppress : 4996) // (unbounded, and the name is the format: as in the original)
-    std::sprintf(get_level_name().data(), name);
+    text::format_data_to(get_level_name(), name); // (the name is the format: as in the original)
     return true;
 }
 

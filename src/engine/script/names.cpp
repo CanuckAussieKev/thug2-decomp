@@ -20,7 +20,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
-
+#include "engine/core/format.h"
 
 namespace script {
 
@@ -120,9 +120,8 @@ const char* find_checksum_name_or_unknown(uint32_t checksum)
 {
     if (const char* name = look_up_hash_name(checksum))
         return name;
-    char* buffer = g_checksum_name_buffer.data();
-    std::snprintf(buffer, 32, "Unknown(0x%08x)", checksum);
-    return buffer;
+    text::format_to(std::span(g_checksum_name_buffer).first(32), "Unknown(0x%08x)", checksum);
+    return g_checksum_name_buffer.data();
 }
 
 // 0x0046CD90

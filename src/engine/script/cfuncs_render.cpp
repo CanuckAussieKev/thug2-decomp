@@ -32,6 +32,7 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/device.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/format.h"
 
 namespace commands {
 
@@ -147,7 +148,7 @@ bool cfunc_init_anim_compress_table(Struct* params, Script*)
     params->fetch_text(0u, &file, 1);
     params->read_hash_value(0u, &type, 1);
     std::array<char, 256> name{};
-    std::snprintf(name.data(), sizeof(name), "%s", file); // (the original's sprintf isn't bounded)
+    text::format_to(name, "%s", file); // (the original's sprintf isn't bounded)
     if (type == kT48)
         gfx::load_trans_table(name.data());
     else if (type == kQ48)

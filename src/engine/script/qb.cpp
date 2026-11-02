@@ -26,7 +26,7 @@
 #include "platform/run_log.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
-
+#include "engine/core/format.h"
 
 namespace script {
 
@@ -492,15 +492,13 @@ void log_script_pool_use(const char* when)
             count += pool->num_;
         }
         std::array<char, 96> part{};
-        std::snprintf(part.data(), sizeof(part), "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak,
-                      count);
+        text::format_to(part, "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak, count);
         line += part.data();
     }
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
     if (const memory::SlabBank* items = memory::slot_pool_setup::get_pool(0)) {
         std::array<char, 96> part{};
-        std::snprintf(part.data(), sizeof(part), ", HashItem %d (peak %d) of %d", items->taken_count_, items->peak_used_,
-                      items->num_);
+        text::format_to(part, ", HashItem %d (peak %d) of %d", items->taken_count_, items->peak_used_, items->num_);
         line += part.data();
     }
     get_log("script pools in use %s: %s", when, line.c_str());

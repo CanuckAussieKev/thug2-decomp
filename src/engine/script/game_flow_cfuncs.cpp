@@ -68,7 +68,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
-
+#include "engine/core/format.h"
 
 namespace commands {
 
@@ -208,9 +208,9 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     MEMORYSTATUS memory;
     GlobalMemoryStatus(&memory);
     std::array<char, 0x400> text{};
-    const int length =
-        wsprintfA(text.data(), "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);          // "%4d total kb..."
-    wsprintfA(std::span(text).subspan(static_cast<std::size_t>(length)).data(), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);     // "%4d  free kb..."
+    // (the original: wsprintfA, its integers as printf's)
+    const size_t length = text::format_to(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10);
+    text::format_to(std::span(text).subspan(length), "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);
     OutputDebugStringA(text.data());
     if (skate_module()->in_net_game_level())
         mem_manager()->create_net_scratch_zone();
@@ -701,20 +701,17 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
         return false;
     }
     std::array<char, 0x80> buffer{};
-    THUG2_MSVC_WARNING(push)
-    THUG2_MSVC_WARNING(disable : 4996)            // (unbounded, and the text is the format: as in the original)
-    std::sprintf(buffer.data(), "12345678901234567890"); // "12345678901234567890"
-    std::sprintf(buffer.data(), text);
+    text::format_to(buffer, "12345678901234567890"); // "12345678901234567890"
+    text::format_data_to(buffer, text);              // (the text is the format: as in the original)
     uint32_t checksum = checksums::hash_from_text(text);
     int sum = 0;
     for (int round = 0; round < 100000; ++round) {
-        std::sprintf(buffer.data(), "%d", static_cast<int>(round + checksum));
+        text::format_to(buffer, "%d", static_cast<int>(round + checksum));
         core::at(buffer, std::strlen(buffer.data())) = 'X';
         for (core::CStringCursor c(buffer.data()); *c; ++c)
             sum += static_cast<signed char>(*c) * 0x3FF;
         checksum = checksums::hash_from_text(buffer.data());
     }
-    THUG2_MSVC_WARNING(pop)
     const uint32_t c1 = checksums::hash_from_text(std::next(text, static_cast<std::ptrdiff_t>(std::strlen(text) / 3))) ^ static_cast<uint32_t>(sum);
     const uint32_t c2 = checksums::hash_from_text(buffer.data()) ^ static_cast<uint32_t>(sum);
     debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2,

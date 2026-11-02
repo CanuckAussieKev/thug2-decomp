@@ -22,7 +22,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/tokens.h"
-
+#include "platform/crt.h"
 
 namespace script {
 
@@ -544,8 +544,8 @@ char* script_string_slot(int index)
 // 0x00476370
 int set_script_string(int index, const char* string)
 {
-    THUG2_MSVC_WARNING(suppress : 4996) // (unbounded, and the string is the format: as in the original)
-    return std::sprintf(script_string_slot(index), string);
+    return crt::sprintf_from_data(script_string_slot(index),
+                                  string); // (unbounded, the string the format: as the original)
 }
 
 // 0x00476390

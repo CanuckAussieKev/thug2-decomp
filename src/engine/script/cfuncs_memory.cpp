@@ -22,6 +22,7 @@
 #include "engine/script/script_startup.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace commands {
 
@@ -171,8 +172,8 @@ bool cfunc_print_mem_info(Struct* params, Script*)
         params->read_hash_value(0u, &name, 0);
     hub()->get_memory_pool(name);
     std::array<char, 64> heap_name{};
-    std::snprintf(heap_name.data(), sizeof(heap_name), "%s",
-                  hub()->get_zone_label(name)); // (the original's copy is unbounded)
+    text::format_to(heap_name, "%s",
+                    hub()->get_zone_label(name)); // (the original's copy is unbounded)
     print_mem_info(heap_name.data());
     return true;
 }
@@ -191,11 +192,11 @@ void dump_pool_usage(bool to_dump_file, bool print)
     };
     // (the texts are the exe's)
     auto text = [&](const char* message) {
-        std::snprintf(line.data(), sizeof(line), message);
+        text::format_data_to(line, message); // (the text as the format, as in the original)
         emit();
     };
-    auto pool = [&](const char* format, const memory::SlabBank* p) {
-        std::snprintf(line.data(), sizeof(line), format, p->taken_count_, p->num_, p->peak_used_);
+    auto pool = [&](text::FormatFor<int, int, int> format, const memory::SlabBank* p) {
+        text::format_to(line, format, p->taken_count_, p->num_, p->peak_used_);
         emit();
     };
     auto current = [](const memory::PoolPair& pools) {
