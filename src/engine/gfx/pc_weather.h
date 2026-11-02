@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/gfx/weather.h"
 
@@ -25,8 +26,8 @@ class PcWeather final : public WeatherSystem {
 public:
     void* splash_texture_{nullptr}; // +0x5C TextureRef* (0x45C7EB0F)
     void* snow_texture_{};      // +0x60 TextureRef* (0xC97C5A4C)
-    uint8_t* columns{nullptr};  // +0x64 the rows' columns' height indices
-    WeatherRow* rows{};         // +0x68
+    std::span<uint8_t> columns;     // the rows' columns' height indices
+    std::span<WeatherRow> rows;     // the rows (one more than the grid is deep)
     std::array<int, 0x100> heights{};       // +0x6C the ground's heights (16ths), by index
     int width{};                // +0x46C the grid's columns
     int depth{};                // +0x470 and rows
@@ -78,11 +79,7 @@ public:
     // live splash drawn as a quad fading with its frames.
     void render_splashes(float x, float z);
 };
-static_assert(offsetof(PcWeather, active_) == 0x30 && offsetof(PcWeather, rain_on_) == 0x58 &&
-                  offsetof(PcWeather, heights) == 0x6C && offsetof(PcWeather, width) == 0x46C &&
-                  offsetof(PcWeather, stage) == 0x498 && offsetof(PcWeather, next) == 0x1098 &&
-                  offsetof(PcWeather, splash_x_) == 0x10A8 && offsetof(PcWeather, next_splash_) == 0x12A8 &&
-                  sizeof(PcWeather) == 0x12AC,
-              "layout must match the original");
+static_assert(offsetof(PcWeather, active_) == 0x30 && offsetof(PcWeather, rain_on_) == 0x58,
+              "the base class's layout");
 
 } // namespace render

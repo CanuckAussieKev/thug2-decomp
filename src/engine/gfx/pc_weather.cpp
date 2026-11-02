@@ -9,6 +9,7 @@
 
 #include <bit>
 #include <cmath>
+#include <limits>
 #include <cstdint>
 #include <cstring>
 #include <utility>
@@ -28,6 +29,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/device.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/render/coll_grid.h"
 
@@ -44,10 +46,10 @@ constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol)
-uint32_t get_argb(const uint8_t* rgba)
+uint32_t get_argb(std::span<const uint8_t, 4> rgba)
 {
-    return static_cast<uint32_t>(rgba[3]) << 24 | static_cast<uint32_t>(rgba[0]) << 16 |
-           static_cast<uint32_t>(rgba[1]) << 8 | rgba[2];
+    return static_cast<uint32_t>(core::at(rgba, 3)) << 24 | static_cast<uint32_t>(core::at(rgba, 0)) << 16 |
+           static_cast<uint32_t>(core::at(rgba, 1)) << 8 | core::at(rgba, 2);
 }
 
 // The frame's draw counts.
@@ -180,7 +182,7 @@ void PcWeather::render_rain(float x, float z)
     const int max_z = cell_z + 16;
     if (max_z < 0 || min_z > depth - 1)
         return;
-    uint32_t top = get_argb(rain_top_.data()), bottom = get_argb(rain_bottom_.data());
+    uint32_t top = get_argb(rain_top_), bottom = get_argb(rain_bottom_);
     if ((rain_blend_ & 0xFFFFFF) == 10) { // (drawn as mode 9 with the mode's alpha)
         choose_blend_mode(9);
         const uint32_t alpha = rain_blend_ & 0xFF000000;
@@ -210,7 +212,7 @@ void PcWeather::render_rain(float x, float z)
     for (int i = 0; i < 0x100; ++i)
         core::at(spread, i) = ftol(static_cast<double>(i) * 2048.0f * (1.0f / 255.0f));
     std::array<float, 0x7F8 + 8> lines{};
-    float* out = nullptr;
+    core::Cursor<float> out(lines); // (at the start whenever nothing is used: the original's null stands for it)
     uint32_t used = 0;
     auto flush = [&] {
         const uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
@@ -221,7 +223,7 @@ void PcWeather::render_rain(float x, float z)
     };
     for (int gz = min_z; gz <= max_z; ++gz) {
         const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
-        const WeatherRow& row = rows[row_index];
+        const WeatherRow& row = core::at(rows, row_index);
         if (row.first == 0x4000)
             continue;
         int column_x = (min_x << 11) + base_x;
@@ -229,9 +231,9 @@ void PcWeather::render_rain(float x, float z)
         const int cell_row = (row_index & 0xF) << 4;
         int height_at = row.offset - row.first + min_x;
         for (int gx = min_x; gx <= max_x; ++gx, ++height_at) {
-            const int column = clamp_column(rows[row_index], gx);
+            const int column = clamp_column(core::at(rows, row_index), gx);
             int cell = (column & 0xF) + cell_row;
-            const int ground = core::at(heights, columns[height_at]);
+            const int ground = core::at(heights, core::at(columns, height_at));
             column_x += 0x800;
             for (int k = 0; k < 4; ++k, cell += 0x100) {
                 const uint8_t at = core::at(stage, cell);
@@ -241,17 +243,15 @@ void PcWeather::render_rain(float x, float z)
                 auto py = static_cast<float>(core::at(fall, at) + ground) * 0.0625f;
                 auto pz = static_cast<float>(core::at(spread, core::at(offset_z_, cell)) + row_z) * 0.0625f;
                 auto py2 = static_cast<float>(length) * 0.0625f + py;
-                if (!out)
-                    out = lines.data();
                 out[0] = px, out[1] = py, out[2] = pz;
-                std::memcpy(&out[3], &bottom, 4);
+                out[3] = std::bit_cast<float>(bottom);
                 out[4] = px, out[5] = py2, out[6] = pz;
-                std::memcpy(&out[7], &top, 4);
+                out[7] = std::bit_cast<float>(top);
                 used += 8;
                 out += 8;
                 if (used >= 0x7F8) {
                     flush();
-                    out = lines.data();
+                    out = core::Cursor<float>(lines);
                     used = 0;
                 }
             }
@@ -305,13 +305,13 @@ void PcWeather::render_snow(float x, float z)
         core::at(spread, i) = static_cast<float>(static_cast<double>(i) * 64.0f * (1.0f / 255.0f));
     for (int i = 0; i < 0x100; ++i)
         core::at(sway, i) = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / 256.0f) * 6.28318548f) * 64.0f);
-    uint32_t colour = get_argb(snow_colour_.data());
+    const uint32_t colour = get_argb(snow_colour_);
     std::array<float, 0x7FC + 4> points{};
-    float* out = nullptr;
+    core::Cursor<float> out(points);
     uint32_t used = 0;
     for (int gz = min_z; gz <= max_z; ++gz) {
         const int row_index = gz < 0 ? 0 : gz > depth - 1 ? depth - 1 : gz;
-        const WeatherRow& row = rows[row_index];
+        const WeatherRow& row = core::at(rows, row_index);
         if (row.first == 0x4000)
             continue;
         auto column_x = static_cast<float>(static_cast<double>(min_x) * 128.0f + base_x);
@@ -319,10 +319,10 @@ void PcWeather::render_snow(float x, float z)
         int height_at = row.offset - row.first + min_x;
         auto row_z = static_cast<float>(static_cast<double>(row_index) * 128.0f + base_z);
         for (int gx = min_x; gx <= max_x; ++gx, ++height_at) {
-            const int column = clamp_column(rows[row_index], gx);
+            const int column = clamp_column(core::at(rows, row_index), gx);
             column_x = static_cast<float>(static_cast<double>(column_x) + 128.0f);
             int cell = (column & 0xF) + cell_row;
-            auto ground = static_cast<float>(core::at(heights, columns[height_at]) >> 4);
+            auto ground = static_cast<float>(core::at(heights, core::at(columns, height_at)) >> 4);
             for (int k = 0; k < 4; ++k, cell += 0x100) {
                 const uint8_t at = core::at(stage, cell);
                 if (at == 0xFF)
@@ -332,10 +332,8 @@ void PcWeather::render_snow(float x, float z)
                 auto px = static_cast<float>(static_cast<double>(core::at(sway, (at + zb) & 0xFF)) + core::at(spread, xb) + column_x);
                 auto py = static_cast<float>(static_cast<double>(core::at(fall, at)) + snow_size_ + ground);
                 auto pz = static_cast<float>(static_cast<double>(core::at(sway, (xb + at) & 0xFF)) + core::at(spread, zb) + row_z);
-                if (!out)
-                    out = points.data();
                 out[0] = px, out[1] = py, out[2] = pz;
-                std::memcpy(&out[3], &colour, 4);
+                out[3] = std::bit_cast<float>(colour);
                 used += 4;
                 out += 4;
                 if (used >= 0x7FC) {
@@ -343,7 +341,7 @@ void PcWeather::render_snow(float x, float z)
                                                   0x10); // (a quarter, as the original)
                     count_draw(used >> 4);
                     used = 0;
-                    out = points.data();
+                    out = core::Cursor<float>(points);
                 }
             }
         }
@@ -365,10 +363,10 @@ void PcWeather::render_splashes(float x, float z)
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
         // 2048 either side - alternately - nearer in), its landing the splash's.
         ProbeRay feeler;
-        const float* camera = &core::at(g_camera.position, 0);
-        maths::Vec4 heading = {static_cast<float>(static_cast<double>(x) - camera[0]), 0.0f,
-                               static_cast<float>(static_cast<double>(z) - camera[2]), 1.0f};
-        maths::Vec4 at = {camera[0], 50000.0f, camera[2], 1.0f};
+        const auto& camera = g_camera.position;
+        maths::Vec4 heading = {static_cast<float>(static_cast<double>(x) - core::at(camera, 0)), 0.0f,
+                               static_cast<float>(static_cast<double>(z) - core::at(camera, 2)), 1.0f};
+        maths::Vec4 at = {core::at(camera, 0), 50000.0f, core::at(camera, 2), 1.0f};
         heading.make_unit();
         auto along = static_cast<float>(maths::rnd(0x8000) * (1.0 / 32768.0));
         const double out = static_cast<double>(along) * 2048.0f;
@@ -408,7 +406,7 @@ void PcWeather::render_splashes(float x, float z)
         float u, v;
     };
     std::array<Vertex, 0x20 * 6> quads{};
-    Vertex* out = quads.data();
+    core::Cursor<Vertex> out(quads);
     uint32_t used = 0;
     for (int i = 0; i < 0x20; ++i) {
         const int frames = core::at(splash_frames_, i);
@@ -473,11 +471,11 @@ void PcWeather::tick_grid()
     origin_z_ = static_cast<float>(min_z << 7);
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    auto* grid = static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(width * depth)));
+    auto* grid_block = static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(width * depth)));
+    const std::span<uint8_t> grid(grid_block, static_cast<size_t>(width) * depth);
     memory::Hub::get_pull()->leave_heap_scope();
     ProbeRay feeler;
     int levels = 0;
-    int* level = heights.data(); // (no limit on the levels, as the original: past 256 they run on over the fields after)
     for (int z = min_z, r = 0; z <= max_z; ++z, ++r) {
         auto at_z = static_cast<float>(z << 7);
         for (int x = min_x; x <= max_x; ++x) {
@@ -498,39 +496,44 @@ void PcWeather::tick_grid()
                 }
             }
             if (found >= 0) {
-                grid[index] = static_cast<uint8_t>(found);
+                core::at(grid, index) = static_cast<uint8_t>(found);
             } else {
-                grid[index] = static_cast<uint8_t>(levels);
+                // (past 256 levels the original ran on over the fields after the table; ours ends the game)
+                core::at(grid, index) = static_cast<uint8_t>(levels);
+                core::at(heights, levels) = height;
                 ++levels;
-                *level = height;
-                ++level;
             }
         }
     }
-    // Each cell the highest of itself and its right, lower and lower-right neighbours (past the grid's edges too,
-    // as the original).
+    // Each cell the highest of itself and its right, lower and lower-right neighbours. The original also looked
+    // past the grid's last row and column (into the heap after the block, whatever was there); ours takes a cell
+    // there to be no higher (and the right neighbour of a row's last column is the next row's first, as there).
+    const auto height_at = [&](size_t index) {
+        return index < grid.size() ? core::at(heights, core::at(grid, index)) : std::numeric_limits<int>::min();
+    };
     for (int r = 0; r < rows_count && min_z <= max_z; ++r) {
         for (int x = min_x; x <= max_x; ++x) {
-            const int index = width * r - min_x + x;
-            const int below = width * (r + 1) - min_x + x;
-            if (core::at(heights, grid[index + 1]) > core::at(heights, grid[index]))
-                grid[index] = grid[index + 1];
-            if (core::at(heights, grid[below]) > core::at(heights, grid[index]))
-                grid[index] = grid[below];
-            if (core::at(heights, grid[below + 1]) > core::at(heights, grid[index]))
-                grid[index] = grid[below + 1];
+            const auto index = static_cast<size_t>(width * r - min_x + x);
+            const auto below = static_cast<size_t>(width * (r + 1) - min_x + x);
+            if (height_at(index + 1) > height_at(index))
+                core::at(grid, index) = core::at(grid, index + 1);
+            if (height_at(below) > height_at(index))
+                core::at(grid, index) = core::at(grid, below);
+            if (height_at(below + 1) > height_at(index))
+                core::at(grid, index) = core::at(grid, below + 1);
         }
     }
     // The rows' ground spans (one row past the last, as the original) and their height indices.
-    rows = g_weather_rows.data();
-    columns = g_weather_columns.data();
+    rows = g_weather_rows;
+    columns = g_weather_columns;
     uint32_t offset = 0;
     for (int r = 0; r <= depth; ++r) {
         uint16_t first = 0, last = static_cast<uint16_t>(width - 1);
         bool found = false;
         for (int c = 0; c < width; ++c) {
-            if (core::at(heights, grid[width * r + c]) == kNoGround)
-                continue;
+            const auto cell_index = static_cast<size_t>(width * r + c);
+            if (cell_index >= grid.size() || height_at(cell_index) == kNoGround)
+                continue; // (the row past the last: no ground, the original read the heap there)
             if (!found) {
                 first = static_cast<uint16_t>(c);
                 found = true;
@@ -539,14 +542,14 @@ void PcWeather::tick_grid()
             }
         }
         if (first < last) {
-            rows[r] = {first, last, static_cast<uint16_t>(offset)};
+            core::at(rows, r) = {first, last, static_cast<uint16_t>(offset)};
             for (int c = first; std::cmp_less_equal(c, last); ++c)
-                columns[static_cast<uint16_t>(offset++)] = grid[width * r + c];
+                core::at(columns, static_cast<uint16_t>(offset++)) = core::at(grid, width * r + c);
         } else {
-            rows[r] = {0x4000, 0, 0};
+            core::at(rows, r) = {0x4000, 0, 0};
         }
     }
-    memory::Hub::get_pull()->dealloc(grid);
+    memory::Hub::get_pull()->dealloc(grid_block);
     for (int i = 0; i < 0x400; ++i) {
         core::at(stage, i) = 0xFF;
         core::at(offset_x_, i) = static_cast<uint8_t>(maths::rnd(0xFF));
