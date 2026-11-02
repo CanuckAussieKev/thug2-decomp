@@ -202,15 +202,13 @@ void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum,
 }
 
 // 0x0046FBA0
-void parse_precompiled_qb(const char* filename, uint8_t* data, int unused)
+void parse_precompiled_qb(const char* filename, std::span<uint8_t> data, int unused)
 {
     const uint32_t flag = unused != 0;
     const uint32_t file = checksums::hash_from_text(filename);
-    util::ByteReader header(data, kPrecompiledHeaderSize);
-    header.u32(); // the magic
-    note_code_block(std::span<const uint8_t>(data, header.u32()));
-    noted_images()[file] = data;
-    relocate_precompiled_symbols(data, cell::of(data), define_precompiled_symbol, file, flag);
+    note_code_block(data);
+    noted_images()[file] = data.data();
+    relocate_precompiled_symbols(data.data(), cell::of(data.data()), define_precompiled_symbol, file, flag);
 }
 
 void forget_precompiled_image(uint32_t file_checksum)

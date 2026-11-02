@@ -122,13 +122,14 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
 }
 
 // 0x00472420
-void read_qb_file(const char* filename, const uint8_t* data, int unused, int use_qb_names, int temporary)
+void read_qb_file(const char* filename, std::span<const uint8_t> file, int unused, int use_qb_names, int temporary)
 {
     (void)unused; // (line numbers are skipped either way)
     free_script_checksum_names();
     if (use_qb_names)
         allocate_script_checksum_names(false);
 
+    const uint8_t* data = file.data();
     // First the checksums' names.
     for (const uint8_t* p = data; *p;) {
         if (*p == 0x2B) {
@@ -248,9 +249,9 @@ void restart_changed_scripts()
 }
 
 // 0x0046ED90
-void load_qb_data(const char* filename, uint8_t* data, int unused, int use_qb_names, int temporary)
+void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
-    if (fetch_word32(data) == 0xB075EF6F)
+    if (fetch_word32(data.data()) == 0xB075EF6F)
         parse_precompiled_qb(filename, data, unused); // (relocated in place)
     else
         read_qb_file(filename, data, unused, use_qb_names, temporary);
@@ -268,13 +269,14 @@ void load_qb(const char* filename, int unused, int temporary)
         memory::enter_heap_scope(manager->script_heap_);
         auto* data = static_cast<uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
         memory::leave_heap_scope();
-        parse_precompiled_qb(filename, data, unused);
+        const int size = packs::get_file_size(checksums::hash_from_text(filename));
+        parse_precompiled_qb(filename, std::span<uint8_t>(data, size > 0 ? static_cast<size_t>(size) : 0), unused);
         load_checksum_names(filename);
     } else {
         memory::enter_heap_scope(manager->top_down_heap_);
         // Originally from PartyMod Fixes (its call at 0x0046EE80): packs::ReadIn, then the binary patch for the file if there is one
         // (scripts\engine\menu\keyboard.qb), in place of the original's plain packs::ReadIn.
-        auto* data = load_patched_script(filename);
+        const std::span<const uint8_t> data = load_patched_script(filename);
         memory::leave_heap_scope();
         read_qb_file(filename, data, unused, 0, temporary);
         packs::offload(filename);

@@ -1490,7 +1490,7 @@ void sync_proxims()
     }
     std::vector<uint8_t> file = proxim_qb_file(scripts);
     if (!scripts.empty() && file != g_proxim_defined) {
-        script::load_qb_data("editor\\thug2_decomp_proxim.qb", file.data(), 0, 0, 0);
+        script::load_qb_data("editor\\thug2_decomp_proxim.qb", file, 0, 0, 0);
         g_proxim_defined = file;
     }
     for (const auto& l : live) {
@@ -1557,7 +1557,7 @@ void get_sync()
     std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);
     bool redefined = false;
     if (file != g_defined && !file.empty()) {
-        script::load_qb_data(kFileName.data(), file.data(), 0, 0, 0);
+        script::load_qb_data(kFileName.data(), file, 0, 0, 0);
         g_defined = file;
         redefined = true;
     }

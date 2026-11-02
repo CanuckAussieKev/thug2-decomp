@@ -1689,11 +1689,11 @@ void apply_speeds()
     const script::SymbolTableEntry* fixed = script::resolve_symbol(kRailSpeed);
     if (!fixed || fixed->type != script::kQbvalScriptBody) {
         std::vector<uint8_t> qb = rail_speed_qb(); // (the loader may relocate a pre-compiled file in place)
-        script::load_qb_data("editor\\thug2_decomp_railspeed.qb", qb.data(), 0, 0, 0);
+        script::load_qb_data("editor\\thug2_decomp_railspeed.qb", qb, 0, 0, 0);
     }
     std::vector<uint8_t> file = speed_qb_file(scripts);
     if (file != g_speed_defined) {
-        script::load_qb_data("editor\\thug2_decomp_railspeeds.qb", file.data(), 0, 0, 0);
+        script::load_qb_data("editor\\thug2_decomp_railspeeds.qb", file, 0, 0, 0);
         g_speed_defined = file;
         if (debug_enabled())
             get_log("level editor: %u rail speed-up scripts defined", static_cast<unsigned>(scripts.size()));

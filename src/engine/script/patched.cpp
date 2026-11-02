@@ -4,6 +4,7 @@
 #include "engine/script/patched.h"
 
 #include <cstring>
+#include <span>
 #include <utility>
 #include <vector>
 #include <array>
@@ -71,16 +72,19 @@ void init_script_patches()
     register_patch(R"(scripts\engine\menu\keyboard.qb)", kKeyboardPatch.data(), sizeof(kKeyboardPatch));
 }
 
-const uint8_t* load_patched_script(const char* filename)
+std::span<const uint8_t> load_patched_script(const char* filename)
 {
     auto* data = static_cast<const uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
     const int size = packs::get_file_size(checksums::hash_from_text(filename));
+    // (the file as it is: its size from packs - none for a file that isn't there)
+    const std::span<const uint8_t> file =
+        data && size > 0 ? std::span<const uint8_t>(data, static_cast<size_t>(size)) : std::span<const uint8_t>();
     ScriptPatch* entry = nullptr;
     for (ScriptPatch& p : s_patches)
         if (std::strcmp(p.filename, filename) == 0)
             entry = &p;
     if (!entry)
-        return data;
+        return file;
 
     // NOT ORIGINAL - a file the patch wasn't made for (the data overlay's own keyboard.qb, already made with PartyMod's
     // changes by tools/pipeline/menu_level/make_menu_level.ts) is loaded as it is, without patching it in vain (and
@@ -88,13 +92,13 @@ const uint8_t* load_patched_script(const char* filename)
     if (!data || size <= 0 || !bps::made_for(entry->patch, entry->patch_size_, data, static_cast<size_t>(size))) {
         debug_log::printf(StageMap::kInfo,
                           "%s isn't the file its patch is for (a data overlay's own) - loaded as it is\n", filename);
-        return data;
+        return file;
     }
     const uint32_t checksum = bps::patch_checksum(entry->patch, entry->patch_size_);
     if (entry->made && entry->made_with_ == checksum) {
         debug_log::printf(StageMap::kInfo, "Using cached patched script for %s\n", filename);
         entry->copy = entry->patched; // (back as patched)
-        return entry->copy.data();
+        return entry->copy;
     }
     if (entry->made)
         debug_log::printf(StageMap::kInfo, "Cached script checksum %08x didn't match patch %08x\n", entry->made_with_,
@@ -103,7 +107,7 @@ const uint8_t* load_patched_script(const char* filename)
     std::vector<uint8_t> patched;
     if (!bps::get_apply(entry->patch, entry->patch_size_, data, static_cast<size_t>(size), &patched)) {
         debug_log::printf(StageMap::kWarn, "Patch failed! Continuing with original script\n");
-        return data;
+        return file;
     }
     debug_log::printf(StageMap::kInfo, "Patch succeeded! Writing to cache...\n");
     entry->made = true;
@@ -113,7 +117,7 @@ const uint8_t* load_patched_script(const char* filename)
     // Not original - the loader is given the entry's copy (PartyMod returned a fresh malloc'd buffer each time it
     // patched, never freed).
     entry->copy = entry->patched;
-    return entry->copy.data();
+    return entry->copy;
 }
 
 } // namespace script

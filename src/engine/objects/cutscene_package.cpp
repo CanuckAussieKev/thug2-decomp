@@ -295,7 +295,7 @@ void CinematicTable::load_from_bundle()
             if (flag_34b_0_) {
                 std::array<char, 256> file_name{};
                 std::snprintf(file_name.data(), sizeof(file_name), "%08x.qb", label_);
-                script::load_qb_data(file_name.data(), static_cast<uint8_t*>(data), 1, 0, 0);
+                script::load_qb_data(file_name.data(), std::span<uint8_t>(static_cast<uint8_t*>(data), entry->size), 1, 0, 0);
             }
             break;
         case kTypeCameraAnim: {

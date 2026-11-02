@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 #include "engine/core/slab_bank.h"
 #include "engine/gfx/scene_load.h"
@@ -28,7 +29,7 @@ uint32_t count_method_entries();
 // 0x005A5960: load the .qb file `filename` (LoadQB with `unused`, not temporary).
 void load_qb_file(const char* filename, int unused);
 // 0x005A5990: define the .qb file already in memory (load_qb_data, not temporary).
-void load_qb_file_data(const char* filename, uint8_t* data, int unused, int use_qb_names);
+void load_qb_file_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names);
 // 0x005A59B0: unload the .qb file whose name's checksum is `file_checksum`.
 void unload_qb_file(uint32_t file_checksum);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 #include "engine/script/param_struct.h"
 
@@ -15,15 +16,15 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
 // Make the script symbol `name` from `size` bytes of compiled code (compressed when that's smaller).
 SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
                                        const char* filename);
-// Define everything in the .qb file `data` (old format). With `use_qb_names`, the file's checksum names go in
-// the .qb name table; with `temporary`, every change is undone by process_pending_symbols.
-void read_qb_file(const char* filename, const uint8_t* data, int unused, int use_qb_names, int temporary);
+// Define everything in the .qb file `data` (old format; its bytes). With `use_qb_names`, the file's checksum names go
+// in the .qb name table; with `temporary`, every change is undone by process_pending_symbols.
+void read_qb_file(const char* filename, std::span<const uint8_t> data, int unused, int use_qb_names, int temporary);
 // Restart the scripts running (or calling) a script that was just (re)defined.
 void restart_changed_scripts();
 // Whether `script` is running `name` or has it on its call stack.
 bool script_refers_to(const Script* script, uint32_t name);
 // Define a .qb file already in memory (old or pre-compiled format), then restart changed scripts.
-void load_qb_data(const char* filename, uint8_t* data, int unused, int use_qb_names, int temporary);
+void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary);
 // Load and define the .qb file `filename`.
 void load_qb(const char* filename, int unused, int temporary);
 // Remove every symbol defined by the .qb file whose name's checksum is `file_checksum` (nothing for 0), stop the

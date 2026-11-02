@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <cstdio>
 #include <cstring>
 #include <array>
@@ -53,9 +54,9 @@ bool load_skeleton_data(void* skeleton, void* buffer, uint32_t size)
     return static_cast<gfx::RigData*>(skeleton)->read_in(static_cast<const uint32_t*>(buffer), size, true);
 }
 // Scripts: 0x005A5990 parses a .qb file's contents, 0x005A59B0 unloads one (by its name's checksum).
-void parse_qb_file(const char* name, void* buffer)
+void parse_qb_file(const char* name, void* buffer, uint32_t size)
 {
-    script::load_qb_file_data(name, static_cast<uint8_t*>(buffer), 1, 1);
+    script::load_qb_file_data(name, std::span<uint8_t>(static_cast<uint8_t*>(buffer), size), 1, 1);
 }
 void unload_qb_file(uint32_t name) { script::unload_qb_file(name); }
 // Scenes (Nx): the file name, made from the buffer (with the textures), unloaded.
@@ -395,7 +396,7 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
     source_path_ = checksums::hash_from_text(args_);
     std::array<char, 128> array_name{};
     level_nodes::make_node_array_name(args_, array_name.data());
-    parse_qb_file(args_, buffer);
+    parse_qb_file(args_, buffer, size);
     level_nodes::node_manager_instance()->add_node_array(level_nodes::node_array_checksum(args_), owned_);
     script::free_script_checksum_names();
     script::Array* nodes = script::fetch_list(array_name.data());

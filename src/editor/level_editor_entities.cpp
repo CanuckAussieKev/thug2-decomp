@@ -730,7 +730,7 @@ uint32_t path_speed_script()
         qb.push_back(0x00);
     }
     qb.push_back(0x00);
-    script::load_qb_data("level_editor_entities.qb", qb.data(), 0, 0, 0);
+    script::load_qb_data("level_editor_entities.qb", qb, 0, 0, 0);
     return kName;
 }
 
