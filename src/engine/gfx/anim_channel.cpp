@@ -19,7 +19,6 @@
 #include "engine/core/slab_bank.h"
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/anim_track.h"
-#include "engine/gfx/engine.h"
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
@@ -43,6 +42,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -123,13 +123,9 @@ int8_t& last_loop_type() { return anim_channel_state().last_loop_type_; }
 
 // The blend buffers (init_buffers).
 
-
-
 std::span<Stance>& current_poses() { return anim_channel_state().poses_; }
 int& max_blends() { return anim_channel_state().max_blends_; }
 int& get_subsets() { return anim_channel_state().subsets_; }
-
-
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // A list node as the original masks it: null when it's the head.
@@ -424,7 +420,7 @@ void BlendChannel::push_timeline(float period)
 // 0x0047ED60
 bool BlendChannel::blend_pose(int index)
 {
-    if (render::suppress_draw() || !lookup_key_)
+    if (render::engine_parts().suppress_draw() || !lookup_key_)
         return false;
     Rig* skeleton = skeleton_of(bone_rig_);
     if (!skeleton)

@@ -18,6 +18,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/render/collision_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -36,7 +37,7 @@ constexpr float kFarthestStart = -0.01f;
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).
 std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
-const std::array<WorldScene*, 16>& grid_scenes() { return render::engine::get_collision_scenes(); }
+const std::array<WorldScene*, 16>& grid_scenes() { return render::engine_parts().get_collision_scenes(); }
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
 // and the line's direction.

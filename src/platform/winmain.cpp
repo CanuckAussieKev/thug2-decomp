@@ -39,13 +39,13 @@
 #include "platform/registry.h"
 #include "platform/sdl_window.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/gfx/movie.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -184,7 +184,7 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
     case WM_DESTROY:
     case WM_CLOSE:
         PostQuitMessage(0);
-        render::set_quit_requested(true); // quit
+        render::engine_parts().set_quit_requested(true); // quit
         return 0;
     case WM_ACTIVATE:
         // (the game's window, not the message's)
@@ -194,7 +194,7 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
         } else {
             ShowWindow(render::renderer().game_window(), SW_MINIMIZE);
             stored_app_active() = false;
-            render::set_device_lost(true); // the device is taken as lost (reset when active again)
+            render::engine_parts().set_device_lost(true); // the device is taken as lost (reset when active again)
             InvalidateRect(nullptr, nullptr, TRUE);
         }
         return 0;

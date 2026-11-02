@@ -27,15 +27,15 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
 namespace {
 
 // The list's first node (the head's next; the head itself when the list is empty).
-memory::ListNode* head_of_scene_list() { return scene_list().next; }
+memory::ListNode* head_of_scene_list() { return engine_parts().scene_list().next; }
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // The node after `node` (null at the end).
 memory::ListNode* get_next_node(const memory::ListNode* node)
@@ -186,16 +186,11 @@ EngineSceneListState& engine_scene_list_state()
 }
 
 } // namespace
-EngineSceneListShared& engine_scene_list_shared()
-{
-    static core::NoDestroy<EngineSceneListShared> state;
-    return state.get();
-}
 
 // 0x0048C980
 std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
 {
-    auto& scenes = engine_scene_list_shared().collision_scenes_;
+    auto& scenes = engine_parts().get_collision_scenes();
     auto& grids = engine_scene_list_state().collision_grids_;
     maths::BBox box(line->start);
     box.append_spot(line->end);

@@ -23,6 +23,7 @@
 #include <span>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace gfx {
 
@@ -66,7 +67,7 @@ FaceAnchors& active_face_anchors() { return face_texture_state().active_face_anc
 render::BitmapTexture*& face_overlay() { return face_texture_state().face_overlay_; }
 
 // The game's texture dictionary (0x00700F1C) and its texture `name`.
-render::BitmapTexture* find_texture(uint32_t name) { return render::game_texture_dict()->fetch_skin(name); }
+render::BitmapTexture* find_texture(uint32_t name) { return render::engine_parts().game_texture_dict()->fetch_skin(name); }
 
 // A texture's editing calls (the original calls most through the folded jumps 0x0048D060 [8], 0x0048DE30 [9],
 // 0x0048DEC0 [18], 0x0049F370 [21], 0x0048DEF0 [22], 0x0049F390 [24], 0x0049F3C0 [33], 0x0049F3D0 [34], 0x0049F420

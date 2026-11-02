@@ -53,6 +53,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -378,7 +379,7 @@ void draw_screen_blur()
     set_render_target(renderer().back_buffer());
     set_depth_stencil_surface(renderer().back_depth());
     const bool fogged = view_setup().fog_setting() && view_setup().distance_clipping();
-    clear_target(fogged ? fog_colour() : renderer().render_camera().background_colour_);
+    clear_target(fogged ? engine_parts().fog_colour() : renderer().render_camera().background_colour_);
     set_render_state(0x11, 0);
     set_texture(0, texture);
     draw_primitive_up(5, 2, quad.data(), sizeof(ScreenVertex));
@@ -404,7 +405,7 @@ bool is_end(const SceneNode* node) { return node->is_head(); }
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = (scene_list().next);
+    auto* node = (engine_parts().scene_list().next);
     if (is_end(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
@@ -614,7 +615,7 @@ void draw_world()
     // Original behaviour: nothing.
     frontend::level_editor::tick_frame();
     renderer().count_frame(); // frames rendered
-    if (!loading_screen_up()) { // (nothing while the device is lost)
+    if (!engine_parts().loading_screen_up()) { // (nothing while the device is lost)
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
         set_render_state(1, 1);
         set_render_state(2, 1);

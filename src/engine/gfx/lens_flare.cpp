@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/engine_parts.h"
 #include <bit>
 #include <gsl/pointers>
 
@@ -107,7 +108,7 @@ maths::Vec4& get_color() { return lens_flare_state().flare_color_; }
 maths::Vec4& get_position() { return lens_flare_state().flare_position_; } // in the world, this frame
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted.
-render::BitmapTexture* find_texture(uint32_t checksum) { return render::particle_texture_dict()->fetch_skin(checksum); }
+render::BitmapTexture* find_texture(uint32_t checksum) { return render::engine_parts().particle_texture_dict()->fetch_skin(checksum); }
 void delete_texture(gsl::owner<render::BitmapTexture*> texture) { delete texture; }
 
 // The game's clock with its offset, and the milliseconds since `time`.

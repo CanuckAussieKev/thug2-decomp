@@ -24,6 +24,7 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace gfx {
 
@@ -48,7 +49,6 @@ render::RenderModel*& built_model() { return model_builder_state().built_model_;
 Rig*& built_skeleton() { return model_builder_state().built_skeleton_; }
 std::unique_ptr<ModelLook>& built_appearance() { return model_builder_state().built_appearance_; }
 // The texture dictionaries: the game's and the skater's (its cag_workspace).
-
 
 constexpr float kPercent = 0.01f;           // 0x0064544C
 constexpr float kDegrees = 0.0174532924f;   // 0x00645464 (pi / 180)
@@ -631,9 +631,9 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     option->fetch_float(kYScale, &y_scale, 1);
     option->read_hash_value(kWith, &with, 0);
     option->fetch_text(kTempTexture, &temporary, 1);
-    render::BitmapTexture* texture = render::game_texture_dict()->ingest_skin(temporary, 0, 0, true);
+    render::BitmapTexture* texture = render::engine_parts().game_texture_dict()->ingest_skin(temporary, 0, 0, true);
     texture->begin_edit(false, false); // (the jump 0x0048D060)
-    render::BitmapTexture* workspace = render::particle_texture_dict()->fetch_skin(kCagWorkspace);
+    render::BitmapTexture* workspace = render::engine_parts().particle_texture_dict()->fetch_skin(kCagWorkspace);
     workspace->begin_edit(false, false);
     texture->resize_from(workspace, 1);  // (0x0048DE80)
     const uint32_t black = 0;            // (four zero bytes)
@@ -649,7 +649,7 @@ bool ModelAssembler::set_created_texture(uint32_t part)
         deck = true;
         const char* base_name = nullptr; // (asserted; missing: the stack slot the colour above zeroed)
         option->fetch_text(kBaseTexture, &base_name, 1);
-        base = render::game_texture_dict()->ingest_skin(base_name, 0, 0, true);
+        base = render::engine_parts().game_texture_dict()->ingest_skin(base_name, 0, 0, true);
         base->begin_edit(false, false);
         texture->write_back(1, nullptr); // (0x0048DE30)
         base->get_overlay(texture, 1);   // (0x0049F420)
@@ -660,8 +660,8 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     option->fetch_text(kLogoTexture, &logo, 1);
     const bool result = built_model()->replace_texture_with(in, logo, with);
     if (deck)
-        render::game_texture_dict()->unload_texture(base);
-    render::game_texture_dict()->unload_texture(texture);
+        render::engine_parts().game_texture_dict()->unload_texture(base);
+    render::engine_parts().game_texture_dict()->unload_texture(texture);
     workspace->end_edit(); // (0x0048E4C0)
     memory::Hub::get_pull()->leave_heap_scope();
     return result;

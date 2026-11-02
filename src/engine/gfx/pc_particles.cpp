@@ -32,6 +32,7 @@
 #include "engine/gfx/pc_texture.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -66,7 +67,7 @@ void change_material_layer(MaterialRef* material, int pass)
     material->submit_pass(pass, nullptr); // (the original passed 0 as the colour: not read)
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
-const BitmapTexture* find_texture(uint32_t checksum) { return particle_texture_dict()->fetch_skin(checksum); }
+const BitmapTexture* find_texture(uint32_t checksum) { return engine_parts().particle_texture_dict()->fetch_skin(checksum); }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).
 uint32_t& random_a() { return pc_particles_state().particle_random_a_; }

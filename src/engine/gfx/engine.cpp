@@ -38,40 +38,14 @@
 #include "engine/core/format.h"
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/engine_parts.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unbounded as it builds them)
 
 namespace render {
 
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
-// (engine_objects()).
-struct EngineObjects {
-    bool suppress_draw_{}; // rendering skipped (frames not drawn or shown)
-    std::unique_ptr<FlexibleParticleManager> flexible_particle_manager_{};
-    memory::HeapUnique<ImposterManager> imposter_manager_{};
-    int render_mode_{};
-    // The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
-    memory::ListNode scene_list_{};
-};
-
-EngineObjects& engine_objects()
-{
-    static core::NoDestroy<EngineObjects> state;
-    return state.get();
-}
-
-} // namespace
-
-bool suppress_draw() { return engine_objects().suppress_draw_; }
-void set_suppress_draw(bool value) { engine_objects().suppress_draw_ = value; }
-FlexibleParticleManager* flexible_particle_manager() { return engine_objects().flexible_particle_manager_.get(); }
-ImposterManager* imposter_manager() { return engine_objects().imposter_manager_.get(); }
-int render_mode() { return engine_objects().render_mode_; }
-void set_render_mode(int value) { engine_objects().render_mode_ = value; }
-memory::ListNode& scene_list() { return engine_objects().scene_list_; }
+FlexibleParticleManager* flexible_particle_manager() { return engine_parts().flexible_particle_manager().get(); }
+ImposterManager* imposter_manager() { return engine_parts().imposter_manager().get(); }
 
 namespace {
 
@@ -88,7 +62,7 @@ memory::ListNode* next_scene(memory::ListNode* node) { return node->next->data =
 // The first node (null when there's none - the original reads the head's data before checking for no list).
 memory::ListNode* first_scene()
 {
-    memory::ListNode* first = scene_list().next;
+    memory::ListNode* first = engine_parts().scene_list().next;
     if (first->data == kNoScene || !first)
         return nullptr;
     return first;
@@ -114,9 +88,6 @@ EngineState& engine_state()
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
 // constructor 0x0048E3E0, its frame 0x0048E2D0 - not rewritten yet), the particle manager and the weather (made by
 // start_engine).
-
-
-
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
 void update_after_imposters() { update_scene_light_queue(); }
@@ -145,11 +116,11 @@ void prepare_all(uint32_t text_pool_size)
     set_screen_mode(0);
     memory::pop_mem_profile();
     memory::push_mem_profile("CFlexibleParticleManager");
-    engine_objects().flexible_particle_manager_ = std::make_unique<FlexibleParticleManager>();
+    engine_parts().flexible_particle_manager() = std::make_unique<FlexibleParticleManager>();
     memory::pop_mem_profile();
     memory::push_mem_profile("CImposterManager");
     void* memory = memory::alloc(8);
-    engine_objects().imposter_manager_ = memory::HeapUnique<ImposterManager>(memory ? memory::construct_in<ImposterManager>(memory) : nullptr);
+    engine_parts().imposter_manager() = memory::HeapUnique<ImposterManager>(memory ? memory::construct_in<ImposterManager>(memory) : nullptr);
     memory::pop_mem_profile();
     memory::push_mem_profile("MiscFXInitialize");
     init_effects();
@@ -176,7 +147,7 @@ void render_frame()
     weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
     static_cast<ImposterManager*>(imposter_manager())->tick_frame();
     update_after_imposters();
-    if (!engine_objects().suppress_draw_)
+    if (!engine_parts().suppress_draw())
         draw_world();
 }
 
@@ -184,14 +155,14 @@ void render_frame()
 void change_entity_hub(void* manager) { engine_state().scene_objects_ = manager; }
 
 // 0x0048C0B0
-std::array<WorldScene*, 16>& get_collision_scenes() { return engine_scene_list_shared().collision_scenes_; }
 
 // 0x0048C0D0
 void toggle_render_mode()
 {
-    int& mode = engine_objects().render_mode_;
-    if (++mode == 4)
-        mode = 0;
+    auto& parts = engine_parts();
+    parts.set_render_mode(parts.render_mode() + 1);
+    if (parts.render_mode() == 4)
+        parts.set_render_mode(0);
 }
 
 // 0x0048C0F0
@@ -288,7 +259,7 @@ void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded,
     memory::push_mem_profile("Asset Overhead");
     memory::ListNode* node = memory::ListNode::create(scene);
     // at the end of the list (no memory: a crash, as the original)
-    memory::ListNode& head = scene_list();
+    memory::ListNode& head = engine_parts().scene_list();
     node->prev = head.prev;
     node->next = &head;
     head.prev->next = node;
@@ -345,6 +316,6 @@ WorldScene* find_scene(uint32_t checksum)
 namespace render {
 
 // 0x00640B00 (a static initialiser): the scene list, an empty head.
-void construct_scene_list() { new (&engine_objects().scene_list_) SceneListHead; }
+void construct_scene_list() { new (&engine_parts().scene_list()) SceneListHead; }
 
 } // namespace render

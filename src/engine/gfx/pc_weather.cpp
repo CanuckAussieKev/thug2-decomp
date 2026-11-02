@@ -34,6 +34,7 @@
 #include "engine/render/coll_grid.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -568,9 +569,9 @@ void PcWeather::tick_grid()
     drops_ = 0;
     next = 0x19B;
     splash_texture_ = nullptr;
-    if (const BitmapTexture* splash = particle_texture_dict()->fetch_skin(0x45C7EB0F))
+    if (const BitmapTexture* splash = engine_parts().particle_texture_dict()->fetch_skin(0x45C7EB0F))
         splash_texture_ = image_of(splash);
-    if (const BitmapTexture* snow = particle_texture_dict()->fetch_skin(0xC97C5A4C))
+    if (const BitmapTexture* snow = engine_parts().particle_texture_dict()->fetch_skin(0xC97C5A4C))
         snow_texture_ = image_of(snow);
     active_ = true;
     std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));

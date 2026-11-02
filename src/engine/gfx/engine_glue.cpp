@@ -41,38 +41,15 @@
 #include "engine/core/down_cast.h"
 #include "platform/crt.h"
 #include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
-// (engine_glue_objects()).
-struct EngineGlueObjects {
-    bool loading_screen_up_{}; // the loading screen is up: it draws and presents on its own
-    std::unique_ptr<WeatherSystem> weather_{};
-    std::unique_ptr<ScreenEffects> screen_effects_{};
-    uint32_t fog_colour_{};
-};
-
-EngineGlueObjects& engine_glue_objects()
-{
-    static core::NoDestroy<EngineGlueObjects> state;
-    return state.get();
-}
-
-} // namespace
-
-bool loading_screen_up() { return engine_glue_objects().loading_screen_up_; }
-void set_loading_screen_up(bool value) { engine_glue_objects().loading_screen_up_ = value; }
-WeatherSystem* weather() { return engine_glue_objects().weather_.get(); }
-ScreenEffects* screen_effects() { return engine_glue_objects().screen_effects_.get(); }
-uint32_t fog_colour() { return engine_glue_objects().fog_colour_; }
-void set_fog_colour(uint32_t value) { engine_glue_objects().fog_colour_ = value; }
+WeatherSystem* weather() { return engine_parts().weather().get(); }
+ScreenEffects* screen_effects() { return engine_parts().screen_effects().get(); }
 
 namespace {
 
@@ -93,7 +70,7 @@ uint32_t& mem_view_toggle()
 uint32_t back_buffer_fill()
 {
     if (view_setup().fog_setting() && view_setup().distance_clipping())
-        return engine_glue_objects().fog_colour_;
+        return engine_parts().fog_colour();
     return renderer().render_camera().background_colour_;
 }
 
@@ -114,7 +91,7 @@ void toggle_mem_view() { mem_view_toggle() ^= 1; }
 // 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
 void begin_frame_draw()
 {
-    if (engine_glue_objects().loading_screen_up_)
+    if (engine_parts().loading_screen_up())
         return;
     renderer().d3d_device()->BeginScene();
 }
@@ -179,17 +156,17 @@ void start_engine()
 {
     init_direct_3d();
     objects::set_particle_hub(std::make_unique<PcParticleManager>());
-    engine_glue_objects().weather_ = std::make_unique<PcWeather>();
-    engine_glue_objects().screen_effects_ = std::make_unique<PcScreenEffects>();
+    engine_parts().weather() = std::make_unique<PcWeather>();
+    engine_parts().screen_effects() = std::make_unique<PcScreenEffects>();
 }
 
 // 0x004B2750
 void finish_rendering()
 {
-    if (loading_screen_up())
+    if (engine_parts().loading_screen_up())
         return;
     renderer().d3d_device()->EndScene();
-    if (suppress_draw())
+    if (engine_parts().suppress_draw())
         return;
     renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     renderer().reset_draw_counts(); // the frame's draw counts
@@ -201,18 +178,18 @@ void finish_rendering()
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (effects_state().screen_blur() != 0) {
-        if (!suppress_draw())
+        if (!engine_parts().suppress_draw())
             renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
         ++effects_state().screen_blur_frames();
         return;
     }
     if (renderer().render_camera().letterbox_active_) {
-        if (!suppress_draw())
+        if (!engine_parts().suppress_draw())
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
     } else if (renderer().render_camera().clear_colour_and_depth_) {
-        if (!suppress_draw())
+        if (!engine_parts().suppress_draw())
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
-    } else if (!suppress_draw()) {
+    } else if (!engine_parts().suppress_draw()) {
         clear_device(0, nullptr, D3DCLEAR_ZBUFFER, renderer().render_camera().background_colour_, 1.0f, 0);
     }
     effects_state().screen_blur_frames() = 0;

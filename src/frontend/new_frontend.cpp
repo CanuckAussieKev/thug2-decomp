@@ -71,7 +71,6 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "engine/gfx/engine_glue.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_score.h"
 #include "game/skate/point_tally.h"
@@ -84,6 +83,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace frontend::new_frontend {
 
@@ -112,7 +112,7 @@ bool get_paused() { return the_front_end() && the_front_end()->is_halted_; }
 bool loading_screen_up()
 {
     return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||
-           static_cast<uint8_t>(render::loading_screen_up()) != 0;
+           static_cast<uint8_t>(render::engine_parts().loading_screen_up()) != 0;
 }
 
 bool is_script(uint32_t name)

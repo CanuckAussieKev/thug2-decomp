@@ -108,6 +108,4 @@ void tex_dict_file_name(char* out, const char* name);
 // 0x0049EFB0: the particle texture dictionary's (0x00700F20) textures flushed (drop_textures).
 void drop_particle_textures(bool all);
 
-TextureSet* game_texture_dict();
-TextureSet* particle_texture_dict();
 } // namespace render

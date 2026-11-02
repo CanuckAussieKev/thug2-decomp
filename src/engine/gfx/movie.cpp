@@ -40,6 +40,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -151,33 +152,6 @@ MovieSavedStates& movie_saved_states()
 }
 
 } // namespace
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (movie_flags()).
-struct MovieFlags {
-    bool movie_playing_{};
-    int movie_dump_count_{};
-    bool device_lost_{};
-    bool quit_requested_{};
-    Bink* current_movie_{}; // a Bink movie playing
-};
-
-MovieFlags& movie_flags()
-{
-    static core::NoDestroy<MovieFlags> state;
-    return state.get();
-}
-
-} // namespace
-
-bool movie_playing() { return movie_flags().movie_playing_; }
-void set_movie_playing(bool value) { movie_flags().movie_playing_ = value; }
-int movie_dump_count() { return movie_flags().movie_dump_count_; }
-bool device_lost() { return movie_flags().device_lost_; }
-void set_device_lost(bool value) { movie_flags().device_lost_ = value; }
-bool quit_requested() { return movie_flags().quit_requested_; }
-void set_quit_requested(bool value) { movie_flags().quit_requested_ = value; }
-Bink* current_movie() { return movie_flags().current_movie_; }
 
 // 0x0044FA80
 void draw_movie_frame(void* texture, float x, float y, float width, float height, float alpha)
@@ -198,8 +172,8 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     set_texture(0, nullptr);          // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
     std::array<char, 256> dump_name{};
-    text::format_to(dump_name, "e:\\movietest\\movie%04d.bmp", movie_flags().movie_dump_count_);
-    ++movie_flags().movie_dump_count_;
+    text::format_to(dump_name, "e:\\movietest\\movie%04d.bmp", engine_parts().movie_dump_count());
+    ++engine_parts().movie_dump_count();
     // Originally from PartyMod Fixes (its call at 0x0044FB8C): set_movie_texture in place of the renderer's texture set (0x004DA730)
     set_movie_texture(0, texture, 0);
 
@@ -287,14 +261,14 @@ void* begin_movie(uint32_t width, uint32_t height)
         renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     if (FAILED(result))
         return nullptr;
-    movie_flags().movie_playing_ = true;
+    engine_parts().set_movie_playing(true);
     return texture;
 }
 
 // 0x0044F9F0
 void end_movie(void* texture)
 {
-    movie_flags().movie_playing_ = false;
+    engine_parts().set_movie_playing(false);
     put_render_state(kD3dCullMode, saved_cull_mode());
     put_render_state(kRsMultisample, saved_antialias());
     set_sampler_state(0, kMinFilter, get_saved_min_filter());
@@ -368,12 +342,12 @@ void play_movie_file(const char* name)
 
     audio::stop_music();
     audio::halt_streams(-1); // (all of them)
-    movie_flags().current_movie_ = bink::open(path.c_str(), 0);
-    if (!current_movie()) {
+    engine_parts().set_current_movie(bink::open(path.c_str(), 0));
+    if (!engine_parts().current_movie()) {
         release_sound_manager();
         return;
     }
-    void* texture = begin_movie(current_movie()->width, current_movie()->height);
+    void* texture = begin_movie(engine_parts().current_movie()->width, engine_parts().current_movie()->height);
     // The screen saver's timer is reset every 200 frames (by setting its timeout again).
     UINT screen_saver_timeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
@@ -383,8 +357,8 @@ void play_movie_file(const char* name)
     if (texture) {
         sio::Hub* input = sio::create_manager(false);
         std::array<uint16_t, 4> seen_up = {};
-        bink::set_sound_on_off(current_movie(), 1);
-        video_set_loudness(current_movie(), 0,
+        bink::set_sound_on_off(engine_parts().current_movie(), 1);
+        video_set_loudness(engine_parts().current_movie(), 0,
                            static_cast<int>(static_cast<double>(volume) * kOnePercent // 0.01
                                             * kFloat16384));                           // 16384
         int frames = 0;
@@ -394,18 +368,18 @@ void play_movie_file(const char* name)
                 SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             }
             if (!sys::app_active()) {
-                bink::pause(current_movie(), 1);
+                bink::pause(engine_parts().current_movie(), 1);
                 while (!sys::app_active()) {
                     Sleep(100);
                     os_layer::process_window_events();
                 }
                 continue;
             }
-            if (quit_requested())
+            if (engine_parts().quit_requested())
                 break;
-            if (device_lost()) {
+            if (engine_parts().device_lost()) {
                 frame_loop::Hub::reset_device_if_lost(); // (through the jump at 0x0044F250)
-                if (device_lost()) {
+                if (engine_parts().device_lost()) {
                     // Not original - the original (0x00450053-0x00450066) tries again at once, without handling the
                     // window's messages: with the device lost (another full-screen program on the display) it
                     // never gets it back and spins at full CPU, hung. Here it waits and lets the window be
@@ -414,11 +388,11 @@ void play_movie_file(const char* name)
                     os_layer::process_window_events();
                     continue;
                 }
-                bink::pause(current_movie(), 0);
+                bink::pause(engine_parts().current_movie(), 0);
             }
-            if (bink::wait(current_movie()))
+            if (bink::wait(engine_parts().current_movie()))
                 continue;
-            Bink* bink = current_movie();
+            Bink* bink = engine_parts().current_movie();
             bink::do_frame(bink);
             auto* d3d_texture = static_cast<IDirect3DTexture9*>(texture);
             D3DLOCKED_RECT locked;
@@ -427,8 +401,8 @@ void play_movie_file(const char* name)
                                  kMovieSurfaceType | 0x80000000); // the surface type, copy all
                 d3d_texture->UnlockRect(0);
             }
-            draw_movie(current_movie(), texture);
-            if (current_movie()->frame_num_ >= current_movie()->frames - 1)
+            draw_movie(engine_parts().current_movie(), texture);
+            if (engine_parts().current_movie()->frame_num_ >= engine_parts().current_movie()->frames - 1)
                 break;
             ++frames;
             if (frames % 2 == 0)
@@ -454,11 +428,11 @@ void play_movie_file(const char* name)
         }
         sio::release_manager();
     }
-    movie_flags().movie_playing_ = false;
+    engine_parts().set_movie_playing(false);
     toggle_fog(fog);
     end_movie(texture);
-    bink::close(current_movie());
-    movie_flags().current_movie_ = nullptr;
+    bink::close(engine_parts().current_movie());
+    engine_parts().set_current_movie(nullptr);
     set_texture_stage_state(0, 4, 4); // alpha: modulate
     release_sound_manager();
 }

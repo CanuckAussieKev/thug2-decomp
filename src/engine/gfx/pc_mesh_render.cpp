@@ -25,9 +25,10 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/mesh_pass.h"
+#include "engine/gfx/engine_parts.h"
 #include <bit>
 
 namespace render {
@@ -111,7 +112,7 @@ void MeshRef::skin_three_bones(uint8_t* out) { get_skin(this, out, 3); }
 // 0x004D5290
 void MeshRef::render()
 {
-    if (suppress_draw() || beyond_clip_distance(this))
+    if (engine_parts().suppress_draw() || beyond_clip_distance(this))
         return;
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (distance fog)
         const float end = renderer().render_camera().far_z_;
@@ -121,7 +122,7 @@ void MeshRef::render()
         toggle_fog(true);
         renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
         renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
-        renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, fog_colour());
+        renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
     }
     if (!core::at(index_counts_, 0))
         return;
@@ -158,9 +159,9 @@ void MeshRef::render()
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     if (per_vertex_data_ &&
         (unknown9c_ != renderer().frames_rendered() ||
-         unknowna0_ != pc_instance_shared().current_instance_)) { // (once a frame per instance)
+         unknowna0_ != mesh_pass().current_instance())) { // (once a frame per instance)
         unknown9c_ = renderer().frames_rendered();
-        unknowna0_ = pc_instance_shared().current_instance_;
+        unknowna0_ = mesh_pass().current_instance();
         uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
         vb->lock_size_ = vb->size;
         vb->lock_offset_ = 0;

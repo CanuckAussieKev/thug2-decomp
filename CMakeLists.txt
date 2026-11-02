@@ -479,6 +479,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/model_builder.cpp
     src/engine/gfx/bone_volumes.cpp
     src/engine/gfx/engine.cpp
+    src/engine/gfx/engine_parts.cpp
     src/engine/gfx/model_particles.cpp
     src/engine/gfx/engine_primitive.cpp
     src/engine/gfx/engine_scene.cpp
@@ -525,6 +526,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/pc_gamma.cpp
     src/engine/gfx/pc_grass.cpp
     src/engine/gfx/pc_instance.cpp
+    src/engine/gfx/mesh_pass.cpp
     src/engine/gfx/pc_material.cpp
     src/engine/gfx/pc_material_load.cpp
     src/engine/gfx/render_state.cpp

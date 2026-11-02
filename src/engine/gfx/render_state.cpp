@@ -20,7 +20,6 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/shader_slots.h"
-#include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/mat4.h"
 #include "engine/core/no_destroy.h"
@@ -28,6 +27,7 @@
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -326,7 +326,7 @@ void choose_blend_mode(uint32_t mode)
             if (kind >= 1 && kind <= 4)
                 render::set_render_state(D3DRS_FOGCOLOR, 0);
             else
-                set_device_render_state(D3DRS_FOGCOLOR, fog_colour());
+                set_device_render_state(D3DRS_FOGCOLOR, engine_parts().fog_colour());
         }
         uint32_t op = 0, src = 0, dest = 0;
         switch (kind) {
@@ -642,7 +642,7 @@ void reset_render_state()
     core::at(light_sets().light_constants(), 2) = kAmbient;
     core::at(light_sets().light_constants(), 3) = 1.0f;
     gfx.set_fog_active(0);
-    set_fog_colour(0);
+    engine_parts().set_fog_colour(0);
     renderer().set_fog_begin_distance(-240.0f); // fog start and end (the original stored their bit patterns)
     renderer().set_fog_end(-24600.0f);
 }
@@ -700,7 +700,7 @@ void apply_render_state()
     renderer().d3d_device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
     renderer().d3d_device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
     renderer().d3d_device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
-    renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, fog_colour());
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, engine_parts().fog_colour());
     renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
     renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)

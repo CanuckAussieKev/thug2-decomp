@@ -5,7 +5,7 @@
 #include <d3d9.h>
 
 #include "engine/gfx/device.h"
-#include "engine/gfx/engine.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render::wireframe {
 
@@ -19,11 +19,11 @@ bool& wire()
 
 } // namespace
 
-int render_mode() { return render::render_mode(); }
+int render_mode() { return render::engine_parts().render_mode(); }
 
 void begin_world()
 {
-    wire() = render_mode() != 0;
+    wire() = engine_parts().render_mode() != 0;
     if (wire())
         set_render_state(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 }

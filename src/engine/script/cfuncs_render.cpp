@@ -32,6 +32,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/format.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace commands {
 
@@ -412,7 +413,7 @@ bool cfunc_set_fog_color(Struct* params, Script*)
     params->fetch_int_value("b", &b, 0);
     params->fetch_int_value("a", &a, 0);
     if (render::view_setup().distance_clipping()) {
-        render::set_fog_colour(static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF));
+        render::engine_parts().set_fog_colour(static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF));
         return false;
     }
     render::engine::set_fog_color(pack_bytes(r, g, b, a));
@@ -424,7 +425,7 @@ bool cfunc_set_render_mode(Struct* params, Script*)
 {
     int mode = 0;
     params->fetch_int_value(kMode, &mode, 0);
-    render::set_render_mode(mode);
+    render::engine_parts().set_render_mode(mode);
     return true;
 }
 

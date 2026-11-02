@@ -84,11 +84,7 @@ void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camer
 void remove_texture_shadow_caster(const BitmapTexture* texture);
 
 // The weather, the screen effects, the fog colour and the loading screen flag (engine_glue.cpp's record).
-bool loading_screen_up();
-void set_loading_screen_up(bool value);
 WeatherSystem* weather();
 ScreenEffects* screen_effects();
-uint32_t fog_colour();
-void set_fog_colour(uint32_t value);
 
 } // namespace render

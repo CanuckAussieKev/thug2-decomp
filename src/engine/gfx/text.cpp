@@ -29,12 +29,12 @@
 #include "engine/gfx/render_state.h"
 #include "engine/pad_input/device.h"
 #include "platform/platform_d3d.h"
-#include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -463,7 +463,7 @@ void GlyphRun::close_sketch()
     set_vertex_format(0x144);              // position (pre-transformed), colour, one texture coordinate
     set_texture(0, texture_font->texture); // (the original also passes unknown17c_, which SetTexture doesn't take)
     renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    if (!suppress_draw()) {                                                      // (rendering not skipped)
+    if (!engine_parts().suppress_draw()) {                                                      // (rendering not skipped)
         renderer().count_draw(count / 2); // the frame's draw calls and triangles
         renderer().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices().data(), D3DFMT_INDEX16,
                                              vertex_store().data(), sizeof(TextVertex));

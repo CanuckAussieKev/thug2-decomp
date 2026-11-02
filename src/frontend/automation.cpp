@@ -58,6 +58,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/util/unique_handle.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace frontend::automation {
 
@@ -1226,7 +1227,7 @@ std::string press_refusal(const Button& button)
 bool loading_screen_up()
 {
     return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||
-           static_cast<uint8_t>(render::loading_screen_up()) != 0;
+           static_cast<uint8_t>(render::engine_parts().loading_screen_up()) != 0;
 }
 
 // choose / focus, once a frame until done.

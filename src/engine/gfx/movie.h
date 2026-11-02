@@ -60,14 +60,6 @@ void draw_movie(Bink* bink, void* texture);
 bool button_pressed_again(const std::array<uint8_t, 32>& control_data, uint16_t* seen_up, uint32_t mask);
 
 // The movie player's and the window's flags (movie.cpp's record; the original's globals).
-bool movie_playing();
-void set_movie_playing(bool value);
-int movie_dump_count();
-bool device_lost();
-void set_device_lost(bool value);
-bool quit_requested();
-void set_quit_requested(bool value);
-Bink* current_movie();
 
 inline constexpr float kOnePercent{0.01f};
 } // namespace render

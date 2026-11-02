@@ -17,6 +17,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -24,7 +25,7 @@ namespace render {
 namespace {
 
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
-const BitmapTexture* find_texture(uint32_t checksum) { return particle_texture_dict()->fetch_skin(checksum); }
+const BitmapTexture* find_texture(uint32_t checksum) { return engine_parts().particle_texture_dict()->fetch_skin(checksum); }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
 gsl::owner<MaterialRef*> construct_material(void* memory) { return new (memory) MaterialRef; }
 // The C runtime's rand (the game's: its sequence).

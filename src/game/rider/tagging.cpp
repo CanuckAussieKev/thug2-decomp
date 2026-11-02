@@ -44,6 +44,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace objects {
 
@@ -65,17 +66,17 @@ constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
 
 void* ingest_skin(const char* name, bool a, bool b, bool c)
 {
-    return static_cast<render::TextureSet*>(render::particle_texture_dict())->ingest_skin(name, a, b, c);
+    return static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())->ingest_skin(name, a, b, c);
 }
 render::BitmapTexture* copy_texture(uint32_t key, void* texture)
 {
-    return static_cast<render::TextureSet*>(render::particle_texture_dict())
+    return static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())
         ->copy_texture(key, static_cast<render::BitmapTexture*>(texture));
 }
-void* find_texture(uint32_t checksum) { return static_cast<render::TextureSet*>(render::particle_texture_dict())->fetch_skin(checksum); }
+void* find_texture(uint32_t checksum) { return static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())->fetch_skin(checksum); }
 void unload_texture(void* texture)
 {
-    static_cast<render::TextureSet*>(render::particle_texture_dict())->unload_texture(static_cast<render::BitmapTexture*>(texture));
+    static_cast<render::TextureSet*>(render::engine_parts().particle_texture_dict())->unload_texture(static_cast<render::BitmapTexture*>(texture));
 }
 void release_texture(void* texture)
 {

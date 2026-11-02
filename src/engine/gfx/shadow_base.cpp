@@ -34,6 +34,7 @@
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -255,7 +256,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
 // 0x004DBBD0
 void render_shadow_textures()
 {
-    if (suppress_draw())
+    if (engine_parts().suppress_draw())
         return;
     std::array<float, 16> saved_view{};
     std::array<float, 16> saved_projection{};
@@ -327,7 +328,7 @@ void render_shadow_textures()
 // 0x004DBF50
 void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
 {
-    if (suppress_draw())
+    if (engine_parts().suppress_draw())
         return;
     DWORD saved_min_filter = 0;
     renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &saved_min_filter);

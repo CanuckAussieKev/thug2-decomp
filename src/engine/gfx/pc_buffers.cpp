@@ -17,17 +17,10 @@
 #include "engine/gfx/shader_slots.h"
 #include "gpu/vertex_buffers.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/mesh_pass.h"
 
 namespace render {
-
-PcBuffersShared& pc_buffers_shared()
-{
-    static core::NoDestroy<PcBuffersShared> state;
-    return state.get();
-}
 
 namespace {
 std::array<uint8_t, 64>& saved_pixel_shader_constants()
@@ -93,15 +86,15 @@ void MeshRef::set_pixel_shader_colored()
 // 0x004D3CA0
 void set_skin_scaling(const SkinScaling* settings)
 {
-    pc_buffers_shared().skin_scaling_on_ = 1;
-    pc_buffers_shared().skin_settings_ = *settings;
+    mesh_pass().set_skin_scaling_on(1);
+    mesh_pass().skin_settings() = *settings;
 }
 
 // 0x004D3CE0
 void clear_skin_scaling()
 {
-    pc_buffers_shared().skin_scaling_on_ = 0;
-    pc_buffers_shared().skin_settings_ = {};
+    mesh_pass().set_skin_scaling_on(0);
+    mesh_pass().skin_settings() = {};
 }
 
 // 0x004D3ED0

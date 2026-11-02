@@ -31,6 +31,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -184,7 +185,7 @@ void hide_loading_screen()
         stop_timer(renderer().loading_bar_timer());
         renderer().set_loading_bar_timer(0);
     }
-    set_loading_screen_up(false);
+    engine_parts().set_loading_screen_up(false);
     get_unlock();
 }
 
@@ -230,7 +231,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
         }
     }
     renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, FALSE);
-    set_loading_screen_up(false);
+    engine_parts().set_loading_screen_up(false);
     if (!keep) {
         if (black) {
             select_picture().select_picture_ = false;
@@ -270,7 +271,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
         }
         renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     }
-    set_loading_screen_up(true);
+    engine_parts().set_loading_screen_up(true);
     get_unlock();
 }
 

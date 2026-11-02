@@ -56,6 +56,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace frontend::level_editor {
 
@@ -197,7 +198,7 @@ bool is_end(const SceneNode* node) { return node->is_head(); }
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = (render::scene_list().next);
+    auto* node = (render::engine_parts().scene_list().next);
     for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
         if (scene_of(node) && !scene_of(node)->is_sky_)
@@ -1918,7 +1919,7 @@ int get_moved_count()
 void log_census()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    auto* node = (render::scene_list().next);
+    auto* node = (render::engine_parts().scene_list().next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         const bool end = is_end(node);
         const render::WorldScene* scene = end ? nullptr : scene_of(node);

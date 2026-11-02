@@ -12,17 +12,17 @@
 #include <span>
 #include <string>
 
-#include "engine/gfx/engine_glue.h"
 #include "engine/core/format.h"
 #include "platform/screenshot_files.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace gfx::screenshot_capture {
 
 namespace {
 
 // The renderer's "device lost" flag (render::begin_frame_draw doesn't begin a scene while it's set).
-bool device_lost_flag() { return static_cast<uint8_t>(render::loading_screen_up()) != 0; }
+bool device_lost_flag() { return static_cast<uint8_t>(render::engine_parts().loading_screen_up()) != 0; }
 
 sys::screenshot::PixelFormat get_map(D3DFORMAT format)
 {

@@ -30,7 +30,7 @@
 #include <span>
 #include "gpu/vertex_view.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/mesh_pass.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -810,11 +810,11 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         }
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
         uint32_t& shader = mesh_vertex_shader(mesh);
-        if (shader == core::at(pc_mesh_load_shared().vertex_shaders_, 5))
+        if (shader == core::at(mesh_pass().vertex_shaders(), 5))
             shader = kVertexShaderUv60;
-        else if (shader == core::at(pc_mesh_load_shared().vertex_shaders_, 4))
+        else if (shader == core::at(mesh_pass().vertex_shaders(), 4))
             shader = kVertexShaderUv5c;
-        else if (shader == core::at(pc_mesh_load_shared().vertex_shaders_, 3))
+        else if (shader == core::at(mesh_pass().vertex_shaders(), 3))
             shader = kVertexShaderUv58;
         UvOscillator* wibble = core::at(material->uv_wibble_, index);
         core::at(wibble->matrix, 0) = core::at(matrix->row, 0).x;

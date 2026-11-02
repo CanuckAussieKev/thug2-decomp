@@ -32,11 +32,11 @@
 #include "platform/stopwatch.h"
 #include "platform/winmain.h"
 #include "engine/objects/cutscene.h"
-#include "engine/gfx/movie.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace frame_loop {
 
@@ -130,7 +130,7 @@ Hub::Hub() = default;
 // 0x0044EE90
 void Hub::reset_device_if_lost()
 {
-    if (!render::device_lost())
+    if (!render::engine_parts().device_lost())
         return;
     if (render::renderer().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
         return;
@@ -143,7 +143,7 @@ void Hub::reset_device_if_lost()
     if (render::renderer().d3d_device()->Reset(present_parameters()) < 0)
         return;
     restore_device_objects();
-    render::set_device_lost(false);
+    render::engine_parts().set_device_lost(false);
 }
 
 // 0x0044F220
@@ -205,7 +205,7 @@ void Hub::get_main_loop()
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
         }
-        render::set_suppress_draw(false);
+        render::engine_parts().set_suppress_draw(false);
         objects::set_cutscene_playing(false);
         sio::read_keyboard();
         os_layer::process_window_events();
@@ -223,13 +223,13 @@ void Hub::get_main_loop()
                 }
                 continue;
             }
-            render::set_suppress_draw(true);
+            render::engine_parts().set_suppress_draw(true);
         }
-        if (render::quit_requested())
+        if (render::engine_parts().quit_requested())
             break;
-        if (render::device_lost()) {
+        if (render::engine_parts().device_lost()) {
             reset_device_if_lost(); // (inline in the original)
-            render::set_suppress_draw(true);
+            render::engine_parts().set_suppress_draw(true);
         }
 
         // Wait for the frame's time (60 a second).
@@ -255,7 +255,7 @@ void Hub::get_main_loop()
             skipped_in_a_row() = 0;
         } else {
             ++skipped_total();
-            render::set_suppress_draw(true);
+            render::engine_parts().set_suppress_draw(true);
             ++skipped_in_a_row();
         }
         frame_start += frame_ticks;
@@ -269,14 +269,14 @@ void Hub::get_main_loop()
         }
         run_tasks(system_tasks_, profiling_ != 0);
         run_tasks(logic_tasks_, profiling_ != 0);
-        if (!render::suppress_draw())
+        if (!render::engine_parts().suppress_draw())
             begin_scene();
         render_frame_letterboxed();
         after_render();
         // Not original - the screenshot key (platform/screenshot.h): the frame read just before it's presented.
         // Original behaviour: the scene is ended and presented.
-        sys::screenshot::before_present(!render::suppress_draw());
-        if (!render::suppress_draw())
+        sys::screenshot::before_present(!render::engine_parts().suppress_draw());
+        if (!render::engine_parts().suppress_draw())
             end_scene();
         // Not original - a frame series (platform/screenshot.h): the capture's time isn't counted, so no frame is
         // skipped to catch up - every logic frame is drawn and taken.

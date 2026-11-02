@@ -32,7 +32,6 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
-#include "engine/gfx/movie.h"
 #include "engine/objects/cutscene.h"
 #include "game/park_editing/park_editor.h"
 #include "frontend/screen_element_manager.h"
@@ -42,6 +41,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace sio {
 
@@ -496,7 +496,7 @@ const char* get_button_key_name(int button)
         frontend::fetch_part(&found, checksums::hash_from_text("piece_menu_hmenu"));
         element = found;
     }
-    if (!render::quit_requested() && element && !element->is_concealed())
+    if (!render::engine_parts().quit_requested() && element && !element->is_concealed())
         piece_menu = true;
     {
         frontend::ElementPtr found;
@@ -599,7 +599,6 @@ namespace {
 // Flags the read consults (meaning partly unknown): two that turn the menu handling off; and the park editor
 // (0x007CE5D8), editing when its state is "edit" (0x7ECA21E5).
 
-
 // The platform layer: the pad mode and the default keys' Enter / Escape (os_layer::set_pad_mode...), its window
 // message pump, the pad read and whether a DirectInput key is down.
 void set_pad_mode(int mode) { os_layer::set_pad_mode(mode); }
@@ -621,7 +620,7 @@ uint8_t get_stick(int value) { return static_cast<uint8_t>(value / 256); }
 // 0x005BD200
 void InputPort::pull_data(int)
 {
-    if (render::quit_requested())
+    if (render::engine_parts().quit_requested())
         return;
     const bool menu = modules::menus_active() || in_menu();
     const bool typing = keyboard_typing();
@@ -639,7 +638,7 @@ void InputPort::pull_data(int)
         frontend::fetch_part(&found, checksums::hash_from_text("piece_menu_hmenu"));
         element = found;
     }
-    if (!render::quit_requested() && element && !element->is_concealed())
+    if (!render::engine_parts().quit_requested() && element && !element->is_concealed())
         piece_menu_shown = true;
     {
         frontend::ElementPtr found;
@@ -649,7 +648,7 @@ void InputPort::pull_data(int)
     if (element && !element->is_concealed())
         select_skater_shown = true;
     bool menu_mode = !piece_menu_shown && menu && !typing;
-    if (render::movie_playing() || objects::cutscene_playing()) {
+    if (render::engine_parts().movie_playing() || objects::cutscene_playing()) {
         piece_menu_shown = false;
         menu_mode = false;
     }

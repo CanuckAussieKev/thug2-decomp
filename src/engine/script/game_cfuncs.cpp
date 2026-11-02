@@ -73,6 +73,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/script/shared_state.h"
 #include "engine/sys/game_config.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace commands {
 
@@ -229,7 +230,7 @@ bool cfunc_stop_second_controller_check(script::Struct*, script::Script*)
 // 0x0059F760: QuitGame: the game ends (0x007D6A2C).
 bool cfunc_quit_game(script::Struct*, script::Script*)
 {
-    render::set_quit_requested(true);
+    render::engine_parts().set_quit_requested(true);
     return true;
 }
 

@@ -15,10 +15,10 @@
 #include <unordered_map>
 
 #include "platform/run_log.h"
-#include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render::view_mode {
 
@@ -158,12 +158,12 @@ void assign_value(Mode mode)
     if (mode == view_mode_state().mode_ || mode >= Mode::kCount)
         return;
     // Wireframe: the game's render mode (wireframe.h), put back when the mode goes - unless something else set it.
-    if (mode == Mode::kWireframe && render_mode() == 0) {
-        set_render_mode(1);
+    if (mode == Mode::kWireframe && engine_parts().render_mode() == 0) {
+        engine_parts().set_render_mode(1);
         view_mode_state().set_render_mode_ = true;
     } else if (view_mode_state().mode_ == Mode::kWireframe && view_mode_state().set_render_mode_) {
-        if (render_mode() == 1)
-            set_render_mode(0);
+        if (engine_parts().render_mode() == 1)
+            engine_parts().set_render_mode(0);
         view_mode_state().set_render_mode_ = false;
     }
     view_mode_state().mode_ = mode;

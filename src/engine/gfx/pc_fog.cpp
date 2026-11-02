@@ -8,10 +8,10 @@
 
 #include <d3d9.h>
 
-#include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/gfx/engine_parts.h"
 #include <bit>
 
 namespace render {
@@ -22,7 +22,7 @@ void toggle_fog(bool on)
     if ((renderer().fog_active() != 0) == on)
         return;
     renderer().set_fog_active(on);
-    if (!loading_screen_up())
+    if (!engine_parts().loading_screen_up())
         renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
 }
 
@@ -47,7 +47,7 @@ void set_fog_color(uint32_t rgba)
     const uint32_t a = rgba >> 24;
     if (a && !renderer().fog_active()) {
         renderer().set_fog_active(1);
-        if (!loading_screen_up())
+        if (!engine_parts().loading_screen_up())
             renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, 1);
     }
     // the density (alpha / 128, 0-1) for the pixel shaders' fog constant (0x00786F0C)
@@ -59,7 +59,7 @@ void set_fog_color(uint32_t rgba)
     core::at(renderer().ps_constant_bank(), 16) = core::at(renderer().ps_constant_bank(), 17) = core::at(renderer().ps_constant_bank(), 18) =
         static_cast<float>(density);
     const uint32_t color = (r << 16) | (g << 8) | b;
-    set_fog_colour(color);
+    engine_parts().set_fog_colour(color);
     renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, color);
 }
 

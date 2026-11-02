@@ -1,6 +1,5 @@
 // NOT ORIGINAL - the loading console (see loading_console.h).
 
-#include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/loading_screen.h"
 
@@ -35,6 +34,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace gfx::loading_console {
 
@@ -141,7 +141,7 @@ LoadingConsoleState& loading_console_state()
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE screen_mutex() { return render::screen_2d().screen_mutex(); }
 
-bool load_screen_shown() { return render::loading_screen_up() != 0; } // the main loop draws nothing then
+bool load_screen_shown() { return render::engine_parts().loading_screen_up() != 0; } // the main loop draws nothing then
 
 bool screen_picture() { return render::screen_2d().loading_screen_picture() != nullptr; } // the loading screen's picture is up
 
@@ -380,7 +380,7 @@ void CALLBACK screen_tick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
     // isn't a frozen frame, and no movie is shown.
-    if (!loading_console_state().active_ || !console_timer().timer_draws_ || render::renderer().loading_bar_timer() != 0 || !load_screen_shown() || render::current_movie())
+    if (!loading_console_state().active_ || !console_timer().timer_draws_ || render::renderer().loading_bar_timer() != 0 || !load_screen_shown() || render::engine_parts().current_movie())
         return;
     const bool blank = console_timer().blank_;
     if (!blank && !screen_picture())

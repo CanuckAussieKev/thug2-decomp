@@ -29,6 +29,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/packed_colour.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -763,7 +764,7 @@ void PcGlowParticles::render()
             ++particle;
         }
         const uint32_t triangles = (words >> 4) / 3; // (the original's count: a quarter of what it wrote)
-        if (!suppress_draw()) {                // (rendering not skipped)
+        if (!engine_parts().suppress_draw()) {                // (rendering not skipped)
             renderer().count_draw(triangles);
             renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer.data(), sizeof(TrailVertex));
         }

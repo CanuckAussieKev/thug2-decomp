@@ -30,6 +30,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/audio/audio_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 
 namespace audio {
@@ -436,7 +437,7 @@ void play_next_track()
     if (reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
         // here, as our globals aren't laid out as the original's)
-        const int last = order_count() > 0 ? core::at(get_order(), order_count() - 1) : render::movie_dump_count();
+        const int last = order_count() > 0 ? core::at(get_order(), order_count() - 1) : render::engine_parts().movie_dump_count();
         order_count() = 0;
         int count = 0;
         for (int track = 0; track < list.count; ++track)

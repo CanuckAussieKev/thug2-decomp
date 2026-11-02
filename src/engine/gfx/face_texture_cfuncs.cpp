@@ -17,6 +17,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -51,7 +52,7 @@ constexpr uint32_t kRgb = 0xDECB67C7;        // "rgb"
 
 render::BitmapTexture* find_texture(uint32_t name)
 {
-    return static_cast<render::TextureSet*>(render::game_texture_dict())->fetch_skin(name);
+    return static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())->fetch_skin(name);
 }
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
@@ -111,7 +112,7 @@ bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script
     void* face = get_face_texture();
     const int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution(); // (0x4420)
     const void* data = static_cast<gfx::FaceSkin*>(face)->get_image();           // (its +0x3C)
-    const void* texture = static_cast<render::TextureSet*>(render::game_texture_dict())
+    const void* texture = static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())
                               ->read_texture_buffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
     return texture != nullptr;
 }

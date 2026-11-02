@@ -43,7 +43,6 @@ void render_frame();
 // 0x0048C0A0: the object manager the engine's code uses (0x006FA720).
 void change_entity_hub(void* manager);
 // 0x0048C0B0: the scenes the last collision query's grids belong to (0x006FA738).
-std::array<WorldScene*, 16>& get_collision_scenes();
 // 0x0048C0D0: the next render mode (0x006FA734: 0-3 in turn).
 void toggle_render_mode();
 // 0x0048C0F0: the metrics display (0x006FA7D6) switched on / off.
@@ -85,12 +84,7 @@ WorldScene* find_scene(uint32_t checksum);
 } // namespace engine
 
 // The engine's managers and its draw switch (engine.cpp's record; the original's globals).
-bool suppress_draw();
-void set_suppress_draw(bool value);
 FlexibleParticleManager* flexible_particle_manager();
 ImposterManager* imposter_manager();
-int render_mode();
-void set_render_mode(int value);
-memory::ListNode& scene_list();
 
 } // namespace render

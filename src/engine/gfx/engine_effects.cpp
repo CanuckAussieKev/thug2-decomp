@@ -36,6 +36,7 @@
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -407,7 +408,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         }
     }
     if (!texture) {
-        auto* textures = particle_texture_dict(); // (the particles' dictionary)
+        auto* textures = engine_parts().particle_texture_dict(); // (the particles' dictionary)
         texture = textures->fetch_skin(checksums::hash_from_text(image_label));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.

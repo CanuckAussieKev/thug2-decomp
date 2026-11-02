@@ -5,7 +5,6 @@
 #include <cstdint>
 
 #include "engine/core/checked_index.h"
-#include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_bar.h"
 
 #include <windows.h>
@@ -19,6 +18,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -119,7 +119,7 @@ void update_loading_bar_colors()
 // full. Not original: the loading console's panel (engine/gfx/loading_console.h) is drawn before the scene ends.
 void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned long, unsigned long, unsigned long)
 {
-    if (!renderer().loading_bar_timer() || !loading_screen_up())
+    if (!renderer().loading_bar_timer() || !engine_parts().loading_screen_up())
         return;
     WaitForSingleObject(screen_2d().screen_mutex(), INFINITE);
     renderer().d3d_device()->BeginScene();

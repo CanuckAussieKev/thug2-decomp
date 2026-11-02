@@ -56,8 +56,8 @@
 #include "platform/stopwatch.h"
 #include "engine/script/node_manager.h"
 #include "engine/sys/game_config.h"
-#include "engine/gfx/movie.h"
 #include "engine/objects/collide_and_die.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace sys {
 
@@ -80,7 +80,6 @@ void remove_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->remove_m
 // The bottom-up heap's own context pushed / popped (its enter_heap_scope / leave_heap_scope).
 void push_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->enter_heap_scope(); }
 void pop_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->leave_heap_scope(); }
-
 
 bool& demo_mode()
 {
@@ -120,7 +119,7 @@ int game_main(int argc, char** argv)
     maths::seed_random(0x06680BF3);
     maths::fill_sine_table();
 
-    while (!render::quit_requested()) {
+    while (!render::engine_parts().quit_requested()) {
         push_bottom_up_heap();
         stubs::ignore_argument(0x10); // (a memory manager method, compiled down to the shared stub)
 

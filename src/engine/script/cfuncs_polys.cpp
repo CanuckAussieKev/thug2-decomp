@@ -24,6 +24,7 @@
 #include "engine/gfx/engine_scene.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include "engine/gfx/engine_parts.h"
 #include <span>
 #include <vector>
 namespace commands {
@@ -209,7 +210,7 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     params->read_hash_value(kBlendMode, &details->blend_mode_, 0);
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 0);
-    details->texture = texture ? render::particle_texture_dict()->fetch_skin(texture) // the texture dictionary
+    details->texture = texture ? render::engine_parts().particle_texture_dict()->fetch_skin(texture) // the texture dictionary
                                : nullptr;
     render::engine::spawn_poly(details,
                                &vector1, &vector2);

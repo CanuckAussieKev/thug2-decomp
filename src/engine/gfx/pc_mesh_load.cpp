@@ -33,9 +33,8 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
-#include "engine/gfx/shared_state.h"
-#include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/mesh_pass.h"
 
 namespace render {
 
@@ -48,11 +47,6 @@ std::array<uint32_t, 5>& fvf_by_set_count()
     return fvf_by_set_count;
 }
 } // namespace
-PcMeshLoadShared& pc_mesh_load_shared()
-{
-    static core::NoDestroy<PcMeshLoadShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -73,17 +67,17 @@ struct ScaledVertex {
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
-bool skin_scaling_on() { return pc_buffers_shared().skin_scaling_on_ && !pc_buffers_shared().skin_settings_.colours.empty(); }
+bool skin_scaling_on() { return mesh_pass().skin_scaling_on() && !mesh_pass().skin_settings().colours.empty(); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
 {
     // (a bone outside the table - the original read the memory after it - scales nothing, like none)
-    if (bone < 0 || 4 * static_cast<std::size_t>(bone) + 4 > pc_buffers_shared().skin_settings_.colours.size()) {
+    if (bone < 0 || 4 * static_cast<std::size_t>(bone) + 4 > mesh_pass().skin_settings().colours.size()) {
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
-    const std::span<const float> scale = pc_buffers_shared().skin_settings_.colours.subspan(4 * static_cast<std::size_t>(bone), 4);
+    const std::span<const float> scale = mesh_pass().skin_settings().colours.subspan(4 * static_cast<std::size_t>(bone), 4);
     e0 = core::at(scale, 0);
     e4 = core::at(scale, 1);
     e8 = core::at(scale, 2);
@@ -115,7 +109,7 @@ uint32_t vertex_format(uint32_t type)
     if (type > 6)
         return type;
     // (type t is the table's word 6 - t)
-    return type ? core::at(pc_mesh_load_shared().vertex_shaders_, 6 - type) : 0;
+    return type ? core::at(mesh_pass().vertex_shaders(), 6 - type) : 0;
 }
 
 // The bone-scaled positions written into a vertex buffer (0x004D47F0 / 0x004D4350: the memory loader's and the file

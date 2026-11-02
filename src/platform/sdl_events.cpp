@@ -9,7 +9,7 @@
 #include <SDL2/SDL.h>
 
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/movie.h"
+#include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 
 namespace os_layer {
@@ -22,11 +22,10 @@ std::unique_ptr<std::vector<EventHandler>>& handlers()
     return handlers.get();
 }
 
-
 void handle_quit(SDL_Event* event)
 {
     if (event->type == SDL_QUIT)
-        render::set_quit_requested(true);
+        render::engine_parts().set_quit_requested(true);
 }
 
 } // namespace

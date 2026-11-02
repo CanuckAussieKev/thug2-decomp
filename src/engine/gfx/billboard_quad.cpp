@@ -19,6 +19,7 @@
 #include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/engine_parts.h"
 
 namespace render {
 
@@ -231,7 +232,7 @@ void QuadSprite::draw()
     set_vertex_format(0x144);         // position (pre-transformed), colour, one texture coordinate
     set_texture_stage_state(0, 1, 5); // colour: texture x diffuse, doubled
     set_texture_stage_state(0, 4, 5); // alpha: the same
-    if (!suppress_draw()) {           // (rendering not skipped)
+    if (!engine_parts().suppress_draw()) {           // (rendering not skipped)
         renderer().count_draw(2); // the frame's draw calls and triangles
         renderer().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
                                              sizeof(Vertex));

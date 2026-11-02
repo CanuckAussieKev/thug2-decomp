@@ -34,9 +34,9 @@
 #include "engine/gfx/model.h"
 #include "platform/d3d_matrix.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/gfx/mesh_pass.h"
 
 namespace render {
 
@@ -60,11 +60,6 @@ PcInstanceState& pc_instance_state()
 std::span<maths::Mat4> bone_palette()
 {
     return {pc_instance_state().palette_base_, static_cast<std::size_t>(pc_instance_state().bone_count_)};
-}
-PcInstanceShared& pc_instance_shared()
-{
-    static core::NoDestroy<PcInstanceShared> state;
-    return state.get();
 }
 
 namespace {
@@ -227,7 +222,7 @@ void Singleton::render(uint32_t draw_bits)
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(transform.data()));
         pc_instance_state().palette_base_ = bones;
         pc_instance_state().bone_count_ = bone_count_;
-        pc_instance_shared().current_instance_ = this;
+        mesh_pass().set_current_instance(this);
         if (scene_unlit(scene)) {
             draw_scene(scene, draw_bits | kRenderNoCulling, 0);
         } else {
@@ -246,7 +241,7 @@ void Singleton::render(uint32_t draw_bits)
         set_texture(3, nullptr);
         pc_instance_state().palette_base_ = nullptr;
         pc_instance_state().bone_count_ = 0;
-        pc_instance_shared().current_instance_ = nullptr;
+        mesh_pass().set_current_instance(nullptr);
         return;
     }
 
