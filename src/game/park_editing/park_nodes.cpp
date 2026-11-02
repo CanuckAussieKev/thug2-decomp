@@ -32,7 +32,6 @@
 namespace park_editing {
 
 namespace {
-int g_rail_search_start;
 
 using script::Array;
 using script::Struct;
@@ -97,7 +96,11 @@ constexpr uint32_t kFirstRestartNode = 0x005B8D81;
 constexpr uint32_t kFirstRailEditorNode = 0x003D0901;
 
 // Where find_following_rail_node's search for a piece's rail nodes starts (0x007CE600: its first rail node).
-int& rail_search_start() { return g_rail_search_start; }
+int& rail_search_start()
+{
+    static int rail_search_start{};
+    return rail_search_start;
+}
 
 // The rail editor (0x004F4970): its rail points (0x004F3C70), its rails written as nodes (0x004F6920).
 RailAuthoring* get_rail_editor() { return RailAuthoring::sole(); }

@@ -32,7 +32,6 @@ using namespace rail_editor_internal;
 using maths::Vec4;
 
 namespace {
-int g_rail_flash_counter;
 
 constexpr float float_bits(uint32_t bits) noexcept
 {
@@ -65,7 +64,11 @@ constexpr float kGroundProbe = 10000.0f;               // 0x0064B308
 constexpr float kFar = 1e6f;                           // 0x0064B904
 
 // The flashing's frame counter (shared by the highlight and the dotted line).
-int& flash_counter() { return g_rail_flash_counter; }
+int& flash_counter()
+{
+    static int rail_flash_counter{};
+    return rail_flash_counter;
+}
 // A zero vector (0x007CCD30): drawing in place (no move).
 const Vec4& get_zero() { return g_rail_origin; }
 

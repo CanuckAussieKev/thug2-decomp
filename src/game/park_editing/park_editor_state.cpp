@@ -19,13 +19,16 @@ namespace park_editing {
 
 uint32_t g_park_editor_references;
 namespace {
-uint32_t g_editor_clock;
 
 // The display task's code: 0x005480A0, the empty function.
 void draw_nothing(ParkEditorTask* /*task*/) {}
 
 // The park editor's clock (milliseconds).
-uint32_t& editor_clock() { return g_editor_clock; }
+uint32_t& editor_clock()
+{
+    static uint32_t editor_clock{};
+    return editor_clock;
+}
 
 // A memory marker of the script's (memory_marker): the main heap's free memory as the park is set up.
 constexpr uint32_t kParkLoadMarker = 0xCC63F828;

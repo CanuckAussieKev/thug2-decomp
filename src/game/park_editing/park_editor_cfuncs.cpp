@@ -23,14 +23,25 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace park_editing {
 
 bool g_collision_allowed{true};
 namespace {
-CellBox g_saved_grid_dims;
-uint32_t g_saved_grid_guard;
+// NOT ORIGINAL grouping - park_editor_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
+// (park_editor_cfuncs_state()).
+struct ParkEditorCfuncsState {
+    CellBox saved_grid_dims_{};
+    uint32_t saved_grid_guard_{};
+};
+
+ParkEditorCfuncsState& park_editor_cfuncs_state()
+{
+    static core::NoDestroy<ParkEditorCfuncsState> state;
+    return state.get();
+}
 
 constexpr uint32_t kCancelFlags = 0x049EC3F9;   // cancel_flags
 constexpr uint32_t kTheme = 0x688A18F7;         // theme
@@ -106,8 +117,8 @@ void world_rectangles(CellBox area, PanelRect* rails, PanelRect* goals)
 // ResizePark's area kept by its kSaveArea flag (a static CellBox: 0x007CE5E0, its guard bit 0x007CE5E8 & 1).
 CellBox& saved_area()
 {
-    uint32_t& guard = g_saved_grid_guard;
-    CellBox& saved = g_saved_grid_dims;
+    uint32_t& guard = park_editor_cfuncs_state().saved_grid_guard_;
+    CellBox& saved = park_editor_cfuncs_state().saved_grid_dims_;
     if (!(guard & 1)) {
         guard |= 1;
         saved.assign_value(0, 0, 0, 0, 0, 0);

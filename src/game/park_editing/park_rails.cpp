@@ -15,16 +15,27 @@
 #include "engine/core/format.h"
 #include "engine/core/slab_bank.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/no_destroy.h"
 
 namespace park_editing {
 
 namespace {
-memory::PoolPair g_park_string_pools;
-memory::PoolPair g_park_point_pools;
+// NOT ORIGINAL grouping - park_rails.cpp's state (the original's globals). Made on first use, never destroyed
+// (park_rails_state()).
+struct ParkRailsState {
+    memory::PoolPair park_string_pools_{};
+    memory::PoolPair park_point_pools_{};
+};
+
+ParkRailsState& park_rails_state()
+{
+    static core::NoDestroy<ParkRailsState> state;
+    return state.get();
+}
 
 // The classes' pool pairs (CPoolable): a set's pool is lent to them while one of its items is made or freed.
-memory::PoolPair& string_pools() { return g_park_string_pools; }
-memory::PoolPair& point_pools() { return g_park_point_pools; }
+memory::PoolPair& string_pools() { return park_rails_state().park_string_pools_; }
+memory::PoolPair& point_pools() { return park_rails_state().park_point_pools_; }
 
 // Whether the pair's current pool was made by it (and so is deleted when it's taken away): a byte per pool at +4.
 uint8_t& pool_owned(memory::PoolPair& pair) { return core::at(pair.made_here_, pair.current); }

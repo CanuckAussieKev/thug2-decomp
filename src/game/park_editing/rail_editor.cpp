@@ -27,16 +27,17 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace park_editing {
 
-namespace {
-memory::PoolPair g_rail_point_pools;
-} // namespace
-
 namespace rail_editor_internal {
 
-memory::PoolPair& point_pools() { return g_rail_point_pools; }
+memory::PoolPair& point_pools()
+{
+    static core::NoDestroy<memory::PoolPair> rail_point_pools;
+    return rail_point_pools.get();
+}
 memory::PoolPair& rail_pools() { return g_rail_pools; }
 bool& get_update_super_sectors() { return g_rail_editor_flag; }
 
@@ -57,9 +58,12 @@ void remove_scene_sector(render::WorldCell*& sector)
 using namespace rail_editor_internal;
 
 namespace {
-uint32_t g_next_rail_id{1};
 
-uint32_t& next_rail_id() { return g_next_rail_id; }
+uint32_t& next_rail_id()
+{
+    static uint32_t next_rail_id{1};
+    return next_rail_id;
+}
 
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 

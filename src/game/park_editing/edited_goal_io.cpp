@@ -29,7 +29,11 @@ namespace park_editing {
 
 std::array<char, 24> g_created_goal_name;
 namespace {
-std::array<char, 100> g_goal_io_name_buffer;
+std::array<char, 100>& goal_io_name_buffer()
+{
+    static std::array<char, 100> goal_io_name_buffer{};
+    return goal_io_name_buffer;
+}
 
 constexpr float kDropHeight = 10000.0f; // 0x0064B308
 constexpr uint32_t kStructureArray = 10, kChecksumArray = 13, kIntegerArray = 1;
@@ -78,7 +82,7 @@ void EditedGoal::drop_point_to_ground(int index)
 // 0x004E9590
 void EditedGoal::place_points_on_ground()
 {
-    char* name = g_goal_io_name_buffer.data();
+    char* name = goal_io_name_buffer().data();
     for (int i = 0; std::cmp_less(i, vertex_total_); ++i) {
         drop_point_to_ground(i);
         script::Struct params;

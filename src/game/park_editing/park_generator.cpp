@@ -26,12 +26,15 @@
 namespace park_editing {
 
 namespace {
-int g_cloning_piece;
 
 // Whether the generator rebuilds its collision (off while every piece is deleted).
 bool& rebuilds_collision() { return g_collision_allowed; }
 // Raised while create_piece clones a sector.
-int& cloning_piece() { return g_cloning_piece; }
+int& cloning_piece()
+{
+    static int cloning_piece{};
+    return cloning_piece;
+}
 
 // The members at +0x24 and +0x58 have empty destructors (calls to the empty function 0x005480A0).
 inline void destroy_empty_member(void* /*member*/) {}
@@ -62,11 +65,6 @@ void CellChainScratch::teardown()
 }
 
 // --- ParkAssembler ---------------------------------------------------------------------------------------------
-
-namespace {
-
-
-} // namespace
 
 ParkAssembler::~ParkAssembler()
 {
