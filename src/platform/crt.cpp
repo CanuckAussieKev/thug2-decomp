@@ -7,8 +7,6 @@
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 
-#include <climits>
-#include <cstdarg>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

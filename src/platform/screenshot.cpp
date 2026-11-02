@@ -52,7 +52,6 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/util/unique_handle.h"
-#include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

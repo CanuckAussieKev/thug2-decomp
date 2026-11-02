@@ -18,8 +18,6 @@
 #include <cstring>
 #include <cwchar>
 #include <string>
-#include <intrin.h>
-
 #ifdef _DEBUG
 #include <crtdbg.h>
 #include <rtcapi.h>

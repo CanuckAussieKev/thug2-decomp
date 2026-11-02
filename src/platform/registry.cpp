@@ -6,7 +6,6 @@
 #include <windows.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 #include "engine/core/format.h"
 

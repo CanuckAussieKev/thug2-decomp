@@ -4,8 +4,6 @@
 #include "platform/platform_cfuncs.h"
 
 #include <cstdint>
-#include <cstring>
-
 #include "engine/script/names.h"
 #include "engine/script/script_tables.h"
 #include "engine/pad_input/sdl_input.h"

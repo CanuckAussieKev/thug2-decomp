@@ -3,8 +3,6 @@
 #include "engine/gfx/engine.h"
 #include "platform/stopwatch.h"
 
-#include <intrin.h>
-
 #include <cstdint>
 #include <cstring>
 #include <ctime>
