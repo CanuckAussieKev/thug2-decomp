@@ -4,6 +4,8 @@
 #include <cstdint>
 
 #include "formats/byte_stream.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 // NOT ORIGINAL - the collision file format (.col, PC: "x.col.xbx": a level's or a skinned model's collision), its
 // header read through util::ByteReader, its sections laid out and checked before the game fixes it up in place.
@@ -53,6 +55,9 @@ struct CollisionLayout {
 };
 // NOLINTEND(readability-identifier-naming)
 
+// The large faces' buffers (the static colliders' own bytes) as laid out.
+inline uint8_t* face_buffers(const CollisionLayout& layout) { return cell::at_address<uint8_t>(layout.face_buffers); }
+
 // The header read and the sections laid out from `base`. `size`: the file's bytes, or 0 /
 // util::ByteReader::kUnknownSize when not known (then nothing past the header is checked). False if the header or a
 // section isn't within the file.
@@ -61,6 +66,35 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
 // Every object's arrays and its tree (before the fix-up: offsets) within their sections. False at the first that
 // isn't. (Not checked when the size isn't known.)
 bool check_collision_objects(const uint8_t* base, const CollisionHeader& header, const CollisionLayout& layout);
+
+// The fix-up of object `index`'s record in place (the objects start at the file's +0x20): its array offsets (faces
+// +0x0C, vertices +0x30, tree +0x34, vertex bytes +0x38) made addresses in their sections, and its tree's links -
+// a split node's children (the offset in bytes from the first node, its two flag bits kept) and a leaf's face list
+// (the offset in u16s into the face lists) - made addresses too, the less child's subtree first.
+void relocate_object(uint8_t* objects, int index, const CollisionLayout& layout);
+// Object `index`'s record as the game's own type for it (of the record's size and layout), used in place.
+template <typename Record>
+Record* object_record(uint8_t* objects, int index)
+{
+    static_assert(sizeof(Record) == kObjectSize, "the collision file's object record");
+    return raw::field_at<Record>(objects, static_cast<size_t>(index) * kObjectSize);
+}
+
+// A BSP node's link word once fixed up (x86's 32 bits hold an address): a leaf's face list, a split node's children
+// (the low two bits its flags), and the link that points at `target` (no flags).
+inline uint16_t* tree_leaf_faces(uint32_t link) { return cell::pointer<uint16_t>(link); }
+template <typename Node>
+Node* tree_children(uint32_t link)
+{
+    return cell::pointer<Node>(link & ~3u);
+}
+inline uint32_t tree_link_to(const void* target) { return cell::of(target); }
+// A link of a tree copied elsewhere: the same place in the copy (`from` the copied block's start, `to` the copy's),
+// the flag bits kept.
+inline uint32_t tree_link_moved(uint32_t link, const void* from, const void* to)
+{
+    return link + (cell::of(to) - cell::of(from));
+}
 
 // A collision object's faces, used in place: `count` records of 10 bytes (u16 flags, u16 terrain, three u16 vertex
 // indices) or, for "small" objects, of 8 bytes (u16 flags, u16 terrain, three u8 indices and a pad byte).

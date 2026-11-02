@@ -16,7 +16,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "formats/collision_format.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -57,10 +56,8 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
     }
     collision_count_ = header.object_count;
     for (int i = 0; i < header.object_count; ++i) {
-        auto* object = raw::field_at<TriMeshSource>(hit_shape_, i * collision_format::kObjectSize);
-        object->relocate(0, static_cast<uint32_t>(layout.vertices), static_cast<uint32_t>(layout.vertex_bytes),
-                         static_cast<uint32_t>(layout.faces), static_cast<uint32_t>(layout.nodes),
-                         static_cast<uint32_t>(layout.face_lists));
+        collision_format::relocate_object(hit_shape_, i, layout);
+        auto* object = collision_format::object_record<TriMeshSource>(hit_shape_, i);
         object->set_up_all_faces();
         box_.append_spot(object->bounds_.min);
         box_.append_spot(object->bounds_.max);

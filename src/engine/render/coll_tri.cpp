@@ -11,9 +11,8 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <algorithm>
 
 namespace render {
 
@@ -181,22 +180,24 @@ bool TriMeshSource::delete_bsp()
     if (uint16_t* faces = bsp_->first_face_list())
         memory::Hub::get_pull()->dealloc(faces);
     if (bsp_)
-        memory::Hub::get_pull()->dealloc(raw::bytes(bsp_) - 4);
+        free_tree_nodes(bsp_);
     bsp_ = nullptr;
     return true;
 }
 
-// 0x004169C0
-bool TriMeshSource::relocate(uint32_t, uint32_t vertex_base, uint32_t vertex_byte_base, uint32_t face_base,
-                             uint32_t node_base, uint32_t face_list_base)
+HitTreeNode* new_tree_nodes(int count)
 {
-    vertices_ = cell::pointer<void>(cell::of(vertices_) + vertex_base);
-    vertex_bytes_ = cell::pointer<uint8_t>(cell::of(vertex_bytes_) + vertex_byte_base);
-    faces_ = cell::pointer<uint8_t>(cell::of(faces_) + face_base);
-    bsp_ = cell::pointer<HitTreeNode>(cell::of(bsp_) + node_base);
-    HitTreeNode::relocate(bsp_, node_base, face_list_base);
-    return true;
+    // (the count's block is a node: one node more than asked for)
+    auto* block = static_cast<HitTreeNode*>(memory::alloc(sizeof(HitTreeNode) * (count + 1)));
+    if (!block)
+        return nullptr;
+    for (int i = 0; i <= count; ++i)
+        memory::construct_in<HitTreeNode>(&block[i]);
+    block[0].axis_tag_ = count;
+    return &block[1];
 }
+
+void free_tree_nodes(HitTreeNode* first) { memory::Hub::get_pull()->dealloc(first - 1); }
 
 // 0x00416400
 void TriMeshSource::get_slide(const maths::Vec4* delta)
@@ -604,19 +605,6 @@ void HitTreeNode::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale
         get_slide(centre);
 }
 
-// 0x00416000
-bool HitTreeNode::relocate(HitTreeNode* node, uint32_t node_base, uint32_t face_base)
-{
-    if (node->is_end_node()) {
-        node->chain_link_ = face_base + node->chain_link_ * 2;
-        return true;
-    }
-    node->chain_link_ = ((node->chain_link_ & ~3u) + node_base) | (node->chain_link_ & 3);
-    relocate(node->less_child(), node_base, face_base);
-    relocate(node->greater_child(), node_base, face_base);
-    return true;
-}
-
 // 0x00416A10 (a failed allocation crashes, as in the original)
 HitTreeNode* HitTreeNode::replicate(int) const
 {
@@ -625,26 +613,15 @@ HitTreeNode* HitTreeNode::replicate(int) const
     if (nodes <= 0)
         return nullptr;
     const uint16_t* old_faces = first_face_list();
-    // new HitTreeNode[nodes]: the count, then the nodes
-    auto* memory = static_cast<uint32_t*>(memory::alloc(nodes * 8 + 4));
-    HitTreeNode* copy = nullptr;
-    if (memory) {
-        *memory = nodes;
-        copy = raw::as<HitTreeNode>(memory + 1);
-        for (int i = 0; i < nodes; ++i)
-            new (&copy[i]) HitTreeNode;
-    }
+    // new HitTreeNode[nodes]
+    HitTreeNode* copy = new_tree_nodes(nodes);
     auto* new_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
-    std::memcpy(copy, this, nodes * 8);
+    std::copy_n(this, nodes, copy); // (the tree's nodes are one array, this the first)
     std::memcpy(new_faces, old_faces, faces * 2);
-    const uint32_t node_delta = cell::of(copy) - cell::of(this);
-    const uint32_t face_delta = cell::of(new_faces) - cell::of(old_faces);
     for (int i = 0; i < nodes; ++i) {
         HitTreeNode& node = copy[i];
-        if (node.is_end_node())
-            node.chain_link_ += face_delta;
-        else
-            node.chain_link_ = ((node.chain_link_ & ~3u) + node_delta) | (node.chain_link_ & 3);
+        node.chain_link_ = node.is_end_node() ? collision_format::tree_link_moved(node.chain_link_, old_faces, new_faces)
+                                              : collision_format::tree_link_moved(node.chain_link_, this, copy);
     }
     return copy;
 }

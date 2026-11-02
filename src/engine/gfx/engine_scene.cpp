@@ -27,15 +27,12 @@
 #include "engine/render/coll_line.h"
 #include "engine/render/coll_obj.h"
 #include <gsl/pointers>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
 
 namespace {
 
-constexpr int kTriDataSize = 0x40;
 
 // The engine's sector (not rewritten here; thiscall): its flags (+8) read / set / cleared, its name (+4 - the folded
 // getter 0x005480C0), its box, drawn and collided with or not.
@@ -174,25 +171,18 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, Sta
     }
     *count = header.object_count;
     *objects = data + collision_format::kHeaderSize;
-    const uintptr_t vertices = layout.vertices;
-    const uintptr_t vertex_bytes = layout.vertex_bytes;
-    const uintptr_t faces = layout.faces;
-    uintptr_t buffer = layout.face_buffers;
-    const uintptr_t nodes = layout.nodes;
-    const uintptr_t face_lists = layout.face_lists;
+    uint8_t* buffer = collision_format::face_buffers(layout);
     bool any_vertices = false;
     // the static objects: an array new (the count before them)
     *statics = new StaticCollider[static_cast<unsigned int>(header.object_count)];
     for (int i = 0; i < header.object_count; ++i) {
-        auto* geometry = raw::field_at<TriMeshSource>(*objects, i * kTriDataSize);
-        geometry->relocate(cell::of(this), static_cast<uint32_t>(vertices),
-                           static_cast<uint32_t>(vertex_bytes), static_cast<uint32_t>(faces),
-                           static_cast<uint32_t>(nodes), static_cast<uint32_t>(face_lists));
+        collision_format::relocate_object(*objects, i, layout);
+        auto* geometry = collision_format::object_record<TriMeshSource>(*objects, i);
         geometry->set_up_all_faces();
         // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         StaticCollider* object = &(*statics)[i];
         object->assign_shape_data(geometry);
-        buffer = cell::address(object->take_buffer(cell::pointer<uint8_t>(buffer), geometry));
+        buffer = object->take_buffer(buffer, geometry);
         if (geometry->tri_count_ > 0) {
             box->append_spot(geometry->bounds_.min);
             box->append_spot(geometry->bounds_.max);
@@ -262,10 +252,11 @@ void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int)
     float max_x = box[1].x, max_y = box[1].y, max_z = box[1].z;
     for_each_sector(sectors_, [&](void* sector) {
         const maths::BBox* bounds = sector_box(sector);
-        const auto* f = raw::as<const float>(bounds);
+        const maths::Vec4& low = bounds->min;
+        const maths::Vec4& high = bounds->max;
         // (each "not past it": NaN counts as touching)
-        if (!(min_x > f[4]) && !(f[0] > max_x) && !(min_z > f[6]) && !(f[2] > max_z) && !(min_y > f[5]) &&
-            !(f[1] > max_y))
+        if (!(min_x > high.x) && !(low.x > max_x) && !(min_z > high.z) && !(low.z > max_z) && !(min_y > high.y) &&
+            !(low.y > max_y))
             enable_sector(sector, on);
     });
 }

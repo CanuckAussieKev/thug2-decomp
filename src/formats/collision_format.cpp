@@ -142,6 +142,48 @@ bool check_collision_objects(const uint8_t* base, const CollisionHeader& header,
     return true;
 }
 
+namespace {
+
+uint32_t word_at(const uint8_t* at)
+{
+    uint32_t value = 0;
+    std::memcpy(&value, at, sizeof(value));
+    return value;
+}
+void set_word_at(uint8_t* at, uint32_t value) { std::memcpy(at, &value, sizeof(value)); }
+void add_base(uint8_t* at, uintptr_t base) { set_word_at(at, word_at(at) + static_cast<uint32_t>(base)); }
+
+// 0x00416000 (render::HitTreeNode's, cdecl)
+void relocate_tree(uint8_t* node, uint32_t node_base, uint32_t face_base)
+{
+    const uint32_t tag = word_at(node);
+    const uint32_t link = word_at(node + 4);
+    if ((tag & 3) == 3) {
+        set_word_at(node + 4, face_base + (link * 2));
+        return;
+    }
+    const uint32_t moved = ((link & ~3u) + node_base) | (link & 3);
+    set_word_at(node + 4, moved);
+    auto* children = tree_children<uint8_t>(moved);
+    const bool swapped = (moved & 1) != 0;
+    relocate_tree(children + (swapped ? 8 : 0), node_base, face_base);
+    relocate_tree(children + (swapped ? 0 : 8), node_base, face_base);
+}
+
+} // namespace
+
+// 0x004169C0 (render::TriMeshSource's)
+void relocate_object(uint8_t* objects, int index, const CollisionLayout& layout)
+{
+    uint8_t* record = objects + (static_cast<size_t>(index) * kObjectSize);
+    add_base(record + 0x30, layout.vertices);
+    add_base(record + 0x38, layout.vertex_bytes);
+    add_base(record + 0x0C, layout.faces);
+    add_base(record + 0x34, layout.nodes);
+    relocate_tree(cell::pointer<uint8_t>(word_at(record + 0x34)), static_cast<uint32_t>(layout.nodes),
+                  static_cast<uint32_t>(layout.face_lists));
+}
+
 uint8_t* FaceTable::at(int face, int offset) const { return bytes_ + (static_cast<ptrdiff_t>(face) * stride_) + offset; }
 
 uint16_t FaceTable::word(int face, int offset) const

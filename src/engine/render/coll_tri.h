@@ -8,8 +8,6 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
 #include "formats/collision_format.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -29,9 +27,15 @@ struct HitTreeNode {
     [[nodiscard]] int get_axis() const { return axis_tag_ & 3; }
     [[nodiscard]] int get_split() const { return axis_tag_ >> 2; }
     void set_split(int value) { axis_tag_ = (value << 2) | (axis_tag_ & 3); }
-    [[nodiscard]] uint16_t leaf_face_count() const { return raw::as<const uint16_t>(this)[1]; }
-    [[nodiscard]] uint16_t* get_leaf_faces() const { return cell::pointer<uint16_t>(chain_link_); }
-    [[nodiscard]] HitTreeNode* get_children() const { return cell::pointer<HitTreeNode>(chain_link_ & ~3u); }
+    [[nodiscard]] uint16_t leaf_face_count() const { return static_cast<uint16_t>(static_cast<uint32_t>(axis_tag_) >> 16); }
+    [[nodiscard]] uint16_t* get_leaf_faces() const { return collision_format::tree_leaf_faces(chain_link_); }
+    [[nodiscard]] HitTreeNode* get_children() const { return collision_format::tree_children<HitTreeNode>(chain_link_); }
+    // A leaf of `count` faces listed at `faces`.
+    void make_leaf(uint16_t count, uint16_t* faces)
+    {
+        axis_tag_ = 3 | static_cast<int32_t>(static_cast<uint32_t>(count) << 16);
+        chain_link_ = collision_format::tree_link_to(faces);
+    }
     [[nodiscard]] HitTreeNode* less_child() const { return get_children() + ((chain_link_ & 1) ? 1 : 0); }
     [[nodiscard]] HitTreeNode* greater_child() const { return get_children() + ((chain_link_ & 1) ? 0 : 1); }
 
@@ -47,13 +51,15 @@ struct HitTreeNode {
     void rotate_y(const maths::Vec4* centre, int quarter_turns, bool move_to_centre);
     // 0x00415F30: scaled by `scale` around `centre` (moved there and back when `move_to_centre`).
     void scale_tool(const maths::Vec4* centre, const maths::Vec4* scale, bool move_to_centre);
-    // 0x00416000 (cdecl): the tree read from a file fixed up: child offsets + `node_base`, leaf face offsets
-    // (in u16s) into pointers from `face_base`. Returns true.
-    static bool relocate(HitTreeNode* node, uint32_t node_base, uint32_t face_base);
     // 0x00416A10: a copy of the tree and its face indices (the argument unused); null if it has no nodes.
     [[nodiscard]] HitTreeNode* replicate(int unused) const;
 };
 static_assert(sizeof(HitTreeNode) == 8, "the collision file's BSP node (collision_format.h), used in place");
+
+// A tree's nodes as new[] made them (0x00414D70 each), the block before the first holding their count - and the
+// block freed from there (the original's new[] kept the count in the word before them).
+HitTreeNode* new_tree_nodes(int count);
+void free_tree_nodes(HitTreeNode* first);
 
 // A collision object's geometry (render::TriMeshSource, from a .col file): its vertices (floats, or 16-bit offsets
 // from its box's minimum in sixteenths when "compressed"), faces and BSP tree.
@@ -93,9 +99,6 @@ struct TriMeshSource {
     void destruct();
     // 0x00416080: the tree and its face indices freed (false if there was none).
     bool delete_bsp();
-    // 0x004169C0: read from a file: the arrays' offsets turned into pointers (the first argument unused).
-    bool relocate(uint32_t unused, uint32_t vertex_base, uint32_t vertex_byte_base, uint32_t face_base,
-                  uint32_t node_base, uint32_t face_list_base);
     // 0x00416400: vertices (uncompressed), box and tree moved by `delta`.
     void get_slide(const maths::Vec4* delta);
     // 0x004164F0: turned by `quarter_turns` quarter turns about Y around `centre` (compressed vertices through a

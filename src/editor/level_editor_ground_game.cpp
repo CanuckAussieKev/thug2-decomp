@@ -38,8 +38,6 @@
 #include "platform/crt.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/surface_material.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
@@ -265,10 +263,10 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     auto faces = static_cast<uint32_t>(mesh.faces.size());
     auto* vertices = static_cast<float*>(memory::alloc(count * 12));
     auto* face_data = static_cast<uint8_t*>(memory::alloc(faces * 10));
-    auto* node_memory = static_cast<uint32_t*>(memory::alloc(8 + 4));
+    render::HitTreeNode* leaf = render::new_tree_nodes(1);
     auto* leaf_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
     uint8_t* bytes = tri->vertex_bytes_ ? static_cast<uint8_t*>(memory::alloc(count)) : nullptr;
-    if (!vertices || !face_data || !node_memory || !leaf_faces || (tri->vertex_bytes_ && !bytes)) {
+    if (!vertices || !face_data || !leaf || !leaf_faces || (tri->vertex_bytes_ && !bytes)) {
         *why = "out of memory for the collision";
         return false;
     }
@@ -299,11 +297,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     tri->bounds_.min.x = mesh.min.x, tri->bounds_.min.y = mesh.min.y, tri->bounds_.min.z = mesh.min.z;
     tri->bounds_.max.x = mesh.max.x, tri->bounds_.max.y = mesh.max.y, tri->bounds_.max.z = mesh.max.z;
     tri->unknown3c_ = 0; // (no face skipped by its distance)
-    // (new HitTreeNode[1]: the count, then one leaf - axis bits 3, its face count at +2, its faces at +4)
-    node_memory[0] = 1;
-    auto* leaf = raw::as<render::HitTreeNode>(node_memory + 1);
-    leaf->axis_tag_ = 3 | static_cast<int32_t>(faces << 16);
-    leaf->chain_link_ = cell::of(leaf_faces);
+    // (new HitTreeNode[1]: one leaf of every face)
+    leaf->make_leaf(static_cast<uint16_t>(faces), leaf_faces);
     tri->bsp_ = leaf;
     tri->set_up_all_faces();
     // (the face-rejection bytes: one a face, on the bottom-up heap as StaticCollider::Replicate keeps them)
