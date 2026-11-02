@@ -26,7 +26,6 @@
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
 #include "engine/gfx/loading_console.h"
-#include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 

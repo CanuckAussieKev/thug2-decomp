@@ -15,7 +15,6 @@
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
 #include "frontend/data_overlay.h"
-#include "engine/sys/game_module.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
