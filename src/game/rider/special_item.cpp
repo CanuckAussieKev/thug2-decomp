@@ -23,8 +23,6 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -162,10 +160,10 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
     switch (name) {
     case kCreateSpecialItem: {
         // (Without them the original's slot and params name are what its argument slots held: the member
-        // function's name and the params pointer.)
+        // function's name and the params pointer - here the name, and no params.)
         int slot = static_cast<int>(name);
         uint32_t bone = 0;
-        auto item_params = cell::of(params);
+        uint32_t item_params = 0;
         params->fetch_int_value(kIndex, &slot, 1);
         params->read_hash_value(kBone, &bone, 0);
         params->read_hash_value(kParams, &item_params, 1);
@@ -184,7 +182,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         return 1;
     }
     case kDestroySpecialItem: {
-        int slot = static_cast<int>(cell::of(params)); // (as above)
+        int slot = 0; // (the original's: the params pointer's slot)
         params->fetch_int_value(kIndex, &slot, 1);
         destroy_item(slot);
         online::SpecialItemMessage destroyed; // (params and bone: not set by the original)

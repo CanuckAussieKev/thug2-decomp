@@ -18,7 +18,6 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/pointer_cell.h"
 
 namespace script {
 
@@ -82,7 +81,7 @@ void Script::teardown()
     if (prior_entry_)
         prior_entry_->following_ = following_;
 
-    forget_stored_randoms_of(cell::of(this));
+    forget_stored_randoms_of(this);
     if (objects::SignalRouteTable* table = signal_routes_) {
         if (table->in_use_) {
             // Its handlers are being run: it is marked dead and freed afterwards (by forward_trigger).

@@ -317,6 +317,14 @@ public:
     bool fetch_text(uint32_t name, const char** out, int assert);
     bool fetch_text(const char* name, const char** out, int assert);
     bool fetch_int_value(uint32_t name, int* out, int assert);
+    // The same into an unsigned word (the integer's bits; left as it was when not found).
+    bool fetch_int_value(uint32_t name, uint32_t* out, int assert)
+    {
+        int value = static_cast<int>(*out);
+        const bool found = fetch_int_value(name, &value, assert);
+        *out = static_cast<uint32_t>(value);
+        return found;
+    }
     bool fetch_int_value(const char* name, int* out, int assert);
     bool fetch_float(uint32_t name, float* out, int assert);
     bool fetch_float(const char* name, float* out, int assert);

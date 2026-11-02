@@ -24,6 +24,8 @@ struct PoolPair;
 
 namespace script {
 
+class Script;
+
 // The token after `token`.
 const uint8_t* step_over_token(const uint8_t* token);
 // Past any end-of-line tokens.
@@ -67,7 +69,7 @@ void note_qb_name(uint32_t checksum, const char* name);
 const char* kept_qb_name(uint32_t checksum);
 
 // Forget which script the stored random states belonging to `owner` (a script) were for.
-void forget_stored_randoms_of(uint32_t owner);
+void forget_stored_randoms_of(const Script* owner);
 
 // Create all the script system's item pools (from the script heap) and the permanent string heap.
 void create_script_pools();
@@ -106,7 +108,7 @@ struct StoredRandom {
     // Shuffle the order; with `avoid_repeat`, the new first choice isn't the old last one.
     void shuffle(bool avoid_repeat);
 
-    uint32_t owner_;              // the script using it
+    const Script* owner_;         // the script using it (null: none)
     const uint8_t* lookup_table_; // the random table's offsets in the script
     uint16_t num_;
     uint16_t unknowna_;

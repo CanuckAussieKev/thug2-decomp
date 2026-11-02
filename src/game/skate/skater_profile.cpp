@@ -16,7 +16,6 @@
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -291,8 +290,9 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
 {
     if (!params)
         return true;
-    // (the original keeps its values in its argument slots: what a lookup that finds nothing leaves)
-    auto checksum = cell::of(params);     // the checksums, then the specials structure
+    // (the original keeps its values in its argument slots: what a lookup that finds nothing leaves - the
+    // parameters' address for the checksums; here 0)
+    uint32_t checksum = 0;                                  // the checksums
     uint32_t number = info;                                 // the integers, then the trick style structure
     uint32_t stat_name = specials;
     const char* text = nullptr;
@@ -309,13 +309,13 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             mine->append_word(name, text);
         }
         for (const uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
-            params->fetch_int_value(name, raw::as<int>(&number), name != 0x27EB9B9D);
+            params->fetch_int_value(name, &number, name != 0x27EB9B9D);
             mine->put_int(name, static_cast<int>(number));
         }
         params->read_hash_value(kName, &checksum, 1);
         mine->put_name_key(kName, checksum);
         if (checksum == kCustomSkater) {
-            params->fetch_int_value(0xB78D4AAE, raw::as<int>(&number), 1);
+            params->fetch_int_value(0xB78D4AAE, &number, 1);
             mine->put_int(0xB78D4AAE, static_cast<int>(number));
         }
         for (const uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
@@ -333,17 +333,22 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
     }
     if (!specials)
         return true;
-    params->read_sub_struct(kSpecials, raw::as<script::Struct*>(&checksum), 1);
-    mine->put_sub_struct(kSpecials, cell::pointer<script::Struct>(checksum));
+    script::Struct* special_tricks = nullptr; // (the original read it into the checksums' slot)
+    params->read_sub_struct(kSpecials, &special_tricks, 1);
+    if (special_tricks)
+        mine->put_sub_struct(kSpecials, special_tricks);
     int max_specials = 0;
     params->fetch_int_value(kMaxSpecials, &max_specials, 1);
     mine->put_int(kMaxSpecials, max_specials);
     uint32_t style_name = 0;
     params->read_hash_value(kTrickStyleName, &style_name, 1);
     script::Struct* style = script::read_sub_struct(style_name);
-    mine->read_sub_struct(kTrickStyle, raw::as<script::Struct*>(&number), 1);
-    cell::pointer<script::Struct>(number)->get_clear();
-    cell::pointer<script::Struct>(number)->append_structure_if_any(style);
+    script::Struct* trick_style = nullptr; // (the original read it into the integers' slot)
+    mine->read_sub_struct(kTrickStyle, &trick_style, 1);
+    if (trick_style) {
+        trick_style->get_clear();
+        trick_style->append_structure_if_any(style);
+    }
     // Every stat in the global list.
     script::Array* stats = script::fetch_list(kStatCatalog);
     for (uint32_t i = 0; i < stats->extent_; ++i) {
@@ -373,7 +378,7 @@ bool RiderIdentity::get_reset(script::Struct* params)
     pop_heap();
     if (!params)
         return true;
-    auto appearance = cell::of(memory); // (the slot's last value, if there's none)
+    uint32_t appearance = 0; // (the original's: the slot's last value - a structure's address)
     params->read_hash_value(kAppearanceName, &appearance, 1);
     load_appearance(this, appearance, true);
     mine->get_clear();
@@ -406,7 +411,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
 {
     script::Struct* mine = script::new_struct();
     mine->add_component_of_type(0x1902C8F0, script::kQbvalInteger, 2); // the version
-    int pro = static_cast<int>(cell::of(mine));      // (the slot's last value, if is_pro isn't there)
+    int pro = 0; // (the original's: the slot's last value - a structure's address)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
         script::Struct* appearance = script::new_struct();
@@ -475,7 +480,7 @@ int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
         buffer, size, static_cast<uint8_t>(flags) != 0); // the appearance
     size -= total;
     buffer += total;
-    auto* part = cell::pointer<script::Struct>(flags); // (the argument's slot)
+    script::Struct* part = nullptr; // (the original's: the flags argument's slot)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     int written = write_struct(part, buffer, size);
     total += written;

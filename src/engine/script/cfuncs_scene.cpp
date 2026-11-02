@@ -257,7 +257,7 @@ bool cfunc_set_reference_checksum(Struct* params, Script*)
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
     if (!params->read_hash_value(0u, &checksum, 0))
-        params->fetch_int_value(0u, raw::as<int>(&checksum), true);
+        params->fetch_int_value(0u, &checksum, true);
     assets->set_unknown18(static_cast<int>(checksum));
     return true;
 }

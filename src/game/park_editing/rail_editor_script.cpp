@@ -15,7 +15,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/stubs.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -146,7 +145,7 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
         info->append_array_ref(kRails, rails);
     }
     // (then the base's - the empty 0x005BAB90)
-    stubs::ignore_argument(static_cast<int>(cell::of(info)));
+    stubs::ignore_argument(info);
 }
 
 // 0x004F6680

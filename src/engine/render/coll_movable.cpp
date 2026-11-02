@@ -11,7 +11,6 @@
 #include "engine/render/coll_tri.h"
 #include "engine/core/stubs.h"
 #include "engine/render/coll_obj.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -31,7 +30,7 @@ void set_identity(maths::Mat4& m)
 void draw_box(const maths::BBox* box, const maths::Mat4* transform, uint32_t colour, int flag)
 {
     (void)box;
-    stubs::ignore_arguments3(static_cast<int>(cell::of(transform)), static_cast<int>(colour), flag);
+    stubs::ignore_arguments3(transform, static_cast<int>(colour), flag);
 }
 
 } // namespace

@@ -1387,9 +1387,9 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
 {
     switch (name) {
     case 0x1B572ABF: { // KillSkater
-        // (the original keeps the flag in the low byte of its params slot: the restart is told that word)
-        const uint32_t walking =
-            (cell::of(params) & 0xFFFFFF00u) | (params->has_entry_named(0xD6F06BF6) ? 1u : 0u);
+        // (the original keeps the flag in the low byte of its params slot: the restart is told that word, the
+        // address's other bytes with it - only the flag here)
+        const uint32_t walking = params->has_entry_named(0xD6F06BF6) ? 1u : 0u;
         uint32_t prefix = 0;
         const char* text = nullptr;
         if (!params->read_hash_value(0x6C4E7971, &prefix, 0) && params->fetch_text(0x6C4E7971, &text, 0)) // prefix

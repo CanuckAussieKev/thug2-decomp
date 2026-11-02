@@ -27,8 +27,6 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "platform/registry.h"
 
@@ -199,7 +197,8 @@ void init_direct_3d()
     //   if (!pp.Windowed) while (ShowCursor(FALSE) > 0) {}
     load_gamma();
     // the debug font (none on PC: the original calls the shared `return 0` stub)
-    g_debug_font = cell::pointer<TypefaceData>(static_cast<uintptr_t>(stubs::return_zero()));
+    (void)stubs::return_zero();
+    g_debug_font = nullptr;
     frame_clock::change_bits();
 }
 

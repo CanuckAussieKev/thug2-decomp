@@ -40,7 +40,6 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/balance_trick.h"
 #include "engine/objects/vehicle_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -154,7 +153,7 @@ int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, uint32
 int tricks_array_count(modules::PointTally* /*score*/, script::Array* tricks, uint32_t since)
 {
     // (the shared "0": a stdcall stub of two stack arguments; the score is only in ECX)
-    return stubs::return_zero2(static_cast<int>(static_cast<intptr_t>(cell::address(tricks))), static_cast<int>(since));
+    return stubs::return_zero2(tricks, static_cast<int>(since));
 }
 void add_gap_score(modules::PointTally* score, const char* text, int points, int flags)
 {

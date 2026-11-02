@@ -299,7 +299,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         p.emit_script_ = emit_target_;
         p.entity_key_ = entity_->ident_;
     }
-    params->fetch_int_value(0x5A235299u, raw::as<int>(&lifespan_), 0);
+    params->fetch_int_value(0x5A235299u, &lifespan_, 0);
     params->read_hash_value(0xA1DC81F9u, &p.label_, 1);
     params->read_hash_value("GroupID", &p.group_id_, 0);
     params->read_hash_value(0x7321A8D6u, &p.unknown04_, 0);
@@ -390,7 +390,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             get_rgb(array, core::at(p.shade_, i).data(), &value);
     static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu}};
     for (int i = 0; i < 3; ++i) {
-        if (params->fetch_int_value(core::at(kAlphas, i), raw::as<int>(&value), 0)) {
+        if (params->fetch_int_value(core::at(kAlphas, i), &value, 0)) {
             auto alpha = static_cast<uint8_t>(value);
             core::at(core::at(p.shade_, i), 3) = alpha > 0x80 ? 0x80 : alpha;
         }

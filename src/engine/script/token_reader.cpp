@@ -15,7 +15,6 @@
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/movie.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
@@ -113,10 +112,10 @@ Script* step_script_list(Script* script) { return script ? *raw::as<Script*>(scr
 // 0x0046F7A0
 StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
 {
-    auto script = cell::of(get_running_script());
+    const Script* script = get_running_script();
     for (StoredRandom* stored = stored_randoms_newest(); stored; stored = stored->succ_) {
         if (stored->lookup_table_ == table && stored->kind_tag_ == type && stored->num_ == count &&
-            (stored->owner_ == script || stored->owner_ == 0))
+            (stored->owner_ == script || stored->owner_ == nullptr))
             return stored;
     }
     return nullptr;
@@ -188,7 +187,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                 stored->num_ = static_cast<uint16_t>(count);
                 stored->last_ = static_cast<uint32_t>(maths::rnd(static_cast<int>(count)));
             }
-            stored->owner_ = cell::of(get_running_script());
+            stored->owner_ = get_running_script();
             int pick = maths::rnd(static_cast<int>(count));
             for (int tries = 0; static_cast<uint16_t>(pick) == stored->last_;) {
                 if (++tries > 100)
@@ -215,7 +214,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                     core::at(stored->order_, i) = static_cast<uint8_t>(i);
                 stored->shuffle(false);
             }
-            stored->owner_ = cell::of(get_running_script());
+            stored->owner_ = get_running_script();
             if (++stored->ordinal_ >= stored->num_) {
                 stored->shuffle(true);
                 stored->ordinal_ = 0;

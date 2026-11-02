@@ -61,7 +61,6 @@
 #include "wire/play_messages.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -271,7 +270,7 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     if (action == kFlagActionException)
         params->read_hash_value(0u, &value, 0);
     else
-        params->fetch_int_value(0u, raw::as<int>(&value), 0);
+        params->fetch_int_value(0u, &value, 0);
     // (two flags looked for and not used)
     if (!params->has_bare_flag(kFlagCommandFlagA))
         params->has_bare_flag(kFlagCommandFlagB);
@@ -813,7 +812,7 @@ bool cfunc_kill_tester_script(script::Struct*, script::Script*) { return skate_m
 bool cfunc_auto_rail(script::Struct* params, script::Script*)
 {
     (void)modules::g_skate_module->rail_manager_; // (the stub's `this`)
-    stubs::ignore_argument(static_cast<int>(static_cast<intptr_t>(cell::address(params))));
+    stubs::ignore_argument(params);
     return true;
 }
 

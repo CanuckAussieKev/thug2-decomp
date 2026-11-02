@@ -19,7 +19,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -297,9 +296,9 @@ bool cfunc_mangle_checksums(Struct* params, Script* script)
     uint32_t a = 0;
     uint32_t b = 0;
     if (!params->read_hash_value(kA, &a, 0))
-        params->fetch_int_value(kA, raw::as<int>(&a), 1);
+        params->fetch_int_value(kA, &a, 1);
     if (!params->read_hash_value(kB, &b, 0))
-        params->fetch_int_value(kB, raw::as<int>(&b), 1);
+        params->fetch_int_value(kB, &b, 1);
     script->args_->put_name_key(kMangledId, a + b);
     return true;
 }

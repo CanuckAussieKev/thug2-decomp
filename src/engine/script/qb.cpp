@@ -24,7 +24,6 @@
 #include "engine/script/cscript.h"
 #include "platform/run_log.h"
 #include "engine/core/bits_as.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
@@ -367,13 +366,12 @@ void add_script_checksum_name(uint32_t checksum, const char* name)
 }
 
 // 0x0046F870
-void forget_stored_randoms_of(uint32_t owner)
+void forget_stored_randoms_of(const Script* owner)
 {
-    // The stored random states (newest first, the next at +0x58), the owning script first.
-    for (auto* entry = raw::as<uint32_t>(g_stored_randoms_newest); entry;
-         entry = cell::pointer<uint32_t>(entry[0x58 / 4])) {
-        if (entry[0] == owner)
-            entry[0] = 0;
+    // The stored random states (newest first), their owning scripts let go of.
+    for (StoredRandom* entry = g_stored_randoms_newest; entry; entry = entry->succ_) {
+        if (entry->owner_ == owner)
+            entry->owner_ = nullptr;
     }
 }
 

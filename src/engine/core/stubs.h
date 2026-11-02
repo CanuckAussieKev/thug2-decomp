@@ -10,8 +10,11 @@ bool return_false();
 int return_zero();
 void do_nothing();
 void ignore_argument(int);
+void ignore_argument(const void*); // (the same stub, given an address)
 void ignore_arguments3(int, int, int);
+void ignore_arguments3(const void*, int, int);
 int return_zero2(int, int);
+int return_zero2(const void*, int);
 uint16_t return_zero_word();
 
 } // namespace stubs

@@ -30,7 +30,6 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/script_startup.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
@@ -137,9 +136,9 @@ struct PlayParams {
 };
 PlayParams read_play_params(Struct* params)
 {
-    // (the anim name goes in the argument's own slot: the params' address if missing)
+    // (the anim name goes in the argument's own slot: the params' address if missing - none here)
     PlayParams p;
-    p.anim = cell::of(params);
+    p.anim = 0;
     params->read_hash_value(kAnimName, &p.anim, 1);
     params->fetch_float(kStartTime, &p.start, 1);
     params->fetch_float(kEndTime, &p.end, 1);

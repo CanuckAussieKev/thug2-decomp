@@ -68,7 +68,6 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/balance_trick.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -797,7 +796,7 @@ void Skate::debug_rails()
         core::at(matrix, 15) = 1.0f;
         const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)
-            stubs::ignore_argument(static_cast<int>(cell::address(matrix.data())));
+            stubs::ignore_argument(matrix.data());
     }
 }
 
