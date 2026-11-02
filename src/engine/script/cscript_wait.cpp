@@ -51,13 +51,7 @@ gsl::owner<SignalRouteTable*> new_event_handler_table()
 }
 
 // A new, empty structure.
-Struct* new_empty_struct()
-{
-    gsl::owner<Struct*> structure = spawn_param_bag();
-    if (structure)
-        new (structure) script::Struct;
-    return structure;
-}
+gsl::owner<Struct*> new_empty_struct() { return new_struct(); }
 
 } // namespace
 
@@ -300,7 +294,7 @@ bool Script::return_from_script(Struct* results)
         }
         const CallFrame& frame = frame_records_[call_depth_];
         script_title_ = frame.script_id_;
-        args_ = frame.arg_struct_;
+        args_ = memory::owned_element(frame.arg_struct_);
         pc_ = frame.caller_frame_;
         entity_.assign_value(frame.owner_entity_);
         innermost_repeat_ = frame.loop_state_;

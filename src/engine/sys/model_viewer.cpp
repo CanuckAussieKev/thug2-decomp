@@ -151,16 +151,14 @@ void Viewer::drop_viewer_entity()
 {
     if (!entity_)
         return;
-    shut_down_object(entity_);
-    delete entity_;
-    entity_ = nullptr;
+    shut_down_object(entity_.get());
+    memory::destroy_then_clear(entity_);
 }
 
 // 0x00576D70
 void Viewer::stop_callback()
 {
-    delete entity_;
-    entity_ = nullptr;
+    memory::destroy_then_clear(entity_);
     remove_node(pad_listener_.get());
     remove_node(task_1c_.get());
     remove_node(task20_.get());
@@ -180,7 +178,7 @@ Viewer::~Viewer()
 }
 
 // 0x00576E60
-gsl::owner<void*> Viewer::get_viewer_entity() { return entity_; }
+objects::PreviewEntity* Viewer::get_viewer_entity() { return entity_.get(); }
 
 // 0x00576E70
 void change_view_mode(int mode) { view_mode_value() = mode; }
@@ -290,7 +288,7 @@ void Viewer::create_viewer_object(void* data)
     manager->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(manager->debug_heap_)
                                                            : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
     drop_viewer_entity();
-    entity_ = new objects::PreviewEntity(net_handler_.get());
+    entity_ = std::make_unique<objects::PreviewEntity>(net_handler_.get());
     entity_->read_in(static_cast<script::Struct*>(data)); // (no memory: a crash, as the original)
     memory::Hub::get_pull()->leave_heap_scope();
 }

@@ -78,8 +78,7 @@ Vector* new_result_vector()
 Struct* new_result_structure()
 {
     set_result_type(kQbvalStruct);
-    gsl::owner<Struct*> structure = spawn_param_bag();
-    structure = structure ? new (structure) script::Struct : nullptr;
+    gsl::owner<Struct*> structure = script::new_struct();
     get_result().value.set_structure(structure);
     return structure;
 }
@@ -538,8 +537,7 @@ void ValueResolver::execute()
                     "Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
                 break;
             }
-            gsl::owner<Array*> array = alloc_script_array();
-            array = array ? new (array) script::Array : nullptr;
+            gsl::owner<Array*> array = script::new_array();
             set_result_type(kQbvalArray);
             result.value.set_array(array);
             const uint32_t size_a = a->value.array()->extent_;

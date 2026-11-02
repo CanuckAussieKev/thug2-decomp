@@ -71,7 +71,7 @@ namespace commands {
 bool g_trying_to_join;
 std::array<char, 128> g_node_list_name;
 namespace {
-tasks::Task<void>* g_second_controller_check;
+gsl::owner<tasks::Task<void>*> g_second_controller_check;
 int g_view_mode_cfunc;
 std::array<char, 32> g_password_stars;
 } // namespace
@@ -135,7 +135,6 @@ bool& online_mode_flag() { return online::g_online_active; }
 bool& join_server_ip_succeeded() { return online::g_join_server_ip_succeeded; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
-tasks::Task<void>*& second_controller_check() { return g_second_controller_check; }
 int& view_mode() { return g_view_mode_cfunc; }
 
 // GetPreferencePassword's row of stars (0x007CEBD0).
@@ -143,7 +142,7 @@ char* password_stars() { return g_password_stars.data(); }
 
 objects::PreviewEntity* viewer_target(modules::Viewer* viewer)
 {
-    return static_cast<objects::PreviewEntity*>(viewer->get_viewer_entity());
+    return viewer->get_viewer_entity();
 }
 
 } // namespace
@@ -204,8 +203,8 @@ bool cfunc_check_for_holes(script::Struct*, script::Script*)
 // 0x0059F740: StopSecondControllerCheck: the check's task (if any) deleted.
 bool cfunc_stop_second_controller_check(script::Struct*, script::Script*)
 {
-    delete second_controller_check();
-    second_controller_check() = nullptr;
+    delete g_second_controller_check;
+    g_second_controller_check = nullptr;
     return true;
 }
 
@@ -579,11 +578,11 @@ bool cfunc_stop_keyboard_handler(script::Struct*, script::Script*)
 bool cfunc_spawn_second_controller_check(script::Struct*, script::Script*)
 {
     auto* main_loop = assets::g_main_loop_manager.get();
-    if (second_controller_check())
+    if (g_second_controller_check)
         return true;
     const tasks::Task<void>::Code code = &second_pad_watch_tick;
     auto task = memory::make_owned<tasks::Task<void>>(code, nullptr, 0);
-    second_controller_check() = task;
+    g_second_controller_check = task;
     main_loop->logic_tasks_.queue_job(task);
     return true;
 }
@@ -602,9 +601,6 @@ bool fetch_place(script::Struct* structure, script::VectorValue* out)
     return structure->fetch_vec(kPosition, out, 0) || structure->fetch_vec(kPos, out, 0);
 }
 
-// The getter folded at 0x00576E60 (the word at +0x54: the viewer's object, a profile's face texture...).
-void* word54(void* object) { return static_cast<modules::Viewer*>(object)->get_viewer_entity(); }
-
 // The game's C runtime (library code, called through the game).
 gsl::owner<void*> game_fopen(const char* name, const char* mode) { return crt::get_fopen(name, mode); }
 int game_fseek(void* file, long offset, int origin) { return crt::get_fseek(static_cast<FILE*>(file), offset, origin); }
@@ -614,8 +610,8 @@ size_t game_fread(void* buffer, size_t size, size_t count, void* file)
 {
     return crt::get_fread(buffer, size, count, static_cast<FILE*>(file));
 }
-int game_fclose(void* file) { return crt::get_fclose(static_cast<FILE*>(file)); }
-void game_free(void* memory) { crt::dealloc(memory); }
+int game_fclose(gsl::owner<void*> file) { return crt::get_fclose(memory::adopt<FILE*>(file)); }
+void game_free(gsl::owner<void*> memory) { crt::dealloc(memory); }
 double game_atof(const char* text) { return crt::get_atof(text); }
 
 // ShowTracking's debug line drawing - compiled out of this build (an empty call, 0x005480A0).
@@ -785,24 +781,25 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
 // faces\<file> (read with the C runtime; the script 0x808008EA then runs). False if the file can't be opened.
 bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
 {
-    void* face = word54(current_account());
+    // (the profile's face texture - the original read the word at +0x54 through a getter folded with the viewer's)
+    gfx::FaceSkin* face = current_account()->appearance()->face_skin_;
     const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &name, 1); // "string"
     std::array<char, 0x80> path{};
     THUG2_MSVC_WARNING(suppress : 4996)    // (unbounded: as in the original)
     std::sprintf(path.data(), "faces\\%s", name); // "faces\%s"
-    void* file = game_fopen(path.data(), "rb");   // "rb"
+    gsl::owner<void*> file = game_fopen(path.data(), "rb"); // "rb"
     if (!file)
         return false;
     game_fseek(file, 0, SEEK_END);
     const long size = game_ftell(file);
     game_fseek(file, 0, SEEK_SET);
-    void* data = game_malloc(static_cast<size_t>(size));
+    gsl::owner<void*> data = game_malloc(static_cast<size_t>(size));
     game_fread(data, 1, static_cast<size_t>(size), file);
     game_fclose(file);
-    static_cast<gfx::FaceSkin*>(face)->set_image(static_cast<const uint8_t*>(data), 0);
+    face->set_image(static_cast<const uint8_t*>(data), 0);
     game_free(data);
-    static_cast<gfx::FaceSkin*>(face)->mark_usable(true);
+    face->mark_usable(true);
     script::launch_script(0x808008EA, nullptr, nullptr, false, nullptr);
     return true;
 }
@@ -812,8 +809,7 @@ bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0x67E6859Au, &index, 1);
-    void* profile = get_skate()->fetch_account(index);
-    return word54(profile) != nullptr;
+    return get_skate()->fetch_account(index)->appearance()->face_skin_ != nullptr; // (its face texture: +0x54)
 }
 
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.

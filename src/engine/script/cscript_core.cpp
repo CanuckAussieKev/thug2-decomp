@@ -143,7 +143,7 @@ void Script::reset_script_state()
     for (int i = 0; i < call_depth_; ++i) {
         cache->release_script(frame_records_[i].script_id_);
         if (Struct* params = frame_records_[i].arg_struct_) {
-            free_struct(params);
+            free_struct(memory::owned_element(params));
             frame_records_[i].arg_struct_ = nullptr;
         }
     }

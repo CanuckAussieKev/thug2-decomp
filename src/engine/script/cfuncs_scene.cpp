@@ -114,7 +114,7 @@ void load_model_file(render::RenderModel* model, const char* file, bool allow_re
 {
     model->add_file_geom(file, 0, true, 0, allow_replace_tex, false, true, false);
 }
-void destroy_model(render::RenderModel* model) { delete model; }
+void destroy_model(gsl::owner<render::RenderModel*> model) { delete model; }
 
 } // namespace
 

@@ -442,8 +442,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     if (start.time_limit == 0 && start.game_type != kNetGoalAttack) {
         victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
         if (start.game_type != kFirefight && start.game_type != kNetFirefight) {
-            gsl::owner<script::Array*> conditions = script::alloc_script_array();
-            conditions = conditions ? new (conditions) script::Array : nullptr;
+            gsl::owner<script::Array*> conditions = script::new_array();
             script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
             auto* condition = conditions->struct_at(0);
             condition->add_component_of_type(kScore, script::kQbvalInteger, start.target_score);
@@ -452,8 +451,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     } else {
         victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, start.time_limit);
         if (start.game_type == kNetCtf) {
-            gsl::owner<script::Array*> conditions = script::alloc_script_array();
-            conditions = conditions ? new (conditions) script::Array : nullptr;
+            gsl::owner<script::Array*> conditions = script::new_array();
             script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
             victory->append_array_value(kVictoryConditions, conditions);
         }

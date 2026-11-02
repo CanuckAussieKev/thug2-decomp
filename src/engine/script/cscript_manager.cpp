@@ -177,8 +177,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
                                                 (pause_with_object ? kScriptFlagPauseWithObject : 0));
     if (callback) {
         script->on_finish_script_ = callback;
-        gsl::owner<Struct*> copy = spawn_param_bag();
-        copy = copy ? new (copy) script::Struct : nullptr;
+        gsl::owner<Struct*> copy = script::new_struct();
         script->callback_params_ = copy;
         if (callback_params)
             copy->merge_structure(callback_params);

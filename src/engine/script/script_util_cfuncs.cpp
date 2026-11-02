@@ -462,15 +462,14 @@ bool cfunc_permute_array(Struct* params, Script* script)
     const bool make_copy = !params->has_bare_flag("PermuteSource"); // "PermuteSource"
     uint32_t new_name = 0;
     Array* copy = nullptr;
-    gsl::owner<Array*> array = source;
+    Array* array = source;
     if (make_copy) {
         params->read_hash_value("NewArrayName", &new_name, 0); // "NewArrayName"
         if (!new_name)
             return false;
-        array = script::alloc_script_array();
-        if (array)
-            array = new (array) script::Array;
-        copy = array;
+        gsl::owner<Array*> made = script::new_array(); // (the script's parameters take it below)
+        array = made;
+        copy = made;
         script::duplicate_array(array, source);
     }
     const int size = static_cast<int>(array->extent_);

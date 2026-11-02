@@ -79,7 +79,7 @@ static_assert(offsetof(RepeatFrame, tokens_end_) == 0x4 && offsetof(RepeatFrame,
 // heap (no check beyond 16).
 struct CallFrame {
     uint32_t script_id_;                     // +0x00 script_title_
-    Struct* arg_struct_;                     // +0x04 args_ (owned)
+    Struct* arg_struct_;                     // +0x04 args_ (the script's: reset_script_state / the return free it)
     const uint8_t* caller_frame_;            // +0x08 pc_
     objects::Entity* owner_entity_;          // +0x0C entity_ (a plain pointer here: object_destroyed clears it)
     RepeatFrame* loop_state_;                // +0x10 innermost_repeat_
@@ -134,6 +134,13 @@ public:
     // 0x00474420: the destructor body: reset_script_state, report_stopped, frees the callback parameters, leaves the
     // list, forgets its stored randoms, lets go of the event handler table, ~shared_base_, ~entity_.
     void teardown();
+    // Never destroyed by a delete-expression: destroy() runs teardown (the destructor's body - it frees the owned
+    // parameters) and gives the memory back to the pool; make_new is the constructor. Never copied or moved.
+    ~Script() = delete;
+    Script(const Script&) = delete;
+    Script& operator=(const Script&) = delete;
+    Script(Script&&) = delete;
+    Script& operator=(Script&&) = delete;
     // 0x00449970 / 0x004499B0 (cdecl): CPoolable new / delete (the pool 0x006F3548, else the current heap).
     static void* operator new(size_t size);
     static void operator delete(void* script);
@@ -282,7 +289,7 @@ public:
     uint32_t spawner_file_;                    // +0xD0 the .qb file of the script that spawned it (set_spawner_file)
     uint32_t spawn_id_;                        // +0xD4 SpawnScript's id
     uint32_t on_finish_script_;                // +0xD8 run when a spawned script ends
-    Struct* callback_params_;                  // +0xDC (owned)
+    gsl::owner<Struct*> callback_params_;      // +0xDC (owned)
     gsl::owner<objects::SignalRouteTable*> signal_routes_; // +0xE0 made on demand
     uint32_t on_exception_script_;             // +0xE4 OnExceptionRun
     uint32_t on_exit_script_;                  // +0xE8 OnExitRun (this level's)

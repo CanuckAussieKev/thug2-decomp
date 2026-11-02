@@ -126,7 +126,8 @@ void ScriptStore::delete_entry(ScriptCacheEntry* entry)
     remove_from_unused(entry);
     if (entry->code)
         memory::free_malloc(entry->code);
-    delete entry;
+    gsl::owner<ScriptCacheEntry*> owned = memory::owned_element(entry); // (the store's: its table's value)
+    delete owned;
 }
 
 // 0x00475BD0
