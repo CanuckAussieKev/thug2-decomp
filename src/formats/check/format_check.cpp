@@ -39,12 +39,16 @@
 
 namespace {
 
-int g_failures = 0;
+int& failures()
+{
+    static int failures{0};
+    return failures;
+}
 
 void check(bool condition, const std::string& what)
 {
     if (!condition) {
-        ++g_failures;
+        ++failures();
         text::print("  FAIL %s\n", what.c_str());
     }
 }
@@ -814,11 +818,11 @@ int run_checks(int argc, char** argv)
     check_byte_stream();
     check_wire_messages();
     check_skate_messages();
-    g_failures += format_check_net::run();
+    failures() += format_check_net::run();
     for (int i = 1; i < argc; ++i) {
         const std::filesystem::path path(core::at(std::span(argv, static_cast<size_t>(argc)), i));
         if (std::filesystem::is_directory(path / "pre")) { // a Data folder: its archives and files
-            g_failures += format_check_files::run(path);
+            failures() += format_check_files::run(path);
         } else if (std::filesystem::is_directory(path)) {
             for (const auto& entry : std::filesystem::directory_iterator(path)) {
                 if (entry.is_regular_file() && is_save_file(entry.path()))
@@ -828,11 +832,11 @@ int run_checks(int argc, char** argv)
             check_save_file(path);
         }
     }
-    if (g_failures)
-        text::print("%d FAILED\n", g_failures);
+    if (failures())
+        text::print("%d FAILED\n", failures());
     else
         text::print("all passed\n");
-    return g_failures ? 1 : 0;
+    return failures() ? 1 : 0;
 }
 } // namespace
 

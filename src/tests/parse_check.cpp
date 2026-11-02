@@ -19,11 +19,22 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/field_reader.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace {
 
-int g_failures = 0;
-int g_checked = 0;
+// NOT ORIGINAL grouping - parse_check.cpp's state (were globals). Made on first use, never destroyed
+// (parse_check_state()).
+struct ParseCheckState {
+    int failures_ = 0;
+    int checked_ = 0;
+};
+
+ParseCheckState& parse_check_state()
+{
+    static core::NoDestroy<ParseCheckState> state;
+    return state.get();
+}
 
 bool same_double(double a, double b)
 {
@@ -34,7 +45,7 @@ bool same_double(double a, double b)
 
 void check(const std::string& text)
 {
-    ++g_checked;
+    ++parse_check_state().checked_;
     // NOLINTBEGIN(bugprone-unchecked-string-to-number-conversion): the C runtime's own functions, what the helpers
     // are checked against
     const int want_int = std::atoi(text.c_str());
@@ -44,11 +55,11 @@ void check(const std::string& text)
     const int got_int = text::to_int(text.c_str());
     const double got_double = text::to_double(text.c_str());
     if (got_int != want_int || static_cast<long>(got_int) != want_long) {
-        if (++g_failures <= 20)
+        if (++parse_check_state().failures_ <= 20)
             text::print("to_int(\"%s\") = %d, atoi %d, atol %ld\n", text.c_str(), got_int, want_int, want_long);
     }
     if (!same_double(got_double, want_double)) {
-        if (++g_failures <= 20)
+        if (++parse_check_state().failures_ <= 20)
             text::print("to_double(\"%s\") = %.17g, atof %.17g\n", text.c_str(), got_double, want_double);
     }
 }
@@ -60,7 +71,7 @@ bool same_float(float a, float b) { return std::bit_cast<uint32_t>(a) == std::bi
 
 void report_fields(const char* format, const std::string& text, int got, int want)
 {
-    if (++g_failures <= 20)
+    if (++parse_check_state().failures_ <= 20)
         text::print("FieldReader \"%s\" on \"%s\": %d fields, sscanf_s %d (or a field differs)\n", format, text.c_str(),
                     got, want);
 }
@@ -68,7 +79,7 @@ void report_fields(const char* format, const std::string& text, int got, int wan
 // The fields of `text` read by text::FieldReader and by sscanf_s with the formats the game uses.
 void check_fields(const std::string& text)
 {
-    ++g_checked;
+    ++parse_check_state().checked_;
     const char* source = text.c_str();
     // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg,bugprone-unchecked-string-to-number-conversion): the C runtime's
     // sscanf_s is the reference the reader is checked against
@@ -212,6 +223,6 @@ int main(int argc, char** argv)
         }
         check_fields(text);
     }
-    text::print("parse check: %d texts, %d differences\n", g_checked, g_failures);
-    return g_failures == 0 ? 0 : 1;
+    text::print("parse check: %d texts, %d differences\n", parse_check_state().checked_, parse_check_state().failures_);
+    return parse_check_state().failures_ == 0 ? 0 : 1;
 }

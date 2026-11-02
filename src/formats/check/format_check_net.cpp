@@ -29,12 +29,16 @@ namespace format_check_net {
 
 namespace {
 
-int g_failures = 0;
+int& failures()
+{
+    static int failures{0};
+    return failures;
+}
 
 void check(bool condition, const std::string& what)
 {
     if (!condition) {
-        ++g_failures;
+        ++failures();
         text::print("  FAIL %s\n", what.c_str());
     }
 }
@@ -873,7 +877,7 @@ int run()
     check_news();
     check_collision_messages();
     check_rails();
-    return g_failures;
+    return failures();
 }
 
 } // namespace format_check_net

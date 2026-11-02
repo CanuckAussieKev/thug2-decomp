@@ -17,6 +17,7 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/mem.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -28,10 +29,21 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
 void dealloc(gsl::owner<void*> memory) { crt::dealloc(memory); }
 
-buffer_lists::Node* g_vertex_buffer_list = nullptr; // (the original's 0x007865E4)
-buffer_lists::Node* g_index_buffer_list = nullptr;  // (0x007865E8)
-buffer_lists::Node*& vertex_buffers() { return g_vertex_buffer_list; }
-buffer_lists::Node*& index_buffers() { return g_index_buffer_list; }
+// NOT ORIGINAL grouping - vertex_buffers.cpp's state (the original's globals). Made on first use, never destroyed
+// (vertex_buffers_state()).
+struct VertexBuffersState {
+    buffer_lists::Node* vertex_buffer_list_ = nullptr; // (the original's 0x007865E4)
+    buffer_lists::Node* index_buffer_list_ = nullptr; // (0x007865E8)
+};
+
+VertexBuffersState& vertex_buffers_state()
+{
+    static core::NoDestroy<VertexBuffersState> state;
+    return state.get();
+}
+
+buffer_lists::Node*& vertex_buffers() { return vertex_buffers_state().vertex_buffer_list_; }
+buffer_lists::Node*& index_buffers() { return vertex_buffers_state().index_buffer_list_; }
 
 using BufferNode = buffer_lists::Node;
 
@@ -77,8 +89,8 @@ constexpr uint32_t kShared = 4;
 
 } // namespace
 
-buffer_lists::Node* buffer_lists::vertex_buffers() { return g_vertex_buffer_list; }
-buffer_lists::Node* buffer_lists::index_buffers() { return g_index_buffer_list; }
+buffer_lists::Node* buffer_lists::vertex_buffers() { return vertex_buffers_state().vertex_buffer_list_; }
+buffer_lists::Node* buffer_lists::index_buffers() { return vertex_buffers_state().index_buffer_list_; }
 
 // 0x004D3FF0
 VertexBuffer::VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags)

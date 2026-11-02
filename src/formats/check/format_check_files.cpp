@@ -48,12 +48,16 @@ namespace format_check_files {
 
 namespace {
 
-int g_failures = 0;
+int& failures()
+{
+    static int failures{0};
+    return failures;
+}
 
 void check(bool condition, const std::string& what)
 {
     if (!condition) {
-        ++g_failures;
+        ++failures();
         text::print("  FAIL %s\n", what.c_str());
     }
 }
@@ -298,7 +302,11 @@ void check_patch(const std::filesystem::path& patch_path, const std::filesystem:
 
 // --- asset bundles (.cut) ----------------------------------------------------------------------------------------
 
-int g_skin_colour_tables = 0;
+int& skin_colour_tables()
+{
+    static int skin_colour_tables{0};
+    return skin_colour_tables;
+}
 
 void check_bundle(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -331,7 +339,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
                   read.count == ints::as_signed(word_at(bytes, entry.offset + 4)) &&
                   read.entries == bytes.subspan(entry.offset + 8).data(),
               name + ": entry " + std::to_string(i) + "'s skin colours");
-        g_skin_colour_tables += 1;
+        skin_colour_tables() += 1;
         util::ByteReader cut_colours(
             window_at(bytes, entry.offset, static_cast<size_t>(8 + read.count * bundle_format::kSkinColourSize - 1)));
         check(!bundle_format::read_skin_colours(cut_colours, &read), name + ": skin colours cut short");
@@ -348,7 +356,11 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
 
 // --- texture dictionaries (.tex) -----------------------------------------------------------------------------------
 
-int g_level_size_mismatches = 0;
+int& level_size_mismatches()
+{
+    static int level_size_mismatches{0};
+    return level_size_mismatches;
+}
 
 void check_texture_dictionary(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -392,7 +404,7 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
                   what + ": level as in place");
             at += 4 + static_cast<size_t>(level_bytes);
             if (level_bytes != texture_format::level_size(texture, level)) {
-                if (g_level_size_mismatches++ < 5)
+                if (level_size_mismatches()++ < 5)
                     text::print("  note %s level %u: %u bytes, %ux%u depth %u compression %u expects %u\n",
                                 what.c_str(), level, level_bytes, texture.width, texture.height, texture.depth,
                                 texture.compression, texture_format::level_size(texture, level));
@@ -460,7 +472,11 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
 
 // --- collision (.col) ----------------------------------------------------------------------------------------------
 
-int g_collision_objects = 0;
+int& collision_objects()
+{
+    static int collision_objects{0};
+    return collision_objects;
+}
 
 void check_collision(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -493,7 +509,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
               layout.face_lists == face_lists,
           name + ": the sections as the original's arithmetic");
     check(collision_format::check_collision_objects(image, header, layout), name + ": every object within its sections");
-    g_collision_objects += header.object_count;
+    collision_objects() += header.object_count;
     // a size short of the tree's: refused
     collision_format::CollisionHeader again;
     collision_format::CollisionLayout cut;
@@ -503,7 +519,11 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
 
 // --- skeletons (.ske) ----------------------------------------------------------------------------------------------
 
-int g_bones = 0;
+int& stored_bones()
+{
+    static int bones{0};
+    return bones;
+}
 
 void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -513,7 +533,7 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
         check(false, name + ": skeleton");
         return;
     }
-    g_bones += skeleton->count;
+    stored_bones() += skeleton->count;
     check(reader.remaining() == 0, name + ": the bones end at the file's end");
     // the original's reading in place: the flags at +4, the count at +8, then the three name arrays and the poses
     const std::span<const uint8_t> bytes(data, size);
@@ -1070,13 +1090,13 @@ int run(const std::filesystem::path& data)
             check_file(std::filesystem::relative(entry.path(), data).string(), file.data(), file.size());
         }
     }
-    text::print("texture levels not of their computed size: %d\n", g_level_size_mismatches);
+    text::print("texture levels not of their computed size: %d\n", level_size_mismatches());
     text::print("images: %d (%d palettized, %d plain); the file loader's bytes within %d, the memory loader's %d\n",
                 g_images.files, g_images.palettized, g_images.plain, g_images.file_size_as_loaded,
                 g_images.memory_size_as_loaded);
-    text::print("cutscene skin colour tables: %d", g_skin_colour_tables);
-    text::print(" - collision objects: %d\n", g_collision_objects);
-    text::print("skeleton bones: %d\n", g_bones);
+    text::print("cutscene skin colour tables: %d", skin_colour_tables());
+    text::print(" - collision objects: %d\n", collision_objects());
+    text::print("skeleton bones: %d\n", stored_bones());
     text::print("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", g_anims.files,
                 g_anims.float_keys, g_anims.compressed, g_anims.neither, g_anims.custom_keys);
     text::print("scenes: %d (%d materials, %d sectors, %d meshes - %d skinned; %d with bytes past the hierarchy); "
@@ -1094,7 +1114,7 @@ int run(const std::filesystem::path& data)
     for (const auto& [extension, count] : checked_by_extension())
         text::print("files %s: %d checked\n", extension.c_str(), count);
     text::print("data %s: %zu archives\n", data.string().c_str(), archives.size());
-    return g_failures;
+    return failures();
 }
 
 } // namespace format_check_files
