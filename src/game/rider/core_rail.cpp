@@ -534,7 +534,7 @@ void SkaterPhysicsModule::finish_rail()
 {
     floor_normal_ = core::at(entity_->basis_frame_.row, 1);
     modules::PointTally* score = score_->points_held_;
-    const int time = static_cast<int>(static_cast<double>(rail_adjust_) * score->robot_factor_);
+    const int time = static_cast<int>(static_cast<double>(rail_adjust_) * score->robot_factor());
     score->tweak_trick(time);
     if (rail_manager_->node_array_) {
         script::Struct* script = level_nodes::fetch_vertex(rail_node_->label_, true);

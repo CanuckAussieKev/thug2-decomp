@@ -78,18 +78,6 @@ using online::kMsgBestCombo;   // the best combo to the server
 using online::kMsgLandedScore; // a landed combo's points to the server
 constexpr uint8_t kGroupGame = 8;
 
-// The tricks since the last no-spin one (index 0 not looked at).
-int tricks_since_no_spin(PointTally* score)
-{
-    int since = 0;
-    for (int i = score->tricks_ - 1; i > 0; --i) {
-        if (score->get_trick(i)->flag_bits_ & kTrickNoSpin)
-            break;
-        ++since;
-    }
-    return since;
-}
-
 // The skater's adjust-physics component's uber-frig flag (the tricks' points are held while it's set).
 bool points_held(objects::Rider* skater)
 {
@@ -116,37 +104,49 @@ void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int point
     core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot_))->send_to_host(&desc);
 }
 
+} // namespace
+
+// The tricks since the last no-spin one (index 0 not looked at).
+int PointTally::tricks_since_no_spin()
+{
+    int since = 0;
+    for (int i = tricks_ - 1; i > 0; --i) {
+        if (get_trick(i)->flag_bits_ & kTrickNoSpin)
+            break;
+        ++since;
+    }
+    return since;
+}
+
 // The robot counts: of the run (`run`) and of the combo; the factor back to 1.
-void reset_robot(PointTally* score, bool run)
+void PointTally::reset_robot(bool run)
 {
     if (run) {
-        score->robot_lines_ = 0;
-        score->robot_new_lines_ = 0;
-        std::memset(score->line_counts_.data(), 0, sizeof(score->line_counts_));
+        robot_lines_ = 0;
+        robot_new_lines_ = 0;
+        std::memset(line_counts_.data(), 0, sizeof(line_counts_));
     }
-    score->robot_combo_lines_ = 0;
-    score->robot_combo_first_lines_ = 0;
-    score->robot_combo_new_lines_ = 0;
-    std::memset(score->combo_line_counts_.data(), 0, sizeof(score->combo_line_counts_));
-    score->robot_factor_ = 1.0f;
+    robot_combo_lines_ = 0;
+    robot_combo_first_lines_ = 0;
+    robot_combo_new_lines_ = 0;
+    std::memset(combo_line_counts_.data(), 0, sizeof(combo_line_counts_));
+    robot_factor_ = 1.0f;
 }
 
 // The log's tricks freed and the combo emptied (Land and Bail; the pot itself is the caller's).
-void clear_combo(PointTally* score)
+void PointTally::clear_combo()
 {
-    const int count = score->log_.num_;
+    const int count = log_.num_;
     for (int i = 0; i < count; ++i)
-        memory::dealloc(core::at(score->log_.item_run(), i));
-    score->log_.num_ = 0;
-    score->last_no_spin_ = -1;
-    score->spin_trick_ = -1;
-    score->tricks_ = 0;
-    score->multiplier_ = 0.0f;
-    reset_robot(score, false);
-    score->bonus_ = 0;
+        memory::dealloc(core::at(log_.item_run(), i));
+    log_.num_ = 0;
+    last_no_spin_ = -1;
+    spin_trick_ = -1;
+    tricks_ = 0;
+    multiplier_ = 0.0f;
+    reset_robot(false);
+    bonus_ = 0;
 }
-
-} // namespace
 
 // 0x00562E40
 void PointTally::bank_combo_score()
@@ -464,7 +464,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
             focus_max_times_ = script::fetch_int_value(kFocusMaxTimesInCombo);
             skater->announce(kSkaterEnterCombo, nullptr, 0.0f);
         }
-        if (tricks_since_no_spin(this) > 10) {
+        if (tricks_since_no_spin() > 10) {
             newest_logged_trick()->points_held_ = 0;
             if (multiplier_ > 1.0f)
                 multiplier_ = static_cast<float>(static_cast<double>(multiplier_) - 1.0);
@@ -563,7 +563,7 @@ void PointTally::tweak_trick(int points)
     const TrickLog* trick = get_trick(tricks_ - 1);
     if (!core::at(trick->text_, 0))
         return;
-    if (tricks_since_no_spin(this) > 10)
+    if (tricks_since_no_spin() > 10)
         return;
     if (!(trick->flag_bits_ & kTrickNoSpin) && trick->points_held_ > 20000)
         return;
@@ -619,7 +619,7 @@ void PointTally::land()
                 core::at(seen->ongoing_, k) = 0;
             }
         }
-        reset_robot(this, true);
+        reset_robot(true);
     } else {
         for (int i = 0; i < seen_.num_; ++i) {
             auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr));
@@ -637,7 +637,7 @@ void PointTally::land()
         move_caption_landed(skater->get_skater_number());
     }
     pot_ = 0;
-    clear_combo(this);
+    clear_combo();
     const int before = get_total_score(); // (inlined there)
     if (!mode->is_true(kShouldModulateColor) && mode->keeps_move_points()) {
         bool send = mode->keeps_running_total();
@@ -675,7 +675,7 @@ void PointTally::get_bail(bool clear)
         }
     }
     pot_ = 0;
-    clear_combo(this);
+    clear_combo();
     special_ = 0;
     set_special_active(false); // (inlined there)
     core::down_cast<objects::RiderRunClock>(rider_for_slot(rider_no_)->fetch_module(kSkaterRunTimer))->halt();
@@ -689,7 +689,7 @@ void PointTally::get_reset()
         return;
     objects::Rider* skater = rider_for_slot(rider_no_);
     debug::printf("Score::RESET ...............\n"); // "PointTally::RESET ...............\n"
-    reset_robot(this, true);
+    reset_robot(true);
     reset_score_pot();
     lists::TableItemEraser destroyer{&seen_};
     destroyer.free_table_contents();

@@ -44,10 +44,10 @@ int total_score(modules::PointTally* score) { return score->get_total_score(); }
 // The score so far times the multiplier, truncated as the original's _ftol.
 int score_pot(modules::PointTally* score)
 {
-    const double pot = static_cast<double>(score->pot_) * score->multiplier_;
+    const double pot = static_cast<double>(score->pot()) * score->multiplier();
     return static_cast<int>(static_cast<int64_t>(pot));
 }
-int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
+int last_score_landed(modules::PointTally* score) { return score->pot_score(); }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
 RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
@@ -142,17 +142,17 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         return score_pot(points_held_) > value ? 1 : 0;
     }
     case kGetSpecialValue:
-        script->args_->put_int(kValue, points_held_->special_);
+        script->args_->put_int(kValue, points_held_->special());
         return 1;
     case kSetSpecialValue: {
         // (no value: the params pointer, as number_parameter's)
         int value = 0; // (missing: 0 - the original read an argument's stack slot, an address)
         params->fetch_int_value(kValue, &value, 0);
-        points_held_->special_ = value;
+        points_held_->set_special(value);
         return 1;
     }
     case kGotSpecial:
-        return points_held_->special_active_ ? 1 : 0;
+        return points_held_->special_active() ? 1 : 0;
     case kForceSpecial:
         get_score_of(points_held_)->fill_special();
         return 1;

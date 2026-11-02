@@ -870,7 +870,7 @@ int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* sc
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return 0;
-    results_of(script)->push_float(kFocusTime, score->focus_time_limit_);
+    results_of(script)->push_float(kFocusTime, score->focus_time_limit());
     return 1;
 }
 // 0x004FDCF0
@@ -879,7 +879,7 @@ int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return 0;
-    results_of(script)->put_int(kFocusAllowed, score->focus_max_times_);
+    results_of(script)->put_int(kFocusAllowed, score->focus_max_times());
     return 1;
 }
 // 0x004FDD20
@@ -888,7 +888,7 @@ int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script:
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return 0;
-    params->fetch_int_value(0u, &score->focus_max_times_, 0);
+    params->fetch_int_value(0u, &score->focus_max_times(), 0);
     return 1;
 }
 

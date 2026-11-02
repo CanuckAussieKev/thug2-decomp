@@ -387,8 +387,8 @@ void AttributeTracker::tick_frame()
         return;
     }
     auto* score = static_cast<modules::PointTally*>(point_tally(skater_));
-    points_held_ = truncate(score->pot_ * static_cast<double>(score->multiplier_));
-    const float multiplier = score->multiplier_;
+    points_held_ = truncate(score->pot() * static_cast<double>(score->multiplier()));
+    const float multiplier = score->multiplier();
     multiplier_ = multiplier;
     path_vertices_ = multiplier == 0.0f ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
 

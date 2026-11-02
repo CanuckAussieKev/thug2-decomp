@@ -105,7 +105,7 @@ void collect_names(script::Struct* params, int& count, std::span<uint32_t> array
 void exit_combo(MoveExecutor* self)
 {
     const modules::PointTally* score = self->get_score();
-    if (!truncate(static_cast<double>(score->pot_) * score->multiplier_))
+    if (!truncate(static_cast<double>(score->pot()) * score->multiplier()))
         return;
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
@@ -448,7 +448,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 if (core->state_->cur_phase_ == 4) {
                     const int trick_score = trick_score_;
                     if (trick_score) {
-                        const float multiplier = score->robot_factor_;
+                        const float multiplier = score->robot_factor();
                         debug::printf(
                             "RAIL score %d * %2.3f = %d\n", trick_score, static_cast<double>(multiplier),
                             truncate(static_cast<double>(trick_score) * multiplier)); // "RAIL score %d * %2.3f = %d\n"

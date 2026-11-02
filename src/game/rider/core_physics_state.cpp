@@ -274,8 +274,8 @@ void SkaterPhysicsModule::update_special_time()
     modules::PointTally* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return;
-    if (score->focus_time_limit_ > 0.0f) {
-        score->focus_time_limit_ = score->focus_time_limit_ - frame_length_;
+    if (score->focus_time_limit() > 0.0f) {
+        score->set_focus_time_limit(score->focus_time_limit() - frame_length_);
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();

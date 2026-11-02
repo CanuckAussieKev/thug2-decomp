@@ -75,11 +75,11 @@ modules::PointTally* component_score_of(objects::GameEntity* skater)
     return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
-int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
+int last_score_landed(modules::PointTally* score) { return score->pot_score(); }
 // The score pot: the base score times the multiplier, truncated (x87 at 53 bits, then the original's _ftol).
 int score_pot(modules::PointTally* score)
 {
-    const double pot = static_cast<double>(score->pot_) * score->multiplier_;
+    const double pot = static_cast<double>(score->pot()) * score->multiplier();
     return static_cast<int>(static_cast<int64_t>(pot));
 }
 // The local skater's speed: the length of its velocity (as the original's x87: in double).

@@ -187,7 +187,7 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
         }
         rail_ = static_cast<int>(static_cast<GrindPoint*>(rail)->label_);
         // A robot rail: a short run (under half a second) gets time and a nudge.
-        const float run_time = score_display(points_held_)->robot_factor_;
+        const float run_time = score_display(points_held_)->robot_factor();
         if (run_time < 0.5f) {
             auto inverse = static_cast<float>(1.0 / run_time);
             on_rail_seconds_ = static_cast<float>(

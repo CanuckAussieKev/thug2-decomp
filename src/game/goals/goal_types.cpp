@@ -331,7 +331,7 @@ void HuntGapsObjective::scan_for_gaps()
     int count = 0;
     args_->fetch_int_value(kNumGapsFound, &count, 1);
     auto* score = skater->get_points_total();
-    const int gaps = score->tricks_;
+    const int gaps = score->tricks();
     bool found_new = false;
     for (int i = 0; i < gaps; ++i) {
         // (modules::PointTally: 0x00562740 the gap `i` is one of the run's, 0x00561660 its name)

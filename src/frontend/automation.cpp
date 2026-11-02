@@ -917,9 +917,9 @@ void trace_frame()
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
         const auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kScoreModuleKey));
         const modules::PointTally* score = score_component ? score_component->points_held_ : nullptr;
-        const int pot = score ? score->pot_ : -1;
-        const float multiplier = score ? score->multiplier_ : 0.0f;
-        const int landed = score ? score->pot_score_ : -1;
+        const int pot = score ? score->pot() : -1;
+        const float multiplier = score ? score->multiplier() : 0.0f;
+        const int landed = score ? score->pot_score() : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
         const unsigned ground_flags = core ? core->floor_feeler_.hit_.face_flags_ : 0;

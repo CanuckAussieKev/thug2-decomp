@@ -317,8 +317,8 @@ int SkateNet::handle_combo_score(net::InboundMsgCtx* context)
         return 4;
     const int combo = message.points;
     PointTally* score = get_score_of(skater_of(player));
-    if (combo > score->top_chain_)
-        score->top_chain_ = combo;
+    if (combo > score->top_chain())
+        score->set_top_chain(combo);
     goals::MatchRules* mode = goals::game_mode();
     if (mode->is_true(kShouldModulateColor) || !mode->keeps_move_points())
         return 1;

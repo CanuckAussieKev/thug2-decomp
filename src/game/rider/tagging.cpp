@@ -484,7 +484,7 @@ bool TaggingControlComponent::try_tagging()
     }
     const modules::PointTally* score =
         core::down_cast<RiderPointKeeper>(entity_->fetch_module(kSkaterScore))->points_held_;
-    const int combo_score = get_truncated(score->pot_ * static_cast<double>(score->multiplier_));
+    const int combo_score = get_truncated(score->pot() * static_cast<double>(score->multiplier()));
     const int size = combo_score > 5000 ? 100 : (combo_score > 1000 ? 75 : 50);
     tagging_->place_tag(false, start, end, size, true);
     cooldown_ = script::fetch_float(0xD29DE3D7u);

@@ -371,7 +371,7 @@ float Rider::fetch_tally(int index)
     }
     RiderStoryProgress* cheats = modules::Skate::sole()->career_.get();
     float result = cheats->is_code_on(static_cast<uint32_t>(script::fetch_int_value(kCheatStats13))) ? 15.0f : stat;
-    if (score_holder_->points_held_->special_active_)
+    if (score_holder_->points_held_->special_active())
         result = static_cast<float>(result + 3.0);
     return result;
 }

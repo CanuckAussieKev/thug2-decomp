@@ -151,7 +151,7 @@ int total_score(modules::PointTally* score) { return score->get_total_score(); }
 int pending_points(modules::PointTally* score)
 {
     auto* tally = score;
-    return ftol(static_cast<double>(tally->pot_) * tally->multiplier_);
+    return ftol(static_cast<double>(tally->pot()) * tally->multiplier());
 }
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
 int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, bool perfect, int taps)

@@ -1105,7 +1105,7 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
 // 0x00521A10
 void MoveExecutor::queue_all_done_tricks()
 {
-    if (manual_list_ && score_->special_active_)
+    if (manual_list_ && score_->special_active())
         queue_done_tricks(manual_list_, true, list_used_);
     for (int i = 0; i < extra_list_count_; ++i)
         queue_done_tricks(core::at(extra_lists_, i), false, list_used_);

@@ -696,12 +696,12 @@ void Skate::update_records()
     auto* score = skater->get_points_total();
     highscores::BestEntryList* high_scores = records->high_scores_;
     new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
-    new_record_ |= records->best_combos_->try_insert_entry(score->top_chain_, 0) != -1;
+    new_record_ |= records->best_combos_->try_insert_entry(score->top_chain(), 0) != -1;
     auto* balance = core::down_cast<objects::RiderTeeterMoves>(skater->fetch_module(kSkaterBalanceTrick));
     const float grind = balance->grind_.best_time_; // (the longest grind, manual and lip trick: seconds)
     const float manual = balance->manual_.best_time_;
     const float lip_trick = balance->lip_.best_time_;
-    const int tricks = score->best_tricks_;
+    const int tricks = score->best_tricks();
     new_record_ |= records->grind_record_->try_beat_record(ftol(static_cast<double>(grind) * 100.0), 0);
     new_record_ |= records->longest_manual_->try_beat_record(ftol(static_cast<double>(manual) * 100.0), 0);
     new_record_ |= records->longest_lip_trick_->try_beat_record(ftol(static_cast<double>(lip_trick) * 100.0), 0);

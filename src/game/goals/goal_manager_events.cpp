@@ -70,7 +70,7 @@ const char* const kNoDescription = "Define <goal_description> for this goal and 
 int total_with_pending(void* score)
 {
     auto* tally = static_cast<modules::PointTally*>(score);
-    const int pending = static_cast<int>(static_cast<double>(tally->pot_) * tally->multiplier_);
+    const int pending = static_cast<int>(static_cast<double>(tally->pot()) * tally->multiplier());
     return tally->get_total_score() + pending;
 }
 
@@ -103,11 +103,11 @@ void GoalManager::land()
             if (!skater)
                 continue;
             auto* score = skater->get_points_total();
-            if (score->pot_score_ <= 0)
+            if (score->pot_score() <= 0)
                 continue;
             const script::StructPtr check = script::make_struct();
             check->put_name_key(kGoalIdChecksum, goal->get_objective_key());
-            check->put_int(kLastScoreLanded, score->pot_score_);
+            check->put_int(kLastScoreLanded, score->pot_score());
             script::launch_script(kHighComboCheckScore, check.get(), nullptr, false, nullptr);
         } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());

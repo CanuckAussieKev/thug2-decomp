@@ -494,7 +494,7 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     out->pending = 0;
     if (const objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
         if (const modules::PointTally* s = core::down_cast<const objects::RiderPointKeeper>(score)->points_held_) {
-            const double points = static_cast<double>(s->pot_) * s->multiplier_;
+            const double points = static_cast<double>(s->pot()) * s->multiplier();
             if (points > 0.0 && points < 2.0e9)
                 out->pending = static_cast<int>(points);
         }

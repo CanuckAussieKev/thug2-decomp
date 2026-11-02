@@ -407,7 +407,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
             gap_trick_count(gap) = get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap), gap_taps(gap));
         } else if (params->fetch_list(kTricks, &tricks, 0)) {
             script::duplicate_array(gap->element_list_, tricks);
-            gap_tricks_count(gap) = static_cast<uint32_t>(points_held_->tricks_);
+            gap_tricks_count(gap) = static_cast<uint32_t>(points_held_->tricks());
         }
         start_gap_trick(params, script);
     }

@@ -219,7 +219,7 @@ bool Objective::tick_frame()
             const auto* score =
                 core::down_cast<objects::Rider>(skater)->get_points_total();
             // (the combo's points: its base score times its multiplier)
-            if (score && truncate(score->pot_ * static_cast<double>(score->multiplier_)) > 0)
+            if (score && truncate(score->pot() * static_cast<double>(score->multiplier())) > 0)
                 args_->put_name_key(kNoName, kChainActiveFlag);
         }
     }

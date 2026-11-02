@@ -509,7 +509,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 void MoveExecutor::update_manual_tricks()
 {
     const uint32_t special = manual_.special_;
-    if (special && score_->special_active_) {
+    if (special && score_->special_active()) {
         check_manual_tricks(this, special, -5, true);
         if (manual_.pending_)
             return;
@@ -548,7 +548,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
 void MoveExecutor::update_extra_grind_tricks()
 {
     const uint32_t special = grind_.special_;
-    if (special && score_->special_active_)
+    if (special && score_->special_active())
         check_extra_grind_tricks(special, true);
     for (int i = 0; i < grind_.count_; ++i)
         check_extra_grind_tricks(core::at(grind_.arrays_, i), false);
@@ -626,7 +626,7 @@ void MoveExecutor::update_extra_tricks()
         return;
     }
     if (const uint32_t special = extra_.special_) {
-        if (score_->special_active_) {
+        if (score_->special_active()) {
             starting_special_ = true;
             if (!try_extra_tricks(special, extra_.special_mask_))
                 starting_special_ = false;

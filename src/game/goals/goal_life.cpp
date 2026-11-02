@@ -356,7 +356,7 @@ bool Objective::get_win()
                 better = record > record_points_;
             } else {
                 void* score = get_score_of(skate_calls::get_home_rider());
-                record = args_->has_bare_flag(kHighCombo) ? static_cast<modules::PointTally*>(score)->pot_score_
+                record = args_->has_bare_flag(kHighCombo) ? static_cast<modules::PointTally*>(score)->pot_score()
                                                           : total_score(score);
                 better = record > record_points_;
             }

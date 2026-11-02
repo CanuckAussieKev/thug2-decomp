@@ -66,6 +66,24 @@ constexpr uint32_t kTrickKindHigh = 0x400;     // see kTrickKindBits
 
 class PointTally {
 public:
+    // The fields other code reads and sets.
+    [[nodiscard]] float focus_time_limit() const { return focus_time_limit_; }
+    void set_focus_time_limit(float value) { focus_time_limit_ = value; }
+    int& focus_max_times() { return focus_max_times_; }
+    [[nodiscard]] int focus_max_times() const { return focus_max_times_; }
+    [[nodiscard]] int pot() const { return pot_; }
+    [[nodiscard]] int pot_score() const { return pot_score_; }
+    [[nodiscard]] int best_tricks() const { return best_tricks_; }
+    [[nodiscard]] int top_chain() const { return top_chain_; }
+    void set_top_chain(int value) { top_chain_ = value; }
+    [[nodiscard]] int tricks() const { return tricks_; }
+    [[nodiscard]] float multiplier() const { return multiplier_; }
+    [[nodiscard]] int special() const { return special_; }
+    void set_special(int value) { special_ = value; }
+    [[nodiscard]] bool special_active() const { return special_active_; }
+    [[nodiscard]] float robot_factor() const { return robot_factor_; }
+
+private:
     float focus_time_limit_; // +0x00 focus_time_limit
     int focus_max_times_;    // +0x04 focus_max_times_in_combo
     int16_t rider_no_{0};    // +0x08 the skater's object id
@@ -110,6 +128,8 @@ public:
     int robot_combo_new_lines_{};       // +0x1544
     int robot_combo_first_lines_{};     // +0x1548
     float robot_factor_{};              // +0x154C (1: none)
+
+public:
 
     // --- queries (point_tally.cpp) ---
     // 0x00561240 (cdecl): the step the counting pot goes down by: 1, 10, 100, 10000, 100000 or 1000000 (none of
@@ -246,6 +266,14 @@ public:
     // (the trick log's entry `index`; the last one)
     TrickLog* get_trick(int index) { return static_cast<TrickLog*>(core::at(log_.item_run(), index)); }
     TrickLog* newest_logged_trick() { return get_trick(log_.num_ - 1); }
+
+private:
+    // (score_combo.cpp)
+    int tricks_since_no_spin();
+    void reset_robot(bool run);
+    void clear_combo();
+    // (point_tally.cpp)
+    int count_repeats(uint32_t name, int spin);
 };
 
 } // namespace modules

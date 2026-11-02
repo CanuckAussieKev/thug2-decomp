@@ -113,7 +113,7 @@ void LetterGameObjective::land()
         return;
     const int landed = static_cast<modules::PointTally*>(
                            core::down_cast<objects::Rider>(skate_calls::get_home_rider())->get_points_total())
-                           ->pot_score_;
+                           ->pot_score();
     if (landed > 0) {
         const uint32_t id = get_objective_key();
         GoalManager* manager = get_objective_board();

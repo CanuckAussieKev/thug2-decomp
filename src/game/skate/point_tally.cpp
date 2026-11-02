@@ -526,15 +526,13 @@ int PointTally::count_key_combo(uint32_t key_combo, int spin, bool perfect, int 
     return count_trick(trick, spin, perfect);
 }
 
-namespace {
-
 // 0x005625A0 / 0x00562620's count.
-int count_repeats(PointTally* score, uint32_t name, int spin)
+int PointTally::count_repeats(uint32_t name, int spin)
 {
     int count = 0;
     bool latest = false;
-    for (int i = 0; i < score->tricks_; ++i) {
-        const TrickLog* trick = score->get_trick(i);
+    for (int i = 0; i < tricks_; ++i) {
+        const TrickLog* trick = get_trick(i);
         if (trick->label_ == name) {
             if (!spin || spin == trick->twist_rate_) {
                 ++count;
@@ -549,13 +547,11 @@ int count_repeats(PointTally* score, uint32_t name, int spin)
     return count;
 }
 
-} // namespace
-
 // 0x005625A0
 int PointTally::count_trick_repeats(uint32_t name, int spin, int taps)
 {
     const uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
-    return count_repeats(this, trick, spin);
+    return count_repeats(trick, spin);
 }
 
 // 0x00562620
@@ -564,7 +560,7 @@ int PointTally::count_key_combo_repeats(uint32_t key_combo, int spin, int taps)
     uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return 0;
-    return count_repeats(this, trick, spin);
+    return count_repeats(trick, spin);
 }
 
 // 0x005626E0

@@ -255,7 +255,7 @@ void FootMovement::update_run_adjustment()
 {
     const modules::PointTally* score =
         core::down_cast<RiderPointKeeper>(entity_->fetch_module(kSkaterScore))->points_held_;
-    if (truncate(static_cast<double>(score->pot_) * score->multiplier_) > 0) {
+    if (truncate(static_cast<double>(score->pot()) * score->multiplier()) > 0) {
         run_adjustment_ = 1.0f;
         return;
     }
