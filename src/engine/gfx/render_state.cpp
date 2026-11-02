@@ -25,76 +25,9 @@
 #include "engine/maths/mat4.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
-
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
-// (render_state_values()).
-struct RenderStateValues {
-    bool shaders_available_{};
-    uint32_t specular_{};
-    uint8_t z_write_{};
-    uint32_t depth_bias_{};
-    uint32_t cull_mode_{};
-    bool near_camera_{};
-    std::array<void*, 4> textures_{};
-    std::array<uint32_t, 4> border_colours_{};
-    const void* pixel_shader_locked_{}; // (a shader set for a whole pass: set_pixel_shader leaves the device's alone)
-    void* current_pixel_shader_{};
-    std::array<float, 20> ps_constant_bank_{};
-    uint32_t instance_colour_on_{};
-    std::array<uint8_t, 4> instance_colour_{};
-    uint8_t pixel_shader_changed_{};
-    uint32_t vertex_format_locked_{};
-    uint32_t skipped_passes_{};
-    uint32_t submit_locked_{};
-    uint32_t fog_active_{};
-    const float* world_transform_{};
-    std::array<float, 16> world_transform_copy_{};
-};
-
-RenderStateValues& render_state_values()
-{
-    static core::NoDestroy<RenderStateValues> state;
-    return state.get();
-}
-
-} // namespace
-
-bool shaders_available() { return render_state_values().shaders_available_; }
-void set_shaders_available(bool value) { render_state_values().shaders_available_ = value; }
-uint32_t specular_state() { return render_state_values().specular_; }
-uint8_t z_write() { return render_state_values().z_write_; }
-void set_z_write(uint8_t value) { render_state_values().z_write_ = value; }
-uint32_t depth_bias() { return render_state_values().depth_bias_; }
-void set_depth_bias(uint32_t value) { render_state_values().depth_bias_ = value; }
-uint32_t cull_mode() { return render_state_values().cull_mode_; }
-void set_cull_mode(uint32_t value) { render_state_values().cull_mode_ = value; }
-bool near_camera() { return render_state_values().near_camera_; }
-void set_near_camera(bool value) { render_state_values().near_camera_ = value; }
-const std::array<void*, 4>& stage_textures() { return render_state_values().textures_; }
-std::array<uint32_t, 4>& border_colours() { return render_state_values().border_colours_; }
-const void* pixel_shader_locked() { return render_state_values().pixel_shader_locked_; }
-void set_pixel_shader_locked(const void* value) { render_state_values().pixel_shader_locked_ = value; }
-void* current_pixel_shader() { return render_state_values().current_pixel_shader_; }
-void set_current_pixel_shader(void* value) { render_state_values().current_pixel_shader_ = value; }
-std::array<float, 20>& ps_constant_bank() { return render_state_values().ps_constant_bank_; }
-uint32_t instance_colour_on() { return render_state_values().instance_colour_on_; }
-void set_instance_colour_on(uint32_t value) { render_state_values().instance_colour_on_ = value; }
-std::array<uint8_t, 4>& instance_colour() { return render_state_values().instance_colour_; }
-uint8_t pixel_shader_changed() { return render_state_values().pixel_shader_changed_; }
-void set_pixel_shader_changed(uint8_t value) { render_state_values().pixel_shader_changed_ = value; }
-uint32_t vertex_format_locked() { return render_state_values().vertex_format_locked_; }
-void set_vertex_format_locked(uint32_t value) { render_state_values().vertex_format_locked_ = value; }
-uint32_t& skipped_passes() { return render_state_values().skipped_passes_; }
-uint32_t submit_locked() { return render_state_values().submit_locked_; }
-void set_submit_locked(uint32_t value) { render_state_values().submit_locked_ = value; }
-uint32_t fog_active() { return render_state_values().fog_active_; }
-void set_fog_active(uint32_t value) { render_state_values().fog_active_ = value; }
-const float*& current_world_transform() { return render_state_values().world_transform_; }
-std::array<float, 16>& world_transform_copy() { return render_state_values().world_transform_copy_; }
 
 namespace {
 // NOT ORIGINAL grouping - the device's render states as last set (blend, alpha test, dither, z test, lighting, the
@@ -141,7 +74,6 @@ ForcedStates& forced_states()
 
 namespace {
 
-
 // What the device was last given (the cache).
 uint32_t& get_blend_mode() { return render_state_cache().blend_mode_; }
 uint32_t& blend_op() { return render_state_cache().blend_op_; }
@@ -165,26 +97,22 @@ uint32_t& vertex_format() { return render_state_cache().vertex_format_; }
 
 uint32_t& forced_blend() { return forced_states().forced_blend_; }
 
-
 uint8_t& local_viewer() { return forced_states().local_viewer_; }
 
 // Device capabilities (found at start-up).
-
-
-
 
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
 void* get_shader(int slot) { return core::at(pixel_shaders(), slot); }
 
 void set_tss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value)
 {
-    d3d_device()->SetTextureStageState(stage, type, value);
+    renderer().d3d_device()->SetTextureStageState(stage, type, value);
 }
 void set_sampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value)
 {
-    d3d_device()->SetSamplerState(sampler, type, value);
+    renderer().d3d_device()->SetSamplerState(sampler, type, value);
 }
-void set_device_render_state(D3DRENDERSTATETYPE state, DWORD value) { d3d_device()->SetRenderState(state, value); }
+void set_device_render_state(D3DRENDERSTATETYPE state, DWORD value) { renderer().d3d_device()->SetRenderState(state, value); }
 
 // D3DTADDRESS for the renderer's addressing modes (border needs the device's support; else clamp).
 bool address_value(uint32_t mode, DWORD* value)
@@ -197,7 +125,7 @@ bool address_value(uint32_t mode, DWORD* value)
         *value = D3DTADDRESS_CLAMP;
         return true;
     case 2:
-        *value = border_addressing_supported() ? D3DTADDRESS_BORDER : D3DTADDRESS_CLAMP;
+        *value = renderer().border_addressing_supported() ? D3DTADDRESS_BORDER : D3DTADDRESS_CLAMP;
         return true;
     default:
         return false; // (nothing sent, but the cache takes the value)
@@ -215,17 +143,17 @@ int64_t ftol(double value) { return static_cast<int64_t>(value); }
 // 0x004DAB60
 void change_phase(int state, uint32_t value)
 {
-    auto& values = render_state_values();
+    auto& gfx = renderer();
     switch (state) {
     case kZWrite:
         if (value) {
-            if (!values.z_write_) {
+            if (!gfx.z_write()) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
-                values.z_write_ = 1;
+                gfx.set_z_write(1);
             }
-        } else if (values.z_write_ == 1) {
+        } else if (gfx.z_write() == 1) {
             render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
-            values.z_write_ = 0;
+            gfx.set_z_write(0);
         }
         return;
     case kZTest:
@@ -288,8 +216,8 @@ void change_phase(int state, uint32_t value)
         return;
     }
     case kCullMode:
-        if (value != cull_mode()) {
-            values.cull_mode_ = value;
+        if (value != renderer().cull_mode()) {
+            gfx.set_cull_mode(value);
             render::set_render_state(D3DRS_CULLMODE, value);
         }
         return;
@@ -306,21 +234,21 @@ void change_phase(int state, uint32_t value)
         }
         return;
     case kSpecular:
-        if (value != values.specular_) {
-            values.specular_ = value;
+        if (value != gfx.specular_state()) {
+            gfx.set_specular(value);
             render::set_render_state(D3DRS_SPECULARENABLE, value != 0);
             render::set_render_state(D3DRS_LOCALVIEWER, value != 0);
         }
         return;
     case kFog:
-        if (value != values.fog_active_) {
-            values.fog_active_ = value;
+        if (value != gfx.fog_active()) {
+            gfx.set_fog_active(value);
             render::set_render_state(D3DRS_FOGENABLE, value != 0);
         }
         return;
     case kDepthBias:
-        if (value != depth_bias()) {
-            values.depth_bias_ = value;
+        if (value != renderer().depth_bias()) {
+            gfx.set_depth_bias(value);
             // (unsigned, scaled; x87 at double precision, stored as a float)
             auto bias = static_cast<float>(static_cast<double>(value) * kDepthBiasUnit);
             render::set_render_state(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
@@ -367,8 +295,8 @@ void change_phase(int state, uint32_t value)
 // 0x004D9DB0
 void set_vertex_format(uint32_t fvf)
 {
-    if (vertex_format_locked() == 0 && vertex_format() != fvf) {
-        d3d_device()->SetFVF(fvf);
+    if (renderer().vertex_format_locked() == 0 && vertex_format() != fvf) {
+        renderer().d3d_device()->SetFVF(fvf);
         vertex_format() = fvf;
     }
 }
@@ -376,10 +304,10 @@ void set_vertex_format(uint32_t fvf)
 // 0x004DA730
 void set_texture(int stage, void* texture)
 {
-    auto& values = render_state_values();
-    if (core::at(values.textures_, stage) != texture) {
-        d3d_device()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
-        core::at(values.textures_, stage) = texture;
+    auto& gfx = renderer();
+    if (core::at(gfx.stage_textures(), stage) != texture) {
+        renderer().d3d_device()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
+        core::at(gfx.stage_textures(), stage) = texture;
     }
 }
 
@@ -392,7 +320,7 @@ void choose_blend_mode(uint32_t mode)
     const uint32_t kind = wanted & 0xFFFFFF;
     if (kind != (get_blend_mode() & 0xFFFFFF)) {
         // Fog goes black under the additive and subtractive modes (1-4).
-        if (render_state_values().fog_active_) {
+        if (renderer().fog_active()) {
             if (kind >= 1 && kind <= 4)
                 render::set_render_state(D3DRS_FOGCOLOR, 0);
             else
@@ -473,7 +401,7 @@ void choose_blend_mode(uint32_t mode)
             break;
         }
         // Without blend factors: the nearest the colour and source alpha can do.
-        if (!blend_factor_supported()) {
+        if (!renderer().blend_factor_supported()) {
             if (src == D3DBLEND_BLENDFACTOR && dest == D3DBLEND_INVBLENDFACTOR) {
                 src = D3DBLEND_ONE;
                 dest = D3DBLEND_INVSRCALPHA;
@@ -591,39 +519,39 @@ void set_fixed_function_stages_for_material(void* shader, const MaterialRef* mat
 // 0x004DAA80
 void set_pixel_shader(void* shader, const MaterialRef* material)
 {
-    auto& values = render_state_values();
-    if (!values.shaders_available_) {
+    auto& gfx = renderer();
+    if (!gfx.shaders_available()) {
         set_fixed_function_stages_for_material(shader, material);
         return;
     }
-    if (pixel_shader_locked() == nullptr) {
-        if (current_pixel_shader() != shader) {
+    if (renderer().pixel_shader_locked() == nullptr) {
+        if (renderer().current_pixel_shader() != shader) {
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the shader's unlit twin during the 3D
             // passes. Original behaviour: the device gets `shader`.
-            d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
-            values.current_pixel_shader_ = shader;
-            values.pixel_shader_changed_ = 1;
+            renderer().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            gfx.set_current_pixel_shader(shader);
+            gfx.set_pixel_shader_changed(1);
         }
-        d3d_device()->SetPixelShaderConstantF(0, ps_constant_bank().data(), 5);
+        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constant_bank().data(), 5);
     }
-    values.pixel_shader_changed_ = 0;
+    gfx.set_pixel_shader_changed(0);
 }
 
 // 0x004DAAF0
 void set_pixel_shader_with_constants(void* shader, uint32_t count)
 {
-    auto& values = render_state_values();
-    if (pixel_shader_locked() == nullptr) {
-        if (current_pixel_shader() != shader) {
+    auto& gfx = renderer();
+    if (renderer().pixel_shader_locked() == nullptr) {
+        if (renderer().current_pixel_shader() != shader) {
             // Not original - the Unlit view's twin (view_mode.h), as in SetPixelShader.
-            d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
-            values.current_pixel_shader_ = shader;
-            values.pixel_shader_changed_ = 1;
+            renderer().d3d_device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
+            gfx.set_current_pixel_shader(shader);
+            gfx.set_pixel_shader_changed(1);
         }
-        d3d_device()->SetPixelShaderConstantF(0, ps_constant_bank().data(), count);
-        d3d_device()->SetPixelShaderConstantF(4, std::span(ps_constant_bank()).subspan(16).data(), 1);
+        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constant_bank().data(), count);
+        renderer().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constant_bank()).subspan(16).data(), 1);
     }
-    values.pixel_shader_changed_ = 0;
+    gfx.set_pixel_shader_changed(0);
 }
 
 // 0x004DA0E0
@@ -632,13 +560,13 @@ float last_sphere_distance() { return occlusion_shared().last_sphere_distance_; 
 // 0x004DB620
 void set_world_transform(const float* matrix)
 {
-    auto& values = render_state_values();
+    auto& gfx = renderer();
     if (!matrix) {
-        values.world_transform_ = nullptr;
+        gfx.current_world_transform() = nullptr;
         return;
     }
-    auto& world = values.world_transform_copy_;
-    values.world_transform_ = world.data();
+    auto& world = gfx.world_transform_copy();
+    gfx.current_world_transform() = world.data();
     const std::span<const float, 16> given(matrix, 16);
     for (int row = 0; row < 4; ++row) {
         core::at(world, row * 4 + 0) = core::at(given, row * 4 + 0);
@@ -651,30 +579,30 @@ void set_world_transform(const float* matrix)
 // 0x004D7D70
 void reset_render_state()
 {
-    auto& values = render_state_values();
+    auto& gfx = renderer();
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
-    for (maths::Mat4* matrix : {&world_matrix(), &view_matrix(), &projection_matrix()}) {
+    for (maths::Mat4* matrix : {&renderer().world_matrix(), &renderer().view_matrix(), &renderer().projection_matrix()}) {
         const auto m = matrix->floats();
         for (int i = 0; i < 16; ++i)
             core::at(m, i) = (i % 5 == 0) ? 1.0f : 0.0f;
     }
     get_lighting() = 0;
-    values.specular_ = 0;
-    values.cull_mode_ = D3DCULL_CW;
-    values.near_camera_ = true;
+    gfx.set_specular(0);
+    gfx.set_cull_mode(D3DCULL_CW);
+    gfx.set_near_camera(true);
     dither() = 1;
     get_z_test() = 1;
-    values.z_write_ = 1;
+    gfx.set_z_write(1);
     alpha_blend() = 1;
     alpha_test() = 1;
     alpha_test_level() = 0;
     for (int i = 0; i < 4; ++i) {
         core::at(address_modes(), i) = 0;
         core::at(mip_lod_biases(), i) = 0;
-        core::at(values.textures_, i) = nullptr;
+        core::at(gfx.stage_textures(), i) = nullptr;
         core::at(filters(), i) = 0x10000;
-        core::at(values.border_colours_, i) = 0;
+        core::at(gfx.border_colours(), i) = 0;
     }
     // (none of these is a mode: the next one is always sent)
     get_blend_mode() = 0xDEADBABE;
@@ -684,22 +612,22 @@ void reset_render_state()
     core::at(engine_glue_shared().pending_screen_shot_, 0) = 0;
     engine_glue_shared().screen_shot_name_exact_ = false;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    core::at(values.ps_constant_bank_, 16) = 0.0f;
-    core::at(values.ps_constant_bank_, 17) = 0.5f;
-    core::at(values.ps_constant_bank_, 18) = 0.0f;
-    core::at(values.ps_constant_bank_, 19) = 0.5f;
-    values.pixel_shader_locked_ = nullptr;
-    values.current_pixel_shader_ = nullptr;
-    values.pixel_shader_changed_ = 0;
-    render_camera().custom_transforms_ = 0;
+    core::at(gfx.ps_constant_bank(), 16) = 0.0f;
+    core::at(gfx.ps_constant_bank(), 17) = 0.5f;
+    core::at(gfx.ps_constant_bank(), 18) = 0.0f;
+    core::at(gfx.ps_constant_bank(), 19) = 0.5f;
+    gfx.set_pixel_shader_locked(nullptr);
+    gfx.set_current_pixel_shader(nullptr);
+    gfx.set_pixel_shader_changed(0);
+    renderer().render_camera().custom_transforms_ = 0;
     pc_billboards_shared().billboard_flag_ = 0;
-    values.vertex_format_locked_ = 0;
-    values.skipped_passes_ = 0;
-    values.submit_locked_ = 0;
+    gfx.set_vertex_format_locked(0);
+    gfx.skipped_passes() = 0;
+    gfx.set_submit_locked(0);
     forced_blend() = 0;
-    render_camera().clear_colour_and_depth_ = true;
-    render_camera().background_colour_ = 0;
-    render_camera().letterbox_active_ = 0; // the letterbox
+    renderer().render_camera().clear_colour_and_depth_ = true;
+    renderer().render_camera().background_colour_ = 0;
+    renderer().render_camera().letterbox_active_ = 0; // the letterbox
     // The default light: its direction (0x00786F48) and colours, as bit patterns.
     static const auto kLight = std::to_array<uint32_t>({
         0xBF000000, 0xBF5DB3D7, 0, 0, 0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000, 0x3F800000, 0, 0, 0, 0, 0, 0,
@@ -712,71 +640,71 @@ void reset_render_state()
     core::at(pc_lights_shared().light_constants_, 1) = kAmbient;
     core::at(pc_lights_shared().light_constants_, 2) = kAmbient;
     core::at(pc_lights_shared().light_constants_, 3) = 1.0f;
-    values.fog_active_ = 0;
+    gfx.set_fog_active(0);
     set_fog_colour(0);
-    set_fog_begin_distance(-240.0f); // fog start and end (the original stored their bit patterns)
-    set_fog_end(-24600.0f);
+    renderer().set_fog_begin_distance(-240.0f); // fog start and end (the original stored their bit patterns)
+    renderer().set_fog_end(-24600.0f);
 }
 
 // 0x004D80D0
 void apply_render_state()
 {
-    auto& values = render_state_values();
-    IDirect3DDevice9* device = d3d_device();
+    auto& gfx = renderer();
+    IDirect3DDevice9* device = renderer().d3d_device();
     device->SetRenderState(D3DRS_LOCALVIEWER, local_viewer());
-    d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
-    d3d_device()->SetRenderState(D3DRS_LIGHTING, get_lighting());
-    d3d_device()->SetRenderState(D3DRS_SPECULARENABLE, values.specular_);
-    d3d_device()->SetRenderState(D3DRS_CULLMODE, cull_mode());
-    d3d_device()->SetRenderState(D3DRS_DITHERENABLE, dither());
-    d3d_device()->SetRenderState(D3DRS_ZENABLE, get_z_test());
-    d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, values.z_write_);
-    d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, alpha_blend());
-    d3d_device()->SetRenderState(D3DRS_ALPHATESTENABLE, alpha_test());
-    d3d_device()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
-    d3d_device()->SetRenderState(D3DRS_ALPHAREF, alpha_test_level());
+    renderer().d3d_device()->SetRenderState(D3DRS_COLORVERTEX, FALSE);
+    renderer().d3d_device()->SetRenderState(D3DRS_LIGHTING, get_lighting());
+    renderer().d3d_device()->SetRenderState(D3DRS_SPECULARENABLE, gfx.specular_state());
+    renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, renderer().cull_mode());
+    renderer().d3d_device()->SetRenderState(D3DRS_DITHERENABLE, dither());
+    renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, get_z_test());
+    renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, gfx.z_write());
+    renderer().d3d_device()->SetRenderState(D3DRS_ALPHABLENDENABLE, alpha_blend());
+    renderer().d3d_device()->SetRenderState(D3DRS_ALPHATESTENABLE, alpha_test());
+    renderer().d3d_device()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
+    renderer().d3d_device()->SetRenderState(D3DRS_ALPHAREF, alpha_test_level());
     for (int sampler = 0; sampler < 4; ++sampler) {
         core::at(address_modes(), sampler) = 0;
         core::at(mip_lod_biases(), sampler) = 0;
-        core::at(values.textures_, sampler) = nullptr;
+        core::at(gfx.stage_textures(), sampler) = nullptr;
         core::at(filters(), sampler) = 0x10000;
-        core::at(values.border_colours_, sampler) = 0;
-        d3d_device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-        d3d_device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
+        core::at(gfx.border_colours(), sampler) = 0;
+        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic minification on every
         // sampler at the chosen taps. (Off: the original's below.)
         if (const int taps = graphics_options::active_anisotropy()) {
-            d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            d3d_device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
-        } else if (sampler == 0 && back_buffer_height() <= 480) {
+            renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAXANISOTROPY, static_cast<DWORD>(taps));
+        } else if (sampler == 0 && renderer().back_buffer_height() <= 480) {
             // Anisotropic minification on the first sampler, at back buffers up to 480 lines high.
-            d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            const uint32_t anisotropy = max_anisotropy();
-            d3d_device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
+            renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            const uint32_t anisotropy = renderer().max_anisotropy();
+            renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropy < 3 ? anisotropy : 3);
         } else {
-            d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         }
-        d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
-        d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
+        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
+        renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
     }
     const D3DMATERIAL9 material = {};
-    d3d_device()->SetMaterial(&material);
-    d3d_device()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
-    d3d_device()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
-    d3d_device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
-    d3d_device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
+    renderer().d3d_device()->SetMaterial(&material);
+    renderer().d3d_device()->SetRenderState(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_COLOR1);
+    renderer().d3d_device()->SetRenderState(D3DRS_SPECULARMATERIALSOURCE, D3DMCS_COLOR2);
+    renderer().d3d_device()->SetRenderState(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_COLOR1);
+    renderer().d3d_device()->SetRenderState(D3DRS_EMISSIVEMATERIALSOURCE, D3DMCS_MATERIAL);
     mark_billboards_ready();
     compile_pixel_shaders();
-    d3d_device()->SetRenderState(D3DRS_FOGENABLE, values.fog_active_);
-    d3d_device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
-    d3d_device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
-    d3d_device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
-    d3d_device()->SetRenderState(D3DRS_FOGCOLOR, fog_colour());
-    d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(fog_begin_distance()));
-    d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(fog_end()));
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, gfx.fog_active());
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGTABLEMODE, D3DFOG_NONE);
+    renderer().d3d_device()->SetRenderState(D3DRS_RANGEFOGENABLE, TRUE);
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGVERTEXMODE, D3DFOG_LINEAR);
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, fog_colour());
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<uint32_t>(renderer().fog_end()));
     // (NOT ORIGINAL: or [Graphics] msaa's samples - engine/gfx/graphics_options.h)
-    if (antialiasing() || graphics_options::chosen_samples()) // the antialiasing setting
-        d3d_device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
+    if (renderer().antialiasing() || graphics_options::chosen_samples()) // the antialiasing setting
+        renderer().d3d_device()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 }
 
 } // namespace render

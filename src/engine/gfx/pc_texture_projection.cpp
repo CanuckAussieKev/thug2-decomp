@@ -25,18 +25,17 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/pixel_shaders.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/texture_splats.h"
 #include "engine/maths/mat4.h"
-#include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/sys/startup_init.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 #include <bit>
 
 namespace render {
@@ -143,20 +142,19 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
 void draw_projection_batches()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
     DWORD min_filter = 0;
-    d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < batch_count(); ++i) {
         ProjectionBatch* batch = &core::at(get_batches(), i);
         batch->material.hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, &batch->material);
-        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(),
+        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(),
                                        sizeof(ProjectedVertex));
-        ++draw_calls();                              // (the frame's draw calls)
-        drawn_triangles() += batch->triangle_count_; // (and triangles)
+        renderer().count_draw(batch->triangle_count_); // the frame's draw calls and triangles
     }
-    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     batch_count() = 0;
 }
 

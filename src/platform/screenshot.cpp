@@ -49,7 +49,6 @@
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/util/unique_handle.h"
 #include "platform/code_address.h"
@@ -57,6 +56,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace sys::screenshot {
 
@@ -128,7 +128,7 @@ ScreenshotJob& screenshot_job()
 uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
 bool loading_screen_up()
 {
-    return render::loading_screen_shown() != 0 || render::loading_bar_timer() != 0 ||
+    return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||
            static_cast<uint8_t>(render::loading_screen_up()) != 0;
 }
 modules::FrontEnd* the_front_end() { return modules::front_end_instance().get(); }

@@ -1,6 +1,5 @@
 // The engine's loaded scenes: see engine_scene_list.h.
 
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine_scene_list.h"
 
 #include <cstddef>
@@ -29,6 +28,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -291,7 +291,7 @@ WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_s
     build_scene_file_path(file.data(), sizeof(file), name);
     memory::push_mem_profile(file.data());
     VertexArena vertex_arena{};
-    VertexArena* arena = stream_offset_supported() ? &vertex_arena : nullptr;
+    VertexArena* arena = renderer().stream_offset_supported() ? &vertex_arena : nullptr;
     WorldScene* scene = load_scene_from_file(file.data(), textures, with_super_sectors, is_sky, mesh_flag, arena);
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);

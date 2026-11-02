@@ -55,6 +55,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace frontend::level_editor {
 
@@ -1251,7 +1252,7 @@ void log_meshes()
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 0)) : 0,
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 1)) : 0,
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 2)) : 0,
-                static_cast<uint8_t>(render::shaders_available()));
+                static_cast<uint8_t>(render::renderer().shaders_available()));
     }
 }
 } // namespace

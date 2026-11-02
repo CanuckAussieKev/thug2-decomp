@@ -27,13 +27,13 @@
 #include "platform/stopwatch.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_constants.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
+#include "engine/gfx/renderer.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -399,7 +399,7 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     float down = y - 224.0f; // (stored: rounded to float)
     double across =
         (static_cast<double>(x) - 320.0f) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
-    if (static_cast<int32_t>(render::back_buffer_width()) > 640) { // the back buffer's width
+    if (static_cast<int32_t>(render::renderer().back_buffer_width()) > 640) { // the back buffer's width
         across *= wide_screen();
         down = static_cast<float>(static_cast<double>(down) * wide_screen());
     }

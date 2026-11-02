@@ -19,6 +19,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -60,14 +61,14 @@ void MeshRef::move_into_arena(VertexArena* arena)
 void MeshRef::set_pixel_shader_colored()
 {
     const uint32_t bytes = material->pass_count_ << 4; // 16 a pass
-    auto& constants = ps_constant_bank();
+    auto& constants = renderer().ps_constant_bank();
     auto& saved = saved_pixel_shader_constants();
     std::memcpy(saved.data(), constants.data(), bytes);
     double r = 0.0, g = 0.0, b = 0.0;
-    if (instance_colour_on()) {
-        r = core::at(instance_colour(), 0) * static_cast<double>(1.0f / 128);
-        g = core::at(instance_colour(), 1) * static_cast<double>(1.0f / 128);
-        b = core::at(instance_colour(), 2) * static_cast<double>(1.0f / 128);
+    if (renderer().instance_colour_on()) {
+        r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0f / 128);
+        g = core::at(renderer().instance_colour(), 1) * static_cast<double>(1.0f / 128);
+        b = core::at(renderer().instance_colour(), 2) * static_cast<double>(1.0f / 128);
     } else {
         r = static_cast<double>(core::at(color, 0)) + core::at(color, 0);
         g = static_cast<double>(core::at(color, 1)) + core::at(color, 1);
@@ -83,10 +84,10 @@ void MeshRef::set_pixel_shader_colored()
         c1 = static_cast<float>(g * c1);
         c2 = static_cast<float>(b * c2);
     }
-    set_pixel_shader_changed(1); // (the constants changed)
+    renderer().set_pixel_shader_changed(1); // (the constants changed)
     set_pixel_shader_with_constants(pixel_shader_, material->pass_count_);
     std::memcpy(constants.data(), saved.data(), bytes);
-    set_pixel_shader_changed(1);
+    renderer().set_pixel_shader_changed(1);
 }
 
 // 0x004D3CA0

@@ -40,36 +40,7 @@ long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32
 
 // The device, what was made with it and its settings (device.cpp's record; the original's globals). The draw device
 // is the same device, kept twice; the display factors scale 640x480 to the back buffer.
-IDirect3DDevice9* d3d_device();
-void set_d3d_device(IDirect3DDevice9* value);
 D3DPRESENT_PARAMETERS& present_parameters();
-bool stream_offset_supported();
-uint32_t loading_bar_timer();
-void set_loading_bar_timer(uint32_t value);
-float display_factor_x();
-void set_display_factor_x(float value);
-IDirect3DDevice9* draw_device();
-std::array<IDirect3DTexture9*, 9>& screen_textures();
-uint8_t frequency_setting_allowed();
-int resolution_setting();
-void set_resolution_setting(int value);
-bool antialiasing();
-void set_antialiasing(bool value);
-int& screen_offset_y();
-int& screen_offset_x();
-float display_factor_y();
-void set_display_factor_y(float value);
-IDirect3DSurface9* z_buffer_surface();
-std::array<IDirect3DSurface9*, 9>& screen_surfaces();
-IDirect3DSurface9* back_depth();
-IDirect3DSurface9* back_buffer();
-bool blend_factor_supported();
-bool border_addressing_supported();
-uint32_t max_anisotropy();
-HWND game_window();
-void set_game_window(HWND value);
-IDirect3D9* direct_3d();
-void set_direct_3d(IDirect3D9* value);
 inline constexpr bool kShowWindowFlag{false}; // (the original showed the window maximised / minimised by it)
 
 } // namespace render

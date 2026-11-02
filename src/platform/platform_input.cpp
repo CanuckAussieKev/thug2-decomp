@@ -16,13 +16,13 @@
 #include "engine/pad_input/device.h"
 #include "engine/gfx/settings.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/gfx/device.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "platform/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
 
@@ -352,7 +352,7 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         if (SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             core::at(joysticks(), port) = created;
             created->SetDataFormat(joystick_format());
-            created->SetCooperativeLevel(render::game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->EnumObjects(add_joystick_axis, created, DIDFT_AXIS);
             if (core::at(force_axis_counts(), port) > 0) {
                 // Rumble: an endless constant force along X and Y, started by set_actuators.
@@ -383,14 +383,14 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         if (!stored_keyboard_device() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             stored_keyboard_device() = created;
             created->SetDataFormat(keyboard_format());
-            created->SetCooperativeLevel(render::game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(render::renderer().game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     } else if (type == DI8DEVTYPE_MOUSE) {
         if (!get_mouse() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             get_mouse() = created;
             created->SetDataFormat(mouse_format());
-            created->SetCooperativeLevel(render::game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     }
@@ -448,7 +448,7 @@ void load_registry_options(const char* key)
         if (value & 0x10)
             platform_shared().option37_ = 1;
         if (value & 0x20)
-            render::set_antialiasing(true);
+            render::renderer().set_antialiasing(true);
         if (value & 0x100)
             render::set_distance_clipping(true);
     }
@@ -456,7 +456,7 @@ void load_registry_options(const char* key)
         place_at_range(value);
     if (RegQueryValueExA(options, "resolution", nullptr, &type, raw::bytes(&value), &size) ==
         ERROR_SUCCESS)
-        render::set_resolution_setting(value > 3 ? 0 : static_cast<int>(value));
+        render::renderer().set_resolution_setting(value > 3 ? 0 : static_cast<int>(value));
 
     // The joystick each port plays with (the text buffer isn't cleared before the first: a short value leaves
     // whatever was there after it).

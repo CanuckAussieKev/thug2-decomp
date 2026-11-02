@@ -10,11 +10,11 @@
 #include "engine/pad_input/sdl_input.h"
 #include "platform/platform_input.h"
 #include "platform/sdl_events.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "platform/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace os_layer {
 
@@ -69,7 +69,7 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     core::at(platform_input_shared().force_resolutions_, 2) = 0;
     core::at(platform_input_shared().force_resolutions_, 3) = 0;
     std::memset(os_layer::get_controls().data(), 0xFF, sizeof(os_layer::get_controls()));
-    render::set_antialiasing(false);
+    render::renderer().set_antialiasing(false);
     render::set_hq_shadows(0);
     render::set_fog_setting(false);
     platform_shared().option37_ = 0;
@@ -79,7 +79,7 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     render::set_distance_clipping(false);
     platform_shared().unknown643b_ = 0;
     core::at(platform_input_shared().force_axis_counts_, 1) = 0;
-    render::set_resolution_setting(0);
+    render::renderer().set_resolution_setting(0);
     platform_shared().distance_setting_ = 0;
     gfx::set_draw_distance_setting(0);
     // Originally from PartyMod Fixes: the graphics settings from thug2-decomp.ini in place of the original's loader 0x005F34D0(config).

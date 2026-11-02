@@ -9,9 +9,9 @@
 #include <cstdint>
 
 #include "platform/platform_config.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -83,7 +83,7 @@ void load_graphics_settings()
 
 void write_graphics_settings()
 {
-    set_antialiasing(static_cast<uint8_t>(settings_state().settings_.antialiasing) != 0);
+    renderer().set_antialiasing(static_cast<uint8_t>(settings_state().settings_.antialiasing) != 0);
     graphics_option_flags().hq_shadows_ = static_cast<uint8_t>(settings_state().settings_.hq_shadows_);
     graphics_option_flags().distance_clipping_ = static_cast<uint8_t>(settings_state().settings_.distance_clipping_);
     uint32_t distance = settings_state().settings_.clipping_distance_;

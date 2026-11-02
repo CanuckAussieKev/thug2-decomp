@@ -36,6 +36,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace frame_loop {
 
@@ -50,10 +51,7 @@ namespace {
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
 
-
 bool text_entry() { return online::text_entry(); } // keeps the loop running while the window is inactive
-
-
 
 D3DPRESENT_PARAMETERS* present_parameters() { return &render::present_parameters(); }
 
@@ -100,7 +98,7 @@ void render_frame() { render::engine::render_frame(); } // the world, then the 2
 void after_render() { modules::Skate::debug_rails(); }  // (uses the skate module)
 void end_scene() { render::engine::end_render(); }      // EndScene, Present
 
-uint8_t cinema_bars_on() { return render::render_camera().letterbox_active_; }
+uint8_t cinema_bars_on() { return render::renderer().render_camera().letterbox_active_; }
 
 } // namespace
 
@@ -134,7 +132,7 @@ void Hub::reset_device_if_lost()
 {
     if (!render::device_lost())
         return;
-    if (render::d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
+    if (render::renderer().d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
         return;
     // Not original - the level editor's UI (editor/level_editor_ui.h): ImGui's default-pool objects dropped before
     // the reset (made again on its next frame).
@@ -142,7 +140,7 @@ void Hub::reset_device_if_lost()
     frontend::level_editor::ui::device_lost();
     frontend::new_frontend::device_lost(); // (not original either: the new front end's - frontend/new_frontend.h)
     release_device_objects();
-    if (render::d3d_device()->Reset(present_parameters()) < 0)
+    if (render::renderer().d3d_device()->Reset(present_parameters()) < 0)
         return;
     restore_device_objects();
     render::set_device_lost(false);

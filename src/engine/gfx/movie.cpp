@@ -23,8 +23,6 @@
 #include "engine/core/checksums.h"
 #include "frontend/start_level.h"
 #include "engine/gfx/engine_effects.h"
-#include "engine/gfx/draw_frame.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/render_state.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"
@@ -41,6 +39,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -57,7 +56,7 @@ static_assert(sizeof(MovieVertex) == 0x1C, "the draw's stride");
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    renderer().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 
@@ -88,8 +87,8 @@ void set_movie_texture(int stage, void* texture, int unknown)
 
 void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
-    const auto buffer_width = static_cast<uint32_t>(back_buffer_width());
-    const auto buffer_height = static_cast<uint32_t>(back_buffer_height());
+    const auto buffer_width = static_cast<uint32_t>(renderer().back_buffer_width());
+    const auto buffer_height = static_cast<uint32_t>(renderer().back_buffer_height());
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
     const float target_aspect = 4.0f / 3.0f;
     const float back_buffer_aspect = static_cast<float>(buffer_width) / static_cast<float>(buffer_height);
@@ -188,8 +187,8 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     choose_blend_mode(0);
     change_phase(kAddressMode0, 0x10001); // (clamp)
     set_vertex_format(0x144);
-    d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    d3d_device()->SetFVF(0x144);
+    renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    renderer().d3d_device()->SetFVF(0x144);
     set_pixel_shader(nullptr, nullptr);                                            // (no pixel shader)
     set_texture_stage_state(0, 1, 5);                                              // colour: modulate
     set_texture_stage_state(0, 2, 2);
@@ -218,9 +217,9 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     core::at(vertices, 3) = core::at(vertices, 1);
     core::at(vertices, 3).y = core::at(vertices, 2).y;
     core::at(vertices, 3).v = 1.0f;
-    if (d3d_device()->TestCooperativeLevel() == D3D_OK) // the device isn't lost
+    if (renderer().d3d_device()->TestCooperativeLevel() == D3D_OK) // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
-        draw_movie_quad(d3d_device(), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
+        draw_movie_quad(renderer().d3d_device(), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
     set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
 
@@ -234,23 +233,23 @@ void video_set_loudness(Bink* bink, uint32_t track, int volume)
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
 void put_render_state(int state, uint32_t value)
 {
-    d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+    renderer().d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 void get_render_state(int state, uint32_t* value)
 {
     DWORD read = *value; // (left as it was if the call fails)
-    d3d_device()->GetRenderState(static_cast<D3DRENDERSTATETYPE>(state), &read);
+    renderer().d3d_device()->GetRenderState(static_cast<D3DRENDERSTATETYPE>(state), &read);
     *value = read;
 }
 void get_sampler_state(int sampler, int type, uint32_t* value)
 {
     DWORD read = *value;
-    d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &read);
+    renderer().d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &read);
     *value = read;
 }
 void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
+    renderer().d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
 constexpr int kD3dCullMode = 22;
 constexpr int kRsMultisample = 161;
@@ -280,12 +279,12 @@ void* begin_movie(uint32_t width, uint32_t height)
     // (x87: unsigned to float through FILD and +2^32)
     movie_sizes().movie_picture_width_ = static_cast<float>(static_cast<double>(width));
     movie_sizes().movie_picture_height_ = static_cast<float>(static_cast<double>(height));
-    movie_sizes().movie_back_buffer_width_ = static_cast<float>(back_buffer_width()); // the back buffer
-    movie_sizes().movie_back_buffer_height_ = static_cast<float>(back_buffer_height());
+    movie_sizes().movie_back_buffer_width_ = static_cast<float>(renderer().back_buffer_width()); // the back buffer
+    movie_sizes().movie_back_buffer_height_ = static_cast<float>(renderer().back_buffer_height());
     IDirect3DTexture9* texture = nullptr;
     // one level, no usage
     const HRESULT result =
-        d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
+        renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     if (FAILED(result))
         return nullptr;
     movie_flags().movie_playing_ = true;
@@ -309,11 +308,11 @@ void end_movie(void* texture)
 // 0x0044FCC0
 void draw_movie(Bink* bink, void* texture)
 {
-    d3d_device()->BeginScene();
-    d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
+    renderer().d3d_device()->BeginScene();
+    renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
     draw_movie_frame(texture, 0.0f, 0.0f, kMovieDrawWidth, kMovieDrawHeight, 1.0f);
-    d3d_device()->EndScene();
-    d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    renderer().d3d_device()->EndScene();
+    renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     bink::next_frame(bink);
 }
 
@@ -379,7 +378,7 @@ void play_movie_file(const char* name)
     UINT screen_saver_timeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
     uint32_t screen_saver_frames = 0;
-    const bool fog = fog_active() != 0;
+    const bool fog = renderer().fog_active() != 0;
     toggle_fog(false);
     if (texture) {
         sio::Hub* input = sio::create_manager(false);

@@ -27,7 +27,6 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/lists/key_map.h"
-#include "engine/gfx/device.h"
 #include <gsl/pointers>
 #include <array>
 #include <span>
@@ -35,10 +34,9 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
-
-namespace {} // namespace
 
 PcSceneShared& pc_scene_shared()
 {
@@ -138,7 +136,7 @@ void PcScene::post_load(void* arena_word)
     lists::KeyMap* table = sectors_;
     void* sector = first_sector(table);
     if (arena) {
-        d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+        renderer().d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          &arena->buffer, nullptr);
         arena->buffer->Lock(0, 0, &arena->data, 0);
         arena->used = 0;

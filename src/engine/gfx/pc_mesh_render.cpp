@@ -27,12 +27,12 @@
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 #include <bit>
 
 namespace render {
 
 namespace {
-
 
 // D3DX (the statically linked library's, through its thunks).
 void transform_coord(float* out, const float* v, const maths::Mat4& m) { d3dx::vec3_transform_coord(out, v, &m); }
@@ -98,8 +98,7 @@ uint16_t index_count_at(MeshRef* mesh, int level) { return core::at(mesh->index_
 
 void count_draw(uint32_t primitives)
 {
-    ++draw_calls();
-    drawn_triangles() += primitives;
+    renderer().count_draw(primitives);
 }
 
 } // namespace
@@ -115,30 +114,30 @@ void MeshRef::render()
     if (suppress_draw() || beyond_clip_distance(this))
         return;
     if (distance_clipping() && fog_setting()) { // (distance fog)
-        const float end = render_camera().far_z_;
-        set_fog_begin_distance(0.0f);
-        set_fog_end(0.0f);
-        auto start = static_cast<float>(end - (static_cast<double>(end) - render_camera().near_z_) * 0.25f);
+        const float end = renderer().render_camera().far_z_;
+        renderer().set_fog_begin_distance(0.0f);
+        renderer().set_fog_end(0.0f);
+        auto start = static_cast<float>(end - (static_cast<double>(end) - renderer().render_camera().near_z_) * 0.25f);
         toggle_fog(true);
-        d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
-        d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
-        d3d_device()->SetRenderState(D3DRS_FOGCOLOR, fog_colour());
+        renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
+        renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
+        renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, fog_colour());
     }
     if (!core::at(index_counts_, 0))
         return;
     D3DMATRIX world;
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
-        d3d_device()->GetTransform(D3DTS_WORLD, &world);
+        renderer().d3d_device()->GetTransform(D3DTS_WORLD, &world);
         D3DMATRIX boned;
         matrix_multiply(&boned, &core::at(bone_palette(), unknown98), &world);
-        d3d_device()->SetTransform(D3DTS_WORLD, &boned);
+        renderer().d3d_device()->SetTransform(D3DTS_WORLD, &boned);
     }
     apply_vertex_colors();
     set_vertex_format(fvf);
     auto* mat = material;
-    if (shaders_available()) {
+    if (renderer().shaders_available()) {
         mat->hand_in();
-        if (!instance_colour_on() && !(flags & 4))
+        if (!renderer().instance_colour_on() && !(flags & 4))
             set_pixel_shader_with_constants(pixel_shader_, mat->pass_count_);
         else
             set_pixel_shader_colored();
@@ -147,20 +146,20 @@ void MeshRef::render()
     }
     DWORD min_filter = 0, z_write = 0;
     if (flags & 0x80) {
-        d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+        renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
         if (min_filter != D3DTEXF_LINEAR)
-            d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+            renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     }
     if (flags & 0x100) {
-        d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
+        renderer().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
         if (z_write == 1)
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
     }
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     if (per_vertex_data_ &&
-        (unknown9c_ != frames_rendered() ||
+        (unknown9c_ != renderer().frames_rendered() ||
          unknowna0_ != pc_instance_shared().current_instance_)) { // (once a frame per instance)
-        unknown9c_ = frames_rendered();
+        unknown9c_ = renderer().frames_rendered();
         unknowna0_ = pc_instance_shared().current_instance_;
         uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
         vb->lock_size_ = vb->size;
@@ -185,7 +184,7 @@ void MeshRef::render()
     }
     if (vertex_buffer_count_ > 1)
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
-    d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arena_offset_, stride);
+    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arena_offset_, stride);
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
         const maths::Vec4 sphere = sphere_of(centre, radius);
@@ -201,35 +200,35 @@ void MeshRef::render()
                 break;
         }
     }
-    d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(index_buffer_at(this, level)->buffer));
+    renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(index_buffer_at(this, level)->buffer));
     const uint32_t primitives = index_count_at(this, level) - 2u;
-    if (shaders_available()) {
+    if (renderer().shaders_available()) {
         count_draw(primitives);
-        d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
+        renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
                                            primitives);
     } else {
         for (uint32_t pass = 0; pass < mat->pass_count_; ++pass) {
             std::array<float, 3> instance{};
             const float* tint = nullptr;
-            if (instance_colour_on()) {
+            if (renderer().instance_colour_on()) {
                 for (int k = 0; k < 3; ++k)
-                    core::at(instance, k) = static_cast<float>(core::at(instance_colour(), k) * static_cast<double>(1.0f / 255));
+                    core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) * static_cast<double>(1.0f / 255));
                 tint = instance.data();
             } else if (flags & 4) {
                 tint = color.data();
             }
             mat->submit_pass(pass, tint);
-            d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
+            renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
                                                index_count_at(this, level) - 2u);
             count_draw(index_count_at(this, level) - 2u);
         }
     }
     if ((flags & 0x80) && min_filter != D3DTEXF_LINEAR)
-        d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+        renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     if ((flags & 0x100) && z_write == 1)
-        d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
+        renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
     if (unknown98 != -1)
-        d3d_device()->SetTransform(D3DTS_WORLD, &world);
+        renderer().d3d_device()->SetTransform(D3DTS_WORLD, &world);
     toggle_fog(false);
 }
 

@@ -8,17 +8,15 @@
 #include "engine/core/checked_index.h"
 #include <unordered_map>
 
-#include "engine/gfx/device.h"
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace os_layer {
 
 namespace {
-
-
 
 // NOT ORIGINAL grouping - platform_d3d.cpp's state (the original's globals). Made on first use, never destroyed
 // (platform_d3d_state()).
@@ -41,7 +39,6 @@ IDirect3DVertexBuffer9*& dynamic_vertices() { return platform_d3d_state().dynami
 uint32_t& dynamic_vertices_size() { return platform_d3d_state().dynamic_vertices_size_; }
 uint32_t& dynamic_vertices_used() { return platform_d3d_state().dynamic_vertices_used_; }
 uint8_t*& dynamic_vertices_locked() { return platform_d3d_state().dynamic_vertices_locked_; }
-
 
 // The occlusion query in progress, and the ended ones by key (the original's stdext::hash_map at 0x007D69FC,
 // built and torn down by the exe's own static initialisers - unused now).
@@ -67,7 +64,7 @@ void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint
 // 0x005F4620
 HRESULT create_dynamic_vertex_buffer(uint32_t size)
 {
-    const HRESULT result = render::d3d_device()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0,
+    const HRESULT result = render::renderer().d3d_device()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0,
                                                             D3DPOOL_DEFAULT, &dynamic_vertices(), nullptr);
     dynamic_vertices_size() = size;
     return result;
@@ -93,7 +90,7 @@ void release_quad_index_buffer()
 HRESULT create_quad_index_buffer(uint32_t quads)
 {
     uint16_t* index = nullptr;
-    render::d3d_device()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
+    render::renderer().d3d_device()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
                                     &render::quad_index_buffer(), nullptr);
     render::quad_index_buffer()->Lock(0, 0, raw::as<void*>(&index), 0);
     const std::span<uint16_t> indices(index, static_cast<size_t>(quads) * 6);
@@ -145,7 +142,7 @@ void unlock_dynamic_vertices(uint32_t count, uint32_t stride)
 HRESULT begin_occlusion_query()
 {
     IDirect3DQuery9* query = nullptr;
-    HRESULT result = render::d3d_device()->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
+    HRESULT result = render::renderer().d3d_device()->CreateQuery(D3DQUERYTYPE_OCCLUSION, &query);
     if (FAILED(result))
         return result;
     result = query->Issue(D3DISSUE_BEGIN);
@@ -210,14 +207,14 @@ void release_direct_3d()
     if (dynamic_vertices())
         dynamic_vertices()->Release();
     release_occlusion_queries();
-    if (render::d3d_device())
-        render::d3d_device()->Release();
-    if (render::direct_3d())
-        render::direct_3d()->Release();
+    if (render::renderer().d3d_device())
+        render::renderer().d3d_device()->Release();
+    if (render::renderer().direct_3d())
+        render::renderer().direct_3d()->Release();
     render::quad_index_buffer() = nullptr;
     dynamic_vertices() = nullptr;
-    render::set_d3d_device(nullptr);
-    render::set_direct_3d(nullptr);
+    render::renderer().set_d3d_device(nullptr);
+    render::renderer().set_direct_3d(nullptr);
     dynamic_vertices_size() = 0;
     dynamic_vertices_used() = 0;
     dynamic_vertices_locked() = nullptr;

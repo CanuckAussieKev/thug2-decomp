@@ -22,7 +22,6 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/maths.h"
-#include "engine/gfx/device.h"
 #include "formats/texture_format.h"
 #include "formats/byte_stream.h"
 #include "platform/crt.h"
@@ -34,6 +33,7 @@
 #include "engine/core/cursor.h"
 #include "engine/core/span_copy.h"
 #include "engine/core/packed_colour.h"
+#include "engine/gfx/renderer.h"
 #include <span>
 #include <algorithm>
 
@@ -60,7 +60,6 @@ std::span<uint32_t> edit_original(const PcTexture* texture)
 {
     return (texture->flag_bits_ & 1) ? run_of(texture, get_edit(texture)->original) : std::span<uint32_t>();
 }
-
 
 gsl::owner<PcTexture*> alloc_pc_texture() { return new PcTexture; }
 
@@ -275,7 +274,7 @@ bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t hei
         break;
     }
     auto** d3d = (&texture->texture);
-    d3d_device()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
+    renderer().d3d_device()->CreateTexture(width, height, 0, 0, static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
     D3DSURFACE_DESC desc;
     (*d3d)->GetLevelDesc(0, &desc);
     texture->height = static_cast<uint16_t>(desc.Height);
@@ -296,7 +295,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
     const DWORD levels = from_texture->GetLevelCount();
     D3DSURFACE_DESC desc;
     from_texture->GetLevelDesc(0, &desc);
-    if (d3d_device()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
+    if (renderer().d3d_device()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
         D3D_OK)
         crt::exit_fatal(0); // (the game's exit(), without the static owners' teardown)
     for (DWORD level = 0; level < levels; ++level) {
@@ -370,7 +369,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = 32;
         auto** kept_d3d = (&kept->texture);
-        d3d_device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
+        renderer().d3d_device()->CreateTexture(width, height, 0, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, kept_d3d, nullptr);
         (*kept_d3d)->GetLevelDesc(0, &desc);
         kept->height = static_cast<uint16_t>(desc.Height);
         kept->width = static_cast<uint16_t>(desc.Width);
@@ -1146,7 +1145,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
             // texels left as they are, as the original).
             texture->depth = 32;
             format = D3DFMT_A8R8G8B8;
-            d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
+            renderer().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0, D3DFMT_A8R8G8B8,
                                         D3DPOOL_MANAGED, d3d, nullptr);
             void* palette = memory::alloc(header.palette_size);
             read(palette, static_cast<int>(header.palette_size), 1);
@@ -1168,7 +1167,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
             }
             memory::Hub::get_pull()->dealloc(palette);
         } else {
-            d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0,
+            renderer().d3d_device()->CreateTexture(texture->width, texture->height, texture->levels, 0,
                                         static_cast<D3DFORMAT>(format), D3DPOOL_MANAGED, d3d, nullptr);
             texture->palette = nullptr;
             for (uint32_t level = 0; level < texture->levels; ++level) {
@@ -1223,7 +1222,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout(static_cast<uint8_t>(header.compression), static_cast<uint8_t>(header.depth), format);
         auto** d3d = (&texture->texture);
-        d3d_device()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
+        renderer().d3d_device()->CreateTexture(static_cast<uint16_t>(header.width), static_cast<uint16_t>(header.height),
                                     static_cast<uint8_t>(header.levels), 0, static_cast<D3DFORMAT>(format),
                                     D3DPOOL_MANAGED, d3d, nullptr);
         // (no palette read: the memory loader expects none, as the original)

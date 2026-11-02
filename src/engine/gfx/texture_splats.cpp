@@ -33,12 +33,12 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/gfx/shader_slots.h"
-#include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -69,7 +69,6 @@ TextureSplatsState& texture_splats_state()
 } // namespace
 
 namespace {
-
 
 // RGBA bytes as ARGB.
 uint32_t to_argb(uint32_t rgba)
@@ -173,10 +172,10 @@ void kill_texture_splats_in_box(const maths::BBox* box)
 void draw_texture_splats()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
     DWORD min_filter = 0;
-    d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     engine_effects_shared().splat_sets_.for_each([](TextureSplats* splats) {
         if (splats->last < 0)
             return;
@@ -194,10 +193,10 @@ void draw_texture_splats()
         }
         splats->material->hand_in(); // (the material's set-up)
         set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), splats->material);
-        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices.data(),
+        renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices.data(),
                                        sizeof(ProjectedVertex));
     });
-    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
 }
 
 // 0x004B7FA0

@@ -19,7 +19,6 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/lists/key_map.h"
 #include "engine/gfx/shader_slots.h"
-#include "engine/gfx/device.h"
 #include "engine/lists/object_set.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
@@ -27,6 +26,7 @@
 #include "engine/core/format.h"
 #include "engine/gfx/shadow_base.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -142,7 +142,7 @@ void compile_pixel_shaders()
     done = true;
     for (int slot = kPixelShader920; slot < kPixelShaderCount; ++slot)
         hdl(slot) = nullptr;
-    if (!shaders_available()) {
+    if (!renderer().shaders_available()) {
         // No pixel shaders: stand-ins the fixed-function stages tell apart (the original's numbers 1-10; here the
         // addresses of markers of their own - only compared, never given to the device).
         static constexpr auto kStandIns = std::to_array<int>({kPixelShader964, kPixelShader960, kPixelShader95c,
@@ -169,7 +169,7 @@ void compile_pixel_shaders()
         for (const Fixed& f : kFixed) {
             assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
             IDirect3DPixelShader9* made = nullptr;
-            d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
+            renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
             hdl(f.handle) = made;
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(f.handle), f.source);
@@ -301,7 +301,7 @@ void* generated_pixel_shader(const void* material)
     IDirect3DPixelShader9* handle = nullptr;
     if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) != 0)
         buffer_pointer(errors); // (the error text, not shown)
-    d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
+    renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);

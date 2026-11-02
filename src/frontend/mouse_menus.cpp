@@ -31,14 +31,13 @@
 #include "engine/script/param_struct.h"
 #include "platform/sdl_events.h"
 #include "platform/run_log.h"
-#include "engine/gfx/draw_frame.h"
-#include "engine/gfx/device.h"
 #include "engine/pad_input/device.h"
 #include "frontend/menu_element.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace mouse_menus {
 
@@ -253,12 +252,12 @@ ScreenMapping current_mapping(int window_width, int window_height)
     ScreenMapping mapping{};
     mapping.window_width_ = window_width;
     mapping.window_height_ = window_height;
-    mapping.back_buffer_width_ = static_cast<uint32_t>(render::back_buffer_width());
-    mapping.back_buffer_height_ = static_cast<uint32_t>(render::back_buffer_height());
-    mapping.scale_x_ = render::display_factor_x();
-    mapping.scale_y_ = render::display_factor_y();
-    mapping.offset_x_ = static_cast<int32_t>(render::screen_offset_x());
-    mapping.offset_y_ = static_cast<int32_t>(render::screen_offset_y());
+    mapping.back_buffer_width_ = static_cast<uint32_t>(render::renderer().back_buffer_width());
+    mapping.back_buffer_height_ = static_cast<uint32_t>(render::renderer().back_buffer_height());
+    mapping.scale_x_ = render::renderer().display_factor_x();
+    mapping.scale_y_ = render::renderer().display_factor_y();
+    mapping.offset_x_ = static_cast<int32_t>(render::renderer().screen_offset_x());
+    mapping.offset_y_ = static_cast<int32_t>(render::renderer().screen_offset_y());
     return mapping;
 }
 

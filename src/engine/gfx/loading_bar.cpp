@@ -5,7 +5,6 @@
 #include <cstdint>
 
 #include "engine/core/checked_index.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_bar.h"
 
@@ -15,11 +14,11 @@
 
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/loading_screen.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -63,8 +62,6 @@ const std::array<uint8_t, 4>& end_color() { return loading_bar_shared().progress
 const std::array<uint8_t, 4>& border_color() { return loading_bar_shared().progress_edge_color_; }
 int& progress_bar_pixels() { return loading_bar_shared().progress_width_; }
 
-
-
 Rgb& gradient_start() { return loading_bar_state().gradient_start_; }
 Rgb& gradient_end() { return loading_bar_state().gradient_end_; }
 int& gradient_width() { return loading_bar_shared().gradient_width_; }
@@ -83,7 +80,6 @@ float& get_total_seconds() { return loading_bar_shared().total_seconds_; }
 
 HANDLE& screen_mutex() { return loading_bar_shared().screen_mutex_; } // held while the loading screen is drawn
 
-
 struct BarVertex {
     float x, y, z, rhw;
     uint32_t color;
@@ -98,7 +94,7 @@ void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t r
                          {.x = x0, .y = y1, .z = 1.0f, .rhw = 1.0f, .color = left},
                          {.x = x1, .y = y0, .z = 1.0f, .rhw = 1.0f, .color = right},
                          {.x = x1, .y = y1, .z = 1.0f, .rhw = 1.0f, .color = right}}};
-    d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
+    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -112,14 +108,14 @@ void update_loading_bar_colors()
     gradient_start() = {.r = core::at(start_color(), 0), .g = core::at(start_color(), 1), .b = core::at(start_color(), 2)};
     gradient_end() = {.r = core::at(end_color(), 0), .g = core::at(end_color(), 1), .b = core::at(end_color(), 2)};
     gradient_width() =
-        static_cast<int>(static_cast<double>(back_buffer_width()) * progress_bar_pixels() * (1.0f / 640.0f));
+        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * progress_bar_pixels() * (1.0f / 640.0f));
     border_argb() = 0x80000000u | core::at(border_color(), 0) << 16 | core::at(border_color(), 1) << 8 | core::at(border_color(), 2);
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
     // bytes too early (it replaced the instruction's base, which is the table's address + 4). Here the table is
     // at the start of the buffer. Nothing reads the table.
-    const int steps = static_cast<int>(static_cast<double>(gradient_width()) * display_factor_x());
+    const int steps = static_cast<int>(static_cast<double>(gradient_width()) * renderer().display_factor_x());
     const Rgb start = gradient_start();
     const Rgb delta = {.r = gradient_end().r - start.r, .g = gradient_end().g - start.g, .b = gradient_end().b - start.b};
     auto& table = gradient_table();
@@ -138,22 +134,22 @@ void update_loading_bar_colors()
 // full. Not original: the loading console's panel (engine/gfx/loading_console.h) is drawn before the scene ends.
 void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned long, unsigned long, unsigned long)
 {
-    if (!loading_bar_timer() || !loading_screen_up())
+    if (!renderer().loading_bar_timer() || !loading_screen_up())
         return;
     WaitForSingleObject(screen_mutex(), INFINITE);
-    d3d_device()->BeginScene();
+    renderer().d3d_device()->BeginScene();
     render::draw_loading_screen_picture(); // the picture, full screen
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
-    const double x_scale = static_cast<double>(back_buffer_width()) * kPer640;               // 1 / 640
-    auto y_scale = static_cast<float>(static_cast<double>(back_buffer_height()) * kPer480);  // 1 / 480
+    const double x_scale = static_cast<double>(renderer().back_buffer_width()) * kPer640;               // 1 / 640
+    auto y_scale = static_cast<float>(static_cast<double>(renderer().back_buffer_height()) * kPer480);  // 1 / 480
     const double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
     elapsed_seconds() = static_cast<float>(elapsed);
     double fraction = elapsed / get_total_seconds();
     if (fraction > 1.0)
         fraction = 1.0;
-    const int left = (back_buffer_width() - gradient_width()) / 2;
+    const int left = (renderer().back_buffer_width() - gradient_width()) / 2;
     const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * kFloatFive); // 5
     const int filled = ftol(gradient_width() * fraction) + left;
     const int frame_right = ftol((gradient_width() + frame_left) + x_scale * kFloatTen); // 10
@@ -163,7 +159,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     auto frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
 
     set_texture(0, nullptr);
-    d3d_device()->SetRenderState(D3DRS_ZENABLE, FALSE);
+    renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, FALSE);
     set_vertex_format(kBarVertexFormat);
     if (render::select_picture_up()) {
         // Not original - the level select pictures' plate: ink behind the bar (opaque, so it reads on any picture) with a
@@ -184,11 +180,11 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
               opaque(gradient_start()), opaque(gradient_end()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
     draw_quad(static_cast<float>(filled), top_f, frame_right_f, bottom_f, border_argb(), border_argb());
-    d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
+    renderer().d3d_device()->SetRenderState(D3DRS_ZENABLE, TRUE);
     // Not original - the loading console (nothing unless a loading screen is up with [features] loading_console on).
     gfx::loading_console::draw_panel();
-    d3d_device()->EndScene();
-    d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    renderer().d3d_device()->EndScene();
+    renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     ReleaseMutex(screen_mutex());
 }
 

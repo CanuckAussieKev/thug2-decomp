@@ -44,10 +44,9 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
-
-namespace {} // namespace
 
 namespace {
 
@@ -93,7 +92,6 @@ uint32_t& mem_view_toggle()
 
 // Rendering skipped (frames not drawn or shown).
 
-
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
 std::array<char, 128>& pending_screen_shot() { return engine_glue_shared().pending_screen_shot_; }
@@ -104,7 +102,7 @@ uint32_t back_buffer_fill()
 {
     if (fog_setting() && distance_clipping())
         return engine_glue_objects().fog_colour_;
-    return render_camera().background_colour_;
+    return renderer().render_camera().background_colour_;
 }
 
 // D3DX (linked library code): a surface written to an image file (format 1: JPEG).
@@ -126,7 +124,7 @@ void begin_frame_draw()
 {
     if (engine_glue_objects().loading_screen_up_)
         return;
-    d3d_device()->BeginScene();
+    renderer().d3d_device()->BeginScene();
 }
 
 // 0x004B22B0
@@ -175,11 +173,11 @@ void screen_shot(const char* name, int /*unused*/)
         }
     }
     D3DDISPLAYMODE mode;
-    d3d_device()->GetDisplayMode(0, &mode);
+    renderer().d3d_device()->GetDisplayMode(0, &mode);
     IDirect3DSurface9* surface = nullptr;
-    d3d_device()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
+    renderer().d3d_device()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
                                               nullptr);
-    d3d_device()->GetFrontBufferData(0, surface);
+    renderer().d3d_device()->GetFrontBufferData(0, surface);
     save_surface_to_file(file.data(), surface);
     surface->Release();
 }
@@ -198,12 +196,11 @@ void finish_rendering()
 {
     if (loading_screen_up())
         return;
-    d3d_device()->EndScene();
+    renderer().d3d_device()->EndScene();
     if (suppress_draw())
         return;
-    d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
-    draw_calls() = 0; // the frame's draw counts
-    drawn_triangles() = 0;
+    renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    renderer().reset_draw_counts(); // the frame's draw counts
     if (core::at(pending_screen_shot(), 0)) {
         screen_shot(pending_screen_shot().data(), 0);
         core::at(pending_screen_shot(), 0) = 0;
@@ -213,18 +210,18 @@ void finish_rendering()
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (engine_glue_shared().screen_blur_ != 0) {
         if (!suppress_draw())
-            d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
+            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
         ++engine_glue_shared().screen_blur_frames_;
         return;
     }
-    if (render_camera().letterbox_active_) {
+    if (renderer().render_camera().letterbox_active_) {
         if (!suppress_draw())
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
-    } else if (render_camera().clear_colour_and_depth_) {
+    } else if (renderer().render_camera().clear_colour_and_depth_) {
         if (!suppress_draw())
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
     } else if (!suppress_draw()) {
-        clear_device(0, nullptr, D3DCLEAR_ZBUFFER, render_camera().background_colour_, 1.0f, 0);
+        clear_device(0, nullptr, D3DCLEAR_ZBUFFER, renderer().render_camera().background_colour_, 1.0f, 0);
     }
     engine_glue_shared().screen_blur_frames_ = 0;
 }

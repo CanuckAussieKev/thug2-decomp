@@ -69,28 +69,5 @@ void draw_screen_blur();
 void draw_world();
 
 // The frame's camera, matrices, viewport and counters (draw_frame.cpp's record; the original's globals).
-DeviceViewport& device_viewport();
-RenderCamera& render_camera();
-ViewShape& view_shape();
-bool radeon8500();
-void set_radeon8500(bool value);
-int frames_rendered();
-maths::Mat4& world_matrix();
-maths::Mat4& view_matrix();
-maths::Mat4& projection_matrix();
-maths::Mat4& heading_matrix();
-int step_seconds();
-int screen_copy_index();
-void set_screen_copy_index(int value);
-int back_buffer_width();
-void set_back_buffer_width(int value);
-int back_buffer_height();
-void set_back_buffer_height(int value);
-uint32_t& draw_calls();
-uint32_t& drawn_triangles();
-float fog_begin_distance();
-void set_fog_begin_distance(float value);
-float fog_end();
-void set_fog_end(float value);
 
 } // namespace render

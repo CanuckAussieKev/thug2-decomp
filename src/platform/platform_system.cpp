@@ -11,10 +11,10 @@
 #include <span>
 
 #include "platform/mute_audio.h"
-#include "engine/gfx/device.h"
 #include "engine/audio/music_player.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace os_layer {
 
@@ -126,9 +126,9 @@ HWND create_game_window(const char* class_name, const char* title, int x, int y,
         frame_height = GetSystemMetrics(SM_CYSCREEN);
     }
     SetLastError(0);
-    render::set_game_window(CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr,
+    render::renderer().set_game_window(CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr,
                                     nullptr, instance, nullptr));
-    return render::game_window();
+    return render::renderer().game_window();
 }
 
 // 0x005F59D0

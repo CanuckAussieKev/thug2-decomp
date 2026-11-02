@@ -11,13 +11,13 @@
 #include <span>
 
 #include "engine/gfx/draw_frame.h"
-#include "engine/gfx/render_state.h"
 #include "engine/gfx/settings.h"
 #include "engine/maths/vec4.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -59,17 +59,17 @@ constexpr uint32_t kOccluderLimit = 8;
 // The object's transform for culling (set_world_transform), or none (empty): only its position row is used here.
 std::span<const float> world_transform()
 {
-    return current_world_transform() ? std::span<const float>(current_world_transform(), 16) : std::span<const float>();
+    return renderer().current_world_transform() ? std::span<const float>(renderer().current_world_transform(), 16) : std::span<const float>();
 }
 // The view matrix (0x00786BD0) and the view's clip values.
-const void* view_matrix_data() { return view_matrix().data(); }
-float near_plane_depth() { return render_camera().near_z_; }
-float far_clip() { return render_camera().far_z_; }
+const void* view_matrix_data() { return renderer().view_matrix().data(); }
+float near_plane_depth() { return renderer().render_camera().near_z_; }
+float far_clip() { return renderer().render_camera().far_z_; }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.
-float side_cos() { return view_shape().sin_x_; }
-float vertical_cos() { return view_shape().sin_y_; }
-float side_sin() { return view_shape().cos_x_; }
-float vertical_sin() { return view_shape().cos_y_; }
+float side_cos() { return renderer().view_shape().sin_x_; }
+float vertical_cos() { return renderer().view_shape().sin_y_; }
+float side_sin() { return renderer().view_shape().cos_x_; }
+float vertical_sin() { return renderer().view_shape().cos_y_; }
 
 // D3DXVec3Transform (linked library code; stdcall): (x, y, z, 1) x matrix.
 void xform(float* out, const float* point, const void* matrix) { d3dx::vec3_transform(out, point, matrix); }

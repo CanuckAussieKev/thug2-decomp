@@ -22,18 +22,17 @@
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/texture_splats.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"
 #include "gpu/vertex_buffers.h"
 #include "gpu/vertex_view.h"
-#include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/shared_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -45,7 +44,6 @@ ShatterShared& shatter_shared()
 }
 
 namespace {
-
 
 uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count_; }
 
@@ -90,9 +88,8 @@ void draw_shatter(PcShatter* shatter)
     mesh->material->hand_in(); // (the material's set-up)
     set_pixel_shader(mesh_pixel_shader(mesh), mesh->material);
     set_vertex_format(mesh_vertex_format(mesh));
-    ++draw_calls(); // the frame's draw calls and triangles
-    drawn_triangles() += triangle_count(shatter);
-    draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices, mesh->stride);
+    renderer().count_draw(triangle_count(shatter)); // the frame's draw calls and triangles
+    renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices, mesh->stride);
 }
 
 // 0x004B9550

@@ -14,12 +14,11 @@
 #include <string>
 #include <unordered_map>
 
-#include "engine/gfx/render_state.h"
 #include "platform/run_log.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace render::view_mode {
 
@@ -90,8 +89,6 @@ const char* get_name(Mode mode)
 
 namespace {
 
-
-
 // NOT ORIGINAL grouping - view_mode.cpp's state (were globals). Made on first use, never destroyed (view_mode_state()).
 struct ViewModeState {
     Mode mode_ = Mode::kLit;
@@ -137,8 +134,8 @@ void* make_twin(void* original, Twin* twin)
     void* errors = nullptr;
     IDirect3DPixelShader9* made = nullptr;
     const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
-    if (result >= 0 && code && d3d_device())
-        d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
+    if (result >= 0 && code && renderer().d3d_device())
+        renderer().d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
     if (!made && !view_mode_state().assemble_failed_logged_) {
         view_mode_state().assemble_failed_logged_ = true;
         get_log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",
@@ -177,15 +174,15 @@ void begin_world()
 {
     view_mode_state().in_world_ = true;
     if (view_mode_state().mode_ == Mode::kUnlit)
-        set_current_pixel_shader(nullptr); // (the next SetPixelShader sends the twin)
-    if (view_mode_state().mode_ == Mode::kCollisionOnly && d3d_device())
-        d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
+        renderer().set_current_pixel_shader(nullptr); // (the next SetPixelShader sends the twin)
+    if (view_mode_state().mode_ == Mode::kCollisionOnly && renderer().d3d_device())
+        renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
 }
 
 void end_world()
 {
     if (view_mode_state().in_world_ && view_mode_state().mode_ == Mode::kUnlit)
-        set_current_pixel_shader(nullptr); // (the 2D gets the originals again)
+        renderer().set_current_pixel_shader(nullptr); // (the 2D gets the originals again)
     view_mode_state().in_world_ = false;
 }
 

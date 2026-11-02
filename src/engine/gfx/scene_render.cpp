@@ -24,6 +24,7 @@
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -165,20 +166,20 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             }
         }
         if (scene->flags & 0x100) { // shadows on the meshes drawn
-            if (z_write() == 1) {
+            if (renderer().z_write() == 1) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
-                set_z_write(0);
+                renderer().set_z_write(0);
             }
             DWORD min_filter = 0;
-            d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+            renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
             if (min_filter == D3DTEXF_ANISOTROPIC)
-                d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+                renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
             draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn)));
             if (min_filter == D3DTEXF_ANISOTROPIC)
-                d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            if (!z_write()) {
+                renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            if (!renderer().z_write()) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
-                set_z_write(1);
+                renderer().set_z_write(1);
             }
         }
         pass.drawn = 0;

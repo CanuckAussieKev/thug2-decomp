@@ -524,6 +524,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/pc_material.cpp
     src/engine/gfx/pc_material_load.cpp
     src/engine/gfx/render_state.cpp
+    src/engine/gfx/renderer.cpp
     src/platform/d3dx.cpp
     src/engine/gfx/occlusion.cpp
     src/engine/gfx/shadow_base.cpp

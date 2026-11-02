@@ -12,10 +12,10 @@
 #include <span>
 #include <string>
 
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/format.h"
 #include "platform/screenshot_files.h"
+#include "engine/gfx/renderer.h"
 
 namespace gfx::screenshot_capture {
 
@@ -118,7 +118,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
 
 bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error)
 {
-    IDirect3DDevice9* device = render::d3d_device();
+    IDirect3DDevice9* device = render::renderer().d3d_device();
     if (!device) {
         *error = "no device yet";
         return false;

@@ -35,7 +35,6 @@
 #include "frontend/screen_element_manager.h"
 #include "frontend/start_level.h"
 #include "frontend/test_view.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/net/gamenet_manager.h"
@@ -58,6 +57,7 @@
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
 #include "engine/util/unique_handle.h"
+#include "engine/gfx/renderer.h"
 
 namespace frontend::automation {
 
@@ -1225,7 +1225,7 @@ std::string press_refusal(const Button& button)
 // logo left the logo up), so choose / press wait for it - at most kPressWaitSeconds.
 bool loading_screen_up()
 {
-    return render::loading_screen_shown() != 0 || render::loading_bar_timer() != 0 ||
+    return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||
            static_cast<uint8_t>(render::loading_screen_up()) != 0;
 }
 

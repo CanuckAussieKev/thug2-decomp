@@ -11,12 +11,12 @@
 #include "engine/script/params.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
-#include "engine/gfx/device.h"
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -58,7 +58,7 @@ void set_angle_factor(float value) { field_of_view().angle_factor_ = value; }
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-bool blur_available() { return core::at(screen_surfaces(), 0) != nullptr; }
+bool blur_available() { return core::at(renderer().screen_surfaces(), 0) != nullptr; }
 auto& screen_blur() { return engine_glue_shared().screen_blur_; }
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return screen_state().script_screen_blur_; }
@@ -66,14 +66,13 @@ auto& script_screen_blur() { return screen_state().script_screen_blur_; }
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
 float& view_ratio_slot() { return screen_state().width_over_height_; }
 
-
 // The 640x480 -> back buffer conversion (init_direct_3d) and the letterbox flag.
-uint8_t& cinema_bars_on() { return render_camera().letterbox_active_; }
+uint8_t& cinema_bars_on() { return renderer().render_camera().letterbox_active_; }
 
-void set_screen_offset_x(uint32_t x) { screen_offset_x() = static_cast<int>(x); }
-void set_screen_offset_y(uint32_t y) { screen_offset_y() = static_cast<int>(y); }
-uint32_t get_back_buffer_width() { return static_cast<uint32_t>(back_buffer_width()); }
-uint32_t get_back_buffer_height() { return static_cast<uint32_t>(back_buffer_height()); }
+void set_screen_offset_x(uint32_t x) { renderer().set_screen_offset_x(static_cast<int>(x)); }
+void set_screen_offset_y(uint32_t y) { renderer().set_screen_offset_y(static_cast<int>(y)); }
+uint32_t get_back_buffer_width() { return static_cast<uint32_t>(renderer().back_buffer_width()); }
+uint32_t get_back_buffer_height() { return static_cast<uint32_t>(renderer().back_buffer_height()); }
 
 } // namespace
 
@@ -166,17 +165,17 @@ void set_letterbox(bool letterbox)
     const float desired = desired_aspect_ratio();
     if (back_buffer_aspect > desired) {
         // wider: bars left and right
-        set_display_factor_x(desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f));
-        set_display_factor_y(static_cast<float>(get_back_buffer_height()) / 480.0f);
-        auto width = static_cast<uint32_t>(display_factor_x() * 640.0f);
+        renderer().set_display_factor_x(desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f));
+        renderer().set_display_factor_y(static_cast<float>(get_back_buffer_height()) / 480.0f);
+        auto width = static_cast<uint32_t>(renderer().display_factor_x() * 640.0f);
         set_screen_offset_x((get_back_buffer_width() - width) / 2);
-        set_screen_offset_y(static_cast<uint32_t>(16.0f * display_factor_y()));
+        set_screen_offset_y(static_cast<uint32_t>(16.0f * renderer().display_factor_y()));
     } else {
-        set_display_factor_x(static_cast<float>(get_back_buffer_width()) / 640.0f);
-        set_display_factor_y(back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f));
-        auto height = static_cast<uint32_t>(display_factor_y() * 480.0f);
+        renderer().set_display_factor_x(static_cast<float>(get_back_buffer_width()) / 640.0f);
+        renderer().set_display_factor_y(back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f));
+        auto height = static_cast<uint32_t>(renderer().display_factor_y() * 480.0f);
         set_screen_offset_x(0);
-        set_screen_offset_y(static_cast<uint32_t>(16.0f * display_factor_y() +
+        set_screen_offset_y(static_cast<uint32_t>(16.0f * renderer().display_factor_y() +
                                                   // NOLINTNEXTLINE(bugprone-integer-division): as the original
                                                   static_cast<float>((get_back_buffer_height() - height) / 2)));
     }

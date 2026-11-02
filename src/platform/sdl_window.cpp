@@ -15,10 +15,10 @@
 #include "platform/debug_log.h"
 #include "platform/sdl_events.h"
 #include "platform/winmain.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/movie.h"
 #include "engine/core/ints.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace sys {
 
@@ -40,9 +40,7 @@ SdlWindowState& sdl_window_state()
     return state.get();
 }
 
-
 // Whether the device may be recreated (off while the window is in the background).
-
 
 // A size no display mode reaches in both directions (width and height checked separately) becomes 0x0 (the
 // desktop's).
@@ -128,7 +126,7 @@ void create_sdl_window()
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(sdl_window_state().window_, &info);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): SDL's window-manager info (an API union by platform)
-    render::set_game_window(info.info.win.window);
+    render::renderer().set_game_window(info.info.win.window);
     set_app_active(true);
 
     SDL_ShowCursor(0);

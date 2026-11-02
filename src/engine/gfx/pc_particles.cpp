@@ -19,20 +19,19 @@
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/particle_sets.h"
 #include "engine/gfx/pc_flexible_particles.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/texture_dict.h"
 #include "platform/platform_d3d.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/shader_slots.h"
-#include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -175,9 +174,9 @@ float get_mid_time(const PcParticleSystem* system)
 // and u = r x (a, b, c), each normalised when it has a length.
 void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
 {
-    const double a = core::at(view_matrix().row, 0).z;
-    const double b = core::at(view_matrix().row, 1).z;
-    const double c = core::at(view_matrix().row, 2).z;
+    const double a = core::at(renderer().view_matrix().row, 0).z;
+    const double b = core::at(renderer().view_matrix().row, 1).z;
+    const double c = core::at(renderer().view_matrix().row, 2).z;
     const double b0 = b * 0.0f;
     core::at(r, 0) = static_cast<float>(b0 - c);
     core::at(r, 1) = static_cast<float>(c * 0.0f - a * 0.0f);
@@ -520,9 +519,9 @@ void PcParticleSystem::draw(bool advance)
             }
             remaining -= static_cast<int>(quads);
             os_layer::unlock_dynamic_vertices(quads * 4, sizeof(ParticleVertex));
-            d3d_device()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
-            d3d_device()->SetIndices(quad_index_buffer());
-            d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
+            renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
+            renderer().d3d_device()->SetIndices(quad_index_buffer());
+            renderer().d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
                                                quads * 2);
         }
     }

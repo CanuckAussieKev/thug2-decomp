@@ -78,37 +78,5 @@ void reset_render_state();
 void apply_render_state();
 
 // The render state the device was last sent (render_state.cpp's record; the original's globals).
-bool shaders_available();
-void set_shaders_available(bool value);
-uint32_t specular_state();
-uint8_t z_write();
-void set_z_write(uint8_t value);
-uint32_t depth_bias();
-void set_depth_bias(uint32_t value);
-uint32_t cull_mode();
-void set_cull_mode(uint32_t value);
-bool near_camera();
-void set_near_camera(bool value);
-const std::array<void*, 4>& stage_textures();
-std::array<uint32_t, 4>& border_colours();
-const void* pixel_shader_locked();
-void set_pixel_shader_locked(const void* value);
-void* current_pixel_shader();
-void set_current_pixel_shader(void* value);
-std::array<float, 20>& ps_constant_bank();
-uint32_t instance_colour_on();
-void set_instance_colour_on(uint32_t value);
-std::array<uint8_t, 4>& instance_colour();
-uint8_t pixel_shader_changed();
-void set_pixel_shader_changed(uint8_t value);
-uint32_t vertex_format_locked();
-void set_vertex_format_locked(uint32_t value);
-uint32_t& skipped_passes();
-uint32_t submit_locked();
-void set_submit_locked(uint32_t value);
-uint32_t fog_active();
-void set_fog_active(uint32_t value);
-const float*& current_world_transform();
-std::array<float, 16>& world_transform_copy();
 
 } // namespace render

@@ -13,8 +13,8 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/render_state.h"
-#include "engine/gfx/device.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -35,7 +35,7 @@ Elem*& foremost()
 }
 
 // What the textures being drawn with are (the render state cache's).
-void* cached_texture(int stage) { return core::at(stage_textures(), stage); }
+void* cached_texture(int stage) { return core::at(renderer().stage_textures(), stage); }
 
 } // namespace
 
@@ -71,7 +71,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
     const DWORD level_count = from->GetLevelCount();
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
-    d3d_device()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
+    renderer().d3d_device()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
                                 &texture, nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
         D3DSURFACE_DESC level_desc;
@@ -161,7 +161,7 @@ bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new
     if (texture)
         get_d3d(this)->Release();
     const HRESULT result =
-        d3d_device()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
+        renderer().d3d_device()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                     &texture, nullptr);
     get_d3d(this)->GetSurfaceLevel(0, &surface);
     render_target_ = true;
@@ -183,7 +183,7 @@ bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new
 void release_render_target_textures()
 {
     for (DWORD stage = 0; stage < 8; ++stage)
-        d3d_device()->SetTexture(stage, nullptr); // (the cache isn't told)
+        renderer().d3d_device()->SetTexture(stage, nullptr); // (the cache isn't told)
     for (const Elem* node = foremost(); node; node = node->next) {
         TextureRef* t = node->texture;
         if (!t->texture || !t->render_target_)
@@ -203,7 +203,7 @@ void restore_render_target_textures()
         TextureRef* t = node->texture;
         if (t->texture || !t->render_target_)
             continue;
-        d3d_device()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
+        renderer().d3d_device()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
                                     &t->texture, nullptr);
         if (t->texture)
             get_d3d(t)->GetSurfaceLevel(0, &t->surface);

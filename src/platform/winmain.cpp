@@ -39,13 +39,13 @@
 #include "platform/registry.h"
 #include "platform/sdl_window.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/movie.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/gfx/renderer.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -100,7 +100,6 @@ long get_number(std::string_view from)
 std::string_view after(std::string_view text, size_t count) { return text.substr(std::min(count, text.size())); }
 
 // --- WinMain's callees -------------------------------------------------------------------------------------------
-
 
 // GameSpy (library code, not decompiled): is the game's back end up?
 void gsi_start_available_check(const char* game) { game_spy::start_available_check(game); }
@@ -190,10 +189,10 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
     case WM_ACTIVATE:
         // (the game's window, not the message's)
         if (LOWORD(w_param) == WA_ACTIVE || LOWORD(w_param) == WA_CLICKACTIVE) {
-            ShowWindow(render::game_window(), SW_MAXIMIZE);
+            ShowWindow(render::renderer().game_window(), SW_MAXIMIZE);
             stored_app_active() = true; // active
         } else {
-            ShowWindow(render::game_window(), SW_MINIMIZE);
+            ShowWindow(render::renderer().game_window(), SW_MINIMIZE);
             stored_app_active() = false;
             render::set_device_lost(true); // the device is taken as lost (reset when active again)
             InvalidateRect(nullptr, nullptr, TRUE);
@@ -351,10 +350,10 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
     create_sdl_window();
     os_layer::process_window_events();
-    if (!render::game_window())
+    if (!render::renderer().game_window())
         return 0;
     // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
-    //     ShowWindow(render::game_window(), render::kShowWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
+    //     ShowWindow(render::renderer().game_window(), render::kShowWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     get_srand(get_instant());
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command
@@ -378,7 +377,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     core::at(argv, argc) = nullptr;
 
     find_cd_drive("THUG CD2");
-    init_direct_sound(render::game_window());
+    init_direct_sound(render::renderer().game_window());
     for (int device = 0; device < 3; ++device) {
         for (int i = 0; i < 24; ++i) {
             std::array<char, 8> name = {};
@@ -386,7 +385,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
             write_default_setting(name.data(), core::at(core::at(kDefaultBindings, device), i));
         }
     }
-    os_layer::init_input(instance, render::game_window(), static_cast<int>(cell::of(kSettingsKey.data())));
+    os_layer::init_input(instance, render::renderer().game_window(), static_cast<int>(cell::of(kSettingsKey.data())));
 
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.
@@ -428,7 +427,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     render::remove_loading_screen();       // (the renderer's clean-up)
     release_direct_3d();
     InvalidateRect(nullptr, nullptr, TRUE);
-    ShowWindow(render::game_window(), SW_SHOWMINIMIZED);
+    ShowWindow(render::renderer().game_window(), SW_SHOWMINIMIZED);
     c_exit();
     memory::shut_down_manager();
     exit_now(0);

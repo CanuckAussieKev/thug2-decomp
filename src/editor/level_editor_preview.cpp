@@ -7,8 +7,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <span>
 #include <vector>
 #include <array>
@@ -33,6 +31,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace frontend::level_editor::preview {
 
@@ -107,50 +106,6 @@ void draw_mesh(render::MeshRef* mesh) { mesh->render(); }
 void draw_instance(render::Singleton* instance) { render::draw_one_instance(instance, 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
 void update_frustum() { render::billboard_pool().setup_axes(); }
-
-// The camera's globals render::choose_camera and the instance render change, saved and put back.
-struct SavedRange {
-    void* (*address)(); // (a function: the globals are set up after this table)
-    uint32_t size;
-};
-constexpr auto kSaved = std::to_array<SavedRange>({
-    {.address = []() -> void* { return &render::world_matrix(); }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::view_matrix(); }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::projection_matrix(); }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::heading_matrix(); }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::device_viewport(); }, .size = sizeof(render::DeviceViewport)},
-    {.address = []() -> void* { return &render::render_camera(); }, .size = sizeof(render::RenderCamera)},
-    {.address = []() -> void* { return &render::view_shape(); }, .size = sizeof(render::ViewShape)}, // (the view's shape: culling)
-    {.address = []() -> void* { return static_cast<void*>(&render::current_world_transform()); },
-     .size = sizeof(void*)}, // (the culling world matrix: none or the copy)
-    {.address = []() -> void* { return &render::world_transform_copy(); }, .size = sizeof(render::world_transform_copy())},
-});
-constexpr uint32_t kSavedBytes = 4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) +
-                                 sizeof(render::RenderCamera) + sizeof(render::ViewShape) + sizeof(void*) +
-                                 sizeof(render::world_transform_copy());
-// (the camera's globals from the world matrix to the camera's end: 0x164 bytes; the view's shape: 0x18)
-static_assert(4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) + sizeof(render::RenderCamera) == 0x164 &&
-                  sizeof(render::ViewShape) == 0x18,
-              "the saved camera globals");
-struct SavedView {
-    std::array<uint8_t, kSavedBytes> bytes;
-    void store_away()
-    {
-        size_t at = 0;
-        for (const SavedRange& range : kSaved) {
-            std::memcpy(std::span<uint8_t>(bytes).subspan(at, range.size).data(), range.address(), range.size);
-            at += range.size;
-        }
-    }
-    void get_restore() const
-    {
-        size_t at = 0;
-        for (const SavedRange& range : kSaved) {
-            std::memcpy(range.address(), std::span<const uint8_t>(bytes).subspan(at, range.size).data(), range.size);
-            at += range.size;
-        }
-    }
-};
 
 // A geometry's meshes as the world pass draws them: shown and not hidden; opaque ones first, then the transparent.
 void draw_meshes(render::PcGeom* geom)
@@ -280,8 +235,8 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     const Lens lens = lens_for(kAngle, kSquareAspect);
     const float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
     const Eye eye = orbit_eye(centre, fit_distance(radius, half_angle, kMargin) / orbit.zoom, orbit);
-    SavedView saved{};
-    saved.store_away();
+    // (the camera's state render::choose_camera and the instance render change, saved and put back)
+    const render::ViewSnapshot saved = render::renderer().save_view();
     maths::Mat4 orientation = {};
     core::at(orientation.row, 0) = {.x = eye.frame.right.x, .y = eye.frame.right.y, .z = eye.frame.right.z, .w = 0.0f};
     core::at(orientation.row, 1) = {.x = eye.frame.up.x, .y = eye.frame.up.y, .z = eye.frame.up.z, .w = 0.0f};
@@ -295,7 +250,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     draw_subject(kind, id);
     // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
-    saved.get_restore();
+    render::renderer().restore_view(saved);
     update_frustum();
     render::set_last_bones(nullptr);
     return true;

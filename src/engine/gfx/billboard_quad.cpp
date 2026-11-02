@@ -12,14 +12,13 @@
 #include <array>
 #include <utility>
 
-#include "engine/gfx/draw_frame.h"
 #include "engine/maths/vec4.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/screen.h"
 #include "platform/run_log.h"
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -28,14 +27,13 @@ namespace {
 
 // The 640x480 layout -> back buffer conversion (set_letterbox) and the back buffer's size.
 
-
 // The layout's size (the constants at 0x00649FD4 and 0x006484B4).
 constexpr float kLayoutWidth = 640.0f;
 constexpr float kLayoutHeight = 480.0f;
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    renderer().d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 const std::array<uint16_t, 6>& quad_indices()
@@ -116,7 +114,7 @@ void QuadSprite::draw()
         return;
 
     const bool front_end_widescreen = get_front_end_widescreen();
-    auto screen_right = static_cast<float>(back_buffer_width());
+    auto screen_right = static_cast<float>(renderer().back_buffer_width());
     std::array<Vertex, 4> vertices{}; // top left, bottom left, top right, bottom right
     if (rotation == 0.0f) {
         auto x0 = static_cast<float>(left + x);
@@ -130,18 +128,18 @@ void QuadSprite::draw()
             x0 = 0.0f;
             x1 = screen_right;
         } else {
-            x0 = static_cast<float>(static_cast<double>(display_factor_x()) * x0 + screen_offset_x());
-            x1 = static_cast<float>(static_cast<double>(display_factor_x()) * x1 + screen_offset_x());
+            x0 = static_cast<float>(static_cast<double>(renderer().display_factor_x()) * x0 + renderer().screen_offset_x());
+            x1 = static_cast<float>(static_cast<double>(renderer().display_factor_x()) * x1 + renderer().screen_offset_x());
         }
         if (y0 <= 0.0f && y1 >= kLayoutHeight) {
             y0 = 0.0f;
-            y1 = back_buffer_height();
+            y1 = renderer().back_buffer_height();
         } else {
             // (an edge exactly at 0 isn't moved by the offset - the original's)
             if (y0 != 0.0f)
-                y0 = static_cast<float>(static_cast<double>(display_factor_y()) * y0 + screen_offset_y());
+                y0 = static_cast<float>(static_cast<double>(renderer().display_factor_y()) * y0 + renderer().screen_offset_y());
             if (y1 != 0.0)
-                y1 = y1 * display_factor_y() + screen_offset_y();
+                y1 = y1 * renderer().display_factor_y() + renderer().screen_offset_y();
         }
         if (front_end_widescreen) {
             // (only sprites overlapping the layout: one lying wholly outside it - parked off-screen, or the end
@@ -167,16 +165,16 @@ void QuadSprite::draw()
         // band is turned by pi + 0.001, so its corners don't line up exactly.)
         const double quarter_turns = static_cast<double>(rotation) / 1.5707963267948966;
         const bool upright = std::fabs(quarter_turns - std::round(quarter_turns)) * 1.5707963267948966 <= 0.01;
-        const double offset_x = screen_offset_x();
-        auto offset_y = static_cast<float>(screen_offset_y());
+        const double offset_x = renderer().screen_offset_x();
+        auto offset_y = static_cast<float>(renderer().screen_offset_y());
         std::array<double, 4> layout_x{};
         for (int i = 0; i < 4; ++i) {
             // (truncated to whole pixels, unlike the upright ones)
             core::at(layout_x, i) = static_cast<double>(core::at(corners, i).x) + x;
             core::at(vertices, i).x =
-                static_cast<float>(static_cast<int32_t>(get_truncated(core::at(layout_x, i) * display_factor_x() + offset_x)));
+                static_cast<float>(static_cast<int32_t>(get_truncated(core::at(layout_x, i) * renderer().display_factor_x() + offset_x)));
             core::at(vertices, i).y = static_cast<float>(static_cast<int32_t>(
-                get_truncated((static_cast<double>(core::at(corners, i).y) + y) * display_factor_y() + offset_y)));
+                get_truncated((static_cast<double>(core::at(corners, i).y) + y) * renderer().display_factor_y() + offset_y)));
         }
         if (front_end_widescreen && upright) {
             // The sprite's left side is its two leftmost corners in the layout, the right side the two rightmost
@@ -234,9 +232,8 @@ void QuadSprite::draw()
     set_texture_stage_state(0, 1, 5); // colour: texture x diffuse, doubled
     set_texture_stage_state(0, 4, 5); // alpha: the same
     if (!suppress_draw()) {           // (rendering not skipped)
-        ++draw_calls();               // draw calls
-        drawn_triangles() += 2;       // triangles
-        d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
+        renderer().count_draw(2); // the frame's draw calls and triangles
+        renderer().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
                                              sizeof(Vertex));
     }
 }

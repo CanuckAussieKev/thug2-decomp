@@ -1,6 +1,5 @@
 // The loading screen: see loading_screen.h.
 
-#include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_screen.h"
 #include "engine/gfx/engine_sprite.h"
@@ -23,7 +22,6 @@
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/loading_bar.h"
 #include "engine/gfx/pc_texture.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "platform/run_log.h"
 #include "engine/sys/game_config.h"
@@ -32,6 +30,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -44,7 +43,6 @@ LoadingScreenShared& loading_screen_shared()
 namespace {
 
 HANDLE screen_mutex() { return loading_bar_shared().screen_mutex_; }
-
 
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
 void get_lock() { WaitForSingleObject(screen_mutex(), INFINITE); }
@@ -143,14 +141,14 @@ void draw_loading_screen_picture()
     if (!loading_screen_shared().loading_screen_picture_)
         return;
     get_lock();
-    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-    d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
+    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+    renderer().d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
     DWORD min_filter = 0;
-    d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     change_phase(kAddressMode0, 0x10001); // (clamped both ways)
     change_phase(kLighting, 0);
     set_pixel_shader(nullptr, nullptr);
@@ -158,8 +156,8 @@ void draw_loading_screen_picture()
     choose_blend_mode(0);
     set_texture(0, nullptr); // (the original passes a third 0, here and below)
     set_texture(0, image_of(loading_screen_shared().loading_screen_picture_.get())->texture); // (and its palette)
-    auto width = static_cast<float>(back_buffer_width());
-    auto height = static_cast<float>(back_buffer_height());
+    auto width = static_cast<float>(renderer().back_buffer_width());
+    auto height = static_cast<float>(renderer().back_buffer_height());
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
     // evenly - where the original's are stretched)
     float u0 = 0.0f, u1 = 1.0f, v0 = 0.0f, v1 = 1.0f;
@@ -179,9 +177,9 @@ void draw_loading_screen_picture()
         {.x = width, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .u = u1, .v = v1},
         {.x = width, .y = height, .z = 0.0f, .rhw = 1.0f, .u = u1, .v = v0},
     }};
-    d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(PictureVertex));
+    renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(PictureVertex));
     set_texture(0, nullptr);
-    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     get_unlock();
 }
 
@@ -189,10 +187,10 @@ void draw_loading_screen_picture()
 void hide_loading_screen()
 {
     get_lock();
-    d3d_device()->SetRenderState(D3DRS_FOGENABLE, fog_active());
-    if (loading_bar_timer()) {
-        stop_timer(loading_bar_timer());
-        set_loading_bar_timer(0);
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
+    if (renderer().loading_bar_timer()) {
+        stop_timer(renderer().loading_bar_timer());
+        renderer().set_loading_bar_timer(0);
     }
     set_loading_screen_up(false);
     get_unlock();
@@ -202,7 +200,7 @@ void hide_loading_screen()
 void free_loading_screen_sprite()
 {
     get_lock();
-    d3d_device()->SetRenderState(D3DRS_FOGENABLE, fog_active());
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, renderer().fog_active());
     memory::destroy_then_clear(loading_screen_state().loading_screen_sprite_); // (the engine's delete through slot 0)
     get_unlock();
 }
@@ -214,8 +212,8 @@ void show_progress_bar(float seconds)
     loading_bar_shared().tick_seconds_ = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
     loading_bar_shared().total_seconds_ = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
     update_loading_bar_colors();
-    if (!loading_bar_timer())
-        set_loading_bar_timer(start_timer(29, &draw_loading_screen_frame));
+    if (!renderer().loading_bar_timer())
+        renderer().set_loading_bar_timer(start_timer(29, &draw_loading_screen_frame));
 }
 
 // 0x004B78B0
@@ -239,13 +237,13 @@ void show_loading_screen(const char* name, bool keep, bool black)
             name = picked.data();
         }
     }
-    d3d_device()->SetRenderState(D3DRS_FOGENABLE, FALSE);
+    renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, FALSE);
     set_loading_screen_up(false);
     if (!keep) {
         if (black) {
             select_picture().select_picture_ = false;
             apply_bar_style(false);
-            d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
+            renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         } else {
             if (loading_screen_shared().loading_screen_picture_) {
                 if (std::strcmp(picture_name(), name) != 0) {
@@ -274,11 +272,11 @@ void show_loading_screen(const char* name, bool keep, bool black)
             }
             select_picture().select_picture_ = is_select_name(name);
             apply_bar_style(select_picture().select_picture_);
-            d3d_device()->BeginScene();
+            renderer().d3d_device()->BeginScene();
             draw_loading_screen_picture();
-            d3d_device()->EndScene();
+            renderer().d3d_device()->EndScene();
         }
-        d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+        renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     }
     set_loading_screen_up(true);
     get_unlock();

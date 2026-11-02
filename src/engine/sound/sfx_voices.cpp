@@ -37,12 +37,12 @@
 #include "engine/sys/game_config.h"
 #include "platform/platform_system.h"
 #include "platform/stopwatch.h"
-#include "engine/gfx/device.h"
 #include "engine/util/unique_handle.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/sound/sound_state.h"
+#include "engine/gfx/renderer.h"
 
 namespace sound {
 
@@ -840,7 +840,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     }
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
-        if (static_cast<bool>(render::frequency_setting_allowed()))
+        if (static_cast<bool>(render::renderer().frequency_setting_allowed()))
             buffer_of(voice.buffer)->SetFrequency(static_cast<DWORD>(frequency));
     }
 }

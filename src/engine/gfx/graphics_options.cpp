@@ -17,6 +17,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace render::graphics_options {
 
@@ -42,7 +43,7 @@ GraphicsOptionsState& graphics_options_state()
     return state.get();
 }
 
-IDirect3DTexture9* screen_copy(int index) { return core::at(screen_textures(), index); }
+IDirect3DTexture9* screen_copy(int index) { return core::at(renderer().screen_textures(), index); }
 
 constexpr float kMinScale = 0.25f;
 constexpr float kMaxScale = 8.0f;
@@ -168,7 +169,7 @@ void create_scene_target()
     const D3DPRESENT_PARAMETERS& pp = present_parameters();
     if (graphics_options_state().samples_ <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE)
         return; // (the device was made without: the fallbacks in init_direct_3d)
-    IDirect3DDevice9* device = d3d_device();
+    IDirect3DDevice9* device = renderer().d3d_device();
     const HRESULT colour =
         device->CreateRenderTarget(pp.BackBufferWidth, pp.BackBufferHeight, pp.BackBufferFormat, pp.MultiSampleType,
                                    pp.MultiSampleQuality, FALSE, &graphics_options_state().scene_colour_, nullptr);
@@ -194,8 +195,8 @@ bool set_scene_target(IDirect3DTexture9* texture)
 {
     if (!in_use() || !texture || (texture != screen_copy(0) && texture != screen_copy(1)))
         return false;
-    d3d_device()->SetRenderTarget(0, graphics_options_state().scene_colour_);
-    d3d_device()->SetDepthStencilSurface(graphics_options_state().scene_depth_);
+    renderer().d3d_device()->SetRenderTarget(0, graphics_options_state().scene_colour_);
+    renderer().d3d_device()->SetDepthStencilSurface(graphics_options_state().scene_depth_);
     graphics_options_state().drawn_for_ = texture;
     graphics_options_state().unresolved_ = true;
     return true;
@@ -207,7 +208,7 @@ void resolve_scene_target(IDirect3DTexture9* texture)
         return;
     IDirect3DSurface9* surface = nullptr;
     if (SUCCEEDED(texture->GetSurfaceLevel(0, &surface)) && surface) {
-        d3d_device()->StretchRect(graphics_options_state().scene_colour_, nullptr, surface, nullptr, D3DTEXF_NONE);
+        renderer().d3d_device()->StretchRect(graphics_options_state().scene_colour_, nullptr, surface, nullptr, D3DTEXF_NONE);
         surface->Release();
     }
     graphics_options_state().unresolved_ = false;

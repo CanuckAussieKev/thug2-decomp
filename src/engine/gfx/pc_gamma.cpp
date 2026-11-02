@@ -11,9 +11,9 @@
 #include <cstring>
 #include <array>
 
-#include "engine/gfx/device.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/renderer.h"
 
 namespace render {
 
@@ -79,7 +79,7 @@ void set_device_gamma(float r, float g, float b)
     D3DGAMMARAMP ramp{}; // (red, green, blue: the table's three runs)
     static_assert(sizeof(ramp) == sizeof(pc_gamma_state().gamma_ramp_));
     std::memcpy(&ramp, pc_gamma_state().gamma_ramp_.data(), sizeof(ramp));
-    d3d_device()->SetGammaRamp(0, 0, &ramp);
+    renderer().d3d_device()->SetGammaRamp(0, 0, &ramp);
 }
 
 } // namespace render
