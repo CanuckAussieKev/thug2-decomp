@@ -41,12 +41,18 @@
 #include "game/rider/skater_score.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "game/rider/shared_state.h"
 
 namespace skater {
 
 using namespace core_fields;
 
-maths::Vec4 g_acid_hold;
+CoreGrindShared& core_grind_shared()
+{
+    static core::NoDestroy<CoreGrindShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -83,7 +89,7 @@ constexpr float kDegrees = 0.0174532924f; // (degrees to radians, 0x00645464)
 constexpr float kNearPoint = 36.0f;       // (6 squared: how far from the point a hit may be)
 
 // The acid drop's hold velocity (debugging: "GRINDING FROM ACID DROP").
-maths::Vec4& acid_hold() { return g_acid_hold; }
+maths::Vec4& acid_hold() { return core_grind_shared().acid_hold_; }
 
 const maths::Vec4 kUpAxis = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
 

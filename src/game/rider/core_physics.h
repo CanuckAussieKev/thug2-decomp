@@ -36,7 +36,6 @@ class TaggingControlComponent;
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::ps2_controls()).
 namespace skater {
 
-
 // What the acid drop search (SkaterPhysicsModule::find_acid_drop) finds (0x28 bytes).
 struct AcidDrop {
     maths::Vec4 point;  // +0x00 where on the wall the skater drops to
@@ -899,8 +898,6 @@ public:
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
 void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
-
-extern maths::Vec4 g_acid_hold;
 
 } // namespace skater
 
