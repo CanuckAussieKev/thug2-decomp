@@ -24,9 +24,12 @@ namespace objects {
 
 namespace {
 // Levels left out of the totals (a byte each, up to the cheat flag at 0x007CE4FD).
-std::array<bool, RiderStoryProgress::kLevels> g_career_left_out;
 
-std::array<bool, RiderStoryProgress::kLevels>& left_out() { return g_career_left_out; }
+std::array<bool, RiderStoryProgress::kLevels>& left_out()
+{
+    static std::array<bool, RiderStoryProgress::kLevels> career_left_out{};
+    return career_left_out;
+}
 
 uint32_t get_bit(int index) { return 1u << (index & 0x1F); }
 int get_word(int index) { return index >> 5; }

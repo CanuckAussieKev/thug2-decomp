@@ -24,12 +24,16 @@ bool is_structure(const script::Component* component) { return component->kind_t
 script::Array* game_part_list(uint32_t slot) { return script::fetch_list(slot); }
 script::Struct* game_defaults() { return script::read_sub_struct(kDefaultAppearance); }
 const Catalog kGameCatalog = {.part_list_ = game_part_list, .defaults = game_defaults};
-Catalog s_catalog = kGameCatalog;
+Catalog& current_catalog()
+{
+    static Catalog catalog{kGameCatalog};
+    return catalog;
+}
 
 // The slot's part list: the global array named after it, of structures (null if there's none).
 script::Array* part_list(uint32_t slot)
 {
-    script::Array* list = s_catalog.part_list_(slot);
+    script::Array* list = current_catalog().part_list_(slot);
     if (!list || list->extent_ == 0 || list->kind_tag_ != script::kQbvalStruct)
         return nullptr;
     return list;
@@ -51,7 +55,7 @@ uint32_t get_fallback(uint32_t slot, script::Array* list)
 {
     if (list_has(list, kNone))
         return kNone;
-    if (script::Struct* defaults = s_catalog.defaults()) {
+    if (script::Struct* defaults = current_catalog().defaults()) {
         script::Struct* part = nullptr;
         uint32_t desc = 0;
         if (defaults->read_sub_struct(slot, &part, 0) && part && part->read_hash_value(kDescId, &desc, 0) &&
@@ -68,7 +72,7 @@ uint32_t get_fallback(uint32_t slot, script::Array* list)
 } // namespace
 
 const Catalog& game_catalog() { return kGameCatalog; }
-void set_catalog(const Catalog& catalog) { s_catalog = catalog; }
+void set_catalog(const Catalog& catalog) { current_catalog() = catalog; }
 
 int sanitise(script::Struct* appearance)
 {
@@ -110,7 +114,7 @@ int sanitise(script::Struct* appearance)
         changes.push_back({.part = c->value.structure(), .slot = c->name, .from = desc, .to = to});
     }
     if (reset_body) {
-        script::Struct* defaults = s_catalog.defaults();
+        script::Struct* defaults = current_catalog().defaults();
         appearance->get_clear();
         appearance->append_structure_if_any(defaults);
         return 1;

@@ -74,6 +74,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -81,8 +82,18 @@ namespace modules {
 
 int g_viewport_count;
 namespace {
-gsl::owner<script::Struct*> g_cat_info;
-gsl::owner<script::Struct*> g_stat_target_info;
+// NOT ORIGINAL grouping - skate_module_skaters.cpp's state (the original's globals). Made on first use, never destroyed
+// (skate_module_skaters_state()).
+struct SkateModuleSkatersState {
+    script::StructPtr cat_info_{};
+    script::StructPtr stat_target_info_{};
+};
+
+SkateModuleSkatersState& skate_module_skaters_state()
+{
+    static core::NoDestroy<SkateModuleSkatersState> state;
+    return state.get();
+}
 
 constexpr uint32_t kBailBoard = 0x884EF81B;                     // BailBoard (+ the skater's id)
 constexpr uint32_t kSkaterId = 0x5B24FAAA;                      // SkaterId
@@ -217,20 +228,14 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
     }
     if (skater->is_local_skater_ && skater->view_slot_ == 0) {
         // The local player's created tricks and stat goals kept for the skater that replaces it.
-        if (g_cat_info) {
-            script::free_struct(g_cat_info);
-            g_cat_info = nullptr;
-        }
+        memory::destroy_then_clear(skate_module_skaters_state().cat_info_);
         debug::printf("CAT: Storing Created Trick data\n"); // "CAT: Storing Created Trick data\n"
-        g_cat_info = script::new_struct();
-        skater->write_cat_info(g_cat_info);
-        if (g_stat_target_info) {
-            script::free_struct(g_stat_target_info);
-            g_stat_target_info = nullptr;
-        }
+        skate_module_skaters_state().cat_info_ = script::make_struct();
+        skater->write_cat_info(skate_module_skaters_state().cat_info_.get());
+        memory::destroy_then_clear(skate_module_skaters_state().stat_target_info_);
         debug::printf("CAT: Storing Stat Goal data\n"); // "CAT: Storing Stat Goal data\n"
-        g_stat_target_info = script::new_struct();
-        skater->write_list_44b_66a_9f(g_stat_target_info);
+        skate_module_skaters_state().stat_target_info_ = script::make_struct();
+        skater->write_list_44b_66a_9f(skate_module_skaters_state().stat_target_info_.get());
     }
     unlink_skater_node(skater->get_skater_link());
     gsl::owner<decltype(skater)> owned = memory::owned_element(skater); // (the module's list's)
@@ -297,17 +302,15 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     riders_.insert_by_unique_order(node);
     bind_controllers();
     if (skater->is_local_skater_ && skater->view_slot_ == 0) {
-        if (g_cat_info) {
+        if (skate_module_skaters_state().cat_info_) {
             debug::printf("CAT: Restoring Created Tricks\n"); // "CAT: Restoring Created Tricks\n"
-            skater->load_cat_info(g_cat_info);
-            script::free_struct(g_cat_info);
-            g_cat_info = nullptr;
+            skater->load_cat_info(skate_module_skaters_state().cat_info_.get());
+            memory::destroy_then_clear(skate_module_skaters_state().cat_info_);
         }
-        if (g_stat_target_info) {
+        if (skate_module_skaters_state().stat_target_info_) {
             debug::printf("CAT: Restoring Stat Goal data\n"); // "CAT: Restoring Stat Goal data\n"
-            skater->load_list_44b_66a_9f(g_stat_target_info);
-            script::free_struct(g_stat_target_info);
-            g_stat_target_info = nullptr;
+            skater->load_list_44b_66a_9f(skate_module_skaters_state().stat_target_info_.get());
+            memory::destroy_then_clear(skate_module_skaters_state().stat_target_info_);
         }
     }
     if (skater->ident_ == 1 && static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)))

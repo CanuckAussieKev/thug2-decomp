@@ -49,12 +49,23 @@
 #include "engine/gfx/engine.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace modules {
 
 namespace {
-int g_skate_module_references;
-float g_next_beep;
+// NOT ORIGINAL grouping - skate_module_state.cpp's state (the original's globals). Made on first use, never destroyed
+// (skate_module_state_state()).
+struct SkateModuleStateState {
+    int skate_module_references_{};
+    float next_beep_{};
+};
+
+SkateModuleStateState& skate_module_state_state()
+{
+    static core::NoDestroy<SkateModuleStateState> state;
+    return state.get();
+}
 
 constexpr uint32_t kInitLightManager = 0x7004771D;      // init_light_manager
 constexpr uint32_t kLoadPermanentPrefiles = 0x7690764F; // load_permanent_prefiles
@@ -90,8 +101,8 @@ constexpr uint8_t kGroupGame = 8;
 goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::g_online_hub; }
 objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
-int& get_refs() { return g_skate_module_references; }
-float& next_beep() { return g_next_beep; }
+int& get_refs() { return skate_module_state_state().skate_module_references_; }
+float& next_beep() { return skate_module_state_state().next_beep_; }
 
 using online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }

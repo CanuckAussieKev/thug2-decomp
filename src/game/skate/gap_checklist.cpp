@@ -23,7 +23,6 @@
 namespace goals {
 
 namespace {
-GapTally* g_building_gap_checklist;
 
 // Names.
 constexpr uint32_t kPrintGaps = 0x2E75A8A7;          // PrintGaps (a script global)
@@ -52,7 +51,11 @@ constexpr uint32_t kMultipleNewGaps = 0xD2E7D353;    // multiple_new_gaps
 constexpr uint32_t kGapText = 0xC69CE365;            // gap_text
 constexpr uint32_t kGotGapForFirstTime = 0x318EAF64; // got_gap_for_first_time (a script)
 
-GapTally*& building() { return g_building_gap_checklist; }
+GapTally*& building()
+{
+    static GapTally* building_gap_checklist{};
+    return building_gap_checklist;
+}
 
 // The list's nodes: the head's data is -1.
 GapEntry* gap_of(memory::ListNode* node)
@@ -60,7 +63,6 @@ GapEntry* gap_of(memory::ListNode* node)
     return node->data == memory::ListNode::head_marker() ? nullptr : static_cast<GapEntry*>(node->data);
 }
 GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
-
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }

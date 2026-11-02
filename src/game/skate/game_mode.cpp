@@ -25,7 +25,6 @@ namespace goals {
 
 std::unique_ptr<goals::MatchRules> g_game_mode;
 namespace {
-uint32_t g_game_mode_references;
 
 constexpr uint32_t kAccumulateScore = 0xC1F5864B;    // accumulate_score
 constexpr uint32_t kTrackBestCombo = 0xD57C16BA;     // track_best_combo
@@ -73,7 +72,11 @@ WinRule* const kHeadMarker = platform::all_ones_pointer<WinRule>();
 int unset(const void* /*mode*/) { return 0; }
 
 MatchRules* the_game_mode() { return g_game_mode.get(); }
-uint32_t& ref_tally() { return g_game_mode_references; }
+uint32_t& ref_tally()
+{
+    static uint32_t game_mode_references{};
+    return game_mode_references;
+}
 online::Hub* net_session_slot() { return online::g_online_hub; }
 
 // The goal manager (0x005591B0): 0x0055DC30 how many goals (`active`...) and 0x0055E980 its current net goal.

@@ -33,6 +33,7 @@
 #include "platform/run_log.h"
 #include "engine/util/unique_handle.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace objects::thugpro_cas {
@@ -51,7 +52,20 @@ constexpr auto kFiles = std::to_array<const char*>({
     "qb\\game\\cas_logos.qb",    "qb\\game\\decks.qb",        "qb\\thugpro\\thugpro_boards.qb",
 });
 
-std::string s_data;                  // THUGPRO's data folder, ending in '\'
+// NOT ORIGINAL grouping - thugpro_cas.cpp's state (the original's globals). Made on first use, never destroyed
+// (thugpro_cas_state()).
+struct ThugproCasState {
+    std::string data_{}; // THUGPRO's data folder, ending in '\'
+    // What file_path serves: their_files() once the load is done (published once - the file system's threads read it).
+    std::atomic<const std::set<std::string>*> served_{nullptr};
+};
+
+ThugproCasState& thugpro_cas_state()
+{
+    static core::NoDestroy<ThugproCasState> state;
+    return state.get();
+}
+
 std::set<std::string>& our_keys()
 {
     static std::set<std::string> value; // the path keys our own parts name (never served from THUGPRO's install)
@@ -62,8 +76,6 @@ std::set<std::string>& their_files()
     static std::set<std::string> value; // the path keys of THUGPRO's loose files the added parts name (while loading)
     return value;
 }
-// What file_path serves: their_files() once the load is done (published once - the file system's threads read it).
-std::atomic<const std::set<std::string>*> s_served{nullptr};
 bool s_done;
 int s_frames;
 
@@ -122,7 +134,7 @@ bool get_found(const char* path)
     if (our_keys().count(key))
         return false; // (one of our own parts' files: never taken from THUGPRO's install)
     for (const std::string& candidate : get_candidates(path)) {
-        if (is_file(s_data + candidate)) {
+        if (is_file(thugpro_cas_state().data_ + candidate)) {
             their_files().insert(key);
             return true;
         }
@@ -382,10 +394,10 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
 
 bool file_path(const char* relative, std::array<char, 260>& path)
 {
-    const std::set<std::string>* served = s_served.load();
+    const std::set<std::string>* served = thugpro_cas_state().served_.load();
     if (!served || !relative || !served->count(path_key(relative)))
         return false;
-    const std::string full = s_data + relative;
+    const std::string full = thugpro_cas_state().data_ + relative;
     if (full.size() >= sizeof(path) || !is_file(full))
         return false;
     std::memcpy(path.data(), full.c_str(), full.size() + 1);
@@ -420,7 +432,7 @@ void load_once()
                 folder.c_str());
         return;
     }
-    s_data = folder + "\\data\\";
+    thugpro_cas_state().data_ = folder + "\\data\\";
     const std::vector<std::string> names(std::begin(kFiles), std::end(kFiles));
     std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
     if (!read_archive(archive, names, &files)) {
@@ -500,7 +512,7 @@ void load_once()
     }
     memory::leave_heap_scope();
     auto served = memory::make_owned<std::set<std::string>>(their_files()); // (kept for the game's life)
-    s_served.store(served);
+    thugpro_cas_state().served_.store(served);
     get_log(
         "THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
         "the install's loose data); %d of its loose files to read from there when asked for",

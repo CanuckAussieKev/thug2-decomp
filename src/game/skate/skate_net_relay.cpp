@@ -65,7 +65,11 @@
 namespace modules {
 
 namespace {
-uint8_t g_net_relay_object_id;
+uint8_t& net_relay_object_id()
+{
+    static uint8_t net_relay_object_id{};
+    return net_relay_object_id;
+}
 constexpr float kRelayTimeScale{0.000244140625f}; // (2^-12: the relayed times and positions)
 
 using online::PlayerRecord;
@@ -159,7 +163,6 @@ net::AppHost* server_app() { return net_link()->host_; }
 objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 uint8_t get_skater_id(objects::Rider* skater) { return static_cast<uint8_t>(skater->ident_); }
 PointTally* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
-
 
 // A skater's state history (+0x27C) and its newest state / message.
 objects::RiderFrameLog* get_history(const objects::Entity* object)
@@ -582,7 +585,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
     auto from = [&]() -> PlayerRecord* {
         if (net->get_on_server())
             return by_connection(context->sender_conn_);
-        return by_object_id(g_net_relay_object_id);
+        return by_object_id(net_relay_object_id());
     };
     // the texture's virtual slot 5 (through 0x00456B30): its texture and palette - on PC, as in the engine's
     // table, the shared "return false" stub: nothing is loaded
@@ -593,7 +596,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         const uint8_t id = reader.u8();
         if (!reader.ok()) // NOT ORIGINAL: empty - dropped
             return 4;
-        g_net_relay_object_id = id;
+        net_relay_object_id() = id;
         break;
     }
     case 0x98: { // the palette
@@ -617,7 +620,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             player = by_connection(context->sender_conn_);
             on_server = true;
         } else {
-            player = by_object_id(g_net_relay_object_id);
+            player = by_object_id(net_relay_object_id());
         }
         uint32_t parts = 0;
         if (player) {

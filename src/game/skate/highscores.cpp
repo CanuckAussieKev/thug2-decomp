@@ -26,7 +26,6 @@ namespace highscores {
 
 memory::HeapUnique<highscores::BestResults> g_game_records;
 namespace {
-uint32_t g_records_references;
 
 // Names.
 constexpr uint32_t kValue = 0xE288A7CB;               // value
@@ -45,7 +44,11 @@ constexpr uint32_t kDefaultInitialsName = 0x24EB19A8; // (the default initials, 
 // The type the records' structures are added with (11: not one of Scripts::QbValueKind's named ones).
 
 memory::HeapUnique<highscores::BestResults>& sole() { return g_game_records; }
-uint32_t& ref_tally() { return g_records_references; }
+uint32_t& ref_tally()
+{
+    static uint32_t records_references{};
+    return records_references;
+}
 
 void copy_initials(char* to, const char* from)
 {
@@ -65,7 +68,6 @@ char* new_initials()
         std::fill_n(text, 4, static_cast<char>(0));
     return text;
 }
-
 
 // A record as a structure: value, number, initials.
 gsl::owner<script::Struct*> record_structure(const BestEntry* record)

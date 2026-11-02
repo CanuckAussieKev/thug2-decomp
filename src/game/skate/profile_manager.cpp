@@ -19,7 +19,6 @@ namespace objects {
 
 memory::HeapUnique<objects::ProfileRoster> g_profile_roster;
 namespace {
-uint32_t g_profile_manager_references;
 
 // Names.
 constexpr uint32_t kInitProSkaters = 0x28FD0F0A; // init_pro_skaters (a script)
@@ -50,7 +49,11 @@ constexpr auto kStats = std::to_array<uint32_t>({
 memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap_; }
 
 memory::HeapUnique<objects::ProfileRoster>& sole() { return g_profile_roster; }
-uint32_t& ref_tally() { return g_profile_manager_references; }
+uint32_t& ref_tally()
+{
+    static uint32_t profile_manager_references{};
+    return profile_manager_references;
+}
 
 // A new profile (constructed: its defaults).
 gsl::owner<RiderIdentity*> new_profile()
