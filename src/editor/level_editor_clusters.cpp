@@ -222,7 +222,7 @@ bool stage_map(uint32_t sector, Membership* m)
     script::Struct* node = node_of(sector);
     if (!node)
         return false;
-    const bool all = !game_config::g_from_cd && script::fetch_int_value(kAllTrickObjects) != 0;
+    const bool all = !game_config::from_cd() && script::fetch_int_value(kAllTrickObjects) != 0;
     bool trick = all || node->has_entry_named(kTrickObject);
     // (the load's gate 0x00565BB0: such a node isn't registered - absent from this game)
     if (trick && modules::Skate::should_be_absent(node))

@@ -36,9 +36,11 @@ namespace {
 constexpr int kMaxLoadedFiles = 200;
 constexpr int kPreloadCapacity = 100;
 
-std::array<LoadedFile, kMaxLoadedFiles> g_loaded_files;
-
-std::array<LoadedFile, kMaxLoadedFiles>& loaded_files() { return g_loaded_files; }
+std::array<LoadedFile, kMaxLoadedFiles>& loaded_files()
+{
+    static std::array<LoadedFile, kMaxLoadedFiles> loaded_files{};
+    return loaded_files;
+}
 
 void* allocate_file_memory(unsigned int size) { return memory::alloc_block(size); }
 void shrink_file_memory(unsigned int size, void* memory) { memory::trim_block_end(size, memory); }
@@ -56,8 +58,11 @@ struct LoadedArchive {
     std::unique_ptr<uint8_t, FileMemoryFree> block;
     std::vector<PackedFile> files;
 };
-std::array<std::unique_ptr<LoadedArchive>, kPreloadCapacity> g_archives;
-std::array<std::unique_ptr<LoadedArchive>, kPreloadCapacity>& archives() { return g_archives; }
+std::array<std::unique_ptr<LoadedArchive>, kPreloadCapacity>& archives()
+{
+    static std::array<std::unique_ptr<LoadedArchive>, kPreloadCapacity> archives{};
+    return archives;
+}
 
 // Buffers are allocated in whole 2 KB sectors.
 unsigned int sector_aligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu; }
@@ -227,7 +232,7 @@ void load_pre(const char* name)
     unsigned int file_size = 0, allocated = 0;
     size_t archive_size = 0; // (not original: the archive's bytes in the block, the bound for its reader)
     bool loaded = false;
-    const char letter = game_config::g_language == 3 ? 'f' : game_config::g_language == 5 ? 'd' : '\0';
+    const char letter = game_config::get_language() == 3 ? 'f' : game_config::get_language() == 5 ? 'd' : '\0';
     if (letter) {
         core::at(path, length - 1) = letter;
         if (!file::is_present(path.data())) {

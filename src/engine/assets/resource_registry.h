@@ -117,9 +117,10 @@ static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, ass
 ResourceRegistry* create_asset_manager(bool create);
 // 0x00407980: drops a reference; the last deletes it.
 void release_asset_manager();
-extern std::unique_ptr<ResourceRegistry> g_asset_manager;
-inline ResourceRegistry* asset_manager() { return g_asset_manager.get(); }
+ResourceRegistry* asset_manager();
 
-extern memory::HeapUnique<frame_loop::Hub> g_main_loop_manager;
+// NOT ORIGINAL - the main loop manager (null until the game makes it) and its owner (frame_loop's sole()).
+frame_loop::Hub* get_main_loop_manager();
+memory::HeapUnique<frame_loop::Hub>& main_loop_manager_owner();
 
 } // namespace assets

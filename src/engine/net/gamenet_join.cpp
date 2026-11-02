@@ -148,7 +148,7 @@ std::array<char, kPasswordSize>& pending_password() { return g_pending_password;
 std::array<char, kPasswordSize>& join_password() { return g_join_password; }
 
 net::Hub* net_session_slot() { return net::Hub::sole(); }
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
 uint32_t current_local_address() { return crt::get_inet_addr(net_session_slot()->fetch_own_address()); }
 
@@ -606,7 +606,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         context->receiver_app_->opened_link(static_cast<int>(conn->remote_ip_), conn->port_no_, Conn::kFlagRemote);
     context->sender_conn_ = joined;
     joined->set_link_speed_class(msg->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
-    joined->set_transmit_period(static_cast<uint32_t>(1000 / game_config::g_frame_rate * 2)); // two frames
+    joined->set_transmit_period(static_cast<uint32_t>(1000 / game_config::frame_rate() * 2)); // two frames
     // NOT ORIGINAL: in the THUGPRO peer mode no GameSpy CD-key check (TP-R12): proceed as on a LAN.
     if (manager->in_internet_mode() && !thugpro::peer_mode()) {
         auto* instance = static_cast<AuthInstance*>(memory::alloc(sizeof(AuthInstance)));

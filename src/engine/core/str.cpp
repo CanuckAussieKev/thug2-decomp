@@ -75,7 +75,7 @@ const char* format_with_separators(int value)
     text::format_to(digits, "%d", value);
 
     char separator = 0;
-    switch (game_config::g_language) { // the game's language setting
+    switch (game_config::get_language()) { // the game's language setting
     case 3:
         separator = ' ';
         break;

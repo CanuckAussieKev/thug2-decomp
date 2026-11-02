@@ -45,7 +45,7 @@ namespace {
 using script::Script;
 using script::Struct;
 
-int os_layer() { return game_config::g_platform; }
+int os_layer() { return game_config::hardware(); }
 SaveCard* the_card() { return g_the_card->get_storage_slot(0, 0); }
 
 // The calling script's own parameters (Scripts::CScript +0x14): where commands leave results for it.

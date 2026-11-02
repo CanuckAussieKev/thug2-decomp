@@ -88,7 +88,7 @@ constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
 Hub* net_session_slot() { return g_online_hub; }
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 std::array<QueuedPacket, 200>& get_queue() { return g_queued_packets; }
 int& queued_count() { return g_queued_count; }
 RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }

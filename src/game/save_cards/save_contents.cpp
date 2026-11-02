@@ -75,7 +75,7 @@ objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get();
 highscores::BestResults* game_records() { return highscores::g_game_records.get(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
 objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
-int os_layer() { return game_config::g_platform; }
+int os_layer() { return game_config::hardware(); }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 prefs::Preferences* split_screen_preferences() { return get_skate()->get_split_view_settings(); }
@@ -94,7 +94,6 @@ const modules::Skate::PlayerSettings& controller_flags(int controller)
 {
     return core::at(get_skate()->participants_, controller);
 }
-
 
 } // namespace
 

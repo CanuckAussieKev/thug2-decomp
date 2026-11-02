@@ -21,6 +21,7 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace file {
 
@@ -33,21 +34,6 @@ namespace {
 
 constexpr int kMaxHandles = 16;
 
-std::array<AsyncFileHandle*, kMaxHandles> g_pool;
-int g_handles_in_use;
-int g_pending_reads;
-bool g_io_completed;
-int g_current_list;
-std::unique_ptr<AsyncLoaderModule> g_loader_module;
-uint32_t g_loader_module_refs;
-bool g_use_overlapped_io;
-
-// Shared with the platform I/O thread: plain (volatile) accesses, as in the original.
-std::array<AsyncFileHandle*, kMaxHandles>& slab_bank() { return g_pool; }
-int& handles_in_use() { return g_handles_in_use; }
-volatile int& pending_io_counter() { return g_pending_reads; }
-volatile bool& io_completed() { return g_io_completed; }
-
 // Completed operations waiting for their callbacks: two lists, one filled while the other is run.
 struct PendingCallback {
     AsyncFileHandle* file;
@@ -55,12 +41,36 @@ struct PendingCallback {
     int value;
 };
 
-std::array<std::array<PendingCallback, kMaxHandles>, 2> g_pending_callbacks;
-std::array<int, 2> g_callback_counts;
+// NOT ORIGINAL grouping - the asynchronous files: the handles, the reads pending (shared with the platform I/O thread),
+// the loader module and the callbacks waiting. Made on first use, never destroyed (async_state()).
+struct AsyncState {
+    std::array<AsyncFileHandle*, kMaxHandles> pool_{};
+    int handles_in_use_{};
+    int pending_reads_{};
+    bool io_completed_{};
+    int current_list_{};
+    std::unique_ptr<AsyncLoaderModule> loader_module_{};
+    uint32_t loader_module_refs_{};
+    bool use_overlapped_io_{};
+    std::array<std::array<PendingCallback, kMaxHandles>, 2> pending_callbacks_{};
+    std::array<int, 2> callback_counts_{};
+};
 
-std::array<std::array<PendingCallback, kMaxHandles>, 2>& callback_lists() { return g_pending_callbacks; }
-std::array<int, 2>& callback_counts() { return g_callback_counts; }
-int& current_list() { return g_current_list; }
+AsyncState& async_state()
+{
+    static core::NoDestroy<AsyncState> state;
+    return state.get();
+}
+
+// Shared with the platform I/O thread: plain (volatile) accesses, as in the original.
+std::array<AsyncFileHandle*, kMaxHandles>& slab_bank() { return async_state().pool_; }
+int& handles_in_use() { return async_state().handles_in_use_; }
+volatile int& pending_io_counter() { return async_state().pending_reads_; }
+volatile bool& io_completed() { return async_state().io_completed_; }
+
+std::array<std::array<PendingCallback, kMaxHandles>, 2>& callback_lists() { return async_state().pending_callbacks_; }
+std::array<int, 2>& callback_counts() { return async_state().callback_counts_; }
+int& current_list() { return async_state().current_list_; }
 
 // The handle fields every allocation resets (as the original's Init and get_file_handle do).
 void reset_fields(AsyncFileHandle* file)
@@ -89,7 +99,6 @@ void complete_from_archive(AsyncFileHandle* file)
     file->in_flight_ops_ = file->in_flight_ops_ + 1;
     file->io_done_handler(file->operation_, false, file->outcome_val_, 0);
 }
-
 
 // The platform (PC) side, below.
 void platform_init();
@@ -384,7 +393,7 @@ constexpr int kErrorHandleEof = 38;     // ERROR_HANDLE_EOF
 constexpr DWORD kStatusPending = 0x103; // OVERLAPPED.Internal while the I/O is in progress
 
 // Overlapped (truly asynchronous, unbuffered) reads are used on Windows NT 6 (Vista) and later.
-bool& use_overlapped_io() { return g_use_overlapped_io; }
+bool& use_overlapped_io() { return async_state().use_overlapped_io_; }
 
 class PcAsyncFileHandle final : public AsyncFileHandle {
 public:
@@ -607,13 +616,13 @@ namespace file {
 
 namespace {
 
-std::unique_ptr<AsyncLoaderModule>& loader_module() { return g_loader_module; }
-uint32_t& loader_module_refs() { return g_loader_module_refs; }
+std::unique_ptr<AsyncLoaderModule>& loader_module() { return async_state().loader_module_; }
+uint32_t& loader_module_refs() { return async_state().loader_module_refs_; }
 
 void register_logic_task(tasks::SchedulerTask* task)
 {
     // The main loop manager's logic task list.
-    assets::g_main_loop_manager->logic_tasks_.queue_job(task);
+    assets::get_main_loop_manager()->logic_tasks_.queue_job(task);
 }
 
 } // namespace

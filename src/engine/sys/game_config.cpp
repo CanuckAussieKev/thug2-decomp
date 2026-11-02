@@ -15,40 +15,50 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/core/checked_index.h"
 #include "platform/registry.h"
+#include "engine/core/no_destroy.h"
 
 namespace game_config {
 
-bool g_from_cd{true};
-int g_frame_rate{60};
-int g_language;
 namespace {
-int g_territory;
-} // namespace
-int g_platform;
-bool g_config_bootstrap;
-namespace {
-bool g_ntsc_flag;
-} // namespace
 
-int& get_language() { return g_language; }
-int& territory() { return g_territory; }
-int& hardware() { return g_platform; }
+// NOT ORIGINAL grouping - the game's configuration (0x00684FA8 the CD flag, 0x00684FB4 the frame rate, 0x007CEFA0 -
+// 0x007CEFAF the language, territory, hardware, bootstrap and NTSC flags; the path prefix 0x007CEE20). Made on first
+// use, never destroyed (config_state()).
+struct ConfigState {
+    bool from_cd_{true};
+    int frame_rate_{60};
+    int language_{};
+    int territory_{};
+    int platform_{};
+    bool config_bootstrap_{};
+    bool ntsc_flag_{};
+    std::array<char, 128> path_prefix_{};
+    std::array<char, 128> bootstrap_argument_{};
+    std::array<char, 128> bootstrap_return_{};
+};
+
+ConfigState& config_state()
+{
+    static core::NoDestroy<ConfigState> state;
+    return state.get();
+}
+
+} // namespace
+int& get_language() { return config_state().language_; }
+int& territory() { return config_state().territory_; }
+int& hardware() { return config_state().platform_; }
 int& display_type() { return commands::g_config_ntsc; }
-int& frame_rate() { return g_frame_rate; }
-bool& from_cd() { return g_from_cd; }
+int& frame_rate() { return config_state().frame_rate_; }
+bool& from_cd() { return config_state().from_cd_; }
 bool& get_extra_memory() { return commands::g_got_extra_memory; }
-bool& bootstrap() { return g_config_bootstrap; }
-bool& ntsc_flag() { return g_ntsc_flag; }
+bool& bootstrap() { return config_state().config_bootstrap_; }
+bool& ntsc_flag() { return config_state().ntsc_flag_; }
 
 namespace {
 
-std::array<char, 128> g_path_prefix;
-std::array<char, 128> g_bootstrap_argument;
-std::array<char, 128> g_bootstrap_return;
-
-std::array<char, 128>& path_prefix() { return g_path_prefix; }               // (0x80 bytes)
-std::array<char, 128>& bootstrap_return() { return g_bootstrap_return; }     // where a bootstrap demo returns to
-std::array<char, 128>& bootstrap_argument() { return g_bootstrap_argument; } // what it passes back
+std::array<char, 128>& path_prefix() { return config_state().path_prefix_; }               // (0x80 bytes)
+std::array<char, 128>& bootstrap_return() { return config_state().bootstrap_return_; }     // where a bootstrap demo returns to
+std::array<char, 128>& bootstrap_argument() { return config_state().bootstrap_argument_; } // what it passes back
 const char* const kEmpty = "";                              // ""
 
 // strcpy (unbounded, as the original's).

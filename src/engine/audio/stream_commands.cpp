@@ -28,7 +28,7 @@ namespace audio {
 
 namespace {
 
-bool sound_on() { return music_state().sound_device_ && game_config::g_platform != 2; }
+bool sound_on() { return music_state().sound_device_ && game_config::hardware() != 2; }
 bool& stream_header_loaded() { return music_state().streams_on_; }
 bool streams_on() { return sound_on() && stream_header_loaded(); }
 

@@ -179,7 +179,7 @@ void CinematicTable::add_objects(script::Struct* params)
         const bool skater = is_skater && is_skater2;
         bool add = true;
         if (!special) {
-            const void* asset = assets::g_asset_manager->get_asset_data(model_file, 0);
+            const void* asset = assets::asset_manager()->get_asset_data(model_file, 0);
             if (!asset && !skater)
                 params2->put_name_key(kUnnamed, kNoModelFile);
             if (object->has_bare_flag(kKeepSkeleton)) {

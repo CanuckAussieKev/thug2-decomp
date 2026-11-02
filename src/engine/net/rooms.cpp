@@ -594,7 +594,7 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = the_manager();
-    auto* logic = (&assets::g_main_loop_manager->logic_tasks_); // (the logic tasks)
+    auto* logic = (&assets::get_main_loop_manager()->logic_tasks_); // (the logic tasks)
     DWORD thread_id = 0;
     std::array<BOOL, 3> ping_rooms = {{FALSE, TRUE, FALSE}};
     std::array<BOOL, 3> cross_ping_rooms = {{FALSE, FALSE, FALSE}};

@@ -70,7 +70,7 @@ maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->posi
 online::Hub* net_session_slot() { return online::g_online_hub; }
 // The network manager's client app: +8 its frame count.
 net::AppHost* client_app() { return net_session_slot()->fetch_patron(0); }
-int frame_rate() { return game_config::g_frame_rate; }
+int frame_rate() { return game_config::frame_rate(); }
 int get_now() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // The level's rails (the skate module's +0x24).
 GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_.get(); }

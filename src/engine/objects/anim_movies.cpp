@@ -53,7 +53,7 @@ void set_held(VideoEntry* movie, int value) { movie->set_flag_1b(static_cast<uin
 // The movie's name (movie_manager.h).
 uint32_t get_name_of(void* movie) { return movie_key_from_params(movie); }
 // The asset manager's asset by name (null if none).
-void* find_asset(uint32_t name) { return assets::g_asset_manager->get_asset_data(name, 0); }
+void* find_asset(uint32_t name) { return assets::asset_manager()->get_asset_data(name, 0); }
 // The movie's own Start (the original's slot 3).
 void start_movie(VideoEntry* movie) { movie->kickoff(); }
 
@@ -77,7 +77,6 @@ void step_asset(void* anim, float from, float to, gfx::ViewCam* camera, bool fir
 float seconds_per_frame() { return g_anim_movies_seconds_per_frame; } // 1/60
 
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
-
 
 void set_identity(std::span<float, 16> m)
 {

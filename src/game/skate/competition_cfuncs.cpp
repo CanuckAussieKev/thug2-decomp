@@ -103,7 +103,6 @@ void push_skater_info_heap()
 }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
-
 } // namespace
 
 // 0x005AF090: ApplySplitScreenOptions - the split screen preferences' game type loaded into the game mode; for horse
@@ -275,7 +274,7 @@ bool cfunc_is_current_horse_skater(script::Struct* params, script::Script*)
 // checks flag 0x00684FA8 set).
 bool cfunc_trick_off_all_objects(script::Struct* params, script::Script*)
 {
-    if (!game_config::g_from_cd) {
+    if (!game_config::from_cd()) {
         int player = 0;
         params->fetch_int_value(0u, &player, 0);
         objects::g_trick_spot_hub->give_free_clusters(player);

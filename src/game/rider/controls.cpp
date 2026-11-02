@@ -22,7 +22,7 @@ bool ps2_controls() { return sio::the_input_settings().ps2_controls_ != 0; }
 
 namespace {
 
-int& os_layer() { return game_config::g_platform; }
+int& os_layer() { return game_config::hardware(); }
 
 constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 

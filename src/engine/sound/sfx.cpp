@@ -75,7 +75,7 @@ float& default_dropoff() { return sound_state().default_dropoff_; }
 float& master_loudness() { return mix_state().master_gain_; }
 float& get_pitch() { return mix_state().pitch_; }
 // Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
-bool quiet_misses() { return game_config::g_from_cd; }
+bool quiet_misses() { return game_config::from_cd(); }
 
 // The missing-sound report (compiled out; the global still read).
 void get_report_missing()
@@ -161,7 +161,7 @@ bool no_sound()
 {
     if (!audio::get_sound_device())
         return true;
-    const int platform = game_config::g_platform;
+    const int platform = game_config::hardware();
     return platform == 2 || platform == 6;
 }
 

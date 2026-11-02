@@ -71,7 +71,11 @@ struct Key {
     }
 };
 
-bool s_started;
+bool& started()
+{
+    static bool started{};
+    return started;
+}
 
 } // namespace
 
@@ -122,12 +126,12 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed_home = home.squeezed(keys);
     if (frontend::level_editor::live_now() || (front_end && front_end->is_halted_) || render::current_level() == 0)
         return;
-    if (!s_started) {
+    if (!started()) {
         // In the first level (start-up long over; not the early self-tests, which run the front end's input logic
         // before the game is up): what the developers' start-up did - the Select combos on (cheat_select_shift) and
         // the viewer (LaunchViewer: the viewer module and its camera object viewer_cam, kept across levels; the PC
         // tool's network handler isn't made in this exe - 0x00684FA8 is set).
-        s_started = true;
+        started() = true;
         get_run("cheat_select_shift");
         get_run("LaunchViewer");
         get_log("debug mode: the viewer launched (select_shift on)");

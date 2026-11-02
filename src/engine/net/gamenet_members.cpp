@@ -8,7 +8,6 @@
 #include "engine/gfx/engine_texture.h"
 #include <array>
 
-
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -117,7 +116,7 @@ bool tracks_best_combo() { return get_game_mode()->keeps_best_chain(); }
 bool is_elimiskate() { return get_game_mode()->finish_rules_reached(); }
 bool mode_is_true(uint32_t property) { return get_game_mode()->is_true(property); }
 
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
 // The Function InSplitScreenGame (0x005A1180), called with no parameters.
 bool in_split_screen_game() { return commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0; }

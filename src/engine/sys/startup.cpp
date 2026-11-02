@@ -83,7 +83,11 @@ void pop_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->leave_heap
 
 bool quit_requested() { return render::g_quit_requested; }
 
-bool g_demo_mode;
+bool& demo_mode()
+{
+    static bool demo_mode{};
+    return demo_mode;
+}
 } // namespace
 
 // 0x004E1EF0
@@ -93,7 +97,7 @@ int game_main(int argc, char** argv)
     const game_config::Arguments args(argv, static_cast<size_t>(argc));
     game_config::prepare_all(args); // the command line options (Config)
     memory::Hub::get_pull()->init_standard_heaps();
-    switch (game_config::g_language) { // the language's start-up (German has its own)
+    switch (game_config::get_language()) { // the language's start-up (German has its own)
     case 3:                            // French
         set_key_names();
         break;
@@ -112,7 +116,7 @@ int game_main(int argc, char** argv)
     memory::push_mem_profile("Everything");
     memory::push_mem_profile("Initialization");
     if (argc == 2 && std::strcmp(core::at(args, 1), "demo") == 0)
-        g_demo_mode = true; // demo mode
+        demo_mode() = true; // demo mode
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
     maths::seed_random(0x06680BF3);
     maths::fill_sine_table();

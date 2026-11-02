@@ -33,11 +33,24 @@
 #include "engine/script/param_struct.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace assets {
 
 namespace {
-uint32_t g_params_in_use;
+// NOT ORIGINAL grouping - the asset loads' parameter blocks and how many are in use. Made on first use, never destroyed
+// (params_state()).
+struct ParamsPool {
+    uint32_t params_in_use_{};
+    // --- shared steps ---------------------------------------------------------------------------------------------
+    std::array<uint8_t, 0x180> params_pool_{}; // 4 blocks of 0x60 bytes
+};
+
+ParamsPool& params_state()
+{
+    static core::NoDestroy<ParamsPool> state;
+    return state.get();
+}
 
 using script::Struct;
 
@@ -118,10 +131,8 @@ void* make_tex_dict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, i
 }
 void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<render::TextureSet*>(textures)); }
 
-// --- shared steps ---------------------------------------------------------------------------------------------
-std::array<uint8_t, 0x180> g_params_pool; // 4 blocks of 0x60 bytes
-std::array<uint8_t, 0x180>& params_pool() { return g_params_pool; }
-uint32_t& params_in_use() { return g_params_in_use; }
+std::array<uint8_t, 0x180>& params_pool() { return params_state().params_pool_; }
+uint32_t& params_in_use() { return params_state().params_in_use_; }
 
 // strcpy (no bounds, as the original's).
 void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }

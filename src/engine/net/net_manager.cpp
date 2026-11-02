@@ -164,7 +164,7 @@ bool Hub::load_network_drivers(const char* /*ip*/, const char* /*subnet_mask*/, 
 // 0x00454CB0
 void Hub::add_app_tasks(AppHost* app)
 {
-    frame_loop::Hub* mlp = assets::g_main_loop_manager.get();
+    frame_loop::Hub* mlp = assets::get_main_loop_manager();
     register_logic_task(mlp, app->receive_task());
     register_logic_task(mlp, app->send_task());
     register_logic_task(mlp, app->process_task());

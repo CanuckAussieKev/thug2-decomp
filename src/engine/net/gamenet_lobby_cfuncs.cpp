@@ -63,7 +63,7 @@ constexpr auto kHostProfiles = std::to_array<int>({0x01A7665B, 0x01A76689, 0x01A
 
 Hub* net_session_slot() { return g_online_hub; }
 RoomManager* current_lobby() { return net_session_slot()->lobby_service_.get(); }
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 void push_internet_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();

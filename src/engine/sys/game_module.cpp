@@ -18,9 +18,11 @@ namespace {
 
 memory::HeapUnique<modules::Hub>& sole() { return commands::g_module_manager; }
 
-unsigned int g_module_references;
-
-unsigned int& ref_tally() { return g_module_references; }
+unsigned int& ref_tally()
+{
+    static unsigned int module_references{};
+    return module_references;
+}
 
 void free_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 

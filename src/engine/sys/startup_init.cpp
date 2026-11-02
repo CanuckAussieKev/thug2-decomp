@@ -27,15 +27,19 @@ namespace sys {
 namespace {
 
 // 16 bytes nothing reads, set to a null (virtual-inheritance) member function pointer by 0x006408A0.
-std::array<uint32_t, 4> g_null_member_function_67d_6c_0;
+std::array<uint32_t, 4>& null_member_function()
+{
+    static std::array<uint32_t, 4> null_member_function_67d_6c_0{};
+    return null_member_function_67d_6c_0;
+}
 
 // 0x006408A0
 void set_null_member_function()
 {
-    core::at(g_null_member_function_67d_6c_0, 0) = 0;
-    core::at(g_null_member_function_67d_6c_0, 1) = 0;
-    core::at(g_null_member_function_67d_6c_0, 2) = 0;
-    core::at(g_null_member_function_67d_6c_0, 3) = 0xFFFFFFFFu;
+    core::at(null_member_function(), 0) = 0;
+    core::at(null_member_function(), 1) = 0;
+    core::at(null_member_function(), 2) = 0;
+    core::at(null_member_function(), 3) = 0xFFFFFFFFu;
 }
 
 } // namespace

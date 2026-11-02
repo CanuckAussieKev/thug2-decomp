@@ -68,7 +68,7 @@ constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
 Hub* net_session_slot() { return g_online_hub; }
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
 // `local` for this machine's.

@@ -30,7 +30,6 @@ void delete_region(std::unique_ptr<Zone>& region) { memory::destroy_then_clear(r
 
 MemSource* current_heap(Hub* manager) { return *manager->ongoing_; }
 
-
 // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
 Hub* g_memory_manager;
 } // namespace
@@ -538,7 +537,7 @@ Arena* Hub::add_heap(Zone* region, int direction, const char* name)
 // 0x005BBE80
 void Hub::init_standard_heaps()
 {
-    front_end_region_ = memory::take_unique<Zone>(new_alloc_region(game_config::g_config_bootstrap ? 1000000 : 1100000));
+    front_end_region_ = memory::take_unique<Zone>(new_alloc_region(game_config::bootstrap() ? 1000000 : 1100000));
     debug::printf("allocated mp_frontend_region at %p\n", front_end_region_.get());
     network_heap_ = add_heap(front_end_region_.get(), MemSource::kGrowDown, "Network");
     debug::printf("Setup TOP_DOWN mp_network_heap at %p\n", network_heap_);

@@ -70,7 +70,7 @@ bool& flag_1e_e8() { return g_flag_1e_e8; }
 bool& flag_1e_e9() { return g_flag_1e_e9; }
 bool& rate_set() { return g_rate_set; }
 
-int& refresh_rate() { return game_config::g_frame_rate; } // 60
+int& refresh_rate() { return game_config::frame_rate(); } // 60
 float& get_slomo() { return g_slomo; }
 float& next_slomo() { return g_next_slomo; }
 float& vblanks_per_second() { return g_vblanks_per_second; }

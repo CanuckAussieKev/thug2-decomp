@@ -97,7 +97,7 @@ void GroundShadowModule::seal()
 {
     mesh_instance_ = entity_->fetch_module(kModel);
     const uint32_t checksum = model_of(mesh_instance_)->source_path_;
-    const void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
+    const void* asset = assets::asset_manager()->get_asset_data(checksum, 0);
     if (shadow_handle_)
         shadow_handle_->change_mesh(model_of(mesh_instance_), static_cast<const render::SubMesh*>(asset));
 }

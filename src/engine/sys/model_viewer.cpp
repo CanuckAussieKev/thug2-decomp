@@ -47,6 +47,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace modules {
@@ -63,12 +64,22 @@ constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
 
 int& view_mode_value() { return objects::g_view_mode; }
 
-float g_rotate_velocity;
-float g_movement_velocity;
-Viewer* g_viewer;
-uint32_t g_last_time;
+// NOT ORIGINAL grouping - the model viewer's speeds, viewer and last time. Made on first use, never destroyed
+// (model_viewer_state()).
+struct ModelViewerState {
+    float rotate_velocity_{};
+    float movement_velocity_{};
+    Viewer* viewer_{};
+    uint32_t last_time_{};
+};
 
-Viewer*& sole() { return g_viewer; }
+ModelViewerState& model_viewer_state()
+{
+    static core::NoDestroy<ModelViewerState> state;
+    return state.get();
+}
+
+Viewer*& sole() { return model_viewer_state().viewer_; }
 bool& run_now_loaded() { return g_pending_script; }
 
 // A task or input handler off its list (0x004068F0).
@@ -89,12 +100,12 @@ constexpr uint32_t kReloadScene = 0x179BB868;  // ReloadScene (a script)
 constexpr uint32_t kModelName = 0xB974F2FC;    // modelname
 constexpr uint32_t kSkeletonName = 0x09794932; // skeletonName
 
-float& movement_velocity() { return g_movement_velocity; }
-float& rotate_velocity() { return g_rotate_velocity; }
-uint32_t& last_time() { return g_last_time; }
-bool debug_checks() { return game_config::g_from_cd; }
+float& movement_velocity() { return model_viewer_state().movement_velocity_; }
+float& rotate_velocity() { return model_viewer_state().rotate_velocity_; }
+uint32_t& last_time() { return model_viewer_state().last_time_; }
+bool debug_checks() { return game_config::from_cd(); }
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
-frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager.get(); }
+frame_loop::Hub* main_loop_manager() { return assets::get_main_loop_manager(); }
 
 void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue_job(node); }
 
@@ -183,9 +194,9 @@ objects::PreviewEntity* Viewer::get_viewer_entity() { return entity_.get(); }
 // 0x00576E70
 void change_view_mode(int mode) { view_mode_value() = mode; }
 // 0x00576E80
-void set_movement_velocity(float velocity) { g_movement_velocity = velocity; }
+void set_movement_velocity(float velocity) { model_viewer_state().movement_velocity_ = velocity; }
 // 0x00576E90
-void set_rotate_velocity(float velocity) { g_rotate_velocity = velocity; }
+void set_rotate_velocity(float velocity) { model_viewer_state().rotate_velocity_ = velocity; }
 // 0x00576EA0
 Viewer* get_live_viewer() { return sole(); }
 

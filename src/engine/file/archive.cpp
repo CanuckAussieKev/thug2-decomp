@@ -28,6 +28,7 @@
 #include "engine/gfx/loading_console.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace pre {
 
@@ -38,9 +39,19 @@ static_assert(offsetof(ArchiveFile, open_count_) == 0x10 && offsetof(ArchiveFile
 
 namespace {
 
-ArchiveManager* g_manager_slot;
-ArchiveManager* g_instance_slot;
-int g_instance_refs;
+// NOT ORIGINAL grouping - the archive manager's slots and its instance's references. Made on first use, never destroyed
+// (archive_slots()).
+struct ArchiveSlots {
+    ArchiveManager* manager_slot_{};
+    ArchiveManager* instance_slot_{};
+    int instance_refs_{};
+};
+
+ArchiveSlots& archive_slots()
+{
+    static core::NoDestroy<ArchiveSlots> state;
+    return state.get();
+}
 
 memory::Arena* get_file_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_heap() : memory::top_down_heap(); }
 
@@ -199,11 +210,11 @@ static_assert(offsetof(ArchiveManager, pres_) == 0x10 && offsetof(ArchiveManager
 
 namespace {
 
-ArchiveManager*& manager_slot() { return g_manager_slot; }   // set by the constructor
-ArchiveManager*& instance_slot() { return g_instance_slot; } // the one create_manager made
-int& instance_refs() { return g_instance_refs; }
-bool& get_handled() { return file::g_handled_by_archive; } // see FileLoad:: - "this call was ours"
-int get_language() { return game_config::g_language; }
+ArchiveManager*& manager_slot() { return archive_slots().manager_slot_; }   // set by the constructor
+ArchiveManager*& instance_slot() { return archive_slots().instance_slot_; } // the one create_manager made
+int& instance_refs() { return archive_slots().instance_refs_; }
+bool& get_handled() { return file::archive_handled(); } // see FileLoad:: - "this call was ours"
+int get_language() { return game_config::get_language(); }
 
 // Names inside archives use backslashes. The original copies into a 128-byte buffer with no limit; this
 // stops at the buffer's size.
@@ -285,10 +296,9 @@ bool pre_loading_blocked() { return script::fetch_int_value("block_pre_loading")
 // Always false in this build; only does debugging work when the debug flag is set.
 bool skip_synchronous_load() { return audio::disc_mode_active(); }
 int time_milliseconds() { return static_cast<int>(frame_clock::get_time()); }
-bool debug_checks() { return game_config::g_from_cd; }
+bool debug_checks() { return game_config::from_cd(); }
 
 memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_heap() : memory::top_down_heap(); }
-
 
 // 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
 void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)

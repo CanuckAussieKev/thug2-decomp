@@ -68,7 +68,7 @@ Hub::Hub()
     setup_list_sentinel(&queued_scripts_); // the queued scripts
     setup_list_sentinel(&servers_);        // the servers
     setup_list_sentinel(&waiting_servers_);
-    tasks::PileUp* tasks = (&assets::g_main_loop_manager->logic_tasks_);
+    tasks::PileUp* tasks = (&assets::get_main_loop_manager()->logic_tasks_);
     net::Hub::sole()->set_msg_options(0x23, 1); // (the object update message's)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     client_app_ = nullptr;

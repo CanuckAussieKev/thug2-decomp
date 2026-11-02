@@ -60,7 +60,6 @@ void uncouple(memory::ListNode* node)
     node->prev = node;
 }
 
-
 } // namespace
 
 // 0x0057A190
@@ -338,7 +337,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     };
     auto new_object_camera = [](const CutsceneSkater* context) -> gsl::owner<Movie*> { return new CinematicEntry(context); };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
-        const assets::Resource* asset = assets::g_asset_manager->obtain_loaded_item(name, 0);
+        const assets::Resource* asset = assets::asset_manager()->obtain_loaded_item(name, 0);
         if (!asset)
             return false; // (keep_camera_ stays cleared)
         while (kill_movie(name)) {

@@ -34,7 +34,7 @@ MusicApiState& music_api_state()
 
 namespace {
 
-bool sound_available() { return music_state().sound_device_ && game_config::g_platform != 2; }
+bool sound_available() { return music_state().sound_device_ && game_config::hardware() != 2; }
 bool music_on() { return sound_available() && music_state().music_header_loaded_; }
 bool streams_on() { return sound_available() && music_state().streams_on_; }
 
@@ -386,7 +386,7 @@ void prepare_all()
 // 0x00450EB0
 bool disc_mode_active()
 {
-    if (game_config::g_from_cd && initialised()) {
+    if (game_config::from_cd() && initialised()) {
         // NOT ORIGINAL - continue_music: the song plays on through the load (on the PC it streams from its own file,
         // read by Bink's thread - nothing for the level's reads to wait for, unlike a console's disc)
         if (!continue_music::is_switched_on())

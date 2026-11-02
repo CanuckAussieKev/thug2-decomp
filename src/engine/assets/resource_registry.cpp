@@ -21,19 +21,35 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <string_view>
 
 namespace assets {
 
-std::unique_ptr<assets::ResourceRegistry> g_asset_manager;
 namespace {
-int g_ass_man_references;
+
+// NOT ORIGINAL grouping - the asset manager and the main loop manager (their owners) and the asset manager's
+// references. Made on first use, never destroyed (registry_state()).
+struct RegistryState {
+    std::unique_ptr<assets::ResourceRegistry> asset_manager_{};
+    int ass_man_references_{};
+    memory::HeapUnique<frame_loop::Hub> main_loop_manager_{};
+};
+
+RegistryState& registry_state()
+{
+    static core::NoDestroy<RegistryState> state;
+    return state.get();
+}
 } // namespace
-memory::HeapUnique<frame_loop::Hub> g_main_loop_manager;
+
+ResourceRegistry* asset_manager() { return registry_state().asset_manager_.get(); }
+frame_loop::Hub* get_main_loop_manager() { return registry_state().main_loop_manager_.get(); }
+memory::HeapUnique<frame_loop::Hub>& main_loop_manager_owner() { return registry_state().main_loop_manager_; }
 
 namespace {
 
-int& ref_tally() { return g_ass_man_references; }
+int& ref_tally() { return registry_state().ass_man_references_; }
 
 // The script integer the loads look up (a debug leftover: set, a failed asset isn't deleted).
 int keep_failed_assets() { return script::fetch_int_value(0x25DC7904u); }
@@ -44,9 +60,9 @@ struct ExtensionType {
     int type;
 };
 // (the extensions are the exe's strings; the table's last entry stays null)
-std::array<ExtensionType, 13> g_extensions{{{.extension = "BIN", .type = 1}, {.extension = "COL", .type = 4}, {.extension = "SCN", .type = 2},  {.extension = "GEOM", .type = 2}, {.extension = "MDL", .type = 7}, {.extension = "SKA", .type = 5},
+constexpr std::array<ExtensionType, 13> kExtensions{{{.extension = "BIN", .type = 1}, {.extension = "COL", .type = 4}, {.extension = "SCN", .type = 2},  {.extension = "GEOM", .type = 2}, {.extension = "MDL", .type = 7}, {.extension = "SKA", .type = 5},
                                {.extension = "FAM", .type = 5}, {.extension = "SKE", .type = 6}, {.extension = "SKIN", .type = 7}, {.extension = "TEX", .type = 3},  {.extension = "CUT", .type = 9}, {.extension = "QB", .type = 10}}};
-const std::array<ExtensionType, 13>& get_extensions() { return g_extensions; }
+const std::array<ExtensionType, 13>& get_extensions() { return kExtensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
@@ -161,7 +177,7 @@ ResourceRegistry::~ResourceRegistry()
 // 0x00407E90
 void ResourceRegistry::start_callback()
 {
-    (&g_main_loop_manager->logic_tasks_)->queue_job(task_.get()); // the logic tasks
+    (&registry_state().main_loop_manager_->logic_tasks_)->queue_job(task_.get()); // the logic tasks
 }
 
 // 0x00407AE0
@@ -456,8 +472,8 @@ ResourceRegistry* create_asset_manager(bool create)
 {
     ResourceRegistry* manager = asset_manager();
     if (!manager && create) {
-        g_asset_manager = std::make_unique<ResourceRegistry>(); // (null when the heap is full)
-        manager = g_asset_manager.get();
+        registry_state().asset_manager_ = std::make_unique<ResourceRegistry>(); // (null when the heap is full)
+        manager = registry_state().asset_manager_.get();
         if (manager) {
             ++ref_tally();
             return manager;
@@ -474,7 +490,7 @@ void release_asset_manager()
         --ref_tally();
         return;
     }
-    memory::destroy_then_clear(g_asset_manager);
+    memory::destroy_then_clear(registry_state().asset_manager_);
     ref_tally() = 0;
 }
 

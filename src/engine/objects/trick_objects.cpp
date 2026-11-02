@@ -251,7 +251,7 @@ bool TrickObjectCluster::add_object(uint32_t name)
     object->list_link_.make_node(object);
     object->label_ = name;
     clear_sector_color(find_sector(name));
-    if (!game_config::g_from_cd && script::fetch_int_value("show_all_trick_objects"))
+    if (!game_config::from_cd() && script::fetch_int_value("show_all_trick_objects"))
         object->set_graffiti_color(2);
     // Last in the list (before the head).
     object->list_link_.next = &entities_;
@@ -399,7 +399,6 @@ TrickSpot* TrickSpot::teardown(unsigned int flags)
         memory::Hub::get_pull()->dealloc(this);
     return this;
 }
-
 
 // 0x00588BD0
 TrickObjectCluster::TrickObjectCluster(uint32_t name) : label_(name)

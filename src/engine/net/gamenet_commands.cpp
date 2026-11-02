@@ -98,7 +98,7 @@ uint32_t g_last_flag_base_warning;
 uint32_t& last_flag_base_warning() { return g_last_flag_base_warning; }
 uint32_t& net_game_start_time() { return g_net_game_start_time; }
 
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 Hub* net_link() { return g_online_hub; }
 
 // The lobby (online's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's

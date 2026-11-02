@@ -255,6 +255,6 @@ bool cfunc_set_screen_effects_dof_params(Struct* params, Script* script)
 }
 
 // 0x005A5950
-bool cfunc_is_pal(Struct*, Script*) { return game_config::g_language != 2; }
+bool cfunc_is_pal(Struct*, Script*) { return game_config::get_language() != 2; }
 
 } // namespace commands

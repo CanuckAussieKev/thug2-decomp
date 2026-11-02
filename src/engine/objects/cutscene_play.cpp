@@ -194,7 +194,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             paused_vblanks_ = frame_clock::fetch_retrace_count();
             fixed_frame() = 0;
         }
-        const int rate = game_config::g_frame_rate;
+        const int rate = game_config::frame_rate();
         audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
         update_time();
         check_skip();

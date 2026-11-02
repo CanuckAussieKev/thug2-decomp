@@ -106,7 +106,7 @@ bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xF
 bool& is_game_halted() { return objects::g_simulation_halted; }
 
 modules::Skate* skate_module() { return modules::g_skate_module.get(); }
-frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager.get(); }
+frame_loop::Hub* main_loop_manager() { return assets::get_main_loop_manager(); }
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
 // The typed arrow keys (sio::get_keyboard_chars).

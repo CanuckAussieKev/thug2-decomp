@@ -104,7 +104,7 @@ const char* const kDefaultDns2 = "205.147.0.102"; // "205.147.0.102"
 const char* const kEmpty = "";                    // ""
 const char* const kHashFieldName = "checksum";    // "checksum"
 
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
 bool get_filled(const char* text) { return text && *text; }
 

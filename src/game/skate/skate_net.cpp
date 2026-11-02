@@ -54,7 +54,6 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 
-
 namespace modules {
 
 namespace {
@@ -200,7 +199,7 @@ void SkateNet::delete_network_tasks(Skate* skate)
 // 0x0056DEE0
 void SkateNet::launch_host(Skate* skate)
 {
-    frame_loop::Hub* mlp = assets::g_main_loop_manager.get();
+    frame_loop::Hub* mlp = assets::get_main_loop_manager();
     online::Hub* net = net_session_slot();
     bool auto_serving = false;
     if (net->is_network_game() != 0) {
@@ -634,7 +633,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     auto* skate = static_cast<Skate*>(context->content_);
     net::Conn* conn = context->sender_conn_; // (the server's connection)
     conn->set_link_speed_class(brief.not_lan ? 0 : 1);
-    conn->set_transmit_period(static_cast<uint32_t>((1000 / game_config::g_frame_rate) << 1));
+    conn->set_transmit_period(static_cast<uint32_t>((1000 / game_config::frame_rate()) << 1));
     net->set_game_id(brief.game_id);
     net->change_arena(brief.level);
     net->set_crown_start_spot(static_cast<char>(brief.crown_start_slot));

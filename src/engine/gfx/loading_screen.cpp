@@ -237,7 +237,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
             // the language's picture: French "fr/<name>", German "gr/<name>"
             std::array<char, 0xC8> localised{};
             const char* file = name;
-            const int language = game_config::g_language;
+            const int language = game_config::get_language();
             if (language == 3 && !is_select_name(name)) { // (no text on a level select picture: one for all languages)
                 text::format_to(localised, "fr/%s", name);
                 file = localised.data();

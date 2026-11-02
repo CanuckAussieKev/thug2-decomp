@@ -44,6 +44,7 @@
 #include "wire/net_wire.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
@@ -147,17 +148,27 @@ int get_bone_count(render::RenderModel* model)
 }
 gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 
-uint32_t g_no_skeleton_counter{10};
-int g_repeat_count;
-uint32_t g_repeat_count_guard;
-float g_wheel_angle;
+// NOT ORIGINAL grouping - the viewer object's wheels and its repeat count. Made on first use, never destroyed
+// (viewer_object_state()).
+struct ViewerObjectState {
+    uint32_t no_skeleton_counter_{10};
+    int repeat_count_{};
+    uint32_t repeat_count_guard_{};
+    float wheel_angle_{};
+};
+
+ViewerObjectState& viewer_object_state()
+{
+    static core::NoDestroy<ViewerObjectState> state;
+    return state.get();
+}
 
 // The wheels' angle (degrees) and the counter that moves on while there's no skeleton.
-float& wheel_angle() { return g_wheel_angle; }
-uint32_t& no_skeleton_counter() { return g_no_skeleton_counter; }
+float& wheel_angle() { return viewer_object_state().wheel_angle_; }
+uint32_t& no_skeleton_counter() { return viewer_object_state().no_skeleton_counter_; }
 // The input handler's auto-repeat count (a function static: its guard is bit 1 of 0x007CE58C).
-int& repeat_count() { return g_repeat_count; }
-uint32_t& repeat_count_guard() { return g_repeat_count_guard; }
+int& repeat_count() { return viewer_object_state().repeat_count_; }
+uint32_t& repeat_count_guard() { return viewer_object_state().repeat_count_guard_; }
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
 PreviewEntity* object_of(net::InboundMsgCtx* context) { return static_cast<PreviewEntity*>(context->content_); }
@@ -194,7 +205,7 @@ PreviewEntity::~PreviewEntity()
 }
 
 namespace {
-maths::Vec4 g_origin_position{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+const maths::Vec4 kOriginPosition{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 } // namespace
 
 // 0x00589910
@@ -236,7 +247,7 @@ void PreviewEntity::read_in(script::Struct* params)
         at_point_.z = position.z;
         at_point_.w = position.w;
     } else {
-        at_point_ = g_origin_position; // (0, 0, 0, 1)
+        at_point_ = kOriginPosition; // (0, 0, 0, 1)
     }
     static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
     std::memcpy(&basis_frame_, kIdentity.data(), sizeof(kIdentity));

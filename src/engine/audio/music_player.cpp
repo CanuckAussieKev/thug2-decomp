@@ -82,9 +82,9 @@ int& order_count() { return shuffle_state().order_count_; }
 int& order_position() { return shuffle_state().order_position_; }
 bool& reshuffle() { return shuffle_state().reshuffle_; }
 
-bool music_on() { return music_state().sound_device_ && game_config::g_platform != 2 && music_state().music_header_loaded_; }
+bool music_on() { return music_state().sound_device_ && game_config::hardware() != 2 && music_state().music_header_loaded_; }
 // The same for streamed sound effects (0x0067D7E1).
-bool streams_on() { return music_state().sound_device_ && game_config::g_platform != 2 && music_state().streams_on_; }
+bool streams_on() { return music_state().sound_device_ && game_config::hardware() != 2 && music_state().streams_on_; }
 
 std::array<Stream, 3>& get_streams() { return music_state().streams_; }
 constexpr int kStreams = 3;
@@ -384,7 +384,7 @@ void play_track(const char* name, bool loop)
     const bool at_music_volume = other_lists_at_music_volume();
     const float volume = list != 0 && !at_music_volume ? sfx_volume() : current_music_volume();
     get_looping() = loop;
-    if (play_track_by_name(playing, volume) || game_config::g_from_cd) // (the debug checks)
+    if (play_track_by_name(playing, volume) || game_config::from_cd()) // (the debug checks)
         return;
     // It doesn't play: switch it off.
     Playlist& playlist = core::at(get_playlists(), list);
@@ -522,7 +522,7 @@ void play_next_track_in_order()
 // 0x00452910
 void tick_frame()
 {
-    if (!music_state().sound_device_ || game_config::g_platform == 2)
+    if (!music_state().sound_device_ || game_config::hardware() == 2)
         return;
     if (!music_state().music_header_loaded_ && !music_state().streams_on_)
         return;

@@ -386,7 +386,7 @@ void EditorViewModule::tick_frame()
 
     // The zoom and height buttons by controller type.
     bool zoom_in = false, zoom_out = false, raise = false, lower = false;
-    const int controller = game_config::g_platform;
+    const int controller = game_config::hardware();
     const uint32_t buttons = input_ptr_->events_;
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;

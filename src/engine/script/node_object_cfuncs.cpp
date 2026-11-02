@@ -528,7 +528,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 }
             }
             bool trick = node->has_entry_named(kTrickObject);
-            if (!game_config::g_from_cd && script::fetch_int_value(kAllTrickObjects))
+            if (!game_config::from_cd() && script::fetch_int_value(kAllTrickObjects))
                 trick = true;
             if (!skips_node(node) && trick) {
                 memory::push_mem_profile("Trick Object Clusters"); // "Trick Object Clusters"

@@ -25,12 +25,14 @@ constexpr uint32_t kStartTime = 0xD16B61E6;   // "StartTime"
 constexpr uint32_t kElapsedTime = 0x3EB3566B; // "ElapsedTime"
 
 // The platform the game runs on (0x007CEFA8; 7: Windows).
-int os_layer() { return game_config::g_platform; }
-
-uint32_t g_timer_start;
+int os_layer() { return game_config::hardware(); }
 
 // The stopwatch's start (frame_clock::GetTime, 0x00696D3C).
-uint32_t& timer_start() { return g_timer_start; }
+uint32_t& timer_start()
+{
+    static uint32_t timer_start{};
+    return timer_start;
+}
 // The game clock (ms), as scripts see it: the clock plus its offset (0x00696D60).
 int script_clock() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
 

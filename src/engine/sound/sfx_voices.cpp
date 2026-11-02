@@ -59,7 +59,7 @@ int& positional_count() { return sound_state().positional_count_; }
 std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves_; }
 int& permanent_count() { return sound_state().permanent_count_; }
 float& default_dropoff() { return sound_state().default_dropoff_; }
-bool quiet_misses() { return game_config::g_from_cd; }
+bool quiet_misses() { return game_config::from_cd(); }
 memory::HeapUnique<AudioMixer>& sole() { return sound_state().audio_mixer_; }
 
 // NOT ORIGINAL grouping - the DirectSound voices and their counts. Made on first use, never destroyed (voice_state()).

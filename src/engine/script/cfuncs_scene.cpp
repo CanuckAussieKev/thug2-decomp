@@ -70,12 +70,12 @@ constexpr uint32_t kLensFlareData = 0x04CBD07F;         // "lens_flare_data"
 
 // The system configuration (Config): the language (2 English, 3 French, 5 German - see str.cpp), running from the CD,
 // the extra memory of a development kit, the TV standard (0 PAL, 1 NTSC) and the frame rate.
-int& config_language() { return game_config::g_language; }
-bool& config_cd() { return game_config::g_from_cd; }
+int& config_language() { return game_config::get_language(); }
+bool& config_cd() { return game_config::from_cd(); }
 bool& config_got_extra_memory() { return g_got_extra_memory; }
 int& config_ntsc() { return g_config_ntsc; }
-int& config_framerate() { return game_config::g_frame_rate; }
-bool& config_bootstrap() { return game_config::g_config_bootstrap; }
+int& config_framerate() { return game_config::frame_rate(); }
+bool& config_bootstrap() { return game_config::bootstrap(); }
 // The configuration's names (cdecl): the hardware, the display type for a frame rate, the language, the territory.
 const char* platform_label_text() { return game_config::get_platform_label(); }
 const char* video_mode_label_text(int) { return game_config::get_screen_mode_label(); } // (the frame rate isn't read)

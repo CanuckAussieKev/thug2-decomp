@@ -378,7 +378,7 @@ void show_disc_error()
     // (0x007CEFA0: 3 French, 5 German, else English).
     const char* first = nullptr;
     const char* second = nullptr;
-    switch (game_config::g_language) {
+    switch (game_config::get_language()) {
     case 3:
         first = g_disc_error_french1;
         second = g_disc_error_french2;

@@ -141,7 +141,7 @@ bool cfunc_set_network_mode(script::Struct* params, script::Script*)
 // 0x005A0A60: ProfileTasks [frames (1)]: the main loop's task profile over that many frames.
 bool cfunc_profile_tasks(script::Struct* params, script::Script*)
 {
-    auto* main_loop = assets::g_main_loop_manager.get();
+    auto* main_loop = assets::get_main_loop_manager();
     int frames = 1;
     params->fetch_int_value(0u, &frames, 0);
     debug::printf("\n\nProfiling task for %d frames:\n", frames);

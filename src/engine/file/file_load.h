@@ -33,6 +33,7 @@ void make_disk_path(std::span<char, 256> path, const char* name);
 // "c:\xxxxxxxxxxxx\" dropped, and the PC file extensions substituted (.tex -> .txx, .pre -> .prx).
 Hdl open_on_disk(const char* name);
 
-extern bool g_handled_by_archive;
+// NOT ORIGINAL - the "handled" flag: set when the last file call was in one of the archives.
+bool& archive_handled();
 
 } // namespace file

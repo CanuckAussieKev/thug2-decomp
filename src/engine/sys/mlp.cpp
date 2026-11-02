@@ -35,6 +35,7 @@
 #include "engine/gfx/movie.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"
+#include "engine/core/no_destroy.h"
 
 namespace frame_loop {
 
@@ -57,13 +58,23 @@ bool& device_lost() { return render::g_device_lost; }
 IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 D3DPRESENT_PARAMETERS* present_parameters() { return &render::g_present_parameters; }
 
-uint32_t g_mlp_references;
-int g_skipped_total;
-int g_skipped_in_a_row;
+// NOT ORIGINAL grouping - the main loop's references and its skipped renders. Made on first use, never destroyed
+// (mlp_state()).
+struct MlpState {
+    uint32_t mlp_references_{};
+    int skipped_total_{};
+    int skipped_in_a_row_{};
+};
+
+MlpState& mlp_state()
+{
+    static core::NoDestroy<MlpState> state;
+    return state.get();
+}
 
 // Frames in a row whose render was skipped (after four, one is drawn regardless), and in all.
-int& skipped_in_a_row() { return g_skipped_in_a_row; }
-int& skipped_total() { return g_skipped_total; }
+int& skipped_in_a_row() { return mlp_state().skipped_in_a_row_; }
+int& skipped_total() { return mlp_state().skipped_total_; }
 
 void service_network() { online::Hub::service_game_spy(); }
 // Around a device Reset: the device objects released first (default pool) and made again after.
@@ -110,8 +121,8 @@ void render_frame_letterboxed()
 
 namespace {
 
-memory::HeapUnique<Hub>& sole() { return assets::g_main_loop_manager; }
-uint32_t& ref_tally() { return g_mlp_references; }
+memory::HeapUnique<Hub>& sole() { return assets::main_loop_manager_owner(); }
+uint32_t& ref_tally() { return mlp_state().mlp_references_; }
 
 } // namespace
 

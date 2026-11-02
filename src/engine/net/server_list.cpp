@@ -98,7 +98,7 @@ constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
 uint32_t g_last_refresh;

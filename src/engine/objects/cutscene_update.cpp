@@ -134,7 +134,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
             script::launch_script(kEndScript2, nullptr, nullptr, false, nullptr);
         }
     } else {
-        const int rate = game_config::g_frame_rate;
+        const int rate = game_config::frame_rate();
         const uint64_t vblanks = frame_clock::fetch_retrace_count() - vblanks_ - paused_vblanks_;
         clock_ = vblank_seconds(vblanks, rate);
     }

@@ -14,17 +14,33 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace file {
 
-bool g_handled_by_archive;
+namespace {
+
+// NOT ORIGINAL grouping - the archive's "handled" flag and the alternate drive switch. Made on first use, never
+// destroyed (file_load_state()).
+struct FileLoadState {
+    bool handled_by_archive_{};
+    int use_alternate_drive_{};
+};
+
+FileLoadState& file_load_state()
+{
+    static core::NoDestroy<FileLoadState> state;
+    return state.get();
+}
+
+} // namespace
 
 namespace {
 
 // While a pre manager exists, each file call goes to it first; it sets the "handled" flag when the file was
 // in one of its archives.
 bool archives_active() { return pre::hub() != nullptr; }
-bool& handled_by_archive() { return g_handled_by_archive; }
+bool& handled_by_archive() { return file_load_state().handled_by_archive_; }
 
 pre::ArchiveFile::FileInfo* as_archive_file(Hdl file) { return static_cast<pre::ArchiveFile::FileInfo*>(file); }
 bool archive_exist(const char* name) { return pre::is_present(name); }
@@ -51,10 +67,8 @@ uint32_t archive_get_file_size(Hdl file) { return static_cast<uint32_t>(pre::get
     render::show_disc_error();
 }
 
-int g_use_alternate_drive;
-
 // Never set anywhere in the exe: a leftover that would open files from another drive.
-bool use_alternate_drive() { return g_use_alternate_drive != 0; }
+bool use_alternate_drive() { return file_load_state().use_alternate_drive_ != 0; }
 
 // Not original - the loading console (engine/gfx/loading_console.h): a file opened, with its size (read without
 // FileLoad::GetFileSize, which would change the "handled by an archive" flag callers may still look at).
@@ -78,6 +92,8 @@ void note_opened(const char* name, Hdl file, bool archive)
 }
 
 } // namespace
+
+bool& archive_handled() { return handled_by_archive(); }
 
 void make_disk_path(std::span<char, 256> path, const char* name)
 {
@@ -248,6 +264,6 @@ namespace {
 
 // 0x005B8040 / 0x005B8050: one-line accessors for the archive manager and the "handled" flag.
 bool archives_active_accessor() { return pre::hub() != nullptr; }
-bool handled_by_archive_accessor() { return file::g_handled_by_archive; }
+bool handled_by_archive_accessor() { return file::archive_handled(); }
 
 } // namespace

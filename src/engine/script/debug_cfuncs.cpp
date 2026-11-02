@@ -29,7 +29,6 @@
 #include <gsl/pointers>
 #include <span>
 
-
 namespace commands {
 
 std::array<uint32_t, 15> g_level_qb_files;
@@ -46,7 +45,7 @@ constexpr uint32_t kSound = 0x07713C7B;                   // "sound" (the compon
 constexpr uint32_t kStream = 0x0F1641E3;                  // "stream" (the component type)
 
 // The game's language (0x007CEFA0): 2 English, 3 French, 4 Spanish, 5 German, 6 Italian.
-int get_language() { return game_config::g_language; }
+int get_language() { return game_config::get_language(); }
 
 // A .qb file loaded (0x005A5960; `level_specific`: unloaded with the level) / unloaded by its name's checksum
 // (0x005A59B0).
@@ -206,7 +205,7 @@ bool cfunc_inside(script::Struct*, script::Script*)
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).
 bool cfunc_reset_engine(script::Struct*, script::Script*)
 {
-    assets::g_main_loop_manager->stop_loop();
+    assets::get_main_loop_manager()->stop_loop();
     return true;
 }
 

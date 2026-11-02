@@ -79,12 +79,11 @@ bool get_mem_card_space_available(script::Struct*, script::Script* script)
 
 namespace {
 
-int os_layer() { return game_config::g_platform; }
+int os_layer() { return game_config::hardware(); }
 
 // Pause (1), unpause (0) or restore (-1) the music and the music streams.
 void pause_music(int pause) { audio::pause_music(pause); }
 void freeze_stream(int pause) { audio::freeze_stream(pause); }
-
 
 // A save file: its header (save_file_format.h), then two structures written by the script writer (0x0047A0C0 reads
 // one back and returns the end of what it read) - the summary and the contents.

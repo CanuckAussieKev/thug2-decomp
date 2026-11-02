@@ -43,7 +43,7 @@ using script::Struct;
 constexpr uint32_t kGoalManagerParams = 0xAC7C2B62; // "GoalManagerParams"
 
 // The game's platform (0x007CEFA8: 4 is the PC).
-int os_layer() { return game_config::g_platform; }
+int os_layer() { return game_config::hardware(); }
 
 // The card block of the platform.
 int card_block()

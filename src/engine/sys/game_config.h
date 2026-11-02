@@ -53,10 +53,4 @@ const char* get_bootstrap_prefix();
 // arguments aren't used.
 void read_registry(Arguments args);
 
-extern bool g_from_cd;
-extern int g_frame_rate;
-extern int g_language;
-extern int g_platform;
-extern bool g_config_bootstrap;
-
 } // namespace game_config
