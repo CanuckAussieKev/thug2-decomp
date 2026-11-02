@@ -55,11 +55,11 @@ struct TypeInfo {
     uint32_t checksum;
 };
 const std::array<TypeInfo, kTypes> kTypeInfo = {{
-    {"Skate", "SKATE letters", 0x54166ACD},    {"Combo", "COMBO letters", 0x4EC3CFB5},
-    {"HighScore", "High Score", 0x6FE44C6D},   {"HighCombo", "High Combo", 0xEC414B76},
-    {"Skatetris", "Skate-Tricks", 0x7FE2238A}, {"ComboSkatetris", "Combo Skate-Tricks", 0x0FC6F698},
-    {"TrickTris", "Tricktris", 0xEA7BA666},    {"TrickBeat", "Trick to the Beat", 0xD0DD047B},
-    {"Race", "Checkpoint / Race", 0x25904450}, {"Gap", "Gap", 0x61C5D092},
+    {.name = "Skate", .title = "SKATE letters", .checksum = 0x54166ACD},    {.name = "Combo", .title = "COMBO letters", .checksum = 0x4EC3CFB5},
+    {.name = "HighScore", .title = "High Score", .checksum = 0x6FE44C6D},   {.name = "HighCombo", .title = "High Combo", .checksum = 0xEC414B76},
+    {.name = "Skatetris", .title = "Skate-Tricks", .checksum = 0x7FE2238A}, {.name = "ComboSkatetris", .title = "Combo Skate-Tricks", .checksum = 0x0FC6F698},
+    {.name = "TrickTris", .title = "Tricktris", .checksum = 0xEA7BA666},    {.name = "TrickBeat", .title = "Trick to the Beat", .checksum = 0xD0DD047B},
+    {.name = "Race", .title = "Checkpoint / Race", .checksum = 0x25904450}, {.name = "Gap", .title = "Gap", .checksum = 0x61C5D092},
 }};
 
 // goal_editor.qb's cag_key_combos (the sets' texts).
@@ -479,24 +479,24 @@ bool read_record(const std::string& text, Goal* out)
             std::array<float, 5> v{};
             ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints && read_numbers(value, v, 5);
             if (ok)
-                points.emplace_back(index, Point{{core::at(v, 0), core::at(v, 1), core::at(v, 2)}, core::at(v, 3), core::at(v, 4)});
+                points.emplace_back(index, Point{.pos = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)}, .heading = core::at(v, 3), .height = core::at(v, 4)});
         } else {
             struct IntKey {
                 const char* key;
                 int* field;
             };
-            const auto ints = std::to_array<IntKey>({{"time", &g.time},
-                                   {"score", &g.score},
-                                   {"laps", &g.laps},
-                                   {"cptime", &g.checkpoint_time_},
-                                   {"spin", &g.spin},
-                                   {"accel", &g.accel_interval_},
-                                   {"tricktime", &g.combo_time_},
-                                   {"stopat", &g.stop_at_},
-                                   {"maxtricks", &g.max_tricks_},
-                                   {"combo", &g.combo_size_},
-                                   {"block", &g.block_size_},
-                                   {"towin", &g.to_win_}});
+            const auto ints = std::to_array<IntKey>({{.key = "time", .field = &g.time},
+                                   {.key = "score", .field = &g.score},
+                                   {.key = "laps", .field = &g.laps},
+                                   {.key = "cptime", .field = &g.checkpoint_time_},
+                                   {.key = "spin", .field = &g.spin},
+                                   {.key = "accel", .field = &g.accel_interval_},
+                                   {.key = "tricktime", .field = &g.combo_time_},
+                                   {.key = "stopat", .field = &g.stop_at_},
+                                   {.key = "maxtricks", .field = &g.max_tricks_},
+                                   {.key = "combo", .field = &g.combo_size_},
+                                   {.key = "block", .field = &g.block_size_},
+                                   {.key = "towin", .field = &g.to_win_}});
             bool known = false;
             for (const IntKey& k : ints) {
                 if (key == k.key) {
@@ -571,7 +571,7 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
     for (int i = 0; i < count; ++i) {
         const Point& p = core::at(goal.points, i);
         park_editing::EditedGoalPoint& point = core::at(g.path_vertices_, i);
-        point.pos = {p.pos.x, p.pos.y, p.pos.z, 1.0f};
+        point.pos = {.x = p.pos.x, .y = p.pos.y, .z = p.pos.z, .w = 1.0f};
         point.height = p.height;
         point.angle = get_image_angle(p.heading);
     }
@@ -693,7 +693,7 @@ node_create::Spec point_spec(const Goal& g, int index)
     s.cls = "GenericNode";
     s.type = kGoalMarkerType;
     s.pos = core::at(g.points, index).pos;
-    s.angles = {0.0f, core::at(g.points, index).heading, 0.0f};
+    s.angles = {.x = 0.0f, .y = core::at(g.points, index).heading, .z = 0.0f};
     s.owned = true;
     return s;
 }
@@ -735,7 +735,7 @@ void sync_nodes(const std::vector<Goal>& goals)
             }
             node_edit::Values v;
             v.pos = core::at(g.points, k).pos;
-            v.angles = {0.0f, core::at(g.points, k).heading, 0.0f};
+            v.angles = {.x = 0.0f, .y = core::at(g.points, k).heading, .z = 0.0f};
             node_edit::Values now;
             if (!node_edit::get_take_in(name, &now) || !node_edit::get_same(now, v))
                 node_edit::assign_value(name, v);
@@ -858,7 +858,7 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
 {
     node_create::LinkChain out;
     auto field = [](node_create::Prop::KindTag type, const char* key) {
-        node_create::Prop f = {type, key};
+        node_create::Prop f = {.type = type, .key = key};
         return f;
     };
     auto name = [&](const char* key, const char* value) {
@@ -881,8 +881,8 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
         const Point& p = core::at(g.points, k);
         node_create::Spec s;
         s.name = play_node_name(static_cast<int>(k), index);
-        s.pos = {p.pos.x, p.pos.y + p.height, p.pos.z};
-        s.angles = {0.0f, get_image_angle(p.heading) - pi, 0.0f};
+        s.pos = {.x = p.pos.x, .y = p.pos.y + p.height, .z = p.pos.z};
+        s.angles = {.x = 0.0f, .y = get_image_angle(p.heading) - pi, .z = 0.0f};
         s.owned = true;
         const int kind = point_kind(g.type, static_cast<int>(k));
         if (kind == 1) {
@@ -1019,19 +1019,19 @@ bool get_cast(V3 from, V3 to, V3* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& point = ray->hit_.point;
-    *hit = {point[0], point[1], point[2]};
+    *hit = {.x = point[0], .y = point[1], .z = point[2]};
     return true;
 }
 
 V3 get_grounded(V3 at)
 {
     V3 ground{};
-    if (get_cast(at + V3{0.0f, 200.0f, 0.0f}, at - V3{0.0f, 5000.0f, 0.0f}, &ground))
+    if (get_cast(at + V3{.x = 0.0f, .y = 200.0f, .z = 0.0f}, at - V3{.x = 0.0f, .y = 5000.0f, .z = 0.0f}, &ground))
         return ground;
     return at;
 }
@@ -1104,17 +1104,17 @@ bool fabricate(KindTag type)
     if (!get_cast(view.pos, view.pos + forward * 4000.0f, &base))
         base = view.pos + forward * 600.0f;
     base = get_grounded(base);
-    const V3 flat = make_unit({forward.x, 0.0f, forward.z});
-    const V3 right = make_unit(perpendicular({0.0f, 1.0f, 0.0f}, flat * -1.0f));
+    const V3 flat = make_unit({.x = forward.x, .y = 0.0f, .z = forward.z});
+    const V3 right = make_unit(perpendicular({.x = 0.0f, .y = 1.0f, .z = 0.0f}, flat * -1.0f));
     Goal g = get_defaults(type, get_fresh_id());
     g.name = fresh_title(type);
     // The pro facing the camera, the start beside it facing away; letters / checkpoints in a line ahead.
-    g.points.push_back({base, view.yaw + kPi, 0.0f});
-    g.points.push_back({get_grounded(base + right * 150.0f), view.yaw, 0.0f});
+    g.points.push_back({.pos = base, .heading = view.yaw + kPi, .height = 0.0f});
+    g.points.push_back({.pos = get_grounded(base + right * 150.0f), .heading = view.yaw, .height = 0.0f});
     const int count = min_points(type);
     for (int k = 2; k < count; ++k) {
         const V3 at = get_grounded(base + flat * (300.0f * static_cast<float>(k - 1)));
-        g.points.push_back({at, view.yaw, starting_height(type, k)});
+        g.points.push_back({.pos = at, .heading = view.yaw, .height = starting_height(type, k)});
     }
     for (Point& p : g.points) {
         p.heading = node_edit::wrap_angle(p.heading);
@@ -1181,8 +1181,8 @@ bool add_checkpoint(const std::string& id)
     push_undo();
     Goal& g = core::at(g_goals, i);
     const Point& last = g.points.back();
-    const V3 ahead = {std::sin(last.heading), 0.0f, std::cos(last.heading)};
-    g.points.push_back({get_grounded(last.pos + ahead * 300.0f), last.heading, 0.0f});
+    const V3 ahead = {.x = std::sin(last.heading), .y = 0.0f, .z = std::cos(last.heading)};
+    g.points.push_back({.pos = get_grounded(last.pos + ahead * 300.0f), .heading = last.heading, .height = 0.0f});
     sync_nodes({g});
     select_point(g, static_cast<int>(g.points.size()) - 1);
     return true;
@@ -1389,7 +1389,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             return;
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (project(a, &ax, &ay) && project(b, &bx, &by))
-            lines->push_back({ax, ay, bx, by, argb, thickness});
+            lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
     std::string selected_goal;
     int selected_point = -1;
@@ -1402,23 +1402,23 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             const V3 d = p.pos - camera_pos;
             if (get_dot(d, d) > 8000.0f * 8000.0f)
                 continue;
-            const V3 top = p.pos + V3{0.0f, p.height, 0.0f};
+            const V3 top = p.pos + V3{.x = 0.0f, .y = p.height, .z = 0.0f};
             if (p.height > 0.0f)
                 line(p.pos, top, colour, 1.0f); // (a letter floats its height above its node)
             // (its heading: a short arrow on the ground)
-            const V3 ahead = {std::sin(p.heading) * 40.0f, 0.0f, std::cos(p.heading) * 40.0f};
+            const V3 ahead = {.x = std::sin(p.heading) * 40.0f, .y = 0.0f, .z = std::cos(p.heading) * 40.0f};
             line(p.pos, p.pos + ahead, colour, lit ? 2.0f : 1.25f);
             float x = 0.0f, y = 0.0f;
-            if (get_dot(d, d) < 3000.0f * 3000.0f && project(top + V3{0.0f, 12.0f, 0.0f}, &x, &y)) {
+            if (get_dot(d, d) < 3000.0f * 3000.0f && project(top + V3{.x = 0.0f, .y = 12.0f, .z = 0.0f}, &x, &y)) {
                 std::string label = point_label(g.type, static_cast<int>(k));
                 if (k == 0)
                     label.insert(0, g.name + ": ");
-                texts->push_back({x, y, colour, label});
+                texts->push_back({.x = x, .y = y, .argb = colour, .text = label});
             }
             // (a race's checkpoints joined in order; the start to the first)
             if (g.type == KindTag::kRace && k >= 2) {
                 const Point& from = k == 2 ? core::at(g.points, 1) : core::at(g.points, k - 1);
-                line(from.pos + V3{0.0f, 4.0f, 0.0f}, p.pos + V3{0.0f, 4.0f, 0.0f}, lit ? 0xC0FFE070 : 0x80E0A030,
+                line(from.pos + V3{.x = 0.0f, .y = 4.0f, .z = 0.0f}, p.pos + V3{.x = 0.0f, .y = 4.0f, .z = 0.0f}, lit ? 0xC0FFE070 : 0x80E0A030,
                      1.0f);
             }
         }

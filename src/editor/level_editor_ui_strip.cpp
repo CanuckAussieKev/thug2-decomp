@@ -124,7 +124,7 @@ void set_recorder(std::vector<Cuboid>* boxes) { g_boxes = boxes; }
 void note_rect(float x0, float y0, float x1, float y1, const char* what)
 {
     if (g_boxes)
-        g_boxes->push_back({x0, y0, x1, y1, what});
+        g_boxes->push_back({.x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1, .what = what});
 }
 
 void get_note(const char* what)
@@ -254,7 +254,7 @@ std::vector<Item> get_items(const State& s, float scale)
     const float inner = 2.0f * scale, group = 10.0f * scale;
     std::vector<Item> items;
     auto add = [&](ItemId id, float width, bool right, int priority) {
-        items.push_back({id, {width, group, right, priority}});
+        items.push_back({.id = id, .slot = {.width = width, .gap = group, .right = right, .priority = priority}});
     };
     add(kMode, button_width("Fly") + inner + button_width("Select"), false, 3);
     add(kTools, button_width("Move") + inner + button_width("Rotate") + inner + button_width("Scale"), false, 9);
@@ -278,7 +278,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     switch (id) {
     case kMode:
         if (flip_over("Fly", !s.selection))
-            out->events.push_back({Occurrence::Kind::kDeselect});
+            out->events.push_back({.kind = Occurrence::Kind::kDeselect});
         get_tip("Fly the camera; nothing selected", get_key_of(s, "deselect"));
         get_note("Fly");
         ImGui::SameLine(0.0f, inner);
@@ -294,7 +294,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
             if (t)
                 ImGui::SameLine(0.0f, inner);
             if (flip_over(core::at(kLabels, t), s.tool == t))
-                out->events.push_back({Occurrence::Kind::kTool, static_cast<float>(t)});
+                out->events.push_back({.kind = Occurrence::Kind::kTool, .value = static_cast<float>(t)});
             get_tip(core::at(kTips, t), get_key_of(s, core::at(kIds, t)));
             get_note(core::at(kLabels, t));
         }
@@ -304,14 +304,14 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         // (as wide as the wider label, so it doesn't move when switched)
         const float width = std::max(button_width("World"), button_width("Local"));
         if (ImGui::Button(s.local ? "Local###stripspace" : "World###stripspace", ImVec2(width, 0.0f)))
-            out->events.push_back({Occurrence::Kind::kSpace});
+            out->events.push_back({.kind = Occurrence::Kind::kSpace});
         get_tip(s.local ? "Gizmo axes: local" : "Gizmo axes: world", get_key_of(s, "tool_space"));
         get_note("Space");
         break;
     }
     case kSnapGrid: {
         if (flip_over("Snap", s.snap))
-            out->events.push_back({Occurrence::Kind::kSnap, s.snap ? 0.0f : 1.0f});
+            out->events.push_back({.kind = Occurrence::Kind::kSnap, .value = s.snap ? 0.0f : 1.0f});
         get_tip("Snap while moving");
         get_note("Snap");
         ImGui::SameLine(0.0f, inner);
@@ -325,7 +325,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
                 std::array<char, 16> label{};
                 text::format_to(label, "%g", size);
                 if (ImGui::Selectable(label.data(), size == s.grid))
-                    out->events.push_back({Occurrence::Kind::kGrid, size});
+                    out->events.push_back({.kind = Occurrence::Kind::kGrid, .value = size});
             }
             ImGui::EndPopup();
         }
@@ -342,10 +342,10 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
                 const char* label;
                 uint32_t bit;
             };
-            static constexpr auto kPick = std::to_array<PickBit>({{"Nodes", 1}, {"Objects", 2}, {"Scenery", 4}});
+            static constexpr auto kPick = std::to_array<PickBit>({{.label = "Nodes", .bit = 1}, {.label = "Objects", .bit = 2}, {.label = "Scenery", .bit = 4}});
             for (const auto& p : kPick) {
                 if (ImGui::MenuItem(p.label, nullptr, (s.pick_filter_ & p.bit) != 0))
-                    out->events.push_back({Occurrence::Kind::kPick, static_cast<float>(s.pick_filter_ ^ p.bit)});
+                    out->events.push_back({.kind = Occurrence::Kind::kPick, .value = static_cast<float>(s.pick_filter_ ^ p.bit)});
             }
             ImGui::EndPopup();
         }
@@ -354,7 +354,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     case kShowAllItem:
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f, 0.28f, 0.52f, 0.9f));
         if (ImGui::Button(show_all_text(s).c_str()))
-            out->events.push_back({Occurrence::Kind::kShowAll});
+            out->events.push_back({.kind = Occurrence::Kind::kShowAll});
         ImGui::PopStyleColor();
         get_tip("Show items hidden in the editor", get_key_of(s, "show_all"));
         get_note("ShowAll");
@@ -362,7 +362,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
     case kStopItem:
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.25f, 0.15f, 1.0f));
         if (ImGui::Button("Stop Simulation"))
-            out->events.push_back({Occurrence::Kind::kSimulate});
+            out->events.push_back({.kind = Occurrence::Kind::kSimulate});
         ImGui::PopStyleColor();
         get_tip("Stop the simulation", get_key_of(s, "simulate"));
         get_note("Stop");
@@ -382,7 +382,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::InvisibleButton("##stripbudget", ImVec2(width, frame));
         if (ImGui::IsItemClicked())
-            out->events.push_back({Occurrence::Kind::kBudget});
+            out->events.push_back({.kind = Occurrence::Kind::kBudget});
         out->budget_hovered_ = ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip);
         get_note("Budget");
         const float bar = ImGui::GetTextLineHeight() * 0.6f;
@@ -405,7 +405,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
             ++colours;
         }
         if (ImGui::Button(problems_text(s).c_str()))
-            out->events.push_back({Occurrence::Kind::kProblems});
+            out->events.push_back({.kind = Occurrence::Kind::kProblems});
         ImGui::PopStyleColor(colours);
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip)) {
             const std::string keys = get_key_of(s, "problems");

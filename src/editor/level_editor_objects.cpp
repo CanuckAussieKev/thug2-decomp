@@ -241,15 +241,15 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     const maths::BBox* bounds = geometry ? geometry->fetch_bounds() : nullptr;
 
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
-    V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
+    V3 min = {.x = -25.0f, .y = 0.0f, .z = -25.0f}, max = {.x = 25.0f, .y = 80.0f, .z = 25.0f};
     if (bounds && bounds->min.x <= bounds->max.x && bounds->min.y <= bounds->max.y && bounds->min.z <= bounds->max.z) {
-        min = {bounds->min.x, bounds->min.y, bounds->min.z};
-        max = {bounds->max.x, bounds->max.y, bounds->max.z};
+        min = {.x = bounds->min.x, .y = bounds->min.y, .z = bounds->min.z};
+        max = {.x = bounds->max.x, .y = bounds->max.y, .z = bounds->max.z};
     }
     if (flags & 8) {
         const maths::Vec4& scale = model->size_factor_;
-        min = {min.x * scale.x, min.y * scale.y, min.z * scale.z};
-        max = {max.x * scale.x, max.y * scale.y, max.z * scale.z};
+        min = {.x = min.x * scale.x, .y = min.y * scale.y, .z = min.z * scale.z};
+        max = {.x = max.x * scale.x, .y = max.y * scale.y, .z = max.z * scale.z};
         if (min.x > max.x)
             std::swap(min.x, max.x);
         if (min.y > max.y)
@@ -263,17 +263,17 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     out->min = min;
     out->max = max;
     if (box_looks_world_space(min, max, pos)) {
-        out->origin = {0.0f, 0.0f, 0.0f};
-        core::at(out->axes, 0) = {1.0f, 0.0f, 0.0f};
-        core::at(out->axes, 1) = {0.0f, 1.0f, 0.0f};
-        core::at(out->axes, 2) = {0.0f, 0.0f, 1.0f};
+        out->origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
+        core::at(out->axes, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f};
+        core::at(out->axes, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+        core::at(out->axes, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
         return true;
     }
     // (the model is drawn with the display matrix's rows and the object's position: 0x004215F0)
     out->origin = pos;
     for (int i = 0; i < 3; ++i) {
         const maths::Vec4& row = core::at(object->display_matrix_.row, i);
-        core::at(out->axes, i) = {row.x, row.y, row.z};
+        core::at(out->axes, i) = {.x = row.x, .y = row.y, .z = row.z};
     }
     return true;
 }
@@ -284,7 +284,7 @@ objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* t)
     objects::EntityHub* manager = objects::object_hub_slot().get();
     if (!manager)
         return nullptr;
-    PickWalk walk = {origin, make_unit(dir), max_t, nullptr, nullptr};
+    PickWalk walk = {.origin = origin, .dir = make_unit(dir), .best_t_ = max_t, .best = nullptr, .all = nullptr};
     manager->for_each(pick_one, &walk);
     *t = walk.best_t_;
     return walk.best;
@@ -294,7 +294,7 @@ std::vector<std::pair<objects::GameEntity*, float>> pick_all(V3 origin, V3 dir, 
 {
     std::vector<std::pair<objects::GameEntity*, float>> all;
     if (objects::EntityHub* manager = objects::object_hub_slot().get()) {
-        PickWalk walk = {origin, make_unit(dir), max_t, nullptr, &all};
+        PickWalk walk = {.origin = origin, .dir = make_unit(dir), .best_t_ = max_t, .best = nullptr, .all = &all};
         manager->for_each(pick_one, &walk);
     }
     std::ranges::stable_sort(all, [](const auto& a, const auto& b) { return a.second < b.second; });
@@ -309,7 +309,7 @@ void log_census()
     get_log("level editor: %d composite objects, %d pickable", census.objects, census.pickable);
 }
 
-V3 pos_of(const objects::GameEntity* object) { return {object->at_point_.x, object->at_point_.y, object->at_point_.z}; }
+V3 pos_of(const objects::GameEntity* object) { return {.x = object->at_point_.x, .y = object->at_point_.y, .z = object->at_point_.z}; }
 
 V3 current_centre(objects::GameEntity* object)
 {
@@ -319,12 +319,12 @@ V3 current_centre(objects::GameEntity* object)
         return box.origin + core::at(box.axes, 0) * mid.x + core::at(box.axes, 1) * mid.y + core::at(box.axes, 2) * mid.z;
     }
     const V3 pos = pos_of(object);
-    return {pos.x, pos.y + 40.0f, pos.z};
+    return {.x = pos.x, .y = pos.y + 40.0f, .z = pos.z};
 }
 
 void get_place(objects::GameEntity* object, V3 pos)
 {
-    object->at_point_ = {pos.x, pos.y, pos.z, 1.0f};
+    object->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
     object->old_pos_ = object->at_point_;
     object->mark_jumped_ahead(true); // (its components follow: the model, the collision)
 }
@@ -334,7 +334,7 @@ void turn_about(objects::GameEntity* object, V3 pivot, float angle)
     for (int i = 0; i < 3; ++i) {
         for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
             maths::Vec4& row = core::at(m->row, i);
-            const V3 turned = turn_about_up({row.x, row.y, row.z}, angle);
+            const V3 turned = turn_about_up({.x = row.x, .y = row.y, .z = row.z}, angle);
             row.x = turned.x;
             row.y = turned.y;
             row.z = turned.z;
@@ -380,8 +380,8 @@ std::string describe(objects::GameEntity* object)
 
 State store_away(objects::GameEntity* object)
 {
-    return {object->ident_, object->at_point_, object->basis_frame_, object->display_matrix_,
-            scale_tool::get_object_scale(object)};
+    return {.id = object->ident_, .pos = object->at_point_, .matrix = object->basis_frame_, .draw_matrix_ = object->display_matrix_,
+            .scale = scale_tool::get_object_scale(object)};
 }
 
 bool get_restore(const State& state)
@@ -391,7 +391,7 @@ bool get_restore(const State& state)
         return false;
     object->basis_frame_ = state.matrix;
     object->display_matrix_ = state.draw_matrix_;
-    get_place(object, {state.pos.x, state.pos.y, state.pos.z});
+    get_place(object, {.x = state.pos.x, .y = state.pos.y, .z = state.pos.z});
     if (!same_scale(scale_tool::get_object_scale(object), state.scale))
         scale_tool::set_object_scale(object, state.scale);
     return true;
@@ -421,7 +421,7 @@ bool get_tint(objects::GameEntity* object, uint32_t rgba)
         if (!geom)
             break;
         if (scenery::tintable(geom)) {
-            scenery::get_tint({object->ident_, i}, geom, rgba);
+            scenery::get_tint({.id = object->ident_, .index = i}, geom, rgba);
             any = true;
         }
     }
@@ -494,7 +494,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
     commands::create_from_node(copy);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (object)
-        g_copies.push_back({name, source});
+        g_copies.push_back({.name = name, .source = source});
     if (debug_enabled())
         get_log("level editor: copy %08X of %s at (%.0f, %.0f, %.0f): %s", name, caption(source).c_str(), pos.x, pos.y,
                 pos.z, object ? "made" : "NOT made");
@@ -584,7 +584,7 @@ std::vector<TableRow> copyable()
                 const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
                 label += std::string("  (") + (base ? std::next(base) : model) + ")";
             }
-            entries.push_back({name, label});
+            entries.push_back({.name = name, .label = label});
         }
     }
     std::ranges::sort(entries, [](const TableRow& a, const TableRow& b) { return a.label < b.label; });

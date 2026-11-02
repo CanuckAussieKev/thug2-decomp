@@ -418,10 +418,10 @@ void get_menus()
             organize::Similar by;
             const char* tip;
         };
-        static const auto kItems = std::to_array<Item>({{"Same mesh", organize::Similar::kMesh, "Same model or scenery piece"},
-                                      {"Same class", organize::Similar::kClass, "Same node class"},
-                                      {"Same family", organize::Similar::kFamily, "Same Outliner family"},
-                                      {"Same type", organize::Similar::kKindTag, "Same node type"}});
+        static const auto kItems = std::to_array<Item>({{.name = "Same mesh", .by = organize::Similar::kMesh, .tip = "Same model or scenery piece"},
+                                      {.name = "Same class", .by = organize::Similar::kClass, .tip = "Same node class"},
+                                      {.name = "Same family", .by = organize::Similar::kFamily, .tip = "Same Outliner family"},
+                                      {.name = "Same type", .by = organize::Similar::kKindTag, .tip = "Same node type"}});
         for (const Item& item : kItems) {
             const organize::Similar by = item.by;
             if (ImGui::MenuItem(item.name))
@@ -742,8 +742,8 @@ float toggles_width()
 void row_toggles(const nodes::Elem& node, float x)
 {
     const bool hidden = organize::hidden_in_editor(node);
-    bool locked = organize::latched(node.name);
-    bool selectable = organize::get_selectable(node);
+    const bool locked = organize::latched(node.name);
+    const bool selectable = organize::get_selectable(node);
     struct FlipOver {
         const char* on;
         const char* off;
@@ -751,9 +751,9 @@ void row_toggles(const nodes::Elem& node, float x)
         const char* tip;
     };
     const std::array<FlipOver, 3> toggles = {{
-        {"\xE2\x80\xA2", "-", !hidden, "Visible in editor"},
-        {"L", "L", locked, "Locked against changes"},
-        {"S", "S", selectable, "Selectable in the view"},
+        {.on = "\xE2\x80\xA2", .off = "-", .state = !hidden, .tip = "Visible in editor"},
+        {.on = "L", .off = "L", .state = locked, .tip = "Locked against changes"},
+        {.on = "S", .off = "S", .state = selectable, .tip = "Selectable in the view"},
     }};
     const float step = ImGui::CalcTextSize("W").x + 6.0f * current_s();
     for (int t = 0; t < 3; ++t) {
@@ -901,7 +901,7 @@ void inspector_section(const ui::ShapeMesh& model)
             mixed = mixed || (all && !fields::same_value(it->value, row.value));
         }
         if (all)
-            shared.push_back({row.key, row.value.kind, text, mixed});
+            shared.push_back({.key = row.key, .kind = row.value.kind, .text = text, .mixed = mixed});
     }
     if (shared.empty()) {
         gui::text_disabled("No shared editable fields");

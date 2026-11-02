@@ -366,7 +366,7 @@ bool get_make(const Spec& spec, std::string* why)
         hide_tiles(it->second.built.hides, false);
     }
     hide_tiles(spec.hides, true);
-    made_state()[spec.name] = {name, spec};
+    made_state()[spec.name] = {.sector = name, .built = spec};
     get_log("level editor: ground piece %s (%s, %.0f x %.0f, %.0f %s, %u faces) in place - material %s",
             spec.name.c_str(), spec.lower ? "pit" : "platform", spec.x1 - spec.x0, spec.z1 - spec.z0, spec.height,
             spec.lower ? "deep" : "high", static_cast<unsigned>(mesh.faces.size()),
@@ -449,18 +449,18 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             const Spec* spec{};
             uint32_t best = 0, best_floor_ = 0;
             float best_distance_ = 1e30f, best_floor_distance_ = 1e30f;
-        } walk = {spec};
+        } walk = {.spec = spec};
         scenery::for_each_level_sector(
             [](void* context, uint32_t checksum, render::WorldCell* sector) {
                 auto* w = static_cast<Walk*>(context);
                 if (!is_operative(sector) || why_not_donor(checksum))
                     return;
                 const render::TriMeshSource* tri = static_of(sector)->geometry_;
-                const V3 c = {(w->spec->x0 + w->spec->x1) * 0.5f, w->spec->base, (w->spec->z0 + w->spec->z1) * 0.5f};
-                const V3 lo = {tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z};
-                const V3 hi = {tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z};
-                const V3 nearest = {std::clamp(c.x, lo.x, hi.x), std::clamp(c.y, lo.y, hi.y),
-                                    std::clamp(c.z, lo.z, hi.z)};
+                const V3 c = {.x = (w->spec->x0 + w->spec->x1) * 0.5f, .y = w->spec->base, .z = (w->spec->z0 + w->spec->z1) * 0.5f};
+                const V3 lo = {.x = tri->bounds_.min.x, .y = tri->bounds_.min.y, .z = tri->bounds_.min.z};
+                const V3 hi = {.x = tri->bounds_.max.x, .y = tri->bounds_.max.y, .z = tri->bounds_.max.z};
+                const V3 nearest = {.x = std::clamp(c.x, lo.x, hi.x), .y = std::clamp(c.y, lo.y, hi.y),
+                                    .z = std::clamp(c.z, lo.z, hi.z)};
                 const V3 d = nearest - c;
                 const float distance = std::sqrt(get_dot(d, d));
                 if (distance < w->best_distance_)
@@ -545,7 +545,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
         Spec* spec;
         std::vector<uint32_t> tiles;
         std::string refused;
-    } walk = {spec, {}, {}};
+    } walk = {.spec = spec, .tiles = {}, .refused = {}};
     scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
@@ -576,15 +576,15 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                     ok = index < tri->num_vertices_;
                     if (ok) {
                         const maths::Vec4 p = tri->read_stored_vertex(static_cast<int>(index));
-                        core::at(c, k) = {p.x, p.y, p.z};
+                        core::at(c, k) = {.x = p.x, .y = p.y, .z = p.z};
                     }
                 }
                 ground = ok && ground_face_under(c, s, 30.0f);
             }
             if (!ground)
                 return;
-            const V3 lo = {tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z};
-            const V3 hi = {tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z};
+            const V3 lo = {.x = tri->bounds_.min.x, .y = tri->bounds_.min.y, .z = tri->bounds_.min.z};
+            const V3 hi = {.x = tri->bounds_.max.x, .y = tri->bounds_.max.y, .z = tri->bounds_.max.z};
             if (tile_inside(lo, hi, s, 25.0f)) {
                 w->tiles.push_back(checksum);
                 return;

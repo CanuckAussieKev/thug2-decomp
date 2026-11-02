@@ -19,18 +19,18 @@ bool get_clear(V3 from, V3 move, const Cast& cast)
     const float length = std::sqrt(move.x * move.x + move.z * move.z);
     if (length <= 0.0f)
         return true;
-    const V3 dir = {move.x / length, 0.0f, move.z / length};
+    const V3 dir = {.x = move.x / length, .y = 0.0f, .z = move.z / length};
     V3 hit{};
     for (const float height : {kStepHeight + 1.0f, kEyeHeight - 4.0f}) {
-        const V3 a = {from.x, from.y + height, from.z};
+        const V3 a = {.x = from.x, .y = from.y + height, .z = from.z};
         if (cast(a, a + dir * (length + kRadius), &hit))
             return false;
         // (and a radius clear of walls along each axis it moves on, from where it gets to: a slanting move stops as far
         // from a wall as a straight one)
         const V3 to = a + move;
-        if (move.x != 0.0f && cast(to, to + V3{move.x > 0.0f ? kRadius : -kRadius, 0.0f, 0.0f}, &hit))
+        if (move.x != 0.0f && cast(to, to + V3{.x = move.x > 0.0f ? kRadius : -kRadius, .y = 0.0f, .z = 0.0f}, &hit))
             return false;
-        if (move.z != 0.0f && cast(to, to + V3{0.0f, 0.0f, move.z > 0.0f ? kRadius : -kRadius}, &hit))
+        if (move.z != 0.0f && cast(to, to + V3{.x = 0.0f, .y = 0.0f, .z = move.z > 0.0f ? kRadius : -kRadius}, &hit))
             return false;
     }
     return true;
@@ -41,7 +41,7 @@ bool get_clear(V3 from, V3 move, const Cast& cast)
 Walker walker_at(V3 camera)
 {
     Walker w;
-    w.feet = {camera.x, camera.y - kEyeHeight, camera.z};
+    w.feet = {.x = camera.x, .y = camera.y - kEyeHeight, .z = camera.z};
     return w;
 }
 
@@ -50,8 +50,8 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     if (seconds <= 0.0f)
         return;
     // Along the ground: the heading's forward and right (as frame_from_yaw_pitch's at pitch 0).
-    const V3 forward = {std::sin(yaw), 0.0f, std::cos(yaw)};
-    const V3 right = {-std::cos(yaw), 0.0f, std::sin(yaw)}; // (the frame's right: up x back)
+    const V3 forward = {.x = std::sin(yaw), .y = 0.0f, .z = std::cos(yaw)};
+    const V3 right = {.x = -std::cos(yaw), .y = 0.0f, .z = std::sin(yaw)}; // (the frame's right: up x back)
     const float f = std::clamp(input.forward, -1.0f, 1.0f);
     const float r = std::clamp(input.right, -1.0f, 1.0f);
     V3 wish = forward * f + right * r;
@@ -64,8 +64,8 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
             w->feet = w->feet + move;
         } else {
             // (sliding: each axis by itself)
-            const V3 along_x = {move.x, 0.0f, 0.0f};
-            const V3 along_z = {0.0f, 0.0f, move.z};
+            const V3 along_x = {.x = move.x, .y = 0.0f, .z = 0.0f};
+            const V3 along_z = {.x = 0.0f, .y = 0.0f, .z = move.z};
             if (move.x != 0.0f && get_clear(w->feet, along_x, cast))
                 w->feet = w->feet + along_x;
             if (move.z != 0.0f && get_clear(w->feet, along_z, cast))
@@ -73,9 +73,9 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
         }
     }
     // The ground below (from a step's height up: a kerb walked onto is stood on).
-    const V3 top = {w->feet.x, w->feet.y + kStepHeight, w->feet.z};
+    const V3 top = {.x = w->feet.x, .y = w->feet.y + kStepHeight, .z = w->feet.z};
     V3 ground{};
-    const bool have_ground = cast(top, {top.x, top.y - kGroundSearch, top.z}, &ground);
+    const bool have_ground = cast(top, {.x = top.x, .y = top.y - kGroundSearch, .z = top.z}, &ground);
     if (input.jump && w->grounded) {
         w->vy = kJumpSpeed;
         w->grounded = false;
@@ -96,9 +96,9 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     w->vy -= kGravity * seconds;
     float dy = (vy0 + w->vy) * 0.5f * seconds;
     if (dy > 0.0f) {
-        const V3 head = {w->feet.x, w->feet.y + kEyeHeight, w->feet.z};
+        const V3 head = {.x = w->feet.x, .y = w->feet.y + kEyeHeight, .z = w->feet.z};
         V3 hit{};
-        if (cast(head, {head.x, head.y + dy + 4.0f, head.z}, &hit)) {
+        if (cast(head, {.x = head.x, .y = head.y + dy + 4.0f, .z = head.z}, &hit)) {
             dy = 0.0f;
             w->vy = 0.0f;
         }
@@ -125,7 +125,7 @@ V3 teleport_target(V3 camera, V3 hit)
     const V3 along = hit - camera;
     const float distance = std::sqrt(get_dot(along, along));
     if (distance < 1.0f)
-        return {hit.x, std::max(camera.y, hit.y + kLift), hit.z};
+        return {.x = hit.x, .y = std::max(camera.y, hit.y + kLift), .z = hit.z};
     const V3 dir = along * (1.0f / distance);
     const float back = std::min(kStandOff, distance * 0.8f);
     V3 to = hit - dir * back;
@@ -137,9 +137,9 @@ V3 follow_step(Follower* f, bool active, V3 target)
 {
     if (!active) {
         f->have = false;
-        return {0.0f, 0.0f, 0.0f};
+        return {.x = 0.0f, .y = 0.0f, .z = 0.0f};
     }
-    V3 delta = f->have ? target - f->last : V3{0.0f, 0.0f, 0.0f};
+    V3 delta = f->have ? target - f->last : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
     f->have = true;
     f->last = target;
     return delta;

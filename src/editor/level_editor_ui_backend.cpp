@@ -245,7 +245,7 @@ bool begin_offscreen(int size, uint32_t argb)
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(o.depth);
-    const D3DVIEWPORT9 viewport = {0, 0, static_cast<DWORD>(size), static_cast<DWORD>(size), 0.0f, 1.0f};
+    const D3DVIEWPORT9 viewport = {.X = 0, .Y = 0, .Width = static_cast<DWORD>(size), .Height = static_cast<DWORD>(size), .MinZ = 0.0f, .MaxZ = 1.0f};
     device->SetViewport(&viewport);
     device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (o.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);
     o.active = true;
@@ -369,7 +369,7 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
     surface->Release();
     device->SetDepthStencilSurface(a.depth);
     const D3DVIEWPORT9 viewport = {
-        static_cast<DWORD>(x), static_cast<DWORD>(y), static_cast<DWORD>(size), static_cast<DWORD>(size), 0.0f, 1.0f};
+        .X = static_cast<DWORD>(x), .Y = static_cast<DWORD>(y), .Width = static_cast<DWORD>(size), .Height = static_cast<DWORD>(size), .MinZ = 0.0f, .MaxZ = 1.0f};
     device->SetViewport(&viewport);
     // (no rectangles: the viewport - the cell - is cleared)
     device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (a.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);

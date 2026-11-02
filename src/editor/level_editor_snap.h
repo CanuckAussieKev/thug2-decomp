@@ -31,14 +31,14 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
 bool align_rows(std::span<V3, 3> rows, V3 normal);
 // The selection's place for its base to lie on `point`: `pos` (where it is) moved so that its base (`base`: its height
 // there) is on the point.
-inline V3 on_surface(V3 pos, float base, V3 point) { return {point.x, point.y + (pos.y - base), point.z}; }
+inline V3 on_surface(V3 pos, float base, V3 point) { return {.x = point.x, .y = point.y + (pos.y - base), .z = point.z}; }
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
 // The first static collision the ray meets within `max_t` (unit `dir`), passing the sectors in `skip` (the selection's
 // own): its point and normal, and the sector's checksum. False: none.
 struct SurfaceHit {
-    V3 point = {}, normal = {0.0f, 1.0f, 0.0f};
+    V3 point = {}, normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
     uint32_t checksum = 0;
 };
 bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& skip, SurfaceHit* hit);

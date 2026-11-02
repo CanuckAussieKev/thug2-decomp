@@ -429,7 +429,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     }
 
     auto request = [&](ui::Request::Kind kind, int value) {
-        ui::Request r{kind};
+        ui::Request r{.kind = kind};
         r.value = value;
         requests->push_back(r);
     };

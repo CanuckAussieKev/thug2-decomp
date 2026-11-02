@@ -25,7 +25,7 @@ namespace frontend::level_editor::walls {
 
 float to_sixteenth(float value) { return std::round(value * 16.0f) / 16.0f; }
 
-V3 on_grid(V3 v) { return {to_sixteenth(v.x), to_sixteenth(v.y), to_sixteenth(v.z)}; }
+V3 on_grid(V3 v) { return {.x = to_sixteenth(v.x), .y = to_sixteenth(v.y), .z = to_sixteenth(v.z)}; }
 
 Step step_between(const Placement& from, const Placement& to)
 {
@@ -42,11 +42,11 @@ void step_collision(render::TriMeshSource* tri, const Placement& from, const Pla
 {
     const Step step = step_between(from, to);
     if (step.turns) {
-        const maths::Vec4 centre = {step.centre.x, step.centre.y, step.centre.z, 0.0f};
+        const maths::Vec4 centre = {.x = step.centre.x, .y = step.centre.y, .z = step.centre.z, .w = 0.0f};
         tri->rotate_y(&centre, step.turns);
     }
     if (step.delta.x != 0.0f || step.delta.y != 0.0f || step.delta.z != 0.0f) {
-        const maths::Vec4 delta = {step.delta.x, step.delta.y, step.delta.z, 0.0f};
+        const maths::Vec4 delta = {.x = step.delta.x, .y = step.delta.y, .z = step.delta.z, .w = 0.0f};
         tri->get_slide(&delta);
     }
 }
@@ -55,7 +55,7 @@ Placement moved_to(const Placement& placement, V3 pivot, V3 to)
 {
     Placement moved = placement;
     moved.offset = on_grid(placement.offset + (to - pivot));
-    moved.scale = {1.0f, 1.0f, 1.0f};
+    moved.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     return moved;
 }
 
@@ -64,7 +64,7 @@ Placement turned_about(const Placement& placement, V3 pivot, int quarters)
     Placement turned = placement;
     turn_about(&turned, on_grid(pivot), quarters);
     turned.offset = on_grid(turned.offset);
-    turned.scale = {1.0f, 1.0f, 1.0f};
+    turned.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     return turned;
 }
 
@@ -157,7 +157,7 @@ Track* track_of(uint32_t checksum)
     t.coll = coll;
     t.tri = tri;
     t.wall = wall;
-    t.placement = {0, {0.0f, 0.0f, 0.0f}};
+    t.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     // (a drawn piece hidden - not active - has its collision off with it: that isn't this switch)
     t.off0 = t.off = flag_off(coll) && (wall || geom_active(geom_of(sector)));
     t.min = tri->bounds_.min;
@@ -188,7 +188,7 @@ void get_place(uint32_t checksum, Track* t, const Placement& to)
         return;
     Placement target = to;
     target.offset = on_grid(target.offset);
-    target.scale = {1.0f, 1.0f, 1.0f};
+    target.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     step_collision(t->tri, t->placement, target);
     t->placement = target;
     t->min = t->tri->bounds_.min;
@@ -212,8 +212,8 @@ bool cuboid(uint32_t checksum, V3* min, V3* max)
     const render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return false;
-    *min = {tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z};
-    *max = {tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z};
+    *min = {.x = tri->bounds_.min.x, .y = tri->bounds_.min.y, .z = tri->bounds_.min.z};
+    *max = {.x = tri->bounds_.max.x, .y = tri->bounds_.max.y, .z = tri->bounds_.max.z};
     return true;
 }
 
@@ -291,7 +291,7 @@ std::vector<WallState> store_away(const std::vector<uint32_t>& checksums)
     std::vector<WallState> states;
     for (const uint32_t checksum : checksums) {
         if (const Track* t = track_of(checksum))
-            states.push_back({checksum, t->placement, t->off});
+            states.push_back({.checksum = checksum, .placement = t->placement, .off = t->off});
     }
     return states;
 }
@@ -317,7 +317,7 @@ std::vector<WallState> get_changed()
         if (scenery::is_clone(entry.first) || !at_hand(entry.first, t))
             continue;
         if (!is_home(t.placement) || t.off != t.off0)
-            changed.push_back({entry.first, t.wall ? t.placement : Placement{0, {0.0f, 0.0f, 0.0f}}, t.off});
+            changed.push_back({.checksum = entry.first, .placement = t.wall ? t.placement : Placement{.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}}, .off = t.off});
     }
     return changed;
 }
@@ -331,7 +331,7 @@ void reset_all()
             it = tracks_state().erase(it);
             continue;
         }
-        home.push_back({it->first, {0, {0.0f, 0.0f, 0.0f}}, it->second.off0});
+        home.push_back({.checksum = it->first, .placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}}, .off = it->second.off0});
         ++it;
     }
     apply_states(home);
@@ -352,7 +352,7 @@ void tick()
 std::string describe_state(uint32_t checksum)
 {
     const bool off = disengaged(checksum);
-    Placement placement = {0, {0.0f, 0.0f, 0.0f}};
+    Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     const bool moved = get_moved(checksum, &placement);
     std::array<char, 192> text{};
     if (moved)

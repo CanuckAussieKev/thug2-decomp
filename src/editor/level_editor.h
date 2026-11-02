@@ -206,11 +206,11 @@ bool pass_key(bool* released, bool down);
 struct V3 {
     float x, y, z;
 };
-inline V3 operator+(V3 a, V3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
-inline V3 operator-(V3 a, V3 b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
-inline V3 operator*(V3 a, float s) { return {a.x * s, a.y * s, a.z * s}; }
+inline V3 operator+(V3 a, V3 b) { return {.x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z}; }
+inline V3 operator-(V3 a, V3 b) { return {.x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z}; }
+inline V3 operator*(V3 a, float s) { return {.x = a.x * s, .y = a.y * s, .z = a.z * s}; }
 inline float get_dot(V3 a, V3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-inline V3 perpendicular(V3 a, V3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+inline V3 perpendicular(V3 a, V3 b) { return {.x = a.y * b.z - a.z * b.y, .y = a.z * b.x - a.x * b.z, .z = a.x * b.y - a.y * b.x}; }
 V3 make_unit(V3 v);
 
 // A camera's frame as the game keeps it (gfx::ViewCam basis_frame_ rows): right, up, back (the view looks along -back).
@@ -280,7 +280,7 @@ inline V3 box_size(const OrientedBox& box)
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
         core::at(lengths, i) = std::sqrt(get_dot(core::at(box.axes, i), core::at(box.axes, i)));
-    return {extent.x * core::at(lengths, 0), extent.y * core::at(lengths, 1), extent.z * core::at(lengths, 2)};
+    return {.x = extent.x * core::at(lengths, 0), .y = extent.y * core::at(lengths, 1), .z = extent.z * core::at(lengths, 2)};
 }
 
 // --- scenery (the static scene sectors; level_editor_scenery.cpp) ------------------------------------------------
@@ -290,10 +290,10 @@ inline V3 box_size(const OrientedBox& box)
 // rotation 1 takes (dx, dz) from the pivot to (dz, -dx), rotation 3 to (-dz, dx)).
 V3 get_quarter_turn(V3 v, int quarters);
 // A vector scaled per axis (x by s.x, ...).
-inline V3 per_axis(V3 v, V3 s) { return {v.x * s.x, v.y * s.y, v.z * s.z}; }
+inline V3 per_axis(V3 v, V3 s) { return {.x = v.x * s.x, .y = v.y * s.y, .z = v.z * s.z}; }
 // A per-axis scale as seen after `quarters` quarter turns about up: odd turns swap its x and z (get_quarter_turn(per_axis(v,
 // s), q) == per_axis(get_quarter_turn(v, q), turned_scale(s, q))).
-inline V3 turned_scale(V3 s, int quarters) { return (quarters & 1) ? V3{s.z, s.y, s.x} : s; }
+inline V3 turned_scale(V3 s, int quarters) { return (quarters & 1) ? V3{.x = s.z, .y = s.y, .z = s.x} : s; }
 inline bool is_unit_scale(V3 s) { return s.x == 1.0f && s.y == 1.0f && s.z == 1.0f; }
 inline bool is_uniform_scale(V3 s) { return s.x == s.y && s.y == s.z; }
 
@@ -303,7 +303,7 @@ inline bool is_uniform_scale(V3 s) { return s.x == s.y && s.y == s.z; }
 struct Placement {
     int quarters{}; // 0..3
     V3 offset{};
-    V3 scale = {1.0f, 1.0f, 1.0f};
+    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
 };
 V3 get_apply(const Placement& placement, V3 x);
 // Moved by `delta`; turned by `quarters` quarter turns about `pivot` (a world point, where it is now).

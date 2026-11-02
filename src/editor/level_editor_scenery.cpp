@@ -59,11 +59,11 @@ V3 get_quarter_turn(V3 v, int quarters)
 {
     switch (quarters & 3) {
     case 1:
-        return {v.z, v.y, -v.x};
+        return {.x = v.z, .y = v.y, .z = -v.x};
     case 2:
-        return {-v.x, v.y, -v.z};
+        return {.x = -v.x, .y = v.y, .z = -v.z};
     case 3:
-        return {-v.z, v.y, v.x};
+        return {.x = -v.z, .y = v.y, .z = v.x};
     default:
         return v;
     }
@@ -80,9 +80,9 @@ Placement compose(const Placement& outer, const Placement& inner)
 {
     // outer(inner(x)) = Q_o S_o (Q_i S_i x + o_i) + o_o = Q_o Q_i (S_o' S_i) x + (Q_o S_o o_i + o_o), S_o' = S_o as
     // seen through Q_i (S_o Q_i = Q_i S_o': odd turns swap its x and z).
-    return {(inner.quarters + outer.quarters) & 3,
-            get_quarter_turn(per_axis(inner.offset, outer.scale), outer.quarters) + outer.offset,
-            per_axis(turned_scale(outer.scale, inner.quarters), inner.scale)};
+    return {.quarters = (inner.quarters + outer.quarters) & 3,
+            .offset = get_quarter_turn(per_axis(inner.offset, outer.scale), outer.quarters) + outer.offset,
+            .scale = per_axis(turned_scale(outer.scale, inner.quarters), inner.scale)};
 }
 
 void turn_about(Placement* placement, V3 pivot, int quarters)
@@ -103,9 +103,9 @@ OrientedBox placed_box(V3 min, V3 max, const Placement& placement)
 {
     OrientedBox box{};
     box.origin = placement.offset;
-    core::at(box.axes, 0) = get_quarter_turn({placement.scale.x, 0.0f, 0.0f}, placement.quarters);
-    core::at(box.axes, 1) = {0.0f, placement.scale.y, 0.0f};
-    core::at(box.axes, 2) = get_quarter_turn({0.0f, 0.0f, placement.scale.z}, placement.quarters);
+    core::at(box.axes, 0) = get_quarter_turn({.x = placement.scale.x, .y = 0.0f, .z = 0.0f}, placement.quarters);
+    core::at(box.axes, 1) = {.x = 0.0f, .y = placement.scale.y, .z = 0.0f};
+    core::at(box.axes, 2) = get_quarter_turn({.x = 0.0f, .y = 0.0f, .z = placement.scale.z}, placement.quarters);
     box.min = min;
     box.max = max;
     return box;
@@ -125,8 +125,8 @@ void grow_box(V3* min, V3* max, bool have, V3 bounds_low, V3 bounds_high)
         *max = bounds_high;
         return;
     }
-    *min = {std::min(min->x, bounds_low.x), std::min(min->y, bounds_low.y), std::min(min->z, bounds_low.z)};
-    *max = {std::max(max->x, bounds_high.x), std::max(max->y, bounds_high.y), std::max(max->z, bounds_high.z)};
+    *min = {.x = std::min(min->x, bounds_low.x), .y = std::min(min->y, bounds_low.y), .z = std::min(min->z, bounds_low.z)};
+    *max = {.x = std::max(max->x, bounds_high.x), .y = std::max(max->y, bounds_high.y), .z = std::max(max->z, bounds_high.z)};
 }
 
 void bounds_of(const OrientedBox& box, V3* min, V3* max)
@@ -155,8 +155,8 @@ bool piece_touches(V3 min, V3 max, V3 bounds_low, V3 bounds_high, float margin)
 
 void segment_box(V3 a, V3 b, V3* min, V3* max)
 {
-    *min = {std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z)};
-    *max = {std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z)};
+    *min = {.x = std::min(a.x, b.x), .y = std::min(a.y, b.y), .z = std::min(a.z, b.z)};
+    *max = {.x = std::max(a.x, b.x), .y = std::max(a.y, b.y), .z = std::max(a.z, b.z)};
 }
 
 uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
@@ -254,8 +254,8 @@ bool plain_geom(render::PcGeom* geom) { return render::is_pc_geom(geom) && !geom
 bool geom_box(render::PcGeom* geom, V3* min, V3* max)
 {
     const maths::BBox& box = geom->bounds;
-    *min = {box.min.x, box.min.y, box.min.z};
-    *max = {box.max.x, box.max.y, box.max.z};
+    *min = {.x = box.min.x, .y = box.min.y, .z = box.min.z};
+    *max = {.x = box.max.x, .y = box.max.y, .z = box.max.z};
     return min->x <= max->x && min->y <= max->y && min->z <= max->z;
 }
 
@@ -263,7 +263,7 @@ bool geom_box(render::PcGeom* geom, V3* min, V3* max)
 V3 geom_position(render::PcGeom* geom)
 {
     const maths::Vec4* v = geom->get_absolute_point();
-    return {v->x, v->y, v->z};
+    return {.x = v->x, .y = v->y, .z = v->z};
 }
 
 // The meshes' vertices can be moved: each vertex buffer has its own CPU copy (data) holding exactly the mesh's
@@ -361,7 +361,7 @@ Track* track_of(uint32_t checksum)
         return nullptr;
     track.quarters0 = track.quarters = quarters_of(sector);
     track.position0 = track.position = geom_position(geom);
-    track.placement = {0, {0.0f, 0.0f, 0.0f}};
+    track.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     return &tracks_state().emplace(checksum, track).first->second;
 }
 
@@ -376,7 +376,7 @@ bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
     V3 min{}, max{};
     if (!geom_box(geom, &min, &max))
         return false;
-    *box = placed_box(min, max, {0, {0.0f, 0.0f, 0.0f}});
+    *box = placed_box(min, max, {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}});
     return true;
 }
 
@@ -402,7 +402,7 @@ void apply_track(Track* track)
         if (!track->original) {
             get_log("level editor: sector %p can't be scaled (its meshes can't be copied)",
                     static_cast<void*>(track->sector));
-            track->placement.scale = {1.0f, 1.0f, 1.0f};
+            track->placement.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
         }
     }
     int quarters = 0;
@@ -413,7 +413,7 @@ void apply_track(Track* track)
         track->quarters = quarters;
     }
     if (!same_v3(position, track->position)) {
-        const maths::Vec4 to = {position.x, position.y, position.z, 1.0f};
+        const maths::Vec4 to = {.x = position.x, .y = position.y, .z = position.z, .w = 1.0f};
         track->geom->place_at_absolute_point(&to);
         // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
         // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
@@ -426,7 +426,7 @@ void apply_track(Track* track)
             render::HitMesh* object = coll;
             const maths::Vec4* origin = object->get_absolute_point();
             const V3 change = collision_moved - track->collision_moved_;
-            const maths::Vec4 moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
+            const maths::Vec4 moved = {.x = origin->x + change.x, .y = origin->y + change.y, .z = origin->z + change.z, .w = origin->w};
             object->place_at_absolute_point(&moved);
         }
         track->collision_moved_ = collision_moved;
@@ -507,7 +507,7 @@ std::span<RailNode> rail_nodes()
     return {manager->nodes_, static_cast<size_t>(manager->num_)};
 }
 
-V3 rail_pos(const RailNode* node) { return {node->at_point_.x, node->at_point_.y, node->at_point_.z}; }
+V3 rail_pos(const RailNode* node) { return {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z}; }
 
 // What we've done to a rail node: where it was when first touched, the placement since, where we put it.
 struct RailTrack {
@@ -551,7 +551,7 @@ RailTrack* rail_track_of(uint32_t name)
         rail_tracks().erase(it);
     }
     const RailTrack track = {
-        node, (node->flag_bits_ & 4) != 0, rail_pos(node), {0, {0.0f, 0.0f, 0.0f}}, rail_pos(node)};
+        .node = node, .active0 = (node->flag_bits_ & 4) != 0, .pos0 = rail_pos(node), .placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}}, .pos = rail_pos(node)};
     return &rail_tracks().emplace(name, track).first->second;
 }
 
@@ -586,8 +586,8 @@ void apply_rails(const std::vector<uint32_t>& names)
             continue;
         V3 min{}, max{};
         segment_box(rail_pos(node), node->succ_ ? rail_pos(node->succ_) : rail_pos(node), &min, &max);
-        node->lower_limit_ = {min.x, min.y, min.z, 1.0f};
-        node->upper_limit_ = {max.x, max.y, max.z, 1.0f};
+        node->lower_limit_ = {.x = min.x, .y = min.y, .z = min.z, .w = 1.0f};
+        node->upper_limit_ = {.x = max.x, .y = max.y, .z = max.z, .w = 1.0f};
     }
 }
 
@@ -609,7 +609,7 @@ void compute_pivot()
         grow_box(&min, &max, have, a, b);
         have = true;
     }
-    g_pivot = have ? (min + max) * 0.5f : V3{0.0f, 0.0f, 0.0f};
+    g_pivot = have ? (min + max) * 0.5f : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
     g_half_extent_y = have ? (max.y - min.y) * 0.5f : 0.0f;
 }
 
@@ -634,7 +634,7 @@ void select_rails()
         V3 min{}, max{};
         if (!shadow_of().count(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             bounds_of(box, &min, &max);
-            boxes.emplace_back(min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f});
+            boxes.emplace_back(min - V3{.x = 10.0f, .y = 10.0f, .z = 10.0f}, max + V3{.x = 10.0f, .y = 10.0f, .z = 10.0f});
         }
     }
     auto within = [&](V3 p) {
@@ -665,7 +665,7 @@ Placement placement_of(uint32_t checksum, render::PcGeom* geom)
     auto it = tracks_state().find(checksum);
     if (it != tracks_state().end() && it->second.geom == geom)
         return it->second.placement;
-    return {0, {0.0f, 0.0f, 0.0f}};
+    return {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
 }
 
 bool geom_see_through(render::PcGeom* geom); // (below)
@@ -709,10 +709,10 @@ std::vector<uint32_t> group_of(uint32_t checksum)
         if (!plain_geom(geom) || !geom->active || !geom_box(geom, &min, &max) ||
             !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement))
             return;
-        pieces.push_back({other, min, max, false, geom_see_through(geom), geom_level_share(other, geom)});
+        pieces.push_back({.checksum = other, .min = min, .max = max, .in = false, .see_through_ = geom_see_through(geom), .level_share_ = geom_level_share(other, geom)});
     });
     // (by size only: a camera nowhere near)
-    const V3 nowhere = {1.0e9f, 1.0e9f, 1.0e9f};
+    const V3 nowhere = {.x = 1.0e9f, .y = 1.0e9f, .z = 1.0e9f};
     bool clicked_structure = false;
     for (const Piece& piece : pieces) {
         if (piece.checksum == checksum)
@@ -854,12 +854,12 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& hit = ray->hit_.point;
-    *point = {hit[0], hit[1], hit[2]};
+    *point = {.x = hit[0], .y = hit[1], .z = hit[2]};
     *checksum = ray->hit_.object_checksum_;
     return ray->hit_.object != nullptr;
 }
@@ -881,7 +881,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
             continue;
         float hit = 0.0f;
         if (mesh->billboard || (mesh->flags & 0x10)) {
-            if (ray_sphere(origin, dir, {core::at(mesh->centre, 0), core::at(mesh->centre, 1), core::at(mesh->centre, 2)}, mesh->radius, &hit) &&
+            if (ray_sphere(origin, dir, {.x = core::at(mesh->centre, 0), .y = core::at(mesh->centre, 1), .z = core::at(mesh->centre, 2)}, mesh->radius, &hit) &&
                 hit < best) {
                 best = hit;
                 found = true;
@@ -994,7 +994,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
             return;
         const bool locked = picking::latched(picking::kScenery, checksum);
         const bool occludes = collision || !(plain_geom(geom) && geom_see_through(geom));
-        met.push_back({checksum, t, get_passed(checksum, origin), occludes, locked});
+        met.push_back({.id = checksum, .t = t, .passed = get_passed(checksum, origin), .occludes = occludes, .locked = locked});
         if (occludes && !locked && !layers && t < stop)
             stop = t;
     };
@@ -1057,7 +1057,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
                 continue;
             auto it = std::ranges::find_if(*layers, [&](const Layer& l) { return l.checksum == m.id; });
             if (it == layers->end())
-                layers->push_back({m.id, m.t, m.passed});
+                layers->push_back({.checksum = m.id, .t = m.t, .passed = m.passed});
             else if (m.t < it->t)
                 it->t = m.t;
         }
@@ -1124,7 +1124,7 @@ std::string describe_selection()
     std::string text = "scenery " + caption(core::at(g_selection, 0));
     std::array<char, 160> more{};
     int quarters = 0;
-    V3 scale = {1.0f, 1.0f, 1.0f};
+    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     auto it = tracks_state().find(core::at(g_selection, 0));
     if (it != tracks_state().end()) {
         quarters = it->second.placement.quarters;
@@ -1306,9 +1306,9 @@ void get_turn(int quarters)
 V3 selection_scale()
 {
     if (g_selection.empty())
-        return {1.0f, 1.0f, 1.0f};
+        return {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     render::WorldCell* sector = find_sector(core::at(g_selection, 0), nullptr);
-    return sector ? placement_of(core::at(g_selection, 0), geom_of(sector)).scale : V3{1.0f, 1.0f, 1.0f};
+    return sector ? placement_of(core::at(g_selection, 0), geom_of(sector)).scale : V3{.x = 1.0f, .y = 1.0f, .z = 1.0f};
 }
 
 int selection_quarters()
@@ -1321,7 +1321,7 @@ int selection_quarters()
 
 V3 scale_selection(V3 factor, bool uniform)
 {
-    const V3 unchanged = {1.0f, 1.0f, 1.0f};
+    const V3 unchanged = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     std::vector<V3> scales, limits; // (along the world's axes)
     for (const uint32_t checksum : g_selection) {
         if (Track* track = track_of(checksum)) {
@@ -1340,7 +1340,7 @@ V3 scale_selection(V3 factor, bool uniform)
     if (is_unit_scale(factor) || scales.empty())
         return unchanged;
     // About the middle of the selection's bottom: it keeps standing where it stands.
-    const V3 anchor = {g_pivot.x, get_bottom(), g_pivot.z};
+    const V3 anchor = {.x = g_pivot.x, .y = get_bottom(), .z = g_pivot.z};
     for (const uint32_t checksum : g_selection) {
         if (Track* track = track_of(checksum)) {
             scale_tool::scale_about(&track->placement, anchor, factor);
@@ -1353,7 +1353,7 @@ V3 scale_selection(V3 factor, bool uniform)
     }
     apply_rails(g_rails);
     g_half_extent_y *= factor.y;
-    g_pivot = {anchor.x, anchor.y + g_half_extent_y, anchor.z};
+    g_pivot = {.x = anchor.x, .y = anchor.y + g_half_extent_y, .z = anchor.z};
     g_hover_group_of = 0;
     return factor;
 }
@@ -1398,7 +1398,7 @@ bool set_rail_point(uint32_t name, V3 pos)
         return false;
     // (the quarter turns a sector move gave it don't matter for one point: a plain move from where the level has it -
     // Home's place gives an offset of exactly 0)
-    track->placement = {0, pos - track->pos0};
+    track->placement = {.quarters = 0, .offset = pos - track->pos0};
     apply_rails({name});
     return true;
 }
@@ -1473,11 +1473,11 @@ State save_state()
         render::WorldCell* sector = find_sector(checksum, nullptr);
         if (!sector)
             continue;
-        state.sectors.push_back({checksum, placement_of(checksum, geom_of(sector)), !is_operative(sector)});
+        state.sectors.push_back({.checksum = checksum, .placement = placement_of(checksum, geom_of(sector)), .hidden = !is_operative(sector)});
     }
     for (const uint32_t name : g_rails) {
         if (const RailTrack* track = rail_track_of(name))
-            state.rails.push_back({name, track->placement, track->active0 && !(track->node->flag_bits_ & 4)});
+            state.rails.push_back({.name = name, .placement = track->placement, .hidden = track->active0 && !(track->node->flag_bits_ & 4)});
     }
     return state;
 }
@@ -1538,7 +1538,7 @@ std::vector<SectorState> changed_sectors()
         const Placement& p = track.placement;
         if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
             p.offset.z != 0.0f)
-            changed.push_back({entry.first, p, hidden});
+            changed.push_back({.checksum = entry.first, .placement = p, .hidden = hidden});
     }
     return changed;
 }
@@ -1554,7 +1554,7 @@ std::vector<RailState> changed_rails()
         const Placement& p = track.placement;
         if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
             p.offset.z != 0.0f)
-            changed.push_back({entry.first, p, hidden});
+            changed.push_back({.name = entry.first, .placement = p, .hidden = hidden});
     }
     return changed;
 }
@@ -1627,7 +1627,7 @@ uint32_t get_duplicate(uint32_t source)
         coll->flag_bits_ &= static_cast<uint16_t>(~4);
     shared_collision::finish_copy(shared_faces, made, scene, copy, geom);
     mark_dirty(scene);
-    get_clones().push_back({made, source, source_placement});
+    get_clones().push_back({.checksum = made, .source = source, .source_at_copy_ = source_placement});
     std::array<char, 96> name{};
     text::format_to(name, "%s copy", caption(source).c_str());
     script::note_qb_name(made, name.data());
@@ -1681,11 +1681,11 @@ void reset_selection()
 {
     State state = save_state();
     for (SectorState& saved : state.sectors) {
-        saved.placement = {0, {0.0f, 0.0f, 0.0f}};
+        saved.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         saved.hidden = false;
     }
     for (RailState& saved : state.rails) {
-        saved.placement = {0, {0.0f, 0.0f, 0.0f}};
+        saved.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         saved.hidden = false;
     }
     restore_state(state);
@@ -1764,7 +1764,7 @@ std::vector<Saved> g_tinted;
 
 Saved save_colour(TintOwner owner, render::PcGeom* geom)
 {
-    Saved saved = {owner, geom, geom->instance, 0, {}, {}, true};
+    Saved saved = {.owner = owner, .geom = geom, .instance = geom->instance, .instance_flag_ = 0, .instance_colour_ = {}, .meshes = {}, .used = true};
     if (saved.instance) {
         saved.instance_flag_ = saved.instance->flags & 4;
         std::memcpy(saved.instance_colour_.data(), saved.instance->color.data(), 4);
@@ -1774,7 +1774,7 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        saved.meshes.push_back({mesh->flags & 4, {core::at(mesh->color, 0), core::at(mesh->color, 1), core::at(mesh->color, 2)}});
+        saved.meshes.push_back({.flag = mesh->flags & 4, .color = {core::at(mesh->color, 0), core::at(mesh->color, 1), core::at(mesh->color, 2)}});
     }
     return saved;
 }

@@ -72,7 +72,7 @@ struct Elem {
     Family family = Family::kOther;
     bool has_pos_ = false;
     V3 pos = {}, angles = {};
-    V3 forward = {0.0f, 0.0f, 1.0f};           // its heading (the matrix the game makes of its angles: its at row)
+    V3 forward = {.x = 0.0f, .y = 0.0f, .z = 1.0f};           // its heading (the matrix the game makes of its angles: its at row)
     std::vector<int> links;                    // linked nodes (indices into All())
     uint32_t colour = 0xFFC0C0C0;              // ARGB
     int order = -1;                            // crowns: the index among the crowns; spawns: among the restarts

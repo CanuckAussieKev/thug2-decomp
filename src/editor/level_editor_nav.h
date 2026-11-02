@@ -45,7 +45,7 @@ struct WalkInput {
 // edge: it doesn't fall out of the world). A jump starts on the ground; a ceiling stops it.
 void get_step(Walker* walker, float yaw, const WalkInput& input, float seconds, const Cast& cast);
 // The camera for a walker, and a walker for a camera (dropping from where it is).
-inline V3 eye_of(const Walker& w) { return {w.feet.x, w.feet.y + kEyeHeight, w.feet.z}; }
+inline V3 eye_of(const Walker& w) { return {.x = w.feet.x, .y = w.feet.y + kEyeHeight, .z = w.feet.z}; }
 Walker walker_at(V3 camera);
 
 // --- click-to-teleport ----------------------------------------------------------------------------------------------

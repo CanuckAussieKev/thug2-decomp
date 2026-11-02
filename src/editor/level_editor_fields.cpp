@@ -971,11 +971,11 @@ std::vector<Row> rows_of(const nodes::Elem& node)
         if (const script::Struct* included = get_included(c)) {
             for (script::Component* inner = included->head_; inner; inner = inner->next) {
                 if (!get_included(inner)) // (one level of shared structures: the node arrays have no deeper ones)
-                    entries.push_back({get_key_of(inner), inner, true});
+                    entries.push_back({.key = get_key_of(inner), .c = inner, .included = true});
             }
             continue;
         }
-        entries.push_back({get_key_of(c), c, false});
+        entries.push_back({.key = get_key_of(c), .c = c, .included = false});
     }
     std::vector<uint32_t> order;
     for (const TableRow& e : entries) {
@@ -1055,7 +1055,7 @@ bool set_on(script::Struct* s, uint32_t name, nodes::Family family, uint32_t key
         want.index = now.present && !included_after(s, key, false, now.index) ? now.index : -1;
     }
     if (!find_touched(name, key))
-        g_touched.push_back({name, key, flag, now, s});
+        g_touched.push_back({.node = name, .key = key, .flag = flag, .origin = now, .structure = s});
     put_own(s, key, flag, want);
     error->clear();
     return true;
@@ -1168,7 +1168,7 @@ std::vector<NodeEdits> get_changed()
         }
         auto it = std::ranges::find_if(out, [&](const NodeEdits& n) { return n.name == t.node; });
         if (it == out.end()) {
-            out.push_back({t.node, {}});
+            out.push_back({.name = t.node, .edits = {}});
             it = out.end() - 1;
         }
         it->edits.push_back(edit);

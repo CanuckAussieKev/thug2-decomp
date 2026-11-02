@@ -49,13 +49,13 @@ ActStep normalised(const ActStep& action, float grid)
     n.edge = std::clamp(n.edge, 0, 2);
     n.reference = std::clamp(n.reference, 0, 1);
     auto factor = [](float f) { return std::clamp(f, 0.05f, 20.0f); };
-    n.factor = {factor(n.factor.x), factor(n.factor.y), factor(n.factor.z)};
+    n.factor = {.x = factor(n.factor.x), .y = factor(n.factor.y), .z = factor(n.factor.z)};
     if (n.uniform)
         n.factor.y = n.factor.z = n.factor.x;
     if (n.quarters)
         n.degrees = 90.0f * std::round(n.degrees / 90.0f);
     if (n.grid && grid > 0.0f)
-        n.offset = {snap_to_grid(n.offset.x, grid), snap_to_grid(n.offset.y, grid), snap_to_grid(n.offset.z, grid)};
+        n.offset = {.x = snap_to_grid(n.offset.x, grid), .y = snap_to_grid(n.offset.y, grid), .z = snap_to_grid(n.offset.z, grid)};
     return n;
 }
 

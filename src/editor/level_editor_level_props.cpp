@@ -432,7 +432,7 @@ void export_to_struct(script::Struct* level, const Props& props)
     g_written = level;
     for (const auto& entry : values) {
         const uint32_t key = checksums::hash_from_text(entry.first);
-        g_kept.push_back({key, fields::own_in(level, key, false)});
+        g_kept.push_back({.key = key, .before = fields::own_in(level, key, false)});
         fields::Own own;
         own.present = true;
         own.value = entry.second;

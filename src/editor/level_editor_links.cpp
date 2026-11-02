@@ -69,14 +69,14 @@ void get_join(State* state, bool scenery, uint32_t source, const std::vector<Mem
     if (index >= 0 && !is_source)
         source = core::at((*state), index).source; // (a copy of a linked copy: its group's source)
     if (index < 0) {
-        state->push_back({scenery, source, {}});
+        state->push_back({.scenery = scenery, .source = source, .members = {}});
         index = static_cast<int>(state->size()) - 1;
     }
     GroupSet& group = core::at((*state), index);
     for (const Member& m : copies) {
         if (m.id == source || group_of(*state, m.id) >= 0)
             continue;
-        group.members.push_back({m.id, m.quarters & 3});
+        group.members.push_back({.id = m.id, .quarters = m.quarters & 3});
     }
     if (group.members.empty())
         state->erase(state->begin() + index);
@@ -195,7 +195,7 @@ State g_state;
 // What the sources were seen as (their scale, their fields' record tokens) - by source.
 struct Watch {
     bool init = false;
-    V3 scale = {1.0f, 1.0f, 1.0f};
+    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     std::string fields;
 };
 std::map<uint32_t, Watch>& watch()
@@ -219,7 +219,7 @@ objects::GameEntity* live_object(uint32_t id)
 
 Placement placement_of(uint32_t sector)
 {
-    Placement placement = {0, {0.0f, 0.0f, 0.0f}};
+    Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     scenery::placement_now(sector, &placement);
     return placement;
 }
@@ -262,8 +262,8 @@ std::string fields_of(uint32_t source)
 bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 V3 get_ratio(V3 now, V3 before)
 {
-    return {before.x != 0.0f ? now.x / before.x : 1.0f, before.y != 0.0f ? now.y / before.y : 1.0f,
-            before.z != 0.0f ? now.z / before.z : 1.0f};
+    return {.x = before.x != 0.0f ? now.x / before.x : 1.0f, .y = before.y != 0.0f ? now.y / before.y : 1.0f,
+            .z = before.z != 0.0f ? now.z / before.z : 1.0f};
 }
 
 struct Step : ModuleStep {
@@ -320,7 +320,7 @@ void propagate_objects(const GroupSet& group)
     const V3 scale = scale_tool::get_object_scale(source);
     const std::string fields = fields_of(group.source);
     if (!w.init) {
-        w = {true, scale, fields};
+        w = {.init = true, .scale = scale, .fields = fields};
         return;
     }
     if (!same_v3(scale, w.scale)) {
@@ -338,7 +338,7 @@ void propagate_objects(const GroupSet& group)
             objects::GameEntity* copy = live_object(m.id);
             if (!copy || !object_edit::is_copy(m.id))
                 continue;
-            g_remakes.push_back({m.id, group.source, object_edit::store_away(copy)});
+            g_remakes.push_back({.name = m.id, .source = group.source, .state = object_edit::store_away(copy)});
             object_edit::remove_copy(m.id);
         }
         get_log("level editor: the fields of %s changed - its linked copies made again",
@@ -353,7 +353,7 @@ void run_remakes()
         ++r.frames;
         const bool gone = objects::find_object(r.name) == nullptr;
         if (gone) {
-            const V3 pos = {r.state.pos.x, r.state.pos.y, r.state.pos.z};
+            const V3 pos = {.x = r.state.pos.x, .y = r.state.pos.y, .z = r.state.pos.z};
             if (const objects::GameEntity* made = object_edit::make_copy(r.source, pos, r.name)) {
                 object_edit::State state = r.state;
                 state.id = made->ident_;
@@ -398,7 +398,7 @@ bool linked_duplicate()
             if (s.first == pair.first)
                 q = s.second;
         }
-        get_join(&g_state, scenery, pair.first, {{pair.second, q}});
+        get_join(&g_state, scenery, pair.first, {{.id = pair.second, .quarters = q}});
     }
     adjust::get_note(adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
     hud::get_message(std::string("Linked copy created"), 5.0);
@@ -516,7 +516,7 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
         std::vector<Member> members;
         for (const RefTo& ref : record.members) {
             if (const uint32_t id = resolve(ref))
-                members.push_back({id, ref.quarters});
+                members.push_back({.id = id, .quarters = ref.quarters});
         }
         if (members.empty())
             continue;

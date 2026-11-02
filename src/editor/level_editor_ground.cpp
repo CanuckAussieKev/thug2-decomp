@@ -97,23 +97,23 @@ std::vector<std::pair<float, float>> quarter_profile(float radius, float height,
 
 namespace {
 
-V3 get_up() { return {0.0f, 1.0f, 0.0f}; }
+V3 get_up() { return {.x = 0.0f, .y = 1.0f, .z = 0.0f}; }
 
 // The side's outward direction and its edge's two ends (at height 0) - along the side, the first at its lower x / z.
 void side_frame(const Spec& s, int side, V3* out, V3* e0, V3* e1)
 {
     switch (side) {
     case kMinusX:
-        *out = {-1, 0, 0}, *e0 = {s.x0, 0, s.z0}, *e1 = {s.x0, 0, s.z1};
+        *out = {.x = -1, .y = 0, .z = 0}, *e0 = {.x = s.x0, .y = 0, .z = s.z0}, *e1 = {.x = s.x0, .y = 0, .z = s.z1};
         break;
     case kPlusX:
-        *out = {1, 0, 0}, *e0 = {s.x1, 0, s.z0}, *e1 = {s.x1, 0, s.z1};
+        *out = {.x = 1, .y = 0, .z = 0}, *e0 = {.x = s.x1, .y = 0, .z = s.z0}, *e1 = {.x = s.x1, .y = 0, .z = s.z1};
         break;
     case kMinusZ:
-        *out = {0, 0, -1}, *e0 = {s.x0, 0, s.z0}, *e1 = {s.x1, 0, s.z0};
+        *out = {.x = 0, .y = 0, .z = -1}, *e0 = {.x = s.x0, .y = 0, .z = s.z0}, *e1 = {.x = s.x1, .y = 0, .z = s.z0};
         break;
     default:
-        *out = {0, 0, 1}, *e0 = {s.x0, 0, s.z1}, *e1 = {s.x1, 0, s.z1};
+        *out = {.x = 0, .y = 0, .z = 1}, *e0 = {.x = s.x0, .y = 0, .z = s.z1}, *e1 = {.x = s.x1, .y = 0, .z = s.z1};
         break;
     }
 }
@@ -134,7 +134,7 @@ struct Builder {
             u = p.z, v = p.y;
         else
             u = p.x, v = p.y;
-        mesh.vertices.push_back({p, n, u / uv, -v / uv});
+        mesh.vertices.push_back({.pos = p, .normal = n, .u = u / uv, .v = -v / uv});
     }
     // A triangle wound so that its normal points along `hint` (not added when it has no area).
     void get_tri(V3 a, V3 b, V3 c, V3 hint, uint16_t flags)
@@ -152,7 +152,7 @@ struct Builder {
         get_corner(a, n);
         get_corner(b, n);
         get_corner(c, n);
-        mesh.faces.push_back({first, static_cast<uint16_t>(first + 1), static_cast<uint16_t>(first + 2), flags});
+        mesh.faces.push_back({.a = first, .b = static_cast<uint16_t>(first + 1), .c = static_cast<uint16_t>(first + 2), .flags = flags});
     }
     // A quad (corners in order round it) as two triangles.
     void get_quad(V3 a, V3 b, V3 c, V3 d, V3 hint, uint16_t flags)
@@ -162,7 +162,7 @@ struct Builder {
     }
 };
 
-V3 get_at(V3 p, float y) { return {p.x, y, p.z}; }
+V3 get_at(V3 p, float y) { return {.x = p.x, .y = y, .z = p.z}; }
 
 // A ramp along a side: from its foot (`foot` high, `length` out along `out` from the edge) up to `top` at the edge,
 // facing `out` and up; a raise's gets its two end cheeks (facing along the side, away from the ramp).
@@ -214,7 +214,7 @@ Mesh get_build(const Spec& spec)
     if (!s.lower) {
         const float top = s.base + s.height;
         const float bottom = s.base - kSink;
-        b.get_quad({s.x0, top, s.z0}, {s.x1, top, s.z0}, {s.x1, top, s.z1}, {s.x0, top, s.z1}, get_up(), kFlagDeck);
+        b.get_quad({.x = s.x0, .y = top, .z = s.z0}, {.x = s.x1, .y = top, .z = s.z0}, {.x = s.x1, .y = top, .z = s.z1}, {.x = s.x0, .y = top, .z = s.z1}, get_up(), kFlagDeck);
         for (int side = 0; side < 4; ++side) {
             V3 out{}, e0{}, e1{};
             side_frame(s, side, &out, &e0, &e1);
@@ -225,7 +225,7 @@ Mesh get_build(const Spec& spec)
         }
     } else {
         const float floor = s.base - s.height;
-        b.get_quad({s.x0, floor, s.z0}, {s.x1, floor, s.z0}, {s.x1, floor, s.z1}, {s.x0, floor, s.z1}, get_up(),
+        b.get_quad({.x = s.x0, .y = floor, .z = s.z0}, {.x = s.x1, .y = floor, .z = s.z0}, {.x = s.x1, .y = floor, .z = s.z1}, {.x = s.x0, .y = floor, .z = s.z1}, get_up(),
                    kFlagDeck);
         for (int side = 0; side < 4; ++side) {
             V3 out{}, e0{}, e1{};
@@ -241,8 +241,8 @@ Mesh get_build(const Spec& spec)
     if (!m.vertices.empty()) {
         m.min = m.max = core::at(m.vertices, 0).pos;
         for (const Vertex& v : m.vertices) {
-            m.min = {std::min(m.min.x, v.pos.x), std::min(m.min.y, v.pos.y), std::min(m.min.z, v.pos.z)};
-            m.max = {std::max(m.max.x, v.pos.x), std::max(m.max.y, v.pos.y), std::max(m.max.z, v.pos.z)};
+            m.min = {.x = std::min(m.min.x, v.pos.x), .y = std::min(m.min.y, v.pos.y), .z = std::min(m.min.z, v.pos.z)};
+            m.max = {.x = std::max(m.max.x, v.pos.x), .y = std::max(m.max.y, v.pos.y), .z = std::max(m.max.z, v.pos.z)};
         }
     }
     return m;

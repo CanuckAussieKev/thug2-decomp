@@ -45,7 +45,7 @@ void view_mode_items()
 void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* requests)
 {
     if (ImGui::MenuItem("Collision", "C", model.view.collision)) {
-        ui::Request r{ui::Request::Kind::kCollision};
+        ui::Request r{.kind = ui::Request::Kind::kCollision};
         r.value = model.view.collision ? 0 : 1;
         requests->push_back(r);
     }
@@ -70,19 +70,19 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
             std::array<char, 48> item{};
             text::format_to(item, "%s##fam%d", nodes::family_name(family), f);
             if (ImGui::MenuItem(item.data(), nullptr, on)) {
-                ui::Request r{ui::Request::Kind::kFamilies};
+                ui::Request r{.kind = ui::Request::Kind::kFamilies};
                 r.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);
                 requests->push_back(r);
             }
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Show All")) {
-            ui::Request r{ui::Request::Kind::kFamilies};
+            ui::Request r{.kind = ui::Request::Kind::kFamilies};
             r.id = nodes::kAllFamilies;
             requests->push_back(r);
         }
         if (ImGui::MenuItem("Hide All")) {
-            ui::Request r{ui::Request::Kind::kFamilies};
+            ui::Request r{.kind = ui::Request::Kind::kFamilies};
             r.id = 0;
             requests->push_back(r);
         }
@@ -93,11 +93,11 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
 const std::vector<HelpRow>& help_rows()
 {
     static const std::vector<HelpRow> kRows = {
-        {"View", "Alt+1 / 2 / 3 / 4", "Lit / Unlit / Wireframe / Collision only"},
-        {"", "Y", "Jump arcs from the selected ramp"},
-        {"", "M, Shift+M", "Ruler; clear measurement (Alt: no snap)"},
-        {"", "Hover a rail", "Grind preview"},
-        {"Add Piece", "Grid / List", "Thumbnail or list view; star to add to Favourites"},
+        {.section = "View", .keys = "Alt+1 / 2 / 3 / 4", .what = "Lit / Unlit / Wireframe / Collision only"},
+        {.section = "", .keys = "Y", .what = "Jump arcs from the selected ramp"},
+        {.section = "", .keys = "M, Shift+M", .what = "Ruler; clear measurement (Alt: no snap)"},
+        {.section = "", .keys = "Hover a rail", .what = "Grind preview"},
+        {.section = "Add Piece", .keys = "Grid / List", .what = "Thumbnail or list view; star to add to Favourites"},
     };
     return kRows;
 }

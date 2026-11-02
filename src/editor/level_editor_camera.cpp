@@ -52,8 +52,8 @@ Pose get_blend(const Pose& from, const Pose& to, float t)
 {
     const float e = get_ease(t);
     const float yaw = nearest_angle(from.yaw, to.yaw);
-    return {from.pos + (to.pos - from.pos) * e, from.yaw + (yaw - from.yaw) * e,
-            from.pitch + (to.pitch - from.pitch) * e};
+    return {.pos = from.pos + (to.pos - from.pos) * e, .yaw = from.yaw + (yaw - from.yaw) * e,
+            .pitch = from.pitch + (to.pitch - from.pitch) * e};
 }
 
 float frame_distance(float radius, float tan_half, float minimum)
@@ -180,7 +180,7 @@ bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> ma
             continue;
         Bookmark& m = core::at(marks, n - 1);
         m.set = true;
-        m.pose = {{x, y, z}, yaw, pitch};
+        m.pose = {.pos = {.x = x, .y = y, .z = z}, .yaw = yaw, .pitch = pitch};
         m.view = static_cast<View>(view);
         m.equivalent = equivalent;
     }
@@ -263,7 +263,7 @@ V3 get_forward(float yaw, float pitch) { return frame_from_yaw_pitch(yaw, pitch)
 void fly_to(const Rig& rig, const Pose& to, View then_view = View::kNone, float then_equivalent = 0.0f)
 {
     g_flight.on = true;
-    g_flight.from = {*rig.pos, *rig.yaw, *rig.pitch};
+    g_flight.from = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
     g_flight.to = to;
     g_flight.t = 0.0f;
     g_flight.then_view_ = then_view;
@@ -480,7 +480,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             } else {
                 const float distance = std::min(20000.0f, frame_distance(rig.radius, tan_half, 100.0f));
                 const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
-                fly_to(rig, {rig.target + frame.back * distance, *rig.yaw, *rig.pitch});
+                fly_to(rig, {.pos = rig.target + frame.back * distance, .yaw = *rig.yaw, .pitch = *rig.pitch});
             }
             if (prefs::get_pull().speed_by_selection_)
                 *rig.speed = speed_for_radius(rig.radius);
@@ -496,7 +496,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         if (store) {
             Bookmark& m = core::at(g_marks, i);
             m.set = true;
-            m.pose = {*rig.pos, *rig.yaw, *rig.pitch};
+            m.pose = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
             m.view = g_ortho.view;
             m.equivalent = g_ortho.equivalent;
             if (ortho())
@@ -514,7 +514,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             if (m.view != View::kNone) {
                 // (fly to the perspective place it stands for, then the ortho view)
                 const V3 forward = get_forward(m.pose.yaw, m.pose.pitch);
-                fly_to(free, {m.pose.pos - forward * m.equivalent, m.pose.yaw, m.pose.pitch}, m.view, m.equivalent);
+                fly_to(free, {.pos = m.pose.pos - forward * m.equivalent, .yaw = m.pose.yaw, .pitch = m.pose.pitch}, m.view, m.equivalent);
             } else {
                 fly_to(free, m.pose);
             }

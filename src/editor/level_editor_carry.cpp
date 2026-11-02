@@ -29,8 +29,8 @@ Placement get_inverse(const Placement& placement)
     // y = Q (S x) + o  =>  x = S^-1 Q^-1 (y - o) = Q^-1 (T y) + Q^-1 (T (-o)), T = S^-1 seen through Q (a per-axis
     // scale - level_editor_scale.h: S^-1 Q^-1 = Q^-1 T, odd turns swapping its x and z)
     const V3 s = placement.scale;
-    const V3 reciprocal = {s.x > 0.0f ? 1.0f / s.x : 1.0f, s.y > 0.0f ? 1.0f / s.y : 1.0f,
-                           s.z > 0.0f ? 1.0f / s.z : 1.0f};
+    const V3 reciprocal = {.x = s.x > 0.0f ? 1.0f / s.x : 1.0f, .y = s.y > 0.0f ? 1.0f / s.y : 1.0f,
+                           .z = s.z > 0.0f ? 1.0f / s.z : 1.0f};
     const int quarters = (4 - (placement.quarters & 3)) & 3;
     const V3 t = turned_scale(reciprocal, placement.quarters);
     Placement inverse;
@@ -117,7 +117,7 @@ Carried g_carried;
 
 Placement placement_of(uint32_t sector)
 {
-    Placement placement = {0, {0.0f, 0.0f, 0.0f}, 1.0f};
+    Placement placement{}; // (no turn, no offset, scale 1 - the old list {0, {0, 0, 0}, 1.0f} left the scale at (1, 0, 0))
     scenery::placement_now(sector, &placement);
     return placement;
 }
@@ -128,14 +128,14 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return 0;
     if (!ray->hit_.object)
         return 0;
     const auto& hit = ray->hit_.point;
-    *point = {hit[0], hit[1], hit[2]};
+    *point = {.x = hit[0], .y = hit[1], .z = hit[2]};
     return ray->hit_.object_checksum_;
 }
 
@@ -188,7 +188,7 @@ uint32_t ground_under(const Gather& g, V3 p)
     if (!over)
         return 0;
     V3 point = {};
-    const uint32_t hit = first_hit({p.x, p.y + kRayUp, p.z}, {p.x, p.y - kRayDown, p.z}, &point);
+    const uint32_t hit = first_hit({.x = p.x, .y = p.y + kRayUp, .z = p.z}, {.x = p.x, .y = p.y - kRayDown, .z = p.z}, &point);
     if (!hit || std::ranges::find(g.members, hit) != g.members.end() || scenery::sector_geometry(hit))
         return hit;
     for (const auto& box : g.boxes) {

@@ -162,7 +162,7 @@ bool read_triple(const std::string& text, V3* out)
     }
     if (!at.empty())
         return false;
-    *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
+    *out = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
     return true;
 }
 
@@ -693,15 +693,15 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
     float best = reach + 1.0f;
     V3 best_at = hit;
     constexpr float kHalf = 0.70710678f;
-    static const std::array<V3, 8> kDirections = {{{0.0f, 0.0f, 1.0f},    {kHalf, 0.0f, kHalf}, {1.0f, 0.0f, 0.0f},
-                                      {kHalf, 0.0f, -kHalf}, {0.0f, 0.0f, -1.0f},  {-kHalf, 0.0f, -kHalf},
-                                      {-1.0f, 0.0f, 0.0f},   {-kHalf, 0.0f, kHalf}}};
+    static const std::array<V3, 8> kDirections = {{{.x = 0.0f, .y = 0.0f, .z = 1.0f},    {.x = kHalf, .y = 0.0f, .z = kHalf}, {.x = 1.0f, .y = 0.0f, .z = 0.0f},
+                                      {.x = kHalf, .y = 0.0f, .z = -kHalf}, {.x = 0.0f, .y = 0.0f, .z = -1.0f},  {.x = -kHalf, .y = 0.0f, .z = -kHalf},
+                                      {.x = -1.0f, .y = 0.0f, .z = 0.0f},   {.x = -kHalf, .y = 0.0f, .z = kHalf}}};
     for (const V3& dir : kDirections) {
         // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
         for (float t = kStep; t <= reach; t += kStep) {
             const V3 probe = hit + dir * t;
             float ground = 0.0f;
-            const bool have = ground_at({probe.x, hit.y + 20.0f, probe.z}, &ground);
+            const bool have = ground_at({.x = probe.x, .y = hit.y + 20.0f, .z = probe.z}, &ground);
             if (!have || ground < hit.y - kDrop) {
                 const float edge = t - kStep * 0.5f;
                 if (edge < best) {
@@ -715,7 +715,7 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
     if (best > reach)
         return hit;
     *snapped = true;
-    return {best_at.x, hit.y, best_at.z};
+    return {.x = best_at.x, .y = hit.y, .z = best_at.z};
 }
 
 const std::vector<std::string>& grind_terrain_names()
@@ -742,7 +742,7 @@ float facing_into_wall(V3 normal)
     return std::atan2(-normal.x / length, -normal.z / length);
 }
 
-V3 facing_direction(float facing) { return {std::sin(facing), 0.0f, std::cos(facing)}; }
+V3 facing_direction(float facing) { return {.x = std::sin(facing), .y = 0.0f, .z = std::cos(facing)}; }
 
 bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from, float* ground_y)>& ground_at, V3* foot)
 {
@@ -751,9 +751,9 @@ bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from,
     const float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
     if (!(length > 1e-6f))
         return false;
-    V3 at = {hit.x + normal.x / length * out, hit.y, hit.z + normal.z / length * out};
+    V3 at = {.x = hit.x + normal.x / length * out, .y = hit.y, .z = hit.z + normal.z / length * out};
     float ground = 0.0f;
-    if (ground_at({at.x, at.y + 4.0f, at.z}, &ground) && ground <= at.y + 4.0f && ground >= at.y - 64.0f)
+    if (ground_at({.x = at.x, .y = at.y + 4.0f, .z = at.z}, &ground) && ground <= at.y + 4.0f && ground >= at.y - 64.0f)
         at.y = ground;
     *foot = at;
     return true;
@@ -773,7 +773,7 @@ bool ladder_top(V3 foot, V3 from, V3 dir, V3* top)
     const float t = (b * e - c * d) / denominator;
     if (!(t >= kLadderMin))
         return false;
-    *top = {foot.x, foot.y + t, foot.z};
+    *top = {.x = foot.x, .y = foot.y + t, .z = foot.z};
     return true;
 }
 
@@ -1108,7 +1108,7 @@ std::vector<Point> added_points()
         }
         // (a rail point: where the rail manager has it - a sector moved with it takes it along)
         if (const objects::GrindPoint* node = rail_node_named(name_hash(spec.name)))
-            p.pos = {node->at_point_.x, node->at_point_.y, node->at_point_.z};
+            p.pos = {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z};
         points.push_back(p);
     }
     return points;
@@ -1125,12 +1125,12 @@ node_create::Spec spec_of(const Point& p)
     spec.links = p.links;
     if (same_text(p.cls, "ClimbingNode")) {
         spec.type = "Ladder";
-        spec.angles = {0.0f, p.facing, 0.0f};
+        spec.angles = {.x = 0.0f, .y = p.facing, .z = 0.0f};
         if (is_ledge(p)) {
             // (THUG2's own ledges: Type=Ledge, CreatedAtStart, a side to hang from when the level gives one)
             spec.type = "Ledge";
             if (p.hang) {
-                node_create::Prop flag = {node_create::Prop::kFlag, ""};
+                node_create::Prop flag = {.type = node_create::Prop::kFlag, .key = ""};
                 flag.text = p.hang == kHangLeft ? "HangLeft" : "HangRight";
                 spec.extra.push_back(flag);
             }
@@ -1143,11 +1143,11 @@ node_create::Spec spec_of(const Point& p)
 maths::Vec4 climb_of(float facing)
 {
     maths::Mat4 matrix;
-    core::at(matrix.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(matrix.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(matrix.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    const maths::Vec4 angles = {0.0f, facing, 0.0f, 1.0f};
+    core::at(matrix.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(matrix.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 angles = {.x = 0.0f, .y = facing, .z = 0.0f, .w = 1.0f};
     const maths::Mat4* built = &matrix.init_from_angles(angles);
     return maths::quat_from_matrix(*built);
 }
@@ -1189,7 +1189,7 @@ void set_level_links(uint32_t name, const std::vector<uint32_t>& links)
     if (!node || node_create::is_added(name))
         return;
     if (!original_links().count(name))
-        original_links()[name] = {node, own_links(node)};
+        original_links()[name] = {.node = node, .links = own_links(node)};
     if (own_links(node) != links)
         set_own_links(node, links);
 }
@@ -1389,18 +1389,18 @@ State at_hand()
             continue;
         const std::vector<uint32_t> now = own_links(node);
         if (now != entry.second.links)
-            state.links.push_back({entry.first, now});
+            state.links.push_back({.name = entry.first, .links = now});
     }
     state.dropped = g_dropped;
     std::ranges::sort(state.dropped);
     for (const auto& entry : terrains_state())
-        state.terrains.push_back({entry.first, entry.second.terrain});
+        state.terrains.push_back({.name = entry.first, .terrain = entry.second.terrain});
     for (const auto& entry : facings_state())
-        state.facings.push_back({entry.first, entry.second.facing});
+        state.facings.push_back({.name = entry.first, .facing = entry.second.facing});
     state.grind_flat_ = g_level_flat;
     std::ranges::sort(state.grind_flat_);
     for (const auto& entry : level_speeds())
-        state.speeds.push_back({entry.first, entry.second}); // (a map: sorted by name)
+        state.speeds.push_back({.name = entry.first, .rate = entry.second}); // (a map: sorted by name)
     return state;
 }
 
@@ -1451,14 +1451,14 @@ bool change_phase(const State& target)
             maths::Vec4 angles;
             level_nodes::read_turn_angles(node, &angles);
             if (same_text(t.cls, "ClimbingNode") && (angles.x != 0.0f || angles.y != t.facing || angles.z != 0.0f))
-                write_angles(node, {0.0f, t.facing, 0.0f}); // (a ladder turned: rebuild_rails turns its rail node)
+                write_angles(node, {.x = 0.0f, .y = t.facing, .z = 0.0f}); // (a ladder turned: rebuild_rails turns its rail node)
         }
     }
     extras_state().clear();
     for (const Point& t : target.points) {
         if (t.cluster || t.grind_flat_ || t.speed > 0.0f)
-            extras_state()[name_hash(t.name)] = {t.cluster, t.grind_flat_,
-                                                 t.speed > 0.0f ? clamp_speed(t.speed) : 0.0f};
+            extras_state()[name_hash(t.name)] = {.cluster = t.cluster, .grind_flat_ = t.grind_flat_,
+                                                 .speed = t.speed > 0.0f ? clamp_speed(t.speed) : 0.0f};
     }
     level_speeds().clear();
     for (const SpeedEdit& e : target.speeds) {
@@ -1484,7 +1484,7 @@ bool change_phase(const State& target)
         if (!node || !(node->flag_bits_ & objects::kRailFlagClimbing) || node_create::is_added(f.name))
             continue;
         if (!facings_state().count(f.name))
-            facings_state()[f.name] = {f.facing, node->climb_};
+            facings_state()[f.name] = {.facing = f.facing, .original = node->climb_};
         facings_state()[f.name].facing = f.facing;
     }
     g_level_flat.clear();
@@ -1544,7 +1544,7 @@ bool change_phase(const State& target)
         if (!node || !terrain_byte(t.terrain, &value))
             continue;
         if (!terrains_state().count(t.name))
-            terrains_state()[t.name] = {t.terrain, node->surface_type_};
+            terrains_state()[t.name] = {.terrain = t.terrain, .original = node->surface_type_};
         terrains_state()[t.name].terrain = t.terrain;
     }
     rebuild_rails();
@@ -1628,7 +1628,7 @@ void refresh_flat(objects::GrindRailHub* rails)
 
 bool flat_hook(const maths::Vec4* a, const maths::Vec4* b)
 {
-    return flat_grindable({a->x, a->y, a->z}, {b->x, b->y, b->z});
+    return flat_grindable({.x = a->x, .y = a->y, .z = a->z}, {.x = b->x, .y = b->y, .z = b->z});
 }
 
 } // namespace
@@ -1686,7 +1686,7 @@ void apply_speeds()
                 a.original_script_ = 0;
             it = speed_applied().emplace(w.first, a).first;
         }
-        scripts.push_back({w.first, it->second.original_script_, w.second});
+        scripts.push_back({.node = w.first, .original = it->second.original_script_, .rate = w.second});
     }
     if (scripts.empty())
         return;
@@ -1749,13 +1749,13 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
     auto add = [&](const objects::GrindPoint* node, float rate, bool level) {
         if (!node || !node->succ_ || (node->flag_bits_ & objects::kRailFlagClimbing))
             return;
-        const V3 a = {node->at_point_.x, node->at_point_.y, node->at_point_.z};
-        const V3 b = {node->succ_->at_point_.x, node->succ_->at_point_.y, node->succ_->at_point_.z};
+        const V3 a = {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z};
+        const V3 b = {.x = node->succ_->at_point_.x, .y = node->succ_->at_point_.y, .z = node->succ_->at_point_.z};
         const V3 da = a - near;
         const V3 db = b - near;
         if (get_dot(da, da) > r2 && get_dot(db, db) > r2)
             return;
-        out.push_back({a, b, rate, level});
+        out.push_back({.a = a, .b = b, .rate = rate, .level = level});
     };
     for (const auto& entry : speed_applied()) {
         auto extras = extras_state().find(entry.first);
@@ -1781,8 +1781,8 @@ bool flat_grindable(V3 a, V3 b)
     refresh_flat(rails);
     for (const objects::GrindPoint* node : g_flat_cache.marked) {
         const objects::GrindPoint* next = node->succ_;
-        if (next && same_segment(a, b, {node->at_point_.x, node->at_point_.y, node->at_point_.z},
-                                 {next->at_point_.x, next->at_point_.y, next->at_point_.z}, 0.01f))
+        if (next && same_segment(a, b, {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z},
+                                 {.x = next->at_point_.x, .y = next->at_point_.y, .z = next->at_point_.z}, 0.01f))
             return true;
     }
     return false;
@@ -1865,7 +1865,7 @@ bool move_added_point(uint32_t name, V3 pos)
         write_pos(node, pos);
     if (objects::GrindPoint* rail = rail_node_named(name)) {
         if (rail->at_point_.x != pos.x || rail->at_point_.y != pos.y || rail->at_point_.z != pos.z) {
-            rail->at_point_ = {pos.x, pos.y, pos.z, 1.0f};
+            rail->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
             const objects::GrindRailHub* rails = get_rails();
             for (int i = 0; i < rails->num_; ++i) {
                 if (&core::at(rails->node_run(), i) == rail || core::at(rails->node_run(), i).succ_ == rail)
@@ -1925,7 +1925,7 @@ void set_link_edit(State* state, uint32_t name, const std::vector<uint32_t>& lin
     } else if (it != state->links.end()) {
         it->links = links;
     } else {
-        state->links.push_back({name, links});
+        state->links.push_back({.name = name, .links = links});
         sort_by_name(&state->links);
     }
 }
@@ -2044,7 +2044,7 @@ void set_facing(State* state, uint32_t name, float facing)
     } else if (it != state->facings.end()) {
         it->facing = facing;
     } else {
-        state->facings.push_back({name, facing});
+        state->facings.push_back({.name = name, .facing = facing});
         sort_by_name(&state->facings);
     }
 }
@@ -2096,7 +2096,7 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
         *select = name;
         std::array<char, 96> text{};
         text::format_to(text, "Ladder facing %.0f degrees",
-                        static_cast<double>(node_edit::get_heading_degrees({0.0f, facing, 0.0f})));
+                        static_cast<double>(node_edit::get_heading_degrees({.x = 0.0f, .y = facing, .z = 0.0f})));
         const std::string done = text.data();
         return get_apply(state, message, done.c_str());
     }
@@ -2256,7 +2256,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             if (it != state.terrains.end())
                 it->terrain = terrain;
             else
-                state.terrains.push_back({point, terrain});
+                state.terrains.push_back({.name = point, .terrain = terrain});
         }
         sort_by_name(&state.terrains);
         *select = name;
@@ -2358,7 +2358,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
                 else if (rate > 0.0f && it != state.speeds.end())
                     it->rate = rate;
                 else if (rate > 0.0f)
-                    state.speeds.push_back({point, rate});
+                    state.speeds.push_back({.name = point, .rate = rate});
             }
             ++changed;
         }
@@ -2526,14 +2526,14 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& n = ray->hit_.normal;
     const auto& p = ray->hit_.point;
-    *normal = {n[0], n[1], n[2]};
-    *hit = {p[0], p[1], p[2]};
+    *normal = {.x = n[0], .y = n[1], .z = n[2]};
+    *hit = {.x = p[0], .y = p[1], .z = p[2]};
     if (sector)
         *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
@@ -2543,7 +2543,7 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 bool ground_below(V3 at, float* ground_y)
 {
     V3 h{}, n{};
-    if (!cast_ray(at, {at.x, at.y - 70.0f, at.z}, &h, &n))
+    if (!cast_ray(at, {.x = at.x, .y = at.y - 70.0f, .z = at.z}, &h, &n))
         return false;
     *ground_y = h.y;
     return true;
@@ -2597,7 +2597,7 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     text::format_to(text, "Ladder added (%.0f high)", static_cast<double>(top.y - g_ladder_foot.y));
     *message = text.data();
     get_log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
-            static_cast<double>(node_edit::get_heading_degrees({0.0f, g_ladder_facing, 0.0f})));
+            static_cast<double>(node_edit::get_heading_degrees({.x = 0.0f, .y = g_ladder_facing, .z = 0.0f})));
     return true;
 }
 
@@ -2614,7 +2614,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
             hit, normal, 32.0f,
             [](V3 at, float* ground_y) {
                 V3 h{}, n{};
-                if (!cast_ray(at, {at.x, at.y - 60.0f, at.z}, &h, &n))
+                if (!cast_ray(at, {.x = at.x, .y = at.y - 60.0f, .z = at.z}, &h, &n))
                     return false;
                 *ground_y = h.y;
                 return true;
@@ -2738,7 +2738,7 @@ View view_of(uint32_t name)
     }
     if (view.ladder) {
         view.can_turn_ = view.can_delete_ = true;
-        view.facing_degrees_ = node_edit::get_heading_degrees({0.0f, facing_now(name), 0.0f});
+        view.facing_degrees_ = node_edit::get_heading_degrees({.x = 0.0f, .y = facing_now(name), .z = 0.0f});
         view.turned = !node.added && facings_state().count(name) != 0;
         return view;
     }

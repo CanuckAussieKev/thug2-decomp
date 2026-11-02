@@ -203,7 +203,7 @@ bool dup_from(std::string* message)
     for (const uint32_t checksum : s.sectors) {
         layout::CloneRecord record;
         record.source = checksum;
-        Placement now = {0, {0.0f, 0.0f, 0.0f}};
+        Placement now = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         scenery::placement_now(checksum, &now);
         record.placement = now;
         for (const scenery::Replicate& c : scenery::get_clones()) {
@@ -227,7 +227,7 @@ bool dup_from(std::string* message)
             skipped.push_back(object_edit::caption(id));
             continue;
         }
-        layout::CopyRecord record = {0, source, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
+        layout::CopyRecord record = {.name = 0, .source = source, .pos = {object->at_point_.x, object->at_point_.y, object->at_point_.z}, .rows = {}};
         for (int r = 0; r < 3; ++r) {
             core::at(record.rows, r * 3 + 0) = core::at(object->basis_frame_.row, r).x;
             core::at(record.rows, r * 3 + 1) = core::at(object->basis_frame_.row, r).y;
@@ -351,7 +351,7 @@ bool copy_props(std::string* message)
                 row.key == fields::key_links())
                 continue;
             props.fields.push_back(
-                {row.key, static_cast<int>(row.value.kind), fields::get_format(row.value, fields::get_name_of), false});
+                {.key = row.key, .kind = static_cast<int>(row.value.kind), .text = fields::get_format(row.value, fields::get_name_of), .removed = false});
         }
     }
     if (!props.have_transform_ && props.fields.empty()) {

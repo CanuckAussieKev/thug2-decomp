@@ -67,25 +67,25 @@ struct Key {
     int Values::* field;
 };
 constexpr auto kIntKeys = std::to_array<Key>({
-    {"fly_speed", &Values::fly_speed_},
-    {"fly_accel_ms", &Values::fly_accel_ms_},
-    {"look_pct", &Values::look_pct_},
-    {"gizmo_pct", &Values::gizmo_pct_},
-    {"ui_scale_pct", &Values::ui_scale_pct_},
-    {"autosave_s", &Values::autosave_seconds_},
-    {"snap_move", &Values::snap_move_},
-    {"snap_turn", &Values::snap_turn_},
-    {"accent", &Values::accent},
+    {.name = "fly_speed", .field = &Values::fly_speed_},
+    {.name = "fly_accel_ms", .field = &Values::fly_accel_ms_},
+    {.name = "look_pct", .field = &Values::look_pct_},
+    {.name = "gizmo_pct", .field = &Values::gizmo_pct_},
+    {.name = "ui_scale_pct", .field = &Values::ui_scale_pct_},
+    {.name = "autosave_s", .field = &Values::autosave_seconds_},
+    {.name = "snap_move", .field = &Values::snap_move_},
+    {.name = "snap_turn", .field = &Values::snap_turn_},
+    {.name = "accent", .field = &Values::accent},
 });
 struct BitMark {
     const char* name;
     bool Values::* field;
 };
 constexpr auto kFlags = std::to_array<BitMark>({
-    {"invert_y", &Values::invert_y_},
-    {"wasd_flies", &Values::wasd_flies_},
-    {"speed_by_selection", &Values::speed_by_selection_},
-    {"tips_seen", &Values::tips_seen_},
+    {.name = "invert_y", .field = &Values::invert_y_},
+    {.name = "wasd_flies", .field = &Values::wasd_flies_},
+    {.name = "speed_by_selection", .field = &Values::speed_by_selection_},
+    {.name = "tips_seen", .field = &Values::tips_seen_},
 });
 
 void read_in()

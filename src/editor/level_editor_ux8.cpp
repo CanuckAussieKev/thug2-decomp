@@ -67,7 +67,7 @@ void stop_simulation()
         play_test::get_request(play_test::Ask::kToggleSimulate);
 }
 
-actions::Chord get_k(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
+actions::Chord get_k(int scancode, uint8_t mods = 0) { return {.scancode = scancode, .mods = mods}; }
 
 int append_one(const char* id, const char* name, const char* category, actions::Kind kind,
                const std::vector<actions::Chord>& keys, const char* tip, std::function<void()> run = nullptr,
@@ -106,11 +106,11 @@ std::vector<organize::Member> selection_members()
     std::vector<organize::Member> members;
     members.reserve(s.objects.size());
     for (const uint32_t id : s.objects)
-        members.push_back({'o', id});
+        members.push_back({.kind = 'o', .id = id});
     for (const uint32_t id : s.sectors)
-        members.push_back({'s', id});
+        members.push_back({.kind = 's', .id = id});
     if (s.node)
-        members.push_back({'n', s.node});
+        members.push_back({.kind = 'n', .id = s.node});
     return members;
 }
 

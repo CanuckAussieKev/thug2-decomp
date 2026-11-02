@@ -73,7 +73,7 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
 {
     auto at = [&](uint16_t i) {
         const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
-        return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
+        return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
     };
     const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
@@ -107,7 +107,7 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
         const uint32_t vertex = geometry->face_vertex(face, k);
         maths::Vec4 v;
         geometry->read_stored_vertex(static_cast<int>(vertex), &v);
-        core::at(copy.v, k) = {v.x, v.y, v.z};
+        core::at(copy.v, k) = {.x = v.x, .y = v.y, .z = v.z};
         core::at(copy.bytes, k) = geometry->vertex_bytes_ ? core::at(geometry->vertex_byte_run(), vertex) : 0x80;
     }
     return copy;
@@ -162,7 +162,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     entity_.geometry_ = &geometry_;
     entity_.octets_ = rejection_.data();
     entity_.unknown14_ = 0;
-    get_place({0, {0.0f, 0.0f, 0.0f}});
+    get_place({.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}});
 }
 
 void Companion::get_place(const Placement& placement)
@@ -182,7 +182,7 @@ void Companion::rebase()
         core::at(base_, i) = get_vertex(static_cast<int>(i));
 }
 
-V3 Companion::get_vertex(int i) const { return {core::at(vertices_, i * 3), core::at(vertices_, i * 3 + 1), core::at(vertices_, i * 3 + 2)}; }
+V3 Companion::get_vertex(int i) const { return {.x = core::at(vertices_, i * 3), .y = core::at(vertices_, i * 3 + 1), .z = core::at(vertices_, i * 3 + 2)}; }
 
 std::vector<FaceCopy> Companion::get_faces() const
 {
@@ -208,14 +208,14 @@ void Companion::change_tri_flags(int face, uint16_t flags)
 void Companion::update_box()
 {
     // (as the loaded geometries keep it: w = 1 - Translate moves w by the delta's 0)
-    V3 lo = base_.empty() ? V3{0, 0, 0} : get_vertex(0), hi = lo;
+    V3 lo = base_.empty() ? V3{.x = 0, .y = 0, .z = 0} : get_vertex(0), hi = lo;
     for (size_t i = 1; i < base_.size(); ++i) {
         const V3 v = get_vertex(static_cast<int>(i));
-        lo = {std::min(lo.x, v.x), std::min(lo.y, v.y), std::min(lo.z, v.z)};
-        hi = {std::max(hi.x, v.x), std::max(hi.y, v.y), std::max(hi.z, v.z)};
+        lo = {.x = std::min(lo.x, v.x), .y = std::min(lo.y, v.y), .z = std::min(lo.z, v.z)};
+        hi = {.x = std::max(hi.x, v.x), .y = std::max(hi.y, v.y), .z = std::max(hi.z, v.z)};
     }
-    geometry_.bounds_.min = {lo.x, lo.y, lo.z, 1.0f};
-    geometry_.bounds_.max = {hi.x, hi.y, hi.z, 1.0f};
+    geometry_.bounds_.min = {.x = lo.x, .y = lo.y, .z = lo.z, .w = 1.0f};
+    geometry_.bounds_.max = {.x = hi.x, .y = hi.y, .z = hi.z, .w = 1.0f};
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -317,8 +317,8 @@ bool current_bounds(uint32_t checksum, float grow, V3* min, V3* max)
     if (!scenery::cuboid(checksum, &box))
         return false;
     bounds_of(box, min, max);
-    *min = *min - V3{grow, grow, grow};
-    *max = *max + V3{grow, grow, grow};
+    *min = *min - V3{.x = grow, .y = grow, .z = grow};
+    *max = *max + V3{.x = grow, .y = grow, .z = grow};
     return true;
 }
 
@@ -411,7 +411,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         V3 min, max;
         std::vector<Other> others;
         std::vector<std::pair<uint32_t, render::WorldCell*>> sources;
-    } context{checksum, min, max, {}, {}};
+    } context{.self = checksum, .min = min, .max = max, .others = {}, .sources = {}};
     scenery::for_each_level_sector(
         [](void* raw, uint32_t other, render::WorldCell* sector) {
             auto* c = static_cast<CtxInfo*>(raw);
@@ -428,7 +428,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             if (lo.x > c->max.x || hi.x < c->min.x || lo.y > c->max.y || hi.y < c->min.y || lo.z > c->max.z ||
                 hi.z < c->min.z)
                 return;
-            c->others.push_back({other, geom, lo, hi});
+            c->others.push_back({.checksum = other, .geom = geom, .min = lo, .max = hi});
         },
         &context);
 
@@ -441,8 +441,8 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         const bool named = std::ranges::find(mine, source.first) != mine.end();
         if (!named && named_objects.count(source.first))
             continue; // (named after another piece: that one's)
-        const V3 named_min = min - V3{100.0f, 100.0f, 100.0f};
-        const V3 named_max = max + V3{100.0f, 100.0f, 100.0f};
+        const V3 named_min = min - V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};
+        const V3 named_max = max + V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};
         for (int f = 0; std::cmp_less(f, geometry->tri_count_) && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
             const FaceCopy face = read_face(geometry, f);
             if (!takeable(face.flags))
@@ -469,7 +469,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             }
             faces.push_back(face);
             if (taken)
-                taken->push_back({geometry, f, face.flags});
+                taken->push_back({.geometry = geometry, .face = f, .flags = face.flags});
         }
     }
     return faces;

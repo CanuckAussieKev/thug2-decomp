@@ -37,7 +37,7 @@ namespace frontend::level_editor::arcs {
 
 namespace {
 
-constexpr V3 kUp = {0.0f, 1.0f, 0.0f};
+constexpr V3 kUp = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
 
 float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
@@ -75,7 +75,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         const Face& f = core::at(faces, i);
         const V3 n = perpendicular(f.b - f.a, f.c - f.a);
         const float length = len_of(n);
-        core::at(info, i) = {length > 1e-6f ? n * (1.0f / length) : V3{}, length * 0.5f, length > 1e-6f && eligible(f.flags)};
+        core::at(info, i) = {.n = length > 1e-6f ? n * (1.0f / length) : V3{}, .area = length * 0.5f, .use = length > 1e-6f && eligible(f.flags)};
         if (!core::at(info, i).use)
             continue;
         const float y = core::at(info, i).n.y;
@@ -90,7 +90,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             order.push_back(static_cast<int>(i));
     std::ranges::sort(order, [&](int a, int b) { return core::at(info, a).area > core::at(info, b).area; });
     std::vector<GroupSet> groups;
-    auto heading_of = [](V3 n) { return make_unit({-n.x, 0.0f, -n.z}); };
+    auto heading_of = [](V3 n) { return make_unit({.x = -n.x, .y = 0.0f, .z = -n.z}); };
     for (const int i : order) {
         const V3 n = core::at(info, i).n * convention;
         if (!(n.y > kSteepNormalY && n.y < kFlatNormalY))
@@ -143,7 +143,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             continue;
         Lip lip;
         lip.heading = g.heading;
-        lip.across = {g.heading.z, 0.0f, -g.heading.x};
+        lip.across = {.x = g.heading.z, .y = 0.0f, .z = -g.heading.x};
         lip.height = top - bottom;
         // The top faces' tangent (by area) and the edge's vertices.
         constexpr float kTop = 1.5f;
@@ -182,7 +182,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         lip.width = max - min;
         // (across and heading are orthonormal and horizontal: the point's x / z from its two coordinates)
         const V3 flat = lip.across * s + g.heading * u;
-        lip.point = {flat.x, top, flat.z};
+        lip.point = {.x = flat.x, .y = top, .z = flat.z};
         lips.push_back(lip);
     }
     return lips;
@@ -240,7 +240,7 @@ Flight get_fly(V3 start, V3 velocity, float gravity, float dt, float max_time, f
     float t = 0.0f;
     while (t < max_time) {
         // (as do_air_physics: position += v t + (0, g, 0) t^2 / 2, then v.y += g t)
-        const V3 next = p + v * dt + V3{0.0f, 0.5f * gravity * dt * dt, 0.0f};
+        const V3 next = p + v * dt + V3{.x = 0.0f, .y = 0.5f * gravity * dt * dt, .z = 0.0f};
         v.y += gravity * dt;
         t += dt;
         V3 hit{}, normal{};
@@ -368,12 +368,12 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
                 break;
             }
             const maths::Vec4 v = tri->read_stored_vertex(static_cast<int>(index));
-            core::at(p, k) = {v.x, v.y, v.z};
+            core::at(p, k) = {.x = v.x, .y = v.y, .z = v.z};
         }
         if (!ok)
             continue;
         const uint16_t flags = tri->face_flags(f);
-        out->push_back({core::at(p, 0), core::at(p, 1), core::at(p, 2), flags});
+        out->push_back({.a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .flags = flags});
     }
 }
 
@@ -384,14 +384,14 @@ bool cast_feeler(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& p = ray->hit_.point;
     const auto& n = ray->hit_.normal;
-    *hit = {p[0], p[1], p[2]};
-    *normal = {n[0], n[1], n[2]};
+    *hit = {.x = p[0], .y = p[1], .z = p[2]};
+    *normal = {.x = n[0], .y = n[1], .z = n[2]};
     *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
 }
@@ -461,7 +461,7 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
             }
             uint32_t* landed_on = &core::at(arcs.landed_on_, i);
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
-            core::at(arcs.flights, i) = get_fly(lip.point + V3{0.0f, 2.0f, 0.0f}, v, physics_state().air_gravity_, 1.0f / 60.0f,
+            core::at(arcs.flights, i) = get_fly(lip.point + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f}, v, physics_state().air_gravity_, 1.0f / 60.0f,
                                       6.0f, 1.0f / 60.0f, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
                                           return cast_feeler(from, to, hit, normal, landed_on);
                                       });
@@ -513,7 +513,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 // (straight up and back down: how high)
                 const V3 side = lip.across * (lip.width * (0.15f * static_cast<float>(i - 1)));
                 const V3 base = lip.point + side;
-                const V3 apex = base + V3{0.0f, core::at(arcs.rise, i), 0.0f};
+                const V3 apex = base + V3{.x = 0.0f, .y = core::at(arcs.rise, i), .z = 0.0f};
                 (void)painter.get_seg(base, apex, colour, 2.0f);
                 (void)painter.get_seg(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
                 painter.draw_label(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(core::at(arcs.rise, i)));

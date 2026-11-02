@@ -86,7 +86,7 @@ int g_browser_hovered = -1;
 bool g_browser_keys_won;
 int g_preview_asked = -1;
 
-void get_ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.push_back({kind, value, id}); }
+void get_ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.push_back({.kind = kind, .value = value, .id = id}); }
 
 // The accent colour ([editor] accent - level_editor_prefs.h) at `alpha`.
 ImVec4 get_accent(float alpha)
@@ -804,7 +804,7 @@ void node_section(const ShapeMesh& model, int index)
             }
             if (moved || turned) {
                 const V3 angles = turned ? node_edit::with_heading(model.nodes.angles, heading) : model.nodes.angles;
-                Request request = {Request::Kind::kNodeSet};
+                Request request = {.kind = Request::Kind::kNodeSet};
                 core::at(request.a, 0) = core::at(pos, 0);
                 core::at(request.a, 1) = core::at(pos, 1);
                 core::at(request.a, 2) = core::at(pos, 2);
@@ -834,9 +834,9 @@ void node_section(const ShapeMesh& model, int index)
                 const char* name;
             };
             static constexpr auto kTypes = std::to_array<TypeName>(
-                {{nodes::kPlayer1, "Player1"},    {nodes::kPlayer2, "Player2"}, {nodes::kMultiplayer, "Multiplayer"},
-                 {nodes::kHorse, "Horse"},        {nodes::kCtf, "CTF"},         {nodes::kTeam, "Team"},
-                 {nodes::kKing, "KingOfTheHill"}, {nodes::kGeneric, "Generic"}});
+                {{.bit = nodes::kPlayer1, .name = "Player1"},    {.bit = nodes::kPlayer2, .name = "Player2"}, {.bit = nodes::kMultiplayer, .name = "Multiplayer"},
+                 {.bit = nodes::kHorse, .name = "Horse"},        {.bit = nodes::kCtf, .name = "CTF"},         {.bit = nodes::kTeam, .name = "Team"},
+                 {.bit = nodes::kKing, .name = "KingOfTheHill"}, {.bit = nodes::kGeneric, .name = "Generic"}});
             ImGui::PushFont(g_small);
             bool any = false;
             for (const auto& t : kTypes) {
@@ -1075,7 +1075,7 @@ void get_inspector(const ShapeMesh& model)
                     float value = core::at(values, axis);
                     if (ImGui::DragFloat(core::at(kIds, axis), &value, 0.005f, scale_tool::kMin, scale_tool::kMax, core::at(kFormats, axis),
                                          ImGuiSliderFlags_AlwaysClamp)) {
-                        Request request = {Request::Kind::kScaleSet};
+                        Request request = {.kind = Request::Kind::kScaleSet};
                         for (int a = 0; a < 3; ++a)
                             core::at(request.a, a) = core::at(values, a);
                         if (g_scale_locked && core::at(values, axis) > 0.0f) {
@@ -1208,29 +1208,29 @@ void get_help(const ShapeMesh& model)
             const char* what;
         };
         static const auto kRows = std::to_array<Row>({
-            {"Camera", "RMB + W A S D / Q E", "Fly"},
-            {"", "RMB + Wheel", "Fly speed"},
-            {"", "Alt+drag", "Orbit"},
-            {"", "Wheel", "Dolly; while dragging: push / pull"},
-            {"", "Double-click", "Go to surface"},
-            {"", "Numpad 7 / 1 / 3 / 5", "Top / front / right view, perspective / ortho (Ctrl: opposite)"},
-            {"Select", "Click", "Select; click again to cycle"},
-            {"", "Shift+click", "Add / remove"},
-            {"", "Alt+click", "Single scenery piece"},
-            {"", "Ctrl+click", "Remove part from selection"},
-            {"", "Drag from empty space", "Box select (right: inside, left: crossing)"},
-            {"", "Alt+Wheel", "Cycle items under cursor"},
-            {"Transform", "Drag", "Move (Shift: vertical)"},
-            {"", "Drag an arrow", "Move along axis"},
-            {"", "Ctrl / Ctrl+Shift", "Snap to grid / world grid"},
-            {"", "Alt+Shift / Ctrl+Alt", "Snap to surface / vertex"},
-            {"", "X / Y / Z, digits, Enter", "Constrain axis, type value, apply"},
-            {"", "Alt (while moving)", "Don't carry attached objects"},
-            {"", "Esc", "Cancel"},
-            {"Rails and Paths", "Click / Enter / RMB", "Add point / finish / finish"},
-            {"", "Alt+click", "Add point without edge snapping"},
-            {"Collision", "Shift+click", "Select invisible wall (collision shown)"},
-            {"Panels", "Mouse over a panel", "Panel input; keys stay with the editor unless typing"},
+            {.section = "Camera", .keys = "RMB + W A S D / Q E", .what = "Fly"},
+            {.section = "", .keys = "RMB + Wheel", .what = "Fly speed"},
+            {.section = "", .keys = "Alt+drag", .what = "Orbit"},
+            {.section = "", .keys = "Wheel", .what = "Dolly; while dragging: push / pull"},
+            {.section = "", .keys = "Double-click", .what = "Go to surface"},
+            {.section = "", .keys = "Numpad 7 / 1 / 3 / 5", .what = "Top / front / right view, perspective / ortho (Ctrl: opposite)"},
+            {.section = "Select", .keys = "Click", .what = "Select; click again to cycle"},
+            {.section = "", .keys = "Shift+click", .what = "Add / remove"},
+            {.section = "", .keys = "Alt+click", .what = "Single scenery piece"},
+            {.section = "", .keys = "Ctrl+click", .what = "Remove part from selection"},
+            {.section = "", .keys = "Drag from empty space", .what = "Box select (right: inside, left: crossing)"},
+            {.section = "", .keys = "Alt+Wheel", .what = "Cycle items under cursor"},
+            {.section = "Transform", .keys = "Drag", .what = "Move (Shift: vertical)"},
+            {.section = "", .keys = "Drag an arrow", .what = "Move along axis"},
+            {.section = "", .keys = "Ctrl / Ctrl+Shift", .what = "Snap to grid / world grid"},
+            {.section = "", .keys = "Alt+Shift / Ctrl+Alt", .what = "Snap to surface / vertex"},
+            {.section = "", .keys = "X / Y / Z, digits, Enter", .what = "Constrain axis, type value, apply"},
+            {.section = "", .keys = "Alt (while moving)", .what = "Don't carry attached objects"},
+            {.section = "", .keys = "Esc", .what = "Cancel"},
+            {.section = "Rails and Paths", .keys = "Click / Enter / RMB", .what = "Add point / finish / finish"},
+            {.section = "", .keys = "Alt+click", .what = "Add point without edge snapping"},
+            {.section = "Collision", .keys = "Shift+click", .what = "Select invisible wall (collision shown)"},
+            {.section = "Panels", .keys = "Mouse over a panel", .what = "Panel input; keys stay with the editor unless typing"},
         });
         // (the columns' widths set, not fitted: a long key list would otherwise squeeze the explanations to a letter a
         // line - the keys wrap within theirs)
@@ -1241,7 +1241,7 @@ void get_help(const ShapeMesh& model)
             // (the view menus' and their modules' rows after the editor's own: level_editor_overlays.h)
             std::vector<Row> rows(std::begin(kRows), std::end(kRows));
             for (const overlays::HelpRow& extra : overlays::help_rows())
-                rows.push_back({extra.section, extra.keys, extra.what});
+                rows.push_back({.section = extra.section, .keys = extra.keys, .what = extra.what});
             for (const Row& row : rows) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -1302,7 +1302,7 @@ void browser_preview(const ShapeMesh& model)
     if (ImGui::IsItemHovered())
         wheel = io.MouseWheel;
     if (dx != 0.0f || dy != 0.0f || wheel != 0.0f) {
-        Request request{Request::Kind::kPreviewOrbit};
+        Request request{.kind = Request::Kind::kPreviewOrbit};
         core::at(request.a, 0) = dx;
         core::at(request.a, 1) = dy;
         core::at(request.a, 2) = wheel;
@@ -1617,7 +1617,7 @@ bool route_event(const SDL_Event* event, bool editor_capture)
         g_mouse_x = x;
         g_mouse_y = y;
         return ui_layout::decide(
-            {g_want_mouse, g_want_keys, ui_layout::on_panel(g_layout, x, y), editor_capture || g_editor_buttons != 0});
+            {.ui_wants_mouse_ = g_want_mouse, .ui_wants_keyboard_ = g_want_keys, .over_panel_ = ui_layout::on_panel(g_layout, x, y), .editor_capture_ = editor_capture || g_editor_buttons != 0});
     };
     switch (event->type) {
     case SDL_MOUSEMOTION: {
@@ -1675,7 +1675,7 @@ bool mouse_to_editor()
     if (!g_running)
         return true;
     return ui_layout::decide(
-               {g_want_mouse, g_want_keys, ui_layout::on_panel(g_layout, g_mouse_x, g_mouse_y), g_editor_buttons != 0})
+               {.ui_wants_mouse_ = g_want_mouse, .ui_wants_keyboard_ = g_want_keys, .over_panel_ = ui_layout::on_panel(g_layout, g_mouse_x, g_mouse_y), .editor_capture_ = g_editor_buttons != 0})
         .mouse_to_editor_;
 }
 

@@ -68,7 +68,7 @@ constexpr float kCompressedExtent = 4000.0f;
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-inline V3 get_uniform(float s) { return {s, s, s}; }
+inline V3 get_uniform(float s) { return {.x = s, .y = s, .z = s}; }
 // Scaled by `factor` (along the world's axes) about `pivot` (a world point, where it is now): x' = (x - pivot) * factor
 // + pivot, per axis.
 void scale_about(Placement* placement, V3 pivot, V3 factor);
@@ -86,7 +86,7 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
 float compressed_limit(float extent);
 // The value the Inspector's field asks for, limited to kMin..kMax (not a number: 1).
 float confine(float scale);
-inline V3 confine(V3 scale) { return {confine(scale.x), confine(scale.y), confine(scale.z)}; }
+inline V3 confine(V3 scale) { return {.x = confine(scale.x), .y = confine(scale.y), .z = confine(scale.z)}; }
 // The world axis a direction is most along (0 x, 1 y, 2 z): Alt+[ / ] stretch along the axis the camera faces most.
 int main_axis(V3 direction);
 // The factor `f` along axis `axis` only.

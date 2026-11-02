@@ -55,7 +55,7 @@ void dup_from(ScratchBuf* buffer, const std::string& text) { text::format_to(*bu
 void set_field(std::vector<Request>* requests, uint32_t node, uint32_t key, fields::Kind kind, const std::string& text,
                const std::string& label = "")
 {
-    Request request = {Request::Kind::kFieldSet};
+    Request request = {.kind = Request::Kind::kFieldSet};
     request.node = node;
     request.id = key;
     request.value = static_cast<int>(kind);
@@ -66,7 +66,7 @@ void set_field(std::vector<Request>* requests, uint32_t node, uint32_t key, fiel
 
 void simple(std::vector<Request>* requests, Request::Kind kind, uint32_t node, uint32_t key)
 {
-    Request request = {kind};
+    Request request = {.kind = kind};
     request.node = node;
     request.id = key;
     requests->push_back(request);
@@ -316,11 +316,11 @@ struct LevelTyping {
 
 void send_props(std::vector<Request>* requests, const level_props::Props& props, bool done)
 {
-    Request request = {Request::Kind::kLevelProps};
+    Request request = {.kind = Request::Kind::kLevelProps};
     request.props = props;
     requests->push_back(request);
     if (done)
-        requests->push_back(Request{Request::Kind::kLevelPropsDone});
+        requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
 }
 
 void get_when(ImFont* small_font, const char* when, const char* tip)
@@ -496,7 +496,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             send_props(requests, props, false);
         }
         if (ImGui::IsItemDeactivatedAfterEdit())
-            requests->push_back(Request{Request::Kind::kLevelPropsDone});
+            requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
         ImGui::EndDisabled();
         get_when(small_font, "live", "Ambient light colour");
         // Fog.
@@ -537,7 +537,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (changed)
             send_props(requests, props, false);
         if (done)
-            requests->push_back(Request{Request::Kind::kLevelPropsDone});
+            requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
         ImGui::EndDisabled();
         get_when(small_font, "live", "Fog colour, alpha and distance (alpha 0: no fog)");
         ImGui::EndTable();

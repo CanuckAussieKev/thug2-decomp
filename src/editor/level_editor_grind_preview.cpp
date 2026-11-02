@@ -165,7 +165,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     int start = -1;
     for (int i = 0; i < rails->num_; ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
-        core::at(positions, i) = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
+        core::at(positions, i) = {.x = node.at_point_.x, .y = node.at_point_.y, .z = node.at_point_.z};
         if (node.label_ == name && !(node.flag_bits_ & objects::kRailFlagClimbing))
             start = i;
         if (node.succ_ && !(node.flag_bits_ & objects::kRailFlagClimbing)) {
@@ -192,9 +192,9 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         const V3 along = d * (1.0f / length);
         // (a chevron: two short strokes back from the tip, either side across the rail - in the horizontal plane, or
         // about x for a vertical rail)
-        V3 side = perpendicular(along, {0.0f, 1.0f, 0.0f});
+        V3 side = perpendicular(along, {.x = 0.0f, .y = 1.0f, .z = 0.0f});
         if (get_dot(side, side) < 1e-4f)
-            side = {1.0f, 0.0f, 0.0f};
+            side = {.x = 1.0f, .y = 0.0f, .z = 0.0f};
         side = make_unit(side);
         const float size = std::clamp(painter.span_to(a + d * 0.5f) * 0.012f, 4.0f, 24.0f);
         for (const V3 tip : chevron_tips(a, b, std::max(kChevronSpacing, size * 4.0f))) {

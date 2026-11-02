@@ -130,14 +130,14 @@ struct ObjectRecord {
     uint32_t id{};
     std::array<float, 3> pos{};
     std::array<float, 9> rows{};
-    V3 scale = {1.0f, 1.0f, 1.0f};
+    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
 };
 struct CopyRecord {
     uint32_t name{};
     uint32_t source{};
     std::array<float, 3> pos{};
     std::array<float, 9> rows{};
-    V3 scale = {1.0f, 1.0f, 1.0f};
+    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
 };
 struct CloneRecord {
     uint32_t source{};

@@ -51,7 +51,7 @@ constexpr auto kPhysics = std::to_array<const char*>({"coeff_restitution",
 void field_request(std::vector<ui::Request>* requests, uint32_t node, uint32_t key, fields::Kind kind,
                    const std::string& text)
 {
-    ui::Request r = {ui::Request::Kind::kFieldSet};
+    ui::Request r = {.kind = ui::Request::Kind::kFieldSet};
     r.node = node;
     r.id = key;
     r.value = static_cast<int>(kind);

@@ -87,14 +87,14 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& normal = ray->hit_.normal;
     const auto& point = ray->hit_.point;
-    hit->normal = {normal[0], normal[1], normal[2]};
-    hit->point = {point[0], point[1], point[2]};
+    hit->normal = {.x = normal[0], .y = normal[1], .z = normal[2]};
+    hit->point = {.x = point[0], .y = point[1], .z = point[2]};
     hit->checksum = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
 }
@@ -140,7 +140,7 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
             continue;
         for (uint32_t v = 0; v < mesh->vertex_count_ && out.size() < limit; ++v) {
             const auto p = gpu::VertexView(vertices->data, mesh->stride, mesh->vertex_count_).float3(v);
-            out.push_back({core::at(p, 0), core::at(p, 1), core::at(p, 2)});
+            out.push_back({.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2)});
         }
     }
     return out;

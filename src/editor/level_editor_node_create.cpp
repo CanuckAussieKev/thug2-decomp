@@ -172,7 +172,7 @@ Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& na
     Spec s;
     s.name = name;
     s.pos = pos;
-    s.angles = {0.0f, wrapped(yaw), 0.0f};
+    s.angles = {.x = 0.0f, .y = wrapped(yaw), .z = 0.0f};
     const std::string colour = get_team_name(team);
     switch (kind) {
     case Kind::kSpawn:
@@ -283,34 +283,34 @@ std::vector<Prop> get_fields(const Spec& spec)
 {
     std::vector<Prop> fields;
     auto name = [&](const char* key, const std::string& value) {
-        Prop f = {Prop::kName, key};
+        Prop f = {.type = Prop::kName, .key = key};
         f.text = value;
         fields.push_back(f);
     };
     auto flag = [&](const char* value) {
-        Prop f = {Prop::kFlag, ""};
+        Prop f = {.type = Prop::kFlag, .key = ""};
         f.text = value;
         fields.push_back(f);
     };
     auto vector = [&](const char* key, V3 v) {
-        Prop f = {Prop::kVector, key};
+        Prop f = {.type = Prop::kVector, .key = key};
         core::at(f.value, 0) = v.x;
         core::at(f.value, 1) = v.y;
         core::at(f.value, 2) = v.z;
         fields.push_back(f);
     };
     auto number = [&](const char* key, float v) {
-        Prop f = {Prop::kFloat, key};
+        Prop f = {.type = Prop::kFloat, .key = key};
         core::at(f.value, 0) = v;
         fields.push_back(f);
     };
     auto integer = [&](const char* key, int v) {
-        Prop f = {Prop::kInteger, key};
+        Prop f = {.type = Prop::kInteger, .key = key};
         f.integer = v;
         fields.push_back(f);
     };
     auto string = [&](const char* key, const std::string& v) {
-        Prop f = {Prop::kString, key};
+        Prop f = {.type = Prop::kString, .key = key};
         f.text = v;
         fields.push_back(f);
     };
@@ -345,7 +345,7 @@ std::vector<Prop> get_fields(const Spec& spec)
     case Kind::kTeamSpawn: {
         flag("CreatedAtStart");
         string("RestartName", kind == Kind::kTeamSpawn ? "Team: CTF " + colour : std::string("Multi: Restart"));
-        Prop types = {Prop::kNames, "restart_types"};
+        Prop types = {.type = Prop::kNames, .key = "restart_types"};
         types.list = spec.types;
         fields.push_back(types);
         break;
@@ -371,7 +371,7 @@ std::vector<Prop> get_fields(const Spec& spec)
         number("Brightness", spec.brightness);
         number("InnerRadius", spec.inner);
         number("OuterRadius", spec.outer);
-        Prop c = {Prop::kIntegers, "Color"};
+        Prop c = {.type = Prop::kIntegers, .key = "Color"};
         c.integers = {core::at(spec.colour, 0), core::at(spec.colour, 1), core::at(spec.colour, 2)};
         fields.push_back(c);
         break;
@@ -699,7 +699,7 @@ void make_live(const Spec& spec, script::Struct* node)
     if (!kind_of(spec, &kind))
         return;
     const uint32_t name = name_hash(spec.name);
-    const maths::Vec4 pos = {spec.pos.x, spec.pos.y, spec.pos.z, 1.0f};
+    const maths::Vec4 pos = {.x = spec.pos.x, .y = spec.pos.y, .z = spec.pos.z, .w = 1.0f};
     if (kind == Kind::kProximityNode && have_proxim()) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
             // (made before and removed: the game can't free one - used again)
@@ -745,8 +745,8 @@ Spec with_place(const Spec& spec, script::Struct* node)
     maths::Vec4 pos, angles;
     level_nodes::fetch_place(node, &pos);
     level_nodes::read_turn_angles(node, &angles);
-    s.pos = {pos.x, pos.y, pos.z};
-    s.angles = {angles.x, angles.y, angles.z};
+    s.pos = {.x = pos.x, .y = pos.y, .z = pos.z};
+    s.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
     return s;
 }
 
@@ -1086,7 +1086,7 @@ bool conceal(uint32_t name, bool hide)
     if (hide) {
         if (it != g_hidden.end())
             return true;
-        HiddenNode h = {name, node, false, false};
+        HiddenNode h = {.name = name, .node = node, .proxim_active_ = false, .emitter_active_ = false};
         uint32_t cls = 0, type = 0;
         node->read_hash_value(kClass, &cls, 0);
         node->read_hash_value(kType, &type, 0);

@@ -105,7 +105,7 @@ const std::vector<const char*>& gap_option_labels();
 struct Spec {
     std::string name; // its node in the overlay ("ed_trigger01")
     Kind kind = Kind::kKill;
-    V3 size = {400.0f, 200.0f, 400.0f}; // the box's extents, centred on the node, turned by its heading
+    V3 size = {.x = 400.0f, .y = 200.0f, .z = 400.0f}; // the box's extents, centred on the node, turned by its heading
     bool water = false;                 // Kill: SK3_KillSkater_Water (the splash)
     std::string target;                 // Kill: the restart; Teleport: the node it sends the skater to
     std::string script;                 // Script: the script it runs

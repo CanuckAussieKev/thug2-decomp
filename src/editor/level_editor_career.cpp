@@ -108,8 +108,8 @@ void get_edited_copy(bool on)
         for (const Gap& gap : g_baseline.gaps) {
             checklist->register_gap_entry(gap.name.c_str(), gap.count, gap.score);
             if (gap.count)
-                checklist->set_gap_positions(gap.name.c_str(), {core::at(gap.pos, 0), core::at(gap.pos, 1), core::at(gap.pos, 2), core::at(gap.pos, 3)},
-                                             {core::at(gap.dir, 0), core::at(gap.dir, 1), core::at(gap.dir, 2), core::at(gap.dir, 3)});
+                checklist->set_gap_positions(gap.name.c_str(), {.x = core::at(gap.pos, 0), .y = core::at(gap.pos, 1), .z = core::at(gap.pos, 2), .w = core::at(gap.pos, 3)},
+                                             {.x = core::at(gap.dir, 0), .y = core::at(gap.dir, 1), .z = core::at(gap.dir, 2), .w = core::at(gap.dir, 3)});
         }
         checklist->built_ = g_baseline.built; // (register_gap_entry marks it built)
         get_log(

@@ -181,7 +181,7 @@ void move_lights(uint32_t name, V3 pos)
 // What the game keeps of the node, brought up to date (level_editor_node_edit.h's list).
 void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
 {
-    const maths::Vec4 pos = {values.pos.x, values.pos.y, values.pos.z, 1.0f};
+    const maths::Vec4 pos = {.x = values.pos.x, .y = values.pos.y, .z = values.pos.z, .w = 1.0f};
     const nodes::Family family = node ? node->family : nodes::Family::kOther;
     if (family == nodes::Family::kFireOff && objects::g_proximity_hub != nullptr) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name))
@@ -199,7 +199,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         object_edit::State state = object_edit::store_away(object);
         state.pos = pos;
         maths::Mat4 matrix;
-        const maths::Vec4 angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
+        const maths::Vec4 angles = {.x = values.angles.x, .y = values.angles.y, .z = values.angles.z, .w = 1.0f};
         matrix.init_from_angles(angles);
         for (int r = 0; r < 3; ++r)
             core::at(state.matrix.row, r) = core::at(state.draw_matrix_.row, r) = core::at(matrix.row, r);
@@ -306,7 +306,7 @@ bool get_take_in(uint32_t name, Values* values)
     V3 point{};
     if (name && scenery::get_rail_point(name, &point, true)) {
         values->pos = point;
-        values->angles = {0.0f, 0.0f, 0.0f};
+        values->angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f};
         return true;
     }
     script::Struct* node = struct_named(name);
@@ -315,8 +315,8 @@ bool get_take_in(uint32_t name, Values* values)
     maths::Vec4 pos, angles;
     level_nodes::fetch_place(node, &pos);
     level_nodes::read_turn_angles(node, &angles);
-    values->pos = {pos.x, pos.y, pos.z};
-    values->angles = {angles.x, angles.y, angles.z};
+    values->pos = {.x = pos.x, .y = pos.y, .z = pos.z};
+    values->angles = {.x = angles.x, .y = angles.y, .z = angles.z};
     return true;
 }
 
@@ -330,7 +330,7 @@ void note_origin(uint32_t name)
     if (!get_take_in(name, &origin))
         return;
     touched_index()[name] = g_touched.size();
-    g_touched.push_back({name, origin, struct_named(name)});
+    g_touched.push_back({.name = name, .origin = origin, .node = struct_named(name)});
 }
 
 const Values* get_origin(uint32_t name)
@@ -338,7 +338,7 @@ const Values* get_origin(uint32_t name)
     V3 origin{};
     if (is_rail(name) && !node_create::is_added(name) && scenery::rail_origin(name, &origin)) {
         Values& values = rail_origins()[name];
-        values = {origin, {0.0f, 0.0f, 0.0f}};
+        values = {.pos = origin, .angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         return &values;
     }
     auto it = touched_index().find(name);
@@ -383,7 +383,7 @@ std::vector<LinkRecord> get_changed()
     for (const Touched& t : g_touched) {
         Values now;
         if (get_take_in(t.name, &now) && !get_same(now, t.origin))
-            out.push_back({t.name, now});
+            out.push_back({.name = t.name, .values = now});
     }
     return out;
 }

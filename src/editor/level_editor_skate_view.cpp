@@ -138,7 +138,7 @@ bool g_capped;
 int g_rail_segments;
 float g_threshold = -1.0f;
 
-V3 to_v3(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
+V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
 float game_threshold()
 {
@@ -223,7 +223,7 @@ void add_overlay(const overlays::Painter& painter)
     struct Walk {
         V3 camera;
         std::vector<Candidate> found;
-    } walk = {painter.camera, {}};
+    } walk = {.camera = painter.camera, .found = {}};
     scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
@@ -235,7 +235,7 @@ void add_overlay(const overlays::Painter& painter)
                 return;
             const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds_.min), to_v3(tri->bounds_.max));
             if (distance <= kRadius)
-                w->found.push_back({checksum, tri, distance});
+                w->found.push_back({.checksum = checksum, .tri = tri, .distance = distance});
         },
         &walk);
     std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.distance < b.distance; });
@@ -286,9 +286,9 @@ void add_overlay(const overlays::Painter& painter)
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     auto& under = painter.overlay->under;
     for (const Polygon& p : polygons) {
-        under.push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 1), core::at(p.y, 1), core::at(p.x, 2), core::at(p.y, 2), p.argb});
+        under.push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 1), .by = core::at(p.y, 1), .cx = core::at(p.x, 2), .cy = core::at(p.y, 2), .argb = p.argb});
         if (p.count == 4)
-            under.push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 2), core::at(p.y, 2), core::at(p.x, 3), core::at(p.y, 3), p.argb});
+            under.push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 2), .by = core::at(p.y, 2), .cx = core::at(p.x, 3), .cy = core::at(p.y, 3), .argb = p.argb});
     }
     // The editor's own kill / water triggers: their boxes outlined.
     for (const triggers::Added& a : triggers::added_triggers()) {
@@ -313,8 +313,8 @@ void add_overlay(const overlays::Painter& painter)
             if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
                 !(node.flag_bits_ & objects::kRailFlagActive))
                 continue;
-            const V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
-            const V3 b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
+            const V3 a = {.x = node.at_point_.x, .y = node.at_point_.y, .z = node.at_point_.z};
+            const V3 b = {.x = node.succ_->at_point_.x, .y = node.succ_->at_point_.y, .z = node.succ_->at_point_.z};
             if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius)
                 continue;
             if (painter.get_seg(a, b, kRail, 3.0f))

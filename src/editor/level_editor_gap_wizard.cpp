@@ -111,28 +111,28 @@ Gate gate_for(const Spot& spot, V3 toward)
         if (get_dot(along, to) < 0.0f)
             along = along * -1.0f;
         gate.yaw = get_heading_of(get_dot(along, along) > 1e-6f ? along : to);
-        gate.size = {120.0f, 120.0f, 60.0f};
-        gate.pos = spot.point + V3{0.0f, 30.0f, 0.0f};
+        gate.size = {.x = 120.0f, .y = 120.0f, .z = 60.0f};
+        gate.pos = spot.point + V3{.x = 0.0f, .y = 30.0f, .z = 0.0f};
         break;
     }
     case SpotKind::kLip:
         gate.yaw = get_heading_of(to);
-        gate.size = {300.0f, 400.0f, 60.0f};
-        gate.pos = spot.point + V3{0.0f, 200.0f, 0.0f};
+        gate.size = {.x = 300.0f, .y = 400.0f, .z = 60.0f};
+        gate.pos = spot.point + V3{.x = 0.0f, .y = 200.0f, .z = 0.0f};
         break;
     case SpotKind::kWall: {
-        V3 out = {spot.normal.x, 0.0f, spot.normal.z};
+        V3 out = {.x = spot.normal.x, .y = 0.0f, .z = spot.normal.z};
         const float length = std::sqrt(get_dot(out, out));
-        out = length > 1e-4f ? out * (1.0f / length) : V3{0.0f, 0.0f, 0.0f};
+        out = length > 1e-4f ? out * (1.0f / length) : V3{.x = 0.0f, .y = 0.0f, .z = 0.0f};
         gate.yaw = get_heading_of(to);
-        gate.size = {300.0f, 300.0f, 60.0f};
+        gate.size = {.x = 300.0f, .y = 300.0f, .z = 60.0f};
         gate.pos = spot.point + out * 80.0f;
         break;
     }
     default:
         gate.yaw = get_heading_of(to);
-        gate.size = {300.0f, 300.0f, 60.0f};
-        gate.pos = spot.point + V3{0.0f, 150.0f, 0.0f};
+        gate.size = {.x = 300.0f, .y = 300.0f, .z = 60.0f};
+        gate.pos = spot.point + V3{.x = 0.0f, .y = 150.0f, .z = 0.0f};
         break;
     }
     return gate;
@@ -166,15 +166,15 @@ bool get_cast(V3 from, V3 to, Hit* hit)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
     const auto& n = ray->hit_.normal;
     const auto& p = ray->hit_.point;
-    hit->normal = {n[0], n[1], n[2]};
-    hit->point = {p[0], p[1], p[2]};
+    hit->normal = {.x = n[0], .y = n[1], .z = n[2]};
+    hit->point = {.x = p[0], .y = p[1], .z = p[2]};
     hit->flags = ray->hit_.face_flags_;
     return true;
 }
@@ -199,8 +199,8 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
         if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
             !(node.flag_bits_ & objects::kRailFlagActive))
             continue;
-        const V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
-        const V3 b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
+        const V3 a = {.x = node.at_point_.x, .y = node.at_point_.y, .z = node.at_point_.z};
+        const V3 b = {.x = node.succ_->at_point_.x, .y = node.succ_->at_point_.y, .z = node.succ_->at_point_.z};
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
             continue;
@@ -220,7 +220,7 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
         found = true;
         spot->kind = SpotKind::kRail;
         spot->point = p;
-        spot->normal = {0.0f, 1.0f, 0.0f};
+        spot->normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
         spot->along = make_unit(b - a);
     }
     return found;
@@ -327,7 +327,7 @@ void add_overlay(const overlays::Painter& painter)
     if (g_picked >= 1) {
         const V3 other = g_picked >= 2  ? core::at(g_spots, 1).point
                          : g_have_hover ? g_hover.point
-                                        : core::at(g_spots, 0).point + V3{0, 0, 1};
+                                        : core::at(g_spots, 0).point + V3{.x = 0, .y = 0, .z = 1};
         draw_gate(painter, gate_for(core::at(g_spots, 0), other), kStart);
         painter.draw_label(core::at(g_spots, 0).point, kStart, std::string("start: ") + spot_name(core::at(g_spots, 0).kind));
     }

@@ -39,7 +39,7 @@ SpotKind kind_of_face(float normal_y, uint16_t face_flags);
 struct Spot {
     SpotKind kind = SpotKind::kArea;
     V3 point = {};
-    V3 normal = {0.0f, 1.0f, 0.0f}; // (the face's)
+    V3 normal = {.x = 0.0f, .y = 1.0f, .z = 0.0f}; // (the face's)
     V3 along = {};                  // (a rail's direction)
 };
 

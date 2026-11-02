@@ -91,7 +91,7 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
             common = f >= 1.0 ? std::min(common, core::at(out, a)) : std::max(common, core::at(out, a));
         core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = common;
     }
-    return {static_cast<float>(core::at(out, 0)), static_cast<float>(core::at(out, 1)), static_cast<float>(core::at(out, 2))};
+    return {.x = static_cast<float>(core::at(out, 0)), .y = static_cast<float>(core::at(out, 1)), .z = static_cast<float>(core::at(out, 2))};
 }
 
 float compressed_limit(float extent)
@@ -118,7 +118,7 @@ int main_axis(V3 d)
     return x >= z ? 0 : 2;
 }
 
-V3 along_axis(int axis, float f) { return {axis == 0 ? f : 1.0f, axis == 1 ? f : 1.0f, axis == 2 ? f : 1.0f}; }
+V3 along_axis(int axis, float f) { return {.x = axis == 0 ? f : 1.0f, .y = axis == 1 ? f : 1.0f, .z = axis == 2 ? f : 1.0f}; }
 
 int nearest_axis(std::span<const V3, 3> axes, int world_axis)
 {
@@ -150,8 +150,8 @@ RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, i
     // The copy was taken after `copied` quarter turns of the piece (scale 1): copy - from = Q_c (x - x0); now
     // x' - to = Q S (x - x0) = Q_t (Q_c S Q_c^-1) (copy - from), Q_t the turns since, Q_c S Q_c^-1 S seen through Q_c.
     const int copied = (copied_quarters - quarters0) & 3;
-    return {copied_position, position, (quarters - copied_quarters) & 3, turned_scale(scale, copied),
-            (quarters - quarters0) & 3};
+    return {.from = copied_position, .to = position, .turns = (quarters - copied_quarters) & 3, .copy_scale_ = turned_scale(scale, copied),
+            .normal_turns_ = (quarters - quarters0) & 3};
 }
 
 V3 get_rebuilt(V3 p, V3 from, V3 to, int quarters, V3 scale)
@@ -165,7 +165,7 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
     const gpu::VertexWriter vertices(data, stride, count);
     const std::span<const float> positions(original, 3 * static_cast<std::size_t>(count));
     for (uint32_t v = 0; v < count; ++v) {
-        const V3 p = get_rebuilt({core::at(positions, 3 * v), core::at(positions, 3 * v + 1), core::at(positions, 3 * v + 2)},
+        const V3 p = get_rebuilt({.x = core::at(positions, 3 * v), .y = core::at(positions, 3 * v + 1), .z = core::at(positions, 3 * v + 2)},
                                  from, to, quarters, scale);
         vertices.set_float3(v, 0, p.x, p.y, p.z);
     }
@@ -174,7 +174,7 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
 V3 scaled_normal(V3 n, V3 scale, int quarters)
 {
     if (!is_unit_scale(scale)) {
-        const V3 m = {n.x / scale.x, n.y / scale.y, n.z / scale.z};
+        const V3 m = {.x = n.x / scale.x, .y = n.y / scale.y, .z = n.z / scale.z};
         const float length = std::sqrt(get_dot(m, m));
         n = length > 0.0f ? m * (1.0f / length) : m;
     }
@@ -187,7 +187,7 @@ void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t of
     const gpu::VertexWriter vertices(data, stride, count);
     const std::span<const float> normals(original, 3 * static_cast<std::size_t>(count));
     for (uint32_t v = 0; v < count; ++v) {
-        const V3 n = scaled_normal({core::at(normals, 3 * v), core::at(normals, 3 * v + 1), core::at(normals, 3 * v + 2)},
+        const V3 n = scaled_normal({.x = core::at(normals, 3 * v), .y = core::at(normals, 3 * v + 1), .z = core::at(normals, 3 * v + 2)},
                                    scale, quarters);
         vertices.set_float3(v, offset, n.x, n.y, n.z);
     }
@@ -231,7 +231,7 @@ bool read_token(const std::string& field, V3* scale)
             if (count == 1)
                 *scale = get_uniform(core::at(values, 0));
             else if (count == 3)
-                *scale = {core::at(values, 0), core::at(values, 1), core::at(values, 2)};
+                *scale = {.x = core::at(values, 0), .y = core::at(values, 1), .z = core::at(values, 2)};
             return count == 1 || count == 3;
         }
         if (*end != ',' || count == 3)
@@ -248,7 +248,7 @@ void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* ou
 {
     // (iterative down the greater side, as the game's own walks; a guard against a broken tree)
     while (node && !node->is_end_node() && depth < 256) {
-        out->push_back({node, node->axis_tag_, node->chain_link_});
+        out->push_back({.node = node, .split = node->axis_tag_, .link = node->chain_link_});
         split_nodes(node->less_child(), out, depth + 1);
         node = node->greater_child();
         ++depth;
@@ -302,16 +302,16 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
         n.node->axis_tag_ = n.split;
         n.node->chain_link_ = n.link;
     }
-    const maths::Vec4 centre = {from.x, from.y, from.z, 0.0f};
+    const maths::Vec4 centre = {.x = from.x, .y = from.y, .z = from.z, .w = 0.0f};
     if (!is_unit_scale(scale)) {
-        const maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
+        const maths::Vec4 factor = {.x = scale.x, .y = scale.y, .z = scale.z, .w = 1.0f};
         data->scale_tool(&centre, &factor);
     }
     if (quarters & 3)
         data->rotate_y(&centre, quarters & 3);
     const V3 delta = to - from;
     if (delta.x != 0.0f || delta.y != 0.0f || delta.z != 0.0f) {
-        const maths::Vec4 by = {delta.x, delta.y, delta.z, 0.0f};
+        const maths::Vec4 by = {.x = delta.x, .y = delta.y, .z = delta.z, .w = 0.0f};
         data->get_slide(&by);
     }
 }
@@ -403,19 +403,19 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
         render::MeshRef* mesh = core::at(mesh_run, i);
         if (!mesh || mesh->stride < 12 || mesh->vertex_buffer_count_ > 3)
             return nullptr;
-        MeshCopy copy = {mesh,
-                         mesh->vertex_count_,
-                         mesh->stride,
-                         surface_nudge(vertex_format(mesh), mesh->stride),
-                         {},
-                         {},
-                         {},
-                         {},
-                         {core::at(mesh->centre, 0), core::at(mesh->centre, 1), core::at(mesh->centre, 2)},
-                         mesh->radius,
-                         mesh->position_count_,
-                         mesh->positions,
-                         {}};
+        MeshCopy copy = {.mesh = mesh,
+                         .vertex_count_ = mesh->vertex_count_,
+                         .stride = mesh->stride,
+                         .normal_offset_ = surface_nudge(vertex_format(mesh), mesh->stride),
+                         .buffers = {},
+                         .data = {},
+                         .positions = {},
+                         .normals = {},
+                         .centre = {.x = core::at(mesh->centre, 0), .y = core::at(mesh->centre, 1), .z = core::at(mesh->centre, 2)},
+                         .radius = mesh->radius,
+                         .list_count_ = mesh->position_count_,
+                         .list = mesh->positions,
+                         .list_copy_ = {}};
         for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count_); ++b) {
             render::VertexBuffer* buffer = core::at(mesh->vertex_buffers_, b);
             if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertex_count_) * mesh->stride)
@@ -489,7 +489,7 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
         mesh->radius = copy.radius * get_largest(scale);
         const std::span<float> list = copy.list_copy_.empty() ? std::span<float>() : std::span<float>(mesh->positions, 3u * size_t{copy.list_count_});
         for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
-            const V3 p = get_rebuilt({core::at(copy.list_copy_, 3 * k), core::at(copy.list_copy_, 3 * k + 1), core::at(copy.list_copy_, 3 * k + 2)},
+            const V3 p = get_rebuilt({.x = core::at(copy.list_copy_, 3 * k), .y = core::at(copy.list_copy_, 3 * k + 1), .z = core::at(copy.list_copy_, 3 * k + 2)},
                                      f.from, f.to, 0, f.copy_scale_);
             core::at(list, 3 * k + 0) = p.x;
             core::at(list, 3 * k + 1) = p.y;
@@ -589,7 +589,7 @@ bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
         tri->assign_shape_data(own);
         geometry = own;
     }
-    entry->tris.push_back({tri, copy_collision(geometry), tri->unknownd0_});
+    entry->tris.push_back({.tri = tri, .copy = copy_collision(geometry), .rejection = tri->unknownd0_});
     return true;
 }
 
@@ -602,7 +602,7 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
         return take_tri(core::down_cast<render::HitMovingTriangles>(collision), entry);
     if (kind == render::HitMeshKind::kMovingBox) {
         auto* box = core::down_cast<render::HitMovingBox>(collision);
-        entry->boxes.push_back({box, box->box_});
+        entry->boxes.push_back({.box = box, .original = box->box_});
         return true;
     }
     if (kind == render::HitMeshKind::kGroup) {
@@ -621,15 +621,15 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
 void apply_collision(ObjectEntry& entry)
 {
     for (ObjectEntry::Tri& t : entry.tris) {
-        rebuild_collision(t.copy, 0, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, entry.scale);
+        rebuild_collision(t.copy, 0, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, entry.scale);
         t.tri->assign_shape_data(t.copy.data); // (its radius from the vertices; its box made again)
         t.tri->unknownd0_ = is_unit_scale(entry.scale) ? t.rejection : t.copy.data->unknown3c_;
     }
     for (const ObjectEntry::Cuboid& b : entry.boxes) {
         const maths::Vec4& lo = b.original.min;
         const maths::Vec4& hi = b.original.max;
-        b.box->box_.min = {lo.x * entry.scale.x, lo.y * entry.scale.y, lo.z * entry.scale.z, lo.w};
-        b.box->box_.max = {hi.x * entry.scale.x, hi.y * entry.scale.y, hi.z * entry.scale.z, hi.w};
+        b.box->box_.min = {.x = lo.x * entry.scale.x, .y = lo.y * entry.scale.y, .z = lo.z * entry.scale.z, .w = lo.w};
+        b.box->box_.max = {.x = hi.x * entry.scale.x, .y = hi.y * entry.scale.y, .z = hi.z * entry.scale.z, .w = hi.w};
     }
     if (entry.collision && entry.collision->kind() == render::HitMeshKind::kGroup)
         core::down_cast<render::HitMeshGroup>(entry.collision)->dirty_ = true;
@@ -653,7 +653,7 @@ V3 object_limit(objects::GameEntity* object)
     const ObjectEntry* entry = entry_of(object);
     auto narrow = [&limit](const render::TriMeshSource* data, V3 scale) {
         const V3 l = collision_limit(data, scale);
-        limit = {std::min(limit.x, l.x), std::min(limit.y, l.y), std::min(limit.z, l.z)};
+        limit = {.x = std::min(limit.x, l.x), .y = std::min(limit.y, l.y), .z = std::min(limit.z, l.z)};
     };
     if (entry) {
         for (const ObjectEntry::Tri& t : entry->tris)
@@ -686,7 +686,7 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
     if (!entry && is_unit_scale(scale))
         return true; // (never scaled: nothing to put back)
     if (!entry) {
-        ObjectEntry made = {object->ident_, object, collision_of(object), get_uniform(1.0f), {}, {}};
+        ObjectEntry made = {.id = object->ident_, .object = object, .collision = collision_of(object), .scale = get_uniform(1.0f), .tris = {}, .boxes = {}};
         if (!take_collision(made.collision, &made)) {
             get_log("level editor: %08X's collision couldn't be copied - not scaled", object->ident_);
             return false;
@@ -695,11 +695,11 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
         entry = &g_objects.back();
     }
     const V3 limit = object_limit(object);
-    scale = {std::max(kMin, std::min(limit.x, confine(scale.x))), std::max(kMin, std::min(limit.y, confine(scale.y))),
-             std::max(kMin, std::min(limit.z, confine(scale.z)))};
+    scale = {.x = std::max(kMin, std::min(limit.x, confine(scale.x))), .y = std::max(kMin, std::min(limit.y, confine(scale.y))),
+             .z = std::max(kMin, std::min(limit.z, confine(scale.z)))};
     entry->scale = scale;
     // The model drawn scaled (RenderModel::change_scale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
-    const maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
+    const maths::Vec4 factor = {.x = scale.x, .y = scale.y, .z = scale.z, .w = 1.0f};
     model_of(object)->change_scale(&factor);
     apply_collision(*entry);
     object->mark_jumped_ahead(true); // (its components placed again at once)

@@ -308,7 +308,7 @@ bool row_passes(const Filter& filter, nodes::Family family, const std::string& n
 
 Rect2 rect_of(float ax, float ay, float bx, float by)
 {
-    return {std::min(ax, bx), std::min(ay, by), std::max(ax, bx), std::max(ay, by)};
+    return {.x0 = std::min(ax, bx), .y0 = std::min(ay, by), .x1 = std::max(ax, bx), .y1 = std::max(ay, by)};
 }
 
 bool crossing_drag(float origin_coord_x, float last_column) { return last_column < origin_coord_x; }
@@ -475,7 +475,7 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
     std::array<V3, 8> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
     bool any = false;
-    Rect2 r = {0, 0, 0, 0};
+    Rect2 r = {.x0 = 0, .y0 = 0, .x1 = 0, .y1 = 0};
     for (const V3& c : corners) {
         float x = 0.0f, y = 0.0f;
         if (!project_to_back(c, &x, &y)) {
@@ -484,8 +484,8 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
             continue;
         }
         if (!any)
-            r = {x, y, x, y};
-        r = {std::min(r.x0, x), std::min(r.y0, y), std::max(r.x1, x), std::max(r.y1, y)};
+            r = {.x0 = x, .y0 = y, .x1 = x, .y1 = y};
+        r = {.x0 = std::min(r.x0, x), .y0 = std::min(r.y0, y), .x1 = std::max(r.x1, x), .y1 = std::max(r.y1, y)};
         any = true;
     }
     *rect = r;
@@ -677,11 +677,11 @@ void make_group(const std::string& wanted)
     const SelectionIds s = current_selection();
     GroupSet g;
     for (const uint32_t id : s.objects)
-        g.members.push_back({'o', id});
+        g.members.push_back({.kind = 'o', .id = id});
     for (const uint32_t id : s.sectors)
-        g.members.push_back({'s', id});
+        g.members.push_back({.kind = 's', .id = id});
     if (s.node)
-        g.members.push_back({'n', s.node});
+        g.members.push_back({.kind = 'n', .id = s.node});
     if (g.members.empty()) {
         show_message("Nothing selected");
         return;
@@ -776,7 +776,7 @@ void add_to_group(int index)
     State next = g_state;
     std::vector<Member>& members = core::at(next.groups, index).members;
     auto add = [&](char kind, uint32_t id) {
-        const Member m = {kind, id};
+        const Member m = {.kind = kind, .id = id};
         if (std::ranges::find(members, m) == members.end())
             members.push_back(m);
     };

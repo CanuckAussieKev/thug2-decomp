@@ -107,16 +107,16 @@ void heading_axes(float yaw, std::span<V3, 3> out)
 {
     const float c = std::cos(yaw);
     const float s = std::sin(yaw);
-    core::at(out, 0) = {c, 0.0f, -s};
-    core::at(out, 1) = {0.0f, 1.0f, 0.0f};
-    core::at(out, 2) = {s, 0.0f, c};
+    core::at(out, 0) = {.x = c, .y = 0.0f, .z = -s};
+    core::at(out, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
+    core::at(out, 2) = {.x = s, .y = 0.0f, .z = c};
 }
 
 float get_heading_of(V3 at) { return std::atan2(at.x, at.z); }
 
 void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out)
 {
-    static const std::array<V3, 3> kWorld = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+    static const std::array<V3, 3> kWorld = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
     for (int i = 0; i < 3; ++i)
         core::at(out, i) = get_dot(core::at(rows, i), core::at(rows, i)) > 1e-12f ? make_unit(core::at(rows, i)) : core::at(kWorld, i);
 }
@@ -166,7 +166,7 @@ std::vector<V3> get_ring(V3 pivot, float radius, int count)
     std::vector<V3> points;
     for (int i = 0; i < count; ++i) {
         const float a = 2.0f * kPi * static_cast<float>(i) / static_cast<float>(count);
-        points.push_back({pivot.x + std::sin(a) * radius, pivot.y, pivot.z + std::cos(a) * radius});
+        points.push_back({.x = pivot.x + std::sin(a) * radius, .y = pivot.y, .z = pivot.z + std::cos(a) * radius});
     }
     return points;
 }
@@ -179,7 +179,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
     switch (gizmo.mode) {
     case Mode::kShiftBy:
         for (int axis = 0; axis < 3; ++axis)
-            out.push_back({p, p + core::at(gizmo.axes, axis) * length, axis, true});
+            out.push_back({.a = p, .b = p + core::at(gizmo.axes, axis) * length, .handle = axis, .arrow = true});
         break;
     case Mode::kSpinBy: {
         if (!gizmo.rotates)
@@ -187,10 +187,10 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         // (the heading ring, and a spoke towards the local z: which way it faces)
         std::vector<V3> ring = get_ring(p, length * 0.8f, 48);
         for (size_t i = 0; i < ring.size(); ++i)
-            out.push_back({core::at(ring, i), core::at(ring, (i + 1) % ring.size()), 1, false});
-        const V3 forward = {core::at(gizmo.axes, 2).x, 0.0f, core::at(gizmo.axes, 2).z};
+            out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = 1, .arrow = false});
+        const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0f, .z = core::at(gizmo.axes, 2).z};
         if (get_dot(forward, forward) > 1e-6f)
-            out.push_back({p, p + make_unit(forward) * (length * 0.8f), 1, false});
+            out.push_back({.a = p, .b = p + make_unit(forward) * (length * 0.8f), .handle = 1, .arrow = false});
         break;
     }
     case Mode::kScale: {
@@ -198,17 +198,17 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         auto add_cube = [&](V3 c, int handle) {
             std::array<V3, 8> corners{};
             for (int i = 0; i < 8; ++i)
-                core::at(corners, i) = c + V3{(i & 1) ? cube : -cube, (i & 2) ? cube : -cube, (i & 4) ? cube : -cube};
+                core::at(corners, i) = c + V3{.x = (i & 1) ? cube : -cube, .y = (i & 2) ? cube : -cube, .z = (i & 4) ? cube : -cube};
             for (int i = 0; i < 8; ++i) {
                 for (int bit = 1; bit < 8; bit <<= 1) {
                     if (!(i & bit))
-                        out.push_back({core::at(corners, i), core::at(corners, i | bit), handle, false});
+                        out.push_back({.a = core::at(corners, i), .b = core::at(corners, i | bit), .handle = handle, .arrow = false});
                 }
             }
         };
         for (int axis = 0; axis < 3; ++axis) {
             const V3 end = p + core::at(gizmo.axes, axis) * length;
-            out.push_back({p, end, axis, false});
+            out.push_back({.a = p, .b = end, .handle = axis, .arrow = false});
             add_cube(end, axis);
         }
         add_cube(p, kCentre);

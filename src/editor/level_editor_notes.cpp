@@ -100,7 +100,7 @@ bool read_triple(const std::string& text, V3* out)
     }
     if (*at)
         return false;
-    *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
+    *out = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
     return true;
 }
 
@@ -315,7 +315,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         // (a pin: a stem from the point up to its head - longer far away, so it stands out - and the text beside the head)
         const float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
         const float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
-        const V3 top = note.pos + V3{0.0f, height, 0.0f};
+        const V3 top = note.pos + V3{.x = 0.0f, .y = height, .z = 0.0f};
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         float px = 0.0f, py = 0.0f, tx = 0.0f, ty = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, note.pos, near_z, &ax, &ay) ||
@@ -325,14 +325,14 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         ndc_to_pixel(viewport, bx, by, &tx, &ty);
         const uint32_t argb = 0xFF000000u | (note.colour & 0xFFFFFF);
         const uint32_t stem = selected ? 0xFFFFFFFFu : (0xC0000000u | (note.colour & 0xFFFFFF));
-        lines->push_back({px, py, tx, ty, stem, selected ? 2.0f : 1.5f});
-        circles->push_back({tx, ty, selected ? 7.0f : 5.5f, argb, true, 1.0f});
+        lines->push_back({.ax = px, .ay = py, .bx = tx, .by = ty, .argb = stem, .thickness = selected ? 2.0f : 1.5f});
+        circles->push_back({.x = tx, .y = ty, .radius = selected ? 7.0f : 5.5f, .argb = argb, .filled = true, .thickness = 1.0f});
         if (selected)
-            circles->push_back({tx, ty, 9.5f, 0xFFFFFFFFu, false, 1.5f});
-        circles->push_back({px, py, 2.5f, argb, true, 1.0f});
+            circles->push_back({.x = tx, .y = ty, .radius = 9.5f, .argb = 0xFFFFFFFFu, .filled = false, .thickness = 1.5f});
+        circles->push_back({.x = px, .y = py, .radius = 2.5f, .argb = argb, .filled = true, .thickness = 1.0f});
         // (the label: the first line - all of it when selected - cut short when far)
         const size_t most = selected ? 60 : distance > 6000.0f ? 18 : 36;
-        texts->push_back({tx + 10.0f, ty - 8.0f, argb, caption(note.text, most)});
+        texts->push_back({.x = tx + 10.0f, .y = ty - 8.0f, .argb = argb, .text = caption(note.text, most)});
     }
 }
 
@@ -462,7 +462,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     std::array<float, 3> pos = {{note->pos.x, note->pos.y, note->pos.z}};
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::DragFloat3("##pos", pos.data(), 5.0f, 0.0f, 0.0f, "%.0f")) {
-        const V3 to = {core::at(pos, 0), core::at(pos, 1), core::at(pos, 2)};
+        const V3 to = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2)};
         g_queue.emplace_back([name, to] {
             if (Note* n = get_find(name))
                 n->pos = to;

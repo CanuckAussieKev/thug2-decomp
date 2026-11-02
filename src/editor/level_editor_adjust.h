@@ -25,7 +25,7 @@ struct ActStep {
     V3 offset = {};        // Move: from where it was; Duplicate: each copy from the one before (before its turn)
     float degrees = 0.0f;  // Turn; Duplicate: each copy turned; Place: turned since it was placed
     bool quarters = false; // (scenery: turns are whole quarter turns)
-    V3 factor = {1.0f, 1.0f, 1.0f}; // Scale (along the world's axes)
+    V3 factor = {.x = 1.0f, .y = 1.0f, .z = 1.0f}; // Scale (along the world's axes)
     bool uniform = true;
     int count = 1;                         // Duplicate: the copies
     bool grid = false;                     // Move / Duplicate: the offset on the grid (the toolbar's size)

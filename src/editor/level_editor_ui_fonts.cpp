@@ -15,8 +15,8 @@ namespace {
 
 namespace frontend::level_editor::ui_fonts {
 
-CompressedFont inter() { return {std::data(Inter_Regular_compressed_data), Inter_Regular_compressed_size}; }
-CompressedFont inter_semi_bold() { return {std::data(Inter_SemiBold_compressed_data), Inter_SemiBold_compressed_size}; }
-CompressedFont get_mono() { return {std::data(JetBrainsMono_Regular_compressed_data), JetBrainsMono_Regular_compressed_size}; }
+CompressedFont inter() { return {.data = std::data(Inter_Regular_compressed_data), .size = Inter_Regular_compressed_size}; }
+CompressedFont inter_semi_bold() { return {.data = std::data(Inter_SemiBold_compressed_data), .size = Inter_SemiBold_compressed_size}; }
+CompressedFont get_mono() { return {.data = std::data(JetBrainsMono_Regular_compressed_data), .size = JetBrainsMono_Regular_compressed_size}; }
 
 } // namespace frontend::level_editor::ui_fonts

@@ -19,7 +19,7 @@ namespace {
 
 void get_ask(std::vector<Request>* requests, int op, uint32_t arg = 0)
 {
-    Request request = {Request::Kind::kChainOp};
+    Request request = {.kind = Request::Kind::kChainOp};
     request.value = op;
     request.id = arg;
     requests->push_back(request);

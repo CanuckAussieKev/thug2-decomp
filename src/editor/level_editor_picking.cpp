@@ -46,7 +46,7 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
 {
     auto at = [&](uint16_t i) {
         const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
-        return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
+        return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
     };
     const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
@@ -157,17 +157,17 @@ std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects,
 {
     std::vector<TableRow> order;
     if (node >= 0 && (filter & kNodes))
-        order.push_back({Choice::kNode, static_cast<uint32_t>(node), 0.0f});
+        order.push_back({.kind = Choice::kNode, .id = static_cast<uint32_t>(node), .t = 0.0f});
     if (filter & kObjects)
         for (const Layered& o : objects)
-            order.push_back({Choice::kObject, o.id, o.t});
+            order.push_back({.kind = Choice::kObject, .id = o.id, .t = o.t});
     if (filter & kScenery) {
         for (const Layered& s : scenery)
             if (!s.passed)
-                order.push_back({Choice::kScenery, s.id, s.t});
+                order.push_back({.kind = Choice::kScenery, .id = s.id, .t = s.t});
         for (const Layered& s : scenery)
             if (s.passed)
-                order.push_back({Choice::kPassed, s.id, s.t});
+                order.push_back({.kind = Choice::kPassed, .id = s.id, .t = s.t});
     }
     return order;
 }
@@ -220,7 +220,7 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
     float best = max_t;
     auto at = [&](uint16_t i) {
         const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
-        return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
+        return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
     };
     const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
@@ -258,7 +258,7 @@ bool set_locked(uint32_t kind, uint32_t id, bool locked)
     if (locked == (it != g_locks.end()))
         return false;
     if (locked)
-        g_locks.push_back({kind, id});
+        g_locks.push_back({.kind = kind, .id = id});
     else
         g_locks.erase(it);
     return true;

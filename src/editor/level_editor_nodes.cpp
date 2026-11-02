@@ -118,18 +118,18 @@ uint32_t restart_type_bit(uint32_t type)
         uint32_t checksum, bit;
     };
     static const auto kTypes = std::to_array<TypeBit>({
-        {name_hash("Player1"), kPlayer1},
-        {name_hash("Player2"), kPlayer2},
-        {name_hash("Multiplayer"), kMultiplayer},
-        {name_hash("Horse"), kHorse},
-        {name_hash("CTF"), kCtf},
-        {name_hash("CTF_1"), kCtf},
-        {name_hash("CTF_2"), kCtf},
-        {name_hash("CTF_3"), kCtf},
-        {name_hash("CTF_4"), kCtf},
-        {name_hash("Team"), kTeam},
-        {name_hash("KingOfTheHill"), kKing},
-        {name_hash("Generic"), kGeneric},
+        {.checksum = name_hash("Player1"), .bit = kPlayer1},
+        {.checksum = name_hash("Player2"), .bit = kPlayer2},
+        {.checksum = name_hash("Multiplayer"), .bit = kMultiplayer},
+        {.checksum = name_hash("Horse"), .bit = kHorse},
+        {.checksum = name_hash("CTF"), .bit = kCtf},
+        {.checksum = name_hash("CTF_1"), .bit = kCtf},
+        {.checksum = name_hash("CTF_2"), .bit = kCtf},
+        {.checksum = name_hash("CTF_3"), .bit = kCtf},
+        {.checksum = name_hash("CTF_4"), .bit = kCtf},
+        {.checksum = name_hash("Team"), .bit = kTeam},
+        {.checksum = name_hash("KingOfTheHill"), .bit = kKing},
+        {.checksum = name_hash("Generic"), .bit = kGeneric},
     });
     for (const auto& t : kTypes) {
         if (t.checksum == type)
@@ -217,7 +217,7 @@ std::vector<ArraySignature> get_signature()
         return signature;
     for (uint32_t i = 0; i < manager->num_ && i < level_nodes::NodeManager::kMaxArrays; ++i) {
         const level_nodes::NodeArrayEntry& entry = core::at(manager->arrays_, i);
-        signature.push_back({entry.label_, entry.node_entries_ ? entry.node_entries_->extent_ : 0, entry.node_entries_});
+        signature.push_back({.label = entry.label_, .extent = entry.node_entries_ ? entry.node_entries_->extent_ : 0, .nodes = entry.node_entries_});
     }
     return signature;
 }
@@ -234,15 +234,15 @@ script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 V3 get_heading_of(V3 angles)
 {
     maths::Mat4 matrix{};
-    core::at(matrix.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(matrix.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(matrix.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    const maths::Vec4 vector = {angles.x, angles.y, angles.z, 1.0f};
+    core::at(matrix.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(matrix.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 vector = {.x = angles.x, .y = angles.y, .z = angles.z, .w = 1.0f};
     matrix.init_from_angles(vector);
-    const V3 at = {core::at(matrix.row, 2).x, 0.0f, core::at(matrix.row, 2).z};
+    const V3 at = {.x = core::at(matrix.row, 2).x, .y = 0.0f, .z = core::at(matrix.row, 2).z};
     const float length = std::sqrt(at.x * at.x + at.z * at.z);
-    return length > 1e-4f ? V3{at.x / length, 0.0f, at.z / length} : V3{0.0f, 0.0f, 1.0f};
+    return length > 1e-4f ? V3{.x = at.x / length, .y = 0.0f, .z = at.z / length} : V3{.x = 0.0f, .y = 0.0f, .z = 1.0f};
 }
 
 void get_scan()
@@ -282,14 +282,14 @@ void get_scan()
                 s->read_hash_value(hidden_type_key(), &node.type, 0);
             }
             node.family = get_classify(node.cls, node.type);
-            script::VectorValue v = {0.0f, 0.0f, 0.0f, 1.0f};
+            script::VectorValue v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             if (s->fetch_vec(kPos, &v, 0)) {
                 node.has_pos_ = true;
-                node.pos = {v.x, v.y, v.z};
+                node.pos = {.x = v.x, .y = v.y, .z = v.z};
             }
-            script::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
+            script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             if (s->fetch_vec(kAngles, &angles, 0)) {
-                node.angles = {angles.x, angles.y, angles.z};
+                node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
                 if (shape_of(node.family) == Shape::kPoint)
                     node.forward = get_heading_of(node.angles);
             }
@@ -504,14 +504,14 @@ void reread(int index)
     script::Struct* s = struct_of(node);
     if (!s)
         return;
-    script::VectorValue v = {0.0f, 0.0f, 0.0f, 1.0f};
+    script::VectorValue v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (s->fetch_vec(kPos, &v, 0)) {
         node.has_pos_ = true;
-        node.pos = {v.x, v.y, v.z};
+        node.pos = {.x = v.x, .y = v.y, .z = v.z};
     }
-    script::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
+    script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     s->fetch_vec(kAngles, &angles, 0);
-    node.angles = {angles.x, angles.y, angles.z};
+    node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
     if (shape_of(node.family) == Shape::kPoint)
         node.forward = get_heading_of(node.angles);
     // (a rail / ladder point: where the rail manager has it - see sync_rails)
@@ -631,10 +631,10 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
                 add_fields(symbol->value.structure(), true, depth + 1, out);
                 continue;
             }
-            out->push_back({get_name_text(c->value.word()), "(flag)", included});
+            out->push_back({.name = get_name_text(c->value.word()), .value = "(flag)", .included = included});
             continue;
         }
-        out->push_back({c->name ? get_name_text(c->name) : "(unnamed)", value_text(c, depth), included});
+        out->push_back({.name = c->name ? get_name_text(c->name) : "(unnamed)", .value = value_text(c, depth), .included = included});
     }
 }
 
@@ -660,9 +660,9 @@ bool level_is_shared(const char** game)
         const char* game;
     };
     static constexpr auto kLists = std::to_array<LevelList>({
-        {"level_select_menu_thps3_level_info", "THPS3"}, {"level_select_menu_thps4_level_info", "THPS4"},
-        {"level_select_menu_thug1_level_info", "THUG1"}, {"level_select_menu_thaw_level_info", "THAW"},
-        {"level_select_menu_misc_level_info", nullptr}, // (skate shops, tutorials: the entry's game_tag names the game)
+        {.list = "level_select_menu_thps3_level_info", .game = "THPS3"}, {.list = "level_select_menu_thps4_level_info", .game = "THPS4"},
+        {.list = "level_select_menu_thug1_level_info", .game = "THUG1"}, {.list = "level_select_menu_thaw_level_info", .game = "THAW"},
+        {.list = "level_select_menu_misc_level_info", .game = nullptr}, // (skate shops, tutorials: the entry's game_tag names the game)
     });
     static const uint32_t kLevel = name_hash("level"), kGameTag = name_hash("game_tag");
     for (const auto& entry : kLists) {

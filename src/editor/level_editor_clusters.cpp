@@ -181,7 +181,7 @@ void place_in(const Membership& to)
     if (!level_state().count(to.sector)) {
         Membership level;
         if (!stage_map(to.sector, &level))
-            level = Membership{to.sector, false, 0};
+            level = Membership{.sector = to.sector, .trick = false, .cluster = 0};
         level_state()[to.sector] = level;
     }
     get_live(now, to);
@@ -240,7 +240,7 @@ Membership get_now(uint32_t sector)
         return it->second;
     Membership m;
     if (!stage_map(sector, &m))
-        m = Membership{sector, false, 0};
+        m = Membership{.sector = sector, .trick = false, .cluster = 0};
     return m;
 }
 
@@ -263,7 +263,7 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
     const std::shared_ptr<Step> before = get_capture(pieces);
     int changed = 0;
     for (const uint32_t s : pieces) {
-        const Membership to{s, trick, trick ? (cluster ? cluster : s) : 0};
+        const Membership to{.sector = s, .trick = trick, .cluster = trick ? (cluster ? cluster : s) : 0};
         if (get_same(get_now(s), to))
             continue;
         place_in(to);
@@ -327,7 +327,7 @@ void reset_all()
     for (const auto& entry : set_state())
         set.push_back(entry.second);
     for (const Membership& m : set)
-        place_in(level_state().count(m.sector) ? level_state()[m.sector] : Membership{m.sector, false, 0});
+        place_in(level_state().count(m.sector) ? level_state()[m.sector] : Membership{.sector = m.sector, .trick = false, .cluster = 0});
     set_state().clear();
 }
 

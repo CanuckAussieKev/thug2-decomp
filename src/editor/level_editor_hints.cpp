@@ -110,7 +110,7 @@ struct Builder {
     void get_raw(const std::string& keys, const std::string& what)
     {
         if (!keys.empty() && out.size() < kMaxHints)
-            out.push_back({keys, what});
+            out.push_back({.keys = keys, .what = what});
     }
     // An action's first key ("" unbound: left out).
     std::string get_key(const char* id) const { return leading_key_name(key_of_(id)); }
@@ -177,7 +177,7 @@ void pad_hints(const CtxInfo& c, Builder& b)
 
 std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
 {
-    Builder b{key_of, {}};
+    Builder b{.key_of_ = key_of, .out = {}};
     if (c.pad) {
         pad_hints(c, b);
         return b.out;

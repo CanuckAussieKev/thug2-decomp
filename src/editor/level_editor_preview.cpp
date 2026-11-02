@@ -100,16 +100,16 @@ struct SavedRange {
     uint32_t size;
 };
 constexpr auto kSaved = std::to_array<SavedRange>({
-    {[]() -> void* { return &render::g_world_matrix; }, sizeof(maths::Mat4)},
-    {[]() -> void* { return &render::g_view_matrix; }, sizeof(maths::Mat4)},
-    {[]() -> void* { return &render::g_projection_matrix; }, sizeof(maths::Mat4)},
-    {[]() -> void* { return &render::g_heading_matrix; }, sizeof(maths::Mat4)},
-    {[]() -> void* { return &render::g_device_viewport; }, sizeof(render::DeviceViewport)},
-    {[]() -> void* { return &render::g_camera; }, sizeof(render::RenderCamera)},
-    {[]() -> void* { return &render::g_view_shape; }, sizeof(render::ViewShape)}, // (the view's shape: culling)
-    {[]() -> void* { return static_cast<void*>(&render::g_world_transform); },
-     sizeof(void*)}, // (the culling world matrix: none or the copy)
-    {[]() -> void* { return &render::g_world_transform_copy; }, sizeof(render::g_world_transform_copy)},
+    {.address = []() -> void* { return &render::g_world_matrix; }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::g_view_matrix; }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::g_projection_matrix; }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::g_heading_matrix; }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::g_device_viewport; }, .size = sizeof(render::DeviceViewport)},
+    {.address = []() -> void* { return &render::g_camera; }, .size = sizeof(render::RenderCamera)},
+    {.address = []() -> void* { return &render::g_view_shape; }, .size = sizeof(render::ViewShape)}, // (the view's shape: culling)
+    {.address = []() -> void* { return static_cast<void*>(&render::g_world_transform); },
+     .size = sizeof(void*)}, // (the culling world matrix: none or the copy)
+    {.address = []() -> void* { return &render::g_world_transform_copy; }, .size = sizeof(render::g_world_transform_copy)},
 });
 constexpr uint32_t kSavedBytes = 4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) +
                                  sizeof(render::RenderCamera) + sizeof(render::ViewShape) + sizeof(void*) +
@@ -269,11 +269,11 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     SavedView saved{};
     saved.store_away();
     maths::Mat4 orientation = {};
-    core::at(orientation.row, 0) = {eye.frame.right.x, eye.frame.right.y, eye.frame.right.z, 0.0f};
-    core::at(orientation.row, 1) = {eye.frame.up.x, eye.frame.up.y, eye.frame.up.z, 0.0f};
-    core::at(orientation.row, 2) = {eye.frame.back.x, eye.frame.back.y, eye.frame.back.z, 0.0f};
-    core::at(orientation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    const maths::Vec4 position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
+    core::at(orientation.row, 0) = {.x = eye.frame.right.x, .y = eye.frame.right.y, .z = eye.frame.right.z, .w = 0.0f};
+    core::at(orientation.row, 1) = {.x = eye.frame.up.x, .y = eye.frame.up.y, .z = eye.frame.up.z, .w = 0.0f};
+    core::at(orientation.row, 2) = {.x = eye.frame.back.x, .y = eye.frame.back.y, .z = eye.frame.back.z, .w = 0.0f};
+    core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 position = {.x = eye.pos.x, .y = eye.pos.y, .z = eye.pos.z, .w = 1.0f};
     render::choose_camera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
     render::set_world_transform(nullptr);
     render::change_phase(render::kZWrite, 1);

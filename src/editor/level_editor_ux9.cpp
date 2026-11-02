@@ -49,19 +49,19 @@ uint32_t g_floor; // (the piece the first corner was clicked on: the material by
 std::string g_form_message;
 std::vector<std::function<void()>> g_queue;
 
-V3 get_snapped(V3 p) { return {ground::snap_to(p.x, g_grid), p.y, ground::snap_to(p.z, g_grid)}; }
+V3 get_snapped(V3 p) { return {.x = ground::snap_to(p.x, g_grid), .y = p.y, .z = ground::snap_to(p.z, g_grid)}; }
 
 // The collision ray: the point and the piece hit (0: none / a movable).
 bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& p = ray->hit_.point;
-    *hit = {p[0], p[1], p[2]};
+    *hit = {.x = p[0], .y = p[1], .z = p[2]};
     *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
 }
@@ -71,7 +71,7 @@ float get_ground_at(V3 p, float fallback)
 {
     V3 hit{};
     uint32_t sector = 0;
-    if (get_cast(p + V3{0.0f, 300.0f, 0.0f}, p - V3{0.0f, 3000.0f, 0.0f}, &hit, &sector) && !ground::is_piece(sector))
+    if (get_cast(p + V3{.x = 0.0f, .y = 300.0f, .z = 0.0f}, p - V3{.x = 0.0f, .y = 3000.0f, .z = 0.0f}, &hit, &sector) && !ground::is_piece(sector))
         return hit.y;
     return fallback;
 }
@@ -207,7 +207,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                 g_queue.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
-                        go_to_point({(found->x0 + found->x1) * 0.5f, found->base, (found->z0 + found->z1) * 0.5f},
+                        go_to_point({.x = (found->x0 + found->x1) * 0.5f, .y = found->base, .z = (found->z0 + found->z1) * 0.5f},
                                     std::max(found->x1 - found->x0, found->z1 - found->z0) * 1.5f + 300.0f);
                     }
                 });
@@ -262,7 +262,7 @@ bool ground_click(V3 origin, V3 unit_dir)
     ground::Spec spec;
     spec.x0 = g_first.x, spec.z0 = g_first.z, spec.x1 = corner.x, spec.z1 = corner.z;
     ground::normalise(&spec);
-    const V3 centre = {(spec.x0 + spec.x1) * 0.5f, std::max(g_first.y, corner.y), (spec.z0 + spec.z1) * 0.5f};
+    const V3 centre = {.x = (spec.x0 + spec.x1) * 0.5f, .y = std::max(g_first.y, corner.y), .z = (spec.z0 + spec.z1) * 0.5f};
     spec.base = get_ground_at(centre, g_first.y);
     std::string why;
     if (!ground::choose_material(g_floor, &spec, &why)) {
@@ -289,7 +289,7 @@ void prepare_all()
         a.category = category;
         a.tip = tip;
         a.kind = actions::Kind::kPress;
-        a.defaults = a.keys = {actions::Chord{scancode, actions::kAlt}};
+        a.defaults = a.keys = {actions::Chord{.scancode = scancode, .mods = actions::kAlt}};
         return actions::enrol(a);
     };
     g_gap_action =
@@ -392,9 +392,9 @@ void add_overlay(const overlays::Painter& painter)
     gap_wizard::add_overlay(painter);
     constexpr uint32_t kRect = 0xFFFFE070, kPreview = 0xE0FFE070;
     if (g_stage == Stage::kSecond) {
-        V3 b = g_have_hover ? g_hover : g_first;
-        float y = g_first.y + 2.0f;
-        const std::array<V3, 4> c = {{{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}}};
+        const V3 b = g_have_hover ? g_hover : g_first;
+        const float y = g_first.y + 2.0f;
+        const std::array<V3, 4> c = {{{.x = g_first.x, .y = y, .z = g_first.z}, {.x = b.x, .y = y, .z = g_first.z}, {.x = b.x, .y = y, .z = b.z}, {.x = g_first.x, .y = y, .z = b.z}}};
         for (int i = 0; i < 4; ++i)
             (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, 2.0f);
         std::array<char, 64> text{};

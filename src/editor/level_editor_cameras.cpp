@@ -67,7 +67,7 @@ bool read_triple(const std::string& text, V3* out)
     std::array<float, 3> v{};
     if (!read_numbers(text, v, 3))
         return false;
-    *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
+    *out = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
     return true;
 }
 
@@ -83,7 +83,7 @@ float clamp_distance(float d)
 // The game's angles-to-matrix (0x0041A730): the identity times RotationX(x), RotationY(y), RotationZ(z) (D3DX's, row
 // vectors) - its at row (sin y cos x, -sin x, cos y cos x) for z 0. The editor's view looks along (sin yaw cos pitch,
 // sin pitch, cos yaw cos pitch): x = -pitch, y = yaw.
-V3 angles_for(float yaw, float pitch) { return {-pitch, yaw, 0.0f}; }
+V3 angles_for(float yaw, float pitch) { return {.x = -pitch, .y = yaw, .z = 0.0f}; }
 
 void yaw_pitch_of(V3 angles, float* yaw, float* pitch)
 {
@@ -96,10 +96,10 @@ V3 get_forward(V3 angles)
     // (RotationZ last: it turns that row about the world's z axis - the editor's cameras keep z 0)
     const float cx = std::cos(angles.x);
     const float sx = std::sin(angles.x);
-    const V3 v = {std::sin(angles.y) * cx, -sx, std::cos(angles.y) * cx};
+    const V3 v = {.x = std::sin(angles.y) * cx, .y = -sx, .z = std::cos(angles.y) * cx};
     const float cz = std::cos(angles.z);
     const float sz = std::sin(angles.z);
-    return {v.x * cz - v.y * sz, v.x * sz + v.y * cz, v.z};
+    return {.x = v.x * cz - v.y * sz, .y = v.x * sz + v.y * cz, .z = v.z};
 }
 
 V3 target_of(V3 pos, V3 angles, float distance) { return pos + get_forward(angles) * clamp_distance(distance); }
@@ -206,7 +206,7 @@ node_create::Spec spec_of(const ViewCam& c)
     n.pos = c.pos;
     n.angles = c.angles;
     auto vector = [&](const char* key, V3 v) {
-        node_create::Prop f = {node_create::Prop::kVector, key};
+        node_create::Prop f = {.type = node_create::Prop::kVector, .key = key};
         core::at(f.value, 0) = v.x;
         core::at(f.value, 1) = v.y;
         core::at(f.value, 2) = v.z;
@@ -282,8 +282,8 @@ void keep_offsets(const ViewCam& c)
         uint32_t key;
         V3 value;
     };
-    const std::array<Key, 2> keys = {{{fields::hash_of_name("targetOffset"), target_of(c.pos, c.angles, c.distance)},
-                         {fields::hash_of_name("positionOffset"), position_offset(c.pos, c.angles, c.distance)}}};
+    const std::array<Key, 2> keys = {{{.key = fields::hash_of_name("targetOffset"), .value = target_of(c.pos, c.angles, c.distance)},
+                         {.key = fields::hash_of_name("positionOffset"), .value = position_offset(c.pos, c.angles, c.distance)}}};
     for (const Key& k : keys) {
         const fields::Own own = fields::own_in(node, k.key, false);
         const bool same = own.present && own.value.kind == fields::Kind::kVec4 && core::at(own.value.numbers, 0) == k.value.x &&
@@ -358,8 +358,8 @@ bool shot_offsets(uint32_t name, V3* target, V3* position)
     script::VectorValue t{}, p{};
     if (node->fetch_vec(get_checksums("targetOffset"), &t, 0) &&
         node->fetch_vec(get_checksums("positionOffset"), &p, 0)) {
-        *target = {t.x, t.y, t.z};
-        *position = {p.x, p.y, p.z};
+        *target = {.x = t.x, .y = t.y, .z = t.z};
+        *position = {.x = p.x, .y = p.y, .z = p.z};
         return true;
     }
     maths::Vec4 at;
@@ -367,8 +367,8 @@ bool shot_offsets(uint32_t name, V3* target, V3* position)
         return false;
     script::VectorValue a = {};
     node->fetch_vec(get_checksums("Angles"), &a, 0);
-    const V3 pos = {at.x, at.y, at.z};
-    const V3 angles = {a.x, a.y, a.z};
+    const V3 pos = {.x = at.x, .y = at.y, .z = at.z};
+    const V3 angles = {.x = a.x, .y = a.y, .z = a.z};
     *target = target_of(pos, angles, kDefaultDistance);
     *position = position_offset(pos, angles, kDefaultDistance);
     return true;
@@ -585,7 +585,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         if (!cast_onto(camera_pos, frame, lens, b, near_z, &nx, &ny))
             return;
         ndc_to_pixel(viewport, nx, ny, &bx, &by);
-        lines->push_back({ax, ay, bx, by, argb, thickness});
+        lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
     for (const ViewCam& c : get_all()) {
         const V3 d = c.pos - camera_pos;
@@ -610,9 +610,9 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         const V3 target = target_of(c.pos, c.angles, c.distance);
         line(c.pos, target, lit ? 0xC0FFF060 : 0x60FF9030, 1.0f);
         const float s = lit ? 25.0f : 15.0f;
-        line(target - V3{s, 0, 0}, target + V3{s, 0, 0}, colour, 1.0f);
-        line(target - V3{0, s, 0}, target + V3{0, s, 0}, colour, 1.0f);
-        line(target - V3{0, 0, s}, target + V3{0, 0, s}, colour, 1.0f);
+        line(target - V3{.x = s, .y = 0, .z = 0}, target + V3{.x = s, .y = 0, .z = 0}, colour, 1.0f);
+        line(target - V3{.x = 0, .y = s, .z = 0}, target + V3{.x = 0, .y = s, .z = 0}, colour, 1.0f);
+        line(target - V3{.x = 0, .y = 0, .z = s}, target + V3{.x = 0, .y = 0, .z = s}, colour, 1.0f);
     }
 }
 

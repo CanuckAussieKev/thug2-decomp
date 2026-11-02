@@ -72,12 +72,12 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& p = ray->hit_.point;
-    *hit = {p[0], p[1], p[2]};
+    *hit = {.x = p[0], .y = p[1], .z = p[2]};
     *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
 }
@@ -98,7 +98,7 @@ std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
     const int count = tri->num_vertices_ < 20000 ? tri->num_vertices_ : 20000;
     for (int i = 0; i < count; ++i) {
         const maths::Vec4 v = tri->read_stored_vertex(i);
-        const V3 p = {v.x, v.y, v.z};
+        const V3 p = {.x = v.x, .y = v.y, .z = v.z};
         const V3 d = p - near;
         if (get_dot(d, d) <= reach * reach)
             corners.push_back(p);
@@ -199,7 +199,7 @@ void add_overlay(const overlays::Painter& painter)
         // (the horizontal gap at the lower end's height, the rise straight up from it)
         const V3 low = g_a.y <= b.y ? g_a : b;
         const V3 high = g_a.y <= b.y ? b : g_a;
-        const V3 corner = {high.x, low.y, high.z};
+        const V3 corner = {.x = high.x, .y = low.y, .z = high.z};
         (void)painter.get_seg(low, corner, kGap, 1.5f);
         (void)painter.get_seg(corner, high, kRise, 1.5f);
         painter.draw_label((g_a + b) * 0.5f, kRuler, arcs::span_to(m.distance));

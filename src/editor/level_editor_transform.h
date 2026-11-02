@@ -97,7 +97,7 @@ float snap_factor(float factor);
 struct Gizmo {
     Mode mode = Mode::kShiftBy;
     V3 pivot = {};
-    std::array<V3, 3> axes = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+    std::array<V3, 3> axes = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
     float length = 100.0f;
     bool rotates = true; // (Rotate: false - nothing selected turns: a chain's point)
 };

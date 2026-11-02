@@ -63,7 +63,7 @@ std::string set_stem(const std::string& name)
 V3 pin_anchor_point(const std::vector<V3>& places)
 {
     if (places.empty())
-        return {0.0f, 0.0f, 0.0f};
+        return {.x = 0.0f, .y = 0.0f, .z = 0.0f};
     float min_x = core::at(places, 0).x, max_x = core::at(places, 0).x, min_z = core::at(places, 0).z, max_z = core::at(places, 0).z, min_y = core::at(places, 0).y;
     for (const V3& p : places) {
         min_x = std::min(min_x, p.x);
@@ -72,7 +72,7 @@ V3 pin_anchor_point(const std::vector<V3>& places)
         max_z = std::max(max_z, p.z);
         min_y = std::min(min_y, p.y);
     }
-    return {(min_x + max_x) * 0.5f, min_y, (min_z + max_z) * 0.5f};
+    return {.x = (min_x + max_x) * 0.5f, .y = min_y, .z = (min_z + max_z) * 0.5f};
 }
 
 V3 turn_box_extents(V3 extents, float turn)
@@ -83,8 +83,8 @@ V3 turn_box_extents(V3 extents, float turn)
         c = 0.0;
     if (s < 1e-6)
         s = 0.0;
-    return {static_cast<float>(c * extents.x + s * extents.z), extents.y,
-            static_cast<float>(s * extents.x + c * extents.z)};
+    return {.x = static_cast<float>(c * extents.x + s * extents.z), .y = extents.y,
+            .z = static_cast<float>(s * extents.x + c * extents.z)};
 }
 
 ParticleEmitter turn_particle(const ParticleEmitter& origin, V3 from, V3 pos, float turn)
@@ -199,7 +199,7 @@ void set_speed(State* state, uint32_t name, float mph)
     if (it != state->speeds.end())
         it->mph = mph;
     else
-        state->speeds.push_back({name, mph});
+        state->speeds.push_back({.name = name, .mph = mph});
 }
 
 void set_emitter(State* state, const EmitterSound& emitter)
@@ -301,7 +301,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
         float mph = 0.0f;
         if (!(in >> value) || !parse_number(value, &mph) || mph < kMinMph || mph > kMaxMph || speed_of(*state, name))
             return false;
-        state->speeds.push_back({name, mph});
+        state->speeds.push_back({.name = name, .mph = mph});
         return true;
     }
     if (kind != "emitter" || emitter_of(*state, name))
@@ -552,8 +552,8 @@ void queue_remake(uint32_t name, bool keep, double delay)
             return;
         }
     }
-    const Remake r = {name, keep, keep ? object_edit::store_away(object) : object_edit::State{}, get_now() + delay,
-                      false};
+    const Remake r = {.name = name, .keep = keep, .state = keep ? object_edit::store_away(object) : object_edit::State{}, .due = get_now() + delay,
+                      .killed = false};
     g_remakes.push_back(r);
 }
 
@@ -639,7 +639,7 @@ void update_sounds()
             continue;
         auto p = std::ranges::find_if(g_playing, [&](const Playing& x) { return x.name == e.name; });
         if (p == g_playing.end()) {
-            g_playing.push_back({e.name, e.sound, 0});
+            g_playing.push_back({.name = e.name, .sound = e.sound, .id = 0});
             p = g_playing.end() - 1;
         }
         objects::EmitterNode* emitter = get_emitter(e.name);
@@ -784,7 +784,7 @@ void scan_baked()
         }
         float mph = 0.0f;
         if (s->fetch_float(k_ed_path_speed(), &mph, 0) && mph >= kMinMph && mph <= kMaxMph)
-            g_baked.speeds.push_back({n.name, mph});
+            g_baked.speeds.push_back({.name = n.name, .mph = mph});
     }
     if (!vacant(g_baked))
         get_log("level editor: the level's baked fields: %u emitter sounds, %u path speeds",
@@ -813,7 +813,7 @@ bool path_of(uint32_t name, std::vector<V3>* points, bool* closed)
             break;
         maths::Vec4 pos;
         level_nodes::fetch_place(point, &pos);
-        points->push_back({pos.x, pos.y, pos.z});
+        points->push_back({.x = pos.x, .y = pos.y, .z = pos.z});
         seen.push_back(next);
         next = level_nodes::get_link_count(point) ? level_nodes::fetch_link(point, 0) : 0;
     }
@@ -921,7 +921,7 @@ void build_palette()
             if (!model.empty())
                 label += std::string(" (") + short_name(model) + ")";
             label += "  like " + nodes::caption(n.name);
-            (cls == kPedestrian ? peds : cars).emplace_back(label, Source{SourceKind::kDupFrom, {n.name}});
+            (cls == kPedestrian ? peds : cars).emplace_back(label, Source{.kind = SourceKind::kDupFrom, .names = {n.name}});
         } else if ((cls == kLevelObject || cls == kGameObject) && s->has_bare_flag(k_bouncy()) && live_object(n.name)) {
             sets[set_stem(nodes::caption(n.name))].push_back(n.name);
         } else if (cls == kParticleObject) {
@@ -932,13 +932,13 @@ void build_palette()
                 continue;
             const std::string label =
                 "Particles: " + nodes::caption(texture ? texture : type) + "  like " + nodes::caption(n.name);
-            particles.emplace_back(label, Source{SourceKind::kDupFrom, {n.name}});
+            particles.emplace_back(label, Source{.kind = SourceKind::kDupFrom, .names = {n.name}});
         }
     }
     auto add = [](std::vector<std::pair<std::string, Source>>& list, uint32_t colour) {
         std::ranges::sort(list, [](const auto& a, const auto& b) { return a.first < b.first; });
         for (auto& e : list) {
-            g_palette.push_back({e.first, colour, ""});
+            g_palette.push_back({.label = e.first, .colour = colour, .why = ""});
             g_sources.push_back(e.second);
         }
     };
@@ -951,8 +951,8 @@ void build_palette()
             names.resize(24);
         std::array<char, 160> label{};
         text::format_to(label, "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
-        g_palette.push_back({label.data(), 0xFFFFB060, ""});
-        g_sources.push_back({SourceKind::kAssignValue, names});
+        g_palette.push_back({.label = label.data(), .colour = 0xFFFFB060, .why = ""});
+        g_sources.push_back({.kind = SourceKind::kAssignValue, .names = names});
     }
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
@@ -964,11 +964,11 @@ void build_palette()
         std::string label = "Sound emitter: " + nodes::caption(wave.checksum);
         if (wave.looping)
             label += " (loop)";
-        sounds.emplace_back(label, Source{SourceKind::kSound, {}, wave.checksum});
+        sounds.emplace_back(label, Source{.kind = SourceKind::kSound, .names = {}, .sound = wave.checksum});
     }
     std::ranges::sort(sounds, [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& e : sounds) {
-        g_palette.push_back({e.first, 0xFF4FD1C5, why ? why : ""});
+        g_palette.push_back({.label = e.first, .colour = 0xFF4FD1C5, .why = why ? why : ""});
         g_sources.push_back(e.second);
     }
 }
@@ -1117,14 +1117,14 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         script::VectorValue v{};
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
         if ((o.emitter.has_mid_ = node->fetch_vec(kMid, &v, 0)))
-            o.emitter.mid = {v.x, v.y, v.z};
+            o.emitter.mid = {.x = v.x, .y = v.y, .z = v.z};
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
         if ((o.emitter.has_end_ = node->fetch_vec(kEnd, &v, 0)))
-            o.emitter.end = {v.x, v.y, v.z};
+            o.emitter.end = {.x = v.x, .y = v.y, .z = v.z};
         for (int i = 0; i < 3; ++i) {
             // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
             if ((core::at(o.emitter.has_box_, i) = node->fetch_vec(core::at(kBoxes, i), &v, 0)))
-                core::at(o.emitter.box, i) = {v.x, v.y, v.z};
+                core::at(o.emitter.box, i) = {.x = v.x, .y = v.y, .z = v.z};
         }
         o.at = o.from;
         o.at_yaw_ = o.from_yaw_;
@@ -1221,7 +1221,7 @@ Placed get_place(int index, V3 at, float yaw)
     for (const uint32_t name : source.names) {
         maths::Vec4 p;
         level_nodes::fetch_place(look_up_node_params(name), &p);
-        places.push_back({p.x, p.y, p.z});
+        places.push_back({.x = p.x, .y = p.y, .z = p.z});
     }
     const V3 anchor = pin_anchor_point(places);
     for (size_t i = 0; i < source.names.size(); ++i) {
@@ -1261,7 +1261,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             return;
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (to_pixel(a, &ax, &ay) && to_pixel(b, &bx, &by))
-            lines->push_back({ax, ay, bx, by, argb, thickness});
+            lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
     // The previewed path.
     if (g_preview.id) {
@@ -1287,11 +1287,11 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     constexpr uint32_t kGhost = 0xB0B0A0FF;
     for (const auto& [d, n] : near) {
         const V3 at = n->forward;
-        const V3 up = {0.0f, 1.0f, 0.0f};
+        const V3 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
         const V3 right = make_unit(perpendicular(up, at));
         std::array<V3, 3> axes = {{right * 20.0f, up * 40.0f, at * 20.0f}};
         std::array<V3, 8> corners{};
-        box_corners(n->pos, axes, {-1.0f, 0.0f, -1.0f}, {1.0f, 1.0f, 1.0f}, corners);
+        box_corners(n->pos, axes, {.x = -1.0f, .y = 0.0f, .z = -1.0f}, {.x = 1.0f, .y = 1.0f, .z = 1.0f}, corners);
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
@@ -1301,7 +1301,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         line(n->pos, n->pos + at * 30.0f, kGhost, 1.5f);
         float x = 0.0f, y = 0.0f;
         if (d < 1500.0f && to_pixel(n->pos + up * 48.0f, &x, &y))
-            texts->push_back({x, y, kGhost, nodes::caption(n->name) + " (uncreated)"});
+            texts->push_back({.x = x, .y = y, .argb = kGhost, .text = nodes::caption(n->name) + " (uncreated)"});
     }
 }
 

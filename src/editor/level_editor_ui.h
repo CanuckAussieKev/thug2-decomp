@@ -144,7 +144,7 @@ struct ShapeMesh {
         // Scenery or an object with a model: its scale along its own axes (level_editor_scale.h - the Inspector's
         // Scale X / Y / Z).
         bool scalable = false;
-        V3 scale = {1.0f, 1.0f, 1.0f};
+        V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
         // Scenery: its parts - the pieces (a shadow marked: level_editor_shadows.h) and the rail points carried -
         // each with x (removed from the selection) and Keep only this.
         struct Member {

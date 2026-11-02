@@ -175,20 +175,20 @@ std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
 {
     std::vector<MpProblem> out;
     if (counts.player1 == 0)
-        out.push_back({Severity::kError, "No Player1 restart", -1});
+        out.push_back({.severity = Severity::kError, .text = "No Player1 restart", .team = -1});
     if (counts.multiplayer == 0)
-        out.push_back({Severity::kWarning, "No Multiplayer restart", -1});
+        out.push_back({.severity = Severity::kWarning, .text = "No Multiplayer restart", .team = -1});
     else if (counts.multiplayer == 1)
-        out.push_back({Severity::kDetailsOf, "Only one Multiplayer restart", -1});
+        out.push_back({.severity = Severity::kDetailsOf, .text = "Only one Multiplayer restart", .team = -1});
     if (counts.horse == 0)
-        out.push_back({Severity::kWarning, "No HORSE restart", -1});
+        out.push_back({.severity = Severity::kWarning, .text = "No HORSE restart", .team = -1});
     if (counts.crowns == 0)
-        out.push_back({Severity::kWarning, "King of the Hill: no crowns", -1});
+        out.push_back({.severity = Severity::kWarning, .text = "King of the Hill: no crowns", .team = -1});
     bool any_team = false;
     for (const TeamNodes& t : counts.teams)
         any_team = any_team || t.flag || t.base || t.restart;
     if (!any_team) {
-        out.push_back({Severity::kWarning, "No Capture the Flag flags, bases or team restarts", -1});
+        out.push_back({.severity = Severity::kWarning, .text = "No Capture the Flag flags, bases or team restarts", .team = -1});
         return out;
     }
     for (int team = 0; team < 4; ++team) {
@@ -210,7 +210,7 @@ std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
         add(t.restart, "its team restart (TRG_CTF_Restart_" + colour + ")");
         std::string message = "Capture the Flag, team " + colour;
         message.append(": missing ").append(missing);
-        out.push_back({Severity::kWarning, message, team});
+        out.push_back({.severity = Severity::kWarning, .text = message, .team = team});
     }
     return out;
 }
@@ -261,15 +261,15 @@ bool get_cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     // point at +0x34, the collision object at +0x54 and its checksum at +0x58 - as the editor's other modules read it)
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     const auto& n = ray->hit_.normal;
     const auto& p = ray->hit_.point;
-    *hit = {p[0], p[1], p[2]};
+    *hit = {.x = p[0], .y = p[1], .z = p[2]};
     if (normal)
-        *normal = {n[0], n[1], n[2]};
+        *normal = {.x = n[0], .y = n[1], .z = n[2]};
     if (sector)
         *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
@@ -279,7 +279,7 @@ namespace {
 
 float span_to(V3 a, V3 b) { return std::sqrt(get_dot(a - b, a - b)); }
 
-const std::array<V3, 6> kDirections = {{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
+const std::array<V3, 6> kDirections = {{{.x = 1, .y = 0, .z = 0}, {.x = -1, .y = 0, .z = 0}, {.x = 0, .y = 1, .z = 0}, {.x = 0, .y = -1, .z = 0}, {.x = 0, .y = 0, .z = 1}, {.x = 0, .y = 0, .z = -1}}};
 
 } // namespace
 
@@ -437,7 +437,7 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
     placed.place = get_judge(probes);
     placed.up_in_ = core::at(probes, 2).in;
     V3 hit{};
-    placed.ground = core::at(probes, 3).out >= 0.0f || get_cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
+    placed.ground = core::at(probes, 3).out >= 0.0f || get_cast(point, point - V3{.x = 0.0f, .y = kGroundReach, .z = 0.0f}, &hit);
     return placed;
 }
 
@@ -449,7 +449,7 @@ void check_placement(std::vector<Issue>* out, uint32_t world)
         if (n.family != nodes::Family::kSpawn && n.family != nodes::Family::kCrown &&
             n.family != nodes::Family::kBitMark)
             continue;
-        const V3 point = n.pos + V3{0.0f, kLift, 0.0f};
+        const V3 point = n.pos + V3{.x = 0.0f, .y = kLift, .z = 0.0f};
         const Placed& placed = placed_at(n.name, point, world);
         const Place place = placed.place;
         const bool own =
@@ -472,7 +472,7 @@ void check_placement(std::vector<Issue>* out, uint32_t world)
             issue.text = what + " " + get_name(n.name) + " is under a surface (" +
                          std::to_string(static_cast<int>(placed.up_in_ - kLift)) + " units below the surface)";
             issue.fixable = node_edit::get_movable(n);
-            issue.fix_pos_ = point + V3{0.0f, placed.up_in_, 0.0f};
+            issue.fix_pos_ = point + V3{.x = 0.0f, .y = placed.up_in_, .z = 0.0f};
             append_one(out, issue, "below"); // (the key without the depth: Ignore holds while it's moved about)
         } else {
             if (!placed.ground) {

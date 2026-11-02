@@ -37,14 +37,14 @@ namespace frontend::level_editor::faces {
 namespace {
 
 const std::array<FlagInfo, kFlagCount> kFlags = {{
-    {0x0001, "Skatable", "Skatable at any slope"},
-    {0x0002, "Not Skatable", "Not skatable unless Skatable or Vert is set"},
-    {0x0004, "Wallride", "Wallride only"},
-    {0x0008, "Vert", "Launches like a quarter pipe"},
-    {0x0010, "Not Collidable", "Skater, camera and objects pass through"},
-    {0x0040, "Trigger", "Runs its node's TriggerScript when crossed"},
-    {0x0080, "Camera Pass-Through", "Camera passes through"},
-    {0x2000, "Not Taggable", "Can't be tagged with graffiti"},
+    {.bit = 0x0001, .name = "Skatable", .what = "Skatable at any slope"},
+    {.bit = 0x0002, .name = "Not Skatable", .what = "Not skatable unless Skatable or Vert is set"},
+    {.bit = 0x0004, .name = "Wallride", .what = "Wallride only"},
+    {.bit = 0x0008, .name = "Vert", .what = "Launches like a quarter pipe"},
+    {.bit = 0x0010, .name = "Not Collidable", .what = "Skater, camera and objects pass through"},
+    {.bit = 0x0040, .name = "Trigger", .what = "Runs its node's TriggerScript when crossed"},
+    {.bit = 0x0080, .name = "Camera Pass-Through", .what = "Camera passes through"},
+    {.bit = 0x2000, .name = "Not Taggable", .what = "Can't be tagged with graffiti"},
 }};
 
 int hex_digit(char c)
@@ -173,7 +173,7 @@ std::vector<SectorFaces> group_set(const std::vector<Change>& changes)
     std::vector<SectorFaces> out;
     for (auto& entry : by_sector) {
         std::ranges::sort(entry.second);
-        out.push_back({entry.first, entry.second});
+        out.push_back({.checksum = entry.first, .faces = entry.second});
     }
     return out;
 }
@@ -250,7 +250,7 @@ bool get_corners(FaceKey key, std::span<V3, 3> out)
             return false;
         maths::Vec4 p{};
         tri->read_stored_vertex(static_cast<int>(v), &p);
-        core::at(out, k) = {p.x, p.y, p.z};
+        core::at(out, k) = {.x = p.x, .y = p.y, .z = p.z};
     }
     return true;
 }
@@ -277,7 +277,7 @@ bool get_key_of(const view::FaceHit& hit, FaceKey* key, std::string* why)
         *why = "Not a level collision face";
         return false;
     }
-    *key = {checksum, static_cast<uint16_t>(face)};
+    *key = {.checksum = checksum, .face = static_cast<uint16_t>(face)};
     return true;
 }
 
@@ -408,7 +408,7 @@ bool select_piece(uint32_t checksum, bool add)
         return false;
     if (const render::TriMeshSource* tri = get_geometry(checksum)) {
         for (int f = 0; std::cmp_less(f, tri->tri_count_) && faces.size() < kMostSelected; ++f)
-            faces.push_back({checksum, static_cast<uint16_t>(f)});
+            faces.push_back({.checksum = checksum, .face = static_cast<uint16_t>(f)});
     }
     // (the faces its shared collision took along: theirs to edit too)
     if (const shared_collision::Companion* companion = shared_collision::companion_of(checksum)) {
@@ -416,7 +416,7 @@ bool select_piece(uint32_t checksum, bool add)
             render::TriMeshSource* geometry = nullptr;
             int face = -1;
             if (shared_collision::origin_of(checksum, i, &geometry, &face) && geometry && face >= 0)
-                faces.push_back({geometry->checksum_, static_cast<uint16_t>(face)});
+                faces.push_back({.checksum = geometry->checksum_, .face = static_cast<uint16_t>(face)});
         }
     }
     if (faces.empty())
@@ -498,7 +498,7 @@ std::vector<SectorFaces> get_changed()
     for (const auto& origin : origins()) {
         uint16_t now = 0;
         if (get_take_in(origin.first, &now))
-            changes.push_back({origin.first, origin.second, now});
+            changes.push_back({.key = origin.first, .origin = origin.second, .now = now});
     }
     return group_set(changes);
 }
@@ -508,7 +508,7 @@ int get_apply(const std::vector<SectorFaces>& sectors)
     int count = 0, missing = 0;
     for (const SectorFaces& s : sectors) {
         for (const auto& face : s.faces) {
-            if (emit_out({s.checksum, face.first}, face.second))
+            if (emit_out({.checksum = s.checksum, .face = face.first}, face.second))
                 ++count;
             else
                 ++missing;
@@ -571,7 +571,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             if (!cast_onto(camera_pos, frame, lens, b, near_z, &nx, &ny))
                 continue;
             ndc_to_pixel(viewport, nx, ny, &bx, &by);
-            lines->push_back({ax, ay, bx, by, argb, thickness});
+            lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
         }
     };
     size_t drawn = 0;

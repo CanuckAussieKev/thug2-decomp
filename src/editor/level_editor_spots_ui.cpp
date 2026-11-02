@@ -47,7 +47,7 @@ void spawn_section(int node_index, std::vector<Request>* requests)
         }
         if (horse)
             text += std::string(text.empty() ? "" : ", ") + "Horse";
-        Request request = {Request::Kind::kFieldSet};
+        Request request = {.kind = Request::Kind::kFieldSet};
         request.node = node.name;
         request.id = fields::key_restart_types();
         request.value = static_cast<int>(fields::Kind::kNames);

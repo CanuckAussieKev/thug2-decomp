@@ -123,9 +123,9 @@ void prepare_all()
         const char *id, *name;
         uint32_t bit;
     };
-    static const auto kPicks = std::to_array<PickToggle>({{"pick_nodes", "Pick Nodes", picking::kNodes},
-                                        {"pick_objects", "Pick Objects", picking::kObjects},
-                                        {"pick_scenery", "Pick Scenery", picking::kScenery}});
+    static const auto kPicks = std::to_array<PickToggle>({{.id = "pick_nodes", .name = "Pick Nodes", .bit = picking::kNodes},
+                                        {.id = "pick_objects", .name = "Pick Objects", .bit = picking::kObjects},
+                                        {.id = "pick_scenery", .name = "Pick Scenery", .bit = picking::kScenery}});
     // (UX4: the Overlays menu's switches; UX5: a note where the view looks, the budget meter)
     for (const overlays::BitInfo& info : overlays::get_bits()) {
         const uint32_t bit = info.bit;
@@ -242,7 +242,7 @@ void refresh_changes()
         return std::string(name ? name : "");
     };
     for (const changes::TableRow& e : changes::link_chain(text, label))
-        g_changes.push_back({e, e.line >= 0 && std::cmp_less(e.line, lines.size()) ? core::at(lines, e.line) : ""});
+        g_changes.push_back({.entry = e, .record = e.line >= 0 && std::cmp_less(e.line, lines.size()) ? core::at(lines, e.line) : ""});
 }
 
 void go_to(const ChangeRow& row)

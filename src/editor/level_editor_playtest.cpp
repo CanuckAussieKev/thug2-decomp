@@ -129,7 +129,7 @@ void Recorder::feed(V3 pos, Motion motion)
         samples.push_back(s);
         return true;
     };
-    Sample now = {pos, motion, false};
+    Sample now = {.pos = pos, .motion = motion, .jump = false};
     if (!have_last_ || samples.empty()) {
         have_last_ = true;
         last = now;
@@ -189,14 +189,14 @@ std::vector<GapChange> GapTracker::tick_frame(const std::vector<GapRead>& now)
         const int old_pending = old ? old->pending : 0;
         const int old_count = old ? old->count : g.count;
         if (g.pending > old_pending)
-            changes.push_back({GapChange::Kind::kGot, g.name, g.score});
+            changes.push_back({.kind = GapChange::Kind::kGot, .name = g.name, .score = g.score});
         if (g.count > old_count) {
             // (got and landed between two reads: the got first)
             if (old_pending == 0 && g.pending <= old_pending)
-                changes.push_back({GapChange::Kind::kGot, g.name, g.score});
-            changes.push_back({GapChange::Kind::kLanded, g.name, g.score});
+                changes.push_back({.kind = GapChange::Kind::kGot, .name = g.name, .score = g.score});
+            changes.push_back({.kind = GapChange::Kind::kLanded, .name = g.name, .score = g.score});
         } else if (old_pending > 0 && g.pending == 0) {
-            changes.push_back({GapChange::Kind::kLost, g.name, g.score});
+            changes.push_back({.kind = GapChange::Kind::kLost, .name = g.name, .score = g.score});
         }
     }
     last = now;
@@ -208,18 +208,18 @@ bool ComboTracker::tick_frame(int pending_now, bool bailing, ComboEnd* end)
     bool decided = false;
     if (ending > 0) {
         if (bailing) {
-            *end = {ending, false};
+            *end = {.points = ending, .landed = false};
             ending = 0;
             decided = true;
         } else if (--settle <= 0) {
-            *end = {ending, true};
+            *end = {.points = ending, .landed = true};
             ending = 0;
             decided = true;
         }
     }
     if (pending > 0 && pending_now <= 0) {
         if (!decided && bailing) {
-            *end = {pending, false};
+            *end = {.points = pending, .landed = false};
             decided = true;
         } else {
             ending = pending;
@@ -485,7 +485,7 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     const bool walking = !driving && pose->physics_mode_ == 1;
     const objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);
     const uint32_t trick = balance ? core::down_cast<const objects::RiderTeeterMoves>(balance)->trick_ : 0;
-    out->pos = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
+    out->pos = {.x = skater->at_point_.x, .y = skater->at_point_.y, .z = skater->at_point_.z};
     out->motion = get_classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
     out->pending = 0;
@@ -597,7 +597,7 @@ std::vector<GapRead> read_gaps()
         if (node->data == memory::ListNode::head_marker())
             break;
         auto* gap = static_cast<goals::GapEntry*>(node->data);
-        out.push_back({gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
+        out.push_back({.name = gap->label_.c_str() ? gap->label_.c_str() : "", .pending = gap->pending_, .count = gap->num_, .score = gap->points_held_});
     }
     return out;
 }
@@ -612,7 +612,7 @@ void close_run(const char* why)
     // (a combo still settling counts as landed)
     if (g_rec.combo.ending > 0 && !g_rec.run.samples.empty())
         g_rec.run.events.push_back(
-            {EventKind::kCombo, g_rec.run.samples.back().pos, "", g_rec.combo.ending, GapStatus::kLanded});
+            {.kind = EventKind::kCombo, .pos = g_rec.run.samples.back().pos, .name = "", .value = g_rec.combo.ending, .status = GapStatus::kLanded});
     if (g_rec.run.samples.size() < 2) {
         get_log("level editor: trail - a run too short to keep (%s)", why);
         return;
@@ -670,13 +670,13 @@ void link_record(modules::FrontEnd* front_end)
     core::at(run.motion_seconds_, static_cast<int>(now.motion)) += dt;
     g_rec.recorder.feed(now.pos, now.motion);
     if (now.bailing && !g_rec.was_bailing_)
-        run.events.push_back({EventKind::kBail, now.pos, "", 0, GapStatus::kLost});
+        run.events.push_back({.kind = EventKind::kBail, .pos = now.pos, .name = "", .value = 0, .status = GapStatus::kLost});
     g_rec.was_bailing_ = now.bailing;
     // The gaps: got, landed, lost.
     LevelTrails& level = levels()[g_rec.scene];
     for (const GapChange& c : g_rec.gaps.tick_frame(read_gaps())) {
         if (c.kind == GapChange::Kind::kGot) {
-            run.events.push_back({EventKind::kGap, now.pos, c.name, c.score, GapStatus::kAwaiting});
+            run.events.push_back({.kind = EventKind::kGap, .pos = now.pos, .name = c.name, .value = c.score, .status = GapStatus::kAwaiting});
             continue;
         }
         bool marked = false;
@@ -690,7 +690,7 @@ void link_record(modules::FrontEnd* front_end)
         }
         if (c.kind == GapChange::Kind::kLanded) {
             if (!marked)
-                run.events.push_back({EventKind::kGap, now.pos, c.name, c.score, GapStatus::kLanded});
+                run.events.push_back({.kind = EventKind::kGap, .pos = now.pos, .name = c.name, .value = c.score, .status = GapStatus::kLanded});
             if (level.landed.insert(c.name).second)
                 get_log("level editor: trail - gap \"%s\" landed for the first time in a test run", c.name.c_str());
         }
@@ -698,7 +698,7 @@ void link_record(modules::FrontEnd* front_end)
     ComboEnd end;
     if (g_rec.combo.tick_frame(now.pending, now.bailing, &end) && end.points > 0)
         run.events.push_back(
-            {EventKind::kCombo, now.pos, "", end.points, end.landed ? GapStatus::kLanded : GapStatus::kLost});
+            {.kind = EventKind::kCombo, .pos = now.pos, .name = "", .value = end.points, .status = end.landed ? GapStatus::kLanded : GapStatus::kLost});
 }
 
 void restart_step(modules::FrontEnd* front_end)
@@ -744,7 +744,7 @@ void snap_one(objects::Entity* object, void* data)
         return;
     if (composite->fetch_module(kSkaterPhysicsControl) || composite->fetch_module(kCamModuleName))
         return;
-    walk->out->push_back({object_edit::store_away(composite), composite->vel_});
+    walk->out->push_back({.state = object_edit::store_away(composite), .vel = composite->vel_});
 }
 
 // The skaters paused again after the game is unpaused (the front end's own walk of them - FrontEnd::PauseGame: their
@@ -934,9 +934,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
 {
     if (g_simulating) {
         texts->push_back(
-            {static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * 0.5f - 150.0f,
-             static_cast<float>(core::at(viewport, 1)) + 36.0f, 0xFFFFD040,
-             g_keep_simulation ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
+            {.x = static_cast<float>(core::at(viewport, 0)) + static_cast<float>(core::at(viewport, 2)) * 0.5f - 150.0f,
+             .y = static_cast<float>(core::at(viewport, 1)) + 36.0f, .argb = 0xFFFFD040,
+             .text = g_keep_simulation ? "SIMULATING - F6 stops (objects stay)" : "SIMULATING - F6 stops (objects put back)"});
     }
     if (!g_show_trails)
         return;
@@ -956,7 +956,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             return;
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (to_screen(a, &ax, &ay) && to_screen(b, &bx, &by))
-            lines->push_back({ax, ay, bx, by, argb, thickness});
+            lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
     constexpr float kFar = 20000.0f, kLabelFar = 5000.0f;
     size_t budget = 60000;
@@ -985,8 +985,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             const V3 d = s - camera;
             float x = 0.0f, y = 0.0f;
             if (get_dot(d, d) < kLabelFar * kLabelFar && to_screen(s, &x, &y)) {
-                circles->push_back({x, y, 5.0f, 0xFFFFFFFF, false, 1.5f});
-                texts->push_back({x + 8.0f, y - 8.0f, 0xFFFFFFFF, "Run " + std::to_string(run.number)});
+                circles->push_back({.x = x, .y = y, .radius = 5.0f, .argb = 0xFFFFFFFF, .filled = false, .thickness = 1.5f});
+                texts->push_back({.x = x + 8.0f, .y = y - 8.0f, .argb = 0xFFFFFFFF, .text = "Run " + std::to_string(run.number)});
             }
         }
         // The markers.
@@ -998,9 +998,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             float x = 0.0f, y = 0.0f;
             if (e.kind == EventKind::kBail) {
                 constexpr float kS = 30.0f;
-                line(e.pos + V3{-kS, 0.0f, -kS}, e.pos + V3{kS, 0.0f, kS}, 0xFFFF3030, 2.0f);
-                line(e.pos + V3{-kS, 0.0f, kS}, e.pos + V3{kS, 0.0f, -kS}, 0xFFFF3030, 2.0f);
-                line(e.pos, e.pos + V3{0.0f, 2.0f * kS, 0.0f}, 0xFFFF3030, 1.0f);
+                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = -kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = kS}, 0xFFFF3030, 2.0f);
+                line(e.pos + V3{.x = -kS, .y = 0.0f, .z = kS}, e.pos + V3{.x = kS, .y = 0.0f, .z = -kS}, 0xFFFF3030, 2.0f);
+                line(e.pos, e.pos + V3{.x = 0.0f, .y = 2.0f * kS, .z = 0.0f}, 0xFFFF3030, 1.0f);
                 continue;
             }
             if (!to_screen(e.pos, &x, &y))
@@ -1009,16 +1009,16 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                 const uint32_t colour = e.status == GapStatus::kLanded ? 0xFF40FF60
                                         : e.status == GapStatus::kLost ? 0xFFFF4040
                                                                        : 0xFFFFE040;
-                circles->push_back({x, y, 7.0f, colour, true, 1.0f});
-                circles->push_back({x, y, 9.0f, 0xFF000000, false, 1.0f});
+                circles->push_back({.x = x, .y = y, .radius = 7.0f, .argb = colour, .filled = true, .thickness = 1.0f});
+                circles->push_back({.x = x, .y = y, .radius = 9.0f, .argb = 0xFF000000, .filled = false, .thickness = 1.0f});
                 if (distance2 < kLabelFar * kLabelFar)
-                    texts->push_back({x + 10.0f, y - 7.0f, colour,
-                                      e.name + (e.status == GapStatus::kLanded ? ""
+                    texts->push_back({.x = x + 10.0f, .y = y - 7.0f, .argb = colour,
+                                      .text = e.name + (e.status == GapStatus::kLanded ? ""
                                                 : e.status == GapStatus::kLost ? " (lost)"
                                                                                : " (pending)")});
             } else if (e.kind == EventKind::kCombo && distance2 < (kLabelFar * 0.6f) * (kLabelFar * 0.6f)) {
-                texts->push_back({x + 6.0f, y + 4.0f, e.status == GapStatus::kLanded ? 0xFFE0E0E0 : 0xFFFF8080,
-                                  (e.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(e.value)});
+                texts->push_back({.x = x + 6.0f, .y = y + 4.0f, .argb = e.status == GapStatus::kLanded ? 0xFFE0E0E0 : 0xFFFF8080,
+                                  .text = (e.status == GapStatus::kLanded ? "+" : "lost ") + std::to_string(e.value)});
             }
         }
     }

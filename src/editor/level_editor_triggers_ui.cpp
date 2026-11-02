@@ -156,7 +156,7 @@ void proxim_section(uint32_t node)
         if (e.shape && !e.box && e.radius <= 0.0f)
             e.radius = 200.0f;
         if (e.box && e.size.x <= 0.0f)
-            e.size = {400.0f, 200.0f, 400.0f};
+            e.size = {.x = 400.0f, .y = 200.0f, .z = 400.0f};
         changed = true;
     }
     if (e.shape && !e.box) {
@@ -173,7 +173,7 @@ void proxim_section(uint32_t node)
         if (ImGui::DragFloat3("Size##proxim", size.data(), 5.0f, kProximMin, kProximMax, "%.0f",
                               ImGuiSliderFlags_AlwaysClamp)) {
             ProximEdit sized = e;
-            sized.size = {core::at(size, 0), core::at(size, 1), core::at(size, 2)};
+            sized.size = {.x = core::at(size, 0), .y = core::at(size, 1), .z = core::at(size, 2)};
             get_queue([sized] { set_proxim(sized, false); });
         }
         if (ImGui::IsItemActivated())
@@ -182,7 +182,7 @@ void proxim_section(uint32_t node)
             gui::tooltip("World-aligned box");
     }
     if (now && ImGui::Button("Revert"))
-        get_queue([node] { set_proxim(ProximEdit{node}, true); });
+        get_queue([node] { set_proxim(ProximEdit{.node = node}, true); });
     gui::text_disabled("Drag the handles to resize");
     if (changed)
         get_queue([e] { set_proxim(e, true); });
@@ -395,7 +395,7 @@ void inspector_section(int index)
     std::array<float, 3> size = {{s.size.x, s.size.y, s.size.z}};
     if (ImGui::DragFloat3("Size", size.data(), 5.0f, 10.0f, 50000.0f, "%.0f")) {
         Spec sized = s;
-        sized.size = {core::at(size, 0), core::at(size, 1), core::at(size, 2)};
+        sized.size = {.x = core::at(size, 0), .y = core::at(size, 1), .z = core::at(size, 2)};
         get_queue([key, sized] { set_spec(key, sized, false); });
     }
     if (ImGui::IsItemActivated())

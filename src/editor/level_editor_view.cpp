@@ -232,7 +232,7 @@ render::TriMeshSource* drawn_tri_data_of(uint32_t checksum, render::WorldCell* s
     return tri;
 }
 
-V3 to_v3(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
+V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
 bool g_show_collision;
 bool g_setting_read;
@@ -359,7 +359,7 @@ bool hide_sector(uint32_t checksum)
     render::WorldCell* sector = scenery::sector_of(checksum);
     if (!sector || !geom_of(sector))
         return false; // (collision only: nothing drawn to hide)
-    g_hidden_sectors.push_back({checksum, sector, fetch_shown(sector)});
+    g_hidden_sectors.push_back({.checksum = checksum, .sector = sector, .mask = fetch_shown(sector)});
     toggle_shown(sector, 0);
     return true;
 }
@@ -371,7 +371,7 @@ bool hide_object(uint32_t id)
     objects::GameEntity* object = live_object(id);
     if (!object)
         return false;
-    HiddenObjectRec rec = {id, {}};
+    HiddenObjectRec rec = {.id = id, .geoms = {}};
     for (int i = 0; i < 16; ++i) {
         void* geom = object_edit::get_geometry(object, i);
         if (!geom)
@@ -470,7 +470,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         const TickCycle* frame;
         float near_z_;
         std::vector<Candidate> found;
-    } walk = {camera_pos, &frame, near_z, {}};
+    } walk = {.camera = camera_pos, .frame = &frame, .near_z_ = near_z, .found = {}};
     scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
@@ -487,12 +487,12 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             // (wholly behind the camera: left out)
             bool front = false;
             for (int i = 0; i < 8 && !front; ++i) {
-                const V3 corner = {(i & 1) ? max.x : min.x, (i & 2) ? max.y : min.y, (i & 4) ? max.z : min.z};
+                const V3 corner = {.x = (i & 1) ? max.x : min.x, .y = (i & 2) ? max.y : min.y, .z = (i & 4) ? max.z : min.z};
                 front = -get_dot(corner - w->camera, w->frame->back) >= w->near_z_;
             }
             if (!front)
                 return;
-            w->found.push_back({checksum, sector, tri, wall || checksum == g_wall ? distance - 1e7f : distance, off});
+            w->found.push_back({.checksum = checksum, .sector = sector, .tri = tri, .order = wall || checksum == g_wall ? distance - 1e7f : distance, .off = off});
         },
         &walk);
     std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.order < b.order; });
@@ -505,7 +505,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         std::array<float, 4> y;
     };
     std::vector<Polygon> polygons;
-    const V3 light = make_unit({0.35f, 0.85f, 0.4f});
+    const V3 light = make_unit({.x = 0.35f, .y = 0.85f, .z = 0.4f});
     // A face projected and styled (style_of): its polygon added, its edges drawn; false when it isn't on the screen.
     auto add_face = [&](std::span<const V3, 3> p, const FaceFacts& facts) {
         std::array<V3, 4> clipped{};
@@ -545,7 +545,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         if (style.edge && lines) {
             for (int k = 0; k < count; ++k) {
                 const int n = (k + 1) % count;
-                const ui::Seg line = {core::at(poly.x, k), core::at(poly.y, k), core::at(poly.x, n), core::at(poly.y, n), style.edge, style.thickness};
+                const ui::Seg line = {.ax = core::at(poly.x, k), .ay = core::at(poly.y, k), .bx = core::at(poly.x, n), .by = core::at(poly.y, n), .argb = style.edge, .thickness = style.thickness};
                 if (style.dashed)
                     add_dashed(lines, line, 6.0f, 5.0f);
                 else
@@ -581,7 +581,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
             // nor is a face taken along - its piece's companion is where it is now)
             if ((cached->collision_only_ || !candidate.off) && !facts.taken)
-                g_drawn.push_back({candidate.checksum, cached->collision_only_, core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(cached->index, f)});
+                g_drawn.push_back({.checksum = candidate.checksum, .wall = cached->collision_only_, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = core::at(cached->index, f)});
             any = true;
             g_stats.taken += facts.taken ? 1 : 0;
             g_stats.triggers += (facts.flags & 0x40) && facts.trigger_colour_ ? 1 : 0;
@@ -596,7 +596,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
     struct CompanionWalk {
         V3 camera;
         std::vector<std::pair<uint32_t, const shared_collision::Companion*>> near;
-    } companions = {camera_pos, {}};
+    } companions = {.camera = camera_pos, .near = {}};
     shared_collision::for_each_companion(
         [](void* context, uint32_t checksum, const shared_collision::Companion& companion) {
             auto* w = static_cast<CompanionWalk*>(context);
@@ -624,7 +624,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             facts.companion = true;
             const bool drawn = ok && add_face(p, facts);
             if (drawn)
-                g_drawn.push_back({entry.first, false, core::at(p, 0), core::at(p, 1), core::at(p, 2), f, true});
+                g_drawn.push_back({.checksum = entry.first, .wall = false, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = f, .companion = true});
             any = drawn || any;
         }
         g_stats.companions += any ? 1 : 0;
@@ -633,9 +633,9 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     triangles->reserve(triangles->size() + polygons.size() * 2);
     for (const Polygon& p : polygons) {
-        triangles->push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 1), core::at(p.y, 1), core::at(p.x, 2), core::at(p.y, 2), p.argb});
+        triangles->push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 1), .by = core::at(p.y, 1), .cx = core::at(p.x, 2), .cy = core::at(p.y, 2), .argb = p.argb});
         if (p.count == 4)
-            triangles->push_back({core::at(p.x, 0), core::at(p.y, 0), core::at(p.x, 2), core::at(p.y, 2), core::at(p.x, 3), core::at(p.y, 3), p.argb});
+            triangles->push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 2), .by = core::at(p.y, 2), .cx = core::at(p.x, 3), .cy = core::at(p.y, 3), .argb = p.argb});
     }
     g_stats.triangles = static_cast<int>(polygons.size());
 }

@@ -180,7 +180,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
         } else if (key == "pos" || key == "angles") {
             if (!read_triple(value, v))
                 return false;
-            (key == "pos" ? spec->pos : spec->angles) = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
+            (key == "pos" ? spec->pos : spec->angles) = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
         } else if (key == "types") {
             std::istringstream list(value);
             std::string type;
@@ -390,9 +390,9 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             int hidden = 0;
             ok = read_hex(in, &checksum) && read_placed(in, &p) && (in >> hidden) && read_placed_fields(in, &p);
             if (ok && kind == "sector")
-                file->sectors.push_back({checksum, p, hidden != 0});
+                file->sectors.push_back({.checksum = checksum, .placement = p, .hidden = hidden != 0});
             else if (ok)
-                file->rails.push_back({checksum, p, hidden != 0});
+                file->rails.push_back({.name = checksum, .placement = p, .hidden = hidden != 0});
         } else if (kind == "clone") {
             CloneRecord c = {};
             ok = read_hex(in, &c.source) && read_placed(in, &c.placement) && read_placed_fields(in, &c.placement);
@@ -471,7 +471,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             uint32_t id = 0;
             ok = (in >> what) && read_hex(in, &id);
             if (ok && (what == "object" || what == "sector"))
-                file->locks.push_back({what == "object" ? picking::kObjects : picking::kScenery, id});
+                file->locks.push_back({.kind = what == "object" ? picking::kObjects : picking::kScenery, .id = id});
         } else if (kind == "trigger") {
             std::string rest;
             std::getline(in, rest);
@@ -487,7 +487,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             int off = 0;
             ok = read_hex(in, &w.checksum) && read_placed(in, &w.placement) && (in >> off) && (off == 0 || off == 1);
             w.off = off != 0;
-            w.placement.scale = {1.0f, 1.0f, 1.0f};
+            w.placement.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
             if (ok)
                 file->walls.push_back(w);
         } else if (chains::is_record(kind)) {
@@ -741,12 +741,12 @@ object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::spa
     object_edit::State state = {};
     state.id = id;
     state.scale = scale;
-    state.pos = {core::at(pos, 0), core::at(pos, 1), core::at(pos, 2), 1.0f};
+    state.pos = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2), .w = 1.0f};
     for (int r = 0; r < 3; ++r) {
-        core::at(state.matrix.row, r) = {core::at(rows, r * 3 + 0), core::at(rows, r * 3 + 1), core::at(rows, r * 3 + 2), 0.0f};
+        core::at(state.matrix.row, r) = {.x = core::at(rows, r * 3 + 0), .y = core::at(rows, r * 3 + 1), .z = core::at(rows, r * 3 + 2), .w = 0.0f};
         core::at(state.draw_matrix_.row, r) = core::at(state.matrix.row, r);
     }
-    core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     return state;
 }
 
@@ -780,7 +780,7 @@ bool get_capture(FileLoad* file)
     for (const scenery::Replicate& clone : scenery::get_clones()) {
         Placement now;
         if (scenery::placement_now(clone.checksum, &now) && !scenery::get_hidden(clone.checksum)) {
-            file->clones.push_back({clone.source, compose(now, clone.source_at_copy_)});
+            file->clones.push_back({.source = clone.source, .placement = compose(now, clone.source_at_copy_)});
             clone_order.push_back(clone.checksum);
         }
     }
@@ -789,7 +789,7 @@ bool get_capture(FileLoad* file)
         objects::GameEntity* object = live_object(id);
         if (!object)
             continue;
-        ObjectRecord record = {id, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
+        ObjectRecord record = {.id = id, .pos = {object->at_point_.x, object->at_point_.y, object->at_point_.z}, .rows = {}};
         rows_of(object->basis_frame_, record.rows);
         record.scale = scale_tool::get_object_scale(object);
         file->objects.push_back(record);
@@ -799,7 +799,7 @@ bool get_capture(FileLoad* file)
         if (!object)
             continue;
         CopyRecord record = {
-            copy.name, copy.source, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
+            .name = copy.name, .source = copy.source, .pos = {object->at_point_.x, object->at_point_.y, object->at_point_.z}, .rows = {}};
         rows_of(object->basis_frame_, record.rows);
         record.scale = scale_tool::get_object_scale(object);
         file->copies.push_back(record);
@@ -828,7 +828,7 @@ bool get_capture(FileLoad* file)
             continue; // (its node record has its place)
         const node_edit::Values& v = node.values;
         file->nodes.push_back(
-            {node.name, true, true, {v.pos.x, v.pos.y, v.pos.z}, {v.angles.x, v.angles.y, v.angles.z}});
+            {.name = node.name, .has_pos_ = true, .has_angles_ = true, .pos = {v.pos.x, v.pos.y, v.pos.z}, .angles = {v.angles.x, v.angles.y, v.angles.z}});
     }
     // (phase 6) the Inspector's field edits: on the node's set record (one made for a node not moved)
     for (const fields::NodeEdits& node : fields::get_changed()) {
@@ -889,7 +889,7 @@ std::string get_apply(const FileLoad& file)
         const uint32_t made = scenery::get_duplicate(record.source);
         clone_made.push_back(made); // (UX7: by the records' order, 0 for one not made - the linked copies)
         if (made)
-            clones.push_back({made, record.placement, false});
+            clones.push_back({.checksum = made, .placement = record.placement, .hidden = false});
     }
     scenery::apply_states(clones, {});
     scenery::apply_states(file.sectors, file.rails);
@@ -903,7 +903,7 @@ std::string get_apply(const FileLoad& file)
     for (const CopyRecord& record : file.copies) {
         const bool there = object_edit::is_copy(record.name) && live_object(record.name);
         if ((there ||
-             object_edit::make_copy(record.source, {core::at(record.pos, 0), core::at(record.pos, 1), core::at(record.pos, 2)}, record.name)) &&
+             object_edit::make_copy(record.source, {.x = core::at(record.pos, 0), .y = core::at(record.pos, 1), .z = core::at(record.pos, 2)}, record.name)) &&
             object_edit::get_restore(state_of(record.name, record.pos, record.rows, record.scale)))
             ++copies;
     }
@@ -924,9 +924,9 @@ std::string get_apply(const FileLoad& file)
         if (!node_edit::get_take_in(record.name, &values))
             continue;
         if (record.has_pos_)
-            values.pos = {core::at(record.pos, 0), core::at(record.pos, 1), core::at(record.pos, 2)};
+            values.pos = {.x = core::at(record.pos, 0), .y = core::at(record.pos, 1), .z = core::at(record.pos, 2)};
         if (record.has_angles_)
-            values.angles = {core::at(record.angles, 0), core::at(record.angles, 1), core::at(record.angles, 2)};
+            values.angles = {.x = core::at(record.angles, 0), .y = core::at(record.angles, 1), .z = core::at(record.angles, 2)};
         if ((record.has_pos_ || record.has_angles_) && node_edit::assign_value(record.name, values))
             ++nodes;
     }
@@ -935,7 +935,7 @@ std::string get_apply(const FileLoad& file)
     std::vector<fields::NodeEdits> edits;
     for (const SetRecord& record : file.nodes) {
         if (!record.fields.empty())
-            edits.push_back({record.name, record.fields});
+            edits.push_back({.name = record.name, .edits = record.fields});
     }
     const int fields = edits.empty() ? 0 : fields::get_apply(edits);
     for (const fields::NodeEdits& node : edits) {
@@ -1002,18 +1002,18 @@ void reset_to_level(const FileLoad& keep)
     chains::change_phase(chains::State{});
     std::vector<scenery::SectorState> sectors = scenery::changed_sectors();
     for (scenery::SectorState& state : sectors) {
-        state.placement = {0, {0.0f, 0.0f, 0.0f}};
+        state.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         state.hidden = false;
     }
     for (const scenery::Replicate& clone : scenery::get_clones()) {
-        Placement now = {0, {0.0f, 0.0f, 0.0f}};
+        Placement now = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         scenery::placement_now(clone.checksum, &now);
         if (!scenery::get_hidden(clone.checksum))
-            sectors.push_back({clone.checksum, now, true});
+            sectors.push_back({.checksum = clone.checksum, .placement = now, .hidden = true});
     }
     std::vector<scenery::RailState> rails = scenery::changed_rails();
     for (scenery::RailState& state : rails) {
-        state.placement = {0, {0.0f, 0.0f, 0.0f}};
+        state.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         state.hidden = false;
     }
     scenery::apply_states(sectors, rails);
@@ -1284,8 +1284,8 @@ std::unordered_map<uint32_t, LevelInfo> levels_by_load()
         e->value.structure()->fetch_text(kName, &title, 0);
         const char* qb = nullptr;
         e->value.structure()->fetch_text(kQb, &qb, 0);
-        levels.emplace(load, LevelInfo{scene_of_level_text(level), title ? title : "", e->value.structure(),
-                                       qb && *qb ? level_nodes::node_array_checksum(qb) : 0});
+        levels.emplace(load, LevelInfo{.scene = scene_of_level_text(level), .title = title ? title : "", .structure = e->value.structure(),
+                                       .node_array_ = qb && *qb ? level_nodes::node_array_checksum(qb) : 0});
     }
     return levels;
 }
@@ -1416,7 +1416,7 @@ void on_node_array_added(uint32_t array)
     std::vector<fields::NodeEdits> edits;
     for (const SetRecord& record : file.nodes) {
         if (!record.fields.empty())
-            edits.push_back({record.name, record.fields});
+            edits.push_back({.name = record.name, .edits = record.fields});
     }
     if (edits.empty())
         return;

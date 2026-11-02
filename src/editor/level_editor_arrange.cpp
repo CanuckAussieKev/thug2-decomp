@@ -134,7 +134,7 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, floa
              std::vector<Contact>* contacts)
 {
     V3 out = delta;
-    Aabb m = {moving.min + delta, moving.max + delta};
+    Aabb m = {.min = moving.min + delta, .max = moving.max + delta};
     constexpr float kEps = 0.5f; // (boxes that only touch don't overlap)
     auto overlaps = [&](const Aabb& o, int axis, float slack) {
         return get_component(m.min, axis) < get_component(o.max, axis) + slack - kEps &&
@@ -175,7 +175,7 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, floa
         if (found >= 0) {
             component_ref(out, axis) += correction;
             if (contacts)
-                contacts->push_back({axis, at, found});
+                contacts->push_back({.axis = axis, .at = at, .other = found});
         }
     }
     return out;
@@ -188,8 +188,8 @@ float box_segment_distance(const Aabb& box, V3 a, V3 b, V3* nearest)
     auto at = [&](float t) { return a + (b - a) * t; };
     auto distance = [&](float t) {
         const V3 p = at(t);
-        const V3 q = {std::clamp(p.x, box.min.x, box.max.x), std::clamp(p.y, box.min.y, box.max.y),
-                      std::clamp(p.z, box.min.z, box.max.z)};
+        const V3 q = {.x = std::clamp(p.x, box.min.x, box.max.x), .y = std::clamp(p.y, box.min.y, box.max.y),
+                      .z = std::clamp(p.z, box.min.z, box.max.z)};
         const V3 d = p - q;
         return std::sqrt(get_dot(d, d));
     };
@@ -388,7 +388,7 @@ Settings& at_hand()
 
 namespace {
 
-const std::array<V3, 3> kWorld = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
+const std::array<V3, 3> kWorld = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
 
 objects::GameEntity* live_object(uint32_t id)
 {
@@ -472,10 +472,10 @@ void axes_of(const std::vector<Unit>& units, bool local, std::span<V3, 3> out)
     if (const objects::GameEntity* object = units.front().object) {
         for (int i = 0; i < 3; ++i)
             core::at(out, i) = make_unit(
-                {core::at(object->basis_frame_.row, i).x, core::at(object->basis_frame_.row, i).y, core::at(object->basis_frame_.row, i).z});
+                {.x = core::at(object->basis_frame_.row, i).x, .y = core::at(object->basis_frame_.row, i).y, .z = core::at(object->basis_frame_.row, i).z});
         return;
     }
-    Placement placement = {0, {0.0f, 0.0f, 0.0f}};
+    Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     scenery::placement_now(units.front().sectors.front(), &placement);
     for (int i = 0; i < 3; ++i)
         core::at(out, i) = get_quarter_turn(core::at(kWorld, i), placement.quarters);
@@ -598,7 +598,7 @@ bool sectors_bounds(const std::vector<uint32_t>& sectors, Aabb* out)
 
 V3 bottom_centre(const Aabb& box)
 {
-    return {(box.min.x + box.max.x) * 0.5f, box.min.y, (box.min.z + box.max.z) * 0.5f};
+    return {.x = (box.min.x + box.max.x) * 0.5f, .y = box.min.y, .z = (box.min.z + box.max.z) * 0.5f};
 }
 
 uint32_t key_model() { return checksums::hash_from_text("model"); }
@@ -623,7 +623,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
     const std::vector<Unit> units = units_of(selection);
     if (units.empty())
         return false;
-    Placement source_at = {0, {0.0f, 0.0f, 0.0f}};
+    Placement source_at = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     scenery::placement_now(source, &source_at);
     const size_t depth = edit::deepness();
     // (the pieces hidden first: undone last, they come back selected)
@@ -635,7 +635,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
         Aabb was;
         if (!sectors_bounds(unit.sectors, &was))
             continue;
-        Placement placement = {0, {0.0f, 0.0f, 0.0f}};
+        Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
         scenery::placement_now(unit.sectors.front(), &placement);
         const uint32_t copy = scenery::get_duplicate(source);
         if (!copy)
@@ -645,8 +645,8 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
         const int quarters = ((placement.quarters - source_at.quarters) % 4 + 4) % 4;
         if (quarters)
             scenery::get_turn(quarters);
-        const V3 ratio = {placement.scale.x / source_at.scale.x, placement.scale.y / source_at.scale.y,
-                          placement.scale.z / source_at.scale.z};
+        const V3 ratio = {.x = placement.scale.x / source_at.scale.x, .y = placement.scale.y / source_at.scale.y,
+                          .z = placement.scale.z / source_at.scale.z};
         if (std::fabs(ratio.x - 1.0f) > 1e-4f || std::fabs(ratio.y - 1.0f) > 1e-4f || std::fabs(ratio.z - 1.0f) > 1e-4f)
             scenery::scale_selection(turned_scale(ratio, placement.quarters), is_uniform_scale(ratio));
         Aabb now;
@@ -662,7 +662,7 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
     }
     edit::push_made({}, made);
     edit::fold(depth);
-    edit::choose_one({edit::Kind::kScenery, made});
+    edit::choose_one({.kind = edit::Kind::kScenery, .ids = made});
     hud::get_message("Replaced " + std::to_string(made.size()) + " piece(s) with " + object_edit::caption(source) +
                          " - Ctrl+Z puts them back",
                      4.0);
@@ -697,7 +697,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
     if (!copies.empty()) {
         edit::remove_copies(copy_ids);
         for (const object_edit::State& was : copies) {
-            const V3 pos = {was.pos.x, was.pos.y, was.pos.z};
+            const V3 pos = {.x = was.pos.x, .y = was.pos.y, .z = was.pos.z};
             const objects::GameEntity* copy = object_edit::make_copy(source, pos);
             if (!copy)
                 continue;
@@ -721,7 +721,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
     }
     edit::fold(depth);
     if (!made.empty())
-        edit::choose_one({edit::Kind::kObject, made});
+        edit::choose_one({.kind = edit::Kind::kObject, .ids = made});
     std::array<char, 160> text{};
     text::format_to(text, "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()), swaps);
     hud::get_message(text.data(), 5.0);
@@ -809,7 +809,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
         g_snap.selection = selection.ids;
         g_snap.boxes.clear();
         GatherContext context = {
-            &selection.ids, {moving.min - V3{1500, 1500, 1500}, moving.max + V3{1500, 1500, 1500}}, &g_snap.boxes};
+            .skip = &selection.ids, .near = {.min = moving.min - V3{.x = 1500, .y = 1500, .z = 1500}, .max = moving.max + V3{.x = 1500, .y = 1500, .z = 1500}}, .out = &g_snap.boxes};
         scenery::for_each_level_sector(gather_sector, &context);
     }
     g_snap.last_used_ = now;
@@ -821,7 +821,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
     }
     g_snap.contacts.clear();
     const V3 delta = edge_snap(moving, wanted - pos, g_snap.boxes, snap_reach(distance), axes, &g_snap.contacts);
-    g_snap.moving = {moving.min + delta, moving.max + delta};
+    g_snap.moving = {.min = moving.min + delta, .max = moving.max + delta};
     g_snap.contacts_at_ = now;
     return pos + delta;
 }
@@ -857,7 +857,7 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
             continue;
         auto at = [&](uint16_t k) {
             const auto f = gpu::VertexView(vertices->data, mesh->stride, mesh->vertex_count_).float3(k);
-            return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
+            return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
         };
         const std::span<const uint16_t> index(indices->indices, core::at(mesh->index_counts_, 0));
         for (uint32_t k = 2; k < index.size(); ++k) {
@@ -1007,7 +1007,7 @@ const std::vector<Segment>& current_segments()
                 continue;
             V3 b{};
             if (place(core::at(nodes, link), &b))
-                g_segments.push_back({a, b, n.name, core::at(nodes, link).name, ledge});
+                g_segments.push_back({.a = a, .b = b, .from = n.name, .to = core::at(nodes, link).name, .ledge = ledge});
         }
     }
     return g_segments;
@@ -1072,15 +1072,15 @@ void register_actions()
     using actions::Chord;
     const uint8_t ctrl_alt = actions::kCtrl | actions::kAlt;
     g_act_window = add_action("arrange_window", "Arrange", "Panels", "Align, distribute and replace",
-                              {Chord{SDL_SCANCODE_F2, 0}}, [] { flip_over(&at_hand().window); });
+                              {Chord{.scancode = SDL_SCANCODE_F2, .mods = 0}}, [] { flip_over(&at_hand().window); });
     g_act_adjust =
         add_action("adjust_last", "Adjust Last Operation", "Panels", "Edit the parameters of the last operation",
-                   {Chord{SDL_SCANCODE_F4, 0}}, [] { flip_over(&adjust::get_shown()); });
+                   {Chord{.scancode = SDL_SCANCODE_F4, .mods = 0}}, [] { flip_over(&adjust::get_shown()); });
     g_act_edge_rail = add_action("edge_rail", "Rail Along Edge", "Edit", "Click a scenery edge to add a rail along it",
-                                 {Chord{SDL_SCANCODE_R, actions::kAlt}}, [] { set_edge_picking(!g_edge_picking); });
+                                 {Chord{.scancode = SDL_SCANCODE_R, .mods = actions::kAlt}}, [] { set_edge_picking(!g_edge_picking); });
     g_act_linked =
         add_action("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
-                   {Chord{SDL_SCANCODE_D, ctrl_alt}}, [] { links::linked_duplicate(); });
+                   {Chord{.scancode = SDL_SCANCODE_D, .mods = ctrl_alt}}, [] { links::linked_duplicate(); });
     static const auto kEdges = std::to_array<const char*>({"min", "centre", "max"});
     static constexpr std::string_view kAxes = "xyz";
     for (int axis = 0; axis < 3; ++axis) {
@@ -1165,7 +1165,7 @@ struct Painter {
             return;
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (get_pixel(a, &ax, &ay) && get_pixel(b, &bx, &by))
-            overlay->lines.push_back({ax, ay, bx, by, argb, thickness});
+            overlay->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     }
     void cuboid(const OrientedBox& box, uint32_t argb, uint32_t fill) const
     {
@@ -1190,13 +1190,13 @@ struct Painter {
                 ok = get_pixel(core::at(c, core::at(f, k)), &core::at(x, k), &core::at(y, k));
             if (!ok)
                 continue;
-            overlay->triangles.push_back({core::at(x, 0), core::at(y, 0), core::at(x, 1), core::at(y, 1), core::at(x, 2), core::at(y, 2), fill});
-            overlay->triangles.push_back({core::at(x, 0), core::at(y, 0), core::at(x, 2), core::at(y, 2), core::at(x, 3), core::at(y, 3), fill});
+            overlay->triangles.push_back({.ax = core::at(x, 0), .ay = core::at(y, 0), .bx = core::at(x, 1), .by = core::at(y, 1), .cx = core::at(x, 2), .cy = core::at(y, 2), .argb = fill});
+            overlay->triangles.push_back({.ax = core::at(x, 0), .ay = core::at(y, 0), .bx = core::at(x, 2), .by = core::at(y, 2), .cx = core::at(x, 3), .cy = core::at(y, 3), .argb = fill});
         }
     }
     void draw_label(float x, float y, uint32_t argb, const std::string& text) const
     {
-        overlay->texts.push_back({x, y, argb, text});
+        overlay->texts.push_back({.x = x, .y = y, .argb = argb, .text = text});
     }
 };
 
@@ -1204,16 +1204,16 @@ struct Painter {
 void get_marker(const Painter& p, V3 at, float yaw, uint32_t colour)
 {
     const uint32_t c = (colour & 0x00FFFFFF) | 0xC0000000;
-    p.get_seg(at, at + V3{0.0f, 72.0f, 0.0f}, c, 2.0f);
+    p.get_seg(at, at + V3{.x = 0.0f, .y = 72.0f, .z = 0.0f}, c, 2.0f);
     constexpr int kSegments = 24;
     for (int i = 0; i < kSegments; ++i) {
         const float a0 = 6.2831853f * static_cast<float>(i) / kSegments;
         const float a1 = 6.2831853f * static_cast<float>(i + 1) / kSegments;
-        p.get_seg(at + V3{std::sin(a0) * 30.0f, 1.0f, std::cos(a0) * 30.0f},
-                  at + V3{std::sin(a1) * 30.0f, 1.0f, std::cos(a1) * 30.0f}, c, 1.5f);
+        p.get_seg(at + V3{.x = std::sin(a0) * 30.0f, .y = 1.0f, .z = std::cos(a0) * 30.0f},
+                  at + V3{.x = std::sin(a1) * 30.0f, .y = 1.0f, .z = std::cos(a1) * 30.0f}, c, 1.5f);
     }
-    const V3 heading = {std::sin(yaw) * 50.0f, 1.0f, std::cos(yaw) * 50.0f};
-    p.get_seg(at + V3{0.0f, 1.0f, 0.0f}, at + heading, c, 2.0f);
+    const V3 heading = {.x = std::sin(yaw) * 50.0f, .y = 1.0f, .z = std::cos(yaw) * 50.0f};
+    p.get_seg(at + V3{.x = 0.0f, .y = 1.0f, .z = 0.0f}, at + heading, c, 2.0f);
 }
 
 // The surface's normal under the cursor (false: none).
@@ -1240,8 +1240,8 @@ void tilt_box(OrientedBox* box, V3 at, V3 normal)
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
         core::at(lengths, i) = std::max(1e-6f, get_dot(core::at(box->axes, i), core::at(box->axes, i)));
-    const V3 local = {get_dot(origin, core::at(box->axes, 0)) / core::at(lengths, 0), get_dot(origin, core::at(box->axes, 1)) / core::at(lengths, 1),
-                      get_dot(origin, core::at(box->axes, 2)) / core::at(lengths, 2)};
+    const V3 local = {.x = get_dot(origin, core::at(box->axes, 0)) / core::at(lengths, 0), .y = get_dot(origin, core::at(box->axes, 1)) / core::at(lengths, 1),
+                      .z = get_dot(origin, core::at(box->axes, 2)) / core::at(lengths, 2)};
     for (int i = 0; i < 3; ++i)
         core::at(box->axes, i) = core::at(rows, i);
     box->origin = at + core::at(rows, 0) * local.x + core::at(rows, 1) * local.y + core::at(rows, 2) * local.z;
@@ -1310,9 +1310,9 @@ void add_readout(const Painter& p)
             if (selection.kind == edit::Kind::kScenery && scenery::carries_rail(s.from) && scenery::carries_rail(s.to))
                 continue; // (its own rails move with it)
             // (quickly: a segment far off its box passed)
-            const Aabb grown = {box.min - V3{best, best, best}, box.max + V3{best, best, best}};
-            const V3 lo = {std::min(s.a.x, s.b.x), std::min(s.a.y, s.b.y), std::min(s.a.z, s.b.z)};
-            const V3 hi = {std::max(s.a.x, s.b.x), std::max(s.a.y, s.b.y), std::max(s.a.z, s.b.z)};
+            const Aabb grown = {.min = box.min - V3{.x = best, .y = best, .z = best}, .max = box.max + V3{.x = best, .y = best, .z = best}};
+            const V3 lo = {.x = std::min(s.a.x, s.b.x), .y = std::min(s.a.y, s.b.y), .z = std::min(s.a.z, s.b.z)};
+            const V3 hi = {.x = std::max(s.a.x, s.b.x), .y = std::max(s.a.y, s.b.y), .z = std::max(s.a.z, s.b.z)};
             if (hi.x < grown.min.x || lo.x > grown.max.x || hi.y < grown.min.y || lo.y > grown.max.y ||
                 hi.z < grown.min.z || lo.z > grown.max.z)
                 continue;
@@ -1327,8 +1327,8 @@ void add_readout(const Painter& p)
             }
         }
         if (r.have_rail_) {
-            from = {std::clamp(nearest.x, box.min.x, box.max.x), std::clamp(nearest.y, box.min.y, box.max.y),
-                    std::clamp(nearest.z, box.min.z, box.max.z)};
+            from = {.x = std::clamp(nearest.x, box.min.x, box.max.x), .y = std::clamp(nearest.y, box.min.y, box.max.y),
+                    .z = std::clamp(nearest.z, box.min.z, box.max.z)};
             p.get_seg(from, nearest, 0xC0FF60D0, 1.0f);
         }
     }
@@ -1405,7 +1405,7 @@ void add_edges(const Painter& p)
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  ui::Overlay* overlay)
 {
-    const Painter p = {camera, frame, lens, viewport, near_z, overlay};
+    const Painter p = {.camera = camera, .frame = frame, .lens = lens, .viewport = viewport, .near_z_ = near_z, .overlay = overlay};
     add_ghost(p);
     add_contacts(p);
     add_readout(p);
@@ -1431,7 +1431,7 @@ bool place_click(bool more)
             for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
                 std::array<V3, 3> rows{};
                 for (int i = 0; i < 3; ++i)
-                    core::at(rows, i) = {core::at(m->row, i).x, core::at(m->row, i).y, core::at(m->row, i).z};
+                    core::at(rows, i) = {.x = core::at(m->row, i).x, .y = core::at(m->row, i).y, .z = core::at(m->row, i).z};
                 if (!snap::align_rows(rows, normal))
                     continue;
                 for (int i = 0; i < 3; ++i) {

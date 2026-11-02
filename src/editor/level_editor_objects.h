@@ -51,7 +51,7 @@ struct State {
     uint32_t id{};
     maths::Vec4 pos{};
     maths::Mat4 matrix{}, draw_matrix_{};
-    V3 scale = {1.0f, 1.0f, 1.0f};
+    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
 };
 State store_away(objects::GameEntity* object);
 // Put back (false: no such object now).

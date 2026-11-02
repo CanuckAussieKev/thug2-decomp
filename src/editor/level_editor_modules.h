@@ -95,7 +95,7 @@ struct TransformValues {
     bool has_heading_ = false;
     float heading = 0.0f;
     bool has_scale_ = false;
-    V3 scale = {1.0f, 1.0f, 1.0f};
+    V3 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
 };
 bool selection_transform(TransformValues* transform);
 bool set_selection_transform(const TransformValues& transform);

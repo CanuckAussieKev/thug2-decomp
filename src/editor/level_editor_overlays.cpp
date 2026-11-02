@@ -38,12 +38,12 @@ std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing
     const std::array<long, 2> last = {{static_cast<long>(std::floor((centre.x + radius) / spacing)),
                           static_cast<long>(std::floor((centre.z + radius) / spacing))}};
     for (long i = core::at(first, 0); i <= core::at(last, 0); ++i) {
-        float x = static_cast<float>(i) * spacing;
-        lines.push_back({{x, y, centre.z - radius}, {x, y, centre.z + radius}, i % 5 == 0});
+        const float x = static_cast<float>(i) * spacing;
+        lines.push_back({.a = {.x = x, .y = y, .z = centre.z - radius}, .b = {.x = x, .y = y, .z = centre.z + radius}, .major = i % 5 == 0});
     }
     for (long i = core::at(first, 1); i <= core::at(last, 1); ++i) {
-        float z = static_cast<float>(i) * spacing;
-        lines.push_back({{centre.x - radius, y, z}, {centre.x + radius, y, z}, i % 5 == 0});
+        const float z = static_cast<float>(i) * spacing;
+        lines.push_back({.a = {.x = centre.x - radius, .y = y, .z = z}, .b = {.x = centre.x + radius, .y = y, .z = z}, .major = i % 5 == 0});
     }
     return lines;
 }
@@ -58,16 +58,16 @@ uint32_t parse_bits(int value, bool present)
 const std::vector<BitInfo>& get_bits()
 {
     static const std::vector<BitInfo> kBits = {
-        {kLabels, "Labels", "", "Names and values over the view"},
-        {kFeatureMap, "Feature Map", "", "Speed-ups, boosts, proximity shapes and breakables"},
-        {kGrindPreview, "Grind Preview", "", "Direction, terrain and connections of the rail under the cursor"},
-        {kJumpArcs, "Jump Arcs", "Y", "Launch arcs from the selected ramp"},
-        {kRuler, "Ruler", "M", "The ruler's measurement"},
-        {kSkateability, "Skateability", "Alt+K", "Surfaces coloured by skateability"},
-        {kGrid, "Grid", "", "100-unit ground grid"},
-        {kCarryHints, "Carried Objects", "", "Outline objects carried by moving scenery"},
-        {kLegend, "Collision Legend", "", "Collision colour key"},
-        {kOutlinerMarks, "Outliner Markers", "", "Change letters on Outliner rows"},
+        {.bit = kLabels, .label = "Labels", .key = "", .tip = "Names and values over the view"},
+        {.bit = kFeatureMap, .label = "Feature Map", .key = "", .tip = "Speed-ups, boosts, proximity shapes and breakables"},
+        {.bit = kGrindPreview, .label = "Grind Preview", .key = "", .tip = "Direction, terrain and connections of the rail under the cursor"},
+        {.bit = kJumpArcs, .label = "Jump Arcs", .key = "Y", .tip = "Launch arcs from the selected ramp"},
+        {.bit = kRuler, .label = "Ruler", .key = "M", .tip = "The ruler's measurement"},
+        {.bit = kSkateability, .label = "Skateability", .key = "Alt+K", .tip = "Surfaces coloured by skateability"},
+        {.bit = kGrid, .label = "Grid", .key = "", .tip = "100-unit ground grid"},
+        {.bit = kCarryHints, .label = "Carried Objects", .key = "", .tip = "Outline objects carried by moving scenery"},
+        {.bit = kLegend, .label = "Collision Legend", .key = "", .tip = "Collision colour key"},
+        {.bit = kOutlinerMarks, .label = "Outliner Markers", .key = "", .tip = "Change letters on Outliner rows"},
     };
     return kBits;
 }
@@ -159,7 +159,7 @@ bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
     float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_pixel(a, &ax, &ay) || !get_pixel(b, &bx, &by))
         return false;
-    overlay->lines.push_back({ax, ay, bx, by, argb, thickness});
+    overlay->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     return true;
 }
 
@@ -167,20 +167,20 @@ void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
 {
     float x = 0.0f, y = 0.0f;
     if (get_pixel(p, &x, &y))
-        overlay->circles.push_back({x, y, radius, argb, filled, 1.5f});
+        overlay->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = 1.5f});
 }
 
 void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
 {
     float x = 0.0f, y = 0.0f;
     if (get_pixel(p, &x, &y))
-        overlay->texts.push_back({x + dx, y + dy, argb, text});
+        overlay->texts.push_back({.x = x + dx, .y = y + dy, .argb = argb, .text = text});
 }
 
 void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) const
 {
-    (void)get_seg(p - V3{size, 0.0f, 0.0f}, p + V3{size, 0.0f, 0.0f}, argb, thickness);
-    (void)get_seg(p - V3{0.0f, 0.0f, size}, p + V3{0.0f, 0.0f, size}, argb, thickness);
+    (void)get_seg(p - V3{.x = size, .y = 0.0f, .z = 0.0f}, p + V3{.x = size, .y = 0.0f, .z = 0.0f}, argb, thickness);
+    (void)get_seg(p - V3{.x = 0.0f, .y = 0.0f, .z = size}, p + V3{.x = 0.0f, .y = 0.0f, .z = size}, argb, thickness);
 }
 
 float Painter::span_to(V3 p) const
@@ -212,8 +212,8 @@ bool get_ground_y(V3 from, float* y)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {from.x, from.y - 5000.0f, from.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = from.x, .y = from.y - 5000.0f, .z = from.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     *y = ray->hit_.point.y;
@@ -226,17 +226,17 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
 {
     if (get_shown(kGrid)) {
         // (on the ground below the selection, else below the camera; the ground found again only when it moved)
-        static V3 g_last_from = {1e30f, 0.0f, 0.0f};
+        static V3 g_last_from = {.x = 1e30f, .y = 0.0f, .z = 0.0f};
         static float g_ground_y = 0.0f;
         static bool g_have_ground = false;
-        const V3 from = have_selection ? selection_base + V3{0.0f, 2.0f, 0.0f} : painter.camera;
+        const V3 from = have_selection ? selection_base + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f} : painter.camera;
         const V3 d = from - g_last_from;
         if (get_dot(d, d) > 25.0f * 25.0f) {
             g_last_from = from;
             g_have_ground = get_ground_y(from, &g_ground_y);
         }
         if (g_have_ground) {
-            const V3 centre = {std::round(from.x / 100.0f) * 100.0f, g_ground_y, std::round(from.z / 100.0f) * 100.0f};
+            const V3 centre = {.x = std::round(from.x / 100.0f) * 100.0f, .y = g_ground_y, .z = std::round(from.z / 100.0f) * 100.0f};
             for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5f, 1500.0f, 100.0f))
                 (void)painter.get_seg(line.a, line.b, line.major ? 0x70E0E8F0u : 0x38C0C8D0u,
                                       line.major ? 1.25f : 1.0f);
