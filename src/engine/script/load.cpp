@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <span>
 #include <cstring>
+#include <string>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -263,10 +265,12 @@ void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int
 // 0x0046EDE0
 void load_qb(const char* filename, int unused, int temporary)
 {
-    const size_t length = std::strlen(filename);
+    const std::string_view name = filename;
     const char* extension = precompiled_extension();
     const memory::Hub* manager = memory::Hub::get_pull();
-    if (filename[length - 4] == '.' && _stricmp(filename + length - 3, extension) == 0) {
+    // (the name's last 4 characters: '.' and the platform's extension - the original read before a shorter name)
+    if (name.size() >= 4 && name.substr(name.size() - 4, 1) == "." &&
+        _stricmp(std::string(name.substr(name.size() - 3)).c_str(), extension) == 0) {
         // Pre-compiled: kept loaded.
         memory::enter_heap_scope(manager->script_heap_);
         auto* data = static_cast<uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
@@ -299,18 +303,17 @@ void unload_qb(uint32_t file_checksum)
     }
     if (count) {
         memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
-        auto** symbols = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * 4));
+        auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * 4));
         memory::leave_heap_scope();
-        SymbolTableEntry** next = symbols;
+        const std::span<SymbolTableEntry*> symbols(block, static_cast<size_t>(count));
+        size_t next = 0;
         for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
-            if (symbol->unknown8 == file_checksum) {
-                *next = symbol;
-                ++next;
-            }
+            if (symbol->unknown8 == file_checksum)
+                core::at(symbols, next++) = symbol;
         }
-        for (int i = 0; i < count; ++i)
-            clean_up_and_remove_symbol(symbols[i]);
-        memory::free_malloc(static_cast<void*>(symbols));
+        for (SymbolTableEntry* symbol : symbols)
+            clean_up_and_remove_symbol(symbol);
+        memory::free_malloc(static_cast<void*>(block));
     }
     // Scripts left running code that's gone are stopped.
     for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {

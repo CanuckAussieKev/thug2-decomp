@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
+#include <span>
 #include <new>
 #include <string>
 #include <unordered_map>
@@ -48,7 +50,6 @@ static_assert(sizeof(StoredRandom) == 0x60, "layout must match the original");
 memory::PoolPair g_stored_random_pools;
 namespace {
 int g_pending_symbol_count;
-uint32_t g_permanent_strings_free;
 
 // The table of the .qb files' own checksum names: {checksum, name, next}, the first entry in the bucket.
 struct ScriptChecksumName {
@@ -58,6 +59,12 @@ struct ScriptChecksumName {
 };
 ScriptChecksumName* g_script_labels;
 ScriptChecksumName*& script_label_table() { return g_script_labels; }
+// The table's 0x1000 buckets (the checksums' low 12 bits; the first entry of each in place).
+constexpr uint32_t kLabelBuckets = 0x1000;
+std::span<ScriptChecksumName, kLabelBuckets> label_buckets()
+{
+    return std::span<ScriptChecksumName, kLabelBuckets>(script_label_table(), kLabelBuckets);
+}
 
 char* copy_string(const char* string)
 {
@@ -301,7 +308,7 @@ const char* find_script_checksum_name(uint32_t checksum)
 {
     if (!script_label_table())
         return nullptr;
-    for (const ScriptChecksumName* entry = &script_label_table()[checksum & 0xFFF]; entry; entry = entry->next) {
+    for (const ScriptChecksumName* entry = &core::at(label_buckets(), checksum & 0xFFF); entry; entry = entry->next) {
         if (entry->checksum == checksum)
             return entry->name;
     }
@@ -313,8 +320,7 @@ void free_script_checksum_names()
 {
     if (!script_label_table())
         return;
-    for (uint32_t i = 0; i < 0x1000; ++i) {
-        const ScriptChecksumName& bucket = script_label_table()[i];
+    for (const ScriptChecksumName& bucket : label_buckets()) {
         for (ScriptChecksumName* entry = bucket.next; entry;) {
             ScriptChecksumName* next = entry->next;
             memory::free_malloc(entry->name);
@@ -354,7 +360,7 @@ const char* kept_qb_name(uint32_t checksum)
 // 0x0046FA60 (a checksum already there is added again)
 void add_script_checksum_name(uint32_t checksum, const char* name)
 {
-    ScriptChecksumName& bucket = script_label_table()[checksum & 0xFFF];
+    ScriptChecksumName& bucket = core::at(label_buckets(), checksum & 0xFFF);
     if (bucket.name) {
         auto* entry = static_cast<ScriptChecksumName*>(memory::alloc_block(sizeof(ScriptChecksumName)));
         entry->checksum = checksum;
@@ -402,7 +408,7 @@ void StoredRandom::shuffle(bool avoid_repeat)
 void allocate_permanent_string_heap(uint32_t size, uint32_t count)
 {
     g_permanent_strings_size = size;
-    g_permanent_strings_free = count;
+    g_permanent_string_capacity = count;
     char* strings = static_cast<char*>(memory::alloc_block(size));
     g_permanent_strings_start = strings;
     g_permanent_strings_next = strings;
@@ -546,8 +552,7 @@ void allocate_script_checksum_names(bool debug_heap)
     auto* names = static_cast<uint32_t*>(memory::alloc_block(0x1000 * 12));
     memory::bits_as<uint32_t*>(g_script_labels) = names;
     memory::leave_heap_scope();
-    for (uint32_t i = 0; i < 0x1000 * 3; ++i)
-        names[i] = 0;
+    std::ranges::fill(std::span<uint32_t>(names, 0x1000 * 3), 0u);
 }
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0

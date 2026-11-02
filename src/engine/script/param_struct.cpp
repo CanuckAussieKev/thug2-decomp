@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/pointer_cell.h"
@@ -50,15 +52,19 @@ memory::PoolPair g_vector_pools;
 
 namespace {
 
-SymbolTableEntry** script_symbol_slots() { return g_name_table; }
 constexpr uint32_t kSymbolTableMask = 0xFFF;
+// The table's 0x1000 buckets (the names' low 12 bits).
+std::span<SymbolTableEntry*, kSymbolTableMask + 1> script_symbol_slots()
+{
+    return std::span<SymbolTableEntry*, kSymbolTableMask + 1>(g_name_table, kSymbolTableMask + 1);
+}
 
 } // namespace
 
 // 0x00478CC0
 SymbolTableEntry* find_symbol(uint32_t name)
 {
-    SymbolTableEntry* entry = script_symbol_slots()[name & kSymbolTableMask];
+    SymbolTableEntry* entry = core::at(script_symbol_slots(), name & kSymbolTableMask);
     while (entry && entry->name != name)
         entry = entry->next;
     return entry;
@@ -445,6 +451,7 @@ struct PermanentString {
     char* string;
 };
 PermanentString* g_permanent_string_table;
+uint32_t g_permanent_string_capacity;
 namespace {
 
 // The pool pairs of the script's value objects.
@@ -467,17 +474,21 @@ char* create_permanent_string(const char* string)
 {
     const int length = static_cast<int>(std::strlen(string));
     const uint32_t checksum = checksums::generate_crc_from_buffer(string, length);
-    PermanentString* table = permanent_string_table();
+    const std::span<PermanentString> table(permanent_string_table(), g_permanent_string_capacity);
     for (uint32_t i = 0; i < permanent_string_count(); ++i) {
-        if (table[i].checksum == checksum)
-            return table[i].string;
+        if (core::at(table, i).checksum == checksum)
+            return core::at(table, i).string;
     }
-    char* copy = permanent_strings_next();
-    std::memcpy(copy, string, static_cast<size_t>(length) + 1);
-    permanent_strings_next() = copy + length + 1;
-    table[permanent_string_count()] = {checksum, copy};
+    // (the strings' block: the copy where the last one ended)
+    const std::span<char> strings(permanent_strings_start(), permanent_strings_size());
+    const std::span<char> copy =
+        strings.subspan(static_cast<size_t>(permanent_strings_next() - permanent_strings_start()),
+                        static_cast<size_t>(length) + 1);
+    std::memcpy(copy.data(), string, copy.size());
+    permanent_strings_next() = strings.subspan(static_cast<size_t>(copy.data() - strings.data()) + copy.size()).data();
+    core::at(table, permanent_string_count()) = {checksum, copy.data()};
     ++permanent_string_count();
-    return copy;
+    return copy.data();
 }
 
 void delete_pair(Pair* pair) { pair_pools().dealloc(pair); }
@@ -544,7 +555,7 @@ char* get_script_string(int index) { return script_string_slot(index); }
 void free_string(char* string)
 {
     const char* start = permanent_strings_start();
-    if (string >= start && string < start + permanent_strings_size())
+    if (start && !std::less<>()(string, start) && std::cmp_less(string - start, permanent_strings_size()))
         return;
     memory::free_malloc(string);
 }
@@ -615,9 +626,9 @@ void release_array_storage(Array* array)
 {
     const uint32_t count = array->extent_;
     const QbValueKind type = array->kind_tag_;
-    Cell* elements = array->find_array_value();
+    const std::span<Cell> elements = array->cells();
     for (uint32_t i = 0; i < count; ++i) {
-        Cell& element = elements[i];
+        Cell& element = core::at(elements, i);
         if (element.empty())
             continue;
         switch (type) {
@@ -1233,10 +1244,10 @@ void Array::configure_size_kind(uint32_t size, QbValueKind type)
     }
     if (size == 1)
         return;
-    Cell* elements = allocate_elements(extent_);
-    for (uint32_t i = 0; i < extent_; ++i)
-        elements[i].clear();
-    storage_ = Cell::of_block(elements);
+    Cell* block = allocate_elements(extent_);
+    for (Cell& element : std::span<Cell>(block, extent_))
+        element.clear();
+    storage_ = Cell::of_block(block);
 }
 
 // 0x0046CCF0
@@ -1244,16 +1255,17 @@ void Array::rescale(uint32_t size)
 {
     if (size == extent_)
         return;
-    Cell* elements = allocate_elements(size);
-    const Cell* from = find_array_value();
+    Cell* block = allocate_elements(size);
+    const std::span<Cell> elements(block, size);
+    const std::span<const Cell> from = cells();
     for (uint32_t i = 0; i < extent_; ++i)
-        elements[i] = from[i];
+        core::at(elements, i) = core::at(from, i);
     for (uint32_t i = extent_; i < size; ++i)
-        elements[i].clear();
+        core::at(elements, i).clear();
     if (extent_ > 1)
         memory::free_malloc(storage_.block());
     // (growing to one element leaves the block's pointer in place of the single value, as the original does)
-    storage_ = Cell::of_block(elements);
+    storage_ = Cell::of_block(block);
     extent_ = size;
 }
 
@@ -1265,7 +1277,7 @@ void Array::set_cell(uint32_t index, Cell value)
     if (extent_ == 1)
         storage_ = value;
     else
-        storage_.block()[index] = value;
+        core::at(cells(), index) = value;
 }
 
 // 0x0046CB40
@@ -1274,7 +1286,7 @@ void Array::change_float(uint32_t index, float value) { set_cell(index, Cell::of
 // 0x0046CC30
 uint32_t Array::fetch_part(uint32_t index) { return cell_at(index).word(); }
 
-Cell Array::cell_at(uint32_t index) { return extent_ == 1 ? storage_ : storage_.block()[index]; }
+Cell Array::cell_at(uint32_t index) { return extent_ == 1 ? storage_ : core::at(cells(), index); }
 
 // 0x0046CBB0
 const char* Array::fetch_text(uint32_t index) { return cell_at(index).text(); }
@@ -1297,20 +1309,21 @@ float Array::fetch_float(uint32_t index)
 }
 
 // 0x004787A0
-void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_t type)
+void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uint32_t type)
 {
-    for (uint32_t i = 0; i < count; ++i) {
-        const Cell element = source[i];
+    for (size_t i = 0; i < source.size(); ++i) {
+        const Cell element = core::at(source, i);
+        Cell& to = core::at(dest, i);
         switch (type) {
         case kQbvalInteger:
         case kQbvalFloat:
         case kQbvalName:
-            dest[i] = element;
+            to = element;
             break;
         case kQbvalString:
         case kQbvalInlineText:
             if (!element.empty())
-                dest[i] = Cell::of_text(spawn_text(element.text()));
+                to = Cell::of_text(spawn_text(element.text()));
             break;
         case kQbvalPair:
             if (!element.empty()) {
@@ -1319,7 +1332,7 @@ void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_
                 pair = pair ? new (pair) script::Pair : nullptr;
                 pair->x = from->x;
                 pair->y = from->y;
-                dest[i] = Cell::of(pair);
+                to = Cell::of(pair);
             }
             break;
         case kQbvalVector:
@@ -1330,7 +1343,7 @@ void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_
                 vector->x = from->x;
                 vector->y = from->y;
                 vector->z = from->z;
-                dest[i] = Cell::of(vector);
+                to = Cell::of(vector);
             }
             break;
         case kQbvalStruct:
@@ -1343,7 +1356,7 @@ void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_
                     structure->get_clear();
                     structure->merge_structure(from);
                 }
-                dest[i] = Cell::of(structure);
+                to = Cell::of(structure);
             }
             break;
         case kQbvalArray:
@@ -1352,7 +1365,7 @@ void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_
                 if (array)
                     array = new (array) script::Array;
                 duplicate_array(array, element.array());
-                dest[i] = Cell::of(array);
+                to = Cell::of(array);
             }
             break;
         default:
@@ -1378,7 +1391,7 @@ void duplicate_array(Array* dest, Array* source)
     const uint32_t size = source->extent_;
     dest->configure_size_kind(size, type);
     if (size)
-        copy_array_elements(dest->find_array_value(), source->find_array_value(), size, type);
+        copy_array_elements(dest->cells(), source->cells().first(size), type);
 }
 
 // 0x00478AB0
@@ -1451,10 +1464,8 @@ const char* empty_string() { return ""; }
 // 0x00478C90
 void create_symbol_table()
 {
-    auto* table = static_cast<SymbolTableEntry**>(memory::alloc_block(0x1000 * sizeof(SymbolTableEntry*)));
-    g_name_table = table;
-    for (uint32_t i = 0; i < 0x1000; ++i)
-        table[i] = nullptr;
+    g_name_table = static_cast<SymbolTableEntry**>(memory::alloc_block(0x1000 * sizeof(SymbolTableEntry*)));
+    std::ranges::fill(script_symbol_slots(), nullptr);
 }
 
 // 0x004790F0
@@ -1478,7 +1489,7 @@ SymbolTableEntry* create_symbol(uint32_t name)
 // 0x00478DC0
 void link_symbol(SymbolTableEntry* entry)
 {
-    SymbolTableEntry*& head = script_symbol_slots()[entry->name & kSymbolTableMask];
+    SymbolTableEntry*& head = core::at(script_symbol_slots(), entry->name & kSymbolTableMask);
     entry->next = head;
     head = entry;
 }
@@ -1486,7 +1497,7 @@ void link_symbol(SymbolTableEntry* entry)
 // 0x00478D60
 void unlink_symbol(SymbolTableEntry* entry)
 {
-    SymbolTableEntry** bucket = &script_symbol_slots()[entry->name & kSymbolTableMask];
+    SymbolTableEntry** bucket = &core::at(script_symbol_slots(), entry->name & kSymbolTableMask);
     SymbolTableEntry* previous = nullptr;
     for (SymbolTableEntry* each = *bucket; each; previous = each, each = each->next) {
         if (each != entry)
@@ -1506,7 +1517,7 @@ SymbolTableEntry* get_next_symbol(SymbolTableEntry* previous)
     SymbolTableEntry* entry = nullptr;
     if (!previous) {
         iterator_bucket() = 0;
-        entry = script_symbol_slots()[0];
+        entry = core::at(script_symbol_slots(), 0);
     } else {
         entry = previous->next;
     }
@@ -1516,7 +1527,7 @@ SymbolTableEntry* get_next_symbol(SymbolTableEntry* previous)
             iterator_entry() = nullptr;
             return nullptr;
         }
-        entry = script_symbol_slots()[iterator_bucket()];
+        entry = core::at(script_symbol_slots(), iterator_bucket());
     }
     iterator_entry() = entry;
     return entry;

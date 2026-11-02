@@ -551,8 +551,8 @@ void ValueResolver::execute()
                 // (the elements are all taken to be of the first array's type)
                 const QbValueKind type = a->value.array()->kind_tag_;
                 array->configure_size_kind(size_a + size_b, type);
-                copy_array_elements(array->find_array_value(), a->value.array()->find_array_value(), size_a, type);
-                copy_array_elements(array->find_array_value() + size_a, b->value.array()->find_array_value(), size_b, type);
+                copy_array_elements(array->cells(), a->value.array()->cells(), type);
+                copy_array_elements(array->cells().subspan(size_a), b->value.array()->cells(), type);
             }
             break;
         }

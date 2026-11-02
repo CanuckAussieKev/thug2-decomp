@@ -474,21 +474,17 @@ bool cfunc_permute_array(Struct* params, Script* script)
     }
     const int size = static_cast<int>(array->extent_);
     if (size) {
-        Cell* elements = array->find_array_value();
-        const uint32_t old_last = elements[size - 1].word();
+        const std::span<Cell> elements = array->cells();
+        const uint32_t old_last = core::at(elements, size - 1).word();
         for (int swaps = size * 10; swaps > 0; --swaps) {
             const int a = maths::rnd(size);
             const int b = maths::rnd(size);
-            const Cell swap = elements[a];
-            elements[a] = elements[b];
-            elements[b] = swap;
+            std::swap(core::at(elements, a), core::at(elements, b));
         }
-        if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && elements[0].word() == old_last) {
+        if (params->has_bare_flag("MakeNewFirstDifferFromOldLast") && size > 1 && core::at(elements, 0).word() == old_last) {
             // "MakeNewFirstDifferFromOldLast"
             const int other = maths::rnd(size - 1) + 1;
-            const Cell swap = elements[0];
-            elements[0] = elements[other];
-            elements[other] = swap;
+            std::swap(core::at(elements, 0), core::at(elements, other));
         }
     }
     if (make_copy)

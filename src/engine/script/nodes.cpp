@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
@@ -191,8 +192,8 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
     // (The original's position isn't reset between nodes, nor set before the first: a node without pos= is
     // measured where the one before it was. Here the first such node is at the origin.)
     VectorValue p = {0.0f, 0.0f, 0.0f, 0.0f};
-    for (uint32_t i = count; i; --i, ++names) {
-        Struct* node = hub()->fetch_vertex(*names, true);
+    for (const uint32_t name : std::span<const uint32_t>(names, count)) {
+        Struct* node = hub()->fetch_vertex(name, true);
         node->fetch_vec(kPos, &p, 0);
         // (x87, 53-bit: the differences and squares in double, summed z, y, x)
         const double dx = static_cast<double>(p.x) - pos->x;

@@ -203,7 +203,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
 // Make `dest` a deep copy of `source`.
 void duplicate_array(Array* dest, Array* source);
 // Deep copies of `count` elements of `type` (null elements are skipped).
-void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_t type);
+void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uint32_t type);
 
 // An integer / name array's elements, in order.
 std::vector<uint32_t> words_of(Array* array);
@@ -370,4 +370,5 @@ extern memory::PoolPair g_vector_pools;
 
 struct PermanentString;
 extern PermanentString* g_permanent_string_table;
+extern uint32_t g_permanent_string_capacity; // (the table's entries)
 } // namespace script
