@@ -55,7 +55,9 @@ struct FrontEnd;
 // The game's screens restyled (new_frontend_mirror.h), read from the screen tree each frame: the front end's roundbar
 // menus and the pause menu in our design, every dialog box (create_snazzy_dialog_box: QUIT?, confirmations, warnings,
 // errors), the skater select (the 3D skater left in view; the skaters as a strip, the stats as a table), the on-screen
-// keyboard (its keys, the text typed; a click picks a key) and every list - values as text (Music Level 5, Songs
+// keyboard (its keys, the text typed; a click picks a key), the stats screen (EDIT STATS / the story's STATS: each stat
+// as the skater select's table, read from the game's stars, the points left; Left / Right are the game's, a click on
+// a stat's blocks steps it) and every list - values as text (Music Level 5, Songs
 // Random), checkboxes On / Off, button tags as the game spells them, a column beside the list paired with its rows (the
 // grab tricks' names), long lists scrolled, horizontal menus stepped with Left / Right; the create modes' editors'
 // lists drawn lighter over their view (the skater, the park). Left as the game draws them: the screens whose meaning

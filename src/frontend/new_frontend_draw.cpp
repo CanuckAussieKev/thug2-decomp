@@ -1312,6 +1312,109 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     get_kicker(c, kicker, left, name_top - 8.0f, Menu::kHouseYellow);
 }
 
+// The stats screen (EDIT STATS, the story's STATS): the stats as the skater select's table - each stat's name in mono
+// caps, ten slanted blocks filled to its value (the story's earned but unspent ones faint), the number - on a panel on
+// the left, the selected stat marked; the points left and the selected stat big on the right; the game behind, dimmed,
+// in a level. The game's scripts change the stats (Left / Right reach them); this only shows what its stars show.
+// Hits: Item for a row (its index), Choice for a row's blocks - row * 16 + 0 under its value (Left), + 1 past it (Right).
+void stats_screen(Ctx& c, const mirror::Tracker& t, float window_width, float window_height)
+{
+    const mirror::View& v = t.get_shown();
+    if (v.over_game_)
+        c.dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround, 0.55f));
+    else
+        c.dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround));
+    // The panel: x 0 .. 720, feathered to 800.
+    const float panel = 720.0f;
+    c.dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(c.f.get_x(panel), window_height), get_col(kGround, 0.88f));
+    c.dl->AddRectFilledMultiColor(ImVec2(c.f.get_x(panel), 0.0f), ImVec2(c.f.get_x(panel + 80.0f), window_height),
+                                  get_col(kGround, 0.88f), get_col(kGround, 0.0f), get_col(kGround, 0.0f),
+                                  get_col(kGround, 0.88f));
+    const float rule = get_header(c, 40.0f, panel - 48.0f, v.title.c_str(), true, nullptr);
+
+    // The table.
+    const int n = static_cast<int>(v.rows.size());
+    const float row_h = std::min(44.0f, (600.0f - rule - 40.0f) / static_cast<float>(std::max(n, 1)));
+    const float table_top = rule + 36.0f;
+    const float label_x = 72.0f;
+    const float bar_left = 250.0f;
+    const float bar_right = 590.0f;
+    const float number_right = panel - 48.0f;
+    const float seg = (bar_right - bar_left) / 10.0f;
+    Style label = mono12(kMuted, true);
+    label.css = 16.0f;
+    Style number = mono12(kPaper, false);
+    number.css = 16.0f;
+    for (int i = 0; i < n; ++i) {
+        const mirror::Row& r = core::at(v.rows, i);
+        const float top = table_top + row_h * static_cast<float>(i);
+        const bool selected = i == v.selected;
+        const float e = t.row_amount(i);
+        const float base = datum(label, c.f, c.f.get_y(top + (row_h - 16.0f * 1.3f) * 0.5f), 1.3f);
+        if (e > 0.001f) {
+            // (the selected stat: a slanted yellow cut behind its name, a faint band across its row)
+            c.dl->AddRectFilled(ImVec2(c.f.get_x(48.0f), c.f.get_y(top + 2.0f)),
+                                ImVec2(c.f.get_x(number_right + 12.0f), c.f.get_y(top + row_h - 2.0f)),
+                                get_col(kPaper, 0.06f * e));
+            const float w = get_measure(label, c.f, r.label.c_str()) / c.f.scale;
+            get_cut(c.dl, c.f.get_x(label_x - 12.0f), c.f.get_y(top + row_h * 0.18f),
+                    c.f.get_x(label_x - 12.0f) + c.f.current_s(w + 28.0f) * e, c.f.get_y(top + row_h * 0.82f),
+                    c.f.current_s(6.0f), c.f.current_s(6.0f), get_col(Menu::kHouseYellow));
+        }
+        Style l = label;
+        l.colour = get_mix(r.focusable ? kMuted : kMuted2, kGround, e);
+        draw_text(c.dl, l, c.f, c.f.get_x(label_x), base, r.label.c_str());
+        const int value = std::clamp(r.stat_value_, 0, 10);
+        const int cap = std::clamp(r.stat_cap_, value, 10);
+        const float block_top = top + row_h * 0.5f - 7.0f;
+        for (int k = 0; k < 10; ++k) {
+            const float sx = bar_left + seg * static_cast<float>(k);
+            const ImU32 colour = k < value ? get_col(Menu::kHouseYellow)
+                                 : k < cap ? get_col(Menu::kHouseYellow, 0.3f)
+                                           : get_col(kRule);
+            get_cut(c.dl, c.f.get_x(sx), c.f.get_y(block_top), c.f.get_x(sx + seg - 5.0f), c.f.get_y(block_top + 14.0f),
+                    c.f.current_s(3.0f), c.f.current_s(3.0f), colour);
+        }
+        const std::string text = std::to_string(value);
+        Style num = number;
+        num.colour = selected ? Menu::kHouseYellow : kPaper;
+        draw_text(c.dl, num, c.f, c.f.get_x(number_right) - get_measure(num, c.f, text.c_str()), base, text.c_str());
+        // (the blocks: under the value Left, past it Right; the row: select / choose)
+        c.get_hit(Hit::Kind::kChoice, i * 16, bar_left - 6.0f, top, bar_left + seg * static_cast<float>(value), top + row_h);
+        c.get_hit(Hit::Kind::kChoice, i * 16 + 1, bar_left + seg * static_cast<float>(value), top, bar_right + 6.0f,
+                  top + row_h);
+        c.get_hit(Hit::Kind::kItem, i, 48.0f, top, number_right + 12.0f, top + row_h);
+    }
+
+    // The right: the hints, the screen's other words (the description, the story's goals), the points left, the stat.
+    const float left = 800.0f;
+    const float right = 1232.0f;
+    std::vector<std::string> hints = {text_tools::kHintStat};
+    if (v.stat_columns_ > 1 && !v.stats_editing_) {
+        hints.emplace_back(text_tools::kHintColumn);
+        hints.emplace_back(text_tools::kHintEditStat);
+        hints.emplace_back(text_tools::kHintBack);
+    } else {
+        hints.emplace_back(text_tools::kHintChange);
+        hints.emplace_back(v.stats_editing_ ? text_tools::kHintDone : text_tools::kHintBack);
+    }
+    float bottom = get_hints(c, hints, 48.0f, right, 688.0f) - 16.0f;
+    if (v.points >= 0) {
+        Style big;
+        big.face = Face::kDisplay;
+        big.css = 72.0f;
+        big.colour = v.points > 0 ? Menu::kHouseYellow : kMuted2;
+        const std::string points = std::to_string(v.points);
+        const float top = bottom - 72.0f * 0.95f;
+        draw_text(c.dl, big, c.f, c.f.get_x(left), datum(big, c.f, c.f.get_y(top), 0.95f), points.c_str());
+        bottom = get_kicker(c, text_tools::kPointsLeft, left, top - 4.0f, Menu::kHouseYellow) - 20.0f;
+    }
+    const float name_top = big_name(c, v.big_name_, 84.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
+    get_kicker(c, v.title, left, name_top - 8.0f, Menu::kHouseYellow);
+    if (!v.lines.empty())
+        paragraphs(c, v.lines, left, right, 96.0f, 12);
+}
+
 // A colour menu's slider track (Mirror::Row::track 1 hue, 2 saturation, 3 value, 4 alpha, 5 any other bar): a thin rail
 // in the colour the slider sets - the hue spectrum at the colour's saturation limit and value, grey to the full saturation
 // at the colour's hue and value, dark to bright at its hue and saturation - the colours as the skater shows them
@@ -1885,6 +1988,9 @@ void restyled(const mirror::Tracker& tracker, const TickCycle& frame, float wind
         if (!tracker.get_shown().over_game_)
             dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround));
         keyboard_screen(c, tracker, window_width, window_height);
+        break;
+    case mirror::Kind::kStats:
+        stats_screen(c, tracker, window_width, window_height);
         break;
     case mirror::Kind::kNone:
         break;

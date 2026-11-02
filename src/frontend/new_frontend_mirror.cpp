@@ -41,6 +41,86 @@ std::string caption(const std::string& text)
     return s;
 }
 
+// The first whole number in `text` (-1: none) - "Points Available: 3", "3 Air points available".
+int first_number(const std::string& text)
+{
+    int n = -1;
+    for (const char c : text) {
+        if (c >= '0' && c <= '9')
+            n = (n < 0 ? 0 : n * 10) + (c - '0');
+        else if (n >= 0)
+            break;
+    }
+    return n;
+}
+
+bool contains_upper(const std::string& text, const char* upper_word)
+{
+    return get_upper(text).find(upper_word) != std::string::npos;
+}
+
+// Kind::Stats from what was read: the stat rows in the stats' order, the points left, the screen's other words (the
+// description, the story's goals; the numbers the original shows beside its own stars dropped - each row has its own).
+View stats_view(const MenuRead& read)
+{
+    View view;
+    view.kind = Kind::kStats;
+    view.key = read.menu_key_;
+    view.over_game_ = read.in_level_;
+    view.stats_editing_ = read.stats_editing_;
+    for (size_t i = 0; i < read.items.size(); ++i) {
+        const ItemRead& item = core::at(read.items, i);
+        if (item.stat_index_ < 0)
+            continue;
+        Row row;
+        for (const std::string& t : item.texts) {
+            row.label = caption(clean_text(t));
+            if (!row.label.empty())
+                break;
+        }
+        row.stat_value_ = item.stat_value_;
+        row.stat_cap_ = std::max(item.stat_cap_, item.stat_value_);
+        row.stat_column_ = item.stat_column_;
+        row.index = item.stat_child_;
+        row.focusable = item.focusable;
+        row.adjustable = true;
+        view.stat_columns_ = std::max(view.stat_columns_, item.stat_column_ + 1);
+        if (ints::as_signed(i) == read.stats_selected_)
+            view.selected = static_cast<int>(view.rows.size());
+        view.rows.push_back(std::move(row));
+    }
+    if (view.rows.empty()) {
+        View none; // (its rows not made yet)
+        none.unsettled = true;
+        none.why = "the stats screen without its stats yet";
+        return none;
+    }
+    const std::string title = clean_text(read.title);
+    for (const std::string& t : read.extra_texts_) {
+        const std::string clean = clean_text(t, true);
+        if (clean.empty() || get_upper(clean) == get_upper(title))
+            continue;
+        if (contains_upper(clean, "EDIT STATS")) {
+            view.title = clean;
+            continue;
+        }
+        if (contains_upper(clean, "POINTS AVAILABLE")) {
+            view.points = std::max(first_number(clean), 0);
+            continue;
+        }
+        // (the original's own "Air:", "3", "/10" beside its stars)
+        if (clean.back() == ':' || clean.find_first_not_of("0123456789/ ") == std::string::npos)
+            continue;
+        view.lines.push_back(clean);
+    }
+    if (view.title.empty())
+        view.title = !title.empty() ? title : std::string(text_tools::kTitleStats);
+    if (view.lines.size() > 12)
+        view.lines.resize(12);
+    view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
+    return view;
+}
+
 } // namespace
 
 const char* kind_name(Kind kind)
@@ -60,6 +140,8 @@ const char* kind_name(Kind kind)
         return "menu";
     case Kind::kKeyboard:
         return "keyboard";
+    case Kind::kStats:
+        return "stats";
     }
     return "";
 }
@@ -313,6 +395,8 @@ View get_build(const MenuRead& read, const Policy& policy)
         rows_from(true);
         return view;
     }
+    if (read.stats_screen_)
+        return policy.lists ? stats_view(read) : view;
     static const uint32_t kPauseMenu = name_hash("pause_vmenu");
     if (read.menu_id_ == kPauseMenu) {
         // The pause menu: every item with words, in the game's order (roundbar items carry their bars and a shadow copy

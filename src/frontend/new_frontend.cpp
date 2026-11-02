@@ -919,6 +919,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
     static const uint32_t kLeft = name_hash("left_arrow"), kRight = name_hash("right_arrow");
     static const uint32_t kUp = name_hash("up_arrow");
     static const uint32_t kHueArrow = name_hash("hue_up_arrow");
+    static const uint32_t kStar = name_hash("star"), kCircle = name_hash("circle");
     static const auto kColourArrows = std::to_array<uint32_t>({name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
                                              name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
     for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
@@ -944,6 +945,18 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                                      : id == core::at(kColourArrows, 2) ? 3
                                      : id == core::at(kColourArrows, 3) ? 4
                                                               : 0;
+            }
+            if (item->stat_index_ >= 0 && (texture == kStar || texture == kCircle)) {
+                // A stat's star (build_stat_slider: ten of them; stats_menu_update_row lights the first `value` in
+                // stats_menu_star_highlight [85 85 0], the rest stats_menu_star_lowlight [10 10 10] - the story's earned
+                // but unspent ones lit at alpha 0.3)
+                item->stat_value_ = std::max(item->stat_value_, 0);
+                item->stat_cap_ = std::max(item->stat_cap_, 0);
+                if (core::at(e->aim_point_.rgba, 0) >= 40) {
+                    ++item->stat_cap_;
+                    if (e->aim_point_.alpha > 0.6f)
+                        ++item->stat_value_;
+                }
             }
             if (texture == kCheckbox && get_visible(e)) {
                 item->checkbox = 0;
@@ -1098,6 +1111,119 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
                 read.extra_texts_.push_back(text);
         }
     }
+    return read;
+}
+
+// --- the stats screen (EDIT STATS, the story's STATS) ---
+
+// The stat a stats screen's row stands for (stats_menu_add_item: its id stats_menu_names_<n>); -1 for any other element.
+int stat_row_index(uint32_t id)
+{
+    static const std::array<uint32_t, 16> kIds = [] {
+        std::array<uint32_t, 16> ids{};
+        for (size_t i = 0; i < ids.size(); ++i) {
+            std::array<char, 32> name{};
+            std::snprintf(name.data(), name.size(), "stats_menu_names_%u", static_cast<unsigned>(i));
+            core::at(ids, i) = name_hash(name.data());
+        }
+        return ids;
+    }();
+    for (size_t i = 0; i < kIds.size(); ++i)
+        if (core::at(kIds, i) == id)
+            return static_cast<int>(i);
+    return -1;
+}
+
+bool has_stat_rows(const UiWidget* menu)
+{
+    for (const UiWidget* child = menu ? first_child(menu) : nullptr; child; child = get_next(child))
+        if (stat_row_index(id_of_element(child)) >= 0)
+            return true;
+    return false;
+}
+
+// Whether the stats screen is up: its menu takes the pad (classic_stats_vmenu, the story's sub_vmenu / sub_vmenu2), or
+// the story's stat is being changed (stats_menu_build_change_menu: its change_stat_sub_anchor takes the pad - no stats
+// menu does then).
+bool stats_screen_up(const UiWidget* menu)
+{
+    return has_stat_rows(menu) || game_screens::get_find(name_hash("change_stat_sub_anchor")) != nullptr;
+}
+
+// The stats screen read: every stat row of its menus (the story's two columns both), what the stars show, the row
+// selected (the one with the pad, or the one being changed), the screen's other words. The game's scripts do the rest:
+// Left / Right reach its own handlers (stats_change_menu_left / right, the story's column change), Back its pad_back.
+mirror::MenuRead read_stats(UiWidget* active)
+{
+    mirror::MenuRead read;
+    read.found = true;
+    read.stats_screen_ = true;
+    read.in_level_ = !in_front_end();
+    const UiWidget* editing = game_screens::get_find(name_hash("change_stat_sub_anchor"));
+    read.stats_editing_ = editing != nullptr;
+    const UiWidget* editing_row = editing ? editing->container_.get_pull() : nullptr;
+    static const uint32_t kColumn1 = name_hash("sub_vmenu"), kColumn2 = name_hash("sub_vmenu2");
+    std::vector<const UiWidget*> menus;
+    if (has_stat_rows(active) && id_of_element(active) != kColumn1 && id_of_element(active) != kColumn2) {
+        menus.push_back(active);
+    } else {
+        for (const uint32_t column : {kColumn1, kColumn2})
+            if (const UiWidget* m = game_screens::get_find(column); m && has_stat_rows(m))
+                menus.push_back(m);
+    }
+    if (menus.empty())
+        return read;
+    read.menu_id_ = id_of_element(menus.front());
+    read.menu_key_ = menus.front();
+    int budget = 4096;
+    int selected_stat = -1;
+    for (size_t column = 0; column < menus.size(); ++column) {
+        const UiWidget* menu = core::at(menus, column);
+        const bool takes_pad = menu == active && !editing;
+        const int selected = takes_pad ? mouse_menus::selected_index(menu) : -1;
+        int index = 0;
+        for (const UiWidget* child = first_child(menu); child && index < 32; child = get_next(child), ++index) {
+            const int stat = stat_row_index(id_of_element(child));
+            if (stat < 0)
+                continue;
+            mirror::ItemRead item;
+            item.id = id_of_element(child);
+            item.focusable = mouse_menus::item_focusable(child);
+            item.stat_index_ = stat;
+            item.stat_column_ = static_cast<int>(column);
+            item.stat_child_ = takes_pad ? index : -1;
+            collect_texts(child, &item.texts, {}, &budget, false);
+            int value_budget = 256;
+            if (const UiWidget* first = first_child(child))
+                read_value_sprites(first, &item, &value_budget);
+            if ((takes_pad && index == selected) || child == editing_row)
+                selected_stat = stat;
+            read.items.push_back(std::move(item));
+        }
+    }
+    std::ranges::stable_sort(read.items, {}, &mirror::ItemRead::stat_index_);
+    for (size_t i = 0; i < read.items.size(); ++i)
+        if (core::at(read.items, i).stat_index_ == selected_stat)
+            read.stats_selected_ = static_cast<int>(i);
+    // The other words: the screen's texts (the points left, the description, the story's goals) - the stats menus and the
+    // helper text left out.
+    if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
+        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars_ && get_visible(title))
+            read.title = core::down_cast<LabelWidget>(title)->chars_;
+    const UiWidget* root = root_element();
+    const UiWidget* screen = menus.front();
+    for (int guard = 0; screen && guard < 64; ++guard) {
+        const UiWidget* parent = screen->container_.get_pull();
+        if (!parent || parent == root)
+            break;
+        screen = parent;
+    }
+    std::vector<const UiWidget*> skip(menus.begin(), menus.end());
+    for (const char* id : {"helper_text_anchor", "title_text"})
+        if (const UiWidget* e = game_screens::get_find(name_hash(id)))
+            skip.push_back(e);
+    if (screen)
+        collect_texts(screen, &read.extra_texts_, skip, &budget, true);
     return read;
 }
 
@@ -1379,6 +1505,15 @@ mirror::View mirror_now()
     } else {
         s_coming = nullptr;
     }
+    if (!in_dialog && stats_screen_up(menu)) {
+        // (the stats screen - its menus, or the story's stat being changed with none of them taking the pad)
+        const mirror::View stats = mirror::get_build(read_stats(menu), policy);
+        if (s_mirror_logged != "stats") {
+            s_mirror_logged = "stats";
+            get_log("new front end: restyled - the stats screen \"%s\", %zu stats", stats.title.c_str(), stats.rows.size());
+        }
+        return stats;
+    }
     if (!menu)
         return {};
     // A create mode's editor chosen on the restyled CREATE-A-MODES (its item selected when that menu went): its menus
@@ -1452,6 +1587,8 @@ bool step_to(modules::FrontEnd* front_end, int row)
     if (!menu || row < 0 || std::cmp_greater_equal(row, v.rows.size()))
         return false;
     const int target = core::at(v.rows, row).index;
+    if (target < 0)
+        return false; // (a row of a menu not taking the pad: the story's other stats column)
     StepContext context{front_end, v.horizontal};
     mouse_menus::step_selection(target, mouse_menus::child_count(menu), mouse_menus::menu_wraps(menu), read_selection,
                                 send_step, &context);
@@ -1482,6 +1619,49 @@ void choose_key(modules::FrontEnd* front_end, int row, int col)
     }
 }
 
+// The stats screen's row `row` selected with the game's own pad events: in the menu taking the pad, stepped there; in the
+// story's other column, Left / Right toward it first (its column change keeps the row's place - the next steps reach
+// the row). Nothing while a stat is being changed. Returns whether the row is selected now.
+bool step_to_stat(modules::FrontEnd* front_end, int row)
+{
+    const mirror::View& v = s_mirror.get_shown();
+    if (row < 0 || std::cmp_greater_equal(row, v.rows.size()))
+        return false;
+    if (row == v.selected)
+        return true;
+    if (v.stats_editing_)
+        return false;
+    const mirror::Row& r = core::at(v.rows, row);
+    if (r.index >= 0)
+        return step_to(front_end, row);
+    if (v.selected >= 0)
+        mouse_menus::send_menu_pad_event(front_end, r.stat_column_ < core::at(v.rows, v.selected).stat_column_
+                                                        ? modules::FrontEnd::kPadLeft
+                                                        : modules::FrontEnd::kPadRight);
+    return false;
+}
+
+// A click on the stats screen: a row's name selects it (the story's selected row: chosen - a stat to change, or done);
+// its blocks select it and step its value - under the value Left, past it Right (the story's row is chosen first: its
+// Left / Right change the stat only while it is being changed).
+void stats_click(modules::FrontEnd* front_end, const paint::Hit& hit)
+{
+    const mirror::View& v = s_mirror.get_shown();
+    const bool story = v.stat_columns_ > 1;
+    if (hit.kind == paint::Hit::Kind::kItem) {
+        const bool was_selected = hit.index == v.selected;
+        if (step_to_stat(front_end, hit.index) && was_selected && story)
+            mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
+        return;
+    }
+    if (hit.kind != paint::Hit::Kind::kChoice || !step_to_stat(front_end, hit.index / 16))
+        return;
+    if (story && !v.stats_editing_)
+        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
+    mouse_menus::send_menu_pad_event(front_end, hit.index % 16 == 0 ? modules::FrontEnd::kPadLeft
+                                                                    : modules::FrontEnd::kPadRight);
+}
+
 void mirror_mouse(modules::FrontEnd* front_end)
 {
     std::vector<SDL_Event> events;
@@ -1501,9 +1681,20 @@ void mirror_mouse(modules::FrontEnd* front_end)
         return nullptr;
     };
     const bool skaters = s_mirror.get_shown().kind == mirror::Kind::kSkaters;
+    const bool stats = s_mirror.get_shown().kind == mirror::Kind::kStats;
     for (const SDL_Event& e : events) {
         switch (e.type) {
         case SDL_MOUSEMOTION:
+            if (stats) {
+                if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
+                    const int row = hit->kind == paint::Hit::Kind::kItem     ? hit->index
+                                    : hit->kind == paint::Hit::Kind::kChoice ? hit->index / 16
+                                                                             : -1;
+                    if (row >= 0 && row != s_mirror.get_shown().selected)
+                        step_to_stat(front_end, row);
+                }
+                break;
+            }
             // (the skater select: each step loads a skater - only a click selects there)
             if (!skaters)
                 if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y)))
@@ -1519,6 +1710,8 @@ void mirror_mouse(modules::FrontEnd* front_end)
                     break;
                 if (hit->kind == paint::Hit::Kind::kBack) {
                     mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
+                } else if (stats) {
+                    stats_click(front_end, *hit);
                 } else if (hit->kind == paint::Hit::Kind::kStageMap &&
                            s_mirror.get_shown().kind == mirror::Kind::kKeyboard) {
                     choose_key(front_end, hit->index / 64, hit->index % 64);
