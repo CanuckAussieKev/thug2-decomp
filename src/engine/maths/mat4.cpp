@@ -56,8 +56,8 @@ Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b)
 {
     Mat4 result{};
     for (int i = 0; i < 4; ++i) {
-        const float* ra = &core::at(a.row, i).x;
-        float* rr = &core::at(result.row, i).x;
+        const Vec4& ra = core::at(a.row, i);
+        Vec4& rr = core::at(result.row, i);
         for (int j = 0; j < 4; ++j)
             rr[j] = ra[0] * core::at(b.row, 0)[j] + ra[1] * core::at(b.row, 1)[j] + ra[2] * core::at(b.row, 2)[j] +
                     ra[3] * core::at(b.row, 3)[j];
@@ -267,8 +267,8 @@ Vec4& Mat4::rotate_vector(Vec4& out, const Vec4& in) const
 bool Mat4::operator==(const Mat4& other) const
 {
     for (int i = 0; i < 4; ++i) {
-        const float* mine = &core::at(row, i).x;
-        const float* theirs = &core::at(other.row, i).x;
+        const Vec4& mine = core::at(row, i);
+        const Vec4& theirs = core::at(other.row, i);
         for (int j = 0; j < 4; ++j) {
             if (!(mine[j] == theirs[j]))
                 return false;

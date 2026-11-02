@@ -129,7 +129,7 @@ float Vec4::dominant_axis_index(int* axis) const
         index = std::fabs(y) < std::fabs(z) ? 2 : 1;
     if (axis)
         *axis = index;
-    return (&x)[index];
+    return (*this)[index];
 }
 
 // 0x00402370

@@ -2,10 +2,12 @@
 // The x87 work is at 53 bits: what the original keeps on the FPU stack is a double here, what it stores a float.
 
 #include <cmath>
+#include <span>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checked_index.h"
 #include "engine/core/raw_view.h"
 
 namespace maths {
@@ -49,16 +51,16 @@ Mat4* QuatRotation::fetch_mat(Mat4* out) const
     const float yz = get_narrow(get_wide(zs) * y);
     const double zz = get_wide(zs) * z;
 
-    auto* m = out->data();
-    m[0] = get_narrow(1.0 - (yy + zz));
-    m[4] = get_narrow(xy + wz);
-    m[8] = get_narrow(xz - wy);
-    m[1] = get_narrow(xy - wz);
-    m[5] = get_narrow(1.0 - (zz + xx));
-    m[9] = get_narrow(get_wide(yz) + wx);
-    m[2] = get_narrow(xz + wy);
-    m[6] = get_narrow(get_wide(yz) - wx);
-    m[10] = get_narrow(1.0 - (get_wide(yy) + xx));
+    const std::span<float, 16> m = out->floats();
+    core::at(m, 0) = get_narrow(1.0 - (yy + zz));
+    core::at(m, 4) = get_narrow(xy + wz);
+    core::at(m, 8) = get_narrow(xz - wy);
+    core::at(m, 1) = get_narrow(xy - wz);
+    core::at(m, 5) = get_narrow(1.0 - (zz + xx));
+    core::at(m, 9) = get_narrow(get_wide(yz) + wx);
+    core::at(m, 2) = get_narrow(xz + wy);
+    core::at(m, 6) = get_narrow(get_wide(yz) - wx);
+    core::at(m, 10) = get_narrow(1.0 - (get_wide(yy) + xx));
     return out;
 }
 

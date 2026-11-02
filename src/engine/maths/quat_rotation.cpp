@@ -4,6 +4,7 @@
 
 #include "engine/maths/quat_rotation.h"
 
+#include <array>
 #include <cmath>
 
 #include "engine/maths/mat4.h"
@@ -15,7 +16,7 @@ namespace maths {
 namespace {
 
 // The matrix's element at row `r`, column `c`.
-double get_at(const Mat4& m, int r, int c) { return (core::at(m.row, r)).data()[c]; }
+double get_at(const Mat4& m, int r, int c) { return core::at(m.row, r)[c]; }
 
 } // namespace
 
@@ -123,11 +124,11 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
         i = 2;
     const int j = (i + 1) % 3, k = (j + 1) % 3;
     const double s = std::sqrt((get_at(m, i, i) - (get_at(m, k, k) + get_at(m, j, j))) + 1.0);
-    float* q = &x;
-    q[i] = static_cast<float>(0.5 * s);
+    const std::array<float*, 3> q = {{&x, &y, &z}};
+    *core::at(q, i) = static_cast<float>(0.5 * s);
     const double f = 0.5 / s;
-    q[j] = static_cast<float>((get_at(m, j, i) + get_at(m, i, j)) * f);
-    q[k] = static_cast<float>((get_at(m, k, i) + get_at(m, i, k)) * f);
+    *core::at(q, j) = static_cast<float>((get_at(m, j, i) + get_at(m, i, j)) * f);
+    *core::at(q, k) = static_cast<float>((get_at(m, k, i) + get_at(m, i, k)) * f);
     w = static_cast<float>((get_at(m, k, j) - get_at(m, j, k)) * f);
     return this;
 }
