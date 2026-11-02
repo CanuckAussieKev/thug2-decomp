@@ -24,19 +24,10 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 #include <gsl/pointers>
 
 namespace park_editing {
-
-ParkEditorCfuncsShared& park_editor_cfuncs_shared()
-{
-    static core::NoDestroy<ParkEditorCfuncsShared> state;
-    return state.get();
-}
-
-bool collision_allowed() { return park_editor_cfuncs_shared().collision_allowed_; }
-void set_collision_allowed(bool value) { park_editor_cfuncs_shared().collision_allowed_ = value; }
 
 namespace {
 // NOT ORIGINAL grouping - park_editor_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
@@ -375,8 +366,7 @@ bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Script*)
 void resize_to(CellBox area)
 {
     mark_progress("ResizePark START--------");
-    bool& collision_allowed = park_editor_cfuncs_shared().collision_allowed_; // (the generator's rebuild_collision runs only when set)
-    collision_allowed = false;
+    park_editing_state().set_collision_allowed(false); // (the generator's rebuild_collision runs only when set)
     hub()->rebuild_inner_shell(area);
     hub()->rebuild_area(nullptr, false);
     PanelRect rails{};
@@ -390,7 +380,7 @@ void resize_to(CellBox area)
         get_cursor()->remove_clipboards_too_big();
     if (have_cursor())
         get_cursor()->toggle_shown(false);
-    collision_allowed = true;
+    park_editing_state().set_collision_allowed(true);
     hub()->builder_->rebuild_collision();
     mark_progress("ResizePark END--------");
 }

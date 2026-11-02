@@ -630,6 +630,7 @@ add_executable(thug2 WIN32
     src/game/park_editing/upper_menu.cpp
     src/game/park_editing/park_lists.cpp
     src/game/park_editing/park_io.cpp
+    src/game/park_editing/park_editing_state.cpp
     src/game/park_editing/park_cfuncs.cpp
     src/game/park_editing/park_pieces.cpp
     src/game/park_editing/park_metapieces.cpp

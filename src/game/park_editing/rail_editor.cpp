@@ -28,7 +28,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -39,8 +39,6 @@ memory::PoolPair& point_pools()
     static core::NoDestroy<memory::PoolPair> rail_point_pools;
     return rail_point_pools.get();
 }
-memory::PoolPair& rail_pools() { return copy_buffer_shared().rail_pools_; }
-bool& get_update_super_sectors() { return park_map_shared().rail_editor_flag_; }
 
 void remove_scene_sector(render::WorldCell*& sector)
 {
@@ -49,7 +47,7 @@ void remove_scene_sector(render::WorldCell*& sector)
     ParkAssembler* generator = ParkLayout::singleton()->builder_;
     generator->remove_scene_sector(sector_key_from_spec(sector), 0);
     set_counts_dirty();
-    if (get_update_super_sectors())
+    if (park_editing_state().get_update_super_sectors())
         ParkLayout::singleton()->builder_->rebuild_collision();
     sector = nullptr;
 }
@@ -331,7 +329,7 @@ EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
         return nullptr;
     EditedRailPoint* prev = point->preceding_;
     if (prev && point->following_) {
-        const memory::PoolPair& rails = rail_pools();
+        const memory::PoolPair& rails = park_editing_state().rail_pools();
         if (core::at(rails.pools, rails.current)->taken_count_ == RailAuthoring::kMaxRails)
             return nullptr;
     }
@@ -425,7 +423,7 @@ RailAuthoring::~RailAuthoring()
 {
     get_clear();
     free_pool(point_pools());
-    free_pool(rail_pools());
+    free_pool(park_editing_state().rail_pools());
 }
 
 // 0x004F47E0
@@ -444,14 +442,14 @@ void RailAuthoring::make_point_pool(int count, const char* name)
 // 0x004F4A70
 void RailAuthoring::make_rail_pool(int count, const char* name)
 {
-    make_pool(rail_pools(), sizeof(EditedRail), count, name);
+    make_pool(park_editing_state().rail_pools(), sizeof(EditedRail), count, name);
 }
 
 // 0x004F4AF0
-void* RailAuthoring::new_rail_memory(unsigned int size) { return rail_pools().carve(size); }
+void* RailAuthoring::new_rail_memory(unsigned int size) { return park_editing_state().rail_pools().carve(size); }
 
 // 0x004F4B30
-void RailAuthoring::free_rail(void* rail) { rail_pools().dealloc(rail); }
+void RailAuthoring::free_rail(void* rail) { park_editing_state().rail_pools().dealloc(rail); }
 
 // 0x004F4A10
 void RailAuthoring::free_point(void* point) { point_pools().dealloc(point); }

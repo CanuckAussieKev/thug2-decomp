@@ -21,19 +21,12 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 #include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace park_editing {
-
-EditedGoalIoShared& edited_goal_io_shared()
-{
-    static core::NoDestroy<EditedGoalIoShared> state;
-    return state.get();
-}
 
 namespace {
 std::array<char, 100>& goal_io_name_buffer()
@@ -50,8 +43,6 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
     return crt::get_sprintf(out, format, args...);
 }
-
-std::array<char, 24>& created_goal_name() { return edited_goal_io_shared().created_goal_name_; } // the shared CreatedGoal<n> buffer
 
 gsl::owner<script::Array*> new_array_of(uint32_t size, uint32_t type)
 {
@@ -401,8 +392,8 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         structure_element(dialog, 0)->put_name_key(0x531E4D28, pro);
         out->append_array_ref(0x27CD32E1, dialog);
     }
-    get_sprintf(created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
-    out->append_word(0xBFECC45B, created_goal_name().data());
+    get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
+    out->append_word(0xBFECC45B, park_editing_state().created_goal_name().data());
     if (core::at(label_, 0))
         out->append_word(0x4BC5229D, label_.data());
     if (core::at(ped_name_, 0))
@@ -419,8 +410,8 @@ void EditedGoal::export_to_struct(script::Struct* out)
     out->put_name_key(0u, 0x981D3AD0u);
     out->put_name_key(0x651533EC, level_);
     out->put_int(0x60CE75AE, level_goal_number_);
-    get_sprintf(created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
-    out->put_name_key(0x9982E501, checksums::hash_from_text(created_goal_name().data()));
+    get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
+    out->put_name_key(0x9982E501, checksums::hash_from_text(park_editing_state().created_goal_name().data()));
     out->put_int(0xC51BF6E3, time_limit_);
     out->put_int(0x14938611, won_);
     out->put_name_key(0x81CFF663, control_type_);
@@ -453,10 +444,10 @@ void EditedGoal::add_to_goal_manager(bool unwin)
     gsl::owner<script::Struct*> params = script::new_struct();
     write_goal_manager_params(params);
     goals::GoalManager* manager = goals::get_objective_board();
-    get_sprintf(created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
-    manager->enrol_objective(checksums::hash_from_text(created_goal_name().data()), params);
-    get_sprintf(created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
-    goals::Objective* goal = manager->get_goal(checksums::hash_from_text(created_goal_name().data()), 1);
+    get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
+    manager->enrol_objective(checksums::hash_from_text(park_editing_state().created_goal_name().data()), params);
+    get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
+    goals::Objective* goal = manager->get_goal(checksums::hash_from_text(park_editing_state().created_goal_name().data()), 1);
     goal->mark_viewed();
     if (unwin)
         won_ = false;

@@ -37,7 +37,6 @@ class ParkBuilderMode;
 using ParkEditorTask = tasks::Task<ParkBuilderMode>;
 using ParkEditorInputHandler = pad_input::Responder<ParkBuilderMode>;
 
-
 // The park editor module (vtable 0x0064F234).
 class ParkBuilderMode final : public modules::PartUnit {
 public:
@@ -253,8 +252,5 @@ bool cfunc_bind_park_editor_to_controller(script::Struct* params, script::Script
 bool cfunc_set_park_editor_state(script::Struct* params, script::Script* script);
 // 0x0058FED0 SetParkEditorPauseMode pause | unpause: the editor paused (its menu and cursor hidden) or not.
 bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* script);
-
-bool collision_allowed();
-void set_collision_allowed(bool value);
 
 } // namespace park_editing

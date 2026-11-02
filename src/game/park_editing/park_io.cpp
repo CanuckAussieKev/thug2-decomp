@@ -25,8 +25,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "game/park_editing/shared_state.h"
-#include "engine/core/no_destroy.h"
+#include "game/park_editing/park_editing_state.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -34,13 +33,8 @@ namespace park_editing {
 namespace {
 constexpr float kParkGapGridOffset{28.0f};
 } // namespace
-ParkIoShared& park_io_shared()
-{
-    static core::NoDestroy<ParkIoShared> state;
-    return state.get();
-}
 
-park_editing::ParkBuilderMode* ParkBuilderMode::sole() { return park_io_shared().park_editor_.get(); }
+park_editing::ParkBuilderMode* ParkBuilderMode::sole() { return park_editing_state().park_editor().get(); }
 
 namespace {
 
@@ -55,7 +49,7 @@ float gap_grid_offset() { return kParkGapGridOffset; }
 // The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
 uint32_t editor_value78()
 {
-    return park_io_shared().park_editor_->lighting_script_;
+    return park_editing_state().park_editor()->lighting_script_;
 }
 uint8_t generator_max_players(ParkAssembler* generator) { return static_cast<uint8_t>(generator->get_player_limit()); }
 
@@ -451,7 +445,7 @@ void ParkLayout::clear_compressed_map()
     map.set_shell_size(static_cast<uint16_t>(shell_size_));
     map.set_reserved_0a(0);
     map.set_area(build_area_.x, build_area_.z, build_area_.w, build_area_.l);
-    map.set_theme(static_cast<void*>(park_io_shared().park_editor_.get()) ? editor_value78() : 0);
+    map.set_theme(static_cast<void*>(park_editing_state().park_editor().get()) ? editor_value78() : 0);
     map.set_max_players(2);
     std::memcpy(map.name().data(), "Unnamed park", 13); // "Unnamed park"
     for (size_t cell = 0; cell < kParkMapFloorCells; ++cell)

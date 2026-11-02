@@ -14,7 +14,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/sys/model_viewer.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -204,7 +204,7 @@ ParkBuilderMode::ParkBuilderMode()
 ParkBuilderMode* ParkBuilderMode::fabricate(bool create)
 {
     if (!sole() && create) {
-        park_io_shared().park_editor_ = std::make_unique<ParkBuilderMode>(); // (null when the heap is full)
+        park_editing_state().park_editor() = std::make_unique<ParkBuilderMode>(); // (null when the heap is full)
         if (sole()) {
             ++ref_tally();
             return sole();

@@ -20,18 +20,11 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace park_editing {
-
-EditedGoalShared& edited_goal_shared()
-{
-    static core::NoDestroy<EditedGoalShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -46,7 +39,6 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 }
 
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).
-std::array<char, 104>& name_buffer() { return edited_goal_shared().goal_name_buffer_; }
 
 uint32_t current_level() { return modules::Skate::sole()->level_; }
 
@@ -231,8 +223,8 @@ void EditedGoal::place_goal_marker(int index)
     default:
         break;
     }
-    get_sprintf(name_buffer().data(), "GoalEditorMarkerObject%d", index);
-    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name_buffer().data()));
+    get_sprintf(park_editing_state().name_buffer().data(), "GoalEditorMarkerObject%d", index);
+    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(park_editing_state().name_buffer().data()));
     const EditedGoalPoint& point = core::at(path_vertices_, index);
     params.put_vec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
     params.push_float(0xFF7EBAF6, point.angle * kDegreesPerRadian);

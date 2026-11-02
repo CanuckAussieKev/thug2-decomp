@@ -32,7 +32,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -157,7 +157,7 @@ void ParkBuilderMode::get_release()
         --ref_tally();
         return;
     }
-    memory::destroy_then_clear(park_io_shared().park_editor_);
+    memory::destroy_then_clear(park_editing_state().park_editor());
     ref_tally() = 0;
 }
 

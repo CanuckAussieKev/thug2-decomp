@@ -11,6 +11,7 @@
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -26,7 +27,6 @@ uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits_; }
 CellBox& meta_footprint(PieceGroup* meta) { return meta->cell_footprint_; }
 
 // The scene is rebuilt while this is set (0x0067F398; cleared around the floor's rebuild).
-
 
 void call_destroy_concrete_meta(ParkLayout* manager, void* meta, int flags)
 {
@@ -82,17 +82,17 @@ void ParkLayout::rebuild_park(uint32_t how)
     } else {
         read_from_compressed_map(); // rebuilt from the saved map
     }
-    set_collision_allowed(false);
+    park_editing_state().set_collision_allowed(false);
     rebuild_inner_shell(park_dims());
     rebuild_floor_and_pieces(this, nullptr, 0);
-    set_collision_allowed(true);
+    park_editing_state().set_collision_allowed(true);
     rebuild_scene(get_generator());
     floor_built() = true;
     if (how == kNewPark)
         current_flags() |= 1;
-    set_collision_allowed(false);
+    park_editing_state().set_collision_allowed(false);
     get_engine()->reassemble();
-    set_collision_allowed(true);
+    park_editing_state().set_collision_allowed(true);
     rebuild_scene(get_generator());
 }
 

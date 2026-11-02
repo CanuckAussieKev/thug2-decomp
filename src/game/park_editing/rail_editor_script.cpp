@@ -11,7 +11,7 @@
 #include "engine/script/cell.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
-#include "game/park_editing/rail_editor_internal.h"
+#include "game/park_editing/rail_editor_internal.h" // IWYU pragma: keep - the namespace of the using-directive
 #include "engine/objects/control_pad.h"
 #include "engine/objects/editor_camera.h"
 #include "engine/objects/input_component.h"
@@ -22,7 +22,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -72,7 +72,7 @@ objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset
 
 int rail_pool_used()
 {
-    const memory::PoolPair& pools = rail_pools();
+    const memory::PoolPair& pools = park_editing_state().rail_pools();
     return core::at(pools.pools, pools.current)->taken_count_;
 }
 
@@ -278,7 +278,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
                 p->level_y_ =
                     static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point_));
                 p->has_post_ = params->has_bare_flag(kAddPost);
-                const Vec4& zero = copy_buffer_shared().rail_origin_;
+                const Vec4& zero = park_editing_state().get_zero();
                 p->draw_segment(&zero, &zero, 0.0f);
                 p->draw_post(&zero, &zero, 0.0f);
                 ParkBuilderMode::get_release();
@@ -363,12 +363,12 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         un_highlight_all();
         return 1;
     case kDestroyEditedRailSectors:
-        get_update_super_sectors() = true;
+        park_editing_state().get_update_super_sectors() = true;
         if (params->has_bare_flag(kDoNotUpdateSuperSectors))
-            get_update_super_sectors() = false;
+            park_editing_state().get_update_super_sectors() = false;
         delete_all_segments();
         delete_all_posts();
-        get_update_super_sectors() = true;
+        park_editing_state().get_update_super_sectors() = true;
         return 1;
     case kGetEditedRailInfo: {
         uint32_t id = 0;

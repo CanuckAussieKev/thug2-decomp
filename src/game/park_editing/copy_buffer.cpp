@@ -11,15 +11,9 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
-
-CopyBufferShared& copy_buffer_shared()
-{
-    static core::NoDestroy<CopyBufferShared> state;
-    return state.get();
-}
 
 memory::PoolPair& clipboard_entry_pools()
 {
@@ -36,7 +30,6 @@ constexpr float kQuarterTurnDegrees = 90.0f;      // 0x00645EB0
 constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 
 // The clipboard entries' pool pair (CPoolable, 0x18-byte items).
-
 
 // The rail editor (0x004F4970) and its rails (CEditedRail objects linked by their first word).
 void* get_rail_editor() { return RailAuthoring::sole(); }
@@ -79,8 +72,8 @@ void hide_rail(void* rail)
     static_cast<EditedRail*>(rail)->delete_segments();
 }
 void destroy_rail(void* rail) { static_cast<EditedRail*>(rail)->get_clear(); }
-memory::PoolPair& rail_pools() { return copy_buffer_shared().rail_pools_; }
-const maths::Vec4* rail_origin() { return &copy_buffer_shared().rail_origin_; } // (zero)
+
+const maths::Vec4* rail_origin() { return &park_editing_state().get_zero(); } // (zero)
 
 // A preview metapiece taken out of the park.
 void destroy_preview(ClipboardEntry* entry)
@@ -446,7 +439,7 @@ void Clipboard::teardown()
     for (void* rail = rail_groups_; rail;) {
         void* next = follow_rail_link(rail);
         destroy_rail(rail);
-        rail_pools().dealloc(rail);
+        park_editing_state().rail_pools().dealloc(rail);
         rail = next;
     }
     rail_groups_ = nullptr;

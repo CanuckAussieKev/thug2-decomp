@@ -39,6 +39,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace online {
 
@@ -264,9 +265,9 @@ int handle_rails_data(net::InboundMsgCtx* context)
         memory->enter_heap_scope(memory->bottom_up_heap_);
         static_cast<park_editing::RailAuthoring*>(get_rail_editor())
             ->set_packed(context->body_, context->body_size_); // the rails read
-        park_editing::set_rail_editor_flag(false);
+        park_editing::park_editing_state().set_rail_editor_flag(false);
         static_cast<park_editing::RailAuthoring*>(get_rail_editor())->unpack();
-        park_editing::set_rail_editor_flag(true);
+        park_editing::park_editing_state().set_rail_editor_flag(true);
         memory::Hub::get_pull()->leave_heap_scope();
         return kContinue;
     }

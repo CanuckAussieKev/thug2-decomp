@@ -30,7 +30,7 @@
 #include "platform/crt.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -64,11 +64,10 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 // The game's _stricmp (0x00626EFB).
 int compare_no_case(const char* a, const char* b) { return crt::stricmp(a, b); }
 
-std::array<char, 24>& created_goal_name() { return edited_goal_io_shared().created_goal_name_; }
 uint32_t created_goal_id(int index)
 {
-    get_sprintf(created_goal_name().data(), "CreatedGoal%d", index);
-    return checksums::hash_from_text(created_goal_name().data());
+    get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", index);
+    return checksums::hash_from_text(park_editing_state().created_goal_name().data());
 }
 
 // The current level, the park editor's gameplay level counting as the park editor's.
@@ -511,8 +510,8 @@ uint32_t ObjectiveAuthoring::write_level_goals_to_buffer(uint32_t level, uint8_t
 bool ObjectiveAuthoring::new_editor_goal(script::Struct* /*params*/, script::Script* script)
 {
     begin_fresh_objective();
-    get_sprintf(created_goal_name().data(), "CreatedGoal%d", active_node_->level_goal_number_);
-    script->args_->put_name_key("goal_id", checksums::hash_from_text(created_goal_name().data()));
+    get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", active_node_->level_goal_number_);
+    script->args_->put_name_key("goal_id", checksums::hash_from_text(park_editing_state().created_goal_name().data()));
     return true;
 }
 

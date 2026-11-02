@@ -25,7 +25,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checked_index.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -71,7 +71,6 @@ int& flash_counter()
     return rail_flash_counter;
 }
 // A zero vector (0x007CCD30): drawing in place (no move).
-const Vec4& get_zero() { return copy_buffer_shared().rail_origin_; }
 
 // The visibility mask for a flashing frame: shown in the first half of every `rate` frames.
 uint32_t flash_mask(int rate)
@@ -628,10 +627,10 @@ bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperS
     p->at_point_ = *position;
     p->level_y_ =
         static_cast<float>(static_cast<double>(p->at_point_.y) - EditedRailPoint::ground_height(&p->at_point_));
-    p->draw_post(&get_zero(), &get_zero(), 0.0f);
-    p->draw_segment(&get_zero(), &get_zero(), 0.0f);
+    p->draw_post(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
+    p->draw_segment(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
     if (p->preceding_)
-        p->preceding_->draw_segment(&get_zero(), &get_zero(), 0.0f);
+        p->preceding_->draw_segment(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
     return valid;
 }
 
@@ -665,14 +664,14 @@ void RailAuthoring::store_heights()
 void RailAuthoring::draw_all_segments()
 {
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
-        rail->draw_segments(&get_zero(), &get_zero(), 0.0f);
+        rail->draw_segments(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
 }
 
 // 0x004F6600
 void RailAuthoring::draw_all_posts()
 {
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
-        rail->draw_posts(&get_zero(), &get_zero(), 0.0f);
+        rail->draw_posts(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
 }
 
 // 0x004F6650

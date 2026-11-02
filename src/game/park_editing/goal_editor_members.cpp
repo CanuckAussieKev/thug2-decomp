@@ -16,7 +16,7 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -233,7 +233,7 @@ bool ObjectiveAuthoring::get_current_edited_goal_id(script::Struct* /*params*/, 
 {
     script->args_->erase_module("goal_id");
     if (active_node_) {
-        char* name = edited_goal_io_shared().created_goal_name_.data();
+        char* name = park_editing_state().created_goal_name().data();
         get_sprintf(name, "CreatedGoal%d", active_node_->level_goal_number_);
         script->args_->put_name_key("goal_id", checksums::hash_from_text(name));
     }

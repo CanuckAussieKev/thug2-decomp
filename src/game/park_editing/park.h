@@ -1308,6 +1308,4 @@ inline constexpr float kParkCellSizeZ{120.0f};
 memory::PoolPair& clipboard_entry_pools();
 memory::PoolPair& node_pools();
 
-bool rail_editor_flag();
-void set_rail_editor_flag(bool value);
 } // namespace park_editing

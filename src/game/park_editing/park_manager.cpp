@@ -13,7 +13,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
-#include "game/park_editing/shared_state.h"
+#include "game/park_editing/park_editing_state.h"
 
 namespace park_editing {
 
@@ -24,7 +24,6 @@ void add_piece_cost(PieceGroup* meta) { add_piece_dma(meta); }
 void remove_piece_cost(PieceGroup* meta) { remove_piece_dma(meta); }
 
 // Whether the generator rebuilds its collision (0x00592090 looks): off while every piece is deleted.
-
 
 // The park editor's pools (the clipboards', the lists'...) freed (0x0059E4E0).
 void destroy_park_pools() { power_down(); }
@@ -214,7 +213,7 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
 // 0x0059B020
 void ParkLayout::destroy_concrete_metas(int keep_rails)
 {
-    park_editor_cfuncs_shared().collision_allowed_ = false;
+    park_editing_state().set_collision_allowed(false);
     gap_registry_->clear_gap_entries();
     for (MapListNode* node = concrete_metas_; node;) {
         MapListNode* next = node->following_;
@@ -223,7 +222,7 @@ void ParkLayout::destroy_concrete_metas(int keep_rails)
     }
     builder_->destroy_pieces(keep_rails);
     builder_->clear_restarts();
-    park_editor_cfuncs_shared().collision_allowed_ = true;
+    park_editing_state().set_collision_allowed(true);
     if (keep_rails)
         builder_->rebuild_collision();
 }
