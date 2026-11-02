@@ -2426,7 +2426,7 @@ void register_script_functions()
         {"NewFrontend_Item", &cfunc_item},
         {"NewFrontend_Open", &cfunc_show_new_frontend},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
+    script::install_script_functions(kFunctions);
 }
 
 void blit()

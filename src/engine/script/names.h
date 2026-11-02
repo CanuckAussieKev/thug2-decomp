@@ -32,9 +32,9 @@ struct NativeCommand {
     NativeFunction function;
 };
 // Make each function a global symbol (type 8) under its name's checksum.
-void install_script_functions(const NativeCommand* functions, uint32_t count);
+void install_script_functions(std::span<const NativeCommand> functions);
 // Make each name a member-function symbol (type 9).
-void publish_method_table(const char* const* names, uint32_t count);
+void publish_method_table(std::span<const char* const> names);
 // Make each record of a table (up to the one with a 0 name) a member-function symbol whose value is the record.
 void register_member_function_table(std::span<const MemberFunctionEntry> records);
 
@@ -42,7 +42,7 @@ void register_member_function_table(std::span<const MemberFunctionEntry> records
 // pointer), as the original's static initialisers write it: record i's function `code[i]` followed by three zero words,
 // and after the `count` records the terminator's {0, 0, 0, -1}. (NOT ORIGINAL as a function: each initialiser has
 // the stores written out.)
-void fill_member_function_code(std::span<MemberFunctionEntry> records, const MemberCode* code, int count);
+void fill_member_function_code(std::span<MemberFunctionEntry> records, std::span<const MemberCode> code);
 // Every table's code, in the original's initialiser order (0x00640E30 - 0x006448C0; generated:
 // member_function_code.cpp). Run at start-up.
 void fill_member_function_tables();

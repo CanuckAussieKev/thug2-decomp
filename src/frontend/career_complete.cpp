@@ -202,7 +202,7 @@ void register_script_functions()
         {"Career100_Available", &cfunc_available},
         {"Career100_Apply", &cfunc_apply},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
+    script::install_script_functions(kFunctions);
 }
 
 } // namespace frontend::career_complete

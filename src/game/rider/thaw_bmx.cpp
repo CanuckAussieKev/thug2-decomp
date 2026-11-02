@@ -372,10 +372,10 @@ void register_script_functions()
         {"ThawBmx_Available", &cfunc_available},
         {"ThawBmx_LoadTexture", &cfunc_load_texture},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
+    script::install_script_functions(kFunctions);
     if (!is_switched_on())
         return;
-    script::publish_method_table(kMembers.data(), sizeof(kMembers) / sizeof(core::at(kMembers, 0)));
+    script::publish_method_table(kMembers);
     register_parked_functions(); // (the parked bikes: thaw_bmx_parked.h)
     render::set_shadow_companion(&shadow_companion);
     std::array<char, 64> setting = {""};

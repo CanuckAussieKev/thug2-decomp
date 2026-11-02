@@ -191,7 +191,7 @@ void register_script_functions()
     static const auto kFunctions = std::to_array<script::NativeCommand>({
         {"TeleportSkaterStanding", &cfunc_teleport_skater_standing},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
+    script::install_script_functions(kFunctions);
 }
 
 } // namespace frontend::test_view

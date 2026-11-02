@@ -177,8 +177,8 @@ void allocate_pools()
     create_event_receiver_list_pool(175, "Obj::CEventReceiverList");
     memory::pop_mem_profile();
     memory::push_mem_profile("Registering script functions");
-    install_script_functions(g_cfunction_table.data(), get_num_c_functions());
-    publish_method_table(g_member_function_names.data(), count_method_entries());
+    install_script_functions(std::span<const NativeCommand>(g_cfunction_table).first(get_num_c_functions()));
+    publish_method_table(std::span<const char* const>(g_member_function_names).first(count_method_entries()));
     memory::pop_mem_profile();
 }
 

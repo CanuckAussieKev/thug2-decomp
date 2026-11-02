@@ -155,7 +155,7 @@ void fill_proximity_member_functions()
         script::member_code<&objects::ProximityComponent::proximity_set_active>(),
         script::member_code<&objects::ProximityComponent::proximity_enter_proximity_not_handled>(),
     });
-    script::fill_member_function_code(records, code.data(), 3);
+    script::fill_member_function_code(records, std::span<const script::MemberCode>(code).first(3));
 }
 
 } // namespace objects

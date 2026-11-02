@@ -2825,7 +2825,7 @@ void register_script_functions()
         {"LevelEditor_EditedLevels", &layout::cfunc_edited_levels},
         {"LevelEditor_PlayCamera", &cameras::cfunc_play_camera}, // (map4)
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
+    script::install_script_functions(kFunctions);
 }
 
 void prepare_all()

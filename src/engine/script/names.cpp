@@ -1,9 +1,13 @@
 #include "engine/script/names.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -15,6 +19,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 
 
 namespace script {
@@ -22,7 +27,8 @@ namespace script {
 namespace {
 std::array<char, 100> g_checksum_name_buffer;
 char* g_names_start;
-char* g_names_next;
+std::size_t g_names_used = 0; // the bytes of the names' block taken
+constexpr std::size_t kNamesBytes = 5000000;
 
 struct HashedLabel {
     uint32_t checksum;
@@ -30,12 +36,17 @@ struct HashedLabel {
 };
 constexpr uint32_t kBucketSize = 10;
 
+constexpr std::size_t kTableEntries = 0x10000 * static_cast<std::size_t>(kBucketSize);
 HashedLabel* g_checksum_name_table;
-HashedLabel*& name_table() { return g_checksum_name_table; }
+std::span<HashedLabel> name_table() { return {g_checksum_name_table, kTableEntries}; }
 char*& names_start() { return g_names_start; }
-char*& names_next() { return g_names_next; }
+std::span<char> names_block() { return {g_names_start, kNamesBytes}; }
 
-HashedLabel* get_bucket(uint32_t checksum) { return name_table() + (checksum & 0xFFFF) * kBucketSize; }
+// The table from a checksum's bucket to its end (a full bucket runs on into the next one).
+std::span<HashedLabel> get_bucket(uint32_t checksum)
+{
+    return name_table().subspan(static_cast<std::size_t>(checksum & 0xFFFF) * kBucketSize);
+}
 
 // A hex digit's value (anything else counts as its character code, as in the original).
 int hex_digit(char c)
@@ -59,13 +70,12 @@ void allocate_checksum_name_lookup_tables()
 {
     if (!checksum_names_enabled())
         return;
-    name_table() = static_cast<HashedLabel*>(memory::alloc_block(0x10000 * kBucketSize * sizeof(HashedLabel)));
-    char* names = static_cast<char*>(memory::alloc_block(5000000));
-    names_start() = names;
-    names_next() = names;
-    for (uint32_t i = 0; i < 0x10000 * kBucketSize; ++i)
-        name_table()[i] = {0, nullptr};
-    names[0] = 0;
+    g_checksum_name_table = static_cast<HashedLabel*>(memory::alloc_block(0x10000 * kBucketSize * sizeof(HashedLabel)));
+    names_start() = static_cast<char*>(memory::alloc_block(kNamesBytes));
+    g_names_used = 0;
+    for (HashedLabel& label : name_table())
+        label = {0, nullptr};
+    core::at(names_block(), 0) = 0;
 }
 
 // 0x0046CF60
@@ -74,20 +84,22 @@ void register_name_hash(uint32_t checksum, const char* name)
     if (!checksum_names_enabled())
         return;
     // (a full bucket runs on into the next one, as in the original)
-    HashedLabel* entry = get_bucket(checksum);
-    for (; entry->name; ++entry) {
-        if (entry->checksum == checksum) {
+    const std::span<HashedLabel> bucket = get_bucket(checksum);
+    std::size_t at = 0;
+    for (; core::at(bucket, at).name; ++at) {
+        if (core::at(bucket, at).checksum == checksum) {
             // (the original compares the names here - a checksum clash check whose result is ignored)
             return;
         }
     }
-    entry->checksum = checksum;
-    char* copy = names_next();
-    entry->name = copy;
-    while (*name)
-        *copy++ = *name++;
-    *copy++ = 0;
-    names_next() = copy;
+    HashedLabel& entry = core::at(bucket, at);
+    entry.checksum = checksum;
+    const std::string_view text(name);
+    const std::span<char> copy = names_block().subspan(g_names_used, text.size() + 1);
+    entry.name = copy.data();
+    std::ranges::copy(text, copy.begin());
+    core::at(copy, text.size()) = 0;
+    g_names_used += text.size() + 1;
 }
 
 // 0x0046D0C0
@@ -95,10 +107,10 @@ const char* look_up_hash_name(uint32_t checksum)
 {
     if (!checksum_names_enabled())
         return nullptr;
-    const HashedLabel* entry = get_bucket(checksum);
-    for (uint32_t i = 0; i < kBucketSize && entry->name; ++i, ++entry) {
-        if (entry->checksum == checksum)
-            return entry->name;
+    const std::span<HashedLabel> bucket = get_bucket(checksum);
+    for (uint32_t i = 0; i < kBucketSize && core::at(bucket, i).name; ++i) {
+        if (core::at(bucket, i).checksum == checksum)
+            return core::at(bucket, i).name;
     }
     return nullptr;
 }
@@ -116,20 +128,21 @@ const char* find_checksum_name_or_unknown(uint32_t checksum)
 // 0x0046CD90
 void parse_checksum_names(const char* text, int size, void (*add)(uint32_t checksum, const char* name))
 {
-    const char* end = text + size;
-    while (text != end) {
-        text += 2; // "0x"
+    const std::span<const char> file(text, static_cast<std::size_t>(size));
+    core::Cursor<const char> at(file);
+    while (at.position() != size) {
+        at += 2; // "0x"
         uint32_t checksum = 0;
         for (int i = 0; i < 8; ++i)
-            checksum = (checksum << 4) + static_cast<uint32_t>(hex_digit(text[i]));
-        text += 8 + 1; // and the separator
+            checksum = (checksum << 4) + static_cast<uint32_t>(hex_digit(at[i]));
+        at += 8 + 1; // and the separator
         std::array<char, 256> name{};
         int length = 0;
-        while (*text != '\r')
-            core::at(name, length++) = *text++;
+        while (*at != '\r')
+            core::at(name, length++) = *at++;
         core::at(name, length) = 0;
         add(checksum, name.data());
-        text += 2; // "\r\n"
+        at += 2; // "\r\n"
     }
 }
 
@@ -140,10 +153,10 @@ void load_checksum_names(const char* file)
         return;
     std::array<char, 260> name{};
     std::memcpy(name.data(), file, std::strlen(file) + 1);
-    char* extension = name.data();
-    while (*extension && *extension != '.')
+    std::size_t extension = 0;
+    while (core::at(name, extension) && core::at(name, extension) != '.')
         ++extension;
-    std::memcpy(extension, ".chk", 5);
+    std::memcpy(std::span<char>(name).subspan(extension).data(), ".chk", 5);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
     auto* text = static_cast<const char*>(packs::read_in(name.data(), false, nullptr, nullptr, nullptr));
     memory::leave_heap_scope();
@@ -152,23 +165,23 @@ void load_checksum_names(const char* file)
 }
 
 // 0x0046EFD0
-void install_script_functions(const NativeCommand* functions, uint32_t count)
+void install_script_functions(std::span<const NativeCommand> functions)
 {
-    for (uint32_t i = 0; i < count; ++i) {
-        const uint32_t checksum = checksums::hash_from_text(functions[i].name);
-        register_name_hash(checksum, functions[i].name);
+    for (const NativeCommand& function : functions) {
+        const uint32_t checksum = checksums::hash_from_text(function.name);
+        register_name_hash(checksum, function.name);
         SymbolTableEntry* symbol = create_symbol(checksum);
         symbol->type = kQbvalNativeFunc;
-        symbol->value = Cell::of(functions[i].function);
+        symbol->value = Cell::of(function.function);
     }
 }
 
 // 0x0046F020
-void publish_method_table(const char* const* names, uint32_t count)
+void publish_method_table(std::span<const char* const> names)
 {
-    for (uint32_t i = 0; i < count; ++i) {
-        const uint32_t checksum = checksums::hash_from_text(names[i]);
-        register_name_hash(checksum, names[i]);
+    for (const char* const name : names) {
+        const uint32_t checksum = checksums::hash_from_text(name);
+        register_name_hash(checksum, name);
         create_symbol(checksum)->type = kQbvalNativeMethod;
     }
 }
@@ -185,11 +198,12 @@ void register_member_function_table(std::span<const MemberFunctionEntry> records
     }
 }
 
-void fill_member_function_code(std::span<MemberFunctionEntry> records, const MemberCode* code, int count)
+void fill_member_function_code(std::span<MemberFunctionEntry> records, std::span<const MemberCode> code)
 {
+    const auto count = static_cast<int>(code.size());
     for (int i = 0; i < count; ++i) {
         MemberFunctionEntry& record = core::at(records, i);
-        record.method_code_ = code[i];
+        record.method_code_ = core::at(code, i);
         record.this_adjustment_ = 0;
         record.virtual_base_offsets_ = {0, 0};
     }

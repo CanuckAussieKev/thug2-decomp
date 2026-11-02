@@ -273,7 +273,7 @@ void register_parked_functions()
         {"ThawBmx_WalkToBike", &cfunc_walk_to_bike},
         {"ThawBmx_BikeReachable", &cfunc_bike_reachable},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
+    script::install_script_functions(kFunctions);
 }
 
 void update_parked(modules::FrontEnd* front_end)
