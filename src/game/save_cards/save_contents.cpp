@@ -1,7 +1,6 @@
 // What a save holds and how it is put back (see save_contents.h).
 
 #include "game/save_cards/save_contents.h"
-#include "platform/code_address.h"
 #include "engine/net/buddy_status.h"
 
 #include <cstdint>

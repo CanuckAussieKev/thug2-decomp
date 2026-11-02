@@ -1,7 +1,6 @@
 // The save file types and the memory card commands' helpers (see save_types.h).
 
 #include "game/save_cards/save_types.h"
-#include "platform/code_address.h"
 #include "engine/net/buddy_status.h"
 
 #include <cstdint>
@@ -11,9 +10,7 @@
 #include <span>
 #include <vector>
 
-#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
