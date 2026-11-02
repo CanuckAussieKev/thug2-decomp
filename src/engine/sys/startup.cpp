@@ -90,7 +90,8 @@ bool g_demo_mode;
 int game_main(int argc, char** argv)
 {
     debug_set_up(0);
-    game_config::prepare_all(argc, argv); // the command line options (Config)
+    const game_config::Arguments args(argv, static_cast<size_t>(argc));
+    game_config::prepare_all(args); // the command line options (Config)
     memory::Hub::get_pull()->init_standard_heaps();
     switch (game_config::g_language) { // the language's start-up (German has its own)
     case 3:                            // French
@@ -105,12 +106,12 @@ int game_main(int argc, char** argv)
     }
     debug::printf("\n Start of main()\n");
     debug::printf("argc = %d\n", argc);
-    for (int i = 0; i < argc; ++i)
-        debug::printf("%2d: %s\n", i, argv[i]);
+    for (size_t i = 0; i < args.size(); ++i)
+        debug::printf("%2d: %s\n", static_cast<int>(i), core::at(args, i));
     debug::printf("\n");
     memory::push_mem_profile("Everything");
     memory::push_mem_profile("Initialization");
-    if (argc == 2 && std::strcmp(argv[1], "demo") == 0)
+    if (argc == 2 && std::strcmp(core::at(args, 1), "demo") == 0)
         g_demo_mode = true; // demo mode
     SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
     maths::seed_random(0x06680BF3);

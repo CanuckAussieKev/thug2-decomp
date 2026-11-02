@@ -30,6 +30,11 @@ namespace net::wire {
 
 // A message whose body is text (a NUL-terminated string it carries).
 inline const char* text_of(const uint8_t* body) { return raw::chars(body); }
+// The text starting `offset` bytes into a message's body (a second string after the first's field).
+inline const char* text_at(const uint8_t* body, size_t offset)
+{
+    return raw::chars(std::span<const uint8_t>(body, offset + 1).last(1).data());
+}
 // The value of type T (a number, a flag byte) at `offset` in a message's body (little-endian, unaligned, as sent).
 template <typename T>
 T value_at(const uint8_t* body, size_t offset = 0)

@@ -357,7 +357,7 @@ int handle_add_to_scene(net::InboundMsgCtx* context)
     const char* message = net::wire::text_of(context->body_);
     script::StructPtr params = script::make_struct();
     params->append_word(kScene, script::kQbvalString, message);
-    params->append_word(kAdd, script::kQbvalString, message + 0x80);
+    params->append_word(kAdd, script::kQbvalString, net::wire::text_at(context->body_, 0x80));
     script::launch_script(kAddToScene, params.get(), nullptr, false, nullptr);
     params.reset();
     return 1;

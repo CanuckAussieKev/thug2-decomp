@@ -1,12 +1,16 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 // The game's own configuration (0x005B5C90-0x005B6370): the command line's options (CD / NotCD, NoExtraMem,
 // Bootstrap, Pal / NTSC, FrameRate=50|60), the language from the registry (HKCU, then HKLM, ...\Install\language),
 // and the names of the language, territory, hardware, display type and platform. (Not thug2-decomp.ini
 // settings: those are sys/config.h.)
 namespace game_config {
+
+// The command line: its words (the program name first).
+using Arguments = std::span<char* const>;
 
 // The settings it keeps.
 int& get_language(); // 0x007CEFA0 (1 Japanese, 2 English, 3 French, 4 Spanish, 5 German, 6 Italian, 7 Dutch, 8 Portuguese)
@@ -25,10 +29,10 @@ bool& ntsc_flag();        // 0x007CEFAF (set through set_ntsc_flag, NTSC only)
 bool argument_starts_with(const char* argument, const char* option);
 // 0x005B5D30: the value of the last `option` on the command line: option=value, option= value, option =value or
 // option = value (null if none).
-const char* get_argument_value(const char* option, int argc, char** argv);
+const char* get_argument_value(const char* option, Arguments args);
 // 0x005B5DD0: whether the command line has `option` (case-insensitively; each one copied into a 256-byte buffer -
 // unbounded, as the original).
-bool got_argument(const char* option, int argc, char** argv);
+bool got_argument(const char* option, Arguments args);
 // 0x005B5F10: the path prefix (0x007CEE20, set empty by Init).
 const char* get_path_prefix();
 // 0x005B5F20 / 0x005B5F90 / 0x005B5FC0 / 0x005B6020 / 0x005B6040: the names ("English", "US", "Win32", "NTSC",
@@ -41,13 +45,13 @@ const char* fetch_platform_suffix();
 // 0x005B6090: the NTSC flag set (only with an NTSC display).
 void set_ntsc_flag(bool on);
 // 0x005B60B0: the configuration from the registry (read_registry) and the command line.
-void prepare_all(int argc, char** argv);
+void prepare_all(Arguments args);
 // 0x005B6250: "THUG2\" when bootstrapped, else "".
 const char* get_bootstrap_prefix();
 // 0x005B6270: Win32 hardware, English, no extra memory; then the language from the registry - HKCU's key, else
 // HKLM's (each opened with RegCreateKeyA: made if missing) - 2 French, 3 German, anything else English. The
 // arguments aren't used.
-void read_registry(int argc, char** argv);
+void read_registry(Arguments args);
 
 extern bool g_from_cd;
 extern int g_frame_rate;

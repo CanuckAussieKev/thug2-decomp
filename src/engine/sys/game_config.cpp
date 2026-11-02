@@ -8,6 +8,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
+#include <span>
+#include <string_view>
 #include <array>
 
 #include "engine/core/dbg.h"
@@ -73,43 +76,54 @@ bool argument_starts_with(const char* argument, const char* option)
 }
 
 // 0x005B5D30
-const char* get_argument_value(const char* option, int argc, char** argv)
+const char* get_argument_value(const char* option, Arguments args)
 {
     const char* value = nullptr;
-    for (int i = 0; i < argc; ++i) {
-        if (!argument_starts_with(argv[i], option))
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (!argument_starts_with(core::at(args, i), option))
             continue;
-        const char* after = argv[i] + std::strlen(option);
+        const char* after = std::next(core::at(args, i), static_cast<std::ptrdiff_t>(std::strlen(option)));
+        const bool has_next = i + 1 < args.size();
         if (*after == '=') {
-            if (after[1])
-                value = after + 1;
-            else if (i < argc - 1)
-                value = argv[i + 1];
-        } else if (*after == '\0' && i < argc - 1) {
-            const char* next = argv[i + 1];
+            if (*std::next(after))
+                value = std::next(after);
+            else if (has_next)
+                value = core::at(args, i + 1);
+        } else if (*after == '\0' && has_next) {
+            const char* next = core::at(args, i + 1);
             if (*next == '=') {
-                if (next[1])
-                    value = next + 1;
-                else if (i < argc - 2)
-                    value = argv[i + 2];
+                if (*std::next(next))
+                    value = std::next(next);
+                else if (i + 2 < args.size())
+                    value = core::at(args, i + 2);
             }
         }
     }
     return value;
 }
 
+namespace {
+// `text` in lower case, with its 0, in `out` (a text of 256 characters or more ends the game with a report, where the
+// original wrote past its buffer).
+void lower_into(std::array<char, 256>& out, const char* text)
+{
+    const std::string_view view(text);
+    for (size_t i = 0; i < view.size(); ++i)
+        core::at(out, i) = get_lower(core::at(view, i));
+    core::at(out, view.size()) = get_lower('\0');
+}
+} // namespace
+
 // 0x005B5DD0
-bool got_argument(const char* option, int argc, char** argv)
+bool got_argument(const char* option, Arguments args)
 {
     std::array<char, 256> wanted{};
     std::array<char, 256> argument{};
     if (!option)
         return false;
-    for (size_t i = 0; i < std::strlen(option) + 1; ++i)
-        core::at(wanted, i) = get_lower(option[i]);
-    for (int i = 0; i < argc; ++i) {
-        for (size_t j = 0; j < std::strlen(argv[i]) + 1; ++j)
-            core::at(argument, j) = get_lower(argv[i][j]);
+    lower_into(wanted, option);
+    for (const char* word : args) {
+        lower_into(argument, word);
         if (std::strcmp(argument.data(), wanted.data()) == 0)
             return true;
     }
@@ -220,22 +234,22 @@ void set_ntsc_flag(bool on)
 }
 
 // 0x005B60B0
-void prepare_all(int argc, char** argv)
+void prepare_all(Arguments args)
 {
     copy_string(path_prefix().data(), kEmpty);
-    read_registry(argc, argv);
-    if (got_argument("CD", argc, argv)) // "CD"
+    read_registry(args);
+    if (got_argument("CD", args)) // "CD"
         from_cd() = true;
-    if (got_argument("NotCD", argc, argv)) // "NotCD"
+    if (got_argument("NotCD", args)) // "NotCD"
         from_cd() = false;
-    if (got_argument("NoExtraMem", argc, argv)) // "NoExtraMem"
+    if (got_argument("NoExtraMem", args)) // "NoExtraMem"
         get_extra_memory() = false;
-    if (got_argument("Bootstrap", argc, argv)) { // "Bootstrap"
+    if (got_argument("Bootstrap", args)) { // "Bootstrap"
         bootstrap() = true;
-        if (argc > 2) {
-            copy_string(bootstrap_return().data(), argv[2]);
-            if (argc > 3)
-                copy_string(bootstrap_argument().data(), argv[3]);
+        if (args.size() > 2) {
+            copy_string(bootstrap_return().data(), core::at(args, 2));
+            if (args.size() > 3)
+                copy_string(bootstrap_argument().data(), core::at(args, 3));
             else
                 copy_string(bootstrap_argument().data(), "THUG2"); // "THUG2" (the original's sprintf)
             // "This bootstrap demo will return to %s passing back: %s\n"
@@ -243,13 +257,13 @@ void prepare_all(int argc, char** argv)
                           bootstrap_argument().data());
         }
     }
-    if (got_argument("NotBootstrap", argc, argv)) // "NotBootstrap"
+    if (got_argument("NotBootstrap", args)) // "NotBootstrap"
         bootstrap() = false;
-    if (got_argument("Pal", argc, argv)) // "Pal"
+    if (got_argument("Pal", args)) // "Pal"
         display_type() = 0;
-    if (got_argument("NTSC", argc, argv)) // "NTSC"
+    if (got_argument("NTSC", args)) // "NTSC"
         display_type() = 1;
-    if (const char* rate = get_argument_value("FrameRate", argc, argv)) { // "FrameRate"
+    if (const char* rate = get_argument_value("FrameRate", args)) { // "FrameRate"
         if (std::memcmp(rate, "50", 3) == 0)
             frame_rate() = 50;
         if (std::memcmp(rate, "60", 3) == 0)
@@ -261,7 +275,7 @@ void prepare_all(int argc, char** argv)
 const char* get_bootstrap_prefix() { return bootstrap() ? "THUG2\\" : kEmpty; } // "THUG2\"
 
 // 0x005B6270
-void read_registry(int, char**)
+void read_registry(Arguments)
 {
     const char* path =
         R"(Software\Activision\Tony Hawk's Underground 2\Install)"; // "Software\Activision\Tony Hawk's Underground 2\Install"

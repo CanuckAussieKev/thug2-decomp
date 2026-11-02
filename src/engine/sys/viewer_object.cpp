@@ -5,6 +5,7 @@
 
 #include <bit>
 #include <cstdint>
+#include <span>
 #include <cstdio>
 #include <cstring>
 #include <array>
@@ -143,10 +144,6 @@ render::RenderModel* model_of(ObjectModule* component)
 int get_bone_count(render::RenderModel* model)
 {
     return static_cast<int>(model->get_asset_bone_count());
-}
-const render::HierarchyNode* hierarchy_of(render::RenderModel* model)
-{
-    return model->get_asset_hierarchy();
 }
 gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 
@@ -332,7 +329,7 @@ void PreviewEntity::spin_wheels()
     if (!model)
         return;
     render::RenderModel* nx_model = model_of(model);
-    const render::HierarchyNode* hierarchy = hierarchy_of(nx_model);
+    const std::span<render::HierarchyNode> hierarchy = nx_model->asset_hierarchy_run();
     if (!fetch_module(kSkeleton)) {
         no_skeleton_counter() = (no_skeleton_counter() + 1) & 0x1F;
         return;
@@ -356,16 +353,16 @@ void PreviewEntity::spin_wheels()
     if (get_bone_count(nx_model) <= 5)
         return;
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
-    maths::Mat4* bones = skeleton->matrix_array_;
+    const std::span<maths::Mat4> bones = skeleton->matrices();
     for (int i = 0; i < get_bone_count(nx_model); ++i)
-        bones[i] = hierarchy[i].matrix;
+        core::at(bones, i) = core::at(hierarchy, i).matrix;
     for (int wheel = 2; wheel < 6; ++wheel) {
         maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
-        multiply_matrix(&bones[wheel], &maths::make_pitch_matrix(spin, radians), &bones[wheel]);
+        multiply_matrix(&core::at(bones, wheel), &maths::make_pitch_matrix(spin, radians), &core::at(bones, wheel));
     }
     for (int bone = 1; bone < 6; ++bone)
-        multiply_matrix(&bones[bone], &bones[bone], &bones[0]);
+        multiply_matrix(&core::at(bones, bone), &core::at(bones, bone), &core::at(bones, 0));
 }
 
 // 0x0058A8B0
@@ -520,7 +517,7 @@ int on_clip_rate_msg(net::InboundMsgCtx* context)
 // 0x0058ACC0
 int handle_step_animation(net::InboundMsgCtx* context)
 {
-    object_of(context)->step_animation(context->body_[0] != 0); // (the byte as a flag)
+    object_of(context)->step_animation(net::wire::value_at<uint8_t>(context->body_) != 0); // (the byte as a flag)
     return 1;
 }
 
