@@ -20,19 +20,13 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "platform/shared_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
+#include "platform/platform_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
 
 namespace os_layer {
-
-PlatformInputShared& platform_input_shared()
-{
-    static core::NoDestroy<PlatformInputShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -80,27 +74,22 @@ PlatformInputState& platform_input_state()
 namespace {
 
 // DirectInput and its devices (the keyboard and mouse are the first of each found).
-IDirectInput8A*& get_direct_input() { return platform_input_shared().direct_input_; }
 
 constexpr uint8_t kMouseInvertX{0};
 constexpr uint8_t kMouseInvertY{0};
 
 IDirectInputDevice8A*& get_mouse() { return platform_input_state().mouse_; }
-std::array<IDirectInputDevice8A*, kPorts>& joysticks() { return platform_input_shared().joysticks_; }
+
 // Each joystick's constant-force effect (rumble: set_actuators).
-std::array<IDirectInputEffect*, kPorts>& get_effects() { return platform_input_shared().effects_; }
 
 // The devices' states: this frame's and the last.
-std::array<DIJOYSTATE2, 2>& joystick_states() { return platform_input_shared().joystick_states_; }
-std::array<DIJOYSTATE2, 2>& last_joystick_states() { return platform_input_shared().last_joystick_states_; }
+
 std::array<uint8_t, 256>& get_keys() { return platform_input_state().keys_; }
 std::array<uint8_t, 256>& last_keys() { return platform_input_state().last_keys_; }
 DIMOUSESTATE2& mouse_state() { return platform_input_state().mouse_state_; }
 DIMOUSESTATE2& last_mouse_state() { return platform_input_state().last_mouse_state_; }
 
 // Per joystick: how many force-feedback axes it has (at most two) and their force resolutions (two each).
-std::array<uint32_t, kPorts>& force_axis_counts() { return platform_input_shared().force_axis_counts_; }
-std::array<uint32_t, 2 * kPorts>& force_resolutions() { return platform_input_shared().force_resolutions_; }
 
 std::array<std::array<wchar_t, kKeyNameLength>, 256>& key_names() { return platform_input_state().key_names_; }
 
@@ -152,9 +141,9 @@ GUID parse_joystick_guid(const char* text, DWORD size)
 // "distance": 1-100, the clipping distance from it; anything above 100 is none.
 void place_at_range(uint32_t distance)
 {
-    platform_shared().distance_setting_ = distance;
+    platform_state().set_distance_setting(distance);
     if (distance > 100)
-        platform_shared().distance_setting_ = 0;
+        platform_state().set_distance_setting(0);
     else if (distance != 0)
         gfx::set_draw_distance_setting(static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f));
 }
@@ -194,15 +183,15 @@ constexpr auto kKeyNames = std::to_array<KeyNameEntry>({
 // 0x005F2E00
 DIJOYSTATE2* read_joystick(int port)
 {
-    if (!core::at(joysticks(), port))
+    if (!core::at(platform_state().joysticks(), port))
         return nullptr;
-    if (FAILED(core::at(joysticks(), port)->Poll())) {
-        if (FAILED(core::at(joysticks(), port)->Acquire()) || FAILED(core::at(joysticks(), port)->Poll()))
+    if (FAILED(core::at(platform_state().joysticks(), port)->Poll())) {
+        if (FAILED(core::at(platform_state().joysticks(), port)->Acquire()) || FAILED(core::at(platform_state().joysticks(), port)->Poll()))
             return nullptr;
     }
-    IDirectInputDevice8A* joystick = core::at(joysticks(), port);
-    DIJOYSTATE2* state = &core::at(joystick_states(), port);
-    core::at(last_joystick_states(), port) = *state;
+    IDirectInputDevice8A* joystick = core::at(platform_state().joysticks(), port);
+    DIJOYSTATE2* state = &core::at(platform_state().joystick_states(), port);
+    core::at(platform_state().last_joystick_states(), port) = *state;
     if (FAILED(joystick->GetDeviceState(sizeof(DIJOYSTATE2), state)))
         return nullptr;
     return state;
@@ -327,11 +316,11 @@ BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device
     range.lMin = -1000;
     range.lMax = 1000;
     joystick->SetProperty(DIPROP_RANGE, &range.diph);
-    const int port = core::at(joysticks(), 1) == joystick ? 1 : 0;
-    if ((object->dwFlags & DIDOI_FFACTUATOR) && core::at(force_axis_counts(), port) < 2) {
-        const uint32_t count = core::at(force_axis_counts(), port);
-        core::at(force_resolutions(), 2 * port + count) = object->dwFFForceResolution;
-        core::at(force_axis_counts(), port) = count + 1;
+    const int port = core::at(platform_state().joysticks(), 1) == joystick ? 1 : 0;
+    if ((object->dwFlags & DIDOI_FFACTUATOR) && core::at(platform_state().force_axis_counts(), port) < 2) {
+        const uint32_t count = core::at(platform_state().force_axis_counts(), port);
+        core::at(platform_state().force_resolutions(), 2 * port + count) = object->dwFFForceResolution;
+        core::at(platform_state().force_axis_counts(), port) = count + 1;
     }
     return DIENUM_CONTINUE;
 }
@@ -349,12 +338,12 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         }
         if (port < 0)
             return DIENUM_CONTINUE;
-        if (SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
-            core::at(joysticks(), port) = created;
+        if (SUCCEEDED(platform_state().get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+            core::at(platform_state().joysticks(), port) = created;
             created->SetDataFormat(joystick_format());
             created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->EnumObjects(add_joystick_axis, created, DIDFT_AXIS);
-            if (core::at(force_axis_counts(), port) > 0) {
+            if (core::at(platform_state().force_axis_counts(), port) > 0) {
                 // Rumble: an endless constant force along X and Y, started by set_actuators.
                 std::array<DWORD, 2> axes = {{DIJOFS_X, DIJOFS_Y}};
                 std::array<LONG, 2> direction = {{0, 0}};
@@ -374,20 +363,20 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
                 effect.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
                 effect.lpvTypeSpecificParams = &force;
                 effect.dwStartDelay = 0;
-                created->CreateEffect(constant_force_guid(), &effect, &core::at(get_effects(), port), nullptr);
+                created->CreateEffect(constant_force_guid(), &effect, &core::at(platform_state().get_effects(), port), nullptr);
             }
             created->Acquire();
         }
     }
     if (type == DI8DEVTYPE_KEYBOARD) {
-        if (!stored_keyboard_device() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+        if (!stored_keyboard_device() && SUCCEEDED(platform_state().get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             stored_keyboard_device() = created;
             created->SetDataFormat(keyboard_format());
             created->SetCooperativeLevel(render::renderer().game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     } else if (type == DI8DEVTYPE_MOUSE) {
-        if (!get_mouse() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+        if (!get_mouse() && SUCCEEDED(platform_state().get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             get_mouse() = created;
             created->SetDataFormat(mouse_format());
             created->SetCooperativeLevel(render::renderer().game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
@@ -442,11 +431,11 @@ void load_registry_options(const char* key)
         if (value & 2)
             render::view_setup().set_hq_shadows(1);
         if (value & 4)
-            platform_shared().options38_and39_ = static_cast<uint16_t>((platform_shared().options38_and39_ & 0xFF00) | 1); // (its low byte)
+            platform_state().set_options38_and39(static_cast<uint16_t>((platform_state().options38_and39() & 0xFF00) | 1)); // (its low byte)
         if (value & 8)
-            platform_shared().options38_and39_ = static_cast<uint16_t>((platform_shared().options38_and39_ & 0x00FF) | 0x100); // (its high byte)
+            platform_state().set_options38_and39(static_cast<uint16_t>((platform_state().options38_and39() & 0x00FF) | 0x100)); // (its high byte)
         if (value & 0x10)
-            platform_shared().option37_ = 1;
+            platform_state().set_option37(1);
         if (value & 0x20)
             render::renderer().set_antialiasing(true);
         if (value & 0x100)
@@ -495,21 +484,21 @@ void load_registry_options(const char* key)
 void release_input()
 {
     for (int port = 0; port < kPorts; ++port) {
-        if (core::at(joysticks(), port)) {
-            core::at(joysticks(), port)->Release();
-            core::at(joysticks(), port) = nullptr;
+        if (core::at(platform_state().joysticks(), port)) {
+            core::at(platform_state().joysticks(), port)->Release();
+            core::at(platform_state().joysticks(), port) = nullptr;
         }
-        if (core::at(get_effects(), port))
-            core::at(get_effects(), port)->Release(); // (left set)
+        if (core::at(platform_state().get_effects(), port))
+            core::at(platform_state().get_effects(), port)->Release(); // (left set)
     }
     if (stored_keyboard_device()) {
         stored_keyboard_device()->Release();
         stored_keyboard_device() = nullptr;
     }
     // (The mouse isn't released.)
-    if (get_direct_input()) {
-        get_direct_input()->Release();
-        get_direct_input() = nullptr;
+    if (platform_state().get_direct_input()) {
+        platform_state().get_direct_input()->Release();
+        platform_state().get_direct_input() = nullptr;
     }
 }
 

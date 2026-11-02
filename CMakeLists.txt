@@ -816,6 +816,7 @@ add_executable(thug2 WIN32
     src/platform/platform.cpp
     src/platform/platform_d3d.cpp
     src/platform/platform_input.cpp
+    src/platform/platform_state.cpp
     src/platform/platform_system.cpp
     src/platform/platform_cfuncs.cpp
     src/engine/sys/debug_mode.cpp
