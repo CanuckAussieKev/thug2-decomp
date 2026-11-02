@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
@@ -38,8 +39,11 @@ std::array<Occluder, 8>& occluder_array() { return g_occluders; }
 uint32_t& occluder_count() { return g_occluder_count; }
 constexpr uint32_t kOccluderLimit = 8;
 
-// The object's transform for culling (set_world_transform), or null: only its position row is used here.
-const float* world_transform() { return g_world_transform; }
+// The object's transform for culling (set_world_transform), or none (empty): only its position row is used here.
+std::span<const float> world_transform()
+{
+    return g_world_transform ? std::span<const float>(g_world_transform, 16) : std::span<const float>();
+}
 // The view matrix (0x00786BD0) and the view's clip values.
 const void* view_matrix() { return g_view_matrix.data(); }
 float near_plane_depth() { return g_camera.near_z_; }
@@ -65,15 +69,16 @@ enum class DotOrder : uint8_t { kZyx, kXyz };    // ... and the products of the 
 
 // A plane through `point` with the normal (v x u) normalised, where u = u_end - origin (kept in double precision)
 // and v = vEnd - origin (x and y rounded to floats, z kept).
-void set_plane(float* plane, const float* origin, const float* u_end, const float* v_end, LengthOrder length_order,
-               bool exact_inverse_for_x, const float* point, DotOrder dot_order)
+void set_plane(std::array<float, 4>& plane, std::span<const float> origin, std::span<const float> u_end,
+               std::span<const float> v_end, LengthOrder length_order, bool exact_inverse_for_x,
+               std::span<const float> point, DotOrder dot_order)
 {
-    const double u0 = static_cast<double>(u_end[0]) - origin[0];
-    const double u1 = static_cast<double>(u_end[1]) - origin[1];
-    const double u2 = static_cast<double>(u_end[2]) - origin[2];
-    auto v0 = static_cast<float>(static_cast<double>(v_end[0]) - origin[0]);
-    auto v1 = static_cast<float>(static_cast<double>(v_end[1]) - origin[1]);
-    const double v2 = static_cast<double>(v_end[2]) - origin[2];
+    const double u0 = static_cast<double>(core::at(u_end, 0)) - core::at(origin, 0);
+    const double u1 = static_cast<double>(core::at(u_end, 1)) - core::at(origin, 1);
+    const double u2 = static_cast<double>(core::at(u_end, 2)) - core::at(origin, 2);
+    auto v0 = static_cast<float>(static_cast<double>(core::at(v_end, 0)) - core::at(origin, 0));
+    auto v1 = static_cast<float>(static_cast<double>(core::at(v_end, 1)) - core::at(origin, 1));
+    const double v2 = static_cast<double>(core::at(v_end, 2)) - core::at(origin, 2);
     auto nx = static_cast<float>(v2 * u1 - v1 * u2);
     auto ny = static_cast<float>(u2 * v0 - v2 * u0);
     auto nz = static_cast<float>(v1 * u0 - u1 * v0);
@@ -92,26 +97,26 @@ void set_plane(float* plane, const float* origin, const float* u_end, const floa
     }
     const double distance =
         dot_order == DotOrder::kZyx
-            ? (static_cast<double>(z) * point[2] + static_cast<double>(y) * point[1]) + x * point[0]
-            : (x * point[0] + static_cast<double>(y) * point[1]) + static_cast<double>(z) * point[2];
-    plane[0] = static_cast<float>(x);
-    plane[1] = y;
-    plane[2] = z;
-    plane[3] = static_cast<float>(distance);
+            ? (static_cast<double>(z) * core::at(point, 2) + static_cast<double>(y) * core::at(point, 1)) + x * core::at(point, 0)
+            : (x * core::at(point, 0) + static_cast<double>(y) * core::at(point, 1)) + static_cast<double>(z) * core::at(point, 2);
+    core::at(plane, 0) = static_cast<float>(x);
+    core::at(plane, 1) = y;
+    core::at(plane, 2) = z;
+    core::at(plane, 3) = static_cast<float>(distance);
 }
 
 // The view tests shared by sphere_outside_view and sphere_in_view, on the centre in view space: in front of the near
 // plane and inside the four side planes.
-bool inside_frustum(const float* view, float radius)
+bool inside_frustum(const std::array<float, 4>& view, float radius)
 {
-    if (static_cast<double>(radius) - view[2] < near_plane_depth())
+    if (static_cast<double>(radius) - core::at(view, 2) < near_plane_depth())
         return false;
-    const double a = static_cast<double>(side_cos()) * view[2];
-    const double b = static_cast<double>(side_sin()) * view[0];
+    const double a = static_cast<double>(side_cos()) * core::at(view, 2);
+    const double b = static_cast<double>(side_sin()) * core::at(view, 0);
     if (a - b > radius || radius < a + b)
         return false;
-    const double c = static_cast<double>(vertical_cos()) * view[2];
-    const double d = static_cast<double>(vertical_sin()) * view[1];
+    const double c = static_cast<double>(vertical_cos()) * core::at(view, 2);
+    const double d = static_cast<double>(vertical_sin()) * core::at(view, 1);
     if (d + c > radius || radius < c - d)
         return false;
     return true;
@@ -247,32 +252,32 @@ void collect_occluders(const maths::Vec4* eye, int frame)
     tick_cycle() = frame;
     sort_occluders();
     add_occluders();
-    const float* e = &eye->x;
+    const std::span<const float> e(eye->data(), 4);
     using L = LengthOrder;
     using D = DotOrder;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
         Occluder& occluder = core::at(occluder_array(), i);
         const OccluderPolygon& poly = *occluder.poly;
-        const float* p0 = core::at(poly.corners, 0).data();
-        const float* p1 = core::at(poly.corners, 1).data();
-        const float* p2 = core::at(poly.corners, 2).data();
-        const float* p3 = core::at(poly.corners, 3).data();
+        const std::span<const float> p0 = core::at(poly.corners, 0);
+        const std::span<const float> p1 = core::at(poly.corners, 1);
+        const std::span<const float> p2 = core::at(poly.corners, 2);
+        const std::span<const float> p3 = core::at(poly.corners, 3);
         // Which side of the polygon the eye is on decides the corners' order.
-        const double facing = ((static_cast<double>(e[2]) - p0[2]) * core::at(poly.normal, 2) +
-                               (static_cast<double>(e[1]) - p0[1]) * core::at(poly.normal, 1)) +
-                              (static_cast<double>(e[0]) - p0[0]) * core::at(poly.normal, 0);
+        const double facing = ((static_cast<double>(core::at(e, 2)) - core::at(p0, 2)) * core::at(poly.normal, 2) +
+                               (static_cast<double>(core::at(e, 1)) - core::at(p0, 1)) * core::at(poly.normal, 1)) +
+                              (static_cast<double>(core::at(e, 0)) - core::at(p0, 0)) * core::at(poly.normal, 0);
         if (facing >= 0.0) {
-            set_plane(core::at(occluder.planes, 0).data(), p0, p2, p3, L::kXzy, false, p0, D::kZyx);
-            set_plane(core::at(occluder.planes, 1).data(), e, p0, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 2).data(), e, p2, p3, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 3).data(), e, p1, p2, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 4).data(), e, p3, p0, L::kZyx, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 0), p0, p2, p3, L::kXzy, false, p0, D::kZyx);
+            set_plane(core::at(occluder.planes, 1), e, p0, p1, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 2), e, p2, p3, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 3), e, p1, p2, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 4), e, p3, p0, L::kZyx, false, e, D::kXyz);
         } else { // (also when it's not a number)
-            set_plane(core::at(occluder.planes, 0).data(), p0, p3, p2, L::kXzy, false, p0, D::kZyx);
-            set_plane(core::at(occluder.planes, 1).data(), e, p1, p0, L::kZyx, true, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 2).data(), e, p3, p2, L::kZyx, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 3).data(), e, p2, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(core::at(occluder.planes, 4).data(), e, p0, p3, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 0), p0, p3, p2, L::kXzy, false, p0, D::kZyx);
+            set_plane(core::at(occluder.planes, 1), e, p1, p0, L::kZyx, true, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 2), e, p3, p2, L::kZyx, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 3), e, p2, p1, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 4), e, p0, p3, L::kXzy, false, e, D::kXyz);
         }
     }
 }
@@ -289,18 +294,18 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
     if (occlusion_off()) // (NOT ORIGINAL: the level editor's switch)
         return false;
     double x = centre->x, y = centre->y, z = centre->z;
-    if (const float* world = world_transform()) {
-        x = static_cast<double>(world[12]) + centre->x;
-        y = static_cast<double>(world[13]) + centre->y;
-        z = static_cast<double>(world[14]) + centre->z;
+    if (const auto world = world_transform(); !world.empty()) {
+        x = static_cast<double>(core::at(world, 12)) + centre->x;
+        y = static_cast<double>(core::at(world, 13)) + centre->y;
+        z = static_cast<double>(core::at(world, 14)) + centre->z;
     }
     const float limit = -radius;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
         Occluder& occluder = core::at(occluder_array(), i);
         int plane = 0;
         for (; plane < 5; ++plane) {
-            const float* p = core::at(occluder.planes, plane).data();
-            const double distance = ((z * p[2] + x * p[0]) + y * p[1]) - p[3];
+            const std::array<float, 4>& p = core::at(occluder.planes, plane);
+            const double distance = ((z * core::at(p, 2) + x * core::at(p, 0)) + y * core::at(p, 1)) - core::at(p, 3);
             if (distance >= limit) // (not a number counts as behind)
                 break;
         }
@@ -316,25 +321,25 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
 int sphere_outside_view(const maths::Vec4* centre, float radius)
 {
     std::array<float, 4> view{};
-    xform(view.data(), &centre->x, view_matrix());
-    return inside_frustum(view.data(), radius) ? 0 : 1;
+    xform(view.data(), centre->data(), view_matrix());
+    return inside_frustum(view, radius) ? 0 : 1;
 }
 
 // 0x004DB790
 bool sphere_in_view(const maths::Vec4* centre, float radius)
 {
     std::array<float, 4> moved{};
-    const float* point = &centre->x;
-    if (const float* world = world_transform()) {
-        core::at(moved, 0) = world[12] + centre->x;
-        core::at(moved, 1) = world[13] + centre->y;
-        core::at(moved, 2) = world[14] + centre->z;
+    const float* point = centre->data();
+    if (const auto world = world_transform(); !world.empty()) {
+        core::at(moved, 0) = core::at(world, 12) + centre->x;
+        core::at(moved, 1) = core::at(world, 13) + centre->y;
+        core::at(moved, 2) = core::at(world, 14) + centre->z;
         point = moved.data();
     }
     std::array<float, 4> view{};
     xform(view.data(), point, view_matrix());
     g_last_sphere_distance = static_cast<float>(-static_cast<double>(core::at(view, 2)) - radius);
-    return inside_frustum(view.data(), radius);
+    return inside_frustum(view, radius);
 }
 
 // 0x004DB6D0
@@ -342,15 +347,15 @@ bool beyond_clip_distance(const void* bounds)
 {
     if (!g_distance_clipping)
         return false;
-    const auto* sphere = static_cast<const float*>(bounds);
-    const float radius = sphere[4];
-    std::array<float, 3> centre = {{sphere[1], sphere[2], sphere[3]}};
+    const std::span<const float, 5> sphere(static_cast<const float*>(bounds), 5);
+    const float radius = core::at(sphere, 4);
+    std::array<float, 3> centre = {{core::at(sphere, 1), core::at(sphere, 2), core::at(sphere, 3)}};
     std::array<float, 3> moved{};
     const float* point = centre.data();
-    if (const float* world = world_transform()) {
-        core::at(moved, 0) = core::at(centre, 0) + world[12];
-        core::at(moved, 1) = core::at(centre, 1) + world[13];
-        core::at(moved, 2) = core::at(centre, 2) + world[14];
+    if (const auto world = world_transform(); !world.empty()) {
+        core::at(moved, 0) = core::at(centre, 0) + core::at(world, 12);
+        core::at(moved, 1) = core::at(centre, 1) + core::at(world, 13);
+        core::at(moved, 2) = core::at(centre, 2) + core::at(world, 14);
         point = moved.data();
     }
     std::array<float, 4> view{};
