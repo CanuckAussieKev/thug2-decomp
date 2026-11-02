@@ -91,16 +91,16 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
 
 bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
 {
-    const ParkMapGap::End* e = gap.ends.data();
-    writer.u8(e[0].x);
-    writer.u8(e[1].x);
-    writer.u8(static_cast<uint8_t>(e[0].y + 8));
-    writer.u8(static_cast<uint8_t>(e[1].y + 8));
-    writer.u8(e[0].z);
-    writer.u8(e[1].z);
-    writer.u8(static_cast<uint8_t>((e[0].reach_right & 0xF) | (e[0].reach_left << 4)));
-    writer.u8(static_cast<uint8_t>((e[1].reach_right & 0xF) | (e[1].reach_left << 4)));
-    writer.u8(static_cast<uint8_t>(e[0].quarter_turns | (e[1].quarter_turns << 4)));
+    const auto& e = gap.ends;
+    writer.u8(core::at(e, 0).x);
+    writer.u8(core::at(e, 1).x);
+    writer.u8(static_cast<uint8_t>(core::at(e, 0).y + 8));
+    writer.u8(static_cast<uint8_t>(core::at(e, 1).y + 8));
+    writer.u8(core::at(e, 0).z);
+    writer.u8(core::at(e, 1).z);
+    writer.u8(static_cast<uint8_t>((core::at(e, 0).reach_right & 0xF) | (core::at(e, 0).reach_left << 4)));
+    writer.u8(static_cast<uint8_t>((core::at(e, 1).reach_right & 0xF) | (core::at(e, 1).reach_left << 4)));
+    writer.u8(static_cast<uint8_t>(core::at(e, 0).quarter_turns | (core::at(e, 1).quarter_turns << 4)));
     writer.u8(0);
     writer.fixed_string(gap.text.data(), kParkMapGapTextSize);
     writer.u16(gap.points);

@@ -1201,10 +1201,10 @@ void log_meshes()
     for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
         const render::MeshRef* mesh = meshes[i];
         const render::MaterialRef* material = mesh->material;
-        const float* colour = mesh->color.data();
+        const auto& colour = mesh->color;
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
                 "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
-                i, mesh->flags, colour[0], colour[1], colour[2], mesh->fvf, static_cast<const void*>(material),
+                i, mesh->flags, core::at(colour, 0), core::at(colour, 1), core::at(colour, 2), mesh->fvf, static_cast<const void*>(material),
                 material ? material->pass_count_ & 0xFFFFFFF : 0, material ? core::at(material->pass_flags_, 0) : 0,
                 material ? core::at(material->pass_flags_, 1) : 0,
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 0)) : 0,

@@ -534,13 +534,13 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script*)
     // "attempting to bind front end %i to controller %i\n"
     debug::printf("attempting to bind front end %i to controller %i\n", pad, controller);
     modules::FrontEnd* front_end = modules::front_end_instance().get();
-    int* map = front_end->device_server_map_.data();
-    const int old = map[pad];
-    if (map[0] == controller)
-        map[0] = old;
-    if (map[1] == controller)
-        map[1] = old;
-    map[pad] = controller;
+    auto& map = front_end->device_server_map_;
+    const int old = core::at(map, pad);
+    if (core::at(map, 0) == controller)
+        core::at(map, 0) = old;
+    if (core::at(map, 1) == controller)
+        core::at(map, 1) = old;
+    core::at(map, pad) = controller;
     front_end->update_input_mappings();
     return true;
 }

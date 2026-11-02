@@ -635,13 +635,13 @@ void PedestrianBrainModule::align_to_ground()
         return;
     GroundTriangle t{};
     t.get_assign(GroundTriangle{motion->ground_triangle_});
-    const maths::Vec4* c = t.corners.data();
-    const double e1x = static_cast<double>(c[1].x) - c[0].x;
-    const double e1y = static_cast<double>(c[1].y) - c[0].y;
-    const double e1z = static_cast<double>(c[1].z) - c[0].z;
-    auto e2x = static_cast<float>(static_cast<double>(c[2].x) - c[0].x);
-    auto e2y = static_cast<float>(static_cast<double>(c[2].y) - c[0].y);
-    const double e2z = static_cast<double>(c[2].z) - c[0].z;
+    const auto& c = t.corners;
+    const double e1x = static_cast<double>(core::at(c, 1).x) - core::at(c, 0).x;
+    const double e1y = static_cast<double>(core::at(c, 1).y) - core::at(c, 0).y;
+    const double e1z = static_cast<double>(core::at(c, 1).z) - core::at(c, 0).z;
+    auto e2x = static_cast<float>(static_cast<double>(core::at(c, 2).x) - core::at(c, 0).x);
+    auto e2y = static_cast<float>(static_cast<double>(core::at(c, 2).y) - core::at(c, 0).y);
+    const double e2z = static_cast<double>(core::at(c, 2).z) - core::at(c, 0).z;
     maths::Vec4 normal = {static_cast<float>(e2z * e1y - static_cast<double>(e2y) * e1z),
                           static_cast<float>(e1z * e2x - e2z * e1x),
                           static_cast<float>(static_cast<double>(e2y) * e1x - e1y * e2x), 0.0f};

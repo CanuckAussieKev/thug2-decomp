@@ -494,14 +494,14 @@ void ChainComponent::tick_frame()
             steps_ -= chain->iterations_;
         }
         for (int pass = passes; pass != 0; --pass) {
-            ChainLink* link = chain->chain_link_.data();
+            auto& link = chain->chain_link_;
             const int last = chain->links_ - 1;
-            link[0].next_pos_ = start;
-            link[last].next_pos_ = end;
+            core::at(link, 0).next_pos_ = start;
+            core::at(link, last).next_pos_ = end;
             // Each pair pulled (or pushed) half way to its rest length.
             for (int i = 1; i < last; ++i) {
-                maths::Vec4& prev = link[i - 1].next_pos_;
-                maths::Vec4& cur = link[i].next_pos_;
+                maths::Vec4& prev = core::at(link, i - 1).next_pos_;
+                maths::Vec4& cur = core::at(link, i).next_pos_;
                 const double dx = static_cast<double>(cur.x) - prev.x;
                 const double dy = static_cast<double>(cur.y) - prev.y;
                 const double dz = static_cast<double>(cur.z) - prev.z;
@@ -513,7 +513,7 @@ void ChainComponent::tick_frame()
                 const float ny = get_rounded(static_cast<double>(inverse) * dy);
                 const float nz = get_rounded(static_cast<double>(inverse) * dzf);
                 const float nw = get_rounded(static_cast<double>(inverse) * dwf);
-                const float half = get_rounded((static_cast<double>(link[i].byte_count_) - length) * 0.5);
+                const float half = get_rounded((static_cast<double>(core::at(link, i).byte_count_) - length) * 0.5);
                 const float cx = get_rounded(static_cast<double>(nx) * half);
                 const double cy = static_cast<double>(half) * ny;
                 const double cz = static_cast<double>(half) * nz;
@@ -527,12 +527,12 @@ void ChainComponent::tick_frame()
                 prev.y = get_rounded(static_cast<double>(prev.y) - cy);
                 prev.z = get_rounded(static_cast<double>(prev.z) - czf);
                 prev.w = get_rounded(static_cast<double>(prev.w) - cw);
-                link[i].value40_ = 0.0f;
+                core::at(link, i).value40_ = 0.0f;
             }
             // The last pair: only the link before the end moves.
             {
-                maths::Vec4& prev = link[last - 1].next_pos_;
-                const maths::Vec4& cur = link[last].next_pos_;
+                maths::Vec4& prev = core::at(link, last - 1).next_pos_;
+                const maths::Vec4& cur = core::at(link, last).next_pos_;
                 const double dx = static_cast<double>(cur.x) - prev.x;
                 const double dy = static_cast<double>(cur.y) - prev.y;
                 const double dz = static_cast<double>(cur.z) - prev.z;
@@ -544,7 +544,7 @@ void ChainComponent::tick_frame()
                 const double ny = dy * inverse;
                 const float nz = get_rounded(static_cast<double>(inverse) * dzf);
                 const float nw = get_rounded(static_cast<double>(inverse) * dwf);
-                const float half = get_rounded((static_cast<double>(link[last].byte_count_) - length) * 0.5);
+                const float half = get_rounded((static_cast<double>(core::at(link, last).byte_count_) - length) * 0.5);
                 const float cx = get_rounded(static_cast<double>(nx) * half);
                 const double cy = static_cast<double>(half) * ny;
                 const double cz = static_cast<double>(half) * nz;
@@ -556,12 +556,12 @@ void ChainComponent::tick_frame()
             }
             // The collision range kept to its side of the plane.
             for (int i = chain->collide_first_; i < chain->collide_end_; ++i) {
-                link[i].value40_ = 255.0f;
+                core::at(link, i).value40_ = 255.0f;
                 const double offset = chain->plane_offset_;
                 const double px = static_cast<double>(core::at(axis, 0)) * offset + plane_point.x;
                 const double py = static_cast<double>(plane_point.y) + get_rounded(offset * core::at(axis, 1));
                 const float pz = get_rounded(static_cast<double>(plane_point.z) + get_rounded(offset * core::at(axis, 2)));
-                maths::Vec4& cur = link[i].next_pos_;
+                maths::Vec4& cur = core::at(link, i).next_pos_;
                 const float dx = get_rounded(static_cast<double>(cur.x) - px);
                 const float dy = get_rounded(static_cast<double>(cur.y) - py);
                 const float dz = get_rounded(static_cast<double>(cur.z) - pz);

@@ -468,18 +468,18 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     }
     if (!skate_net::read_graffiti_colors(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    const uint8_t* counts = message.counts.data();
+    const auto& counts = message.counts;
     objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub.get();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     gsl::owner<Struct*> params = script::new_struct();
     for (int i = 0; i < skate_net::kGraffitiSkaters; ++i) {
-        if (!counts[i])
+        if (!core::at(counts, i))
             continue;
         gsl::owner<Array*> array = script::new_array();
-        array->configure_size_kind(counts[i], static_cast<script::QbValueKind>(kSymbolChecksum));
+        array->configure_size_kind(core::at(counts, i), static_cast<script::QbValueKind>(kSymbolChecksum));
         // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
-        for (int j = 0; std::cmp_less(j, counts[i]); ++j)
+        for (int j = 0; std::cmp_less(j, core::at(counts, i)); ++j)
             array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(reader.u8()));
         std::array<char, 32> name{};
         std::sprintf(name.data(), "Skater%d", i);

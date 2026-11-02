@@ -92,8 +92,8 @@ std::array<float, 3> scaled_position(const ScaledVertex& v)
     const float ax = core::at(v.p, 0) + core::at(e0, 0) * core::at(v.a, 0), ay = core::at(v.p, 1) + core::at(e0, 2) * core::at(v.a, 1), az = core::at(v.p, 2) + core::at(e0, 1) * core::at(v.a, 2);
     const float bx = core::at(v.q, 0) + core::at(e1, 0) * core::at(v.b, 0), by = core::at(v.q, 1) + core::at(e1, 2) * core::at(v.b, 1), bz = core::at(v.q, 2) + core::at(e1, 1) * core::at(v.b, 2);
     const float cx = core::at(v.r, 0) + core::at(e2, 0) * core::at(v.c, 0), cy = core::at(v.r, 1) + core::at(e2, 2) * core::at(v.c, 1), cz = core::at(v.r, 2) + core::at(e2, 1) * core::at(v.c, 2);
-    const float* s = v.weights.data();
-    return {ax * s[0] + bx * s[1] + cx * s[2], ay * s[0] + by * s[1] + cy * s[2], az * s[0] + bz * s[1] + cz * s[2]};
+    const auto& s = v.weights;
+    return {ax * core::at(s, 0) + bx * core::at(s, 1) + cx * core::at(s, 2), ay * core::at(s, 0) + by * core::at(s, 1) + cy * core::at(s, 2), az * core::at(s, 0) + bz * core::at(s, 1) + cz * core::at(s, 2)};
 }
 
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).

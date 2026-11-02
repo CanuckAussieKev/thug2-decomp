@@ -424,9 +424,9 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
                 core::at(seen->ongoing_, k) = 0;
             }
         }
-        int* counts = seen->landed_.data(); // (landed_ then ongoing_; the kind can reach past them, as the original)
-        newest_logged_trick()->repeats_ = counts[kind] + counts[kind + 4];
-        ++counts[kind + 4];
+        auto& counts = seen->landed_; // (landed_ then ongoing_; the kind can reach past them, as the original)
+        newest_logged_trick()->repeats_ = core::at(counts, kind) + core::at(counts, kind + 4);
+        ++core::at(counts, kind + 4);
     }
     ++tricks_;
     if (!unnamed) {

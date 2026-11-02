@@ -332,11 +332,11 @@ void PointTally::test_record_score(int before, int after)
     Skate* skate = skate_calls::get_skate();
     if (!get_game_mode()->is_true(kIsCareer))
         return;
-    auto* goals = skate->score_goals_.data();
+    auto& goals = skate->score_goals_;
     for (int i = 0; i < 64; ++i) {
-        const int score = goals[i].score;
-        const int goal = goals[i].goal;
-        const uint32_t script = goals[i].script;
+        const int score = core::at(goals, i).score;
+        const int goal = core::at(goals, i).goal;
+        const uint32_t script = core::at(goals, i).script;
         if (!score || before >= score || after < score || skate_calls::get_career()->get_goal(goal, -1))
             continue;
         skate_calls::get_career()->set_goal(goal, -1);

@@ -168,16 +168,16 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     }
     for (uint32_t j = 0; j < count; ++j) {
         DynamicLightBase* light = core::at(dynamic, j);
-        const float* at = light->pos.data();
-        double dx = static_cast<double>(position->x) - at[0];
-        double dy = static_cast<double>(position->y) - at[1];
-        const double dz = static_cast<double>(position->z) - at[2];
+        const auto& at = light->pos;
+        double dx = static_cast<double>(position->x) - core::at(at, 0);
+        double dy = static_cast<double>(position->y) - core::at(at, 1);
+        const double dz = static_cast<double>(position->z) - core::at(at, 2);
         auto distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
         const double falloff = get_falloff(light, distance);
         // the direction from the light, normalised (unless its length isn't above 0)
-        dx = static_cast<double>(position->x) - at[0];
-        dy = static_cast<double>(position->y) - at[1];
-        auto zf = static_cast<float>(static_cast<double>(position->z) - at[2]);
+        dx = static_cast<double>(position->x) - core::at(at, 0);
+        dy = static_cast<double>(position->y) - core::at(at, 1);
+        auto zf = static_cast<float>(static_cast<double>(position->z) - core::at(at, 2));
         const double length = std::sqrt(dx * dx + static_cast<double>(zf) * zf + dy * dy);
         if (length > 0.0) {
             const double inverse = 1.0 / length;

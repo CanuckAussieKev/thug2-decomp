@@ -149,10 +149,10 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     uint8_t* into = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
     const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
-    const float* pivot = mesh->billboard->pivot.data();
-    const float px = pivot[0];
-    const float py = pivot[1];
-    const float pz = pivot[2];
+    const auto& pivot = mesh->billboard->pivot;
+    const float px = core::at(pivot, 0);
+    const float py = core::at(pivot, 1);
+    const float pz = core::at(pivot, 2);
     uint32_t rest = mesh->stride - 0xC;
     const uint32_t* table = nullptr;
     if (mesh->per_vertex_bytes_) { // (a value per vertex from the material's table)
@@ -414,11 +414,11 @@ void BillboardBatch::render()
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40) {
-            const float* axis = mesh->billboard->axis.data();
-            const float* d = manager->view.data();
-            double rx = static_cast<double>(d[1]) * axis[2] - static_cast<double>(d[2]) * axis[1];
-            auto ry = static_cast<float>(static_cast<double>(d[2]) * axis[0] - static_cast<double>(d[0]) * axis[2]);
-            auto rz = static_cast<float>(static_cast<double>(d[0]) * axis[1] - static_cast<double>(d[1]) * axis[0]);
+            const auto& axis = mesh->billboard->axis;
+            const auto& d = manager->view;
+            double rx = static_cast<double>(core::at(d, 1)) * core::at(axis, 2) - static_cast<double>(core::at(d, 2)) * core::at(axis, 1);
+            auto ry = static_cast<float>(static_cast<double>(core::at(d, 2)) * core::at(axis, 0) - static_cast<double>(core::at(d, 0)) * core::at(axis, 2));
+            auto rz = static_cast<float>(static_cast<double>(core::at(d, 0)) * core::at(axis, 1) - static_cast<double>(core::at(d, 1)) * core::at(axis, 0));
             const double length = std::sqrt(rx * rx + static_cast<double>(rz) * rz + static_cast<double>(ry) * ry);
             if (length > 0.0f) {
                 const double inverse = 1.0f / length;
@@ -426,9 +426,9 @@ void BillboardBatch::render()
                 ry = static_cast<float>(ry * inverse);
                 rz = static_cast<float>(rz * inverse);
             }
-            double ux = static_cast<double>(rz) * axis[1] - static_cast<double>(ry) * axis[2];
-            double uy = rx * axis[2] - static_cast<double>(rz) * axis[0];
-            double uz = static_cast<double>(ry) * axis[0] - rx * axis[1];
+            double ux = static_cast<double>(rz) * core::at(axis, 1) - static_cast<double>(ry) * core::at(axis, 2);
+            double uy = rx * core::at(axis, 2) - static_cast<double>(rz) * core::at(axis, 0);
+            double uz = static_cast<double>(ry) * core::at(axis, 0) - rx * core::at(axis, 1);
             auto uz_stored = static_cast<float>(uz);
             const double length2 = std::sqrt(ux * ux + uz * uz + uy * uy);
             if (length2 > 0.0f) {
@@ -440,7 +440,7 @@ void BillboardBatch::render()
             }
             std::array<float, 3> across = {{static_cast<float>(rx), ry, rz}};
             std::array<float, 3> out = {{static_cast<float>(ux), static_cast<float>(uy), uz_stored}};
-            std::array<float, 3> along = {{axis[0], axis[1], axis[2]}};
+            std::array<float, 3> along = {{core::at(axis, 0), core::at(axis, 1), core::at(axis, 2)}};
             set_axes(across.data(), along.data(), out.data());
             draw_billboard_mesh(mesh, along.data(), across.data(), out.data());
         }

@@ -1,5 +1,6 @@
 // A vector times a full 4x4 matrix (maths::Vec4::multiply_by, engine/maths/vec4.h).
 
+#include "engine/core/checked_index.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
@@ -10,11 +11,11 @@ namespace maths {
 Vec4& Vec4::multiply_by(const Mat4& matrix)
 {
     const double vx = x, vy = y, vz = z, vw = w;
-    const Vec4* m = matrix.row.data();
-    x = static_cast<float>(((vw * m[3].x + vz * m[2].x) + vy * m[1].x) + vx * m[0].x);
-    y = static_cast<float>(((vw * m[3].y + vz * m[2].y) + vx * m[0].y) + vy * m[1].y);
-    z = static_cast<float>(((vw * m[3].z + vz * m[2].z) + vx * m[0].z) + vy * m[1].z);
-    w = static_cast<float>(((vw * m[3].w + vz * m[2].w) + vx * m[0].w) + vy * m[1].w);
+    const auto& m = matrix.row;
+    x = static_cast<float>(((vw * core::at(m, 3).x + vz * core::at(m, 2).x) + vy * core::at(m, 1).x) + vx * core::at(m, 0).x);
+    y = static_cast<float>(((vw * core::at(m, 3).y + vz * core::at(m, 2).y) + vx * core::at(m, 0).y) + vy * core::at(m, 1).y);
+    z = static_cast<float>(((vw * core::at(m, 3).z + vz * core::at(m, 2).z) + vx * core::at(m, 0).z) + vy * core::at(m, 1).z);
+    w = static_cast<float>(((vw * core::at(m, 3).w + vz * core::at(m, 2).w) + vx * core::at(m, 0).w) + vy * core::at(m, 1).w);
     return *this;
 }
 

@@ -303,14 +303,14 @@ bool BoxProbe::get_query(int)
 void BoxProbe::join_hits()
 {
     const int count = hits_.count;
-    const RectHit* hits = hits_.hits.data();
+    const auto& hits = hits_.hits;
     std::array<bool, RectHits::kMost> used{};
     std::array<maths::Vec4, RectHits::kMost> direction{};
     // each hit's direction (x, y, z made unit when they have a length; w as it is)
     for (int i = count - 1; i >= 0; --i) {
         core::at(used, i) = false;
-        const maths::Vec4& p0 = core::at(hits[i].ends, 0).point;
-        const maths::Vec4& p1 = core::at(hits[i].ends, 1).point;
+        const maths::Vec4& p0 = core::at(core::at(hits, i).ends, 0).point;
+        const maths::Vec4& p1 = core::at(core::at(hits, i).ends, 1).point;
         maths::Vec4& d = core::at(direction, i);
         d = {get_difference(p1.x, p0.x), get_difference(p1.y, p0.y), get_difference(p1.z, p0.z),
              get_difference(p1.w, p0.w)};
@@ -327,9 +327,9 @@ void BoxProbe::join_hits()
     for (int j = count - 1; j > 0; --j) {
         if (core::at(used, j))
             continue;
-        const RectHit& later = hits[j];
+        const RectHit& later = core::at(hits, j);
         for (int k = j - 1; k >= 0; --k) {
-            const RectHit& earlier = hits[k];
+            const RectHit& earlier = core::at(hits, k);
             const bool same = (same_point(core::at(later.ends, 0).point, core::at(earlier.ends, 0).point) &&
                                same_point(core::at(later.ends, 1).point, core::at(earlier.ends, 1).point)) ||
                               (same_point(core::at(later.ends, 0).point, core::at(earlier.ends, 1).point) &&
@@ -343,13 +343,13 @@ void BoxProbe::join_hits()
     joined_count_ = 0;
     for (int j = count - 1; j >= 0; --j) {
         RectHit joined{};
-        joined.copy_from(&hits[j]);
+        joined.copy_from(&core::at(hits, j));
         if (core::at(used, j))
             continue;
         for (int k = j - 1; k >= 0; --k) {
             if (core::at(used, k))
                 continue;
-            const RectHit& other = hits[k];
+            const RectHit& other = core::at(hits, k);
             if (dot3(joined.normal.z, joined.normal.x, joined.normal.y, other.normal.z, other.normal.x,
                      other.normal.y) < kParallel)
                 continue;

@@ -533,11 +533,11 @@ void RiderRemoteSync::play_history_events()
         return;
     const int first = past_frames_->message_count_ % kHistory;
     const uint32_t now = app->clock_ - sync_frame_ + sync_time_;
-    auto* messages = past_frames_->messages_.data();
+    auto& messages = past_frames_->messages_;
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_);
     int i = first;
     do {
-        StateHistoryMessage* msg = &messages[i];
+        StateHistoryMessage* msg = &core::at(messages, i);
         if (msg->get_time() > last_event_time_ && msg->get_time() <= now) {
             switch (msg->ident_) {
             case 0x29: // an animation played (the primary channel)

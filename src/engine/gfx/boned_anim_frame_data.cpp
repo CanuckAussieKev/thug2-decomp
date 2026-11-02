@@ -382,21 +382,21 @@ void interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, float t)
         std::memcpy(out, b->value.data(), 4 * sizeof(float));
         return;
     }
-    const float* p = a->value.data();
-    const float* q = b->value.data();
+    const auto& p = a->value;
+    const auto& q = b->value;
     // (x87 at 53 bits, in the original's order: w, x, z, y)
-    double dot = static_cast<double>(p[3]) * q[3] + static_cast<double>(p[0]) * q[0];
-    dot += static_cast<double>(q[2]) * p[2];
-    dot += static_cast<double>(p[1]) * q[1];
+    double dot = static_cast<double>(core::at(p, 3)) * core::at(q, 3) + static_cast<double>(core::at(p, 0)) * core::at(q, 0);
+    dot += static_cast<double>(core::at(q, 2)) * core::at(p, 2);
+    dot += static_cast<double>(core::at(p, 1)) * core::at(q, 1);
     if (dot < 0.0) {
         for (int i = 0; i < 4; ++i)
             core::at(a->value, i) = -core::at(b->value, i);
     }
     // x and w stay unrounded; y and z are rounded to floats on the way.
-    const double x = (static_cast<double>(q[0]) - p[0]) * t + p[0];
-    auto y = static_cast<float>((static_cast<double>(q[1]) - p[1]) * t + p[1]);
-    auto z = static_cast<float>((static_cast<double>(q[2]) - p[2]) * t + p[2]);
-    const double w = (static_cast<double>(q[3]) - p[3]) * t + p[3];
+    const double x = (static_cast<double>(core::at(q, 0)) - core::at(p, 0)) * t + core::at(p, 0);
+    auto y = static_cast<float>((static_cast<double>(core::at(q, 1)) - core::at(p, 1)) * t + core::at(p, 1));
+    auto z = static_cast<float>((static_cast<double>(core::at(q, 2)) - core::at(p, 2)) * t + core::at(p, 2));
+    const double w = (static_cast<double>(core::at(q, 3)) - core::at(p, 3)) * t + core::at(p, 3);
     double sum = w * w + static_cast<double>(z) * z;
     sum += static_cast<double>(y) * y;
     sum += x * x;
