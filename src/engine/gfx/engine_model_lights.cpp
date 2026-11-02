@@ -3,9 +3,11 @@
 
 #include "engine/gfx/engine_model_lights.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -26,8 +28,8 @@ uint32_t light_count() { return g_light_count; }
 // (the world lights' fields: ambient_low_ 0x0067DCA4, ambient_high_, light_low_, light_high_)
 float dark_range() { return g_active_lighting.ambient_low_; }
 float bright_range() { return g_active_lighting.ambient_high_; }
-float* dark_ranges() { return g_active_lighting.light_low_; }
-float* bright_ranges() { return g_active_lighting.light_high_; }
+std::span<float> dark_ranges() { return g_active_lighting.light_low_; }
+std::span<float> bright_ranges() { return g_active_lighting.light_high_; }
 
 void get_stub(const char* message) { debug::printf(message); }
 
@@ -41,13 +43,13 @@ float get_scaled(float brightness, float dark, float bright)
 } // namespace
 
 // 0x0048E5B0
-ModelLights::ModelLights() : intensities_(static_cast<float*>(memory::alloc(light_count() * 4)))
+ModelLights::ModelLights()
+    : dynamic_radius_(0), intensities_(static_cast<float*>(memory::alloc(light_count() * 4))), place_ref_(nullptr)
 {
-    for (uint32_t i = 0; i < light_count(); ++i)
-        intensities_[i] = 1.0f;
-    dynamic_radius_ = 0;
-    place_ref_ = nullptr;
+    std::ranges::fill(intensities(), 1.0f);
 }
+
+std::span<float> ModelLights::intensities() const { return {intensities_, light_count()}; }
 
 // 0x0048E630
 ModelLights::~ModelLights()
@@ -88,9 +90,10 @@ void ModelLights::get_update_brightness()
     if (size_factor_ < 0.0f)
         size_factor_ = 0.0f;
     for (uint32_t i = 0; i < light_count(); ++i) {
-        intensities_[i] = get_scaled(brightness_, dark_ranges()[i], bright_ranges()[i]);
-        if (intensities_[i] < 0.0f)
-            intensities_[i] = 0.0f;
+        float& intensity = core::at(intensities(), i);
+        intensity = get_scaled(brightness_, core::at(dark_ranges(), i), core::at(bright_ranges(), i));
+        if (intensity < 0.0f)
+            intensity = 0.0f;
     }
     apply_light_brightness(true, true);
 }

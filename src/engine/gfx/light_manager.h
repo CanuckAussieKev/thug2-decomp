@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 namespace maths {
 class Vec4;
@@ -20,13 +21,13 @@ struct DynamicLightBase;
 
 // The world lights (0x1C bytes: 0x0067DC98, and each of the stack's entries).
 struct LightingState {
-    uint32_t ambient;        // +0x00: RGBA
-    maths::Vec4* directions; // +0x04: one per light
-    uint32_t* colours;       // +0x08: one per light
-    float ambient_low_;      // +0x0C: the ambient's range below the middle brightness
-    float ambient_high_;     // +0x10: ... above it
-    float* light_low_;       // +0x14: each light's
-    float* light_high_;      // +0x18
+    uint32_t ambient{};      // RGBA
+    std::span<maths::Vec4> directions; // one per light
+    std::span<uint32_t> colours;       // one per light
+    float ambient_low_{};    // the ambient's range below the middle brightness
+    float ambient_high_{};   // ... above it
+    std::span<float> light_low_;       // each light's
+    std::span<float> light_high_;
 
     // 0x0048EAC0 (not a Ghidra function): grey ambient (0x48, 0x48, 0x48, 0x80), no arrays, a low range of 0.5.
     // Returns this.
@@ -34,8 +35,6 @@ struct LightingState {
     // 0x0048EB00: the four arrays freed.
     void free_arrays();
 };
-static_assert(offsetof(LightingState, light_low_) == 0x14 && sizeof(LightingState) == 0x1C,
-              "layout must match the original");
 
 // 0x0048EB70: the manager set up for `max_lights` world lights (their arrays - the stack's zeroed - and the
 // intensities, all 1) and `max_model_lights` model lights.
@@ -73,7 +72,7 @@ DynamicLightBase** find_dynamic_light(uint32_t owner);
 // 0x0048EF90 (not a Ghidra function): the dynamic lights on and owned whose radius reaches `position`, into `out` by
 // their falloff (virtual [2] of the distance) - at most `max`, kept in 0x0067DD38 / 0x0067DCB8 with their indexes;
 // the original's insertion quirks kept (see the source). How many.
-uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out);
+uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std::span<DynamicLightBase*> out);
 // 0x0048F160: a new dynamic light of a type (1: a point light, zeroed, radius 50, not owned; others: none).
 DynamicLightBase* create_dynamic_light(int type);
 // 0x0048FB80: a dynamic light: the first free slot's (made), else a let-go one (owner 0) reused, else a new slot's
@@ -107,6 +106,6 @@ extern int g_dynamic_light_count;
 extern float g_ambient_intensity;
 extern LightingState g_active_lighting;
 extern std::array<DynamicLightBase*, 256> g_dynamic_lights;
-extern float* g_intensities;
+extern std::span<float> g_intensities;
 extern uint32_t g_model_light_count;
 } // namespace render

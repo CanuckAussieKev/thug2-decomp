@@ -4,8 +4,10 @@
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <utility>
 #include <cstring>
 #include <array>
 
@@ -22,10 +24,10 @@ namespace render {
 int g_dynamic_light_count;
 
 std::array<DynamicLightBase*, 256> g_dynamic_lights;
-float* g_intensities;
+std::span<float> g_intensities;
 uint32_t g_model_light_count;
 float g_ambient_intensity{1.0f};
-LightingState g_active_lighting{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
+LightingState g_active_lighting{0, {}, {}, 0.5f, 0.0f, {}, {}};
 namespace {
 std::array<LightingState, 4> g_world_light_stack; // (the saved ones: PushLights / PopLights)
 
@@ -47,7 +49,7 @@ float& get_brightness() { return g_light_brightness; }
 float& light_gain_goal() { return g_light_brightness_target; }
 float& ambient_intensity() { return g_ambient_intensity; }
 float min_intensity() { return g_min_intensity; }
-float*& get_intensities() { return g_intensities; }
+std::span<float>& get_intensities() { return g_intensities; }
 
 std::array<DynamicLightBase*, 256>& dynamic_lights() { return g_dynamic_lights; }
 int& dynamic_light_count() { return g_dynamic_light_count; }
@@ -74,32 +76,32 @@ double call_falloff(DynamicLightBase* light, float distance) { return light->get
 LightingState* LightingState::make_new()
 {
     ambient = 0x80484848;
-    directions = nullptr;
-    colours = nullptr;
+    directions = {};
+    colours = {};
     ambient_low_ = 0.5f;
-    light_low_ = nullptr;
-    light_high_ = nullptr;
+    light_low_ = {};
+    light_high_ = {};
     return this;
 }
 
 // 0x0048EB00
 void LightingState::free_arrays()
 {
-    if (directions) {
-        memory::Hub::get_pull()->dealloc(directions);
-        directions = nullptr;
+    if (directions.data()) {
+        memory::Hub::get_pull()->dealloc(directions.data());
+        directions = {};
     }
-    if (colours) {
-        memory::Hub::get_pull()->dealloc(colours);
-        colours = nullptr;
+    if (colours.data()) {
+        memory::Hub::get_pull()->dealloc(colours.data());
+        colours = {};
     }
-    if (light_low_) {
-        memory::Hub::get_pull()->dealloc(light_low_);
-        light_low_ = nullptr;
+    if (light_low_.data()) {
+        memory::Hub::get_pull()->dealloc(light_low_.data());
+        light_low_ = {};
     }
-    if (light_high_) {
-        memory::Hub::get_pull()->dealloc(light_high_);
-        light_high_ = nullptr;
+    if (light_high_.data()) {
+        memory::Hub::get_pull()->dealloc(light_high_.data());
+        light_high_ = {};
     }
 }
 
@@ -110,24 +112,23 @@ void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
     g_model_light_count = max_model_lights;
     light_count() = max_lights;
     LightingState& world = get_world();
-    world.directions = static_cast<maths::Vec4*>(memory::alloc(max_lights * 16));
-    world.colours = static_cast<uint32_t*>(memory::alloc(max_lights * 4));
-    world.light_low_ = static_cast<float*>(memory::alloc(max_lights * 4));
-    world.light_high_ = static_cast<float*>(memory::alloc(max_lights * 4));
+    world.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * 16)), max_lights};
+    world.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
+    world.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
+    world.light_high_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
     for (int i = 0; i < kSavedLightLevels; ++i) {
         LightingState& saved = core::at(pile_up(), i);
-        saved.directions = static_cast<maths::Vec4*>(memory::alloc(max_lights * 16));
-        saved.colours = static_cast<uint32_t*>(memory::alloc(max_lights * 4));
-        saved.light_low_ = static_cast<float*>(memory::alloc(max_lights * 4));
-        saved.light_high_ = static_cast<float*>(memory::alloc(max_lights * 4));
-        std::memset(saved.directions, 0, max_lights * 16);
-        std::memset(saved.colours, 0, max_lights * 4);
-        std::memset(saved.light_low_, 0, max_lights * 4);
-        std::memset(saved.light_high_, 0, max_lights * 4);
+        saved.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * 16)), max_lights};
+        saved.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
+        saved.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
+        saved.light_high_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
+        std::ranges::fill(saved.directions, maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f});
+        std::ranges::fill(saved.colours, 0u);
+        std::ranges::fill(saved.light_low_, 0.0f);
+        std::ranges::fill(saved.light_high_, 0.0f);
     }
-    get_intensities() = static_cast<float*>(memory::alloc(max_lights * 4));
-    for (uint32_t i = 0; i < max_lights; ++i)
-        get_intensities()[i] = 1.0f;
+    get_intensities() = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
+    std::ranges::fill(get_intensities(), 1.0f);
 }
 
 // 0x0048FB60
@@ -154,7 +155,7 @@ uint32_t* get_light_ambient_color(uint32_t* out)
 // 0x0048E930
 bool set_light_diffuse_color(int light, uint32_t rgba)
 {
-    get_world().colours[light] = rgba;
+    core::at(get_world().colours, light) = rgba;
     return update_light_color(light);
 }
 
@@ -168,7 +169,7 @@ uint32_t* get_light_diffuse_color(uint32_t* out, int light)
 // 0x0048ED70
 bool set_light_direction(int light, const maths::Vec4* direction)
 {
-    get_world().directions[light] = *direction;
+    core::at(get_world().directions, light) = *direction;
     return update_light_direction(light);
 }
 
@@ -182,8 +183,8 @@ void change_ambient_scale(float low, float high)
 // 0x0048E990
 void change_diffuse_scale(int light, float low, float high)
 {
-    get_world().light_low_[light] = low;
-    get_world().light_high_[light] = high;
+    core::at(get_world().light_low_, light) = low;
+    core::at(get_world().light_high_, light) = high;
 }
 
 // 0x0048E9B0
@@ -193,8 +194,8 @@ float fetch_ambient_scale(bool low) { return low ? get_world().ambient_low_ : ge
 float fetch_diffuse_scale(int light, bool low)
 {
     if (low)
-        return get_world().light_low_[light];
-    return get_world().light_low_[light];
+        return core::at(get_world().light_low_, light);
+    return core::at(get_world().light_low_, light);
 }
 
 // 0x0048EA00
@@ -238,9 +239,10 @@ bool set_world_brightness(float target)
     if (ambient_intensity() < min_intensity())
         ambient_intensity() = min_intensity();
     for (uint32_t i = 0; i < light_count(); ++i) {
-        get_intensities()[i] = get_scaled(brightness, get_world().light_low_[i], get_world().light_high_[i]);
-        if (get_intensities()[i] < min_intensity())
-            get_intensities()[i] = min_intensity();
+        float& intensity = core::at(get_intensities(), i);
+        intensity = get_scaled(brightness, core::at(get_world().light_low_, i), core::at(get_world().light_high_, i));
+        if (intensity < min_intensity())
+            intensity = min_intensity();
     }
     update_all_lights();
     return true;
@@ -270,7 +272,7 @@ DynamicLightBase** find_dynamic_light(uint32_t owner)
 }
 
 // 0x0048EF90
-uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out)
+uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std::span<DynamicLightBase*> out)
 {
     auto& falloffs = near_falloffs();
     auto& indexes = near_indexes();
@@ -291,7 +293,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
         if (count == 0) {
             core::at(falloffs, 0) = static_cast<float>(falloff);
             core::at(indexes, 0) = i;
-            out[0] = light;
+            core::at(out, 0) = light;
             count = 1;
             continue;
         }
@@ -303,9 +305,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
             if (falloff > core::at(falloffs, j)) {
                 // the entries from j on moved up one by swaps (the one past the end - out[count] too - written)
                 for (uint32_t k = count; k > j; --k) {
-                    DynamicLightBase* l = out[k];
-                    out[k] = out[k - 1];
-                    out[k - 1] = l;
+                    std::swap(core::at(out, k), core::at(out, k - 1));
                     const float f = core::at(falloffs, k);
                     core::at(falloffs, k) = core::at(falloffs, k - 1);
                     core::at(falloffs, k - 1) = f;
@@ -315,7 +315,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
                 }
                 core::at(falloffs, j) = static_cast<float>(falloff);
                 core::at(indexes, j) = i;
-                out[j] = light;
+                core::at(out, j) = light;
                 if (count < max)
                     ++count;
                 break;
@@ -323,7 +323,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
             if (count < max) {
                 core::at(falloffs, count) = static_cast<float>(falloff);
                 core::at(indexes, count) = i;
-                out[count] = light;
+                core::at(out, count) = light;
                 ++count;
             }
         }
