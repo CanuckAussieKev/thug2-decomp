@@ -37,16 +37,10 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
-
-TextureSplatsShared& texture_splats_shared()
-{
-    static core::NoDestroy<TextureSplatsShared> state;
-    return state.get();
-}
 
 namespace {
 // NOT ORIGINAL grouping - texture_splats.cpp's state (the original's globals). Made on first use, never destroyed
@@ -81,13 +75,13 @@ uint32_t to_argb(uint32_t rgba)
 }
 
 // The vertex stack (0x006FC4A0: +0 what's on it, +4 a vertex's size; not rewritten yet): popped into / pushed from.
-uint32_t get_vertex_size() { return texture_splats_shared().vertex_stack_.vertex_size_; }
-void pop_vertex(uint8_t* out) { texture_splats_shared().vertex_stack_.stack_off(out); }
-void push_vertex(const uint8_t* vertex) { texture_splats_shared().vertex_stack_.stack_on(vertex); }
+uint32_t get_vertex_size() { return effects_state().vertex_stack().vertex_size_; }
+void pop_vertex(uint8_t* out) { effects_state().vertex_stack().stack_off(out); }
+void push_vertex(const uint8_t* vertex) { effects_state().vertex_stack().stack_on(vertex); }
 void push_vertex(const ProjectedVertex& vertex)
 {
     const auto bytes = std::bit_cast<std::array<uint8_t, sizeof(ProjectedVertex)>>(vertex);
-    texture_splats_shared().vertex_stack_.stack_on(bytes.data());
+    effects_state().vertex_stack().stack_on(bytes.data());
 }
 
 // A byte channel's midpoint as the original computes it: a + (b - a) / 2, the division rounding towards 0.
@@ -145,12 +139,12 @@ void light_texture_splats(TextureSplats* splats)
 // 0x004B9200
 void kill_all_texture_splats()
 {
-    engine_effects_shared().splat_sets_.for_each([](TextureSplats* splats) {
+    effects_state().splat_sets().for_each([](TextureSplats* splats) {
         if (MaterialRef* material = splats->material) {
             material->~MaterialRef(); // (the destructor's body)
             memory::Hub::get_pull()->dealloc(material);
         }
-        engine_effects_shared().splat_sets_.erase(splats);
+        effects_state().splat_sets().erase(splats);
         memory::Hub::get_pull()->dealloc(splats);
     });
 }
@@ -158,7 +152,7 @@ void kill_all_texture_splats()
 // 0x004B92A0
 void kill_texture_splats_in_box(const maths::BBox* box)
 {
-    engine_effects_shared().splat_sets_.for_each([box](TextureSplats* splats) {
+    effects_state().splat_sets().for_each([box](TextureSplats* splats) {
         for (int i = 0; i < 0x100; ++i) {
             const auto& p = core::at(core::at(splats->vertices, i), 0).position;
             if (core::at(p, 0) >= box->min.x && core::at(p, 1) >= box->min.y && core::at(p, 2) >= box->min.z &&
@@ -176,7 +170,7 @@ void draw_texture_splats()
     DWORD min_filter = 0;
     renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    engine_effects_shared().splat_sets_.for_each([](TextureSplats* splats) {
+    effects_state().splat_sets().for_each([](TextureSplats* splats) {
         if (splats->last < 0)
             return;
         for (int j = 0; j <= splats->last; ++j) {
@@ -278,7 +272,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 // 0x004B8220
 bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
 {
-    if (!texture_splats_shared().vertex_stack_.used)
+    if (!effects_state().vertex_stack().used)
         return false;
     const std::span<uint8_t> v2 = texture_splats_state().splat_vertex2_; // (the three popped, last pushed first)
     const std::span<uint8_t> v1 = texture_splats_state().splat_vertex1_;
@@ -303,7 +297,7 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
     const double cross_z = ax * byf - ay * bxf;
     const double length_squared =
         cross_z * cross_z + static_cast<double>(cross_y) * cross_y + static_cast<double>(cross_x) * cross_x;
-    if (!(length_squared > texture_splats_shared().split_area_limit_)) {
+    if (!(length_squared > effects_state().split_area_limit())) {
         for (const std::span<uint8_t> v : {v0, v1, v2}) {
             std::memcpy(out.rest().first(size).data(), v.data(), size);
             out += size;
@@ -391,7 +385,7 @@ ProjectedVertex piece_at(const gpu::VertexView& pieces, size_t index)
 // 0x004B9A60
 TextureSplats* get_texture_splats(TextureImage* texture)
 {
-    if (TextureSplats* splats = engine_effects_shared().splat_sets_.find_if(
+    if (TextureSplats* splats = effects_state().splat_sets().find_if(
             [texture](const TextureSplats* set) { return core::at(set->material->textures, 0) == texture; }))
         return splats;
     void* memory = memory::alloc(sizeof(MaterialRef));
@@ -420,7 +414,7 @@ TextureSplats* get_texture_splats(TextureImage* texture)
         vertex.position = {};
         vertex.argb = 0x80808080;
     }
-    engine_effects_shared().splat_sets_.insert(splats);
+    effects_state().splat_sets().insert(splats);
     return splats;
 }
 
@@ -591,11 +585,11 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                     auto cz = static_cast<float>(ey2f * ex1 - ex2 * ey1);
                     auto cy = static_cast<float>(ex2 * ez1 - ez2f * ex1);
                     const double cx = ez2f * ey1 - ey2f * ez1;
-                    texture_splats_shared().split_area_limit_ = static_cast<float>(
-                        (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0));
+                    effects_state().set_split_area_limit(static_cast<float>(
+                        (cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz) * (1.0 / 128.0)));
                 }
-                texture_splats_shared().vertex_stack_ = VertexStack{}; // (emptied)
-                texture_splats_shared().vertex_stack_.vertex_size_ = sizeof(ProjectedVertex);
+                effects_state().vertex_stack() = VertexStack{}; // (emptied)
+                effects_state().vertex_stack().vertex_size_ = sizeof(ProjectedVertex);
                 push_vertex(v0);
                 push_vertex(v1);
                 push_vertex(v2);

@@ -20,16 +20,10 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
-
-ScreenFxShared& screen_fx_shared()
-{
-    static core::NoDestroy<ScreenFxShared> state;
-    return state.get();
-}
 
 namespace {
 constexpr bool kBlurSecondPass{true};
@@ -49,7 +43,6 @@ ScreenFxState& screen_fx_state()
 IDirect3DTexture9* screen_copy(int index) { return core::at(renderer().screen_textures(), index); }
 IDirect3DTexture9* current_screen_copy() { return screen_copy(renderer().screen_copy_index()); }
 
-bool& screen_copy_in_use() { return screen_fx_shared().screen_copy_in_use_; }
 void* get_shader(int slot) { return core::at(pixel_shaders(), slot); }
 
 // Fog on or off (not rewritten yet; the request kept, the device's state following).
@@ -157,9 +150,9 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, float du, floa
 // 0x004DEA80
 void begin_screen_effects()
 {
-    screen_copy_in_use() = false;
+    effects_state().screen_copy_in_use() = false;
     IDirect3DSurface9* surface = nullptr;
-    if (engine_glue_shared().screen_blur_ > 2) { // the motion blur
+    if (effects_state().screen_blur() > 2) { // the motion blur
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
         if (!graphics_options::set_scene_target(current_screen_copy())) {
@@ -167,7 +160,7 @@ void begin_screen_effects()
             renderer().d3d_device()->SetDepthStencilSurface(renderer().z_buffer_surface());
         }
     } else {
-        if (!pc_scene_shared().bloom_on_ || !renderer().shaders_available()) // no bloom (or no pixel shaders)
+        if (!effects_state().bloom_on() || !renderer().shaders_available()) // no bloom (or no pixel shaders)
             return;
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
@@ -178,13 +171,13 @@ void begin_screen_effects()
     const uint32_t colour = (fog_setting() && distance_clipping()) ? fog_colour() : renderer().render_camera().background_colour_;
     renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
     surface->Release();
-    screen_copy_in_use() = true;
+    effects_state().screen_copy_in_use() = true;
 }
 
 // 0x004DE980
 void copy_screen_quarter()
 {
-    if (!screen_copy_in_use())
+    if (!effects_state().screen_copy_in_use())
         return;
     IDirect3DTexture9* source = current_screen_copy();
     IDirect3DTexture9* quarter = screen_copy(2);
@@ -218,7 +211,7 @@ void get_bloom()
     IDirect3DTexture9* bright = screen_copy(3);
     set_pixel_shader(get_shader(kPixelShader948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
-    const colour::Bytes cutoff = colour::bytes_of(pc_scene_shared().bloom_cut_off_);
+    const colour::Bytes cutoff = colour::bytes_of(effects_state().bloom_cut_off());
     std::array<float, 4> constant = {{static_cast<float>(std::get<0>(cutoff) * (1.0 / 128)),
                                       static_cast<float>(std::get<1>(cutoff) * (1.0 / 128)),
                                       static_cast<float>(std::get<2>(cutoff) * (1.0 / 128)), 0.5f}};
@@ -265,7 +258,7 @@ void get_bloom()
         current_screen_copy()->GetLevelDesc(0, &desc);
         const double half_x = 0.5 / as_unsigned(desc.Width);
         const double half_y = 0.5 / as_unsigned(desc.Height);
-        const uint32_t alpha = pass ? pc_scene_shared().bloom_alpha_second_ : pc_scene_shared().bloom_alpha_first_;
+        const uint32_t alpha = pass ? effects_state().bloom_alpha_second() : effects_state().bloom_alpha_first();
         auto half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
         auto width = static_cast<float>(renderer().back_buffer_width());
         auto height = static_cast<float>(renderer().back_buffer_height());

@@ -30,18 +30,11 @@
 #include "gpu/vertex_view.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
-#include "engine/gfx/shared_state.h"
-#include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/effects_state.h"
 #include <gsl/pointers>
 
 namespace render {
-
-ShatterShared& shatter_shared()
-{
-    static core::NoDestroy<ShatterShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -95,8 +88,8 @@ void draw_shatter(PcShatter* shatter)
 // 0x004B9550
 void kill_all_shatters()
 {
-    shatter_shared().shatters_.for_each([](PcShatter* shatter) {
-        shatter_shared().shatters_.erase(shatter);
+    effects_state().shatters().for_each([](PcShatter* shatter) {
+        effects_state().shatters().erase(shatter);
         gsl::owner<PcShatter*> owned = memory::owned_element(shatter); // (the set's)
         delete owned;
     });
@@ -118,7 +111,7 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930
 // The vertex stack the splitter works from (0x006FC4A0; not rewritten yet: pushed onto).
 void push_vertex(const uint8_t* vertex)
 {
-    texture_splats_shared().vertex_stack_.stack_on(vertex);
+    effects_state().vertex_stack().stack_on(vertex);
 }
 uint8_t* lock_vertices(VertexBuffer* buffer)
 {
@@ -202,7 +195,7 @@ void shatter_geom(PcGeom* geom)
         if (core::at(mesh->index_counts_, 0) < 3)
             continue;
         const uint32_t stride = mesh->stride;
-        texture_splats_shared().vertex_stack_.vertex_size_ = stride; // (the vertex stack's vertex size)
+        effects_state().vertex_stack().vertex_size_ = stride; // (the vertex stack's vertex size)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
         const uint8_t* vertices = lock_vertices(vertex_buffer);
         const gpu::VertexView view(vertices, stride, mesh->vertex_count_);
@@ -230,7 +223,7 @@ void shatter_geom(PcGeom* geom)
                 auto cy = static_cast<float>(e2x * e1z - e2zf * e1x);
                 const double cx = e2zf * e1y - e2yf * e1z;
                 double area = cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz;
-                const double limit = texture_splats_shared().split_area_limit_;
+                const double limit = effects_state().split_area_limit();
                 if (area > limit) {
                     int pieces = 1;
                     for (bool again = true; again; again = area > limit) {
@@ -247,8 +240,8 @@ void shatter_geom(PcGeom* geom)
             continue; // (the buffers left locked, as the original)
         auto shatter = memory::make_owned<PcShatter>(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
-        const maths::Vec4& direction = engine_effects_shared().glass_burst_velocity_;
-        const double scale = -static_cast<double>(engine_effects_shared().shatter_velocity_scale_);
+        const maths::Vec4& direction = effects_state().glass_burst_velocity();
+        const double scale = -static_cast<double>(effects_state().shatter_velocity_scale());
         const double back_x = scale * direction[0];
         auto back_y = static_cast<float>(scale * direction[1]);
         auto back_z = static_cast<float>(scale * direction[2]);
@@ -260,7 +253,7 @@ void shatter_geom(PcGeom* geom)
                                static_cast<float>(static_cast<double>(core::at(mesh->centre, 1)) + back_y),
                                static_cast<float>(static_cast<double>(core::at(mesh->centre, 2)) + back_z),
                                static_cast<float>(static_cast<double>(back_w) + 1.0f)}};
-        shatter_shared().shatters_.insert(shatter);
+        effects_state().shatters().insert(shatter);
         core::Cursor<uint8_t> cursor(std::span<uint8_t>(shatter->vertices, 3 * static_cast<size_t>(stride) * static_cast<size_t>(count)));
         while (split_next_triangle(cursor, mesh))
             ;
@@ -277,7 +270,7 @@ void shatter_geom(PcGeom* geom)
                     (static_cast<double>(core::at(q2, k)) + core::at(q1, k) + core::at(q0, k)) * (1.0f / 3.0f));
             // a velocity away from the centre at a random speed
             auto pace =
-                static_cast<float>(get_rand() * static_cast<double>(engine_effects_shared().shatter_speed_) * kPerRand * speed + speed);
+                static_cast<float>(get_rand() * static_cast<double>(effects_state().shatter_speed()) * kPerRand * speed + speed);
             double dx = static_cast<double>(centre.x) - core::at(from, 0);
             double dy = static_cast<double>(centre.y) - core::at(from, 1);
             auto dz = static_cast<float>(static_cast<double>(centre.z) - core::at(from, 2));

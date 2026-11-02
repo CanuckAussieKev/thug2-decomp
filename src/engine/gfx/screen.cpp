@@ -15,8 +15,8 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
 
@@ -59,7 +59,7 @@ namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
 bool blur_available() { return core::at(renderer().screen_surfaces(), 0) != nullptr; }
-auto& screen_blur() { return engine_glue_shared().screen_blur_; }
+
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return screen_state().script_screen_blur_; }
 
@@ -139,16 +139,16 @@ float fetch_fov_ratio()
     return factor;
 }
 
-// 0x004B2330. The original: if (blur_available()) screen_blur() = amount;
+// 0x004B2330. The original: if (blur_available()) effects_state().screen_blur() = amount;
 // Originally from PartyMod Fixes: the DisableBlur setting (on by default) turns the blur off for good instead.
 void set_screen_blur(uint32_t amount)
 {
     if (blur_disabled()) {
-        screen_blur() = 0;
+        effects_state().screen_blur() = 0;
         return;
     }
     if (blur_available())
-        screen_blur() = amount;
+        effects_state().screen_blur() = amount;
 }
 
 // 0x004B2440. The original squashes the 3D view vertically to 3/4 of the screen, centred, and back:

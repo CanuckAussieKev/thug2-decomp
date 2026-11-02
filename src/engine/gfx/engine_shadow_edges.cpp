@@ -5,7 +5,6 @@
 #include <new>
 #include <span>
 #include <utility>
-#include <array>
 #include <vector>
 
 #include "engine/core/dbg.h"
@@ -17,28 +16,18 @@
 #include "engine/render/coll_tri.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_mesh.h"
-#include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
 
-EngineShadowEdgesShared& engine_shadow_edges_shared()
-{
-    static core::NoDestroy<EngineShadowEdgesShared> state;
-    return state.get();
-}
-
 namespace {
-
-std::array<ShadowVolume*, 16>& shadow_volumes() { return engine_shadow_edges_shared().shadow_volumes_; }
-lists::ObjectSet<ShadowEdges>& edge_table() { return engine_shadow_edges_shared().shadow_edge_table_; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void add_shadow_volume(ShadowVolume* volume)
 {
     for (int i = 0; i < 16; ++i) {
-        if (!core::at(shadow_volumes(), i)) {
-            core::at(shadow_volumes(), i) = volume;
+        if (!core::at(effects_state().shadow_volumes(), i)) {
+            core::at(effects_state().shadow_volumes(), i) = volume;
             return;
         }
     }
@@ -160,7 +149,7 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
         edges_->count = count;
         ++edges_->users;
         edges_->key = model_key_;
-        edge_table().insert(edges_);
+        effects_state().edge_table().insert(edges_);
         add_shadow_volume(this);
         return;
     }

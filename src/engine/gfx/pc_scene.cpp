@@ -33,16 +33,10 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
-
-PcSceneShared& pc_scene_shared()
-{
-    static core::NoDestroy<PcSceneShared> state;
-    return state.get();
-}
 
 namespace {
 // NOT ORIGINAL grouping - pc_scene.cpp's state (the original's globals). Made on first use, never destroyed
@@ -161,14 +155,14 @@ void PcScene::post_load(void* arena_word)
 // --- the screen effects ---
 
 // 0x004C63C0
-void PcScreenEffects::set_bloom(int on) { pc_scene_shared().bloom_on_ = on != 0; }
+void PcScreenEffects::set_bloom(int on) { effects_state().set_bloom_on(on != 0); }
 // 0x004C63E0
-void PcScreenEffects::set_bloom_cut_off(uint32_t colour) { pc_scene_shared().bloom_cut_off_ = colour; }
+void PcScreenEffects::set_bloom_cut_off(uint32_t colour) { effects_state().set_bloom_cut_off(colour); }
 // 0x004C63F0
 void PcScreenEffects::set_bloom_alphas(int first, int second)
 {
-    pc_scene_shared().bloom_alpha_first_ = static_cast<uint32_t>(first);
-    pc_scene_shared().bloom_alpha_second_ = static_cast<uint32_t>(second);
+    effects_state().set_bloom_alpha_first(static_cast<uint32_t>(first));
+    effects_state().set_bloom_alpha_second(static_cast<uint32_t>(second));
 }
 // 0x004C6410
 void PcScreenEffects::set_bloom_colour(uint32_t colour) { pc_scene_state().screen_effect_unknown990_ = colour; }

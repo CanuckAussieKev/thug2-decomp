@@ -18,8 +18,8 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/core/checked_index.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
 
@@ -30,8 +30,6 @@ memory::PoolPair& spawned_poly_pools()
 }
 
 namespace {
-
-lists::ObjectSet<SpawnedPoly>& spawned_polys() { return engine_effects_shared().spawned_polys_; }
 
 // A corner's position and colour.
 void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)
@@ -133,14 +131,14 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     }
     poly->primitive->unknown14 = (poly->flags >> 1) & 1;
     poly->primitive->get_ready();
-    spawned_polys().insert(poly);
+    effects_state().spawned_polys().insert(poly);
 }
 
 // 0x004919C0
 void update_spawned_polys()
 {
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    spawned_polys().for_each([elapsed](SpawnedPoly* poly) {
+    effects_state().spawned_polys().for_each([elapsed](SpawnedPoly* poly) {
         if (poly->flags & 1)
             return;
         const double age = static_cast<double>(elapsed) + poly->age;
@@ -152,7 +150,7 @@ void update_spawned_polys()
             gsl::owner<PcPrimitive*> primitive = memory::owned_element(poly->primitive);
             delete primitive;
             poly->primitive = nullptr;
-            spawned_polys().erase(poly);
+            effects_state().spawned_polys().erase(poly);
             commands::free_spawned_poly_details(poly);
             return;
         }
@@ -195,11 +193,11 @@ void update_spawned_polys()
 // 0x00491E10
 void kill_all_spawned_polys()
 {
-    spawned_polys().for_each([](SpawnedPoly* poly) {
+    effects_state().spawned_polys().for_each([](SpawnedPoly* poly) {
         gsl::owner<PcPrimitive*> primitive = memory::owned_element(poly->primitive);
         delete primitive;
         poly->primitive = nullptr;
-        spawned_polys().erase(poly);
+        effects_state().spawned_polys().erase(poly);
         spawned_poly_pools().dealloc(poly);
     });
 }

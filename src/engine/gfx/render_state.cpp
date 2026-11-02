@@ -27,6 +27,7 @@
 #include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/light_sets.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
 
@@ -610,8 +611,8 @@ void reset_render_state()
     blend_op() = 0xDEADBABE;
     src_blend() = 0xDEADBABE;
     dest_blend() = 0xDEADBABE;
-    core::at(engine_glue_shared().pending_screen_shot_, 0) = 0;
-    engine_glue_shared().screen_shot_name_exact_ = false;
+    core::at(effects_state().pending_screen_shot(), 0) = 0;
+    effects_state().screen_shot_name_exact() = false;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
     core::at(gfx.ps_constant_bank(), 16) = 0.0f;
     core::at(gfx.ps_constant_bank(), 17) = 0.5f;

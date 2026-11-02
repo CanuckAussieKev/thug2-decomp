@@ -18,15 +18,12 @@
 #include "engine/core/checked_index.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/effects_state.h"
 #include <gsl/pointers>
 
 namespace render {
 
 namespace {
-
-std::array<ShadowVolume*, 16>& shadow_volumes() { return engine_shadow_edges_shared().shadow_volumes_; }
-lists::ObjectSet<ShadowEdges>& edge_table() { return engine_shadow_edges_shared().shadow_edge_table_; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).
@@ -230,8 +227,8 @@ void ShadowVolume::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matri
 void remove_shadow_volume(ShadowVolume* volume)
 {
     for (int i = 0; i < 16; ++i) {
-        if (core::at(shadow_volumes(), i) == volume) {
-            core::at(shadow_volumes(), i) = nullptr;
+        if (core::at(effects_state().shadow_volumes(), i) == volume) {
+            core::at(effects_state().shadow_volumes(), i) = nullptr;
             return;
         }
     }
@@ -240,7 +237,7 @@ void remove_shadow_volume(ShadowVolume* volume)
 // 0x004A1EF0
 ShadowEdges* find_shadow_edges(const TriMeshSource* key)
 {
-    return edge_table().find_if([key](const ShadowEdges* edges) { return edges->key == key; });
+    return effects_state().edge_table().find_if([key](const ShadowEdges* edges) { return edges->key == key; });
 }
 
 // 0x004A1F30
@@ -253,7 +250,7 @@ void release_shadow_edges(const TriMeshSource* key)
         memory::Hub::get_pull()->dealloc(edges->edges);
         edges->edges = nullptr;
     }
-    edge_table().erase(edges);
+    effects_state().edge_table().erase(edges);
     memory::Hub::get_pull()->dealloc(edges);
 }
 

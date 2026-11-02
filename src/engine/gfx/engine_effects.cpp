@@ -35,15 +35,9 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
-
-EngineEffectsShared& engine_effects_shared()
-{
-    static core::NoDestroy<EngineEffectsShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -109,9 +103,8 @@ FlashesAndSplats& flashes_and_splats()
 }
 
 lists::ObjectSet<Flash>& flashes() { return flashes_and_splats().flashes_; }
-lists::ObjectSet<TextureSplats>& splat_sets() { return engine_effects_shared().splat_sets_; }
+
 lists::ObjectSet<RecentSplat>& recent_splats() { return flashes_and_splats().recent_splats_; }
-lists::ObjectSet<PcShatter>& shatters() { return shatter_shared().shatters_; }
 
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
 int get_rand() { return crt::get_rand(); }
@@ -243,11 +236,11 @@ void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vec
                              float speed, float velocity_scale, float lifetime, float floor, float bounce,
                              float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f)
 {
-    engine_effects_shared().glass_burst_velocity_ = *velocity;
+    effects_state().glass_burst_velocity() = *velocity;
     fog_and_shatter().shatter_vector_210e_ = *vector_210e;
-    texture_splats_shared().split_area_limit_ = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
-    engine_effects_shared().shatter_speed_ = speed == 0.0f ? 0.0f : speed;
-    engine_effects_shared().shatter_velocity_scale_ = velocity_scale == 0.0f ? 1.0f : velocity_scale;
+    effects_state().set_split_area_limit(area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area));
+    effects_state().set_shatter_speed(speed == 0.0f ? 0.0f : speed);
+    effects_state().set_shatter_velocity_scale(velocity_scale == 0.0f ? 1.0f : velocity_scale);
     fog_and_shatter().glass_life_span_ = lifetime == 0.0f ? 4.0f : lifetime;
     fog_and_shatter().shatter_floor_ = floor == 0.0f ? -10000.0f : floor;
     fog_and_shatter().glass_restitution_ = bounce == 0.0f ? 0.8f : bounce;
@@ -337,13 +330,13 @@ void age_all_texture_splats()
     if (objects::simulation_halted())
         return;
     const int elapsed = frame_milliseconds();
-    splat_sets().for_each([elapsed](TextureSplats* splats) { age_texture_splats(splats, elapsed); });
+    effects_state().splat_sets().for_each([elapsed](TextureSplats* splats) { age_texture_splats(splats, elapsed); });
 }
 
 // 0x00491F10
 void light_all_texture_splats()
 {
-    splat_sets().for_each([](TextureSplats* splats) { light_texture_splats(splats); });
+    effects_state().splat_sets().for_each([](TextureSplats* splats) { light_texture_splats(splats); });
 }
 
 // 0x004915A0
@@ -371,9 +364,9 @@ void kill_texture_splats_in_box(const maths::BBox* box)
 // 0x004916F0
 void kill_texture_splats_of_texture(uint32_t texture)
 {
-    splat_sets().for_each([texture](TextureSplats* splats) {
+    effects_state().splat_sets().for_each([texture](TextureSplats* splats) {
         if (splats->texture == texture) {
-            splat_sets().erase(splats);
+            effects_state().splat_sets().erase(splats);
             memory::Hub::get_pull()->dealloc(splats); // (its material isn't freed, as the original)
         }
     });
@@ -490,11 +483,11 @@ void update_shatters()
     if (objects::simulation_halted())
         return;
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    shatters().for_each([elapsed](PcShatter* shatter) {
+    effects_state().shatters().for_each([elapsed](PcShatter* shatter) {
         const double left = static_cast<double>(shatter->lifetime) - elapsed;
         shatter->lifetime = static_cast<float>(left);
         if (left <= 0.0) {
-            shatters().erase(shatter);
+            effects_state().shatters().erase(shatter);
             gsl::owner<Shatter*> owned = memory::owned_element(shatter); // (the set's)
             delete owned;
         } else {
@@ -506,7 +499,7 @@ void update_shatters()
 // 0x004920E0
 void draw_shatters()
 {
-    shatters().for_each([](PcShatter* shatter) { draw_shatter(shatter); });
+    effects_state().shatters().for_each([](PcShatter* shatter) { draw_shatter(shatter); });
 }
 
 // --- flashes ---
@@ -571,7 +564,7 @@ void init_effects()
     // (the tables are made once, before the first call: lists::ObjectSet)
     compiled_out();
     compiled_out();
-    auto& stack = texture_splats_shared().vertex_stack_;
+    auto& stack = effects_state().vertex_stack();
     stack.used = 0;
     stack.vertex_size_ = 0;
     std::memset(stack.data.data(), 3, sizeof(stack.data));

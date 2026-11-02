@@ -43,8 +43,8 @@
 #include "platform/crt.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/effects_state.h"
 
 namespace render {
 
@@ -74,12 +74,6 @@ ScreenEffects* screen_effects() { return engine_glue_objects().screen_effects_.g
 uint32_t fog_colour() { return engine_glue_objects().fog_colour_; }
 void set_fog_colour(uint32_t value) { engine_glue_objects().fog_colour_ = value; }
 
-EngineGlueShared& engine_glue_shared()
-{
-    static core::NoDestroy<EngineGlueShared> state;
-    return state.get();
-}
-
 namespace {
 
 uint32_t& mem_view_toggle()
@@ -94,8 +88,6 @@ uint32_t& mem_view_toggle()
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
-std::array<char, 128>& pending_screen_shot() { return engine_glue_shared().pending_screen_shot_; }
-bool& screen_shot_name_exact() { return engine_glue_shared().screen_shot_name_exact_; }
 
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t back_buffer_fill()
@@ -160,7 +152,7 @@ void screen_shot(const char* name, int /*unused*/)
 {
     // (the original sprintfs into these 32 bytes; ours truncates a longer name)
     std::array<char, 32> file{};
-    if (screen_shot_name_exact()) {
+    if (effects_state().screen_shot_name_exact()) {
         text::format_to(file, "%s.jpg", name);
     } else {
         // the first numbered name with no file yet
@@ -201,17 +193,17 @@ void finish_rendering()
         return;
     renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     renderer().reset_draw_counts(); // the frame's draw counts
-    if (core::at(pending_screen_shot(), 0)) {
-        screen_shot(pending_screen_shot().data(), 0);
-        core::at(pending_screen_shot(), 0) = 0;
-        screen_shot_name_exact() = false;
+    if (core::at(effects_state().pending_screen_shot(), 0)) {
+        screen_shot(effects_state().pending_screen_shot().data(), 0);
+        core::at(effects_state().pending_screen_shot(), 0) = 0;
+        effects_state().screen_shot_name_exact() = false;
     }
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
-    if (engine_glue_shared().screen_blur_ != 0) {
+    if (effects_state().screen_blur() != 0) {
         if (!suppress_draw())
             renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
-        ++engine_glue_shared().screen_blur_frames_;
+        ++effects_state().screen_blur_frames();
         return;
     }
     if (renderer().render_camera().letterbox_active_) {
@@ -223,7 +215,7 @@ void finish_rendering()
     } else if (!suppress_draw()) {
         clear_device(0, nullptr, D3DCLEAR_ZBUFFER, renderer().render_camera().background_colour_, 1.0f, 0);
     }
-    engine_glue_shared().screen_blur_frames_ = 0;
+    effects_state().screen_blur_frames() = 0;
 }
 
 // 0x004B28C0

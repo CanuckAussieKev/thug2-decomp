@@ -505,6 +505,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/engine_texture_projection.cpp
     src/engine/gfx/viewport_list.cpp
     src/engine/gfx/engine_effects.cpp
+    src/engine/gfx/effects_state.cpp
     src/engine/gfx/engine_particles.cpp
     src/engine/gfx/particle_maths.cpp
     src/engine/gfx/spawned_polys.cpp
