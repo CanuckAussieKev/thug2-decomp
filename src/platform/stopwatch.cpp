@@ -10,41 +10,51 @@
 
 #include "engine/sys/game_config.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frame_clock {
 
 namespace {
 
-float g_slomo{1.0f};
-float g_next_slomo{1.0f};
-float g_vblanks_per_second{60.0f};
-float g_frame_length;
-double g_raw_step_seconds;
-uint64_t g_last_frame_vblank;
-uint64_t g_previous_frame_vblank;
-int g_history_index;
-uint64_t g_start_time_stamp;
-uint64_t g_unknown1ea8;
-uint64_t g_start_clock;
-uint64_t g_unknown1eb8;
-uint64_t g_vblanks;
-uint64_t g_elapsed_refreshes;
-uint64_t g_render_frame;
-uint64_t g_unknown1ee0;
-bool g_flag_1e_e8;
-bool g_flag_1e_e9;
-bool g_rate_set;
+// NOT ORIGINAL grouping - stopwatch.cpp's state (the original's globals). Made on first use, never destroyed
+// (stopwatch_state()).
+struct StopwatchState {
+    float slomo_{1.0f};
+    float next_slomo_{1.0f};
+    float vblanks_per_second_{60.0f};
+    float frame_length_{};
+    double raw_step_seconds_{};
+    uint64_t last_frame_vblank_{};
+    uint64_t previous_frame_vblank_{};
+    int history_index_{};
+    uint64_t start_time_stamp_{};
+    uint64_t unknown1ea8_{};
+    uint64_t start_clock_{};
+    uint64_t unknown1eb8_{};
+    uint64_t vblanks_{};
+    uint64_t elapsed_refreshes_{};
+    uint64_t render_frame_{};
+    uint64_t unknown1ee0_{};
+    bool flag_1e_e8_{};
+    bool flag_1e_e9_{};
+    bool rate_set_{};
+    std::array<int, 4> history_{};
+};
+
+StopwatchState& stopwatch_state()
+{
+    static core::NoDestroy<StopwatchState> state;
+    return state.get();
+}
 
 // The timing block (0x007D1E68), saved whole by Reset.
-float& get_frame_length() { return g_frame_length; }
-double& raw_frame_duration() { return g_raw_step_seconds; }
+float& get_frame_length() { return stopwatch_state().frame_length_; }
+double& raw_frame_duration() { return stopwatch_state().raw_step_seconds_; }
 
-std::array<int, 4> g_history;
-
-std::array<int, 4>& get_history() { return g_history; }
-uint64_t& last_frame_vblank() { return g_last_frame_vblank; }
-uint64_t& previous_frame_vblank() { return g_previous_frame_vblank; }
-int& history_index() { return g_history_index; }
+std::array<int, 4>& get_history() { return stopwatch_state().history_; }
+uint64_t& last_frame_vblank() { return stopwatch_state().last_frame_vblank_; }
+uint64_t& previous_frame_vblank() { return stopwatch_state().previous_frame_vblank_; }
+int& history_index() { return stopwatch_state().history_index_; }
 // The timing block's copy Reset keeps (0x38 bytes, only ever written).
 struct TimingBlock {
     float frame_length_;
@@ -56,24 +66,28 @@ struct TimingBlock {
     int history_index_;
 };
 static_assert(sizeof(TimingBlock) == 0x38, "the timing block's size");
-TimingBlock g_saved_timing_block;
+TimingBlock& saved_timing_block()
+{
+    static core::NoDestroy<TimingBlock> saved_timing_block;
+    return saved_timing_block.get();
+}
 
-uint64_t& start_time_stamp() { return g_start_time_stamp; }
-uint64_t& unknown_1e_a8() { return g_unknown1ea8; }
-uint64_t& start_clock() { return g_start_clock; }
-uint64_t& unknown_1e_b8() { return g_unknown1eb8; }
-uint64_t& get_vblanks() { return g_vblanks; } // since Reset
-uint64_t& elapsed_refreshes() { return g_elapsed_refreshes; }
-uint64_t& render_frame() { return g_render_frame; }
-uint64_t& unknown_1e_e0() { return g_unknown1ee0; }
-bool& flag_1e_e8() { return g_flag_1e_e8; }
-bool& flag_1e_e9() { return g_flag_1e_e9; }
-bool& rate_set() { return g_rate_set; }
+uint64_t& start_time_stamp() { return stopwatch_state().start_time_stamp_; }
+uint64_t& unknown_1e_a8() { return stopwatch_state().unknown1ea8_; }
+uint64_t& start_clock() { return stopwatch_state().start_clock_; }
+uint64_t& unknown_1e_b8() { return stopwatch_state().unknown1eb8_; }
+uint64_t& get_vblanks() { return stopwatch_state().vblanks_; } // since Reset
+uint64_t& elapsed_refreshes() { return stopwatch_state().elapsed_refreshes_; }
+uint64_t& render_frame() { return stopwatch_state().render_frame_; }
+uint64_t& unknown_1e_e0() { return stopwatch_state().unknown1ee0_; }
+bool& flag_1e_e8() { return stopwatch_state().flag_1e_e8_; }
+bool& flag_1e_e9() { return stopwatch_state().flag_1e_e9_; }
+bool& rate_set() { return stopwatch_state().rate_set_; }
 
 int& refresh_rate() { return game_config::frame_rate(); } // 60
-float& get_slomo() { return g_slomo; }
-float& next_slomo() { return g_next_slomo; }
-float& vblanks_per_second() { return g_vblanks_per_second; }
+float& get_slomo() { return stopwatch_state().slomo_; }
+float& next_slomo() { return stopwatch_state().next_slomo_; }
+float& vblanks_per_second() { return stopwatch_state().vblanks_per_second_; }
 
 // A history entry's weight: 0-4 vblanks; anything outside 0-10 (a stall) counts as 1.
 int get_clamped(int vblanks)
@@ -102,12 +116,12 @@ void get_reset()
     last_frame_vblank() = 0;
     previous_frame_vblank() = 0;
     history_index() = 0;
-    g_saved_timing_block.frame_length_ = get_frame_length();
-    g_saved_timing_block.raw_step_ = raw_frame_duration();
-    std::memcpy(g_saved_timing_block.history.data(), get_history().data(), sizeof(g_saved_timing_block.history));
-    g_saved_timing_block.last_frame_vblank_ = last_frame_vblank();
-    g_saved_timing_block.previous_frame_vblank_ = previous_frame_vblank();
-    g_saved_timing_block.history_index_ = history_index();
+    saved_timing_block().frame_length_ = get_frame_length();
+    saved_timing_block().raw_step_ = raw_frame_duration();
+    std::memcpy(saved_timing_block().history.data(), get_history().data(), sizeof(saved_timing_block().history));
+    saved_timing_block().last_frame_vblank_ = last_frame_vblank();
+    saved_timing_block().previous_frame_vblank_ = previous_frame_vblank();
+    saved_timing_block().history_index_ = history_index();
     get_vblanks() = 0;
     unknown_1e_e0() = 0;
 }

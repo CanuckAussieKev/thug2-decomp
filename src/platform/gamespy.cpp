@@ -52,6 +52,7 @@ THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN 
 #include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 THUG2_MSVC_WARNING(pop)
 
 // Host-name overrides the SDK keeps without declaring them in a header (pt/ptMain.c), and the one the build adds
@@ -77,7 +78,11 @@ namespace game_spy {
 
 namespace {
 
-std::array<char, 64> s_domain = {"gamespy.com"};
+std::array<char, 64>& stored_domain()
+{
+    static std::array<char, 64> domain{{"gamespy.com"}};
+    return domain;
+}
 
 template <typename Fn>
 Fn as(HookFn callback)
@@ -85,29 +90,39 @@ Fn as(HookFn callback)
     return function_at<Fn>(callback.code);
 }
 
-// The server-browsing master for a game name: "<name>.ms<n>.<domain>", n from the SDK's own hash of the name
-// (sb_serverlist.c's StringHash over NUM_MASTER_SERVERS = 20) - the SDK's override takes a whole host name.
-std::array<char, 128> s_master_server;
+// NOT ORIGINAL grouping - gamespy.cpp's state (the original's globals). Made on first use, never destroyed
+// (gamespy_state()).
+struct GamespyState {
+    // The server-browsing master for a game name: "<name>.ms<n>.<domain>", n from the SDK's own hash of the name
+    // (sb_serverlist.c's StringHash over NUM_MASTER_SERVERS = 20) - the SDK's override takes a whole host name.
+    std::array<char, 128> master_server_{};
+    std::array<char, 96> nat_neg1_{};
+    std::array<char, 96> nat_neg2_{};
+    std::array<char, 96> nat_neg3_{};
+};
+
+GamespyState& gamespy_state()
+{
+    static core::NoDestroy<GamespyState> state;
+    return state.get();
+}
+
 void set_master_server(const char* game_name)
 {
     uint32_t hash = 0;
     for (const char c : std::string_view(game_name))
         hash =
             static_cast<uint32_t>(static_cast<int>(hash) * -1664117991 + std::tolower(static_cast<unsigned char>(c)));
-    text::format_to(s_master_server, "%s.ms%d.%s", game_name, static_cast<int>(hash % 20), s_domain.data());
-    SBOverrideMasterServer = s_master_server.data();
+    text::format_to(gamespy_state().master_server_, "%s.ms%d.%s", game_name, static_cast<int>(hash % 20), stored_domain().data());
+    SBOverrideMasterServer = gamespy_state().master_server_.data();
 }
 
 // Names that depend on the game name (qr2's master, the browsing master): set when a name is given to the SDK.
 void set_game_hosts(const char* game_name)
 {
-    text::format_to(qr2_hostname, "%s.master.%s", game_name, s_domain.data());
+    text::format_to(qr2_hostname, "%s.master.%s", game_name, stored_domain().data());
     set_master_server(game_name);
 }
-
-std::array<char, 96> s_nat_neg1;
-std::array<char, 96> s_nat_neg2;
-std::array<char, 96> s_nat_neg3;
 
 // The 2007 gcd SDK asks back for re-authentication; the game's SDK had no such request (nothing to do).
 void ignore_refresh_auth(int, int, int, char*, void*) {}
@@ -119,7 +134,7 @@ char* game_strdup(const char* text) { return goastrdup(text); }
 void start_available_check(const char* game_name)
 {
     // (the override is a whole host name: made for each check - the online service also checks "mototrax")
-    text::format_to(GSIACHostname, "%s.available.%s", game_name, s_domain.data());
+    text::format_to(GSIACHostname, "%s.available.%s", game_name, stored_domain().data());
     GSIStartAvailableCheck(game_name);
 }
 int available_check_think() { return static_cast<int>(GSIAvailableCheckThink()); }
@@ -127,20 +142,20 @@ const char* get_unique_id() { return GOAGetUniqueID(); }
 
 void set_online_domain(const char* domain)
 {
-    text::format_to(s_domain, "%s", domain);
-    text::format_to(s_nat_neg1, "natneg1.%s", s_domain.data());
-    text::format_to(s_nat_neg2, "natneg2.%s", s_domain.data());
-    text::format_to(s_nat_neg3, "natneg3.%s", s_domain.data());
-    Matchup1Hostname = s_nat_neg1.data();
-    Matchup2Hostname = s_nat_neg2.data();
-    Matchup3Hostname = s_nat_neg3.data();
-    text::format_to(peerChatServerAddress, "peerchat.%s", s_domain.data());
-    text::format_to(GPConnectionManagerHostname, "gpcm.%s", s_domain.data());
-    text::format_to(GPSearchManagerHostname, "gpsp.%s", s_domain.data());
-    text::format_to(StatsServerHostname, "gamestats.%s", s_domain.data());
+    text::format_to(stored_domain(), "%s", domain);
+    text::format_to(gamespy_state().nat_neg1_, "natneg1.%s", stored_domain().data());
+    text::format_to(gamespy_state().nat_neg2_, "natneg2.%s", stored_domain().data());
+    text::format_to(gamespy_state().nat_neg3_, "natneg3.%s", stored_domain().data());
+    Matchup1Hostname = gamespy_state().nat_neg1_.data();
+    Matchup2Hostname = gamespy_state().nat_neg2_.data();
+    Matchup3Hostname = gamespy_state().nat_neg3_.data();
+    text::format_to(peerChatServerAddress, "peerchat.%s", stored_domain().data());
+    text::format_to(GPConnectionManagerHostname, "gpcm.%s", stored_domain().data());
+    text::format_to(GPSearchManagerHostname, "gpsp.%s", stored_domain().data());
+    text::format_to(StatsServerHostname, "gamestats.%s", stored_domain().data());
     constexpr size_t kPtaUrlSize = 2048; // (PTA_MAX_STRING_SIZE)
-    text::format_to(std::span(&gPTAMOTDURL[0], kPtaUrlSize), "http://motd.%s/motd/motd.asp", s_domain.data());
-    text::format_to(std::span(&gPTAVercheckURL[0], kPtaUrlSize), "http://motd.%s/motd/vercheck.asp", s_domain.data());
+    text::format_to(std::span(&gPTAMOTDURL[0], kPtaUrlSize), "http://motd.%s/motd/motd.asp", stored_domain().data());
+    text::format_to(std::span(&gPTAVercheckURL[0], kPtaUrlSize), "http://motd.%s/motd/vercheck.asp", stored_domain().data());
     // (gcd_hostname stays the SDK's key.gamespy.com: the game never changed it)
 }
 
@@ -192,13 +207,17 @@ void qr2_key_buffer_add(void* key_buffer, int key_id)
 
 namespace {
 
-NatCompleted g_nat_completed = nullptr;
+NatCompleted& nat_completed()
+{
+    static NatCompleted nat_completed{nullptr};
+    return nat_completed;
+}
 
 // The SDK's completion callback: the user data back to the integer it was made from.
 void nat_completed_relay(NegotiateResult result, SOCKET socket, sockaddr_in* address, void* user_data)
 {
-    if (g_nat_completed)
-        g_nat_completed(static_cast<int>(result), static_cast<int>(socket), address,
+    if (nat_completed())
+        nat_completed()(static_cast<int>(result), static_cast<int>(socket), address,
                         static_cast<int>(cell::address(user_data)));
 }
 
@@ -207,7 +226,7 @@ void nat_completed_relay(NegotiateResult result, SOCKET socket, sockaddr_in* add
 int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, NatCompleted completed,
                           int user_data)
 {
-    g_nat_completed = completed;
+    nat_completed() = completed;
     return static_cast<int>(NNBeginNegotiationWithSocket(
         static_cast<SOCKET>(socket), cookie, client_index, as<NegotiateProgressFunc>(progress),
         completed ? &nat_completed_relay : nullptr, cell::at_address<void>(static_cast<uintptr_t>(user_data))));

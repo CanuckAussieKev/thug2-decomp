@@ -56,6 +56,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace sys::screenshot {
 
@@ -65,9 +66,19 @@ constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate modul
 constexpr int kLogLines = 20;
 constexpr uint32_t kMessageMs = 2000;
 
-int g_key;
-std::atomic<bool> g_requested{false};
-std::string g_event_note; // (request_event_shot's: the next picture is an event's)
+// NOT ORIGINAL grouping - screenshot.cpp's state (were globals). Made on first use, never destroyed
+// (screenshot_state()).
+struct ScreenshotState {
+    int key_{};
+    std::atomic<bool> requested_{false};
+    std::string event_note_{}; // (request_event_shot's: the next picture is an event's)
+};
+
+ScreenshotState& screenshot_state()
+{
+    static core::NoDestroy<ScreenshotState> state;
+    return state.get();
+}
 
 // The camera of viewport 0 as last drawn.
 struct View {
@@ -89,12 +100,21 @@ struct Job {
     int mouse_x_ = -1, mouse_y_ = -1; // (in the image's pixels; -1: not over the window)
     std::string note;                 // (an event's picture: request_event_shot)
 };
-std::shared_ptr<Job> g_job;
+// NOT ORIGINAL grouping - the picture being written and the message shown about it (were globals). Made on first use,
+// never destroyed (screenshot_job()).
+struct ScreenshotJob {
+    std::shared_ptr<Job> job_{};
+    // The message for the player, held while a loading screen is up (for up to 10 s).
+    std::string message_{};
+    uint32_t message_since_{};
+    float message_y_ = 40.0f; // (show_notice's lower, clear of the score: 100)
+};
 
-// The message for the player, held while a loading screen is up (for up to 10 s).
-std::string g_message;
-uint32_t g_message_since;
-float g_message_y = 40.0f; // (show_notice's lower, clear of the score: 100)
+ScreenshotJob& screenshot_job()
+{
+    static core::NoDestroy<ScreenshotJob> state;
+    return state.get();
+}
 
 // --- the game's state ---
 
@@ -260,7 +280,7 @@ void show_message(const std::string& text)
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(crc("text"), text.c_str());
     params->put_name_key(crc("id"), crc("thug2_decomp_screenshot_message"));
-    params->insert_pair(crc("pos"), 320.0f, g_message_y);
+    params->insert_pair(crc("pos"), 320.0f, screenshot_job().message_y_);
     params->put_int(crc("time"), static_cast<int>(kMessageMs));
     script::spawn_script(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
     params->get_clear();
@@ -269,17 +289,17 @@ void show_message(const std::string& text)
 
 void tick_message()
 {
-    if (g_message.empty())
+    if (screenshot_job().message_.empty())
         return;
-    if (SDL_GetTicks() - g_message_since > 10000) {
-        g_message.clear();
+    if (SDL_GetTicks() - screenshot_job().message_since_ > 10000) {
+        screenshot_job().message_.clear();
         return;
     }
     if (loading_screen_up())
         return;
-    show_message(g_message);
-    g_message.clear();
-    g_message_y = 40.0f;
+    show_message(screenshot_job().message_);
+    screenshot_job().message_.clear();
+    screenshot_job().message_y_ = 40.0f;
 }
 
 // --- taking and writing ---
@@ -365,14 +385,14 @@ void get_take()
     std::string error;
     if (!gfx::screenshot_capture::capture_back_buffer(&frame, &error)) {
         get_log("screenshot: not taken - %s", error.c_str());
-        g_message = "Screenshot failed: " + error;
-        g_message_since = SDL_GetTicks();
+        screenshot_job().message_ = "Screenshot failed: " + error;
+        screenshot_job().message_since_ = SDL_GetTicks();
         return;
     }
     std::string folder = get_folder();
     if (folder.empty()) {
-        g_message = "Screenshot failed: no folder (see the log)";
-        g_message_since = SDL_GetTicks();
+        screenshot_job().message_ = "Screenshot failed: no folder (see the log)";
+        screenshot_job().message_since_ = SDL_GetTicks();
         return;
     }
     std::time_t now = std::time(nullptr);
@@ -412,13 +432,13 @@ void get_take()
     job->txt = sidecar_name(png);
     std::vector<Section> sections = gather_sections(frame, png, folder, taken.data());
     sections.front().fields.push_back({.key = "mouse", .value = mouse});
-    if (!g_event_note.empty()) {
-        job->note = g_event_note;
-        sections.front().fields.push_back({.key = "for", .value = g_event_note});
+    if (!screenshot_state().event_note_.empty()) {
+        job->note = screenshot_state().event_note_;
+        sections.front().fields.push_back({.key = "for", .value = screenshot_state().event_note_});
     }
     job->sidecar = format_sidecar("THUG2 decomp screenshot " + png, sections, get_log_tail(kLogLines));
     job->frame = std::move(frame);
-    g_job = job;
+    screenshot_job().job_ = job;
     std::thread(emit_out, job).detach();
 }
 
@@ -433,7 +453,11 @@ struct Series {
     std::mutex mutex;
     std::string error; // the first failure (under `mutex`)
 };
-std::shared_ptr<Series> g_series;
+std::shared_ptr<Series>& stored_series()
+{
+    static core::NoDestroy<std::shared_ptr<Series>> series;
+    return series.get();
+}
 std::string& series_result_state()
 {
     static std::string value = "none";
@@ -474,7 +498,7 @@ void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& 
 // The series' frame (from before_present, rendering).
 void take_series_frame()
 {
-    const std::shared_ptr<Series> series = g_series;
+    const std::shared_ptr<Series> series = stored_series();
     TickCycle frame;
     std::string error;
     if (!gfx::screenshot_capture::capture_back_buffer(&frame, &error)) {
@@ -512,7 +536,7 @@ void take_series_frame()
 // Once a frame: the next frame of a series taken; a finished series' result logged.
 void tick_series(bool rendering)
 {
-    const std::shared_ptr<Series> series = g_series;
+    const std::shared_ptr<Series> series = stored_series();
     if (!series)
         return;
     if (series->taken < series->total) {
@@ -533,13 +557,13 @@ void tick_series(bool rendering)
                 "error: " + series->error + " (" + std::to_string(series->written.load()) + " written)";
     }
     get_log("screenshot: series - %s", series_result_state().c_str());
-    g_series.reset();
+    stored_series().reset();
 }
 
 void handle_event(SDL_Event* event)
 {
-    if (event->type == SDL_KEYDOWN && !event->key.repeat && static_cast<int>(event->key.keysym.scancode) == g_key)
-        g_requested = true;
+    if (event->type == SDL_KEYDOWN && !event->key.repeat && static_cast<int>(event->key.keysym.scancode) == screenshot_state().key_)
+        screenshot_state().requested_ = true;
 }
 
 // Whether Windows' Snipping Tool takes the Print Screen key (its setting; Windows 11 turns it on by default).
@@ -559,7 +583,7 @@ bool is_switched_on()
     return kEnabled;
 }
 
-int get_key() { return g_key; }
+int get_key() { return screenshot_state().key_; }
 
 void prepare_all()
 {
@@ -572,16 +596,16 @@ void prepare_all()
     build_info::fetch_text(build_info::kKeybinds, "Screenshot", "", setting.data(), sizeof(setting));
     const int fallback = default_key(snipping);
     auto by_name = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
-    g_key = parse_key(setting.data(), fallback, by_name);
+    screenshot_state().key_ = parse_key(setting.data(), fallback, by_name);
     if (core::at(setting, 0) && parse_key(setting.data(), 0, by_name) == 0)
         get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting.data());
-    get_log("screenshot key: %s (scan code %d%s) - saves to %s", SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)),
-            g_key,
+    get_log("screenshot key: %s (scan code %d%s) - saves to %s", SDL_GetScancodeName(static_cast<SDL_Scancode>(screenshot_state().key_)),
+            screenshot_state().key_,
             core::at(setting, 0) ? ", [Keybinds] Screenshot"
             : snipping ? ", F12: Windows' Snipping Tool takes Print Screen"
                        : "",
             folder_path().c_str());
-    if (snipping && g_key == kPrintScreen)
+    if (snipping && screenshot_state().key_ == kPrintScreen)
         get_log(
             "screenshot key: Windows' Snipping Tool takes Print Screen (Settings > Accessibility > Keyboard): the game "
             "won't see it - turn that off or set [Keybinds] Screenshot=69 (F12)");
@@ -592,36 +616,36 @@ void before_present(bool rendering)
 {
     // Not original either - a frame series (start_series), also with the key off.
     tick_series(rendering);
-    if (!g_key && !g_requested && !g_job && g_message.empty()) // (key off: only request_event_shot's and show_notice's)
+    if (!screenshot_state().key_ && !screenshot_state().requested_ && !screenshot_job().job_ && screenshot_job().message_.empty()) // (key off: only request_event_shot's and show_notice's)
         return;
-    if (g_job && g_job->done) {
-        const std::shared_ptr<Job> job = std::move(g_job);
+    if (screenshot_job().job_ && screenshot_job().job_->done) {
+        const std::shared_ptr<Job> job = std::move(screenshot_job().job_);
         const std::string note = job->note.empty() ? "" : " for " + job->note;
         if (job->ok) {
             get_log("screenshot: saved %s%s (and %s) in %.0f ms%s", job->folder.c_str(), job->png.c_str(),
                     job->txt.c_str(), job->milliseconds, note.c_str());
             if (job->note.empty())
-                g_message = "Screenshot saved: " + job->png;
+                screenshot_job().message_ = "Screenshot saved: " + job->png;
         } else {
             get_log("screenshot: failed - %s%s", job->error.c_str(), note.c_str());
             if (job->note.empty())
-                g_message = "Screenshot failed (see the log)";
+                screenshot_job().message_ = "Screenshot failed (see the log)";
         }
         if (job->note.empty())
-            g_message_since = SDL_GetTicks();
+            screenshot_job().message_since_ = SDL_GetTicks();
     }
     // (one at a time: a press while the last is still being written waits for it)
-    if (rendering && g_requested && !g_job) {
-        g_requested = false;
+    if (rendering && screenshot_state().requested_ && !screenshot_job().job_) {
+        screenshot_state().requested_ = false;
         get_take();
-        g_event_note.clear();
+        screenshot_state().event_note_.clear();
     }
     tick_message();
 }
 
 std::string start_series(int frames, const std::string& folder)
 {
-    if (g_series)
+    if (stored_series())
         return "a series is running";
     if (frames < 1 || frames > kMaxSeriesFrames)
         return "1 to " + std::to_string(kMaxSeriesFrames) + " frames";
@@ -652,7 +676,7 @@ std::string start_series(int frames, const std::string& folder)
     auto series = std::make_shared<Series>();
     series->folder = path;
     series->total = frames;
-    g_series = series;
+    stored_series() = series;
     series_result_state() = "running";
     get_log("screenshot: series of %d frames into %s", frames, path.c_str());
     return {};
@@ -660,21 +684,21 @@ std::string start_series(int frames, const std::string& folder)
 
 void show_notice(const std::string& text)
 {
-    g_message = text;
-    g_message_since = SDL_GetTicks();
-    g_message_y = 100.0f;
+    screenshot_job().message_ = text;
+    screenshot_job().message_since_ = SDL_GetTicks();
+    screenshot_job().message_y_ = 100.0f;
 }
 
 bool request_event_shot(const std::string& note)
 {
-    if (g_job || g_requested)
+    if (screenshot_job().job_ || screenshot_state().requested_)
         return false; // (one at a time)
-    g_event_note = note;
-    g_requested = true;
+    screenshot_state().event_note_ = note;
+    screenshot_state().requested_ = true;
     return true;
 }
 
-bool series_running() { return g_series != nullptr; }
+bool series_running() { return stored_series() != nullptr; }
 
 std::string series_result() { return series_result_state(); }
 

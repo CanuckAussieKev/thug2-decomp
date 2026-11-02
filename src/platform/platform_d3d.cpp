@@ -12,6 +12,7 @@
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/no_destroy.h"
 
 namespace os_layer {
 
@@ -20,22 +21,32 @@ namespace {
 IDirect3D9*& direct_3d() { return render::g_direct_3d; }
 IDirect3DDevice9*& input_port() { return render::g_d3d_device; }
 
-IDirect3DVertexBuffer9* g_dynamic_vertices;
-uint8_t* g_dynamic_vertices_locked;
-uint32_t g_dynamic_vertices_used;
-uint32_t g_dynamic_vertices_size;
-IDirect3DQuery9* g_query_in_progress;
+// NOT ORIGINAL grouping - platform_d3d.cpp's state (the original's globals). Made on first use, never destroyed
+// (platform_d3d_state()).
+struct PlatformD3dState {
+    IDirect3DVertexBuffer9* dynamic_vertices_{};
+    uint8_t* dynamic_vertices_locked_{};
+    uint32_t dynamic_vertices_used_{};
+    uint32_t dynamic_vertices_size_{};
+    IDirect3DQuery9* query_in_progress_{};
+};
+
+PlatformD3dState& platform_d3d_state()
+{
+    static core::NoDestroy<PlatformD3dState> state;
+    return state.get();
+}
 
 // The dynamic vertex buffer: its size, where the next vertices go and where its lock put them.
-IDirect3DVertexBuffer9*& dynamic_vertices() { return g_dynamic_vertices; }
-uint32_t& dynamic_vertices_size() { return g_dynamic_vertices_size; }
-uint32_t& dynamic_vertices_used() { return g_dynamic_vertices_used; }
-uint8_t*& dynamic_vertices_locked() { return g_dynamic_vertices_locked; }
+IDirect3DVertexBuffer9*& dynamic_vertices() { return platform_d3d_state().dynamic_vertices_; }
+uint32_t& dynamic_vertices_size() { return platform_d3d_state().dynamic_vertices_size_; }
+uint32_t& dynamic_vertices_used() { return platform_d3d_state().dynamic_vertices_used_; }
+uint8_t*& dynamic_vertices_locked() { return platform_d3d_state().dynamic_vertices_locked_; }
 IDirect3DIndexBuffer9*& quad_indices() { return render::g_quad_indices; }
 
 // The occlusion query in progress, and the ended ones by key (the original's stdext::hash_map at 0x007D69FC,
 // built and torn down by the exe's own static initialisers - unused now).
-IDirect3DQuery9*& query_in_progress() { return g_query_in_progress; }
+IDirect3DQuery9*& query_in_progress() { return platform_d3d_state().query_in_progress_; }
 std::unordered_map<uint32_t, IDirect3DQuery9*>& ended_queries()
 {
     static std::unordered_map<uint32_t, IDirect3DQuery9*> queries;

@@ -54,7 +54,11 @@
 namespace sys {
 
 namespace {
-std::array<char, 256> g_command_line_server_name; // "-connect"'s value
+std::array<char, 256>& command_line_server_name()
+{
+    static std::array<char, 256> command_line_server_name{}; // "-connect"'s value
+    return command_line_server_name;
+}
 
 // --- the command line's network options ----------------------------------------------------------------------
 
@@ -221,8 +225,8 @@ void read_network_params(const char* command_line)
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
         // character after it is skipped, normally a space.)
         if (const auto at = find("-CONNECT")) {
-            const char* server = g_command_line_server_name.data();
-            copy_value(after(*at, 9), g_command_line_server_name, 255);
+            const char* server = command_line_server_name().data();
+            copy_value(after(*at, 9), command_line_server_name(), 255);
             uint32_t address = inet_addr(server);
             if (address == INADDR_NONE) {
                 if (const hostent* host = gethostbyname(server))

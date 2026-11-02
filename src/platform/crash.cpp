@@ -34,15 +34,25 @@
 #include "platform/code_address.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace {
 
-bool g_console = false;
-void (*g_crash_hook)() = nullptr;
+// NOT ORIGINAL grouping - crash.cpp's state (were globals). Made on first use, never destroyed (crash_state()).
+struct CrashState {
+    bool console_ = false;
+    // The exception the vectored logger reported last (the unhandled filter doesn't report it twice).
+    const EXCEPTION_RECORD* reported_record_ = nullptr;
+    uintptr_t reported_address_ = 0;
+};
 
-// The exception the vectored logger reported last (the unhandled filter doesn't report it twice).
-const EXCEPTION_RECORD* g_reported_record = nullptr;
-uintptr_t g_reported_address = 0;
+CrashState& crash_state()
+{
+    static core::NoDestroy<CrashState> state;
+    return state.get();
+}
+
+void (*g_crash_hook)() = nullptr;
 
 void run_crash_hook()
 {
@@ -213,8 +223,8 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
     }
     ++logged;
     report_exception(info, "(first chance: if the code handles it, nothing more happens)");
-    g_reported_record = info->ExceptionRecord;
-    g_reported_address = info->ContextRecord->Eip;
+    crash_state().reported_record_ = info->ExceptionRecord;
+    crash_state().reported_address_ = info->ContextRecord->Eip;
     // (then whoever asked: the level editor's last action and autosave - set_crash_hook)
     run_crash_hook();
     return EXCEPTION_CONTINUE_SEARCH;
@@ -224,7 +234,7 @@ LONG CALLBACK crash_logger(EXCEPTION_POINTERS* info)
 LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
 {
     const DWORD code = info->ExceptionRecord->ExceptionCode;
-    if (info->ExceptionRecord != g_reported_record || info->ContextRecord->Eip != g_reported_address)
+    if (info->ExceptionRecord != crash_state().reported_record_ || info->ContextRecord->Eip != crash_state().reported_address_)
         report_exception(info, "(unhandled)");
     get_log("  unhandled: nothing caught exception 0x%08X", static_cast<unsigned>(code));
     crash_end_process(code);
@@ -267,7 +277,7 @@ int crt_report_hook(int type, char* message, int* return_value)
     if (type == _CRT_WARN)
         return TRUE;
     log_backtrace();
-    if (g_console || type == _CRT_ERROR)
+    if (crash_state().console_ || type == _CRT_ERROR)
         crash_end_process(3);
     if (return_value)
         *return_value = 0; // (no debugger break)
@@ -383,7 +393,7 @@ void report_out_of_range(const std::source_location& where, std::ptrdiff_t index
 
 void install_crash_handling(bool console)
 {
-    g_console = console;
+    crash_state().console_ = console;
     if (config_int("debug", "soft_bounds", 0) != 0) {
         core::set_out_of_range_handler(report_out_of_range);
         get_log("soft_bounds: an index outside an array is logged and the game carries on ([debug] soft_bounds=1)");

@@ -14,26 +14,37 @@
 #include "engine/gfx/device.h"
 #include "engine/audio/music_player.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace os_layer {
 
 namespace {
 
-int g_frame_top{1};
-char g_cd_drive_slash;
-char g_cd_drive_colon;
-int g_frame_left;
-char g_cd_drive_letter;
+// NOT ORIGINAL grouping - platform_system.cpp's state (the original's globals). Made on first use, never destroyed
+// (platform_system_state()).
+struct PlatformSystemState {
+    int frame_top_{1};
+    char cd_drive_slash_{};
+    char cd_drive_colon_{};
+    int frame_left_{};
+    char cd_drive_letter_{};
+};
+
+PlatformSystemState& platform_system_state()
+{
+    static core::NoDestroy<PlatformSystemState> state;
+    return state.get();
+}
 
 // The CD's drive letter and the ':' / '\' kept with it.
-char& cd_drive_letter() { return g_cd_drive_letter; }
-char& cd_drive_colon() { return g_cd_drive_colon; }
-char& cd_drive_slash() { return g_cd_drive_slash; }
+char& cd_drive_letter() { return platform_system_state().cd_drive_letter_; }
+char& cd_drive_colon() { return platform_system_state().cd_drive_colon_; }
+char& cd_drive_slash() { return platform_system_state().cd_drive_slash_; }
 
 HWND& game_window() { return render::g_game_window; }
 // How far the window's frame reaches left of / above its inside (negated AdjustWindowRect's left / top).
-int& get_frame_left() { return g_frame_left; }
-int& frame_top() { return g_frame_top; }
+int& get_frame_left() { return platform_system_state().frame_left_; }
+int& frame_top() { return platform_system_state().frame_top_; }
 
 IDirectSound8* direct_sound() { return static_cast<IDirectSound8*>(audio::get_sound_device()); }
 

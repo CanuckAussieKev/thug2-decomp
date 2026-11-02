@@ -6,6 +6,7 @@
 
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
+#include "engine/core/no_destroy.h"
 
 namespace frame_clock {
 
@@ -15,11 +16,21 @@ namespace {
 // change, and the speed since.
 int& get_offset() { return objects::g_clock_offset; }
 
-float g_speed{1.0f};
-uint32_t g_last_change;
+// NOT ORIGINAL grouping - game_clock.cpp's state (the original's globals). Made on first use, never destroyed
+// (game_clock_state()).
+struct GameClockState {
+    float speed_{1.0f};
+    uint32_t last_change_{};
+};
 
-uint32_t& last_change() { return g_last_change; }
-float& get_pace() { return g_speed; }
+GameClockState& game_clock_state()
+{
+    static core::NoDestroy<GameClockState> state;
+    return state.get();
+}
+
+uint32_t& last_change() { return game_clock_state().last_change_; }
+float& get_pace() { return game_clock_state().speed_; }
 
 // The original's x87 code: the unsigned difference times the speed, truncated (_ftol: through 64 bits).
 int get_elapsed()

@@ -11,27 +11,38 @@
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace debug_log {
 
 namespace {
 
-bool s_configured = false;
-int s_level = static_cast<int>(StageMap::kInfo);
-bool s_to_console = false;
+// NOT ORIGINAL grouping - debug_log.cpp's state (the original's globals). Made on first use, never destroyed
+// (debug_log_state()).
+struct DebugLogState {
+    bool configured_ = false;
+    int level_ = static_cast<int>(StageMap::kInfo);
+    bool to_console_ = false;
+};
+
+DebugLogState& debug_log_state()
+{
+    static core::NoDestroy<DebugLogState> state;
+    return state.get();
+}
 
 } // namespace
 
 void configure(bool to_console)
 {
-    s_to_console = to_console;
-    s_level = build_info::get_int(build_info::kLogging, "Level", 2);
-    s_configured = true;
+    debug_log_state().to_console_ = to_console;
+    debug_log_state().level_ = build_info::get_int(build_info::kLogging, "Level", 2);
+    debug_log_state().configured_ = true;
 }
 
-bool wants(StageMap level) { return s_configured && static_cast<int>(level) <= s_level; }
+bool wants(StageMap level) { return debug_log_state().configured_ && static_cast<int>(level) <= debug_log_state().level_; }
 
-bool console_on() { return s_to_console; }
+bool console_on() { return debug_log_state().to_console_; }
 
 void write_message(const char* message)
 {

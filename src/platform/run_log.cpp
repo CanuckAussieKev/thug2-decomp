@@ -19,27 +19,52 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace {
-FILE* g_log = nullptr;
-bool g_console = false;
+// NOT ORIGINAL grouping - run_log.cpp's state (the original's globals). Made on first use, never destroyed
+// (run_log_state()).
+struct RunLogState {
+    FILE* log_ = nullptr;
+    bool console_ = false;
+};
+
+RunLogState& run_log_state()
+{
+    static core::NoDestroy<RunLogState> state;
+    return state.get();
+}
 
 // The last lines logged, kept for get_log_tail (the screenshot sidecar - platform/screenshot.h): fixed slots, no
 // allocation or lock (Log runs in the crash logger too); a line written while another thread reads may come out torn.
 constexpr unsigned kTailLines = 32;
 constexpr size_t kTailWidth = 320;
-std::array<std::array<char, kTailWidth>, kTailLines> g_tail;
-std::atomic<unsigned> g_tail_count{0};
+// NOT ORIGINAL grouping - the log's last lines and how many there are (the original's globals). Made on first use,
+// never destroyed (log_tail()).
+struct LogTail {
+    std::array<std::array<char, kTailWidth>, kTailLines> tail_{};
+    std::atomic<unsigned> tail_count_{0};
+};
+
+LogTail& log_tail()
+{
+    static core::NoDestroy<LogTail> state;
+    return state.get();
+}
 
 const char* keep_tail(const char* line)
 {
-    const unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
-    text::format_to(core::at(g_tail, slot), "%s", line);
-    return core::at(g_tail, slot).data();
+    const unsigned slot = log_tail().tail_count_.fetch_add(1) % kTailLines;
+    text::format_to(core::at(log_tail().tail_, slot), "%s", line);
+    return core::at(log_tail().tail_, slot).data();
 }
 
 // Not original - who else wants each line (the loading console - engine/gfx/loading_console.h).
-std::atomic<void (*)(const char*)> g_listener{nullptr};
+std::atomic<void (*)(const char*)>& stored_listener()
+{
+    static std::atomic<void (*)(const char*)> listener{nullptr};
+    return listener;
+}
 } // namespace
 
 std::string game_folder_path(const char* file_name)
@@ -68,11 +93,11 @@ void log_open()
 {
     // (fopen_s doesn't share a file open for writing: when another copy of the game has the log - [features]
     // allow_multiple_instances - this one writes thug2-decomp-2.log, -3, ...)
-    if (fopen_s(&g_log, game_folder_path("thug2-decomp.log").c_str(), "w") != 0) {
-        for (int copy = 2; copy <= 9 && !g_log; ++copy) {
+    if (fopen_s(&run_log_state().log_, game_folder_path("thug2-decomp.log").c_str(), "w") != 0) {
+        for (int copy = 2; copy <= 9 && !run_log_state().log_; ++copy) {
             const std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
-            if (fopen_s(&g_log, game_folder_path(name.c_str()).c_str(), "w") != 0)
-                g_log = nullptr;
+            if (fopen_s(&run_log_state().log_, game_folder_path(name.c_str()).c_str(), "w") != 0)
+                run_log_state().log_ = nullptr;
         }
     }
     // (crashes, CRT reports, run-time check failures... logged, the process ended, never a dialog - platform/crash.h)
@@ -81,38 +106,38 @@ void log_open()
 
 void* log_file_handle()
 {
-    return g_log ? cell::pointer<void>(_get_osfhandle(_fileno(g_log))) : INVALID_HANDLE_VALUE;
+    return run_log_state().log_ ? cell::pointer<void>(_get_osfhandle(_fileno(run_log_state().log_))) : INVALID_HANDLE_VALUE;
 }
 
 void log_line(const char* line)
 {
     {
         const char* kept = keep_tail(line);
-        if (void (*listener)(const char*) = g_listener.load())
+        if (void (*listener)(const char*) = stored_listener().load())
             listener(kept);
     }
-    if (g_console) {
+    if (run_log_state().console_) {
         std::fputs(line, stdout);
         std::putchar('\n');
         return;
     }
-    if (!g_log)
+    if (!run_log_state().log_)
         return;
-    std::fputs(line, g_log);
-    fputc('\n', g_log);
-    fflush(g_log);
+    std::fputs(line, run_log_state().log_);
+    fputc('\n', run_log_state().log_);
+    fflush(run_log_state().log_);
 }
 
-void set_log_listener(void (*listener)(const char* line)) { g_listener = listener; }
+void set_log_listener(void (*listener)(const char* line)) { stored_listener() = listener; }
 
 std::vector<std::string> get_log_tail(size_t lines)
 {
-    const unsigned count = g_tail_count.load();
+    const unsigned count = log_tail().tail_count_.load();
     auto n = std::min<size_t>({lines, count, kTailLines});
     std::vector<std::string> out;
     out.reserve(n);
     for (size_t i = n; i > 0; --i) {
-        const char* line = core::at(g_tail, (count - i) % kTailLines).data();
+        const char* line = core::at(log_tail().tail_, (count - i) % kTailLines).data();
         out.emplace_back(line, strnlen(line, kTailWidth));
     }
     return out;

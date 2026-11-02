@@ -3,10 +3,12 @@
 
 #include "platform/sdl_events.h"
 
+#include <memory>
 #include <vector>
 
 #include <SDL2/SDL.h>
 
+#include "engine/core/no_destroy.h"
 #include "engine/gfx/movie.h"
 #include <gsl/pointers>
 
@@ -14,7 +16,11 @@ namespace os_layer {
 
 namespace {
 
-gsl::owner<std::vector<EventHandler>*> s_handlers = nullptr; // (made by init_events, never freed)
+std::unique_ptr<std::vector<EventHandler>>& handlers()
+{
+    static core::NoDestroy<std::unique_ptr<std::vector<EventHandler>>> handlers; // (made by init_events, never freed)
+    return handlers.get();
+}
 
 bool& quit_requested() { return render::g_quit_requested; }
 
@@ -28,18 +34,18 @@ void handle_quit(SDL_Event* event)
 
 void init_events()
 {
-    s_handlers = new std::vector<EventHandler>();
-    s_handlers->reserve(4);
+    handlers() = std::make_unique<std::vector<EventHandler>>();
+    handlers()->reserve(4);
     register_event_handler(handle_quit);
 }
 
-void register_event_handler(EventHandler handler) { s_handlers->push_back(handler); }
+void register_event_handler(EventHandler handler) { handlers()->push_back(handler); }
 
 void pump_sdl_events()
 {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        for (EventHandler handler : *s_handlers)
+        for (EventHandler handler : *handlers())
             handler(&event);
     }
 }

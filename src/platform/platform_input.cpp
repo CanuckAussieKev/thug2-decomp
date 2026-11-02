@@ -22,6 +22,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
 
@@ -38,9 +39,26 @@ std::array<uint32_t, kPorts> g_force_axis_counts;
 std::array<uint32_t, 2 * kPorts> g_force_resolutions;
 constexpr int kKeyNameLength = 15;
 namespace {
-std::array<std::array<wchar_t, kKeyNameLength>, 256> g_key_names;
-std::array<uint8_t, 256> g_keys;
-std::array<uint8_t, 256> g_last_keys;
+// NOT ORIGINAL grouping - platform_input.cpp's state (the original's globals). Made on first use, never destroyed
+// (platform_input_state()).
+struct PlatformInputState {
+    std::array<std::array<wchar_t, kKeyNameLength>, 256> key_names_{};
+    std::array<uint8_t, 256> keys_{};
+    std::array<uint8_t, 256> last_keys_{};
+    int default_escape_control_{1};
+    DIMOUSESTATE2 last_mouse_state_{};
+    DIMOUSESTATE2 mouse_state_{};
+    IDirectInputDevice8A* mouse_{};
+    int pad_mode_setting_{};
+    int default_enter_control_{};
+};
+
+PlatformInputState& platform_input_state()
+{
+    static core::NoDestroy<PlatformInputState> state;
+    return state.get();
+}
+
 } // namespace
 // The joysticks' states: this frame's and the last.
 std::array<DIJOYSTATE2, 2> g_joystick_states;
@@ -52,16 +70,10 @@ namespace {
 IDirectInput8A*& get_direct_input() { return g_direct_input; }
 IDirectInputDevice8A*& get_keyboard() { return g_keyboard_device; }
 
-int g_default_escape_control{1};
-DIMOUSESTATE2 g_last_mouse_state;
-DIMOUSESTATE2 g_mouse_state;
-IDirectInputDevice8A* g_mouse;
-int g_pad_mode_setting;
-int g_default_enter_control;
 constexpr uint8_t kMouseInvertX{0};
 constexpr uint8_t kMouseInvertY{0};
 
-IDirectInputDevice8A*& get_mouse() { return g_mouse; }
+IDirectInputDevice8A*& get_mouse() { return platform_input_state().mouse_; }
 std::array<IDirectInputDevice8A*, kPorts>& joysticks() { return g_joysticks; }
 // Each joystick's constant-force effect (rumble: set_actuators).
 std::array<IDirectInputEffect*, kPorts>& get_effects() { return g_effects; }
@@ -69,16 +81,16 @@ std::array<IDirectInputEffect*, kPorts>& get_effects() { return g_effects; }
 // The devices' states: this frame's and the last.
 std::array<DIJOYSTATE2, 2>& joystick_states() { return g_joystick_states; }
 std::array<DIJOYSTATE2, 2>& last_joystick_states() { return g_last_joystick_states; }
-std::array<uint8_t, 256>& get_keys() { return g_keys; }
-std::array<uint8_t, 256>& last_keys() { return g_last_keys; }
-DIMOUSESTATE2& mouse_state() { return g_mouse_state; }
-DIMOUSESTATE2& last_mouse_state() { return g_last_mouse_state; }
+std::array<uint8_t, 256>& get_keys() { return platform_input_state().keys_; }
+std::array<uint8_t, 256>& last_keys() { return platform_input_state().last_keys_; }
+DIMOUSESTATE2& mouse_state() { return platform_input_state().mouse_state_; }
+DIMOUSESTATE2& last_mouse_state() { return platform_input_state().last_mouse_state_; }
 
 // Per joystick: how many force-feedback axes it has (at most two) and their force resolutions (two each).
 std::array<uint32_t, kPorts>& force_axis_counts() { return g_force_axis_counts; }
 std::array<uint32_t, 2 * kPorts>& force_resolutions() { return g_force_resolutions; }
 
-std::array<std::array<wchar_t, kKeyNameLength>, 256>& key_names() { return g_key_names; }
+std::array<std::array<wchar_t, kKeyNameLength>, 256>& key_names() { return platform_input_state().key_names_; }
 
 HWND game_window()
 {
@@ -511,9 +523,9 @@ void init_key_names()
 namespace {
 
 // The pad mode and the default keys' Enter and Escape.
-int& pad_mode_setting() { return g_pad_mode_setting; }
-int& default_enter_control() { return g_default_enter_control; }
-int& default_escape_control() { return g_default_escape_control; }
+int& pad_mode_setting() { return platform_input_state().pad_mode_setting_; }
+int& default_enter_control() { return platform_input_state().default_enter_control_; }
+int& default_escape_control() { return platform_input_state().default_escape_control_; }
 // The mouse's x / y sticks reversed (nothing sets them).
 bool mouse_invert_x() { return kMouseInvertX != 0; }
 bool mouse_invert_y() { return kMouseInvertY != 0; }

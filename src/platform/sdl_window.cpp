@@ -18,16 +18,27 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/movie.h"
 #include "engine/core/ints.h"
+#include "engine/core/no_destroy.h"
 
 namespace sys {
 
 namespace {
 
-bool s_windowed = false;
-bool s_borderless = false;
-int s_client_width = 0;
-int s_client_height = 0;
-SDL_Window* s_window = nullptr;
+// NOT ORIGINAL grouping - sdl_window.cpp's state (the original's globals). Made on first use, never destroyed
+// (sdl_window_state()).
+struct SdlWindowState {
+    bool windowed_ = false;
+    bool borderless_ = false;
+    int client_width_ = 0;
+    int client_height_ = 0;
+    SDL_Window* window_ = nullptr;
+};
+
+SdlWindowState& sdl_window_state()
+{
+    static core::NoDestroy<SdlWindowState> state;
+    return state.get();
+}
 
 HWND& game_window() { return render::g_game_window; }
 bool& get_focused() { return g_app_active; }
@@ -42,24 +53,24 @@ void enforce_max_resolution()
     bool width_fits = false;
     bool height_fits = false;
     for (DWORD i = 0; EnumDisplaySettingsA(nullptr, i, &mode); ++i) {
-        if (mode.dmPelsWidth >= ints::as_unsigned(s_client_width))
+        if (mode.dmPelsWidth >= ints::as_unsigned(sdl_window_state().client_width_))
             width_fits = true;
-        if (mode.dmPelsHeight >= ints::as_unsigned(s_client_height))
+        if (mode.dmPelsHeight >= ints::as_unsigned(sdl_window_state().client_height_))
             height_fits = true;
     }
     if (!width_fits || !height_fits) {
-        s_client_width = 0;
-        s_client_height = 0;
+        sdl_window_state().client_width_ = 0;
+        sdl_window_state().client_height_ = 0;
     }
 }
 
 void load_window_settings()
 {
-    s_client_width = build_info::get_int(build_info::kGraphics, "ResolutionX", 0);
-    s_client_height = build_info::get_int(build_info::kGraphics, "ResolutionY", 0);
-    if (!s_windowed)
-        s_windowed = build_info::fetch_flag(build_info::kGraphics, "Windowed", false);
-    s_borderless = build_info::fetch_flag(build_info::kGraphics, "Borderless", false);
+    sdl_window_state().client_width_ = build_info::get_int(build_info::kGraphics, "ResolutionX", 0);
+    sdl_window_state().client_height_ = build_info::get_int(build_info::kGraphics, "ResolutionY", 0);
+    if (!sdl_window_state().windowed_)
+        sdl_window_state().windowed_ = build_info::fetch_flag(build_info::kGraphics, "Windowed", false);
+    sdl_window_state().borderless_ = build_info::fetch_flag(build_info::kGraphics, "Borderless", false);
 }
 
 void handle_window_event(SDL_Event* event)
@@ -82,10 +93,10 @@ void handle_window_event(SDL_Event* event)
 
 } // namespace
 
-bool& get_windowed() { return s_windowed; }
-int& get_window_width() { return s_client_width; }
-int& get_window_height() { return s_client_height; }
-SDL_Window* sdl_window() { return s_window; }
+bool& get_windowed() { return sdl_window_state().windowed_; }
+int& get_window_width() { return sdl_window_state().client_width_; }
+int& get_window_height() { return sdl_window_state().client_height_; }
+SDL_Window* sdl_window() { return sdl_window_state().window_; }
 
 void create_sdl_window()
 {
@@ -93,30 +104,30 @@ void create_sdl_window()
     os_layer::register_event_handler(handle_window_event);
     SDL_Init(SDL_INIT_VIDEO);
 
-    uint32_t flags = s_windowed ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
-    if (s_borderless && s_windowed)
+    uint32_t flags = sdl_window_state().windowed_ ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
+    if (sdl_window_state().borderless_ && sdl_window_state().windowed_)
         flags |= SDL_WINDOW_BORDERLESS;
 
     enforce_max_resolution();
-    if (s_client_width == 0 || s_client_height == 0) {
+    if (sdl_window_state().client_width_ == 0 || sdl_window_state().client_height_ == 0) {
         SDL_DisplayMode desktop;
         SDL_GetDesktopDisplayMode(0, &desktop);
-        s_client_width = desktop.w;
-        s_client_height = desktop.h;
+        sdl_window_state().client_width_ = desktop.w;
+        sdl_window_state().client_height_ = desktop.h;
     }
-    if (s_client_width < 640)
-        s_client_width = 640;
-    if (s_client_height < 480)
-        s_client_height = 480;
+    if (sdl_window_state().client_width_ < 640)
+        sdl_window_state().client_width_ = 640;
+    if (sdl_window_state().client_height_ < 480)
+        sdl_window_state().client_height_ = 480;
 
-    s_window = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, s_client_width,
-                                s_client_height, flags);
-    if (!s_window)
+    sdl_window_state().window_ = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, sdl_window_state().client_width_,
+                                sdl_window_state().client_height_, flags);
+    if (!sdl_window_state().window_)
         debug_log::printf(debug_log::StageMap::kError, "Failed to create window! Error: %s\n", SDL_GetError());
 
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
-    SDL_GetWindowWMInfo(s_window, &info);
+    SDL_GetWindowWMInfo(sdl_window_state().window_, &info);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): SDL's window-manager info (an API union by platform)
     game_window() = info.info.win.window;
     get_focused() = true;
