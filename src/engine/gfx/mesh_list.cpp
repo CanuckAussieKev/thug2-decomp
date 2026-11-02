@@ -131,13 +131,12 @@ void SceneRef::destroy_body()
         }
         memory::Hub::sole()->dealloc(table);
     }
-    for (int i = 0; i < mesh_count_; ++i) {
-        MeshRef* mesh = meshes[i];
+    for (MeshRef* const mesh : mesh_run()) {
         if (!mesh)
             continue;
         if (void* buffer = get_vertex_buffer(mesh, 0)) {
             release_vertex_buffer(buffer);
-            set_vertex_buffer(meshes[i], 0, nullptr);
+            set_vertex_buffer(mesh, 0, nullptr);
         }
     }
     if (meshes)
@@ -170,20 +169,20 @@ void SceneRef::allocate_mesh_list()
 }
 
 // 0x004DDDF0
-void SceneRef::mesh_total(int count, MeshRef* const* list)
+void SceneRef::mesh_total(std::span<MeshRef* const> list)
 {
-    for (int i = 0; i < count; ++i) {
+    for (const MeshRef* const mesh : list) {
         ++mesh_count_;
-        if (get_transparent(material_of(list[i])))
+        if (get_transparent(material_of(mesh)))
             ++transparent_count_;
     }
 }
 
 // 0x004DDE20
-void SceneRef::append_meshes(int count, MeshRef* const* list)
+void SceneRef::append_meshes(std::span<MeshRef* const> list)
 {
-    for (int i = 0; i < count; ++i)
-        meshes[filled++] = list[i];
+    for (MeshRef* const mesh : list)
+        core::at(mesh_run(), filled++) = mesh;
 }
 
 void SceneRef::recount()
@@ -193,13 +192,13 @@ void SceneRef::recount()
     first_flagged_ = mesh_count_;
     flagged_count_ = 0;
     for (int i = 0; i < mesh_count_; ++i) {
-        const MaterialRef* material = material_of(meshes[i]);
+        const MaterialRef* material = material_of(core::at(mesh_run(), i));
         if (!get_transparent(material))
             continue;
         ++transparent_count_;
         if (i < first_transparent_)
             first_transparent_ = i;
-        if (material_of(meshes[i])->sort_flag_) {
+        if (material->sort_flag_) {
             ++flagged_count_;
             if (i < first_flagged_)
                 first_flagged_ = i;
@@ -208,13 +207,13 @@ void SceneRef::recount()
 }
 
 // 0x004DDE60
-void SceneRef::detach_meshes(int count, MeshRef* const* list)
+void SceneRef::detach_meshes(std::span<MeshRef* const> list)
 {
     int removed = 0;
-    for (int k = 0; k < count; ++k) {
-        for (int j = 0; j < mesh_count_; ++j) {
-            if (meshes[j] == list[k]) {
-                meshes[j] = nullptr;
+    for (const MeshRef* const gone : list) {
+        for (MeshRef*& mesh : mesh_run()) {
+            if (mesh == gone) {
+                mesh = nullptr;
                 ++removed;
                 break;
             }
@@ -224,13 +223,14 @@ void SceneRef::detach_meshes(int count, MeshRef* const* list)
     while (removed > 0) {
         const int n = mesh_count_;
         int j = 0;
-        while (j < mesh_count_ && meshes[j])
+        while (j < mesh_count_ && core::at(mesh_run(), j))
             ++j;
         if (j >= mesh_count_)
             continue;
         if (j < n - 1)
-            std::memmove(static_cast<void*>(&meshes[j]), static_cast<const void*>(&meshes[j + 1]),
-                         (n - j - 1) * sizeof(meshes[0]));
+            std::memmove(static_cast<void*>(mesh_run().subspan(static_cast<size_t>(j)).data()),
+                         static_cast<const void*>(mesh_run().subspan(static_cast<size_t>(j) + 1).data()),
+                         (n - j - 1) * sizeof(MeshRef*));
         --removed;
         --mesh_count_;
         --filled;
@@ -241,16 +241,16 @@ void SceneRef::detach_meshes(int count, MeshRef* const* list)
 // 0x004DDFA0
 void SceneRef::order_meshes()
 {
-    get_qsort(static_cast<void*>(meshes), mesh_count_, sizeof(meshes[0]), &compare_meshes);
+    get_qsort(static_cast<void*>(meshes), mesh_count_, sizeof(MeshRef*), &compare_meshes);
     recount();
 }
 
 // 0x004DE020
 MeshRef* SceneRef::find_mesh(uint32_t index) const
 {
-    for (int i = 0; i < mesh_count_; ++i) {
-        if (load_index(meshes[i]) == index)
-            return meshes[i];
+    for (MeshRef* const mesh : mesh_run()) {
+        if (load_index(mesh) == index)
+            return mesh;
     }
     return nullptr;
 }
@@ -284,15 +284,15 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         const uint32_t a = record.mesh_and_index_ & 0xFFFF;
         const uint32_t b = record.indices & 0xFFFF;
         const uint32_t c = record.indices >> 16;
-        uint16_t* indices = lock_indices(index_buffer_of(mesh));
+        const std::span<uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
         uint32_t i = record.strip_index_;
-        uint32_t first = indices[i] & 0x7FFF, second = indices[i + 1] & 0x7FFF;
+        uint32_t first = core::at(indices, i) & 0x7FFF, second = core::at(indices, i + 1) & 0x7FFF;
         for (i += 2; i < get_index_count(mesh); ++i) {
-            const uint32_t third = indices[i] & 0x7FFF;
+            const uint32_t third = core::at(indices, i) & 0x7FFF;
             if (first == a && second == c && third == b) {
                 if (mesh_index < 64)
                     ++core::at(breaks, mesh_index);
-                indices[i - 1] |= 0x8000;
+                core::at(indices, i - 1) |= 0x8000;
                 break;
             }
             first = second;
@@ -300,17 +300,16 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         }
         unlock_indices(index_buffer_of(mesh));
     }
-    for (int m = 0; m < mesh_count_; ++m) {
-        MeshRef* mesh = meshes[m];
+    for (MeshRef* const mesh : mesh_run()) {
         const uint32_t index = load_index(mesh);
         if (index >= 64 || core::at(breaks, index) <= 0)
             continue;
-        const uint16_t* indices = lock_indices(index_buffer_of(mesh));
+        const std::span<const uint16_t> indices(lock_indices(index_buffer_of(mesh)), get_index_count(mesh));
         uint32_t n = 0;
         for (uint32_t i = 0; i < get_index_count(mesh); ++i) {
-            const uint16_t value = indices[i] & 0x7FFF;
+            const uint16_t value = core::at(indices, i) & 0x7FFF;
             core::at(tri_strip_scratch(), n++) = value;
-            if (indices[i] & 0x8000) { // repeated: a strip break
+            if (core::at(indices, i) & 0x8000) { // repeated: a strip break
                 core::at(tri_strip_scratch(), n++) = value;
                 core::at(tri_strip_scratch(), n++) = value;
             }

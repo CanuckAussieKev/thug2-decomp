@@ -190,7 +190,7 @@ void PcGeom::free_mesh_table()
         return;
     if (scene) {
         if (SceneRef* list = scene->meshes)
-            list->detach_meshes(static_cast<int>(mesh_count_), meshes);
+            list->detach_meshes(mesh_run());
     }
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         if (MeshRef* mesh = core::at(mesh_run(), i)) {
@@ -207,9 +207,9 @@ bool PcGeom::add_to_mesh_list(bool count)
 {
     SceneRef* list = scene->meshes;
     if (count)
-        list->mesh_total(static_cast<int>(mesh_count_), meshes);
+        list->mesh_total(mesh_run());
     else
-        list->append_meshes(static_cast<int>(mesh_count_), meshes);
+        list->append_meshes(mesh_run());
     return true;
 }
 
@@ -218,9 +218,9 @@ SceneRef* PcGeom::create_mesh_list()
 {
     void* memory = memory::alloc(sizeof(SceneRef));
     SceneRef* list = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
-    list->mesh_total(static_cast<int>(mesh_count_), meshes);
+    list->mesh_total(mesh_run());
     list->allocate_mesh_list();
-    list->append_meshes(static_cast<int>(mesh_count_), meshes);
+    list->append_meshes(mesh_run());
     list->order_meshes();
     std::memcpy(&list->bounds, &bounds, sizeof(bounds));
     list->update_sphere();
@@ -250,12 +250,12 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
         const int kept_count = list->mesh_count_;
         memory::Hub::get_pull()->dealloc(static_cast<void*>(list->meshes));
         list->meshes = nullptr;
-        list->mesh_total(static_cast<int>(mesh_count_), meshes); // (this one's)
+        list->mesh_total(mesh_run()); // (this one's)
         list->allocate_mesh_list();
         for (int i = 0; i < kept_count; ++i)
             core::at(list->mesh_run(), i) = core::at(kept_run, i);
         memory::Hub::get_pull()->dealloc(static_cast<void*>(kept));
-        list->append_meshes(static_cast<int>(geom->mesh_count_), geom->meshes);
+        list->append_meshes(geom->mesh_run());
         list->order_meshes();
     } else {
         std::memcpy(&geom->bounds, &bounds, sizeof(bounds));

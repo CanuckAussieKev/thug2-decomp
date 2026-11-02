@@ -57,11 +57,11 @@ struct SceneRef {
     // 0x004DE3E0: room for meshCount meshes.
     void allocate_mesh_list();
     // 0x004DDDF0: count meshes to be added (and the transparent ones).
-    void mesh_total(int count, MeshRef* const* list);
+    void mesh_total(std::span<MeshRef* const> list);
     // 0x004DDE20: add meshes to the list.
-    void append_meshes(int count, MeshRef* const* list);
+    void append_meshes(std::span<MeshRef* const> list);
     // 0x004DDE60: take meshes out of the list (closing the gaps) and count again.
-    void detach_meshes(int count, MeshRef* const* list);
+    void detach_meshes(std::span<MeshRef* const> list);
     // 0x004DDFA0: sort the list (compare_meshes) and count again.
     void order_meshes();
     // 0x004DE020: the mesh with this load index (+0x20), or null.
