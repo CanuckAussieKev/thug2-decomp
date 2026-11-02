@@ -29,7 +29,7 @@ uint32_t g_last_music_track;
 
 uint32_t& last_music_track() { return g_last_music_track; }
 std::array<uint32_t, 3> g_last_streams;
-uint32_t* last_streams() { return g_last_streams.data(); }
+std::array<uint32_t, 3>& last_streams() { return g_last_streams; }
 // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
 std::array<uint8_t, 0x14000> g_user_track_buffer;
 void* user_track_buffer() { return g_user_track_buffer.data(); }
@@ -283,7 +283,7 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
 // 0x00454200
 bool play_stream(uint32_t checksum, int slot, int unused)
 {
-    last_streams()[slot] = checksum;
+    core::at(last_streams(), slot) = checksum;
     if (!load_stream(checksum, slot, nullptr, 0, unused, false, 1))
         return false;
     set_started(stream_slots()[slot], false);

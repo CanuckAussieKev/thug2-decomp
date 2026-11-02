@@ -46,7 +46,7 @@ uint32_t& wad_entry_count() { return g_wad_entry_count; }
 
 // The ring of OVERLAPPED blocks streams read with, and the next one to try.
 std::array<OVERLAPPED, 256> g_overlapped;
-OVERLAPPED* get_overlapped() { return g_overlapped.data(); }
+std::array<OVERLAPPED, 256>& get_overlapped() { return g_overlapped; }
 constexpr int kOverlapSlots = 256;
 int& next_overlapped() { return g_next_overlapped; }
 
@@ -216,7 +216,7 @@ _OVERLAPPED* new_overlapped()
 {
     for (;;) {
         // (loops for ever if all 256 are in use)
-        OVERLAPPED* overlapped = &get_overlapped()[next_overlapped()];
+        OVERLAPPED* overlapped = &core::at(get_overlapped(), next_overlapped());
         const int next = next_overlapped() + 1;
         next_overlapped() = next >= kOverlapSlots ? 0 : next;
         if (uses_overlapped(music_slot(), overlapped))

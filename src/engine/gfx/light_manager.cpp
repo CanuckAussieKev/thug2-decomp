@@ -33,7 +33,7 @@ constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
 LightingState& get_world() { return g_active_lighting; }
-LightingState* pile_up() { return g_world_light_stack.data(); }
+std::array<LightingState, 4>& pile_up() { return g_world_light_stack; }
 int g_light_stack_top{-1};
 float g_light_brightness{1.0f};
 float g_light_brightness_target{1.0f};
@@ -115,7 +115,7 @@ void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
     world.light_low_ = static_cast<float*>(memory::alloc(max_lights * 4));
     world.light_high_ = static_cast<float*>(memory::alloc(max_lights * 4));
     for (int i = 0; i < kSavedLightLevels; ++i) {
-        LightingState& saved = pile_up()[i];
+        LightingState& saved = core::at(pile_up(), i);
         saved.directions = static_cast<maths::Vec4*>(memory::alloc(max_lights * 16));
         saved.colours = static_cast<uint32_t*>(memory::alloc(max_lights * 4));
         saved.light_low_ = static_cast<float*>(memory::alloc(max_lights * 4));
@@ -201,7 +201,7 @@ float fetch_diffuse_scale(int light, bool low)
 void push_world_lights()
 {
     if (++stack_top() < kSavedLightLevels)
-        pile_up()[stack_top()] = get_world();
+        core::at(pile_up(), stack_top()) = get_world();
     else
         --stack_top();
 }
@@ -211,7 +211,7 @@ bool pop_world_lights()
 {
     if (stack_top() < 0)
         return false;
-    get_world() = pile_up()[stack_top()];
+    get_world() = core::at(pile_up(), stack_top());
     --stack_top();
     compiled_out();
     return true;

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 
+#include "engine/core/checked_index.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/loading_bar.h"
@@ -54,9 +55,9 @@ Rgb g_gradient_start;
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
-const uint8_t* start_color() { return g_progress_from_color.data(); }
-const uint8_t* end_color() { return g_progress_to_color.data(); }
-const uint8_t* border_color() { return g_progress_edge_color.data(); }
+const std::array<uint8_t, 4>& start_color() { return g_progress_from_color; }
+const std::array<uint8_t, 4>& end_color() { return g_progress_to_color; }
+const std::array<uint8_t, 4>& border_color() { return g_progress_edge_color; }
 int& progress_bar_pixels() { return g_progress_width; }
 int& get_screen_width() { return g_back_buffer_width; }
 float& horiz_screen_ratio() { return g_display_factor_x; }
@@ -103,11 +104,11 @@ uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g &
 // 0x004B6B80
 void update_loading_bar_colors()
 {
-    gradient_start() = {start_color()[0], start_color()[1], start_color()[2]};
-    gradient_end() = {end_color()[0], end_color()[1], end_color()[2]};
+    gradient_start() = {core::at(start_color(), 0), core::at(start_color(), 1), core::at(start_color(), 2)};
+    gradient_end() = {core::at(end_color(), 0), core::at(end_color(), 1), core::at(end_color(), 2)};
     gradient_width() =
         static_cast<int>(static_cast<double>(get_screen_width()) * progress_bar_pixels() * (1.0f / 640.0f));
-    border_argb() = 0x80000000u | border_color()[0] << 16 | border_color()[1] << 8 | border_color()[2];
+    border_argb() = 0x80000000u | core::at(border_color(), 0) << 16 | core::at(border_color(), 1) << 8 | core::at(border_color(), 2);
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4

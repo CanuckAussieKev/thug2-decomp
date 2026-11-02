@@ -98,9 +98,9 @@ uint8_t& get_z_test() { return g_z_test; }
 uint32_t& depth_bias() { return g_depth_bias; }
 uint32_t& get_lighting() { return g_lighting; }
 uint32_t& cull_mode() { return g_cull_mode; }
-uint32_t* address_modes() { return g_address_modes.data(); }   // [4]: U low 16 bits, V high
-uint32_t* mip_lod_biases() { return g_mip_lod_biases.data(); } // [4]: float bits
-uint32_t* filters() { return g_filters.data(); }               // [4]: min low 16 bits, mag high
+std::array<uint32_t, 4>& address_modes() { return g_address_modes; }   // [4]: U low 16 bits, V high
+std::array<uint32_t, 4>& mip_lod_biases() { return g_mip_lod_biases; } // [4]: float bits
+std::array<uint32_t, 4>& filters() { return g_filters; }               // [4]: min low 16 bits, mag high
 void** get_textures() { return g_textures.data(); }            // [4]
 uint32_t& vertex_format() { return g_vertex_format; }
 const void*& pixel_shader_locked() { return g_pixel_shader_locked; }
@@ -203,7 +203,7 @@ void change_phase(int state, uint32_t value)
     case kAddressMode0 + 2:
     case kAddressMode0 + 3: {
         const int sampler = state - kAddressMode0;
-        uint32_t& cached = address_modes()[sampler];
+        uint32_t& cached = core::at(address_modes(), sampler);
         const uint32_t u = value & 0xFFFF;
         if (u != (cached & 0xFFFF)) {
             DWORD address = 0;
@@ -225,9 +225,9 @@ void change_phase(int state, uint32_t value)
     case kMipLodBias0 + 2:
     case kMipLodBias0 + 3: {
         const int sampler = state - kMipLodBias0;
-        if (value != mip_lod_biases()[sampler]) {
+        if (value != core::at(mip_lod_biases(), sampler)) {
             set_sampler(sampler, D3DSAMP_MIPMAPLODBIAS, value);
-            mip_lod_biases()[sampler] = value;
+            core::at(mip_lod_biases(), sampler) = value;
         }
         return;
     }
@@ -281,7 +281,7 @@ void change_phase(int state, uint32_t value)
     case kFilter0 + 2:
     case kFilter0 + 3: {
         const int sampler = state - kFilter0;
-        uint32_t& cached = filters()[sampler];
+        uint32_t& cached = core::at(filters(), sampler);
         const uint32_t mag = value & 0xFFFF0000;
         if (mag != (cached & 0xFFFF0000)) {
             set_sampler(sampler, D3DSAMP_MAGFILTER, (value & 0x10000) ? D3DTEXF_LINEAR : D3DTEXF_POINT);
@@ -608,10 +608,10 @@ void reset_render_state()
     alpha_test() = 1;
     alpha_test_level() = 0;
     for (int i = 0; i < 4; ++i) {
-        address_modes()[i] = 0;
-        mip_lod_biases()[i] = 0;
+        core::at(address_modes(), i) = 0;
+        core::at(mip_lod_biases(), i) = 0;
         get_textures()[i] = nullptr;
-        filters()[i] = 0x10000;
+        core::at(filters(), i) = 0x10000;
         core::at(g_border_colours, i) = 0;
     }
     // (none of these is a mode: the next one is always sent)
@@ -673,10 +673,10 @@ void apply_render_state()
     input_port()->SetRenderState(D3DRS_ALPHAFUNC, D3DCMP_GREATEREQUAL);
     input_port()->SetRenderState(D3DRS_ALPHAREF, alpha_test_level());
     for (int sampler = 0; sampler < 4; ++sampler) {
-        address_modes()[sampler] = 0;
-        mip_lod_biases()[sampler] = 0;
+        core::at(address_modes(), sampler) = 0;
+        core::at(mip_lod_biases(), sampler) = 0;
         get_textures()[sampler] = nullptr;
-        filters()[sampler] = 0x10000;
+        core::at(filters(), sampler) = 0x10000;
         core::at(g_border_colours, sampler) = 0;
         input_port()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         input_port()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);

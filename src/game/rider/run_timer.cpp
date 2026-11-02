@@ -1,5 +1,6 @@
 // The skater's run timer component (GameObjects::RiderRunClock): see run_timer.h.
 
+#include "engine/core/checked_index.h"
 #include "game/rider/run_timer.h"
 
 #include <cstdint>
@@ -45,7 +46,7 @@ constexpr int kMaxResumes = 8;
 constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 
 // The state names cur_phase_ shows as (0x0064C080).
-const uint32_t* mode_label_keys() { return g_run_timer_state_names.data(); }
+const std::array<uint32_t, 4>& mode_label_keys() { return g_run_timer_state_names; }
 
 uint32_t get_skater_index(GameEntity* skater) { return static_cast<uint32_t>(core::down_cast<Rider>(skater)->view_slot_); }
 uint32_t timer_script_id(GameEntity* skater) { return get_skater_index(skater) + kRunTimerScriptId; }
@@ -85,7 +86,7 @@ void RiderRunClock::seal() { walk_ = core::down_cast<FootMovement>(entity_->fetc
 // 0x00518270
 void RiderRunClock::fetch_diagnostics(script::Struct* params)
 {
-    params->put_name_key(kMState, mode_label_keys()[cur_phase_]);
+    params->put_name_key(kMState, core::at(mode_label_keys(), cur_phase_));
     params->push_float(kMTimer, seconds_remaining_);
     // (then the base's fetch_diagnostics, which is empty: 0x005BAB90)
 }

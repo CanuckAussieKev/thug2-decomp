@@ -4,6 +4,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -23,7 +24,7 @@ namespace {
 
 FontSlot* get_slots() { return g_font_slots.data(); }
 lists::KeyMap& font_table() { return g_font_table; }
-char* glyph_escape_table() { return g_glyph_alias_table.data(); }
+std::array<char, 32>& glyph_escape_table() { return g_glyph_alias_table; }
 
 } // namespace
 
@@ -42,7 +43,7 @@ void Typeface::change_colors(const uint32_t* /*colors*/) { debug::printf("STUB A
 void Typeface::flag_button_font(bool /*buttons*/) { debug::printf("STUB A DUB DUB"); }
 
 // 0x0048D6A0
-char button_glyph(const char* digit) { return glyph_escape_table()[text::hex_digit_value(digit)]; }
+char button_glyph(const char* digit) { return core::at(glyph_escape_table(), text::hex_digit_value(digit)); }
 
 // 0x0048D6C0
 void unload_font(const char* name)

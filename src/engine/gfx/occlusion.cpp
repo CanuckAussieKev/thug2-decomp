@@ -30,7 +30,7 @@ float g_last_sphere_distance;
 
 namespace {
 
-OccluderPolygon* polys() { return g_occluder_quads.data(); }
+std::array<OccluderPolygon, 512>& polys() { return g_occluder_quads; }
 uint32_t& poly_count() { return g_occlusion_poly_count; }
 uint32_t& next_poly() { return g_occlusion_next_poly; } // where add_occluders carries on
 int& tick_cycle() { return g_occlusion_frame; }
@@ -165,8 +165,8 @@ void sort_occluders()
 void activate_occluder_poly(uint32_t checksum, bool enabled)
 {
     for (uint32_t i = 0; i < poly_count(); ++i) {
-        if (polys()[i].checksum == checksum)
-            polys()[i].enabled = enabled;
+        if (core::at(polys(), i).checksum == checksum)
+            core::at(polys(), i).enabled = enabled;
     }
 }
 
@@ -188,7 +188,7 @@ void add_occluders()
     uint32_t occluders = occluder_count();
     uint32_t added = 0;
     for (uint32_t looked = 0;;) {
-        OccluderPolygon& poly = polys()[next++];
+        OccluderPolygon& poly = core::at(polys(), next++);
         if (!poly.in_use_ && poly.enabled) {
             if (occluders < kOccluderLimit) {
                 Occluder& occluder = occluder_array()[occluders++];
@@ -213,7 +213,7 @@ void add_occluders()
 void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const maths::Vec4* p2, const maths::Vec4* p3,
                           uint32_t checksum)
 {
-    OccluderPolygon& poly = polys()[poly_count()];
+    OccluderPolygon& poly = core::at(polys(), poly_count());
     poly.in_use_ = 0;
     poly.enabled = 1;
     poly.checksum = checksum;

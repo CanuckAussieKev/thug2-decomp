@@ -66,7 +66,7 @@ int& current_track() { return g_current_track_index; }
 // The shuffled order: the indices of the tracks that are on, how many, and the position of the last one
 // played. The track played before the shuffle is read at order[count - 1] - with an empty order that's the
 // word before it (0x00696D9C, the movie frame dump counter).
-int* get_order() { return g_track_order.data(); }
+std::array<int, 600>& get_order() { return g_track_order; }
 int& order_count() { return g_order_count; }
 int& order_position() { return g_order_position; }
 bool& reshuffle() { return g_reshuffle; }
@@ -75,7 +75,7 @@ bool music_on() { return g_sound_device && game_config::g_platform != 2 && g_mus
 // The same for streamed sound effects (0x0067D7E1).
 bool streams_on() { return g_sound_device && game_config::g_platform != 2 && g_streams_on; }
 
-Stream* get_streams() { return g_streams.data(); }
+std::array<Stream, 3>& get_streams() { return g_streams; }
 constexpr int kStreams = 3;
 // Whether the platform's stream `channel` is playing (stream_status: 1 free, 2 playing).
 bool get_playing(const Stream& stream) { return stream_status(stream.channel) != 1; }
@@ -87,7 +87,7 @@ int& frame_count() { return g_frame_count; }
 // track in it, whether it's shuffled.
 int& user_soundtrack() { return g_user_soundtrack; }
 bool& custom_soundtrack_active() { return g_custom_playlist_on; }
-int* user_order() { return g_user_order.data(); }
+std::array<int, 600>& user_order() { return g_user_order; }
 constexpr int kUserOrderSize = 600;
 uint32_t& user_track() { return g_user_track; }
 uint32_t& user_position() { return g_user_position; }
@@ -260,7 +260,7 @@ void set_random_mode(int mode)
     if (mode != 0) {
         shuffle_user_soundtrack();
         user_position() = 0;
-        user_track() = user_order()[0];
+        user_track() = core::at(user_order(), 0);
     }
     Playlist& playlist = core::at(get_playlists(), current_playlist());
     core::at(playlist.played, 0) = 0;
@@ -424,12 +424,12 @@ void play_next_track()
     if (reshuffle()) {
         // (an empty order: the original reads the word before it, which is the movie frame dump counter - by name
         // here, as our globals aren't laid out as the original's)
-        const int last = order_count() > 0 ? get_order()[order_count() - 1] : render::g_movie_dump_count;
+        const int last = order_count() > 0 ? core::at(get_order(), order_count() - 1) : render::g_movie_dump_count;
         order_count() = 0;
         int count = 0;
         for (int track = 0; track < list.count; ++track)
             if (!is_off(list, track))
-                get_order()[count++] = track;
+                core::at(get_order(), count++) = track;
         order_count() = count;
         debug::printf("shuffling random song order num_songs=%i\n",
                       count); // "shuffling random song order num_songs=%i\n"
@@ -439,17 +439,17 @@ void play_next_track()
             const int a = shuffle_random(order_count());
             const int b = shuffle_random(order_count());
             if (a != b) {
-                const int swap = get_order()[a];
-                get_order()[a] = get_order()[b];
-                get_order()[b] = swap;
+                const int swap = core::at(get_order(), a);
+                core::at(get_order(), a) = core::at(get_order(), b);
+                core::at(get_order(), b) = swap;
             }
         }
         // Not the last one again first: swap it with another place (this draw is the game's, under PartyMod too).
-        if (get_order()[0] == last) {
+        if (core::at(get_order(), 0) == last) {
             const int other = order_count() > 1 ? maths::rnd(order_count() - 1) + 1 : 0;
-            const int swap = get_order()[0];
-            get_order()[0] = get_order()[other];
-            get_order()[other] = swap;
+            const int swap = core::at(get_order(), 0);
+            core::at(get_order(), 0) = core::at(get_order(), other);
+            core::at(get_order(), other) = swap;
         }
         order_position() = 0;
         reshuffle() = false;
@@ -465,7 +465,7 @@ void play_next_track()
         return;
     // The track at that position, unless it's off or already played (then nothing). (The original repeats
     // this same test list.count times.)
-    const int track = get_order()[position];
+    const int track = core::at(get_order(), position);
     if ((get_bit(track) & core::at(list.off, 0)) == 0 && track < 64 && (get_bit(track) & core::at(list.played, 0)) == 0) {
         core::at(list.played, 0) |= get_bit(track);
         start_track(list, track);
@@ -530,7 +530,7 @@ void tick_frame()
         }
     }
     for (int i = 0; i < kStreams; ++i) {
-        Stream& stream = get_streams()[i];
+        Stream& stream = core::at(get_streams(), i);
         if (stream.listener && !get_playing(stream)) {
             if (stream.listener->name) {
                 stream.listener->name = 0;
@@ -556,7 +556,7 @@ void tick_frame()
 bool stream_id_finished(uint32_t id)
 {
     for (int i = 0; i < kStreams; ++i)
-        if (get_streams()[i].id == id && get_playing(get_streams()[i]))
+        if (core::at(get_streams(), i).id == id && get_playing(core::at(get_streams(), i)))
             return false;
     return true;
 }
@@ -565,10 +565,10 @@ bool stream_id_finished(uint32_t id)
 int find_playing_stream(uint32_t id_or_name)
 {
     for (int i = 0; i < kStreams; ++i)
-        if (get_streams()[i].id == id_or_name && get_playing(get_streams()[i]))
+        if (core::at(get_streams(), i).id == id_or_name && get_playing(core::at(get_streams(), i)))
             return i;
     for (int i = 0; i < kStreams; ++i)
-        if (get_streams()[i].name == id_or_name && get_playing(get_streams()[i]))
+        if (core::at(get_streams(), i).name == id_or_name && get_playing(core::at(get_streams(), i)))
             return i;
     return -1;
 }
@@ -579,7 +579,7 @@ uint32_t free_stream_id(uint32_t id)
     for (;; ++id) {
         bool used = false;
         for (int i = 0; i < kStreams && !used; ++i)
-            used = get_streams()[i].id == id && get_playing(get_streams()[i]);
+            used = core::at(get_streams(), i).id == id && get_playing(core::at(get_streams(), i));
         if (!used)
             return id;
     }
@@ -593,21 +593,21 @@ void shuffle_user_soundtrack()
         return;
     if (count > kUserOrderSize)
         count = kUserOrderSize;
-    const int last = user_order()[count - 1]; // (the last of the order before - not the track played last)
+    const int last = core::at(user_order(), count - 1); // (the last of the order before - not the track played last)
     for (int i = 0; i < count; ++i)
-        user_order()[i] = i;
+        core::at(user_order(), i) = i;
     for (int i = 0; i < 2000; ++i) {
         const int a = maths::rnd(count);
         const int b = maths::rnd(count);
-        const int swap = user_order()[a];
-        user_order()[a] = user_order()[b];
-        user_order()[b] = swap;
+        const int swap = core::at(user_order(), a);
+        core::at(user_order(), a) = core::at(user_order(), b);
+        core::at(user_order(), b) = swap;
     }
-    if (user_order()[0] == last) {
+    if (core::at(user_order(), 0) == last) {
         const int other = count > 1 ? maths::rnd(count - 1) + 1 : 0;
-        const int swap = user_order()[0];
-        user_order()[0] = user_order()[other];
-        user_order()[other] = swap;
+        const int swap = core::at(user_order(), 0);
+        core::at(user_order(), 0) = core::at(user_order(), other);
+        core::at(user_order(), other) = swap;
     }
 }
 
@@ -619,7 +619,7 @@ void use_user_soundtrack(int soundtrack)
     if (shuffle_user()) {
         shuffle_user_soundtrack();
         user_position() = 0;
-        user_track() = user_order()[0];
+        user_track() = core::at(user_order(), 0);
     } else {
         user_track() = 0;
     }
