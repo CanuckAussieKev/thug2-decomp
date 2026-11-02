@@ -183,7 +183,7 @@ void Script::component_destroyed(objects::ObjectModule* component)
         suspend_reason_ = kSuspendOnNothing;
     // The levels it's in the middle of: the saved wait type only (the component pointer stays).
     for (int i = 0; i < call_depth_; ++i) {
-        CallFrame& frame = frame_records_[i];
+        CallFrame& frame = core::at(call_stack(), i);
         if (frame.sleep_component_ && frame.sleep_component_ == component)
             frame.suspend_kind_ &= ~kReturnWaitTypeMask;
     }
@@ -203,7 +203,7 @@ bool Script::receive_event(objects::Signal* event)
         suspend_reason_ = kSuspendOnNothing;
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < call_depth_; ++i) {
-        CallFrame& frame = frame_records_[i];
+        CallFrame& frame = core::at(call_stack(), i);
         if ((frame.suspend_kind_ & kReturnWaitTypeMask) == kSuspendOnBlock && frame.suspend_arg_ref_ &&
             event->kind_tag_ == frame.suspend_arg_ref_)
             frame.suspend_kind_ &= ~kReturnWaitTypeMask;
@@ -219,7 +219,7 @@ void Script::unblock_interrupted_script()
 {
     bool interrupt = (flag_bits_ & kScriptRunInterrupted) != 0;
     for (int level = call_depth_; level > 0; --level) {
-        CallFrame& below = frame_records_[level - 1];
+        CallFrame& below = core::at(call_stack(), level - 1);
         if (interrupt) {
             below.suspend_kind_ &= ~kReturnWaitTypeMask;
             return;
@@ -244,11 +244,12 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
         frame_records_ = static_cast<CallFrame*>(memory::alloc_block(16 * sizeof(CallFrame)));
         memory::leave_heap_scope();
-        frame_records_[0] = core::at(inline_return_addresses_, 0);
-        frame_records_[1] = core::at(inline_return_addresses_, 1);
+        const std::span<CallFrame> moved = call_stack();
+        core::at(moved, 0) = core::at(inline_return_addresses_, 0);
+        core::at(moved, 1) = core::at(inline_return_addresses_, 1);
     }
     // The caller's state (the frame's other wait-type and flag bits are left as they were).
-    CallFrame& frame = frame_records_[call_depth_++];
+    CallFrame& frame = core::at(call_stack(), call_depth_++);
     frame.script_id_ = script_title_;
     frame.arg_struct_ = args_.release(); // (the frame keeps them: the return gives them back)
     frame.caller_frame_ = pc_;
@@ -290,7 +291,7 @@ bool Script::return_from_script(Struct* results)
         --call_depth_;
         if (args_)
             memory::destroy_then_clear(args_); // (cleared and given back to the pool, as free_struct)
-        const CallFrame& frame = frame_records_[call_depth_];
+        const CallFrame& frame = core::at(call_stack(), call_depth_);
         script_title_ = frame.script_id_;
         args_ = memory::take_unique<Struct, StructFree>(memory::owned_element(frame.arg_struct_));
         pc_ = frame.caller_frame_;

@@ -21,6 +21,7 @@
 #include "formats/byte_stream.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
 
@@ -225,7 +226,7 @@ bool script_refers_to(const Script* script, uint32_t name)
         return true;
     // The calls it's in the middle of.
     for (int i = 0; i < script->call_depth_; ++i) {
-        if (script->frame_records_[i].script_id_ == name)
+        if (core::at(script->call_stack(), i).script_id_ == name)
             return true;
     }
     return false;

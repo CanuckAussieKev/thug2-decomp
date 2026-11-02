@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/objects/smtptr.h"
 #include "engine/script/param_struct.h"
@@ -257,6 +258,31 @@ public:
                            Struct* params);                             // 0x004735D0
     void clear_event_handler(uint32_t event_type);                      // 0x00473690
     void reset_event_handlers_from_table(Array* table, uint32_t group); // 0x004736C0
+
+    // NOT ORIGINAL - the loop stack and the call stack as runs of what they hold now: the one loop / two frames inside
+    // the script, or the blocks on the script heap (kHeapLoops / kHeapFrames; the original didn't check beyond them).
+    static constexpr std::size_t kHeapLoops = 10;
+    static constexpr std::size_t kHeapFrames = 16;
+    [[nodiscard]] std::span<RepeatFrame> loop_stack()
+    {
+        return loops_ == &inline_loop_ ? std::span<RepeatFrame>(&inline_loop_, 1) : std::span<RepeatFrame>(loops_, kHeapLoops);
+    }
+    [[nodiscard]] std::span<CallFrame> call_stack()
+    {
+        return frame_records_ == inline_return_addresses_.data() ? std::span<CallFrame>(inline_return_addresses_)
+                                                                 : std::span<CallFrame>(frame_records_, kHeapFrames);
+    }
+    [[nodiscard]] std::span<const CallFrame> call_stack() const
+    {
+        return frame_records_ == inline_return_addresses_.data()
+                   ? std::span<const CallFrame>(inline_return_addresses_)
+                   : std::span<const CallFrame>(frame_records_, kHeapFrames);
+    }
+    // Where `loop` is on the loop stack.
+    [[nodiscard]] std::ptrdiff_t loop_index(const RepeatFrame* loop) const
+    {
+        return loop - (loops_ == &inline_loop_ ? &inline_loop_ : loops_);
+    }
 
     // --- the fields ---
     Script* following_;             // +0x00 the list (older)

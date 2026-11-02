@@ -38,6 +38,7 @@
 #include "wire/play_messages.h"
 #include "engine/core/pointer_cell.h"
 #include "platform/code_address.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
 
@@ -101,7 +102,7 @@ bool uses_object(const Script* script, objects::Entity* object)
     if (script->entity_.get_pull() == object)
         return true;
     for (int i = 0; i < script->call_depth_; ++i) {
-        if (script->frame_records_[i].owner_entity_ == object)
+        if (core::at(script->call_stack(), i).owner_entity_ == object)
             return true;
     }
     return false;

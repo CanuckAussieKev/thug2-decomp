@@ -19,6 +19,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -137,10 +138,10 @@ void Script::reset_script_state()
     if (stmt_args_)
         memory::destroy_then_clear(stmt_args_);
     for (int i = 0; i < call_depth_; ++i) {
-        cache->release_script(frame_records_[i].script_id_);
-        if (Struct* params = frame_records_[i].arg_struct_) {
+        cache->release_script(core::at(call_stack(), i).script_id_);
+        if (Struct* params = core::at(call_stack(), i).arg_struct_) {
             free_struct(memory::owned_element(params));
-            frame_records_[i].arg_struct_ = nullptr;
+            core::at(call_stack(), i).arg_struct_ = nullptr;
         }
     }
     call_depth_ = 0;
@@ -169,7 +170,7 @@ void Script::run_on_exit_scripts()
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
     for (int i = call_depth_; i; --i) {
-        uint32_t& on_exit = frame_records_[i - 1].on_exit_script_ptr_;
+        uint32_t& on_exit = core::at(call_stack(), i - 1).on_exit_script_ptr_;
         if (const uint32_t name = on_exit) {
             on_exit = 0;
             preempt(name, nullptr);
@@ -265,9 +266,9 @@ void Script::relaunch()
     objects::Entity* object = nullptr;
     if (call_depth_) {
         // The bottom level: the script it was started with.
-        params->get_assign(frame_records_[0].arg_struct_);
-        object = frame_records_[0].owner_entity_;
-        name = frame_records_[0].script_id_;
+        params->get_assign(core::at(call_stack(), 0).arg_struct_);
+        object = core::at(call_stack(), 0).owner_entity_;
+        name = core::at(call_stack(), 0).script_id_;
     } else {
         params->get_assign(args_.get());
         object = entity_.get_pull();
@@ -287,7 +288,7 @@ bool Script::all_scripts_still_defined()
         return false;
     // (the bottom level's script isn't looked for when it runs a private copy)
     for (int i = code_copy_ ? 1 : 0; i < call_depth_; ++i) {
-        if (!find_symbol(frame_records_[i].script_id_))
+        if (!find_symbol(core::at(call_stack(), i).script_id_))
             return false;
     }
     return true;
@@ -299,7 +300,7 @@ bool Script::has_attached_script() { return pc_ != nullptr; }
 // 0x00472F90
 void Script::set_spawner_file(Script* spawner)
 {
-    const uint32_t name = spawner->call_depth_ ? spawner->frame_records_[0].script_id_ : spawner->script_title_;
+    const uint32_t name = spawner->call_depth_ ? core::at(spawner->call_stack(), 0).script_id_ : spawner->script_title_;
     spawner_file_ = find_symbol(name)->unknown8; // (no check that it is still defined)
 }
 
@@ -311,8 +312,8 @@ void Script::object_destroyed(objects::Entity* object)
     if (entity_.get_pull() == object)
         entity_.get_release();
     for (int i = 0; i < call_depth_; ++i) {
-        if (frame_records_[i].owner_entity_ == object)
-            frame_records_[i].owner_entity_ = nullptr;
+        if (core::at(call_stack(), i).owner_entity_ == object)
+            core::at(call_stack(), i).owner_entity_ = nullptr;
     }
     suspend_reason_ = kSuspendOnNothing; // (whatever it was waiting for)
 }
@@ -327,7 +328,7 @@ void Script::clear_on_exit_scripts()
 {
     on_exit_script_ = 0;
     for (int i = call_depth_; i; --i)
-        frame_records_[i - 1].on_exit_script_ptr_ = 0;
+        core::at(call_stack(), i - 1).on_exit_script_ptr_ = 0;
 }
 
 // 0x004734B0

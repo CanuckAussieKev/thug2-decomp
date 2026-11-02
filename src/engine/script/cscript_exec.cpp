@@ -429,14 +429,16 @@ void Script::run_loop_open()
         manager->enter_heap_scope(manager->script_heap_);
         loops_ = static_cast<RepeatFrame*>(memory::alloc_block(10 * sizeof(RepeatFrame)));
         memory::Hub::get_pull()->leave_heap_scope();
-        loops_[0] = inline_loop_;
-        innermost_repeat_ = loops_;
+        const std::span<RepeatFrame> moved = loop_stack();
+        core::at(moved, 0) = inline_loop_;
+        innermost_repeat_ = &core::at(moved, 0);
         for (int i = 0; i < call_depth_; ++i) {
-            if (RepeatFrame* loop = frame_records_[i].loop_state_)
-                frame_records_[i].loop_state_ = loops_ + (loop - &inline_loop_);
+            CallFrame& frame = core::at(call_stack(), i);
+            if (const RepeatFrame* loop = frame.loop_state_)
+                frame.loop_state_ = &core::at(moved, loop - &inline_loop_);
         }
     }
-    innermost_repeat_ = innermost_repeat_ ? innermost_repeat_ + 1 : loops_;
+    innermost_repeat_ = &core::at(loop_stack(), innermost_repeat_ ? loop_index(innermost_repeat_) + 1 : 0);
     innermost_repeat_->tokens_begin_ = pc_;
     innermost_repeat_->tokens_end_ = nullptr;
     innermost_repeat_->args_seen_ = false;
@@ -446,7 +448,11 @@ void Script::run_loop_open()
 
 namespace {
 // The loop below the current one (none: null).
-RepeatFrame* outer_loop(RepeatFrame* loop, RepeatFrame* loops) { return loop == loops ? nullptr : loop - 1; }
+RepeatFrame* outer_loop(Script& script, const RepeatFrame* loop)
+{
+    const std::ptrdiff_t index = script.loop_index(loop);
+    return index == 0 ? nullptr : &core::at(script.loop_stack(), index - 1);
+}
 } // namespace
 
 // 0x00472AB0: 21 repeat [count]. Its arguments are read the first time only (tokens_end_ is set past them; pc_
@@ -474,7 +480,7 @@ void Script::run_counted_loop()
         return;
     }
     pc_ = innermost_repeat_->tokens_end_;
-    innermost_repeat_ = outer_loop(innermost_repeat_, loops_);
+    innermost_repeat_ = outer_loop(*this, innermost_repeat_);
 }
 
 // 0x00472B50: 22 break: past the repeat of this loop (counting nested begin / repeat), whose arguments are
@@ -497,7 +503,7 @@ void Script::run_loop_exit()
     } while (searching);
     stmt_args_->get_clear();
     pc_ = parse_arguments(stmt_args_.get(), pc_, nullptr);
-    innermost_repeat_ = outer_loop(innermost_repeat_, loops_);
+    innermost_repeat_ = outer_loop(*this, innermost_repeat_);
 }
 
 // 0x004750B0 (see the top of the file)
