@@ -463,7 +463,7 @@ void UiTree::listener_receive(objects::Signal* event)
     if (manager->check_device_ && event->payload_) {
         int device = 0;
         if (event->payload_->fetch_int_value(kDeviceNum, &device, 0)) {
-            auto* input = pad_input::g_input_manager.get(); // (the input manager)
+            auto* input = pad_input::get_input_manager(); // (the input manager)
             if (input->get_player_controller(0) != device)
                 return;
         }

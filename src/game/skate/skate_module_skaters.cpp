@@ -145,7 +145,6 @@ memory::Arena* rider_heap_at(int index) { return core::at(memory::Hub::get_pull(
 using PlayerSearch = online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
-
 // The skater list's node (lists::Elem<Rider>, +0x238 of the skater) out of the list.
 void unlink_skater_node(memory::ListNode* node)
 {
@@ -369,11 +368,11 @@ void Skate::bind_controllers()
         if (!skater || !skater->is_local_skater_)
             continue;
         const int number = skater->get_skater_number();
-        auto* input = pad_input::g_input_manager.get();
+        auto* input = pad_input::get_input_manager();
         int controller = input->get_player_controller(number);
         core::down_cast<objects::PadInputModule>(skater->fetch_module(kInput))->link_to_pad(controller);
         if (auto* camera = core::down_cast<objects::GameEntity>(skater->get_skater_camera())) {
-            controller = pad_input::g_input_manager->get_player_controller(number);
+            controller = pad_input::get_input_manager()->get_player_controller(number);
             core::down_cast<objects::PadInputModule>(camera->fetch_module(kInput))->link_to_pad(controller);
         }
     }

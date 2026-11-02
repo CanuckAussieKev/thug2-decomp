@@ -170,6 +170,7 @@ Hub* create_manager(bool create);
 void release_manager();
 std::unique_ptr<Hub>& manager_instance();
 
-extern std::unique_ptr<Hub> g_manager;
+// NOT ORIGINAL - the input devices' manager (null until made).
+Hub* get_device_manager();
 
 } // namespace sio

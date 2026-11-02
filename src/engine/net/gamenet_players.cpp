@@ -270,7 +270,7 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t
     player->conn_ = conn;
     if (is_own_player(player)) {
         if (is_observer(player)) {
-            pad_input::Hub* input = pad_input::g_input_manager.get();
+            pad_input::Hub* input = pad_input::get_input_manager();
             tasks::PileUp* tasks = get_logic_tasks();
             get_run(kHidePanelStuff);
             spectate_player(next_cam_player()); // the first player to watch
@@ -516,7 +516,7 @@ void Hub::enter_observe_mode()
 {
     auto* skate = get_skate();
     tasks::PileUp* tasks = get_logic_tasks();
-    pad_input::Hub* input = pad_input::g_input_manager.get();
+    pad_input::Hub* input = pad_input::get_input_manager();
     PlayerRecord* local = find_own_player_record(this);
     if (is_observer(local))
         return;

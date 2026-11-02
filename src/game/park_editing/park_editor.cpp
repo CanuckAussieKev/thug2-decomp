@@ -89,7 +89,7 @@ constexpr double kFullTurn = 360.0;               // 0x0064F348 (and 360.0f, 0x0
 
 modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 frame_loop::Hub* get_main_loop() { return assets::g_main_loop_manager.get(); }
-pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
+pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
 ParkLayout* hub() { return ParkLayout::singleton(); }
 BuildPointer* get_cursor() { return BuildPointer::singleton(); }

@@ -41,7 +41,9 @@ void process_sdl_device(InputPort* device);
 // 0-65535.
 void set_sdl_actuators(int port, uint16_t high, uint16_t low);
 
-extern bool g_keyboard_on_screen;
-extern bool g_in_menu_flag;
+// NOT ORIGINAL - whether the on-screen keyboard is up and whether a menu, dialog box or the quit dialog is on screen
+// (the front end sets them; the input reads them).
+bool& keyboard_on_screen_flag();
+bool& menu_flag();
 
 } // namespace sio

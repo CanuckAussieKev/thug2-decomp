@@ -244,7 +244,7 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script*)
 {
     int enable = 1;
     params->fetch_int_value(0u, &enable, 0);
-    auto* input = pad_input::g_input_manager.get();
+    auto* input = pad_input::get_input_manager();
     for (int i = 0; i < 2; ++i) {
         if (core::at(get_skate()->participants_, i).vibration_) {
             if (enable)

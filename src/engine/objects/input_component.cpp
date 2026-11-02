@@ -89,7 +89,7 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 
 // The input manager (0x00696D40): its controller servers (the device, the handler list, the data), and a player's
 // controller (0x0044E630).
-pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
+pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 tasks::PileUp* server_handlers(pad_input::Hub* manager, int server) { return &core::at(manager->hosts_, server).handlers_; }
 void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, int server)
 {

@@ -41,6 +41,7 @@
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace sio {
 
@@ -217,21 +218,30 @@ void InputPort::stop_actuators()
 namespace {
 IDirectInputDevice8A*& keyboard_device() { return os_layer::g_keyboard_device; }
 
-int g_keyboard_buffer{2};
-uint32_t g_manager_references;
-uint32_t g_keyboard_char_count;
+// NOT ORIGINAL grouping - the keyboard's buffers, characters and key names, the device manager's references. Made on
+// first use, never destroyed (keyboard_device_state()).
+struct KeyboardState {
+    int keyboard_buffer_{2};
+    uint32_t manager_references_{};
+    uint32_t keyboard_char_count_{};
+    std::array<char, 256> key_name_result_{};
+    std::array<char, 256> name_buffer_{};
+    std::array<int, 16> keyboard_chars_{};
+    std::array<std::array<uint8_t, 256>, 2> keyboard_state_{};
+};
+
+KeyboardState& keyboard_device_state()
+{
+    static core::NoDestroy<KeyboardState> state;
+    return state.get();
+}
 
 // Which of the two state buffers is current (2 at start: clear both first).
-int& keyboard_buffer() { return g_keyboard_buffer; }
+int& keyboard_buffer() { return keyboard_device_state().keyboard_buffer_; }
 
-std::array<char, 256> g_key_name_result;
-std::array<char, 256> g_name_buffer;
-std::array<int, 16> g_keyboard_chars;
-std::array<std::array<uint8_t, 256>, 2> g_keyboard_state;
-
-std::array<std::array<uint8_t, 256>, 2>& keyboard_state() { return g_keyboard_state; }
-uint32_t& keyboard_char_count() { return g_keyboard_char_count; }
-std::array<int, 16>& keyboard_chars() { return g_keyboard_chars; }
+std::array<std::array<uint8_t, 256>, 2>& keyboard_state() { return keyboard_device_state().keyboard_state_; }
+uint32_t& keyboard_char_count() { return keyboard_device_state().keyboard_char_count_; }
+std::array<int, 16>& keyboard_chars() { return keyboard_device_state().keyboard_chars_; }
 } // namespace
 
 // 0x005BDD60
@@ -269,12 +279,26 @@ void clear_keyboard_chars() { keyboard_char_count() = 0; }
 
 // --- the manager's lifetime --------------------------------------------------------------------------------
 
-std::unique_ptr<Hub> g_manager;
+namespace {
 
-std::unique_ptr<Hub>& manager_instance() { return g_manager; }
+// NOT ORIGINAL grouping - the input devices' manager. Made on first use, never destroyed (device_manager_state()).
+struct DeviceManagerState {
+    std::unique_ptr<Hub> manager_{};
+};
+
+DeviceManagerState& device_manager_state()
+{
+    static core::NoDestroy<DeviceManagerState> state;
+    return state.get();
+}
+} // namespace
+
+Hub* get_device_manager() { return device_manager_state().manager_.get(); }
+
+std::unique_ptr<Hub>& manager_instance() { return device_manager_state().manager_; }
 
 namespace {
-uint32_t& manager_references() { return g_manager_references; }
+uint32_t& manager_references() { return keyboard_device_state().manager_references_; }
 } // namespace
 
 // --- typed keys -------------------------------------------------------------------------------------------
@@ -282,9 +306,9 @@ uint32_t& manager_references() { return g_manager_references; }
 namespace {
 // Whether typed keys are wanted: the keyboard is being typed on (0x007CE46E), or text entry is on
 // (0x007CCDF8) outside a menu (0x007CE46F). PartyMod sets the last two for its text input.
-bool& keyboard_typing() { return g_keyboard_on_screen; }
+bool& keyboard_typing() { return keyboard_on_screen_flag(); }
 bool& text_entry() { return online::g_text_entry; }
-bool& in_menu() { return g_in_menu_flag; }
+bool& in_menu() { return menu_flag(); }
 } // namespace
 
 // 0x005BDE70
@@ -342,8 +366,8 @@ bool& quit_requested() { return render::g_quit_requested; }
 int key_binding(int action) { return core::at(os_layer::g_input_map.front().keys, action); }
 // The platform layer's key names.
 const wchar_t* key_name_w(int code) { return os_layer::get_key_name(code); }
-std::array<char, 256>& name_buffer() { return g_name_buffer; }
-std::array<char, 256>& key_name_result() { return g_key_name_result; }
+std::array<char, 256>& name_buffer() { return keyboard_device_state().name_buffer_; }
+std::array<char, 256>& key_name_result() { return keyboard_device_state().key_name_result_; }
 
 void convert_key_name(int code)
 {

@@ -144,7 +144,7 @@ int game_main(int argc, char** argv)
         const pad_input::Hub* input = pad_input::create_manager(true);
         file::AsyncLoaderModule* async_loader = file::create_async_loader_module(true);
         memory::pop_mem_profile();
-        pad_input::g_input_manager->change_pad_follows_stick(true); // (+0x10C)
+        pad_input::get_input_manager()->change_pad_follows_stick(true); // (+0x10C)
         script::allocate_pools();
         // Not original - the level editor (editor/level_editor.h) and CREATE 100% CAS
         // (frontend/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)

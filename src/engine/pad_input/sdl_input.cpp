@@ -33,11 +33,29 @@
 #include "platform/sdl_events.h"
 #include "platform/platform_input.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace sio {
 
-bool g_keyboard_on_screen;
-bool g_in_menu_flag;
+namespace {
+
+// NOT ORIGINAL grouping - whether the on-screen keyboard is up and whether a menu is on screen. Made on first use,
+// never destroyed (screen_flags()).
+struct ScreenFlags {
+    bool keyboard_on_screen_{};
+    bool in_menu_flag_{};
+};
+
+ScreenFlags& screen_flags()
+{
+    static core::NoDestroy<ScreenFlags> state;
+    return state.get();
+}
+
+} // namespace
+
+bool& keyboard_on_screen_flag() { return screen_flags().keyboard_on_screen_; }
+bool& menu_flag() { return screen_flags().in_menu_flag_; }
 
 namespace {
 
@@ -132,29 +150,57 @@ struct PadBinds {
     PadStick camera;
 };
 
-InputSettings s_settings;
-KeyBinds s_keys;
-PadBinds s_pad;
-bool s_using_keyboard = true;
-
-// --- the game's state ---------------------------------------------------------------------------------------
-
-// The on-screen keyboard (text entry) is up.
-bool get_keyboard_on_screen() { return g_keyboard_on_screen != 0; }
-uint8_t in_menu_flag() { return g_in_menu_flag; }
-
-// --- controllers and players ----------------------------------------------------------------------------------
-
-// The open controllers (removed ones shift the rest down).
-std::vector<SDL_GameController*> s_controllers;
-
 struct PlayerSlot {
     SDL_GameController* controller;
     uint8_t locked_out_; // after joining: locked out until all of its buttons are up (counts buttons down)
 };
 constexpr int kMaxPlayers = 2;
-uint8_t s_seats_in_use = 0;
-std::array<PlayerSlot, kMaxPlayers> s_players = {{{.controller = nullptr, .locked_out_ = 0}, {.controller = nullptr, .locked_out_ = 0}}};
+// The menu keys (see update_menu_keys).
+struct MenuKeys {
+    uint8_t affirmative; // A / X
+    uint8_t negative;    // B / circle
+    uint8_t menu;        // X / square
+    uint8_t extra;       // Y / triangle
+    uint8_t up;
+    uint8_t down;
+    uint8_t left;
+    uint8_t right;
+    uint8_t rotate_left_;  // LB / L1
+    uint8_t rotate_right_; // RB / R1
+    uint8_t zoom;          // black (R2 too, rerouted to black)
+};
+
+// NOT ORIGINAL grouping - the SDL input's settings and bindings, the open controllers and the players' seats, the menu
+// keys. Made on first use, never destroyed (sdl_input_state()).
+struct SdlInputState {
+    InputSettings settings_{};
+    KeyBinds keys_{};
+    PadBinds pad_{};
+    bool using_keyboard_ = true;
+    // The open controllers (removed ones shift the rest down).
+    std::vector<SDL_GameController*> controllers_{};
+    uint8_t seats_in_use_ = 0;
+    std::array<PlayerSlot, kMaxPlayers> players_ = {{{.controller = nullptr, .locked_out_ = 0}, {.controller = nullptr, .locked_out_ = 0}}};
+    uint8_t in_menu_ = 0;
+    uint8_t editing_park_ = 0;
+    MenuKeys menu_keys_{};
+    uint8_t was_in_menu_ = 0;
+    uint8_t was_keyboard_on_screen_ = 0;
+};
+
+SdlInputState& sdl_input_state()
+{
+    static core::NoDestroy<SdlInputState> state;
+    return state.get();
+}
+
+// --- the game's state ---------------------------------------------------------------------------------------
+
+// The on-screen keyboard (text entry) is up.
+bool get_keyboard_on_screen() { return screen_flags().keyboard_on_screen_ != 0; }
+uint8_t in_menu_flag() { return screen_flags().in_menu_flag_; }
+
+// --- controllers and players ----------------------------------------------------------------------------------
 
 void attach_controller(int index)
 {
@@ -163,38 +209,38 @@ void attach_controller(int index)
     SDL_GameControllerSetPlayerIndex(controller, -1);
     if (!controller)
         return;
-    s_controllers.push_back(controller);
+    sdl_input_state().controllers_.push_back(controller);
 }
 
 void enroll_player(SDL_GameController* controller)
 {
-    if (s_seats_in_use >= 2) {
+    if (sdl_input_state().seats_in_use_ >= 2) {
         debug_log::printf(StageMap::kInfo, "Already two players, not adding\n");
         return;
     }
     int slot = 0;
-    while (slot < kMaxPlayers && core::at(s_players, slot).controller)
+    while (slot < kMaxPlayers && core::at(sdl_input_state().players_, slot).controller)
         ++slot;
     if (slot == kMaxPlayers)
         return;
     SDL_GameControllerSetPlayerIndex(controller, slot);
-    core::at(s_players, slot).controller = controller;
-    if (s_seats_in_use > 0) {
-        core::at(s_players, slot).locked_out_ = 1;
+    core::at(sdl_input_state().players_, slot).controller = controller;
+    if (sdl_input_state().seats_in_use_ > 0) {
+        core::at(sdl_input_state().players_, slot).locked_out_ = 1;
         SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0x7FFF, 0x7FFF, 250);
     }
-    ++s_seats_in_use;
+    ++sdl_input_state().seats_in_use_;
     debug_log::printf(StageMap::kInfo, "Added player %d: %s\n", slot + 1, SDL_GameControllerName(controller));
 }
 
 void prune_players()
 {
     for (int i = 0; i < kMaxPlayers; ++i) {
-        if (core::at(s_players, i).controller && !SDL_GameControllerGetAttached(core::at(s_players, i).controller)) {
+        if (core::at(sdl_input_state().players_, i).controller && !SDL_GameControllerGetAttached(core::at(sdl_input_state().players_, i).controller)) {
             debug_log::printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
-            core::at(s_players, i).controller = nullptr;
-            --s_seats_in_use;
-            debug_log::printf(StageMap::kInfo, "Remaining players: %d\n", s_seats_in_use);
+            core::at(sdl_input_state().players_, i).controller = nullptr;
+            --sdl_input_state().seats_in_use_;
+            debug_log::printf(StageMap::kInfo, "Remaining players: %d\n", sdl_input_state().seats_in_use_);
         }
     }
 }
@@ -202,9 +248,9 @@ void prune_players()
 void detach_anim_driver(SDL_GameController* controller)
 {
     debug_log::printf(StageMap::kInfo, "Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
-    auto found = std::ranges::find(s_controllers, controller);
+    auto found = std::ranges::find(sdl_input_state().controllers_, controller);
     // (PartyMod looked one past the last entry when it wasn't found - past the end of its array when that was full)
-    if (found == s_controllers.end()) {
+    if (found == sdl_input_state().controllers_.end()) {
         debug_log::printf(StageMap::kWarn, "Did not find disconnected controller in list\n");
         return;
     }
@@ -213,17 +259,17 @@ void detach_anim_driver(SDL_GameController* controller)
     SDL_GameControllerClose(controller);
     if (player != -1) {
         debug_log::printf(StageMap::kInfo, "Removed player %d\n", player + 1);
-        core::at(s_players, player).controller = nullptr;
-        --s_seats_in_use;
+        core::at(sdl_input_state().players_, player).controller = nullptr;
+        --sdl_input_state().seats_in_use_;
     }
     prune_players();
-    s_controllers.erase(found);
+    sdl_input_state().controllers_.erase(found);
 }
 
 void init_controllers()
 {
     debug_log::printf(StageMap::kInfo, "Initializing Controller Input\n");
-    s_controllers.clear();
+    sdl_input_state().controllers_.clear();
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
         if (SDL_IsGameController(i))
             attach_controller(i);
@@ -289,9 +335,6 @@ uint8_t in_park_editor()
     return manager->fetch_part(&element, 0x5999551E, 0)->get_pull() ? 1 : 0;
 }
 
-uint8_t s_in_menu = 0;
-uint8_t s_editing_park = 0;
-
 // Not original (PartyMod reads a Caveman binding and never uses it) - the Caveman key / button steps off the board
 // and back on, pressing what the game's SwitchControl_Trigger (game\skater\switch_control.qb) waits for in the
 // trigger set it reads (Skater::Component::platform_structure): with UsePS2Controls the PS2 one, L1 and R1 together
@@ -300,9 +343,9 @@ uint8_t s_editing_park = 0;
 // Original behaviour (PartyMod v1.0.4): the binding is read, nothing presses it.
 void press_caveman(std::array<uint8_t, 32>& data)
 {
-    if (s_in_menu || s_editing_park)
+    if (sdl_input_state().in_menu_ || sdl_input_state().editing_park_)
         return;
-    if (!s_settings.ps2_controls_) {
+    if (!sdl_input_state().settings_.ps2_controls_) {
         core::at(data, 20) |= 1 << 0; // black
         return;
     }
@@ -322,113 +365,113 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
     device->is_usable_ = 1;
     device->is_connected_ = true;
 
-    if (is_controller_button_held(controller, s_pad.menu))
+    if (is_controller_button_held(controller, sdl_input_state().pad_.menu))
         core::at(data, 2) |= 1 << 3;
-    if (is_controller_button_held(controller, s_pad.camera_toggle_))
+    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_toggle_))
         core::at(data, 2) |= 1 << 0;
-    if (is_controller_button_held(controller, s_pad.camera_swivel_lock_))
+    if (is_controller_button_held(controller, sdl_input_state().pad_.camera_swivel_lock_))
         core::at(data, 2) |= 1 << 2;
-    if (is_controller_button_held(controller, s_pad.focus))
+    if (is_controller_button_held(controller, sdl_input_state().pad_.focus))
         core::at(data, 2) |= 1 << 1;
 
-    if (is_controller_button_held(controller, s_pad.grind)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.grind)) {
         core::at(data, 3) |= 1 << 4;
         core::at(data, 12) = 0xFF;
     }
-    if (is_controller_button_held(controller, s_pad.grab)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.grab)) {
         core::at(data, 3) |= 1 << 5;
         core::at(data, 13) = 0xFF;
     }
-    if (is_controller_button_held(controller, s_pad.ollie)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.ollie)) {
         core::at(data, 3) |= 1 << 6;
         core::at(data, 14) = 0xFF;
     }
-    if (is_controller_button_held(controller, s_pad.kick)) {
+    if (is_controller_button_held(controller, sdl_input_state().pad_.kick)) {
         core::at(data, 3) |= 1 << 7;
         core::at(data, 15) = 0xFF;
     }
 
     // the shoulders
-    if (s_settings.ps2_controls_) {
-        if (is_controller_button_held(controller, s_pad.left_spin_)) {
+    if (sdl_input_state().settings_.ps2_controls_) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_)) {
             core::at(data, 3) |= 1 << 2;
             core::at(data, 16) = 0xFF;
         }
-        if (is_controller_button_held(controller, s_pad.right_spin_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_)) {
             core::at(data, 3) |= 1 << 3;
             core::at(data, 17) = 0xFF;
-            if (s_editing_park)
+            if (sdl_input_state().editing_park_)
                 core::at(data, 20) |= 1 << 0; // black, editing a park
         }
-        if (is_controller_button_held(controller, s_pad.nollie)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie)) {
             core::at(data, 3) |= 1 << 0;
             core::at(data, 18) = 0xFF;
-            if (s_in_menu)
+            if (sdl_input_state().in_menu_)
                 core::at(data, 20) |= 1 << 1; // white, in a menu
         }
-        if (is_controller_button_held(controller, s_pad.switch_revert_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_)) {
             core::at(data, 3) |= 1 << 1;
             core::at(data, 19) = 0xFF;
-            if (s_in_menu)
+            if (sdl_input_state().in_menu_)
                 core::at(data, 20) |= 1 << 0; // black, in a menu
-            else if (s_editing_park)
+            else if (sdl_input_state().editing_park_)
                 core::at(data, 20) |= 1 << 1; // white, editing a park
         }
-    } else if (s_editing_park && !get_keyboard_on_screen()) {
+    } else if (sdl_input_state().editing_park_ && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
-        if (is_controller_button_held(controller, s_pad.switch_revert_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_)) {
             core::at(data, 3) |= 1 << 2;
             core::at(data, 16) = 0xFF;
         }
-        if (is_controller_button_held(controller, s_pad.nollie)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie)) {
             core::at(data, 3) |= 1 << 0;
             core::at(data, 18) = 0xFF;
         }
-        if (is_controller_button_held(controller, s_pad.left_spin_))
+        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_))
             core::at(data, 20) |= 1 << 1;
-        if (is_controller_button_held(controller, s_pad.right_spin_))
+        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_))
             core::at(data, 20) |= 1 << 0;
     } else {
-        if (is_controller_button_held(controller, s_pad.nollie)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.nollie)) {
             core::at(data, 3) |= 1 << 2;
             core::at(data, 16) = 0xFF;
             core::at(data, 3) |= 1 << 0;
             core::at(data, 18) = 0xFF;
         }
-        if (is_controller_button_held(controller, s_pad.switch_revert_)) {
+        if (is_controller_button_held(controller, sdl_input_state().pad_.switch_revert_)) {
             core::at(data, 3) |= 1 << 3;
             core::at(data, 17) = 0xFF;
             core::at(data, 3) |= 1 << 1;
             core::at(data, 19) = 0xFF;
         }
-        if (is_controller_button_held(controller, s_pad.left_spin_))
+        if (is_controller_button_held(controller, sdl_input_state().pad_.left_spin_))
             core::at(data, 20) |= 1 << 1;
-        if (is_controller_button_held(controller, s_pad.right_spin_))
+        if (is_controller_button_held(controller, sdl_input_state().pad_.right_spin_))
             core::at(data, 20) |= 1 << 0;
     }
-    if (is_controller_button_held(controller, s_pad.caveman))
+    if (is_controller_button_held(controller, sdl_input_state().pad_.caveman))
         press_caveman(data);
 
     // the d-pad (plain buttons: not the triggers)
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.up))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.up))) {
         core::at(data, 2) |= 1 << 4;
         core::at(data, 10) = 0xFF;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.right))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.right))) {
         core::at(data, 2) |= 1 << 5;
         core::at(data, 8) = 0xFF;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.down))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.down))) {
         core::at(data, 2) |= 1 << 6;
         core::at(data, 11) = 0xFF;
     }
-    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.left))) {
+    if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(sdl_input_state().pad_.left))) {
         core::at(data, 2) |= 1 << 7;
         core::at(data, 9) = 0xFF;
     }
 
-    read_stick(controller, s_pad.camera, &core::at(data, 4), &core::at(data, 5));
-    read_stick(controller, s_pad.movement, &core::at(data, 6), &core::at(data, 7));
+    read_stick(controller, sdl_input_state().pad_.camera, &core::at(data, 4), &core::at(data, 5));
+    read_stick(controller, sdl_input_state().pad_.movement, &core::at(data, 6), &core::at(data, 7));
 }
 
 // --- the keyboard -----------------------------------------------------------------------------------------------
@@ -437,61 +480,44 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
 // outside one their bindings work as keys. A menu key still down when the menu (or the on-screen keyboard) comes
 // or goes is locked out until it's released, unless it's also bound to the same thing.
 constexpr uint8_t kLockedOut = 2;
-struct MenuKeys {
-    uint8_t affirmative; // A / X
-    uint8_t negative;    // B / circle
-    uint8_t menu;        // X / square
-    uint8_t extra;       // Y / triangle
-    uint8_t up;
-    uint8_t down;
-    uint8_t left;
-    uint8_t right;
-    uint8_t rotate_left_;  // LB / L1
-    uint8_t rotate_right_; // RB / R1
-    uint8_t zoom;          // black (R2 too, rerouted to black)
-};
-MenuKeys s_menu_keys;
-
-uint8_t s_was_in_menu = 0;
-uint8_t s_was_keyboard_on_screen = 0;
 
 void update_menu_keys(platform::KeyState keys)
 {
-    const uint8_t keyboard_on_screen = g_keyboard_on_screen;
-    if (s_in_menu != s_was_in_menu || keyboard_on_screen != s_was_keyboard_on_screen) {
-        if (s_keys.ollie != SDL_SCANCODE_RETURN && s_menu_keys.affirmative == 1)
-            s_menu_keys.affirmative = kLockedOut;
-        if (s_keys.grab != SDL_SCANCODE_ESCAPE && s_menu_keys.negative == 1)
-            s_menu_keys.negative = kLockedOut;
-        if (s_keys.kick != SDL_SCANCODE_E && s_menu_keys.menu == 1)
-            s_menu_keys.menu = kLockedOut;
-        if (s_keys.grind != SDL_SCANCODE_R && s_menu_keys.extra == 1)
-            s_menu_keys.extra = kLockedOut;
-        if (s_keys.up != SDL_SCANCODE_UP && s_menu_keys.up == 1)
-            s_menu_keys.up = kLockedOut;
-        if (s_keys.down != SDL_SCANCODE_DOWN && s_menu_keys.down == 1)
-            s_menu_keys.down = kLockedOut;
-        if (s_keys.left != SDL_SCANCODE_LEFT && s_menu_keys.left == 1)
-            s_menu_keys.left = kLockedOut;
-        if (s_keys.right != SDL_SCANCODE_RIGHT && s_menu_keys.right == 1)
-            s_menu_keys.right = kLockedOut;
-        if (s_settings.ps2_controls_) {
-            if (s_keys.left_spin_ != SDL_SCANCODE_1 && s_menu_keys.rotate_left_ == 1)
-                s_menu_keys.rotate_left_ = kLockedOut;
-            if (s_keys.right_spin_ != SDL_SCANCODE_2 && s_menu_keys.rotate_right_ == 1)
-                s_menu_keys.rotate_right_ = kLockedOut;
-            if (s_keys.switch_revert_ != SDL_SCANCODE_MINUS && s_menu_keys.zoom == 1)
-                s_menu_keys.zoom = kLockedOut;
+    const uint8_t keyboard_on_screen = screen_flags().keyboard_on_screen_;
+    if (sdl_input_state().in_menu_ != sdl_input_state().was_in_menu_ || keyboard_on_screen != sdl_input_state().was_keyboard_on_screen_) {
+        if (sdl_input_state().keys_.ollie != SDL_SCANCODE_RETURN && sdl_input_state().menu_keys_.affirmative == 1)
+            sdl_input_state().menu_keys_.affirmative = kLockedOut;
+        if (sdl_input_state().keys_.grab != SDL_SCANCODE_ESCAPE && sdl_input_state().menu_keys_.negative == 1)
+            sdl_input_state().menu_keys_.negative = kLockedOut;
+        if (sdl_input_state().keys_.kick != SDL_SCANCODE_E && sdl_input_state().menu_keys_.menu == 1)
+            sdl_input_state().menu_keys_.menu = kLockedOut;
+        if (sdl_input_state().keys_.grind != SDL_SCANCODE_R && sdl_input_state().menu_keys_.extra == 1)
+            sdl_input_state().menu_keys_.extra = kLockedOut;
+        if (sdl_input_state().keys_.up != SDL_SCANCODE_UP && sdl_input_state().menu_keys_.up == 1)
+            sdl_input_state().menu_keys_.up = kLockedOut;
+        if (sdl_input_state().keys_.down != SDL_SCANCODE_DOWN && sdl_input_state().menu_keys_.down == 1)
+            sdl_input_state().menu_keys_.down = kLockedOut;
+        if (sdl_input_state().keys_.left != SDL_SCANCODE_LEFT && sdl_input_state().menu_keys_.left == 1)
+            sdl_input_state().menu_keys_.left = kLockedOut;
+        if (sdl_input_state().keys_.right != SDL_SCANCODE_RIGHT && sdl_input_state().menu_keys_.right == 1)
+            sdl_input_state().menu_keys_.right = kLockedOut;
+        if (sdl_input_state().settings_.ps2_controls_) {
+            if (sdl_input_state().keys_.left_spin_ != SDL_SCANCODE_1 && sdl_input_state().menu_keys_.rotate_left_ == 1)
+                sdl_input_state().menu_keys_.rotate_left_ = kLockedOut;
+            if (sdl_input_state().keys_.right_spin_ != SDL_SCANCODE_2 && sdl_input_state().menu_keys_.rotate_right_ == 1)
+                sdl_input_state().menu_keys_.rotate_right_ = kLockedOut;
+            if (sdl_input_state().keys_.switch_revert_ != SDL_SCANCODE_MINUS && sdl_input_state().menu_keys_.zoom == 1)
+                sdl_input_state().menu_keys_.zoom = kLockedOut;
         } else {
-            if (s_keys.nollie != SDL_SCANCODE_1 && s_menu_keys.rotate_left_ == 1)
-                s_menu_keys.rotate_left_ = kLockedOut;
-            if (s_keys.switch_revert_ != SDL_SCANCODE_2 && s_menu_keys.rotate_right_ == 1)
-                s_menu_keys.rotate_right_ = kLockedOut;
-            if (s_keys.right_spin_ != SDL_SCANCODE_MINUS && s_menu_keys.zoom == 1)
-                s_menu_keys.zoom = kLockedOut;
+            if (sdl_input_state().keys_.nollie != SDL_SCANCODE_1 && sdl_input_state().menu_keys_.rotate_left_ == 1)
+                sdl_input_state().menu_keys_.rotate_left_ = kLockedOut;
+            if (sdl_input_state().keys_.switch_revert_ != SDL_SCANCODE_2 && sdl_input_state().menu_keys_.rotate_right_ == 1)
+                sdl_input_state().menu_keys_.rotate_right_ = kLockedOut;
+            if (sdl_input_state().keys_.right_spin_ != SDL_SCANCODE_MINUS && sdl_input_state().menu_keys_.zoom == 1)
+                sdl_input_state().menu_keys_.zoom = kLockedOut;
         }
-        s_was_in_menu = s_in_menu;
-        s_was_keyboard_on_screen = keyboard_on_screen;
+        sdl_input_state().was_in_menu_ = sdl_input_state().in_menu_;
+        sdl_input_state().was_keyboard_on_screen_ = keyboard_on_screen;
     }
 
     // a key's state, except while it's locked out and still down
@@ -499,47 +525,47 @@ void update_menu_keys(platform::KeyState keys)
         if (!(state == kLockedOut && core::at(keys, key)))
             state = core::at(keys, key);
     };
-    update(s_menu_keys.affirmative, SDL_SCANCODE_RETURN);
-    update(s_menu_keys.negative, SDL_SCANCODE_ESCAPE);
-    update(s_menu_keys.menu, SDL_SCANCODE_E);
-    update(s_menu_keys.extra, SDL_SCANCODE_R);
-    update(s_menu_keys.up, SDL_SCANCODE_UP);
-    update(s_menu_keys.down, SDL_SCANCODE_DOWN);
-    update(s_menu_keys.left, SDL_SCANCODE_LEFT);
-    update(s_menu_keys.right, SDL_SCANCODE_RIGHT);
-    update(s_menu_keys.rotate_left_, SDL_SCANCODE_1);
-    update(s_menu_keys.rotate_right_, SDL_SCANCODE_2);
-    update(s_menu_keys.zoom, SDL_SCANCODE_MINUS);
+    update(sdl_input_state().menu_keys_.affirmative, SDL_SCANCODE_RETURN);
+    update(sdl_input_state().menu_keys_.negative, SDL_SCANCODE_ESCAPE);
+    update(sdl_input_state().menu_keys_.menu, SDL_SCANCODE_E);
+    update(sdl_input_state().menu_keys_.extra, SDL_SCANCODE_R);
+    update(sdl_input_state().menu_keys_.up, SDL_SCANCODE_UP);
+    update(sdl_input_state().menu_keys_.down, SDL_SCANCODE_DOWN);
+    update(sdl_input_state().menu_keys_.left, SDL_SCANCODE_LEFT);
+    update(sdl_input_state().menu_keys_.right, SDL_SCANCODE_RIGHT);
+    update(sdl_input_state().menu_keys_.rotate_left_, SDL_SCANCODE_1);
+    update(sdl_input_state().menu_keys_.rotate_right_, SDL_SCANCODE_2);
+    update(sdl_input_state().menu_keys_.zoom, SDL_SCANCODE_MINUS);
 }
 
 // A bound key (its scan code's low byte, as the bindings are passed): a menu key doesn't count as a binding in a
 // menu or while locked out.
 uint8_t get_key_down(platform::KeyState keys, uint8_t key)
 {
-    auto menu_key = [keys, key](uint8_t state) -> uint8_t { return state != kLockedOut && (!s_in_menu && core::at(keys, key)); };
+    auto menu_key = [keys, key](uint8_t state) -> uint8_t { return state != kLockedOut && (!sdl_input_state().in_menu_ && core::at(keys, key)); };
     switch (key) {
     case SDL_SCANCODE_RETURN:
-        return menu_key(s_menu_keys.affirmative);
+        return menu_key(sdl_input_state().menu_keys_.affirmative);
     case SDL_SCANCODE_ESCAPE:
-        return menu_key(s_menu_keys.negative);
+        return menu_key(sdl_input_state().menu_keys_.negative);
     case SDL_SCANCODE_E:
-        return menu_key(s_menu_keys.menu);
+        return menu_key(sdl_input_state().menu_keys_.menu);
     case SDL_SCANCODE_R:
-        return menu_key(s_menu_keys.extra);
+        return menu_key(sdl_input_state().menu_keys_.extra);
     case SDL_SCANCODE_UP:
-        return menu_key(s_menu_keys.up);
+        return menu_key(sdl_input_state().menu_keys_.up);
     case SDL_SCANCODE_DOWN:
-        return menu_key(s_menu_keys.down);
+        return menu_key(sdl_input_state().menu_keys_.down);
     case SDL_SCANCODE_LEFT:
-        return menu_key(s_menu_keys.left);
+        return menu_key(sdl_input_state().menu_keys_.left);
     case SDL_SCANCODE_RIGHT:
-        return menu_key(s_menu_keys.right);
+        return menu_key(sdl_input_state().menu_keys_.right);
     case SDL_SCANCODE_1:
-        return menu_key(s_menu_keys.rotate_left_);
+        return menu_key(sdl_input_state().menu_keys_.rotate_left_);
     case SDL_SCANCODE_2:
-        return menu_key(s_menu_keys.rotate_right_);
+        return menu_key(sdl_input_state().menu_keys_.rotate_right_);
     case SDL_SCANCODE_MINUS:
-        return menu_key(s_menu_keys.zoom);
+        return menu_key(sdl_input_state().menu_keys_.zoom);
     default:
         return core::at(keys, key);
     }
@@ -557,92 +583,92 @@ void poll_keyboard(InputPort* device)
         return;
     // (a binding's scan code is passed as its low byte)
     auto down = [keys](SDL_Scancode key) { return get_key_down(keys, static_cast<uint8_t>(key)) != 0; };
-    auto menu_down = [](uint8_t state) { return s_in_menu && state == 1; };
+    auto menu_down = [](uint8_t state) { return sdl_input_state().in_menu_ && state == 1; };
 
     // Not original - the level editor (editor/level_editor.h) flies on W/A/S/D/Q/E/Shift/Ctrl/Space: while it
     // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
     // editor started; nothing else.
     // Original behaviour: every binding is read.
     if (frontend::level_editor::live_now()) {
-        if (frontend::level_editor::pass_pause_key(core::at(keys, s_keys.menu) != 0))
+        if (frontend::level_editor::pass_pause_key(core::at(keys, sdl_input_state().keys_.menu) != 0))
             core::at(data, 2) |= 1 << 3;
         return;
     }
 
-    if (down(s_keys.menu))
+    if (down(sdl_input_state().keys_.menu))
         core::at(data, 2) |= 1 << 3;
-    if (down(s_keys.camera_toggle_))
+    if (down(sdl_input_state().keys_.camera_toggle_))
         core::at(data, 2) |= 1 << 0;
-    if (down(s_keys.focus))
+    if (down(sdl_input_state().keys_.focus))
         core::at(data, 2) |= 1 << 1;
-    if (down(s_keys.camera_swivel_lock_))
+    if (down(sdl_input_state().keys_.camera_swivel_lock_))
         core::at(data, 2) |= 1 << 2;
 
-    if (down(s_keys.grind) || menu_down(s_menu_keys.extra)) {
+    if (down(sdl_input_state().keys_.grind) || menu_down(sdl_input_state().menu_keys_.extra)) {
         core::at(data, 3) |= 1 << 4;
         core::at(data, 12) = 0xFF;
     }
-    if (down(s_keys.grab) || menu_down(s_menu_keys.negative)) {
+    if (down(sdl_input_state().keys_.grab) || menu_down(sdl_input_state().menu_keys_.negative)) {
         core::at(data, 3) |= 1 << 5;
         core::at(data, 13) = 0xFF;
     }
-    if (down(s_keys.ollie) || menu_down(s_menu_keys.affirmative)) {
+    if (down(sdl_input_state().keys_.ollie) || menu_down(sdl_input_state().menu_keys_.affirmative)) {
         core::at(data, 3) |= 1 << 6;
         core::at(data, 14) = 0xFF;
     }
-    if (down(s_keys.kick) || menu_down(s_menu_keys.menu)) {
+    if (down(sdl_input_state().keys_.kick) || menu_down(sdl_input_state().menu_keys_.menu)) {
         core::at(data, 3) |= 1 << 7;
         core::at(data, 15) = 0xFF;
     }
 
     // the shoulders
-    if (s_settings.ps2_controls_) {
-        if (down(s_keys.left_spin_) || menu_down(s_menu_keys.rotate_left_)) {
+    if (sdl_input_state().settings_.ps2_controls_) {
+        if (down(sdl_input_state().keys_.left_spin_) || menu_down(sdl_input_state().menu_keys_.rotate_left_)) {
             core::at(data, 3) |= 1 << 2;
             core::at(data, 16) = 0xFF;
         }
-        if (down(s_keys.right_spin_) || menu_down(s_menu_keys.rotate_right_)) {
+        if (down(sdl_input_state().keys_.right_spin_) || menu_down(sdl_input_state().menu_keys_.rotate_right_)) {
             core::at(data, 3) |= 1 << 3;
             core::at(data, 17) = 0xFF;
-            if (s_editing_park)
+            if (sdl_input_state().editing_park_)
                 core::at(data, 20) |= 1 << 0; // black, editing a park
         }
-        if (down(s_keys.nollie)) {
+        if (down(sdl_input_state().keys_.nollie)) {
             core::at(data, 3) |= 1 << 0;
             core::at(data, 18) = 0xFF;
-            if (s_in_menu)
+            if (sdl_input_state().in_menu_)
                 core::at(data, 20) |= 1 << 1; // white, in a menu
         }
-        if (down(s_keys.switch_revert_) || menu_down(s_menu_keys.zoom)) {
+        if (down(sdl_input_state().keys_.switch_revert_) || menu_down(sdl_input_state().menu_keys_.zoom)) {
             core::at(data, 3) |= 1 << 1;
             core::at(data, 19) = 0xFF;
-            if (s_in_menu)
+            if (sdl_input_state().in_menu_)
                 core::at(data, 20) |= 1 << 0; // black, in a menu
-            else if (s_editing_park)
+            else if (sdl_input_state().editing_park_)
                 core::at(data, 20) |= 1 << 1; // white, editing a park
         }
-    } else if (s_editing_park && !get_keyboard_on_screen()) {
+    } else if (sdl_input_state().editing_park_ && !get_keyboard_on_screen()) {
         // editing a park: the right trigger is L1
-        if (down(s_keys.switch_revert_)) {
+        if (down(sdl_input_state().keys_.switch_revert_)) {
             core::at(data, 3) |= 1 << 2;
             core::at(data, 16) = 0xFF;
         }
-        if (down(s_keys.nollie)) {
+        if (down(sdl_input_state().keys_.nollie)) {
             core::at(data, 3) |= 1 << 0;
             core::at(data, 18) = 0xFF;
         }
-        if (down(s_keys.left_spin_))
+        if (down(sdl_input_state().keys_.left_spin_))
             core::at(data, 20) |= 1 << 1;
-        if (down(s_keys.right_spin_))
+        if (down(sdl_input_state().keys_.right_spin_))
             core::at(data, 20) |= 1 << 0;
     } else {
-        if (down(s_keys.nollie) || menu_down(s_menu_keys.rotate_left_)) {
+        if (down(sdl_input_state().keys_.nollie) || menu_down(sdl_input_state().menu_keys_.rotate_left_)) {
             core::at(data, 3) |= 1 << 2;
             core::at(data, 16) = 0xFF;
             core::at(data, 3) |= 1 << 0;
             core::at(data, 18) = 0xFF;
         }
-        if (down(s_keys.switch_revert_) || menu_down(s_menu_keys.rotate_right_)) {
+        if (down(sdl_input_state().keys_.switch_revert_) || menu_down(sdl_input_state().menu_keys_.rotate_right_)) {
             core::at(data, 3) |= 1 << 3;
             core::at(data, 17) = 0xFF;
             core::at(data, 3) |= 1 << 1;
@@ -653,57 +679,57 @@ void poll_keyboard(InputPort* device)
         // triggers then (Component::platform_structure), where black steps off the board (SwitchControl_Trigger's
         // Xbox_Trigger): spin left alone does it, as in the original game.
         // Original behaviour (PartyMod v1.0.4): the other way round - spin left white, spin right black:
-        //     if (down(s_keys.left_spin_)) core::at(data, 20) |= 1 << 1;
-        //     if (down(s_keys.right_spin_) || menu_down(s_menu_keys.zoom)) core::at(data, 20) |= 1 << 0;
-        if (down(s_keys.left_spin_))
+        //     if (down(sdl_input_state().keys_.left_spin_)) core::at(data, 20) |= 1 << 1;
+        //     if (down(sdl_input_state().keys_.right_spin_) || menu_down(sdl_input_state().menu_keys_.zoom)) core::at(data, 20) |= 1 << 0;
+        if (down(sdl_input_state().keys_.left_spin_))
             core::at(data, 20) |= 1 << 0; // black
-        if (down(s_keys.right_spin_))
+        if (down(sdl_input_state().keys_.right_spin_))
             core::at(data, 20) |= 1 << 1; // white
-        if (menu_down(s_menu_keys.zoom))
+        if (menu_down(sdl_input_state().menu_keys_.zoom))
             core::at(data, 20) |= 1 << 0;
     }
-    if (down(s_keys.caveman))
+    if (down(sdl_input_state().keys_.caveman))
         press_caveman(data);
 
     // the d-pad: the item keys
-    if (down(s_keys.item_up_) || menu_down(s_menu_keys.up)) {
+    if (down(sdl_input_state().keys_.item_up_) || menu_down(sdl_input_state().menu_keys_.up)) {
         core::at(data, 2) |= 1 << 4;
         core::at(data, 10) = 0xFF;
     }
-    if (down(s_keys.item_right_) || menu_down(s_menu_keys.right)) {
+    if (down(sdl_input_state().keys_.item_right_) || menu_down(sdl_input_state().menu_keys_.right)) {
         core::at(data, 2) |= 1 << 5;
         core::at(data, 8) = 0xFF;
     }
-    if (down(s_keys.item_down_) || menu_down(s_menu_keys.down)) {
+    if (down(sdl_input_state().keys_.item_down_) || menu_down(sdl_input_state().menu_keys_.down)) {
         core::at(data, 2) |= 1 << 6;
         core::at(data, 11) = 0xFF;
     }
-    if (down(s_keys.item_left_) || menu_down(s_menu_keys.left)) {
+    if (down(sdl_input_state().keys_.item_left_) || menu_down(sdl_input_state().menu_keys_.left)) {
         core::at(data, 2) |= 1 << 7;
         core::at(data, 9) = 0xFF;
     }
 
     // the sticks: opposite keys together cancel out
-    if (down(s_keys.camera_left_) && !down(s_keys.camera_right_))
+    if (down(sdl_input_state().keys_.camera_left_) && !down(sdl_input_state().keys_.camera_right_))
         core::at(data, 4) = 0;
-    if (down(s_keys.camera_right_) && !down(s_keys.camera_left_))
+    if (down(sdl_input_state().keys_.camera_right_) && !down(sdl_input_state().keys_.camera_left_))
         core::at(data, 4) = 255;
-    if (down(s_keys.camera_up_) && !down(s_keys.camera_down_))
+    if (down(sdl_input_state().keys_.camera_up_) && !down(sdl_input_state().keys_.camera_down_))
         core::at(data, 5) = 0;
-    if (down(s_keys.camera_down_) && !down(s_keys.camera_up_))
+    if (down(sdl_input_state().keys_.camera_down_) && !down(sdl_input_state().keys_.camera_up_))
         core::at(data, 5) = 255;
     // Not original - THAW's half-stick key (PartyMod's THAW build: Feeble, 64 / 192 instead of 0 / 255) while THAW's
     // BMX is ridden (game/rider/thaw_bmx.h half_stick_key): its grind pick reads how far the stick is pushed.
     // Original behaviour: the Feeble binding is read but unused - the movement keys always give 0 / 255.
-    const bool half = down(s_keys.feeble) && skater::thaw_bmx::half_stick_key();
+    const bool half = down(sdl_input_state().keys_.feeble) && skater::thaw_bmx::half_stick_key();
     const uint8_t low = half ? 64 : 0, high = half ? 192 : 255;
-    if (down(s_keys.left) && !down(s_keys.right))
+    if (down(sdl_input_state().keys_.left) && !down(sdl_input_state().keys_.right))
         core::at(data, 6) = low;
-    if (down(s_keys.right) && !down(s_keys.left))
+    if (down(sdl_input_state().keys_.right) && !down(sdl_input_state().keys_.left))
         core::at(data, 6) = high;
-    if (down(s_keys.up) && !down(s_keys.down))
+    if (down(sdl_input_state().keys_.up) && !down(sdl_input_state().keys_.down))
         core::at(data, 7) = low;
-    if (down(s_keys.down) && !down(s_keys.up))
+    if (down(sdl_input_state().keys_.down) && !down(sdl_input_state().keys_.up))
         core::at(data, 7) = high;
 }
 
@@ -771,7 +797,7 @@ void handle_input_event(SDL_Event* event)
         debug_log::printf(StageMap::kInfo, "Joystick added: %s\n", SDL_JoystickNameForIndex(event->jdevice.which));
         return;
     case SDL_KEYDOWN:
-        s_using_keyboard = true;
+        sdl_input_state().using_keyboard_ = true;
         // (not original: Enter / F1-F4 aren't the game's special keys while the new front end has the keyboard -
         // frontend/new_frontend.h)
         if (!frontend::new_frontend::blocks_game_input())
@@ -783,20 +809,20 @@ void handle_input_event(SDL_Event* event)
         const int player = SDL_GameControllerGetPlayerIndex(controller);
         if (player == -1)
             enroll_player(controller);
-        else if (core::at(s_players, player).locked_out_)
-            ++core::at(s_players, player).locked_out_;
-        s_using_keyboard = false;
+        else if (core::at(sdl_input_state().players_, player).locked_out_)
+            ++core::at(sdl_input_state().players_, player).locked_out_;
+        sdl_input_state().using_keyboard_ = false;
         return;
     }
     case SDL_CONTROLLERBUTTONUP: {
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
         const int player = SDL_GameControllerGetPlayerIndex(controller);
-        if (player != -1 && core::at(s_players, player).locked_out_)
-            --core::at(s_players, player).locked_out_;
+        if (player != -1 && core::at(sdl_input_state().players_, player).locked_out_)
+            --core::at(sdl_input_state().players_, player).locked_out_;
         return;
     }
     case SDL_CONTROLLERAXISMOTION:
-        s_using_keyboard = false;
+        sdl_input_state().using_keyboard_ = false;
         return;
     case SDL_TEXTINPUT:
         text_typed(std::data(event->text.text));
@@ -855,40 +881,40 @@ int32_t direct_input_key(SDL_Scancode scan_code)
 void write_game_key_bindings()
 {
     std::array<int32_t, os_layer::kBindings>& binds = os_layer::g_input_map.front().keys;
-    core::at(binds, 0) = direct_input_key(s_keys.up);
-    core::at(binds, 1) = direct_input_key(s_keys.down);
-    core::at(binds, 2) = direct_input_key(s_keys.left);
-    core::at(binds, 3) = direct_input_key(s_keys.right);
+    core::at(binds, 0) = direct_input_key(sdl_input_state().keys_.up);
+    core::at(binds, 1) = direct_input_key(sdl_input_state().keys_.down);
+    core::at(binds, 2) = direct_input_key(sdl_input_state().keys_.left);
+    core::at(binds, 3) = direct_input_key(sdl_input_state().keys_.right);
 
-    core::at(binds, 4) = direct_input_key(s_keys.camera_up_);
-    core::at(binds, 5) = direct_input_key(s_keys.camera_down_);
-    core::at(binds, 6) = direct_input_key(s_keys.camera_left_);
-    core::at(binds, 7) = direct_input_key(s_keys.camera_right_);
+    core::at(binds, 4) = direct_input_key(sdl_input_state().keys_.camera_up_);
+    core::at(binds, 5) = direct_input_key(sdl_input_state().keys_.camera_down_);
+    core::at(binds, 6) = direct_input_key(sdl_input_state().keys_.camera_left_);
+    core::at(binds, 7) = direct_input_key(sdl_input_state().keys_.camera_right_);
 
-    core::at(binds, 8) = direct_input_key(s_keys.ollie);
-    core::at(binds, 9) = direct_input_key(s_keys.grab);
-    core::at(binds, 10) = direct_input_key(s_keys.kick);
-    core::at(binds, 11) = direct_input_key(s_keys.grind);
+    core::at(binds, 8) = direct_input_key(sdl_input_state().keys_.ollie);
+    core::at(binds, 9) = direct_input_key(sdl_input_state().keys_.grab);
+    core::at(binds, 10) = direct_input_key(sdl_input_state().keys_.kick);
+    core::at(binds, 11) = direct_input_key(sdl_input_state().keys_.grind);
 
-    core::at(binds, 13) = direct_input_key(s_keys.camera_toggle_);
-    core::at(binds, 14) = direct_input_key(s_keys.left_spin_);
-    core::at(binds, 15) = direct_input_key(s_keys.right_spin_);
-    core::at(binds, 16) = direct_input_key(s_keys.nollie);
-    core::at(binds, 17) = direct_input_key(s_keys.switch_revert_);
-    core::at(binds, 18) = direct_input_key(s_keys.focus);
+    core::at(binds, 13) = direct_input_key(sdl_input_state().keys_.camera_toggle_);
+    core::at(binds, 14) = direct_input_key(sdl_input_state().keys_.left_spin_);
+    core::at(binds, 15) = direct_input_key(sdl_input_state().keys_.right_spin_);
+    core::at(binds, 16) = direct_input_key(sdl_input_state().keys_.nollie);
+    core::at(binds, 17) = direct_input_key(sdl_input_state().keys_.switch_revert_);
+    core::at(binds, 18) = direct_input_key(sdl_input_state().keys_.focus);
 
-    core::at(binds, 20) = direct_input_key(s_keys.item_up_);
-    core::at(binds, 21) = direct_input_key(s_keys.item_down_);
-    core::at(binds, 22) = direct_input_key(s_keys.item_left_);
-    core::at(binds, 23) = direct_input_key(s_keys.item_right_);
+    core::at(binds, 20) = direct_input_key(sdl_input_state().keys_.item_up_);
+    core::at(binds, 21) = direct_input_key(sdl_input_state().keys_.item_down_);
+    core::at(binds, 22) = direct_input_key(sdl_input_state().keys_.item_left_);
+    core::at(binds, 23) = direct_input_key(sdl_input_state().keys_.item_right_);
 }
 
 // --- reading the settings -----------------------------------------------------------------------------------------
 
 void load_input_settings()
 {
-    s_settings.ps2_controls_ = build_info::fetch_flag(build_info::kMiscellaneous, "UsePS2Controls", true);
-    s_settings.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));
+    sdl_input_state().settings_.ps2_controls_ = build_info::fetch_flag(build_info::kMiscellaneous, "UsePS2Controls", true);
+    sdl_input_state().settings_.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));
 }
 
 SDL_Scancode get_key(const char* name, SDL_Scancode fallback)
@@ -898,37 +924,37 @@ SDL_Scancode get_key(const char* name, SDL_Scancode fallback)
 
 void load_key_binds()
 {
-    s_keys.menu = get_key("Pause", SDL_SCANCODE_RETURN);
-    s_keys.camera_toggle_ = get_key("ViewToggle", SDL_SCANCODE_F);
-    s_keys.camera_swivel_lock_ = get_key("SwivelLock", SDL_SCANCODE_GRAVE);
-    s_keys.focus = get_key("Focus", SDL_SCANCODE_KP_ENTER);
-    s_keys.caveman = get_key("Caveman", SDL_SCANCODE_E);
+    sdl_input_state().keys_.menu = get_key("Pause", SDL_SCANCODE_RETURN);
+    sdl_input_state().keys_.camera_toggle_ = get_key("ViewToggle", SDL_SCANCODE_F);
+    sdl_input_state().keys_.camera_swivel_lock_ = get_key("SwivelLock", SDL_SCANCODE_GRAVE);
+    sdl_input_state().keys_.focus = get_key("Focus", SDL_SCANCODE_KP_ENTER);
+    sdl_input_state().keys_.caveman = get_key("Caveman", SDL_SCANCODE_E);
 
-    s_keys.grind = get_key("Grind", SDL_SCANCODE_KP_8);
-    s_keys.grab = get_key("Grab", SDL_SCANCODE_KP_6);
-    s_keys.ollie = get_key("Ollie", SDL_SCANCODE_KP_2);
-    s_keys.kick = get_key("Flip", SDL_SCANCODE_KP_4);
+    sdl_input_state().keys_.grind = get_key("Grind", SDL_SCANCODE_KP_8);
+    sdl_input_state().keys_.grab = get_key("Grab", SDL_SCANCODE_KP_6);
+    sdl_input_state().keys_.ollie = get_key("Ollie", SDL_SCANCODE_KP_2);
+    sdl_input_state().keys_.kick = get_key("Flip", SDL_SCANCODE_KP_4);
 
-    s_keys.left_spin_ = get_key("SpinLeft", SDL_SCANCODE_KP_1);
-    s_keys.right_spin_ = get_key("SpinRight", SDL_SCANCODE_KP_3);
-    s_keys.nollie = get_key("Nollie", SDL_SCANCODE_KP_7);
-    s_keys.switch_revert_ = get_key("Switch", SDL_SCANCODE_KP_9);
+    sdl_input_state().keys_.left_spin_ = get_key("SpinLeft", SDL_SCANCODE_KP_1);
+    sdl_input_state().keys_.right_spin_ = get_key("SpinRight", SDL_SCANCODE_KP_3);
+    sdl_input_state().keys_.nollie = get_key("Nollie", SDL_SCANCODE_KP_7);
+    sdl_input_state().keys_.switch_revert_ = get_key("Switch", SDL_SCANCODE_KP_9);
 
-    s_keys.right = get_key("Right", SDL_SCANCODE_D);
-    s_keys.left = get_key("Left", SDL_SCANCODE_A);
-    s_keys.up = get_key("Forward", SDL_SCANCODE_W);
-    s_keys.down = get_key("Backward", SDL_SCANCODE_S);
-    s_keys.feeble = get_key("Feeble", SDL_SCANCODE_LSHIFT);
+    sdl_input_state().keys_.right = get_key("Right", SDL_SCANCODE_D);
+    sdl_input_state().keys_.left = get_key("Left", SDL_SCANCODE_A);
+    sdl_input_state().keys_.up = get_key("Forward", SDL_SCANCODE_W);
+    sdl_input_state().keys_.down = get_key("Backward", SDL_SCANCODE_S);
+    sdl_input_state().keys_.feeble = get_key("Feeble", SDL_SCANCODE_LSHIFT);
 
-    s_keys.camera_right_ = get_key("CameraRight", SDL_SCANCODE_KP_MULTIPLY);
-    s_keys.camera_left_ = get_key("CameraLeft", SDL_SCANCODE_KP_DIVIDE);
-    s_keys.camera_up_ = get_key("CameraUp", SDL_SCANCODE_KP_PLUS);
-    s_keys.camera_down_ = get_key("CameraDown", SDL_SCANCODE_KP_MINUS);
+    sdl_input_state().keys_.camera_right_ = get_key("CameraRight", SDL_SCANCODE_KP_MULTIPLY);
+    sdl_input_state().keys_.camera_left_ = get_key("CameraLeft", SDL_SCANCODE_KP_DIVIDE);
+    sdl_input_state().keys_.camera_up_ = get_key("CameraUp", SDL_SCANCODE_KP_PLUS);
+    sdl_input_state().keys_.camera_down_ = get_key("CameraDown", SDL_SCANCODE_KP_MINUS);
 
-    s_keys.item_right_ = get_key("ItemRight", SDL_SCANCODE_L);
-    s_keys.item_left_ = get_key("ItemLeft", SDL_SCANCODE_J);
-    s_keys.item_up_ = get_key("ItemUp", SDL_SCANCODE_I);
-    s_keys.item_down_ = get_key("ItemDown", SDL_SCANCODE_K);
+    sdl_input_state().keys_.item_right_ = get_key("ItemRight", SDL_SCANCODE_L);
+    sdl_input_state().keys_.item_left_ = get_key("ItemLeft", SDL_SCANCODE_J);
+    sdl_input_state().keys_.item_up_ = get_key("ItemUp", SDL_SCANCODE_I);
+    sdl_input_state().keys_.item_down_ = get_key("ItemDown", SDL_SCANCODE_K);
 }
 
 PadButton get_button(const char* name, int fallback)
@@ -938,30 +964,30 @@ PadButton get_button(const char* name, int fallback)
 
 void load_pad_binds()
 {
-    s_pad.menu = get_button("Pause", kButtonStart);
-    s_pad.camera_toggle_ = get_button("ViewToggle", kButtonBack);
-    s_pad.camera_swivel_lock_ = get_button("SwivelLock", kButtonRightStick);
-    s_pad.focus = get_button("Focus", kButtonLeftStick);
+    sdl_input_state().pad_.menu = get_button("Pause", kButtonStart);
+    sdl_input_state().pad_.camera_toggle_ = get_button("ViewToggle", kButtonBack);
+    sdl_input_state().pad_.camera_swivel_lock_ = get_button("SwivelLock", kButtonRightStick);
+    sdl_input_state().pad_.focus = get_button("Focus", kButtonLeftStick);
     // (unbound unless set: PartyMod's fallback 0 is the A button - Ollie - harmless only while nothing used it)
-    s_pad.caveman = get_button("Caveman", kUnbound);
+    sdl_input_state().pad_.caveman = get_button("Caveman", kUnbound);
 
-    s_pad.grind = get_button("Grind", kButtonY);
-    s_pad.grab = get_button("Grab", kButtonB);
-    s_pad.ollie = get_button("Ollie", kButtonA);
-    s_pad.kick = get_button("Flip", kButtonX);
+    sdl_input_state().pad_.grind = get_button("Grind", kButtonY);
+    sdl_input_state().pad_.grab = get_button("Grab", kButtonB);
+    sdl_input_state().pad_.ollie = get_button("Ollie", kButtonA);
+    sdl_input_state().pad_.kick = get_button("Flip", kButtonX);
 
-    s_pad.left_spin_ = get_button("SpinLeft", kButtonLeftShoulder);
-    s_pad.right_spin_ = get_button("SpinRight", kButtonRightShoulder);
-    s_pad.nollie = get_button("Nollie", kLeftTrigger);
-    s_pad.switch_revert_ = get_button("Switch", kRightTrigger);
+    sdl_input_state().pad_.left_spin_ = get_button("SpinLeft", kButtonLeftShoulder);
+    sdl_input_state().pad_.right_spin_ = get_button("SpinRight", kButtonRightShoulder);
+    sdl_input_state().pad_.nollie = get_button("Nollie", kLeftTrigger);
+    sdl_input_state().pad_.switch_revert_ = get_button("Switch", kRightTrigger);
 
-    s_pad.right = get_button("Right", kDpadRight);
-    s_pad.left = get_button("Left", kDpadLeft);
-    s_pad.up = get_button("Forward", kDpadUp);
-    s_pad.down = get_button("Backward", kDpadDown);
+    sdl_input_state().pad_.right = get_button("Right", kDpadRight);
+    sdl_input_state().pad_.left = get_button("Left", kDpadLeft);
+    sdl_input_state().pad_.up = get_button("Forward", kDpadUp);
+    sdl_input_state().pad_.down = get_button("Backward", kDpadDown);
 
-    s_pad.movement = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "MovementStick", kStickLeft));
-    s_pad.camera = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "CameraStick", kStickRight));
+    sdl_input_state().pad_.movement = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "MovementStick", kStickLeft));
+    sdl_input_state().pad_.camera = static_cast<PadStick>(build_info::get_int(build_info::kGamepad, "CameraStick", kStickRight));
 }
 
 // PartyMod's view of the device has these flags as 32-bit words (the game's are bytes followed by padding): the
@@ -986,8 +1012,8 @@ void set_held_down(InputPort* device, bool on)
 
 } // namespace
 
-InputSettings& the_input_settings() { return s_settings; }
-bool& using_keyboard() { return s_using_keyboard; }
+InputSettings& the_input_settings() { return sdl_input_state().settings_; }
+bool& using_keyboard() { return sdl_input_state().using_keyboard_; }
 
 void init_sdl_input()
 {
@@ -1009,7 +1035,7 @@ void init_sdl_input()
     load_key_binds();
     load_pad_binds();
     init_controllers();
-    if (s_settings.ps2_controls_)
+    if (sdl_input_state().settings_.ps2_controls_)
         sys::install_is_ps2();
     // (not PartyMod's - [features] debug_mode: CD false, the developers' menus - engine/sys/debug_mode.h)
     sys::debug_mode::install();
@@ -1027,8 +1053,8 @@ void init_sdl_input()
 
 void process_sdl_device(InputPort* device)
 {
-    s_editing_park = in_park_editor();
-    s_in_menu = in_menu_flag() && !s_editing_park;
+    sdl_input_state().editing_park_ = in_park_editor();
+    sdl_input_state().in_menu_ = in_menu_flag() && !sdl_input_state().editing_park_;
 
     device->capabilities_ = 3;
     device->rumble_motor_count_ = 2;
@@ -1066,8 +1092,8 @@ void process_sdl_device(InputPort* device)
             poll_keyboard(device);
     }
     auto port = static_cast<uint32_t>(device->port_no_);
-    if (port < kMaxPlayers && core::at(s_players, port).controller && !core::at(s_players, port).locked_out_ && !new_frontend)
-        poll_controller(device, core::at(s_players, port).controller);
+    if (port < kMaxPlayers && core::at(sdl_input_state().players_, port).controller && !core::at(sdl_input_state().players_, port).locked_out_ && !new_frontend)
+        poll_controller(device, core::at(sdl_input_state().players_, port).controller);
     // (not original: the buttons the test-automation channel presses - frontend/automation.h)
     frontend::automation::add_pad_buttons(device->port_no_, data);
 
@@ -1078,12 +1104,12 @@ void process_sdl_device(InputPort* device)
 
     // (typed text only works with these set)
     online::g_text_entry = true;
-    g_in_menu_flag = false;
+    screen_flags().in_menu_flag_ = false;
 }
 
 void set_sdl_actuators(int port, uint16_t high, uint16_t low)
 {
-    for (SDL_GameController* controller : s_controllers) {
+    for (SDL_GameController* controller : sdl_input_state().controllers_) {
         if (SDL_GameControllerGetAttached(controller) && SDL_GameControllerGetPlayerIndex(controller) == port)
             SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), low, high, 0);
     }

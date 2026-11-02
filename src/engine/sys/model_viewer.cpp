@@ -93,11 +93,10 @@ float& movement_velocity() { return g_movement_velocity; }
 float& rotate_velocity() { return g_rotate_velocity; }
 uint32_t& last_time() { return g_last_time; }
 bool debug_checks() { return game_config::g_from_cd; }
-pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
+pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager.get(); }
 
 void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue_job(node); }
-
 
 // A raw stick value through the dead zone: 0 within +-50, else scaled from there.
 float dead_zone(float value)

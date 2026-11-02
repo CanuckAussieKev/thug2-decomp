@@ -13,33 +13,49 @@
 #include "engine/core/task_list.h"
 #include "engine/pad_input/device.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 #include <array>
 
 namespace pad_input {
 
-memory::HeapUnique<pad_input::Hub> g_input_manager;
+namespace {
+
+// NOT ORIGINAL grouping - the input manager's owner and references, each device index's buttons this frame (down,
+// pressed, released). Made on first use, never destroyed (input_hub_state()).
+struct InputHubState {
+    memory::HeapUnique<pad_input::Hub> input_manager_{};
+    unsigned int input_manager_references_{};
+    // Each device index's buttons this frame: down, pressed, released (two of each).
+    std::array<uint32_t, 2> device_makes_{};
+    std::array<uint32_t, 2> device_breaks_{};
+    std::array<uint32_t, 2> device_buttons_{};
+};
+
+InputHubState& input_hub_state()
+{
+    static core::NoDestroy<InputHubState> state;
+    return state.get();
+}
+} // namespace
+
+Hub* get_input_manager() { return input_hub_state().input_manager_.get(); }
 
 namespace {
 
-memory::HeapUnique<Hub>& sole() { return g_input_manager; }
+memory::HeapUnique<Hub>& sole() { return input_hub_state().input_manager_; }
 
-unsigned int g_input_manager_references;
 // The buttons' name checksums (index 0: none).
-std::array<uint32_t, 22> g_pad_button_keys{{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95,
+constexpr std::array<uint32_t, 22> kPadButtonKeys{{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95,
                                0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C,
                                0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4,
                                0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850}};
 
-unsigned int& ref_tally() { return g_input_manager_references; }
+unsigned int& ref_tally() { return input_hub_state().input_manager_references_; }
 
-// Each device index's buttons this frame: down, pressed, released (two of each).
-std::array<uint32_t, 2> g_device_makes;
-std::array<uint32_t, 2> g_device_breaks;
-std::array<uint32_t, 2> g_device_buttons;
-std::array<uint32_t, 2>& device_makes() { return g_device_makes; }
-std::array<uint32_t, 2>& device_breaks() { return g_device_breaks; }
-std::array<uint32_t, 2>& device_buttons() { return g_device_buttons; }
+std::array<uint32_t, 2>& device_makes() { return input_hub_state().device_makes_; }
+std::array<uint32_t, 2>& device_breaks() { return input_hub_state().device_breaks_; }
+std::array<uint32_t, 2>& device_buttons() { return input_hub_state().device_buttons_; }
 
 // The digital-to-analogue table: a button mask and the analogue value its pressure goes to.
 struct DigitalToAnalog {
@@ -47,11 +63,11 @@ struct DigitalToAnalog {
     int event;
 };
 // (pairs of {mask, event} up to and including the first with a mask of 0 or less)
-std::array<DigitalToAnalog, 18> g_digital_to_analog{{{.mask = 0x200, .event = 16},   {.mask = 0x400, .event = 17},   {.mask = 0x1, .event = 14},   {.mask = 0x2, .event = 15},   {.mask = 0x4, .event = 12},
+constexpr std::array<DigitalToAnalog, 18> kDigitalToAnalog{{{.mask = 0x200, .event = 16},   {.mask = 0x400, .event = 17},   {.mask = 0x1, .event = 14},   {.mask = 0x2, .event = 15},   {.mask = 0x4, .event = 12},
                                         {.mask = 0x8, .event = 13},     {.mask = 0x10, .event = 8},     {.mask = 0x20, .event = 9},   {.mask = 0x40, .event = 10},  {.mask = 0x80, .event = 11},
                                         {.mask = 0x1000, .event = 6},   {.mask = 0x2000, .event = 4},   {.mask = 0x4000, .event = 7}, {.mask = 0x8000, .event = 5}, {.mask = 0x10000, .event = 22},
                                         {.mask = 0x20000, .event = 23}, {.mask = 0x40000, .event = 24}, {.mask = 0x0, .event = 0}}};
-const std::array<DigitalToAnalog, 18>& digital_to_analog_table() { return g_digital_to_analog; }
+const std::array<DigitalToAnalog, 18>& digital_to_analog_table() { return kDigitalToAnalog; }
 
 bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
@@ -221,7 +237,7 @@ void HostEnd::poll_input_sinks()
 Hub::Hub()
 {
     // (the servers made first by their constructors)
-    sio::Hub* devices = sio::g_manager.get();
+    sio::Hub* devices = sio::get_device_manager();
     task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, 2000);
     for (int i = 0; i < kNumServers; ++i)
         core::at(hosts_, i).dev_ = devices->get_pad_at_slot(i);
@@ -293,12 +309,12 @@ void Hub::service_task(tasks::Task<Hub>* task)
 }
 
 // 0x0044E590
-uint32_t button_hash(int index) { return core::at(g_pad_button_keys, index); }
+uint32_t button_hash(int index) { return core::at(kPadButtonKeys, index); }
 
 // 0x0044E5A0
 int glyph_for_button_tag(uint32_t checksum)
 {
-    const auto& table = g_pad_button_keys;
+    const auto& table = kPadButtonKeys;
     for (int i = 1; i < 22; ++i) {
         if (core::at(table, i) == checksum)
             return i;

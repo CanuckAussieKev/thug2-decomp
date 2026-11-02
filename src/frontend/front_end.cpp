@@ -100,14 +100,14 @@ uint32_t& front_end_refs() { return g_front_end_refs; }
 // Set each frame by Update.
 bool& menus_active() { return g_menus_active; }             // paused, in the skateshop, or keyboard up
 bool& skateshop_override() { return g_skateshop_override; } // set elsewhere: never counts as the skateshop
-bool& get_keyboard_on_screen() { return sio::g_keyboard_on_screen; }
-bool& menu_on_screen() { return sio::g_in_menu_flag; } // a menu, dialog box or the quit dialog
+bool& get_keyboard_on_screen() { return sio::keyboard_on_screen_flag(); }
+bool& menu_on_screen() { return sio::menu_flag(); } // a menu, dialog box or the quit dialog
 bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xFB11E6CD next frame
 bool& is_game_halted() { return objects::g_simulation_halted; }
 
 modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager.get(); }
-pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
+pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
 // The typed arrow keys (sio::get_keyboard_chars).
 constexpr char kKeyLeft = 0x14;
@@ -511,7 +511,7 @@ void FrontEnd::get_pause_game(bool pause)
     if (pause == is_halted_)
         return;
     modules::Skate* skate = skate_module();
-    auto* devices = sio::g_manager.get();
+    auto* devices = sio::get_device_manager();
     if (pause) {
         skate->get_freeze(true);
         devices->pause_devices();

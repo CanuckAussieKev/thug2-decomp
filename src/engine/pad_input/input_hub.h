@@ -175,6 +175,7 @@ void release_manager();
 uint32_t button_hash(int index);
 int glyph_for_button_tag(uint32_t checksum);
 
-extern memory::HeapUnique<pad_input::Hub> g_input_manager;
+// NOT ORIGINAL - the input manager (null until the game makes it).
+Hub* get_input_manager();
 
 } // namespace pad_input
