@@ -10,6 +10,7 @@
 #include <cwchar>
 #include <array>
 #include <span>
+#include <string_view>
 #include <utility>
 
 #include "engine/pad_input/device.h"

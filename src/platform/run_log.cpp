@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <cwchar>
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include <io.h>
 #include <array>

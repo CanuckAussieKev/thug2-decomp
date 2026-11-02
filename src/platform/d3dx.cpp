@@ -7,6 +7,8 @@
 #include <d3d9.h>
 #include <d3dx9.h>
 
+#include <cstdint>
+
 namespace d3dx {
 
 // (maths::Mat4 and the callers' float arrays are 16 floats, 4-byte aligned, like D3DXMATRIX: the casts below are

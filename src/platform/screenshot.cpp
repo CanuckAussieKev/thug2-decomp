@@ -18,7 +18,9 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <SDL2/SDL.h>

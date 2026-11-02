@@ -2,6 +2,8 @@
 
 #include "platform/crt.h"
 
+#include <cstdint>
+
 namespace bink {
 
 namespace {

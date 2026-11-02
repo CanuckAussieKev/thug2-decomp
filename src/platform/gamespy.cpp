@@ -7,6 +7,7 @@
 
 #include <cctype>
 #include "engine/core/checked_index.h"
+#include <cstdint>
 #include <string_view>
 #include <span>
 #include <cstdio>

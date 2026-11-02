@@ -2,6 +2,7 @@
 
 #include "platform/platform_d3d.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include "engine/core/checked_index.h"

@@ -3,16 +3,21 @@
 
 #include "platform/crash.h"
 
+#include <excpt.h>
 #include <windows.h>
 
 #include <werapi.h>
 
 #include <atomic>
 #include <csignal>
+#include <cstdarg>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
+#include <string>
 #include <intrin.h>
 
 #ifdef _DEBUG

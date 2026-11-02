@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "platform/mute_audio.h"
 #include "engine/gfx/device.h"

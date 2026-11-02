@@ -9,9 +9,13 @@
 
 #include <climits>
 #include <cstdarg>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <process.h>
 #include <array>
+#include <ctime>
 #include <span>
 #include <string_view>
 #include <utility>

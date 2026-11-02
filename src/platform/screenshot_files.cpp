@@ -7,12 +7,16 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <array>
+#include <functional>
 #include <span>
+#include <string>
 #include <string_view>
+#include <vector>
 #include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(push, 0)
