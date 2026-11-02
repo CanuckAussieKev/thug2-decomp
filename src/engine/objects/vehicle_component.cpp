@@ -45,15 +45,20 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 namespace {
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
-std::array<DrivableModule::Contact, 132> g_vehicle_contacts;
+std::array<DrivableModule::Contact, 132>& vehicle_contacts()
+{
+    static core::NoDestroy<std::array<DrivableModule::Contact, 132>> vehicle_contacts;
+    return vehicle_contacts.get();
+}
 } // namespace
-std::span<DrivableModule::Contact> DrivableModule::get_contacts() { return g_vehicle_contacts; }
+std::span<DrivableModule::Contact> DrivableModule::get_contacts() { return vehicle_contacts(); }
 
 using namespace vehicle;
 

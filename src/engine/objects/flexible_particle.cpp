@@ -51,7 +51,6 @@ uint32_t next_unnamed_label()
         ++s_last;
     return s_last;
 }
-float g_particle_update_time{1.0f};
 } // namespace
 std::array<script::MemberFunctionEntry, 26> g_flexible_particle_member_functions{{
     {.callsign_ = 0x63274395, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x8FFDEF38, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7911855B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xDB8621F7, .owner_kind_ = 0xC5BCEB9E},
@@ -100,7 +99,11 @@ constexpr uint32_t kApplyEnvBrightness = 0x96896315;      // ApplyEnvBrightness
 constexpr uint32_t kSuspend = 0xCE0CA665;
 
 // The particle manager's update time (0x0067D6D0: Force_Particle_Update_Time as a float).
-float& particle_update_time() { return g_particle_update_time; }
+float& particle_update_time()
+{
+    static float particle_update_time{1.0f};
+    return particle_update_time;
+}
 
 // The particle manager (0x006FA7C0; no source yet).
 void* particle_hub_handle() { return render::g_flexible_particle_manager.get(); }

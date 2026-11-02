@@ -19,11 +19,16 @@
 #include "engine/script/names.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 namespace {
-GameEntity* g_proximity_skater;
+GameEntity*& proximity_skater()
+{
+    static GameEntity* proximity_skater{};
+    return proximity_skater;
+}
 constexpr float kProximitySkaterRadius{0.0f};
 
 constexpr uint32_t kSkaterId = 0x0AE89B6C; // (its name unknown): the skater's id, for the scripts
@@ -31,7 +36,7 @@ constexpr uint32_t kInactive = 0x742CF11F; // kClockIdle
 constexpr uint32_t kDelay = 0x9D02737D;    // (its name unknown): seconds
 
 // The skater the component watches and the radius added to its outer one (globals no code here sets).
-GameEntity* get_skater() { return g_proximity_skater; }
+GameEntity* get_skater() { return proximity_skater(); }
 float skater_radius() { return kProximitySkaterRadius; }
 
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -137,7 +142,11 @@ namespace objects {
 namespace {
 
 // The proximity component's script member functions (three records and the terminator; no table registers them).
-std::array<script::MemberFunctionEntry, 4> g_proximity_member_functions;
+std::array<script::MemberFunctionEntry, 4>& proximity_member_functions()
+{
+    static core::NoDestroy<std::array<script::MemberFunctionEntry, 4>> proximity_member_functions;
+    return proximity_member_functions.get();
+}
 
 } // namespace
 
@@ -146,7 +155,7 @@ std::array<script::MemberFunctionEntry, 4> g_proximity_member_functions;
 void fill_proximity_member_functions()
 {
     constexpr uint32_t kProximityType = 0xE54DB2EE;
-    auto& records = g_proximity_member_functions;
+    auto& records = proximity_member_functions();
     core::at(records, 0).callsign_ = checksums::hash_from_text("Proximity_Init");
     core::at(records, 1).callsign_ = checksums::hash_from_text("Proximity_SetActive");
     core::at(records, 2).callsign_ = checksums::hash_from_text("Proximity_EnterProximityNotHandled");

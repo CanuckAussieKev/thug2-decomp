@@ -31,15 +31,30 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 namespace {
-std::array<uint32_t, 4> g_editor_camera_skip_names{{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205}};
+std::array<uint32_t, 4>& editor_camera_skip_names()
+{
+    static std::array<uint32_t, 4> editor_camera_skip_names{{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205}};
+    return editor_camera_skip_names;
+}
 constexpr uint32_t kEditorCameraName{0x43BFAB74};
-std::array<uint32_t, 20> g_editor_camera_seen;
-uint8_t g_editor_camera_flagged;
-int g_editor_camera_seen_count;
+// NOT ORIGINAL grouping - editor_camera.cpp's state (the original's globals). Made on first use, never destroyed
+// (editor_camera_state()).
+struct EditorCameraState {
+    std::array<uint32_t, 20> editor_camera_seen_{};
+    uint8_t editor_camera_flagged_{};
+    int editor_camera_seen_count_{};
+};
+
+EditorCameraState& editor_camera_state()
+{
+    static core::NoDestroy<EditorCameraState> state;
+    return state.get();
+}
 
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
@@ -56,9 +71,9 @@ constexpr double kHeightSlack = 0.01;              // 0x0064B310
 // Script globals (Scripts::fetch_float).
 float get_global(uint32_t name) { return script::fetch_float(name); }
 
-uint8_t& get_flagged() { return g_editor_camera_flagged; }
-int& get_seen_count() { return g_editor_camera_seen_count; }
-std::array<uint32_t, 20>& get_seen() { return g_editor_camera_seen; }
+uint8_t& get_flagged() { return editor_camera_state().editor_camera_flagged_; }
+int& get_seen_count() { return editor_camera_state().editor_camera_seen_count_; }
+std::array<uint32_t, 20>& get_seen() { return editor_camera_state().editor_camera_seen_; }
 
 // The collision feeler (render::ProbeRay): its line, a hit callback, the hit's point and normal; what it hit held by
 // a smart pointer (let go of by its destructor).
@@ -102,7 +117,7 @@ bool script_flagged(uint32_t name)
     core::at(get_seen(), get_seen_count()++) = name;
     if (name == kEditorCameraName)
         return false;
-    for (const uint32_t skip_name : g_editor_camera_skip_names) {
+    for (const uint32_t skip_name : editor_camera_skip_names()) {
         if (name == skip_name)
             return true;
     }

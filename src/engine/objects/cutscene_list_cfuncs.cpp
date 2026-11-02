@@ -11,11 +11,22 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/no_destroy.h"
 namespace commands {
 
 namespace {
-bool g_cutscene_list_flushing;
-CutsceneDestroyList g_cutscene_destroy_list;
+// NOT ORIGINAL grouping - cutscene_list_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
+// (cutscene_list_cfuncs_state()).
+struct CutsceneListCfuncsState {
+    bool cutscene_list_flushing_{};
+    CutsceneDestroyList cutscene_destroy_list_{};
+};
+
+CutsceneListCfuncsState& cutscene_list_cfuncs_state()
+{
+    static core::NoDestroy<CutsceneListCfuncsState> state;
+    return state.get();
+}
 
 using script::Struct;
 using Elem = CutsceneDestroyList::Node;
@@ -32,9 +43,9 @@ constexpr uint32_t kPermanent = 0x23627FD7;          // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
 constexpr uint32_t kKillSpawnedScript = 0xD7034230;  // "cutscene_kill_spawned_script"
 
-CutsceneDestroyList& free_node_chain() { return g_cutscene_destroy_list; }
+CutsceneDestroyList& free_node_chain() { return cutscene_list_cfuncs_state().cutscene_destroy_list_; }
 // Set while the list is flushed (RemoveFromCutsceneDestroyList does nothing then).
-bool& flushing() { return g_cutscene_list_flushing; }
+bool& flushing() { return cutscene_list_cfuncs_state().cutscene_list_flushing_; }
 
 CutsceneDestroyEntry* entry_of(const Elem* node) { return node->value; }
 
@@ -54,7 +65,6 @@ void delete_entry(CutsceneDestroyEntry* entry)
 // A new structure (`new CStruct`), deleted with Clear and delete_struct.
 
 } // namespace
-
 
 // 0x005B5320: AddToCutsceneDestroyList name=<object> destroy_func=<script> [destroy_params={...}]: an entry (with its
 // own copy of the parameters) added at the end of the list. Always true.
@@ -175,6 +185,6 @@ bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
 namespace commands {
 
 // 0x00644A00 (a static initialiser): the cutscene destroy list, empty.
-void construct_cutscene_destroy_list() { g_cutscene_destroy_list.make(); }
+void construct_cutscene_destroy_list() { cutscene_list_cfuncs_state().cutscene_destroy_list_.make(); }
 
 } // namespace commands

@@ -32,7 +32,11 @@ namespace objects {
 using namespace vehicle;
 
 namespace {
-int g_vehicle_net_update_counter;
+int& vehicle_net_update_counter()
+{
+    static int vehicle_net_update_counter{};
+    return vehicle_net_update_counter;
+}
 
 const float kHalf = 0.5f;                                         // 0x006453BC
 const float kTenth = std::bit_cast<float>(0x3DCCCCCDu);           // 0x00645D74
@@ -799,7 +803,7 @@ void DrivableModule::update_skater()
         return;
     }
     // In a network game every fifteenth update is sent on (b = 1).
-    int& counter = g_vehicle_net_update_counter;
+    int& counter = vehicle_net_update_counter();
     if (++counter == 15) {
         counter = 0;
         blender->play_animation_ex(rider_anim_name_, 1, frame_bits, blend, 1, 0, 0);

@@ -26,6 +26,7 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/lists/pointer_ring.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
@@ -48,28 +49,39 @@ std::array<script::MemberFunctionEntry, 17> g_object_member_functions{{
 
 namespace {
 constexpr int kCompositeMgrBlockHeaderSize{16};
-int g_coim_integer0{4};
-int g_coim_integer1{2};
-int g_coim_a;
-int g_coim_b;
-int g_coim_c;
-std::unique_ptr<memory::Zone> g_coim_region;
-memory::Arena* g_coim_heap;
-// (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
-std::array<ObjectModule*, objects::EntityHub::kMaxComponentTypes> g_component_list;
+// NOT ORIGINAL grouping - compositemgr.cpp's state (the original's globals). Made on first use, never destroyed
+// (compositemgr_state()).
+struct CompositemgrState {
+    int coim_integer0_{4};
+    int coim_integer1_{2};
+    int coim_a_{};
+    int coim_b_{};
+    int coim_c_{};
+    std::unique_ptr<memory::Zone> coim_region_{};
+    memory::Arena* coim_heap_{};
+    // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
+    std::array<ObjectModule*, objects::EntityHub::kMaxComponentTypes> component_list_{};
+    uint32_t composite_mgr_references_{};
+};
+
+CompositemgrState& compositemgr_state()
+{
+    static core::NoDestroy<CompositemgrState> state;
+    return state.get();
+}
+
 } // namespace
 std::unique_ptr<objects::EntityHub> g_composite_registry;
 namespace {
-uint32_t g_composite_mgr_references;
 
 constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
 constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (Entity's)
 constexpr uint32_t kCompositeMemberFunctionType = 0x0ADA4E74; // the table at 0x00683268 (GameEntity's)
 
-uint32_t& ref_tally() { return g_composite_mgr_references; }
+uint32_t& ref_tally() { return compositemgr_state().composite_mgr_references_; }
 
 // The components of each type (index = the type's index in components_), linked through their +0x14.
-ObjectModule*& component_list(uint32_t index) { return core::at(g_component_list, index); }
+ObjectModule*& component_list(uint32_t index) { return core::at(compositemgr_state().component_list_, index); }
 // A component's type and its link to the next of its type.
 uint32_t type_of(ObjectModule* component) { return component->kind_tag_; }
 ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of_type_; }
@@ -297,23 +309,27 @@ public:
 // The instance list (a std::list of objects): its sentinel and its size, one object (the original's 0x006F0DB0 and
 // the count after it - not original: they were two globals here, and the list's code wrote the size past the head's
 // global).
-lists::PointerRing<CoimInstance> g_instance_list;
+lists::PointerRing<CoimInstance>& instance_list()
+{
+    static core::NoDestroy<lists::PointerRing<CoimInstance>> instance_list;
+    return instance_list.get();
+}
 using MaterializeNode = lists::PointerRing<CoimInstance>::Node;
-MaterializeNode* instance_list_head() { return g_instance_list.head; }
-int& instance_count() { return g_instance_list.size; }
+MaterializeNode* instance_list_head() { return instance_list().head; }
+int& instance_count() { return instance_list().size; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void erase_instances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
 {
-    *result = g_instance_list.erase(first, last);
+    *result = instance_list().erase(first, last);
 }
 
-std::unique_ptr<memory::Zone>& coim_region() { return g_coim_region; }
-memory::Arena*& coim_heap() { return g_coim_heap; }
-int& coim_a() { return g_coim_a; }
-int& coim_b() { return g_coim_b; }
-int& coim_c() { return g_coim_c; }
-int& coim_integer0() { return g_coim_integer0; } // (4 until InitCOIM)
-int& coim_integer1() { return g_coim_integer1; } // (2 until InitCOIM)
+std::unique_ptr<memory::Zone>& coim_region() { return compositemgr_state().coim_region_; }
+memory::Arena*& coim_heap() { return compositemgr_state().coim_heap_; }
+int& coim_a() { return compositemgr_state().coim_a_; }
+int& coim_b() { return compositemgr_state().coim_b_; }
+int& coim_c() { return compositemgr_state().coim_c_; }
+int& coim_integer0() { return compositemgr_state().coim_integer0_; } // (4 until InitCOIM)
+int& coim_integer1() { return compositemgr_state().coim_integer1_; } // (2 until InitCOIM)
 
 } // namespace
 
@@ -399,14 +415,18 @@ namespace objects {
 namespace {
 
 // A list (std::list<T*>) nothing uses but its static initialiser and exit function: an empty head node.
-lists::PointerRing<void> g_spare_object_list;
+lists::PointerRing<void>& spare_object_list()
+{
+    static core::NoDestroy<lists::PointerRing<void>> spare_object_list;
+    return spare_object_list.get();
+}
 
 } // namespace
 
 // 0x006409F0 (a static initialiser)
-void construct_spare_object_list() { g_spare_object_list.make(); }
+void construct_spare_object_list() { spare_object_list().make(); }
 
 // 0x00640A10 (a static initialiser): the instance list (its head and the count after it), empty.
-void construct_instance_list() { g_instance_list.make(); }
+void construct_instance_list() { instance_list().make(); }
 
 } // namespace objects

@@ -28,6 +28,7 @@
 #include <array>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <bit>
 
 namespace objects {
@@ -35,10 +36,20 @@ namespace objects {
 std::array<script::MemberFunctionEntry, 2> g_suspend_component_member_functions{{
     {.callsign_ = 0xA0B7E09B, .owner_kind_ = 0xCE0CA665}, {.callsign_ = 0, .owner_kind_ = 0xCE0CA665}}};
 namespace {
-int g_suspend_frame_count;
-int g_suspend_interleave2_count;
-int g_suspend_interleave4_count;
-memory::HeapUnique<SuspendTaskHolder> g_suspend_task_holder;
+// NOT ORIGINAL grouping - suspend_component.cpp's state (the original's globals). Made on first use, never destroyed
+// (suspend_component_state()).
+struct SuspendComponentState {
+    int suspend_frame_count_{};
+    int suspend_interleave2_count_{};
+    int suspend_interleave4_count_{};
+    memory::HeapUnique<SuspendTaskHolder> suspend_task_holder_{};
+};
+
+SuspendComponentState& suspend_component_state()
+{
+    static core::NoDestroy<SuspendComponentState> state;
+    return state.get();
+}
 
 constexpr int kTaskPriority = -1100;
 
@@ -55,9 +66,9 @@ constexpr int kCheckFrames = DormancyModule::kCheckFrames;
 // The distances that mean no LOD (1000000 - 1000003): lod_dist3 at its no-LOD value means the model is always drawn.
 const std::array<uint32_t, 4> kNoLodBits = {{0x49742400, 0x49742410, 0x49742420, 0x49742430}};
 
-int& frame_count() { return g_suspend_frame_count; }
-int& interleave2_count() { return g_suspend_interleave2_count; }
-int& interleave4_count() { return g_suspend_interleave4_count; }
+int& frame_count() { return suspend_component_state().suspend_frame_count_; }
+int& interleave2_count() { return suspend_component_state().suspend_interleave2_count_; }
+int& interleave4_count() { return suspend_component_state().suspend_interleave4_count_; }
 
 void set_no_lod(float* distances)
 {
@@ -256,7 +267,7 @@ SuspendTaskHolder::SuspendTaskHolder()
 void create_suspend_task()
 {
     void* memory = memory::alloc_zeroed(sizeof(SuspendTaskHolder));
-    g_suspend_task_holder = memory::HeapUnique<SuspendTaskHolder>(memory ? memory::construct_in<SuspendTaskHolder>(memory) : nullptr);
+    suspend_component_state().suspend_task_holder_ = memory::HeapUnique<SuspendTaskHolder>(memory ? memory::construct_in<SuspendTaskHolder>(memory) : nullptr);
 }
 
 // 0x00434420

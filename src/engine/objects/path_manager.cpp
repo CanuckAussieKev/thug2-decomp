@@ -18,13 +18,16 @@
 namespace objects {
 
 namespace {
-PathManager* g_path_manager;
 
 constexpr uint32_t kPathNum = 0x9C91C3CA; // PathNum
 constexpr uint32_t kClass = 0x12B4E660;   // class
 constexpr uint32_t kType = 0x7321A8D6;    // type
 
-PathManager*& instance_pointer() { return g_path_manager; }
+PathManager*& instance_pointer()
+{
+    static PathManager* path_manager{};
+    return path_manager;
+}
 
 // An array of `count` elements of `size` bytes from the current heap. The original's was an array new[]: the count in
 // a word before the elements. The count is the owner's member here (ObjectGroup::extent_, PathManager::group_count_);

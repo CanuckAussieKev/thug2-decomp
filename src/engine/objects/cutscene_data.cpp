@@ -31,6 +31,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -39,9 +40,20 @@ std::array<uint8_t, 64> g_cutscene_camera_slot; // (5 bytes in the original, whi
 std::array<float, 512> g_cutscene_rotations;
 std::array<float, 512> g_cutscene_translations;
 namespace {
-// The objects' poses (the original used the two arrays above for them too, as floats).
-std::array<maths::QuatRotation, 128> g_object_pose_rotations;
-std::array<maths::Vec4, 128> g_object_pose_translations;
+// NOT ORIGINAL grouping - cutscene_data.cpp's state (the original's globals). Made on first use, never destroyed
+// (cutscene_data_state()).
+struct CutsceneDataState {
+    // The objects' poses (the original used the two arrays above for them too, as floats).
+    std::array<maths::QuatRotation, 128> object_pose_rotations_{};
+    std::array<maths::Vec4, 128> object_pose_translations_{};
+};
+
+CutsceneDataState& cutscene_data_state()
+{
+    static core::NoDestroy<CutsceneDataState> state;
+    return state.get();
+}
+
 } // namespace
 
 namespace {
@@ -335,14 +347,14 @@ void CinematicTable::update_object_poses()
         source->bone_masks_ = data ? data->lod_masks_.data() : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
         auto count = static_cast<uint32_t>(rig->get_num_bones());
-        std::memcpy(g_object_pose_translations.data(), rig->payload_->bind_translations_, count * 16);
+        std::memcpy(cutscene_data_state().object_pose_translations_.data(), rig->payload_->bind_translations_, count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
-            g_object_pose_rotations, g_object_pose_translations, g_cutscene_camera_slot,
+            cutscene_data_state().object_pose_rotations_, cutscene_data_state().object_pose_translations_, g_cutscene_camera_slot,
             static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
-        skeleton->tick_frame(g_object_pose_rotations.data(), g_object_pose_translations.data());
+        skeleton->tick_frame(cutscene_data_state().object_pose_rotations_.data(), cutscene_data_state().object_pose_translations_.data());
     }
 }
 

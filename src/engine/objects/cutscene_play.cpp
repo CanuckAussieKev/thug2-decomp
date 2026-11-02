@@ -31,9 +31,6 @@ void sync_music_to_time(float seconds);
 
 namespace objects {
 
-namespace {
-std::array<char, 256> g_cutscene_shot_name;
-} // namespace
 bool g_cutscene_playing;
 int g_cutscene_fixed_frame;
 
@@ -54,7 +51,11 @@ constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
 int& fixed_frame() { return g_cutscene_fixed_frame; }
-std::array<char, 256>& shot_name() { return g_cutscene_shot_name; }
+std::array<char, 256>& shot_name()
+{
+    static std::array<char, 256> cutscene_shot_name{};
+    return cutscene_shot_name;
+}
 
 void get_run(uint32_t script, script::Struct* params = nullptr)
 {

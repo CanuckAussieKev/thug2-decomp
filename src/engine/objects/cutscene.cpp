@@ -23,7 +23,6 @@
 namespace objects {
 
 namespace {
-std::array<char, 256> g_cutscene_name_buffer;
 
 constexpr uint32_t kSubtitleScript = 0x625985F9; // run with each subtitle's structure (name unknown)
 constexpr uint32_t kTime = 0x906B67BA;           // a subtitle's start (name unknown)
@@ -35,7 +34,11 @@ constexpr uint32_t kSlot12Global = 0xA2A4F02F;   // CinematicEntry::update_optio
 constexpr uint32_t kButtonX = 0x40;
 constexpr uint32_t kButtonStart = 0x800;
 
-std::array<char, 256>& name_buffer() { return g_cutscene_name_buffer; }
+std::array<char, 256>& name_buffer()
+{
+    static std::array<char, 256> cutscene_name_buffer{};
+    return cutscene_name_buffer;
+}
 
 } // namespace
 

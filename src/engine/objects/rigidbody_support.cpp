@@ -35,7 +35,6 @@ std::array<script::MemberFunctionEntry, 13> g_rigid_body_member_functions{{
     {.callsign_ = 0x0A2BBB3A, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x49F44585, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xD4A0946B, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x949BE8A9, .owner_kind_ = 0xFFB39248},
     {.callsign_ = 0, .owner_kind_ = 0xFFB39248}}};
 namespace {
-int g_next_collide_sound_time;
 
 constexpr uint32_t kSound = 0x07713C7B;        // the sound component
 constexpr uint32_t kFrames = 0x019176C5;       // frames
@@ -266,7 +265,11 @@ constexpr uint32_t kPercent = 0x9E497FC6; // percent
 // The pushers' height (0x006939D0: 77, set by configure_from_data) and the time the next collide sound of any rigid
 // body may play (0x006939D8).
 float pusher_height() { return g_rigid_body_pusher_height; }
-int& next_collide_sound_time() { return g_next_collide_sound_time; }
+int& next_collide_sound_time()
+{
+    static int next_collide_sound_time{};
+    return next_collide_sound_time;
+}
 
 // The scene's sector named `checksum` hidden (0x0048C770 the first scene - the name pushed as its argument slot,
 // which 0x0049CB00 then takes as its own; neither rewritten yet).

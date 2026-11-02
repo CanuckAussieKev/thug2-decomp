@@ -43,7 +43,11 @@ namespace objects {
 
 std::unique_ptr<objects::TrickSpotHub> g_trick_spot_hub;
 namespace {
-uint32_t g_trick_object_manager_references;
+uint32_t& trick_object_manager_references()
+{
+    static uint32_t trick_object_manager_references{};
+    return trick_object_manager_references;
+}
 
 constexpr uint32_t kNetGraffiti = 0x5E2EA50C;         // netgraffiti
 constexpr uint32_t kGraffitiTeamScoring = 0xAB80CC2F; // graffiti_team_scoring (team_graffiti_mode)
@@ -51,7 +55,11 @@ constexpr uint32_t kGraffitiTeamScoring = 0xAB80CC2F; // graffiti_team_scoring (
 // Which clusters of the current log changed hands (by their index in its list). THUG2's was a 128-byte global at
 // 0x007CE508; enlarged as THUGPRO's DLL enlarged it (its NetLink::InitPatches, "Fix 256 graff tag crash": idea from
 // Morten1337's thugpro_proxy, written here as our own buffer) - a list longer than the mask is cut to its size.
-std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters> s_dirty_clusters;
+std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters>& dirty_clusters()
+{
+    static std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters> dirty_clusters{};
+    return dirty_clusters;
+}
 
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord>
 // (vtable 0x0064C1A8).
@@ -82,7 +90,7 @@ bool team_scoring()
 // 0x005880E0
 void release_trick_object_manager()
 {
-    uint32_t& count = g_trick_object_manager_references;
+    uint32_t& count = trick_object_manager_references();
     if (count > 1) {
         --count;
         return;
@@ -125,7 +133,7 @@ uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<
     if (count > kMaxLoggedClusters) // (ours: the original's mask overran here)
         count = kMaxLoggedClusters;
     if (count)
-        std::memset(s_dirty_clusters.data(), 0, count);
+        std::memset(dirty_clusters().data(), 0, count);
     for (uint32_t i = 0; i < count; ++i) {
         auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(core::at(objects, i)));
         if (!cluster)
@@ -166,7 +174,7 @@ uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<
             }
         }
         if (!cluster->owned_ || changed)
-            core::at(s_dirty_clusters, i) = 1;
+            core::at(dirty_clusters(), i) = 1;
         if (cluster->owned_ && changed)
             core::at(stolen, cluster->owner_) = 1;
         if (changed)
@@ -177,7 +185,7 @@ uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<
     // The list compacted to the objects whose cluster changed hands.
     uint32_t kept = 0;
     for (uint32_t i = 0; i < count; ++i) {
-        if (core::at(s_dirty_clusters, i))
+        if (core::at(dirty_clusters(), i))
             core::at(objects, kept++) = core::at(objects, i);
     }
     return kept;
@@ -555,7 +563,7 @@ TrickSpotHub* acquire_trick_object_manager(bool create)
     if (!instance && create) {
         instance = std::make_unique<TrickSpotHub>();
     }
-    ++g_trick_object_manager_references;
+    ++trick_object_manager_references();
     return instance.get();
 }
 

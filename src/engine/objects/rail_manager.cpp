@@ -25,6 +25,7 @@
 #include "game/rider/walk_physics.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
@@ -192,17 +193,21 @@ bool nodes_together(const GrindPoint* a, const GrindPoint* b)
 }
 
 namespace {
-RailClearOverride g_rail_clear_override; // (NOT ORIGINAL: set_rail_clear_override)
+RailClearOverride& rail_clear_override()
+{
+    static core::NoDestroy<RailClearOverride> rail_clear_override; // (NOT ORIGINAL: set_rail_clear_override)
+    return rail_clear_override.get();
+}
 } // namespace
 
-void set_rail_clear_override(RailClearOverride override) { g_rail_clear_override = override; }
+void set_rail_clear_override(RailClearOverride override) { rail_clear_override() = override; }
 
 // 0x0057C600
 bool rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
     if (park_editing::g_park_editor->cur_phase_ == 0xD443A2BC) // (the park editor's)
         return true;
-    if (g_rail_clear_override && g_rail_clear_override(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
+    if (rail_clear_override() && rail_clear_override()(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
     render::ProbeRay feeler; // (what it hit let go of by its destructor, where the original lets go inline)
     // A quarter of the way from a to b, 6 above (the original's rounding: some sums kept unrounded).
