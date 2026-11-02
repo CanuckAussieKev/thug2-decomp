@@ -18,8 +18,9 @@ Checks:
   # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
-  # The engine walks its vertex streams, script token streams, pools and packed records by pointer; std::span
-  # belongs with the renderer's move to OpenGL and the script runtime's replacement.
+  # The engine still walks its script token streams, vertex streams, animation key streams, pools and packed records
+  # by pointer: 3,658 places over src/ (round 3i of stage 9, down from 5,043; the check alone). They go to std::span,
+  # core::Cursor (a span and a position, checked) and indices subsystem by subsystem; the check is switched on at 0.
   - '-cppcoreguidelines-pro-bounds-pointer-arithmetic'
   # The tables mirror the original's data positionally (script commands, member tables, key maps).
   - '-modernize-use-designated-initializers'
