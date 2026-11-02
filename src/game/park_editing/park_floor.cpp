@@ -13,7 +13,6 @@
 
 #include "engine/core/checksums.h"
 #include "engine/render/probe_ray.h"
-#include "engine/objects/smtptr.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 

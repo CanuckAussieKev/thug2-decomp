@@ -14,8 +14,6 @@
 #include "engine/script/cell.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/goal_editor_util.h"
 #include "game/goals/goal_manager.h"

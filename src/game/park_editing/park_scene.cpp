@@ -4,19 +4,16 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <array>
 #include <span>
 
 #include "game/park_editing/park_scene.h"
 
 #include "engine/assets/resource_entry.h"
-#include "engine/core/span_copy.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "game/park_editing/park.h"
-#include "game/park_editing/park_nx.h"
+#include "game/park_editing/park_nx.h" // IWYU pragma: keep - the complete WorldScene / WorldCell types
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/lists/key_map.h"

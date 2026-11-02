@@ -15,15 +15,12 @@
 #include <array>
 #include <vector>
 
-#include "engine/core/checksums.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 

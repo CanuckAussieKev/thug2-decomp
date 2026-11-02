@@ -3,12 +3,10 @@
 #include "game/park_editing/park.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/park_editor.h"

@@ -3,7 +3,6 @@
 #include "game/park_editing/goal_editor_util.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 #include "engine/core/checksums.h"

@@ -4,7 +4,6 @@
 #include "game/park_editing/rail_editor.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 #include "engine/core/checksums.h"

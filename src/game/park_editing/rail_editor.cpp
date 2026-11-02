@@ -2,9 +2,6 @@
 // The sectors drawn for them: rail_editor_draw.cpp; the script side: rail_editor_script.cpp.
 
 #include "game/park_editing/rail_editor.h"
-#include "game/rider/vehicle_sound.h"
-#include "engine/objects/camera_lookaround.h"
-
 #include <cstdint>
 #include <cstdio>
 #include <cstring>

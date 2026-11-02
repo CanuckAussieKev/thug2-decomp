@@ -7,8 +7,6 @@
 
 #include "game/park_editing/park_editor.h"
 
-#include "engine/core/mem.h"
-#include "engine/core/task_list.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/piece_menu.h"
 #include "game/park/park_memory.h"

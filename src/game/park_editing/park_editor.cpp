@@ -7,9 +7,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-
-#include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "formats/park_map_format.h"
 #include "game/park_editing/park.h"

@@ -12,7 +12,6 @@
 
 #include "engine/assets/resource_entry.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park_editing/goal_editor_util.h"
 #include "game/park_editing/park.h"

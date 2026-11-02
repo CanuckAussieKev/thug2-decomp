@@ -3,7 +3,6 @@
 // firing a gap's StartGap / EndGap on the skater. (The rest of the class, 0x0058C990-0x0058CD40, is next to it.)
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 
 #include "engine/core/manager.h"
@@ -17,7 +16,6 @@
 #include "game/park_editing/goal_editor.h"
 #include "game/skate/skate_module.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
