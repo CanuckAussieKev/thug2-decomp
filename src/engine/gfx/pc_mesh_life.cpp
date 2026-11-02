@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/engine_scene_list.h"
@@ -20,6 +21,7 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
+#include "gpu/vertex_view.h"
 #include <gsl/pointers>
 #include "engine/core/mem.h"
 
@@ -92,17 +94,16 @@ long MeshRef::apply_vertex_colors()
     if (!per_vertex_bytes_)
         return 0;
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
-    uint8_t* data = vb->data; // (locked whole, inline)
     vb->lock_size_ = vb->size;
     vb->lock_offset_ = 0;
     vb->lock_flags_ = 0;
-    uint8_t* out = data + color_offset_;
-    const uint32_t* colors = material->anim_colors_;
+    const gpu::VertexWriter vertices(vb->data, stride, vertex_count_); // (locked whole, inline)
+    const std::span<const uint32_t> colors = material->anim_colour_run();
+    const std::span<const uint8_t> per_vertex(per_vertex_bytes_, vertex_count_);
     for (uint32_t i = 0; i < vertex_count_; ++i) {
-        const int index = int{static_cast<int8_t>(per_vertex_bytes_[i])};
+        const int index = int{static_cast<int8_t>(core::at(per_vertex, i))};
         if (index)
-            std::memcpy(out, &colors[index - 1], sizeof(uint32_t)); // (the vertex's colour word)
-        out += stride;
+            vertices.set_word(i, color_offset_, core::at(colors, index - 1)); // (the vertex's colour word)
     }
     return core::at(vertex_buffers_, current_vertex_buffer_)->get_unlock();
 }

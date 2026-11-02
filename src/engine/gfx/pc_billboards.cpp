@@ -27,6 +27,9 @@
 #include "platform/crt.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
+#include "engine/core/span_copy.h"
+#include <span>
 #include <bit>
 #include <gsl/pointers>
 
@@ -65,7 +68,8 @@ void order_batches(BillboardSet* manager)
 
 float sort_depth_of_batch(const BillboardBatch* batch) { return batch->material ? batch->material->sort_key_ : 0.0f; }
 
-void draw_list(const memory::ListNode* head, const float* y_axis, const float* x_axis, const float* z_axis)
+void draw_list(const memory::ListNode* head, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
+               const std::array<float, 3>& z_axis)
 {
     for (const memory::ListNode* node = head_of_scene_list(head); node;) {
         const memory::ListNode* next = get_next_node(node);
@@ -113,7 +117,8 @@ uint32_t primitive_count(uint32_t type, uint32_t count)
 }
 
 // 0x004CDD00
-void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis, const float* z_axis)
+void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
+                         const std::array<float, 3>& z_axis)
 {
     if (mesh->stride < 0x10 || mesh->stride > 0x30)
         return;
@@ -146,52 +151,57 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     IDirect3DIndexBuffer9* indices = nullptr;
     input_port()->GetIndices(&indices);
     const uint32_t primitives = primitive_count(mesh->primitive_type_, core::at(mesh->index_counts_, 0));
-    uint8_t* into = nullptr;
-    get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
-    const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
+    uint8_t* into_block = nullptr;
+    get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, D3DLOCK_DISCARD);
+    const size_t vertex_bytes = static_cast<size_t>(mesh->stride) * mesh->vertex_count_;
+    core::Cursor<uint8_t> into(std::span<uint8_t>(into_block, vertex_bytes));
+    core::Cursor<const uint8_t> from(std::span<const uint8_t>(get_vertex_buffer(mesh, 0)->data, vertex_bytes));
     const auto& pivot = mesh->billboard->pivot;
     const float px = core::at(pivot, 0);
     const float py = core::at(pivot, 1);
     const float pz = core::at(pivot, 2);
     uint32_t rest = mesh->stride - 0xC;
-    const uint32_t* table = nullptr;
+    std::span<const uint32_t> table;
+    bool has_table = false;
     if (mesh->per_vertex_bytes_) { // (a value per vertex from the material's table)
-        table = mesh->material->anim_colors_;
+        table = mesh->material->anim_colour_run();
+        has_table = true;
         rest -= 4;
     }
+    const std::span<const uint8_t> vertex_bytes_of_mesh(mesh->per_vertex_bytes_, mesh->per_vertex_bytes_ ? mesh->vertex_count_ : 0);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         float x = 0.0f, y = 0.0f, z = 0.0f;
-        std::memcpy(&x, from, 4);
-        std::memcpy(&y, from + 4, 4);
-        std::memcpy(&z, from + 8, 4);
+        std::memcpy(&x, from.rest().first(4).data(), 4);
+        std::memcpy(&y, from.rest().subspan(4, 4).data(), 4);
+        std::memcpy(&z, from.rest().subspan(8, 4).data(), 4);
         from += 0xC;
-        auto a = static_cast<float>(static_cast<double>(x) * x_axis[0]);
-        auto b = static_cast<float>(static_cast<double>(x) * x_axis[1]);
-        auto c = static_cast<float>(static_cast<double>(x) * x_axis[2]);
-        auto t2 = static_cast<float>(static_cast<double>(y) * y_axis[2]);
-        a = static_cast<float>(static_cast<double>(y) * y_axis[0] + a);
-        const double sum_y = static_cast<double>(y) * y_axis[1] + b;
+        auto a = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 0));
+        auto b = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 1));
+        auto c = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 2));
+        auto t2 = static_cast<float>(static_cast<double>(y) * core::at(y_axis, 2));
+        a = static_cast<float>(static_cast<double>(y) * core::at(y_axis, 0) + a);
+        const double sum_y = static_cast<double>(y) * core::at(y_axis, 1) + b;
         const double sum_z = static_cast<double>(c) + t2;
-        auto t3 = static_cast<float>(static_cast<double>(z) * z_axis[2]);
-        a = static_cast<float>(static_cast<double>(z) * z_axis[0] + a);
-        auto b2 = static_cast<float>(static_cast<double>(z) * z_axis[1] + sum_y);
+        auto t3 = static_cast<float>(static_cast<double>(z) * core::at(z_axis, 2));
+        a = static_cast<float>(static_cast<double>(z) * core::at(z_axis, 0) + a);
+        auto b2 = static_cast<float>(static_cast<double>(z) * core::at(z_axis, 1) + sum_y);
         const double c2 = t3 + sum_z;
         std::array<float, 3> out = {{static_cast<float>(static_cast<double>(px) + a),
                         static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)}};
-        std::memcpy(into, out.data(), 0xC);
+        std::memcpy(into.rest().first(0xC).data(), out.data(), 0xC);
         into += 0xC;
-        if (table) {
-            auto index = static_cast<uint32_t>(int{static_cast<int8_t>(mesh->per_vertex_bytes_[i])});
+        if (has_table) {
+            auto index = static_cast<uint32_t>(int{static_cast<int8_t>(core::at(vertex_bytes_of_mesh, i))});
             uint32_t value = 0;
             if (index)
-                value = table[index - 1];
+                value = core::at(table, index - 1);
             else
-                std::memcpy(&value, from, 4);
-            std::memcpy(into, &value, 4);
+                std::memcpy(&value, from.rest().first(4).data(), 4);
+            std::memcpy(into.rest().first(4).data(), &value, 4);
             from += 4;
             into += 4;
         }
-        std::memcpy(into, from, rest);
+        std::memcpy(into.rest().first(rest).data(), from.rest().first(rest).data(), rest);
         into += rest;
         from += rest;
     }
@@ -238,10 +248,10 @@ BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 // 0x004CDAA0
 void BillboardSet::setup_axes()
 {
-    const auto* m = g_view_matrix.data();
-    const float vz = m[10];
-    core::at(view, 0) = m[2];
-    core::at(view, 1) = m[6];
+    const std::span<const float, 16> m = g_view_matrix.floats();
+    const float vz = core::at(m, 10);
+    core::at(view, 0) = core::at(m, 2);
+    core::at(view, 1) = core::at(m, 6);
     core::at(view, 3) = 1.0f;
     core::at(view, 2) = vz;
     // right = forward x (0, 1, 0)
@@ -281,7 +291,7 @@ void BillboardSet::setup_axes()
     core::at(up, 3) = 0.0f;
     core::at(up, 1) = static_cast<float>(uy);
     // the forward and right along the ground
-    auto flatten = [](float x, float z, float* out) {
+    auto flatten = [](float x, float z, std::array<float, 4>& out) {
         double fx = x, fz = z;
         float y = 0.0f;
         const double length = std::sqrt(fz * fz + fx * fx);
@@ -291,13 +301,13 @@ void BillboardSet::setup_axes()
             y = static_cast<float>(0.0f * inverse);
             fz *= inverse;
         }
-        out[0] = static_cast<float>(fx);
-        out[1] = y;
-        out[3] = 1.0f;
-        out[2] = static_cast<float>(fz);
+        core::at(out, 0) = static_cast<float>(fx);
+        core::at(out, 1) = y;
+        core::at(out, 3) = 1.0f;
+        core::at(out, 2) = static_cast<float>(fz);
     };
-    flatten(core::at(view, 0), core::at(view, 2), flat_forward_.data());
-    flatten(core::at(right, 0), core::at(right, 2), flat_right_.data());
+    flatten(core::at(view, 0), core::at(view, 2), flat_forward_);
+    flatten(core::at(right, 0), core::at(right, 2), flat_right_);
 }
 
 // 0x004CEB30
@@ -382,32 +392,33 @@ void BillboardBatch::render()
     multiply(all.data(), projection.data(), view_world.data());
     input_port()->SetVertexShaderConstantF(0, all.data(), 4);
     auto* manager = &g_billboard_pool;
-    float* constants = g_billboard_constants.data(); // c4-c6
-    auto set_axes = [&](const float* x, const float* y, const float* z) {
-        std::memcpy(constants, x, 12);
-        std::memcpy(constants + 4, y, 12);
-        std::memcpy(constants + 8, z, 12);
+    const std::span<float> constants(g_billboard_constants); // c4-c6
+    // (the first three floats of each of the three vectors given)
+    auto set_axes = [&](std::span<const float> x, std::span<const float> y, std::span<const float> z) {
+        core::copy_into(x.first(3), constants.first(3));
+        core::copy_into(y.first(3), constants.subspan(4, 3));
+        core::copy_into(z.first(3), constants.subspan(8, 3));
     };
-    set_axes(manager->right.data(), manager->up.data(), manager->view.data());
-    input_port()->SetVertexShaderConstantF(4, constants, 3);
+    set_axes(manager->right, manager->up, manager->view);
+    input_port()->SetVertexShaderConstantF(4, constants.data(), 3);
     {
         std::array<float, 3> x_axis{};
         std::array<float, 3> y_axis{};
         std::array<float, 3> z_axis{};
-        std::memcpy(x_axis.data(), constants, 12);
-        std::memcpy(y_axis.data(), constants + 4, 12);
-        std::memcpy(z_axis.data(), constants + 8, 12);
-        draw_list(lists.data()[0], y_axis.data(), x_axis.data(), z_axis.data());
+        core::copy_into(std::span<const float>(constants).first(3), std::span<float>(x_axis));
+        core::copy_into(std::span<const float>(constants).subspan(4, 3), std::span<float>(y_axis));
+        core::copy_into(std::span<const float>(constants).subspan(8, 3), std::span<float>(z_axis));
+        draw_list(core::at(lists, 0), y_axis, x_axis, z_axis);
     }
     {
         const std::array<float, 3> flat_up = {{0.0f, 1.0f, 0.0f}};
-        set_axes(manager->flat_right_.data(), flat_up.data(), manager->flat_forward_.data());
+        set_axes(manager->flat_right_, flat_up, manager->flat_forward_);
         std::array<float, 3> x_axis{};
-        std::array<float, 3> y_axis = {{0.0f, 1.0f, 0.0f}};
+        const std::array<float, 3> y_axis = {{0.0f, 1.0f, 0.0f}};
         std::array<float, 3> z_axis{};
-        std::memcpy(x_axis.data(), manager->flat_right_.data(), 12);
-        std::memcpy(z_axis.data(), manager->flat_forward_.data(), 12);
-        draw_list(lists.data()[1], y_axis.data(), x_axis.data(), z_axis.data());
+        core::copy_into(std::span<const float>(manager->flat_right_).first(3), std::span<float>(x_axis));
+        core::copy_into(std::span<const float>(manager->flat_forward_).first(3), std::span<float>(z_axis));
+        draw_list(core::at(lists, 1), y_axis, x_axis, z_axis);
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
     for (const memory::ListNode* node = head_of_scene_list(core::at(lists, 2)); node;) {
@@ -441,8 +452,8 @@ void BillboardBatch::render()
             std::array<float, 3> across = {{static_cast<float>(rx), ry, rz}};
             std::array<float, 3> out = {{static_cast<float>(ux), static_cast<float>(uy), uz_stored}};
             std::array<float, 3> along = {{core::at(axis, 0), core::at(axis, 1), core::at(axis, 2)}};
-            set_axes(across.data(), along.data(), out.data());
-            draw_billboard_mesh(mesh, along.data(), across.data(), out.data());
+            set_axes(across, along, out);
+            draw_billboard_mesh(mesh, along, across, out);
         }
         node = next;
     }

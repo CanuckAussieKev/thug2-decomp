@@ -74,7 +74,8 @@ int compare_batches(const void* a, const void* b);
 // the word after the position where it has one), drawn indexed with the device's stream, shaders, indices and
 // format put back after (the stream's offset as 0, the shaders not released, as the original); fog's start moved to a
 // quarter of the way back from its end while drawn.
-void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis, const float* z_axis);
+void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
+                         const std::array<float, 3>& z_axis);
 // 0x004CD980: the primitives for that many indices (1 points,
 // 2 lines, 3 a line strip, 4 triangles, 5 and 6 strips / fans; 0 else).
 uint32_t primitive_count(uint32_t type, uint32_t count);
