@@ -40,7 +40,10 @@ struct MeshRef {
     uint8_t current_vertex_buffer_{0}; // +0x19
     uint8_t vertex_buffer_count_{1};   // +0x1A
     uint8_t viewports;              // +0x1B: a bit per viewport it shows in
-    std::array<uint8_t, 4> unknown1c_{};        // +0x1C: the colour's offset in a vertex, the normal's, ?, the bone (-1: none)
+    uint8_t color_offset_{0};       // +0x1C: where in a vertex its colour is (0: none)
+    uint8_t normal_offset_{0};      // +0x1D: its normal
+    uint8_t uv_offset_{0};          // +0x1E: its first texture coordinates
+    uint8_t bone_{0};               // +0x1F: the bone it follows (0xFF: none)
     uint16_t load_index_{};         // +0x20
     uint16_t vertex_count_{};       // +0x22
     std::array<uint16_t, 8> index_counts_{};    // +0x24

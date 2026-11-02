@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
 
 namespace render {
 
@@ -93,25 +94,25 @@ struct Sums {
         if (!(d2 < radius * radius))
             return;
         const double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength_;
-        const auto* colour = raw::bytes(&light.shade_);
-        r += colour[0] * f;
-        g += colour[1] * f;
-        b += colour[2] * f;
+        const colour::Bytes colour = colour::bytes_of(light.shade_);
+        r += core::at(colour, 0) * f;
+        g += core::at(colour, 1) * f;
+        b += core::at(colour, 2) * f;
         lit = true;
     }
     // A colour's RGB with the sums added (green and blue rounded to floats first, as the original stores them),
     // clamped at 255 and truncated (_ftol: the low byte).
     [[nodiscard]] uint32_t get_apply(uint32_t colour) const
     {
-        auto* bytes = raw::bytes(&colour);
+        colour::Bytes bytes = colour::bytes_of(colour);
         const std::array<double, 3> sums = {{r, static_cast<float>(g), static_cast<float>(b)}};
         for (int i = 0; i < 3; ++i) {
-            double v = bytes[i] + core::at(sums, i);
+            double v = core::at(bytes, i) + core::at(sums, i);
             if (v > 255.0)
                 v = 255.0;
-            bytes[i] = static_cast<uint8_t>(static_cast<int64_t>(v));
+            core::at(bytes, i) = static_cast<uint8_t>(static_cast<int64_t>(v));
         }
-        return colour;
+        return colour::packed_of(bytes);
     }
 };
 
@@ -136,12 +137,9 @@ double offset_squared_zyx(const float* p, const maths::Vec4& l)
 // 0x0048FF40
 LevelLamp* LevelLamp::make_new()
 {
-    void* memory = memory::alloc(sizeof(lists::KeyMap));
-    sectors_ = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
-    auto* colour = raw::bytes(&shade_);
-    colour[0] = 0x80;
-    colour[1] = 0x80;
-    colour[2] = 0x80;
+    void* memory = memory::alloc(sizeof(SectorSet));
+    sectors_ = memory ? memory::construct_in<SectorSet>(memory) : nullptr;
+    shade_ = (shade_ & 0xFF000000u) | 0x00808080u; // grey (the alpha left)
     radius_ = 0.0f;
     strength_ = 0.0f;
     return this;
@@ -163,16 +161,16 @@ void LevelLamp::set_reach(float radius)
 // 0x0048F200
 bool LevelLamp::touches_sector(const WorldCell* sector)
 {
-    return sectors_->fetch_entry(cell::of(sector)) != nullptr;
+    return sectors_->contains(sector);
 }
 
 // 0x0048FFD0
-void LevelLamp::clear_sectors() { sectors_->empty_table(); }
+void LevelLamp::clear_sectors() { sectors_->clear(); }
 
 // 0x0048FFE0
 void LevelLamp::find_sectors(script::Array* excluded)
 {
-    sectors_->empty_table();
+    sectors_->clear();
     const WorldScene* scene = get_main_scene();
     if (!scene)
         return;
@@ -209,8 +207,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         }
         if (skip)
             continue;
-        auto key = cell::of(sector);
-        sectors_->store_entry(key, sector);
+        sectors_->insert(sector);
     }
 }
 
@@ -304,12 +301,10 @@ void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
     const LevelLamp* light = find_scene_light(name);
     if (!light || !light->sectors_)
         return;
-    lists::KeyMap* sectors = light->sectors_;
-    for (auto* sector = static_cast<WorldCell*>(get_first_value(sectors)); sector;
-         sector = static_cast<WorldCell*>(next_value(sectors))) {
+    light->sectors_->for_each([](WorldCell* sector) {
         if (sector->geom_handle_)
             apply_scene_lights_to_sector(sector);
-    }
+    });
 }
 
 // 0x0048FCA0
@@ -490,10 +485,11 @@ void create_light_from_node(script::Struct* node)
     script::Array* colour_array = nullptr;
     node->fetch_list(0x99A9B716u, &colour_array, 0);
     if (colour_array) {
-        auto* bytes = raw::bytes(&colour);
-        bytes[0] = static_cast<uint8_t>(colour_array->fetch_part(0));
-        bytes[1] = static_cast<uint8_t>(colour_array->fetch_part(1));
-        bytes[2] = static_cast<uint8_t>(colour_array->fetch_part(2));
+        colour::Bytes bytes = colour::bytes_of(colour);
+        core::at(bytes, 0) = static_cast<uint8_t>(colour_array->fetch_part(0));
+        core::at(bytes, 1) = static_cast<uint8_t>(colour_array->fetch_part(1));
+        core::at(bytes, 2) = static_cast<uint8_t>(colour_array->fetch_part(2));
+        colour = colour::packed_of(bytes);
     }
     uint32_t type = 0x485A0CDB;
     node->read_hash_value(0xC2737050u, &type, 0);

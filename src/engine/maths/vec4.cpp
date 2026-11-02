@@ -25,6 +25,20 @@ float& Vec4::operator[](int index)
         return w;
     }
 }
+float Vec4::operator[](int index) const
+{
+    Expects(index >= 0 && index < 4);
+    switch (index) {
+    case 0:
+        return x;
+    case 1:
+        return y;
+    case 2:
+        return z;
+    default:
+        return w;
+    }
+}
 
 // 0x00402340
 Vec4& Vec4::operator+=(const Vec4& other)

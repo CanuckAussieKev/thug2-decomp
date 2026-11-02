@@ -93,7 +93,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     if (!entry)
         return false;
     g_grass_texture1 = *image_of(raw::as<BitmapTexture>(entry)); // (a copy of the record, as the original)
-    if ((mesh->stride - core::at(mesh->unknown1c_, 2)) / 8 == 1) { // (one texture coordinate set: room made for a second)
+    if ((mesh->stride - mesh->uv_offset_) / 8 == 1) { // (one texture coordinate set: room made for a second)
         VertexBuffer* wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
         uint8_t* from = nullptr;
         uint8_t* to = nullptr;
@@ -117,7 +117,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         auto* v = raw::field_at<float>(vertices, mesh->stride * i);
-        auto* uv = raw::field_at<float>(vertices, mesh->stride * i + core::at(mesh->unknown1c_, 2));
+        auto* uv = raw::field_at<float>(vertices, mesh->stride * i + mesh->uv_offset_);
         const float x = v[0];
         const float z = v[2];
         uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_uv_scale);
@@ -165,7 +165,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
             auto* v = raw::field_at<float>(vertices, copy->stride * i);
             v[1] = static_cast<float>(lift + v[1]);
-            auto* uv = raw::field_at<float>(vertices, copy->stride * i + core::at(copy->unknown1c_, 2));
+            auto* uv = raw::field_at<float>(vertices, copy->stride * i + copy->uv_offset_);
             const float x = v[0];
             const float z = v[2];
             uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale);

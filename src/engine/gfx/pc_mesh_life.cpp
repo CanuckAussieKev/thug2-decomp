@@ -65,9 +65,9 @@ MeshRef::MeshRef()
     unknown48 = nullptr;
     billboard = nullptr;
     transform = nullptr;
-    core::at(unknown1c_, 0) = 0;
-    core::at(unknown1c_, 2) = 0;
-    core::at(unknown1c_, 1) = 0;
+    color_offset_ = 0;
+    uv_offset_ = 0;
+    normal_offset_ = 0;
     stride = 0;
     fvf = 0;
     pixel_shader_ = nullptr;
@@ -77,7 +77,7 @@ MeshRef::MeshRef()
     triangles = nullptr;
     per_vertex_data_ = nullptr;
     unknowna0_ = nullptr;
-    core::at(unknown1c_, 3) = 0xFF;
+    bone_ = 0xFF;
     unknown9c_ = -1;
     unknown98 = -1;
     flags |= 0x40;
@@ -95,7 +95,7 @@ long MeshRef::apply_vertex_colors()
     vb->lock_size_ = vb->size;
     vb->lock_offset_ = 0;
     vb->lock_flags_ = 0;
-    uint8_t* out = data + core::at(unknown1c_, 0);
+    uint8_t* out = data + color_offset_;
     const uint32_t* colors = material->anim_colors_;
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         const int index = int{static_cast<int8_t>(per_vertex_bytes_[i])};

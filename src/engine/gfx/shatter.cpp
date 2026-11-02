@@ -23,7 +23,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/texture_splats.h"
-#include "engine/lists/key_map.h"
+#include "gpu/vertex_view.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/pointer_cell.h"
@@ -32,12 +32,11 @@
 
 namespace render {
 
-lists::KeyMap* g_shatters;
+lists::ObjectSet<PcShatter> g_shatters;
 
 namespace {
 
 IDirect3DDevice9* draw_device() { return g_draw_device; }
-lists::KeyMap* shatters() { return g_shatters; }
 
 uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count_; }
 
@@ -56,8 +55,8 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
     positions = static_cast<float*>(memory::alloc(12 * count));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (own) {
-        void* memory = memory::alloc(0x110);
-        material = memory ? raw::bytes(memory::construct_in<MaterialRef>(memory)) : nullptr;
+        void* memory = memory::alloc(sizeof(MaterialRef));
+        material = memory ? memory::construct_in<MaterialRef>(memory) : nullptr;
     } else {
         material = nullptr;
     }
@@ -67,8 +66,8 @@ PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
 PcShatter::~PcShatter()
 {
     memory::Hub::get_pull()->dealloc(vertices);
-    if (uint8_t* own = material) {
-        raw::as<MaterialRef>(own)->~MaterialRef(); // (the material's destructor body)
+    if (MaterialRef* own = material) {
+        own->~MaterialRef(); // (the material's destructor body)
         memory::Hub::get_pull()->dealloc(own);
     }
     if (positions)
@@ -90,21 +89,10 @@ void draw_shatter(PcShatter* shatter)
 // 0x004B9550
 void kill_all_shatters()
 {
-    lists::KeyMap* table = shatters();
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
-    if (!table->step_iterator() || !table->iter_item_)
-        return;
-    auto* shatter = static_cast<PcShatter*>(table->iter_item_->value);
-    while (shatter) {
-        PcShatter* next = nullptr;
-        if (shatters()->step_iterator() && shatters()->iter_item_)
-            next = static_cast<PcShatter*>(shatters()->iter_item_->value);
-        auto key = cell::of(shatter);
-        shatters()->erase_entry(key);
+    g_shatters.for_each([](PcShatter* shatter) {
+        g_shatters.erase(shatter);
         delete shatter;
-        shatter = next;
-    }
+    });
 }
 
 namespace {
@@ -115,7 +103,6 @@ void get_turn(const maths::Mat4& m, double x, double y, double z, float* out)
     for (int k = 0; k < 3; ++k)
         out[k] = static_cast<float>(z * (&core::at(m.row, 2).x)[k] + y * (&core::at(m.row, 1).x)[k] + x * (&core::at(m.row, 0).x)[k]);
 }
-float* get_at(uint8_t* vertex) { return raw::as<float>(vertex); }
 
 int get_rand() { return crt::get_rand(); }                          // (the game's C runtime's)
 constexpr double kPerRand = std::bit_cast<float>(0x38000100u);      // 0x00646510 (1 / 32767)
@@ -132,11 +119,11 @@ uint8_t* lock_vertices(VertexBuffer* buffer)
     buffer->get_lock(0, 0, &data, 0x10);
     return data;
 }
-uint8_t* lock_indices(IdxStore* buffer)
+uint16_t* lock_indices(IdxStore* buffer)
 {
     uint16_t* data = nullptr;
     buffer->get_lock(0, 0, &data, 0x10);
-    return raw::bytes(data);
+    return data;
 }
 
 } // namespace
@@ -145,21 +132,25 @@ uint8_t* lock_indices(IdxStore* buffer)
 void update_shatter(PcShatter* shatter, float step)
 {
     const uint32_t stride = shatter->mesh->stride;
-    uint8_t* v0 = shatter->vertices;
-    uint8_t* v1 = v0 + stride;
-    uint8_t* v2 = v0 + 2 * stride;
-    for (int i = 0; std::cmp_less(i, shatter->triangle_count_);
-         ++i, v0 += 3 * stride, v1 += 3 * stride, v2 += 3 * stride) {
+    const gpu::VertexWriter out(shatter->vertices, stride);
+    const gpu::VertexView in = out.view();
+    for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
+        const auto v0 = static_cast<size_t>(3 * i);
+        const size_t v1 = v0 + 1;
+        const size_t v2 = v0 + 2;
         const maths::Vec4& c = shatter->centres[i];
         const maths::Mat4& m = shatter->rotations[i];
+        const auto p0 = in.float3(v0);
+        const auto p1 = in.float3(v1);
+        const auto p2 = in.float3(v2);
         // (the first vertex's offsets stay in registers, the others' are stored)
         std::array<double, 3> d0{};
         std::array<double, 3> d1{};
         std::array<double, 3> d2{};
         for (int k = 0; k < 3; ++k) {
-            core::at(d0, k) = static_cast<double>(get_at(v0)[k]) - (&c.x)[k];
-            core::at(d1, k) = static_cast<float>(static_cast<double>(get_at(v1)[k]) - (&c.x)[k]);
-            core::at(d2, k) = static_cast<float>(static_cast<double>(get_at(v2)[k]) - (&c.x)[k]);
+            core::at(d0, k) = static_cast<double>(core::at(p0, k)) - c[k];
+            core::at(d1, k) = static_cast<float>(static_cast<double>(core::at(p1, k)) - c[k]);
+            core::at(d2, k) = static_cast<float>(static_cast<double>(core::at(p2, k)) - c[k]);
         }
         std::array<float, 3> r0{};
         std::array<float, 3> r1{};
@@ -169,24 +160,30 @@ void update_shatter(PcShatter* shatter, float step)
         get_turn(m, core::at(d2, 0), core::at(d2, 1), core::at(d2, 2), r2.data());
         static_cast<Shatter*>(shatter)->Shatter::get_step(i, step); // (the centre moved)
         const maths::Vec4& moved = shatter->centres[i];
+        std::array<float, 3> q0{};
+        std::array<float, 3> q1{};
+        std::array<float, 3> q2{};
         for (int k = 0; k < 3; ++k) {
-            get_at(v0)[k] = static_cast<float>(static_cast<double>(core::at(r0, k)) + (&moved.x)[k]);
-            get_at(v1)[k] = static_cast<float>(static_cast<double>(core::at(r1, k)) + (&moved.x)[k]);
-            get_at(v2)[k] = static_cast<float>(static_cast<double>(core::at(r2, k)) + (&moved.x)[k]);
+            core::at(q0, k) = static_cast<float>(static_cast<double>(core::at(r0, k)) + moved[k]);
+            core::at(q1, k) = static_cast<float>(static_cast<double>(core::at(r1, k)) + moved[k]);
+            core::at(q2, k) = static_cast<float>(static_cast<double>(core::at(r2, k)) + moved[k]);
         }
+        out.set_floats(v0, 0, q0);
+        out.set_floats(v1, 0, q1);
+        out.set_floats(v2, 0, q2);
     }
     // the normals turned too
-    const uint8_t normal_offset = core::at(shatter->mesh->unknown1c_, 1);
+    const uint8_t normal_offset = shatter->mesh->normal_offset_;
     if (!normal_offset)
         return;
-    uint8_t* n0 = shatter->vertices + normal_offset;
-    for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i, n0 += 3 * stride) {
+    for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
         const maths::Mat4& m = shatter->rotations[i];
         for (int v = 0; v < 3; ++v) {
-            float* n = get_at(n0 + v * stride);
+            const auto vertex = static_cast<size_t>((3 * i) + v);
+            const auto n = in.float3(vertex, normal_offset);
             std::array<float, 3> turned{};
-            get_turn(m, n[0], n[1], n[2], turned.data());
-            std::memcpy(n, turned.data(), 12);
+            get_turn(m, core::at(n, 0), core::at(n, 1), core::at(n, 2), turned.data());
+            out.set_floats(vertex, normal_offset, turned);
         }
     }
 }
@@ -203,8 +200,9 @@ void shatter_geom(PcGeom* geom)
         const uint32_t stride = mesh->stride;
         g_vertex_stack.vertex_size_ = stride; // (the vertex stack's vertex size)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
-        uint8_t* vertices = lock_vertices(vertex_buffer);
-        auto* indices = raw::as<uint16_t>(lock_indices(core::at(mesh->index_buffers_, 0)));
+        const uint8_t* vertices = lock_vertices(vertex_buffer);
+        const gpu::VertexView view(vertices, stride);
+        const uint16_t* indices = lock_indices(core::at(mesh->index_buffers_, 0));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
         uint32_t a = indices[0], b = indices[1];
@@ -212,18 +210,18 @@ void shatter_geom(PcGeom* geom)
             const uint32_t c = indices[k];
             if (a != b && a != c && b != c) {
                 ++count;
-                const float* pa = get_at(vertices + stride * a);
-                const float* pb = get_at(vertices + stride * b);
-                const float* pc = get_at(vertices + stride * c);
+                const auto pa = view.float3(a);
+                const auto pb = view.float3(b);
+                const auto pc = view.float3(c);
                 push_vertex(vertices + stride * a);
                 push_vertex(vertices + stride * b);
                 push_vertex(vertices + stride * c);
-                const double e1x = static_cast<double>(pb[0]) - pa[0];
-                const double e1y = static_cast<double>(pb[1]) - pa[1];
-                const double e1z = static_cast<double>(pb[2]) - pa[2];
-                auto e2zf = static_cast<float>(static_cast<double>(pc[2]) - pa[2]);
-                auto e2yf = static_cast<float>(static_cast<double>(pc[1]) - pa[1]);
-                const double e2x = static_cast<double>(pc[0]) - pa[0];
+                const double e1x = static_cast<double>(core::at(pb, 0)) - core::at(pa, 0);
+                const double e1y = static_cast<double>(core::at(pb, 1)) - core::at(pa, 1);
+                const double e1z = static_cast<double>(core::at(pb, 2)) - core::at(pa, 2);
+                auto e2zf = static_cast<float>(static_cast<double>(core::at(pc, 2)) - core::at(pa, 2));
+                auto e2yf = static_cast<float>(static_cast<double>(core::at(pc, 1)) - core::at(pa, 1));
+                const double e2x = static_cast<double>(core::at(pc, 0)) - core::at(pa, 0);
                 auto cz = static_cast<float>(e2yf * e1x - e2x * e1y);
                 auto cy = static_cast<float>(e2x * e1z - e2zf * e1x);
                 const double cx = e2zf * e1y - e2yf * e1z;
@@ -258,18 +256,21 @@ void shatter_geom(PcGeom* geom)
                                static_cast<float>(static_cast<double>(core::at(mesh->centre, 1)) + back_y),
                                static_cast<float>(static_cast<double>(core::at(mesh->centre, 2)) + back_z),
                                static_cast<float>(static_cast<double>(back_w) + 1.0f)}};
-        auto key = cell::of(shatter);
-        g_shatters->store_entry(key, shatter);
+        g_shatters.insert(shatter);
         uint8_t* cursor = shatter->vertices;
-        while (split_next_triangle(&cursor, raw::as<const SplitFormat>(mesh)))
+        while (split_next_triangle(&cursor, mesh))
             ;
+        const gpu::VertexView pieces(shatter->vertices, stride);
+        const auto piece_count = static_cast<size_t>(cursor - shatter->vertices) / stride;
         int j = 0;
-        for (uint8_t* t = shatter->vertices; t < cursor; t += 3 * stride, ++j) {
+        for (size_t t = 0; t < piece_count; t += 3, ++j) {
             maths::Vec4& centre = shatter->centres[j];
+            const auto q0 = pieces.float3(t);
+            const auto q1 = pieces.float3(t + 1);
+            const auto q2 = pieces.float3(t + 2);
             for (int k = 0; k < 3; ++k)
-                (&centre.x)[k] = static_cast<float>(
-                    (static_cast<double>(get_at(t + 2 * stride)[k]) + get_at(t + stride)[k] + get_at(t)[k]) *
-                    (1.0f / 3.0f));
+                centre[k] = static_cast<float>(
+                    (static_cast<double>(core::at(q2, k)) + core::at(q1, k) + core::at(q0, k)) * (1.0f / 3.0f));
             // a velocity away from the centre at a random speed
             auto pace =
                 static_cast<float>(get_rand() * static_cast<double>(g_shatter_speed) * kPerRand * speed + speed);

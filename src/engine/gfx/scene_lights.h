@@ -6,9 +6,8 @@
 
 #include "engine/maths/vec4.h"
 
-namespace lists {
-class KeyMap;
-}
+#include "engine/lists/object_set.h"
+
 namespace script {
 class Array;
 class Struct;
@@ -22,6 +21,7 @@ namespace render {
 
 struct WorldScene;
 class WorldCell;
+using SectorSet = lists::ObjectSet<WorldCell>;
 
 struct LevelLamp {
     maths::Vec4 at_point_;   // +0x00
@@ -29,9 +29,9 @@ struct LevelLamp {
     float radius_;           // +0x14
     uint32_t label_;         // +0x18: the node's (its dynamic light's owner)
     uint32_t shade_;         // +0x1C: RGBA
-    lists::KeyMap* sectors_; // +0x20: the sectors it reaches (keyed by their address)
+    SectorSet* sectors_;     // +0x20: the sectors it reaches
 
-    // 0x0048FF40 (the array's static constructor's callback): an empty table of 2^4 buckets, grey, nothing else
+    // 0x0048FF40 (the array's static constructor's callback): an empty set of sectors, grey, nothing else
     // set. Returns this.
     LevelLamp* make_new();
     // 0x0048F1A0: a new radius (nothing when it's the same) - its dynamic light's too (1e10 inverse for 0).

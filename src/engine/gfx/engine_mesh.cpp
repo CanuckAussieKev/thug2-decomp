@@ -79,23 +79,6 @@ void skin_collision_file_name(char* out, const char* name)
     text::append_unbounded(out, platform_suffix());
 }
 
-// 0x00490CD0
-int SplatSlots::oldest_slot(uint32_t count)
-{
-    int oldest = 0;
-    int most = core::at(steps, 0) - static_cast<int>(core::at(alive, 0));
-    for (uint32_t i = 0; i < count; ++i) {
-        if (!core::at(alive, i))
-            return static_cast<int>(i);
-        const int age = core::at(steps, i) - static_cast<int>(core::at(alive, i));
-        if (age > most) {
-            most = age;
-            oldest = static_cast<int>(i);
-        }
-    }
-    return oldest;
-}
-
 // 0x00490D20
 VertexStack::VertexStack() noexcept { std::memset(data.data(), 3, sizeof(data)); }
 

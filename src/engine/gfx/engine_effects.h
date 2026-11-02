@@ -12,9 +12,7 @@
 // spawned polygons 0x007004AC, texture splat sets 0x007004B0, recent splat positions 0x007004B4, shatters 0x007004B8
 // (lists::HashTables of 16 buckets, each keyed by its value's address) - plus the vertex stack the splats and shatters
 // split triangles on (0x006FC4A0).
-namespace lists {
-class KeyMap;
-}
+#include "engine/lists/object_set.h"
 
 namespace render {
 
@@ -114,6 +112,9 @@ extern VertexStack g_vertex_stack;
 extern maths::Vec4 g_glass_burst_velocity;
 extern float g_shatter_velocity_scale;
 extern float g_shatter_speed;
-extern lists::KeyMap* g_spawned_polys;
-extern lists::KeyMap* g_splat_sets;
+struct SpawnedPoly;
+class PcShatter;
+extern lists::ObjectSet<SpawnedPoly> g_spawned_polys;
+extern lists::ObjectSet<TextureSplats> g_splat_sets;
+extern lists::ObjectSet<PcShatter> g_shatters;
 } // namespace render

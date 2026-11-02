@@ -51,13 +51,4 @@ static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_cou
 // platform's extension after it.
 void skin_collision_file_name(char* out, const char* name);
 
-// The splat sets' slots (0x00490CD0, thiscall on a set): the first free one of the first `count` (the alive word 0),
-// else the one with the most steps past its start (the first on ties).
-struct SplatSlots {
-    std::array<uint32_t, 0x100> alive;
-    std::array<int, 0x100> steps;
-
-    int oldest_slot(uint32_t count);
-};
-
 } // namespace render

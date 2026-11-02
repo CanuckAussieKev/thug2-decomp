@@ -30,10 +30,10 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
+#include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include <bit>
 
 namespace render {
 
@@ -61,10 +61,12 @@ void transform_coord(float* out, const float* v, const maths::Mat4* m)
 }
 
 // The vertex stack (0x006FC4A0) the splitter works on.
-void push_vertex(const uint8_t* vertex) { g_vertex_stack.stack_on(vertex); }
+void push_vertex(const ProjectedVertex& vertex)
+{
+    const auto bytes = std::bit_cast<std::array<uint8_t, sizeof(ProjectedVertex)>>(vertex);
+    g_vertex_stack.stack_on(bytes.data());
+}
 
-float* get_uv(uint8_t* vertex) { return raw::field_at<float>(vertex, 0x10); }
-uint32_t& get_colour(uint8_t* vertex) { return *raw::field_at<uint32_t>(vertex, 0xC); }
 uint32_t opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
 float to_uv(float coordinate) { return static_cast<float>((static_cast<double>(coordinate) + 1.0f) * 0.5f); }
 float from_uv(float uv)
@@ -73,15 +75,17 @@ float from_uv(float uv)
     return static_cast<float>(value + value - 1.0f);
 }
 
-// A triangle (three vertices of 0x18 bytes) copied: positions, texture coordinates, then the colours made opaque.
-void copy_triangle(uint8_t* into, uint8_t* from)
+using Triangle = std::array<ProjectedVertex, 3>;
+
+// A triangle copied: positions, texture coordinates, then the colours made opaque.
+void copy_triangle(ProjectedVertex* into, const Triangle& from)
 {
     for (int k = 0; k < 3; ++k)
-        std::memcpy(into + 0x18 * k, from + 0x18 * k, 12);
+        into[k].position = core::at(from, k).position;
     for (int k = 0; k < 3; ++k)
-        std::memcpy(get_uv(into + 0x18 * k), get_uv(from + 0x18 * k), 8);
+        into[k].uv = core::at(from, k).uv;
     for (int k = 0; k < 3; ++k)
-        get_colour(into + 0x18 * k) = opaque(get_colour(from + 0x18 * k));
+        into[k].argb = opaque(core::at(from, k).argb);
 }
 
 } // namespace
@@ -143,7 +147,8 @@ void draw_projection_batches()
         ProjectionBatch* batch = &get_batches()[i];
         batch->material.hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, &batch->material);
-        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(), 0x18);
+        draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(),
+                                       sizeof(ProjectedVertex));
         ++g_draw_calls;                              // (the frame's draw calls)
         g_drawn_triangles += batch->triangle_count_; // (and triangles)
     }
@@ -155,7 +160,6 @@ void draw_projection_batches()
 void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
 {
     ProjectionBatch* batch = nullptr;
-    uint8_t* batch_vertices = nullptr;
     for (; *sectors; ++sectors) {
         auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
         if (!geom)
@@ -167,6 +171,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 continue;
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers_, 0)->get_lock(0, 0, &vertices, 0x10);
+            const gpu::VertexView mesh_vertices(vertices, mesh->stride);
             uint16_t* indices = nullptr;
             core::at(mesh->index_buffers_, 0)->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
@@ -179,102 +184,98 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 b = c;
                 if (ia == ib || ia == ic || ib == ic)
                     continue;
-                const uint32_t stride = mesh->stride;
+                const std::array<float, 3> a0 = mesh_vertices.float3(ia);
+                const std::array<float, 3> a1 = mesh_vertices.float3(ib);
+                const std::array<float, 3> a2 = mesh_vertices.float3(ic);
                 std::array<float, 3> t0{};
                 std::array<float, 3> t1{};
                 std::array<float, 3> t2{};
-                transform_coord(t0.data(), raw::field_at<const float>(vertices, stride * ia), &projection_);
-                transform_coord(t1.data(), raw::field_at<const float>(vertices, stride * ib), &projection_);
-                transform_coord(t2.data(), raw::field_at<const float>(vertices, stride * ic), &projection_);
+                transform_coord(t0.data(), a0.data(), &projection_);
+                transform_coord(t1.data(), a1.data(), &projection_);
+                transform_coord(t2.data(), a2.data(), &projection_);
                 if (core::at(t0, 2) < -1.0f && core::at(t1, 2) < -1.0f && core::at(t2, 2) < -1.0f) // (wholly behind)
                     continue;
                 if (!triangle_overlaps_screen(core::at(t0, 0), core::at(t0, 1), core::at(t1, 0), core::at(t1, 1), core::at(t2, 0), core::at(t2, 1)))
                     continue;
-                if (!batch_vertices) {
+                if (!batch) // (null when all ten are taken: the original wrote near null, and so do we)
                     batch = get_projection_batch(image_of(bitmap_), blend_mode_);
-                    batch_vertices =
-                        raw::bytes(batch) + 0x120; // (null: written near null, as the original)
-                }
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
                 uint32_t count = batch->triangle_count_;
-                uint8_t* v0 = batch_vertices + count * 0x48;
-                uint8_t* v1 = v0 + 0x18;
-                uint8_t* v2 = v0 + 0x30;
-                std::memcpy(v0, vertices + stride * ia, 12);
-                std::memcpy(v1, vertices + stride * ib, 12);
-                std::memcpy(v2, vertices + stride * ic, 12);
-                get_uv(v0)[0] = to_uv(core::at(t0, 0));
-                get_uv(v0)[1] = to_uv(core::at(t0, 1));
-                get_uv(v1)[0] = to_uv(core::at(t1, 0));
-                get_uv(v1)[1] = to_uv(core::at(t1, 1));
-                get_uv(v2)[0] = to_uv(core::at(t2, 0));
-                get_uv(v2)[1] = to_uv(core::at(t2, 1));
-                const uint32_t colour_offset = core::at(mesh->unknown1c_, 0);
-                get_colour(v0) = opaque(*raw::field_at<uint32_t>(vertices, stride * ia + colour_offset));
-                get_colour(v1) = opaque(*raw::field_at<uint32_t>(vertices, stride * ib + colour_offset));
-                get_colour(v2) = opaque(*raw::field_at<uint32_t>(vertices, stride * ic + colour_offset));
-                std::array<uint8_t, 3 * 0x18> whole{};
+                ProjectedVertex* slot = &core::at(batch->vertices, 3 * count);
+                ProjectedVertex& v0 = slot[0];
+                ProjectedVertex& v1 = slot[1];
+                ProjectedVertex& v2 = slot[2];
+                v0.position = a0;
+                v1.position = a1;
+                v2.position = a2;
+                v0.uv = {to_uv(core::at(t0, 0)), to_uv(core::at(t0, 1))};
+                v1.uv = {to_uv(core::at(t1, 0)), to_uv(core::at(t1, 1))};
+                v2.uv = {to_uv(core::at(t2, 0)), to_uv(core::at(t2, 1))};
+                const uint32_t colour_offset = mesh->color_offset_;
+                v0.argb = opaque(mesh_vertices.word(ia, colour_offset));
+                v1.argb = opaque(mesh_vertices.word(ib, colour_offset));
+                v2.argb = opaque(mesh_vertices.word(ic, colour_offset));
                 uint8_t* pieces = nullptr;
                 uint8_t* end = nullptr;
-                uint8_t* format = nullptr;
+                MeshRef* format = nullptr;
                 if (fineness_) {
                     // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
-                    const auto* p0 = raw::as<const float>(v0);
-                    const auto* p1 = raw::as<const float>(v1);
-                    const auto* p2 = raw::as<const float>(v2);
-                    const double e1z = static_cast<double>(p1[2]) - p0[2];
-                    const double e1y = static_cast<double>(p1[1]) - p0[1];
-                    const double e1x = static_cast<double>(p1[0]) - p0[0];
-                    auto e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
-                    auto e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
-                    const double e2x = static_cast<double>(p2[0]) - p0[0];
+                    const auto& p0 = v0.position;
+                    const auto& p1 = v1.position;
+                    const auto& p2 = v2.position;
+                    const double e1z = static_cast<double>(core::at(p1, 2)) - core::at(p0, 2);
+                    const double e1y = static_cast<double>(core::at(p1, 1)) - core::at(p0, 1);
+                    const double e1x = static_cast<double>(core::at(p1, 0)) - core::at(p0, 0);
+                    auto e2z = static_cast<float>(static_cast<double>(core::at(p2, 2)) - core::at(p0, 2));
+                    auto e2y = static_cast<float>(static_cast<double>(core::at(p2, 1)) - core::at(p0, 1));
+                    const double e2x = static_cast<double>(core::at(p2, 0)) - core::at(p0, 0);
                     auto cz = static_cast<float>(e2y * e1x - e2x * e1y);
                     auto cy = static_cast<float>(e2x * e1z - e2z * e1x);
                     const double cx = e2z * e1y - e2y * e1z;
                     const double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));
                     g_vertex_stack = VertexStack{}; // (emptied)
-                    g_vertex_stack.vertex_size_ = 0x18;
+                    g_vertex_stack.vertex_size_ = sizeof(ProjectedVertex);
                     push_vertex(v0);
                     push_vertex(v1);
                     push_vertex(v2);
                     pieces = static_cast<uint8_t*>(memory::alloc(0x2000));
                     std::memset(pieces, 0, 0x2000);
-                    void* memory = memory::alloc(0xD8);
-                    format = memory ? raw::bytes(memory::construct_in<MeshRef>(memory)) : nullptr;
-                    format[0x1C] = 0x0C; // (no check: written through null, as the original)
-                    format[0x1E] = 0x10;
+                    void* memory = memory::alloc(sizeof(MeshRef));
+                    format = memory ? memory::construct_in<MeshRef>(memory) : nullptr;
+                    format->color_offset_ = offsetof(ProjectedVertex, argb); // (no check: as the original)
+                    format->uv_offset_ = offsetof(ProjectedVertex, uv);
                     end = pieces;
-                    while (split_next_triangle(&end, raw::as<const SplitFormat>(format)))
+                    while (split_next_triangle(&end, format))
                         ;
-                } else {
-                    std::memcpy(whole.data(), v0, sizeof(whole));
-                    pieces = whole.data();
-                    end = whole.data() + sizeof(whole);
                 }
                 // the pieces inside the projection's square, each into the batch's next triangle
                 bool full = false;
-                if (!fineness_ || pieces != end) {
-                    for (uint8_t* piece = pieces; piece != end; piece += 0x48) {
-                        if (!triangle_overlaps_screen(
-                                from_uv(get_uv(piece)[0]), from_uv(get_uv(piece)[1]), from_uv(get_uv(piece + 0x18)[0]),
-                                from_uv(get_uv(piece + 0x18)[1]), from_uv(get_uv(piece + 0x30)[0]),
-                                from_uv(get_uv(piece + 0x30)[1])))
-                            continue;
-                        copy_triangle(batch_vertices + count * 0x48, piece);
-                        ++count;
-                        if (3 * count + 2 >= kBatchVertices) {
-                            full = true;
-                            break;
-                        }
-                    }
+                auto place = [&](const Triangle& piece) {
+                    if (!triangle_overlaps_screen(from_uv(core::at(core::at(piece, 0).uv, 0)), from_uv(core::at(core::at(piece, 0).uv, 1)),
+                                                  from_uv(core::at(core::at(piece, 1).uv, 0)), from_uv(core::at(core::at(piece, 1).uv, 1)),
+                                                  from_uv(core::at(core::at(piece, 2).uv, 0)), from_uv(core::at(core::at(piece, 2).uv, 1))))
+                        return;
+                    copy_triangle(&core::at(batch->vertices, 3 * count), piece);
+                    ++count;
+                    full = 3 * count + 2 >= kBatchVertices;
+                };
+                if (fineness_) {
+                    // the pieces (made by the splitter as bytes, a projected vertex each)
+                    const gpu::VertexView made(pieces, sizeof(ProjectedVertex));
+                    const auto made_count = static_cast<size_t>(end - pieces) / sizeof(ProjectedVertex);
+                    for (size_t first = 0; first + 2 < made_count && !full; first += 3)
+                        place({{made.value<ProjectedVertex>(first, 0), made.value<ProjectedVertex>(first + 1, 0),
+                                made.value<ProjectedVertex>(first + 2, 0)}});
+                } else {
+                    place({{v0, v1, v2}});
                 }
                 batch->triangle_count_ = count;
                 if (!full)
                     batch->blend_name_ = blend_mode_;
                 if (fineness_) {
                     if (format) {
-                        raw::as<MeshRef>(format)->~MeshRef(); // (its destructor body)
+                        format->~MeshRef(); // (its destructor body)
                         memory::Hub::get_pull()->dealloc(format);
                     }
                     memory::Hub::get_pull()->dealloc(pieces);

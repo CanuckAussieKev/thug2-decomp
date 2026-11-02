@@ -13,7 +13,6 @@
 #include "engine/core/slab_bank.h"
 #include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/pc_primitive.h"
-#include "engine/lists/key_map.h"
 #include "engine/script/cfuncs_engine.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
@@ -26,20 +25,7 @@ memory::PoolPair g_spawned_poly_pools;
 
 namespace {
 
-lists::KeyMap* spawned_polys() { return g_spawned_polys; }
-
-void* next_value(lists::KeyMap* table)
-{
-    if (!table->step_iterator() || !table->iter_item_)
-        return nullptr;
-    return table->iter_item_->value;
-}
-void* get_first_value(lists::KeyMap* table)
-{
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
-    return next_value(table);
-}
+lists::ObjectSet<SpawnedPoly>& spawned_polys() { return g_spawned_polys; }
 
 // A corner's position and colour.
 void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)
@@ -140,33 +126,27 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     }
     poly->primitive->unknown14 = (poly->flags >> 1) & 1;
     poly->primitive->get_ready();
-    auto key = cell::of(poly);
-    spawned_polys()->store_entry(key, poly);
+    spawned_polys().insert(poly);
 }
 
 // 0x004919C0
 void update_spawned_polys()
 {
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    for (void* value = get_first_value(spawned_polys()); value;) {
-        auto* poly = static_cast<SpawnedPoly*>(value);
-        if (poly->flags & 1) {
-            value = next_value(spawned_polys());
-            continue;
-        }
+    spawned_polys().for_each([elapsed](SpawnedPoly* poly) {
+        if (poly->flags & 1)
+            return;
         const double age = static_cast<double>(elapsed) + poly->age;
         poly->age = static_cast<float>(age);
         if (age >= poly->lifetime) {
             // Done: its primitive destroyed, the polygon taken out and freed.
             poly->flags |= 1;
             poly->age = 0.0f;
-            value = next_value(spawned_polys());
             delete poly->primitive;
             poly->primitive = nullptr;
-            auto key = cell::of(poly);
-            spawned_polys()->erase_entry(key);
+            spawned_polys().erase(poly);
             commands::free_spawned_poly_details(poly);
-            continue;
+            return;
         }
         const double t = age / poly->lifetime;
         for (int c = 0; c < 4; ++c) {
@@ -201,22 +181,18 @@ void update_spawned_polys()
         place_corners(poly, corners.data());
         for (int c = 0; c < 4; ++c)
             set_corner(poly->primitive, c, core::at(corners, c));
-        value = next_value(spawned_polys());
-    }
+    });
 }
 
 // 0x00491E10
 void kill_all_spawned_polys()
 {
-    for (void* value = get_first_value(spawned_polys()); value;) {
-        auto* poly = static_cast<SpawnedPoly*>(value);
-        value = next_value(spawned_polys());
+    spawned_polys().for_each([](SpawnedPoly* poly) {
         delete poly->primitive;
         poly->primitive = nullptr;
-        auto key = cell::of(poly);
-        spawned_polys()->erase_entry(key);
+        spawned_polys().erase(poly);
         g_spawned_poly_pools.dealloc(poly);
-    }
+    });
 }
 
 } // namespace engine

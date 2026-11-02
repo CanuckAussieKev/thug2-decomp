@@ -8,6 +8,7 @@
 
 #include "engine/gfx/surface_material.h"
 #include "engine/maths/mat4.h"
+#include "engine/gfx/projected_vertex.h"
 
 // Texture projections on PC (Nx engine: the engine's TextureProjection - constructor 0x0049FE20, destructor body
 // 0x004A04A0 - over it; made by the texture projection component, obj/texture_projection_component.h): a texture
@@ -24,7 +25,7 @@ struct ProjectionBatch {
     uint32_t triangle_count_{};    // +0x08
     MaterialRef material;          // +0x0C (made by make_new 0x004D1A90)
     void* pixel_shader_{};         // +0x11C (material_pixel_shader's)
-    std::array<std::array<uint8_t, 0x18>, 0x600> vertices{}; // +0x120: position, ARGB colour, u, v
+    std::array<ProjectedVertex, 0x600> vertices{}; // +0x120: drawn as they are
 
     // 0x004C7610: construct (the material's constructor). Returns this.
     ProjectionBatch* make_new();

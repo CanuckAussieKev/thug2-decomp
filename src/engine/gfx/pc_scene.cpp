@@ -204,7 +204,7 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;
     geom->append_mesh(mesh);
-    core::at(mesh->unknown1c_, 3) = light_group; // (the bone slot)
+    mesh->bone_ = light_group; // (the bone slot)
     make_grass(geom, mesh);
 }
 // The meshes the load put on the list, counted (to a node that is the head, data -1, or null).

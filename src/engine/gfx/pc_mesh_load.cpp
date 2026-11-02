@@ -151,9 +151,9 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride);
     mesh->fvf = vertex_format(core::at(body.vertex_types, 0));
     mesh->second_fvf_ = vertex_format(core::at(body.vertex_types, 1));
-    core::at(mesh->unknown1c_, 1) = core::at(body.offsets, 0);
-    core::at(mesh->unknown1c_, 0) = core::at(body.offsets, 1);
-    core::at(mesh->unknown1c_, 2) = core::at(body.offsets, 2);
+    mesh->normal_offset_ = core::at(body.offsets, 0);
+    mesh->color_offset_ = core::at(body.offsets, 1);
+    mesh->uv_offset_ = core::at(body.offsets, 2);
     mesh->buffer_usage_ = 0;
     mesh->buffer_flags_ = 0;
     if (body.has_vertex_bytes) {

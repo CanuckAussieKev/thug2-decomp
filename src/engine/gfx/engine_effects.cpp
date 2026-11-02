@@ -21,7 +21,7 @@
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/texture_splats.h"
-#include "engine/lists/key_map.h"
+#include "engine/lists/object_set.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/render/coll_grid.h"
@@ -41,8 +41,8 @@ namespace render {
 
 maths::Vec4 g_glass_burst_velocity;
 float g_shatter_speed;
-lists::KeyMap* g_splat_sets;
-lists::KeyMap* g_spawned_polys;
+lists::ObjectSet<TextureSplats> g_splat_sets;
+lists::ObjectSet<SpawnedPoly> g_spawned_polys;
 float g_shatter_velocity_scale{1.0f};
 namespace {
 
@@ -56,8 +56,6 @@ float g_glass_life_span{4.0f};
 float g_shatter_floor{-10000.0f};
 float g_glass_restitution{0.8f};
 uint32_t g_fog_color{0x66806060};
-lists::KeyMap* g_flashes;
-lists::KeyMap* g_recent_splats;
 uint32_t g_shatter_texture;
 uint32_t g_shatter_value_af_1a;
 int g_shatter_value_33d_f;
@@ -67,32 +65,20 @@ std::array<float, 4> g_level_color;
 std::array<void*, 128> g_line_sectors;
 std::array<HitMesh*, 128> g_line_objects;
 
-// The tables.
-lists::KeyMap*& flashes() { return g_flashes; }
-lists::KeyMap*& spawned_polys() { return g_spawned_polys; }
-lists::KeyMap*& splat_sets() { return g_splat_sets; }
-lists::KeyMap*& recent_splats() { return g_recent_splats; }
-lists::KeyMap*& shatters() { return g_shatters; }
+// A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (frame_clock::GetTime).
+struct RecentSplat {
+    maths::Vec4 pos;
+    uint32_t follow; // +0x10
+    uint32_t time;   // +0x14
+};
 
-// A table's first value and the next (null at the end) - the original's inlined iteration (step_iterator).
-void* next_value(lists::KeyMap* table)
-{
-    if (!table->step_iterator() || !table->iter_item_)
-        return nullptr;
-    return table->iter_item_->value;
-}
-void* get_first_value(lists::KeyMap* table)
-{
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
-    return next_value(table);
-}
-// A value taken out of its table (keyed by its address).
-void drop_out(lists::KeyMap* table, void* value)
-{
-    auto key = cell::of(value);
-    table->erase_entry(key);
-}
+// The tables.
+lists::ObjectSet<Flash> g_flashes;
+lists::ObjectSet<RecentSplat> g_recent_splats;
+lists::ObjectSet<Flash>& flashes() { return g_flashes; }
+lists::ObjectSet<TextureSplats>& splat_sets() { return g_splat_sets; }
+lists::ObjectSet<RecentSplat>& recent_splats() { return g_recent_splats; }
+lists::ObjectSet<PcShatter>& shatters() { return g_shatters; }
 
 bool get_paused() { return objects::g_simulation_halted; }
 
@@ -112,12 +98,6 @@ void set_fog_density_curve(float /*exponent*/) {}
 // Two compiled-out calls (the empty 0x005480A0) after the tables are made.
 void compiled_out() {}
 
-// A new table of 16 buckets on the default heap (none when out of memory).
-lists::KeyMap* new_table()
-{
-    void* memory = memory::alloc(sizeof(lists::KeyMap));
-    return memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
-}
 
 } // namespace
 
@@ -301,19 +281,19 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             core::at(splats->correction_steps_, i) != core::at(splats->correction_steps_, furthest))
             continue;
         const int fade = g_splat_fade;
-        const std::array<uint8_t*, 6> alphas = {{raw::bytes(&core::at(core::at(splats->base_colors_, i), 0)) + 3,
-                              raw::bytes(&core::at(core::at(splats->base_colors_, i), 1)) + 3,
-                              raw::bytes(&core::at(core::at(splats->base_colors_, i), 2)) + 3,
-                              core::at(core::at(splats->vertices, i), 0).data() + 0xF,
-                              core::at(core::at(splats->vertices, i), 1).data() + 0xF,
-                              core::at(core::at(splats->vertices, i), 2).data() + 0xF}};
+        auto& base = core::at(splats->base_colors_, i);
+        auto& triangle = core::at(splats->vertices, i);
+        const std::array<uint32_t*, 6> colours = {{&core::at(base, 0), &core::at(base, 1), &core::at(base, 2),
+                                                   &core::at(triangle, 0).argb, &core::at(triangle, 1).argb,
+                                                   &core::at(triangle, 2).argb}};
         int gone = 0;
-        for (uint8_t* alpha : alphas) {
-            if (*alpha == 0) {
+        for (uint32_t* colour : colours) {
+            const uint32_t alpha = *colour >> 24; // (the top byte: RGBA's alpha, ARGB's too)
+            if (alpha == 0) {
                 ++gone;
             } else {
-                const int faded = *alpha - fade;
-                *alpha = static_cast<uint8_t>(faded <= 0 ? 0 : faded);
+                const int faded = static_cast<int>(alpha) - fade;
+                *colour = (*colour & 0x00FFFFFFu) | (static_cast<uint32_t>(faded <= 0 ? 0 : faded) << 24);
             }
         }
         if (gone == 6)
@@ -324,67 +304,49 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
 // 0x00491F70
 void age_all_texture_splats()
 {
-    if (get_paused() || !splat_sets())
+    if (get_paused())
         return;
     const int elapsed = frame_milliseconds();
-    for (void* splats = get_first_value(splat_sets()); splats; splats = next_value(splat_sets()))
-        age_texture_splats(static_cast<TextureSplats*>(splats), elapsed);
+    splat_sets().for_each([elapsed](TextureSplats* splats) { age_texture_splats(splats, elapsed); });
 }
 
 // 0x00491F10
 void light_all_texture_splats()
 {
-    for (void* splats = get_first_value(splat_sets()); splats; splats = next_value(splat_sets()))
-        light_texture_splats(static_cast<TextureSplats*>(splats));
+    splat_sets().for_each([](TextureSplats* splats) { light_texture_splats(splats); });
 }
 
 // 0x004915A0
 void kill_all_texture_splats()
 {
-    for (void* recent = get_first_value(recent_splats()); recent;) {
-        void* next = next_value(recent_splats());
-        drop_out(recent_splats(), recent);
+    recent_splats().for_each([](RecentSplat* recent) {
+        recent_splats().erase(recent);
         memory::Hub::get_pull()->dealloc(recent);
-        recent = next;
-    }
+    });
     render::kill_all_texture_splats();
 }
 
 // 0x00491630
 void kill_texture_splats_in_box(const float* box)
 {
-    for (void* value = get_first_value(recent_splats()); value; value = next_value(recent_splats())) {
-        auto* recent = static_cast<float*>(value); // (a position, then +0x14 its time)
-        if (recent[0] >= box[0] && recent[1] >= box[1] && recent[2] >= box[2] && recent[0] <= box[4] &&
-            recent[1] <= box[5] && recent[2] <= box[6])
-            recent[5] = 0.0f;
-    }
+    recent_splats().for_each([box](RecentSplat* recent) {
+        const maths::Vec4& at = recent->pos;
+        if (at.x >= box[0] && at.y >= box[1] && at.z >= box[2] && at.x <= box[4] && at.y <= box[5] && at.z <= box[6])
+            recent->time = 0; // (the original stored 0.0f: the same bits)
+    });
     render::kill_texture_splats_in_box(box);
 }
 
 // 0x004916F0
 void kill_texture_splats_of_texture(uint32_t texture)
 {
-    for (void* value = get_first_value(splat_sets()); value;) {
-        void* next = next_value(splat_sets());
-        if (static_cast<TextureSplats*>(value)->texture == texture) {
-            drop_out(splat_sets(), value);
-            memory::Hub::get_pull()->dealloc(value);
+    splat_sets().for_each([texture](TextureSplats* splats) {
+        if (splats->texture == texture) {
+            splat_sets().erase(splats);
+            memory::Hub::get_pull()->dealloc(splats); // (its material isn't freed, as the original)
         }
-        value = next;
-    }
+    });
 }
-
-// A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (frame_clock::GetTime).
-namespace {
-
-struct RecentSplat {
-    maths::Vec4 pos;
-    uint32_t follow; // +0x10
-    uint32_t time;   // +0x14
-};
-
-} // namespace
 
 // 0x004928A0
 bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
@@ -396,34 +358,27 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     if (follow) {
         // A recent position of the same id near enough: the splat is made from it. Old ones go.
         const uint32_t now = frame_clock::get_time();
-        for (void* value = get_first_value(recent_splats()); value && !recent;) {
-            auto* candidate = static_cast<RecentSplat*>(value);
-            RecentSplat* dead = nullptr;
+        recent_splats().for_each([&](RecentSplat* candidate) {
+            if (recent)
+                return; // (the walk stopped at the one found)
             if (now < candidate->time || now - candidate->time > 500) {
-                dead = candidate;
+                recent_splats().erase(candidate);
+                memory::Hub::get_pull()->dealloc(candidate);
             } else if (candidate->follow == follow) {
                 const double dx = static_cast<double>(from->x) - candidate->pos.x;
                 const double dy = static_cast<double>(from->y) - candidate->pos.y;
                 const double dz = static_cast<double>(from->z) - candidate->pos.z;
-                if (dz * dz + dy * dy + dx * dx < 4356.0f) {
+                if (dz * dz + dy * dy + dx * dx < 4356.0f)
                     recent = candidate;
-                    break;
-                }
             }
-            value = next_value(recent_splats());
-            if (dead) {
-                drop_out(recent_splats(), dead);
-                memory::Hub::get_pull()->dealloc(dead);
-            }
-        }
+        });
         if (!recent) {
             // None: only remembered.
             auto* added = static_cast<RecentSplat*>(memory::alloc(sizeof(RecentSplat)));
             added->follow = follow;
             added->pos = *from;
             added->time = now;
-            auto key = cell::of(added);
-            recent_splats()->store_entry(key, added);
+            recent_splats().insert(added);
             return true;
         }
     }
@@ -485,7 +440,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         params.unknown38 = unknown38;
         params.up = recent ? &recent->pos.x : nullptr;
         params.unknown40 = unknown40;
-        TextureSplats* splats = render::create_texture_splat(sectors, static_cast<int>(cell::of(objects)), &params);
+        TextureSplats* splats = render::create_texture_splat(sectors, objects, &params);
         made = splats != nullptr;
         if (!follow && splats) {
             age_texture_splats(splats, frame_milliseconds());
@@ -505,33 +460,25 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
 // 0x00492000
 void update_shatters()
 {
-    if (get_paused() || !shatters())
+    if (get_paused())
         return;
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    for (void* value = get_first_value(shatters()); value;) {
-        auto* shatter = static_cast<Shatter*>(value);
+    shatters().for_each([elapsed](PcShatter* shatter) {
         const double left = static_cast<double>(shatter->lifetime) - elapsed;
         shatter->lifetime = static_cast<float>(left);
-        Shatter* dead = nullptr;
-        if (left <= 0.0)
-            dead = shatter;
-        else
-            update_shatter(core::down_cast<PcShatter>(shatter), elapsed);
-        value = next_value(shatters());
-        if (dead) {
-            drop_out(shatters(), dead);
-            delete dead;
+        if (left <= 0.0) {
+            shatters().erase(shatter);
+            delete shatter;
+        } else {
+            update_shatter(shatter, elapsed);
         }
-    }
+    });
 }
 
 // 0x004920E0
 void draw_shatters()
 {
-    if (!shatters())
-        return;
-    for (void* shatter = get_first_value(shatters()); shatter; shatter = next_value(shatters()))
-        draw_shatter(static_cast<PcShatter*>(shatter));
+    shatters().for_each([](PcShatter* shatter) { draw_shatter(shatter); });
 }
 
 // --- flashes ---
@@ -549,18 +496,14 @@ void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float
     flash->flags = flags;
     flash->texture = nullptr;
     flash->viewport = viewport;
-    auto key = cell::of(flash);
-    flashes()->store_entry(key, flash);
+    flashes().insert(flash);
 }
 
 // 0x00491790
 void update_flashes()
 {
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    if (!flashes())
-        return;
-    for (void* value = get_first_value(flashes()); value;) {
-        auto* flash = static_cast<Flash*>(value);
+    flashes().for_each([elapsed](Flash* flash) {
         Flash* dead = nullptr;
         if (!get_paused() || (flash->flags & 8)) {
             const double left = static_cast<double>(flash->time_left_) - elapsed;
@@ -577,22 +520,20 @@ void update_flashes()
                 }
             }
         }
-        value = next_value(flashes());
         if (dead) {
-            drop_out(flashes(), dead);
+            flashes().erase(dead);
             memory::Hub::get_pull()->dealloc(dead);
         }
-    }
+    });
 }
 
 // 0x00491910
 void draw_flashes(int viewport, uint32_t pass)
 {
-    for (void* value = get_first_value(flashes()); value; value = next_value(flashes())) {
-        auto* flash = static_cast<Flash*>(value);
+    flashes().for_each([viewport, pass](const Flash* flash) {
         if (flash->viewport == viewport && !((flash->flags ^ pass) & 1))
             draw_flash(flash);
-    }
+    });
 }
 
 // --- the tables ---
@@ -600,16 +541,7 @@ void draw_flashes(int viewport, uint32_t pass)
 // 0x00492150
 void init_effects()
 {
-    if (!flashes())
-        flashes() = new_table();
-    if (!spawned_polys())
-        spawned_polys() = new_table();
-    if (!splat_sets())
-        splat_sets() = new_table();
-    if (!recent_splats())
-        recent_splats() = new_table();
-    if (!shatters())
-        shatters() = new_table();
+    // (the tables are made once, before the first call: lists::ObjectSet)
     compiled_out();
     compiled_out();
     auto& stack = g_vertex_stack;
@@ -621,12 +553,10 @@ void init_effects()
 // 0x00492340
 void kill_all_effects()
 {
-    for (void* flash = get_first_value(flashes()); flash;) {
-        void* next = next_value(flashes());
-        drop_out(flashes(), flash);
+    flashes().for_each([](Flash* flash) {
+        flashes().erase(flash);
         memory::Hub::get_pull()->dealloc(flash);
-        flash = next;
-    }
+    });
     kill_all_spawned_polys();
     kill_all_texture_splats();
     kill_all_shatters();

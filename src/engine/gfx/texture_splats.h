@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/gfx/projected_vertex.h"
+
 // Texture splats on PC (Nx engine): textures projected onto the world (skid marks, splashes) - per texture a set of
 // up to 256 triangles kept in a table (0x007004B0, lists::KeyMap keyed by the set's address), drawn with a
 // perspective correction of their texture coordinates, lit, killed by box or all at once - and the geometry helpers
@@ -16,7 +18,9 @@ struct TextureImage;
 
 struct MaterialRef;
 
-// A splat set (laid out as the original: arrays of 256).
+struct MeshRef;
+
+// A splat set: arrays of 256 triangles.
 struct TextureSplats {
     std::array<uint32_t, 0x100> alive;           // +0x0000: 0 once a triangle is killed
     std::array<int, 0x100> correction_steps_;    // +0x0400 (the depth correction's, see draw_texture_splats)
@@ -28,11 +32,14 @@ struct TextureSplats {
     std::array<uint8_t, 4> unknown1c08_;
     MaterialRef* material;            // +0x1C0C
     std::array<std::array<float, 2>, 0x300> uvs;              // +0x1C10: each vertex's texture coordinates before the correction
-    std::array<std::array<std::array<uint8_t, 0x18>, 3>, 0x100> vertices; // +0x3410: position, ARGB colour, u, v
+    std::array<std::array<ProjectedVertex, 3>, 0x100> vertices; // +0x3410: drawn as they are
+
+    // Vertex `index` counted through the triangles (0-0x2FF).
+    ProjectedVertex& vertex(int index);
+    // 0x00490CD0 (thiscall on a set): the first free triangle of the first `count` (alive 0), else the one with the
+    // most steps past its start (the first on ties).
+    [[nodiscard]] int oldest_slot(uint32_t count) const;
 };
-static_assert(offsetof(TextureSplats, last) == 0x1C00 && offsetof(TextureSplats, material) == 0x1C0C &&
-                  offsetof(TextureSplats, uvs) == 0x1C10 && offsetof(TextureSplats, vertices) == 0x3410,
-              "layout must match the original");
 
 // 0x004B7F30: triangle `index` of a set collapsed onto its first vertex (killed).
 void collapse_splat_triangle(TextureSplats* splats, int index);
@@ -55,17 +62,11 @@ bool segments_intersect(float ax, float ay, float bx, float by, float cx, float 
 // an edge crossing the square's, a vertex inside it, or a corner inside the triangle.
 bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, float y2);
 
-// The vertex format the splitter works on: the colour's and the texture coordinates' offsets (0: none).
-struct SplitFormat {
-    std::array<uint8_t, 0x1C> unknown0;
-    uint8_t color_offset_; // +0x1C
-    uint8_t unknown1d_;
-    uint8_t uv_offset_; // +0x1E
-};
 // 0x004B8220 (with its body Ghidra split off, 0x004B8232): the next triangle off the vertex stack - split into four
 // (pushed back) when the cross product of its edges, squared, is above the limit (0x0067DDF0: 82944 as loaded; the
 // splat maker sets it for each triangle), else copied to *out (moved past it). False when the stack is empty.
-bool split_next_triangle(uint8_t** out, const SplitFormat* format);
+// `format`: the mesh whose vertex format the stack holds (its colour's and texture coordinates' offsets; 0 none).
+bool split_next_triangle(uint8_t** out, const MeshRef* format);
 
 // What a splat is made from (create_texture_splat's): a ray from `start` to `end` (the texture projected along it,
 // `size` wide, a square or the distance from `up` high), how far its faces may turn from it (`coneAngle`), how long
@@ -99,8 +100,9 @@ TextureSplats* get_texture_splats(TextureImage* texture);
 // 0x004B9C30: a splat made on the sectors (a null-terminated array) along the ray: their meshes' strip triangles
 // that face it (within the cone) and fall inside the projection get the texture - split finer where they're big
 // (the pieces inside kept) - into the texture's set's oldest triangles (0x00490CD0). The set, or null if no
-// triangle was hit. `unused` isn't.
-TextureSplats* create_texture_splat(void** sectors, int unused, SplatParams* params);
+// triangle was hit. `objects` (the collision objects found with the sectors) isn't used.
+class HitMesh;
+TextureSplats* create_texture_splat(void** sectors, HitMesh* const* objects, SplatParams* params);
 
 extern float g_split_area_limit;
 

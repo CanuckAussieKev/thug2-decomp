@@ -225,7 +225,7 @@ void Singleton::render(uint32_t draw_bits)
                 input_port()->SetTransform(D3DTS_WORLD, d3d::matrix(world.data()));
                 for (int i = 0; i < scene->mesh_count_; ++i) {
                     MeshRef* mesh = scene->meshes[i];
-                    if (static_cast<int8_t>(core::at(mesh->unknown1c_, 3)) == bone) // (its bone)
+                    if (static_cast<int8_t>(mesh->bone_) == bone) // (its bone)
                         mesh_flags_ref(mesh) |= kMeshShown;
                     else
                         mesh_flags_ref(mesh) &= ~kMeshShown;

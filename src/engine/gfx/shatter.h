@@ -7,16 +7,15 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 
-namespace lists {
-class KeyMap;
-}
+#include "engine/lists/object_set.h"
 
 // Shattering on PC (Nx engine; the Shatter script command): a mesh broken into triangles that fly apart - each
 // shatter (0x40 bytes) keeps its triangles' vertices and their positions, and the shatters are in a table
-// (0x007004B8, lists::KeyMap).
+// (0x007004B8: lists::ObjectSet).
 namespace render {
 
 struct MeshRef;
+struct MaterialRef;
 class PcGeom;
 
 // The engine's shatter (0x2C bytes, vtable 0x00649308; PcShatter extends it): per triangle its centre, velocity
@@ -63,7 +62,7 @@ public:
     ~PcShatter() override;
 
     float* positions;       // +0x2C: three floats per triangle
-    uint8_t* material;      // +0x30: a material of its own (0x110 bytes) when asked for
+    MaterialRef* material;  // +0x30: a material of its own when asked for
     uint32_t own_material_; // +0x34
     MeshRef* mesh;          // +0x38: what it was made from (its material, vertex size and format)
     uint8_t* vertices;      // +0x3C: three per triangle
@@ -86,6 +85,6 @@ void update_shatter(PcShatter* shatter, float step);
 // the table.
 void shatter_geom(PcGeom* geom);
 
-extern lists::KeyMap* g_shatters;
+extern lists::ObjectSet<PcShatter> g_shatters;
 
 } // namespace render
