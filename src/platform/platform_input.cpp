@@ -10,6 +10,7 @@
 #include <cwchar>
 #include <array>
 #include <span>
+#include <utility>
 
 #include "engine/pad_input/device.h"
 #include "engine/gfx/settings.h"
@@ -284,7 +285,15 @@ bool get_key_down(int code)
 }
 
 // 0x005F3120
-wchar_t* get_key_name(int code) { return core::at(key_names(), code).data(); }
+// (the original indexed the table with any code, -1 for an unbound key too, and read the bytes before it; a code
+// outside the table now names no key)
+wchar_t* get_key_name(int code)
+{
+    static std::array<wchar_t, 1> no_key_name{};
+    if (code < 0 || std::cmp_greater_equal(code, key_names().size()))
+        return no_key_name.data();
+    return core::at(key_names(), code).data();
+}
 
 // 0x005F3130
 BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device)
