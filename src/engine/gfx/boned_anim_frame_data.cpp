@@ -843,11 +843,11 @@ bool JointClipFrames::get_float_key_pose(std::span<float> rotations, std::span<f
     for (int bone = 0; bone < bone_count_; ++bone) {
         int quat_count = 0, trans_count = 0;
         if (flag_bits_ & 0x400000) {
-            quat_count = anim_format::wide_key_count(key_counts_, 2 * bone);
-            trans_count = anim_format::wide_key_count(key_counts_, 2 * bone + 1);
+            quat_count = anim_format::wide_key_count(key_count_run(), 2 * bone);
+            trans_count = anim_format::wide_key_count(key_count_run(), 2 * bone + 1);
         } else {
-            quat_count = key_counts_[2 * bone];
-            trans_count = key_counts_[2 * bone + 1];
+            quat_count = core::at(key_count_run(), 2 * bone);
+            trans_count = core::at(key_count_run(), 2 * bone + 1);
         }
         for (int k = 0; k < quat_count; ++k) {
             const uint8_t* key = quat_keys + 16 * k;

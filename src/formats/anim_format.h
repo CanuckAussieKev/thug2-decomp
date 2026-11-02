@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include "engine/core/checked_index.h"
+#include <span>
 #include <cstdint>
 #include <array>
 
@@ -95,11 +97,9 @@ inline util::ByteReader custom_key_reader(const AnimLayout& layout)
 }
 
 // A bone's two key counts with kWideCounts: i16 each (`index`: 2 * bone, + 1 for the translations).
-inline int wide_key_count(const uint8_t* counts, size_t index)
+inline int wide_key_count(std::span<const uint8_t> counts, size_t index)
 {
-    int16_t count = 0;
-    std::memcpy(&count, counts + 2 * index, sizeof(count));
-    return count;
+    return static_cast<int16_t>(core::at(counts, 2 * index) | core::at(counts, (2 * index) + 1) << 8);
 }
 
 // A key with floats (a quaternion's x, y, z, w or a translation's x, y, z after the time word), as the file keeps it.

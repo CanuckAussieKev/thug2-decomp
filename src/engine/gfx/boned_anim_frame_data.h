@@ -162,6 +162,11 @@ public:
     uint8_t* key_table_{nullptr};             // +0x0C (flag 0x2000: the animation's own quaternion table)
     uint8_t* quat_keys_{nullptr};             // +0x10
     uint8_t* trans_keys_{nullptr};            // +0x14
+    // NOT ORIGINAL - the per-bone key counts (two bytes a count, two counts a bone with the wide counts, else one).
+    [[nodiscard]] std::span<const uint8_t> key_count_run() const
+    {
+        return {key_counts_, static_cast<size_t>(bone_count_) * ((flag_bits_ & 0x400000) ? 4 : 2)};
+    }
     uint8_t* key_counts_{nullptr};            // +0x18
     uint32_t* bone_labels_{nullptr};          // +0x1C
     uint32_t* partial_bones_{nullptr};        // +0x20 (flag 0x80000: a count, then a bit for each bone)
