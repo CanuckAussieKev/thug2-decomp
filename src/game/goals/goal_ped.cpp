@@ -2,9 +2,7 @@
 
 #include "game/goals/goal_ped.h"
 
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <array>
 
@@ -19,14 +17,12 @@
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/audio/music_api.h"
 #include "engine/audio/stream_commands.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"

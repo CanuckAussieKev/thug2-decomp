@@ -24,10 +24,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
-#include "engine/core/checked_index.h"
-
 namespace goals {
 
 namespace {

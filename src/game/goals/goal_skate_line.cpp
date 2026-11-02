@@ -5,7 +5,6 @@
 #include "game/goals/goal_skate_line.h"
 
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
 #include "game/goals/goal_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

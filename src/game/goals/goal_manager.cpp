@@ -5,7 +5,6 @@
 #include "game/goals/goal_ped.h"
 
 #include <cstdint>
-#include <cstring>
 #include <initializer_list>
 #include <array>
 
@@ -30,13 +29,11 @@
 #include "engine/objects/trick_objects.h"
 #include "game/skate/profile_manager.h"
 #include "game/rider/rider.h"
-#include "platform/code_address.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/trick_component.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

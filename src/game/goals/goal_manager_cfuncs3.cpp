@@ -4,7 +4,6 @@
 // the reward points, the collect goals.
 
 #include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "engine/core/dbg.h"

@@ -20,7 +20,6 @@
 #include "game/skate/game_mode.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "platform/code_address.h"
 #include "engine/net/player_info.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/rider.h"

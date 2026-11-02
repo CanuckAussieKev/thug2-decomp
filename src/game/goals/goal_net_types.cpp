@@ -3,12 +3,10 @@
 #include "game/goals/goal_net_types.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/mem.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
 #include "engine/net/gamenet_manager.h"

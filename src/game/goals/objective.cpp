@@ -3,7 +3,6 @@
 #include "game/goals/objective.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <span>
 

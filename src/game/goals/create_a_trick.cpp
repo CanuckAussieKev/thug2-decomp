@@ -12,7 +12,6 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

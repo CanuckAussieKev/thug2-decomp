@@ -16,7 +16,6 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "game/goals/create_a_trick.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

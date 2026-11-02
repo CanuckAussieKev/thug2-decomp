@@ -8,7 +8,6 @@
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_net_types.h"
-#include "game/goals/goal_names.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
