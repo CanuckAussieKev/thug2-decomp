@@ -1,6 +1,8 @@
 // The network library's server (NetLink::HostEnd). See net_server.h.
 
+#include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/net/net_server.h"
 
@@ -8,6 +10,9 @@
 
 #include "engine/core/manager.h"
 #include "engine/net/net_access_c.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_conn.h"
+#include "engine/net/net_dispatcher.h"
 #include "platform/stopwatch.h"
 #include "engine/net/net_client.h"
 #include "engine/core/checked_index.h"

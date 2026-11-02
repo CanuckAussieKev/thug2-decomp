@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"

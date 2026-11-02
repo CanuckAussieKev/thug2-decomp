@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -50,6 +51,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "wire/gamenet_messages.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
 

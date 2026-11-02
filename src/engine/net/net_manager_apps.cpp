@@ -7,10 +7,12 @@
 
 #include <winsock2.h>
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

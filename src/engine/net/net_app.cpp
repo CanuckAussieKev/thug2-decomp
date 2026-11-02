@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
+#include <span>
 #include <string_view>
 #include <initializer_list>
 #include <utility>
@@ -18,6 +20,7 @@
 #include "engine/core/task_list.h"
 #include "engine/lists/chain_start.h"
 #include "engine/lists/list_walk.h"
+#include "engine/net/net_conn.h"
 #include "engine/net/net_manager.h"
 #include "engine/net/net_metrics.h"
 #include "engine/net/net_messages.h"

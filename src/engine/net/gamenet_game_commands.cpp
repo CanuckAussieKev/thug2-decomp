@@ -5,7 +5,9 @@
 #include "platform/code_address.h"
 #include <cstring>
 #include <array>
+#include <span>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "platform/gamespy.h"
 #include "engine/core/mem.h"

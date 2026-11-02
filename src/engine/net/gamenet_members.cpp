@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 #include "platform/code_address.h"
 #include "engine/gfx/engine_texture.h"
 #include "platform/compiler.h"
@@ -11,7 +12,9 @@
 #include <array>
 
 
+#include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
+#include "engine/core/mem.h"
 #include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"

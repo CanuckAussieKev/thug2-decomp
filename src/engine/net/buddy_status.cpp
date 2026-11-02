@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/net/buddy_man.h"

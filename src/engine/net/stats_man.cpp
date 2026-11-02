@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <array>
+#include <memory>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"

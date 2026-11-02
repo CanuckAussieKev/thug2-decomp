@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <string_view>
 
 #include "engine/core/task_list.h"

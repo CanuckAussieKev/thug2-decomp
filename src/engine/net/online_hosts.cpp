@@ -12,7 +12,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <array>
+#include <span>
 
+#include "engine/core/format.h"
 #include "platform/gamespy.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"

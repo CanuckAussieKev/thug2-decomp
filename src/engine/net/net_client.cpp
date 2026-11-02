@@ -7,12 +7,17 @@
 #include <cstdint>
 #include <cstring>
 #include <iterator>
+#include <memory>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_conn.h"
+#include "engine/net/net_dispatcher.h"
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"

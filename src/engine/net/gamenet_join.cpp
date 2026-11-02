@@ -9,8 +9,10 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/checksums.h"
+#include "engine/core/format.h"
 #include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -59,6 +61,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "wire/gamenet_messages.h"
 #include "wire/net_wire.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)

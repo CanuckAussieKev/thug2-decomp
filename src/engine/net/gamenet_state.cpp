@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_manager.h"

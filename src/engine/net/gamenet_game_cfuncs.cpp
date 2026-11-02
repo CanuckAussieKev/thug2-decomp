@@ -15,6 +15,7 @@
 #include "engine/net/gamenet_observer.h"
 #include "engine/net/gamenet_qr2.h"
 #include "engine/net/net_app.h"
+#include "engine/net/player_info.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

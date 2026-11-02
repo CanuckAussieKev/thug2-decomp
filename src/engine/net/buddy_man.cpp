@@ -15,6 +15,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <array>
+#include <iterator>
+#include <memory>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -30,6 +33,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/online_text.h"
 #include "engine/net/server_list.h"
+#include "engine/script/cell.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"

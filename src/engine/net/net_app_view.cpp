@@ -13,6 +13,8 @@
 #include <cstring>
 #include <initializer_list>
 #include <array>
+#include <memory>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -20,7 +22,9 @@
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app_messages.h"
+#include "engine/net/net_app_view.h"
 #include "engine/net/net_dispatcher.h"
+#include "engine/net/net_lists.h"
 #include "engine/net/net_messages.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"

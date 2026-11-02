@@ -52,6 +52,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "wire/gamenet_messages.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 

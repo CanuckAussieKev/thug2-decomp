@@ -7,11 +7,14 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/core/checksums.h"
 #include "engine/gfx/screen.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"

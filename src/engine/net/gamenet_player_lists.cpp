@@ -8,6 +8,7 @@
 #include "platform/d3dx.h"
 #include "platform/compiler.h"
 #include <cstring>
+#include <iterator>
 #include <span>
 #include <utility>
 #include <array>

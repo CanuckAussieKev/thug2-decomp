@@ -5,15 +5,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/lists/chain_start.h"
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_app_view.h"
 #include "engine/net/net_compress.h"
+#include "engine/net/net_conn.h"
+#include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lzham.h"
+#include "engine/net/net_messages.h"
 #include "wire/net_wire.h"
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"

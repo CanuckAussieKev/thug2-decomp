@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <unordered_set>
 
 #include "wire/gamenet_messages.h"

@@ -7,6 +7,7 @@
 #include <cstring>
 #include <utility>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/list_walk.h"
@@ -14,6 +15,8 @@
 #include "engine/net/net_app.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_app_view.h"
+#include "engine/net/net_messages.h"
 
 namespace net {
 

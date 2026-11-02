@@ -2,8 +2,10 @@
 // vault, presence and stats managers, and the CD-key challenge. See gamenet_manager.h.
 
 #include <cstdint>
+#include <memory>
 #include <new>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "platform/gamespy.h"
 #include "engine/core/mem.h"

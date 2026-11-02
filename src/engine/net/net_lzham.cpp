@@ -2,6 +2,7 @@
 
 #include "engine/net/net_lzham.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include <lzham_static_lib.h>

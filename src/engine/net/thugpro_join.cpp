@@ -2,6 +2,7 @@
 
 #include "engine/net/thugpro_join.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <array>
@@ -14,6 +15,7 @@
 #include "platform/run_log.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include "wire/gamenet_messages.h"
 
 namespace online::thugpro {
 

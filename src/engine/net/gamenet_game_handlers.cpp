@@ -14,6 +14,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
+#include "engine/net/net_dispatcher.h"
 #include "engine/objects/game_objects.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

@@ -8,7 +8,9 @@
 #include <cstring>
 #include <array>
 #include <gsl/pointers>
+#include <span>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
