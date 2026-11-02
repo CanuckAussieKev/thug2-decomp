@@ -28,6 +28,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/proximity.h"
 #include "engine/objects/trick_objects.h"
+#include "engine/audio/continue_music.h"
 #include "engine/audio/music_api.h"
 #include "engine/script/preferences.h"
 #include "engine/script/cscript.h"
@@ -328,7 +329,8 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         level = net->get_level_preference();
     net->change_arena(level);
     const bool show_warning = params->has_entry_named(kShowWarning);
-    audio::stop_music();
+    if (!audio::continue_music::is_switched_on()) // NOT ORIGINAL - continue_music: the song goes on into the level
+        audio::stop_music();
     PlayerSearch search;
     net::AppHost* server = net->host_; // (0x005480C0)
     struct ChangeLevelMessage {

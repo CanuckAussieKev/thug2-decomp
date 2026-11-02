@@ -8,6 +8,7 @@
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/audio/continue_music.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"
 #include "engine/audio/stream_commands.h"
@@ -186,17 +187,21 @@ bool cfunc_set_music_stream_volume(Struct* params, Script*)
 }
 
 // 0x0044D4C0: StopMusic. Always true.
-bool cfunc_stop_music(Struct*, Script*)
+bool cfunc_stop_music(Struct*, Script* script)
 {
+    if (audio::continue_music::skips_script_stop(script)) // NOT ORIGINAL - continue_music: not at a level change
+        return true;
     audio::stop_music();
     return true;
 }
 
 // 0x0044D4D0: PauseMusic [n (1)]: 1 pauses, 0 unpauses, -1 unpauses unless paused before. Always true.
-bool cfunc_pause_music(Struct* params, Script*)
+bool cfunc_pause_music(Struct* params, Script* script)
 {
     int pause = 1;
     params->fetch_int_value(0u, &pause, 0);
+    if (pause == 1 && audio::continue_music::skips_script_pause(script)) // NOT ORIGINAL - continue_music: not in menus
+        return true;
     audio::pause_music(pause);
     return true;
 }
@@ -257,8 +262,10 @@ bool cfunc_clear_music_track_list(Struct* params, Script*)
 }
 
 // 0x0044D6C0: SkipMusicTrack. Always true.
-bool cfunc_skip_music_track(Struct*, Script*)
+bool cfunc_skip_music_track(Struct*, Script* script)
 {
+    if (audio::continue_music::skips_script_stop(script)) // NOT ORIGINAL - continue_music: not at a run start
+        return true;
     audio::skip_music_track();
     return true;
 }

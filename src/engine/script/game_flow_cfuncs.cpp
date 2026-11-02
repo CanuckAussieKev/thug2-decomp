@@ -41,6 +41,7 @@
 #include "engine/script/skate_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
+#include "engine/audio/continue_music.h"
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/skate/skate_module.h"
@@ -140,6 +141,7 @@ struct FlagCommand {
 // physical memory logged. Always true.
 bool cfunc_cleanup(script::Struct* params, script::Script* script)
 {
+    const audio::continue_music::Hold keep_music; // NOT ORIGINAL - continue_music: the sound sweep leaves the song
     stubs::do_nothing(); // 0x0048C1B0
     goals::GoalManager* skater_info = goals::get_objective_board();
     skater_info->disengage_every_objective(false);

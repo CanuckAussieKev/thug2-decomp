@@ -12,6 +12,7 @@
 #include "engine/file/async.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/stream_component.h"
+#include "engine/audio/continue_music.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/stream.h"
 #include "engine/script/param_struct.h"
@@ -103,6 +104,8 @@ void pick_track(int track) { current_track_index() = track; }
 void stop_music()
 {
     if (!music_on())
+        return;
+    if (continue_music::is_held()) // NOT ORIGINAL - continue_music: a level change keeps the song
         return;
     frame_count() = 1;
     music_channel_kind() = kMusicStreamNone;
@@ -385,7 +388,10 @@ void prepare_all()
 bool disc_mode_active()
 {
     if (game_config::g_from_cd && initialised()) {
-        stop_music();
+        // NOT ORIGINAL - continue_music: the song plays on through the load (on the PC it streams from its own file,
+        // read by Bink's thread - nothing for the level's reads to wait for, unlike a console's disc)
+        if (!continue_music::is_switched_on())
+            stop_music();
         if (streams_on())
             platform_stop_streams();
     }

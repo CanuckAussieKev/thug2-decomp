@@ -443,6 +443,7 @@ add_executable(thug2 WIN32
     src/engine/audio/stream_commands.cpp
     src/engine/audio/music_api.cpp
     src/engine/audio/music_cfuncs.cpp
+    src/engine/audio/continue_music.cpp
     src/engine/gfx/loading_bar.cpp
     src/engine/gfx/loading_console.cpp
     src/engine/gfx/draw_frame.cpp
