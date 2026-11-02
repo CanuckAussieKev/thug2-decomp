@@ -26,7 +26,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
-#include "engine/objects/shared_state.h"
+#include "engine/objects/objects_shared.h"
 
 namespace objects {
 
@@ -53,12 +53,8 @@ double get_wide(float value) { return value; }
 float get_narrow(double value) { return static_cast<float>(value); }
 
 // The debug drawing switches (rigidbody_physics.cpp reads them): the shapes, the details.
-bool& draw_shape() { return rigidbody_physics_shared().rigid_body_draw_shape_; }
-bool& draw_details() { return rigidbody_physics_shared().rigid_body_draw_details_; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
-std::array<SharedRef<GameEntity>, 8>& get_pushers() { return rigidbody_component_shared().rigid_body_pushers_; }
-std::array<float, 8>& pusher_reach() { return rigidbody_component_shared().rigid_body_pusher_reach_; }
 
 // The matrix's element at byte offset `offset` from its start (the original's: row offset / 16, column 4 bytes each).
 double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset / 16)[(offset % 16) / 4]; }
@@ -68,13 +64,13 @@ double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset /
 // 0x0042BAC0
 bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 {
-    if (!draw_shape()) {
-        draw_shape() = true;
-    } else if (!draw_details()) {
-        draw_details() = true;
+    if (!objects_shared().draw_shape()) {
+        objects_shared().draw_shape() = true;
+    } else if (!objects_shared().draw_details()) {
+        objects_shared().draw_details() = true;
     } else {
-        draw_details() = false;
-        draw_shape() = false;
+        objects_shared().draw_details() = false;
+        objects_shared().draw_shape() = false;
     }
     return true;
 }
@@ -122,8 +118,8 @@ bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script
 void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 {
     for (int i = 7; i >= 0; --i) {
-        if (core::at(get_pushers(), i).get_pull() == object) {
-            core::at(pusher_reach(), i) = reach;
+        if (core::at(objects_shared().get_pushers(), i).get_pull() == object) {
+            core::at(objects_shared().pusher_reach(), i) = reach;
             return;
         }
     }
@@ -270,7 +266,7 @@ constexpr uint32_t kPercent = 0x9E497FC6; // percent
 
 // The pushers' height (0x006939D0: 77, set by configure_from_data) and the time the next collide sound of any rigid
 // body may play (0x006939D8).
-float pusher_height() { return rigidbody_component_shared().rigid_body_pusher_height_; }
+
 int& next_collide_sound_time()
 {
     static int next_collide_sound_time{};
@@ -306,10 +302,10 @@ int mute_until(int delay)
 void BodyDynamicsModule::feel_pushers()
 {
     for (int i = 7; i >= 0; --i) {
-        const GameEntity* pusher = core::at(get_pushers(), i).get_pull();
+        const GameEntity* pusher = core::at(objects_shared().get_pushers(), i).get_pull();
         if (!pusher)
             continue;
-        const float reach = core::at(pusher_reach(), i);
+        const float reach = core::at(objects_shared().pusher_reach(), i);
         const maths::Vec4& at = pusher->at_point_;
         const double outer = get_wide(reach) + skater_radius_;
         const double dz = get_wide(at_point_.z) - at.z;
@@ -319,7 +315,7 @@ void BodyDynamicsModule::feel_pushers()
         const float dy = get_narrow(get_wide(at.y) - at_point_.y);
         if (get_wide(reach) + skater_application_radius_ < dy)
             continue;
-        if (-((get_wide(pusher_height()) + skater_application_radius_) + reach) > dy)
+        if (-((get_wide(objects_shared().pusher_height()) + skater_application_radius_) + reach) > dy)
             continue;
 
         // Away from the pusher (horizontally), and how they move relative to each other.
@@ -374,8 +370,8 @@ void BodyDynamicsModule::feel_pushers()
         double py = 0.0;
         if (dy > 0.0f)
             py = get_wide(at.y) - at_point_.y;
-        else if (-pusher_height() > dy)
-            py = (get_wide(pusher_height()) + at.y) - at_point_.y;
+        else if (-objects_shared().pusher_height() > dy)
+            py = (get_wide(objects_shared().pusher_height()) + at.y) - at_point_.y;
         else
             py = kBelowFeet;
 

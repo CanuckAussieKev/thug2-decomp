@@ -34,12 +34,12 @@
 #include "platform/all_ones.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/objects/shared_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/objects/objects_shared.h"
 
 namespace objects {
 
-objects::EventWaitBoard* get_tracker() { return entity_hub_shared().tracker_.get(); }
+objects::EventWaitBoard* get_tracker() { return objects_shared().tracker().get(); }
 
 memory::PoolPair& script_list_pools()
 {
@@ -604,10 +604,10 @@ void EventWaitBoard::log_frame() { log_.add_row(0, 0, 0, 0, 0, SignalTrace::kFra
 // 0x00463730
 EventWaitBoard* create_tracker(bool create)
 {
-    if (!entity_hub_shared().tracker_ && create)
-        entity_hub_shared().tracker_ = std::make_unique<EventWaitBoard>(); // (null when the heap is full)
-    ++entity_hub_shared().tracker_references_;
-    return entity_hub_shared().tracker_.get();
+    if (!objects_shared().tracker() && create)
+        objects_shared().tracker() = std::make_unique<EventWaitBoard>(); // (null when the heap is full)
+    ++objects_shared().tracker_references();
+    return objects_shared().tracker().get();
 }
 
 // --- the script commands ---------------------------------------------------------------------------------

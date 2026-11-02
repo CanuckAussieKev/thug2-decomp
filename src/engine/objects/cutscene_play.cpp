@@ -23,8 +23,7 @@
 #include "engine/sys/game_config.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/objects/shared_state.h"
+#include "engine/objects/objects_shared.h"
 
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
@@ -32,15 +31,6 @@ void sync_music_to_time(float seconds);
 } // namespace audio
 
 namespace objects {
-
-bool cutscene_playing() { return cutscene_play_shared().cutscene_playing_; }
-void set_cutscene_playing(bool value) { cutscene_play_shared().cutscene_playing_ = value; }
-
-CutscenePlayShared& cutscene_play_shared()
-{
-    static core::NoDestroy<CutscenePlayShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -58,7 +48,7 @@ constexpr uint32_t kFieldOfView = 0x99529205; // a global float: the cutscene ca
 constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
-int& fixed_frame() { return cutscene_play_shared().cutscene_fixed_frame_; }
+
 std::array<char, 256>& shot_name()
 {
     static std::array<char, 256> cutscene_shot_name{};
@@ -154,7 +144,7 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
         if (flag_34b_0_)
             set_up_cutscene_heaps();
     }
-    cutscene_play_shared().cutscene_playing_ = true;
+    objects_shared().set_cutscene_playing(true);
     memory::Hub* manager = memory::Hub::get_pull();
     memory::Arena* file_heap = flag_34b_0_ ? manager->cinematic_low_heap_ : manager->bottom_up_heap_;
     memory::Arena* asset_heap = flag_34b_0_ ? manager->cinematic_high_heap_ : manager->top_down_heap_;
@@ -201,7 +191,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             static_cast<gfx::ViewCam*>(camera)->change_h_fov(script::fetch_float(kFieldOfView));
             previous_clock_ = 0.0f;
             paused_vblanks_ = frame_clock::fetch_retrace_count();
-            fixed_frame() = 0;
+            objects_shared().fixed_frame() = 0;
         }
         const int rate = game_config::frame_rate();
         audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
@@ -217,7 +207,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         return;
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
         gsl::owner<script::Struct*> info = script::new_struct();
-        const int frame = fixed_frame();
+        const int frame = objects_shared().fixed_frame();
         std::array<char, 128> line{};
         text::format_to(line, "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
         info->append_word("line1", line.data());
@@ -229,19 +219,19 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             info->get_clear();
             script::delete_struct(info);
         }
-        if (fixed && fixed_frame() > 0) {
+        if (fixed && objects_shared().fixed_frame() > 0) {
             std::array<char, 128> shot{};
-            text::format_to(shot, "%s%04d", shot_name().data(), fixed_frame() - 1);
+            text::format_to(shot, "%s%04d", shot_name().data(), objects_shared().fixed_frame() - 1);
             render::screen_shot(shot.data(), 1); // (a screenshot)
         }
     }
-    ++fixed_frame();
+    ++objects_shared().fixed_frame();
 }
 
 // 0x00467EA0
 void CinematicTable::perform(void* camera, script::Struct* params)
 {
-    cutscene_play_shared().cutscene_playing_ = true;
+    objects_shared().set_cutscene_playing(true);
     if (!flag_34b_0_) {
         ready_ = true;
         tick_frame(camera, params);

@@ -15,22 +15,14 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/entity.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/no_destroy.h"
-#include "engine/objects/shared_state.h"
+#include "engine/objects/objects_shared.h"
 namespace objects {
-
-EntityHubShared& entity_hub_shared()
-{
-    static core::NoDestroy<EntityHubShared> state;
-    return state.get();
-}
 
 namespace {
 
 constexpr int kFlushTaskPriority = 1000;
 
 // The tracker's reference count.
-uint32_t& tracker_references() { return entity_hub_shared().tracker_references_; }
 
 // lists::Foremost<Entity>'s insert by priority (the highest first, equal ones newest first).
 void add_node_by_priority(memory::ListNode* head, memory::ListNode* node)
@@ -227,12 +219,12 @@ Entity* ObjectSearch::next_item_of_type()
 // 0x00461FA0
 void release_tracker()
 {
-    uint32_t& references = tracker_references();
+    uint32_t& references = objects_shared().tracker_references();
     if (references > 1) {
         --references;
         return;
     }
-    memory::destroy_then_clear(entity_hub_shared().tracker_);
+    memory::destroy_then_clear(objects_shared().tracker());
     references = 0;
 }
 

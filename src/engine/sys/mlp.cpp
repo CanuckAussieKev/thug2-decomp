@@ -30,13 +30,13 @@
 #include "platform/screenshot.h"
 #include "platform/stopwatch.h"
 #include "platform/winmain.h"
-#include "engine/objects/cutscene.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "engine/objects/objects_shared.h"
 
 namespace frame_loop {
 
@@ -206,7 +206,7 @@ void Hub::get_main_loop()
             frames_since_screen_saver = 0;
         }
         render::engine_parts().set_suppress_draw(false);
-        objects::set_cutscene_playing(false);
+        objects::objects_shared().set_cutscene_playing(false);
         sio::read_keyboard();
         os_layer::process_window_events();
         service_network();

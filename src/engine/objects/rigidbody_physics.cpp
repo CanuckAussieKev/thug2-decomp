@@ -20,16 +20,9 @@
 #include "engine/sound/sfx.h"
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/objects/shared_state.h"
+#include "engine/objects/objects_shared.h"
 
 namespace objects {
-
-RigidbodyPhysicsShared& rigidbody_physics_shared()
-{
-    static core::NoDestroy<RigidbodyPhysicsShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -51,8 +44,6 @@ float append_one(float a, float b) { return get_narrow(get_wide(a) + b); }
 float get_sub(float a, float b) { return get_narrow(get_wide(a) - b); }
 
 // Debug drawing switches (0x006939D4: the shape each frame; 0x006939D5: the centre, the contacts' pushes).
-bool draw_shape() { return rigidbody_physics_shared().rigid_body_draw_shape_; }
-bool draw_details() { return rigidbody_physics_shared().rigid_body_draw_details_; }
 
 // Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one.
 void quat_multiply(maths::QuatRotation* quat, const maths::QuatRotation* other) { *quat *= *other; }
@@ -211,7 +202,7 @@ void BodyDynamicsModule::debug_draw()
         const maths::Vec4 center = at(core::at(centers, i));
         gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, 12, colour, 1);
     }
-    if (draw_details())
+    if (objects_shared().draw_details())
         gfx::push_diag_marker(at_point_, 36.0f, 0xFFC800C8, 1);
     const auto& springs = world_spring_points();
     for (int i = spring_count_; i != 0;) {
@@ -480,7 +471,7 @@ void BodyDynamicsModule::resolve_contacts()
                 .w = append_one(push.w, vel_.w)};
         rot_vel_ = {.x = append_one(get_narrow(tx * m), rot_vel_.x), .y = get_narrow(ty * m + rot_vel_.y),
                     .z = get_narrow(get_wide(tz) * m + rot_vel_.z), .w = append_one(get_narrow(m * kZero), rot_vel_.w)};
-        if (draw_details()) {
+        if (objects_shared().draw_details()) {
             const maths::Vec4 from = {.x = r.x + at_point_.x, .y = at_point_.y + r.y, .z = at_point_.z + r.z, .w = at_point_.w + r.w};
             const maths::Vec4 to = {.x = from.x + push.x * kDebugImpulseScale, .y = from.y + push.y * kDebugImpulseScale,
                                     .z = from.z + push.z * kDebugImpulseScale, .w = from.w + push.w * kDebugImpulseScale};
@@ -611,7 +602,7 @@ void BodyDynamicsModule::tick_frame()
     entity_->basis_frame_ = basis_frame_;
     entity_->display_matrix_ = basis_frame_;
     entity_->vel_ = vel_;
-    if (draw_shape())
+    if (objects_shared().draw_shape())
         debug_draw();
 }
 

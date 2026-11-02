@@ -31,7 +31,6 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
-#include "engine/objects/cutscene.h"
 #include "game/park_editing/park_editor.h"
 #include "frontend/screen_element_manager.h"
 #include <gsl/pointers>
@@ -42,6 +41,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
+#include "engine/objects/objects_shared.h"
 
 namespace sio {
 
@@ -648,7 +648,7 @@ void InputPort::pull_data(int)
     if (element && !element->is_concealed())
         select_skater_shown = true;
     bool menu_mode = !piece_menu_shown && menu && !typing;
-    if (render::engine_parts().movie_playing() || objects::cutscene_playing()) {
+    if (render::engine_parts().movie_playing() || objects::objects_shared().cutscene_playing()) {
         piece_menu_shown = false;
         menu_mode = false;
     }

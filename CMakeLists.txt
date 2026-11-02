@@ -720,6 +720,7 @@ add_executable(thug2 WIN32
     src/engine/objects/node_components.cpp
     src/engine/objects/entity.cpp
     src/engine/objects/entity_hub.cpp
+    src/engine/objects/objects_shared.cpp
     src/engine/objects/particle_component.cpp
     src/engine/objects/proximity_component.cpp
     src/game/park/park_cursor.cpp

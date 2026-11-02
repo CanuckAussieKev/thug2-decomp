@@ -34,7 +34,7 @@
 #include <array>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/objects/shared_state.h"
+#include "engine/objects/objects_shared.h"
 
 namespace objects {
 
@@ -81,8 +81,6 @@ void set_matrices(GameEntity* object, const float* matrix)
     std::memcpy(&object->basis_frame_, matrix, 64);
     std::memcpy(&object->display_matrix_, matrix, 64);
 }
-std::array<float, 512>& get_rotations() { return cutscene_data_shared().cutscene_rotations_; }
-std::array<float, 512>& get_translations() { return cutscene_data_shared().cutscene_translations_; }
 
 // (debug drawing, compiled out: the object's box)
 inline void debug_draw_box(const void*, const void*, const float*, int, int, int, uint32_t) {}
@@ -123,7 +121,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
 {
     previous_clock_ = clock_;
     if (script::fetch_int_value(kFixedTime) != 0) {
-        clock_ = static_cast<float>(cutscene_play_shared().cutscene_fixed_frame_ * static_cast<double>(kFrame));
+        clock_ = static_cast<float>(objects_shared().fixed_frame() * static_cast<double>(kFrame));
     } else if (unknown3474_) {
         // a fixed step a frame (looping back at the end)
         const double time = static_cast<double>(unknown3470_) * kStep + clock_;
@@ -232,7 +230,7 @@ void CinematicTable::update_object_transforms()
 {
     if (!object_source_)
         return;
-    anim_list_->get_float_key_pose(get_rotations(), get_translations(), cutscene_data_shared().cutscene_camera_slot_.data(),
+    anim_list_->get_float_key_pose(objects_shared().get_rotations(), objects_shared().get_translations(), objects_shared().cutscene_camera_slot().data(),
                                    static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                    0); // (the original passed the animation source's address: not read)
     // the animated objects of the level (not the cutscene's own)
@@ -250,9 +248,9 @@ void CinematicTable::update_object_transforms()
             continue;
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
         maths::Mat4 matrix{};
-        quat_to_matrix(gfx::quad_at(get_rotations(), j), origin, std::span<float, 16>(matrix.data(), 16));
+        quat_to_matrix(gfx::quad_at(objects_shared().get_rotations(), j), origin, std::span<float, 16>(matrix.data(), 16));
         set_matrices(object, matrix.data());
-        std::memcpy(&object->at_point_, gfx::quad_at(get_translations(), j).data(), 16);
+        std::memcpy(&object->at_point_, gfx::quad_at(objects_shared().get_translations(), j).data(), 16);
     }
     for (int i = 0; i < object_count_; ++i) {
         const ObjectEntry& entry = core::at(entities_, i);
@@ -293,10 +291,10 @@ void CinematicTable::update_object_transforms()
         } else if (entry.anim_index_ != -1) {
             std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
             maths::Mat4 matrix{};
-            quat_to_matrix(gfx::quad_at(get_rotations(), static_cast<size_t>(entry.anim_index_)), origin,
+            quat_to_matrix(gfx::quad_at(objects_shared().get_rotations(), static_cast<size_t>(entry.anim_index_)), origin,
                            std::span<float, 16>(matrix.data(), 16));
             set_matrices(object, matrix.data());
-            std::memcpy(&object->at_point_, gfx::quad_at(get_translations(), static_cast<size_t>(entry.anim_index_)).data(), 16);
+            std::memcpy(&object->at_point_, gfx::quad_at(objects_shared().get_translations(), static_cast<size_t>(entry.anim_index_)).data(), 16);
             update_stand_in(object);
         }
         if (script::fetch_int_value(kDebugBoxes)) {

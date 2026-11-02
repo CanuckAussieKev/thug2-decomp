@@ -11,7 +11,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/rigidbody_component.h"
 #include "engine/core/checked_index.h"
-#include "engine/objects/shared_state.h"
+#include "engine/objects/objects_shared.h"
 
 namespace objects {
 
@@ -21,7 +21,7 @@ double get_wide(float value) { return value; }
 float get_narrow(double value) { return static_cast<float>(value); }
 
 // The rigid bodies' collision cache (0x006939E0), refilled for each body's box before it looks.
-render::HitMeshCache* body_cache() { return &*rigidbody_component_shared().rigid_body_cache_; }
+render::HitMeshCache* body_cache() { return &*objects_shared().rigid_body_cache(); }
 
 } // namespace
 

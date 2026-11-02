@@ -32,16 +32,10 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
-#include "engine/objects/shared_state.h"
+#include "engine/objects/objects_shared.h"
 #include <gsl/pointers>
 
 namespace objects {
-
-CutsceneDataShared& cutscene_data_shared()
-{
-    static core::NoDestroy<CutsceneDataShared> state;
-    return state.get();
-}
 
 namespace {
 // NOT ORIGINAL grouping - cutscene_data.cpp's state (the original's globals). Made on first use, never destroyed
@@ -245,7 +239,7 @@ void CinematicTable::destroy_objects()
         entry.object = nullptr;
     }
     object_count_ = 0;
-    cutscene_play_shared().cutscene_playing_ = false;
+    objects_shared().set_cutscene_playing(false);
 }
 
 // 0x00463F20
@@ -356,7 +350,7 @@ void CinematicTable::update_object_poses()
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
-            cutscene_data_state().object_pose_rotations_, cutscene_data_state().object_pose_translations_, cutscene_data_shared().cutscene_camera_slot_,
+            cutscene_data_state().object_pose_rotations_, cutscene_data_state().object_pose_translations_, objects_shared().cutscene_camera_slot(),
             static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
         skeleton->tick_frame(cutscene_data_state().object_pose_rotations_.data(), cutscene_data_state().object_pose_translations_.data());
     }
@@ -370,10 +364,10 @@ namespace objects {
 void construct_cutscene_rotations()
 {
     for (int i = 0; i < 128; ++i) {
-        core::at(cutscene_data_shared().cutscene_rotations_, 4 * i + 0) = 0.0f;
-        core::at(cutscene_data_shared().cutscene_rotations_, 4 * i + 1) = 0.0f;
-        core::at(cutscene_data_shared().cutscene_rotations_, 4 * i + 2) = 0.0f;
-        core::at(cutscene_data_shared().cutscene_rotations_, 4 * i + 3) = 1.0f;
+        core::at(objects_shared().get_rotations(), 4 * i + 0) = 0.0f;
+        core::at(objects_shared().get_rotations(), 4 * i + 1) = 0.0f;
+        core::at(objects_shared().get_rotations(), 4 * i + 2) = 0.0f;
+        core::at(objects_shared().get_rotations(), 4 * i + 3) = 1.0f;
     }
 }
 

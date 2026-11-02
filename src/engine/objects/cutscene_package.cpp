@@ -44,8 +44,8 @@
 #include "engine/gfx/render_state.h"
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
-#include "engine/objects/shared_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/objects/objects_shared.h"
 
 namespace objects {
 
@@ -254,7 +254,7 @@ void CinematicEntry::stop()
 // 0x00466C20
 CinematicTable::~CinematicTable()
 {
-    cutscene_play_shared().cutscene_playing_ = false;
+    objects_shared().set_cutscene_playing(false);
     bundle_ptr_.reset();
     if (camera_source_)
         delete_source(camera_source_);
