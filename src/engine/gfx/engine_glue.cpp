@@ -261,7 +261,7 @@ void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camer
     const maths::Mat4& m = *camera->fetch_mat();
     // the point it looks at: the position plus the matrix's third row
     std::array<float, 3> target = {{core::at(m.row, 2).x + core::at(position, 0), core::at(m.row, 2).y + core::at(position, 1), core::at(m.row, 2).z + core::at(position, 2)}};
-    aim_shadow_caster(caster_key(texture), position.data(), target.data());
+    aim_shadow_caster(caster_key(texture), position, target);
 }
 
 // 0x004B2D10

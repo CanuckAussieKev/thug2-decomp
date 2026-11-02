@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/surface_material.h"
@@ -164,7 +165,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-            draw_shadows(scene, get_drawn().data(), pass.drawn);
+            draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn)));
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             if (!get_z_write()) {
@@ -216,7 +217,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         }
     }
     if (scene->flags & 0x100)
-        draw_shadows(scene, get_drawn().data(), pass.drawn);
+        draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn)));
     if (flags & kRenderStats)
         count_pass(2);
 }
