@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <array>
 
 #include "engine/core/mem.h"
@@ -50,6 +51,12 @@ public:
     bool is_descendant(uint32_t bone, uint32_t ancestor);
     // 0x004A2CA0
     maths::Mat4* get_inverse_bind_matrices() { return inverse_bind_; }
+    // NOT ORIGINAL: the inverse bind matrices and the bind translations, a bone each.
+    [[nodiscard]] std::span<maths::Mat4> inverse_binds() const { return {inverse_bind_, static_cast<std::size_t>(num_)}; }
+    [[nodiscard]] std::span<maths::Vec4> bind_translation_run() const
+    {
+        return {bind_translations_, static_cast<std::size_t>(num_)};
+    }
 
     int num_{0};                     // +0x004
     std::array<uint32_t, 64> names_{};           // +0x008
@@ -97,7 +104,7 @@ public:
     // 0x004A2B60: the index of the bone named `name` (-1: none).
     int fetch_bone_slot(uint32_t name);
     // 0x004A2B90
-    Joint* get_bone(int index) { return bone_array_ + index; }
+    Joint* get_bone(int index) { return &core::at(bones(), index); }
     // 0x004A2BB0: the bone named `name` made active or not. Whether it was found.
     bool enable_bone(uint32_t name, bool active);
     // 0x004A2CE0: every bone's scale back to 1 (unflagged).
@@ -134,6 +141,10 @@ public:
     // bone's position (the first matrix's translation: that bone's GetBonePosition), their rotation rows (0, 0, 0, 1).
     void collapse_zero_scaled_bones();
 
+    // NOT ORIGINAL: the bones' matrices and joints, a bone each (bone_total_).
+    [[nodiscard]] std::span<maths::Mat4> matrices() const { return {matrix_array_, static_cast<std::size_t>(bone_total_)}; }
+    [[nodiscard]] std::span<Joint> bones() const { return {bone_array_, static_cast<std::size_t>(bone_total_)}; }
+
     uint32_t flag_bits_{0};     // +0x00
     maths::Mat4* matrix_array_; // +0x04
     RigData* payload_;          // +0x08
@@ -146,6 +157,6 @@ static_assert(offsetof(Rig, bone_array_) == 0x18 && sizeof(Rig) == 0x1C, "layout
 
 // 0x004A2F20: a bone's matrix from a rotation and a translation (x87: the products and the -z w term unrounded, the
 // -x w and -y w terms rounded); `mirror` / `swap_z` negate entries to mirror it.
-void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, const float* quat, bool mirror, bool swap_z);
+void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, std::span<const float, 4> quat, bool mirror, bool swap_z);
 
 } // namespace gfx

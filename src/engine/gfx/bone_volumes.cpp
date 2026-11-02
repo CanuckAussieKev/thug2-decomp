@@ -48,13 +48,13 @@ void world_matrix(maths::Mat4* out, const maths::Mat4& inverse_bind, const maths
     get_multiply(out, out, world);
 }
 // Bone `index`'s parent's world matrix (the root's: the identity's), with the parent's pose `parent_pose`.
-void parent_world_matrix(maths::Mat4* out, RigData* data, const maths::Mat4* inverse_binds, int index,
+void parent_world_matrix(maths::Mat4* out, RigData* data, std::span<const maths::Mat4> inverse_binds, int index,
                          const maths::Mat4& parent_pose, const maths::Mat4* world)
 {
     if (index == 0)
         out->reset_to_identity();
     else
-        *out = inverse_binds[data->fetch_parent_slot(index)];
+        *out = core::at(inverse_binds, data->fetch_parent_slot(index));
     out->invert_orthonormal();
     get_multiply(out, out, &parent_pose);
     get_multiply(out, out, world);
@@ -160,13 +160,13 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
                                         uint32_t bone, float scale, float extra_radius, float* distance, float* t)
 {
     RigData* data = skeleton->payload_;
-    const maths::Mat4* inverse_binds = data->get_inverse_bind_matrices();
+    const std::span<const maths::Mat4> inverse_binds = data->inverse_binds();
     if (bone) {
         const int index = skeleton->fetch_bone_slot(bone);
         const Joint* bone_state = skeleton->get_bone(index);
-        maths::Mat4 pose = skeleton->matrix_array_[index];
+        maths::Mat4 pose = core::at(skeleton->matrices(), index);
         maths::Mat4 at{}, parent{};
-        world_matrix(&at, inverse_binds[index], pose, world);
+        world_matrix(&at, core::at(inverse_binds, index), pose, world);
         pose = *bone_state->parent;
         parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
         const BoneVolume* volume = volumes_[index];
@@ -186,7 +186,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
     for (int i = 0; i < skeleton->get_num_bones(); ++i) {
         const Joint* bone_state = skeleton->get_bone(i);
         maths::Mat4 at{};
-        world_matrix(&at, inverse_binds[i], skeleton->matrix_array_[i], world);
+        world_matrix(&at, core::at(inverse_binds, i), core::at(skeleton->matrices(), i), world);
         positions[i] = core::at(at.row, 3);
         if (i == 0)
             continue;
@@ -219,12 +219,12 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
 bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint32_t bone, float* volume)
 {
     RigData* data = skeleton->payload_;
-    const maths::Mat4* inverse_binds = data->get_inverse_bind_matrices();
+    const std::span<const maths::Mat4> inverse_binds = data->inverse_binds();
     const int index = skeleton->fetch_bone_slot(bone);
     const Joint* bone_state = skeleton->get_bone(index);
-    maths::Mat4 pose = skeleton->matrix_array_[index];
+    maths::Mat4 pose = core::at(skeleton->matrices(), index);
     maths::Mat4 at{}, parent{};
-    world_matrix(&at, inverse_binds[index], pose, world);
+    world_matrix(&at, core::at(inverse_binds, index), pose, world);
     pose = *bone_state->parent;
     parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
     float radius = 0.0f;
