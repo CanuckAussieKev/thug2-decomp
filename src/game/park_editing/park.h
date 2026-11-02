@@ -726,7 +726,7 @@ public:
     bool find_nearest_rail_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared);
     // 0x00592AB0: the node array's sizes: [0] nodes, [1] rail points, [2] rail segments, [3] / [4] memory
     // estimates, [5] rail points again
-    void get_node_counts(int* counts);
+    void get_node_counts(std::span<int, 6> counts);
     // 0x00592C10: a node array of the goal editor's nodes only, the node manager's
     void build_goal_node_array();
     // 0x00592C90: the node array dropped from the node manager and the symbol table

@@ -252,7 +252,15 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     MemoryStats& stats = get_attributes();
     if (counts_dirty()) {
         counts_dirty() = false;
-        park_assembler_ref()->get_node_counts(stats.piece_counts_.data());
+        // (the original gave the counter the address of piece_counts_: its six counts ran on into the next three
+        // fields - the park's components, vectors and arrays)
+        std::array<int, 6> counts{};
+        park_assembler_ref()->get_node_counts(counts);
+        for (int i = 0; i < 3; ++i)
+            core::at(stats.piece_counts_, i) = core::at(counts, i);
+        stats.components = core::at(counts, 3);
+        stats.vectors = core::at(counts, 4);
+        stats.arrays = core::at(counts, 5);
     }
     memory::Arena* main_heap = memory::Hub::get_pull()->bottom_up_heap_;
     memory::Zone* main_region = main_heap->region_;

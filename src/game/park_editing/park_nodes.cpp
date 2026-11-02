@@ -160,10 +160,11 @@ uint32_t ParkAssembler::next_geometry_node(Array* nodes, int* index)
 uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info,
                                                  bool* is_loop)
 {
-    auto used = [this](int node) {
+    const std::span<int> used_run(used_nodes_, 256); // (room for 256)
+    auto used = [this, used_run](int node) {
         bool found = false;
         for (int i = 0; i < num_used_nodes_; ++i) {
-            if (used_nodes_[i] == node)
+            if (core::at(used_run, i) == node)
                 found = true;
         }
         return found;
@@ -178,8 +179,9 @@ uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry
         from = rail_search_start();
     }
     const int count = static_cast<int>(nodes->extent_);
+    const std::span<PieceNodeInfo> info_run(node_info_, static_cast<size_t>(count));
     for (int i = from; i < count; ++i) {
-        const PieceNodeInfo& node = node_info_[i];
+        const PieceNodeInfo& node = core::at(info_run, i);
         if (node.class_ != kRailNode && node.class_ != kClimbingNode)
             continue;
         uint32_t link = 0;
@@ -216,7 +218,7 @@ uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry
     }
     if (found == -1)
         return 0;
-    used_nodes_[num_used_nodes_++] = found;
+    core::at(used_run, num_used_nodes_++) = found;
     Struct* node = elem(nodes, found);
     std::memset(info, 0, sizeof(RailNodeInfo));
     node->fetch_vec(kPos, get_out(&info->at_point_), 1);
@@ -246,9 +248,10 @@ void ParkAssembler::build_source_rails(Array* nodes)
     used_nodes_ = static_cast<int*>(memory::alloc(0x400)); // (room for 256)
     num_used_nodes_ = 0;
     node_info_ = static_cast<PieceNodeInfo*>(memory::alloc(count * sizeof(PieceNodeInfo)));
+    const std::span<PieceNodeInfo> info_run(node_info_, static_cast<size_t>(count));
     for (int i = 0; i < ints::as_signed(nodes->extent_); ++i) {
         Struct* node = elem(nodes, i);
-        PieceNodeInfo& info = node_info_[i];
+        PieceNodeInfo& info = core::at(info_run, i);
         info.class_ = 0;
         node->read_hash_value(kClass, &info.class_, 0);
         info.cluster_ = 0;
@@ -331,35 +334,35 @@ bool ParkAssembler::find_nearest_rail_point(const maths::Vec4* position, maths::
     return found;
 }
 
-void ParkAssembler::get_node_counts(int* counts)
+void ParkAssembler::get_node_counts(std::span<int, 6> counts)
 {
-    for (int i = 0; i < 6; ++i)
-        counts[i] = 0;
+    for (int& count : counts)
+        count = 0;
     for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
         if (!(piece->flag_bits_ & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80)))
-            ++counts[0];
+            ++core::at(counts, 0);
         if (!(piece->flag_bits_ & DuplicatedTile::kCursor) && !(piece->flag_bits_ & DuplicatedTile::kNoRails)) {
-            counts[1] += piece->blend_source_->rail_point_total_;
-            counts[2] += piece->blend_source_->num_rail_segments_;
+            core::at(counts, 1) += piece->blend_source_->rail_point_total_;
+            core::at(counts, 2) += piece->blend_source_->num_rail_segments_;
         }
     }
-    const int points = counts[1] + get_rail_editor_points();
-    ++counts[0]; // (the high score restart)
-    counts[1] = points;
+    const int points = core::at(counts, 1) + get_rail_editor_points();
+    ++core::at(counts, 0); // (the high score restart)
+    core::at(counts, 1) = points;
     for (const RestartPoint& restart : restarts_) {
         const int type = restart.kind_tag_;
         if (type != RestartPoint::kFree)
-            ++counts[0];
+            ++core::at(counts, 0);
         if (type == RestartPoint::kPlayer1)
-            ++counts[0]; // (and a multiplayer one)
+            ++core::at(counts, 0); // (and a multiplayer one)
         if (type == RestartPoint::kHorse)
-            ++counts[0];
+            ++core::at(counts, 0);
         if (type >= RestartPoint::kRedFlag && type <= RestartPoint::kYellowFlag)
-            counts[0] += 3; // (the flag, its CTF node and its base)
+            core::at(counts, 0) += 3; // (the flag, its CTF node and its base)
     }
-    counts[5] = points;
-    counts[3] = points * 7 + counts[0] * 6 + 0x4F6 + counts[2];
-    counts[4] = counts[0] + 300 + points * 2;
+    core::at(counts, 5) = points;
+    core::at(counts, 3) = points * 7 + core::at(counts, 0) * 6 + 0x4F6 + core::at(counts, 2);
+    core::at(counts, 4) = core::at(counts, 0) + 300 + points * 2;
 }
 
 void ParkAssembler::build_goal_node_array()
@@ -629,7 +632,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
 void ParkAssembler::build_node_array(MapListNode* metas)
 {
     std::array<int, 6> counts{};
-    get_node_counts(counts.data());
+    get_node_counts(counts);
     const int rail_editor_points = get_rail_editor_points();
     int total = core::at(counts, 0) + (goal_editor_constant82() + rail_editor_points);
     build_rails(metas);
