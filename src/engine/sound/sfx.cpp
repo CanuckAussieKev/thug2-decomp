@@ -3,12 +3,16 @@
 #include "engine/sound/sfx.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <memory>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
+#include "engine/core/mem.h"
 #include "frontend/automation.h"
 #include "engine/audio/music_player.h"
 #include "engine/script/param_struct.h"
