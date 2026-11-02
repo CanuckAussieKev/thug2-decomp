@@ -279,7 +279,7 @@ TrickObjectCluster* TrickSpotHub::get_cluster(uint32_t name)
 // 0x00588400
 int TrickSpotHub::count_clusters_held_by(int player)
 {
-    ClusterCount counter = {0, static_cast<uint32_t>(player)};
+    ClusterCount counter = {.count = 0, .cluster = static_cast<uint32_t>(player)};
     clusters_.run_hook<&count_object_in_cluster>(&counter);
     return counter.count;
 }
@@ -311,7 +311,7 @@ void find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search)
 // 0x00588480
 uint32_t TrickSpotHub::get_cluster_name(uint8_t index)
 {
-    ClusterAtIndex search = {0, index, false};
+    ClusterAtIndex search = {.name = 0, .countdown = index, .found = false};
     clusters_.run_hook<&find_cluster_at_index>(&search);
     return search.name;
 }
@@ -321,7 +321,7 @@ void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer
 {
     if (!cluster->owned_ || cluster->owner_ != writer->player)
         return;
-    ClusterIndexSearch search = {cluster->label_, 0, false};
+    ClusterIndexSearch search = {.name = cluster->label_, .index = 0, .found = false};
     writer->manager->clusters_.run_hook<&find_cluster_index>(&search);
     core::at(writer->buffer, writer->count + 8) = search.index; // (a byte: past 255 clusters it wraps, as THUG2's and THUGPRO's)
     ++writer->count;
@@ -331,7 +331,7 @@ void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer
 // 0x00588520
 int TrickSpotHub::write_graffiti_state(std::span<uint8_t> buffer)
 {
-    GraffitiStateWriter writer = {0, 0, buffer, this};
+    GraffitiStateWriter writer = {.player = 0, .count = 0, .buffer = buffer, .manager = this};
     for (int player = 0; player < 8; ++player) {
         core::at(buffer, player) = 0;
         writer.player = player;

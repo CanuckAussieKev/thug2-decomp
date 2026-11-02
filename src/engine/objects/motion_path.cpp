@@ -16,19 +16,19 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 49> g_motion_path_member_functions{{
-    {0x21ACCF0D, 0x0A015E17}, {0x7BC461AE, 0x0A015E17}, {0x8E52ABEA, 0x0A015E17}, {0xC8CC6820, 0x0A015E17},
-    {0x68E1F022, 0x0A015E17}, {0xDFBE3DB3, 0x0A015E17}, {0xFB603EA9, 0x0A015E17}, {0x2CA63CDF, 0x0A015E17},
-    {0xD6697AD0, 0x0A015E17}, {0xA67FC783, 0x0A015E17}, {0x5CF1B7D4, 0x0A015E17}, {0x0B231A9D, 0x0A015E17},
-    {0x7C242A0B, 0x0A015E17}, {0xE52D7BB1, 0x0A015E17}, {0xD8F4BC32, 0x0A015E17}, {0xAA3CB476, 0x0A015E17},
-    {0xB75589CE, 0x0A015E17}, {0x6866312F, 0x0A015E17}, {0x434EA1FB, 0x0A015E17}, {0x76003D82, 0x0A015E17},
-    {0xBFB0031D, 0x0A015E17}, {0x33E04032, 0x0A015E17}, {0x103BD253, 0x0A015E17}, {0x6419CEFF, 0x0A015E17},
-    {0xA5A2D218, 0x0A015E17}, {0x74C30242, 0x0A015E17}, {0xE8D121CB, 0x0A015E17}, {0x33DF698F, 0x0A015E17},
-    {0xFE71453F, 0x0A015E17}, {0xBD6C6807, 0x0A015E17}, {0x0DA2D86D, 0x0A015E17}, {0xCC19C48A, 0x0A015E17},
-    {0x8B669799, 0x0A015E17}, {0xF389285D, 0x0A015E17}, {0x5CE058FD, 0x0A015E17}, {0x84EC6600, 0x0A015E17},
-    {0xEA81A32B, 0x0A015E17}, {0x3BCAAC3F, 0x0A015E17}, {0xC5ECA638, 0x0A015E17}, {0x1E094B84, 0x0A015E17},
-    {0xBDC4C878, 0x0A015E17}, {0xDBFDD02F, 0x0A015E17}, {0x8D95F1E1, 0x0A015E17}, {0x3407AD3D, 0x0A015E17},
-    {0xE606EBA2, 0x0A015E17}, {0xE76D73D2, 0x0A015E17}, {0x1AE46261, 0x0A015E17}, {0x2FAD370D, 0x0A015E17},
-    {0, 0x0A015E17}}};
+    {.callsign_ = 0x21ACCF0D, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x7BC461AE, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x8E52ABEA, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xC8CC6820, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0x68E1F022, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xDFBE3DB3, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xFB603EA9, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x2CA63CDF, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xD6697AD0, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xA67FC783, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x5CF1B7D4, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x0B231A9D, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0x7C242A0B, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xE52D7BB1, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xD8F4BC32, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xAA3CB476, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xB75589CE, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x6866312F, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x434EA1FB, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x76003D82, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xBFB0031D, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x33E04032, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x103BD253, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x6419CEFF, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xA5A2D218, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x74C30242, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xE8D121CB, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x33DF698F, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xFE71453F, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xBD6C6807, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x0DA2D86D, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xCC19C48A, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0x8B669799, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xF389285D, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x5CE058FD, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x84EC6600, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xEA81A32B, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x3BCAAC3F, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xC5ECA638, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x1E094B84, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xBDC4C878, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xDBFDD02F, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x8D95F1E1, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x3407AD3D, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0xE606EBA2, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0xE76D73D2, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x1AE46261, .owner_kind_ = 0x0A015E17}, {.callsign_ = 0x2FAD370D, .owner_kind_ = 0x0A015E17},
+    {.callsign_ = 0, .owner_kind_ = 0x0A015E17}}};
 
 namespace {
 

@@ -188,7 +188,7 @@ void FollowTrail::get_reset()
     num_ = 0;
     head_ = 0;
     entity_key_ = 0;
-    aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    aim_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     reach_ = 0.0f;
     free_facing_ = false;
 }
@@ -282,7 +282,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     if (free_facing_) {
         front.w = 1.0f;
         front.make_unit();
-        const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
+        const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
         core::at(matrix->row, 0) = maths::cross_vec(up, front);
         core::at(matrix->row, 0).make_unit();
         core::at(matrix->row, 1) = maths::cross_vec(front, core::at(matrix->row, 0));
@@ -290,7 +290,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         front.y = 0.0f;
         front.w = 1.0f;
         front.make_unit();
-        core::at(matrix->row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+        core::at(matrix->row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
         core::at(matrix->row, 0) = maths::cross_vec(core::at(matrix->row, 1), front);
     }
 }

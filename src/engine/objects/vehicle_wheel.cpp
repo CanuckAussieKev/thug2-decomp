@@ -12,9 +12,9 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 10> g_vehicle_wheel_member_functions{{
-    {0x93B713A6, 0xE47F1B79}, {0xA80A0D36, 0xE47F1B79}, {0x4B0B27DD, 0xE47F1B79}, {0xC33608E4, 0xE47F1B79},
-    {0xDB35AAD8, 0xE47F1B79}, {0x5008B253, 0xE47F1B79}, {0x279602ED, 0xE47F1B79}, {0x4C73526B, 0xE47F1B79},
-    {0x81FAAC21, 0xE47F1B79}, {0, 0xE47F1B79}}};
+    {.callsign_ = 0x93B713A6, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xA80A0D36, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4B0B27DD, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xC33608E4, .owner_kind_ = 0xE47F1B79},
+    {.callsign_ = 0xDB35AAD8, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x5008B253, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x279602ED, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4C73526B, .owner_kind_ = 0xE47F1B79},
+    {.callsign_ = 0x81FAAC21, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0, .owner_kind_ = 0xE47F1B79}}};
 
 namespace {
 

@@ -85,9 +85,9 @@ gsl::owner<ObjectModule*> CbBoxComponent::fabricate() { return new CbBoxComponen
 CbBoxComponent::CbBoxComponent()
 {
     kind_tag_ = kType;
-    box_max_ = {10.0f, 10.0f, 10.0f, 1.0f};
-    box_min_ = {-10.0f, -10.0f, -10.0f, 1.0f};
-    shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    box_max_ = {.x = 10.0f, .y = 10.0f, .z = 10.0f, .w = 1.0f};
+    box_min_ = {.x = -10.0f, .y = -10.0f, .z = -10.0f, .w = 1.0f};
+    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x0041A810 (0x0041A880 the deleting one)

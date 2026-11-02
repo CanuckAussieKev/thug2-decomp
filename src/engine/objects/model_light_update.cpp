@@ -92,11 +92,11 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
     render::ProbeRay again;
     again.set_excluded(0, 0x20);
-    again.line_.start = {start.x, start.y + kSecondAbove, start.z, start.w};
+    again.line_.start = {.x = start.x, .y = start.y + kSecondAbove, .z = start.z, .w = start.w};
     if (hit)
-        again.line_.end = {down.contact_pos_.x, down.contact_pos_.y - 1.0f, down.contact_pos_.z, down.contact_pos_.w};
+        again.line_.end = {.x = down.contact_pos_.x, .y = down.contact_pos_.y - 1.0f, .z = down.contact_pos_.z, .w = down.contact_pos_.w};
     else
-        again.line_.end = {start.x, start.y - kDepth, start.z, start.w};
+        again.line_.end = {.x = start.x, .y = start.y - kDepth, .z = start.z, .w = start.w};
     if (again.get_hit_shape(false, false)) {
         mesh_instance_->apply_brightness(&again, lerp, rate);
         brightness_ = static_cast<float>(again.get_hit_vertex_value());

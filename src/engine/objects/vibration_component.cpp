@@ -26,7 +26,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 2> g_vibration_component_member_functions{{
-    {0xDF8A5F0A, 0x404EB936}, {0, 0x404EB936}}};
+    {.callsign_ = 0xDF8A5F0A, .owner_kind_ = 0x404EB936}, {.callsign_ = 0, .owner_kind_ = 0x404EB936}}};
 
 namespace {
 

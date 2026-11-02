@@ -75,7 +75,7 @@ KinematicsModule::~KinematicsModule()
 // 0x00423D00
 void KinematicsModule::get_reset()
 {
-    const maths::Vec4 rest = {0.0f, 0.0f, 0.0f, 1.0f};
+    const maths::Vec4 rest = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     rot_target_ = rest;
     rot_done_ = rest;
     rot_max_speed_ = rest;

@@ -71,7 +71,7 @@ void ImpactDestructModule::configure_from_data(script::Struct* params)
     params->fetch_float(kRadius, &radius_, 1);
     params->fetch_float(kScale, &size_factor_, 1);
     params->read_hash_value(kOnDestroyScript, &on_collide_script_, 1);
-    vel_ = {0.0f, 0.0f, 1.0f, 1.0f};
+    vel_ = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     params->fetch_vec(kVel, &vel_, 1);
     vel_.make_unit();
 }

@@ -136,22 +136,22 @@ struct PadButtonName {
     const char* name;
 };
 constexpr auto kPadButtons = std::to_array<PadButtonName>({
-    {&PadSnapshot::up_dir_, "UP"},
-    {&PadSnapshot::btn_down_, "DOWN"},
-    {&PadSnapshot::left_side_, "LEFT"},
-    {&PadSnapshot::right_side_, "RIGHT"},
-    {&PadSnapshot::button_box_, "SQUARE"},
-    {&PadSnapshot::button_round_, "CIRCLE"},
-    {&PadSnapshot::button_wedge_, "TRIANGLE"},
-    {&PadSnapshot::pos_x_, "X"},
-    {&PadSnapshot::shoulder_left_a_, "L1"},
-    {&PadSnapshot::shoulder_left_b_, "L2"},
-    {&PadSnapshot::stick_click_left_, "L3"},
-    {&PadSnapshot::shoulder_right_a_, "R1"},
-    {&PadSnapshot::shoulder_right_b_, "R2"},
-    {&PadSnapshot::stick_click_right_, "R3"},
-    {&PadSnapshot::outset_, "START"},
-    {&PadSnapshot::button_choose_, "SELECT"},
+    {.button = &PadSnapshot::up_dir_, .name = "UP"},
+    {.button = &PadSnapshot::btn_down_, .name = "DOWN"},
+    {.button = &PadSnapshot::left_side_, .name = "LEFT"},
+    {.button = &PadSnapshot::right_side_, .name = "RIGHT"},
+    {.button = &PadSnapshot::button_box_, .name = "SQUARE"},
+    {.button = &PadSnapshot::button_round_, .name = "CIRCLE"},
+    {.button = &PadSnapshot::button_wedge_, .name = "TRIANGLE"},
+    {.button = &PadSnapshot::pos_x_, .name = "X"},
+    {.button = &PadSnapshot::shoulder_left_a_, .name = "L1"},
+    {.button = &PadSnapshot::shoulder_left_b_, .name = "L2"},
+    {.button = &PadSnapshot::stick_click_left_, .name = "L3"},
+    {.button = &PadSnapshot::shoulder_right_a_, .name = "R1"},
+    {.button = &PadSnapshot::shoulder_right_b_, .name = "R2"},
+    {.button = &PadSnapshot::stick_click_right_, .name = "R3"},
+    {.button = &PadSnapshot::outset_, .name = "START"},
+    {.button = &PadSnapshot::button_choose_, .name = "SELECT"},
 });
 
 } // namespace
@@ -173,8 +173,8 @@ void PadSnapshot::get_reset()
         f = 0.0f;
     for (float& f : scaled_stick_)
         f = 0.0f;
-    core::at(polar_, 0) = {0.0f, 0.0f};
-    core::at(polar_, 1) = {0.0f, 0.0f};
+    core::at(polar_, 0) = {.angle = 0.0f, .length = 0.0f};
+    core::at(polar_, 1) = {.angle = 0.0f, .length = 0.0f};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
     if (skater::thaw_bmx::is_switched_on())
         skater::thaw_bmx::update_pad_sticks(this, {});

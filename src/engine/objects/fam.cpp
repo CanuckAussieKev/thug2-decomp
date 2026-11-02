@@ -31,7 +31,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 3> g_fam_member_functions{{
-    {0xE5894C80, 0x0301D67C}, {0x48AC2139, 0x0301D67C}, {0, 0x0301D67C}}};
+    {.callsign_ = 0xE5894C80, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0x48AC2139, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0, .owner_kind_ = 0x0301D67C}}};
 
 namespace {
 

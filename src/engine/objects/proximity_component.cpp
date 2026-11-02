@@ -69,7 +69,7 @@ void ProximityComponent::tick_frame()
             maths::Seg line{};
             const maths::Vec4& head = skater->at_point_;
             line.start = head;
-            line.end = {head.x, static_cast<float>(static_cast<double>(head.y) + skater_radius()), head.z, head.w};
+            line.end = {.x = head.x, .y = static_cast<float>(static_cast<double>(head.y) + skater_radius()), .z = head.z, .w = head.w};
             maths::Capsule capsule(line, 0.0f);
             if (!is_within_) {
                 capsule.radius = inner_radius_;

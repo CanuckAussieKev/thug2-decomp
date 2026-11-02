@@ -190,10 +190,10 @@ float ModelSpinAxis::bearing()
 void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
 {
     *out = entity_->display_matrix_;
-    core::at(out->row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(out->row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (flip_) {
-        core::at(out->row, 2) = {-core::at(out->row, 2).x, -core::at(out->row, 2).y, -core::at(out->row, 2).z, -core::at(out->row, 2).w};
-        core::at(out->row, 0) = {-core::at(out->row, 0).x, -core::at(out->row, 0).y, -core::at(out->row, 0).z, -core::at(out->row, 0).w};
+        core::at(out->row, 2) = {.x = -core::at(out->row, 2).x, .y = -core::at(out->row, 2).y, .z = -core::at(out->row, 2).z, .w = -core::at(out->row, 2).w};
+        core::at(out->row, 0) = {.x = -core::at(out->row, 0).x, .y = -core::at(out->row, 0).y, .z = -core::at(out->row, 0).z, .w = -core::at(out->row, 0).w};
     }
     // The spins: about X, then Y, then Z (each one that isn't 0 multiplied in).
     maths::Mat4 rotation;
@@ -213,13 +213,13 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
         const CreateFn create = core::at(kCreate, axis);
         matrix_multiply(&rotation, &rotation, &create(turn, angle * kRadiansPerDegree));
     }
-    maths::Vec4 shift = {0.0f, 0.0f, 0.0f, 0.0f};
+    maths::Vec4 shift = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     if (!none) {
         // About the pivot: the pivot less where the turn takes it, in the display's frame.
         shift = pivot_;
         if (shift.x != 0.0f || shift.y != 0.0f || shift.z != 0.0f) {
             const maths::Vec4 turned = shift * rotation;
-            shift = {shift.x - turned.x, shift.y - turned.y, shift.z - turned.z, shift.w - turned.w};
+            shift = {.x = shift.x - turned.x, .y = shift.y - turned.y, .z = shift.z - turned.z, .w = shift.w - turned.w};
             shift = shift * *out;
         }
         matrix_multiply(out, &rotation, out);
@@ -334,7 +334,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
                                         bool z)
 {
     const float period = duration * kFramesToMs;
-    pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
+    pivot_ = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f};
     auto now = static_cast<uint32_t>(frame_clock::game_clock_time());
     uint8_t axes = 0;
     const std::array<bool, 3> flags = {{x, y, z}};

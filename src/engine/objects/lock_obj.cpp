@@ -52,7 +52,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     entity_label_ = 0;
     bone_ = 0;
     target_id_ = frontend::g_unassigned_id;
-    shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     // (NOT ORIGINAL: kLockFlagNoRotate cleared with the original's kLockFlagAngles)
     lock_flags_ &= ~(kLockFlagAngles | kLockFlagNoRotate);
     if (params->has_bare_flag(kOff)) {

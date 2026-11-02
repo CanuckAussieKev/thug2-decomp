@@ -94,7 +94,7 @@ Struct* fetch_vertex(uint32_t name, int assert) { return level_nodes::fetch_vert
 // the quaternion).
 void quat_to_matrix(const std::array<float, 4>& quat, maths::Mat4* matrix)
 {
-    maths::quat_to_matrix({core::at(quat, 0), core::at(quat, 1), core::at(quat, 2), core::at(quat, 3)}, matrix);
+    maths::quat_to_matrix({.x = core::at(quat, 0), .y = core::at(quat, 1), .z = core::at(quat, 2), .w = core::at(quat, 3)}, matrix);
 }
 void matrix_to_quat(std::array<float, 4>& quat, const maths::Mat4* matrix)
 {
@@ -123,9 +123,9 @@ double fast_a_cos_unrounded(float value)
 // a x b in double precision, each component rounded once; w = 0.
 maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 {
-    return {static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y),
-            static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z),
-            static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x), 0.0f};
+    return {.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y),
+            .y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z),
+            .z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x), .w = 0.0f};
 }
 
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
@@ -220,16 +220,16 @@ int ObjectModule::invoke_method(const MemberFunctionEntry* entry, Struct* params
 // 0x0045E510
 GameEntity::GameEntity()
 {
-    vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    core::at(basis_frame_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(basis_frame_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    core::at(display_matrix_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(display_matrix_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(display_matrix_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(display_matrix_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(display_matrix_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(display_matrix_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(display_matrix_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(display_matrix_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     object_flags_ |= kObjectFlagHasPosition;
 }
 
@@ -618,7 +618,7 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     auto z2 = static_cast<float>(z1 + at_z);
     y1 = y1 + at_y;
     x1 = x1 + at_x;
-    const maths::Vec4 start = {x1 + offset_cell_x, y1 + shift_y, z2 + offset_cell_z, static_cast<float>(shift_w + w1)};
+    const maths::Vec4 start = {.x = x1 + offset_cell_x, .y = y1 + shift_y, .z = z2 + offset_cell_z, .w = static_cast<float>(shift_w + w1)};
     feeler.kickoff() = start;
     maths::Vec4& end = feeler.get_end();
     end = start;
@@ -692,10 +692,10 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
     float dot = 0.0f;
     float angle = 0.0f;
     if (other) {
-        maths::Vec4 right = {core::at(basis_frame_.row, 0).x, core::at(basis_frame_.row, 0).y, core::at(basis_frame_.row, 0).z, 0.0f};
+        maths::Vec4 right = {.x = core::at(basis_frame_.row, 0).x, .y = core::at(basis_frame_.row, 0).y, .z = core::at(basis_frame_.row, 0).z, .w = 0.0f};
         right.make_unit();
-        maths::Vec4 to_other = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
-                                other->at_point_.z - at_point_.z, 0.0f};
+        maths::Vec4 to_other = {.x = other->at_point_.x - at_point_.x, .y = other->at_point_.y - at_point_.y,
+                                .z = other->at_point_.z - at_point_.z, .w = 0.0f};
         to_other.make_unit();
         const double sum = static_cast<double>(to_other.z) * right.z + static_cast<double>(to_other.y) * right.y;
         dot = static_cast<float>(sum + static_cast<double>(to_other.x) * right.x);
@@ -711,15 +711,15 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
 // the angles x=, y=, z= in degrees (each 0 if missing).
 bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
 {
-    script::VectorValue value = {0.0f, 0.0f, 1.0f, 1.0f};
+    script::VectorValue value = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     if (params->fetch_vec(kDir, &value, 0)) {
         maths::Mat4 m;
-        core::at(m.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-        core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-        core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+        core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+        core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+        core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         if (std::fabs(value.y) > kNearlyVertical)
-            core::at(m.row, 1) = {1.0f, 0.0f, 0.0f, 1.0f};
-        core::at(m.row, 2) = {value.x, value.y, value.z, 0.0f};
+            core::at(m.row, 1) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        core::at(m.row, 2) = {.x = value.x, .y = value.y, .z = value.z, .w = 0.0f};
         core::at(m.row, 2).make_unit();
         core::at(m.row, 0) = perpendicular(core::at(m.row, 1), core::at(m.row, 2));
         core::at(m.row, 0).make_unit();
@@ -802,8 +802,8 @@ bool GameEntity::obj_nearest_outside_angle(Struct* params, Script* /*script*/)
     float angle = 0.0f; // (uninitialised in the original: a missing angle compares with stack garbage)
     params->fetch_float(kUnnamed, &angle, 1);
     angle *= kRadiansPerDegree;
-    const maths::Vec4 offset = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
-                                other->at_point_.z - at_point_.z, other->at_point_.w - at_point_.w};
+    const maths::Vec4 offset = {.x = other->at_point_.x - at_point_.x, .y = other->at_point_.y - at_point_.y,
+                                .z = other->at_point_.z - at_point_.z, .w = other->at_point_.w - at_point_.w};
     return std::fabs(maths::get_angle_in_plane(basis_frame_, offset, 2, 1)) > angle;
 }
 

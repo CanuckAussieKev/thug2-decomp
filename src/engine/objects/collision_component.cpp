@@ -131,7 +131,7 @@ void ContactShapeModule::tick_frame()
     }
     const maths::Vec4& translation = core::at(bone->matrix.row, 3);
     const maths::Vec4& pos = entity_->at_point_;
-    const maths::Vec4 position = {translation.x + pos.x, translation.y + pos.y, translation.z + pos.z, pos.w};
+    const maths::Vec4 position = {.x = translation.x + pos.x, .y = translation.y + pos.y, .z = translation.z + pos.z, .w = pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
     d3dx_multiply(&orientation, &bone->matrix, &entity_->display_matrix_);

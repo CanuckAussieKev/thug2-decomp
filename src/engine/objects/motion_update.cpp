@@ -154,7 +154,7 @@ bool KinematicsModule::update_move_to()
         pos = move_target_;
         if (move_arrive_node_)
             arrive_at_node(move_arrive_node_);
-        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return true;
     }
     // (the fraction of the way rounded to a float; x and y through rounded products, z through an unrounded one)

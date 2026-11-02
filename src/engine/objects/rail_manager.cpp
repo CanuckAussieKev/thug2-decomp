@@ -225,16 +225,16 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     auto at_x = static_cast<float>(static_cast<double>(a.x) + quarter_x);
     auto high_y = static_cast<float>(at_y + 6.0);
     // Across the rail (horizontally), 7 long (0x0042BBF0: the length set).
-    maths::Vec4 along = {static_cast<float>(static_cast<double>(b.x) - a.x), 0.0f,
-                         static_cast<float>(static_cast<double>(b.z) - a.z),
-                         static_cast<float>(static_cast<double>(b.w) - a.w)};
+    maths::Vec4 along = {.x = static_cast<float>(static_cast<double>(b.x) - a.x), .y = 0.0f,
+                         .z = static_cast<float>(static_cast<double>(b.z) - a.z),
+                         .w = static_cast<float>(static_cast<double>(b.w) - a.w)};
     along.set_length(7.0f);
     const float across_x = along.z, across_y = along.y, across_z = static_cast<float>(-static_cast<double>(along.x)),
                 across_w = along.w;
     auto sub = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
     auto add = [](float p, float q) { return static_cast<float>(static_cast<double>(p) + q); };
-    const maths::Vec4 minus = {sub(at_x, across_x), sub(high_y, across_y), sub(at_z, across_z), sub(at_w, across_w)};
-    const maths::Vec4 plus = {add(across_x, at_x), add(across_y, high_y), add(across_z, at_z), add(across_w, at_w)};
+    const maths::Vec4 minus = {.x = sub(at_x, across_x), .y = sub(high_y, across_y), .z = sub(at_z, across_z), .w = sub(at_w, across_w)};
+    const maths::Vec4 plus = {.x = add(across_x, at_x), .y = add(across_y, high_y), .z = add(across_z, at_z), .w = add(across_w, at_w)};
     // Anything across it (either way): not clear.
     feeler.change_strand(&plus, &minus);
     if (feeler.get_hit_shape(true, false)) {
@@ -248,7 +248,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     }
     // Down 12 from one side: nothing there, clear.
     maths::Vec4 top = plus;
-    maths::Vec4 bottom = {plus.x, static_cast<float>(plus.y - 12.0), plus.z, static_cast<float>(plus.w + 1.0)};
+    maths::Vec4 bottom = {.x = plus.x, .y = static_cast<float>(plus.y - 12.0), .z = plus.z, .w = static_cast<float>(plus.w + 1.0)};
     feeler.change_strand(&top, &bottom);
     if (!feeler.get_hit_shape(true, false)) {
         feeler.entity_.get_release();
@@ -258,7 +258,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     auto height_one = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - base);
     // And from the other.
     top = minus;
-    bottom = {minus.x, static_cast<float>(minus.y - 12.0), minus.z, static_cast<float>(minus.w + 1.0)};
+    bottom = {.x = minus.x, .y = static_cast<float>(minus.y - 12.0), .z = minus.z, .w = static_cast<float>(minus.w + 1.0)};
     feeler.change_strand(&top, &bottom);
     if (!feeler.get_hit_shape(true, false)) {
         return true;
@@ -359,13 +359,13 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
         across_x = static_cast<float>(dz * scale);
     }
     auto across_z = static_cast<float>(-along_x);
-    const maths::Vec4 from = {static_cast<float>(static_cast<double>(across_x) + at_x),
-                              static_cast<float>(static_cast<double>(across_y) + low_y),
-                              static_cast<float>(static_cast<double>(across_z) + at_z), static_cast<float>(dw + at_w)};
-    const maths::Vec4 to = {static_cast<float>(static_cast<double>(at_x) - across_x),
-                            static_cast<float>(static_cast<double>(low_y) - across_y),
-                            static_cast<float>(static_cast<double>(at_z) - across_z),
-                            static_cast<float>(static_cast<double>(at_w) - dw)};
+    const maths::Vec4 from = {.x = static_cast<float>(static_cast<double>(across_x) + at_x),
+                              .y = static_cast<float>(static_cast<double>(across_y) + low_y),
+                              .z = static_cast<float>(static_cast<double>(across_z) + at_z), .w = static_cast<float>(dw + at_w)};
+    const maths::Vec4 to = {.x = static_cast<float>(static_cast<double>(at_x) - across_x),
+                            .y = static_cast<float>(static_cast<double>(low_y) - across_y),
+                            .z = static_cast<float>(static_cast<double>(at_z) - across_z),
+                            .w = static_cast<float>(static_cast<double>(at_w) - dw)};
     feeler.change_strand(&from, &to);
     const bool hit_one_way = feeler.get_hit_shape(true, false);
     const maths::Vec4 start = feeler.line_.start;
@@ -392,7 +392,7 @@ maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* 
     core::at(local.row, 0).w = 0.0f;
     core::at(local.row, 1).w = 0.0f;
     core::at(local.row, 2).w = 0.0f;
-    core::at(local.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(local.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (!on_object_) {
         *out = local;
     } else {
@@ -503,8 +503,8 @@ void GrindRailHub::remove_overlaps()
             const maths::Vec4 r = b->at_point_;
             const maths::Vec4 s = b_next->at_point_;
             maths::Vec4 along = {
-                static_cast<float>(static_cast<double>(s.x) - r.x), static_cast<float>(static_cast<double>(s.y) - r.y),
-                static_cast<float>(static_cast<double>(s.z) - r.z), static_cast<float>(static_cast<double>(s.w) - r.w)};
+                .x = static_cast<float>(static_cast<double>(s.x) - r.x), .y = static_cast<float>(static_cast<double>(s.y) - r.y),
+                .z = static_cast<float>(static_cast<double>(s.z) - r.z), .w = static_cast<float>(static_cast<double>(s.w) - r.w)};
             along.make_unit();
             const double dot = static_cast<double>(along.y) * dy + static_cast<double>(along.x) * dx +
                                static_cast<double>(along.z) * dz;
@@ -512,9 +512,9 @@ void GrindRailHub::remove_overlaps()
             if (!(dot < -0.99f) && !(dot > 0.99f))
                 continue;
             const maths::Vec4 offset = {
-                static_cast<float>(static_cast<double>(r.x) - p.x), static_cast<float>(static_cast<double>(r.y) - p.y),
-                static_cast<float>(static_cast<double>(r.z) - p.z), static_cast<float>(static_cast<double>(r.w) - p.w)};
-            maths::Vec4 direction = {raw_x, raw_y, raw_z, static_cast<float>(static_cast<double>(q.w) - p.w)};
+                .x = static_cast<float>(static_cast<double>(r.x) - p.x), .y = static_cast<float>(static_cast<double>(r.y) - p.y),
+                .z = static_cast<float>(static_cast<double>(r.z) - p.z), .w = static_cast<float>(static_cast<double>(r.w) - p.w)};
+            maths::Vec4 direction = {.x = raw_x, .y = raw_y, .z = raw_z, .w = static_cast<float>(static_cast<double>(q.w) - p.w)};
             direction.make_unit();
             maths::Vec4 apart = offset;
             apart.flatten_onto_plane(direction);

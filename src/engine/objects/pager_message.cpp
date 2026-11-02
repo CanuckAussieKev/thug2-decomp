@@ -24,8 +24,8 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 6> g_pager_message_member_functions{{
-    {0x4824484A, 0xD1515392}, {0xD65B2BB5, 0xD1515392}, {0x5B64BFEC, 0xD1515392}, {0xAF88BE7A, 0xD1515392},
-    {0xE7DF996D, 0xD1515392}, {0, 0xD1515392}}};
+    {.callsign_ = 0x4824484A, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xD65B2BB5, .owner_kind_ = 0xD1515392}, {.callsign_ = 0x5B64BFEC, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xAF88BE7A, .owner_kind_ = 0xD1515392},
+    {.callsign_ = 0xE7DF996D, .owner_kind_ = 0xD1515392}, {.callsign_ = 0, .owner_kind_ = 0xD1515392}}};
 
 namespace {
 

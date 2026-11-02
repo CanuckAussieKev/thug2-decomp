@@ -159,8 +159,8 @@ void PedestrianBrainModule::choose_node_after()
                 chosen = next_node_;
         }
     } else {
-        const maths::Vec4 incoming = {next_node_pos_.x - node_pos_.x, next_node_pos_.y - node_pos_.y,
-                                      next_node_pos_.z - node_pos_.z, next_node_pos_.w - node_pos_.w};
+        const maths::Vec4 incoming = {.x = next_node_pos_.x - node_pos_.x, .y = next_node_pos_.y - node_pos_.y,
+                                      .z = next_node_pos_.z - node_pos_.z, .w = next_node_pos_.w - node_pos_.w};
         std::array<int, 20> lows{};
         std::array<int, 20> normals{};
         for (int i = 0; i < count; ++i) {
@@ -186,8 +186,8 @@ void PedestrianBrainModule::choose_node_after()
                 continue;
             maths::Vec4 link_pos;
             level_nodes::fetch_place(link, &link_pos);
-            const maths::Vec4 outgoing = {next_node_pos_.x - link_pos.x, next_node_pos_.y - link_pos.y,
-                                          next_node_pos_.z - link_pos.z, next_node_pos_.w - link_pos.w};
+            const maths::Vec4 outgoing = {.x = next_node_pos_.x - link_pos.x, .y = next_node_pos_.y - link_pos.y,
+                                          .z = next_node_pos_.z - link_pos.z, .w = next_node_pos_.w - link_pos.w};
             double angle = maths::read_turn_angle(incoming, outgoing);
             if (angle > kFullTurnDegrees)
                 angle -= static_cast<double>(truncate(angle * kInverseFullTurn)) * kFullTurnDegrees;
@@ -272,7 +272,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         const float dw = next_node_pos_.w - object->at_point_.w;
         const float dz = next_node_pos_.z - object->at_point_.z;
         const float dx = next_node_pos_.x - object->at_point_.x;
-        maths::Vec4 across = {dx, 0.0f, dz, dw};
+        maths::Vec4 across = {.x = dx, .y = 0.0f, .z = dz, .w = dw};
         if (static_cast<double>(height) + object->at_point_.y < next_node_pos_.y) {
             const double slop = script::fetch_float(kHeightSlop);
             height = static_cast<float>(slop + (static_cast<double>(next_node_pos_.y) - object->at_point_.y));
@@ -298,9 +298,9 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         const double vy = static_cast<double>(up_speed) + ay;
         const double vz = static_cast<double>(up_z) + az;
         auto vel_x = static_cast<float>(vx), vel_y = static_cast<float>(vy), vel_z = static_cast<float>(vz);
-        maths::Vec4 heading = {vel_x, vel_y, vel_z, static_cast<float>(up_speed + aw)};
+        maths::Vec4 heading = {.x = vel_x, .y = vel_y, .z = vel_z, .w = static_cast<float>(up_speed + aw)};
         heading.make_unit();
-        out->put_vec3(kHeading, script::VectorValue{heading.x, heading.y, heading.z, heading.w});
+        out->put_vec3(kHeading, script::VectorValue{.x = heading.x, .y = heading.y, .z = heading.z, .w = heading.w});
         out->push_float(kJumpSpeed, static_cast<float>(std::sqrt(
                                         (static_cast<double>(vel_x) * vel_x + static_cast<double>(vel_z) * vel_z) +
                                         static_cast<double>(vel_y) * vel_y)));
@@ -350,7 +350,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
     }
     if (turn) {
         flag_bits_ |= kPedFlagVertRotating;
-        const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
+        const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
         auto angle = static_cast<float>(maths::read_turn_angle(core::at(saved_matrix_.row, 2), up));
         vert_rotation_target_ = static_cast<float>(static_cast<double>(script::fetch_float(kSpineSlop)) + angle);
     }
@@ -368,7 +368,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
 void PedestrianBrainModule::lip_trick_update()
 {
     maths::Mat4 matrix = entity_->display_matrix_;
-    core::at(matrix.row, 2) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 2) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4& up = up_dir_.make_unit();
     // Across: up x (0, 1, 0), normalised (x and z kept as floats too).
     auto zero = static_cast<float>(static_cast<double>(up.y) * 0.0f);
@@ -387,7 +387,7 @@ void PedestrianBrainModule::lip_trick_update()
         sz *= inverse;
         side_z = static_cast<float>(sz);
     }
-    core::at(matrix.row, 0) = {static_cast<float>(sx), static_cast<float>(sy), static_cast<float>(sz), 0.0f};
+    core::at(matrix.row, 0) = {.x = static_cast<float>(sx), .y = static_cast<float>(sy), .z = static_cast<float>(sz), .w = 0.0f};
     // Up: (0, 1, 0) x across, normalised.
     auto zero_y = static_cast<float>(sy * 0.0f);
     double a = static_cast<double>(side_z) - zero_y;
@@ -401,7 +401,7 @@ void PedestrianBrainModule::lip_trick_update()
         b *= inverse;
         up_row_z = static_cast<float>(up_row_z * inverse);
     }
-    core::at(matrix.row, 1) = {static_cast<float>(a), static_cast<float>(b), up_row_z, 0.0f};
+    core::at(matrix.row, 1) = {.x = static_cast<float>(a), .y = static_cast<float>(b), .z = up_row_z, .w = 0.0f};
     entity_->display_matrix_ = matrix;
 }
 
@@ -686,7 +686,7 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
         dz = static_cast<float>(dz * inverse);
     }
     maths::Mat4 matrix = entity_->display_matrix_;
-    core::at(matrix.row, 2) = {dx, dy, dz, dw};
+    core::at(matrix.row, 2) = {.x = dx, .y = dy, .z = dz, .w = dw};
     matrix.square_up_axes(2);
     entity_->display_matrix_ = matrix;
     saved_matrix_ = matrix;
@@ -745,7 +745,7 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
         hy = sy * inverse;
         hz = static_cast<float>(sz * inverse);
     }
-    script->args_->put_vec3(kHeading, script::VectorValue{static_cast<float>(hx), static_cast<float>(hy), hz, sw});
+    script->args_->put_vec3(kHeading, script::VectorValue{.x = static_cast<float>(hx), .y = static_cast<float>(hy), .z = hz, .w = sw});
     script->args_->push_float(kJumpSpeed, speed);
     script->args_->push_float(kLeapDuration, time);
     return true;

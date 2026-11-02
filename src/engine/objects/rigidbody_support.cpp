@@ -30,10 +30,10 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 13> g_rigid_body_member_functions{{
-    {0xCC12CF87, 0xFFB39248}, {0x9599C10F, 0xFFB39248}, {0xCD5BA67B, 0xFFB39248}, {0xAE24DF9F, 0xFFB39248},
-    {0xE8B73AB3, 0xFFB39248}, {0x8A3A6B5F, 0xFFB39248}, {0x39D708AC, 0xFFB39248}, {0x92F5DB9A, 0xFFB39248},
-    {0x0A2BBB3A, 0xFFB39248}, {0x49F44585, 0xFFB39248}, {0xD4A0946B, 0xFFB39248}, {0x949BE8A9, 0xFFB39248},
-    {0, 0xFFB39248}}};
+    {.callsign_ = 0xCC12CF87, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x9599C10F, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xCD5BA67B, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xAE24DF9F, .owner_kind_ = 0xFFB39248},
+    {.callsign_ = 0xE8B73AB3, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x8A3A6B5F, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x39D708AC, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x92F5DB9A, .owner_kind_ = 0xFFB39248},
+    {.callsign_ = 0x0A2BBB3A, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x49F44585, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xD4A0946B, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x949BE8A9, .owner_kind_ = 0xFFB39248},
+    {.callsign_ = 0, .owner_kind_ = 0xFFB39248}}};
 namespace {
 int g_next_collide_sound_time;
 
@@ -150,8 +150,8 @@ void BodyDynamicsModule::sleep()
 {
     if (settle_script_)
         entity_->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
-    vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    rot_vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     cur_phase_ = kStateAsleep;
 }
 
@@ -168,7 +168,7 @@ void BodyDynamicsModule::update_world_points()
             (get_wide(p.x) * get_m(m, 0x04) + get_wide(p.z) * get_m(m, 0x24)) + get_wide(p.y) * get_m(m, 0x14);
         const double z =
             (get_wide(p.z) * get_m(m, 0x28) + get_wide(p.y) * get_m(m, 0x18)) + get_wide(p.x) * get_m(m, 0x08);
-        out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
+        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = p.w};
     }
     for (int i = sphere_count_ - 1; i >= 0; --i) {
         const maths::Vec4& p = core::at(sphere_run(), i).center;
@@ -179,7 +179,7 @@ void BodyDynamicsModule::update_world_points()
             (get_wide(p.x) * get_m(m, 0x04) + get_wide(p.z) * get_m(m, 0x24)) + get_wide(p.y) * get_m(m, 0x14);
         const double z =
             (get_wide(p.x) * get_m(m, 0x08) + get_wide(p.z) * get_m(m, 0x28)) + get_wide(p.y) * get_m(m, 0x18);
-        out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
+        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = p.w};
     }
     for (int i = spring_count_ - 1; i >= 0; --i) {
         const Spring& spring = core::at(spring_run(), i);
@@ -193,7 +193,7 @@ void BodyDynamicsModule::update_world_points()
             (get_wide(p.z) * get_m(m, 0x24) + get_wide(p.y) * get_m(m, 0x14)) + get_wide(p.x) * get_m(m, 0x04);
         const double z =
             (get_wide(p.z) * get_m(m, 0x28) + get_wide(p.y) * get_m(m, 0x18)) + get_wide(p.x) * get_m(m, 0x08);
-        out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
+        out = {.x = get_narrow(x), .y = get_narrow(y), .z = get_narrow(z), .w = p.w};
     }
 }
 
@@ -207,7 +207,7 @@ void get_slow(maths::Vec4& v, float drag)
         return;
     const double speed = std::sqrt((get_wide(v.x) * v.x + get_wide(v.y) * v.y) + get_wide(v.z) * v.z);
     if (speed <= drag) {
-        v = {0.0f, 0.0f, 0.0f, 1.0f};
+        v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return;
     }
     const double f = -(drag / speed);
@@ -350,8 +350,8 @@ void BodyDynamicsModule::feel_pushers()
         const float jx = get_narrow(get_wide(ax) * ig * skater_assent_cos_);
         jz = get_narrow(get_wide(jz) * skater_assent_cos_);
         const double size = push * skater_impulse_factor_;
-        const maths::Vec4 impulse = {get_narrow(get_wide(jx) * size), get_narrow(get_wide(skater_assent_sin_) * size),
-                                     get_narrow(get_wide(jz) * size), 0.0f};
+        const maths::Vec4 impulse = {.x = get_narrow(get_wide(jx) * size), .y = get_narrow(get_wide(skater_assent_sin_) * size),
+                                     .z = get_narrow(get_wide(jz) * size), .w = 0.0f};
 
         // Where it's applied (from the centre).
         double px = get_wide(at.x) - at_point_.x;

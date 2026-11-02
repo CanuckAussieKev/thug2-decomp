@@ -338,7 +338,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     // its details (+0x5C).
     auto skater_context = [](bool skater) {
         RiderIdentity* profile = modules::g_skate_module->fetch_account(0);
-        return CutsceneSkater{profile->appearance(), profile->details_params(), skater};
+        return CutsceneSkater{.appearance = profile->appearance(), .details = profile->details_params(), .skater = skater};
     };
     auto new_object_camera = [](const CutsceneSkater* context) -> gsl::owner<Movie*> { return new CinematicEntry(context); };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {

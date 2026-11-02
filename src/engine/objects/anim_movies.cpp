@@ -321,7 +321,7 @@ void CameraAnimMovie::place_camera()
         maths::Mat4 frame{};
         auto moved = [&](const maths::Vec4& offset) {
             frame = object->basis_frame_;
-            frame[3] = {core::at(target, 0), core::at(target, 1), core::at(target, 2), 1.0f};
+            frame[3] = {.x = core::at(target, 0), .y = core::at(target, 1), .z = core::at(target, 2), .w = 1.0f};
             frame.offset_local(offset);
         };
         if (target_offset_set_) {

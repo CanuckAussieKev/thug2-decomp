@@ -31,21 +31,21 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 31> g_composite_object_member_functions{{
-    {0xE90AAD2D, 0x0ADA4E74}, {0xC2404947, 0x0ADA4E74}, {0x406998A5, 0x0ADA4E74}, {0x2BFFEAA3, 0x0ADA4E74},
-    {0xF7251A64, 0x0ADA4E74}, {0xC6F3BAA5, 0x0ADA4E74}, {0x77403AFC, 0x0ADA4E74}, {0xC1BFF0F3, 0x0ADA4E74},
-    {0x11FE9F71, 0x0ADA4E74}, {0xC0CAAC4A, 0x0ADA4E74}, {0x5B6634D4, 0x0ADA4E74}, {0xB60D1F35, 0x0ADA4E74},
-    {0xB16619AE, 0x0ADA4E74}, {0x10C1C887, 0x0ADA4E74}, {0xCE0CA665, 0x0ADA4E74}, {0xCA3C59A6, 0x0ADA4E74},
-    {0x28656D12, 0x0ADA4E74}, {0xFF85D4D7, 0x0ADA4E74}, {0x0168B09C, 0x0ADA4E74}, {0xB9ED09D2, 0x0ADA4E74},
-    {0xD96C0A20, 0x0ADA4E74}, {0x4AF57BBB, 0x0ADA4E74}, {0x2A26FFA2, 0x0ADA4E74}, {0xF8CFD515, 0x0ADA4E74},
-    {0x7DCC5FB9, 0x0ADA4E74}, {0xE5DF66D7, 0x0ADA4E74}, {0xDD468509, 0x0ADA4E74}, {0x37185D8A, 0x0ADA4E74},
-    {0x70ED3048, 0x0ADA4E74}, {0x33CAC5FF, 0x0ADA4E74}, {0, 0x0ADA4E74}}};
+    {.callsign_ = 0xE90AAD2D, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC2404947, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x406998A5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2BFFEAA3, .owner_kind_ = 0x0ADA4E74},
+    {.callsign_ = 0xF7251A64, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC6F3BAA5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x77403AFC, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC1BFF0F3, .owner_kind_ = 0x0ADA4E74},
+    {.callsign_ = 0x11FE9F71, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC0CAAC4A, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x5B6634D4, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB60D1F35, .owner_kind_ = 0x0ADA4E74},
+    {.callsign_ = 0xB16619AE, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x10C1C887, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCE0CA665, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCA3C59A6, .owner_kind_ = 0x0ADA4E74},
+    {.callsign_ = 0x28656D12, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xFF85D4D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x0168B09C, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB9ED09D2, .owner_kind_ = 0x0ADA4E74},
+    {.callsign_ = 0xD96C0A20, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x4AF57BBB, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2A26FFA2, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xF8CFD515, .owner_kind_ = 0x0ADA4E74},
+    {.callsign_ = 0x7DCC5FB9, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xE5DF66D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xDD468509, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x37185D8A, .owner_kind_ = 0x0ADA4E74},
+    {.callsign_ = 0x70ED3048, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x33CAC5FF, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0, .owner_kind_ = 0x0ADA4E74}}};
 
 std::array<script::MemberFunctionEntry, 17> g_object_member_functions{{
-    {0x3611C136, 0x57525413}, {0x62C11CB9, 0x57525413}, {0xEEEB7220, 0x57525413}, {0xA58079EB, 0x57525413},
-    {0x0C7CD27A, 0x57525413}, {0xB3C262EC, 0x57525413}, {0x500EB224, 0x57525413}, {0x4BABC987, 0x57525413},
-    {0x53EBEE03, 0x57525413}, {0x6C2B67F9, 0x57525413}, {0xBE563426, 0x57525413}, {0xFBD89CD5, 0x57525413},
-    {0x23A4E5C2, 0x57525413}, {0x714937C7, 0x57525413}, {0x20D125D7, 0x57525413}, {0x3578E5A9, 0x57525413},
-    {0, 0x57525413}}};
+    {.callsign_ = 0x3611C136, .owner_kind_ = 0x57525413}, {.callsign_ = 0x62C11CB9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xEEEB7220, .owner_kind_ = 0x57525413}, {.callsign_ = 0xA58079EB, .owner_kind_ = 0x57525413},
+    {.callsign_ = 0x0C7CD27A, .owner_kind_ = 0x57525413}, {.callsign_ = 0xB3C262EC, .owner_kind_ = 0x57525413}, {.callsign_ = 0x500EB224, .owner_kind_ = 0x57525413}, {.callsign_ = 0x4BABC987, .owner_kind_ = 0x57525413},
+    {.callsign_ = 0x53EBEE03, .owner_kind_ = 0x57525413}, {.callsign_ = 0x6C2B67F9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xBE563426, .owner_kind_ = 0x57525413}, {.callsign_ = 0xFBD89CD5, .owner_kind_ = 0x57525413},
+    {.callsign_ = 0x23A4E5C2, .owner_kind_ = 0x57525413}, {.callsign_ = 0x714937C7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x20D125D7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x3578E5A9, .owner_kind_ = 0x57525413},
+    {.callsign_ = 0, .owner_kind_ = 0x57525413}}};
 
 namespace {
 int g_composite_mgr_block_header_size{16};

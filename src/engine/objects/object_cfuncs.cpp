@@ -221,7 +221,7 @@ bool cfunc_transform_local_to_world(script::Struct* params, script::Script* scri
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 0);
     const objects::GameEntity* object = entity_for_id(id);
-    const maths::Vec4 local = {offset.x, offset.y, offset.z, offset.w};
+    const maths::Vec4 local = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     maths::Vec4 world;
     object->display_matrix_.xform(world, local);
     script->args_->put_vec3(kWorldOffset, world.x, world.y, world.z);
@@ -315,10 +315,10 @@ bool cfunc_orient(script::Struct* params, script::Script*)
     params->read_hash_value(kBone, &bone, 0);
     script::VectorValue offset{};
     if (!params->fetch_vec(kOffset, &offset, 0))
-        offset = {0.0f, 0.0f, 0.0f, 1.0f};
+        offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     script::VectorValue angles{};
     if (!params->fetch_vec(kAngles, &angles, 0))
-        angles = {0.0f, 0.0f, 0.0f, 1.0f};
+        angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (params->has_bare_flag(kDegrees)) {
         const float degrees = g_degree_to_radian_ratio; // pi / 180
         angles.x *= degrees;
@@ -329,7 +329,7 @@ bool cfunc_orient(script::Struct* params, script::Script*)
 
     maths::Mat4& matrix = object->basis_frame_;
     angles_to_matrix(&matrix, &angles);
-    core::at(matrix.row, 3) = {offset.x, offset.y, offset.z, offset.w};
+    core::at(matrix.row, 3) = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     if (bone) {
         maths::Mat4 joint_mat;
         read_joint_matrix(skeleton_of(relative_to->fetch_module(kSkeleton)), bone, &joint_mat);
@@ -342,7 +342,7 @@ bool cfunc_orient(script::Struct* params, script::Script*)
         matrix_multiply(&matrix, &matrix, &relative);
     }
     object->at_point_ = core::at(matrix.row, 3);
-    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     object->display_matrix_ = matrix;
     return true;
 }

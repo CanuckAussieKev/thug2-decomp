@@ -275,10 +275,10 @@ void KinematicsModule::update_turn()
 bool KinematicsModule::setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis,
                                        float threshold)
 {
-    const maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - from->x),
-                                static_cast<float>(static_cast<double>(target->y) - from->y),
-                                static_cast<float>(static_cast<double>(target->z) - from->z),
-                                static_cast<float>(static_cast<double>(target->w) - from->w)};
+    const maths::Vec4 offset = {.x = static_cast<float>(static_cast<double>(target->x) - from->x),
+                                .y = static_cast<float>(static_cast<double>(target->y) - from->y),
+                                .z = static_cast<float>(static_cast<double>(target->z) - from->z),
+                                .w = static_cast<float>(static_cast<double>(target->w) - from->w)};
     get_axis(rot_done_, axis) = 0.0f;
     const float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, reference_axis, axis);
     get_axis(rot_target_, axis) = angle;
@@ -297,10 +297,10 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     threshold = static_cast<float>(static_cast<double>(threshold) * kDegrees);
     if (params->has_bare_flag(kInstant)) {
         const maths::Vec4& pos = entity_->at_point_;
-        const maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - pos.x),
-                                    static_cast<float>(static_cast<double>(target->y) - pos.y),
-                                    static_cast<float>(static_cast<double>(target->z) - pos.z),
-                                    static_cast<float>(static_cast<double>(target->w) - pos.w)};
+        const maths::Vec4 offset = {.x = static_cast<float>(static_cast<double>(target->x) - pos.x),
+                                    .y = static_cast<float>(static_cast<double>(target->y) - pos.y),
+                                    .z = static_cast<float>(static_cast<double>(target->z) - pos.z),
+                                    .w = static_cast<float>(static_cast<double>(target->w) - pos.w)};
         const float angle = maths::get_angle_in_plane(entity_->basis_frame_, offset, 2, 1);
         if (!(std::fabs(angle) > threshold))
             return false;
@@ -379,13 +379,13 @@ void KinematicsModule::look_at_node(script::Struct* params, script::Script*)
 // 0x00425800
 void KinematicsModule::look_at_position(script::Struct* params, bool absolute)
 {
-    maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0u, &pos, 0);
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();
     if (!absolute) {
         const maths::Vec4& at = entity_->at_point_;
-        pos = {pos.x + at.x, pos.y + at.y, pos.z + at.z, pos.w + at.w};
+        pos = {.x = pos.x + at.x, .y = pos.y + at.y, .z = pos.z + at.z, .w = pos.w + at.w};
     }
     get_look_at(params, &pos);
 }
@@ -438,10 +438,10 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
 void KinematicsModule::face_node(script::Struct* node)
 {
     maths::Mat4& matrix = entity_->basis_frame_;
-    core::at(matrix.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(matrix.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(matrix.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(matrix.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Vec4 angles;
     level_nodes::read_turn_angles(node, &angles);
     if (!(angles.x == 0.0f) || !(angles.y == 0.0f) || !(angles.z == 0.0f)) {
@@ -488,7 +488,7 @@ bool KinematicsModule::obj_look_at_node_stored(script::Struct* params, script::S
 // 0x00426810 (look_at_position's absolute case again, as its own code)
 bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script*)
 {
-    maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0u, &pos, 0);
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();

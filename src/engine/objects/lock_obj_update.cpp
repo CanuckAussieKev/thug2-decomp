@@ -68,7 +68,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
-    const maths::MatrixProduct product = {&a, &b};
+    const maths::MatrixProduct product = {.left = &a, .right = &b};
     out = product;
 }
 
@@ -98,7 +98,7 @@ void PinnedObjectModule::update_lock()
             return;
     }
     maths::Vec4 pos = entity_->at_point_;         // where it goes
-    maths::Vec4 extra = {0.0f, 0.0f, 0.0f, 1.0f}; // added to it when there's no lag
+    maths::Vec4 extra = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // added to it when there's no lag
     maths::Vec4 local{};
     if (bone_) {
         // On a bone: its orientation, and its "at" towards its parent.
@@ -110,14 +110,14 @@ void PinnedObjectModule::update_lock()
             GameEntity* object = entity_;
             const maths::Vec4 joint_world = core::at(object->basis_frame_.row, 3);
             maths::Vec4 owner_pos = core::at(parent.row, 3);
-            core::at(object->basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-            core::at(parent.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+            core::at(object->basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            core::at(parent.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             ObjectModule* model = target->fetch_module(kModel);
             if (model && follow_model(model, target)) {
                 maths::Mat4 frame{};
                 compose_object_transform(model, &frame);
                 extra = core::at(frame.row, 3) - target->at_point_;
-                core::at(frame.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+                core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 set_product(entity_->basis_frame_, entity_->basis_frame_, frame);
                 set_product(parent, parent, frame);
                 pos = frame.xform(local, joint_world);
@@ -135,7 +135,7 @@ void PinnedObjectModule::update_lock()
             }
             object = entity_;
             maths::Vec4& at = core::at(object->basis_frame_.row, 2);
-            at = {owner_pos.x - pos.x, owner_pos.y - pos.y, owner_pos.z - pos.z, owner_pos.w - pos.w};
+            at = {.x = owner_pos.x - pos.x, .y = owner_pos.y - pos.y, .z = owner_pos.z - pos.z, .w = owner_pos.w - pos.w};
             core::at(entity_->basis_frame_.row, 2).make_unit();
             const maths::Vec4 up = core::at(target->display_matrix_.row, 1);
             object = entity_;
@@ -151,13 +151,13 @@ void PinnedObjectModule::update_lock()
             maths::Mat4 frame{};
             compose_object_transform(model, &frame);
             pos = shift_ * frame;
-            core::at(frame.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+            core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             entity_->basis_frame_ = frame;
         } else {
             entity_->basis_frame_ = target->display_matrix_;
             const maths::Vec4 turned = shift_ * entity_->basis_frame_;
-            pos = {turned.x + target->at_point_.x, target->at_point_.y + turned.y, target->at_point_.z + turned.z,
-                   target->at_point_.w + turned.w};
+            pos = {.x = turned.x + target->at_point_.x, .y = target->at_point_.y + turned.y, .z = target->at_point_.z + turned.z,
+                   .w = target->at_point_.w + turned.w};
         }
     }
     GameEntity* object = entity_;
@@ -186,7 +186,7 @@ void PinnedObjectModule::update_lock()
                               std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
         lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * 0.5 + lag_min_);
     } else {
-        object->at_point_ = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};
+        object->at_point_ = {.x = extra.x + pos.x, .y = extra.y + pos.y, .z = extra.z + pos.z, .w = extra.w + pos.w};
     }
     entity_->vel_ = target->vel_;
     if (lock_flags_ & kLockFlagAngles)

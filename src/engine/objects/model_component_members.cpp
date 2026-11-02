@@ -195,7 +195,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjApplyScaling:
         if (mesh_instance_.get()) {
-            maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
+            maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
             if (fetch_magnification(&scale, params)) {
                 change_scale(mesh_instance_.get(), &scale);
                 allow_resizing(mesh_instance_.get(), true);
@@ -205,7 +205,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjGetScaling:
         if (mesh_instance_.get()) {
             const maths::Vec4 scale = mesh_instance_->size_factor_; // (0x0041A680: its +0x1C)
-            script->args_->put_vec3(kScaling, script::VectorValue{scale.x, scale.y, scale.z, scale.w});
+            script->args_->put_vec3(kScaling, script::VectorValue{.x = scale.x, .y = scale.y, .z = scale.z, .w = scale.w});
         }
         break;
     case kObjSetLightAmbientColor: {
@@ -245,7 +245,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjSetLightDirection: {
         int index = 0; // (unset when not given)
         params->fetch_int_value(kIndex, &index, 0);
-        maths::Vec4 direction = {0.0f, 0.0f, 1.0f, 0.0f};
+        maths::Vec4 direction = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
         if (params->fetch_vec(kDirection, &direction, 0)) {
             direction.w = 0.0f;
         } else {
@@ -288,7 +288,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_float(kEndAngle, &end, 0);
         int power = 0;
         params->fetch_int_value(kSinePower, &power, 0);
-        pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
+        pivot_ = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f};
         params->fetch_vec(kRotationOffset, &pivot_, 0);
         const bool hold = params->has_bare_flag(kHoldOnLastAngle);
         const bool dont_pause = params->has_bare_flag(kDontPause);
@@ -335,7 +335,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         float radius = 0.0f;
         params->fetch_float(0u, &radius, 1);
         if (mesh_instance_.get()) {
-            const maths::Vec4 sphere = {0.0f, 0.0f, 0.0f, radius};
+            const maths::Vec4 sphere = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = radius};
             mesh_instance_->change_bound_sphere(&sphere);
         }
         break;

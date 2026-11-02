@@ -50,7 +50,7 @@ gfx::Rig* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::
 maths::Vec4 from_model(const render::HierarchyNode& node)
 {
     const maths::Vec4& p = core::at(node.matrix.row, 3);
-    return {-p.x, p.z, -p.y, 1.0f};
+    return {.x = -p.x, .y = p.z, .z = -p.y, .w = 1.0f};
 }
 
 } // namespace
@@ -93,7 +93,7 @@ void ParkedVehicleModule::seal()
             core::at(bone.row, 2).y = 1.0f;
             // Not original - a seventh bone or more would be a fifth wheel: the original reads it from past the end of
             // its four (its own stack - garbage); ours stands it at the origin.
-            core::at(bone.row, 3) = i - 2 < 4 ? core::at(wheels, i - 2) : maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+            core::at(bone.row, 3) = i - 2 < 4 ? core::at(wheels, i - 2) : maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
         }
     }
 }

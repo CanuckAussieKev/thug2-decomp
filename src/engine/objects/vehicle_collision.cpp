@@ -144,11 +144,11 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
             contact->depth = static_cast<float>(get_penetration(contact, collider));
             if (debug_mode_) {
                 const maths::Vec4 tip{
-                    static_cast<float>(static_cast<double>(contact->normal.x) * 72.0f + contact->point.x),
-                    static_cast<float>(static_cast<double>(contact->normal.y) * 72.0f + contact->point.y),
-                    static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.z * 72.0f)) +
+                    .x = static_cast<float>(static_cast<double>(contact->normal.x) * 72.0f + contact->point.x),
+                    .y = static_cast<float>(static_cast<double>(contact->normal.y) * 72.0f + contact->point.y),
+                    .z = static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.z * 72.0f)) +
                                        contact->point.z),
-                    static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.w * 72.0f)) +
+                    .w = static_cast<float>(static_cast<double>(static_cast<float>(contact->normal.w * 72.0f)) +
                                        contact->point.w)};
                 gfx::push_diag_line(&contact->point, &tip, 0xFFFF64FF, 0xFFFF64FF, 1);
             }
@@ -168,10 +168,10 @@ bool DrivableModule::normal_faces_away(const Contact* contact)
         (static_cast<double>(p.x) - at_point_.x) * n.x;
     const bool away = along >= 0.0;
     if (debug_mode_ && away) {
-        const maths::Vec4 tip{static_cast<float>(static_cast<double>(n.x) * 48.0f + p.x),
-                              static_cast<float>(static_cast<double>(n.y) * 48.0f + p.y),
-                              static_cast<float>(static_cast<double>(static_cast<float>(n.z * 48.0f)) + p.z),
-                              static_cast<float>(static_cast<double>(static_cast<float>(n.w * 48.0f)) + p.w)};
+        const maths::Vec4 tip{.x = static_cast<float>(static_cast<double>(n.x) * 48.0f + p.x),
+                              .y = static_cast<float>(static_cast<double>(n.y) * 48.0f + p.y),
+                              .z = static_cast<float>(static_cast<double>(static_cast<float>(n.z * 48.0f)) + p.z),
+                              .w = static_cast<float>(static_cast<double>(static_cast<float>(n.w * 48.0f)) + p.w)};
         gfx::push_diag_line(&p, &tip, 0xFF000000, 0xFF000000, 1);
     }
     return away;
@@ -181,10 +181,10 @@ bool DrivableModule::normal_faces_away(const Contact* contact)
 void DrivableModule::move_by(const maths::Vec4* move)
 {
     const maths::Vec4 saved = at_point_;
-    const maths::Vec4 end{static_cast<float>(static_cast<double>(move->x) + at_point_.x),
-                          static_cast<float>(static_cast<double>(at_point_.y) + move->y),
-                          static_cast<float>(static_cast<double>(at_point_.z) + move->z),
-                          static_cast<float>(static_cast<double>(at_point_.w) + move->w)};
+    const maths::Vec4 end{.x = static_cast<float>(static_cast<double>(move->x) + at_point_.x),
+                          .y = static_cast<float>(static_cast<double>(at_point_.y) + move->y),
+                          .z = static_cast<float>(static_cast<double>(at_point_.z) + move->z),
+                          .w = static_cast<float>(static_cast<double>(at_point_.w) + move->w)};
     render::ProbeRay feeler(&at_point_, &end);
     if (feeler.get_hit_shape(false, false)) {
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
@@ -272,7 +272,7 @@ double DrivableModule::get_impulse_denominator(const maths::Vec4* offset, const 
 void DrivableModule::update_righting()
 {
     quat_to_matrix(&orientation_, &basis_frame_);
-    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (core::at(basis_frame_.row, 1).y > kRightingUp) {
         righting_ = false;
         return;
@@ -291,8 +291,8 @@ void DrivableModule::update_righting()
     if (!righting_) {
         if (!stuck)
             return;
-        linear_momentum_ = {0.0f, 0.0f, 0.0f, 1.0f};
-        rotmom_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        linear_momentum_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        rotmom_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         righting_ = true;
         righting_start_ = frame_clock::game_clock_elapsed() + g_clock_offset;
     }
@@ -309,13 +309,13 @@ void DrivableModule::update_righting()
         300)
         return;
     // After 300 ms, turned towards upright facing the same way.
-    maths::Vec4 forward{core::at(basis_frame_.row, 2).x, 0.0f, core::at(basis_frame_.row, 2).z, core::at(basis_frame_.row, 2).w};
+    maths::Vec4 forward{.x = core::at(basis_frame_.row, 2).x, .y = 0.0f, .z = core::at(basis_frame_.row, 2).z, .w = core::at(basis_frame_.row, 2).w};
     forward.make_unit();
     maths::Mat4 target;
-    core::at(target.row, 0) = {forward.z, 0.0f, -forward.x, 1.0f};
-    core::at(target.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(target.row, 0) = {.x = forward.z, .y = 0.0f, .z = -forward.x, .w = 1.0f};
+    core::at(target.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     core::at(target.row, 2) = forward;
-    core::at(target.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f}; // (the original leaves its stack there)
+    core::at(target.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (the original leaves its stack there)
     maths::ArcRotationBlender blend{}; // (on the stack without a constructor in the original: zeroed here)
     maths::ArcRotationBlender* slerp = &blend;
     slerp->set_matrices(basis_frame_, target);
@@ -339,11 +339,11 @@ void DrivableModule::align_in_air()
     if (slow && !align_when_slow_)
         return;
     quat_to_matrix(&orientation_, &basis_frame_);
-    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     // Slow: towards its facing (level); fast: towards where it's going.
     maths::Vec4 at{};
     if (slow)
-        at = {core::at(basis_frame_.row, 2).x, 0.0f, core::at(basis_frame_.row, 2).z, core::at(basis_frame_.row, 2).w};
+        at = {.x = core::at(basis_frame_.row, 2).x, .y = 0.0f, .z = core::at(basis_frame_.row, 2).z, .w = core::at(basis_frame_.row, 2).w};
     else
         at = vel_;
     at.make_unit();
@@ -355,12 +355,12 @@ void DrivableModule::align_in_air()
         at.z = at.z * -1.0f;
         at.w = at.w * -1.0f;
     }
-    const maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
+    const maths::Vec4 up{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     maths::Mat4 target;
     core::at(target.row, 0) = maths::cross_vec(up, at);
     core::at(target.row, 1) = maths::cross_vec(at, core::at(target.row, 0));
     core::at(target.row, 2) = at;
-    core::at(target.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(target.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::ArcRotationBlender blend{}; // (on the stack without a constructor in the original: zeroed here)
     maths::ArcRotationBlender* slerp = &blend;
     slerp->set_matrices(basis_frame_, target);
@@ -405,9 +405,9 @@ void DrivableModule::integrate()
     const double vy = static_cast<double>(hy) + vel_.y;
     auto vz = static_cast<float>(static_cast<double>(hz) + vel_.z);
     auto vw = static_cast<float>(static_cast<double>(hw) + vel_.w);
-    const maths::Vec4 move{static_cast<float>(vx * timestep), static_cast<float>(vy * timestep),
-                           static_cast<float>(static_cast<double>(vz) * timestep),
-                           static_cast<float>(static_cast<double>(vw) * timestep)};
+    const maths::Vec4 move{.x = static_cast<float>(vx * timestep), .y = static_cast<float>(vy * timestep),
+                           .z = static_cast<float>(static_cast<double>(vz) * timestep),
+                           .w = static_cast<float>(static_cast<double>(vw) * timestep)};
     move_by(&move);
     // The orientation: q += q * (-dt / 2) * (angular velocity + half the angular acceleration over the step).
     half = static_cast<double>(step_length_) * kHalf;
@@ -416,8 +416,8 @@ void DrivableModule::integrate()
     auto wy = static_cast<float>(static_cast<double>(static_cast<float>(spin_accel.y * half)) + rotvel_.y);
     auto wz = static_cast<float>(static_cast<double>(static_cast<float>(spin_accel.z * half)) + rotvel_.z);
     auto scale = static_cast<float>(static_cast<double>(step_length_) * kMinusHalf);
-    const maths::Vec4 turn{static_cast<float>(wx * scale), static_cast<float>(static_cast<double>(wy) * scale),
-                           static_cast<float>(static_cast<double>(wz) * scale), 0.0f};
+    const maths::Vec4 turn{.x = static_cast<float>(wx * scale), .y = static_cast<float>(static_cast<double>(wy) * scale),
+                           .z = static_cast<float>(static_cast<double>(wz) * scale), .w = 0.0f};
     quat_multiply(&quat, &turn);
     orientation_.x = static_cast<float>(static_cast<double>(quat.x) + orientation_.x);
     orientation_.y = static_cast<float>(static_cast<double>(quat.y) + orientation_.y);
@@ -485,20 +485,20 @@ void DrivableModule::collide()
         feeler.line_.end = rect.rect_.origin;
         for (int corner = 0; corner < 4; ++corner) {
             if (corner == 1) {
-                feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_a_.x),
-                                    static_cast<float>(static_cast<double>(rect.rect_.side_a_.y) + feeler.line_.end.y),
-                                    static_cast<float>(static_cast<double>(rect.rect_.side_a_.z) + feeler.line_.end.z),
-                                    static_cast<float>(static_cast<double>(rect.rect_.side_a_.w) + feeler.line_.end.w)};
+                feeler.line_.end = {.x = static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_a_.x),
+                                    .y = static_cast<float>(static_cast<double>(rect.rect_.side_a_.y) + feeler.line_.end.y),
+                                    .z = static_cast<float>(static_cast<double>(rect.rect_.side_a_.z) + feeler.line_.end.z),
+                                    .w = static_cast<float>(static_cast<double>(rect.rect_.side_a_.w) + feeler.line_.end.w)};
             } else if (corner == 2) {
-                feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_b_.x),
-                                    static_cast<float>(static_cast<double>(rect.rect_.side_b_.y) + feeler.line_.end.y),
-                                    static_cast<float>(static_cast<double>(rect.rect_.side_b_.z) + feeler.line_.end.z),
-                                    static_cast<float>(static_cast<double>(rect.rect_.side_b_.w) + feeler.line_.end.w)};
+                feeler.line_.end = {.x = static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_b_.x),
+                                    .y = static_cast<float>(static_cast<double>(rect.rect_.side_b_.y) + feeler.line_.end.y),
+                                    .z = static_cast<float>(static_cast<double>(rect.rect_.side_b_.z) + feeler.line_.end.z),
+                                    .w = static_cast<float>(static_cast<double>(rect.rect_.side_b_.w) + feeler.line_.end.w)};
             } else if (corner == 3) {
-                feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) - rect.rect_.side_a_.x),
-                                    static_cast<float>(static_cast<double>(feeler.line_.end.y) - rect.rect_.side_a_.y),
-                                    static_cast<float>(static_cast<double>(feeler.line_.end.z) - rect.rect_.side_a_.z),
-                                    static_cast<float>(static_cast<double>(feeler.line_.end.w) - rect.rect_.side_a_.w)};
+                feeler.line_.end = {.x = static_cast<float>(static_cast<double>(feeler.line_.end.x) - rect.rect_.side_a_.x),
+                                    .y = static_cast<float>(static_cast<double>(feeler.line_.end.y) - rect.rect_.side_a_.y),
+                                    .z = static_cast<float>(static_cast<double>(feeler.line_.end.z) - rect.rect_.side_a_.z),
+                                    .w = static_cast<float>(static_cast<double>(feeler.line_.end.w) - rect.rect_.side_a_.w)};
             }
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
@@ -538,10 +538,10 @@ void DrivableModule::collide()
         bool separating = true;
         for (int n = contact_count_ - 1; n >= 0; --n) {
             Contact& contact = core::at(contacts, n);
-            const maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
-                                static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
-                                static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
-                                static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+            const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                                .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                                .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                                .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
             maths::Vec4 v{};
             get_point_velocity(&v, &r);
             const maths::Vec4& nrm = contact.normal;
@@ -555,10 +555,10 @@ void DrivableModule::collide()
             const double denominator = get_impulse_denominator(&r, &nrm);
             auto impulse = static_cast<float>((static_cast<double>(bounce) - closing) * denominator);
             contact.impulse = static_cast<float>(static_cast<double>(impulse) + contact.impulse);
-            const maths::Vec4 push{static_cast<float>(static_cast<double>(impulse) * nrm.x),
-                                   static_cast<float>(static_cast<double>(impulse) * nrm.y),
-                                   static_cast<float>(static_cast<double>(impulse) * nrm.z),
-                                   static_cast<float>(static_cast<double>(impulse) * nrm.w)};
+            const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(impulse) * nrm.x),
+                                   .y = static_cast<float>(static_cast<double>(impulse) * nrm.y),
+                                   .z = static_cast<float>(static_cast<double>(impulse) * nrm.z),
+                                   .w = static_cast<float>(static_cast<double>(impulse) * nrm.w)};
             apply_impulse_at_offset(&push, &r);
         }
         ++pass;
@@ -576,14 +576,14 @@ void DrivableModule::collide()
         const double push = static_cast<double>(depth_correction_) * contact.depth;
         auto push_rounded = static_cast<float>(push);
         const maths::Vec4& nrm = contact.normal;
-        const maths::Vec4 force{static_cast<float>(static_cast<double>(push_rounded) * nrm.x),
-                                static_cast<float>(static_cast<double>(push_rounded) * nrm.y),
-                                static_cast<float>(static_cast<double>(push_rounded) * nrm.z),
-                                static_cast<float>(push * nrm.w)};
-        const maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
-                            static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
-                            static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
-                            static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        const maths::Vec4 force{.x = static_cast<float>(static_cast<double>(push_rounded) * nrm.x),
+                                .y = static_cast<float>(static_cast<double>(push_rounded) * nrm.y),
+                                .z = static_cast<float>(static_cast<double>(push_rounded) * nrm.z),
+                                .w = static_cast<float>(push * nrm.w)};
+        const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                            .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                            .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                            .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
         add_force_at_offset(&force, &r);
     }
 
@@ -597,8 +597,8 @@ void DrivableModule::collide()
         const maths::Vec4& nrm = contact.normal;
         auto rz = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z);
         auto ry = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y);
-        const maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x), ry, rz,
-                            static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x), .y = ry, .z = rz,
+                            .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
         const double cz = static_cast<double>(ry) * rotvel.x - static_cast<double>(r.x) * rotvel.y;
         const double cy = static_cast<double>(r.x) * rotvel.z - static_cast<double>(rz) * rotvel.x;
         auto cx = static_cast<float>(static_cast<double>(rz) * rotvel.y - static_cast<double>(ry) * rotvel.z);
@@ -619,17 +619,17 @@ void DrivableModule::collide()
         if (speed < kMinSlide)
             continue;
         const double inverse = 1.0 / speed_rounded;
-        const maths::Vec4 slide{static_cast<float>(slide_x * inverse), static_cast<float>(slide_y * inverse),
-                                static_cast<float>(slide_z * inverse), static_cast<float>(slide_w * inverse)};
+        const maths::Vec4 slide{.x = static_cast<float>(slide_x * inverse), .y = static_cast<float>(slide_y * inverse),
+                                .z = static_cast<float>(slide_z * inverse), .w = static_cast<float>(slide_w * inverse)};
         double stop = get_impulse_denominator(&r, &slide) * speed_rounded;
         auto most = static_cast<float>(static_cast<double>(friction) * contact.impulse);
         if (stop > most)
             stop = most;
         const double against = -stop;
-        const maths::Vec4 push{static_cast<float>(static_cast<double>(slide.x) * against),
-                               static_cast<float>(static_cast<double>(slide.y) * against),
-                               static_cast<float>(static_cast<double>(slide.z) * against),
-                               static_cast<float>(static_cast<double>(slide.w) * against)};
+        const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(slide.x) * against),
+                               .y = static_cast<float>(static_cast<double>(slide.y) * against),
+                               .z = static_cast<float>(static_cast<double>(slide.z) * against),
+                               .w = static_cast<float>(static_cast<double>(slide.w) * against)};
         apply_impulse_at_offset(&push, &r);
         // The copies of the momenta and velocities followed along.
         mom.x = static_cast<float>(static_cast<double>(push.x) + mom.x);
@@ -643,8 +643,8 @@ void DrivableModule::collide()
         rotmom.y = static_cast<float>(ay + rotmom.y);
         rotmom.z = static_cast<float>(az + rotmom.z);
         const double inv_mass = inv_mass_;
-        vel = {static_cast<float>(inv_mass * mom.x), static_cast<float>(inv_mass * mom.y),
-               static_cast<float>(inv_mass * mom.z), static_cast<float>(inv_mass * mom.w)};
+        vel = {.x = static_cast<float>(inv_mass * mom.x), .y = static_cast<float>(inv_mass * mom.y),
+               .z = static_cast<float>(inv_mass * mom.z), .w = static_cast<float>(inv_mass * mom.w)};
         maths::Vec4 spin{};
         inv_inertia_.rotate_vector(spin, rotmom);
         rotvel.x = spin.x;
@@ -663,18 +663,18 @@ void DrivableModule::collide()
         return;
     for (int n = contact_count_ - 1; n >= 0; --n) {
         const Contact& contact = core::at(contacts, n);
-        const maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
-                            static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
-                            static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
-                            static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
+        const maths::Vec4 r{.x = static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
+                            .y = static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
+                            .z = static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
+                            .w = static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
         const maths::Vec4& nrm = contact.normal;
         const maths::Vec4& at = core::at(basis_frame_.row, 2);
         auto strength = static_cast<float>(((static_cast<double>(at.x) * nrm.x + static_cast<double>(at.z) * nrm.z) +
                                             static_cast<double>(nrm.y) * at.y) *
                                            contact.impulse * wall_steering_ * steering_);
-        const maths::Vec4 push{static_cast<float>(static_cast<double>(strength) * -nrm.z),
-                               static_cast<float>(static_cast<double>(strength) * 0.0f),
-                               static_cast<float>(static_cast<double>(strength) * nrm.x), strength};
+        const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(strength) * -nrm.z),
+                               .y = static_cast<float>(static_cast<double>(strength) * 0.0f),
+                               .z = static_cast<float>(static_cast<double>(strength) * nrm.x), .w = strength};
         apply_impulse_at_offset(&push, &r);
     }
 }

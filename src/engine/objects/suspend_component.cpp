@@ -34,7 +34,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 2> g_suspend_component_member_functions{{
-    {0xA0B7E09B, 0xCE0CA665}, {0, 0xCE0CA665}}};
+    {.callsign_ = 0xA0B7E09B, .owner_kind_ = 0xCE0CA665}, {.callsign_ = 0, .owner_kind_ = 0xCE0CA665}}};
 namespace {
 int g_suspend_frame_count;
 int g_suspend_interleave2_count;
@@ -212,7 +212,7 @@ void DormancyModule::refresh_shown_state()
                 maths::Vec4 sphere{};
                 model->fetch_bound_sphere(
                     &sphere);
-                maths::Vec4 centre = {sphere[0], sphere[1], sphere[2], 1.0f};
+                maths::Vec4 centre = {.x = sphere[0], .y = sphere[1], .z = sphere[2], .w = 1.0f};
                 centre.multiply_by(entity_->basis_frame_);
                 centre += entity_->at_point_;
                 visible = render::engine::sphere_visible_in_one_viewport(&centre, sphere[3]) == 0;

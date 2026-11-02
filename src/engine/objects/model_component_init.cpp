@@ -114,7 +114,7 @@ MeshInstanceModule::MeshInstanceModule()
     kind_tag_ = kType;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     mesh_instance_ = memory::take_unique<render::RenderModel>(spawn_render_model(1));
-    pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    pivot_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (ModelSpinAxis& axis : twist_rate_) {
         for (ModelSpin& spin : axis.spins_)
             spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
@@ -122,7 +122,7 @@ MeshInstanceModule::MeshInstanceModule()
     }
     color_value_count_ = 0;
     sector_model_ = false;
-    shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     brightness_ = 1.0f;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
@@ -281,7 +281,7 @@ void MeshInstanceModule::init_bone_volumes()
 void MeshInstanceModule::set_up_mesh(script::Struct* params)
 {
     mesh_instance_->drop_geoms();
-    maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
+    maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
     if (fetch_magnification(&scale, params))
         mesh_instance_->change_scale(&scale);
     uint32_t type = 0;

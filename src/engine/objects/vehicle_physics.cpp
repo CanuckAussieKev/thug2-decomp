@@ -147,19 +147,19 @@ void DrivableModule::refresh_hit_cache()
         const maths::Vec4& b = core::at(c.world_edges_, 1);
         box.append_spot(o);
         maths::Vec4 p;
-        p = {static_cast<float>(static_cast<double>(o.x) + a.x), static_cast<float>(static_cast<double>(a.y) + o.y),
-             static_cast<float>(static_cast<double>(o.z) + a.z), static_cast<float>(static_cast<double>(o.w) + a.w)};
+        p = {.x = static_cast<float>(static_cast<double>(o.x) + a.x), .y = static_cast<float>(static_cast<double>(a.y) + o.y),
+             .z = static_cast<float>(static_cast<double>(o.z) + a.z), .w = static_cast<float>(static_cast<double>(o.w) + a.w)};
         box.append_spot(p);
-        p = {static_cast<float>(static_cast<double>(o.x) + b.x), static_cast<float>(static_cast<double>(b.y) + o.y),
-             static_cast<float>(static_cast<double>(o.z) + b.z), static_cast<float>(static_cast<double>(o.w) + b.w)};
+        p = {.x = static_cast<float>(static_cast<double>(o.x) + b.x), .y = static_cast<float>(static_cast<double>(b.y) + o.y),
+             .z = static_cast<float>(static_cast<double>(o.z) + b.z), .w = static_cast<float>(static_cast<double>(o.w) + b.w)};
         box.append_spot(p);
         // The far corner: x and y summed unrounded, z and w rounded halfway.
         auto z_half = static_cast<float>(static_cast<double>(o.z) + a.z);
         auto w_half = static_cast<float>(static_cast<double>(o.w) + a.w);
-        p = {static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
-             static_cast<float>((static_cast<double>(a.y) + o.y) + b.y),
-             static_cast<float>(static_cast<double>(z_half) + b.z),
-             static_cast<float>(static_cast<double>(w_half) + b.w)};
+        p = {.x = static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
+             .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y),
+             .z = static_cast<float>(static_cast<double>(z_half) + b.z),
+             .w = static_cast<float>(static_cast<double>(w_half) + b.w)};
         box.append_spot(p);
     }
     contact_memo_.tick_frame(box);
@@ -202,7 +202,7 @@ void DrivableModule::apply_damping()
     auto damping_rounded = static_cast<float>(damping);
     const double length = std::sqrt((x * x + y * y) + z * z);
     if (damping > length) {
-        rotmom_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        rotmom_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     } else {
         maths::Vec4 axis = rotmom_;
         axis.make_unit();
@@ -238,9 +238,9 @@ void DrivableModule::apply_gravity()
         gravity = static_cast<double>(gravity_scale_) / inv_mass_ * kGravity;
     force_.y = static_cast<float>(force_.y - gravity);
     if (debug_mode_) {
-        const maths::Vec4 down{at_point_.x,
-                               static_cast<float>(-static_cast<double>(kGravity) / inv_mass_ * 0.05f + at_point_.y),
-                               at_point_.z, static_cast<float>(static_cast<double>(at_point_.w) + 0.05f)};
+        const maths::Vec4 down{.x = at_point_.x,
+                               .y = static_cast<float>(-static_cast<double>(kGravity) / inv_mass_ * 0.05f + at_point_.y),
+                               .z = at_point_.z, .w = static_cast<float>(static_cast<double>(at_point_.w) + 0.05f)};
         gfx::push_diag_line(&at_point_, &down, 0xFF003232, 0xFF003232, 1);
     }
 }
@@ -266,10 +266,10 @@ void DrivableModule::apply_suspension()
                                static_cast<double>(wheel.vel.x) * n.x;
         const double force = spring - closing * wheel.damping_rate_;
         auto force_rounded = static_cast<float>(force);
-        const maths::Vec4 push{static_cast<float>(force * n.x),
-                               static_cast<float>(static_cast<double>(force_rounded) * n.y),
-                               static_cast<float>(static_cast<double>(force_rounded) * n.z),
-                               static_cast<float>(static_cast<double>(force_rounded) * n.w)};
+        const maths::Vec4 push{.x = static_cast<float>(force * n.x),
+                               .y = static_cast<float>(static_cast<double>(force_rounded) * n.y),
+                               .z = static_cast<float>(static_cast<double>(force_rounded) * n.z),
+                               .w = static_cast<float>(static_cast<double>(force_rounded) * n.w)};
         add_force_at_point(&push, &wheel.pos, 0xFF006464);
         core::at(wheel.load_history_, load_index_) = force_rounded;
         // The load: the average of the last ten.
@@ -318,9 +318,9 @@ void DrivableModule::apply_tyre_forces()
         }
         auto scale = static_cast<float>(-(static_cast<double>(wheel.friction) * wheel.load));
         const double friction_x = dir_x * scale;
-        const maths::Vec4 friction{0.0f, static_cast<float>(static_cast<double>(dir_y) * scale),
-                                   static_cast<float>(static_cast<double>(dir_z) * scale),
-                                   static_cast<float>(static_cast<double>(slip.w) * scale)};
+        const maths::Vec4 friction{.x = 0.0f, .y = static_cast<float>(static_cast<double>(dir_y) * scale),
+                                   .z = static_cast<float>(static_cast<double>(dir_z) * scale),
+                                   .w = static_cast<float>(static_cast<double>(slip.w) * scale)};
         // The torque that would stop the slip along the tyre this step, and the friction's own torque on it: the
         // smaller one acts on the wheel; when it's the stopping one, the rest of it pushes the body.
         auto stop = static_cast<float>(((static_cast<double>(slip.z) * side.z + static_cast<double>(slip.y) * side.y) +
@@ -332,16 +332,16 @@ void DrivableModule::apply_tyre_forces()
         float wheel_torque = 0.0f;
         maths::Vec4 push;
         if (std::fabs(static_cast<double>(stop)) > std::fabs(friction_torque)) {
-            push = {static_cast<float>(friction_x), friction.y, friction.z, friction.w};
+            push = {.x = static_cast<float>(friction_x), .y = friction.y, .z = friction.z, .w = friction.w};
             wheel_torque = static_cast<float>(friction_torque);
         } else {
             const double rest = -1.0 / wheel.radius * stop - along;
-            const maths::Vec4 extra{static_cast<float>(side.x * rest), static_cast<float>(side.y * rest),
-                                    static_cast<float>(side.z * rest), static_cast<float>(side.w * rest)};
-            push = {static_cast<float>(friction_x + extra.x),
-                    static_cast<float>(static_cast<double>(extra.y) + friction.y),
-                    static_cast<float>(static_cast<double>(extra.z) + friction.z),
-                    static_cast<float>(static_cast<double>(extra.w) + friction.w)};
+            const maths::Vec4 extra{.x = static_cast<float>(side.x * rest), .y = static_cast<float>(side.y * rest),
+                                    .z = static_cast<float>(side.z * rest), .w = static_cast<float>(side.w * rest)};
+            push = {.x = static_cast<float>(friction_x + extra.x),
+                    .y = static_cast<float>(static_cast<double>(extra.y) + friction.y),
+                    .z = static_cast<float>(static_cast<double>(extra.z) + friction.z),
+                    .w = static_cast<float>(static_cast<double>(extra.w) + friction.w)};
             wheel_torque = stop;
         }
         add_force_at_point(&push, &wheel.pos, 0xFFFF0000);
@@ -507,7 +507,7 @@ void DrivableModule::apply_wheel_forces()
 void DrivableModule::update_dependents()
 {
     quat_to_matrix(&orientation_, &basis_frame_);
-    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Vec4 turned;
     com_offset_ = basis_frame_.rotate_vector(turned, balance_point_);
     update_inertia();
@@ -584,8 +584,8 @@ void DrivableModule::update_dependents()
         for (int k = 0; k < 2; ++k) {
             const double inverse = 1.0 / core::at(c.lengths, k);
             const maths::Vec4& edge = core::at(c.world_edges_, k);
-            core::at(c.directions, k) = {static_cast<float>(inverse * edge.x), static_cast<float>(inverse * edge.y),
-                               static_cast<float>(inverse * edge.z), static_cast<float>(inverse * edge.w)};
+            core::at(c.directions, k) = {.x = static_cast<float>(inverse * edge.x), .y = static_cast<float>(inverse * edge.y),
+                               .z = static_cast<float>(inverse * edge.z), .w = static_cast<float>(inverse * edge.w)};
         }
     }
     refresh_hit_cache();
@@ -692,10 +692,10 @@ void DrivableModule::check_sleep()
     still_frames_ = still + 1;
     if (still_frames_ < 3)
         return;
-    linear_momentum_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    rotmom_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    force_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    twist_force_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    linear_momentum_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    rotmom_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    force_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    twist_force_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (int i = wheel_count_ - 1; i >= 0; --i)
         core::at(wheels_, i).torque = 0.0f;
     awake_ = 0;

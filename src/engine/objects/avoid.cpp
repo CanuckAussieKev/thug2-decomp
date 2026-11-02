@@ -35,9 +35,9 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 9> g_avoid_member_functions{{
-    {0x6157CBC0, 0x6EB050ED}, {0xD2AA4D2D, 0x6EB050ED}, {0x41226942, 0x6EB050ED}, {0x3C7F8F3E, 0x6EB050ED},
-    {0x6A4BCA91, 0x6EB050ED}, {0x3FB422E8, 0x6EB050ED}, {0x539A32DC, 0x6EB050ED}, {0x53BC3B4E, 0x6EB050ED},
-    {0, 0x6EB050ED}}};
+    {.callsign_ = 0x6157CBC0, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0xD2AA4D2D, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x41226942, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3C7F8F3E, .owner_kind_ = 0x6EB050ED},
+    {.callsign_ = 0x6A4BCA91, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3FB422E8, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x539A32DC, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x53BC3B4E, .owner_kind_ = 0x6EB050ED},
+    {.callsign_ = 0, .owner_kind_ = 0x6EB050ED}}};
 
 namespace {
 
@@ -183,7 +183,7 @@ float ObstacleDodgeModule::side_away_from_skater()
     auto side_x = static_cast<float>(zero_y - z);
     auto side_y = static_cast<float>(z * 0.0f - x * 0.0f);
     auto side_z = static_cast<float>(x - zero_y);
-    maths::Vec4 side = {side_x, side_y, side_z, 0.0f};
+    maths::Vec4 side = {.x = side_x, .y = side_y, .z = side_z, .w = 0.0f};
     // Which of the object's two sides is further from the skater (the first one's x and y unrounded).
     const maths::Vec4& pos = entity_->at_point_;
     const double a_x = static_cast<double>(side_x) + pos.x;
@@ -215,12 +215,12 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, f
     out = start;
     maths::Mat4 turn{};
     d3dx_multiply(out, maths::make_yaw_matrix(turn, static_cast<float>(static_cast<double>(angle) * kToRadians)), out);
-    const maths::Vec4 probe = {0.0f, 10.0f, distance + 15.0f, 1.0f};
+    const maths::Vec4 probe = {.x = 0.0f, .y = 10.0f, .z = distance + 15.0f, .w = 1.0f};
     maths::Vec4 probe_end;
     xform(out, probe_end, probe);
     if (line_collides(core::at(start.row, 3), probe_end))
         return false;
-    const maths::Vec4 landing = {0.0f, 0.0f, distance, 1.0f};
+    const maths::Vec4 landing = {.x = 0.0f, .y = 0.0f, .z = distance, .w = 1.0f};
     maths::Vec4 end;
     xform(out, end, landing);
     core::at(out.row, 3) = end;
@@ -294,8 +294,8 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     if (!found) {
         // Away from the herd point (this angle in radians, as the original passes it).
         const maths::Vec4& pos = core::at(start.row, 3);
-        const maths::Vec4 away = {herd_point_.x - pos.x, herd_point_.y - pos.y, herd_point_.z - pos.z,
-                                  herd_point_.w - pos.w};
+        const maths::Vec4 away = {.x = herd_point_.x - pos.x, .y = herd_point_.y - pos.y, .z = herd_point_.z - pos.z,
+                                  .w = herd_point_.w - pos.w};
         const float angle = angle_in_plane(entity_->basis_frame_, away);
         found = try_jump(start, end, angle, avoid_distance(angle, params), max_distance);
     }
@@ -308,7 +308,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     slerp_.set_matrices(start, end);
     progress_ = 0.0f;
     const maths::Vec4& pos = core::at(start.row, 3);
-    const maths::Vec4 move = {landing.x - pos.x, landing.y - pos.y, landing.z - pos.z, landing.w - pos.w};
+    const maths::Vec4 move = {.x = landing.x - pos.x, .y = landing.y - pos.y, .z = landing.z - pos.z, .w = landing.w - pos.w};
     play_jump(angle_in_plane(entity_->basis_frame_, move), params);
     return true;
 }
@@ -331,7 +331,7 @@ bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* 
     slerp_.fetch_mat(now, progress_);
     entity_->at_point_ = core::at(now.row, 3);
     entity_->basis_frame_ = now;
-    core::at(entity_->basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(entity_->basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     return true;
 }
 

@@ -26,8 +26,8 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 7> g_object_proximity_member_functions{{
-    {0x82A0A873, 0x1D5B1AE6}, {0x8CB5D0C0, 0x1D5B1AE6}, {0x50F28D36, 0x1D5B1AE6}, {0x2D703B94, 0x1D5B1AE6},
-    {0x13C0D8DC, 0x1D5B1AE6}, {0x9522F906, 0x1D5B1AE6}, {0, 0x1D5B1AE6}}};
+    {.callsign_ = 0x82A0A873, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x8CB5D0C0, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x50F28D36, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x2D703B94, .owner_kind_ = 0x1D5B1AE6},
+    {.callsign_ = 0x13C0D8DC, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x9522F906, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0, .owner_kind_ = 0x1D5B1AE6}}};
 
 namespace {
 

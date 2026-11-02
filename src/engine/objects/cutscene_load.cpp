@@ -234,7 +234,7 @@ void CinematicTable::add_objects(script::Struct* params)
             entry.object = made;
             ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             if (stand_in) {
-                const maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 150.0f};
+                const maths::Vec4 offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 150.0f};
                 model_set_offset(model_of(stand_in), &offset);
                 if (stands_in(stand_in)) {
                     // the level object's model lends its settings (saved once) and is hidden
@@ -250,7 +250,7 @@ void CinematicTable::add_objects(script::Struct* params)
                         lent_pos_ = level->at_point_;
                         lent_saved_ = true;
                     }
-                    const maths::Vec4 offset2 = {0.0f, 0.0f, 0.0f, 150.0f};
+                    const maths::Vec4 offset2 = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 150.0f};
                     model_set_offset(model2, &offset2);
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);

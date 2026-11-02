@@ -38,7 +38,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 3> g_car_physics_member_functions{{
-    {0xA2331896, 0xC695136D}, {0xC9F0DB4B, 0xC695136D}, {0, 0xC695136D}}};
+    {.callsign_ = 0xA2331896, .owner_kind_ = 0xC695136D}, {.callsign_ = 0xC9F0DB4B, .owner_kind_ = 0xC695136D}, {.callsign_ = 0, .owner_kind_ = 0xC695136D}}};
 
 namespace {
 
@@ -261,7 +261,7 @@ void AutomobileDynamicsModule::update_bones()
         return;
     maths::Mat4 collapsed{};
     collapsed.reset_to_identity();
-    const maths::Vec4 nothing = {0.0f, 0.0f, 0.0f, 1.0f};
+    const maths::Vec4 nothing = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     collapsed.scale_tool(nothing);
     core::at(rig_matrix_block(bone_rig_), 0) = collapsed;
 }

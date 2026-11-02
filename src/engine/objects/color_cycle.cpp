@@ -24,8 +24,8 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 5> g_color_cycle_member_functions{{
-    {0x4AF8B9AE, 0xCDC76A22}, {0x1DE2F35B, 0xCDC76A22}, {0x4A752AAE, 0xCDC76A22}, {0x80D5F732, 0xCDC76A22},
-    {0, 0xCDC76A22}}};
+    {.callsign_ = 0x4AF8B9AE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x1DE2F35B, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x4A752AAE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x80D5F732, .owner_kind_ = 0xCDC76A22},
+    {.callsign_ = 0, .owner_kind_ = 0xCDC76A22}}};
 
 namespace {
 
@@ -73,7 +73,7 @@ void ColorCycleComponent::change_colors(script::Array* colors)
     color_count_ = count;
     for (int i = 0; i < count; ++i) {
         const script::Vector* vector = colors->vector_at(static_cast<uint32_t>(i));
-        core::at(colors_, i) = {vector->x, vector->y, vector->z, 1.0f};
+        core::at(colors_, i) = {.x = vector->x, .y = vector->y, .z = vector->z, .w = 1.0f};
     }
     ongoing_ = 0;
 }

@@ -109,7 +109,7 @@ void ShotImpactModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kOwnerId, &holder_key_, 1);
     params->read_hash_value(kOnDestroyScript, &on_collide_script_, 1);
     params->read_hash_value(kProjectileType, &projectile_type_, 1);
-    vel_ = {0.0f, 0.0f, 1.0f, 1.0f};
+    vel_ = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     vel_.make_unit();
 }
 
@@ -167,8 +167,8 @@ void ShotImpactModule::tick_frame()
         if (on_collide_script_) {
             const maths::Vec4 pos = entity_->at_point_;
             const script::StructPtr params = script::make_struct();
-            params->put_vec3(kPos, script::VectorValue{pos.x, pos.y, pos.z, pos.w});
-            params->put_vec3(kVel, script::VectorValue{vel_.x, vel_.y, vel_.z, vel_.w});
+            params->put_vec3(kPos, script::VectorValue{.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w});
+            params->put_vec3(kVel, script::VectorValue{.x = vel_.x, .y = vel_.y, .z = vel_.z, .w = vel_.w});
             params->push_float(kScale, size_factor_);
             script::launch_script(on_collide_script_, params.get(), nullptr, false, nullptr);
         }

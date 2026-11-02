@@ -54,13 +54,13 @@ uint32_t next_unnamed_label()
 float g_particle_update_time{1.0f};
 } // namespace
 std::array<script::MemberFunctionEntry, 26> g_flexible_particle_member_functions{{
-    {0x63274395, 0xC5BCEB9E}, {0x8FFDEF38, 0xC5BCEB9E}, {0x7911855B, 0xC5BCEB9E}, {0xDB8621F7, 0xC5BCEB9E},
-    {0xE985A9A6, 0xC5BCEB9E}, {0xE3309AB5, 0xC5BCEB9E}, {0xFBB6720D, 0xC5BCEB9E}, {0xA075EE45, 0xC5BCEB9E},
-    {0x2A479569, 0xC5BCEB9E}, {0x2E66815E, 0xC5BCEB9E}, {0xD3F1D333, 0xC5BCEB9E}, {0xB373FB6E, 0xC5BCEB9E},
-    {0x1CFBF078, 0xC5BCEB9E}, {0x514B2584, 0xC5BCEB9E}, {0x711B1A6A, 0xC5BCEB9E}, {0x35B65BD4, 0xC5BCEB9E},
-    {0x099CD17B, 0xC5BCEB9E}, {0x4893F05D, 0xC5BCEB9E}, {0x482482C6, 0xC5BCEB9E}, {0x7F97BAD3, 0xC5BCEB9E},
-    {0xE99D53A8, 0xC5BCEB9E}, {0xED0FE310, 0xC5BCEB9E}, {0x2A1F307B, 0xC5BCEB9E}, {0xABF5F9E1, 0xC5BCEB9E},
-    {0x83B57984, 0xC5BCEB9E}, {0, 0xC5BCEB9E}}};
+    {.callsign_ = 0x63274395, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x8FFDEF38, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7911855B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xDB8621F7, .owner_kind_ = 0xC5BCEB9E},
+    {.callsign_ = 0xE985A9A6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xE3309AB5, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xFBB6720D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xA075EE45, .owner_kind_ = 0xC5BCEB9E},
+    {.callsign_ = 0x2A479569, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2E66815E, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xD3F1D333, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xB373FB6E, .owner_kind_ = 0xC5BCEB9E},
+    {.callsign_ = 0x1CFBF078, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x514B2584, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x711B1A6A, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x35B65BD4, .owner_kind_ = 0xC5BCEB9E},
+    {.callsign_ = 0x099CD17B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x4893F05D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x482482C6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7F97BAD3, .owner_kind_ = 0xC5BCEB9E},
+    {.callsign_ = 0xE99D53A8, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xED0FE310, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2A1F307B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xABF5F9E1, .owner_kind_ = 0xC5BCEB9E},
+    {.callsign_ = 0x83B57984, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0, .owner_kind_ = 0xC5BCEB9E}}};
 
 namespace {
 
@@ -279,7 +279,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     script::VectorValue align_to{};
     if (params->fetch_vec(kAlignTo, &align_to, 0)) {
         render::EmitterInstance* aligned = system_.get_pull();
-        aligned->align_to_ = {align_to.x, align_to.y, align_to.z, align_to.w};
+        aligned->align_to_ = {.x = align_to.x, .y = align_to.y, .z = align_to.z, .w = align_to.w};
         aligned->aligned_ = true;
     }
     particle_update_time() = static_cast<float>(script::fetch_int_value(kForceParticleUpdateTime));
@@ -325,7 +325,7 @@ void FlexibleParticleComponent::tick_frame()
         if (update) {
             if (rotate_) {
                 maths::Mat4 orientation = entity_->display_matrix_;
-                core::at(orientation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+                core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 maths::Mat4 rotation{};
                 matrix_multiply(&entity_->display_matrix_, system_rotation(system_.get_pull(), &rotation),
                                 &orientation);

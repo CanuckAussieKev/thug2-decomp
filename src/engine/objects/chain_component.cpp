@@ -137,7 +137,7 @@ void ChainLink::destroy_body()
 
 // 0x00428290
 // (the links made first by their constructors)
-Chain::Chain() { start_offset_ = {0.0f, 0.0f, 0.0f, 1.0f}; }
+Chain::Chain() { start_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; }
 
 // 0x00428300
 void Chain::update_lines()
@@ -264,7 +264,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
             ChainLink& link = core::at(chain->chain_link_, j);
             link.value40_ = 3.0f;
             link.byte_count_ = static_cast<float>(static_cast<double>(length) / segments);
-            link.at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+            link.at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             link.last_pos_ = link.at_point_;
             link.next_pos_ = link.at_point_;
             if (j >= chain->links_ - 1)
@@ -429,11 +429,11 @@ void ChainComponent::tick_frame()
         bone_position(bone_rig_, chain->bone_start_, &start);
         maths::Mat4 bone{};
         skin_matrix_ptr(bone_rig_, chain->bone_start_, &bone);
-        core::at(bone.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
+        core::at(bone.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (turned only)
         const maths::Vec4 turned = chain->start_offset_ * bone;
         start = {
-            get_rounded(static_cast<double>(start.x) + turned.x), get_rounded(static_cast<double>(start.y) + turned.y),
-            get_rounded(static_cast<double>(start.z) + turned.z), get_rounded(static_cast<double>(start.w) + turned.w)};
+            .x = get_rounded(static_cast<double>(start.x) + turned.x), .y = get_rounded(static_cast<double>(start.y) + turned.y),
+            .z = get_rounded(static_cast<double>(start.z) + turned.z), .w = get_rounded(static_cast<double>(start.w) + turned.w)};
         {
             const maths::Mat4& m = entity_->display_matrix_;
             const maths::Vec4& at = entity_->at_point_;
@@ -451,7 +451,7 @@ void ChainComponent::tick_frame()
         }
         // The end: bone_end of obj_end, into that object's world, plus this object's velocity over the last frame.
         // (no obj_end: the original's end is whatever its stack held - zero here)
-        maths::Vec4 end = {0.0f, 0.0f, 0.0f, 0.0f};
+        maths::Vec4 end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
         if (auto* other = core::down_cast<GameEntity>(find_object(chain->obj_end_))) {
             bone_position(other->fetch_module(kSkeleton), chain->bone_end_, &end);
             const maths::Mat4& m = other->display_matrix_;

@@ -46,7 +46,7 @@ constexpr uint32_t kEnableShadowCast = 0xF272C43A; // Obj_ShadowOn
 enum ShadowKind : uint8_t { kShadowDetailed = 1, kShadowSimple = 2, kShadowVolume = 3 };
 
 // The detailed and Volume shadows are cast along this over this distance.
-const maths::Vec4 kDown = {0.0f, -1.0f, 0.0f, 1.0f};
+const maths::Vec4 kDown = {.x = 0.0f, .y = -1.0f, .z = 0.0f, .w = 1.0f};
 constexpr float kCastDistance = 72.0f;
 // A detailed shadow is placed this far up the object's up.
 constexpr float kDetailedHeight = 36.0f;
@@ -81,8 +81,8 @@ gsl::owner<ObjectModule*> GroundShadowModule::fabricate() { return new GroundSha
 GroundShadowModule::GroundShadowModule() : shadow_handle_(nullptr)
 {
     kind_tag_ = kType;
-    surface_dir_ = {0.0f, 1.0f, 0.0f, 1.0f};
-    at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    surface_dir_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00431300 (0x004313D0 the deleting one)
@@ -255,12 +255,12 @@ void GroundShadowModule::tick_frame()
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
                 const maths::Vec4& root = core::at(hierarchy_of(model)->matrix.row, 3);
-                pos = {root.x, root.y, root.z, 0.0f};
+                pos = {.x = root.x, .y = root.y, .z = root.z, .w = 0.0f};
                 const maths::Mat4 base_mat = hierarchy_of(model)->matrix;
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity_->at_point_;
-                matrix = maths::MatrixProduct{&hierarchy_of(model)->matrix,
-                                              &entity_->display_matrix_};
+                matrix = maths::MatrixProduct{.left = &hierarchy_of(model)->matrix,
+                                              .right = &entity_->display_matrix_};
             }
             core::at(matrix.row, 3) = pos;
             shadow_handle_->change_mat(&matrix);

@@ -85,7 +85,7 @@ T* reallocate(T* old, uint32_t size)
 }
 
 // A script vector's coordinates as a point (w 0).
-maths::Vec4 point_of(const script::Vector* vector) { return {vector->x, vector->y, vector->z, 0.0f}; }
+maths::Vec4 point_of(const script::Vector* vector) { return {.x = vector->x, .y = vector->y, .z = vector->z, .w = 0.0f}; }
 
 } // namespace
 
@@ -96,14 +96,14 @@ gsl::owner<ObjectModule*> BodyDynamicsModule::fabricate() { return new BodyDynam
 BodyDynamicsModule::BodyDynamicsModule()
 {
     // (capsule_ is constructed first, as a member)
-    orientation_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    orientation_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     kind_tag_ = kType;
-    steady_accel_ = {0.0f, -386.3999938964844f, 0.0f, 1.0f};
+    steady_accel_ = {.x = 0.0f, .y = -386.3999938964844f, .z = 0.0f, .w = 1.0f};
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     skater_assent_cos_ = static_cast<float>(std::cos(kAssent));
     skater_assent_sin_ = static_cast<float>(std::sin(kAssent));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    model_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    model_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x0042EF60 (0x00430DF0 the deleting one)
@@ -139,8 +139,8 @@ void BodyDynamicsModule::set_box(const maths::Vec4* top, const maths::Vec4* bott
         for (const bool upper : {false, true}) {
             const maths::Vec4& half = upper ? *top : *bottom;
             for (const bool front : {false, true}) {
-                core::at(contact_run(), n++) = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
-                                  half.z * (front ? 1.0f : -1.0f), 1.0f};
+                core::at(contact_run(), n++) = {.x = half.x * (right ? 1.0f : -1.0f), .y = upper ? top->y : -bottom->y,
+                                  .z = half.z * (front ? 1.0f : -1.0f), .w = 1.0f};
             }
         }
     }
@@ -152,11 +152,11 @@ void BodyDynamicsModule::set_pyramid(float half_height, float half_depth)
     contact_count_ = 5;
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     const float base = half_height * kPyramidBase;
-    core::at(contact_run(), 0) = {half_depth, base, half_depth, 1.0f};
-    core::at(contact_run(), 1) = {-half_depth, base, half_depth, 1.0f};
-    core::at(contact_run(), 2) = {-half_depth, base, -half_depth, 1.0f};
-    core::at(contact_run(), 3) = {half_depth, base, -half_depth, 1.0f};
-    core::at(contact_run(), 4) = {0.0f, half_height * kPyramidTip, 0.0f, 1.0f};
+    core::at(contact_run(), 0) = {.x = half_depth, .y = base, .z = half_depth, .w = 1.0f};
+    core::at(contact_run(), 1) = {.x = -half_depth, .y = base, .z = half_depth, .w = 1.0f};
+    core::at(contact_run(), 2) = {.x = -half_depth, .y = base, .z = -half_depth, .w = 1.0f};
+    core::at(contact_run(), 3) = {.x = half_depth, .y = base, .z = -half_depth, .w = 1.0f};
+    core::at(contact_run(), 4) = {.x = 0.0f, .y = half_height * kPyramidTip, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x0042D790 (the angle's cosine taken unrounded, its sine from the angle rounded to a float, as the original)
@@ -171,8 +171,8 @@ void BodyDynamicsModule::set_cylinder(float top_radius, float bottom_radius, flo
             --i;
             const double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
             auto rounded = static_cast<float>(angle);
-            core::at(contact_run(), n++) = {static_cast<float>(std::cos(angle) * radius), upper ? half_height : -half_height,
-                              static_cast<float>(std::sin(static_cast<double>(rounded)) * radius), 1.0f};
+            core::at(contact_run(), n++) = {.x = static_cast<float>(std::cos(angle) * radius), .y = upper ? half_height : -half_height,
+                              .z = static_cast<float>(std::sin(static_cast<double>(rounded)) * radius), .w = 1.0f};
         }
     }
 }
@@ -186,9 +186,9 @@ void BodyDynamicsModule::set_triangle(const maths::Vec4* dimensions)
     int n = 0;
     for (const bool back : {false, true}) {
         const float z = (back ? -1.0f : 1.0f) * d.z;
-        core::at(contact_run(), n++) = {d.x, -d.y, z, 1.0f};
-        core::at(contact_run(), n++) = {-d.x, -d.y, z, 1.0f};
-        core::at(contact_run(), n++) = {0.0f, d.y, z, 1.0f};
+        core::at(contact_run(), n++) = {.x = d.x, .y = -d.y, .z = z, .w = 1.0f};
+        core::at(contact_run(), n++) = {.x = -d.x, .y = -d.y, .z = z, .w = 1.0f};
+        core::at(contact_run(), n++) = {.x = 0.0f, .y = d.y, .z = z, .w = 1.0f};
     }
 }
 
@@ -252,10 +252,10 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         else if (state == 0x99A34896) // awake
             cur_phase_ = kStateAwake;
     }
-    vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    rot_vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (int r = 0; r < 4; ++r)
-        core::at(basis_frame_.row, r) = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
+        core::at(basis_frame_.row, r) = {.x = r == 0 ? 1.0f : 0.0f, .y = r == 1 ? 1.0f : 0.0f, .z = r == 2 ? 1.0f : 0.0f, .w = r == 3 ? 1.0f : 0.0f};
     at_point_ = entity_->at_point_;
     maths::QuatRotation orientation{};
     orientation.from_matrix(entity_->basis_frame_);
@@ -351,13 +351,13 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         shape = 3;
     switch (shape) {
     case 0: {
-        maths::Vec4 top = {32.0f, 32.0f, 16.0f, 1.0f};
+        maths::Vec4 top = {.x = 32.0f, .y = 32.0f, .z = 16.0f, .w = 1.0f};
         params->fetch_vec("dimensions", &top, 0);
         maths::Vec4 bottom = top;
         params->fetch_vec("top_dimensions", &top, 0);
         params->fetch_vec("bottom_dimensions", &bottom, 0);
-        top = {top.x * kHalf, top.y * kHalf, top.z * kHalf, top.w * kHalf};
-        bottom = {bottom.x * kHalf, bottom.y * kHalf, bottom.z * kHalf, bottom.w * kHalf};
+        top = {.x = top.x * kHalf, .y = top.y * kHalf, .z = top.z * kHalf, .w = top.w * kHalf};
+        bottom = {.x = bottom.x * kHalf, .y = bottom.y * kHalf, .z = bottom.z * kHalf, .w = bottom.w * kHalf};
         set_box(&top, &bottom);
         break;
     }
@@ -384,9 +384,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         break;
     }
     case 3: {
-        maths::Vec4 dimensions = {32.0f, 32.0f, 16.0f, 1.0f};
+        maths::Vec4 dimensions = {.x = 32.0f, .y = 32.0f, .z = 16.0f, .w = 1.0f};
         params->fetch_vec(0x1D82745A, &dimensions, 0); // Dimensions
-        dimensions = {dimensions.x * kHalf, dimensions.y * kHalf, dimensions.z * kHalf, dimensions.w * kHalf};
+        dimensions = {.x = dimensions.x * kHalf, .y = dimensions.y * kHalf, .z = dimensions.z * kHalf, .w = dimensions.w * kHalf};
         set_triangle(&dimensions);
         break;
     }
@@ -439,28 +439,28 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
 
     // The centre of mass: given, else the average of the points.
-    maths::Vec4 center = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 center = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (params->has_entry_named(0x737612C6) && params->has_entry_named(0x737612C6))
         vector(0x737612C6, &center);
     if (center.x == 0.0f && center.y == 0.0f && center.z == 0.0f) {
         for (int i = contact_count_; i != 0;) {
             const maths::Vec4& p = core::at(contact_run(), --i);
-            center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
+            center = {.x = center.x + p.x, .y = center.y + p.y, .z = center.z + p.z, .w = center.w + p.w};
         }
         for (int i = sphere_count_; i != 0;) {
             const maths::Vec4& p = core::at(sphere_run(), --i).center;
-            center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
+            center = {.x = center.x + p.x, .y = center.y + p.y, .z = center.z + p.z, .w = center.w + p.w};
         }
         const double share = 1.0 / static_cast<double>(contact_count_ + sphere_count_);
-        center = {static_cast<float>(center.x * share), static_cast<float>(center.y * share),
-                  static_cast<float>(center.z * share), static_cast<float>(center.w * share)};
+        center = {.x = static_cast<float>(center.x * share), .y = static_cast<float>(center.y * share),
+                  .z = static_cast<float>(center.z * share), .w = static_cast<float>(center.w * share)};
     }
-    maths::Vec4 model_offset = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 model_offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     vector(0x851211B0, &model_offset); // model_offset
-    model_offset_ = {model_offset.x - center.x, model_offset.y - center.y, model_offset.z - center.z,
-                     model_offset.w - center.w};
+    model_offset_ = {.x = model_offset.x - center.x, .y = model_offset.y - center.y, .z = model_offset.z - center.z,
+                     .w = model_offset.w - center.w};
     // The shape about the centre of mass (w too).
-    auto recentre = [&center](maths::Vec4& p) { p = {p.x - center.x, p.y - center.y, p.z - center.z, p.w - center.w}; };
+    auto recentre = [&center](maths::Vec4& p) { p = {.x = p.x - center.x, .y = p.y - center.y, .z = p.z - center.z, .w = p.w - center.w}; };
     for (int i = contact_count_; i != 0;)
         recentre(core::at(contact_run(), --i));
     for (int i = sphere_count_; i != 0;)
@@ -564,13 +564,13 @@ bool BodyDynamicsModule::rigidbody_kick(script::Struct* params, script::Script* 
 {
     script::VectorValue v{};
     if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
-        vel_ = {v.x + vel_.x, v.y + vel_.y, v.z + vel_.z, v.w + vel_.w};
+        vel_ = {.x = v.x + vel_.x, .y = v.y + vel_.y, .z = v.z + vel_.z, .w = v.w + vel_.w};
         entity_->vel_ = vel_;
     }
     if (params->fetch_vec(0xFB1A83B2, &v, 0)) // rotvel
-        rot_vel_ = {v.x + rot_vel_.x, v.y + rot_vel_.y, v.z + rot_vel_.z, v.w + rot_vel_.w};
+        rot_vel_ = {.x = v.x + rot_vel_.x, .y = v.y + rot_vel_.y, .z = v.z + rot_vel_.z, .w = v.w + rot_vel_.w};
     if (params->fetch_vec(0x7F261953, &v, 0)) { // pos
-        at_point_ = {v.x + at_point_.x, v.y + at_point_.y, v.z + at_point_.z, v.w + at_point_.w};
+        at_point_ = {.x = v.x + at_point_.x, .y = v.y + at_point_.y, .z = v.z + at_point_.z, .w = v.w + at_point_.w};
         entity_->at_point_ = at_point_;
     }
     wake();
@@ -582,11 +582,11 @@ bool BodyDynamicsModule::rigid_body_set_velocities(script::Struct* params, scrip
 {
     script::VectorValue v{};
     if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
-        vel_ = {v.x, v.y, v.z, v.w};
+        vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
         entity_->vel_ = vel_;
     }
     if (params->fetch_vec(0xFB1A83B2, &v, 0)) // rotvel
-        rot_vel_ = {v.x, v.y, v.z, v.w};
+        rot_vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
     wake();
     return true;
 }
@@ -622,7 +622,7 @@ bool BodyDynamicsModule::rigid_body_enable_player_collision(script::Struct* /*pa
 // 0x0042DFD0
 bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_vec3(0x77808D3C, {at_point_.x, at_point_.y, at_point_.z, at_point_.w}); // CenterOfMassPos
+    script->args_->put_vec3(0x77808D3C, {.x = at_point_.x, .y = at_point_.y, .z = at_point_.z, .w = at_point_.w}); // CenterOfMassPos
     return true;
 }
 
@@ -635,8 +635,8 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
     vel_ = other->vel_;
     if (adjust) {
         const double factor = maths::plus_or_minus_exact(0.4000000059604645f) + 1.0f;
-        vel_ = {static_cast<float>(factor * vel_.x), static_cast<float>(factor * vel_.y),
-                static_cast<float>(factor * vel_.z), static_cast<float>(factor * vel_.w)};
+        vel_ = {.x = static_cast<float>(factor * vel_.x), .y = static_cast<float>(factor * vel_.y),
+                .z = static_cast<float>(factor * vel_.z), .w = static_cast<float>(factor * vel_.w)};
     }
     entity_->vel_ = vel_;
     if (cur_phase_ == kStateAsleep && std::fabs(vel_.y) < 1.0f)
@@ -645,8 +645,8 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
         rot_vel_ = body->rot_vel_;
         if (adjust) {
             const double factor = maths::plus_or_minus_exact(0.4000000059604645f);
-            rot_vel_ = {static_cast<float>(factor * rot_vel_.x), static_cast<float>(factor * rot_vel_.y),
-                        static_cast<float>(factor * rot_vel_.z), static_cast<float>(factor * rot_vel_.w)};
+            rot_vel_ = {.x = static_cast<float>(factor * rot_vel_.x), .y = static_cast<float>(factor * rot_vel_.y),
+                        .z = static_cast<float>(factor * rot_vel_.z), .w = static_cast<float>(factor * rot_vel_.w)};
         }
     }
     wake();

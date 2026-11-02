@@ -37,10 +37,10 @@ bool BodyDynamicsModule::find_contacts()
 {
     const float r = radius_;
     maths::BBox box;
-    box.min = {get_narrow(get_wide(at_point_.x) - r), get_narrow(get_wide(at_point_.y) - r),
-               get_narrow(get_wide(at_point_.z) - r), get_narrow(get_wide(at_point_.w) - 1.0f)};
-    box.max = {get_narrow(get_wide(r) + at_point_.x), get_narrow(get_wide(r) + at_point_.y),
-               get_narrow(get_wide(r) + at_point_.z), get_narrow(get_wide(at_point_.w) + 1.0f)};
+    box.min = {.x = get_narrow(get_wide(at_point_.x) - r), .y = get_narrow(get_wide(at_point_.y) - r),
+               .z = get_narrow(get_wide(at_point_.z) - r), .w = get_narrow(get_wide(at_point_.w) - 1.0f)};
+    box.max = {.x = get_narrow(get_wide(r) + at_point_.x), .y = get_narrow(get_wide(r) + at_point_.y),
+               .z = get_narrow(get_wide(r) + at_point_.z), .w = get_narrow(get_wide(at_point_.w) + 1.0f)};
     body_cache()->tick_frame(box);
     contacts_hit_ = 0;
     unknown191_ = 0;
@@ -53,8 +53,8 @@ bool BodyDynamicsModule::find_contacts()
             Contact& contact = core::at(get_contacts(), contacts_hit_);
             feeler.line_.start = at_point_;
             feeler.line_.end = {
-                get_narrow(get_wide(at_point_.x) + point.x), get_narrow(get_wide(at_point_.y) + point.y),
-                get_narrow(get_wide(at_point_.z) + point.z), get_narrow(get_wide(at_point_.w) + point.w)};
+                .x = get_narrow(get_wide(at_point_.x) + point.x), .y = get_narrow(get_wide(at_point_.y) + point.y),
+                .z = get_narrow(get_wide(at_point_.z) + point.z), .w = get_narrow(get_wide(at_point_.w) + point.w)};
             contact.active = feeler.get_hit_shape(false, false) != 0;
             if (!contact.active)
                 continue;
@@ -83,8 +83,8 @@ bool BodyDynamicsModule::find_contacts()
         const maths::Vec4& centre = core::at(world_sphere_centers(), j);
         const Sphere& sphere = core::at(sphere_run(), j);
         const maths::Vec4 at = {
-            get_narrow(get_wide(centre.x) + at_point_.x), get_narrow(get_wide(centre.y) + at_point_.y),
-            get_narrow(get_wide(at_point_.z) + centre.z), get_narrow(get_wide(centre.w) + at_point_.w)};
+            .x = get_narrow(get_wide(centre.x) + at_point_.x), .y = get_narrow(get_wide(centre.y) + at_point_.y),
+            .z = get_narrow(get_wide(at_point_.z) + centre.z), .w = get_narrow(get_wide(centre.w) + at_point_.w)};
         render::SphereFeeler feeler(&at, sphere.radius);
         feeler.hit_cache_ = body_cache();
         if (!feeler.get_query(0))
@@ -109,12 +109,12 @@ bool BodyDynamicsModule::find_contacts()
             const float length =
                 get_narrow(std::sqrt((get_wide(n.x) * n.x + get_wide(n.y) * n.y) + get_wide(n.z) * n.z));
             if (length == 0.0f) {
-                n = {0.0f, 1.0f, 0.0f, 1.0f};
+                n = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
             } else {
                 // (towards the centre: the hit point less the centre, reversed)
                 const double inverse = 1.0 / -get_wide(length);
-                n = {get_narrow(inverse * n.x), get_narrow(inverse * n.y), get_narrow(inverse * n.z),
-                     get_narrow(inverse * n.w)};
+                n = {.x = get_narrow(inverse * n.x), .y = get_narrow(inverse * n.y), .z = get_narrow(inverse * n.z),
+                     .w = get_narrow(inverse * n.w)};
             }
             // (a face turned away from it, or a hit ahead of the centre of mass: none)
             if ((get_wide(hit.normal.z) * n.z + get_wide(hit.normal.x) * n.x) + get_wide(n.y) * hit.normal.y < 0.0)

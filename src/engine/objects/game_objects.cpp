@@ -205,10 +205,10 @@ void CrownObject::own_update()
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame_);
     maths::Mat4 turn;
     maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
-    const maths::Vec4 raise = {0.0f, 0.0f, -18.0f, 0.0f};
+    const maths::Vec4 raise = {.x = 0.0f, .y = 0.0f, .z = -18.0f, .w = 0.0f};
     basis_frame_.offset_local(raise);
     const maths::Vec4 offset = core::at(basis_frame_.row, 3);
-    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::get_multiply(basis_frame_, basis_frame_, skater_->basis_frame_);
     maths::Vec4 moved;
     at_point_ = skater_->basis_frame_.xform(moved, offset); // (the matrix times the offset, w too)

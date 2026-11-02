@@ -34,14 +34,14 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 29> g_ped_logic_member_functions{{
-    {0x3685B765, 0x6EFDDFB8}, {0x423B7B29, 0x6EFDDFB8}, {0xE9906815, 0x6EFDDFB8}, {0x0D711542, 0x6EFDDFB8},
-    {0xCC85ADFE, 0x6EFDDFB8}, {0x68D298B0, 0x6EFDDFB8}, {0x2CC086DD, 0x6EFDDFB8}, {0xC643E8F5, 0x6EFDDFB8},
-    {0x13713760, 0x6EFDDFB8}, {0xF5627596, 0x6EFDDFB8}, {0xE575EFA9, 0x6EFDDFB8}, {0xB4445051, 0x6EFDDFB8},
-    {0x744CD649, 0x6EFDDFB8}, {0xEE24A410, 0x6EFDDFB8}, {0x0C076D74, 0x6EFDDFB8}, {0xDA7BE9E2, 0x6EFDDFB8},
-    {0x1AFFFFB3, 0x6EFDDFB8}, {0x5C794C57, 0x6EFDDFB8}, {0x5BB23915, 0x6EFDDFB8}, {0x56D9F55F, 0x6EFDDFB8},
-    {0x749DE914, 0x6EFDDFB8}, {0x58A588B5, 0x6EFDDFB8}, {0x5CFBFB31, 0x6EFDDFB8}, {0x9C37FBF5, 0x6EFDDFB8},
-    {0x35D3CA5E, 0x6EFDDFB8}, {0x9C209251, 0x6EFDDFB8}, {0xC33754F7, 0x6EFDDFB8}, {0x5F041C7D, 0x6EFDDFB8},
-    {0, 0x6EFDDFB8}}};
+    {.callsign_ = 0x3685B765, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x423B7B29, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE9906815, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0D711542, .owner_kind_ = 0x6EFDDFB8},
+    {.callsign_ = 0xCC85ADFE, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x68D298B0, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x2CC086DD, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC643E8F5, .owner_kind_ = 0x6EFDDFB8},
+    {.callsign_ = 0x13713760, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xF5627596, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE575EFA9, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xB4445051, .owner_kind_ = 0x6EFDDFB8},
+    {.callsign_ = 0x744CD649, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xEE24A410, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0C076D74, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xDA7BE9E2, .owner_kind_ = 0x6EFDDFB8},
+    {.callsign_ = 0x1AFFFFB3, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5C794C57, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5BB23915, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x56D9F55F, .owner_kind_ = 0x6EFDDFB8},
+    {.callsign_ = 0x749DE914, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x58A588B5, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5CFBFB31, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C37FBF5, .owner_kind_ = 0x6EFDDFB8},
+    {.callsign_ = 0x35D3CA5E, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C209251, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC33754F7, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5F041C7D, .owner_kind_ = 0x6EFDDFB8},
+    {.callsign_ = 0, .owner_kind_ = 0x6EFDDFB8}}};
 
 namespace {
 
@@ -147,7 +147,7 @@ PedestrianBrainModule::PedestrianBrainModule()
     for (float& bias : bias_)
         bias = 0.0f;
     for (maths::Vec4& position : past_frames_)
-        position = {0.0f, 0.0f, 0.0f, 1.0f};
+        position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (float& avoid : avoid_)
         avoid = 0.0f;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
@@ -157,7 +157,7 @@ PedestrianBrainModule::PedestrianBrainModule()
     state_table_ = checksums::hash_from_text("NULL");
     update_type_ = checksums::hash_from_text("NULL");
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    next_node_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    next_node_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x004F2120 (0x004F2540 the deleting one)

@@ -27,7 +27,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 2> g_sound_component_member_functions{{
-    {0xAFA20E18, 0x07713C7B}, {0, 0x07713C7B}}};
+    {.callsign_ = 0xAFA20E18, .owner_kind_ = 0x07713C7B}, {.callsign_ = 0, .owner_kind_ = 0x07713C7B}}};
 
 namespace {
 
@@ -75,8 +75,8 @@ void AudioEmitterModule::publish_method_table()
 AudioEmitterModule::AudioEmitterModule()
 {
     kind_tag_ = kType;
-    at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    last_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    last_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00432DF0 (0x00433160 the deleting one)
@@ -198,7 +198,7 @@ void AudioEmitterModule::update_waiting_sounds()
         // (a dropoff of exactly 0 means the default)
         const float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
-            SoundParams params = {props.pitch2, props.volume2, props.dropoff, static_cast<int>(props.falloff)};
+            SoundParams params = {.pitch = props.pitch2, .volume = props.volume2, .dropoff = props.dropoff, .falloff = static_cast<int>(props.falloff)};
             const uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, this, false, true);
             if (!id)
                 continue;
@@ -263,7 +263,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
             return;
     }
     // (here the original calls its slot 13, an empty stub taking the sound, volume and pitch: nothing)
-    SoundParams play = {pitch, volume, dropoff, falloff};
+    SoundParams play = {.pitch = pitch, .volume = volume, .dropoff = dropoff, .falloff = falloff};
     audio_mixer_handle()->play_object_sound(sound, &play, this, keep_placement, false);
 }
 

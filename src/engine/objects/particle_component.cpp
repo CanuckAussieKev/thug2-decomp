@@ -35,12 +35,12 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 21> g_particle_component_member_functions{{
-    {0x88BE2262, 0xA9DB601E}, {0xBB6018F4, 0xA9DB601E}, {0xE5134689, 0xA9DB601E}, {0xF71D696E, 0xA9DB601E},
-    {0x0AAB006D, 0xA9DB601E}, {0xE2B99038, 0xA9DB601E}, {0xC036F4D0, 0xA9DB601E}, {0xC6525C4E, 0xA9DB601E},
-    {0x31FCC8ED, 0xA9DB601E}, {0x19AF74D1, 0xA9DB601E}, {0x4AA40FB5, 0xA9DB601E}, {0x234CEABB, 0xA9DB601E},
-    {0x9E100F60, 0xA9DB601E}, {0x2F0DA461, 0xA9DB601E}, {0xEEFFAE18, 0xA9DB601E}, {0x0FE869E8, 0xA9DB601E},
-    {0x19AA4CD3, 0xA9DB601E}, {0x5446AF14, 0xA9DB601E}, {0x55835CF2, 0xA9DB601E}, {0x3D05AFE0, 0xA9DB601E},
-    {0, 0xA9DB601E}}};
+    {.callsign_ = 0x88BE2262, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xBB6018F4, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE5134689, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xF71D696E, .owner_kind_ = 0xA9DB601E},
+    {.callsign_ = 0x0AAB006D, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE2B99038, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC036F4D0, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC6525C4E, .owner_kind_ = 0xA9DB601E},
+    {.callsign_ = 0x31FCC8ED, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x19AF74D1, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x4AA40FB5, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x234CEABB, .owner_kind_ = 0xA9DB601E},
+    {.callsign_ = 0x9E100F60, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x2F0DA461, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xEEFFAE18, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x0FE869E8, .owner_kind_ = 0xA9DB601E},
+    {.callsign_ = 0x19AA4CD3, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x5446AF14, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x55835CF2, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x3D05AFE0, .owner_kind_ = 0xA9DB601E},
+    {.callsign_ = 0, .owner_kind_ = 0xA9DB601E}}};
 std::unique_ptr<render::EffectsDirector> g_particle_hub;
 
 namespace {
@@ -309,16 +309,16 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
 
     // The orientation: the identity, or turned to face 0x0C4C809E (normalised).
     maths::Mat4 orient{};
-    core::at(orient.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(orient.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(orient.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(orient.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(orient.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(orient.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(orient.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(orient.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (params->has_bare_flag(0x7045843Au)) {
         maths::Vec4 at{};
         params->fetch_vec(0x0C4C809Eu, &at, 1);
         at.make_unit();
         core::at(orient.row, 2) = at;
-        const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
+        const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
         core::at(orient.row, 0).w = 0.0f;
         if (core::at(orient.row, 2) == up) {
             // (straight up: across from (0, 0, -1))
@@ -354,10 +354,10 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     // The positions and boxes: scaled, then turned by the orientation.
     auto scale_and_turn = [&](std::span<maths::Vec4, 3> v) {
         for (maths::Vec4& element : v) {
-            element = {static_cast<float>(static_cast<double>(element.x) * scale),
-                       static_cast<float>(static_cast<double>(element.y) * scale),
-                       static_cast<float>(static_cast<double>(element.z) * scale),
-                       static_cast<float>(static_cast<double>(element.w) * scale)};
+            element = {.x = static_cast<float>(static_cast<double>(element.x) * scale),
+                       .y = static_cast<float>(static_cast<double>(element.y) * scale),
+                       .z = static_cast<float>(static_cast<double>(element.z) * scale),
+                       .w = static_cast<float>(static_cast<double>(element.w) * scale)};
         }
         for (maths::Vec4& element : v) {
             maths::Vec4 turned{};
@@ -404,11 +404,11 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.unknown150_ = static_cast<uint8_t>(byte_value);
 
     // The rotation: X, Y, then Z.
-    core::at(p.orientation_turn_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(p.orientation_turn_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(p.orientation_turn_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(p.orientation_turn_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Vec4 angles = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(p.orientation_turn_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(p.orientation_turn_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(p.orientation_turn_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(p.orientation_turn_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::Vec4 angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0x9D2D0915u, &angles, 0);
     maths::Mat4 rotation{};
     matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_pitch_matrix(rotation, angles.x));
@@ -463,12 +463,12 @@ void EffectsEmitterModule::tick_frame()
     for (int i = 0; i < 3; ++i) {
         const maths::Vec4& local = core::at(args.offset_pos_, i);
         const maths::Vec4& at = entity_->at_point_;
-        const maths::Vec4 pos = {local.x + at.x, local.y + at.y, local.z + at.z, local.w + at.w};
+        const maths::Vec4 pos = {.x = local.x + at.x, .y = local.y + at.y, .z = local.z + at.z, .w = local.w + at.w};
         effect_handle_->change_place(i, &pos);
         if (args.orient_with_object_) {
             maths::Mat4 orientation{};
             orientation = entity_->basis_frame_;
-            core::at(orientation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+            core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             effect_handle_->spin_by(i, &orientation);
         }
     }
@@ -486,8 +486,8 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         float value = 1.0f;
         render::ProbeRay feeler;
         const maths::Vec4& at = core::at(effect_handle_->args_.at_point_, 0);
-        feeler.line_.start = {at.x, static_cast<float>(at.y + 1.0f), at.z, at.w};
-        feeler.line_.end = {at.x, static_cast<float>(static_cast<double>(at.y) - 4800.0), at.z, at.w};
+        feeler.line_.start = {.x = at.x, .y = static_cast<float>(at.y + 1.0f), .z = at.z, .w = at.w};
+        feeler.line_.end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - 4800.0), .z = at.z, .w = at.w};
         if (feeler.get_hit_shape(true, false))
             value = static_cast<float>(feeler.get_hit_vertex_value() * 2.0);
         if (effect_handle_)
@@ -526,7 +526,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     result->append_array_value(0x0481113Du, core::at(colours, 2));
     auto get = [this] { return &effect_handle_->args_; };
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
-        result->put_vec3(name, script::VectorValue{v.x, v.y, v.z, v.w});
+        result->put_vec3(name, script::VectorValue{.x = v.x, .y = v.y, .z = v.z, .w = v.w});
     };
     add_vector(0x7B5A25F8u, core::at(get()->at_point_, 0));
     add_vector(0xA5A9080Eu, core::at(get()->at_point_, 1));

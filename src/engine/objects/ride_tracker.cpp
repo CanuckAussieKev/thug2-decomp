@@ -13,7 +13,7 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 // The rotation part only: no translation (the fourth row 0, 0, 0, 1) and a zero fourth column.
 void keep_rotation(maths::Mat4& m)
 {
-    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     core::at(m.row, 0).w = 0.0f;
     core::at(m.row, 1).w = 0.0f;
     core::at(m.row, 2).w = 0.0f;
@@ -35,7 +35,7 @@ RideTracker::RideTracker(GameEntity* object)
     previous_xform_ = object->basis_frame_;
     last_pos_ = object->at_point_;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    carried_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    carried_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00416F00
@@ -45,15 +45,15 @@ bool RideTracker::tick_frame(const maths::Vec4* point)
     if (!object)
         return false;
     const maths::Vec4& position = object->at_point_;
-    carried_ = {get_difference(position.x, last_pos_.x), get_difference(position.y, last_pos_.y),
-                get_difference(position.z, last_pos_.z), get_difference(position.w, last_pos_.w)};
+    carried_ = {.x = get_difference(position.x, last_pos_.x), .y = get_difference(position.y, last_pos_.y),
+                .z = get_difference(position.z, last_pos_.z), .w = get_difference(position.w, last_pos_.w)};
     if (object->basis_frame_ == previous_xform_) {
         turned_ = false;
     } else {
         turned_ = true;
         // The point about the old position, turned by the orientation's change (new times the old's inverse).
-        const maths::Vec4 offset{get_difference(point->x, last_pos_.x), get_difference(point->y, last_pos_.y),
-                                 get_difference(point->z, last_pos_.z), get_difference(point->w, last_pos_.w)};
+        const maths::Vec4 offset{.x = get_difference(point->x, last_pos_.x), .y = get_difference(point->y, last_pos_.y),
+                                 .z = get_difference(point->z, last_pos_.z), .w = get_difference(point->w, last_pos_.w)};
         maths::Mat4 undo = previous_xform_;
         keep_rotation(undo);
         undo.invert_orthonormal();

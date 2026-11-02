@@ -67,13 +67,13 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 // 0x0046A1D0
 PathFollower::PathFollower(GameEntity* owner) : owner_(owner)
 {
-    core::at(tick_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(tick_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(tick_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(tick_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    segment_origin_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    unknown84_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    end_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(tick_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(tick_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(tick_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(tick_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    segment_origin_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    unknown84_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    end_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00469B00
@@ -154,8 +154,8 @@ bool PathFollower::start_segment()
     along_ = static_cast<float>(along + carry_);
     carry_ = 0.0f;
     maths::Vec4& heading = core::at(tick_.row, 2);
-    heading = {end_point_.x - segment_origin_.x, end_point_.y - segment_origin_.y, end_point_.z - segment_origin_.z,
-               end_point_.w - segment_origin_.w};
+    heading = {.x = end_point_.x - segment_origin_.x, .y = end_point_.y - segment_origin_.y, .z = end_point_.z - segment_origin_.z,
+               .w = end_point_.w - segment_origin_.w};
     heading.make_unit();
     check_corner();
     return true;
@@ -314,8 +314,8 @@ void PathFollower::kickoff(uint32_t node, const maths::Vec4* position)
             return;
     }
     maths::Vec4& heading = core::at(tick_.row, 2);
-    heading = {end_point_.x - at_point_.x, end_point_.y - at_point_.y, end_point_.z - at_point_.z,
-               end_point_.w - at_point_.w};
+    heading = {.x = end_point_.x - at_point_.x, .y = end_point_.y - at_point_.y, .z = end_point_.z - at_point_.z,
+               .w = end_point_.w - at_point_.w};
     heading.make_unit();
 }
 

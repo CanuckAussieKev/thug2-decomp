@@ -122,7 +122,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         return;
     // Off a wall 8 to the right, else to the left.
     const maths::Vec4& right = core::at(matrix->row, 0);
-    maths::Vec4 probe = {right.x, 0.0f, right.z, 0.0f};
+    maths::Vec4 probe = {.x = right.x, .y = 0.0f, .z = right.z, .w = 0.0f};
     set_length(probe, kSideProbe);
     probe.x += pos.x;
     probe.y += pos.y;
@@ -140,7 +140,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         pos.z -= probe.z;
         pos.w -= probe.w;
     } else {
-        probe = {-right.x, 0.0f, -right.z, 0.0f};
+        probe = {.x = -right.x, .y = 0.0f, .z = -right.z, .w = 0.0f};
         set_length(probe, kSideProbe);
         probe.x += pos.x;
         probe.y += pos.y;
@@ -165,14 +165,14 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     maths::Vec4& at = core::at(matrix->row, 2);
     maths::Vec4& up = core::at(matrix->row, 1);
     maths::Vec4& across = core::at(matrix->row, 0);
-    at = {focus->x - pos.x, focus->y - pos.y, focus->z - pos.z, 1.0f};
+    at = {.x = focus->x - pos.x, .y = focus->y - pos.y, .z = focus->z - pos.z, .w = 1.0f};
     at.make_unit();
     across = perpendicular(up, at);
     across.make_unit();
     up = perpendicular(at, across);
     up.make_unit();
-    across = {-across.x, -across.y, -across.z, -across.w};
-    at = {-at.x, -at.y, -at.z, -at.w};
+    across = {.x = -across.x, .y = -across.y, .z = -across.z, .w = -across.w};
+    at = {.x = -at.x, .y = -at.y, .z = -at.z, .w = -at.w};
     across.w = 0.0f;
     up.w = 0.0f;
     at.w = 0.0f;

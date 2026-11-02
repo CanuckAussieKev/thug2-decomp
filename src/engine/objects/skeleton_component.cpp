@@ -34,8 +34,8 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 6> g_skeleton_component_member_functions{{
-    {0x20F7B992, 0x222756D5}, {0x613831F2, 0x222756D5}, {0xBE1C58CA, 0x222756D5}, {0xB244C9CF, 0x222756D5},
-    {0xF99F9FAF, 0x222756D5}, {0, 0x222756D5}}};
+    {.callsign_ = 0x20F7B992, .owner_kind_ = 0x222756D5}, {.callsign_ = 0x613831F2, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xBE1C58CA, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xB244C9CF, .owner_kind_ = 0x222756D5},
+    {.callsign_ = 0xF99F9FAF, .owner_kind_ = 0x222756D5}, {.callsign_ = 0, .owner_kind_ = 0x222756D5}}};
 
 namespace {
 
@@ -67,7 +67,7 @@ render::BitmapTexture* texture_by_checksum(uint32_t checksum) { return render::g
 // The game's C runtime rand().
 int get_rand() { return crt::get_rand(); }
 
-script::VectorValue to_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
+script::VectorValue to_value(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
 
 } // namespace
 
@@ -131,10 +131,10 @@ bool BoneRigModule::get_local_bone_position(uint32_t bone, maths::Vec4* out)
 bool BoneRigModule::get_bone_position(uint32_t bone, maths::Vec4* out)
 {
     if (!skeleton_bone_position(bone_rig_, bone, out))
-        *out = {0.0f, 0.0f, 0.0f, 1.0f};
+        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Mat4 placed = entity_->basis_frame_;
     const maths::Vec4& pos = entity_->at_point_;
-    core::at(placed.row, 3) = {pos.x, pos.y, pos.z, 1.0f};
+    core::at(placed.row, 3) = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
     maths::Vec4 world;
     placed.xform(world, *out);
     *out = world;
@@ -158,7 +158,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     if (dropdown) {
         // Straight down (in the world) by the length.
         const float zero = length * 0.0f;
-        to = {from.x - zero, from.y - length, from.z - zero, from.w - length};
+        to = {.x = from.x - zero, .y = from.y - length, .z = from.z - zero, .w = from.w - length};
     } else {
         const maths::Vec4& d = *end;
         const double length_squared =
@@ -168,8 +168,8 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
             raise = false;
         } else {
             // Down the object's up by the length (x's product unrounded, as the x87 leaves it).
-            to = {static_cast<float>(from.x - static_cast<double>(length) * up.x), from.y - length * up.y,
-                  from.z - length * up.z, from.w - length * up.w};
+            to = {.x = static_cast<float>(from.x - static_cast<double>(length) * up.x), .y = from.y - length * up.y,
+                  .z = from.z - length * up.z, .w = from.w - length * up.w};
         }
     }
     if (raise) {
@@ -213,7 +213,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     // The bone's matrix in the game's axes: y and z swapped, the new z turned round; moved by the offset.
     const maths::Vec4 up = core::at(joint_mat.row, 1);
     core::at(joint_mat.row, 1) = core::at(joint_mat.row, 2);
-    core::at(joint_mat.row, 2) = {-up.x, -up.y, -up.z, -up.w};
+    core::at(joint_mat.row, 2) = {.x = -up.x, .y = -up.y, .z = -up.z, .w = -up.w};
     offset->w = 0.0f;
     core::at(joint_mat.row, 3).x = core::at(joint_mat.row, 3).x + offset->x;
     core::at(joint_mat.row, 3).y = core::at(joint_mat.row, 3).y + offset->y;
@@ -226,18 +226,18 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     params->put_vec3(0x7F261953, to_value(core::at(joint_mat.row, 3))); // pos
     maths::QuatRotation rotation{};
     rotation.from_matrix(joint_mat);
-    const maths::Vec4 quat = {rotation.x, rotation.y, rotation.z, rotation.w};
+    const maths::Vec4 quat = {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
     if (quat.w > 0.0f)
         params->put_vec3(0xC97F3AA9, to_value(quat)); // Orientation (w kept positive)
     else
-        params->put_vec3(0xC97F3AA9, {-quat.x, -quat.y, -quat.z, -quat.w});
+        params->put_vec3(0xC97F3AA9, {.x = -quat.x, .y = -quat.y, .z = -quat.z, .w = -quat.w});
     const maths::Vec4& object_vel = entity_->vel_;
-    const maths::Vec4 carried = {velocity_scale * object_vel.x, velocity_scale * object_vel.y,
-                                 velocity_scale * object_vel.z, velocity_scale * object_vel.w};
+    const maths::Vec4 carried = {.x = velocity_scale * object_vel.x, .y = velocity_scale * object_vel.y,
+                                 .z = velocity_scale * object_vel.z, .w = velocity_scale * object_vel.w};
     maths::Vec4 turned;
     entity_->basis_frame_.rotate_vector(turned, *velocity);
     params->put_vec3(0x0C4C809E,
-                     {carried.x + turned.x, carried.y + turned.y, carried.z + turned.z, carried.w + turned.w}); // vel
+                     {.x = carried.x + turned.x, .y = carried.y + turned.y, .z = carried.z + turned.z, .w = carried.w + turned.w}); // vel
     entity_->basis_frame_.rotate_vector(turned, *rotational_velocity);
     params->put_vec3(0xFB1A83B2, to_value(turned)); // rotvel
     object_hub_slot()->spawn_entity_from_node(components, params, true);
@@ -265,7 +265,7 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
     params->fetch_float(0x13B9DA7B, &scale, 1); // scale
     const bool propagate = params->has_bare_flag(0x4CC196D1);
     const bool reverse = params->has_bare_flag(0xBA05E2DE); // propagate_reverse
-    const maths::Vec4 scales = {scale, scale, scale, 0.0f};
+    const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 0.0f};
     if (!reverse) {
         bone_rig_->change_bone_sizing(bone, &scales, !propagate);
         return true;
@@ -286,7 +286,7 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
 // 0x004327C0
 bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script* script)
 {
-    maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     // (missing, the original's bone is the parameters' address - a name no bone has)
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
@@ -338,11 +338,11 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
         if (params->fetch_float(0x186ED079, &forward, 0)) { // forward
             const maths::Vec4& pos = entity_->at_point_;
             const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);
-            start = {static_cast<float>(static_cast<double>(forward) * at.x + pos.x), forward * at.y + pos.y,
-                     forward * at.z + pos.z, forward * at.w + pos.w};
+            start = {.x = static_cast<float>(static_cast<double>(forward) * at.x + pos.x), .y = forward * at.y + pos.y,
+                     .z = forward * at.z + pos.z, .w = forward * at.w + pos.w};
         }
     }
-    script::VectorValue end = {0.0f, 0.0f, 0.0f, 1.0f};
+    script::VectorValue end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0x09A7DC2E, &end, 0); // end_pos
     auto spin = static_cast<float>(static_cast<double>(get_rand()) * kTwoPi * kOneOverRandMax);
     if (params->has_bare_flag(0x744E673F)) {
@@ -351,7 +351,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
         const float side = at.x < 0.0f ? -1.0f : 1.0f;
         spin = static_cast<float>(std::acos(static_cast<double>(at.z)) * side);
     }
-    const maths::Vec4 end_vector = {end.x, end.y, end.z, end.w};
+    const maths::Vec4 end_vector = {.x = end.x, .y = end.y, .z = end.z, .w = end.w};
     place_decal_splat(&start, &end_vector, bone, size, height, spin, angle, radius, lifetime, dropdown_length, texture,
                       blend, trail, dropdown_vertical);
     return true;
@@ -362,7 +362,7 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
 {
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
-    script::VectorValue offset = {0.0f, 0.0f, 0.0f, 1.0f};
+    script::VectorValue offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0xA6F5352F, &offset, 0); // offset
     script::Array* components = nullptr;
     params->fetch_list(0x11B70A02, &components, 1); // Components
@@ -374,9 +374,9 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     params->fetch_vec(0xFB1A83B2, &rotvel, 1);   // rotvel
     float factor = 1.0f;                         // (read into the parameters' own argument slot)
     params->fetch_float(0x8C6A6E08, &factor, 0); // object_vel_factor
-    const maths::Vec4 velocity = {vel.x, vel.y, vel.z, vel.w};
-    const maths::Vec4 rotation = {rotvel.x, rotvel.y, rotvel.z, rotvel.w};
-    maths::Vec4 at = {offset.x, offset.y, offset.z, offset.w};
+    const maths::Vec4 velocity = {.x = vel.x, .y = vel.y, .z = vel.z, .w = vel.w};
+    const maths::Vec4 rotation = {.x = rotvel.x, .y = rotvel.y, .z = rotvel.z, .w = rotvel.w};
+    maths::Vec4 at = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     spawn_composite_object_at_bone(bone, components, object_params, factor, &velocity, &rotation, &at);
     return true;
 }

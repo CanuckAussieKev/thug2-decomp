@@ -57,8 +57,8 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
         const int bone = skeleton->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
             maths::QuatRotation& rotation = core::at(pose->rotations, bone);
-            const maths::Vec4 turn = {0.0f, 0.0f, 1.0f, 0.0f};
-            const maths::Vec4 as_vector = {rotation.x, rotation.y, rotation.z, rotation.w};
+            const maths::Vec4 turn = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+            const maths::Vec4 as_vector = {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
             maths::Vec4 product{};
             const maths::Vec4* result = quat_product(&product, &turn, &as_vector);
             rotation = {.x = result->x, .y = result->y, .z = result->z, .w = result->w};

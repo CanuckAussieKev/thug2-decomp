@@ -192,7 +192,7 @@ EditorViewModule::EditorViewModule()
 {
     kind_tag_ = kEditorCamera;
     for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
-        *v = {0.0f, 0.0f, 0.0f, 1.0f};
+        *v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0f;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     shadow_handle_ = nullptr;
@@ -244,10 +244,10 @@ void EditorViewModule::conceal(bool hide)
 // 0x004E5A10
 void EditorViewModule::resync_ground_shadow()
 {
-    const maths::Vec4 top = {cursor_.x, cursor_.y + level_y_, cursor_.z, cursor_.w};
+    const maths::Vec4 top = {.x = cursor_.x, .y = cursor_.y + level_y_, .z = cursor_.z, .w = cursor_.w};
     Feeler feeler;
     feeler.change_origin(top);
-    const maths::Vec4 bottom = {top.x, top.y - kDown, top.z, top.w};
+    const maths::Vec4 bottom = {.x = top.x, .y = top.y - kDown, .z = top.z, .w = top.w};
     feeler.change_finish(bottom);
     if (!feeler.get_hit_shape(1, 0)) {
         shadow_handle_.reset();
@@ -290,14 +290,14 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
     const float above = cursor_.y + step;
     const float below = get_global(0xF230D521) + cursor_.y;
     float height = 0.0f;
-    if (!ground_height({cursor_.x, above + level_y_, cursor_.z, cursor_.w},
-                       {cursor_.x, below + level_y_, cursor_.z, cursor_.w}, &height))
+    if (!ground_height({.x = cursor_.x, .y = above + level_y_, .z = cursor_.z, .w = cursor_.w},
+                       {.x = cursor_.x, .y = below + level_y_, .z = cursor_.z, .w = cursor_.w}, &height))
         return false;
     // Nothing in the way at head height from where it was?
     const double was = static_cast<double>(previous.y) + level_y_;
     auto top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
-    const maths::Vec4 to = {cursor_.x, top, cursor_.z, cursor_.w};
-    const maths::Vec4 from = {previous.x, top, previous.z, previous.w};
+    const maths::Vec4 to = {.x = cursor_.x, .y = top, .z = cursor_.z, .w = cursor_.w};
+    const maths::Vec4 from = {.x = previous.x, .y = top, .z = previous.z, .w = previous.w};
     bool clear = true;
     if (!simple_collision_ && flagged_object_between(from, to))
         clear = false;
@@ -335,7 +335,7 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
     if (name == 0x69CB3AE1) {
         script::VectorValue position{};
         params->fetch_vec(0xB9D31B0A, &position, 1); // Position
-        cursor_ = {position.x, position.y, position.z, position.w};
+        cursor_ = {.x = position.x, .y = position.y, .z = position.z, .w = position.w};
         level_y_ = 0.0f;
         tick_frame();
         level_y_ = position.y - cursor_.y;
@@ -440,9 +440,9 @@ void EditorViewModule::tick_frame()
             rise = -rise;
     }
     if ((raise || lower) && rise > 0.0f) {
-        const maths::Vec4 from = {cursor_.x, static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
-                                  cursor_.z, cursor_.w};
-        const maths::Vec4 to = {cursor_.x, from.y - kDown, cursor_.z, cursor_.w};
+        const maths::Vec4 from = {.x = cursor_.x, .y = static_cast<float>(static_cast<double>(cursor_.y) + level_y_ + kAbove),
+                                  .z = cursor_.z, .w = cursor_.w};
+        const maths::Vec4 to = {.x = cursor_.x, .y = from.y - kDown, .z = cursor_.z, .w = cursor_.w};
         Feeler ceiling;
         ceiling.change_origin(from);
         ceiling.change_finish(to);
@@ -466,8 +466,8 @@ void EditorViewModule::tick_frame()
     Feeler feeler;
     {
         const float height = level_y_;
-        const maths::Vec4 above = {cursor_.x, static_cast<float>(static_cast<double>(height) + cursor_.y), cursor_.z,
-                                   static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        const maths::Vec4 above = {.x = cursor_.x, .y = static_cast<float>(static_cast<double>(height) + cursor_.y), .z = cursor_.z,
+                                   .w = static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
         feeler.change_origin(above);
         feeler.change_finish(cursor_);
         if (feeler.get_hit_shape(1, 0)) {
@@ -476,8 +476,8 @@ void EditorViewModule::tick_frame()
         }
         feeler.change_origin(cursor_);
         const float up = level_y_ + kAbove;
-        const maths::Vec4 top = {cursor_.x, up + cursor_.y, cursor_.z,
-                                 static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        const maths::Vec4 top = {.x = cursor_.x, .y = up + cursor_.y, .z = cursor_.z,
+                                 .w = static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
         feeler.change_finish(top);
         if (feeler.get_hit_shape(1, 0))
             level_y_ = static_cast<float>((static_cast<double>(feeler.get_point().y) - cursor_.y) - kAbove);
@@ -489,10 +489,10 @@ void EditorViewModule::tick_frame()
 
     // The heading's axes.
     const float heading_now = heading_;
-    right_side_ = {static_cast<float>(std::cos(static_cast<double>(heading_now))), 0.0f,
-                   static_cast<float>(-std::sin(static_cast<double>(heading_now))), 1.0f};
-    forward_ = {static_cast<float>(std::sin(static_cast<double>(heading_now))), 0.0f,
-                static_cast<float>(std::cos(static_cast<double>(heading_now))), 1.0f};
+    right_side_ = {.x = static_cast<float>(std::cos(static_cast<double>(heading_now))), .y = 0.0f,
+                   .z = static_cast<float>(-std::sin(static_cast<double>(heading_now))), .w = 1.0f};
+    forward_ = {.x = static_cast<float>(std::sin(static_cast<double>(heading_now))), .y = 0.0f,
+                .z = static_cast<float>(std::cos(static_cast<double>(heading_now))), .w = 1.0f};
     const float near_speed = get_global(0x83BDE786);
     double speed = (static_cast<double>(get_global(0xBFB0D8DF)) - near_speed) * zoom_fraction + near_speed;
     if (zoom_ < kNearZoom)
@@ -545,14 +545,14 @@ void EditorViewModule::tick_frame()
     auto at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
     auto at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
     maths::Mat4 look;
-    core::at(look.row, 0) = {right_side_.x, right_side_.y, right_side_.z, 0.0f};
+    core::at(look.row, 0) = {.x = right_side_.x, .y = right_side_.y, .z = right_side_.z, .w = 0.0f};
     core::at(look.row, 1) = {
-        static_cast<float>(static_cast<double>(at_y) * right_side_.z - static_cast<double>(at_z) * right_side_.y),
-        static_cast<float>(static_cast<double>(at_z) * right_side_.x - static_cast<double>(at_x) * right_side_.z),
-        static_cast<float>(static_cast<double>(at_x) * right_side_.y - static_cast<double>(at_y) * right_side_.x),
-        0.0f};
-    core::at(look.row, 2) = {at_x, at_y, at_z, 0.0f};
-    core::at(look.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+        .x = static_cast<float>(static_cast<double>(at_y) * right_side_.z - static_cast<double>(at_z) * right_side_.y),
+        .y = static_cast<float>(static_cast<double>(at_z) * right_side_.x - static_cast<double>(at_x) * right_side_.z),
+        .z = static_cast<float>(static_cast<double>(at_x) * right_side_.y - static_cast<double>(at_y) * right_side_.x),
+        .w = 0.0f};
+    core::at(look.row, 2) = {.x = at_x, .y = at_y, .z = at_z, .w = 0.0f};
+    core::at(look.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     entity_->basis_frame_ = look;
     const float zoom_now = zoom_;
     const float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)

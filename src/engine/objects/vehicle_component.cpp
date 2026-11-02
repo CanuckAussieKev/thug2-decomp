@@ -427,7 +427,7 @@ void* viewport_camera(int viewport) { return render::fetch_live_camera(viewport)
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
 void matrix_from_angles(maths::Mat4* matrix, const maths::Vec4* angles) { matrix->init_from_angles(*angles); }
 
-void clear_to_w1(maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
+void clear_to_w1(maths::Vec4& v) { v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; }
 
 } // namespace
 
@@ -464,14 +464,14 @@ void DrivableModule::configure_from_data(script::Struct* params)
         // (read into the original's argument slot: missing, the height is that pointer's bits)
         float height = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
         params->fetch_float(0x93346B8C, &height, 0);
-        balance_point_ = {0.0f, height, 0.0f, 1.0f};
+        balance_point_ = {.x = 0.0f, .y = height, .z = 0.0f, .w = 1.0f};
     }
     if (params->has_entry_named(0x93FCA499)) { // mass
         params->fetch_float(0x93FCA499, &inv_mass_, 0);
         inv_mass_ = static_cast<float>(static_cast<double>(kGravity) / inv_mass_);
     }
     if (params->has_entry_named(0x8C6473EC)) { // moment_of_inertia (its w into +0x168)
-        maths::Vec4 moments{core::at(inv_moments_, 0), core::at(inv_moments_, 1), core::at(inv_moments_, 2), moment_w_};
+        maths::Vec4 moments{.x = core::at(inv_moments_, 0), .y = core::at(inv_moments_, 1), .z = core::at(inv_moments_, 2), .w = moment_w_};
         params->fetch_vec(0x8C6473EC, &moments, 0);
         inv_moments_ = {{moments.x, moments.y, moments.z}};
         moment_w_ = moments.w;
@@ -601,7 +601,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     orientation_ = quat;
     quat_normalize(&orientation_, 1.0f);
     if (params->has_entry_named(0xAA99C521)) {
-        maths::Vec4 saved{0.0f, 0.0f, 0.0f, 1.0f};
+        maths::Vec4 saved{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         params->fetch_vec(0xC97F3AA9, &saved, 0);
         orientation_.x = saved.x;
         orientation_.y = saved.y;
@@ -659,10 +659,10 @@ void DrivableModule::seal()
     // The wheels' places from the model (z up there; always four).
     for (int i = 3; i >= 0; --i) {
         const maths::Vec4& place = wheel_place(geometry, i);
-        core::at(wheels_, i).offset = {-place.x, place.z, -place.y, 1.0f};
+        core::at(wheels_, i).offset = {.x = -place.x, .y = place.z, .z = -place.y, .w = 1.0f};
     }
     const maths::Mat4 bone = core::at(geometry, 1).matrix;
-    skater_bone_ = {-core::at(bone.row, 3).x, core::at(bone.row, 3).z, -core::at(bone.row, 3).y, 1.0f};
+    skater_bone_ = {.x = -core::at(bone.row, 3).x, .y = core::at(bone.row, 3).z, .z = -core::at(bone.row, 3).y, .w = 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).
     int fixed = -1, left = -1, right = -1;
@@ -879,15 +879,15 @@ maths::Vec4* DrivableModule::get_wheel_rim_point(maths::Vec4* out, const Wheel* 
     point.y = static_cast<float>(std::cos(angle) * wheel->radius);
     point.z = static_cast<float>(std::sin(angle) * wheel->radius);
     point.w = 1.0f;
-    const maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
+    const maths::Vec4 up{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     maths::Mat4 steer;
     maths::build_axis_angle_matrix(steer, up, wheel->steering);
     maths::Vec4 turned;
     steer.rotate_vector(turned, point);
-    const maths::Vec4 placed{static_cast<float>(static_cast<double>(turned.x) + wheel->offset.x),
-                             static_cast<float>((static_cast<double>(turned.y) + wheel->y) + wheel->offset.y),
-                             static_cast<float>(static_cast<double>(turned.z) + wheel->offset.z),
-                             static_cast<float>(static_cast<double>(turned.w) + wheel->offset.w)};
+    const maths::Vec4 placed{.x = static_cast<float>(static_cast<double>(turned.x) + wheel->offset.x),
+                             .y = static_cast<float>((static_cast<double>(turned.y) + wheel->y) + wheel->offset.y),
+                             .z = static_cast<float>(static_cast<double>(turned.z) + wheel->offset.z),
+                             .w = static_cast<float>(static_cast<double>(turned.w) + wheel->offset.w)};
     maths::Vec4 world;
     basis_frame_.rotate_vector(world, placed);
     out->x = static_cast<float>(static_cast<double>(at_point_.x) + world.x);
@@ -941,18 +941,18 @@ void DrivableModule::debug_draw()
             get_wheel_rim_point(&b, &wheel, spoke, false);
             gfx::push_diag_line(&a, &b, colour, colour, 1);
             // The axle: 240 either side of the wheel along its steered x, in the world.
-            const maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
+            const maths::Vec4 up{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
             maths::Mat4 steer;
             maths::build_axis_angle_matrix(steer, up, wheel.steering);
             std::array<maths::Vec4, 2> ends{};
             for (int e = 0; e < 2; ++e) {
                 const float side = e ? kBelow : -kBelow;
-                const maths::Vec4 local{core::at(steer.row, 0).x * side + wheel.offset.x,
-                                        core::at(steer.row, 0).y * side + wheel.offset.y + wheel.y,
-                                        core::at(steer.row, 0).z * side + wheel.offset.z, 1.0f};
+                const maths::Vec4 local{.x = core::at(steer.row, 0).x * side + wheel.offset.x,
+                                        .y = core::at(steer.row, 0).y * side + wheel.offset.y + wheel.y,
+                                        .z = core::at(steer.row, 0).z * side + wheel.offset.z, .w = 1.0f};
                 maths::Vec4 world;
                 basis_frame_.rotate_vector(world, local);
-                core::at(ends, e) = {world.x + at_point_.x, world.y + at_point_.y, world.z + at_point_.z, world.w + at_point_.w};
+                core::at(ends, e) = {.x = world.x + at_point_.x, .y = world.y + at_point_.y, .z = world.z + at_point_.z, .w = world.w + at_point_.w};
             }
             gfx::push_diag_line(&core::at(ends, 0), &core::at(ends, 1), 0xFF000000, 0xFF000000, 1);
         }
@@ -980,9 +980,9 @@ void DrivableModule::glide_to_node(script::Struct* node)
     }
     auto above = static_cast<float>(height * kQuarter);
     // The ground under the node (from 24 above to 240 below).
-    const maths::Vec4 start{pos.x, static_cast<float>(static_cast<double>(pos.y) + kAbove), pos.z,
-                            static_cast<float>(static_cast<double>(pos.w) + 1.0)};
-    const maths::Vec4 end{pos.x, static_cast<float>(static_cast<double>(pos.y) - kBelow), pos.z, start.w};
+    const maths::Vec4 start{.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kAbove), .z = pos.z,
+                            .w = static_cast<float>(static_cast<double>(pos.w) + 1.0)};
+    const maths::Vec4 end{.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kBelow), .z = pos.z, .w = start.w};
     render::ProbeRay feeler(&start, &end);
     if (feeler.get_hit_shape(false, false))
         pos.y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - above);
@@ -1084,9 +1084,9 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
         static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
     entity_->at_point_ = at_point_;
     // Facing away from the camera.
-    core::at(basis_frame_.row, 0) = {-core::at(view.row, 0).x, -core::at(view.row, 0).y, -core::at(view.row, 0).z, -core::at(view.row, 0).w};
+    core::at(basis_frame_.row, 0) = {.x = -core::at(view.row, 0).x, .y = -core::at(view.row, 0).y, .z = -core::at(view.row, 0).z, .w = -core::at(view.row, 0).w};
     core::at(basis_frame_.row, 1) = core::at(view.row, 1);
-    core::at(basis_frame_.row, 2) = {-core::at(view.row, 2).x, -core::at(view.row, 2).y, -core::at(view.row, 2).z, -core::at(view.row, 2).w};
+    core::at(basis_frame_.row, 2) = {.x = -core::at(view.row, 2).x, .y = -core::at(view.row, 2).y, .z = -core::at(view.row, 2).z, .w = -core::at(view.row, 2).w};
     maths::Vec4 quat;
     matrix_to_quat(&quat, &basis_frame_);
     orientation_ = quat;

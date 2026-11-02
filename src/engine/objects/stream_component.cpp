@@ -27,8 +27,8 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 5> g_stream_component_member_functions{{
-    {0xDB05A233, 0x0F1641E3}, {0xC66E1B17, 0x0F1641E3}, {0x82EC1DDD, 0x0F1641E3}, {0xA738AEB8, 0x0F1641E3},
-    {0, 0x0F1641E3}}};
+    {.callsign_ = 0xDB05A233, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xC66E1B17, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0x82EC1DDD, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xA738AEB8, .owner_kind_ = 0x0F1641E3},
+    {.callsign_ = 0, .owner_kind_ = 0x0F1641E3}}};
 
 namespace {
 
