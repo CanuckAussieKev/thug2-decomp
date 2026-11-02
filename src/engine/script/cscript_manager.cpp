@@ -19,7 +19,6 @@
 //   deleted. Any other result (waiting, blocked, an interrupt that returned) keeps it for next frame.
 // - kill_all_child_scripts called during the walk only sets a flag; the deletion happens after the walk, still in
 //   this call. The one-per-frame wait's "a script was released this frame" flag is cleared at the start.
-#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <array>
@@ -37,8 +36,6 @@
 #include "engine/script/struct_buffer.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
-#include "engine/core/pointer_cell.h"
-#include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 

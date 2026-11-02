@@ -2,8 +2,6 @@
 
 #include "engine/script/node_manager.h"
 
-#include "engine/core/str.h"
-
 #include <cstdint>
 #include <cstring>
 #include <span>

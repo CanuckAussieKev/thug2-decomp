@@ -14,7 +14,6 @@
 #include <iterator>
 #include <span>
 #include <string_view>
-#include <utility>
 #include <array>
 
 #include "engine/assets/resource_registry.h"
@@ -25,7 +24,6 @@
 #include "game/skate/career.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/core/stubs.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/file/packs.h"
@@ -34,7 +32,6 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/objects/path_manager.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/script/cscript.h"
@@ -64,7 +61,6 @@
 #include "engine/gfx/engine.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
-#include "platform/compiler.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

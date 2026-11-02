@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "engine/core/checksums.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
@@ -19,8 +18,6 @@
 #include <algorithm>
 #include <array>
 #include <span>
-#include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/tokens.h"
 #include "platform/crt.h"

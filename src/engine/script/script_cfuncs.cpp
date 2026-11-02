@@ -20,7 +20,6 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/core/pointer_cell.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
 

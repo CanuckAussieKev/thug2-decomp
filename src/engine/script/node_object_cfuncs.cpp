@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <utility>
 #include <array>
 
 #include "engine/core/arena_alloc.h"

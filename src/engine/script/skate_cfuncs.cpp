@@ -5,8 +5,6 @@
 #include "engine/core/str.h"
 
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <array>
 
 #include "engine/core/checked_index.h"
@@ -26,7 +24,6 @@
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/script/game_cfuncs.h"
-#include "platform/compiler.h"
 #include "engine/core/format.h"
 
 namespace commands {

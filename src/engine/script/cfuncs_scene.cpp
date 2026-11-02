@@ -25,8 +25,6 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/sys/game_config.h"
 #include <gsl/pointers>
-#include <array>
-
 namespace commands {
 
 using script::Script;

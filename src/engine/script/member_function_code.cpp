@@ -4,14 +4,11 @@
 // three zero words) and the terminator's {0, 0, 0, -1}. They run at start-up in the original's order
 // (engine/sys/startup_init.cpp).
 
-#include <cstdint>
 #include <array>
 #include <span>
 
 #include "engine/script/member_code.h"
 #include "game/park_editing/goal_editor.h"
-#include "game/park_editing/park_editor.h"
-#include "editor/level_editor_actions.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/avoid.h"

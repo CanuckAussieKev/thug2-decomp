@@ -4,7 +4,6 @@
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
 
-#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

@@ -11,7 +11,6 @@
 #include "engine/file/packs.h"
 #include "engine/file/archive.h"
 #include "frontend/front_end.h"
-#include "editor/level_editor_clusters.h"
 #include "editor/level_editor_level_props.h"
 #include "frontend/screen_element_cfuncs.h"
 #include "frontend/theme_cfuncs.h"

@@ -3,8 +3,6 @@
 #include "engine/script/array_cfuncs.h"
 
 #include <cstdint>
-#include <cstring>
-
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"

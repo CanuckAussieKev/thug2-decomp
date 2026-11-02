@@ -9,12 +9,9 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
 

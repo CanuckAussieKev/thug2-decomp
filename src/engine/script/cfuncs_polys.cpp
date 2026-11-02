@@ -26,8 +26,6 @@
 #include "engine/core/packed_colour.h"
 #include <span>
 #include <vector>
-#include <utility>
-
 namespace commands {
 
 using script::Array;

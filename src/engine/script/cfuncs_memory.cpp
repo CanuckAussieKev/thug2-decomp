@@ -4,8 +4,6 @@
 #include "engine/script/cfuncs_engine.h"
 
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <array>
 
 #include "engine/core/arena_alloc.h"

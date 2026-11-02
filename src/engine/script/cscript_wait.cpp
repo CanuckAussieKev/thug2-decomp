@@ -24,7 +24,6 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 

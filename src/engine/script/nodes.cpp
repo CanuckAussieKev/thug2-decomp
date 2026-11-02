@@ -21,7 +21,6 @@
 #include "engine/script/tokens.h"
 #include "engine/script/script_cfuncs.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/cscript.h"
 

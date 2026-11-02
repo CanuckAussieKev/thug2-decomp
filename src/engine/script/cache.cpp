@@ -1,6 +1,4 @@
 #include "engine/script/cache.h"
-#include "formats/byte_stream.h"
-
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -16,11 +14,8 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/tokens.h"
-#include "engine/sys/game_module.h"
 #include "formats/lzss.h"
 #include <gsl/pointers>
-#include <array>
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 

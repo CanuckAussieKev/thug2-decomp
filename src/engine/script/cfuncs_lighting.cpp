@@ -6,8 +6,6 @@
 #include <windows.h>
 
 #include <cstdint>
-#include <array>
-
 #include "engine/gfx/lens_flare.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

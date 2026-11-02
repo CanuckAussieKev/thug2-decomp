@@ -25,7 +25,6 @@
 #include "game/rider/trick_component.h"
 #include "game/skate/point_tally.h"
 #include "engine/objects/compositemgr.h"
-#include "platform/code_address.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
