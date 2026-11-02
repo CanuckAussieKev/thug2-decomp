@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "engine/assets/resource_registry.h"
+#include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

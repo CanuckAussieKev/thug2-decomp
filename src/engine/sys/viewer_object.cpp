@@ -10,7 +10,9 @@
 #include <cstring>
 #include <array>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

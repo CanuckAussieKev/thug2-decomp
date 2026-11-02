@@ -8,10 +8,12 @@
 #include "engine/sys/model_viewer.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <span>
 #include <cstring>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
