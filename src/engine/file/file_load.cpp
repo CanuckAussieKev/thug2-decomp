@@ -81,19 +81,22 @@ void make_disk_path(std::span<char, 256> path, const char* name)
 {
     std::memcpy(path.data(), "data\\", 6);
     // Paths written for the original development machine.
-    if (name[0] == 'c' && name[1] == ':')
-        name += 15;
+    std::string_view text(name);
+    if (text.starts_with("c:")) // (a shorter name than the prefix: the original read on past its end; nothing is left here)
+        text = text.size() > 15 ? text.substr(15) : std::string_view();
     int length = 5;
-    for (; *name && length < 255; ++name)
-        core::at(path, length++) = *name == '/' ? '\\' : *name;
+    for (const char c : text) {
+        if (length >= 255)
+            break;
+        core::at(path, length++) = c == '/' ? '\\' : c;
+    }
     core::at(path, length) = '\0';
 
-    char* end = path.data() + length;
-    const char last = end[-1];
-    if (last == 'x' && end[-2] == 'e' && end[-3] == 't')
-        end[-2] = 'x'; // .tex -> .txx
-    if (last == 'e' && end[-2] == 'r' && end[-3] == 'p')
-        end[-1] = 'x'; // .pre -> .prx
+    const char last = core::at(path, length - 1);
+    if (last == 'x' && core::at(path, length - 2) == 'e' && core::at(path, length - 3) == 't')
+        core::at(path, length - 2) = 'x'; // .tex -> .txx
+    if (last == 'e' && core::at(path, length - 2) == 'r' && core::at(path, length - 3) == 'p')
+        core::at(path, length - 1) = 'x'; // .pre -> .prx
 }
 
 // 0x005B9CB0

@@ -97,7 +97,7 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
     std::array<char, 200> joined{};
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(joined.data(), a, length_a);
-    std::memcpy(joined.data() + length_a, b, length_b + 1);
+    std::memcpy(std::span<char>(joined).subspan(length_a).data(), b, length_b + 1);
     set_result_type(type);
     get_result().value.set_text(spawn_text(joined.data()));
     return true;
@@ -432,7 +432,7 @@ void ValueResolver::execute()
     }
 
     Component* b = &core::at(values_, value_top_);
-    Component* a = b - 1;
+    Component* a = &core::at(values_, value_top_ - 1);
     Component& result = get_result();
     result.type_and_flag_ &= 1;
     result.value.set_word(0);

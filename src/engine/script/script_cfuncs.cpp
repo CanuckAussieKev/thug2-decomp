@@ -8,6 +8,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
 #include "engine/core/str.h"
@@ -83,12 +84,14 @@ Component& format_text_value() { return g_format_text_value; }
 // IfDebugOn / IfDebugOff's work on the calling script - compiled out of this build (an empty call, 0x005480A0).
 inline void set_script_debug(script::Script* /*script*/) {}
 
-// `text` appended at `out`; returns the new end.
-char* get_append(char* out, const char* text)
+// `text` appended at `used` of the buffer (with its terminator); returns the new end. (A text that does not fit ends
+// the game with a report; the original wrote past the buffer.)
+size_t get_append(std::array<char, 1004>& buffer, size_t used, const char* text)
 {
-    const size_t length = std::strlen(text);
-    std::memcpy(out, text, length + 1);
-    return out + length;
+    for (const char c : std::string_view(text))
+        ::core::at(buffer, used++) = c;
+    ::core::at(buffer, used) = '\0';
+    return used;
 }
 
 // _ftol: truncated towards zero, through 64 bits.
@@ -149,30 +152,35 @@ int format_text(script::Struct* results, script::Struct* params)
         debug::printf("Expected text format parameters to contain a format string\n");
         return 0;
     }
-    char* out = format_text_buffer().data();
-    const char* p = format;
-    while (*p) {
-        if (*p == '\\' && p[1] == '%') {
-            *out++ = '%';
+    std::array<char, 1004>& buffer = format_text_buffer();
+    size_t used = 0;
+    const std::string_view source(format);
+    size_t p = 0;
+    // (the format's character at i; its terminator and, for a lone '%' at the end, what the original read past it: 0)
+    auto ch = [&](size_t i) { return i < source.size() ? ::core::at(source, i) : '\0'; };
+    while (ch(p)) {
+        if (ch(p) == '\\' && ch(p + 1) == '%') {
+            ::core::at(buffer, used++) = '%';
             p += 2;
             continue;
         }
-        if (*p != '%') {
-            *out++ = *p++;
+        if (ch(p) != '%') {
+            ::core::at(buffer, used++) = ch(p++);
             continue;
         }
         // a parameter: "%x" or "%%name"
         std::array<char, 0x2C> name{};
-        char* n = name.data();
-        const char key = p[1];
+        size_t n = 0;
+        const char key = ch(p + 1);
         p += 2;
         if (key == '%') {
-            while ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '_')
-                *n++ = *p++;
+            while ((ch(p) >= 'a' && ch(p) <= 'z') || (ch(p) >= 'A' && ch(p) <= 'Z') || (ch(p) >= '0' && ch(p) <= '9') ||
+                   ch(p) == '_')
+                ::core::at(name, n++) = ch(p++);
         } else {
-            *n++ = key;
+            ::core::at(name, n++) = key;
         }
-        *n = '\0';
+        ::core::at(name, n) = '\0';
         Component* found = params->find_last_component(checksums::hash_from_text(name.data()));
         if (!found) {
             debug::printf("Missing text formatting parameter '%s'\n", name.data());
@@ -194,7 +202,7 @@ int format_text(script::Struct* results, script::Struct* params)
                 else
                     std::snprintf(text.data(), sizeof(text), "%d", value.value.integer());
             }
-            out = get_append(out, text.data());
+            used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalFloat: {
             int places = 3;
@@ -202,38 +210,38 @@ int format_text(script::Struct* results, script::Struct* params)
             std::array<char, 16> float_format{};
             std::snprintf(float_format.data(), sizeof(float_format), "%%.%df", places);
             std::snprintf(text.data(), sizeof(text), float_format.data(), static_cast<double>(value.value.real()));
-            out = get_append(out, text.data());
+            used = get_append(buffer, used, text.data());
             break;
         }
         case script::kQbvalString:
         case script::kQbvalInlineText:
-            for (const char* c = value.value.text(); *c; ++c)
-                *out++ = *c;
+            for (const char c : std::string_view(value.value.text()))
+                ::core::at(buffer, used++) = c;
             break;
         case script::kQbvalPair:
             std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f)", static_cast<double>(value.value.pair()->x),
                           static_cast<double>(value.value.pair()->y));
-            out = get_append(out, text.data());
+            used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalVector:
             std::snprintf(text.data(), sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.value.vector()->x),
                           static_cast<double>(value.value.vector()->y), static_cast<double>(value.value.vector()->z));
-            out = get_append(out, text.data());
+            used = get_append(buffer, used, text.data());
             break;
         case script::kQbvalName:
             result = 2;
             std::snprintf(text.data(), sizeof(text), "%s", script::find_checksum_name_or_unknown(value.value.word()));
-            out = get_append(out, text.data());
+            used = get_append(buffer, used, text.data());
             break;
         default:
             break;
         }
     }
-    *out = '\0';
+    ::core::at(buffer, used) = '\0';
     if (text_name)
-        results->append_word(text_name, format_text_buffer().data());
+        results->append_word(text_name, buffer.data());
     if (name_key_hash)
-        results->put_name_key(name_key_hash, checksums::hash_from_text(format_text_buffer().data()));
+        results->put_name_key(name_key_hash, checksums::hash_from_text(buffer.data()));
     return result;
 }
 
@@ -619,8 +627,8 @@ bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
         return false;
     script->args_->erase_module(name);
     int value = 0;
-    for (int length = static_cast<int>(std::strlen(string)); length > 0; --length)
-        value = value * 10 + (*string++ - '0');
+    for (const char digit : std::string_view(string))
+        value = value * 10 + (digit - '0');
     script->args_->put_int(name, value);
     return true;
 }

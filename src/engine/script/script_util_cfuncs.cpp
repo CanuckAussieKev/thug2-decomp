@@ -75,10 +75,13 @@ int get_sprintf(char* out, const char* format, Args... args)
 }
 
 // strcpy, unbounded as the original's inlined copies are.
-void copy_text(char* out, const char* text)
+// (into a buffer: a text longer than it ends the game with a report, where the original overran it)
+void copy_text(std::span<char> out, const char* text)
 {
-    while ((*out++ = *text++) != '\0') {
-    }
+    size_t at = 0;
+    for (const char c : std::string_view(text))
+        core::at(out, at++) = c;
+    core::at(out, at) = '\0';
 }
 
 // 0x00479190: the type-name lookup, compiled out (its "(Hey, don't use this...)" text; the type is ignored).
@@ -325,7 +328,7 @@ bool cfunc_get_upper_case_string(Struct* params, Script* script)
     const char* text = nullptr;
     params->fetch_text(0u, &text, 1);
     std::array<char, 0x80> upper{};
-    copy_text(upper.data(), text);
+    copy_text(upper, text);
     text::to_capitals(upper.data());
     script->args_->append_word(kUpperCaseString, upper.data());
     return true;
@@ -355,7 +358,7 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     constexpr size_t kNumberSize = 20;
     std::array<char, kNumberSize + 100> buffer{};
     auto& number = buffer;
-    char* result = buffer.data() + kNumberSize;
+    const std::span<char> result = std::span<char>(buffer).subspan(kNumberSize);
     copy_text(result, text);
     int max_length = 15;
     params->fetch_int_value(kMaxLength, &max_length, 0);
@@ -365,10 +368,10 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     const int number_length = static_cast<int>(std::strlen(number.data()));
     if (number_length + static_cast<int>(text_length) > max_length)
         core::at(buffer, static_cast<int>(kNumberSize) + max_length - number_length) = 0;
-    copy_text(result + std::strlen(result), number.data());
+    copy_text(result.subspan(std::strlen(result.data())), number.data());
     uint32_t name = 0;
     params->read_hash_value(kResultName, &name, 0);
-    script->args_->append_word(name, result);
+    script->args_->append_word(name, result.data());
     return true;
 }
 
@@ -631,8 +634,9 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     characters->configure_size_kind(length, script::kQbvalString);
     std::array<char, 2> one{};
     core::at(one, 1) = '\0';
+    const std::string_view letters(string);
     for (uint32_t i = 0; i < length; ++i) {
-        core::at(one, 0) = string[i];
+        core::at(one, 0) = core::at(letters, i);
         characters->set_text(i, script::spawn_text(one.data()));
     }
     script->args_->append_array_ref(kCharArray, characters);

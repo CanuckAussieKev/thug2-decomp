@@ -701,9 +701,10 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
         show1 = show2 = show3 = show4 = true;
     const char* file = ""; // ""
     params->fetch_text(0u, &file, 0);
-    if (file[1] == ':') {
+    const std::string_view file_name(file);
+    if (file_name.size() >= 2 && core::at(file_name, 1) == ':') {
         debug::printf("WARNING: stripped drive name off file\n"); // "WARNING: stripped drive name off file\n"
-        file += 2;
+        file = std::next(file, 2);
     }
     int size = 0;
     if (!file::is_present(file)) {
@@ -718,19 +719,22 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
     int count2 = 0;
     int count3 = 0;
     int count4 = 0;
-    for (const char* at = data; at < data + size; ++at) {
+    const std::string_view bytes(data, size > 0 ? static_cast<size_t>(size) : 0);
+    // (a byte of the file; the original read past its end here, which is a 0 now)
+    auto byte_at = [&](size_t i) { return i < bytes.size() ? ::core::at(bytes, i) : '\0'; };
+    for (size_t at = 0; at < bytes.size(); ++at) {
         static const auto kTracking = std::to_array("\nTracking");
         int matched = 0; // (compared a byte at a time: never past the first difference)
-        while (matched < 9 && at[matched] == core::at(kTracking, matched))
+        while (matched < 9 && byte_at(at + static_cast<size_t>(matched)) == core::at(kTracking, matched))
             ++matched;
         if (matched < 9)
             continue;
-        const int type = at[9] - '0';
+        const int type = byte_at(at + 9) - '0';
         at += 11;
         std::array<float, 6> values{};
         for (float& value : values) {
-            value = static_cast<float>(game_atof(at));
-            while (*at == '-' || *at == '.' || (*at >= '0' && *at <= '9'))
+            value = static_cast<float>(game_atof(std::next(data, static_cast<std::ptrdiff_t>(at))));
+            while (byte_at(at) == '-' || byte_at(at) == '.' || (byte_at(at) >= '0' && byte_at(at) <= '9'))
                 ++at;
             ++at;
         }

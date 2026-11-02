@@ -90,20 +90,23 @@ void load_startup_qb_files()
     auto* text = static_cast<const char*>(packs::read_in("scripts\\qdir.txt", false, nullptr, nullptr, nullptr));
     const int size = packs::get_file_size("scripts\\qdir.txt");
     begin_permanent_strings();
-    const char* end = text + size;
-    const char* p = text;
-    while (p < end) {
+    const std::string_view source(text, static_cast<size_t>(size));
+    size_t p = 0;
+    while (p < source.size()) {
         // One line (no length check, as in the original), and the character after it skipped.
         std::array<char, 200> line{};
         int length = 0;
-        while (p < end && *p != '\r' && *p != '\n')
-            core::at(line, length++) = *p++;
+        while (p < source.size() && core::at(source, p) != '\r' && core::at(source, p) != '\n')
+            core::at(line, length++) = core::at(source, p++);
         core::at(line, length) = '\0';
         ++p;
         if (core::at(line, 0) == '\0')
             continue;
-        if (const char* data = std::strstr(line.data(), "data\\"))
-            std::memmove(line.data(), data + 5, std::strlen(data + 5) + 1);
+        const std::string_view line_text(line.data());
+        if (const size_t data = line_text.find("data\\"); data != std::string_view::npos) {
+            const std::string_view rest = line_text.substr(data + 5);
+            std::memmove(line.data(), rest.data(), rest.size() + 1);
+        }
         unload_qb(checksums::hash_from_text(line.data()));
         fetch_list(kNodeArray);
         print_loading(line.data());

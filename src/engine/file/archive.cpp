@@ -81,7 +81,7 @@ ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up) : block_(b
             memory::dealloc(info); // the same name twice: the first one wins
         } else {
             files_->store_entry(checksum, info);
-            info->data = block + (record.data - block); // (our own block, through the reader's const view)
+            info->data = std::span<uint8_t>(block, size).subspan(static_cast<size_t>(record.data - block)).data(); // (our own block, through the reader's const view)
             info->unpacked = nullptr;
             info->position = 0;
             info->compressed_size_ = record.compressed_size;
@@ -163,7 +163,7 @@ int ArchiveFile::get_take_in(void* out, unsigned int count)
     auto left = static_cast<unsigned int>(file->size - file->position);
     const unsigned int n = count <= left ? count : left;
     const uint8_t* source = file->compressed_size_ ? file->unpacked : file->data;
-    move_memory_block(out, source + file->position, n);
+    move_memory_block(out, std::span<const uint8_t>(source, static_cast<size_t>(file->size)).subspan(static_cast<size_t>(file->position)).data(), n);
     file->position += static_cast<int>(n);
     return static_cast<int>(n);
 }
@@ -207,8 +207,9 @@ int get_language() { return game_config::g_language; }
 void normalise_name(std::array<char, 128>& out, const char* name)
 {
     size_t i = 0;
-    for (; name[i] && i < sizeof(out) - 1; ++i)
-        core::at(out, i) = name[i] == '/' ? '\\' : name[i];
+    const std::string_view text(name);
+    for (; i < text.size() && i < sizeof(out) - 1; ++i)
+        core::at(out, i) = core::at(text, i) == '/' ? '\\' : core::at(text, i);
     core::at(out, i) = '\0';
 }
 
@@ -389,7 +390,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         file::shut(file);
         if (patched) {
             if (allocated > file_size)
-                std::memset(data + file_size, 0, allocated - file_size);
+                std::memset(std::span<uint8_t>(data, allocated).subspan(file_size).data(), 0, allocated - file_size);
             // Not original - bounded by the archive's room and the patch's size (the original wrote each record
             // where it said).
             if (!pre_format::apply_patch(data, allocated, patch, patch_size))
@@ -429,7 +430,7 @@ ArchiveFile::FileInfo* ArchiveManager::open_file(const char* name)
     normalise_name(path, name);
     // "...scripts.pre" -> "...scripts.pr<language letter>"
     const size_t length = std::strlen(path.data());
-    if (length > 11 && std::strcmp(path.data() + length - 11, "scripts.pre") == 0) {
+    if (length > 11 && std::string_view(path.data(), length).ends_with("scripts.pre")) {
         static const auto kLetters = std::to_array<char>({'f', 's', 'd', 'i'}); // languages 3 to 6
         const int language = get_language();
         core::at(path, length - 1) = language >= 3 && language <= 6 ? core::at(kLetters, language - 3) : 'e';
@@ -535,8 +536,8 @@ ArchiveFile::FileInfo* unseal(const char* name, const char* mode, bool count_ope
     if (count_open)
         ++hub()->open_archive_->open_count_;
     // Archives are read-only: any mode other than r/b gives the file up (and leaves it to FileLoad::).
-    for (const char* c = mode; *c; ++c) {
-        if (*c != 'r' && *c != 'b') {
+    for (const char c : std::string_view(mode)) {
+        if (c != 'r' && c != 'b') {
             ArchiveFile* pre = hub()->open_archive_;
             if (pre->open_entry_->unpacked)
                 memory::dealloc(pre->open_entry_->unpacked);

@@ -247,7 +247,7 @@ void load_pre(const char* name)
                     allocated = ((file_size + 0x7FF) & ~0x7FFu) + prefix;
                     block = static_cast<uint8_t*>(allocate_file_memory(allocated));
                     std::memcpy(block, name, std::strlen(name) + 1);
-                    if (!file::load_cached_file(path.data(), block + prefix)) {
+                    if (!file::load_cached_file(path.data(), std::span<uint8_t>(block, allocated).subspan(prefix).data())) {
                         free_file_memory(block);
                         block = nullptr;
                     }
@@ -272,7 +272,7 @@ void load_pre(const char* name)
         allocated = ((needed + 0x7FF) & ~0x7FFu) + prefix;
         block = static_cast<uint8_t*>(allocate_file_memory(allocated));
         std::memcpy(block, name, std::strlen(name) + 1);
-        file::get_take_in(block + prefix, 1, static_cast<int>(file_size), file);
+        file::get_take_in(std::span<uint8_t>(block, allocated).subspan(prefix).data(), 1, static_cast<int>(file_size), file);
         file::shut(file);
     }
 
@@ -283,11 +283,11 @@ void load_pre(const char* name)
         return;
     }
     if (patched) {
-        uint8_t* data = block + prefix;
+        const std::span<uint8_t> data = std::span<uint8_t>(block, allocated).subspan(prefix);
         if (allocated > file_size)
-            std::memset(data + file_size, 0, allocated - file_size - prefix);
+            std::memset(data.subspan(file_size).data(), 0, allocated - file_size - prefix);
         // Not original - bounded by the block and the patch's size (the original wrote each record where it said).
-        if (!pre_format::apply_patch(data, allocated - prefix, patch, patch_size))
+        if (!pre_format::apply_patch(data.data(), allocated - prefix, patch, patch_size))
             debug::printf("%s: a damaged patch\n", path.data());
         memory::dealloc(patch);
     }
@@ -296,7 +296,7 @@ void load_pre(const char* name)
     // first the block's size (plus the original's slack), then the copies. Not original - the archive as loaded is
     // read through pre_format's reader, bounded by its size: a damaged archive keeps the files before the damage
     // (the original walked and copied on past the block).
-    util::ByteReader archive(block + prefix, archive_size);
+    util::ByteReader archive(std::span<uint8_t>(block, allocated).subspan(prefix).data(), archive_size);
     pre_format::ArchiveHeader old_header;
     if (!pre_format::read_archive_header(archive, &old_header))
         old_header = {};

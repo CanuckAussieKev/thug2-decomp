@@ -248,8 +248,9 @@ std::span<const uint32_t> collect_nodes_by_prefix(uint32_t prefix)
 std::span<const uint32_t> collect_nodes_by_prefix(const char* prefix)
 {
     std::array<char, 100> buffer{};
-    const size_t length = std::strlen(prefix);
-    if (length && prefix[length - 1] == '_') {
+    const std::string_view prefix_text(prefix);
+    const size_t length = prefix_text.size();
+    if (length && core::at(prefix_text, length - 1) == '_') {
         core::copy_into(std::span<const char>(prefix, length + 1), std::span<char>(buffer).first(length + 1)); // (the original's unchecked)
         core::at(buffer, length - 1) = '\0';
         prefix = buffer.data();
