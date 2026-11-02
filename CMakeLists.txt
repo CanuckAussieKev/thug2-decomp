@@ -844,6 +844,7 @@ add_executable(thug2 WIN32
     src/engine/script/cscript_core.cpp
     src/engine/script/names.cpp
     src/engine/script/token_reader.cpp
+    src/engine/script/tokens.cpp
     src/engine/script/patched.cpp
     src/engine/script/world_cfuncs.cpp
     src/engine/script/script_startup.cpp

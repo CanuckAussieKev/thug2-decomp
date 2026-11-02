@@ -4,6 +4,7 @@
 #include <span>
 #include <type_traits>
 
+#include <gsl/assert>
 #include <gsl/util>
 
 // NOT ORIGINAL - a position in a run of elements (a span and an index into it) standing where the original walked a
@@ -66,6 +67,15 @@ public:
     // The elements from the position to the run's end.
     [[nodiscard]] std::span<T> rest() const { return run_.subspan(static_cast<std::size_t>(position_)); }
     [[nodiscard]] std::size_t remaining() const { return run_.size() - static_cast<std::size_t>(position_); }
+    // The element's address at the position (the run's end at its end) - for what keeps a plain pointer.
+    [[nodiscard]] T* address() const { return rest().data(); }
+    // The cursor at `place` in the same run (checked to be in it, its end included).
+    [[nodiscard]] Cursor moved_to(const T* place) const
+    {
+        const std::ptrdiff_t position = place - run_.data();
+        Expects(position >= 0 && static_cast<std::size_t>(position) <= run_.size());
+        return Cursor(run_, position);
+    }
 
 private:
     std::span<T> run_;

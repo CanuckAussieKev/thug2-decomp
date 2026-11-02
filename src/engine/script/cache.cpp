@@ -13,6 +13,7 @@
 #include "engine/lists/key_map.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/tokens.h"
 #include "engine/sys/game_module.h"
 #include "formats/lzss.h"
 #include <gsl/pointers>
@@ -82,8 +83,10 @@ ScriptStore::~ScriptStore()
         // (left on the unused list: its links are just cleared)
         entry->older = nullptr;
         entry->newer = nullptr;
-        if (entry->code)
+        if (entry->code) {
+            forget_code_block(entry->code);
             memory::free_malloc(entry->code);
+        }
         delete entry;
     }
     if (lists::KeyMap* entries = entries_) {
@@ -124,8 +127,10 @@ void ScriptStore::delete_entry(ScriptCacheEntry* entry)
 {
     entries_->erase_entry(entry->name);
     remove_from_unused(entry);
-    if (entry->code)
+    if (entry->code) {
+        forget_code_block(entry->code);
         memory::free_malloc(entry->code);
+    }
     gsl::owner<ScriptCacheEntry*> owned = memory::owned_element(entry); // (the store's: its table's value)
     delete owned;
 }
@@ -165,6 +170,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     manager->enter_heap_scope(manager->script_heap_);
     auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::Hub::get_pull()->leave_heap_scope();
+    note_code_block(std::span<const uint8_t>(code, size));
     if (stored_size < size) {
         // (not original: bounded by the script's size - lzss::unpack, decode's bytes for valid code)
         lzss::unpack(stored.code_, stored_size, code, size, nullptr);

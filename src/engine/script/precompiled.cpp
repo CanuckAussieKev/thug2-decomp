@@ -2,9 +2,12 @@
 
 #include <cstdint>
 #include <cstring>
+#include <map>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "formats/byte_stream.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -24,6 +27,14 @@ void relocate(T*& pointer, uint32_t base)
 uint32_t align4(uint32_t size) { return (size + 3) & ~3u; }
 // The size of a string's text in the file (with its terminator, padded).
 uint32_t stored_string_size(const char* text) { return align4(static_cast<uint32_t>(std::strlen(text)) + 1); }
+
+// NOT ORIGINAL - the images noted as blocks of code (their structures' scripts run from them: tokens.h), by their
+// file's checksum, forgotten when the file is unloaded.
+std::map<uint32_t, const uint8_t*>& noted_images()
+{
+    static std::map<uint32_t, const uint8_t*> images;
+    return images;
+}
 
 } // namespace
 
@@ -194,8 +205,21 @@ void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum,
 void parse_precompiled_qb(const char* filename, uint8_t* data, int unused)
 {
     const uint32_t flag = unused != 0;
-    relocate_precompiled_symbols(data, cell::of(data), define_precompiled_symbol,
-                                 checksums::hash_from_text(filename), flag);
+    const uint32_t file = checksums::hash_from_text(filename);
+    util::ByteReader header(data, kPrecompiledHeaderSize);
+    header.u32(); // the magic
+    note_code_block(std::span<const uint8_t>(data, header.u32()));
+    noted_images()[file] = data;
+    relocate_precompiled_symbols(data, cell::of(data), define_precompiled_symbol, file, flag);
+}
+
+void forget_precompiled_image(uint32_t file_checksum)
+{
+    const auto image = noted_images().find(file_checksum);
+    if (image == noted_images().end())
+        return;
+    forget_code_block(image->second);
+    noted_images().erase(image);
 }
 
 } // namespace script

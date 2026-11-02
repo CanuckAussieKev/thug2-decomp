@@ -11,6 +11,7 @@
 #include "engine/maths/random.h"
 #include "engine/script/expression.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "engine/script/cscript.h"
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/movie.h"
@@ -405,6 +406,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
         auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
         memory::leave_heap_scope();
+        note_code_block(std::span<const uint8_t>(code, size));
         for (uint32_t i = 0; i < size; ++i)
             code[i] = start[i];
         out->value.set_code(code);

@@ -17,6 +17,7 @@
 #include "engine/script/cache.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
 #include "engine/core/checked_index.h"
@@ -124,6 +125,7 @@ void Script::reset_script_state()
 {
     run_on_exit_scripts();
     if (code_copy_) {
+        forget_code_block(code_copy_);
         memory::free_malloc(code_copy_);
         code_copy_ = nullptr;
     }
@@ -251,6 +253,7 @@ void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entit
     manager->enter_heap_scope(manager->script_heap_);
     auto* copy = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::Hub::get_pull()->leave_heap_scope();
+    note_code_block(std::span<const uint8_t>(copy, size));
     const uint8_t* source = script->code_stream_;
     for (uint32_t i = 0; i < size; ++i)
         copy[i] = source[i];

@@ -17,6 +17,7 @@
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/tokens.h"
 
 
 namespace script {
@@ -667,8 +668,10 @@ void release_component(Component* component)
             delete_vector(component->value.vector());
         break;
     case kQbvalScriptBody:
-        if (component->value.word())
+        if (component->value.word()) {
+            forget_code_block(component->value.code());
             memory::free_malloc(component->value.code());
+        }
         component->unknown2 = 0; // the script's size
         break;
     case kQbvalStruct:
@@ -736,6 +739,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
         dest->value.set_code(static_cast<uint8_t*>(memory::alloc_block(source->unknown2)));
         dest->unknown2 = source->unknown2;
         memory::leave_heap_scope();
+        note_code_block(std::span<const uint8_t>(dest->value.code(), source->unknown2));
         const uint8_t* from = source->value.code();
         uint8_t* to = dest->value.code();
         for (uint32_t i = 0; i < source->unknown2; ++i)
@@ -1099,6 +1103,7 @@ void Struct::append_script(uint32_t name, const uint8_t* code, uint32_t size)
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
     auto* copy = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::leave_heap_scope();
+    note_code_block(std::span<const uint8_t>(copy, size));
     for (uint32_t i = 0; i < size; ++i)
         copy[i] = code[i];
     component->value.set_code(copy);

@@ -316,6 +316,7 @@ void unload_qb(uint32_t file_checksum)
         }
     }
     // (a pre-compiled file stays loaded until now)
+    forget_precompiled_image(file_checksum);
     packs::offload(file_checksum);
 }
 
