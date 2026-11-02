@@ -19,7 +19,6 @@
 #include "engine/sys/game_config.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/viewport.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace audio {
@@ -68,7 +67,7 @@ bool play_on_channel(uint32_t checksum, int channel, const void* volume, float p
 // StreamAmpCurve's load (FamData::ReadIn: data\fam\<checksum>.fam into the slot).
 bool read_amp_curve(StreamAmpCurve* slot, uint32_t checksum)
 {
-    return raw::as<FamData>(slot)->read_in(checksum);
+    return slot->read_in(checksum);
 }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
@@ -90,10 +89,7 @@ bool loudness_from_position(sound::AudioMixer* manager, Loudness* volume, const 
 }
 // The emitter nearest to a position (0x004A09E0, not rewritten yet; its distance through the second argument),
 // and the stream component's position for it and its emitter's extent.
-void* nearest_emitter(const float* position)
-{
-    return render::fetch_nearest_camera(raw::as<const maths::Vec4>(position), nullptr);
-}
+void* nearest_emitter(const maths::Vec4* position) { return render::fetch_nearest_camera(position, nullptr); }
 maths::Vec4* sound_position(void* component, maths::Vec4* out, void* emitter)
 {
     return static_cast<objects::AudioStreamModule*>(component)->get_stream_position(out, emitter);
@@ -108,7 +104,7 @@ void set_up_stream(Stream& stream, uint32_t checksum, int option)
 {
     stream.dropoff = 1020.0f;
     stream.volume = 100.0f;
-    stream.unknown1c_ = 0;
+    stream.name_position_ = 0;
     stream.name_count_ = 1;
     stream.option = option;
     core::at(stream.names, 0).checksum = checksum;
@@ -155,7 +151,7 @@ bool is_stream_playing(uint32_t id) { return streams_on() && find_playing_stream
 StreamAmpCurve* load_stream_frame_amp(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
-        if (frame_amps()[i].checksum == 0)
+        if (frame_amps()[i].name == 0)
             return read_amp_curve(&frame_amps()[i], checksum) ? &frame_amps()[i] : nullptr;
     return nullptr;
 }
@@ -164,7 +160,7 @@ StreamAmpCurve* load_stream_frame_amp(uint32_t checksum)
 StreamAmpCurve* fetch_stream_amp_curve(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
-        if (frame_amps()[i].checksum == checksum)
+        if (frame_amps()[i].name == checksum)
             return &frame_amps()[i];
     return nullptr;
 }
@@ -173,9 +169,9 @@ StreamAmpCurve* fetch_stream_amp_curve(uint32_t checksum)
 bool free_stream_frame_amp(uint32_t checksum)
 {
     StreamAmpCurve* slot = fetch_stream_amp_curve(checksum);
-    if (!slot || slot->checksum == 0)
+    if (!slot || slot->name == 0)
         return false;
-    slot->checksum = 0;
+    slot->name = 0;
     slot->size = 0;
     return true;
 }
@@ -224,7 +220,7 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
     stream.channel = channel;
     stream.priority = priority;
     stream.begin_frame_ = static_cast<uint32_t>(frame_clock::get_draw_frame()); // (the low half)
-    stream.listener = raw::as<uint32_t>(fetch_stream_amp_curve(checksum));
+    stream.listener = fetch_stream_amp_curve(checksum);
     return channel;
 }
 
@@ -306,7 +302,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t c
     change_muted(&stream_volume);
     if (use_pos_info) {
         const objects::GameEntity* object = component->entity_;
-        void* emitter = nearest_emitter(&object->at_point_.x);
+        void* emitter = nearest_emitter(&object->at_point_);
         bool audible = true;
         if (emitter) {
             maths::Vec4 direction{};

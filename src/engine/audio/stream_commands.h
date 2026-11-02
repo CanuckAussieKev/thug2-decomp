@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/audio/music_api.h"
+
 namespace objects {
 class AudioStreamModule;
 } // namespace objects
@@ -13,14 +15,9 @@ class AudioStreamModule;
 // streamed sound is off: no sound, the null sound platform (0x007CEFA8 == 2), or the stream header not loaded.
 namespace audio {
 
-// A stream's frame amplitudes (data\fam\<checksum>.fam: one byte a frame, for lip sync), loaded by
-// LoadStreamFrameAmp. One slot (at 0x0069BAC8); a checksum of 0 marks it free.
-struct StreamAmpCurve {
-    uint32_t checksum;
-    int size;
-    std::array<uint8_t, 0x1000> data;
-};
-static_assert(sizeof(StreamAmpCurve) == 0x1008, "layout must match the original");
+// A stream's frame amplitudes (data\fam\<checksum>.fam: one byte a frame, for lip sync - music_api.h's FamData),
+// loaded by LoadStreamFrameAmp. One slot (at 0x0069BAC8); a checksum of 0 marks it free.
+using StreamAmpCurve = FamData;
 
 // 0x00451010: pause (1) or unpause (0) the streams; -1 unpauses only if they weren't paused when last paused
 // with 1. (As PauseMusic, for the streams.)

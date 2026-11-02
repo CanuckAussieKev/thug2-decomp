@@ -85,6 +85,15 @@ struct PcWave {
 static_assert(sizeof(PcWave) == 0x44 && offsetof(PcWave, desc_size_) == 0x14 && offsetof(PcWave, data) == 0x3C,
               "layout must match the original");
 
+// How a sound is asked to play (the play parameters: pitch and volume in percent, the dropoff - 0: the wave's - and
+// the falloff function).
+struct SoundParams {
+    float pitch;
+    float volume;
+    float dropoff;
+    int falloff;
+};
+
 // A wave table entry (0x1C bytes).
 struct SoundWaveSlot {
     uint32_t checksum;  // +0x00: of the file's name (without folders)
@@ -164,7 +173,7 @@ public:
     // 0x0047AF10: unload_group for every group (there are none in this build).
     void unload_all_groups();
     // 0x0047AF40: `props` from the wave's defaults and the play parameters `params` (null: defaults).
-    void init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, PlaybackProps* params);
+    void init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, const SoundParams* params);
     // 0x0047B340: whether sounds are paused (the game's two pause flags) - unless +0 is set.
     bool is_frozen();
     // 0x0047B360: `path` loaded into the level (`loadType` 0) or the permanent table; false if it's loaded
@@ -217,7 +226,7 @@ public:
     void halt_object_sound(objects::AudioEmitterModule* object, uint32_t checksum);
     // 0x0047BD20: the sound `checksum` played at `volume` / `pitch` (the unique id `uniqueId`, else the name;
     // made free); `params` its play parameters. Returns the unique id (0: not played).
-    uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, void* params,
+    uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, const SoundParams* params,
                         int unused);
     // 0x0047BE10: `volume` for a sound at `position` heard from `camera` (the nearest if null): a level by the
     // distance over `dropoff` (falloff 0 smooth, 1 linear, 2 squared, 3 root), 3D. False when it's out of range
@@ -226,7 +235,7 @@ public:
                         void* extent);
     // 0x0047C140: the sound played on `object` (positional unless `not_positional`); a silent looping one is kept
     // by the object to start later (unless `force`, which plays it anyway). Returns the unique id.
-    uint32_t play_object_sound(uint32_t checksum, void* params, objects::AudioEmitterModule* object,
+    uint32_t play_object_sound(uint32_t checksum, const SoundParams* params, objects::AudioEmitterModule* object,
                                bool not_positional, bool force);
     // 0x0047C360: a positional sound's volume and pitch from its object's place; false when it should stop.
     bool update_positional_sound(objects::AudioEmitterModule* object, PlayingSound* sound, uint32_t time);
@@ -274,11 +283,11 @@ void stop_all_voices();
 // 0x0047CC10: stop_all_voices; the permanent waves freed.
 void free_permanent_waves();
 // 0x0047CC70: data\sounds\`path`.snd loaded into a new PcWave for the entry whose `wave` is `slot`.
-bool load_wave(const char* path, uint32_t checksum, PcWave** slot, int load_type, int unused);
+bool load_wave(const char* path, uint32_t checksum, SoundWaveSlot* entry, int load_type, int unused);
 // 0x0047CD70: the voice's volume, pan and frequency (3D: the buffer's position, the listener's orientation).
 void apply_voice_settings(int voice, VolumeRef* volume, float pitch);
 // 0x0047D130: the wave (the entry's `wave` at `slot`) played on a free voice; the voice, or -1.
-int play_voice(PcWave** slot, VolumeRef* volume, float pitch);
+int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch);
 // 0x0047D390: every playing voice set silent.
 void silence_voices();
 

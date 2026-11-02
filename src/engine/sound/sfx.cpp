@@ -18,7 +18,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace sound {
@@ -257,23 +256,19 @@ void AudioMixer::unload_all_groups()
 }
 
 // 0x0047AF40
-void AudioMixer::init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, PlaybackProps* params)
+void AudioMixer::init_playback_props(PlaybackProps* props, SoundWaveSlot* entry, const SoundParams* params)
 {
     if (params) {
-        // (the parameters: {pitch, volume, dropoff, falloff} in the props' first four words' order)
-        auto* given = raw::as<uint32_t>(params);
-        std::memcpy(&props->pitch, &given[0], 4);
-        std::memcpy(&props->volume, &given[1], 4);
-        float dropoff = 0.0f;
-        std::memcpy(&dropoff, &given[2], 4);
-        props->dropoff = dropoff != 0.0f ? dropoff : entry->dropoff;
+        props->pitch = params->pitch;
+        props->volume = params->volume;
+        props->dropoff = params->dropoff != 0.0f ? params->dropoff : entry->dropoff;
         props->unknown20 = 0;
         props->unknown24 = 0;
         props->pitch3 = props->pitch;
         props->pitch2 = props->pitch;
         props->volume3 = props->volume;
         props->volume2 = props->volume;
-        props->falloff = given[3];
+        props->falloff = static_cast<uint32_t>(params->falloff);
     } else {
         props->pitch = 100.0f;
         props->volume = 100.0f;
@@ -368,14 +363,14 @@ bool AudioMixer::ingest_sound(const char* path, uint16_t flags, int load_type, i
         if (get_level_count() >= kMaxWaves)
             return false;
         entry = &level_waves()[get_level_count()];
-        if (!load_wave(path, checksum, &entry->wave, load_type, group))
+        if (!load_wave(path, checksum, entry, load_type, group))
             return false;
         ++get_level_count();
     } else {
         if (permanent_count() >= kMaxWaves)
             return false;
         entry = &permanent_waves()[permanent_count()];
-        if (!load_wave(path, checksum, &entry->wave, load_type, group))
+        if (!load_wave(path, checksum, entry, load_type, group))
             return false;
         ++permanent_count();
     }

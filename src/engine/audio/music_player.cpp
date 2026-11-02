@@ -24,7 +24,6 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/stream_component.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace audio {
@@ -533,9 +532,9 @@ void tick_frame()
     for (int i = 0; i < kStreams; ++i) {
         Stream& stream = get_streams()[i];
         if (stream.listener && !get_playing(stream)) {
-            if (stream.listener[0]) {
-                stream.listener[0] = 0;
-                stream.listener[1] = 0;
+            if (stream.listener->name) {
+                stream.listener->name = 0;
+                stream.listener->size = 0;
             }
             stream.listener = nullptr;
         }

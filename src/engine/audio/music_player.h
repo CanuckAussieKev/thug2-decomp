@@ -46,7 +46,8 @@ void play_next_track_in_order();
 // and it isn't the user's playlist) - if the music is audible or it's playlist 1.
 void tick_frame();
 
-struct StreamAmpCurve;
+struct FamData;
+using StreamAmpCurve = FamData;
 
 // The three streams (0x74 bytes each, at 0x0069B938; started by start_stream / PlayStream, stream.h).
 struct Stream {
@@ -57,14 +58,13 @@ struct Stream {
     int channel;           // +0x10 the platform's stream (-1: any; 0x00453270 says whether it's playing)
     int priority;          // +0x14
     int option;            // +0x18 PlayStream's (the script's 0xE46111E0)
-    uint32_t unknown1c_;   // +0x1C (set 0)
+    int name_position_;    // +0x1C (set 0; counts down as names are taken off the front)
     int name_count_;       // +0x20 names in use
     uint32_t begin_frame_; // +0x24 the frame it started (frame_clock::get_draw_frame)
     uint8_t use_pos_info_; // +0x28 its volume follows the owner's position (play_stream_at_object)
     std::array<uint8_t, 3> pad29;
     int falloff_curve_; // +0x2C
-    uint32_t*
-        listener; // +0x30 the stream's frame amplitudes (a StreamAmpCurve: checksum and size cleared when it ends)
+    StreamAmpCurve* listener; // +0x30 the stream's frame amplitudes (checksum and size cleared when it ends)
     struct Name {
         uint32_t checksum;
         StreamAmpCurve* frame_amp_;

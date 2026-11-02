@@ -21,7 +21,6 @@
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -386,8 +385,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
-        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
-                           static_cast<int>(cell::address(&info)));
+        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr, 0); // (the original passed &info: not read)
     }
 }
 
@@ -402,8 +400,7 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
     volume.percent_tweak(scaled_percent(loudness_percent, info.max_vol_, info.floor_loudness_));
     if (!volume.is_audio_off()) {
         const float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
-        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
-                           static_cast<int>(cell::address(&info)));
+        sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr, 0); // (the original passed &info: not read)
     }
 }
 

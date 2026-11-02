@@ -22,8 +22,6 @@
 #include "engine/objects/entity.h"
 #include "engine/gfx/weather.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
@@ -60,12 +58,7 @@ const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewC
 int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
 
 // The play parameters play_object_sound takes.
-struct SoundParams {
-    float pitch;
-    float volume;
-    float dropoff;
-    int falloff;
-};
+using sound::SoundParams;
 
 } // namespace
 

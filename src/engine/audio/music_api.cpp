@@ -19,7 +19,6 @@
 #include "engine/gfx/viewport.h"
 #include "engine/sys/game_config.h"
 #include "engine/objects/anim_movies.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace audio {
@@ -52,30 +51,8 @@ float& base_music_gain() { return g_music_stream_volume; }
 float get_zero() { return objects::g_float_zero; }
 int& current_track_index() { return g_current_track_index; }
 
-// The stream fields used here (Stream in music_player.h; 0x74 bytes each, three at 0x0069B938).
-struct StreamFields {
-    uint32_t name;    // +0x00
-    uint32_t id;      // +0x04
-    uint32_t volume;  // +0x08 (a float: percent)
-    uint32_t dropoff; // +0x0C (a float)
-    int channel;      // +0x10
-    std::array<uint8_t, 4> pad14;
-    int priority;        // +0x18
-    int queue_position_; // +0x1C
-    int queue_count_;    // +0x20
-    std::array<uint8_t, 4> pad24;
-    bool positional; // +0x28: the volume follows the owner's object
-    std::array<uint8_t, 3> pad29;
-    int falloff_curve_; // +0x2C
-    std::array<uint8_t, 4> pad30;
-    struct TableRow {
-        uint32_t first;
-        uint32_t second;
-    };
-    std::array<TableRow, 8> queue; // +0x34
-};
-static_assert(sizeof(StreamFields) == 0x74, "layout must match the original");
-StreamFields* stream_at(int index) { return raw::as<StreamFields>(g_streams.data()) + index; }
+// The three streams (music_player.h).
+Stream* stream_at(int index) { return &core::at(g_streams, index); }
 constexpr int kStreams = 3;
 // The objects that started each stream (null: none); each notes the ids of the streams it started at
 // +0x18 + 4 * slot.
@@ -287,7 +264,7 @@ bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pitch, int
     const int index = find_playing_stream(id_or_name);
     if (index < 0)
         return false;
-    stream_at(index)->priority = priority;
+    stream_at(index)->option = priority;
     (void)pitch; // (the original passes it on; the platform's start doesn't take it)
     return start_preloaded_stream(index, static_cast<const StreamGain*>(volume));
 }
@@ -313,19 +290,19 @@ bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
         if (index < 0)
             return false;
     }
-    StreamFields* stream = stream_at(index);
-    if (stream->queue_count_ <= 0)
+    Stream* stream = stream_at(index);
+    if (stream->name_count_ <= 0)
         return false;
-    if (core::at(stream->queue, 0).first != entry)
+    if (core::at(stream->names, 0).checksum != entry)
         return true;
-    for (int i = 1; i < stream->queue_count_; ++i)
-        core::at(stream->queue, i - 1) = core::at(stream->queue, i);
-    const int count = --stream->queue_count_;
+    for (int i = 1; i < stream->name_count_; ++i)
+        core::at(stream->names, i - 1) = core::at(stream->names, i);
+    const int count = --stream->name_count_;
     // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
-    if (stream->queue_position_ >= 0 && --stream->queue_position_ < 0) {
-        stream->queue_position_ = count - 1;
-        if (stream->priority >= 0)
-            ++stream->priority;
+    if (stream->name_position_ >= 0 && --stream->name_position_ < 0) {
+        stream->name_position_ = count - 1;
+        if (stream->option >= 0)
+            ++stream->option;
     }
     return true;
 }
@@ -345,10 +322,10 @@ bool update_stream_volume(int slot)
     // (the status is of stream `slot`'s channel, not the one found - as the original)
     if (channel_status(stream_at(slot)->channel) == 1)
         return false;
-    StreamFields* stream = stream_at(index);
+    Stream* stream = stream_at(index);
     sound::VolumeRef volume;
     sound::AudioMixer* manager = sound_manager();
-    if (stream->positional) {
+    if (stream->use_pos_info_) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = render::fetch_nearest_camera(
             &owner->entity_->at_point_, nullptr);
@@ -360,7 +337,7 @@ bool update_stream_volume(int slot)
                 extent_or_null = &extent;
             maths::Vec4 position{};
             const maths::Vec4* where = component->get_stream_position(&position, object);
-            manager->fetch_loudness(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloff_curve_,
+            manager->fetch_loudness(&volume, where, stream->dropoff, stream->falloff_curve_,
                                     object, extent_or_null);
         } else {
             volume.change_muted();
@@ -369,8 +346,8 @@ bool update_stream_volume(int slot)
         std::memcpy(&core::at(volume.lanes_, 0), &stream->volume, 4);
         std::memcpy(&core::at(volume.lanes_, 1), &stream->volume, 4);
     }
-    if (stream->volume != kHundredPercent)
-        volume.percent_tweak(std::bit_cast<float>(stream->volume));
+    if (std::bit_cast<uint32_t>(stream->volume) != kHundredPercent) // (the bits compared, as the original)
+        volume.percent_tweak(stream->volume);
     platform_set_stream_volume(&volume, stream->channel);
     return true;
 }

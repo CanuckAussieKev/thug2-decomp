@@ -17,7 +17,6 @@
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
 #include "platform/bink.h"
-#include "engine/core/raw_view.h"
 
 namespace audio {
 
@@ -43,15 +42,9 @@ bool pause_locked() { return g_pause_locked; }
 bool get_focused() { return sys::g_app_active; }
 void* sound_device() { return g_sound_device; }
 
-// The pcm.wad entries open as Bink streams (16 bytes each, at 0x0069CADC; opened by 0x00452A90): the file,
-// when last let go of (the counter at 0x0069CB9C), and how many streams use it.
-struct WadFile {
-    Hdl* file;
-    uint32_t last_use_;
-    uint32_t users;
-    uint32_t unknownc_;
-};
-WadFile* wad_files() { return raw::field_at<WadFile>(g_stream_files.data(), 4); }
+// The pcm.wad entries open as Bink streams (the stream files, stream_files.h; opened by 0x00452A90): when last let go
+// of (the counter at 0x0069CB9C), and how many streams use it.
+CachedStreamFile& wad_file(int index) { return core::at(g_stream_files, index); }
 uint32_t use_counter() { return g_stream_file_uses; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -140,9 +133,9 @@ void BinkStream::destruct()
     if (file_ref_ != INVALID_HANDLE_VALUE && !shared_file_)
         CloseHandle(file_ref_);
     if (wad_entry_ >= 0) {
-        WadFile& entry = wad_files()[wad_entry_];
+        CachedStreamFile& entry = wad_file(wad_entry_);
         entry.last_use_ = use_counter();
-        if (entry.users > 0)
+        if (entry.users != 0) // (the original's count unsigned)
             --entry.users;
     }
     if (memory_)

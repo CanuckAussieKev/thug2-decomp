@@ -39,7 +39,6 @@
 #include "engine/gfx/device.h"
 #include "engine/util/unique_handle.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace sound {
@@ -265,7 +264,7 @@ void AudioMixer::halt_object_sound(objects::AudioEmitterModule* object, uint32_t
 }
 
 // 0x0047BD20
-uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, void* params,
+uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, const SoundParams* params,
                                 int /*unused*/)
 {
     if (no_sound())
@@ -277,14 +276,14 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, float pitc
     if (!quiet_misses() && script::fetch_int_value(kDebugB) != 0 && !params)
         is_unique_id_free(id); // (a debug check whose report is compiled out)
     adjust_volume_and_pitch(volume, &pitch, entry);
-    const int voice = play_voice(&entry->wave, volume, pitch);
+    const int voice = play_voice(entry, volume, pitch);
     if (voice == -1)
         return 0;
     PlayingSound& sound = get_playing()[voice];
     sound.checksum = id;
     sound.unique_id_ = fetch_distinct_id(id);
     sound.entry = entry;
-    init_playback_props(&sound.props, entry, static_cast<PlaybackProps*>(params));
+    init_playback_props(&sound.props, entry, params);
     if (!quiet_misses())
         script::fetch_int_value(kDebugB);
     return sound.unique_id_;
@@ -380,7 +379,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
 }
 
 // 0x0047C140
-uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects::AudioEmitterModule* object,
+uint32_t AudioMixer::play_object_sound(uint32_t checksum, const SoundParams* params, objects::AudioEmitterModule* object,
                                        bool not_positional, bool force)
 {
     if (no_sound())
@@ -388,15 +387,14 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
     SoundWaveSlot* entry = fetch_wave_slot(checksum);
     if (!entry)
         return 0;
-    auto* given = static_cast<float*>(params); // {pitch, volume, dropoff, falloff}
     VolumeRef volume;
     const maths::Vec4 at = *object_position(object);
     void* camera = nearest_camera(&at, nullptr);
     if (camera) {
         std::array<uint8_t, 0x10> extent_data = {};
         void* extent = object_sound_extent(object, camera, extent_data.data()) ? extent_data.data() : nullptr;
-        const float dropoff = given[2] != 0.0f ? given[2] : entry->dropoff;
-        const int falloff = raw::as<int>(params)[3];
+        const float dropoff = params->dropoff != 0.0f ? params->dropoff : entry->dropoff;
+        const int falloff = params->falloff;
         maths::Vec4 heard{};
         fetch_loudness(&volume, object_sound_position(object, &heard, camera), dropoff, falloff, camera, extent);
     } else {
@@ -407,12 +405,12 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
             return 0;
         const uint32_t id = fetch_distinct_id(checksum);
         PlaybackProps props{};
-        init_playback_props(&props, entry, static_cast<PlaybackProps*>(params));
+        init_playback_props(&props, entry, params);
         keep_looping_sound(object, &props, frame_clock::get_time());
         return id;
     }
-    volume.percent_tweak(given[1]);
-    const uint32_t id = emit_sound(checksum, &volume, given[0], 0, params, 0);
+    volume.percent_tweak(params->volume);
+    const uint32_t id = emit_sound(checksum, &volume, params->pitch, 0, params, 0);
     get_report_missing();
     if (!not_positional) {
         add_positional_sound(id, checksum, object);
@@ -682,9 +680,9 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     looping = wave.looping;
     uint32_t size = bytes_per_second_;
     bytes_per_second_ = bits_per_sample_ * samples_per_second_ >> 3;
-    auto* converted = static_cast<uint8_t*>(memory::alloc(size));
-    os_layer::decode_adpcm(raw::as<int16_t>(converted), wave.samples, static_cast<int>(size) >> 1);
-    data = converted;
+    void* converted = memory::alloc(size);
+    os_layer::decode_adpcm(static_cast<int16_t*>(converted), wave.samples, static_cast<int>(size) >> 1);
+    data = static_cast<uint8_t*>(converted);
     data_size_ = size;
     desc_size_ = 0;
     desc_flags_ = 0;
@@ -702,7 +700,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
 }
 
 // 0x0047CC70
-bool load_wave(const char* path, uint32_t /*checksum*/, PcWave** slot, int load_type, int /*unused*/)
+bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, int load_type, int /*unused*/)
 {
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
     char* file_name = g_wave_file_name.data();
@@ -717,16 +715,16 @@ bool load_wave(const char* path, uint32_t /*checksum*/, PcWave** slot, int load_
     }
     const bool loaded = wave->read_in(file_name, 0x400E0);
     if (loaded) {
-        slot[0] = wave;
-        raw::bytes(slot)[4] = wave->looping;
-        raw::bytes(slot)[5] = load_type == 0;
+        entry->wave = wave;
+        entry->looping = wave->looping;
+        entry->not_streamed_ = load_type == 0;
         return true;
     }
     OutputDebugStringA(file_name);
     OutputDebugStringA("\n");
-    slot[0] = nullptr;
-    raw::bytes(slot)[4] = 0;
-    raw::bytes(slot)[5] = 0;
+    entry->wave = nullptr;
+    entry->looping = false;
+    entry->not_streamed_ = false;
     if (wave) {
         if (wave->data)
             memory::Hub::get_pull()->dealloc(wave->data);
@@ -825,9 +823,9 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
 }
 
 // 0x0047D130
-int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
+int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
 {
-    PcWave* wave = *slot;
+    PcWave* wave = entry->wave;
     if (!wave)
         return -1;
     const int index = fetch_idle_voice(wave);
@@ -847,10 +845,25 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
         const bool three_d = has_3d() && volume->kind_tag_ == VolumeRef::kType3d;
         wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
         std::memcpy(wave->desc_3d_algorithm_.data(), &g_default_3d_algorithm, 16);
-        // (the wave's DSBUFFERDESC is in place at +0x14, sfx.h)
-        const auto* desc = raw::as<const DSBUFFERDESC>(&wave->desc_size_);
+        // (the wave's buffer description, sfx.h; its format the wave's first fields - the original pointed
+        // DirectSound at them in place)
+        WAVEFORMATEX format{};
+        format.wFormatTag = wave->format_tag_;
+        format.nChannels = wave->channels;
+        format.nSamplesPerSec = wave->samples_per_second_;
+        format.nAvgBytesPerSec = wave->bytes_per_second_;
+        format.nBlockAlign = wave->block_align_;
+        format.wBitsPerSample = wave->bits_per_sample_;
+        format.cbSize = wave->extra_size_;
+        DSBUFFERDESC desc{};
+        desc.dwSize = wave->desc_size_;
+        desc.dwFlags = wave->desc_flags_;
+        desc.dwBufferBytes = wave->desc_bytes_;
+        desc.dwReserved = wave->desc_reserved_;
+        desc.lpwfxFormat = &format;
+        std::memcpy(&desc.guid3DAlgorithm, wave->desc_3d_algorithm_.data(), sizeof(desc.guid3DAlgorithm));
         IDirectSoundBuffer* created = nullptr;
-        const HRESULT made = sound_device()->CreateSoundBuffer(desc, &created, nullptr);
+        const HRESULT made = sound_device()->CreateSoundBuffer(&desc, &created, nullptr);
         voice.buffer = created;
         if (made != DS_OK)
             return -1;
@@ -874,7 +887,7 @@ int play_voice(PcWave** slot, VolumeRef* volume, float pitch)
     apply_voice_settings(index, volume, pitch);
     buffer_of(voice.buffer)->SetCurrentPosition(0);
     const HRESULT result =
-        buffer_of(voice.buffer)->Play(0, 0, raw::bytes(slot)[4] ? DSBPLAY_LOOPING : 0u);
+        buffer_of(voice.buffer)->Play(0, 0, entry->looping ? DSBPLAY_LOOPING : 0u);
     ++playing_voices();
     voice.playing = true;
     return result == 0 ? index : -1;
