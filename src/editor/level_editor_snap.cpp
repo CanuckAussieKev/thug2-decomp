@@ -91,8 +91,8 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
     const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const float* normal = &ray->hit_.normal.x;
-    const float* point = &ray->hit_.point.x;
+    const auto& normal = ray->hit_.normal;
+    const auto& point = ray->hit_.point;
     hit->normal = {normal[0], normal[1], normal[2]};
     hit->point = {point[0], point[1], point[2]};
     hit->checksum = ray->hit_.object ? ray->hit_.object_checksum_ : 0;

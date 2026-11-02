@@ -276,7 +276,7 @@ void SkaterPhysicsModule::break_vert(bool force)
     if (!jump_held && !triggers() && !transfer_blocked_ && !force)
         return;
 
-    float* velocity = &object->vel_.x;
+    auto& velocity = object->vel_;
     if (triggers() || transfer_blocked_ || (bike && thaw_bmx::vert_tap_held(this))) {
         if (try_spine_transfer()) {
             display_matrix_ = body_transform(object);

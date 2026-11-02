@@ -97,8 +97,8 @@ int bone_from_params(BoneLookAt* look_at, Struct* params, bool* all, bool* by_id
 maths::Vec4* ClampVector::confine(const maths::Vec4* min, const maths::Vec4* max)
 {
     float* values = &x;
-    const float* low = &min->x;
-    const float* high = &max->x;
+    const auto& low = *min;
+    const auto& high = *max;
     for (int i = 0; i < 4; ++i) {
         const float value = values[i] > high[i] ? high[i] : values[i];
         values[i] = value < low[i] ? low[i] : value;

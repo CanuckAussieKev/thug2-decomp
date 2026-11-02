@@ -387,8 +387,8 @@ bool cast_feeler(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const float* p = &ray->hit_.point.x;
-    const float* n = &ray->hit_.normal.x;
+    const auto& p = ray->hit_.point;
+    const auto& n = ray->hit_.normal;
     *hit = {p[0], p[1], p[2]};
     *normal = {n[0], n[1], n[2]};
     *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;

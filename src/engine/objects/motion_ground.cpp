@@ -170,7 +170,7 @@ bool KinematicsModule::stick_to_ground()
                            static_cast<float>(static_cast<double>(right.z) * 30.0f),
                            static_cast<float>(static_cast<double>(right.w) * 30.0f)}};
     auto move = [&pos](const float* by, double scale) {
-        float* p = &pos.x;
+        auto& p = pos;
         for (int i = 0; i < 4; ++i)
             p[i] = static_cast<float>(static_cast<double>(p[i]) + by[i] * scale);
     };

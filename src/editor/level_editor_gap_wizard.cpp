@@ -169,8 +169,8 @@ bool get_cast(V3 from, V3 to, Hit* hit)
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
-    const float* n = &ray->hit_.normal.x;
-    const float* p = &ray->hit_.point.x;
+    const auto& n = ray->hit_.normal;
+    const auto& p = ray->hit_.point;
     hit->normal = {n[0], n[1], n[2]};
     hit->point = {p[0], p[1], p[2]};
     hit->flags = ray->hit_.face_flags_;

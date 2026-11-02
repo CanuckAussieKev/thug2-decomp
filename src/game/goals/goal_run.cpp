@@ -446,7 +446,7 @@ bool Objective::test_longest_jump()
         return false;
     // The distance across the ground: the height's square added and taken away again, as the original.
     const float* from = &core::down_cast<objects::GameEntity>(object)->at_point_.x;
-    const float* to = &skater->at_point_.x;
+    const auto& to = skater->at_point_;
     const double dx = static_cast<double>(from[0]) - to[0];
     const double dy = static_cast<double>(from[1]) - to[1];
     const double dz = static_cast<double>(from[2]) - to[2];

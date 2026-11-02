@@ -134,7 +134,7 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
         return 0;
     if (!ray->hit_.object)
         return 0;
-    const float* hit = &ray->hit_.point.x;
+    const auto& hit = ray->hit_.point;
     *point = {hit[0], hit[1], hit[2]};
     return ray->hit_.object_checksum_;
 }

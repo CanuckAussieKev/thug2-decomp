@@ -119,7 +119,7 @@ bool CarView::vehicle_camera_reset(script::Struct* params, script::Script* /*scr
 // 0x00524550
 void CarView::update_target_direction()
 {
-    const float* velocity = &vehicle_->vel_.x;
+    const auto& velocity = vehicle_->vel_;
     float x = -velocity[0];
     float y = 0.0f;
     float z = -velocity[2];

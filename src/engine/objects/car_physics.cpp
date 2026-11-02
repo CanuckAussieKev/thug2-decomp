@@ -176,8 +176,8 @@ void AutomobileDynamicsModule::update_angles()
         if (turn == 0.0f) {
             target_steer_ = 0.0f;
         } else {
-            const float* point = &follower->at_point_.x;
-            const float* from = &follower->center_.x;
+            const auto& point = follower->at_point_;
+            const auto& from = follower->center_;
             const double dx = static_cast<double>(point[0]) - from[0];
             const double dy = static_cast<double>(point[1]) - from[1];
             const double dz = static_cast<double>(point[2]) - from[2];

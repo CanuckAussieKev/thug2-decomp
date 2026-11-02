@@ -2726,7 +2726,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const float* point = &ray->hit_.point.x;
+    const auto& point = ray->hit_.point;
     *hit = {point[0], point[1], point[2]};
     return true;
 }

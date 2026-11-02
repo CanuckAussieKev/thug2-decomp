@@ -263,8 +263,8 @@ bool get_cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const float* n = &ray->hit_.normal.x;
-    const float* p = &ray->hit_.point.x;
+    const auto& n = ray->hit_.normal;
+    const auto& p = ray->hit_.point;
     *hit = {p[0], p[1], p[2]};
     if (normal)
         *normal = {n[0], n[1], n[2]};

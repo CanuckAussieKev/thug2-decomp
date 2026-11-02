@@ -153,10 +153,10 @@ bool should_log(const void* what, int face)
 void log_hit(const void* feeler, uint32_t caller)
 {
     const auto* ray = static_cast<const render::ProbeRay*>(feeler);
-    const float* start = &ray->line_.start.x;
-    const float* end = &ray->line_.end.x;
-    const float* normal = &ray->hit_.normal.x;
-    const float* point = &ray->hit_.point.x;
+    const auto& start = ray->line_.start;
+    const auto& end = ray->line_.end;
+    const auto& normal = ray->hit_.normal;
+    const auto& point = ray->hit_.point;
     const int face = static_cast<int>(ray->hit_.face);
     const uint16_t flags = ray->hit_.face_flags_;
     const uint8_t terrain = ray->hit_.terrain;

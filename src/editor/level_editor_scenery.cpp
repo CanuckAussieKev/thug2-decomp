@@ -854,7 +854,7 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
     const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const float* hit = &ray->hit_.point.x;
+    const auto& hit = ray->hit_.point;
     *point = {hit[0], hit[1], hit[2]};
     *checksum = ray->hit_.object_checksum_;
     return ray->hit_.object != nullptr;
