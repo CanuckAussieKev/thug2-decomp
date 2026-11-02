@@ -379,7 +379,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         desc = net::NetMessageInfo();
         const int team = player->get_flag_team();
         std::array<char, 64> name{};
-        team_name_key(name.data(), team);
+        team_name_key(name, team);
         script::StructPtr params = script::make_struct();
         params->put_int(kTeam, team);
         params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));

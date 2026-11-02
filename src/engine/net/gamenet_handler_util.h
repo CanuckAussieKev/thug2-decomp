@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <string_view>
 
 #include "engine/core/arena_alloc.h"
 #include "game/goals/goal_manager.h"
@@ -117,7 +118,7 @@ inline void send_to_server(net::AppHost* app, net::NetMessageInfo* desc)
 // original does), deleted with Clear.
 
 // "team_<n + 1>_name" (the original's sprintf).
-inline void team_name_key(char* out, int team)
+inline void team_name_key(std::array<char, 64>& out, int team)
 {
     std::array<char, 12> digits{};
     int length = 0;
@@ -130,13 +131,16 @@ inline void team_name_key(char* out, int team)
         value /= 10;
     } while (value);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(out, "team_", 5);
-    char* p = out + 5;
+    size_t at = 0;
+    for (const char letter : std::string_view("team_"))
+        core::at(out, at++) = letter;
     if (negative)
-        *p++ = '-';
+        core::at(out, at++) = '-';
     while (length)
-        *p++ = core::at(digits, --length);
-    std::memcpy(p, "_name", 6);
+        core::at(out, at++) = core::at(digits, --length);
+    for (const char letter : std::string_view("_name"))
+        core::at(out, at++) = letter;
+    core::at(out, at) = 0; // (the terminator)
 }
 
 } // namespace online::detail

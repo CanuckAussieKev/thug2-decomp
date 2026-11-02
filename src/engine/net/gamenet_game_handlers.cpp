@@ -240,7 +240,7 @@ int handle_flag_returned(net::InboundMsgCtx* context)
         return kContinue;
     const int team = player->get_flag_team(); // the flag's team
     std::array<char, 64> name{};
-    team_name_key(name.data(), team);
+    team_name_key(name, team);
     script::StructPtr params = script::make_struct();
     params->put_int(kTeam, team);
     params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
@@ -388,7 +388,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
         return kContinue;
     player->team_ = int{static_cast<int8_t>(core::at(msg, 1))};
     std::array<char, 64> name{};
-    team_name_key(name.data(), static_cast<int8_t>(core::at(msg, 1)));
+    team_name_key(name, static_cast<int8_t>(core::at(msg, 1)));
     script::StructPtr params = script::make_struct();
     if (is_own_player(player)) {
         if (is_squad_match()) {

@@ -501,7 +501,7 @@ void Hub::flag_returned(PlayerRecord* player)
 {
     const int team = player->get_flag_team(); // the flag's team
     std::array<char, 64> key{};
-    team_name_key(key.data(), team);
+    team_name_key(key, team);
     script::StructPtr params = script::make_struct();
     params->put_int(kTeam, team);
     params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
@@ -532,7 +532,7 @@ void Hub::enter_observe_mode()
     if (local->is_carrying_flag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
         const int team = local->get_flag_team();
         std::array<char, 64> key{};
-        team_name_key(key.data(), team);
+        team_name_key(key, team);
         script::StructPtr params = script::make_struct();
         params->put_int(kTeam, team);
         params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));

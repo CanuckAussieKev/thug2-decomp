@@ -829,8 +829,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
 int Hub::on_turned_away_msg(InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content_);
-    const char* msg = net::wire::text_of(context->body_);
-    const int reason = int{static_cast<int8_t>(msg[0])};
+    const int reason = int{net::wire::value_at<int8_t>(context->body_)};
     switch (reason) {
     case kRefusedBanned:
         manager->refused_reason_ = kReasonBanned;
@@ -853,7 +852,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         // NOT ORIGINAL: the challenge read from the message's own 9 bytes (NUL-ended here).
         std::array<char, kJoinRefusedSize> challenge = {};
         const uint32_t challenge_size = context->body_size_ > 1 ? context->body_size_ - 1 : 0;
-        std::memcpy(challenge.data(), msg + 1,
+        std::memcpy(challenge.data(), net::wire::text_at(context->body_, 1),
                     challenge_size < kJoinRefusedSize - 1u ? challenge_size : kJoinRefusedSize - 1u);
         get_cd_key(key.data());
         compute_cd_key_response(key.data(), challenge.data(), response.data());

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <array>
 
 #include "engine/core/checksums.h"
@@ -149,7 +150,7 @@ int flag_handler(net::InboundMsgCtx* context, void (PlayerRecord::*method)(int))
 {
     const uint8_t* msg = get_message(context);
     if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), msg))
-        (player->*method)(static_cast<int>(static_cast<int8_t>(msg[1])));
+        (player->*method)(static_cast<int>(net::wire::value_at<int8_t>(msg, 1)));
     return kContinue;
 }
 } // namespace
@@ -249,7 +250,7 @@ int handle_cd_key_challenge(net::InboundMsgCtx* context)
 // 0x0052DCA0
 int handle_keep_alive(net::InboundMsgCtx* context)
 {
-    context->sender_conn_->stamp_last_heard(static_cast<int8_t>(get_message(context)[0]) * 1000);
+    context->sender_conn_->stamp_last_heard(net::wire::value_at<int8_t>(get_message(context)) * 1000);
     return kContinue;
 }
 
@@ -319,7 +320,7 @@ int handle_game_ended(net::InboundMsgCtx* context)
 int handle_choose_team(net::InboundMsgCtx* context)
 {
     auto* skate = get_skate();
-    const int teams = int{static_cast<int8_t>(get_message(context)[0])};
+    const int teams = int{net::wire::value_at<int8_t>(get_message(context))};
     if (teams <= 0 || is_squad_match()) {
         get_game_mode()->set_num_teams(teams);
         return kContinue;
@@ -341,7 +342,7 @@ int handle_checksum_request(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     uint8_t* msg = context->body_;
     const uint32_t cheats = static_cast<modules::Skate*>(skate)->get_cheats();
-    std::memcpy(msg + 4, &cheats, sizeof(cheats)); // (its second word)
+    std::memcpy(std::span(msg, 8).last(4).data(), &cheats, sizeof(cheats)); // (its second word)
     desc.group_id_ = kGroupGame;
     desc.byte_count_ = 8;
     desc.ident_ = kMsgDigest;
@@ -361,13 +362,13 @@ int handle_team_object(net::InboundMsgCtx* context)
     if (!player)
         return kDone;
     const uint32_t object = message_word(context, 0);
-    uint32_t* objects = core::at(manager->team_objects_, player->team_).data(); // five per team
-    for (int i = 0; i < 5; ++i) {
-        if (!objects[i]) {
-            objects[i] = object;
+    auto& objects = core::at(manager->team_objects_, player->team_); // five per team
+    for (uint32_t& slot : objects) {
+        if (!slot) {
+            slot = object;
             return kContinue;
         }
-        if (objects[i] == object)
+        if (slot == object)
             return kDone;
     }
     return kContinue;
