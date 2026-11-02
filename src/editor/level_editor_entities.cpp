@@ -597,7 +597,7 @@ void run_remakes()
 
 // --- sounds on emitters ---
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
+sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 void* nearest_camera(const maths::Vec4* position, float* distance)
 {
     return render::fetch_nearest_camera(position, distance);
@@ -962,10 +962,10 @@ void build_palette()
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
     const char* why = node_create::get_why_not(node_create::Kind::kSound, node_create::Team::kRed);
-    const int count = std::clamp(sound::g_level_count, 0, 256);
+    const int count = std::clamp(sound::level_wave_count(), 0, 256);
     std::vector<std::pair<std::string, Source>> sounds;
     for (int i = 0; i < count && !sound::no_sound(); ++i) {
-        const auto& wave = core::at(sound::g_level_waves, i);
+        const auto& wave = core::at(sound::loaded_level_waves(), i);
         std::string label = "Sound emitter: " + nodes::caption(wave.checksum);
         if (wave.looping)
             label += " (loop)";
@@ -1400,9 +1400,9 @@ std::vector<std::pair<uint32_t, std::string>> get_sounds()
     std::vector<std::pair<uint32_t, std::string>> out;
     if (sound::no_sound())
         return out;
-    const int count = std::clamp(sound::g_level_count, 0, 256);
+    const int count = std::clamp(sound::level_wave_count(), 0, 256);
     for (int i = 0; i < count; ++i) {
-        const auto& wave = core::at(sound::g_level_waves, i);
+        const auto& wave = core::at(sound::loaded_level_waves(), i);
         out.emplace_back(wave.checksum, nodes::caption(wave.checksum) + (wave.looping ? " (loop)" : ""));
     }
     std::ranges::sort(out, [](const auto& a, const auto& b) { return a.second < b.second; });

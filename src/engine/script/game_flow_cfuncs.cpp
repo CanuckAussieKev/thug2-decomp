@@ -168,7 +168,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     script::delete_finished_scripts();
     compiled_out_debug_call();
     render::uninit_light_manager();
-    sound::g_audio_mixer->sweep_up();
+    sound::get_audio_mixer()->sweep_up();
     assets->unload_all_assets_of_type(false, 9);
     debug::printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->unload_all_assets(false);

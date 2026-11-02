@@ -75,7 +75,7 @@ void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
 
 // The sound effects manager (0x006F85A8) and its volumes (sound::VolumeRef, 0x2C bytes; the first two channels are
 // set below). VolumeRef's destructor is empty.
-sound::AudioMixer* sound_manager() { return sound::g_audio_mixer.get(); }
+sound::AudioMixer* sound_manager() { return sound::get_audio_mixer(); }
 using Loudness = sound::VolumeRef;
 void construct_volume(Loudness* volume) { new (volume) sound::VolumeRef; }
 void change_muted(Loudness* volume) { volume->change_muted(); }

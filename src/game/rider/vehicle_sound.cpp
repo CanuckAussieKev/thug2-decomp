@@ -8,7 +8,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/mem.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
@@ -46,7 +45,7 @@ const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);      // 0x00646828: 1 / 
 const double kTwoTo32 = 4294967296.0;                        // 0x006453B4 (an unsigned clock difference)
 
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
+sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
 int get_clock() { return frame_clock::game_clock_elapsed(); }

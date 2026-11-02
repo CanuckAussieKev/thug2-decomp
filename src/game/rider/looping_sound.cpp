@@ -8,7 +8,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/mem.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
@@ -49,7 +48,7 @@ constexpr float kChangeThreshold = 0.5f;     // 0x0064BF28 (volume or pitch: an 
 constexpr float kCapsizedFraction = 0.5f;    // the core physics' +0x2EC
 
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
+sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 
 // The terrain sounds: a table by name, the terrain's entry in it copied into `entry` (false if it has none), the
 // entry's volume for a percentage.

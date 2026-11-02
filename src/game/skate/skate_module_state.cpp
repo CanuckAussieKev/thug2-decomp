@@ -223,7 +223,7 @@ void Skate::tidy_before_park_build()
 void Skate::get_freeze(bool paused)
 {
     if (paused)
-        sound::g_audio_mixer->update_voice_volumes();
+        sound::get_audio_mixer()->update_voice_volumes();
 }
 
 // 0x00564F80

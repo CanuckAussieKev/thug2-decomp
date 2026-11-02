@@ -434,7 +434,7 @@ void FrontEnd::tick_frame(bool game_paused)
     audio::tick_frame();
     // (the sound manager: its voices' states, and its positional sounds; the original calls the first - which
     // takes no manager - as its method)
-    auto* objects = sound::g_audio_mixer.get();
+    auto* objects = sound::get_audio_mixer();
     sound::update_voice_states();
     memory::Hub* memory = memory::Hub::get_pull();
     if (!game_paused) {

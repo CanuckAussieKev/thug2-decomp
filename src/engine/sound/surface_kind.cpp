@@ -24,6 +24,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 #include <string_view>
 
@@ -72,12 +73,22 @@ struct ActionItem {
 };
 static_assert(sizeof(TypeItem) == 8 && sizeof(ActionItem) == 12, "layout must match the original");
 
-lists::KeyMap g_terrain_types{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-lists::KeyMap& terrain_types() { return g_terrain_types; }
-lists::KeyMap g_terrain_actions{lists::KeyMap::Unconstructed{}}; // (KeyMap(8) at start-up)
-lists::KeyMap& get_terrain_actions() { return g_terrain_actions; }
+// NOT ORIGINAL grouping - the terrain types' and actions' tables (built by the start-up initialisers). Made on first
+// use, never destroyed (terrain_tables()).
+struct TerrainTables {
+    lists::KeyMap terrain_types_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+    lists::KeyMap terrain_actions_{lists::KeyMap::Unconstructed{}}; // (KeyMap(8) at start-up)
+};
 
-sound::AudioMixer* sound_manager() { return sound::g_audio_mixer.get(); }
+TerrainTables& terrain_tables()
+{
+    static core::NoDestroy<TerrainTables> state;
+    return state.get();
+}
+lists::KeyMap& terrain_types() { return terrain_tables().terrain_types_; }
+lists::KeyMap& get_terrain_actions() { return terrain_tables().terrain_actions_; }
+
+sound::AudioMixer* sound_manager() { return sound::get_audio_mixer(); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -438,7 +449,7 @@ bool load_terrain_sounds(uint32_t checksum)
 namespace surface_kind {
 
 // 0x00640950, 0x00640970 (static initialisers): the terrain tables, 256 buckets each.
-void construct_terrain_types() { new (&g_terrain_types) lists::KeyMap(8); }
-void construct_terrain_actions() { new (&g_terrain_actions) lists::KeyMap(8); }
+void construct_terrain_types() { new (&terrain_tables().terrain_types_) lists::KeyMap(8); }
+void construct_terrain_actions() { new (&terrain_tables().terrain_actions_) lists::KeyMap(8); }
 
 } // namespace surface_kind

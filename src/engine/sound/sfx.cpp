@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iterator>
+#include <span>
 #include <string_view>
 
 #include "engine/core/checksums.h"
@@ -20,21 +21,35 @@
 #include <array>
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "engine/sound/sound_state.h"
 
 namespace sound {
 
-float g_default_dropoff{1020.0f};
+SoundState& sound_state()
+{
+    static core::NoDestroy<SoundState> state;
+    return state.get();
+}
+AudioMixer* get_audio_mixer() { return sound_state().audio_mixer_.get(); }
+std::span<const SoundWaveSlot, 256> loaded_level_waves() { return sound_state().level_waves_; }
+int level_wave_count() { return sound_state().level_count_; }
 namespace {
-float g_volume_scale{100.0f};
+// NOT ORIGINAL grouping - the mixer's volume scale, master volume, pitch and the positional sounds' entries. Made on first
+// use, never destroyed (mix_state()).
+struct MixState {
+    float volume_scale_{100.0f};
+    float master_gain_{100.0f};
+    float pitch_{1.0f};
+    std::array<PositionalSound, 128> spatial_voices_{};
+};
+
+MixState& mix_state()
+{
+    static core::NoDestroy<MixState> state;
+    return state.get();
+}
 } // namespace
-std::array<SoundWaveSlot, 256> g_permanent_waves;
-std::array<SoundWaveSlot, 256> g_level_waves;
-std::array<PlayingSound, 48> g_playing_sounds;
-memory::HeapUnique<AudioMixer> g_audio_mixer;
-PositionalSound* g_positional_head;
-int g_permanent_count;
-int g_level_count;
-int g_positional_count;
 
 namespace {
 
@@ -46,22 +61,18 @@ constexpr int kMaxWaves = 256;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-std::array<PlayingSound, 48>& get_playing() { return g_playing_sounds; }
+std::array<PlayingSound, 48>& get_playing() { return sound_state().playing_sounds_; }
 
-float g_master_gain{100.0f};
-float g_pitch{1.0f};
-std::array<PositionalSound, 128> g_spatial_voices;
-
-std::array<PositionalSound, 128>& positional_pool() { return g_spatial_voices; }
-PositionalSound*& positional_head() { return g_positional_head; }
-int& positional_count() { return g_positional_count; }
-std::array<SoundWaveSlot, 256>& permanent_waves() { return g_permanent_waves; }
-int& permanent_count() { return g_permanent_count; }
-std::array<SoundWaveSlot, 256>& level_waves() { return g_level_waves; }
-int& get_level_count() { return g_level_count; }
-float& default_dropoff() { return g_default_dropoff; }
-float& master_loudness() { return g_master_gain; }
-float& get_pitch() { return g_pitch; }
+std::array<PositionalSound, 128>& positional_pool() { return mix_state().spatial_voices_; }
+PositionalSound*& positional_head() { return sound_state().positional_head_; }
+int& positional_count() { return sound_state().positional_count_; }
+std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves_; }
+int& permanent_count() { return sound_state().permanent_count_; }
+std::array<SoundWaveSlot, 256>& level_waves() { return sound_state().level_waves_; }
+int& get_level_count() { return sound_state().level_count_; }
+float& default_dropoff() { return sound_state().default_dropoff_; }
+float& master_loudness() { return mix_state().master_gain_; }
+float& get_pitch() { return mix_state().pitch_; }
 // Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
 bool quiet_misses() { return game_config::g_from_cd; }
 
@@ -97,7 +108,7 @@ int falloff_from_checksum(uint32_t checksum)
 // 0x0047B030
 VolumeRef::VolumeRef()
 {
-    const AudioMixer* manager = g_audio_mixer.get();
+    const AudioMixer* manager = sound_state().audio_mixer_.get();
     kind_tag_ = manager ? manager->fallback_channel_mode_ : kTypeStereo;
     change_muted();
 }
@@ -436,7 +447,7 @@ void AudioMixer::change_master_loudness(float volume)
         return;
     script::fetch_int_value(kDebugB);
     master_loudness() = volume;
-    auto scaled = static_cast<float>(static_cast<double>(g_volume_scale) * volume * 0.0099999998f);
+    auto scaled = static_cast<float>(static_cast<double>(mix_state().volume_scale_) * volume * 0.0099999998f);
     if (scaled < 0.1f)
         scaled = 0.0f;
     set_voice_volume(scaled);

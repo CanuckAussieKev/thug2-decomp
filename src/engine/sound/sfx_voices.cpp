@@ -41,6 +41,8 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "engine/sound/sound_state.h"
 
 namespace sound {
 
@@ -51,40 +53,49 @@ constexpr int kMaxPositional = 128;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-std::array<PlayingSound, 48>& get_playing() { return g_playing_sounds; }
-PositionalSound*& positional_head() { return g_positional_head; }
-int& positional_count() { return g_positional_count; }
-std::array<SoundWaveSlot, 256>& permanent_waves() { return g_permanent_waves; }
-int& permanent_count() { return g_permanent_count; }
-float& default_dropoff() { return g_default_dropoff; }
+std::array<PlayingSound, 48>& get_playing() { return sound_state().playing_sounds_; }
+PositionalSound*& positional_head() { return sound_state().positional_head_; }
+int& positional_count() { return sound_state().positional_count_; }
+std::array<SoundWaveSlot, 256>& permanent_waves() { return sound_state().permanent_waves_; }
+int& permanent_count() { return sound_state().permanent_count_; }
+float& default_dropoff() { return sound_state().default_dropoff_; }
 bool quiet_misses() { return game_config::g_from_cd; }
-memory::HeapUnique<AudioMixer>& sole() { return g_audio_mixer; }
+memory::HeapUnique<AudioMixer>& sole() { return sound_state().audio_mixer_; }
 
-float g_voice_volume{100.0f};
-uint32_t g_sfx_references;
-void* g_listener;
+// NOT ORIGINAL grouping - the DirectSound voices and their counts. Made on first use, never destroyed (voice_state()).
+struct VoiceState {
+    float voice_volume_{100.0f};
+    uint32_t sfx_references_{};
+    void* listener_{};
+    std::array<Voice, 48> voices_{};
+    int playing_voices_{};
+    bool has_3d_{};
+    int voice_count_{};
+    int last_voice_{};
+};
+
+VoiceState& voice_state()
+{
+    static core::NoDestroy<VoiceState> state;
+    return state.get();
+}
 // DirectSound's GUIDs, as the exe's data has them (dsound.lib's): IID_IDirectSound3DBuffer, IID_IDirectSound3DListener,
 // and DS3DALG_DEFAULT (GUID_NULL: the default 3D algorithm).
-GUID g_iid_sound_3d_buffer{.Data1 = 0x279AFA86, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
-GUID g_iid_sound_3d_listener{.Data1 = 0x279AFA84, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
-GUID g_default_3d_algorithm;
-std::array<Voice, 48> g_voices;
-int g_playing_voices;
-bool g_has_3d;
-int g_voice_count;
-int g_last_voice;
+const GUID kIidSound3dBuffer{.Data1 = 0x279AFA86, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+const GUID kIidSound3dListener{.Data1 = 0x279AFA84, .Data2 = 0x4981, .Data3 = 0x11CE, .Data4 = {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+const GUID kDefault3dAlgorithm{};
 
-uint32_t& ref_tally() { return g_sfx_references; }
+uint32_t& ref_tally() { return voice_state().sfx_references_; }
 
 // The driver's state.
-std::array<Voice, 48>& get_voices() { return g_voices; }
-int& playing_voices() { return g_playing_voices; }
-bool& has_3d() { return g_has_3d; }
-int& voice_count() { return g_voice_count; }
-int& last_voice() { return g_last_voice; }
-void*& get_listener() { return g_listener; }
+std::array<Voice, 48>& get_voices() { return voice_state().voices_; }
+int& playing_voices() { return voice_state().playing_voices_; }
+bool& has_3d() { return voice_state().has_3d_; }
+int& voice_count() { return voice_state().voice_count_; }
+int& last_voice() { return voice_state().last_voice_; }
+void*& get_listener() { return voice_state().listener_; }
 void* input_port() { return audio::g_sound_device; }
-float voice_volume() { return g_voice_volume; }
+float voice_volume() { return voice_state().voice_volume_; }
 
 // The DirectSound objects the voices hold as void* (the original's layout).
 IDirectSound* sound_device() { return static_cast<IDirectSound*>(input_port()); }
@@ -548,15 +559,25 @@ void stop_voice(int voice)
 }
 
 // 0x0047C7C0
-void set_voice_volume(float volume) { g_voice_volume = volume; }
+void set_voice_volume(float volume) { voice_state().voice_volume_ = volume; }
 
 namespace {
-float g_voice_pitch{1.0f};
-std::array<char, 256> g_wave_file_name{{"data\\sounds\\"}};
+// NOT ORIGINAL grouping - the pitch and file name of the wave loading. Made on first use, never destroyed
+// (wave_load_state()).
+struct WaveLoadState {
+    float voice_pitch_{1.0f};
+    std::array<char, 256> wave_file_name_{{"data\\sounds\\"}};
+};
+
+WaveLoadState& wave_load_state()
+{
+    static core::NoDestroy<WaveLoadState> state;
+    return state.get();
+}
 } // namespace
 
 // 0x0047C7D0
-void set_voice_pitch(float pitch) { g_voice_pitch = pitch; }
+void set_voice_pitch(float pitch) { wave_load_state().voice_pitch_ = pitch; }
 
 // 0x0047C7E0
 int is_voice_playing(int voice) { return core::at(get_voices(), voice).playing && core::at(get_voices(), voice).buffer ? 1 : 0; }
@@ -614,7 +635,7 @@ void init_voices(AudioMixer* manager)
     desc.dwFlags = DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRL3D;
     IDirectSoundBuffer* primary = nullptr;
     sound_device()->CreateSoundBuffer(&desc, &primary, nullptr);
-    primary->QueryInterface(g_iid_sound_3d_listener, &get_listener());
+    primary->QueryInterface(kIidSound3dListener, &get_listener());
     listener()->SetPosition(0.0f, 0.0f, 0.0f, DS3D_IMMEDIATE);
     primary->Release();
 }
@@ -705,7 +726,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
 bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, int load_type, int /*unused*/)
 {
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
-    auto& file_name = g_wave_file_name;
+    auto& file_name = wave_load_state().wave_file_name_;
     const size_t length = std::strlen(path);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(std::span(file_name).subspan(12).data(), path, length);
@@ -846,7 +867,7 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
         voice.wave = nullptr;
         const bool three_d = has_3d() && volume->kind_tag_ == VolumeRef::kType3d;
         wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
-        std::memcpy(wave->desc_3d_algorithm_.data(), &g_default_3d_algorithm, 16);
+        std::memcpy(wave->desc_3d_algorithm_.data(), &kDefault3dAlgorithm, 16);
         // (the wave's buffer description, sfx.h; its format the wave's first fields - the original pointed
         // DirectSound at them in place)
         WAVEFORMATEX format{};
@@ -870,7 +891,7 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
         if (made != DS_OK)
             return -1;
         if (has_3d() && volume->kind_tag_ == VolumeRef::kType3d)
-            created->QueryInterface(g_iid_sound_3d_buffer, &voice.buffer_3d_);
+            created->QueryInterface(kIidSound3dBuffer, &voice.buffer_3d_);
         void* first = nullptr;
         DWORD first_bytes = 0;
         void* second = nullptr;

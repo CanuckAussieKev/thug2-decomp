@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
@@ -291,14 +292,10 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch);
 // 0x0047D390: every playing voice set silent.
 void silence_voices();
 
-extern float g_default_dropoff;
-extern std::array<SoundWaveSlot, 256> g_permanent_waves;
-extern std::array<SoundWaveSlot, 256> g_level_waves;
-extern std::array<PlayingSound, 48> g_playing_sounds;
-extern memory::HeapUnique<AudioMixer> g_audio_mixer;
-extern PositionalSound* g_positional_head;
-extern int g_permanent_count;
-extern int g_level_count;
-extern int g_positional_count;
+// NOT ORIGINAL - the sound effects manager (null until the game makes it), the level's loaded waves (the level editor
+// lists them) and how many there are.
+AudioMixer* get_audio_mixer();
+std::span<const SoundWaveSlot, 256> loaded_level_waves();
+int level_wave_count();
 
 } // namespace sound

@@ -814,7 +814,7 @@ void Rider::get_freeze()
     script::launch_script(0x1277E3FD, nullptr, nullptr, false, nullptr);
     if (const PadInputModule* input = pad_input_)
         input->handler_->dev_->pause_actuators();
-    sound::g_audio_mixer->update_voice_volumes();
+    sound::get_audio_mixer()->update_voice_volumes();
 }
 
 // 0x005817F0

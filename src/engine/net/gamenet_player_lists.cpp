@@ -435,7 +435,7 @@ void Hub::clear_queued_scripts()
 void Hub::launch_queued_scripts()
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    auto* sound = sound::g_audio_mixer.get();
+    auto* sound = sound::get_audio_mixer();
     modules::Skate* skate = modules::g_skate_module.get();
     memory->enter_heap_scope(memory->bottom_up_heap_);
     static_cast<modules::Skate*>(skate)->begin_queued_scripts();

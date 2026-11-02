@@ -1022,7 +1022,7 @@ void TrickBeatGoal::update_beat()
                 level.change_muted();
                 core::at(level.lanes_, 0) = volume;
                 core::at(level.lanes_, 1) = volume;
-                sound::g_audio_mixer->emit_sound(name, &level, pitch, 0, nullptr, 0);
+                sound::get_audio_mixer()->emit_sound(name, &level, pitch, 0, nullptr, 0);
             }
         }
         if (++beat_ > kBeats - 1) {

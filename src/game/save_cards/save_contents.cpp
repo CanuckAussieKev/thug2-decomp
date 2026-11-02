@@ -162,7 +162,7 @@ void read_save_header(Struct* global, Script* script)
 
     Struct* sound = nullptr;
     options->read_sub_struct(kSoundOptions, &sound, 0);
-    auto* sfx = sound::g_audio_mixer.get();
+    auto* sfx = sound::get_audio_mixer();
     float main_volume = 0.0f;
     if (sound->fetch_float(kMasterGainKey, &main_volume, 0))
         sfx->change_master_loudness(main_volume);
