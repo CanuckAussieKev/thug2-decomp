@@ -33,8 +33,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/screen_2d.h"
 
 namespace render {
 
@@ -57,11 +57,6 @@ TextState& text_state()
 }
 
 } // namespace
-TextShared& text_shared()
-{
-    static core::NoDestroy<TextShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -78,7 +73,7 @@ uint32_t& get_vertex_count() { return text_state().text_vertex_count_; }
 core::Cursor<TextVertex> next_quad() { return core::Cursor<TextVertex>(std::span<TextVertex>(text_state().text_vertex_store_), static_cast<std::ptrdiff_t>(get_vertex_count())); }
 constexpr uint32_t kVertexLimit = 0x400;
 // The font button glyphs come from, and the font whose texture the buffer is drawn with.
-TypefaceData* pad_glyph_typeface() { return text_shared().glyph_typeface_; }
+
 TypefaceData*& get_texture_font() { return text_state().texture_font_; }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
@@ -144,7 +139,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
                 ++p;
                 const int button = glyph_for_button_tag(tag, *p);
                 if (use_button_glyph(button)) {
-                    font = pad_glyph_typeface();
+                    font = screen_2d().pad_glyph_typeface();
                     glyph = &font->glyph(core::at(font->special_map_, button));
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
@@ -276,7 +271,7 @@ void GlyphRun::draw()
                 const int button = glyph_for_button_tag(tag, *p);
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
-                    TypefaceData* buttons = pad_glyph_typeface();
+                    TypefaceData* buttons = screen_2d().pad_glyph_typeface();
                     glyph = &buttons->glyph(core::at(buttons->special_map_, button));
                     char_font = buttons;
                     close_sketch();

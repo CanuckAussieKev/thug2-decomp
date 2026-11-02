@@ -17,16 +17,10 @@
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/screen_2d.h"
 
 namespace render {
-
-LoadingBarShared& loading_bar_shared()
-{
-    static core::NoDestroy<LoadingBarShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -57,14 +51,10 @@ LoadingBarState& loading_bar_state()
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
-const std::array<uint8_t, 4>& start_color() { return loading_bar_shared().progress_from_color_; }
-const std::array<uint8_t, 4>& end_color() { return loading_bar_shared().progress_to_color_; }
-const std::array<uint8_t, 4>& border_color() { return loading_bar_shared().progress_edge_color_; }
-int& progress_bar_pixels() { return loading_bar_shared().progress_width_; }
 
 Rgb& gradient_start() { return loading_bar_state().gradient_start_; }
 Rgb& gradient_end() { return loading_bar_state().gradient_end_; }
-int& gradient_width() { return loading_bar_shared().gradient_width_; }
+
 uint32_t& border_argb() { return loading_bar_state().border_argb_; }
 
 std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table()
@@ -74,11 +64,6 @@ std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table()
 }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
-float& tick_seconds() { return loading_bar_shared().tick_seconds_; }
-float& elapsed_seconds() { return loading_bar_shared().elapsed_seconds_; }
-float& get_total_seconds() { return loading_bar_shared().total_seconds_; }
-
-HANDLE& screen_mutex() { return loading_bar_shared().screen_mutex_; } // held while the loading screen is drawn
 
 struct BarVertex {
     float x, y, z, rhw;
@@ -105,17 +90,17 @@ uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g &
 // 0x004B6B80
 void update_loading_bar_colors()
 {
-    gradient_start() = {.r = core::at(start_color(), 0), .g = core::at(start_color(), 1), .b = core::at(start_color(), 2)};
-    gradient_end() = {.r = core::at(end_color(), 0), .g = core::at(end_color(), 1), .b = core::at(end_color(), 2)};
-    gradient_width() =
-        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * progress_bar_pixels() * (1.0f / 640.0f));
-    border_argb() = 0x80000000u | core::at(border_color(), 0) << 16 | core::at(border_color(), 1) << 8 | core::at(border_color(), 2);
+    gradient_start() = {.r = core::at(screen_2d().start_color(), 0), .g = core::at(screen_2d().start_color(), 1), .b = core::at(screen_2d().start_color(), 2)};
+    gradient_end() = {.r = core::at(screen_2d().end_color(), 0), .g = core::at(screen_2d().end_color(), 1), .b = core::at(screen_2d().end_color(), 2)};
+    screen_2d().gradient_width() =
+        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * screen_2d().progress_bar_pixels() * (1.0f / 640.0f));
+    border_argb() = 0x80000000u | core::at(screen_2d().border_color(), 0) << 16 | core::at(screen_2d().border_color(), 1) << 8 | core::at(screen_2d().border_color(), 2);
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
     // bytes too early (it replaced the instruction's base, which is the table's address + 4). Here the table is
     // at the start of the buffer. Nothing reads the table.
-    const int steps = static_cast<int>(static_cast<double>(gradient_width()) * renderer().display_factor_x());
+    const int steps = static_cast<int>(static_cast<double>(screen_2d().gradient_width()) * renderer().display_factor_x());
     const Rgb start = gradient_start();
     const Rgb delta = {.r = gradient_end().r - start.r, .g = gradient_end().g - start.g, .b = gradient_end().b - start.b};
     auto& table = gradient_table();
@@ -136,7 +121,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
 {
     if (!renderer().loading_bar_timer() || !loading_screen_up())
         return;
-    WaitForSingleObject(screen_mutex(), INFINITE);
+    WaitForSingleObject(screen_2d().screen_mutex(), INFINITE);
     renderer().d3d_device()->BeginScene();
     render::draw_loading_screen_picture(); // the picture, full screen
 
@@ -144,15 +129,15 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     // are floats)
     const double x_scale = static_cast<double>(renderer().back_buffer_width()) * kPer640;               // 1 / 640
     auto y_scale = static_cast<float>(static_cast<double>(renderer().back_buffer_height()) * kPer480);  // 1 / 480
-    const double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
-    elapsed_seconds() = static_cast<float>(elapsed);
-    double fraction = elapsed / get_total_seconds();
+    const double elapsed = static_cast<double>(screen_2d().tick_seconds()) + screen_2d().elapsed_seconds();
+    screen_2d().elapsed_seconds() = static_cast<float>(elapsed);
+    double fraction = elapsed / screen_2d().get_total_seconds();
     if (fraction > 1.0)
         fraction = 1.0;
-    const int left = (renderer().back_buffer_width() - gradient_width()) / 2;
+    const int left = (renderer().back_buffer_width() - screen_2d().gradient_width()) / 2;
     const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * kFloatFive); // 5
-    const int filled = ftol(gradient_width() * fraction) + left;
-    const int frame_right = ftol((gradient_width() + frame_left) + x_scale * kFloatTen); // 10
+    const int filled = ftol(screen_2d().gradient_width() * fraction) + left;
+    const int frame_right = ftol((screen_2d().gradient_width() + frame_left) + x_scale * kFloatTen); // 10
     const int top = ftol(y_scale * static_cast<double>(kFloat420));                       // 420
     const int bottom = ftol(top + y_scale * static_cast<double>(kFloatTwenty));          // 20
     auto top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
@@ -176,7 +161,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     const double inset = y_scale * static_cast<double>(kFloatFive); // 5
     auto gradient_top = static_cast<float>(top_f + inset);
     auto gradient_bottom = static_cast<float>(bottom_f - static_cast<double>(static_cast<float>(inset)));
-    draw_quad(static_cast<float>(left), gradient_top, static_cast<float>(gradient_width() + left), gradient_bottom,
+    draw_quad(static_cast<float>(left), gradient_top, static_cast<float>(screen_2d().gradient_width() + left), gradient_bottom,
               opaque(gradient_start()), opaque(gradient_end()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
     draw_quad(static_cast<float>(filled), top_f, frame_right_f, bottom_f, border_argb(), border_argb());
@@ -185,7 +170,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     gfx::loading_console::draw_panel();
     renderer().d3d_device()->EndScene();
     renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
-    ReleaseMutex(screen_mutex());
+    ReleaseMutex(screen_2d().screen_mutex());
 }
 
 } // namespace render
@@ -193,6 +178,6 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
 namespace render {
 
 // 0x00640D10 (a static initialiser): the loading screen's lock, a mutex nobody owns.
-void create_screen_mutex() { loading_bar_shared().screen_mutex_ = CreateMutexA(nullptr, FALSE, nullptr); }
+void create_screen_mutex() { screen_2d().screen_mutex() = CreateMutexA(nullptr, FALSE, nullptr); }
 
 } // namespace render

@@ -33,8 +33,8 @@
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/screen_2d.h"
 
 namespace gfx::loading_console {
 
@@ -139,13 +139,13 @@ LoadingConsoleState& loading_console_state()
 }
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
-HANDLE screen_mutex() { return render::loading_bar_shared().screen_mutex_; }
+HANDLE screen_mutex() { return render::screen_2d().screen_mutex(); }
 
 bool load_screen_shown() { return render::loading_screen_up() != 0; } // the main loop draws nothing then
 
-bool screen_picture() { return render::loading_screen_shared().loading_screen_picture_ != nullptr; } // the loading screen's picture is up
+bool screen_picture() { return render::screen_2d().loading_screen_picture() != nullptr; } // the loading screen's picture is up
 
-int progress_bar_pixels() { return render::loading_bar_shared().gradient_width_; } // the loading bar's width in pixels
+int progress_bar_pixels() { return render::screen_2d().gradient_width(); } // the loading bar's width in pixels
 
 double get_now()
 {

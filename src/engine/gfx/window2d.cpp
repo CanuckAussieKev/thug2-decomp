@@ -3,21 +3,8 @@
 #include "engine/gfx/window2d.h"
 
 #include "engine/core/dbg.h"
-#include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/screen_2d.h"
 namespace render {
-
-Window2dShared& window2d_shared()
-{
-    static core::NoDestroy<Window2dShared> state;
-    return state.get();
-}
-
-namespace {
-
-ScreenWindow*& free_windows() { return window2d_shared().free_windows_; }
-
-} // namespace
 
 // 0x004A1580
 ScreenWindow::ScreenWindow(int x, int y, int width, int height) : pos_x_(x), y_(y), span_(width), level_y_(height) {}
@@ -44,9 +31,9 @@ void ScreenWindow::change_extent(int width, int height)
 // 0x004A1620
 ScreenWindow* allocate_window_2d(int x, int y, int width, int height)
 {
-    ScreenWindow* window = free_windows();
+    ScreenWindow* window = screen_2d().free_windows();
     if (window)
-        free_windows() = window->following_;
+        screen_2d().free_windows() = window->following_;
     window->pos_x_ = x;
     window->y_ = y;
     window->tick_engine();
@@ -59,8 +46,8 @@ ScreenWindow* allocate_window_2d(int x, int y, int width, int height)
 // 0x004A1670
 void free_window_2d(ScreenWindow* window)
 {
-    window->following_ = free_windows();
-    free_windows() = window;
+    window->following_ = screen_2d().free_windows();
+    screen_2d().free_windows() = window;
 }
 
 } // namespace render

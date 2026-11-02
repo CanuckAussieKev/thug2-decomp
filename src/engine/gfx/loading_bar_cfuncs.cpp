@@ -10,7 +10,7 @@
 #include "engine/gfx/loading_screen.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/screen_2d.h"
 
 namespace render {
 
@@ -53,7 +53,6 @@ bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
     return true;
 }
 
-
 float& loading_bar_seconds()
 {
     static float loading_bar_seconds{};
@@ -74,37 +73,37 @@ void set_loading_bar_time(float seconds)
 // 0x004907A0
 bool cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, core::at(loading_bar_shared().bar_position_, 0), core::at(loading_bar_shared().bar_position_, 1));
+    return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, core::at(screen_2d().bar_position(), 0), core::at(screen_2d().bar_position(), 1));
 }
 
 // 0x004907F0
 bool cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, loading_bar_shared().progress_width_, loading_bar_shared().progress_height_);
+    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, screen_2d().progress_bar_pixels(), screen_2d().progress_height());
 }
 
 // 0x00490840
 bool cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, core::at(loading_bar_shared().bar_border_, 0), core::at(loading_bar_shared().bar_border_, 1));
+    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, core::at(screen_2d().bar_border(), 0), core::at(screen_2d().bar_border(), 1));
 }
 
 // 0x004908E0
 bool cfunc_set_loading_bar_start_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, loading_bar_shared().progress_from_color_);
+    return change_colour(params, screen_2d().start_color());
 }
 
 // 0x00490960
 bool cfunc_set_loading_bar_end_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, loading_bar_shared().progress_to_color_);
+    return change_colour(params, screen_2d().end_color());
 }
 
 // 0x004909E0
 bool cfunc_set_loading_bar_border_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, loading_bar_shared().progress_edge_color_);
+    return change_colour(params, screen_2d().border_color());
 }
 
 // 0x00490890

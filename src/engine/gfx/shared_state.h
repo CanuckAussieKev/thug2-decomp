@@ -47,18 +47,6 @@ EngineEffectsShared& engine_effects_shared();
 
 namespace render {
 
-// NOT ORIGINAL grouping - engine_font.cpp's state shared with the folder's other files (the original's globals). Made
-// on first use, never destroyed (engine_font_shared()).
-struct EngineFontShared {
-    std::array<char, 32> glyph_alias_table_{};
-    std::array<FontSlot, 16> font_slots_{};
-};
-EngineFontShared& engine_font_shared();
-
-} // namespace render
-
-namespace render {
-
 // NOT ORIGINAL grouping - engine_glue.cpp's state shared with the folder's other files (the original's globals). Made
 // on first use, never destroyed (engine_glue_shared()).
 struct EngineGlueShared {
@@ -91,61 +79,6 @@ struct EngineShadowEdgesShared {
     lists::ObjectSet<ShadowEdges> shadow_edge_table_{};
 };
 EngineShadowEdgesShared& engine_shadow_edges_shared();
-
-} // namespace render
-
-namespace render {
-
-// NOT ORIGINAL grouping - engine_text.cpp's state shared with the folder's other files (the original's globals). Made
-// on first use, never destroyed (engine_text_shared()).
-struct EngineTextShared {
-    GlyphString* free_texts_{};
-};
-EngineTextShared& engine_text_shared();
-
-} // namespace render
-
-namespace render {
-
-// NOT ORIGINAL grouping - font.cpp's state shared with the folder's other files (the original's globals). Made on first
-// use, never destroyed (font_shared()).
-struct FontShared {
-    lists::KeyMap font_table_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)
-};
-FontShared& font_shared();
-
-} // namespace render
-
-namespace render {
-
-// NOT ORIGINAL grouping - loading_bar.cpp's state shared with the folder's other files (the original's globals). Made
-// on first use, never destroyed (loading_bar_shared()).
-struct LoadingBarShared {
-    int gradient_width_{};
-    void* screen_mutex_{}; // the loading screen's lock (a HANDLE), held while it is drawn
-    float tick_seconds_{};
-    float elapsed_seconds_{};
-    float total_seconds_{};
-    std::array<int, 2> bar_position_{{258, 400}};
-    int progress_width_{140};
-    int progress_height_{8};
-    std::array<int, 2> bar_border_{{5, 5}};
-    std::array<uint8_t, 4> progress_from_color_{{0x00, 0x4C, 0x81, 0x80}};
-    std::array<uint8_t, 4> progress_to_color_{{0xAC, 0xD3, 0x73, 0x80}};
-    std::array<uint8_t, 4> progress_edge_color_{{0x28, 0x28, 0x28, 0x80}};
-};
-LoadingBarShared& loading_bar_shared();
-
-} // namespace render
-
-namespace render {
-
-// NOT ORIGINAL grouping - loading_screen.cpp's state shared with the folder's other files (the original's globals).
-// Made on first use, never destroyed (loading_screen_shared()).
-struct LoadingScreenShared {
-    std::unique_ptr<render::BitmapTexture> loading_screen_picture_{};
-};
-LoadingScreenShared& loading_screen_shared();
 
 } // namespace render
 
@@ -243,17 +176,6 @@ ShatterShared& shatter_shared();
 
 namespace render {
 
-// NOT ORIGINAL grouping - text.cpp's state shared with the folder's other files (the original's globals). Made on first
-// use, never destroyed (text_shared()).
-struct TextShared {
-    TypefaceData* glyph_typeface_{};
-};
-TextShared& text_shared();
-
-} // namespace render
-
-namespace render {
-
 // NOT ORIGINAL grouping - texture_splats.cpp's state shared with the folder's other files (the original's globals).
 // Made on first use, never destroyed (texture_splats_shared()).
 struct TextureSplatsShared {
@@ -264,13 +186,3 @@ TextureSplatsShared& texture_splats_shared();
 
 } // namespace render
 
-namespace render {
-
-// NOT ORIGINAL grouping - window2d.cpp's state shared with the folder's other files (the original's globals). Made on
-// first use, never destroyed (window2d_shared()).
-struct Window2dShared {
-    ScreenWindow* free_windows_{};
-};
-Window2dShared& window2d_shared();
-
-} // namespace render

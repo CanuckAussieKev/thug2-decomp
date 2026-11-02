@@ -11,21 +11,12 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/screen_2d.h"
 #include <gsl/pointers>
 
 namespace render {
 
-EngineTextShared& engine_text_shared()
-{
-    static core::NoDestroy<EngineTextShared> state;
-    return state.get();
-}
-
 namespace {
-
-GlyphString*& free_list() { return engine_text_shared().free_texts_; }
 
 // Memory from the front end's heap.
 void* front_end_new(unsigned int size)
@@ -210,9 +201,9 @@ void GlyphString::set_char_rotation(int index, float rotation)
 // 0x0048D1D0
 gsl::owner<GlyphString*> new_text()
 {
-    GlyphString* text = free_list();
+    GlyphString* text = screen_2d().free_list();
     if (text)
-        free_list() = text->next_free_;
+        screen_2d().free_list() = text->next_free_;
     return text;
 }
 
@@ -222,8 +213,8 @@ void free_text(GlyphString* text)
     text->invisible_ = true;
     text->update_hidden();
     text->free_buffers();
-    text->next_free_ = free_list();
-    free_list() = text;
+    text->next_free_ = screen_2d().free_list();
+    screen_2d().free_list() = text;
 }
 
 } // namespace render

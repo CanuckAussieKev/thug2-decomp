@@ -30,6 +30,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/screen_2d.h"
 #include <span>
 #include <bit>
 #include <gsl/pointers>
@@ -544,8 +545,8 @@ void create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
         auto window = memory::make_owned<PcWindow>(0, 0, 640, 480);
-        window->following_ = window2d_shared().free_windows_; // (no check, as the original)
-        window2d_shared().free_windows_ = window;
+        window->following_ = screen_2d().free_windows(); // (no check, as the original)
+        screen_2d().free_windows() = window;
     }
 }
 

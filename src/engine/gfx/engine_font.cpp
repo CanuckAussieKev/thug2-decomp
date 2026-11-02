@@ -13,24 +13,9 @@
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
-#include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/screen_2d.h"
 
 namespace render {
-
-EngineFontShared& engine_font_shared()
-{
-    static core::NoDestroy<EngineFontShared> state;
-    return state.get();
-}
-
-namespace {
-
-std::array<FontSlot, 16>& get_slots() { return engine_font_shared().font_slots_; }
-lists::KeyMap& font_table() { return font_shared().font_table_; }
-std::array<char, 32>& glyph_escape_table() { return engine_font_shared().glyph_alias_table_; }
-
-} // namespace
 
 // 0x0048D040
 void Typeface::offload()
@@ -47,19 +32,19 @@ void Typeface::change_colors(const uint32_t* /*colors*/) { debug::printf("STUB A
 void Typeface::flag_button_font(bool /*buttons*/) { debug::printf("STUB A DUB DUB"); }
 
 // 0x0048D6A0
-char button_glyph(char digit) { return core::at(glyph_escape_table(), text::hex_digit_value(digit)); }
+char button_glyph(char digit) { return core::at(screen_2d().glyph_escape_table(), text::hex_digit_value(digit)); }
 
 // 0x0048D6C0
 void unload_font(const char* name)
 {
-    auto& slots = get_slots();
+    auto& slots = screen_2d().get_slots();
     int index = 0;
     while (std::strcmp(core::at(slots, index).name.data(), name) != 0) {
         if (++index >= kFontSlots)
             return;
     }
     const uint32_t key = checksums::hash_from_text(name);
-    font_table().erase_entry(key);
+    screen_2d().font_table().erase_entry(key);
     unload_pc_font(core::down_cast<PcFont>(core::at(slots, index).font));
     core::at(slots, index).font = nullptr;
 }
@@ -67,7 +52,7 @@ void unload_font(const char* name)
 // 0x0048D760
 Typeface* get_font(uint32_t name)
 {
-    auto* slot = static_cast<FontSlot*>(font_table().fetch_entry(name));
+    auto* slot = static_cast<FontSlot*>(screen_2d().font_table().fetch_entry(name));
     return slot ? slot->font : nullptr;
 }
 

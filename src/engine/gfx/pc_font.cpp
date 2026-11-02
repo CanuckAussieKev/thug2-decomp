@@ -12,7 +12,7 @@
 #include "engine/gfx/text.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/screen_2d.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -20,8 +20,6 @@ namespace render {
 namespace {
 
 // The button glyph font (0x00780FDC) and the texts' free list (0x006FA804).
-TypefaceData*& pad_glyph_typeface() { return text_shared().glyph_typeface_; }
-GlyphString*& free_texts() { return engine_text_shared().free_texts_; }
 
 } // namespace
 
@@ -58,7 +56,7 @@ void PcFont::change_colors(const uint32_t* colors)
 }
 
 // 0x004B3CB0
-void PcFont::flag_button_font(bool buttons) { pad_glyph_typeface() = buttons ? font : nullptr; }
+void PcFont::flag_button_font(bool buttons) { screen_2d().pad_glyph_typeface() = buttons ? font : nullptr; }
 
 // 0x004B3CD0
 void PcFont::unload_platform()
@@ -137,8 +135,8 @@ void allocate_text_pool(uint32_t count)
     for (uint32_t i = 0; i < count; ++i) {
         auto text = memory::make_owned<PcText>();
         // (no check: a failed allocation writes through null, as the original)
-        text->next_free_ = free_texts();
-        free_texts() = text;
+        text->next_free_ = screen_2d().free_texts();
+        screen_2d().free_texts() = text;
     }
 }
 

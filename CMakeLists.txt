@@ -387,6 +387,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/anim_track.cpp
     src/engine/gfx/boned_anim_frame_data.cpp
     src/engine/gfx/screen.cpp
+    src/engine/gfx/screen_2d.cpp
     src/engine/gfx/viewport.cpp
     src/engine/gfx/weather.cpp
     src/engine/gfx/window2d.cpp

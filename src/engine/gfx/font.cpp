@@ -20,22 +20,12 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
-#include "engine/gfx/shared_state.h"
-#include "engine/core/no_destroy.h"
+#include "engine/gfx/screen_2d.h"
 namespace render {
-
-FontShared& font_shared()
-{
-    static core::NoDestroy<FontShared> state;
-    return state.get();
-}
 
 namespace {
 
-std::array<FontSlot, 16>& get_slots() { return engine_font_shared().font_slots_; }
-lists::KeyMap& font_table() { return font_shared().font_table_; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
-std::array<char, 32>& glyph_escape_table() { return engine_font_shared().glyph_alias_table_; }
 
 bool& meta_button_map_loaded()
 {
@@ -92,7 +82,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         return;
     }
 
-    auto& slots = get_slots();
+    auto& slots = screen_2d().get_slots();
     int index = 0;
     while (index < kFontSlots && core::at(slots, index).font)
         ++index;
@@ -107,7 +97,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         // The original copies the name with no length limit, like strcpy.
         text::copy_unbounded(slot.name.data(), name);
         const uint32_t key = checksums::hash_from_text(name);
-        font_table().store_entry(key, slot.name.data());
+        screen_2d().font_table().store_entry(key, slot.name.data());
     }
     // (With every slot taken nothing is loaded, but the map below still is.)
 
@@ -118,7 +108,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         return;
     for (uint32_t i = 0; i < 32; ++i) {
         const int digit = i < map->extent_ ? static_cast<int>(map->fetch_part(i)) : 0;
-        core::at(glyph_escape_table(), i) = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
+        core::at(screen_2d().glyph_escape_table(), i) = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
     }
     meta_button_map_loaded() = true;
 }
@@ -164,6 +154,6 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
 namespace render {
 
 // 0x00640B40 (a static initialiser): the loaded fonts' table, 16 buckets.
-void construct_font_table() { new (&font_shared().font_table_) lists::KeyMap(4); }
+void construct_font_table() { new (&screen_2d().font_table()) lists::KeyMap(4); }
 
 } // namespace render
