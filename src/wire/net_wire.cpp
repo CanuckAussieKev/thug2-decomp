@@ -4,6 +4,9 @@
 
 #include "formats/byte_stream.h"
 
+#include <cstddef>
+#include <cstdint>
+
 namespace net::wire {
 
 bool read_sequenced_header(util::ByteReader& reader, SequencedHeader* header)

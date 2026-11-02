@@ -5,6 +5,8 @@
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
 
+#include <cstdint>
+
 namespace online {
 
 bool read_play_anim(util::ByteReader& reader, PlayAnimMessage* message)

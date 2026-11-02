@@ -2,6 +2,7 @@
 
 #include "wire/gamenet_messages.h"
 
+#include <cstdint>
 #include <cstring>
 #include <array>
 #include <span>

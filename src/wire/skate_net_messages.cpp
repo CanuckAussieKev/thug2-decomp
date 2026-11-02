@@ -5,6 +5,8 @@
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
 
+#include <cstdint>
+
 namespace skate_net {
 
 bool read_scores(util::ByteReader& reader, ScoresMessage* message)
