@@ -90,7 +90,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
     goals::GapTally* checklist = core::at(career->gaps_, level);
     if (!checklist)
         return 0;
-    const maths::Vec4 facing = {0.0f, 0.0f, 1.0f, 0.0f};
+    const maths::Vec4 facing = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
     for (uint32_t i = 0; i < gaps->extent_; ++i) {
         auto* gap = gaps->struct_at(i);
         const char* name = nullptr;
@@ -103,9 +103,9 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
             continue; // (landed already)
         checklist->register_gap_entry(name, 1,
                                       score); // (also marks the checklist built; one already there is left as it is)
-        script::VectorValue pos = {0.0f, 0.0f, 0.0f, 1.0f};
+        script::VectorValue pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         gap->fetch_vec(name_hash("pos"), &pos, 0);
-        checklist->set_gap_positions(name, {pos.x, pos.y, pos.z, 1.0f}, facing);
+        checklist->set_gap_positions(name, {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f}, facing);
     }
     const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {
@@ -199,8 +199,8 @@ bool cfunc_apply(script::Struct* params, script::Script*)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"Career100_Available", &cfunc_available},
-        {"Career100_Apply", &cfunc_apply},
+        {.name = "Career100_Available", .function = &cfunc_available},
+        {.name = "Career100_Apply", .function = &cfunc_apply},
     });
     script::install_script_functions(kFunctions);
 }

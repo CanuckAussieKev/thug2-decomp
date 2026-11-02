@@ -117,7 +117,7 @@ std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
         const int name_size = static_cast<int16_t>(word_at(bytes, offset + 8) & 0xFFFF);
         const uint32_t checksum = word_at(bytes, offset + 12);
         const int stored = compressed_size ? compressed_size : size;
-        files.push_back({offset, size, compressed_size, checksum, text_at(bytes, offset + kReferenceRowSize)});
+        files.push_back({.offset = offset, .size = size, .compressed_size = compressed_size, .checksum = checksum, .name = text_at(bytes, offset + kReferenceRowSize)});
         offset += static_cast<size_t>(((stored + 3) & ~3) + name_size + static_cast<int>(kReferenceRowSize));
     }
     return files;

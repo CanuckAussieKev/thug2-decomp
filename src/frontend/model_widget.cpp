@@ -142,13 +142,13 @@ float wrapped(double angle)
 ModelWidget::ModelWidget()
 {
     for (ShapeMesh& model : models_)
-        model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
+        model.offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     core::at(angle_, 0) = core::at(angle_, 1) = core::at(angle_, 2) = 0.0f;
     core::at(angular_velocity_, 0) = core::at(angular_velocity_, 1) = core::at(angular_velocity_, 2) = 0.0f;
-    target_position_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    target_position_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     basis_frame_.reset_to_identity();
-    pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    centre_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    pivot_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    centre_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     // (not set here: the hover, ParentParams' offset and node - change_traits sets them)
     change_species(kElement3d);
 }
@@ -164,7 +164,7 @@ void ModelWidget::clear_models()
             model.object->conceal(true);
             mark_object_dead(model.object.get_pull());
         }
-        model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
+        model.offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
     model_total_ = 0;
 }
@@ -252,7 +252,7 @@ void ModelWidget::scale_to_screen_dims()
 void ModelWidget::change_traits(Struct* params)
 {
     base_set_properties(this, params);
-    maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (params->has_entry_named(kSkeletonName) || params->has_entry_named(kCloneModel) ||
         params->has_entry_named(kModel) || params->has_entry_named(kModels)) {
         clear_models();
@@ -318,7 +318,7 @@ void ModelWidget::change_traits(Struct* params)
     parent_integer_ = 0;
     anchor_object_ = 0;
     attach_to_name_ = 0;
-    anchor_shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    anchor_shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     Struct* parent = nullptr;
     if (params->read_sub_struct(kOwnerArgs, &parent, 0)) {
         parent->read_hash_value(kName, &anchor_object_, 0);
@@ -417,7 +417,7 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     if (!camera)
         return;
     maths::Mat4 rotation = *cam_orientation(camera);
-    core::at(rotation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(rotation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Vec4 place = point * rotation;
     const maths::Vec4* position = viewer_location(camera);
     place.x = position->x + place.x;
@@ -524,9 +524,9 @@ void ModelWidget::tick_frame()
         core::at(basis_frame_.row, 3).x = position.x + offset.x;
         core::at(basis_frame_.row, 3).y = position.y + offset.y;
     } else {
-        const maths::Vec4 centre = {static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
-                                    static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
-                                    static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), 1.0f};
+        const maths::Vec4 centre = {.x = static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
+                                    .y = static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
+                                    .z = static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), .w = 1.0f};
         auto y = static_cast<float>(get_layout_height() * 0.5f + summed_.top);
         auto x = static_cast<float>(get_layout_width() * 0.5f + summed_.left);
         screen_to_world(&centre, &basis_frame_, view_slot_, x, y, camera_z_, &place);
@@ -561,10 +561,10 @@ void ModelWidget::tick_frame()
 
     // The models' own turn about the pivot.
     maths::Mat4 local;
-    core::at(local.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(local.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(local.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(local.row, 3) = {-pivot_.x, -pivot_.y, -pivot_.z, static_cast<float>(static_cast<double>(-pivot_.w) + 1.0f)};
+    core::at(local.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(local.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(local.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(local.row, 3) = {.x = -pivot_.x, .y = -pivot_.y, .z = -pivot_.z, .w = static_cast<float>(static_cast<double>(-pivot_.w) + 1.0f)};
     const double angle_x = static_cast<double>(core::at(angular_velocity_, 0)) + core::at(angle_, 0);
     const double angle_y = static_cast<double>(core::at(angular_velocity_, 1)) + core::at(angle_, 1);
     auto angle_z = static_cast<float>(static_cast<double>(core::at(angular_velocity_, 2)) + core::at(angle_, 2));
@@ -578,8 +578,8 @@ void ModelWidget::tick_frame()
     core::at(local.row, 3).w += pivot_.w;
 
     auto scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * fit_scale_);
-    maths::Vec4 scale = {scale_x, static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), scale_x,
-                         1.0f};
+    maths::Vec4 scale = {.x = scale_x, .y = static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), .z = scale_x,
+                         .w = 1.0f};
     void* camera = nullptr;
     // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
     if (size_follows_range_ && (camera = viewport_camera(view_slot_)) != nullptr) {
@@ -614,11 +614,11 @@ void ModelWidget::tick_frame()
                     break;
                 }
                 for (int c = 0; c < 8; ++c) {
-                    const maths::Vec4 corner = {(c & 1 ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
-                                                (c & 2 ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
-                                                (c & 4 ? box->max.z : box->min.z) + core::at(models_, i).offset.z, 1.0f};
+                    const maths::Vec4 corner = {.x = (c & 1 ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
+                                                .y = (c & 2 ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
+                                                .z = (c & 4 ? box->max.z : box->min.z) + core::at(models_, i).offset.z, .w = 1.0f};
                     const maths::Vec4 e = corner * local;
-                    core::at(corners, count++) = {e.x * scale.x, e.y * scale.y, e.z * scale.z, 1.0f};
+                    core::at(corners, count++) = {.x = e.x * scale.x, .y = e.y * scale.y, .z = e.z * scale.z, .w = 1.0f};
                 }
             }
             const double tan_half_angle =

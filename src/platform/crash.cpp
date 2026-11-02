@@ -303,11 +303,11 @@ struct FaultName {
     const char* name;
 };
 constexpr auto kFaultNames = std::to_array<FaultName>({
-    {TestFault::kAccess, "access"},       {TestFault::kRunTimeCheck, "rtc"},
-    {TestFault::kCrtError, "crterror"},   {TestFault::kInvalidParameter, "invalidparam"},
-    {TestFault::kPureCall, "purecall"},   {TestFault::kCancelNow, "abort"},
-    {TestFault::kGameOverrun, "overrun"}, {TestFault::kGameCrtMessage, "crtbox"},
-    {TestFault::kFastFail, "fastfail"},   {TestFault::kHang, "hang"},
+    {.fault = TestFault::kAccess, .name = "access"},       {.fault = TestFault::kRunTimeCheck, .name = "rtc"},
+    {.fault = TestFault::kCrtError, .name = "crterror"},   {.fault = TestFault::kInvalidParameter, .name = "invalidparam"},
+    {.fault = TestFault::kPureCall, .name = "purecall"},   {.fault = TestFault::kCancelNow, .name = "abort"},
+    {.fault = TestFault::kGameOverrun, .name = "overrun"}, {.fault = TestFault::kGameCrtMessage, .name = "crtbox"},
+    {.fault = TestFault::kFastFail, .name = "fastfail"},   {.fault = TestFault::kHang, .name = "hang"},
 });
 
 } // namespace

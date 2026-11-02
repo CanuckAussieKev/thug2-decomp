@@ -98,7 +98,7 @@ HWND create_game_window(const char* class_name, const char* title, int x, int y,
     if (!full_screen) {
         // The frame around a width x height inside; centred when x / y are -1.
         style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
-        RECT rect = {0, 0, width, height};
+        RECT rect = {.left = 0, .top = 0, .right = width, .bottom = height};
         AdjustWindowRect(&rect, style, FALSE);
         frame_width = rect.right - rect.left;
         frame_height = rect.bottom - rect.top;

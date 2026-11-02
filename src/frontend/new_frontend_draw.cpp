@@ -58,9 +58,9 @@ uint32_t get_mix(uint32_t a, uint32_t b, float t)
 // The sizes baked (CSS px at 1280 x 720): the display face's 120 (the big names: the level select's 112 drawn from
 // it), 78 (the main menu), 40 (the levels), 30 (Skate); the mono face's 12 and 13; the body's 14.
 constexpr auto kBakes = std::to_array<Bake>({
-    {Face::kDisplay, 120.0f}, {Face::kDisplay, kMainType}, {Face::kDisplay, kLevelType}, {Face::kDisplay, 28.0f},
-    {Face::kMono, 12.0f},     {Face::kMono, 13.0f},        {Face::kBody, 14.0f},         {Face::kMono, 20.0f},
-    {Face::kBody, 48.0f}, // (the restyled keyboard's keys and the text typed)
+    {.face = Face::kDisplay, .css = 120.0f}, {.face = Face::kDisplay, .css = kMainType}, {.face = Face::kDisplay, .css = kLevelType}, {.face = Face::kDisplay, .css = 28.0f},
+    {.face = Face::kMono, .css = 12.0f},     {.face = Face::kMono, .css = 13.0f},        {.face = Face::kBody, .css = 14.0f},         {.face = Face::kMono, .css = 20.0f},
+    {.face = Face::kBody, .css = 48.0f}, // (the restyled keyboard's keys and the text typed)
 });
 constexpr int kBakeCount = static_cast<int>(sizeof(kBakes) / sizeof(core::at(kBakes, 0)));
 
@@ -164,7 +164,7 @@ struct Gauges {
 };
 Gauges metrics_of(const Style& style, const TickCycle& frame)
 {
-    Gauges m = {font_for(style.face, style.css), 1.0f, 1.0f, 0.0f};
+    Gauges m = {.baked = font_for(style.face, style.css), .k = 1.0f, .x_scale_ = 1.0f, .bold_px_ = 0.0f};
     if (m.baked)
         m.k = frame.current_s(style.css) / m.baked->em_px_;
     if (style.face == Face::kDisplay && m.baked && m.baked->face == Face::kDisplay) {
@@ -423,7 +423,7 @@ struct Ctx {
     void get_hit(Hit::Kind kind, int index, float x0, float y0, float x1, float y1)
     {
         if (hits)
-            hits->push_back({kind, index, x0, y0, x1, y1});
+            hits->push_back({.kind = kind, .index = index, .x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1});
     }
 };
 
@@ -1914,7 +1914,7 @@ bool build_fonts(const FontFiles& files, float scale)
         ImFont* font =
             atlas->AddFontFromMemoryTTF(face.file.data(), static_cast<int>(face.file.size()), pixel_height, &config,
                                         core::at(kBakes, i).face == Face::kDisplay ? kDisplayRanges.data() : kTextRanges.data());
-        core::at(g_baked, i) = {font, core::at(kBakes, i).face, em};
+        core::at(g_baked, i) = {.font = font, .face = core::at(kBakes, i).face, .em_px_ = em};
     }
     g_scale = scale;
     g_atlas = atlas;
@@ -1933,7 +1933,7 @@ void get_screen(const Menu& menu, const TickCycle& frame, float window_width, fl
         is_pause_screen(menu.get_shown()) || (menu.get_shown() == Screen::kOptions && menu.over_pause());
     if (!over_game)
         dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround));
-    Ctx c{dl, frame, menu, extras, hits};
+    Ctx c{.dl = dl, .f = frame, .menu = menu, .extras = extras, .hits = hits};
     if (hits)
         hits->clear();
     if (menu.get_shown() == Screen::kLevels)
@@ -1963,7 +1963,7 @@ void restyled(const mirror::Tracker& tracker, const TickCycle& frame, float wind
     static const Extras kNoExtras;
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     dl->PushTextureID(ImGui::GetIO().Fonts->TexID);
-    Ctx c{dl, frame, kNoMenu, extras ? *extras : kNoExtras, hits};
+    Ctx c{.dl = dl, .f = frame, .menu = kNoMenu, .extras = extras ? *extras : kNoExtras, .hits = hits};
     if (hits)
         hits->clear();
     switch (tracker.get_shown().kind) {

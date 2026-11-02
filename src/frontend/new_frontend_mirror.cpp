@@ -181,25 +181,25 @@ const ItemStyle* menu_item_style(uint32_t item_id)
 {
     // (the main menu's items are the overlay's - make_menu_level addNewFrontendMain; the rest the game's own ids)
     static const auto kStyles = std::to_array<std::pair<uint32_t, ItemStyle>>({
-        {name_hash("menu_newfe_career"), {"career", text_tools::kCareer, text_tools::kCareerHelp, nullptr}},
-        {name_hash("menu_singlesess"), {"freeskate", text_tools::kFreeSkate, text_tools::kFreeSkateHelp, nullptr}},
-        {name_hash("menu_net"), {"online", text_tools::kOnline, text_tools::kOnlineHelp, nullptr}},
-        {name_hash("menu_createamodes"), {"create", text_tools::kCreate, text_tools::kCreateHelp, nullptr}},
-        {name_hash("menu_newfe_options"), {"options", text_tools::kOptions, text_tools::kOptionsHelp, nullptr}},
-        {name_hash("menu_quit"), {"quit", text_tools::kQuit, text_tools::kQuitHelp, nullptr}},
-        {name_hash("menu_career"), {"thug2story", text_tools::kStoryThug2, text_tools::kStoryThug2Help, nullptr}},
-        {name_hash("menu_classic"), {"classic", text_tools::kClassic, text_tools::kClassicHelp, nullptr}},
+        {name_hash("menu_newfe_career"), {.our_id_ = "career", .label = text_tools::kCareer, .blurb = text_tools::kCareerHelp, .tag = nullptr}},
+        {name_hash("menu_singlesess"), {.our_id_ = "freeskate", .label = text_tools::kFreeSkate, .blurb = text_tools::kFreeSkateHelp, .tag = nullptr}},
+        {name_hash("menu_net"), {.our_id_ = "online", .label = text_tools::kOnline, .blurb = text_tools::kOnlineHelp, .tag = nullptr}},
+        {name_hash("menu_createamodes"), {.our_id_ = "create", .label = text_tools::kCreate, .blurb = text_tools::kCreateHelp, .tag = nullptr}},
+        {name_hash("menu_newfe_options"), {.our_id_ = "options", .label = text_tools::kOptions, .blurb = text_tools::kOptionsHelp, .tag = nullptr}},
+        {name_hash("menu_quit"), {.our_id_ = "quit", .label = text_tools::kQuit, .blurb = text_tools::kQuitHelp, .tag = nullptr}},
+        {name_hash("menu_career"), {.our_id_ = "thug2story", .label = text_tools::kStoryThug2, .blurb = text_tools::kStoryThug2Help, .tag = nullptr}},
+        {name_hash("menu_classic"), {.our_id_ = "classic", .label = text_tools::kClassic, .blurb = text_tools::kClassicHelp, .tag = nullptr}},
         {name_hash("menu_newfe_thugstory"),
-         {"thugstory", text_tools::kStoryThug, text_tools::kStoryThugHelp, text_tools::kComingSoon}},
-        {name_hash("ss_continue_story"), {"continue", text_tools::kContinue, text_tools::kContinueHelp, nullptr}},
-        {name_hash("ss_new_story"), {"new", nullptr, text_tools::kNewHelp, nullptr}}, // (label: the mode's - Build)
-        {name_hash("ss_load_story"), {"load", text_tools::kLoad, text_tools::kLoadHelp, nullptr}},
-        {name_hash("menu_cas"), {"cas", text_tools::kCas, text_tools::kCreateItemHelp, nullptr}},
-        {name_hash("menu_cat"), {"cat", text_tools::kCat, text_tools::kCreateItemHelp, nullptr}},
-        {name_hash("menu_creategoals"), {"cag", text_tools::kCag, text_tools::kCreateItemHelp, nullptr}},
-        {name_hash("menu_parked"), {"cap", text_tools::kCap, text_tools::kCreateItemHelp, nullptr}},
-        {name_hash("menu_cagr"), {"cagr", text_tools::kCagr, text_tools::kCreateItemHelp, nullptr}},
-        {name_hash("menu_newfe_editor"), {"editor", text_tools::kLevelEditor, text_tools::kCreateItemHelp, nullptr}},
+         {.our_id_ = "thugstory", .label = text_tools::kStoryThug, .blurb = text_tools::kStoryThugHelp, .tag = text_tools::kComingSoon}},
+        {name_hash("ss_continue_story"), {.our_id_ = "continue", .label = text_tools::kContinue, .blurb = text_tools::kContinueHelp, .tag = nullptr}},
+        {name_hash("ss_new_story"), {.our_id_ = "new", .label = nullptr, .blurb = text_tools::kNewHelp, .tag = nullptr}}, // (label: the mode's - Build)
+        {name_hash("ss_load_story"), {.our_id_ = "load", .label = text_tools::kLoad, .blurb = text_tools::kLoadHelp, .tag = nullptr}},
+        {name_hash("menu_cas"), {.our_id_ = "cas", .label = text_tools::kCas, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
+        {name_hash("menu_cat"), {.our_id_ = "cat", .label = text_tools::kCat, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
+        {name_hash("menu_creategoals"), {.our_id_ = "cag", .label = text_tools::kCag, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
+        {name_hash("menu_parked"), {.our_id_ = "cap", .label = text_tools::kCap, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
+        {name_hash("menu_cagr"), {.our_id_ = "cagr", .label = text_tools::kCagr, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
+        {name_hash("menu_newfe_editor"), {.our_id_ = "editor", .label = text_tools::kLevelEditor, .blurb = text_tools::kCreateItemHelp, .tag = nullptr}},
     });
     for (const auto& [id, style] : kStyles)
         if (id == item_id)

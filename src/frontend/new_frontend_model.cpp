@@ -481,7 +481,7 @@ TickCycle fit_frame(float window_width, float window_height)
 
 Uv cover_uv(float image_width, float image_height, float box_width, float box_height, float pan, float pan_range)
 {
-    Uv uv = {0.0f, 0.0f, 1.0f, 1.0f};
+    Uv uv = {.u0 = 0.0f, .v0 = 0.0f, .u1 = 1.0f, .v1 = 1.0f};
     if (image_width <= 0.0f || image_height <= 0.0f || box_width <= 0.0f || box_height <= 0.0f)
         return uv;
     // The fraction of the picture shown each way: the box's aspect against the picture's, then the zoom for the pan.
@@ -777,7 +777,7 @@ ActStep Menu::move_to(int index)
         if (option_row_ == index)
             return {};
         option_row_ = index;
-        return {ActionKind::kMoveSound};
+        return {.kind = ActionKind::kMoveSound};
     }
     return {};
 }
@@ -801,7 +801,7 @@ ActStep Menu::move_level(int row)
         return {};
     core::at(row_in_section_, section_) = row;
     clamp_scroll(false);
-    return {ActionKind::kMoveSound};
+    return {.kind = ActionKind::kMoveSound};
 }
 
 ActStep Menu::set_section(int section)
@@ -815,7 +815,7 @@ ActStep Menu::set_section(int section)
     section_ = section;
     reset_rows();
     clamp_scroll(true);
-    return {ActionKind::kMoveSound};
+    return {.kind = ActionKind::kMoveSound};
 }
 
 ActStep Menu::change_option(int step, bool wrap)
@@ -838,7 +838,7 @@ ActStep Menu::change_option(int step, bool wrap)
             core::at(options_, i) = core::at(options::get_specs(), i).fallback;
     }
     core::at(options_, option) = next;
-    ActStep a{ActionKind::kOption};
+    ActStep a{.kind = ActionKind::kOption};
     a.option = option;
     a.value = next;
     return a;
@@ -871,7 +871,7 @@ ActStep Menu::start_launch(const std::string& load)
     launch_ = 0.0f;
     launch_load_ = load;
     launch_fired_ = false;
-    return {ActionKind::kChooseSound};
+    return {.kind = ActionKind::kChooseSound};
 }
 
 ActStep Menu::get_confirm()
@@ -884,7 +884,7 @@ ActStep Menu::get_confirm()
     }
     if (shown_ == Screen::kOptions) {
         if (std::cmp_greater_equal(option_row_, option_rows().size()))
-            return {ActionKind::kGameOptions};
+            return {.kind = ActionKind::kGameOptions};
         return change_option(1, true);
     }
     return {};
@@ -895,7 +895,7 @@ ActStep Menu::get_back()
     if (pile_.size() <= 1)
         return {};
     stack_off();
-    return {ActionKind::kBackSound};
+    return {.kind = ActionKind::kBackSound};
 }
 
 ActStep Menu::get_press(Intake input)
@@ -917,14 +917,14 @@ ActStep Menu::get_press(Intake input)
         if (options) {
             set_option_group(bundle_ - 1);
             reset_rows();
-            return {ActionKind::kMoveSound};
+            return {.kind = ActionKind::kMoveSound};
         }
         return levels ? set_section(section_ - 1) : ActStep{};
     case Intake::kNextTab:
         if (options) {
             set_option_group(bundle_ + 1);
             reset_rows();
-            return {ActionKind::kMoveSound};
+            return {.kind = ActionKind::kMoveSound};
         }
         return levels ? set_section(section_ + 1) : ActStep{};
     case Intake::kConfirm:
@@ -978,7 +978,7 @@ ActStep Menu::click_tab(int section)
             return {};
         set_option_group(section);
         reset_rows();
-        return {ActionKind::kMoveSound};
+        return {.kind = ActionKind::kMoveSound};
     }
     if (shown_ != Screen::kLevels)
         return {};
@@ -1130,7 +1130,7 @@ ActStep Menu::tick(float dt)
             launch_ = kLaunchSeconds;
             if (!launch_fired_) {
                 launch_fired_ = true;
-                ActStep a{ActionKind::kSkate};
+                ActStep a{.kind = ActionKind::kSkate};
                 a.load = launch_load_;
                 a.levels = shown_ == Screen::kMain ? LevelsFor::kFreeSkate : levels_for_;
                 return a;

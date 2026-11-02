@@ -152,7 +152,7 @@ UiWidget::UiWidget()
     shown_.base_scale_x_ = shown_.base_scale_y_ = 1.0f;
     shown_.x = shown_.y = 0.0f;
     shown_.angle = 0.0f;
-    shown_.pos3d = {0.0f, 0.0f, 0.0f, 1.0f};
+    shown_.pos3d = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     core::at(shown_.rgba, 0) = core::at(shown_.rgba, 1) = core::at(shown_.rgba, 2) = core::at(shown_.rgba, 3) = 0x80;
     shown_.alpha = 1.0f;
     aim_point_.get_assign(&shown_);

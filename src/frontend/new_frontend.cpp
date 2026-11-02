@@ -366,7 +366,7 @@ void update_session(float dt)
                 break;
             auto* gap = static_cast<goals::GapEntry*>(node->data);
             read.push_back(
-                {gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
+                {.name = gap->label_.c_str() ? gap->label_.c_str() : "", .pending = gap->pending_, .count = gap->num_, .score = gap->points_held_});
         }
     }
     session_state().gaps_total_ = static_cast<int>(read.size());
@@ -830,7 +830,7 @@ UiWidget* active_menu(bool* in_dialog = nullptr, bool coming = false)
         bool in_dialog_;
     };
     std::vector<Walk> stack;
-    stack.push_back({first_child(root), false});
+    stack.push_back({.element = first_child(root), .in_dialog_ = false});
     while (!stack.empty() && --budget > 0) {
         Walk& top = stack.back();
         UiWidget* e = top.element;
@@ -846,7 +846,7 @@ UiWidget* active_menu(bool* in_dialog = nullptr, bool coming = false)
                 dialog = e;
         }
         if (UiWidget* child = first_child(e))
-            stack.push_back({child, here});
+            stack.push_back({.element = child, .in_dialog_ = here});
     }
     if (in_dialog)
         *in_dialog = dialog != nullptr;
@@ -1597,7 +1597,7 @@ bool step_to(modules::FrontEnd* front_end, int row)
     const int target = core::at(v.rows, row).index;
     if (target < 0)
         return false; // (a row of a menu not taking the pad: the story's other stats column)
-    StepContext context{front_end, v.horizontal};
+    StepContext context{.front_end_ = front_end, .horizontal = v.horizontal};
     mouse_menus::step_selection(target, mouse_menus::child_count(menu), mouse_menus::menu_wraps(menu), read_selection,
                                 send_step, &context);
     return read_selection(nullptr) == target;
@@ -1747,7 +1747,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
             break;
         case SDL_MOUSEWHEEL:
             if (e.wheel.y) {
-                StepContext context{front_end, s_mirror.get_shown().horizontal};
+                StepContext context{.front_end_ = front_end, .horizontal = s_mirror.get_shown().horizontal};
                 send_step(&context, e.wheel.y > 0 ? -1 : 1);
             }
             break;
@@ -2132,19 +2132,19 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         switch (e.cbutton.button) {
         case SDL_CONTROLLER_BUTTON_DPAD_UP:
             press_direction(front_end, Intake::kUp);
-            s_repeat = {static_cast<int>(Intake::kUp), kRepeatDelay};
+            s_repeat = {.direction = static_cast<int>(Intake::kUp), .wait = kRepeatDelay};
             break;
         case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
             press_direction(front_end, Intake::kDown);
-            s_repeat = {static_cast<int>(Intake::kDown), kRepeatDelay};
+            s_repeat = {.direction = static_cast<int>(Intake::kDown), .wait = kRepeatDelay};
             break;
         case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
             press_direction(front_end, Intake::kLeft);
-            s_repeat = {static_cast<int>(Intake::kLeft), kRepeatDelay};
+            s_repeat = {.direction = static_cast<int>(Intake::kLeft), .wait = kRepeatDelay};
             break;
         case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
             press_direction(front_end, Intake::kRight);
-            s_repeat = {static_cast<int>(Intake::kRight), kRepeatDelay};
+            s_repeat = {.direction = static_cast<int>(Intake::kRight), .wait = kRepeatDelay};
             break;
         case SDL_CONTROLLER_BUTTON_A:
             run_action(front_end, menu_state().get_press(Intake::kConfirm));
@@ -2192,7 +2192,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         const Intake input =
             axis == &s_stick_x ? (now > 0 ? Intake::kRight : Intake::kLeft) : (now > 0 ? Intake::kDown : Intake::kUp);
         press_direction(front_end, input);
-        s_repeat = {static_cast<int>(input), kRepeatDelay};
+        s_repeat = {.direction = static_cast<int>(input), .wait = kRepeatDelay};
         return;
     }
     case SDL_MOUSEMOTION:
@@ -2669,7 +2669,7 @@ void continue_last_level(modules::FrontEnd* front_end)
     if (continue_level_name().empty())
         return;
     get_sound("generic_menu_pad_choose_sound");
-    ActStep skate{ActionKind::kSkate};
+    ActStep skate{.kind = ActionKind::kSkate};
     skate.levels = LevelsFor::kFreeSkate;
     skate.load = s_saved.last_level_;
     get_log("new front end: continue - %s", skate.load.c_str());
@@ -2748,8 +2748,8 @@ bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 void register_script_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"NewFrontend_Item", &cfunc_item},
-        {"NewFrontend_Open", &cfunc_show_new_frontend},
+        {.name = "NewFrontend_Item", .function = &cfunc_item},
+        {.name = "NewFrontend_Open", .function = &cfunc_show_new_frontend},
     });
     script::install_script_functions(kFunctions);
 }

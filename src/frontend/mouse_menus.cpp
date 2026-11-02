@@ -105,18 +105,18 @@ bool clips_children(const UiWidget* element)
 
 Rect2 intersect(const Rect2& a, const Rect2& b)
 {
-    return {std::max(a.left, b.left), std::max(a.top, b.top), std::min(a.right, b.right), std::min(a.bottom, b.bottom)};
+    return {.left = std::max(a.left, b.left), .top = std::max(a.top, b.top), .right = std::min(a.right, b.right), .bottom = std::min(a.bottom, b.bottom)};
 }
 
 Rect2 union_of(const Rect2& a, const Rect2& b)
 {
-    return {std::min(a.left, b.left), std::min(a.top, b.top), std::max(a.right, b.right), std::max(a.bottom, b.bottom)};
+    return {.left = std::min(a.left, b.left), .top = std::min(a.top, b.top), .right = std::max(a.right, b.right), .bottom = std::max(a.bottom, b.bottom)};
 }
 
 // The rectangle of an unturned box (right / bottom past left / top).
 Rect2 box_rect(const Cuboid& box)
 {
-    Rect2 rect = {box.x, box.y, box.x + box.width, box.y + box.height};
+    Rect2 rect = {.left = box.x, .top = box.y, .right = box.x + box.width, .bottom = box.y + box.height};
     if (rect.right < rect.left)
         std::swap(rect.left, rect.right);
     if (rect.bottom < rect.top)
@@ -129,12 +129,12 @@ Rect2 turned_box_rect(const Cuboid& box)
 {
     const double c = std::cos(box.angle);
     const double s = std::sin(box.angle);
-    Rect2 rect = {box.x, box.y, box.x, box.y};
+    Rect2 rect = {.left = box.x, .top = box.y, .right = box.x, .bottom = box.y};
     const std::array<std::array<float, 2>, 3> corners = {{{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}}};
     for (const auto& corner : corners) {
         auto x = static_cast<float>(box.x + c * core::at(corner, 0) - s * core::at(corner, 1));
         auto y = static_cast<float>(box.y + s * core::at(corner, 0) + c * core::at(corner, 1));
-        rect = union_of(rect, Rect2{x, y, x, y});
+        rect = union_of(rect, Rect2{.left = x, .top = y, .right = x, .bottom = y});
     }
     return rect;
 }
@@ -214,7 +214,7 @@ void get_visit(Hunt& search, UiWidget* element, bool parent_accepts, int index, 
     if (parent_accepts && !item_passed_over(element) && item_focusable(element)) {
         if (item_contains(element, parent, search.x, search.y) && (!clipped || clip.get_holds(search.x, search.y))) {
             search.found = true;
-            search.hit = {parent, element, index};
+            search.hit = {.menu = parent, .item = element, .index = index};
         }
     }
     Rect2 child_clip = clip;
@@ -278,8 +278,8 @@ bool window_to_layout(const ScreenMapping& mapping, float window_x, float window
 
 Cuboid element_box(const UiWidget* element)
 {
-    return {element->summed_.left, element->summed_.top, element->span_ * element->summed_.scale_x_,
-            element->level_y_ * element->summed_.scale_y_, bearing(element)};
+    return {.x = element->summed_.left, .y = element->summed_.top, .width = element->span_ * element->summed_.scale_x_,
+            .height = element->level_y_ * element->summed_.scale_y_, .angle = bearing(element)};
 }
 
 Rect2 element_rect(const UiWidget* element) { return box_rect(element_box(element)); }
@@ -378,7 +378,7 @@ bool find_item_at(UiWidget* root, float x, float y, MenuFilter accepts, Hit* out
 {
     if (!root)
         return false;
-    Hunt search = {x, y, accepts, false, false, {}};
+    Hunt search = {.x = x, .y = y, .accepts = accepts, .vertical_only_ = false, .found = false, .hit = {}};
     get_visit(search, root, false, 0, Rect2{}, false);
     if (search.found)
         *out = search.hit;
@@ -420,7 +420,7 @@ int step_selection(int target, int count, bool wraps, int (*read)(void* context)
     return sent;
 }
 
-Target start_target(int index, int count, bool wraps) { return {index, count, wraps, kTargetFrames, 0, -2}; }
+Target start_target(int index, int count, bool wraps) { return {.index = index, .count = count, .wraps = wraps, .frames_left_ = kTargetFrames, .stuck_frames_ = 0, .last_seen_ = -2}; }
 
 TargetState advance_target(Target& target, bool wait, int (*read)(void* context),
                            void (*send)(void* context, int direction), void* context)

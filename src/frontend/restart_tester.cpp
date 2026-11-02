@@ -79,7 +79,7 @@ std::vector<Relaunch> level_restarts()
         uint32_t cls = 0, name = 0;
         if (!node->read_hash_value(class_key, &cls, 0) || cls != restart || !node->read_hash_value(name_key, &name, 0))
             continue;
-        Relaunch r{name, {}, {}, {0, 0, 0, 1}};
+        Relaunch r{.name = name, .text = {}, .types = {}, .pos = {.x = 0, .y = 0, .z = 0, .w = 1}};
         // (its name when the game knows it - level names mostly aren't -, else its RestartName text and checksum)
         const char* text = script::look_up_hash_name(name);
         const char* label = nullptr;

@@ -80,10 +80,10 @@ struct Value {
 Name read_name(util::ByteReader& reader, uint8_t type)
 {
     if (type & 0x80)
-        return {0x80, reader.u8()};
+        return {.form = 0x80, .value = reader.u8()};
     if (type & 0x40)
-        return {0x40, reader.u16()};
-    return {0, reader.u32()};
+        return {.form = 0x40, .value = reader.u16()};
+    return {.form = 0, .value = reader.u32()};
 }
 
 bool read_structure(util::ByteReader& reader, Structure* out);

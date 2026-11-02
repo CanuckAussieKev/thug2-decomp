@@ -230,7 +230,7 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
             *error = "not a flag: " + token;
             return false;
         }
-        *out = {Param::Kind::kBitMark, "", token, 0, 0.0f};
+        *out = {.kind = Param::Kind::kBitMark, .name = "", .text = token, .integer = 0, .real = 0.0f};
         return true;
     }
     const std::string name = token.substr(0, equals);
@@ -240,33 +240,33 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
         return false;
     }
     if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
-        *out = {Param::Kind::kChars, name, value.substr(1, value.size() - 2), 0, 0.0f};
+        *out = {.kind = Param::Kind::kChars, .name = name, .text = value.substr(1, value.size() - 2), .integer = 0, .real = 0.0f};
     else if (value.find('"') != std::string::npos)
         return *error = "not a parameter: " + token, false;
     else if (is_integer(value) && value.size() <= 10)
-        *out = {Param::Kind::kInteger, name, value, text::to_int(value.c_str()), 0.0f};
+        *out = {.kind = Param::Kind::kInteger, .name = name, .text = value, .integer = text::to_int(value.c_str()), .real = 0.0f};
     else if (is_float(value))
-        *out = {Param::Kind::kFloat, name, value, 0, static_cast<float>(text::to_double(value.c_str()))};
+        *out = {.kind = Param::Kind::kFloat, .name = name, .text = value, .integer = 0, .real = static_cast<float>(text::to_double(value.c_str()))};
     else if (is_id(value))
-        *out = {Param::Kind::kName, name, value, 0, 0.0f};
+        *out = {.kind = Param::Kind::kName, .name = name, .text = value, .integer = 0, .real = 0.0f};
     else
         return *error = "not a value: " + value, false;
     return true;
 }
 
 constexpr auto kButtons = std::to_array<Button>({
-    {"up", 2, 4, 10},   {"right", 2, 5, 8},   {"down", 2, 6, 11},   {"left", 2, 7, 9},
-    {"x", 3, 6, 14},    {"circle", 3, 5, 13}, {"square", 3, 7, 15}, {"triangle", 3, 4, 12},
-    {"start", 2, 3, 0}, {"select", 2, 0, 0},  {"l1", 3, 2, 16},     {"r1", 3, 3, 17},
-    {"l2", 3, 0, 18},   {"r2", 3, 1, 19},     {"l3", 2, 1, 0},      {"r3", 2, 2, 0},
+    {.name = "up", .byte = 2, .bit = 4, .pressure = 10},   {.name = "right", .byte = 2, .bit = 5, .pressure = 8},   {.name = "down", .byte = 2, .bit = 6, .pressure = 11},   {.name = "left", .byte = 2, .bit = 7, .pressure = 9},
+    {.name = "x", .byte = 3, .bit = 6, .pressure = 14},    {.name = "circle", .byte = 3, .bit = 5, .pressure = 13}, {.name = "square", .byte = 3, .bit = 7, .pressure = 15}, {.name = "triangle", .byte = 3, .bit = 4, .pressure = 12},
+    {.name = "start", .byte = 2, .bit = 3, .pressure = 0}, {.name = "select", .byte = 2, .bit = 0, .pressure = 0},  {.name = "l1", .byte = 3, .bit = 2, .pressure = 16},     {.name = "r1", .byte = 3, .bit = 3, .pressure = 17},
+    {.name = "l2", .byte = 3, .bit = 0, .pressure = 18},   {.name = "r2", .byte = 3, .bit = 1, .pressure = 19},     {.name = "l3", .byte = 2, .bit = 1, .pressure = 0},      {.name = "r3", .byte = 2, .bit = 2, .pressure = 0},
 });
 struct ButtonAlias {
     const char* alias;
     const char* name;
 };
 constexpr auto kButtonAliases = std::to_array<ButtonAlias>({
-    {"cross", "x"},    {"choose", "x"}, {"enter", "x"},    {"a", "x"},         {"back", "circle"},
-    {"esc", "circle"}, {"b", "circle"}, {"y", "triangle"}, {"pause", "start"},
+    {.alias = "cross", .name = "x"},    {.alias = "choose", .name = "x"}, {.alias = "enter", .name = "x"},    {.alias = "a", .name = "x"},         {.alias = "back", .name = "circle"},
+    {.alias = "esc", .name = "circle"}, {.alias = "b", .name = "circle"}, {.alias = "y", .name = "triangle"}, {.alias = "pause", .name = "start"},
 });
 
 // --- names ------------------------------------------------------------------------------------------------------
@@ -351,7 +351,7 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         return CommandLineOutcome::kError;
     if (tokens.empty())
         return CommandLineOutcome::kVacant;
-    OrderCode command = {Op::kEcho, "", {}, Condition::kNone, 0, 0};
+    OrderCode command = {.op = Op::kEcho, .target = "", .params = {}, .condition = Condition::kNone, .frames = 0, .seconds = 0};
     const std::string keyword = get_lower(::core::at(tokens, 0));
     const size_t count = tokens.size();
     auto fail = [error](const std::string& why) {
@@ -1008,7 +1008,7 @@ void add_line(Runner& runner, const std::string& text)
     ++runner.lines_read_;
     // (a UTF-8 byte order mark - PowerShell's Out-File writes one - isn't part of the command)
     const bool bom = text.size() >= 3 && text.starts_with("\xEF\xBB\xBF");
-    runner.queue.push_back({bom ? text.substr(3) : text, runner.lines_read_});
+    runner.queue.push_back({.text = bom ? text.substr(3) : text, .number = runner.lines_read_});
 }
 
 void poll_file(Runner& runner)
@@ -1472,7 +1472,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         const std::vector<float>& n = command.numbers;
         frontend::test_view::Vec3 at = {};
         const std::string failed = frontend::test_view::jump_to(
-            {::core::at(n, 0), ::core::at(n, 1), ::core::at(n, 2)}, n.size() > 3, n.size() > 3 ? ::core::at(n, 3) : 0.0f, &at, command.target == "board");
+            {.x = ::core::at(n, 0), .y = ::core::at(n, 1), .z = ::core::at(n, 2)}, n.size() > 3, n.size() > 3 ? ::core::at(n, 3) : 0.0f, &at, command.target == "board");
         if (!failed.empty()) {
             get_fail(runner, failed, false);
             return true;
@@ -1490,11 +1490,11 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         if (command.target == "off")
             frontend::test_view::unlock_camera();
         else if (!frontend::test_view::lock_camera(
-                     {::core::at(command.numbers, 0), ::core::at(command.numbers, 1), ::core::at(command.numbers, 2)},
-                     {::core::at(command.numbers, 3), ::core::at(command.numbers, 4), ::core::at(command.numbers, 5)},
+                     {.x = ::core::at(command.numbers, 0), .y = ::core::at(command.numbers, 1), .z = ::core::at(command.numbers, 2)},
+                     {.x = ::core::at(command.numbers, 3), .y = ::core::at(command.numbers, 4), .z = ::core::at(command.numbers, 5)},
                      command.numbers.size() > 6
-                         ? frontend::test_view::Vec3{::core::at(command.numbers, 6), ::core::at(command.numbers, 7), ::core::at(command.numbers, 8)}
-                         : frontend::test_view::Vec3{0.0f, 0.0f, 0.0f})) {
+                         ? frontend::test_view::Vec3{.x = ::core::at(command.numbers, 6), .y = ::core::at(command.numbers, 7), .z = ::core::at(command.numbers, 8)}
+                         : frontend::test_view::Vec3{.x = 0.0f, .y = 0.0f, .z = 0.0f})) {
             get_fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;
         }

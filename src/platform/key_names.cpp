@@ -25,22 +25,22 @@ struct KeyName {
 
 // In the order the original sets them; the keypad's names differ by language.
 constexpr auto kBefore = std::to_array<KeyName>({
-    {0x01, L"ESC"}, {0x0F, L"TAB"}, {0x0E, L"BK"}, {0x1C, L"ENT"}, {0x38, L"LA"}, {0xB8, L"RA"}, {0x1D, L"LC"},
-    {0x2A, L"LS"},  {0x36, L"RS"},  {0x39, L"SB"}, {0x3A, L"CL"},  {0x45, L"NL"}, {0x46, L"SC"},
+    {.scan_code_ = 0x01, .name = L"ESC"}, {.scan_code_ = 0x0F, .name = L"TAB"}, {.scan_code_ = 0x0E, .name = L"BK"}, {.scan_code_ = 0x1C, .name = L"ENT"}, {.scan_code_ = 0x38, .name = L"LA"}, {.scan_code_ = 0xB8, .name = L"RA"}, {.scan_code_ = 0x1D, .name = L"LC"},
+    {.scan_code_ = 0x2A, .name = L"LS"},  {.scan_code_ = 0x36, .name = L"RS"},  {.scan_code_ = 0x39, .name = L"SB"}, {.scan_code_ = 0x3A, .name = L"CL"},  {.scan_code_ = 0x45, .name = L"NL"}, {.scan_code_ = 0x46, .name = L"SC"},
 });
 constexpr auto kKeypad = std::to_array<KeyName>({
-    {0x47, L"KP7"}, {0x48, L"KP8"}, {0x49, L"KP9"}, {0x4A, L"KP-"}, {0x4B, L"KP4"}, {0x4C, L"KP5"},
-    {0x4D, L"KP6"}, {0x37, L"KP*"}, {0x4E, L"KP+"}, {0x4F, L"KP1"}, {0x50, L"KP2"}, {0x51, L"KP3"},
-    {0x52, L"KP0"}, {0x53, L"KP."}, {0xB3, L"KP."}, {0xB5, L"KP/"}, {0x9C, L"KPE"},
+    {.scan_code_ = 0x47, .name = L"KP7"}, {.scan_code_ = 0x48, .name = L"KP8"}, {.scan_code_ = 0x49, .name = L"KP9"}, {.scan_code_ = 0x4A, .name = L"KP-"}, {.scan_code_ = 0x4B, .name = L"KP4"}, {.scan_code_ = 0x4C, .name = L"KP5"},
+    {.scan_code_ = 0x4D, .name = L"KP6"}, {.scan_code_ = 0x37, .name = L"KP*"}, {.scan_code_ = 0x4E, .name = L"KP+"}, {.scan_code_ = 0x4F, .name = L"KP1"}, {.scan_code_ = 0x50, .name = L"KP2"}, {.scan_code_ = 0x51, .name = L"KP3"},
+    {.scan_code_ = 0x52, .name = L"KP0"}, {.scan_code_ = 0x53, .name = L"KP."}, {.scan_code_ = 0xB3, .name = L"KP."}, {.scan_code_ = 0xB5, .name = L"KP/"}, {.scan_code_ = 0x9C, .name = L"KPE"},
 });
 constexpr auto kGermanKeypad = std::to_array<KeyName>({
-    {0x47, L"ZB7"}, {0x48, L"ZB8"}, {0x49, L"ZB9"}, {0x4A, L"ZB-"}, {0x4B, L"ZB4"}, {0x4C, L"ZB5"},
-    {0x4D, L"ZB6"}, {0x37, L"ZB*"}, {0x4E, L"ZB+"}, {0x4F, L"ZB1"}, {0x50, L"ZB2"}, {0x51, L"ZB3"},
-    {0x52, L"ZB0"}, {0x53, L"ZB."}, {0xB3, L"ZB."}, {0xB5, L"ZB/"}, {0x9C, L"ZBE"},
+    {.scan_code_ = 0x47, .name = L"ZB7"}, {.scan_code_ = 0x48, .name = L"ZB8"}, {.scan_code_ = 0x49, .name = L"ZB9"}, {.scan_code_ = 0x4A, .name = L"ZB-"}, {.scan_code_ = 0x4B, .name = L"ZB4"}, {.scan_code_ = 0x4C, .name = L"ZB5"},
+    {.scan_code_ = 0x4D, .name = L"ZB6"}, {.scan_code_ = 0x37, .name = L"ZB*"}, {.scan_code_ = 0x4E, .name = L"ZB+"}, {.scan_code_ = 0x4F, .name = L"ZB1"}, {.scan_code_ = 0x50, .name = L"ZB2"}, {.scan_code_ = 0x51, .name = L"ZB3"},
+    {.scan_code_ = 0x52, .name = L"ZB0"}, {.scan_code_ = 0x53, .name = L"ZB."}, {.scan_code_ = 0xB3, .name = L"ZB."}, {.scan_code_ = 0xB5, .name = L"ZB/"}, {.scan_code_ = 0x9C, .name = L"ZBE"},
 });
 constexpr auto kAfter = std::to_array<KeyName>({
-    {0x9D, L"RC"},  {0xC5, L"PAU"}, {0xC7, L"HO"},  {0xC8, L"UP"},  {0xC9, L"PUP"}, {0xCB, L"LFT"},
-    {0xCD, L"RGT"}, {0xCF, L"END"}, {0xD0, L"DWN"}, {0xD1, L"PDN"}, {0xD2, L"INS"}, {0xD3, L"DEL"},
+    {.scan_code_ = 0x9D, .name = L"RC"},  {.scan_code_ = 0xC5, .name = L"PAU"}, {.scan_code_ = 0xC7, .name = L"HO"},  {.scan_code_ = 0xC8, .name = L"UP"},  {.scan_code_ = 0xC9, .name = L"PUP"}, {.scan_code_ = 0xCB, .name = L"LFT"},
+    {.scan_code_ = 0xCD, .name = L"RGT"}, {.scan_code_ = 0xCF, .name = L"END"}, {.scan_code_ = 0xD0, .name = L"DWN"}, {.scan_code_ = 0xD1, .name = L"PDN"}, {.scan_code_ = 0xD2, .name = L"INS"}, {.scan_code_ = 0xD3, .name = L"DEL"},
 });
 
 template <size_t N>

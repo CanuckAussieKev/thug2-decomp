@@ -46,7 +46,7 @@ void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at);
 std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3* out_position, bool on_board = false);
 // Viewport 0's camera held at `position` looking along `direction`, moved by `drift` a game frame (false: a direction
 // camera_rows refuses).
-bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift = {0.0f, 0.0f, 0.0f});
+bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift = {.x = 0.0f, .y = 0.0f, .z = 0.0f});
 void unlock_camera();
 bool camera_locked();
 // The renderer, a viewport's camera before it's drawn (engine/gfx/draw_frame.cpp): placed while locked.

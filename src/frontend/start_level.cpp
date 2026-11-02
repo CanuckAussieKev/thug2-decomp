@@ -143,7 +143,7 @@ bool at_update(modules::FrontEnd* front_end)
     Spot spot;
     parse_spot(at_text(), &spot); // (checked when it was asked for)
     test_view::Vec3 at{};
-    const std::string failed = test_view::jump_to({spot.x, spot.y, spot.z}, spot.has_heading_, spot.heading, &at);
+    const std::string failed = test_view::jump_to({.x = spot.x, .y = spot.y, .z = spot.z}, spot.has_heading_, spot.heading, &at);
     if (!failed.empty())
         get_log("start at: %s - the skater stays where the level put it", failed.c_str());
     else

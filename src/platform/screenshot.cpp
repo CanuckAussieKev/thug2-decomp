@@ -162,82 +162,82 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     std::vector<Section> sections;
     std::array<char, 256> text{};
 
-    Section shot{"screenshot", {}};
-    shot.fields.push_back({"file", png});
-    shot.fields.push_back({"folder", folder});
-    shot.fields.push_back({"taken", taken});
+    Section shot{.title = "screenshot", .fields = {}};
+    shot.fields.push_back({.key = "file", .value = png});
+    shot.fields.push_back({.key = "folder", .value = folder});
+    shot.fields.push_back({.key = "taken", .value = taken});
     text::format_to(text, "%d x %d (%s)", frame.width, frame.height, format_name(frame.format));
-    shot.fields.push_back({"image", text.data()});
+    shot.fields.push_back({.key = "image", .value = text.data()});
     int w = 0, h = 0;
     if (SDL_Window* window = sys::sdl_window())
         SDL_GetWindowSize(window, &w, &h);
     if (w > 0 && h > 0) {
         text::format_to(text, "%d x %d", w, h);
-        shot.fields.push_back({"window", text.data()});
+        shot.fields.push_back({.key = "window", .value = text.data()});
     } else {
-        shot.fields.push_back({"window", ""});
+        shot.fields.push_back({.key = "window", .value = ""});
     }
     sections.push_back(shot);
 
-    Section build{"build", {}};
+    Section build{.title = "build", .fields = {}};
     std::array<char, MAX_PATH> exe = {""};
     GetModuleFileNameA(nullptr, exe.data(), MAX_PATH);
-    build.fields.push_back({"exe", std::string(file_name_of(exe.data()))});
-    build.fields.push_back({"exe file", file_time(exe.data())});
+    build.fields.push_back({.key = "exe", .value = std::string(file_name_of(exe.data()))});
+    build.fields.push_back({.key = "exe file", .value = file_time(exe.data())});
     HMODULE dll = nullptr;
     std::array<char, MAX_PATH> dll_path = {""};
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                            static_cast<LPCSTR>(code_address(&gather_sections)), &dll))
         GetModuleFileNameA(dll, dll_path.data(), MAX_PATH);
     build.fields.push_back(
-        {"dll",
-         core::at(dll_path, 0) ? std::string(file_name_of(dll_path.data())) : ""});
-    build.fields.push_back({"dll file", core::at(dll_path, 0) ? file_time(dll_path.data()) : ""});
-    build.fields.push_back({"dll commit", THUG2_BUILD_COMMIT});
+        {.key = "dll",
+         .value = core::at(dll_path, 0) ? std::string(file_name_of(dll_path.data())) : ""});
+    build.fields.push_back({.key = "dll file", .value = core::at(dll_path, 0) ? file_time(dll_path.data()) : ""});
+    build.fields.push_back({.key = "dll commit", .value = THUG2_BUILD_COMMIT});
     sections.push_back(build);
 
-    Section game{"game", {}};
+    Section game{.title = "game", .fields = {}};
     const uint32_t load = current_load_state();
     const bool in_level = load && load != kLoadMainMenu;
     const bool loading = loading_screen_up();
-    game.fields.push_back({"where", !load ? "starting up" : in_level ? "level" : "front end"});
-    game.fields.push_back({"level load script", load ? get_name_of(load) : ""});
+    game.fields.push_back({.key = "where", .value = !load ? "starting up" : in_level ? "level" : "front end"});
+    game.fields.push_back({.key = "level load script", .value = load ? get_name_of(load) : ""});
     const uint32_t scene =
         frontend::level_editor::scenery::world_scene_key(frontend::level_editor::scenery::main_scene());
-    game.fields.push_back({"scene", scene ? get_name_of(scene) : ""});
-    game.fields.push_back({"game mode", active_ruleset_label()});
+    game.fields.push_back({.key = "scene", .value = scene ? get_name_of(scene) : ""});
+    game.fields.push_back({.key = "game mode", .value = active_ruleset_label()});
     const modules::FrontEnd* front_end = the_front_end();
-    game.fields.push_back({"paused", front_end ? (front_end->is_halted_ ? "yes" : "no") : ""});
-    game.fields.push_back({"loading screen", loading ? "yes" : "no"});
-    game.fields.push_back({"level editor", frontend::level_editor::live_now() ? "open" : "closed"});
-    game.fields.push_back({"frames run", std::to_string(frame_loop::frames_run())});
+    game.fields.push_back({.key = "paused", .value = front_end ? (front_end->is_halted_ ? "yes" : "no") : ""});
+    game.fields.push_back({.key = "loading screen", .value = loading ? "yes" : "no"});
+    game.fields.push_back({.key = "level editor", .value = frontend::level_editor::live_now() ? "open" : "closed"});
+    game.fields.push_back({.key = "frames run", .value = std::to_string(frame_loop::frames_run())});
     sections.push_back(game);
 
-    Section skater{"skater", {}};
+    Section skater{.title = "skater", .fields = {}};
     if (in_level && !loading) {
         if (const objects::GameEntity* s = local_skater()) {
             std::array<float, 3> pos = {{s->at_point_.x, s->at_point_.y, s->at_point_.z}};
-            skater.fields.push_back({"position", vec(pos)});
+            skater.fields.push_back({.key = "position", .value = vec(pos)});
             const maths::Vec4& at = core::at(s->basis_frame_.row, 2);
             const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             text::format_to(text, "%.1f degrees (0 = +z, 90 = +x)", heading);
-            skater.fields.push_back({"heading", text.data()});
+            skater.fields.push_back({.key = "heading", .value = text.data()});
         }
     }
     sections.push_back(skater);
 
-    Section camera{"camera", {}};
+    Section camera{.title = "camera", .fields = {}};
     if (g_view.noted && frame_loop::frames_run() - g_view.frame < 10) {
-        camera.fields.push_back({"position", vec(g_view.pos)});
-        camera.fields.push_back({"looking along", vec(g_view.forward, 3)});
+        camera.fields.push_back({.key = "position", .value = vec(g_view.pos)});
+        camera.fields.push_back({.key = "looking along", .value = vec(g_view.forward, 3)});
     }
     sections.push_back(camera);
 
     if (frontend::level_editor::live_now()) {
-        Section editor{"level editor", {}};
+        Section editor{.title = "level editor", .fields = {}};
         for (auto& [key, value] : frontend::level_editor::describe_for_screenshot())
-            editor.fields.push_back({key, value});
+            editor.fields.push_back({.key = key, .value = value});
         sections.push_back(editor);
     }
     return sections;
@@ -377,7 +377,7 @@ void get_take()
     std::time_t now = std::time(nullptr);
     std::tm local = {};
     localtime_s(&local, &now);
-    const Stamp stamp{local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec};
+    const Stamp stamp{.year = local.tm_year + 1900, .month = local.tm_mon + 1, .day = local.tm_mday, .hour = local.tm_hour, .minute = local.tm_min, .second = local.tm_sec};
     const std::string png = pick_name(file_stem(stamp), [&folder](const std::string& name) {
         return GetFileAttributesA((folder + name).c_str()) != INVALID_FILE_ATTRIBUTES;
     });
@@ -410,10 +410,10 @@ void get_take()
     job->png = png;
     job->txt = sidecar_name(png);
     std::vector<Section> sections = gather_sections(frame, png, folder, taken.data());
-    sections.front().fields.push_back({"mouse", mouse});
+    sections.front().fields.push_back({.key = "mouse", .value = mouse});
     if (!g_event_note.empty()) {
         job->note = g_event_note;
-        sections.front().fields.push_back({"for", g_event_note});
+        sections.front().fields.push_back({.key = "for", .value = g_event_note});
     }
     job->sidecar = format_sidecar("THUG2 decomp screenshot " + png, sections, get_log_tail(kLogLines));
     job->frame = std::move(frame);
@@ -493,7 +493,7 @@ void take_series_frame()
         std::vector<Section> sections = gather_sections(frame, series_frame_name(1), series->folder, taken.data());
         sections.front().title = "series";
         sections.front().fields.push_back(
-            {"frames", std::to_string(series->total) + " (frame_0001.png on, one a rendered frame)"});
+            {.key = "frames", .value = std::to_string(series->total) + " (frame_0001.png on, one a rendered frame)"});
         series->sidecar = format_sidecar("THUG2 decomp frame series", sections, get_log_tail(kLogLines));
     }
     // (at most kSeriesInFlight waiting: the frame waits for one)
@@ -636,7 +636,7 @@ std::string start_series(int frames, const std::string& folder)
         std::tm local = {};
         localtime_s(&local, &now);
         path = series_folder_name(
-            {local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec});
+            {.year = local.tm_year + 1900, .month = local.tm_mon + 1, .day = local.tm_mday, .hour = local.tm_hour, .minute = local.tm_min, .second = local.tm_sec});
     }
     const bool absolute = path.size() >= 2 && (core::at(path, 1) == ':' || (core::at(path, 0) == '\\' && core::at(path, 1) == '\\'));
     if (!absolute)
