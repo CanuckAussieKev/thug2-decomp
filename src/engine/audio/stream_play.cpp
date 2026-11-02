@@ -8,6 +8,8 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/movie.h"
@@ -23,7 +25,6 @@ namespace {
 
 HANDLE stream_lock() { return g_stream_lock; }
 HANDLE get_wad_file() { return g_wad_file; }
-WadEntry* wad_entries() { return g_wad_entries; }
 
 uint32_t g_last_music_track;
 
@@ -34,7 +35,10 @@ std::array<uint32_t, 3>& last_streams() { return g_last_streams; }
 std::array<uint8_t, 0x14000> g_user_track_buffer;
 std::array<uint8_t, 0x14000>& user_track_buffer() { return g_user_track_buffer; }
 std::array<uint8_t, 3 * 0x14000> g_stream_buffers;
-void* stream_buffer(int slot) { return g_stream_buffers.data() + slot * 0x14000; }
+void* stream_buffer(int slot)
+{
+    return std::span(g_stream_buffers).subspan(static_cast<std::size_t>(slot) * 0x14000, 0x14000).data();
+}
 
 // 0x005B6250: the root data paths are under ("THUG2\" or "", by 0x007CEFAD; not rewritten yet).
 const char* data_root() { return game_config::get_bootstrap_prefix(); }
@@ -122,11 +126,10 @@ bool load_music_track(uint32_t checksum)
 // 0x00453D70
 bool load_music_track_by_name(const char* path)
 {
-    if (const char* slash = std::strrchr(path, '\\'))
-        path = slash + 1;
-    if (const char* slash = std::strrchr(path, '/'))
-        path = slash + 1;
-    return load_music_track(checksums::hash_from_text(path));
+    const std::string_view full(path);
+    const std::size_t slash = full.find_last_of("\\/");
+    return load_music_track(
+        checksums::hash_from_text(slash == std::string_view::npos ? path : full.substr(slash + 1).data()));
 }
 
 // 0x00453DB0
@@ -258,8 +261,8 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
     const int entry = find_wad_entry(checksum);
     if (entry < 0)
         return false;
-    const uint32_t offset = wad_entries()[entry].offset;
-    const uint32_t size = wad_entries()[entry].size;
+    const uint32_t offset = core::at(wad_entry_run(), entry).offset;
+    const uint32_t size = core::at(wad_entry_run(), entry).size;
     if (stream_status(slot_index) != 1)
         return false;
     WaitForSingleObject(stream_lock(), INFINITE);

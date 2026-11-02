@@ -1,8 +1,10 @@
 #include "engine/core/checksums.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 
 #include <array>
 #include <cstdint>
+#include <span>
 
 namespace checksums {
 
@@ -50,8 +52,8 @@ uint32_t fold_text_into_checksum(uint32_t crc, const char* string)
 {
     if (!string)
         return crc;
-    for (; *string; ++string)
-        crc = get_step(crc, name_char(*string));
+    for (core::CStringCursor at(string); *at; ++at)
+        crc = get_step(crc, name_char(*at));
     return crc;
 }
 
@@ -60,10 +62,9 @@ uint32_t generate_crc_from_buffer(const void* data, int size)
 {
     if (!data || size < 1)
         return 0;
-    const auto* bytes = static_cast<const uint8_t*>(data);
     uint32_t crc = 0xFFFFFFFF;
-    for (int i = 0; i < size; ++i)
-        crc = get_step(crc, bytes[i]);
+    for (const uint8_t byte : std::span(static_cast<const uint8_t*>(data), static_cast<std::size_t>(size)))
+        crc = get_step(crc, byte);
     return crc;
 }
 
@@ -72,9 +73,8 @@ uint32_t generate_crc_from_buffer(const void* data, int size)
 // straight into EAX) and with it the loop body and the return value. The script code chains it over tokens.
 uint32_t extend_crc_with_buffer(const void* data, int size, uint32_t crc)
 {
-    const auto* bytes = static_cast<const uint8_t*>(data);
-    for (int i = 0; i < size; ++i)
-        crc = get_step(crc, bytes[i]);
+    for (const uint8_t byte : std::span(static_cast<const uint8_t*>(data), static_cast<std::size_t>(size)))
+        crc = get_step(crc, byte);
     return crc;
 }
 
@@ -84,8 +84,8 @@ uint32_t generate_crc_caseless(const char* data, int size)
     if (!data || size < 1)
         return 0;
     uint32_t crc = 0xFFFFFFFF;
-    for (int i = 0; i < size; ++i)
-        crc = get_step(crc, name_char(data[i]));
+    for (const char c : std::span(data, static_cast<std::size_t>(size)))
+        crc = get_step(crc, name_char(c));
     return crc;
 }
 

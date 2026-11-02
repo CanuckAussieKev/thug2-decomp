@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/checked_index.h"
 #include "platform/all_ones.h"
@@ -301,6 +302,9 @@ int user_soundtrack_count();
 const wchar_t* user_soundtrack_name(int index);
 // 0x00454320: how many tracks soundtrack `index` has, 0 past the count.
 int user_soundtrack_tracks(int index);
+
+// NOT ORIGINAL: pcm.wad's index as a run of its entries.
+[[nodiscard]] std::span<WadEntry> wad_entry_run();
 
 extern void* g_wad_file;
 extern bool g_bink_sound_set;

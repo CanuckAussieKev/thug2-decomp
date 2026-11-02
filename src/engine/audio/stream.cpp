@@ -5,11 +5,14 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <vector>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "formats/stream_index_format.h"
@@ -116,6 +119,7 @@ std::array<StreamSlot, 3> g_stream_slots;
 } // namespace
 
 std::array<StreamSlot, 3>& stream_slots() { return g_stream_slots; }
+std::span<WadEntry> wad_entry_run() { return {g_wad_entries, g_wad_entry_count}; }
 
 namespace {
 StreamSlot g_music_slot;
@@ -265,6 +269,7 @@ void init_platform()
         if (get_wad_file() == INVALID_HANDLE_VALUE || !GetFileSizeEx(get_wad_file(), &wad_size))
             wad_size.QuadPart = 0;
         wad_entries() = static_cast<WadEntry*>(memory::alloc(count * sizeof(WadEntry)));
+        const std::span<WadEntry> table(wad_entries(), count);
         wad_entry_count() = 0;
         for (uint32_t i = 0; i < count; ++i) {
             stream_index_format::Entry entry;
@@ -273,18 +278,15 @@ void init_platform()
                 debug::printf("pcm.dat: stream %08x outside pcm.wad, dropped\n", entry.checksum);
                 continue;
             }
-            wad_entries()[wad_entry_count()++] = WadEntry{entry.checksum, entry.offset, entry.size};
+            core::at(table, wad_entry_count()++) = WadEntry{entry.checksum, entry.offset, entry.size};
         }
     }
     // Sorted by checksum for find_wad_entry (an exchange sort).
-    WadEntry* entries = wad_entries();
+    const std::span<WadEntry> entries = wad_entry_run();
     for (uint32_t i = 0; i < wad_entry_count(); ++i) {
         for (uint32_t j = i + 1; j < wad_entry_count(); ++j) {
-            if (entries[i].checksum > entries[j].checksum) {
-                const WadEntry swap = entries[i];
-                entries[i] = entries[j];
-                entries[j] = swap;
-            }
+            if (core::at(entries, i).checksum > core::at(entries, j).checksum)
+                std::swap(core::at(entries, i), core::at(entries, j));
         }
     }
     if (!thread_handle()) {
@@ -303,7 +305,7 @@ int find_wad_entry(uint32_t checksum)
     int high = static_cast<int>(wad_entry_count()) - 1;
     while (low <= high) {
         const int middle = (low + high) / 2;
-        const uint32_t found = wad_entries()[middle].checksum;
+        const uint32_t found = core::at(wad_entry_run(), middle).checksum;
         if (found < checksum)
             low = middle + 1;
         else if (found == checksum)
