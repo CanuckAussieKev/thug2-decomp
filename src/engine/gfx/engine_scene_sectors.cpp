@@ -28,6 +28,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <span>
 
 namespace render {
 
@@ -56,8 +57,10 @@ gsl::owner<WorldCell*> alloc_sector(WorldScene* scene)
     return sector;
 }
 
-// NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
-StaticCollider* coll_static_at(StaticCollider* statics, int index) { return &statics[index]; }
+StaticCollider* coll_static_at(StaticCollider* statics, int count, int index)
+{
+    return &core::at(std::span<StaticCollider>(statics, static_cast<std::size_t>(count)), index);
+}
 
 // The lists (lists::Foremost / Node): a head ends its list (its data is -1).
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
@@ -236,7 +239,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
             coll_grid_->get_fill(std::span<StaticCollider>(coll_statics_, static_cast<size_t>(coll_static_count_)));
         }
         for (int i = 0; i < coll_static_count_; ++i) {
-            const StaticCollider* coll = coll_static_at(coll_statics_, i);
+            const StaticCollider* coll = coll_static_at(coll_statics_, coll_static_count_, i);
             const uint32_t name = coll->checksum_;
             gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(name));
             if (!sector) {
@@ -245,7 +248,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
                 sector->change_live(true);
                 put_sector(this, sector);
             }
-            sector->set_coll_obj(coll_static_at(coll_statics_, i));
+            sector->set_coll_obj(coll_static_at(coll_statics_, coll_static_count_, i));
             sector->change_bits(kSectorInGrid);
         }
     }
@@ -351,7 +354,7 @@ bool WorldScene::load_add_scene(const char* name)
                                   &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
-            const uint32_t section_id = coll_static_at(add_coll_statics_, i)->checksum_;
+            const uint32_t section_id = coll_static_at(add_coll_statics_, add_coll_static_count_, i)->checksum_;
             gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(section_id));
             if (!sector) {
                 sector = alloc_sector(this);
@@ -362,7 +365,7 @@ bool WorldScene::load_add_scene(const char* name)
                 put_sector(this, sector);
                 append_last(add_scene_sectors_, new_node(sector));
             }
-            sector->set_coll_obj(coll_static_at(add_coll_statics_, i));
+            sector->set_coll_obj(coll_static_at(add_coll_statics_, add_coll_static_count_, i));
         }
         get_update_super_sectors(hidden_sectors_);
     }

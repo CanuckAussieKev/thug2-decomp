@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 namespace lists {
 
@@ -65,6 +66,12 @@ public:
     // Iteration: set iter_bucket_ = -1 and iter_item_ = null, then each step_iterator() that returns true
     // leaves the next item in iter_item_.
     bool step_iterator();
+
+    // NOT ORIGINAL: the buckets as a run of 1 << bits_ (none for a table without buckets).
+    [[nodiscard]] std::span<Item> bucket_run() const
+    {
+        return {buckets_, buckets_ ? std::size_t{1} << bits_ : std::size_t{0}};
+    }
 
     int bits_;
     Item* buckets_;
