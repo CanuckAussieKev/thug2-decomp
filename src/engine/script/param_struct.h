@@ -50,6 +50,11 @@ public:
     void get_clear();
     // The elements (for one element, the value stored in the array itself).
     Cell* find_array_value();
+    // NOT ORIGINAL - the same as a run of the array's elements (extent_ of them).
+    [[nodiscard]] std::span<Cell> cells()
+    {
+        return extent_ == 1 ? std::span<Cell>(&storage_, 1) : std::span<Cell>(storage_.block(), extent_);
+    }
     // Make the array `size` zeroed elements of `type` (frees the old element block, not what it refers to).
     void configure_size_kind(uint32_t size, QbValueKind type);
     // Only the type (the elements are left as they are).

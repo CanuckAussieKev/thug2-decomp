@@ -34,19 +34,20 @@ void forget_precompiled_image(uint32_t file_checksum);
 
 // Called for each symbol of a pre-compiled file once it's relocated.
 using PrecompiledSymbolCallback = void (*)(SymbolTableEntry* symbol, uint32_t argument, uint32_t flag);
-// Relocate every symbol of the pre-compiled image `file` (offsets from `base`), passing each to `callback`
+// Relocate every symbol of the pre-compiled image `file` (its bytes; offsets from `base`), passing each to `callback`
 // (if any) with `argument` and `flag`.
-void relocate_precompiled_symbols(uint8_t* file, uint32_t base, PrecompiledSymbolCallback callback, uint32_t argument,
-                                  uint32_t flag);
+void relocate_precompiled_symbols(std::span<uint8_t> file, uint32_t base, PrecompiledSymbolCallback callback,
+                                  uint32_t argument, uint32_t flag);
 // Define the relocated symbol `symbol` of the file whose name's checksum is `file_checksum`: it replaces (and
 // frees) the symbol of the same name, if there is one, and is linked in.
 void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t unused);
 
-// Relocating (adding `base` to every stored offset); each returns the end of the item's data in the file.
-uint8_t* relocate_symbol(SymbolTableEntry* symbol, uint32_t base);
-uint8_t* relocate_struct(Struct* structure, uint32_t base);
-uint8_t* relocate_component(Component* component, uint32_t base);
-uint8_t* relocate_array(Array* array, uint32_t base);
+// Relocating (adding `base` to every stored offset) an item of the image `image`; each returns where the item's data
+// ends in the image (an offset in it).
+uint32_t relocate_symbol(std::span<uint8_t> image, SymbolTableEntry* symbol, uint32_t base);
+uint32_t relocate_struct(std::span<uint8_t> image, Struct* structure, uint32_t base);
+uint32_t relocate_component(std::span<uint8_t> image, Component* component, uint32_t base);
+uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base);
 // Only the array's element pointers (the table, or the single element in its place).
 void relocate_array_elements(Array* array, uint32_t base);
 
