@@ -51,9 +51,4 @@ bool switch_to_regular_pools(script::Struct* params, script::Script* script);
 // 0x005A8730: script function LoadFromMemoryCard (Originally from PartyMod Fixes: without the save checksum test).
 bool load_from_memory_card(script::Struct* params, script::Script* script);
 
-extern bool g_out_of_space;
-extern script::Struct* g_kept_params;
-extern uint32_t g_kept_type;
-extern bool g_loaded_custom_skater;
-
 } // namespace save_cards

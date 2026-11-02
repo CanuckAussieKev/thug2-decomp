@@ -14,10 +14,15 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "game/save_cards/shared_state.h"
 
 namespace save_cards {
 
-Hub* g_the_card;
+MemcardShared& memcard_shared()
+{
+    static core::NoDestroy<MemcardShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -39,7 +44,7 @@ MemcardState& memcard_state()
 std::array<char, 128>& path_buffer() { return memcard_state().path_buffer_; }
 std::array<char, 320>& filename_buffer() { return memcard_state().filename_buffer_; }
 
-Hub*& sole() { return g_the_card; }
+Hub*& sole() { return memcard_shared().the_card_; }
 int& ref_tally() { return memcard_state().memcard_references_; }
 
 // A new (zeroed) file object: its own one-item list, no handle yet.

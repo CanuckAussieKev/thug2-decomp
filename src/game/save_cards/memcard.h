@@ -77,6 +77,4 @@ public:
 Hub* create_manager(bool create);
 void release_manager();
 
-extern Hub* g_the_card;
-
 } // namespace save_cards

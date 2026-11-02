@@ -32,6 +32,7 @@
 #include "engine/gfx/rig.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "game/save_cards/shared_state.h"
 #include <gsl/pointers>
 
 namespace save_cards {
@@ -290,7 +291,7 @@ void write_save_contents(Struct* contents, uint32_t type)
 // 0x005A81B0
 void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Struct* params)
 {
-    bool& loaded_custom_skater = g_loaded_custom_skater;
+    bool& loaded_custom_skater = memcard_cfuncs_shared().loaded_custom_skater_;
     loaded_custom_skater = false;
     switch (type) {
     case kSaveCreatedGoals:

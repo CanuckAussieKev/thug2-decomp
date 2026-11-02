@@ -37,6 +37,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "game/save_cards/shared_state.h"
 
 namespace save_cards {
 
@@ -46,7 +47,7 @@ using script::Script;
 using script::Struct;
 
 int os_layer() { return game_config::hardware(); }
-SaveCard* the_card() { return g_the_card->get_storage_slot(0, 0); }
+SaveCard* the_card() { return memcard_shared().the_card_->get_storage_slot(0, 0); }
 
 // The calling script's own parameters (Scripts::CScript +0x14): where commands leave results for it.
 Struct* result_params(Script* script) { return script->args_.get(); }
@@ -276,13 +277,13 @@ bool mem_card_file_exists(Struct* params, Script* script)
 // 0x005A8BB0
 bool clear_mem_card_data_for_upload(Struct*, Script*)
 {
-    Struct*& kept = g_kept_params;
+    Struct*& kept = memcard_cfuncs_shared().kept_params_;
     if (kept) {
         kept->get_clear();
         script::delete_struct(kept);
         kept = nullptr;
     }
-    g_kept_type = 0;
+    memcard_cfuncs_shared().kept_type_ = 0;
     return true;
 }
 
@@ -571,7 +572,7 @@ bool save_to_memory_card(Struct* params, Script*)
         audio::pause_music(1);
         audio::freeze_stream(1);
     }
-    bool& out_of_space = g_out_of_space;
+    bool& out_of_space = memcard_cfuncs_shared().out_of_space_;
     out_of_space = false;
     const char* name = ""; // ""
     params->fetch_text("Name", &name, 0);
@@ -580,7 +581,7 @@ bool save_to_memory_card(Struct* params, Script*)
     int vault_data = 0;
     params->fetch_int_value(0xBB609E73u, &vault_data, 0); // savevaultdata
     if (vault_data) {
-        type = g_kept_type;
+        type = memcard_cfuncs_shared().kept_type_;
     } else if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
         goals::get_objective_board()->level_unload();
@@ -597,7 +598,7 @@ bool save_to_memory_card(Struct* params, Script*)
     if (contents)
         contents = new (contents) script::Struct;
     if (vault_data)
-        contents->append_structure_if_any(g_kept_params);
+        contents->append_structure_if_any(memcard_cfuncs_shared().kept_params_);
     else
         write_save_contents(contents, type);
     gsl::owner<Struct*> summary = script::spawn_param_bag();
