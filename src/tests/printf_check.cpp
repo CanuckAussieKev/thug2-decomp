@@ -244,6 +244,17 @@ void check_texts()
     compare("%c%c%c", 'a', 0, 'b');
     compare("%td %zu %lu %ld %li %lld %llu", static_cast<std::ptrdiff_t>(-5), size_t{7}, 9ul, -9l, 3l, -1LL, 2ULL);
     compare("%ls", L"wide");
+    // round 4b's forms: places chosen by an argument, colour / join pieces as texts, wsprintfA's integers
+    for (const int places : {-2, 0, 1, 2, 3, 6})
+        compare("(%.*f, %.*f, %.*f)|%.*f,%.*f,%.*f", places, 1.25, places, -0.5, places, 1234.5678, places, 0.0625,
+                places, -2.0, places, 1e-7);
+    compare("%s%s\\_%d\\_%s%s%s", "\\c3", "BS", 540, "Kickflip", "\\c0", "\\_+ ");
+    compare("%s%s%s ", "", "Ollie", "");
+    compare("Collision %s (%d piece%s)", "off", 1, "");
+    compare("\\c%d%s%s", 2, "> ", "name");
+    compare("%4d total kb of physical memory.\n%4d  free kb of physical memory.\n", 4194303u, 12u);
+    compare("%.2d:%.2d", 0u, 7u);
+    compare("%u %.2f %.3f %d 0x%04X 0x%08X\n", 4294967295u, -0.005, 1.0005, -1, 0x1Fu, 0xDEADBEEFu);
 }
 
 } // namespace

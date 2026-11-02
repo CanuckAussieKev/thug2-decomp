@@ -22,6 +22,7 @@
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <cfloat>
 #include <array>
+#include "engine/core/format.h"
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define THUG2_X87_REFERENCE 1
 #endif
@@ -1238,7 +1239,7 @@ struct Tally {
     }
     void print() const
     {
-        std::printf("  %-26s %9llu runs  %9llu differ (%6.3f%%)  max %s%llu  |diff| %.3g  (at %.9g)\n", name,
+        text::print("  %-26s %9llu runs  %9llu differ (%6.3f%%)  max %s%llu  |diff| %.3g  (at %.9g)\n", name,
                     static_cast<unsigned long long>(runs), static_cast<unsigned long long>(differing),
                     runs ? 100.0 * static_cast<double>(differing) / static_cast<double>(runs) : 0.0, unit,
                     static_cast<unsigned long long>(max_ulps), max_abs, worst_input);
@@ -1470,18 +1471,18 @@ int main(int argc, char** argv)
     const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;
     // NOLINTNEXTLINE(bugprone-random-generator-seed): the original's seed / a test's fixed sequence
     std::mt19937_64 random(20261101);
-    std::printf("x87 at 53 bits (the default control word)\n");
+    text::print("x87 at 53 bits (the default control word)\n");
     run(count, random);
     unsigned int previous = 0;
     _controlfp_s(&previous, _PC_24, _MCW_PC);
-    std::printf("x87 at 24 bits (as Direct3D 9 leaves it on the device's thread)\n");
+    text::print("x87 at 24 bits (as Direct3D 9 leaves it on the device's thread)\n");
     run(count, random);
     _controlfp_s(&previous, _PC_53, _MCW_PC);
     return 0;
 #else
     (void)argc;
     (void)argv;
-    std::printf("thug2_maths_check: the x87 reference needs MSVC for 32-bit x86; nothing to compare.\n");
+    text::print("thug2_maths_check: the x87 reference needs MSVC for 32-bit x86; nothing to compare.\n");
     return 0;
 #endif
 }

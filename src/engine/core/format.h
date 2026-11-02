@@ -272,6 +272,10 @@ size_t format_to(std::span<char> out, FormatFor<Args...> format, Args... args)
     return format_runtime_to(out, format.view(), packed);
 }
 
+// (not into a std::string's characters: its size isn't room to write in - text::format / append_format make strings)
+template <typename... Args>
+size_t format_to(std::string& out, FormatFor<Args...> format, Args... args) = delete;
+
 // The text as a string.
 template <typename... Args>
 std::string format(FormatFor<Args...> format, Args... args)
@@ -280,13 +284,20 @@ std::string format(FormatFor<Args...> format, Args... args)
     return format_runtime(format.view(), packed);
 }
 
-// printf: the text to the standard output (all of it - a %c of 0 included).
+// fprintf: the text to `file` (all of it - a %c of 0 included).
 template <typename... Args>
-void print(FormatFor<Args...> format, Args... args)
+void print_to(std::FILE* file, FormatFor<Args...> format, Args... args)
 {
     const std::array<FormatArg, sizeof...(Args)> packed{format_detail::make_arg(args)...};
     const std::string made = format_runtime(format.view(), packed);
-    std::fwrite(made.data(), 1, made.size(), stdout);
+    std::fwrite(made.data(), 1, made.size(), file);
+}
+
+// printf: the text to the standard output.
+template <typename... Args>
+void print(FormatFor<Args...> format, Args... args)
+{
+    print_to<Args...>(stdout, format, args...);
 }
 
 // The text added to the end of `out`.
