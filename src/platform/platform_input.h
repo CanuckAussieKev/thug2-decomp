@@ -123,17 +123,6 @@ void set_pad_mode(int mode);
 void set_default_enter_control(int control);
 void set_default_escape_control(int control);
 
-extern IDirectInput8A* g_direct_input;
 extern IDirectInputDevice8A* g_keyboard_device;
-extern std::array<DIJOYSTATE2, 2> g_joystick_states;
-extern std::array<DIJOYSTATE2, 2> g_last_joystick_states;
-extern std::array<IDirectInputDevice8A*, kPorts> g_joysticks;
-extern std::array<IDirectInputEffect*, kPorts> g_effects;
-extern std::array<uint32_t, kPorts> g_force_axis_counts;
-extern std::array<uint32_t, 2 * kPorts> g_force_resolutions;
-extern uint8_t g_option37; // the graphics options' other bytes (the named ones are in gfx/settings.h)
-extern uint16_t g_options38_and39;
-extern uint8_t g_unknown643b;
-extern uint32_t g_distance_setting;
 
 } // namespace os_layer

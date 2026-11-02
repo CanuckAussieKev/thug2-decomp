@@ -23,20 +23,22 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "platform/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
 
 namespace os_layer {
 
-IDirectInput8A* g_direct_input;
+PlatformInputShared& platform_input_shared()
+{
+    static core::NoDestroy<PlatformInputShared> state;
+    return state.get();
+}
+
 IDirectInputDevice8A* g_keyboard_device;
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
 std::array<PortControls, kPorts> g_input_map;
-std::array<IDirectInputDevice8A*, kPorts> g_joysticks;
-std::array<IDirectInputEffect*, kPorts> g_effects; // each joystick's constant-force effect (rumble)
-std::array<uint32_t, kPorts> g_force_axis_counts;
-std::array<uint32_t, 2 * kPorts> g_force_resolutions;
 constexpr int kKeyNameLength = 15;
 namespace {
 // NOT ORIGINAL grouping - platform_input.cpp's state (the original's globals). Made on first use, never destroyed
@@ -60,35 +62,32 @@ PlatformInputState& platform_input_state()
 }
 
 } // namespace
-// The joysticks' states: this frame's and the last.
-std::array<DIJOYSTATE2, 2> g_joystick_states;
-std::array<DIJOYSTATE2, 2> g_last_joystick_states;
 
 namespace {
 
 // DirectInput and its devices (the keyboard and mouse are the first of each found).
-IDirectInput8A*& get_direct_input() { return g_direct_input; }
+IDirectInput8A*& get_direct_input() { return platform_input_shared().direct_input_; }
 IDirectInputDevice8A*& get_keyboard() { return g_keyboard_device; }
 
 constexpr uint8_t kMouseInvertX{0};
 constexpr uint8_t kMouseInvertY{0};
 
 IDirectInputDevice8A*& get_mouse() { return platform_input_state().mouse_; }
-std::array<IDirectInputDevice8A*, kPorts>& joysticks() { return g_joysticks; }
+std::array<IDirectInputDevice8A*, kPorts>& joysticks() { return platform_input_shared().joysticks_; }
 // Each joystick's constant-force effect (rumble: set_actuators).
-std::array<IDirectInputEffect*, kPorts>& get_effects() { return g_effects; }
+std::array<IDirectInputEffect*, kPorts>& get_effects() { return platform_input_shared().effects_; }
 
 // The devices' states: this frame's and the last.
-std::array<DIJOYSTATE2, 2>& joystick_states() { return g_joystick_states; }
-std::array<DIJOYSTATE2, 2>& last_joystick_states() { return g_last_joystick_states; }
+std::array<DIJOYSTATE2, 2>& joystick_states() { return platform_input_shared().joystick_states_; }
+std::array<DIJOYSTATE2, 2>& last_joystick_states() { return platform_input_shared().last_joystick_states_; }
 std::array<uint8_t, 256>& get_keys() { return platform_input_state().keys_; }
 std::array<uint8_t, 256>& last_keys() { return platform_input_state().last_keys_; }
 DIMOUSESTATE2& mouse_state() { return platform_input_state().mouse_state_; }
 DIMOUSESTATE2& last_mouse_state() { return platform_input_state().last_mouse_state_; }
 
 // Per joystick: how many force-feedback axes it has (at most two) and their force resolutions (two each).
-std::array<uint32_t, kPorts>& force_axis_counts() { return g_force_axis_counts; }
-std::array<uint32_t, 2 * kPorts>& force_resolutions() { return g_force_resolutions; }
+std::array<uint32_t, kPorts>& force_axis_counts() { return platform_input_shared().force_axis_counts_; }
+std::array<uint32_t, 2 * kPorts>& force_resolutions() { return platform_input_shared().force_resolutions_; }
 
 std::array<std::array<wchar_t, kKeyNameLength>, 256>& key_names() { return platform_input_state().key_names_; }
 
@@ -145,9 +144,9 @@ GUID parse_joystick_guid(const char* text, DWORD size)
 // "distance": 1-100, the clipping distance from it; anything above 100 is none.
 void place_at_range(uint32_t distance)
 {
-    g_distance_setting = distance;
+    platform_shared().distance_setting_ = distance;
     if (distance > 100)
-        g_distance_setting = 0;
+        platform_shared().distance_setting_ = 0;
     else if (distance != 0)
         gfx::g_draw_distance_setting = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
 }
@@ -435,11 +434,11 @@ void load_registry_options(const char* key)
         if (value & 2)
             render::g_hq_shadows = 1;
         if (value & 4)
-            g_options38_and39 = static_cast<uint16_t>((g_options38_and39 & 0xFF00) | 1); // (its low byte)
+            platform_shared().options38_and39_ = static_cast<uint16_t>((platform_shared().options38_and39_ & 0xFF00) | 1); // (its low byte)
         if (value & 8)
-            g_options38_and39 = static_cast<uint16_t>((g_options38_and39 & 0x00FF) | 0x100); // (its high byte)
+            platform_shared().options38_and39_ = static_cast<uint16_t>((platform_shared().options38_and39_ & 0x00FF) | 0x100); // (its high byte)
         if (value & 0x10)
-            g_option37 = 1;
+            platform_shared().option37_ = 1;
         if (value & 0x20)
             memory::bits_as<uint8_t>(render::g_antialiasing) = 1;
         if (value & 0x100)
