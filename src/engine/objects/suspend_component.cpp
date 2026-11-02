@@ -121,34 +121,34 @@ void DormancyModule::configure_from_data(script::Struct* params)
         set_no_lod(lod_distances_.data());
         return;
     }
-    float* lod = lod_distances_.data();
-    lod[0] = 50.0f;
-    lod[2] = std::bit_cast<float>(core::at(kNoLodBits, 1));
-    lod[3] = std::bit_cast<float>(core::at(kNoLodBits, 2));
-    params->fetch_float(core::at(kLodDist, 0), &lod[0], 0);
-    lod[1] = lod[0] + kLod2Beyond1;
-    params->fetch_float(core::at(kLodDist, 1), &lod[1], 0);
-    params->fetch_float(core::at(kLodDist, 2), &lod[2], 0);
-    params->fetch_float(core::at(kLodDist, 3), &lod[3], 0);
-    const double first = static_cast<double>(lod[0]) * kInchesPerFoot;
-    const double second = static_cast<double>(lod[1]) * kInchesPerFoot;
-    lod[0] = static_cast<float>(first);
-    lod[1] = static_cast<float>(second);
-    lod[2] = lod[2] * kInchesPerFoot;
-    lod[3] = lod[3] * kInchesPerFoot;
+    auto& lod = lod_distances_;
+    core::at(lod, 0) = 50.0f;
+    core::at(lod, 2) = std::bit_cast<float>(core::at(kNoLodBits, 1));
+    core::at(lod, 3) = std::bit_cast<float>(core::at(kNoLodBits, 2));
+    params->fetch_float(core::at(kLodDist, 0), &core::at(lod, 0), 0);
+    core::at(lod, 1) = core::at(lod, 0) + kLod2Beyond1;
+    params->fetch_float(core::at(kLodDist, 1), &core::at(lod, 1), 0);
+    params->fetch_float(core::at(kLodDist, 2), &core::at(lod, 2), 0);
+    params->fetch_float(core::at(kLodDist, 3), &core::at(lod, 3), 0);
+    const double first = static_cast<double>(core::at(lod, 0)) * kInchesPerFoot;
+    const double second = static_cast<double>(core::at(lod, 1)) * kInchesPerFoot;
+    core::at(lod, 0) = static_cast<float>(first);
+    core::at(lod, 1) = static_cast<float>(second);
+    core::at(lod, 2) = core::at(lod, 2) * kInchesPerFoot;
+    core::at(lod, 3) = core::at(lod, 3) * kInchesPerFoot;
     // Distances out of order are reported (compiled out of this build).
     if (!(first < second))
         script::dump_to_log(params, 0);
-    if (!(lod[1] < lod[2]))
+    if (!(core::at(lod, 1) < core::at(lod, 2)))
         script::dump_to_log(params, 0);
-    if (!(lod[2] < lod[3]))
+    if (!(core::at(lod, 2) < core::at(lod, 3)))
         script::dump_to_log(params, 0);
-    lod[0] = script::fetch_float(0xD3D072F9) * lod[0]; // LOD0DistanceMultiplier
-    lod[1] = script::fetch_float(0x0432F2A1) * lod[1]; // LOD1DistanceMultiplier
+    core::at(lod, 0) = script::fetch_float(0xD3D072F9) * core::at(lod, 0); // LOD0DistanceMultiplier
+    core::at(lod, 1) = script::fetch_float(0x0432F2A1) * core::at(lod, 1); // LOD1DistanceMultiplier
     // NOT ORIGINAL - [Graphics] lod_distance_scale (engine/gfx/graphics_options.h): animated and drawn further out.
     const float scale = render::graphics_options::get_pull().lod_distance_scale_;
-    lod[0] = render::graphics_options::get_scaled(lod[0], scale);
-    lod[1] = render::graphics_options::get_scaled(lod[1], scale);
+    core::at(lod, 0) = render::graphics_options::get_scaled(core::at(lod, 0), scale);
+    core::at(lod, 1) = render::graphics_options::get_scaled(core::at(lod, 1), scale);
 }
 
 // 0x004341C0
