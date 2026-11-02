@@ -1,8 +1,6 @@
 #include "engine/script/expression.h"
 
 #include "engine/core/mem.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 #include <bit>
@@ -171,45 +169,39 @@ void copy_array_element_to_component(Array* array, uint32_t index, Component* to
 namespace {
 
 // A component's value and type, a name standing for a global symbol counting as the symbol's.
-void resolved_value(const Component* component, uint32_t* type, uint32_t* value)
+void resolved_value(const Component* component, uint32_t* type, Cell* value)
 {
     *type = component->kind_tag();
-    *value = component->value.word();
+    *value = component->value;
     if (*type == kQbvalName) {
-        if (const SymbolTableEntry* symbol = resolve_symbol(*value)) {
-            *value = symbol->value.word();
+        if (const SymbolTableEntry* symbol = resolve_symbol(value->word())) {
+            *value = symbol->value;
             *type = symbol->type;
         }
     }
 }
 
-double get_as_float(uint32_t bits)
-{
-    auto value = std::bit_cast<float>(bits);
-    return value;
-}
-double get_as_integer(uint32_t bits) { return static_cast<double>(static_cast<int32_t>(bits)); }
+double get_as_float(Cell value) { return value.real(); }
+double get_as_integer(Cell value) { return value.integer(); }
 
 // a < b: numbers by value; strings by length (!); structures: a is a subset of b.
-bool get_less(uint32_t type_a, uint32_t a, uint32_t type_b, uint32_t b)
+bool get_less(uint32_t type_a, Cell a, uint32_t type_b, Cell b)
 {
     switch (type_a) {
     case kQbvalInteger:
         if (type_b == kQbvalFloat)
             return get_as_integer(a) < get_as_float(b);
-        return type_b == kQbvalInteger && static_cast<int32_t>(a) < static_cast<int32_t>(b);
+        return type_b == kQbvalInteger && a.integer() < b.integer();
     case kQbvalFloat:
         if (type_b == kQbvalInteger)
             return get_as_float(a) < get_as_integer(b);
         return type_b == kQbvalFloat && get_as_float(a) < get_as_float(b);
     case kQbvalString:
     case kQbvalInlineText:
-        return type_b == type_a &&
-               std::strlen(cell::pointer<const char>(a)) < std::strlen(cell::pointer<const char>(b));
+        return type_b == type_a && std::strlen(a.text()) < std::strlen(b.text());
     case kQbvalStruct:
     case kQbvalStructRef:
-        return (type_b == kQbvalStruct || type_b == kQbvalStructRef) &&
-               cell::pointer<Struct>(a)->is_subset_of(cell::pointer<Struct>(b));
+        return (type_b == kQbvalStruct || type_b == kQbvalStructRef) && a.structure()->is_subset_of(b.structure());
     default:
         return false;
     }
@@ -220,7 +212,8 @@ bool get_less(uint32_t type_a, uint32_t a, uint32_t type_b, uint32_t b)
 // 0x00479410 (a member of the first component in the game)
 bool less_than(Component* a, Component* b)
 {
-    uint32_t type_a = 0, value_a = 0, type_b = 0, value_b = 0;
+    uint32_t type_a = 0, type_b = 0;
+    Cell value_a, value_b;
     resolved_value(a, &type_a, &value_a);
     resolved_value(b, &type_b, &value_b);
     return get_less(type_a, value_a, type_b, value_b);
@@ -229,7 +222,8 @@ bool less_than(Component* a, Component* b)
 // 0x004795A0
 bool greater_than(Component* a, Component* b)
 {
-    uint32_t type_a = 0, value_a = 0, type_b = 0, value_b = 0;
+    uint32_t type_a = 0, type_b = 0;
+    Cell value_a, value_b;
     resolved_value(a, &type_a, &value_a);
     resolved_value(b, &type_b, &value_b);
     // (the same cases, decided by a's type)
@@ -239,18 +233,17 @@ bool greater_than(Component* a, Component* b)
         if (type_b != kQbvalInteger && type_b != kQbvalFloat)
             return false;
         if (type_a == kQbvalInteger && type_b == kQbvalInteger)
-            return static_cast<int32_t>(value_a) > static_cast<int32_t>(value_b);
+            return value_a.integer() > value_b.integer();
         return (type_a == kQbvalInteger ? get_as_integer(value_a) : get_as_float(value_a)) >
                (type_b == kQbvalInteger ? get_as_integer(value_b) : get_as_float(value_b));
     case kQbvalString:
     case kQbvalInlineText:
-        return type_b == type_a && std::strlen(cell::pointer<const char>(value_a)) >
-                                       std::strlen(cell::pointer<const char>(value_b));
+        return type_b == type_a && std::strlen(value_a.text()) > std::strlen(value_b.text());
     case kQbvalStruct:
     case kQbvalStructRef:
         // b is a subset of a
         return (type_b == kQbvalStruct || type_b == kQbvalStructRef) &&
-               cell::pointer<Struct>(value_b)->is_subset_of(cell::pointer<Struct>(value_a));
+               value_b.structure()->is_subset_of(value_a.structure());
     default:
         return false;
     }
@@ -892,22 +885,3 @@ void ValueResolver::execute()
 
 } // namespace script
 
-namespace {
-
-
-struct ComponentAdapters {
-    bool less_than(script::Component* other)
-    {
-        return script::less_than(raw::as<script::Component>(this), other);
-    }
-    bool greater_than(script::Component* other)
-    {
-        return script::greater_than(raw::as<script::Component>(this), other);
-    }
-    bool is_reference() { return script::is_reference(raw::as<script::Component>(this)); }
-    void make_reference() { script::make_reference(raw::as<script::Component>(this)); }
-    void make_owning() { script::make_owning(raw::as<script::Component>(this)); }
-    int fetch_flag() { return script::fetch_flag(raw::as<script::Component>(this)); }
-};
-
-} // namespace
