@@ -25,7 +25,6 @@
 
 namespace skater::core_fields {
 
-
 // The component's fields (offsets).
 constexpr uint32_t kObject = 0xC;         // the skater's object (below)
 constexpr uint32_t kDisplayMatrix = 0x18; // (a copy of the object's matrix)
@@ -72,13 +71,13 @@ inline int state_of(const SkaterPhysicsModule* component) { return component->st
 inline int get_now()
 {
     const int time = frame_clock::game_clock_elapsed();
-    return time + objects::g_clock_offset;
+    return time + objects::clock_offset();
 }
 // The time since `stamp` (the clock's elapsed time, as the original works it out).
 inline uint32_t get_since(uint32_t stamp)
 {
     auto now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
-    return now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp);
+    return now + (static_cast<uint32_t>(objects::clock_offset()) - stamp);
 }
 
 // The state component's timed flags: a bool and, after it, the time it last changed.

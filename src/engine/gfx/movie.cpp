@@ -317,7 +317,7 @@ void release_sound_manager() { sound::release_manager(); }
 float sound_volume() { return sound::fetch_master_loudness(); }
 float current_music_volume() { return audio::get_music_volume(); }
 void toggle_fog(bool on) { render::engine::enable_fog(on); }
-bool app_active() { return sys::g_app_active; }
+
 bool quit_requested() { return g_quit_requested; }
 bool device_lost() { return g_device_lost; }
 
@@ -378,9 +378,9 @@ void play_movie_file(const char* name)
                 screen_saver_frames = 0;
                 SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             }
-            if (!app_active()) {
+            if (!sys::app_active()) {
                 bink::pause(current_movie(), 1);
-                while (!app_active()) {
+                while (!sys::app_active()) {
                     Sleep(100);
                     os_layer::process_window_events();
                 }

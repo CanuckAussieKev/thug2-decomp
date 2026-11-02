@@ -129,7 +129,7 @@ float walk_parameter(uint32_t name)
 }
 
 // The game clock as the skater code reads it (0x0044ECE0 plus the offset at 0x00696D60).
-int get_now() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
+int get_now() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 
 // The walk halted (the trigger component's +0x26: what it does this frame is over).
 bool halted(const FootMovement* walk) { return static_cast<bool>(walk->physics_control_->flag26_); }
@@ -1254,7 +1254,7 @@ bool FootMovement::update_contacts()
             }
             const int since = barrier_since_;
             const float delay = walk_parameter(kBarrierJumpDelay);
-            auto elapsed = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - since));
+            auto elapsed = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - since));
             if (static_cast<double>(elapsed) > delay && (climb_onto_bottom(false) || try_barrier_jump())) {
                 release_hit(feeler);
                 return false;

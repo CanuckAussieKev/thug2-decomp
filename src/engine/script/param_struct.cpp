@@ -45,16 +45,35 @@ ParamStructState& param_struct_state()
 }
 
 } // namespace
-memory::PoolPair g_array_pools;
-memory::PoolPair g_component_pools;
+memory::PoolPair& array_pools()
+{
+    static core::NoDestroy<memory::PoolPair> array_pools;
+    return array_pools.get();
+}
+
+memory::PoolPair& component_pools()
+{
+    static core::NoDestroy<memory::PoolPair> component_pools;
+    return component_pools.get();
+}
+
 ParamStructShared& param_struct_shared()
 {
     static core::NoDestroy<ParamStructShared> state;
     return state.get();
 }
 
-memory::PoolPair g_symbol_pools;
-memory::PoolPair g_vector_pools;
+memory::PoolPair& symbol_pools()
+{
+    static core::NoDestroy<memory::PoolPair> symbol_pools;
+    return symbol_pools.get();
+}
+
+memory::PoolPair& vector_pools()
+{
+    static core::NoDestroy<memory::PoolPair> vector_pools;
+    return vector_pools.get();
+}
 
 namespace {
 
@@ -448,7 +467,11 @@ bool Struct::fetch_vec(const char* name, VectorValue* out, int assert)
 namespace script {
 
 // The CStruct pool pair (the current pool's index, then the two pools).
-memory::PoolPair g_struct_pools;
+memory::PoolPair& struct_pools()
+{
+    static core::NoDestroy<memory::PoolPair> struct_pools;
+    return struct_pools.get();
+}
 
 // A permanent string table entry: the string's checksum and the string.
 struct PermanentString {
@@ -458,11 +481,10 @@ struct PermanentString {
 namespace {
 
 // The pool pairs of the script's value objects.
-memory::PoolPair& component_pools() { return g_component_pools; }
-memory::PoolPair& struct_pools() { return g_struct_pools; }
-memory::PoolPair& array_pools() { return g_array_pools; }
+
+
 memory::PoolPair& pair_pools() { return param_struct_shared().pair_pools_; }
-memory::PoolPair& vector_pools() { return g_vector_pools; }
+
 
 // The permanent string cache (used while loading the game's scripts): one block, strings shared by checksum.
 bool& use_permanent_strings() { return param_struct_state().use_permanent_strings_; }
@@ -1231,7 +1253,7 @@ int& struct_copy_peak() { return param_struct_state().struct_copy_peak_; }
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
 Pair* new_pair() { return param_struct_shared().pair_pools_.allocate<Pair>(); }
-Vector* alloc_script_vector() { return g_vector_pools.allocate<Vector>(); }
+Vector* alloc_script_vector() { return vector_pools().allocate<Vector>(); }
 
 // 0x0047AC00
 Pair::Pair() = default; // (its first word zeroed)
@@ -1491,7 +1513,7 @@ SymbolTableEntry::SymbolTableEntry()
 // 0x00479110
 SymbolTableEntry* create_symbol(uint32_t name)
 {
-    void* memory = g_symbol_pools.carve(sizeof(SymbolTableEntry));
+    void* memory = symbol_pools().carve(sizeof(SymbolTableEntry));
     SymbolTableEntry* entry = memory ? memory::construct_in<script::SymbolTableEntry>(memory) : nullptr;
     entry->name = name;
     entry->unknown0 |= 1;

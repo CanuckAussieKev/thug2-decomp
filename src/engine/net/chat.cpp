@@ -74,8 +74,8 @@ using ParamBag = script::Struct;
 
 gsl::owner<ParamBag*> new_script_struct()
 {
-    const int current = script::g_struct_pools.current;
-    memory::SlabBank* pool = core::at(script::g_struct_pools.pools, current);
+    const int current = script::struct_pools().current;
+    memory::SlabBank* pool = core::at(script::struct_pools().pools, current);
     void* memory = pool ? pool->carve() : memory::alloc(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
@@ -250,7 +250,7 @@ bool handle_chat_command(Hub* manager, const char* text)
         // to thug2-decomp.log (for picking a place to show behind the main menu).
         const uint8_t level = render::current_level();
         get_log("where: level %u", level);
-        auto* skater = modules::g_skate_module->get_home_rider(); // the skate module's local skater
+        auto* skater = modules::Skate::sole()->get_home_rider(); // the skate module's local skater
         if (skater) {
             const maths::Vec4& p = skater->at_point_;
             const maths::Mat4& m = skater->basis_frame_;

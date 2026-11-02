@@ -50,7 +50,7 @@ int score_pot(modules::PointTally* score)
 int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
+RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.

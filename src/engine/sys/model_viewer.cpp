@@ -62,7 +62,6 @@ constexpr uint32_t kUserViewerCircle = 0xB6E7047D;     // UserViewerCircle
 constexpr uint32_t kUserViewerTriangle = 0xC09789E2;   // UserViewerTriangle
 constexpr uint32_t kUserViewerX = 0xF440EC15;          // UserViewerX
 
-int& view_mode_value() { return objects::g_view_mode; }
 
 // NOT ORIGINAL grouping - the model viewer's speeds, viewer and last time. Made on first use, never destroyed
 // (model_viewer_state()).
@@ -80,7 +79,7 @@ ModelViewerState& model_viewer_state()
 }
 
 Viewer*& sole() { return model_viewer_state().viewer_; }
-bool& run_now_loaded() { return g_pending_script; }
+
 
 // A task or input handler off its list (0x004068F0).
 void remove_node(tasks::SchedulerTask* node) { node->drop_out(); }
@@ -152,7 +151,7 @@ int reload_script_file(net::InboundMsgCtx* context)
 {
     const char* file = net::wire::text_of(context->body_);
     if (std::strcmp(file, "..\\runnow.qb") == 0 || std::strcmp(file, "runnow.qb") == 0)
-        run_now_loaded() = true;
+        set_pending_script(true);
     script::load_qb_file(file, 0);
     return 1;
 }
@@ -192,7 +191,7 @@ Viewer::~Viewer()
 objects::PreviewEntity* Viewer::get_viewer_entity() { return entity_.get(); }
 
 // 0x00576E70
-void change_view_mode(int mode) { view_mode_value() = mode; }
+void change_view_mode(int mode) { objects::set_view_mode(mode); }
 // 0x00576E80
 void set_movement_velocity(float velocity) { model_viewer_state().movement_velocity_ = velocity; }
 // 0x00576E90
@@ -219,7 +218,7 @@ void handle_viewer_shift(ViewerInputHandler* handler)
 void handle_viewer_input(ViewerInputHandler* handler)
 {
     Viewer* viewer = handler->content_;
-    if (!view_mode_value())
+    if (!objects::view_mode())
         return;
     auto stick = [handler](int event) {
         return static_cast<float>(static_cast<int>(core::at(handler->control_data_->incident_, event)) - 0x80);

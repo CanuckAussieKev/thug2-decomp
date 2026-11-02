@@ -118,9 +118,8 @@ ScreenshotJob& screenshot_job()
 
 // --- the game's state ---
 
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
 bool loading_screen_up()
 {
     return render::g_loading_screen_shown != 0 || render::g_loading_bar_timer != 0 ||
@@ -137,13 +136,13 @@ std::string get_name_of(uint32_t checksum)
 }
 std::string active_ruleset_label()
 {
-    goals::MatchRules* mode = goals::g_game_mode.get();
+    goals::MatchRules* mode = goals::game_mode();
     return mode ? get_name_of(mode->get_name_key()) : "";
 }
 // The local skater (the skate module's 0x00566520; null with none).
 objects::GameEntity* local_skater()
 {
-    return skate_module() ? skate_module()->get_home_rider() : nullptr;
+    return modules::Skate::sole() ? modules::Skate::sole()->get_home_rider() : nullptr;
 }
 
 std::string vec(std::span<const float, 3> v, int places = 1)

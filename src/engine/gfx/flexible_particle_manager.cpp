@@ -36,7 +36,7 @@ constexpr int kDefaultHeapSize = 0x5000;
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
 float& frame_time_scale() { return g_frame_time_scale; }
-bool is_game_halted() { return objects::g_simulation_halted; }
+
 int drawn_viewport() { return g_drawn_viewport; }
 
 // The list's head deleted (0x0049AEF0).
@@ -146,7 +146,7 @@ void FlexibleParticleManager::render_systems(bool force)
         return;
     crt::get_qsort(static_cast<void*>(systems.data()), static_cast<size_t>(count), sizeof(EmitterInstance*),
                    &compare_distance); // (the game's qsort)
-    const bool always = force || is_game_halted();
+    const bool always = force || objects::simulation_halted();
     for (int i = 0; i < count; ++i)
         core::at(systems, i)->render_if_visible(always);
 }

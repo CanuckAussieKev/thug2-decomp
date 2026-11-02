@@ -587,7 +587,7 @@ void SkaterPhysicsModule::try_grind(bool always)
         static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_time_)) < static_cast<uint32_t>(rail_wait_))
         min_alignment =
             static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));
-    auto* manager = modules::g_skate_module->rail_manager_.get();
+    auto* manager = modules::Skate::sole()->rail_manager_.get();
     maths::Vec4 point;
     objects::GrindPoint* node = nullptr;
     if (manager->find_grind_rail(&last, &now, &point, &node, nullptr, min_alignment, 0)) {

@@ -20,6 +20,7 @@ namespace script {
 // first use, never destroyed (cache_shared()).
 struct CacheShared {
     memory::PoolPair cache_entry_pools_{};
+    std::unique_ptr<script::ScriptStore> script_store_{};
 };
 CacheShared& cache_shared();
 

@@ -609,7 +609,7 @@ void draw_viewport(int index)
     issue_occlusion_queries();
     set_render_state(1, 0);
     static_cast<FlexibleParticleManager*>(g_flexible_particle_manager.get())->render_systems(index > 0);
-    objects::g_particle_hub->draw_particles();
+    objects::particle_hub()->draw_particles();
     g_weather->render(); // (through the jump 0x004A10A0)
     set_render_state(1, 1);
     engine::draw_shatters();
@@ -641,7 +641,7 @@ void draw_world()
         set_render_state(2, 1);
         render_shadow_textures();
         begin_screen_effects();
-        const int count = modules::g_viewport_count;
+        const int count = modules::viewport_count();
         // Not original - the wireframe render mode (engine/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
         wireframe::begin_world();

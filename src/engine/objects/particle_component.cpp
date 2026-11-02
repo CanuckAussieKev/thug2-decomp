@@ -26,8 +26,10 @@
 #include "engine/objects/model_component.h"
 #include <gsl/pointers>
 #include <array>
+#include <utility>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
@@ -43,7 +45,18 @@ std::array<script::MemberFunctionEntry, 21>& particle_component_member_functions
     return particle_component_member_functions;
 }
 
-std::unique_ptr<render::EffectsDirector> g_particle_hub;
+namespace {
+
+std::unique_ptr<render::EffectsDirector>& stored_particle_hub()
+{
+    static core::NoDestroy<std::unique_ptr<render::EffectsDirector>> particle_hub;
+    return particle_hub.get();
+}
+
+} // namespace
+
+render::EffectsDirector* particle_hub() { return stored_particle_hub().get(); }
+void set_particle_hub(std::unique_ptr<render::EffectsDirector> owned) { stored_particle_hub() = std::move(owned); }
 
 namespace {
 
@@ -107,7 +120,7 @@ EffectsEmitterModule::EffectsEmitterModule()
 {
     kind_tag_ = kType;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    start_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
+    start_time_ = frame_clock::game_clock_elapsed() + clock_offset();
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -115,7 +128,7 @@ EffectsEmitterModule::EffectsEmitterModule()
 EffectsEmitterModule::~EffectsEmitterModule()
 {
     if (effect_handle_)
-        g_particle_hub->retire_particle(effect_handle_);
+        stored_particle_hub()->retire_particle(effect_handle_);
 }
 
 // 0x00429BF0
@@ -423,7 +436,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             core::at(p.offset_pos_, i) = core::at(p.at_point_, i);
     p.orient_with_object_ = params->has_bare_flag(0xA2487CC3u);
     p.flag158_ = params->has_bare_flag(0xA0E585B0u);
-    effect_handle_ = g_particle_hub->spawn_particle(&p);
+    effect_handle_ = stored_particle_hub()->spawn_particle(&p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
@@ -451,7 +464,7 @@ void EffectsEmitterModule::tick_frame()
             return;
     }
     if (lifespan_ != 0) {
-        auto age = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - start_time_));
+        auto age = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - start_time_));
         if (age > lifespan_) {
             entity_->flag_as_dead();
             return;

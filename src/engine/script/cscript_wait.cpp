@@ -27,14 +27,13 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
-
 namespace script {
 
 namespace {
 
 // The game clock in ms (0x0044ECE0) and the offset added to it (0x00696D60).
 int game_clock() { return frame_clock::game_clock_elapsed(); }
-int& game_clock_offset() { return objects::g_clock_offset; }
+
 
 // Wait n seconds: the milliseconds as seconds (0.001f, 0x3A83126F at 0x006461D8).
 constexpr float kSecondsPerMs = 0.001f;
@@ -94,7 +93,7 @@ void Script::update_wait()
     case kWaitTypeRealTimer: {
         const uint32_t start = suspend_arg_;
         const uint32_t elapsed =
-            static_cast<uint32_t>(game_clock()) + (static_cast<uint32_t>(game_clock_offset()) - start);
+            static_cast<uint32_t>(game_clock()) + (static_cast<uint32_t>(objects::clock_offset()) - start);
         if (static_cast<double>(elapsed) >= suspend_clock_) // (not when the time is a NaN)
             suspend_reason_ = kSuspendOnNothing;
         break;
@@ -152,7 +151,7 @@ void Script::lull(int ms)
 void Script::wait_real_time(int ms)
 {
     suspend_reason_ = kWaitTypeRealTimer;
-    suspend_arg_ = static_cast<uint32_t>(game_clock() + game_clock_offset());
+    suspend_arg_ = static_cast<uint32_t>(game_clock() + objects::clock_offset());
     suspend_clock_ = static_cast<float>(static_cast<uint32_t>(ms));
 }
 

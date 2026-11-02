@@ -14,7 +14,7 @@ namespace {
 
 // The game time up to the last change of speed (callers add game_clock_elapsed to it), the real time of that
 // change, and the speed since.
-int& get_offset() { return objects::g_clock_offset; }
+
 
 // NOT ORIGINAL grouping - game_clock.cpp's state (the original's globals). Made on first use, never destroyed
 // (game_clock_state()).
@@ -45,7 +45,7 @@ int get_elapsed()
 
 void catch_up()
 {
-    get_offset() += get_elapsed();
+    objects::set_clock_offset(objects::clock_offset() + get_elapsed());
     last_change() = get_time();
 }
 
@@ -55,7 +55,7 @@ void catch_up()
 int game_clock_elapsed() { return get_elapsed(); }
 
 // 0x0041C200
-int game_clock_time() { return game_clock_elapsed() + get_offset(); }
+int game_clock_time() { return game_clock_elapsed() + objects::clock_offset(); }
 
 // 0x0044ED10
 void pause_game_clock(bool pause)

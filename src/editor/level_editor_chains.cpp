@@ -811,7 +811,7 @@ script::Struct* look_up_node_params(uint32_t name)
 // The level's rail manager (modules::Skate +0x24; null when there is none or its rails ride an object).
 objects::GrindRailHub* get_rails()
 {
-    const modules::Skate* skate = modules::g_skate_module.get();
+    const modules::Skate* skate = modules::Skate::sole();
     auto* manager = skate ? skate->rail_manager_.get() : nullptr;
     return manager && !manager->on_object_ ? manager : nullptr;
 }
@@ -1258,7 +1258,7 @@ void get_remake(uint32_t name)
 // wanted (or of another cluster now) taken out of its name map (the manager's object_clusters_).
 void register_trick_objects()
 {
-    objects::TrickSpotHub* manager = objects::g_trick_spot_hub.get();
+    objects::TrickSpotHub* manager = objects::trick_spot_hub();
     if (!manager)
         return;
     std::map<uint32_t, uint32_t> want;

@@ -82,7 +82,7 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
     script::launch_script(name, params, nullptr, false, nullptr);
 }
 
-void* skate_module() { return static_cast<void*>(modules::g_skate_module.get()); }
+void* skate_module() { return static_cast<void*>(modules::Skate::sole()); }
 RiderIdentity* first_profile()
 {
     return static_cast<modules::Skate*>(skate_module())->fetch_account(static_cast<int>(0));
@@ -232,7 +232,7 @@ bool AttributeTracker::is_operative()
     if (!skater_)
         return false;
     void* skate = skate_module();
-    if (!goals::g_game_mode->is_true(0x1DED1EA4))
+    if (!goals::game_mode()->is_true(0x1DED1EA4))
         return false;
     if (!activated_ || static_cast<modules::Skate*>(skate)->level_ == 0xE92ECAFE)
         return false;

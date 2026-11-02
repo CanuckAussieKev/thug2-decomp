@@ -52,7 +52,7 @@ sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
 int get_clock() { return frame_clock::game_clock_elapsed(); }
-int clock_offset() { return g_clock_offset; }
+
 
 // A float of the global structure kRates (asserted).
 float get_rate(uint32_t name)

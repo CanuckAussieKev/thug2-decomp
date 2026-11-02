@@ -41,7 +41,7 @@ SdlWindowState& sdl_window_state()
 }
 
 HWND& game_window() { return render::g_game_window; }
-bool& get_focused() { return g_app_active; }
+
 // Whether the device may be recreated (off while the window is in the background).
 bool& recreate_device() { return render::g_device_lost; }
 
@@ -84,10 +84,10 @@ void handle_window_event(SDL_Event* event)
         // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
         // Original behaviour (PartyMod v1.0.4): Focused() = false always.
         if (!frontend::automation::is_switched_on())
-            get_focused() = false;
+            set_app_active(false);
     } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
         recreate_device() = true;
-        get_focused() = true;
+        set_app_active(true);
     }
 }
 
@@ -130,7 +130,7 @@ void create_sdl_window()
     SDL_GetWindowWMInfo(sdl_window_state().window_, &info);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): SDL's window-manager info (an API union by platform)
     game_window() = info.info.win.window;
-    get_focused() = true;
+    set_app_active(true);
 
     SDL_ShowCursor(0);
 }

@@ -234,7 +234,7 @@ void RiderTeeterMoves::change_args(script::Struct* params)
 void RiderTeeterMoves::set_wobble(script::Struct* wobble)
 {
     if (!entity_->own_script_) {
-        void* memory = script::g_script_pools.carve(0xF4);
+        void* memory = script::script_pools().carve(0xF4);
         entity_->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
     std::array<float, 5> values{};

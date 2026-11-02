@@ -23,10 +23,19 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "game/park_editing/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace park_editing {
 
-bool g_rail_editor_flag{true};
+ParkMapShared& park_map_shared()
+{
+    static core::NoDestroy<ParkMapShared> state;
+    return state.get();
+}
+
+bool rail_editor_flag() { return park_map_shared().rail_editor_flag_; }
+void set_rail_editor_flag(bool value) { park_map_shared().rail_editor_flag_ = value; }
 
 namespace {
 
@@ -51,7 +60,7 @@ void read_goals(void* goal_editor, script::Struct* goals, int flag)
 // The rail editor (0x004F4970 looks it up): its rails read from a structure (0x004F7ED0).
 void read_rails(script::Struct* params) { RailAuthoring::sole()->decode_from_struct(params); }
 // A flag the rail editor reads (cleared while rails are read outside the park editor's level).
-bool& rail_editor_flag() { return g_rail_editor_flag; }
+
 
 // The park editor's theme.
 void set_theme(uint32_t theme) { ParkBuilderMode::sole()->set_daylight_script(theme); }
@@ -80,7 +89,6 @@ void copy_string(std::span<char> dest, const char* source)
     core::at(dest, at) = '\0';
 }
 
-
 } // namespace
 
 // 0x00598FC0
@@ -94,9 +102,9 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
 
     const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
     if (editor->cur_phase_ != kEditLevel)
-        rail_editor_flag() = false;
+        park_map_shared().rail_editor_flag_ = false;
     read_rails(params);
-    rail_editor_flag() = true;
+    park_map_shared().rail_editor_flag_ = true;
 
     int max_players = 2;
     params->fetch_int_value(kMaxPlayers, &max_players, 0);

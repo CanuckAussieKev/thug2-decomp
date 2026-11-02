@@ -46,7 +46,6 @@ constexpr uint32_t kShowGoalPoints = 0x888EF05E;  // GoalManager_ShowGoalPoints
 void dup_from(char* dest, const char* text) { text::copy_unbounded(dest, text); }
 void get_append(char* dest, const char* text) { text::append_unbounded(dest, text); }
 
-MatchRules* get_game_mode() { return g_game_mode.get(); }
 // The level structure being played (the skate module's +0x380 names it).
 script::Struct* level_params_ref() { return script::read_sub_struct(modules::Skate::sole()->level_params_); }
 
@@ -81,7 +80,7 @@ bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script*
     level_params_ref()->fetch_text(kLevel, &level, 1);
     std::array<char, 128> name{};
     dup_from(name.data(), level);
-    if (get_game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal))
+    if (game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal))
         get_append(name.data(), "_classic"); // "_classic"
     get_append(name.data(), "_goal_");       // "_goal_"
     get_append(name.data(), type);

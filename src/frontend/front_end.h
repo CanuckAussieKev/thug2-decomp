@@ -142,8 +142,10 @@ bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* scr
 // 0x0054FDC0: SetAnalogStickActiveForMenus (an integer, default 1).
 bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* script);
 
-extern bool g_menus_active;
-extern bool g_pending_script;
+bool menus_active();
+void set_menus_active(bool value);
+bool pending_script();
+void set_pending_script(bool value);
 
 extern std::unique_ptr<modules::FrontEnd> g_front_end_instance;
 } // namespace modules

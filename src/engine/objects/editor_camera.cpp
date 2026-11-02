@@ -103,7 +103,7 @@ private:
 
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
 void rail_editor_moving(int moved) { park_editing::RailAuthoring::sole()->change_live(moved != 0); }
-bool in_park_editor() { return modules::g_skate_module->level_ == 0xE8B4B836; }
+bool in_park_editor() { return modules::Skate::sole()->level_ == 0xE8B4B836; }
 
 } // namespace
 
@@ -121,7 +121,7 @@ bool script_flagged(uint32_t name)
         if (name == skip_name)
             return true;
     }
-    script::ScriptStore* cache = script::g_script_store.get();
+    script::ScriptStore* cache = script::script_store();
     const uint8_t* code = cache->fetch_script(name);
     if (!code)
         return false;
@@ -470,7 +470,7 @@ void EditorViewModule::tick_frame()
     }
     level_y_ = rise + level_y_;
 
-    const modules::Skate* skate = modules::g_skate_module.get();
+    const modules::Skate* skate = modules::Skate::sole();
     if (in_park_editor())
         rail_editor_moving(0);
 

@@ -352,7 +352,7 @@ bool AudioMixer::is_frozen()
 {
     if (mute_override_)
         return false;
-    return render::g_loading_screen_shown || objects::g_simulation_halted;
+    return render::g_loading_screen_shown || objects::simulation_halted();
 }
 
 // 0x0047B360

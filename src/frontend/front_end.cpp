@@ -43,8 +43,31 @@ namespace modules {
 
 std::unique_ptr<modules::FrontEnd> g_front_end_instance;
 
-bool g_menus_active;
-bool g_pending_script;
+namespace {
+
+bool& stored_menus_active()
+{
+    static bool menus_active{};
+    return menus_active;
+}
+
+} // namespace
+
+bool menus_active() { return stored_menus_active(); }
+void set_menus_active(bool value) { stored_menus_active() = value; }
+
+namespace {
+
+bool& stored_pending_script()
+{
+    static bool pending_script{};
+    return pending_script;
+}
+
+} // namespace
+
+bool pending_script() { return stored_pending_script(); }
+void set_pending_script(bool value) { stored_pending_script() = value; }
 
 namespace {
 
@@ -109,14 +132,11 @@ FrontEndState& front_end_state()
 
 uint32_t& front_end_refs() { return front_end_state().front_end_refs_; }
 // Set each frame by Update.
-bool& menus_active() { return g_menus_active; }             // paused, in the skateshop, or keyboard up
+
 bool& skateshop_override() { return front_end_state().skateshop_override_; } // set elsewhere: never counts as the skateshop
 bool& get_keyboard_on_screen() { return sio::keyboard_on_screen_flag(); }
 bool& menu_on_screen() { return sio::menu_flag(); } // a menu, dialog box or the quit dialog
-bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xFB11E6CD next frame
-bool& is_game_halted() { return objects::g_simulation_halted; }
 
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 frame_loop::Hub* main_loop_manager() { return assets::get_main_loop_manager(); }
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
@@ -421,7 +441,7 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
 // 0x0054F380
 void FrontEnd::tick_frame(bool game_paused)
 {
-    bool in_skateshop = modules::g_skate_module->pending_level_ == 0xE92ECAFE; // (the level / game mode)
+    bool in_skateshop = modules::Skate::sole()->pending_level_ == 0xE92ECAFE; // (the level / game mode)
     if (skateshop_override())
         in_skateshop = false;
     bool keyboard_up = false;
@@ -438,7 +458,7 @@ void FrontEnd::tick_frame(bool game_paused)
         menu_up = true;
     delete_params(params);
 
-    menus_active() = game_paused || in_skateshop || keyboard_up;
+    stored_menus_active() = game_paused || in_skateshop || keyboard_up;
     get_keyboard_on_screen() = keyboard_up;
     menu_on_screen() = menu_up;
 
@@ -455,11 +475,11 @@ void FrontEnd::tick_frame(bool game_paused)
     }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
     script::tick_child_scripts();
-    skate_module()->advance_match_flow();
+    modules::Skate::sole()->advance_match_flow();
     if (pending_script()) {
-        pending_script() = false;
+        stored_pending_script() = false;
         auto* object =
-            static_cast<objects::Entity*>(skate_module()->get_home_rider());
+            static_cast<objects::Entity*>(modules::Skate::sole()->get_home_rider());
         script::launch_script(0xFB11E6CD, nullptr, object, false, nullptr);
     }
     memory::Hub::get_pull()->leave_heap_scope();
@@ -521,7 +541,7 @@ void FrontEnd::get_pause_game(bool pause)
 {
     if (pause == is_halted_)
         return;
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     auto* devices = sio::get_device_manager();
     if (pause) {
         skate->get_freeze(true);
@@ -549,7 +569,7 @@ void FrontEnd::get_pause_game(bool pause)
     objects::object_hub_slot()->get_freeze(pause);
     frame_clock::pause_game_clock(pause);
     frontend::UiTree::sole()->set_paused_all(pause);
-    is_game_halted() = pause;
+    objects::set_simulation_halted(pause);
     is_halted_ = pause;
     // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
     // (0x00406AC0 runs a task only when (mask & its kinds) == 0).
@@ -558,7 +578,7 @@ void FrontEnd::get_pause_game(bool pause)
         report_pause_state();
     } else {
         main_loop_manager()->logic_tasks_.skip_bits_ = 0;
-        skate_module()->get_freeze(false);
+        modules::Skate::sole()->get_freeze(false);
         report_pause_state();
     }
     if (is_halted_ || !skate->get_home_rider())

@@ -123,6 +123,7 @@ void set_pad_mode(int mode);
 void set_default_enter_control(int control);
 void set_default_escape_control(int control);
 
-extern IDirectInputDevice8A* g_keyboard_device;
+IDirectInputDevice8A* keyboard_device();
+void set_keyboard_device(IDirectInputDevice8A* value);
 
 } // namespace os_layer

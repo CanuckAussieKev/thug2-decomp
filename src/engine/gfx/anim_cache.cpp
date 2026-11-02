@@ -14,10 +14,15 @@
 #include "platform/stopwatch.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace gfx {
 
-memory::PoolPair g_anim_slot_pools; // (CAnimCachePredictor; script_startup.h)
+memory::PoolPair& anim_slot_pools()
+{
+    static core::NoDestroy<memory::PoolPair> anim_slot_pools; // (CAnimCachePredictor; script_startup.h)
+    return anim_slot_pools.get();
+}
 
 namespace {
 
@@ -30,7 +35,7 @@ ClipStore*& get_cache()
     static ClipStore* clip_store{};
     return clip_store;
 }
-memory::PoolPair& slot_pools() { return g_anim_slot_pools; }
+
 
 memory::Hub* hub() { return memory::Hub::get_pull(); }
 
@@ -120,7 +125,7 @@ void free_data(AnimCacheEntry* entry)
 // --- the slots ---
 
 // 0x00480A70
-void AnimCacheSlot::dealloc(AnimCacheSlot* slot) { slot_pools().dealloc(slot); }
+void AnimCacheSlot::dealloc(AnimCacheSlot* slot) { anim_slot_pools().dealloc(slot); }
 
 void AnimCacheSlot::get_clear()
 {
@@ -203,7 +208,7 @@ int AnimCacheEntry::new_slot()
     for (int i = 0; i < kSlots; ++i) {
         if (core::at(slots_ptr_, i))
             continue;
-        auto* slot = slot_pools().allocate<AnimCacheSlot>();
+        auto* slot = anim_slot_pools().allocate<AnimCacheSlot>();
         if (slot)
             slot->clock_ = 0x8000;
         core::at(slots_ptr_, i) = slot;

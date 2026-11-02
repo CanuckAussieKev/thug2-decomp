@@ -24,6 +24,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -35,12 +36,16 @@ int g_script_count;
 uint32_t g_next_script_unique_id;
 bool g_updating_spawned_scripts;
 bool g_delete_spawned_scripts_pending;
-memory::PoolPair g_script_pools;
+memory::PoolPair& script_pools()
+{
+    static core::NoDestroy<memory::PoolPair> script_pools;
+    return script_pools.get();
+}
 
 namespace {
 
 // The CScript pool pair (300 items, made by the script system's start-up).
-memory::PoolPair& script_pools() { return g_script_pools; }
+
 
 // A new empty structure from the structure pool (null if there's no room).
 // `delete structure` (its destructor is Clear).

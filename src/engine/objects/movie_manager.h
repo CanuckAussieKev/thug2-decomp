@@ -108,7 +108,9 @@ gfx::ViewCam* assign_camera_fields(gfx::ViewCam* to, const gfx::ViewCam* other);
 // through the getter folded at 0x00543150 (online::PlayerRecord::get_accumulated_score).
 uint32_t movie_key_from_params(const void* movie);
 
-extern bool g_simulation_halted;
-extern int g_view_mode;
+bool simulation_halted();
+void set_simulation_halted(bool value);
+int view_mode();
+void set_view_mode(int value);
 
 } // namespace objects

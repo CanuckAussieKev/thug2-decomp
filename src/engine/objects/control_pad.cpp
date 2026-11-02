@@ -16,14 +16,25 @@
 
 namespace objects {
 
-int g_clock_offset;
+namespace {
+
+int& stored_clock_offset()
+{
+    static int clock_offset{};
+    return clock_offset;
+}
+
+} // namespace
+
+int clock_offset() { return stored_clock_offset(); }
+void set_clock_offset(int value) { stored_clock_offset() = value; }
 
 namespace {
 
 constexpr int kPressedAbove = 0x40;
 
 // The game clock with its offset (0x00696D60).
-int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
+int get_clock() { return frame_clock::game_clock_elapsed() + stored_clock_offset(); }
 
 // frame_clock::GetTime as the original compares it: unsigned, as a float would hold it.
 double get_now() { return static_cast<double>(frame_clock::get_time()); }
@@ -118,14 +129,14 @@ void ControlButton::set_held_down(uint8_t down)
 int ControlButton::read_let_go_time()
 {
     const int released = release_time_;
-    return frame_clock::game_clock_elapsed() + (g_clock_offset - released);
+    return frame_clock::game_clock_elapsed() + (stored_clock_offset() - released);
 }
 
 // 0x0046B920
 int ControlButton::get_held_millis()
 {
     const int pressed = press_time_;
-    return frame_clock::game_clock_elapsed() + (g_clock_offset - pressed);
+    return frame_clock::game_clock_elapsed() + (stored_clock_offset() - pressed);
 }
 
 namespace {

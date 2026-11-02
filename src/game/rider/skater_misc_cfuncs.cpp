@@ -219,7 +219,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         if (stream_params) {
             // (delete inlined: the structure pool pair's Free)
             stream_params->get_clear();
-            script::g_struct_pools.dealloc(stream_params);
+            script::struct_pools().dealloc(stream_params);
         }
         break;
     }
@@ -227,7 +227,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     if (order) {
         // (delete inlined: the array pool pair's Free)
         order->get_clear();
-        script::g_array_pools.dealloc(order);
+        script::array_pools().dealloc(order);
     }
     return true;
 }

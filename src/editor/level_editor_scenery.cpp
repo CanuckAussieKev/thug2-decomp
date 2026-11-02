@@ -514,7 +514,7 @@ using RailNode = objects::GrindPoint;
 // The level's rail nodes (empty when there are none, or the manager is on an object).
 std::span<RailNode> rail_nodes()
 {
-    const modules::Skate* skate = modules::g_skate_module.get();
+    const modules::Skate* skate = modules::Skate::sole();
     const objects::GrindRailHub* manager = skate ? skate->rail_manager_.get() : nullptr;
     if (!manager || manager->on_object_)
         return {};

@@ -51,7 +51,6 @@ double random_between(float min, float max)
     return t * (static_cast<double>(max) - min) + min;
 }
 
-int viewport_count() { return modules::g_viewport_count; }
 void* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
 // 0x0048C490: whether a sphere is out of the camera's view.
 int sphere_hidden(const maths::Vec4* centre, float radius)
@@ -504,7 +503,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
     run_emit_script();
     update_bounds();
     unknown130_ = true;
-    if (viewport_count() == 1 && viewport_camera(0) && unknown133_ && sphere_hidden(&bounds_, bounds_.w)) {
+    if (modules::viewport_count() == 1 && viewport_camera(0) && unknown133_ && sphere_hidden(&bounds_, bounds_.w)) {
         unknown130_ = false;
         if (emit_rate_ == 0.0f) { // out of view and not emitting: the particles only age
             for (int i = 0; i < particle_count_; ++i) {

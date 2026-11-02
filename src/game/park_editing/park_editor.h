@@ -256,6 +256,7 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* script)
 // 0x0058FED0 SetParkEditorPauseMode pause | unpause: the editor paused (its menu and cursor hidden) or not.
 bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* script);
 
-extern bool g_collision_allowed;
+bool collision_allowed();
+void set_collision_allowed(bool value);
 
 } // namespace park_editing

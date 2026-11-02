@@ -266,9 +266,8 @@ namespace {
 SaveCard* the_card() { return memcard_shared().the_card_->get_storage_slot(0, 0); }
 
 // The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
-memory::PoolPair& component_pools() { return script::g_component_pools; }
-memory::PoolPair& struct_pools() { return script::g_struct_pools; }
-memory::PoolPair& vector_pools() { return script::g_vector_pools; }
+
+
 
 } // namespace
 
@@ -362,25 +361,25 @@ bool get_max_thps4_files_allowed(script::Struct*, script::Script* script)
 // 0x005A7470
 bool switch_to_temp_pools_if_they_exist(script::Struct*, script::Script*)
 {
-    ++component_pools().current;
-    ++struct_pools().current;
-    ++vector_pools().current;
-    if (core::at(component_pools().pools, component_pools().current) && core::at(struct_pools().pools, struct_pools().current) &&
-        core::at(vector_pools().pools, vector_pools().current))
+    ++script::component_pools().current;
+    ++script::struct_pools().current;
+    ++script::vector_pools().current;
+    if (core::at(script::component_pools().pools, script::component_pools().current) && core::at(script::struct_pools().pools, script::struct_pools().current) &&
+        core::at(script::vector_pools().pools, script::vector_pools().current))
         return true;
-    --component_pools().current;
-    --struct_pools().current;
-    --vector_pools().current;
+    --script::component_pools().current;
+    --script::struct_pools().current;
+    --script::vector_pools().current;
     return false;
 }
 
 // 0x005A74F0
 bool switch_to_regular_pools(script::Struct*, script::Script*)
 {
-    if (component_pools().current || struct_pools().current || vector_pools().current) {
-        --component_pools().current;
-        --struct_pools().current;
-        --vector_pools().current;
+    if (script::component_pools().current || script::struct_pools().current || script::vector_pools().current) {
+        --script::component_pools().current;
+        --script::struct_pools().current;
+        --script::vector_pools().current;
     }
     return true;
 }

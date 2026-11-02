@@ -22,7 +22,7 @@ void* get_anim_data(uint32_t checksum, int unused)
 // (0x004B3990 / the cutscene's 0x00464560: the pools' carve; 0x004645E0 frees)
 void* FrameSource::operator new(std::size_t size) noexcept
 {
-    return g_frame_source_pools.carve(static_cast<unsigned int>(size));
+    return frame_source_pools().carve(static_cast<unsigned int>(size));
 }
 void FrameSource::operator delete(void* source)
 {

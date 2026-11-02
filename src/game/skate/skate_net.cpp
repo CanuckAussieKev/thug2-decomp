@@ -132,9 +132,9 @@ constexpr uint8_t kSymbolString = 3;     // kQbvalString
 
 // The singletons (not rewritten): the skate module, the network manager (online::Hub), the game mode
 // (goals::MatchRules), the object manager, the goal manager, the profile manager (graffiti colours).
-Skate* skate_module() { return g_skate_module.get(); }
+
 online::Hub* net_session_slot() { return online::online_hub(); }
-goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
+
 objects::ObjectHubBase* entity_hub_handle()
 {
     return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
@@ -310,7 +310,7 @@ void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index
 // 0x0056C920
 int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
 {
-    const Skate* skate = skate_module();
+    const Skate* skate = Skate::sole();
     online::Hub* net = net_session_slot();
     script::kill_all_child_scripts();
     script::StructPtr params = script::make_struct();
@@ -376,7 +376,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     online::Hub* net = net_session_slot();
     gsl::owner<Struct*> params = nullptr;
     std::array<char, 128> text{};
-    if ((get_game_mode()->is_squad_match() != 0)) { // teams
+    if ((goals::game_mode()->is_squad_match() != 0)) { // teams
         int local_team = -1;
         PlayerRecord* local = net->get_own_player();
         if (local && !local->is_observer() && local->has_finished_joining())
@@ -457,14 +457,14 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
     skate_net::GraffitiColorsMessage message;
-    if (!get_game_mode()->is_true(kShouldModulateColor)) {
+    if (!goals::game_mode()->is_true(kShouldModulateColor)) {
         debug::printf("No need to continue cause we're not in graffiti mode");
         return 4;
     }
     if (!skate_net::read_graffiti_colors(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
     const auto& counts = message.counts;
-    objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub.get();
+    objects::TrickSpotHub* trick_objects = objects::trick_spot_hub();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     gsl::owner<Struct*> params = script::new_struct();
@@ -501,7 +501,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     auto* skate = static_cast<Skate*>(context->content_);
     online::Hub* net = net_session_slot();
     if (!net->get_on_server())
-        get_game_mode()->set_goal_time_left(static_cast<int>(message->time_left));
+        goals::game_mode()->set_goal_time_left(static_cast<int>(message->time_left));
     // Each skater's score: the object's id, its score.
     for (int i = 0; i < message->count; ++i) {
         const int8_t id = core::at(message->entries, i).id;
@@ -511,13 +511,13 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             continue;
         auto* skater = core::down_cast<objects::Rider>(object);
         modules::PointTally* score = nullptr;
-        if (!get_game_mode()->is_true(kShouldModulateColor) && get_game_mode()->keeps_move_points()) {
+        if (!goals::game_mode()->is_true(kShouldModulateColor) && goals::game_mode()->keeps_move_points()) {
             if (skater->is_local_skater_) // (a local skater keeps its own)
                 continue;
             score = skater->get_points_total();
         } else {
             score = skater->get_points_total();
-            if (get_game_mode()->get_name_key() == kNetFirefight && !skater->is_local_skater_ &&
+            if (goals::game_mode()->get_name_key() == kNetFirefight && !skater->is_local_skater_ &&
                 score->get_total_score() > 0 && value == 0) {
                 // Eliminated.
                 if (PlayerRecord* player = find_player_slot_by_obj(object->ident_))
@@ -539,9 +539,9 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     }
     const bool final = message->final;
     std::array<char, 128> text{};
-    if ((get_game_mode()->is_squad_match() != 0) && get_game_mode()->get_name_key() != kNetElimiskate) {
+    if ((goals::game_mode()->is_squad_match() != 0) && goals::game_mode()->get_name_key() != kNetElimiskate) {
         // The leading team (none on a tie).
-        const int teams = get_game_mode()->current_num_teams();
+        const int teams = goals::game_mode()->current_num_teams();
         int best = -1;
         int best_score = 0;
         for (int team = 0; team < teams; ++team) {
@@ -562,7 +562,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
                 skater->post_own_event(local->team_ == best ? kWonGame : kLostGame, nullptr);
             return 1;
         }
-        if (net->get_last_leading_team() == best || !get_game_mode()->is_true(kShowLeaderMessages) ||
+        if (net->get_last_leading_team() == best || !goals::game_mode()->is_true(kShowLeaderMessages) ||
             net->has_match_ended())
             return 1;
         if (player_skater(local) && local->team_ == best) {
@@ -604,8 +604,8 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             player_skater(best)->post_own_event(kLostGame, nullptr);
         return 1;
     }
-    if (net->get_last_leader() == best || count <= 1 || !get_game_mode()->is_true(kShowLeaderMessages) ||
-        objects::g_simulation_halted)
+    if (net->get_last_leader() == best || count <= 1 || !goals::game_mode()->is_true(kShowLeaderMessages) ||
+        objects::simulation_halted())
         return 1;
     if (is_own_player(best)) {
         get_run(kLeaderYou, nullptr, player_skater(best));
@@ -646,14 +646,14 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     get_run(kLeaveFrontEnd);
     get_run(kCleanupBeforeLoading);
     conn->stamp_last_heard(0);
-    get_game_mode()->set_rider_ceiling(static_cast<int>(static_cast<int8_t>(brief.max_players)));
-    get_game_mode()->apply_match_style(brief.game_type);
+    goals::game_mode()->set_rider_ceiling(static_cast<int>(static_cast<int8_t>(brief.max_players)));
+    goals::game_mode()->apply_match_style(brief.game_type);
     skate->launch_game();
-    get_game_mode()->apply_match_style(brief.game_type);
-    get_game_mode()->set_num_teams(static_cast<int>(brief.teams));
-    get_game_mode()->set_goals_mode(brief.goals);
-    get_game_mode()->set_team_graffiti_mode(brief.team_graffiti_mode);
-    get_game_mode()->set_round(static_cast<int>(brief.round));
+    goals::game_mode()->apply_match_style(brief.game_type);
+    goals::game_mode()->set_num_teams(static_cast<int>(brief.teams));
+    goals::game_mode()->set_goals_mode(brief.goals);
+    goals::game_mode()->set_team_graffiti_mode(brief.team_graffiti_mode);
+    goals::game_mode()->set_round(static_cast<int>(brief.round));
     net->set_preset_option_bits(static_cast<char>(brief.pro_option_bits));
     // The pro set geometry flags.
     for (int i = 0; i < 7; ++i) {
@@ -685,9 +685,9 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
                 victory->append_array_value(kVictoryConditions, conditions);
             }
             skate->set_unknown370(static_cast<int>(brief.time_limit));
-            get_game_mode()->set_goal_time_left(static_cast<int>(brief.time_left));
+            goals::game_mode()->set_goal_time_left(static_cast<int>(brief.time_left));
         }
-        get_game_mode()->force_match_settings(victory.get());
+        goals::game_mode()->force_match_settings(victory.get());
     }
     victory.reset();
     // The mode's goal_script.

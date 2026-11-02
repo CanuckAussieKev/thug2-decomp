@@ -363,7 +363,7 @@ extern uint32_t g_next_script_unique_id;
 extern bool g_updating_spawned_scripts;
 extern bool g_delete_spawned_scripts_pending;
 extern bool g_one_per_frame_released; // kSuspendOnFrame
-extern memory::PoolPair g_script_pools;
+memory::PoolPair& script_pools();
 inline Script*& script_list_head() { return g_script_list_head; }
 inline Script*& current_script_var() { return g_running_script; } // get_running_script 0x004728C0
 inline int& script_count() { return g_script_count; }

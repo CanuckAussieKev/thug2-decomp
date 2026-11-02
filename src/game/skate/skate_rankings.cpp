@@ -47,11 +47,10 @@ constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
 constexpr uint32_t kKing = 0x5D32129C;              // king
 constexpr uint32_t kFirstLine = 0x00039447;         // the first score line's id
 
-goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::online_hub(); }
 bool is_crown_rule_active()
 {
-    return get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing;
+    return goals::game_mode()->get_name_key() == kNetKing || goals::game_mode()->get_name_key() == kKing;
 }
 
 using PlayerSearch = online::PlayerSearch;
@@ -143,7 +142,7 @@ void fill_elimination_ranking()
     PlayerSearch search;
     RankingList list;
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    const bool reset_scores = get_game_mode()->is_true(kShouldResetScores);
+    const bool reset_scores = goals::game_mode()->is_true(kShouldResetScores);
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
         online::PlayerRecord* info = as_player(player);
@@ -151,7 +150,7 @@ void fill_elimination_ranking()
         text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
         entry->team_score_ =
             reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
-        entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
+        entry->shade_ = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
         entry->priority = info->eliminated_time_ ? static_cast<int>(info->eliminated_time_) : 100000;
         lists::append_vertex(list.head_, entry); // (inlined there)
     }
@@ -178,12 +177,12 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
     online::Hub* net = net_session_slot();
     PlayerSearch search;
     RankingList list;
-    if (get_game_mode()->get_name_key() == kElimiskate || get_game_mode()->get_name_key() == kNetElimiskate) {
+    if (goals::game_mode()->get_name_key() == kElimiskate || goals::game_mode()->get_name_key() == kNetElimiskate) {
         fill_elimination_ranking();
         return true;
     }
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    bool goal_attack = get_game_mode()->get_name_key() == kNetGoalAttack;
+    bool goal_attack = goals::game_mode()->get_name_key() == kNetGoalAttack;
     // A player's score: the goals beaten in goal attack.
     auto score_of = [&](online::PlayerRecord* info) -> uint32_t {
         if (goal_attack)
@@ -191,9 +190,9 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
                 goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater_->ident_)));
         return static_cast<uint32_t>(net->get_entrant_points(info->skater_->ident_));
     };
-    if (static_cast<uint8_t>(get_game_mode()->is_squad_match())) {
+    if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
         // The teams with players, by their scores; under each its players, then its total.
-        for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
+        for (int team = 0; team < goals::game_mode()->current_num_teams(); ++team) {
             if (!net->count_team_players(team))
                 continue;
             online::ScoreEntry* entry = new_entry();

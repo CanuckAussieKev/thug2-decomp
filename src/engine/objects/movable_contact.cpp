@@ -114,7 +114,7 @@ void MovingSurfaceModule::stop_riding()
         return;
     last_object_ = ride_->entity_.get_pull();
     memory::destroy_then_clear(ride_); // (destroyed - its smart pointer lets go - and given back)
-    stop_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
+    stop_time_ = frame_clock::game_clock_elapsed() + clock_offset();
 }
 
 // 0x00427CB0

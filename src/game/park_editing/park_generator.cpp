@@ -21,6 +21,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/shared_state.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -28,7 +29,7 @@ namespace park_editing {
 namespace {
 
 // Whether the generator rebuilds its collision (off while every piece is deleted).
-bool& rebuilds_collision() { return g_collision_allowed; }
+
 // Raised while create_piece clones a sector.
 int& cloning_piece()
 {
@@ -202,7 +203,7 @@ void ParkAssembler::set_up_bounds()
 
 void ParkAssembler::rebuild_collision()
 {
-    if (!rebuilds_collision())
+    if (!park_editor_cfuncs_shared().collision_allowed_)
         return;
     flag_bits_ &= ~ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());

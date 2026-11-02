@@ -19,7 +19,6 @@
 
 namespace skater::physics {
 
-
 // --- the component's fields ---
 constexpr uint32_t kObject = 0x0C;        // the skater (a composite object: its fields below)
 constexpr uint32_t kDisplayMatrix = 0x18; // the matrix it's drawn with
@@ -52,12 +51,12 @@ inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { re
 using objects::PoseFlag;
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.
-inline int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+inline int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 // The time since `stamp` (unsigned, as the original compares it): the clock, plus (the offset - stamp).
 inline uint32_t get_since(uint32_t stamp)
 {
     auto now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
-    return now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp);
+    return now + (static_cast<uint32_t>(objects::clock_offset()) - stamp);
 }
 
 // A timed flag set to `value` (the time noted if it changes).

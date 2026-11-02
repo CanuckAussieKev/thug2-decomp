@@ -26,7 +26,17 @@
 
 namespace objects {
 
-ProximityRegistry* g_proximity_hub;
+namespace {
+
+ProximityRegistry*& stored_proximity_hub()
+{
+    static ProximityRegistry* proximity_hub{};
+    return proximity_hub;
+}
+
+} // namespace
+
+ProximityRegistry* proximity_hub() { return stored_proximity_hub(); }
 
 namespace {
 
@@ -43,7 +53,6 @@ constexpr uint32_t kRestart = 0x1806DDF8;        // Restart
 // The skaters by object id (0-31).
 constexpr int kSkaterSlots = 32;
 
-ProximityRegistry*& hub() { return g_proximity_hub; }
 EntityHub* entity_hub_handle() { return g_composite_registry.get(); }
 Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(id); }
 
@@ -111,22 +120,22 @@ void proxim_allocate_manager()
     auto* manager = static_cast<ProximityRegistry*>(memory::alloc_zeroed(sizeof(ProximityRegistry)));
     if (manager)
         manager->in_script_ = false;
-    hub() = manager;
+    stored_proximity_hub() = manager;
 }
 
 // 0x0046AB30
 void nearby_zone_startup()
 {
-    if (hub())
+    if (stored_proximity_hub())
         return;
     proxim_allocate_manager();
-    hub()->head_ = nullptr; // (out of memory: a null write, as the original)
+    stored_proximity_hub()->head_ = nullptr; // (out of memory: a null write, as the original)
 }
 
 // 0x0046AB50
 void nearby_zone_shutdown()
 {
-    const ProximityRegistry* manager = hub();
+    const ProximityRegistry* manager = stored_proximity_hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->head_; node;) {
@@ -134,14 +143,14 @@ void nearby_zone_shutdown()
         memory::Hub::get_pull()->dealloc(node);
         node = next;
     }
-    hub()->head_ = nullptr;
+    stored_proximity_hub()->head_ = nullptr;
 }
 
 // 0x0046AB90
 ProximNode* proxim_get_node(uint32_t name)
 {
     // (no manager: a null read, as the original)
-    for (ProximNode* node = hub()->head_; node; node = node->succ_) {
+    for (ProximNode* node = stored_proximity_hub()->head_; node; node = node->succ_) {
         if (node->label_ == name)
             return node;
     }
@@ -163,7 +172,7 @@ void ProximNode::change_live(bool active)
                 }
                 entities_ >>= 1;
             }
-        } else if (ProximityRegistry* manager = hub()) {
+        } else if (ProximityRegistry* manager = stored_proximity_hub()) {
             // the exit script for each skater inside
             for (int id = 0; is_within_ != 0; ++id) {
                 if (is_within_ & 1) {
@@ -185,7 +194,7 @@ void ProximNode::change_live(bool active)
 // 0x0046ACB0
 void proximity_node_enable(uint32_t name, int active)
 {
-    const ProximityRegistry* manager = hub();
+    const ProximityRegistry* manager = stored_proximity_hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->head_; node; node = node->succ_) {
@@ -290,9 +299,9 @@ void nearby_zone_add_node(uint32_t name, bool active)
     auto* node = static_cast<ProximNode*>(memory::alloc_zeroed(sizeof(ProximNode)));
     if (node)
         new (&node->box_) maths::BBox();
-    const ProximityRegistry* manager = hub();
+    const ProximityRegistry* manager = stored_proximity_hub();
     node->succ_ = manager->head_;
-    hub()->head_ = node;
+    stored_proximity_hub()->head_ = node;
     node->label_ = name;
     node->active_ = active;
     node->sector_ = nullptr;
@@ -339,7 +348,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
 // 0x0046B400
 void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, int type)
 {
-    ProximityRegistry* manager = hub();
+    ProximityRegistry* manager = stored_proximity_hub();
     if (!manager)
         return;
     for (ProximNode* node = manager->head_; node; node = node->succ_) {

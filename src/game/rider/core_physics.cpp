@@ -41,9 +41,7 @@ namespace skater {
 
 namespace {
 
-
 // The input's buttons (offsets into the pad).
-
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global
 // script value).
@@ -60,7 +58,7 @@ int physics_integer(uint32_t name, objects::GameEntity* object)
 int get_now()
 {
     const int time = frame_clock::game_clock_elapsed();
-    return time + objects::g_clock_offset;
+    return time + objects::clock_offset();
 }
 
 using objects::PoseFlag;
@@ -581,7 +579,7 @@ void SkaterPhysicsModule::do_air_physics()
         }
         const uint32_t stamp = state_->flag(PoseFlag::kLeftVert).changed_at;
         auto now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
-        const int elapsed = static_cast<int>(now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp));
+        const int elapsed = static_cast<int>(now + (static_cast<uint32_t>(objects::clock_offset()) - stamp));
         if (elapsed > script::fetch_int_value(0x26495947))
             set_timed_flag(state_, PoseFlag::kLeftVert, 0);
     } else if (flags->flag(PoseFlag::kVertAir).on) {

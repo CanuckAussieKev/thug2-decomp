@@ -31,11 +31,16 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace gfx {
 
-memory::PoolPair g_standard_pools; // (CBonedAnimController; script_startup.h)
+memory::PoolPair& standard_pools()
+{
+    static core::NoDestroy<memory::PoolPair> standard_pools; // (CBonedAnimController; script_startup.h)
+    return standard_pools.get();
+}
 
 namespace {
 
@@ -130,7 +135,7 @@ void set_bone_count(void* source, const Rig* skeleton)
 }
 
 // The game clock (ms) plus its offset.
-int get_clock() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+int get_clock() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 
 // The play-anim member function's parameters (the original leaves a missing one uninitialised: 0 here).
 struct PlayParams {
@@ -152,7 +157,6 @@ PlayParams read_play_params(Struct* params)
     return p;
 }
 
-memory::PoolPair& standard_pools() { return g_standard_pools; }
 
 } // namespace
 

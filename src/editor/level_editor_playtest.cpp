@@ -462,11 +462,10 @@ constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters)
 constexpr uint32_t kCamModuleName = 0xC4E311FA;        // (camera objects)
 
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 
 goals::GapTally* get_checklist()
 {
-    modules::Skate* skate = get_skate();
+    modules::Skate* skate = modules::Skate::sole();
     return skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
 }
 
@@ -774,7 +773,7 @@ void snap_one(objects::Entity* object, void* data)
 // vtable +0x2C pauses one).
 void pause_skaters()
 {
-    modules::Skate* skate = get_skate();
+    modules::Skate* skate = modules::Skate::sole();
     if (!skate)
         return;
     uint32_t count = 0;

@@ -11,12 +11,12 @@
 // .qb files by name, loading every start-up .qb file (scripts\qdir.txt from qb_scripts.pre), and the pools of the
 // animation and object classes made with the script pools, before the script functions are registered.
 namespace gfx {
-extern memory::PoolPair g_anim_slot_pools;  // 0x006F92B8 (CAnimCachePredictor, anim_cache.cpp)
-extern memory::PoolPair g_standard_pools;   // 0x00701430 (CBonedAnimController, anim_controller.cpp)
-extern memory::PoolPair g_anim_track_pools; // 0x006F92C8 (CBlendChannel, anim_track.cpp)
+memory::PoolPair& anim_slot_pools();
+memory::PoolPair& standard_pools();
+memory::PoolPair& anim_track_pools();
 } // namespace gfx
 namespace objects {
-extern memory::PoolPair g_script_list_pools; // 0x006F0FC8 (CEventReceiverList, tracker.cpp)
+memory::PoolPair& script_list_pools();
 } // namespace objects
 
 namespace script {

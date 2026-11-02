@@ -40,7 +40,7 @@ const float kPercent = 100.0f;                            // 0x006463D4
 const double kTwoTo32 = 4294967296.0;                     // 0x006453B4 (an unsigned clock difference)
 
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
-uint32_t clock_offset() { return static_cast<uint32_t>(g_clock_offset); }
+uint32_t unsigned_clock_offset() { return static_cast<uint32_t>(objects::clock_offset()); }
 
 // A float of the global structure kRates (asserted).
 float get_rate(uint32_t name)
@@ -59,9 +59,9 @@ float get_setting(script::Struct* settings, uint32_t name)
 // The clock now (with its offset) less `then`, wrapping as the original's 32-bit sums do.
 uint32_t get_since(int clock, int then)
 {
-    return static_cast<uint32_t>(clock) + (clock_offset() - static_cast<uint32_t>(then));
+    return static_cast<uint32_t>(clock) + (unsigned_clock_offset() - static_cast<uint32_t>(then));
 }
-int get_now(int clock) { return static_cast<int>(static_cast<uint32_t>(clock) + clock_offset()); }
+int get_now(int clock) { return static_cast<int>(static_cast<uint32_t>(clock) + unsigned_clock_offset()); }
 // An unsigned millisecond difference as a double (the original's FILD and its 2^32 fix for negatives).
 double as_unsigned(uint32_t difference)
 {

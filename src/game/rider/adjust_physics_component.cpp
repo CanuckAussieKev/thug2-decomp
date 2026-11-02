@@ -35,7 +35,6 @@ constexpr uint32_t kUnderTheFloor = 0xAFAA46BA; // (as Update sends it)
 constexpr float kFeelerReach = 30.0f;     // 0x00646240
 constexpr float kBrightnessAbove = 12.0f; // 0x0064546C
 
-
 void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModule*>(core)->set_physics_state(state); }
 
 // The debug message's strings as the original passes them ("M:%s:%i: %s\n", the source file, "found to be inside a
@@ -69,7 +68,7 @@ void RiderPhysicsTweaks::tick_frame()
     if (flags->cur_phase_ == 0 || entity_->vel_.y < 0.0f) {
         if (flags->flag(PoseFlag::kDescended).on != 1) {
             flags->flag(PoseFlag::kDescended).on = 1;
-            flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + g_clock_offset;
+            flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
         }
     }
     if (!core_ptr_->state_->flag(PoseFlag::kSkitching).on)

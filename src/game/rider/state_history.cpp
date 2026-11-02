@@ -72,8 +72,8 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
 online::Hub* net_session_slot() { return online::online_hub(); }
-void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
-void* skater_manager() { return static_cast<void*>(modules::g_skate_module.get()); }
+void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
+void* skater_manager() { return static_cast<void*>(modules::Skate::sole()); }
 
 online::PlayerRecord* find_player_slot_by_obj(int id)
 {

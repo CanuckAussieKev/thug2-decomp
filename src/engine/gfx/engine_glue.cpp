@@ -168,7 +168,7 @@ void screen_shot(const char* name, int /*unused*/)
 void start_engine()
 {
     init_direct_3d();
-    objects::g_particle_hub = std::make_unique<PcParticleManager>();
+    objects::set_particle_hub(std::make_unique<PcParticleManager>());
     g_weather = std::make_unique<PcWeather>();
     g_screen_effects = std::make_unique<PcScreenEffects>();
 }

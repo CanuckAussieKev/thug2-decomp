@@ -63,7 +63,7 @@ uint32_t get_back_buffer_height() { return static_cast<uint32_t>(g_back_buffer_h
 
 uint8_t current_level()
 {
-    const modules::Skate* skate = modules::g_skate_module.get();
+    const modules::Skate* skate = modules::Skate::sole();
     if (!skate)
         return 0;
     return static_cast<uint8_t>(skate->career_->level_); // (its low byte, as the original reads it)

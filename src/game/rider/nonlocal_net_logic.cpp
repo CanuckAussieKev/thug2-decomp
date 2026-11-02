@@ -393,7 +393,7 @@ void RiderRemoteSync::tick_frame()
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
     auto* player = static_cast<online::PlayerRecord*>(net_manager->get_own_player());
     if (!player->is_observer() && !player->is_scouting_level()) {
-        void* game_mode = static_cast<void*>(goals::g_game_mode.get());
+        void* game_mode = static_cast<void*>(goals::game_mode());
         const bool extrapolate = online::online_hub()->players_can_collide() ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;

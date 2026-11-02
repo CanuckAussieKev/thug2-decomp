@@ -21,7 +21,7 @@ struct SwapSlot {
     uint32_t key;
     uint32_t value;
 };
-extern std::array<SwapSlot, 5> g_swap_table;
+std::array<SwapSlot, 5>& swap_table();
 
 // 0x005AA930: `a` and `b` swapped in the table of five checksum pairs (0x007CEDE0: in use, key, value): each gets a
 // slot (a free one if it has none - the table being full isn't checked, as in the original), then their values are

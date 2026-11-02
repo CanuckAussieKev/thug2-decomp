@@ -11,14 +11,18 @@
 #include "game/park/park_memory.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace park_editing {
 
-memory::PoolPair g_node_pools;
+memory::PoolPair& node_pools()
+{
+    static core::NoDestroy<memory::PoolPair> node_pools;
+    return node_pools.get();
+}
 
 namespace {
 
-memory::PoolPair& node_pools() { return g_node_pools; }
 
 // The generator's piece making.
 TileTemplate* get_piece_source(ParkAssembler* generator, uint32_t name) { return generator->get_piece_source(name); }

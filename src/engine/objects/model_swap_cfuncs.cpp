@@ -3,7 +3,6 @@
 #include "engine/objects/model_swap_cfuncs.h"
 
 #include <cstdint>
-#include <array>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -46,7 +45,7 @@ const char* const kPedShadow = "Ped_Shadow";        // "Ped_Shadow"
 
 // The swaps made (0x007CEDE0, five entries - profile_cfuncs.cpp owns them): each object's id (key) and the id of the
 // object whose model it wears now (value).
-std::array<commands::SwapSlot, 5>& get_swaps() { return commands::g_swap_table; }
+
 constexpr int kSwapCount = 5;
 
 // 0x005AA930 (commands::swap_mapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
@@ -159,8 +158,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
         follow_position(model_b->mesh_instance_.get(), &b->at_point_);
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            if (core::at(get_swaps(), i).used && core::at(get_swaps(), i).value == 0) {
-                skater->unknown31c_ = core::at(get_swaps(), i).key;
+            if (core::at(commands::swap_table(), i).used && core::at(commands::swap_table(), i).value == 0) {
+                skater->unknown31c_ = core::at(commands::swap_table(), i).key;
                 found = true;
             }
         }
@@ -179,14 +178,14 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
 {
     int remaining = 0;
     for (int i = 0; i < kSwapCount; ++i)
-        if (core::at(get_swaps(), i).used)
+        if (core::at(commands::swap_table(), i).used)
             ++remaining;
     if (!remaining)
         return true;
     for (;;) {
         bool any = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            const commands::SwapSlot& entry = core::at(get_swaps(), i);
+            const commands::SwapSlot& entry = core::at(commands::swap_table(), i);
             if (!entry.used)
                 continue;
             any = true;
@@ -197,7 +196,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
             if (swap) {
                 // (delete inlined: the structure pool pair's Free)
                 swap->get_clear();
-                script::g_struct_pools.dealloc(swap);
+                script::struct_pools().dealloc(swap);
             }
         }
         if (!any || --remaining == 0)

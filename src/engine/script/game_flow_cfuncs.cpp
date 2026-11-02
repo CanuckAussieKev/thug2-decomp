@@ -97,15 +97,15 @@ constexpr uint32_t kFlashFlag4 = 0x387C9ED6;
 constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
-modules::Skate* skate_module() { return get_skate(); }
+
+modules::Skate* skate_module() { return modules::Skate::sole(); }
 objects::Rider* get_rider_at(int index) { return core::down_cast<objects::Rider>(skate_module()->get_rider_at(index)); }
 objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
 
 // The object manager (0x006F0FB8).
 objects::EntityHub* object_edit() { return objects::g_composite_registry.get(); }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
-void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
+void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
 goals::MatchRules* game_mode_object() { return static_cast<goals::MatchRules*>(get_game_mode()); }
 int game_mode_time_limit() { return game_mode_object()->get_time_limit(); }
 online::Hub* online_hub_handle() { return online::online_hub(); }
@@ -418,7 +418,7 @@ bool cfunc_un_pause_game(script::Struct*, script::Script*)
 // command's own parameters.
 bool cfunc_game_is_paused(script::Struct* params, script::Script*)
 {
-    if (!objects::g_simulation_halted)
+    if (!objects::simulation_halted())
         return false;
     params->put_name_key(kPausedAnswerKey, kPausedAnswerKey);
     return true;
@@ -546,9 +546,9 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 // (+0x380, 0x16A0B364) in the script's parameters.
 bool cfunc_get_current_level(script::Struct*, script::Script* script)
 {
-    const modules::Skate* skate = get_skate();
-    script->args_->add_component_of_type(0x651533EC, script::kQbvalName, modules::g_skate_module->pending_level_);
-    script->args_->put_name_key(0x16A0B364, modules::g_skate_module->level_params_);
+    const modules::Skate* skate = modules::Skate::sole();
+    script->args_->add_component_of_type(0x651533EC, script::kQbvalName, modules::Skate::sole()->pending_level_);
+    script->args_->put_name_key(0x16A0B364, modules::Skate::sole()->level_params_);
     return true;
 }
 
@@ -557,14 +557,14 @@ bool cfunc_set_level_structure_name(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kName, &name, 1);
-    modules::g_skate_module->level_params_ = name;
+    modules::Skate::sole()->level_params_ = name;
     return true;
 }
 
 // 0x005A12A0: GetLevelStructureName: the skate module's +0x380 as the script's 0x63B1214E.
 bool cfunc_get_level_structure_name(script::Struct*, script::Script* script)
 {
-    script->args_->put_name_key(0x63B1214E, modules::g_skate_module->level_params_);
+    script->args_->put_name_key(0x63B1214E, modules::Skate::sole()->level_params_);
     return true;
 }
 
@@ -580,7 +580,7 @@ bool cfunc_game_flow(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
-    modules::g_skate_module->game_flow_->get_request(name);
+    modules::Skate::sole()->game_flow_->get_request(name);
     return true;
 }
 
@@ -614,7 +614,7 @@ void update_score_display(objects::Rider* skater)
 // 0x005A1320: ClearOmnigons: the career's 23 Omnigon flags (the values of the globals above) cleared.
 bool cfunc_clear_omnigons(script::Struct*, script::Script*)
 {
-    objects::RiderStoryProgress* career = modules::g_skate_module->career_.get();
+    objects::RiderStoryProgress* career = modules::Skate::sole()->career_.get();
     for (const uint32_t flag : kOmnigonFlags)
         career->un_set_global_flag(script::fetch_int_value(flag));
     return true;
@@ -746,7 +746,7 @@ bool cfunc_level_is(script::Struct* params, script::Script*)
 {
     uint32_t level = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(0u, &level, true);
-    return modules::g_skate_module->level_ == level;
+    return modules::Skate::sole()->level_ == level;
 }
 
 // 0x005A1F80: SetStatOverride [value (0)]: the skate module's forced stat value (+0x3D0).
@@ -754,14 +754,14 @@ bool cfunc_set_stat_override(script::Struct* params, script::Script*)
 {
     float value = 0.0f;
     params->fetch_float(0u, &value, 0);
-    modules::g_skate_module->forced_stat_ = value;
+    modules::Skate::sole()->forced_stat_ = value;
     return true;
 }
 
 // 0x005A1FB0: ToggleRails: the skate module's rail display (+0x3D4) on / off.
 bool cfunc_toggle_rails(script::Struct*, script::Script*)
 {
-    bool& rails = modules::g_skate_module->debug_rails_;
+    bool& rails = modules::Skate::sole()->debug_rails_;
     rails = !rails;
     return true;
 }
@@ -812,7 +812,7 @@ bool cfunc_kill_tester_script(script::Struct*, script::Script*) { return skate_m
 // ignores them.
 bool cfunc_auto_rail(script::Struct* params, script::Script*)
 {
-    (void)modules::g_skate_module->rail_manager_; // (the stub's `this`)
+    (void)modules::Skate::sole()->rail_manager_; // (the stub's `this`)
     stubs::ignore_argument(params);
     return true;
 }

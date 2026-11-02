@@ -34,13 +34,12 @@ constexpr uint32_t kText = 0xC4745838;          // text
 constexpr uint32_t kCombinedFlags = 0x2760DE9E; // combined_flags
 constexpr uint32_t kCancelGround = 0x9A27E74D;  // CANCEL_GROUND (the global integer: the default cancel flags)
 
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The skate module's career (+0x20).
-objects::RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
 // 0x005656C0: the skate module's (the current level's) gap checklist.
 goals::GapTally* skate_checklist()
 {
-    return static_cast<goals::GapTally*>(skate_module()->fetch_gap_list());
+    return static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list());
 }
 // The goal editor (0x004E8470 looks it up); 0x004E8420: gap `index` taken out of the created park's gap goals.
 void remove_gap_from_goals(int index) { ObjectiveAuthoring::get_pull()->remove_gap_from_park_goals(index); }

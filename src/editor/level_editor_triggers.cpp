@@ -1351,7 +1351,7 @@ void drop_boxes()
 
 goals::GapTally* get_checklist()
 {
-    modules::Skate* skate = modules::g_skate_module.get();
+    modules::Skate* skate = modules::Skate::sole();
     return skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
 }
 
@@ -1474,7 +1474,7 @@ std::vector<uint8_t>& proxim_defined()
     return proxim_defined.get();
 }
 
-bool have_proxim_manager() { return objects::g_proximity_hub != nullptr; }
+bool have_proxim_manager() { return objects::proximity_hub() != nullptr; }
 
 int proxim_index(uint32_t node)
 {

@@ -31,10 +31,15 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
-memory::PoolPair g_frame_source_pools;
+memory::PoolPair& frame_source_pools()
+{
+    static core::NoDestroy<memory::PoolPair> frame_source_pools;
+    return frame_source_pools.get();
+}
 
 namespace {
 
@@ -61,7 +66,6 @@ int table_bit_width(int sectors)
     }
     return bits;
 }
-
 
 // A new mesh list with the flag at +0x40.
 SceneRef* new_mesh_list(bool mesh_flag)

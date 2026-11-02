@@ -196,7 +196,7 @@ std::string get_name_of(uint32_t checksum)
 }
 
 // The level loaded: its load script's name (the skate module's +0x378) without "Load_".
-uint32_t current_load_state() { return modules::g_skate_module ? modules::g_skate_module->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
 std::string get_level_name()
 {
     const uint32_t load = current_load_state();
@@ -241,7 +241,7 @@ std::string level_file_stamp(const std::string& level, const char* kind)
 // The local skater (the skate module's 0x00566520; null with none).
 void* local_skater()
 {
-    auto* module = modules::g_skate_module.get();
+    auto* module = modules::Skate::sole();
     return module ? module->get_home_rider() : nullptr;
 }
 

@@ -48,7 +48,6 @@ namespace skater::thaw_bmx {
 
 namespace {
 
-
 // The core physics component's fields (THUG2's; THAW's offset in the comment).
 // balance, its lean at +0x54)
 // The timed flags (THUG2's; THAW's in the comment).
@@ -158,11 +157,11 @@ int state_of(const SkaterPhysicsModule* core) { return core->state_->cur_phase_;
 objects::PadSnapshot* pad_state_of(const SkaterPhysicsModule* core) { return &core->input_->pad_primary_; }
 float get_frame_length(const SkaterPhysicsModule* core) { return core->frame_length_; }
 
-int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 uint32_t get_since(int stamp)
 {
     return static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
-           (static_cast<uint32_t>(objects::g_clock_offset) - static_cast<uint32_t>(stamp));
+           (static_cast<uint32_t>(objects::clock_offset()) - static_cast<uint32_t>(stamp));
 }
 // A button's time since it was pressed (0x0046B920), as THAW's float compares take it (unsigned).
 float get_held_ms(objects::ControlButton* button)

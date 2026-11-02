@@ -216,7 +216,7 @@ void InputPort::stop_actuators()
 // --- the keyboard -------------------------------------------------------------------------------------------
 
 namespace {
-IDirectInputDevice8A*& keyboard_device() { return os_layer::g_keyboard_device; }
+
 
 // NOT ORIGINAL grouping - the keyboard's buffers, characters and key names, the device manager's references. Made on
 // first use, never destroyed (keyboard_device_state()).
@@ -252,15 +252,15 @@ void read_keyboard()
         std::memset(keyboard_state().data(), 0, sizeof(keyboard_state()));
         keyboard_buffer() = 1;
     }
-    IDirectInputDevice8A* keyboard = keyboard_device();
+    IDirectInputDevice8A* keyboard = os_layer::keyboard_device();
     if (!keyboard)
         return;
     keyboard_buffer() = keyboard_buffer() == 0 ? 1 : 0;
     const HRESULT result = keyboard->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
-    if (SUCCEEDED(keyboard_device()->Acquire()))
-        keyboard_device()->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
+    if (SUCCEEDED(os_layer::keyboard_device()->Acquire()))
+        os_layer::keyboard_device()->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
     else
         std::memset(core::at(keyboard_state(), keyboard_buffer()).data(), 0, 256);
 }
@@ -360,7 +360,7 @@ void key_input(int key, int flags)
 
 namespace {
 // The other "in a menu" flag (PartyMod's names) and the quit request.
-bool& menu_active() { return modules::g_menus_active; }
+
 bool& quit_requested() { return render::g_quit_requested; }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
 int key_binding(int action) { return core::at(os_layer::g_input_map.front().keys, action); }
@@ -486,7 +486,7 @@ int play_key(int button)
 // 0x005BCD50
 const char* get_button_key_name(int button)
 {
-    const bool menu = menu_active() || in_menu();
+    const bool menu = modules::menus_active() || in_menu();
     const bool typing = keyboard_typing();
     bool piece_menu = false;
     frontend::ElementPtr element;
@@ -601,7 +601,7 @@ namespace {
 // Flags the read consults (meaning partly unknown): two that turn the menu handling off; and the park editor
 // (0x007CE5D8), editing when its state is "edit" (0x7ECA21E5).
 bool& flag_696d_95() { return render::g_movie_playing; }
-bool& flag_6f_1158() { return objects::g_cutscene_playing; }
+
 // The platform layer: the pad mode and the default keys' Enter / Escape (os_layer::set_pad_mode...), its window
 // message pump, the pad read and whether a DirectInput key is down.
 void set_pad_mode(int mode) { os_layer::set_pad_mode(mode); }
@@ -625,7 +625,7 @@ void InputPort::pull_data(int)
 {
     if (quit_requested())
         return;
-    const bool menu = menu_active() || in_menu();
+    const bool menu = modules::menus_active() || in_menu();
     const bool typing = keyboard_typing();
     bool select_skater_shown = false;
     bool piece_menu_shown = false;
@@ -651,7 +651,7 @@ void InputPort::pull_data(int)
     if (element && !element->is_concealed())
         select_skater_shown = true;
     bool menu_mode = !piece_menu_shown && menu && !typing;
-    if (flag_696d_95() || flag_6f_1158()) {
+    if (flag_696d_95() || objects::cutscene_playing()) {
         piece_menu_shown = false;
         menu_mode = false;
     }

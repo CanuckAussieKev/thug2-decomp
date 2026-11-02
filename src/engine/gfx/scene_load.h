@@ -58,5 +58,5 @@ gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures);
 gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
                               TextureSet* textures);
 
-extern memory::PoolPair g_frame_source_pools;
+memory::PoolPair& frame_source_pools();
 } // namespace render

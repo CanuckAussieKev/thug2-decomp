@@ -35,7 +35,18 @@ PlatformInputShared& platform_input_shared()
     return state.get();
 }
 
-IDirectInputDevice8A* g_keyboard_device;
+namespace {
+
+IDirectInputDevice8A*& stored_keyboard_device()
+{
+    static IDirectInputDevice8A* keyboard_device{};
+    return keyboard_device;
+}
+
+} // namespace
+
+IDirectInputDevice8A* keyboard_device() { return stored_keyboard_device(); }
+void set_keyboard_device(IDirectInputDevice8A* value) { stored_keyboard_device() = value; }
 
 // The key bindings (0x98 actions: -1 for none; the menus' hints and the pads' keyboard actions read them).
 std::array<PortControls, kPorts> g_input_map;
@@ -67,7 +78,7 @@ namespace {
 
 // DirectInput and its devices (the keyboard and mouse are the first of each found).
 IDirectInput8A*& get_direct_input() { return platform_input_shared().direct_input_; }
-IDirectInputDevice8A*& get_keyboard() { return g_keyboard_device; }
+
 
 constexpr uint8_t kMouseInvertX{0};
 constexpr uint8_t kMouseInvertY{0};
@@ -372,8 +383,8 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         }
     }
     if (type == DI8DEVTYPE_KEYBOARD) {
-        if (!get_keyboard() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
-            get_keyboard() = created;
+        if (!stored_keyboard_device() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
+            stored_keyboard_device() = created;
             created->SetDataFormat(keyboard_format());
             created->SetCooperativeLevel(game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
@@ -392,13 +403,13 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
 // 0x005F3400
 void read_keyboard()
 {
-    IDirectInputDevice8A* keyboard = get_keyboard();
+    IDirectInputDevice8A* keyboard = stored_keyboard_device();
     last_keys() = get_keys();
     const HRESULT result = keyboard->GetDeviceState(256, get_keys().data());
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
-    if (SUCCEEDED(get_keyboard()->Acquire()))
-        get_keyboard()->GetDeviceState(256, get_keys().data());
+    if (SUCCEEDED(stored_keyboard_device()->Acquire()))
+        stored_keyboard_device()->GetDeviceState(256, get_keys().data());
     else
         get_keys().fill(0);
 }
@@ -494,9 +505,9 @@ void release_input()
         if (core::at(get_effects(), port))
             core::at(get_effects(), port)->Release(); // (left set)
     }
-    if (get_keyboard()) {
-        get_keyboard()->Release();
-        get_keyboard() = nullptr;
+    if (stored_keyboard_device()) {
+        stored_keyboard_device()->Release();
+        stored_keyboard_device() = nullptr;
     }
     // (The mouse isn't released.)
     if (get_direct_input()) {

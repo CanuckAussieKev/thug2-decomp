@@ -126,7 +126,7 @@ constexpr auto kSentCheats = std::to_array<uint32_t>({
 });
 
 online::Hub* net_link() { return online::online_hub(); }
-goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
+
 objects::ObjectHubBase* entity_hub_handle()
 {
     return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
@@ -295,7 +295,7 @@ int SkateNet::handle_game_stats(net::InboundMsgCtx* context)
     online::PointsMessage message;
     if (!online::read_points(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    if (get_game_mode()->get_name_key() == kNetLobby || net->get_game_id() != message.game_id)
+    if (goals::game_mode()->get_name_key() == kNetLobby || net->get_game_id() != message.game_id)
         return 4;
     player->best_combo_ = message.points;
     return 1;
@@ -318,7 +318,7 @@ int SkateNet::handle_combo_score(net::InboundMsgCtx* context)
     PointTally* score = get_score_of(skater_of(player));
     if (combo > score->top_chain_)
         score->top_chain_ = combo;
-    goals::MatchRules* mode = get_game_mode();
+    goals::MatchRules* mode = goals::game_mode();
     if (mode->is_true(kShouldModulateColor) || !mode->keeps_move_points())
         return 1;
     if (mode->keeps_running_total()) {
@@ -367,8 +367,8 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
             break;
         case 0x83: {
             // a projectile in firefight: its owner and the sender's latency put in (once in range)
-            const uint32_t mode = get_game_mode()->get_name_key();
-            if (mode != kFirefight && get_game_mode()->get_name_key() != kNetFirefight)
+            const uint32_t mode = goals::game_mode()->get_name_key();
+            if (mode != kFirefight && goals::game_mode()->get_name_key() != kNetFirefight)
                 break;
             // (the message: wire/play_messages.h; NOT ORIGINAL: one too short is passed on as it is - the
             // original read and wrote past its end)
@@ -482,7 +482,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         int total = 0;
         for (PlayerRecord* player = search.get_first(false); player; player = search.get_next(false))
             total += player->num_placed_;
-        goals::MatchRules* mode = get_game_mode();
+        goals::MatchRules* mode = goals::game_mode();
         const int collected =
             mode->is_squad_match() ? net->get_squad_points(collector->team_) : score->get_total_score();
         net::NetMessageInfo desc;
@@ -510,7 +510,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             if (count) {
                 desc = net::NetMessageInfo();
                 net::AppHost* server = server_app();
-                core::at(left, 0) = get_game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team_)
+                core::at(left, 0) = goals::game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team_)
                                                             : get_skater_id(skater_of(collector));
                 core::at(left, 1) = count;
                 desc.content_ = left.data();
@@ -523,7 +523,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         }
     }
     // the object picked up: told to the collector's team mates
-    if (get_game_mode()->is_squad_match()) {
+    if (goals::game_mode()->is_squad_match()) {
         net::NetMessageInfo desc;
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(false); player; player = search.get_next(false)) {
@@ -1017,7 +1017,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
     if (message->game_id != net->get_game_id())
         return 4;
     int owner = 0;
-    if (get_game_mode()->is_squad_match()) {
+    if (goals::game_mode()->is_squad_match()) {
         PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(message->player));
         if (!player) // NOT ORIGINAL: no such player - dropped (the original read through null)
             return 4;
@@ -1026,7 +1026,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
         owner = message->player;
     }
     for (uint32_t i = 0; i < message->count; ++i)
-        objects::g_trick_spot_hub->set_object_graffiti_color(core::at(message->objects, i), owner);
+        objects::trick_spot_hub()->set_object_graffiti_color(core::at(message->objects, i), owner);
     return 1;
 }
 
@@ -1286,17 +1286,17 @@ void Skate::broadcast_points(bool final)
     for (PlayerRecord* player = players.get_first(true); player; player = players.get_next(true)) {
         auto message = std::make_unique<skate_net::ScoresMessage>();
         message->final = final;
-        message->time_left = final ? 0u : static_cast<uint32_t>(get_game_mode()->get_goal_time_left()) / 1000u;
+        message->time_left = final ? 0u : static_cast<uint32_t>(goals::game_mode()->get_goal_time_left()) / 1000u;
         uint8_t count = 0;
         for (PlayerRecord* other = others.get_first(false); other; other = others.get_next(false)) {
             // (its own score too, when it isn't the trick score the player keeps itself)
-            goals::MatchRules* mode = get_game_mode();
+            goals::MatchRules* mode = goals::game_mode();
             const bool all = final || mode->is_true(kShouldModulateColor) || !mode->keeps_move_points();
             if (other == player && !all)
                 continue;
             const uint8_t id = get_skater_id(skater_of(other));
             int score = 0;
-            if (get_game_mode()->get_name_key() == kNetGoalAttack)
+            if (goals::game_mode()->get_name_key() == kNetGoalAttack)
                 score =
                     goals::get_objective_board()->count_cleared_by_player(static_cast<int>(skater_of(other)->ident_));
             else

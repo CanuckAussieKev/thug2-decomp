@@ -71,10 +71,10 @@ using online::kMsgHit;
 using online::kMsgHitOwner;
 
 online::Hub* net_session_slot() { return online::online_hub(); }
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
+
 
 // The skate module's local skater (0x00566520, a register stub on our side).
-Rider* local_skater() { return skate_module()->get_home_rider(); }
+Rider* local_skater() { return modules::Skate::sole()->get_home_rider(); }
 
 // The object dies.
 void get_kill(GameEntity* object) { object->flag_as_dead(); }
@@ -131,9 +131,9 @@ void ShotImpactModule::tick_frame()
     auto reach = static_cast<float>(static_cast<double>(radius_) + kReach);
     if (suspend_->is_far() || hit_)
         return;
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     auto count = static_cast<uint32_t>(skate->count_riders());
-    const bool team_game = goals::g_game_mode->is_squad_match() != 0;
+    const bool team_game = goals::game_mode()->is_squad_match() != 0;
     for (uint32_t i = 0; i < count; ++i) {
         GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
         if (skater->ident_ == holder_key_)

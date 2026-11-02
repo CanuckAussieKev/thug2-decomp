@@ -35,7 +35,7 @@ constexpr uint32_t kElimination = 0xA6B8D7B0;       // elimination
 constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 
 // The skate module (modules::Skate, 0x007CE478) and its skaters (not rewritten yet).
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
+
 // How many skaters there are: the skate module's skater list (memory::ListNode: data the skater, -1 at the head).
 uint32_t skater_count(modules::Skate* skate)
 {
@@ -61,7 +61,7 @@ modules::PointTally* get_score_of(objects::Rider* skater)
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
 
 // The game mode (0x007CE470).
-void* get_game_mode() { return static_cast<void*>(g_game_mode.get()); }
+void* get_game_mode() { return static_cast<void*>(game_mode()); }
 bool is_squad_match() { return static_cast<MatchRules*>(get_game_mode())->is_squad_match() != 0; }
 int current_num_teams() { return static_cast<MatchRules*>(get_game_mode())->current_num_teams(); }
 
@@ -83,7 +83,7 @@ int WinRule::target_value() const { return 0; }
 // 0x005769B0
 bool WinRule::is_highest_score(uint32_t player)
 {
-    modules::Skate* skate = get_skate();
+    modules::Skate* skate = modules::Skate::sole();
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         if (i == player)
             continue;
@@ -99,7 +99,7 @@ bool WinRule::is_highest_score(uint32_t player)
 // 0x00576A40
 bool ScoreReachedVictoryCondition::rule_satisfied()
 {
-    modules::Skate* skate = get_skate();
+    modules::Skate* skate = modules::Skate::sole();
     if (is_squad_match()) {
         std::array<int, 4> totals = {};
         PlayerSearch search;
@@ -139,7 +139,7 @@ bool BestComboVictoryCondition::echo_out()
 bool CompleteGoalsVictoryCondition::all_goals_complete()
 {
     online::Hub* net = net_session_slot();
-    modules::Skate* skate = get_skate();
+    modules::Skate* skate = modules::Skate::sole();
     GoalManager* goals = get_objective_board(); // the skate module's goal manager
     if (is_squad_match()) {
         const int needed = goals->count_picked_objectives();
@@ -187,7 +187,7 @@ bool SoleSurvivorWin::rule_satisfied()
 // 0x005766B0
 bool SoleSurvivorWin::has_won_match(uint32_t player)
 {
-    auto* score = get_score_of(get_rider_at(get_skate(), player));
+    auto* score = get_score_of(get_rider_at(modules::Skate::sole(), player));
     return score && total_score(score) > 0;
 }
 
@@ -202,7 +202,7 @@ bool EliminationVictoryCondition::rule_satisfied()
 bool EliminationVictoryCondition::has_won_match(uint32_t player)
 {
     online::Hub* net = net_session_slot();
-    const objects::Rider* skater = get_rider_at(get_skate(), player);
+    const objects::Rider* skater = get_rider_at(modules::Skate::sole(), player);
     if (!skater)
         return false;
     PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)); // the skater's player

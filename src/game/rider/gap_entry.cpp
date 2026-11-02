@@ -71,7 +71,6 @@ constexpr uint32_t kGapGround = 0x1, kGapAir = 0x2, kGapRail = 0x4, kGapWall = 0
                    kGapWalking = 0x400, kGapDriving = 0x800, kGapRequired = 0xFFFF0000;
 constexpr int kRequireShift = 16;
 
-
 // A gap in progress (the 0x64-byte TrickListEntry) and a gap trick (the 0x34-byte TrickNameEntry), by their fields.
 uint32_t& get_gap_id(TrickListEntry* gap) { return gap->gap_id_; }
 uint32_t& gap_option_labels(TrickListEntry* gap) { return gap->option_labels_; }
@@ -127,7 +126,7 @@ void add_to_front(memory::ListNode& head, memory::ListNode* node)
 // The skate module (0x007CE478): the current level's gap checklist (0x005656C0) and the career (+0x20). Not
 // rewritten yet.
 goals::GapTally* gap_tally_ref() { return static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
-RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
+RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
 
 // The score (modules::PointTally; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
 // 0x00562510 with perfect) or by name (0x005625A0 / 0x005624C0) - with a spin and taps; 0x0049F4C0 (a shared "0"

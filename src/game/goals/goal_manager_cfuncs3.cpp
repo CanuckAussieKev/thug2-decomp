@@ -74,7 +74,6 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;       // reward_points
 
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
-MatchRules* get_game_mode() { return g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::online_hub(); }
 objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 
@@ -389,7 +388,7 @@ bool cfunc_goal_manager_set_difficulty_level(script::Struct* params, script::Scr
     int level = 0;
     params->fetch_int_value(0u, &level, 1);
     GoalManager* manager = get_objective_board();
-    manager->args_->put_int(get_game_mode()->get_name_key(), level);
+    manager->args_->put_int(game_mode()->get_name_key(), level);
     return level != 0;
 }
 
@@ -399,7 +398,7 @@ bool cfunc_goal_manager_get_difficulty_level(script::Struct*, script::Script* sc
 {
     GoalManager* manager = get_objective_board();
     int level = 0;
-    if (!manager->args_->fetch_int_value(get_game_mode()->get_name_key(), &level, 0))
+    if (!manager->args_->fetch_int_value(game_mode()->get_name_key(), &level, 0))
         level = 1;
     int result = 0;
     switch (level) {

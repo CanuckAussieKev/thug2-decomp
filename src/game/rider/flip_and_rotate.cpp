@@ -132,7 +132,7 @@ void RiderSpinAndFlip::get_flip()
     const uint8_t flip = flipped == 0 ? 1 : 0;
     if (flipped != flip) { // (always)
         flipped = flip;
-        state->flag(PoseFlag::kFlipped).changed_at = frame_clock::game_clock_elapsed() + g_clock_offset;
+        state->flag(PoseFlag::kFlipped).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
     }
     // NOT ORIGINAL - THAW's BMX ([features] thaw_bmx, on the bike): THAW's Flip turns the flag only - the animations
     // take it when they're played (game/rider/thaw_bmx.h flip_flag_only / play_flip). Original behaviour: every running

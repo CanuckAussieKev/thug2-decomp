@@ -20,6 +20,7 @@
 #include "engine/script/script_startup.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -62,9 +63,13 @@ bool fire_event(TimedClipEvent* e, objects::GameEntity* object) { return e->proc
 
 // --- the track ----------------------------------------------------------------------------------------------
 
-memory::PoolPair g_anim_track_pools;
+memory::PoolPair& anim_track_pools()
+{
+    static core::NoDestroy<memory::PoolPair> anim_track_pools;
+    return anim_track_pools.get();
+}
 
-memory::PoolPair& AnimTrack::get_pools() { return g_anim_track_pools; }
+memory::PoolPair& AnimTrack::get_pools() { return anim_track_pools(); }
 
 // 0x00481EE0
 void* AnimTrack::operator new(size_t size) { return get_pools().carve(static_cast<unsigned int>(size)); }

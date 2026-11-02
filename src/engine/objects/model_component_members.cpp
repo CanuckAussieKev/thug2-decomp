@@ -296,7 +296,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         const bool hold = params->has_bare_flag(kHoldOnLastAngle);
         const bool dont_pause = params->has_bare_flag(kDontPause);
         const uint32_t now = dont_pause ? frame_clock::get_time()
-                                        : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
+                                        : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset());
         uint8_t axes = 0;
         static const std::array<uint32_t, 3> kAxes = {{kX, kY, kZ}};
         for (int axis = 0; axis < 3; ++axis) {

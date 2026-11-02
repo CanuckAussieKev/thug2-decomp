@@ -78,7 +78,7 @@ ViewRegion*& get_viewport(int index) { return core::at(g_viewports, index); }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
 std::span<const int>& mode_map() { return g_mode_map; }
 int& screen_mode() { return g_screen_mode; }
-int& active_viewport_count() { return modules::g_viewport_count; }
+
 int mode_viewport_count(int mode) { return core::at(kModeViewportCounts, mode); }
 std::span<const int> mode_map_of(int mode) { return std::span<const int>(kModeMaps).subspan(4 * static_cast<size_t>(mode)); }
 // The map's entry for view `i` (a mode's map is read ten entries on, past the table's end for the last modes: the
@@ -256,7 +256,7 @@ void set_screen_mode(int mode)
 {
     mode_map() = mode_map_of(mode);
     screen_mode() = mode;
-    active_viewport_count() = mode_viewport_count(mode);
+    modules::set_viewport_count(mode_viewport_count(mode));
     for (int i = 0; i < mode_viewport_count(mode); ++i) {
         gfx::ViewCam* camera = current_view_slot(i)->viewer_.get_pull(); // (no check, as the original)
         if (!camera)
@@ -280,7 +280,7 @@ void set_screen_field_of_view(float degrees)
     // tan(degrees / 2) / tan(default / 2)
     g_angle_factor = static_cast<float>(std::tan(static_cast<double>(degrees) * kHalfDegreeRadians) /
                                         std::tan(static_cast<double>(g_base_fov_angle) * kHalfDegreeRadians));
-    for (int i = 0; i < active_viewport_count(); ++i) {
+    for (int i = 0; i < modules::viewport_count(); ++i) {
         const ViewRegion* viewport = current_view_slot(i);
         if (viewport && viewport->viewer_.get_pull())
             viewport->viewer_.get_pull()->refresh_effective_h_fov();

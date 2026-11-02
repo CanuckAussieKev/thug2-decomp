@@ -291,7 +291,7 @@ void Hub::set_ready_state(bool ready)
     if (ready == cleared_to_start_)
         return;
     cleared_to_start_ = ready;
-    modules::Skate* skate = modules::g_skate_module.get();
+    modules::Skate* skate = modules::Skate::sole();
     const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
     for (unsigned int i = 0; i < count; ++i) {
         auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
@@ -438,7 +438,7 @@ void Hub::launch_queued_scripts()
 {
     memory::Hub* memory = memory::Hub::get_pull();
     auto* sound = sound::get_audio_mixer();
-    modules::Skate* skate = modules::g_skate_module.get();
+    modules::Skate* skate = modules::Skate::sole();
     memory->enter_heap_scope(memory->bottom_up_heap_);
     static_cast<modules::Skate*>(skate)->begin_queued_scripts();
     const float volume = sound::fetch_master_loudness();
@@ -579,7 +579,7 @@ void Hub::disconnect_clients()
     clear_queued_scripts();
     if (cleared_to_start_) {
         cleared_to_start_ = false;
-        modules::Skate* skate = modules::g_skate_module.get();
+        modules::Skate* skate = modules::Skate::sole();
         const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
         for (unsigned int i = 0; i < count; ++i) {
             auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
@@ -636,7 +636,7 @@ bool Hub::prepare_local_face()
 {
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem)
         return false;
-    auto* profile = static_cast<modules::Skate*>(modules::g_skate_module.get())->fetch_account(0);
+    auto* profile = static_cast<modules::Skate*>(modules::Skate::sole())->fetch_account(0);
     gfx::FaceSkin* face = profile->appearance()->face_skin_; // its face texture (0x00576E60)
     if (!face || !face->is_sound())
         return false;

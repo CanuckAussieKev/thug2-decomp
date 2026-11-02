@@ -376,7 +376,7 @@ void SkaterPhysicsModule::update_grind_balance()
     const uint32_t kind = balance_->trick_;
     if (kind == kGrind || kind == kSlide) {
         balance_->grind_.tick_frame();
-        auto career = [] { return modules::g_skate_module->career_.get(); };
+        auto career = [] { return modules::Skate::sole()->career_.get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->grind_.lean_ = 0.0f;

@@ -28,7 +28,8 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
                   offsetof(ScriptStore, oldest_unused_) == 0x1C && offsetof(ScriptStore, delete_unused_) == 0x20,
               "layout must match the original");
 
-std::unique_ptr<script::ScriptStore> g_script_store;
+script::ScriptStore* script_store() { return cache_shared().script_store_.get(); }
+
 CacheShared& cache_shared()
 {
     static core::NoDestroy<CacheShared> state;
@@ -37,7 +38,6 @@ CacheShared& cache_shared()
 
 namespace {
 
-std::unique_ptr<script::ScriptStore>& the_cache() { return g_script_store; }
 uint32_t& cache_references()
 {
     static uint32_t cache_references{};
@@ -216,11 +216,11 @@ void ScriptStore::mark_stale(uint32_t name)
 // 0x00476040
 ScriptStore* create_script_cache(bool create)
 {
-    if (!the_cache() && create) {
-        the_cache() = std::make_unique<ScriptStore>();
+    if (!cache_shared().script_store_ && create) {
+        cache_shared().script_store_ = std::make_unique<ScriptStore>();
     }
     ++cache_references();
-    return the_cache().get();
+    return cache_shared().script_store_.get();
 }
 
 // 0x00475A00
@@ -230,7 +230,7 @@ void release_script_cache()
         --cache_references();
         return;
     }
-    memory::destroy_then_clear(the_cache());
+    memory::destroy_then_clear(cache_shared().script_store_);
     cache_references() = 0;
 }
 

@@ -22,6 +22,7 @@
 #include "engine/script/nodes.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/shared_state.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -29,7 +30,7 @@ namespace park_editing {
 namespace {
 
 // The super sectors are brought up to date when sectors are deleted (0x0067F398; off while a rebuild runs).
-bool& scene_updates() { return g_collision_allowed; }
+
 
 // The engine's scenes and sectors (Nx). WorldScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted
 // (0x0049D030), the super sectors updated (0x0049D780), a sector cloned into `scene` (0x0049DF30; returns the clone's
@@ -129,7 +130,7 @@ void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
         }
     }
     remove_scene_sector(d.scene_handle_, piece->sector_);
-    if (scene_updates())
+    if (park_editor_cfuncs_shared().collision_allowed_)
         get_update_super_sectors(d);
     set_counts_dirty(); // (given the piece)
     gsl::owner<decltype(piece)> owned = memory::owned_element(piece); // (the generator's list's)
@@ -376,33 +377,33 @@ void ParkAssembler::add_piece_to_scene(ParkTile* p)
 
 void ParkAssembler::rebuild_all()
 {
-    scene_updates() = false;
+    park_editor_cfuncs_shared().collision_allowed_ = false;
     for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following_)
         park_editing::remove_scene_sector(scene_handle_, piece->sector_);
     rail_editor_remove_a();
     rail_editor_remove_b();
     ParkLayout::singleton(); // (the result unused)
     remove_node_array();     // (inline in the original)
-    scene_updates() = true;
+    park_editor_cfuncs_shared().collision_allowed_ = true;
     delete_marked_sectors(scene_handle_);
     for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_)
         add_piece_to_scene(piece);
-    if (scene_updates())
+    if (park_editor_cfuncs_shared().collision_allowed_)
         get_update_super_sectors(*this);
-    scene_updates() = false;
+    park_editor_cfuncs_shared().collision_allowed_ = false;
     rail_editor_rebuild();
-    scene_updates() = true;
+    park_editor_cfuncs_shared().collision_allowed_ = true;
     get_update_super_sectors(*this);
     mark_progress("CleanMainHeap - post cleanup");
 }
 
 void ParkAssembler::rebuild_marked()
 {
-    scene_updates() = false;
+    park_editor_cfuncs_shared().collision_allowed_ = false;
     for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
         if (piece->blend_source_->flag_bits_ & TemplateTile::kRebuilt) {
             park_editing::remove_scene_sector(scene_handle_, piece->sector_);
-            if (scene_updates())
+            if (park_editor_cfuncs_shared().collision_allowed_)
                 get_update_super_sectors(*this);
         }
     }
@@ -410,7 +411,7 @@ void ParkAssembler::rebuild_marked()
         if (piece->blend_source_->flag_bits_ & TemplateTile::kRebuilt)
             add_piece_to_scene(piece);
     }
-    scene_updates() = true;
+    park_editor_cfuncs_shared().collision_allowed_ = true;
     get_update_super_sectors(*this);
 }
 

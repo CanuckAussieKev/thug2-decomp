@@ -450,7 +450,7 @@ void FootMovement::try_wallplant()
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
     core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))
         ->pass_to_trick_objects(contact->feeler.hit_.object_checksum_);
-    core_physics_->wallplant_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
+    core_physics_->wallplant_time_ = frame_clock::game_clock_elapsed() + clock_offset();
     anim_state_ = kWallplant;
 }
 
@@ -464,7 +464,7 @@ bool FootMovement::try_grind()
     maths::Vec4& pos = pos_;
     maths::Vec4& point = grind_point_;
     GrindPoint*& node = grind_node_;
-    GrindRailHub* level_rails = modules::g_skate_module->rail_manager_.get();
+    GrindRailHub* level_rails = modules::Skate::sole()->rail_manager_.get();
     bool found = level_rails->find_grind_rail(&old_pos, &pos, &point, &node, nullptr, kOne, 0);
     if (found) {
         grind_rails_ = level_rails;

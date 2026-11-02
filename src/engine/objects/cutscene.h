@@ -308,6 +308,7 @@ static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEn
                   offsetof(CinematicEntry, unknown60_) == 0x60,
               "layout must match the original");
 
-extern bool g_cutscene_playing;
+bool cutscene_playing();
+void set_cutscene_playing(bool value);
 
 } // namespace objects

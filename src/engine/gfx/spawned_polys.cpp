@@ -19,10 +19,15 @@
 #include "engine/gfx/engine_effects.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
-memory::PoolPair g_spawned_poly_pools;
+memory::PoolPair& spawned_poly_pools()
+{
+    static core::NoDestroy<memory::PoolPair> spawned_poly_pools;
+    return spawned_poly_pools.get();
+}
 
 namespace {
 
@@ -195,7 +200,7 @@ void kill_all_spawned_polys()
         delete primitive;
         poly->primitive = nullptr;
         spawned_polys().erase(poly);
-        g_spawned_poly_pools.dealloc(poly);
+        spawned_poly_pools().dealloc(poly);
     });
 }
 

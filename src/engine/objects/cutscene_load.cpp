@@ -61,12 +61,10 @@ constexpr uint32_t kModelFileOffset = 0xFD8697E1;
 // The skater appearance parts asked about (names unknown).
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE, kPartC = 0x6DF453B6, kHidden = 0xC4C5B2CC;
 
-memory::PoolPair& struct_pools() { return script::g_struct_pools; }
-memory::PoolPair& source_pools() { return render::g_frame_source_pools; }
 
 gsl::owner<script::Struct*> make_struct()
 {
-    void* memory = struct_pools().carve(8);
+    void* memory = script::struct_pools().carve(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
@@ -101,10 +99,10 @@ void* appearance_part(gfx::ModelLook* appearance, uint32_t part) { return appear
 } // namespace
 
 // 0x004645A0
-void* anim_source_allocate(unsigned int size) { return source_pools().carve(size); }
+void* anim_source_allocate(unsigned int size) { return render::frame_source_pools().carve(size); }
 
 // 0x004645E0
-void anim_source_free(void* item) { source_pools().dealloc(item); }
+void anim_source_free(void* item) { render::frame_source_pools().dealloc(item); }
 
 // 0x00464640
 CinematicTable::CinematicTable() : bundle_ptr_(nullptr), call_args_(make_struct()) {}

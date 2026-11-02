@@ -113,7 +113,6 @@ lists::ObjectSet<TextureSplats>& splat_sets() { return engine_effects_shared().s
 lists::ObjectSet<RecentSplat>& recent_splats() { return flashes_and_splats().recent_splats_; }
 lists::ObjectSet<PcShatter>& shatters() { return shatter_shared().shatters_; }
 
-bool get_paused() { return objects::g_simulation_halted; }
 
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
 int get_rand() { return crt::get_rand(); }
@@ -336,7 +335,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
 // 0x00491F70
 void age_all_texture_splats()
 {
-    if (get_paused())
+    if (objects::simulation_halted())
         return;
     const int elapsed = frame_milliseconds();
     splat_sets().for_each([elapsed](TextureSplats* splats) { age_texture_splats(splats, elapsed); });
@@ -489,7 +488,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
 // 0x00492000
 void update_shatters()
 {
-    if (get_paused())
+    if (objects::simulation_halted())
         return;
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     shatters().for_each([elapsed](PcShatter* shatter) {
@@ -535,7 +534,7 @@ void update_flashes()
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     flashes().for_each([elapsed](Flash* flash) {
         Flash* dead = nullptr;
-        if (!get_paused() || (flash->flags & 8)) {
+        if (!objects::simulation_halted() || (flash->flags & 8)) {
             const double left = static_cast<double>(flash->time_left_) - elapsed;
             flash->time_left_ = static_cast<float>(left);
             if (!(left > 0.0)) { // (NaN too)

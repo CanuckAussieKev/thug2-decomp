@@ -691,9 +691,8 @@ using mouse_menus::child_count;
 using mouse_menus::is_menu;
 using mouse_menus::selected_index;
 
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 
 UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
@@ -838,7 +837,7 @@ std::string net_refusal()
     if (void* game_net = online::online_hub())
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return "a network game runs";
-    if (goals::MatchRules* mode = goals::g_game_mode.get()) {
+    if (goals::MatchRules* mode = goals::game_mode()) {
         const std::string name = get_name_of(mode->get_name_key());
         if (name.starts_with("net"))
             return "the game mode is a network one (" + name + ")";
@@ -848,7 +847,7 @@ std::string net_refusal()
 
 std::string active_ruleset_label()
 {
-    goals::MatchRules* mode = goals::g_game_mode.get();
+    goals::MatchRules* mode = goals::game_mode();
     return mode ? get_name_of(mode->get_name_key()) : "";
 }
 
@@ -1359,7 +1358,7 @@ bool condition_met(Runner& runner)
 // object manager's log_trick_objects as a skater's trick goes - more than THUG2's own mask held crashed there.
 std::string log_tricks(int count, std::string* failed)
 {
-    auto* manager = objects::g_trick_spot_hub.get();
+    auto* manager = objects::trick_spot_hub();
     if (!manager) {
         *failed = "no trick object manager";
         return "";

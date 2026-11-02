@@ -397,7 +397,7 @@ void queue_scene_lights(std::span<const uint32_t> nodes, int frames, script::Str
 // 0x004904E0
 void update_scene_light_queue()
 {
-    if (!queued_nodes() || objects::g_simulation_halted) // (paused)
+    if (!queued_nodes() || objects::simulation_halted()) // (paused)
         return;
     if (queue_frame() > queue_frames()) {
         clear_scene_light_queue();

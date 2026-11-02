@@ -40,7 +40,7 @@ memory::PoolPair& point_pools()
     return rail_point_pools.get();
 }
 memory::PoolPair& rail_pools() { return copy_buffer_shared().rail_pools_; }
-bool& get_update_super_sectors() { return g_rail_editor_flag; }
+bool& get_update_super_sectors() { return park_map_shared().rail_editor_flag_; }
 
 void remove_scene_sector(render::WorldCell*& sector)
 {

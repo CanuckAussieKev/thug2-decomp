@@ -385,6 +385,6 @@ void MeshInstanceModule::cancel_rotate_display()
 namespace frame_clock {
 
 // 0x00420250
-int game_clock_time_since(int start) { return game_clock_elapsed() + (objects::g_clock_offset - start); }
+int game_clock_time_since(int start) { return game_clock_elapsed() + (objects::clock_offset() - start); }
 
 } // namespace frame_clock

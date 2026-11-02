@@ -52,7 +52,7 @@ constexpr uint32_t kGoalName = 0xBFECC45B;               // goal_name
 constexpr uint32_t kRaceNextWaypoint = 0xD3741449;       // goal_race_next_waypoint
 
 online::Hub* net_session_slot() { return online::online_hub(); }
-uint32_t active_ruleset_label() { return g_game_mode->get_name_key(); }
+uint32_t active_ruleset_label() { return game_mode()->get_name_key(); }
 // Whether every goal is completed (a goal attack's victory condition; the original calls the condition's check with
 // whatever ECX holds - it doesn't use its object).
 bool goals_completed() { return CompleteGoalsVictoryCondition::all_goals_complete(); }

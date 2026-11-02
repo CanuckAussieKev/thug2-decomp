@@ -245,7 +245,7 @@ void CinematicTable::destroy_objects()
         entry.object = nullptr;
     }
     object_count_ = 0;
-    g_cutscene_playing = false;
+    cutscene_play_shared().cutscene_playing_ = false;
 }
 
 // 0x00463F20

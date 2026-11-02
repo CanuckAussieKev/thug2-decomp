@@ -390,7 +390,7 @@ void BestResults::get_release()
 
 bool update_records(bool edited_copy)
 {
-    modules::Skate* skate = modules::g_skate_module.get();
+    modules::Skate* skate = modules::Skate::sole();
     if (edited_copy) {
         if (skate)
             skate->new_record_ = false; // (no record new: as 0x00566F40 sets it before comparing)

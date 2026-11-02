@@ -90,7 +90,7 @@ const std::array<uint32_t, 5> kWalkStateNames{{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46
 uint32_t get_state_name(int state) { return core::at(kWalkStateNames, state); }
 
 // The skate module's career (0x007CE478's +0x20).
-RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
+RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
 
 // asin of `value` in degrees (x 57.29578), negated when `negate`, rounded to float once.
 float asin_degrees(double value, bool negate)
@@ -162,7 +162,7 @@ void FootMovement::change_phase(int state)
     const int previous = state_;
     previous_state_ = previous;
     state_ = state;
-    state_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
+    state_time_ = frame_clock::game_clock_elapsed() + clock_offset();
     if (previous == 0 || previous == 1) {
         barrier_timed_ = false;
         running_ = false;

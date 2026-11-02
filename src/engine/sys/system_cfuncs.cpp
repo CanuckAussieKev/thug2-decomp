@@ -34,7 +34,7 @@ uint32_t& timer_start()
     return timer_start;
 }
 // The game clock (ms), as scripts see it: the clock plus its offset (0x00696D60).
-int script_clock() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+int script_clock() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 
 } // namespace
 
@@ -85,7 +85,7 @@ bool cfunc_get_elapsed_time(Struct* params, Script* script)
 {
     int start = 0;
     params->fetch_int_value(kStartTime, &start, 0);
-    script->args_->put_int(kElapsedTime, frame_clock::game_clock_elapsed() + (objects::g_clock_offset - start));
+    script->args_->put_int(kElapsedTime, frame_clock::game_clock_elapsed() + (objects::clock_offset() - start));
     return true;
 }
 

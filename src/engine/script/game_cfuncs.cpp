@@ -118,16 +118,16 @@ constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the objec
 constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the object whose camera is used otherwise
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
+
 // The current profile: the skate module's overload taking the params, with none (the original passes a 0 index in
 // the params' place - 0x00564F80; every caller passes 0).
 objects::RiderIdentity* current_account()
 {
-    return get_skate()->fetch_account(static_cast<script::Struct*>(nullptr));
+    return modules::Skate::sole()->fetch_account(static_cast<script::Struct*>(nullptr));
 }
 objects::Rider* get_rider_at(int index)
 {
-    return core::down_cast<objects::Rider>(get_skate()->get_rider_at(index));
+    return core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(index));
 }
 
 // The object manager (0x006F0FB8).
@@ -150,8 +150,7 @@ gfx::ViewCam* viewpoint_camera(objects::ObjectModule* camera)
 prefs::Preferences* get_preferences_of_type(uint32_t type) { return modules::Skate::get_player_options(type); }
 
 // The network game flags (online).
-bool& internet_game_host() { return sys::g_internet_game_host; }
-bool& joining_internet_game() { return sys::g_joining_internet_game; }
+
 bool& trying_to_join() { return game_cfuncs_shared().trying_to_join_; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
@@ -235,13 +234,13 @@ bool cfunc_quit_game(script::Struct*, script::Script*)
 }
 
 // 0x0059F770: IsInternetGameHost.
-bool cfunc_is_internet_game_host(script::Struct*, script::Script*) { return internet_game_host(); }
+bool cfunc_is_internet_game_host(script::Struct*, script::Script*) { return sys::internet_game_host(); }
 
 // 0x0059F780: IsJoiningInternetGame (logged).
 bool cfunc_is_joining_internet_game(script::Struct*, script::Script*)
 {
-    debug::printf("ScriptIsJoiningInternetGame %d\n", joining_internet_game()); // "ScriptIsJoiningInternetGame %d\n"
-    return joining_internet_game();
+    debug::printf("ScriptIsJoiningInternetGame %d\n", sys::joining_internet_game()); // "ScriptIsJoiningInternetGame %d\n"
+    return sys::joining_internet_game();
 }
 
 // 0x0059F7A0: TryingToJoinGame.
@@ -674,7 +673,7 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
     switch (node_class) {
     case kClassClimbingNode:
     case kClassRailNode:
-        modules::g_skate_module->rail_manager_->move_node(name, &position);
+        modules::Skate::sole()->rail_manager_->move_node(name, &position);
         return true;
     case 0xA0DFAC98: // Pedestrian
     case 0x061A741E: // (name unknown)
@@ -832,7 +831,7 @@ bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0x67E6859Au, &index, 1);
-    return get_skate()->fetch_account(index)->appearance()->face_skin_ != nullptr; // (its face texture: +0x54)
+    return modules::Skate::sole()->fetch_account(index)->appearance()->face_skin_ != nullptr; // (its face texture: +0x54)
 }
 
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.

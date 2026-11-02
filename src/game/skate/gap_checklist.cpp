@@ -66,7 +66,7 @@ GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
-void* get_career() { return modules::g_skate_module->career_.get(); }
+void* get_career() { return modules::Skate::sole()->career_.get(); }
 GapTally* level_checklist(void* career, int level)
 {
     return static_cast<objects::RiderStoryProgress*>(career)->fetch_gap_list(level);

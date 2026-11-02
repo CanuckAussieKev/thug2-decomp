@@ -193,7 +193,7 @@ bool get_cast(V3 from, V3 to, Hit* hit)
 
 objects::GrindRailHub* get_rails()
 {
-    const modules::Skate* skate = modules::g_skate_module.get();
+    const modules::Skate* skate = modules::Skate::sole();
     auto* manager = skate ? skate->rail_manager_.get() : nullptr;
     return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
 }

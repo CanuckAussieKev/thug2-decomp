@@ -42,7 +42,6 @@ namespace skater::thaw_bmx {
 
 namespace {
 
-
 // The timed flags (THUG2's; THAW's in the comment).
 // THUG2's state flags against THAW's offsets: kVertAir 0x30, kVertWall 0x38, kBailing 0x78, kAcidDrop 0x80.
 using objects::PoseFlag;
@@ -96,7 +95,7 @@ constexpr auto kSoundTables = std::to_array<const char*>({
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 objects::GameEntity* object_of(const SkaterPhysicsModule* core) { return core->entity_; }
 float get_frame_length(const SkaterPhysicsModule* core) { return core->frame_length_; }
-int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 
 void set_timed_flag(const SkaterPhysicsModule* core, PoseFlag flag, bool on)
 {
@@ -113,7 +112,7 @@ double dot3(const maths::Vec4& a, const maths::Vec4& b)
 // The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
 objects::GrindRailHub* get_level_rails()
 {
-    const modules::Skate* module = modules::g_skate_module.get();
+    const modules::Skate* module = modules::Skate::sole();
     return module ? module->rail_manager_.get() : nullptr;
 }
 

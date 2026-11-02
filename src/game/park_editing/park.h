@@ -1310,8 +1310,9 @@ inline constexpr float kParkCellSizeX{120.0f};
 inline constexpr float kParkCellSizeY{48.0f};
 inline constexpr float kParkCellSizeZ{120.0f};
 extern memory::PoolPair g_clipboard_pools;
-extern memory::PoolPair g_clipboard_entry_pools;
-extern memory::PoolPair g_node_pools;
+memory::PoolPair& clipboard_entry_pools();
+memory::PoolPair& node_pools();
 
-extern bool g_rail_editor_flag;
+bool rail_editor_flag();
+void set_rail_editor_flag(bool value);
 } // namespace park_editing

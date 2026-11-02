@@ -103,6 +103,7 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right);
 // square gate by the angle (x 1/0.85, at most 1), unrounded.
 double stick_length(float x, float y, float angle);
 
-extern int g_clock_offset;
+int clock_offset();
+void set_clock_offset(int value);
 
 } // namespace objects

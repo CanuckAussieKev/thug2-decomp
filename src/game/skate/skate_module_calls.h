@@ -48,7 +48,7 @@ inline objects::RiderIdentity* get_profile_from_params(void* params)
 inline bool is_multiplayer() { return modules::Skate::is_multiplayer() != 0; }
 
 // The game mode.
-inline void* get_game_mode() { return goals::g_game_mode.get(); }
+inline void* get_game_mode() { return goals::game_mode(); }
 // 0x00553220: the game mode's integer `property` (is_career, is_horse ...) is non-zero.
 inline bool game_mode_is_true(uint32_t property)
 {

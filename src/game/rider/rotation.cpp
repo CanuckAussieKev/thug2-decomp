@@ -30,7 +30,6 @@ namespace skater {
 
 namespace {
 
-
 using objects::PoseFlag; // (kSpin: cleared once a spin has gone on long enough)
 
 // A button of the pad: {bool down, int time it changed, ..., +0x10 bool pressed this frame}.
@@ -68,7 +67,7 @@ static_assert(std::bit_cast<uint32_t>(kPi) == 0x40490FDB && std::bit_cast<uint32
               "the original's constants");
 
 // The game clock (ms) plus the offset at 0x00696D60: the time a flag or button changed.
-int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 
 // Clear a state flag (noting when).
 void clear_flag(SkaterPhysicsModule* component, PoseFlag flag) { component->state_->set_flag(flag, 0); }

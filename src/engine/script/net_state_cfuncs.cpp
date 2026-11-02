@@ -43,10 +43,24 @@
 
 namespace commands {
 
-std::array<char, 16> g_network_id;
-std::array<char, 12> g_network_password;
+std::array<char, 16>& network_id()
+{
+    static std::array<char, 16> network_id{};
+    return network_id;
+}
+
+std::array<char, 12>& network_password()
+{
+    static std::array<char, 12> network_password{};
+    return network_password;
+}
+
 // The hosted game's name: "Beenox" unless -HOSTNAME gives another (winmain.cpp).
-std::array<char, 16> g_hosted_game_name{{"Beenox"}};
+std::array<char, 16>& hosted_game_name()
+{
+    static std::array<char, 16> hosted_game_name{{"Beenox"}};
+    return hosted_game_name;
+}
 
 namespace {
 
@@ -61,13 +75,12 @@ constexpr uint32_t kSlomoComponent = 0x5BD63B29;       // (name unknown) the loc
 constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
 constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the skaters' object type
 
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
-objects::GameEntity* get_home_rider() { return get_skate()->get_home_rider(); }
+objects::GameEntity* get_home_rider() { return modules::Skate::sole()->get_home_rider(); }
 online::Hub* online_hub_handle() { return online::online_hub(); }
 net::Hub* net_session_slot() { return net::net_core(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
-uint32_t game_mode_players() { return static_cast<uint32_t>(goals::g_game_mode->get_starting_rider_count()); }
+uint32_t game_mode_players() { return static_cast<uint32_t>(goals::game_mode()->get_starting_rider_count()); }
 
 // inet_addr through the game's import (0x005BEAAE).
 uint32_t get_inet_addr(const char* address) { return crt::get_inet_addr(address); }
@@ -81,7 +94,7 @@ bool cfunc_start_server(script::Struct*, script::Script*)
     memory::Hub* memory = mem_manager();
     online::Hub* game_net = online_hub_handle();
     memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap_));
-    modules::SkateNet::launch_host(get_skate());
+    modules::SkateNet::launch_host(modules::Skate::sole());
     if (!game_net->in_internet_mode())
         game_net->is_local_network_play();
     mem_manager()->leave_heap_scope();
@@ -91,7 +104,7 @@ bool cfunc_start_server(script::Struct*, script::Script*)
 // 0x005A08D0: LeaveServer (0x0056B890).
 bool cfunc_leave_server(script::Struct*, script::Script*)
 {
-    get_skate()->leave_server();
+    modules::Skate::sole()->leave_server();
     return true;
 }
 
@@ -110,7 +123,7 @@ bool cfunc_join_server(script::Struct* params, script::Script*)
         for (uint32_t i = 0; i < players; ++i) {
             net::AppHost* client = game_net->start_client_session(false, true, true, static_cast<int>(i));
             game_net->join_server(0, 0, static_cast<int>(i));
-            modules::SkateNet::add_client_handlers(get_skate(), client, static_cast<int>(i));
+            modules::SkateNet::add_client_handlers(modules::Skate::sole(), client, static_cast<int>(i));
             if (game_net->in_net_game())
                 script::launch_script(kJoinedNetGameScript, nullptr, nullptr, false, nullptr);
         }
@@ -247,7 +260,7 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script*)
     params->fetch_int_value(0u, &enable, 0);
     auto* input = pad_input::get_input_manager();
     for (int i = 0; i < 2; ++i) {
-        if (core::at(get_skate()->participants_, i).vibration_) {
+        if (core::at(modules::Skate::sole()->participants_, i).vibration_) {
             if (enable)
                 input->enable_actuators(i);
             else
@@ -303,7 +316,7 @@ bool cfunc_toggle_player_names(script::Struct*, script::Script*)
 // 0x005A0EF0: SetCurrentGameType (the skate module's 0x00564FD0).
 bool cfunc_set_current_game_type(script::Struct*, script::Script*)
 {
-    get_skate()->set_current_game_type();
+    modules::Skate::sole()->set_current_game_type();
     return true;
 }
 
@@ -512,7 +525,7 @@ bool cfunc_in_internet_mode(script::Struct*, script::Script*) { return online_hu
 bool cfunc_entering_net_game(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online_hub_handle();
-    return game_net->in_net_game() && modules::g_skate_module->previous_level_ == 0xE92ECAFE;
+    return game_net->in_net_game() && modules::Skate::sole()->previous_level_ == 0xE92ECAFE;
 }
 
 // 0x005A1C30: DeviceChosen: the network preference 0xFA187DEC isn't 0x09562A0A.
@@ -600,10 +613,10 @@ void init_beenox_preferences()
 {
     online::Hub* game_net = online_hub_handle();
     prefs::Preferences* prefs = game_net->get_online_settings();
-    set_string_preference(prefs, "server_name", g_hosted_game_name.data()); // "server_name"
-    set_string_preference(prefs, "password", g_network_password.data());    // "password"
-    if (core::at(g_network_id, 0) != '\0')
-        set_string_preference(prefs, "network_id", g_network_id.data()); // "network_id"
+    set_string_preference(prefs, "server_name", hosted_game_name().data()); // "server_name"
+    set_string_preference(prefs, "password", network_password().data());    // "password"
+    if (core::at(network_id(), 0) != '\0')
+        set_string_preference(prefs, "network_id", network_id().data()); // "network_id"
     game_net->set_max_players_preference(online::net_max_players());
     gsl::owner<script::Struct*> teams = script::new_struct();
     switch (online::network_team_mode()) {

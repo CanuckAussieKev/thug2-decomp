@@ -26,7 +26,7 @@ uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits_; }
 CellBox& meta_footprint(PieceGroup* meta) { return meta->cell_footprint_; }
 
 // The scene is rebuilt while this is set (0x0067F398; cleared around the floor's rebuild).
-bool& scene_updates() { return g_collision_allowed; }
+
 
 void call_destroy_concrete_meta(ParkLayout* manager, void* meta, int flags)
 {
@@ -82,17 +82,17 @@ void ParkLayout::rebuild_park(uint32_t how)
     } else {
         read_from_compressed_map(); // rebuilt from the saved map
     }
-    scene_updates() = false;
+    set_collision_allowed(false);
     rebuild_inner_shell(park_dims());
     rebuild_floor_and_pieces(this, nullptr, 0);
-    scene_updates() = true;
+    set_collision_allowed(true);
     rebuild_scene(get_generator());
     floor_built() = true;
     if (how == kNewPark)
         current_flags() |= 1;
-    scene_updates() = false;
+    set_collision_allowed(false);
     get_engine()->reassemble();
-    scene_updates() = true;
+    set_collision_allowed(true);
     rebuild_scene(get_generator());
 }
 

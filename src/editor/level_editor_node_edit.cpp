@@ -188,7 +188,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
 {
     const maths::Vec4 pos = {.x = values.pos.x, .y = values.pos.y, .z = values.pos.z, .w = 1.0f};
     const nodes::Family family = node ? node->family : nodes::Family::kOther;
-    if (family == nodes::Family::kFireOff && objects::g_proximity_hub != nullptr) {
+    if (family == nodes::Family::kFireOff && objects::proximity_hub() != nullptr) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name))
             proxim->at_point_ = pos;
     }

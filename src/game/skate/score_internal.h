@@ -48,9 +48,9 @@ inline int spin_multiplier(int spin) { return spin < 6 ? core::at(g_spin_multipl
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-inline goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
+inline goals::MatchRules* get_game_mode() { return goals::game_mode(); }
 inline online::Hub* net_session_slot() { return online::online_hub(); }
-inline objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
+inline objects::TrickSpotHub* get_trick_objects() { return objects::trick_spot_hub(); }
 inline objects::Rider* rider_for_slot(int id)
 {
     return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(static_cast<uint32_t>(id)));

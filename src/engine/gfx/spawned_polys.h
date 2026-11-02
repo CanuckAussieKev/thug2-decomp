@@ -61,5 +61,5 @@ void kill_all_spawned_polys();
 
 } // namespace engine
 
-extern memory::PoolPair g_spawned_poly_pools;
+memory::PoolPair& spawned_poly_pools();
 } // namespace render

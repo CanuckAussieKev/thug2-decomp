@@ -216,7 +216,7 @@ void DormancyModule::refresh_shown_state()
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2)) {
             visible = true;
-        } else if (modules::g_viewport_count > 1) {
+        } else if (modules::viewport_count() > 1) {
             visible = true;
         } else if (core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object_) {
             visible = true;
@@ -280,7 +280,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
 {
     // The camera the distances are measured from: the skate module's (a flag that turns the checks off, then the
     // position).
-    const modules::Skate* camera = modules::g_skate_module.get();
+    const modules::Skate* camera = modules::Skate::sole();
     auto* component = core::down_cast<DormancyModule>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
         component->distance_squared_ = 0.0f;

@@ -133,7 +133,6 @@ LevelEditorClustersState& level_editor_clusters_state()
     return state.get();
 }
 
-objects::TrickSpotHub* hub() { return objects::g_trick_spot_hub.get(); }
 
 script::Struct* node_of(uint32_t sector) { return level_nodes::fetch_vertex(sector, false); }
 
@@ -146,7 +145,7 @@ objects::TrickObjectCluster* cluster_object(objects::TrickSpotHub* manager, uint
 // Registered as the load registers a TrickObject node (0x005A37A9-0x005A37C9).
 void enrol(uint32_t name, uint32_t cluster)
 {
-    objects::TrickSpotHub* manager = hub();
+    objects::TrickSpotHub* manager = objects::trick_spot_hub();
     if (!manager || !cluster)
         return;
     manager->add_cluster(cluster); // (false: there already)
@@ -158,7 +157,7 @@ void enrol(uint32_t name, uint32_t cluster)
 // object a TrickSpot with its name) and its name out of the name map (the manager's object_clusters_).
 void unregister(uint32_t name, uint32_t cluster)
 {
-    objects::TrickSpotHub* manager = hub();
+    objects::TrickSpotHub* manager = objects::trick_spot_hub();
     if (!manager || !cluster)
         return;
     if (const objects::TrickObjectCluster* object = cluster_object(manager, cluster)) {

@@ -53,7 +53,7 @@ uint32_t count_method_entries() { return 250; }
 
 NativeCommand* find_c_function(const char* name)
 {
-    for (NativeCommand& entry : g_cfunction_table) {
+    for (NativeCommand& entry : cfunction_table()) {
         if (std::strcmp(entry.name, name) == 0)
             return &entry;
     }
@@ -136,27 +136,27 @@ void load_boot_script_files()
 // 0x005A5B40 ... 0x005A5DF0
 void create_anim_cache_predictor_pool(int count, const char* name)
 {
-    create_pool_of(gfx::g_anim_slot_pools, static_cast<int>(sizeof(gfx::AnimCacheSlot)), count, name); // (0x1E4 in the original)
+    create_pool_of(gfx::anim_slot_pools(), static_cast<int>(sizeof(gfx::AnimCacheSlot)), count, name); // (0x1E4 in the original)
 }
 void create_blend_channel_pool(int count, const char* name)
 {
-    create_pool_of(gfx::g_anim_track_pools, static_cast<int>(sizeof(gfx::AnimTrack)), count, name); // (0x74 in the original)
+    create_pool_of(gfx::anim_track_pools(), static_cast<int>(sizeof(gfx::AnimTrack)), count, name); // (0x74 in the original)
 }
 void create_boned_anim_controller_pool(int count, const char* name)
 {
-    create_pool_of(gfx::g_standard_pools, 0x28, count, name);
+    create_pool_of(gfx::standard_pools(), 0x28, count, name);
 }
 void create_anim_lookup_pool(int count, const char* name)
 {
-    create_pool_of(render::g_frame_source_pools, sizeof(render::FrameSource), count, name);
+    create_pool_of(render::frame_source_pools(), sizeof(render::FrameSource), count, name);
 }
 void create_spawned_poly_details_pool(int count, const char* name)
 {
-    create_pool_of(render::g_spawned_poly_pools, 0xB8, count, name);
+    create_pool_of(render::spawned_poly_pools(), 0xB8, count, name);
 }
 void create_event_receiver_list_pool(int count, const char* name)
 {
-    create_pool_of(objects::g_script_list_pools, 0x14, count, name);
+    create_pool_of(objects::script_list_pools(), 0x14, count, name);
 }
 
 // 0x005A5E70
@@ -185,8 +185,8 @@ void allocate_pools()
     create_event_receiver_list_pool(175, "Obj::CEventReceiverList");
     memory::pop_mem_profile();
     memory::push_mem_profile("Registering script functions");
-    install_script_functions(std::span<const NativeCommand>(g_cfunction_table).first(get_num_c_functions()));
-    publish_method_table(std::span<const char* const>(g_member_function_names).first(count_method_entries()));
+    install_script_functions(std::span<const NativeCommand>(cfunction_table()).first(get_num_c_functions()));
+    publish_method_table(std::span<const char* const>(member_function_names()).first(count_method_entries()));
     memory::pop_mem_profile();
 }
 

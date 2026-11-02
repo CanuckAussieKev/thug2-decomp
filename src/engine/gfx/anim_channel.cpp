@@ -112,7 +112,6 @@ int& max_blends() { return anim_channel_state().max_blends_; }
 int& get_subsets() { return anim_channel_state().subsets_; }
 bool omit_from_draw() { return render::g_suppress_draw; }
 
-memory::PoolPair& struct_pools() { return script::g_struct_pools; }
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // A list node as the original masks it: null when it's the head.
@@ -177,7 +176,7 @@ void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* d
 // A structure made and freed as the original's inlined new / delete do.
 gsl::owner<Struct*> spawn_param_bag()
 {
-    void* memory = struct_pools().carve(8);
+    void* memory = script::struct_pools().carve(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 

@@ -75,9 +75,9 @@ online::Hub* net_session_slot() { return online::online_hub(); }
 // The network manager's client app: +8 its frame count.
 net::AppHost* client_app() { return net_session_slot()->fetch_patron(0); }
 int frame_rate() { return game_config::frame_rate(); }
-int get_now() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
+int get_now() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 // The level's rails (the skate module's +0x24).
-GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_.get(); }
+GrindRailHub* get_level_rails() { return modules::Skate::sole()->rail_manager_.get(); }
 
 // How far behind the connection is, in frames of `frame_ms`: the latency - the server's connection to the skater's
 // player, a client's first (to the server) - less a frame, over a frame, as unsigned numbers (0 without a frame).

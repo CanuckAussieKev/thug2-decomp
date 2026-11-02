@@ -22,7 +22,11 @@
 
 namespace commands {
 
-std::array<SwapSlot, 5> g_swap_table;
+std::array<SwapSlot, 5>& swap_table()
+{
+    static std::array<SwapSlot, 5> swap_table{};
+    return swap_table;
+}
 
 namespace {
 
@@ -30,7 +34,7 @@ using script::Script;
 using script::Struct;
 
 constexpr int kSwapSlots = 5;
-std::array<SwapSlot, 5>& swap_table() { return g_swap_table; }
+
 
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }

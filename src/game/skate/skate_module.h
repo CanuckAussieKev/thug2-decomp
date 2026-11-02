@@ -275,7 +275,7 @@ public:
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).
 void fill_elimination_ranking();
 
-extern int g_viewport_count;
-extern std::unique_ptr<modules::Skate> g_skate_module;
+int viewport_count();
+void set_viewport_count(int value);
 
 } // namespace modules

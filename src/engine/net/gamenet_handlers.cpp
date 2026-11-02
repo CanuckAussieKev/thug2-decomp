@@ -299,7 +299,7 @@ int on_match_end_msg(net::InboundMsgCtx* context)
 int handle_game_ended(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
-    objects::g_trick_spot_hub->remove_all_clusters();
+    objects::trick_spot_hub()->remove_all_clusters();
     get_run(kCreateGameEndedDialog);
     manager->clear_roster();
     return kContinue;

@@ -61,7 +61,7 @@ constexpr uint32_t kVehicleComponent = 0x18223FD6; // SkaterStateHistory (its ve
 constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 
 Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
+
 
 // The skate module's list of skaters (its head at +0x28): how many.
 int skater_count(modules::Skate* skate)
@@ -78,7 +78,7 @@ int skater_count(modules::Skate* skate)
 // 0x0053E440
 void Hub::add_new_player(JoinerRecord* info)
 {
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     gsl::owner<objects::Entity*> skater = nullptr;
     auto obj_id = static_cast<int8_t>(info->entity_key_);
     const uint32_t flags = info->flag_bits_;
@@ -136,7 +136,7 @@ void Hub::add_new_player(JoinerRecord* info)
     if (info->flag_bits_ & kNewResync) {
         prepare_local_face();
         send_custom_tag_texture();
-        objects::g_trick_spot_hub->remove_all_clusters(); // the trick objects
+        objects::trick_spot_hub()->remove_all_clusters(); // the trick objects
         get_run(kResyncedPlayers);
     }
     if (!is_own_player(player)) {
@@ -154,7 +154,7 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
     Hub* manager = task_manager(task);
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     net::ConnSearch search;
     auto* node = manager->joiners_.next; // (the joining players' first node)
     bool added = false;
@@ -271,7 +271,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
     Hub* manager = task_manager(task);
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     net::NetMessageInfo desc;
     net::Hub* net = net::Hub::sole();
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;

@@ -277,7 +277,7 @@ bool cfunc_trick_off_all_objects(script::Struct* params, script::Script*)
     if (!game_config::from_cd()) {
         int player = 0;
         params->fetch_int_value(0u, &player, 0);
-        objects::g_trick_spot_hub->give_free_clusters(player);
+        objects::trick_spot_hub()->give_free_clusters(player);
     }
     return true;
 }

@@ -56,7 +56,7 @@ LevelEditorCareerState& level_editor_career_state()
 
 goals::GapTally* current_checklist()
 {
-    modules::Skate* skate = modules::g_skate_module.get();
+    modules::Skate* skate = modules::Skate::sole();
     return skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
 }
 

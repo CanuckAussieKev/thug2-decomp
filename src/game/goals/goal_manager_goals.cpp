@@ -68,7 +68,6 @@ constexpr uint32_t kAttempts = 0xD023ADBE; // (name unknown: the times the beate
 
 const char* const kNetJudge = "NetJudge"; // "NetJudge"
 
-MatchRules* get_game_mode() { return g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::online_hub(); }
 bool in_multiplayer_game() { return static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0; }
 
@@ -106,10 +105,10 @@ gsl::owner<Objective*> make_goal(script::Struct* params)
 // 0x0055BA10
 bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
 {
-    const bool free_skate = get_game_mode()->is_true(kIsFreeskate);
+    const bool free_skate = game_mode()->is_true(kIsFreeskate);
     if (!in_multiplayer_game() && free_skate)
         return false;
-    if (get_game_mode()->is_true(kIsCreateGoals) && !params->has_bare_flag(kEditedGoal))
+    if (game_mode()->is_true(kIsCreateGoals) && !params->has_bare_flag(kEditedGoal))
         return false;
     params->put_name_key(kGoalIdChecksum, id);
     if (params->has_bare_flag(kCareerOnly) && in_multiplayer_game())

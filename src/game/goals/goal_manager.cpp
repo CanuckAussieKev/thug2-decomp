@@ -63,7 +63,7 @@ constexpr uint8_t kGroupGoals = 8;    // (its message group)
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
 online::Hub* net_session_slot() { return online::online_hub(); }
-MatchRules* get_game_mode() { return g_game_mode.get(); }
+
 
 void remove_objective_npc(ObjectiveNpc* ped) { ped->remove_objective_npc(); }
 void hide_goal_ped(ObjectiveNpc* ped, bool hide) { ped->conceal(hide); }
@@ -216,8 +216,8 @@ bool GoalManager::fail_objective(uint32_t id)
     if (!goal)
         return false;
     goal->lose();
-    if (get_game_mode()->get_name_key() == kClassic ||
-        (get_game_mode()->get_name_key() == kNetGoalAttack && get_game_mode()->get_goals_mode() == kGoalsClassic))
+    if (game_mode()->get_name_key() == kClassic ||
+        (game_mode()->get_name_key() == kNetGoalAttack && game_mode()->get_goals_mode() == kGoalsClassic))
         engage_objective(id, false);
     return true;
 }
@@ -283,7 +283,7 @@ void GoalManager::prepare_every_objective()
         script::Struct* params = goal->fetch_args();
         if (parents->objective_key_)
             continue;
-        if (get_game_mode()->get_name_key() == kClassic || !goal->has_won() ||
+        if (game_mode()->get_name_key() == kClassic || !goal->has_won() ||
             params->has_bare_flag(kAlwaysInitializeGoal) || params->has_bare_flag(kEditedGoal))
             goal->prepare_all();
     }
@@ -619,7 +619,7 @@ void GoalManager::spawn_objective_props()
 // 0x00559050
 int GoalManager::get_skill_tier(bool career)
 {
-    const uint32_t mode = career ? kCareer : get_game_mode()->get_name_key();
+    const uint32_t mode = career ? kCareer : game_mode()->get_name_key();
     int level = 0;
     if (!args_->fetch_int_value(mode, &level, 0))
         level = 1;

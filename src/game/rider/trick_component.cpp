@@ -1130,7 +1130,7 @@ void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
         manual_.array_ = list;
         manual_.index_ = i;
         manual_.time_ = static_cast<int>(static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
-                                         static_cast<uint32_t>(g_clock_offset));
+                                         static_cast<uint32_t>(clock_offset()));
         manual_.is_special_ = flag;
         manual_.duration_ = -1;
         trick->fetch_int_value(0x79A07F3Fu, &manual_.duration_, 0);

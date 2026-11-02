@@ -50,7 +50,7 @@ online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 }
 online::PlayerRecord* find_own_player_record() { return net_session_slot()->fetch_viewed_player(); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
-bool is_squad_match() { return goals::g_game_mode->is_squad_match() != 0; }
+bool is_squad_match() { return goals::game_mode()->is_squad_match() != 0; }
 
 // `name` run with a structure holding only id = `label_id`.
 void run_with_label_id(uint32_t name, uint32_t label_id)

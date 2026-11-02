@@ -56,7 +56,7 @@ void get_point(const char* name, script::NativeFunction function)
 void get_run(const char* script) { script::launch_script(name_hash(script), nullptr, nullptr, false, script); }
 
 // The view mode (the viewer's free camera): the script global view_mode, which change_view_mode copies to 0x007CE4A4.
-bool in_view_mode() { return objects::g_view_mode != 0; }
+bool in_view_mode() { return objects::view_mode() != 0; }
 
 // A key's press (down now, up the frame before).
 struct Key {

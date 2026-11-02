@@ -27,7 +27,6 @@ namespace {
 constexpr float kByteToUnit = 1.0f / 255.0f;    // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
-bool is_game_halted() { return objects::g_simulation_halted; }
 
 
 maths::Vec4* min_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out) { return min_vector(out, a, b); }
@@ -304,7 +303,7 @@ void EffectsDirector::draw_particles()
         return;
     for (const auto* node = systems_.first(); node != systems_.head;
          node = node->next)
-        node->value->render(!is_game_halted());
+        node->value->render(!objects::simulation_halted());
 }
 
 // 0x00496680

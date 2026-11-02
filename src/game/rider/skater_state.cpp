@@ -87,7 +87,7 @@ void RiderPoseState::set_flag(PoseFlag f, uint8_t value)
     if (timed.on == value)
         return;
     timed.on = value;
-    timed.changed_at = frame_clock::game_clock_elapsed() + g_clock_offset;
+    timed.changed_at = frame_clock::game_clock_elapsed() + clock_offset();
 }
 
 // 0x00519460

@@ -40,13 +40,12 @@ constexpr uint32_t kRecord = 0xC22A2B72;
 constexpr uint32_t kCareer = 0x4DA4937B;  // career
 constexpr uint32_t kClassic = 0x4C10DE52; // classic
 
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 
 // The local skater's stats manager (its story stat challenges - stats_goals): every challenge done (the stat point
 // given; the stats menu counts the done ones: 3 + done = the stat's maximum) and none "just met".
 int complete_stat_goals()
 {
-    objects::GameEntity* skater = get_skate()->get_home_rider(); // (the local one)
+    objects::GameEntity* skater = modules::Skate::sole()->get_home_rider(); // (the local one)
     auto* stats = skater ? core::down_cast<objects::AttributeTracker>(skater->fetch_module(objects::AttributeTracker::kType))
                          : nullptr;
     if (!stats)
@@ -136,7 +135,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         get_log("create 100%% cas: off ([features] create_100_cas=0)");
         return false;
     }
-    const modules::Skate* skate = get_skate();
+    const modules::Skate* skate = modules::Skate::sole();
     script::Array* levels = nullptr;
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;

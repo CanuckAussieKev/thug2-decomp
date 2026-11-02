@@ -102,12 +102,11 @@ constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore
 
 // --- the game's state ---
 
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 // The skate module's career (+0x20; null before the module is up).
-objects::RiderStoryProgress* get_career() { return skate_module() ? modules::g_skate_module->career_.get() : nullptr; }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole() ? modules::Skate::sole()->career_.get() : nullptr; }
 modules::FrontEnd* the_front_end() { return modules::g_front_end_instance.get(); }
 bool get_paused() { return the_front_end() && the_front_end()->is_halted_; }
 bool loading_screen_up()
@@ -398,7 +397,7 @@ void update_session(float dt)
         session_state().best_combo_ = std::max(session_state().best_combo_, end.points);
     // The gaps (the skate module's checklist: the level's).
     std::vector<level_editor::play_test::GapRead> read;
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     if (const goals::GapTally* list =
             skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list())
                   : nullptr) {

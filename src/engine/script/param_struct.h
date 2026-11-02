@@ -357,11 +357,11 @@ public:
 static_assert(sizeof(Struct) == 8, "layout must match the original");
 
 // The CStruct pool pair (script/struct.cpp).
-extern memory::PoolPair g_struct_pools;
-extern memory::PoolPair g_array_pools;
-extern memory::PoolPair g_component_pools;
-extern memory::PoolPair g_symbol_pools;
-extern memory::PoolPair g_vector_pools;
+memory::PoolPair& struct_pools();
+memory::PoolPair& array_pools();
+memory::PoolPair& component_pools();
+memory::PoolPair& symbol_pools();
+memory::PoolPair& vector_pools();
 
 struct PermanentString;
 } // namespace script

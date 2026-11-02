@@ -47,7 +47,7 @@ constexpr uint32_t kTimeSincePhysicsSwitch = 0x27F48E93, kPreviousPhysicsStateDu
 constexpr int kSkating = 0, kWalking = 1; // the state component's physics mode (+0x1C)
 constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
 
-int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
+int get_clock() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 
 // Milliseconds as unsigned seconds (the original's unsigned conversion through the x87), rounded once to float.
 float get_seconds(int ms) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(ms)) * kSecondsPerMs); }

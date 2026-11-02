@@ -85,6 +85,6 @@ ScriptStore* create_script_cache(bool create);
 // 0x00475A00: give back a reference; the last one destroys the cache.
 void release_script_cache();
 
-extern std::unique_ptr<script::ScriptStore> g_script_store;
+script::ScriptStore* script_store();
 
 } // namespace script

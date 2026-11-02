@@ -29,6 +29,7 @@ namespace objects {
 // on first use, never destroyed (cutscene_play_shared()).
 struct CutscenePlayShared {
     int cutscene_fixed_frame_{};
+    bool cutscene_playing_{};
 };
 CutscenePlayShared& cutscene_play_shared();
 

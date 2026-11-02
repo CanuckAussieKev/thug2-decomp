@@ -205,7 +205,7 @@ bool cfunc_proxim_cleanup(script::Struct*, script::Script*)
 // check that the proximity manager exists.)
 bool cfunc_inside(script::Struct*, script::Script*)
 {
-    return objects::g_proximity_hub->entering_;
+    return objects::proximity_hub()->entering_;
 }
 
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).

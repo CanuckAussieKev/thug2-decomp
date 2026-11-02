@@ -174,8 +174,8 @@ void late_player_arrival(Hub* m, JoinerRecord* player, int frames) { m->add_join
 void set_ready_state(Hub* m, bool ready) { m->set_ready_state(ready); }
 void shuffle_spawn_slots(Hub* m) { m->choose_start_points(); }
 void cancel_join_server(Hub* m) { m->cancel_join(); }
-uint32_t active_ruleset_label() { return goals::g_game_mode->get_name_key(); }
-void set_maximum_players(int count) { goals::g_game_mode->set_rider_ceiling(count); }
+uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
+void set_maximum_players(int count) { goals::game_mode()->set_rider_ceiling(count); }
 int8_t current_rank(Hub* m) { return static_cast<int8_t>(m->rating_service_->get_rank()); }
 int32_t get_rating(Hub* m)
 {
@@ -686,7 +686,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn_;
     auto* manager = static_cast<Hub*>(context->content_);
-    modules::Skate* skate = modules::g_skate_module.get();
+    modules::Skate* skate = modules::Skate::sole();
     context->acknowledge_ = true;
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     util::ByteReader reader(context->body_, context->body_size_);
@@ -816,7 +816,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     std::strcpy(info->password.data(), join_password().data());
     int size = 0;
     if (!info->observer) {
-        auto* profile = modules::g_skate_module->fetch_account(0);
+        auto* profile = modules::Skate::sole()->fetch_account(0);
         net::ConnSearch search;
         if (context->receiver_app_->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem)
             narrowband = true; // (a narrowband server gets no face)

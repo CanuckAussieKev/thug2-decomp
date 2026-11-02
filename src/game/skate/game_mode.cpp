@@ -19,11 +19,23 @@
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
 #include "platform/all_ones.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace goals {
 
-std::unique_ptr<goals::MatchRules> g_game_mode;
+namespace {
+
+std::unique_ptr<goals::MatchRules>& stored_game_mode()
+{
+    static core::NoDestroy<std::unique_ptr<goals::MatchRules>> game_mode;
+    return game_mode.get();
+}
+
+} // namespace
+
+goals::MatchRules* game_mode() { return stored_game_mode().get(); }
+
 namespace {
 
 constexpr uint32_t kAccumulateScore = 0xC1F5864B;    // accumulate_score
@@ -71,7 +83,7 @@ WinRule* const kHeadMarker = platform::all_ones_pointer<WinRule>();
 // as round 3c's argument-slot defaults)
 int unset(const void* /*mode*/) { return 0; }
 
-MatchRules* the_game_mode() { return g_game_mode.get(); }
+MatchRules* the_game_mode() { return stored_game_mode().get(); }
 uint32_t& ref_tally()
 {
     static uint32_t game_mode_references{};
@@ -152,8 +164,8 @@ MatchRules* MatchRules::sole(bool create)
 {
     MatchRules* mode = the_game_mode();
     if (!mode && create) {
-        g_game_mode = std::make_unique<MatchRules>();
-        mode = g_game_mode.get();
+        stored_game_mode() = std::make_unique<MatchRules>();
+        mode = stored_game_mode().get();
     }
     ++ref_tally();
     return mode;
@@ -166,7 +178,7 @@ void MatchRules::get_release()
         --ref_tally();
         return;
     }
-    memory::destroy_then_clear(g_game_mode);
+    memory::destroy_then_clear(stored_game_mode());
     ref_tally() = 0;
 }
 

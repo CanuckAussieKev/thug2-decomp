@@ -244,7 +244,7 @@ double SkaterPhysicsModule::get_gravity()
     const bool vert = flags->flag(PoseFlag::kVertAir).on || flags->flag(PoseFlag::kAcidDrop).on;
     auto result = static_cast<float>(
         gravity / static_cast<double>(script::fetch_float(vert ? kGravityScaleVert : kGravityScale)));
-    auto* career = modules::g_skate_module->career_.get();
+    auto* career = modules::Skate::sole()->career_.get();
     if (career->is_code_on(kMoonCheat)) {
         career->set_global_flag(script::fetch_int_value(kMoonCheat));
         result = static_cast<float>(static_cast<double>(tuning_float_lookup(kMoonGravity, object)) * result);

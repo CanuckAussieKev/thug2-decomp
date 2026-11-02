@@ -176,7 +176,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     anchor_point_ = {.x = get_f(x), .y = y, .z = z, .w = w};
     world_direction_ = direction_ * m;
 
-    if (modules::g_viewport_count == 1 && first_camera()) {
+    if (modules::viewport_count() == 1 && first_camera()) {
         const maths::Vec4* camera = viewer_location(first_camera());
         const double dx = static_cast<double>(anchor_point_.x) - camera->x;
         const double dy = static_cast<double>(anchor_point_.y) - camera->y;

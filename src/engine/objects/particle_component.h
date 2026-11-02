@@ -109,7 +109,8 @@ public:
     uint32_t lifespan_{0};           // +0x2C ms (0: for ever)
 };
 
-extern std::unique_ptr<render::EffectsDirector> g_particle_hub;
+render::EffectsDirector* particle_hub();
+void set_particle_hub(std::unique_ptr<render::EffectsDirector> owned);
 
 } // namespace objects
 

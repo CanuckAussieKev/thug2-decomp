@@ -25,9 +25,9 @@ class Entity;
 namespace commands {
 
 // The network names (net_state_cfuncs.cpp; the command line sets them, winmain.cpp).
-extern std::array<char, 16> g_network_id;
-extern std::array<char, 12> g_network_password;
-extern std::array<char, 16> g_hosted_game_name;
+std::array<char, 16>& network_id();
+std::array<char, 12>& network_password();
+std::array<char, 16>& hosted_game_name();
 
 // --- the viewer, controllers, node arrays, preferences (game_cfuncs.cpp) --------------------------------------
 

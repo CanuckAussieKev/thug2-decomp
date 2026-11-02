@@ -50,7 +50,7 @@ BinkIoState& bink_io_state()
 bool& sound_system_set() { return stream_file_state().bink_sound_set_; } // also set by 0x00452C60
 uint32_t& io_size() { return bink_io_state().io_size_; }
 bool pause_locked() { return bink_io_state().pause_locked_; }
-bool get_focused() { return sys::g_app_active; }
+
 void* sound_device() { return music_state().sound_device_; }
 
 // The pcm.wad entries open as Bink streams (the stream files, stream_files.h; opened by 0x00452A90): when last let go
@@ -179,7 +179,7 @@ int BinkStream::tick_frame()
     if (!bink_)
         return 0;
     while (bink::wait(bink_) == 0) {
-        if (!get_focused())
+        if (!sys::app_active())
             break;
         bink::do_frame(bink_);
         bink::next_frame(bink_);

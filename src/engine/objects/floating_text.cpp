@@ -106,7 +106,7 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
     const char* text = nullptr;
     if (params->fetch_text(kString, &text, 0)) {
         if (!*text) {
-            end_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
+            end_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset());
         } else {
             copy_text(text_, text); // (the original: the game's strncpy, 0x006239E0)
             end_time_ = 0;
@@ -120,7 +120,7 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
         params->fetch_float(kDuration, &duration, 0);
         const int elapsed = frame_clock::game_clock_elapsed();
         const int milliseconds = get_truncated(static_cast<double>(duration) * kMinusMilliseconds);
-        end_time_ = static_cast<uint32_t>(elapsed + (g_clock_offset - milliseconds));
+        end_time_ = static_cast<uint32_t>(elapsed + (clock_offset() - milliseconds));
     }
 }
 
@@ -136,7 +136,7 @@ void FloatingTextComponent::tick_frame()
         return;
     if (!core::at(text_, 0))
         return;
-    if (end_time_ && end_time_ < ints::as_unsigned(frame_clock::game_clock_elapsed() + g_clock_offset)) {
+    if (end_time_ && end_time_ < ints::as_unsigned(frame_clock::game_clock_elapsed() + clock_offset())) {
         core::at(text_, 0) = 0;
         end_time_ = 0;
     }

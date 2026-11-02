@@ -35,11 +35,16 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/objects/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 std::unique_ptr<objects::EventWaitBoard> g_tracker;
-memory::PoolPair g_script_list_pools;
+memory::PoolPair& script_list_pools()
+{
+    static core::NoDestroy<memory::PoolPair> script_list_pools;
+    return script_list_pools.get();
+}
 
 namespace {
 
@@ -62,7 +67,7 @@ constexpr int kLogSize = 0x400;
 constexpr int kWaiters = 40;
 
 // The pool pair of the listener lists (ScriptList).
-memory::PoolPair& script_list_pools() { return g_script_list_pools; }
+
 
 // --- the objects ---
 uint32_t& current_object_id(Entity* object) { return object->ident_; }

@@ -24,11 +24,20 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "game/park_editing/shared_state.h"
 #include <gsl/pointers>
 
 namespace park_editing {
 
-bool g_collision_allowed{true};
+ParkEditorCfuncsShared& park_editor_cfuncs_shared()
+{
+    static core::NoDestroy<ParkEditorCfuncsShared> state;
+    return state.get();
+}
+
+bool collision_allowed() { return park_editor_cfuncs_shared().collision_allowed_; }
+void set_collision_allowed(bool value) { park_editor_cfuncs_shared().collision_allowed_ = value; }
+
 namespace {
 // NOT ORIGINAL grouping - park_editor_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
 // (park_editor_cfuncs_state()).
@@ -366,7 +375,7 @@ bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Script*)
 void resize_to(CellBox area)
 {
     mark_progress("ResizePark START--------");
-    bool& collision_allowed = g_collision_allowed; // (the generator's rebuild_collision runs only when set)
+    bool& collision_allowed = park_editor_cfuncs_shared().collision_allowed_; // (the generator's rebuild_collision runs only when set)
     collision_allowed = false;
     hub()->rebuild_inner_shell(area);
     hub()->rebuild_area(nullptr, false);

@@ -50,8 +50,7 @@ namespace {
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
 bool& omit_from_draw() { return render::g_suppress_draw; }
-bool& flag_6f_1158() { return objects::g_cutscene_playing; } // cleared every frame (read by the pad code)
-bool app_active() { return sys::g_app_active; }
+
 bool text_entry() { return online::text_entry(); } // keeps the loop running while the window is inactive
 bool quit_requested() { return render::g_quit_requested; }
 bool& device_lost() { return render::g_device_lost; }
@@ -209,7 +208,7 @@ void Hub::get_main_loop()
             frames_since_screen_saver = 0;
         }
         omit_from_draw() = false;
-        flag_6f_1158() = false;
+        objects::set_cutscene_playing(false);
         sio::read_keyboard();
         os_layer::process_window_events();
         service_network();
@@ -217,10 +216,10 @@ void Hub::get_main_loop()
         online::thugpro::refresh_position_scale();
         // Not original - THUGPRO's own CAS parts from the user's install, once the CAS lists are loaded (TP-R10).
         objects::thugpro_cas::load_once();
-        if (!app_active()) {
+        if (!sys::app_active()) {
             if (!text_entry()) {
                 // Inactive: idle until the window is active again (nothing else runs meanwhile).
-                for (bool again = true; again; again = !app_active()) {
+                for (bool again = true; again; again = !sys::app_active()) {
                     Sleep(100);
                     os_layer::process_window_events();
                 }
@@ -250,7 +249,7 @@ void Hub::get_main_loop()
         }
         // A frame more than half a frame late isn't drawn - but never more than four in a row, and never while
         // the window is inactive.
-        const bool active = app_active();
+        const bool active = sys::app_active();
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (skipped_in_a_row() >= 4 && active) {
             skipped_in_a_row() = 0;

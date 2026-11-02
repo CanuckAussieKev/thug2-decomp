@@ -8,6 +8,7 @@
 #include <cstdint>
 #include "game/park_editing/park.h"
 #include "game/park_editing/goal_editor_util.h"
+#include "game/park_editing/park_editor.h"
 
 namespace park_editing {
 
@@ -40,5 +41,27 @@ struct EditedGoalIoShared {
     std::array<char, 24> created_goal_name_{};
 };
 EditedGoalIoShared& edited_goal_io_shared();
+
+} // namespace park_editing
+
+namespace park_editing {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (park_editor_cfuncs_shared()).
+struct ParkEditorCfuncsShared {
+    bool collision_allowed_{true};
+};
+ParkEditorCfuncsShared& park_editor_cfuncs_shared();
+
+} // namespace park_editing
+
+namespace park_editing {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (park_map_shared()).
+struct ParkMapShared {
+    bool rail_editor_flag_{true};
+};
+ParkMapShared& park_map_shared();
 
 } // namespace park_editing

@@ -33,7 +33,9 @@ void sync_music_to_time(float seconds);
 
 namespace objects {
 
-bool g_cutscene_playing;
+bool cutscene_playing() { return cutscene_play_shared().cutscene_playing_; }
+void set_cutscene_playing(bool value) { cutscene_play_shared().cutscene_playing_ = value; }
+
 CutscenePlayShared& cutscene_play_shared()
 {
     static core::NoDestroy<CutscenePlayShared> state;
@@ -152,7 +154,7 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
         if (flag_34b_0_)
             set_up_cutscene_heaps();
     }
-    g_cutscene_playing = true;
+    cutscene_play_shared().cutscene_playing_ = true;
     memory::Hub* manager = memory::Hub::get_pull();
     memory::Arena* file_heap = flag_34b_0_ ? manager->cinematic_low_heap_ : manager->bottom_up_heap_;
     memory::Arena* asset_heap = flag_34b_0_ ? manager->cinematic_high_heap_ : manager->top_down_heap_;
@@ -239,7 +241,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
 // 0x00467EA0
 void CinematicTable::perform(void* camera, script::Struct* params)
 {
-    g_cutscene_playing = true;
+    cutscene_play_shared().cutscene_playing_ = true;
     if (!flag_34b_0_) {
         ready_ = true;
         tick_frame(camera, params);

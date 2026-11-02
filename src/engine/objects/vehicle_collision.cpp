@@ -62,7 +62,6 @@ bool get_interrupted(const DrivableModule* vehicle)
     return vehicle->cut_short_ || (vehicle->entity_->object_flags_ & kObjectFlagDead);
 }
 
-
 } // namespace
 
 // 0x00436CF0 (stdcall)
@@ -295,18 +294,18 @@ void DrivableModule::update_righting()
         linear_momentum_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         rotmom_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         righting_ = true;
-        righting_start_ = frame_clock::game_clock_elapsed() + g_clock_offset;
+        righting_start_ = frame_clock::game_clock_elapsed() + clock_offset();
     }
     int start = righting_start_;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
-            (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) >
+            (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start)) >
         5300) {
         righting_ = false;
         return;
     }
     start = righting_start_;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
-            (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) <
+            (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start)) <
         300)
         return;
     // After 300 ms, turned towards upright facing the same way.

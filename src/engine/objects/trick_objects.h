@@ -71,7 +71,6 @@ struct TrickSpot {
 // (The trick object list's node destructors - 0x00588590 the body, 0x005885F0 scalar deleting - and the cluster list's,
 // 0x005885B0, take the node out of its list: memory::ListNode.)
 
-
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct TrickObjectCluster {
@@ -224,6 +223,6 @@ void find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search)
 void find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search);
 void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer);
 
-extern std::unique_ptr<objects::TrickSpotHub> g_trick_spot_hub; // (made / deleted by the module's start-up / shutdown)
+objects::TrickSpotHub* trick_spot_hub();
 
 } // namespace objects

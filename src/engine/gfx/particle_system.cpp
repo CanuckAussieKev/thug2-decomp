@@ -29,14 +29,13 @@
 
 namespace render {
 
-
 namespace {
 
 constexpr float kNearlyUp = 0.99f;        // 0x00645450
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
 void* particle_hub_handle() { return g_flexible_particle_manager.get(); }
-int viewport_count() { return modules::g_viewport_count; }
+
 gfx::ViewCam* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
 // _ftol: truncated to a 64-bit integer, its low half.
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -47,7 +46,6 @@ void* allocate_zeroed(unsigned int size)
 {
     return memory::Hub::get_pull()->allocate_zeroed(size, kAllocAssertFlag, nullptr);
 }
-
 
 } // namespace
 
@@ -299,7 +297,7 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
 // 0x00496B40
 int EmitterInstance::lod_particle_count(int count)
 {
-    if (lod_near_ >= lod_far_ || viewport_count() > 1) // (NaN distances go on)
+    if (lod_near_ >= lod_far_ || modules::viewport_count() > 1) // (NaN distances go on)
         return count;
     gfx::ViewCam* camera = viewport_camera(0);
     if (!camera)

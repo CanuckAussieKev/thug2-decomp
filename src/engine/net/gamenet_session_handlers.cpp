@@ -617,7 +617,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             // An observer of graffiti: the trick objects' state.
             desc = net::NetMessageInfo();
             static std::array<uint8_t, 0x1100> buffer; // (the original's is on its stack)
-            const int size = objects::g_trick_spot_hub->write_graffiti_state(buffer);
+            const int size = objects::trick_spot_hub()->write_graffiti_state(buffer);
             server->send_bulk_message(player_handle(player), kMsgTrickObjects, static_cast<uint16_t>(size), buffer.data(),
                                       "TrickObj Buffer", kGroupGame, true, false);
         }

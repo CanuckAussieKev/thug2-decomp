@@ -63,9 +63,8 @@ bool delete_card_file(SaveCard* card, const char* /*name*/) { return card->alway
 void DeleteFile(FileLoad* file) { file->teardown(1); }
 
 // The pool pairs the temporary pools belong to: components, structures, vectors.
-memory::PoolPair& component_pools() { return script::g_component_pools; }
-memory::PoolPair& struct_pools() { return script::g_struct_pools; }
-memory::PoolPair& vector_pools() { return script::g_vector_pools; }
+
+
 
 // A pair's second pool made (as the pair's own creator, 0x0046F110 / 0x0046F190 / 0x0046F210, does).
 void create_reserve_pool(memory::PoolPair& pools, int item_size, int count, const char* name)
@@ -290,18 +289,18 @@ bool clear_mem_card_data_for_upload(Struct*, Script*)
 // 0x005A8DA0
 bool create_temporary_mem_card_pools(Struct*, Script*)
 {
-    if (core::at(component_pools().pools, component_pools().current + 1))
+    if (core::at(script::component_pools().pools, script::component_pools().current + 1))
         return true;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     memory::push_mem_profile("Mem card CComponent");
-    create_reserve_pool(component_pools(), 0x10, 50000, "Reserve CComponent");
+    create_reserve_pool(script::component_pools(), 0x10, 50000, "Reserve CComponent");
     memory::pop_mem_profile();
     memory::push_mem_profile("Mem card CStruct");
-    create_reserve_pool(struct_pools(), 0x08, 50000, "Reserve CStruct");
+    create_reserve_pool(script::struct_pools(), 0x08, 50000, "Reserve CStruct");
     memory::pop_mem_profile();
     memory::push_mem_profile("Mem card CVector");
-    create_reserve_pool(vector_pools(), 0x10, 10000, "Reserve CVector");
+    create_reserve_pool(script::vector_pools(), 0x10, 10000, "Reserve CVector");
     memory::pop_mem_profile();
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
@@ -310,9 +309,9 @@ bool create_temporary_mem_card_pools(Struct*, Script*)
 // 0x005A9700
 bool remove_temporary_mem_card_pools(Struct*, Script*)
 {
-    delete_reserve_pool(component_pools());
-    delete_reserve_pool(struct_pools());
-    delete_reserve_pool(vector_pools());
+    delete_reserve_pool(script::component_pools());
+    delete_reserve_pool(script::struct_pools());
+    delete_reserve_pool(script::vector_pools());
     return true;
 }
 
@@ -434,9 +433,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
 
     // into the temporary component and structure pools, if they exist
     bool switched = false;
-    if (core::at(component_pools().pools, component_pools().current + 1)) {
-        ++component_pools().current;
-        ++struct_pools().current;
+    if (core::at(script::component_pools().pools, script::component_pools().current + 1)) {
+        ++script::component_pools().current;
+        ++script::struct_pools().current;
         switched = true;
     }
     int listed = 0;
@@ -513,8 +512,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         core::at(entries, listed++) = entry;
     }
     if (switched) {
-        --component_pools().current;
-        --struct_pools().current;
+        --script::component_pools().current;
+        --script::struct_pools().current;
     }
     // the list's nodes deleted (each file is its own node)
     for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker();) {
@@ -588,10 +587,10 @@ bool save_to_memory_card(Struct* params, Script*)
     }
     // into the temporary pools, if they exist
     bool switched = false;
-    if (core::at(component_pools().pools, component_pools().current + 1)) {
-        ++component_pools().current;
-        ++struct_pools().current;
-        ++vector_pools().current;
+    if (core::at(script::component_pools().pools, script::component_pools().current + 1)) {
+        ++script::component_pools().current;
+        ++script::struct_pools().current;
+        ++script::vector_pools().current;
         switched = true;
     }
     gsl::owner<Struct*> contents = script::spawn_param_bag();
@@ -704,9 +703,9 @@ bool save_to_memory_card(Struct* params, Script*)
         script::delete_struct(contents);
     }
     if (switched) {
-        --component_pools().current;
-        --struct_pools().current;
-        --vector_pools().current;
+        --script::component_pools().current;
+        --script::struct_pools().current;
+        --script::vector_pools().current;
     }
     if (os_layer() != 4) {
         audio::pause_music(-1);

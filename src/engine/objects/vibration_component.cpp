@@ -40,7 +40,6 @@ const float kMilliseconds = 1000.0f; // 0x006453C0
 // The original's _ftol (0x006236FC): truncated towards zero (the low half of the 64-bit result).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-bool is_game_halted() { return g_simulation_halted; }
 
 } // namespace
 
@@ -90,7 +89,7 @@ void PadRumbleModule::update_timers()
         const int start = timer.start;
         const int clock = frame_clock::game_clock_elapsed();
         const uint32_t elapsed =
-            static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start));
+            static_cast<uint32_t>(clock) + (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start));
         if (elapsed >= timer.duration) {
             pad_dev_->fire_actuator(i, 0);
             timer.running = false;
@@ -145,7 +144,7 @@ void PadRumbleModule::change_gadget(sio::InputPort* device)
 // 0x0043D6F0
 bool PadRumbleModule::vibrate(script::Struct* params, script::Script*)
 {
-    if (!params->has_bare_flag(kOff) && (is_game_halted() || (entity_->composite_flags_ & kCompositeFlagPaused)))
+    if (!params->has_bare_flag(kOff) && (simulation_halted() || (entity_->composite_flags_ & kCompositeFlagPaused)))
         return true;
     if (!active_)
         return true;
@@ -165,7 +164,7 @@ bool PadRumbleModule::vibrate(script::Struct* params, script::Script*)
         core::at(timers_, actuator).running = true;
         core::at(timers_, actuator).duration = static_cast<uint32_t>(ftol(static_cast<double>(duration) * kMilliseconds));
         const int clock = frame_clock::game_clock_elapsed();
-        core::at(timers_, actuator).start = clock + g_clock_offset;
+        core::at(timers_, actuator).start = clock + clock_offset();
     } else {
         core::at(timers_, actuator).running = false;
     }

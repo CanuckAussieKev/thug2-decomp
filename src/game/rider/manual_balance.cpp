@@ -70,7 +70,7 @@ constexpr uint32_t kBalanceIgnoreButtonPeriod = 0x07DA1621;
 
 constexpr double kFrames = 60.0; // 0x00645EA0 (frames a second)
 
-uint32_t get_clock() { return static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset); }
+uint32_t get_clock() { return static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset()); }
 // A physics value (0x004F90A0 on the balance trick component).
 double get_physics(RiderTeeterMoves* balance_trick, uint32_t name) { return balance_trick->get_physics_value(name); }
 uint32_t& get_trick_type(RiderTeeterMoves* balance_trick) { return balance_trick->trick_; }

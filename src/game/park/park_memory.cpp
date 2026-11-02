@@ -56,13 +56,11 @@ constexpr uint32_t kTopDownLevel = 0xCD3682C1; // the level whose park heap is i
 constexpr int kFloorPieceMem = 40000;
 
 // The script's object pools (CPoolable pairs): components, vectors, arrays.
-memory::PoolPair& component_pools() { return script::g_component_pools; }
-memory::PoolPair& vector_pools() { return script::g_vector_pools; }
-memory::PoolPair& array_pools() { return script::g_array_pools; }
+
+
 // The park editor's: CClipboard, CClipboardEntry, CMapListNode. The second word's bytes say whether each pool
 // was made here (and is deleted by power_down).
-memory::PoolPair& clipboard_entry_pools() { return g_clipboard_entry_pools; }
-memory::PoolPair& map_list_node_pools() { return g_node_pools; }
+
 uint8_t& pool_made_here(memory::PoolPair& pair) { return core::at(pair.made_here_, pair.current); }
 memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return core::at(pair.pools, pair.current); }
 
@@ -172,7 +170,7 @@ void remove_piece_dma(const PieceGroup* meta)
 }
 
 // 0x0059E210
-void create_map_list_node_pool(int count, const char* name) { make_pool(map_list_node_pools(), 0xC, count, name); }
+void create_map_list_node_pool(int count, const char* name) { make_pool(node_pools(), 0xC, count, name); }
 
 // 0x0059E290
 void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), 0x18, count, name); }
@@ -206,8 +204,8 @@ void get_marker(uint32_t marker)
         break;
     case 0x9BF91DBE:
         stats.marker48 = free_memory(heap);
-        stats.components_used_at_marker_ = active_slab_pool(component_pools())->taken_count_;
-        stats.vectors_used_at_marker_ = active_slab_pool(vector_pools())->taken_count_;
+        stats.components_used_at_marker_ = active_slab_pool(script::component_pools())->taken_count_;
+        stats.vectors_used_at_marker_ = active_slab_pool(script::vector_pools())->taken_count_;
         break;
     case 0xCC63F828:
         stats.marker_5c_ = free_memory(heap);
@@ -226,7 +224,7 @@ void power_down()
 {
     delete_pool(clipboard_pools());
     delete_pool(clipboard_entry_pools());
-    delete_pool(map_list_node_pools());
+    delete_pool(node_pools());
     memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(park_heap()));
     memory::destroy_then_clear(park_memory_state().park_region_);
     park_heap() = nullptr;
@@ -322,13 +320,13 @@ MemoryStats* get_memory_stats(MemoryStats* out)
 
     // The pools: compared after rounding.
     stats.component_usage_ =
-        pool_usage(component_pools(), "component_use_base", stats.components); // "component_use_base"
+        pool_usage(script::component_pools(), "component_use_base", stats.components); // "component_use_base"
     if (stats.max_usage_ < stats.component_usage_)
         stats.max_usage_ = stats.component_usage_;
-    stats.vector_usage_ = pool_usage(vector_pools(), "vector_use_base", stats.vectors); // "vector_use_base"
+    stats.vector_usage_ = pool_usage(script::vector_pools(), "vector_use_base", stats.vectors); // "vector_use_base"
     if (stats.max_usage_ < stats.vector_usage_)
         stats.max_usage_ = stats.vector_usage_;
-    stats.array_usage_ = pool_usage(array_pools(), "CArray_use_base", stats.arrays); // "CArray_use_base"
+    stats.array_usage_ = pool_usage(script::array_pools(), "CArray_use_base", stats.arrays); // "CArray_use_base"
     if (stats.max_usage_ < stats.array_usage_)
         stats.max_usage_ = stats.array_usage_;
 
@@ -389,7 +387,7 @@ void prepare_all(uint32_t level)
     park_memory_state().park_region_ = memory::take_unique<memory::Zone>(region);
     park_heap() = manager->add_heap(park_memory_state().park_region_.get(), direction, name);
     create_map_list_node_pool(16000, "CMapListNode");                          // "CMapListNode"
-    debug::printf("pool is at %p\n", active_slab_pool(map_list_node_pools())); // "pool is at %p\n"
+    debug::printf("pool is at %p\n", active_slab_pool(node_pools())); // "pool is at %p\n"
     create_clipboard_entry_pool(1000, "CClipboardEntry");                      // "CClipboardEntry"
     create_clipboard_pool(6, "CClipboard");                                    // "CClipboard"
     manager->leave_heap_scope();

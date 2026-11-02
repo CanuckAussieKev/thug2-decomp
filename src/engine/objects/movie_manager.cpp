@@ -25,8 +25,31 @@
 
 namespace objects {
 
-bool g_simulation_halted;
-int g_view_mode;
+namespace {
+
+bool& stored_simulation_halted()
+{
+    static bool simulation_halted{};
+    return simulation_halted;
+}
+
+} // namespace
+
+bool simulation_halted() { return stored_simulation_halted(); }
+void set_simulation_halted(bool value) { stored_simulation_halted() = value; }
+
+namespace {
+
+int& stored_view_mode()
+{
+    static int view_mode{};
+    return view_mode;
+}
+
+} // namespace
+
+int view_mode() { return stored_view_mode(); }
+void set_view_mode(int value) { stored_view_mode() = value; }
 
 namespace {
 
@@ -145,9 +168,9 @@ void VideoHub::keep_camera(Movie* movie)
 {
     if (!movie || !has_camera(movie) || !movie->keeps_camera_after())
         return;
-    if (g_simulation_halted) // (the game paused)
+    if (stored_simulation_halted()) // (the game paused)
         return;
-    if (modules::g_skate_module->level_ == 0xE92ECAFE)
+    if (modules::Skate::sole()->level_ == 0xE92ECAFE)
         return;
     assign_camera_fields(&viewer_, movie->viewer_);
     keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;
@@ -332,7 +355,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     // An object camera animation / skater camera's context: the skater's profile (0x00564FC0): its appearance and
     // its details (+0x5C).
     auto skater_context = [](bool skater) {
-        RiderIdentity* profile = modules::g_skate_module->fetch_account(0);
+        RiderIdentity* profile = modules::Skate::sole()->fetch_account(0);
         return CutsceneSkater{.appearance = profile->appearance(), .details = profile->details_params(), .skater = skater};
     };
     auto new_object_camera = [](const CutsceneSkater* context) -> gsl::owner<Movie*> { return new CinematicEntry(context); };
@@ -392,7 +415,7 @@ bool VideoHub::tick_frame()
     Movie* movie = movie_at(&movies_, 0);
     if (!movie)
         return false;
-    if (!g_simulation_halted || g_view_mode != 0) // (not paused, or the view mode)
+    if (!stored_simulation_halted() || stored_view_mode() != 0) // (not paused, or the view mode)
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         movie->tick_frame();
     else if (!movie->flag_1b_)

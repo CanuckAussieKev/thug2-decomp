@@ -21,7 +21,11 @@ CopyBufferShared& copy_buffer_shared()
     return state.get();
 }
 
-memory::PoolPair g_clipboard_entry_pools;
+memory::PoolPair& clipboard_entry_pools()
+{
+    static core::NoDestroy<memory::PoolPair> clipboard_entry_pools;
+    return clipboard_entry_pools.get();
+}
 
 namespace {
 
@@ -32,7 +36,7 @@ constexpr float kQuarterTurnDegrees = 90.0f;      // 0x00645EB0
 constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 
 // The clipboard entries' pool pair (CPoolable, 0x18-byte items).
-memory::PoolPair& entry_pools() { return g_clipboard_entry_pools; }
+
 
 // The rail editor (0x004F4970) and its rails (CEditedRail objects linked by their first word).
 void* get_rail_editor() { return RailAuthoring::sole(); }
@@ -381,7 +385,7 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
             entry->quarter_turns_ == meta->quarter_turns_)
             return true;
     }
-    memory::PoolPair& pools = entry_pools();
+    memory::PoolPair& pools = clipboard_entry_pools();
     const memory::SlabBank* pool = core::at(pools.pools, pools.current); // (not null-checked: as the original)
     if (pool->taken_count_ == pool->num_)
         return false;
@@ -425,7 +429,7 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
 // 0x0058C430 (also reached through 0x0058C980)
 void Clipboard::teardown()
 {
-    memory::PoolPair& pools = entry_pools();
+    memory::PoolPair& pools = clipboard_entry_pools();
     for (ClipboardEntry* entry = metas_; entry;) {
         ClipboardEntry* next = entry->following_;
         if (entry->preview_)

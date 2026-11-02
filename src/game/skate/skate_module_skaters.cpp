@@ -80,7 +80,19 @@
 
 namespace modules {
 
-int g_viewport_count;
+namespace {
+
+int& stored_viewport_count()
+{
+    static int viewport_count{};
+    return viewport_count;
+}
+
+} // namespace
+
+int viewport_count() { return stored_viewport_count(); }
+void set_viewport_count(int value) { stored_viewport_count() = value; }
+
 namespace {
 // NOT ORIGINAL grouping - skate_module_skaters.cpp's state (the original's globals). Made on first use, never destroyed
 // (skate_module_skaters_state()).
@@ -145,10 +157,9 @@ constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
-goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::online_hub(); }
 objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::g_composite_registry.get()); }
-objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
+
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 memory::Arena* rider_heap_at(int index) { return core::at(memory::Hub::get_pull()->skater_heaps_, index); }
@@ -324,7 +335,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
 int Skate::find_free_rider_heap(bool local)
 {
     int index = local ? 0 : 1;
-    if (get_game_mode()->get_rider_ceiling() <= 0)
+    if (goals::game_mode()->get_rider_ceiling() <= 0)
         return index;
     for (int tries = 0;;) {
         bool used = false;
@@ -337,8 +348,8 @@ int Skate::find_free_rider_heap(bool local)
         if (!used)
             return index;
         index = static_cast<int>(static_cast<uint32_t>(index + 1) %
-                                 static_cast<uint32_t>(get_game_mode()->get_rider_ceiling()));
-        if (++tries >= get_game_mode()->get_rider_ceiling())
+                                 static_cast<uint32_t>(goals::game_mode()->get_rider_ceiling()));
+        if (++tries >= goals::game_mode()->get_rider_ceiling())
             return index;
     }
 }
@@ -405,34 +416,34 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
             "\n\nWARNING - no multiplayer restart point, trying player1\n\n"); // "WARNING - no multiplayer restart point, trying player1"
         return found(objects::get_spawn_node(kPlayer1, 0, 0));
     };
-    if (!net->in_net_game() && get_game_mode()->get_starting_rider_count() <= 1)
+    if (!net->in_net_game() && goals::game_mode()->get_starting_rider_count() <= 1)
         return found(objects::get_spawn_node(kPlayer1, static_cast<int>(skater_id), 0));
-    if (static_cast<uint8_t>(get_game_mode()->is_squad_match())) {
-        if (get_game_mode()->get_name_key() == kNetLobby)
+    if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
+        if (goals::game_mode()->get_name_key() == kNetLobby)
             return found(objects::get_spawn_node(kTeam, 0, 0));
-        if (get_game_mode()->get_name_key() == kNetCtf) {
+        if (goals::game_mode()->get_name_key() == kNetCtf) {
             auto* local = as_player(net->get_own_player());
             if (!local || static_cast<uint32_t>(local->team_) > 3)
                 return generic();
             return core::at(kTeamRestarts, local->team_);
         }
-        if (get_game_mode()->get_name_key() == kNetScavengerHunt) {
+        if (goals::game_mode()->get_name_key() == kNetScavengerHunt) {
             auto* local = as_player(net->get_own_player());
             if (!local)
                 return generic();
             goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);
             const int team =
-                hunt->is_operative() ? local->team_ : (local->team_ + 1) % get_game_mode()->current_num_teams();
+                hunt->is_operative() ? local->team_ : (local->team_ + 1) % goals::game_mode()->current_num_teams();
             if (static_cast<uint32_t>(team) > 3)
                 return generic();
             return core::at(kTeamRestarts, team);
         }
         return multiplayer(skater_id);
     }
-    if (get_game_mode()->is_true(kIsHorse))
+    if (goals::game_mode()->is_true(kIsHorse))
         return found(objects::get_spawn_node(kHorse, horse_->get_restart(), 0));
     uint32_t start = skater_id;
-    if (get_game_mode()->get_name_key() == kNetScavengerHunt || get_game_mode()->get_name_key() == kScavengerHunt) {
+    if (goals::game_mode()->get_name_key() == kNetScavengerHunt || goals::game_mode()->get_name_key() == kScavengerHunt) {
         goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);
         if (!hunt->is_operative())
             start = (skater_id + 1) % static_cast<uint32_t>(count_riders());
@@ -505,12 +516,12 @@ void Skate::tidy_up()
     }
     net_session_slot()->clear_crown();
     script::kill_all_child_scripts();
-    get_trick_objects()->remove_all_clusters();
+    objects::trick_spot_hub()->remove_all_clusters();
     static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->destroy_non_persistent();
     rail_manager_->tidy_up();
     objects::nearby_zone_shutdown();
     objects::emitter_cleanup();
-    objects::g_particle_hub->kill_every_particle();
+    objects::particle_hub()->kill_every_particle();
 }
 
 // 0x00565A00
@@ -554,7 +565,7 @@ void Skate::reset_level()
     tidy_up();
     commands::cfunc_parse_node_array(nullptr, nullptr);
     run_over_ = false;
-    get_trick_objects()->apply_player_graffiti();
+    objects::trick_spot_hub()->apply_player_graffiti();
     goals::GoalManager* goals = goals::get_objective_board();
     if (net->in_net_game())
         goals->revoke_every_clear();
@@ -574,8 +585,8 @@ void Skate::launch_game()
     debug::printf("\nLAUNCH GAME CALLED with %d skaters \n\n",
                   count_riders()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
     if (!net->get_own_player()) {
-        if (static_cast<uint32_t>(get_game_mode()->get_rider_ceiling()) > 1)
-            memory::Hub::get_pull()->init_extra_skater_heaps(get_game_mode()->get_rider_ceiling());
+        if (static_cast<uint32_t>(goals::game_mode()->get_rider_ceiling()) > 1)
+            memory::Hub::get_pull()->init_extra_skater_heaps(goals::game_mode()->get_rider_ceiling());
         game_flow_->get_request(kInitializeGameFlow);
         game_flow_->tick_frame();
     } else {
@@ -587,8 +598,8 @@ void Skate::launch_game()
         king->give_crown(false);
     for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true))
         as_player(player)->clear_flags();
-    if (get_game_mode()->get_name_key() == kNetLobby)
-        net->build_team_flag_set(get_game_mode()->current_num_teams());
+    if (goals::game_mode()->get_name_key() == kNetLobby)
+        net->build_team_flag_set(goals::game_mode()->current_num_teams());
     memory::leave_heap_scope();
 }
 
@@ -598,15 +609,15 @@ void Skate::test_rider_contacts()
     online::Hub* net = net_session_slot();
     if (net->has_match_ended())
         return;
-    if (!net->players_can_collide() && get_game_mode()->get_name_key() != kNetFirefight &&
-        get_game_mode()->get_name_key() != kFirefight && get_game_mode()->get_name_key() != kNetKing &&
-        get_game_mode()->get_name_key() != kKing && get_game_mode()->get_name_key() != kNetCtf)
+    if (!net->players_can_collide() && goals::game_mode()->get_name_key() != kNetFirefight &&
+        goals::game_mode()->get_name_key() != kFirefight && goals::game_mode()->get_name_key() != kNetKing &&
+        goals::game_mode()->get_name_key() != kKing && goals::game_mode()->get_name_key() != kNetCtf)
         return;
     for (uint32_t i = 0; i < 8; ++i) {
         if (objects::Rider* skater = get_skater_at(i))
             skater->state_history_->check_for_collisions(0);
     }
-    if (get_game_mode()->get_name_key() != kNetKing && get_game_mode()->get_name_key() != kKing)
+    if (goals::game_mode()->get_name_key() != kNetKing && goals::game_mode()->get_name_key() != kKing)
         return;
     auto* crown = static_cast<objects::CrownObject*>(net->get_crown_holder());
     if (!crown || crown->is_worn())
@@ -702,7 +713,7 @@ bool Skate::all_skaters_idle()
     bool idle = true;
     for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i); // (null past the end, as the original - never reached)
-        if (get_game_mode()->is_true(kIsHorse) && ints::as_unsigned(horse_->skater_) != skater->ident_)
+        if (goals::game_mode()->is_true(kIsHorse) && ints::as_unsigned(horse_->skater_) != skater->ident_)
             continue; // (in HORSE only the skater taking the run)
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         if (end_run->run_done())
@@ -852,7 +863,7 @@ void Skate::run_frame_logic()
 {
     commands::g_tod_manager->tick_frame();
     objects::next_suspend_frame();
-    if (!objects::g_simulation_halted && !objects::g_view_mode) {
+    if (!objects::simulation_halted() && !objects::view_mode()) {
         stubs::do_nothing();
         if (movies_->total_of()) {
             if (movies_->obtain_active_lens())
@@ -870,11 +881,11 @@ void Skate::run_frame_logic()
     }
     prepare_entity_update_data();
     script::launch_script(kGameUpdate, nullptr, nullptr, false, nullptr);
-    if (objects::g_simulation_halted)
+    if (objects::simulation_halted())
         entity_hub_handle()->for_each(&update_suspend_visibility, nullptr);
     // The proximity nodes told where the players (and their cameras) are.
     if (get_home_rider()) {
-        const int screens = g_viewport_count;
+        const int screens = stored_viewport_count();
         if (screens == 1) {
             if (viewport_camera(0)) {
                 const maths::Vec4* camera = viewport_camera(0)->fetch_location();
@@ -894,7 +905,7 @@ void Skate::run_frame_logic()
                 objects::proximity_notify(2, second, &core::down_cast<objects::GameEntity>(second)->at_point_, 2);
             }
         }
-    } else if (static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) && g_viewport_count == 1 &&
+    } else if (static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) && stored_viewport_count() == 1 &&
                viewport_camera(0)) {
         objects::proximity_notify(1, nullptr, viewport_camera(0)->fetch_location(), 1);
     }
@@ -954,9 +965,9 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     skate->run_frame_logic();
     if (net->get_on_server() && skate->count_riders())
         skate->test_rider_contacts();
-    if (get_game_mode()->get_name_key() != kNetKing && get_game_mode()->get_name_key() != kKing)
+    if (goals::game_mode()->get_name_key() != kNetKing && goals::game_mode()->get_name_key() != kKing)
         return;
-    if (get_game_mode()->finish_rules_reached())
+    if (goals::game_mode()->finish_rules_reached())
         return;
     auto* king = as_player(net->get_hill_ruler());
     if (!king || king->rider()->is_halted_)
@@ -966,8 +977,8 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     const int total = score->get_total_score();
     score->set_grand_total(total -
                            ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));
-    const int target = get_game_mode()->get_first_condition_value();
-    const int current = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? net->get_squad_points(king->team_)
+    const int target = goals::game_mode()->get_first_condition_value();
+    const int current = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? net->get_squad_points(king->team_)
                                                                                 : score->get_total_score();
     skate->timer_beep(static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), 10.0f,
                       10.0f, "timer_runout_beep"); // "timer_runout_beep"
@@ -988,7 +999,7 @@ Skate::Skate()
     career_ = std::make_unique<objects::RiderStoryProgress>();
     rail_manager_ = memory::make_zeroed<objects::GrindRailHub>(); // (0x54 bytes)
     checksums_ = memory::make_zeroed<objects::ChecksumSet>();     // (0x404 bytes)
-    get_trick_objects()->remove_all_clusters();
+    objects::trick_spot_hub()->remove_all_clusters();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     level_launched_ = false;
     match_style_ = kFreeskate;

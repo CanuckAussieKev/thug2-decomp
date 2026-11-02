@@ -54,7 +54,7 @@ int player_of(script::Struct* params)
 }
 bool get_option(script::Struct* params, Option option)
 {
-    const modules::Skate::PlayerSettings& player = core::at(modules::g_skate_module->participants_, player_of(params));
+    const modules::Skate::PlayerSettings& player = core::at(modules::Skate::sole()->participants_, player_of(params));
     return option == kVibration ? player.vibration_ : option == kAutoKick ? player.auto_kick_ : player.spin_taps_;
 }
 bool set_option(script::Struct* params, Option option, bool on)
@@ -515,7 +515,7 @@ bool cfunc_get_current_ped_pro_name(script::Struct*, script::Script* script)
 // stat.
 bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
 {
-    const float forced = modules::g_skate_module->forced_stat_;
+    const float forced = modules::Skate::sole()->forced_stat_;
     if (forced != 0.0f) {
         const int value = static_cast<int>(static_cast<int64_t>(forced)); // (the original's _ftol)
         script->args_->put_name_key(kOverridden, kOverridden);

@@ -205,21 +205,21 @@ void dump_pool_usage(bool to_dump_file, bool print)
     };
     text("\nScript pool usage:\n"); // "\nScript pool usage:\n"
     pool("CStruct:           %5d of %5d, max %5d\n",
-         current(script::g_struct_pools)); // " | CStruct:           %5d of %5d, max %5d\n"
-    pool("CComponent:        %5d of %5d, max %5d\n", current(script::g_component_pools));       // CComponent
-    pool("CSymbolTableEntry: %5d of %5d, max %5d\n", current(script::g_symbol_pools));          // CSymbolTableEntry
-    pool("CVector:           %5d of %5d, max %5d\n", current(script::g_vector_pools));          // CVector
+         current(script::struct_pools())); // " | CStruct:           %5d of %5d, max %5d\n"
+    pool("CComponent:        %5d of %5d, max %5d\n", current(script::component_pools()));       // CComponent
+    pool("CSymbolTableEntry: %5d of %5d, max %5d\n", current(script::symbol_pools()));          // CSymbolTableEntry
+    pool("CVector:           %5d of %5d, max %5d\n", current(script::vector_pools()));          // CVector
     pool("CPair:             %5d of %5d, max %5d\n", current(script::param_struct_shared().pair_pools_));            // CPair
-    pool("CArray:            %5d of %5d, max %5d\n", current(script::g_array_pools));           // CArray
-    pool("CScript:           %5d of %5d, max %5d\n", current(script::g_script_pools));          // CScript
+    pool("CArray:            %5d of %5d, max %5d\n", current(script::array_pools()));           // CArray
+    pool("CScript:           %5d of %5d, max %5d\n", current(script::script_pools()));          // CScript
     pool("CHashItem:\t%5d of %5d, max %5d\n", memory::slot_pool_setup::get_pool(0));            // CHashItem
-    pool("CAnimCachePredictor:\t%5d of %5d, max %5d\n", current(gfx::g_anim_slot_pools));       // CAnimCachePredictor
-    pool("CBlendChannel:\t%5d of %5d, max %5d\n", current(gfx::g_anim_track_pools));            // CBlendChannel
-    pool("CBonedAnimController:\t%5d of %5d, max %5d\n", current(gfx::g_standard_pools));       // CBonedAnimController
-    pool("CAnimLookup:\t%5d of %5d, max %5d\n", current(render::g_frame_source_pools));         // CAnimLookup
-    pool("sSpawnedPolyDetails:\t%5d of %5d, max %5d\n", current(render::g_spawned_poly_pools)); // sSpawnedPolyDetails
+    pool("CAnimCachePredictor:\t%5d of %5d, max %5d\n", current(gfx::anim_slot_pools()));       // CAnimCachePredictor
+    pool("CBlendChannel:\t%5d of %5d, max %5d\n", current(gfx::anim_track_pools()));            // CBlendChannel
+    pool("CBonedAnimController:\t%5d of %5d, max %5d\n", current(gfx::standard_pools()));       // CBonedAnimController
+    pool("CAnimLookup:\t%5d of %5d, max %5d\n", current(render::frame_source_pools()));         // CAnimLookup
+    pool("sSpawnedPolyDetails:\t%5d of %5d, max %5d\n", current(render::spawned_poly_pools())); // sSpawnedPolyDetails
     pool("Obj::CEventReceiverList:\t%5d of %5d, max %5d\n",
-         current(objects::g_script_list_pools)); // GameObjects::CEventReceiverList
+         current(objects::script_list_pools())); // GameObjects::CEventReceiverList
     text(
         "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"); // "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"
 }

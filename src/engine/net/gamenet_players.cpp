@@ -324,7 +324,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     std::array<char, kNameSize> name{};
     std::strcpy(name.data(), player_name(player));
     if (!is_observer(player) && get_game_mode()->is_true(kShouldModulateColor))
-        objects::g_trick_spot_hub->release_player_clusters(
+        objects::trick_spot_hub()->release_player_clusters(
             static_cast<int>(get_skater_id(player_skater(player)))); // its colours off the trick objects
     if (!get_on_server()) {
         remove_player_record(player);

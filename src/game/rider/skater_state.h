@@ -29,7 +29,7 @@ class Struct;
 // invoke_method_by_name 0x0051ADC0.
 namespace objects {
 
-// A flag of the skater's state and the time it last changed (the game clock plus g_clock_offset).
+// A flag of the skater's state and the time it last changed (the game clock plus clock_offset()).
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct TimedFlag {
     uint8_t on;
@@ -124,7 +124,7 @@ public:
     bool get_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519720 (SparksPos)
     bool set_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519600 (the unnamed checksum)
 
-    // The timed flags (+0x20): a byte each and the time (the game clock plus g_clock_offset) it last changed.
+    // The timed flags (+0x20): a byte each and the time (the game clock plus clock_offset()) it last changed.
     TimedFlag& flag(PoseFlag f) { return core::at(timed_flags_, static_cast<int>(f)); }
     [[nodiscard]] const TimedFlag& flag(PoseFlag f) const { return core::at(timed_flags_, static_cast<int>(f)); }
     [[nodiscard]] uint8_t is_on(PoseFlag f) const { return flag(f).on; }

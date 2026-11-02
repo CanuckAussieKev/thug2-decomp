@@ -66,7 +66,7 @@ ImpactDestructModule::ImpactDestructModule()
 {
     kind_tag_ = kType;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    made_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
+    made_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset());
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -92,7 +92,7 @@ void ImpactDestructModule::tick_frame()
 {
     if (!stored_online_hub()->in_net_game() && suspend_->far_)
         return;
-    const int& offset = g_clock_offset;
+    const int& offset = clock_offset();
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
         kLifetime) {
         get_kill(entity_);

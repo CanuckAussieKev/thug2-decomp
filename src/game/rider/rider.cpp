@@ -158,7 +158,6 @@ constexpr uint32_t kSkaterCam1 = 0xE17B231A;           // skatercam1
 constexpr uint32_t kModelModuleName = 0x286A8D26;      // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;           // (a physics integer: pausing freezes the whole game)
 
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 online::Hub* net_link() { return online::online_hub(); }
 bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0; }
 
@@ -343,7 +342,7 @@ modules::PointTally* Rider::get_points_total() { return score_holder_->points_he
 // 0x00580490
 float Rider::fetch_tally(int index)
 {
-    float stat = get_skate()->forced_stat_; // (forced by the skate module unless 0)
+    float stat = modules::Skate::sole()->forced_stat_; // (forced by the skate module unless 0)
     if (stat == 0.0f) {
         uint32_t bits = 0;
         std::memcpy(&bits, &core::at(stat_overrides_, index), 4);
@@ -368,7 +367,7 @@ float Rider::fetch_tally(int index)
         if (player && player->holds_crown())
             stat = 1.0f;
     }
-    RiderStoryProgress* cheats = get_skate()->career_.get();
+    RiderStoryProgress* cheats = modules::Skate::sole()->career_.get();
     float result = cheats->is_code_on(static_cast<uint32_t>(script::fetch_int_value(kCheatStats13))) ? 15.0f : stat;
     if (score_holder_->points_held_->special_active_)
         result = static_cast<float>(result + 3.0);
@@ -400,7 +399,7 @@ float Rider::get_scaled_value(script::Struct* params)
     // The game's difficulty (one more in classic mode): times the diff pair's first (0) or second (2).
     goals::GoalManager* mode = modules::Skate::sole()->get_objective_board();
     int difficulty = mode->get_skill_tier(false);
-    if (goals::g_game_mode->is_true(kIsClassic))
+    if (goals::game_mode()->is_true(kIsClassic))
         ++difficulty;
     if (difficulty != 1) {
         script::Pair diff;
@@ -442,7 +441,7 @@ float Rider::get_scaled_param(uint32_t name, script::Struct* params)
 // 0x00580830
 void Rider::move_to_random_restart()
 {
-    modules::Skate* skate = get_skate();
+    modules::Skate* skate = modules::Skate::sole();
     uint32_t restart = 0;
     int tries = 0;
     for (bool again = true; again; again = restart == last_restart_ && tries < 20) {
@@ -567,7 +566,7 @@ constexpr uint32_t kSkateStyle = 0x76FD33E8;          // skatestyle
 constexpr uint32_t kFirstName = 0x562E3ECD;           // first_name
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // SkaterFlipAndRotate (a component)
 
-int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
+int get_clock() { return frame_clock::game_clock_elapsed() + clock_offset(); }
 
 // The score's two balance displays off (0x00563370 / 0x00563390).
 void balance_displays_off(void* score)
@@ -585,8 +584,8 @@ render::TextureSet* get_elements() { return render::g_game_texture_dict; }
 // 0x00580BE0
 void Rider::set_stats_from_profile(RiderIdentity* profile)
 {
-    RiderStoryProgress* classic_stats = get_skate()->career_.get();
-    if (goals::g_game_mode->is_true(kIsClassic)) {
+    RiderStoryProgress* classic_stats = modules::Skate::sole()->career_.get();
+    if (goals::game_mode()->is_true(kIsClassic)) {
         for (int i = 0; i < 10; ++i)
             set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(core::at(kStatNames, i))));
         return;
@@ -771,7 +770,7 @@ void Rider::conceal_skater()
 // 0x00581550
 void Rider::show_skater()
 {
-    get_skate()->set_skater_shadow(this);
+    modules::Skate::sole()->set_skater_shadow(this);
     conceal(false);
     flag_2c_4_ = true;
 }
@@ -866,7 +865,7 @@ void add_component_from_structure(Rider* skater, Fill fill)
 // 0x00581850
 void Rider::prepare_all(RiderIdentity* profile)
 {
-    const modules::Skate* skate = get_skate();
+    const modules::Skate* skate = modules::Skate::sole();
     memory::Hub* manager = memory::Hub::get_pull();
     if (is_local_skater_) {
         // Its camera: found, or made from skatercam_composite_structure.
@@ -1430,14 +1429,14 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
             }
         }
         if (i == count && park_editing::g_park_editor->cur_phase_ != 0xD443A2BC)
-            get_skate()->teleport_to_spawn(this, 0, walking);
+            modules::Skate::sole()->teleport_to_spawn(this, 0, walking);
         return true;
     }
     case 0x0C09C1B7: // AddSkaterToWorld
-        get_skate()->conceal_skater(this, false);
+        modules::Skate::sole()->conceal_skater(this, false);
         return true;
     case 0xBCE85494: // RemoveSkaterFromWorld
-        get_skate()->conceal_skater(this, true);
+        modules::Skate::sole()->conceal_skater(this, true);
         return true;
     case 0x1C5612EE: { // SkaterIsNamed
         uint32_t named = 0;
@@ -1582,7 +1581,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     }
     mark_jumped_ahead(true);
     // In these game modes the server is told (message 0x57).
-    auto mode = [] { return goals::g_game_mode->get_name_key(); };
+    auto mode = [] { return goals::game_mode()->get_name_key(); };
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         net::NetMessageInfo message;
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));

@@ -94,10 +94,10 @@ EngineState& engine_state()
 // start_engine).
 std::unique_ptr<FlexibleParticleManager>& flexible_particle_manager() { return g_flexible_particle_manager; }
 memory::HeapUnique<ImposterManager>& imposter_manager() { return g_imposter_manager; }
-EffectsDirector* particle_hub_handle() { return objects::g_particle_hub.get(); }
+
 WeatherSystem* get_weather() { return g_weather.get(); }
 bool omit_from_draw() { return g_suppress_draw; }
-int viewport_count() { return modules::g_viewport_count; }
+
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
 void update_after_imposters() { update_scene_light_queue(); }
@@ -152,7 +152,7 @@ void render_frame()
     update_spawned_polys();
     age_all_texture_splats();
     update_shatters();
-    particle_hub_handle()->tick_particles();
+    objects::particle_hub()->tick_particles();
     // the weather's frame (through the folded jump 0x004E3F90), by the slow-motion frame time
     get_weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
     static_cast<ImposterManager*>(imposter_manager().get())->tick_frame();
@@ -240,7 +240,7 @@ gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures,
 // 0x0048C490
 int sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius)
 {
-    if (viewport_count() > 1)
+    if (modules::viewport_count() > 1)
         return 0;
     return sphere_visible(centre, radius);
 }

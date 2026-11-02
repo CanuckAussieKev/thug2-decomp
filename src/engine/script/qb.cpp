@@ -448,25 +448,25 @@ void create_script_pools()
     create_pool(cache_shared().cache_entry_pools_, 0x14, sizes.script_cache_entries_, "CScriptCacheEntry");
     memory::pop_mem_profile();
     memory::push_mem_profile("CComponent and Reserve CComponent");
-    create_pool(g_component_pools, 0x10, sizes.components, "CComponent");
+    create_pool(component_pools(), 0x10, sizes.components, "CComponent");
     memory::pop_mem_profile();
     memory::push_mem_profile("CStruct");
-    create_pool(g_struct_pools, 0x08, sizes.structs, "CStruct");
+    create_pool(struct_pools(), 0x08, sizes.structs, "CStruct");
     memory::pop_mem_profile();
     memory::push_mem_profile("CVector");
-    create_pool(g_vector_pools, 0x10, sizes.vectors, "CVector");
+    create_pool(vector_pools(), 0x10, sizes.vectors, "CVector");
     memory::pop_mem_profile();
     memory::push_mem_profile("CPair");
     create_pool(param_struct_shared().pair_pools_, 0x0C, sizes.pairs, "CPair");
     memory::pop_mem_profile();
     memory::push_mem_profile("CArray");
-    create_pool(g_array_pools, 0x0C, sizes.arrays, "CArray");
+    create_pool(array_pools(), 0x0C, sizes.arrays, "CArray");
     memory::pop_mem_profile();
     memory::push_mem_profile("CSymbolTableEntry");
-    create_pool(g_symbol_pools, 0x14, sizes.symbols, "CSymbolTableEntry");
+    create_pool(symbol_pools(), 0x14, sizes.symbols, "CSymbolTableEntry");
     memory::pop_mem_profile();
     memory::push_mem_profile("CScript");
-    create_pool(g_script_pools, 0xF4, sizes.scripts, "CScript");
+    create_pool(script_pools(), 0xF4, sizes.scripts, "CScript");
     memory::pop_mem_profile();
     memory::push_mem_profile("CStoredRandom");
     create_pool(qb_shared().stored_random_pools_, 0x60, sizes.stored_randoms_, "CStoredRandom");
@@ -491,10 +491,10 @@ void log_script_pool_use(const char* when)
         const char* name;
         memory::PoolPair* pair;
     };
-    const auto pools = std::to_array<Named>({{.name = "CComponent", .pair = &g_component_pools}, {.name = "CStruct", .pair = &g_struct_pools},
-                           {.name = "CVector", .pair = &g_vector_pools},       {.name = "CPair", .pair = &param_struct_shared().pair_pools_},
-                           {.name = "CArray", .pair = &g_array_pools},         {.name = "CSymbolTableEntry", .pair = &g_symbol_pools},
-                           {.name = "CScript", .pair = &g_script_pools}});
+    const auto pools = std::to_array<Named>({{.name = "CComponent", .pair = &component_pools()}, {.name = "CStruct", .pair = &struct_pools()},
+                           {.name = "CVector", .pair = &vector_pools()},       {.name = "CPair", .pair = &param_struct_shared().pair_pools_},
+                           {.name = "CArray", .pair = &array_pools()},         {.name = "CSymbolTableEntry", .pair = &symbol_pools()},
+                           {.name = "CScript", .pair = &script_pools()}});
     std::string line;
     for (const Named& p : pools) {
         int used = 0, peak = 0, count = 0;
@@ -525,7 +525,7 @@ void log_script_pool_use(const char* when)
 namespace script {
 
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
-ScriptStore* script_store_instance() { return g_script_store.get(); }
+ScriptStore* script_store_instance() { return cache_shared().script_store_.get(); }
 
 void remove_from_script_cache(uint32_t name) { script_store_instance()->mark_stale(name); }
 
@@ -576,9 +576,9 @@ void allocate_script_checksum_names(bool debug_heap)
 
 // 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
 void free_pair(void* pair) { param_struct_shared().pair_pools_.dealloc(pair); }
-void free_vector(void* vector) { g_vector_pools.dealloc(vector); }
+void free_vector(void* vector) { vector_pools().dealloc(vector); }
 void free_stored_random(void* random) { qb_shared().stored_random_pools_.dealloc(random); }
-void free_symbol(SymbolTableEntry* symbol) { g_symbol_pools.dealloc(symbol); }
+void free_symbol(SymbolTableEntry* symbol) { symbol_pools().dealloc(symbol); }
 
 // 0x004711D0
 void clean_up_and_remove_symbol(SymbolTableEntry* symbol)

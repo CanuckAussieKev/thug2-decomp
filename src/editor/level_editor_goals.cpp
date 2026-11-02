@@ -816,13 +816,12 @@ void push_undo()
 
 // --- the goal manager (the skate module's - 0x005591B0 - through its script commands) ---
 
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 
 // The current level as the goal editor keeps it (modules::Skate +0x378; Load_Sk5Ed_gameplay counts as Load_Sk5Ed - as
 // 0x004E7D00 / 0x004EC010 / 0x004EA6C0 do).
 uint32_t current_level()
 {
-    const modules::Skate* skate = skate_module();
+    const modules::Skate* skate = modules::Skate::sole();
     if (!skate)
         return 0;
     const uint32_t level = skate->level_;
@@ -941,7 +940,7 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
 std::vector<int> gap_ordinals(const Goal& g)
 {
     std::vector<int> out;
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     auto* list = skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
     if (!list)
         return out;
@@ -962,7 +961,7 @@ void take_out_of_play()
         return;
     for (const int index : level_editor_goals_state().in_play_) {
         const uint32_t goal = get_checksums(get_goal_id(index));
-        if (skate_module() && goal_exists(goal)) {
+        if (modules::Skate::sole() && goal_exists(goal)) {
             if (is_goal_running(goal))
                 switch_off_goal(goal);
             drop_objective(goal);
@@ -981,7 +980,7 @@ void put_in_play()
 {
     take_out_of_play();
     std::string why;
-    if (live_now() || !layout::editing_copy() || layout::get_refused(&why) || !skate_module() || level_editor_goals_state().goals_.empty())
+    if (live_now() || !layout::editing_copy() || layout::get_refused(&why) || !modules::Skate::sole() || level_editor_goals_state().goals_.empty())
         return;
     get_refresh();
     const uint32_t level = current_level();
@@ -1322,7 +1321,7 @@ void forget_level()
 {
     // (the level's nodes and objects went with it; a goal of ours the goal manager still has is removed - the game's
     // level change normally takes every goal out first)
-    if (skate_module()) {
+    if (modules::Skate::sole()) {
         for (const int index : level_editor_goals_state().in_play_) {
             const uint32_t goal = get_checksums(get_goal_id(index));
             if (goal_exists(goal))
@@ -1380,7 +1379,7 @@ bool in_play() { return !level_editor_goals_state().in_play_.empty(); }
 std::vector<std::string> get_level_gaps()
 {
     std::vector<std::string> out;
-    modules::Skate* skate = skate_module();
+    modules::Skate* skate = modules::Skate::sole();
     auto* list = skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
     if (!list)
         return out;

@@ -35,8 +35,9 @@ void parse_network_params(const char* command_line);
 // parse_network_params without the test stage (what the tests call).
 void read_network_params(const char* command_line);
 
-extern bool g_internet_game_host;
-extern bool g_joining_internet_game;
-extern bool g_app_active;
+bool internet_game_host();
+bool joining_internet_game();
+bool app_active();
+void set_app_active(bool value);
 
 } // namespace sys

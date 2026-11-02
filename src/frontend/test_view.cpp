@@ -42,7 +42,7 @@ maths::Vec4 get_row(Vec3 v, float w) { return {.x = v.x, .y = v.y, .z = v.z, .w 
 // The local skater (the skate module's 0x00566520; null with none).
 objects::Rider* local_skater()
 {
-    auto* skate = modules::g_skate_module.get();
+    auto* skate = modules::Skate::sole();
     return skate ? skate->get_home_rider() : nullptr;
 }
 

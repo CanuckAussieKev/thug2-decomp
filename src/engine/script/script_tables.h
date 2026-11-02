@@ -7,8 +7,8 @@ namespace script {
 
 // The script Function table (script_tables.cpp, generated): 1254 {name, function} entries, and the 250 member-function
 // names. AllocatePools registers both as script symbols.
-extern std::array<NativeCommand, 1254> g_cfunction_table;
-extern std::array<const char*, 250> g_member_function_names;
+std::array<NativeCommand, 1254>& cfunction_table();
+std::array<const char*, 250>& member_function_names();
 
 // The entry of the Function table with this name, or null.
 NativeCommand* find_c_function(const char* name);

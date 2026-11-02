@@ -143,7 +143,7 @@ void complete_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(
 void fail_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(manager)->fail_objective(id); }
 
 // The skate module (0x007CE478): the local skater, its score (modules::PointTally), the tricks the score has seen.
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
+
 objects::Rider* local_skater() { return modules::Skate::sole()->get_home_rider(); }
 modules::PointTally* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
@@ -849,7 +849,7 @@ bool TrickBeatGoal::disengage(bool unused, bool reset_tree)
 }
 
 namespace {
-int game_clock() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+int game_clock() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 } // namespace
 
 // 0x00574A10
@@ -994,7 +994,7 @@ void TrickBeatGoal::update_beat()
 {
     const float slomo = frame_clock::get_time_scale();
     const int last = last_time_;
-    const int elapsed = frame_clock::game_clock_elapsed() + (objects::g_clock_offset - last);
+    const int elapsed = frame_clock::game_clock_elapsed() + (objects::clock_offset() - last);
     beat_time_ += elapsed;
     last_time_ += elapsed;
     auto time = static_cast<double>(beat_time_);

@@ -63,8 +63,6 @@ constexpr uint32_t kPitch = 0xD8604126;        // "pitch"
 constexpr uint32_t kMetrics = 0xDD755518;      // "Metrics"
 
 
-memory::PoolPair& spawned_poly_pools() { return render::g_spawned_poly_pools; }
-
 // The loaded scenes' list (0x006FA7EC, ended by a node whose scene is -1): walked by the engine's helpers.
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
 bool is_sky_backdrop(const render::WorldScene* scene) { return scene->is_sky_; }
@@ -133,7 +131,7 @@ void for_each_sector_geometry(render::WorldScene* scene, uint32_t light_group, F
 } // namespace
 
 // 0x004472D0: a spawned polygon's details given back to their pool pair (0x00700500) - its operator delete.
-void free_spawned_poly_details(void* details) { spawned_poly_pools().dealloc(details); }
+void free_spawned_poly_details(void* details) { render::spawned_poly_pools().dealloc(details); }
 
 // 0x00447330: SpawnPoly pos=<vector> <vector> <vector> start_dims=<pair> end_dims=<pair> lifetime=<f>
 // start_colors=[[r g b a] x4] end_colors=[...] | start_color=[r g b a] end_color=[...] [flag] [just=[h v]]
@@ -141,7 +139,7 @@ void free_spawned_poly_details(void* details) { spawned_poly_pools().dealloc(det
 // Always true.
 bool cfunc_spawn_poly(Struct* params, Script*)
 {
-    auto details = memory::adopt<render::SpawnedPoly*>(spawned_poly_pools().allocate<render::SpawnedPoly>());
+    auto details = memory::adopt<render::SpawnedPoly*>(render::spawned_poly_pools().allocate<render::SpawnedPoly>());
     if (details)
         details = memory::construct_in<render::SpawnedPoly>(details);
     // (a failed allocation writes through null below, as in the original)

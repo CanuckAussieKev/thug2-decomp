@@ -43,7 +43,6 @@ namespace objects {
 
 namespace {
 
-
 constexpr uint32_t kTrick = 0x270F56E1;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 
@@ -724,7 +723,7 @@ void MoveExecutor::tick_frame()
     queue_all_done_tricks();
     update_manual_tricks();
     if (manual_.pending_ && manual_.duration_ != -1 &&
-        static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - manual_.time_)) >
+        static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - manual_.time_)) >
             static_cast<uint32_t>(manual_.duration_))
         manual_.pending_ = false;
     update_extra_grind_tricks();

@@ -677,7 +677,7 @@ std::vector<Prop> get_fields(const Elem& node)
 
 bool level_is_shared(const char** game)
 {
-    const modules::Skate* skate = modules::g_skate_module.get(); // the skate module
+    const modules::Skate* skate = modules::Skate::sole(); // the skate module
     if (!skate)
         return false;
     const uint32_t level = skate->level_; // its level's load script

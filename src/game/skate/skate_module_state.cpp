@@ -98,7 +98,6 @@ constexpr uint8_t kMsgCreatedGoals = 0x87; // the created goals ("goals data")
 constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
-goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::online_hub(); }
 objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 int& get_refs() { return skate_module_state_state().skate_module_references_; }
@@ -109,6 +108,18 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 
 } // namespace
 
+namespace {
+
+std::unique_ptr<Skate>& stored_skate_module()
+{
+    static core::NoDestroy<std::unique_ptr<Skate>> skate_module;
+    return skate_module.get();
+}
+
+} // namespace
+
+Skate* Skate::sole() { return stored_skate_module().get(); }
+
 // 0x00564C10
 void Skate::discard_occurrence()
 {
@@ -116,7 +127,7 @@ void Skate::discard_occurrence()
         --get_refs();
         return;
     }
-    memory::destroy_then_clear(g_skate_module);
+    memory::destroy_then_clear(stored_skate_module());
     get_refs() = 0;
 }
 
@@ -125,8 +136,8 @@ Skate* Skate::spawn_occurrence(bool create)
 {
     Skate* skate = sole();
     if (!skate && create) {
-        g_skate_module = std::make_unique<Skate>(); // (null when the heap is full)
-        skate = g_skate_module.get();
+        stored_skate_module() = std::make_unique<Skate>(); // (null when the heap is full)
+        skate = stored_skate_module().get();
         if (skate) {
             const int refs = get_refs() + 1;
             get_refs() = refs;
@@ -200,7 +211,7 @@ void Skate::start_callback()
     objects::emitter_init();
     update_job_->skip_bits_ = 2;
     main_loop->logic_tasks_.queue_job(update_job_.get());
-    get_game_mode()->get_reset();
+    goals::game_mode()->get_reset();
     script::launch_script(kNetworkDriverStartup, nullptr, nullptr, false, nullptr);
     script::launch_script(kInitLoadingBar, nullptr, nullptr, false, nullptr);
     script::launch_script(kStartupLoadingScreen, nullptr, nullptr, false, nullptr);
@@ -222,7 +233,7 @@ void Skate::start_callback()
 // 0x00564F20
 void Skate::tidy_before_park_build()
 {
-    objects::g_trick_spot_hub->remove_all_clusters();
+    objects::trick_spot_hub()->remove_all_clusters();
     render::engine::kill_all_texture_splats();
     static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->destroy_non_persistent();
     rail_manager_->tidy_up();
@@ -254,7 +265,7 @@ void Skate::set_current_game_type()
 {
     debug::printf(
         "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Changing Game Mode\n"); // "<<<...Changing Game Mode\n"
-    get_game_mode()->apply_match_style(match_style_);
+    goals::game_mode()->apply_match_style(match_style_);
 }
 
 // 0x00565000
@@ -307,7 +318,7 @@ int Skate::is_multiplayer()
 {
     if (net_session_slot()->in_net_game())
         return 1;
-    return get_game_mode()->get_starting_rider_count() > 1 ? 1 : 0;
+    return goals::game_mode()->get_starting_rider_count() > 1 ? 1 : 0;
 }
 
 // 0x00565220
@@ -324,7 +335,7 @@ bool Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
 // (the script runtime reads the result's low byte)
 bool Skate::cfunc_in_team_game(script::Struct*, script::Script*)
 {
-    return static_cast<uint8_t>(get_game_mode()->is_squad_match()) != 0;
+    return static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0;
 }
 
 // 0x00565260
@@ -441,7 +452,7 @@ bool Skate::cfunc_init_skater_heaps(script::Struct*, script::Script*)
 // 0x00565620
 void Skate::prepare_entity_update_data()
 {
-    if (g_viewport_count <= 1 && render::fetch_live_camera(0)) {
+    if (viewport_count() <= 1 && render::fetch_live_camera(0)) {
         no_camera_ = false;
         viewer_pos_ = *render::fetch_live_camera(0)->fetch_location();
         return;
@@ -495,7 +506,7 @@ int Skate::should_be_absent(script::Struct* params)
         return 0;
     if (net_session_slot()->in_net_game())
         return 1;
-    return get_game_mode()->get_starting_rider_count() > 1 ? 1 : 0;
+    return goals::game_mode()->get_starting_rider_count() > 1 ? 1 : 0;
 }
 
 } // namespace modules

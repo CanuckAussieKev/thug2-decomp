@@ -138,7 +138,7 @@ objects::GrindRailHub* rail_manager_of(objects::ObjectModule* component)
     return core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
 }
 // The skate module's rail manager (the level's).
-objects::GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_.get(); }
+objects::GrindRailHub* get_level_rails() { return modules::Skate::sole()->rail_manager_.get(); }
 
 // Onto a ladder from the level's rails: the ride let go, stopped.
 void grabbed_ladder(objects::FootMovement* walk)
@@ -239,7 +239,7 @@ void trigger_feeler(objects::FootMovement* walk, const std::array<int, 3>& event
 void contact_feeler(objects::FootMovement* walk, render::ProbeRay* feeler) { walk->ride_->start_riding(feeler); }
 
 // The game's clock with its offset.
-int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offset; }
+int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 
 // The movable contact's ride let go (its object kept at +0x6C, the time at +0x70).
 void let_go_of_ride(objects::MovingSurfaceModule* contact)

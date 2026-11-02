@@ -95,8 +95,7 @@ constexpr uint32_t kClassTrigger = 0xE594F0A2;        // "Trigger"
 constexpr uint32_t kClassSkater = 0x5B8AB877;         // "skater"
 constexpr uint32_t kClassA0e52802 = 0xA0E52802;       // (name unknown) killed through 0x0048FCA0
 
-modules::Skate* get_skate() { return modules::g_skate_module.get(); }
-objects::GrindRailHub* rail_manager() { return modules::g_skate_module->rail_manager_.get(); }
+objects::GrindRailHub* rail_manager() { return modules::Skate::sole()->rail_manager_.get(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
@@ -219,7 +218,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
 // scene in turn (fit_viewer_camera; the last one's placing stays). False without the viewer module (0x007CE4A4).
 bool cfunc_center_camera(script::Struct* params, script::Script*)
 {
-    if (!objects::g_view_mode)
+    if (!objects::view_mode())
         return false;
     float scale = 0.9f;
     params->fetch_float("scale", &scale, 0); // "scale"
@@ -440,7 +439,7 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 // The sector named `name` in any scene (0x0048C510; null if none).
 render::WorldCell* find_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 bool park_editor_off() { return park_editing::g_park_editor->cur_phase_ == kParkEditorOff; }
-objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
+
 
 } // namespace
 
@@ -462,7 +461,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
         objects::nearby_zone_startup();
         objects::emitter_init();
         rail_manager()->tidy_up();
-        get_trick_objects()->remove_all_clusters();
+        objects::trick_spot_hub()->remove_all_clusters();
         render::delete_dynamic_lights();
         render::delete_all_scene_lights();
         memory::push_mem_profile("Rail Nodes"); // "Rail Nodes"
@@ -536,8 +535,8 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 node->read_hash_value(kName, &object_name, true);
                 uint32_t cluster = object_name;
                 node->read_hash_value(kCluster, &cluster, false);
-                get_trick_objects()->add_cluster(cluster);
-                get_trick_objects()->add_object(object_name, cluster);
+                objects::trick_spot_hub()->add_cluster(cluster);
+                objects::trick_spot_hub()->add_object(object_name, cluster);
                 memory::pop_mem_profile();
             }
         }
@@ -566,7 +565,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
     memory::pop_mem_profile();
     rails->remove_overlaps_if_not_park();
     if (!script::fetch_int_value(kNoGapChecklist))
-        static_cast<goals::GapTally*>(get_skate()->fetch_gap_list())->get_build();
+        static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list())->get_build();
     for (memory::ListNode* at = first_scene(); at;) {
         memory::ListNode* next = next_scene(at);
         render::scene_of_node(at)->update_super_sectors_if_marked(nullptr);
@@ -746,7 +745,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
 // classes.
 bool shatter_node(uint32_t name)
 {
-    if (get_skate()->running_queued_scripts_)
+    if (modules::Skate::sole()->running_queued_scripts_)
         return true;
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     if (skips_node(node))
@@ -789,9 +788,9 @@ bool node_command(uint32_t name, int action, script::Script* script, script::Str
     if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true)))
         return false;
     int second_viewport = 0;
-    if (script && script->entity_.get_pull() && !game_net->in_net_game() && modules::g_viewport_count == 2 &&
+    if (script && script->entity_.get_pull() && !game_net->in_net_game() && modules::viewport_count() == 2 &&
         script->entity_.get_pull() ==
-            get_skate()->get_rider_at(1))
+            modules::Skate::sole()->get_rider_at(1))
         second_viewport = 1;
     switch (action) {
     case 0:

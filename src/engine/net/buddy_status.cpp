@@ -75,7 +75,7 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
     prefs::Preferences* preferences = manager->get_online_settings();
     const char* email = nullptr;
     const char* password = nullptr;
-    if (sys::g_internet_game_host || sys::g_joining_internet_game) {
+    if (sys::internet_game_host() || sys::joining_internet_game()) {
         email = command_line_email().data();
         password = command_line_password().data();
     } else {

@@ -12,7 +12,6 @@
 
 namespace objects::walk_fields {
 
-
 constexpr uint32_t kWalk = 0x726E85AA;
 
 // The fields.
@@ -49,6 +48,6 @@ inline float walk_parameter(uint32_t name)
 inline int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The game clock with its offset (0x00696D60), and the time since `then` on it.
-inline int clock_since(int then) { return frame_clock::game_clock_elapsed() + (objects::g_clock_offset - then); }
+inline int clock_since(int then) { return frame_clock::game_clock_elapsed() + (objects::clock_offset() - then); }
 
 } // namespace objects::walk_fields

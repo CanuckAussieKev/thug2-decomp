@@ -531,8 +531,8 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->append_array_ref(kGlobalFlagsArray, globals);
     career->append_array_ref(kGapLevelList, gap_levels);
     career->append_array_ref(kVisitedArray, visited);
-    career->put_name_key(0xE3335D2F, modules::g_skate_module->level_);
-    career->put_name_key(0x2CC06F5E, goals::g_game_mode->get_name_key());
+    career->put_name_key(0xE3335D2F, modules::Skate::sole()->level_);
+    career->put_name_key(0x2CC06F5E, goals::game_mode()->get_name_key());
     // (both made first, then sized, as the original)
     gsl::owner<script::Array*> cash_memory = script::alloc_script_array();
     gsl::owner<script::Array*> cash = cash_memory ? memory::construct_in<script::Array>(cash_memory) : nullptr;
@@ -563,7 +563,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career written to the script's results.
 bool cfunc_get_career_save_info(script::Struct* /*params*/, script::Script* script)
 {
-    RiderStoryProgress* career = modules::g_skate_module->career_.get();
+    RiderStoryProgress* career = modules::Skate::sole()->career_.get();
     career->write_to_structure(script->args_.get());
     return true;
 }

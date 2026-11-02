@@ -87,7 +87,6 @@ constexpr float kMinTilt = 10.0f;                 // 0x00646710
 constexpr double kMaxTilt = 90.0;                 // 0x0064F340
 constexpr double kFullTurn = 360.0;               // 0x0064F348 (and 360.0f, 0x00645EA8)
 
-modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 frame_loop::Hub* get_main_loop() { return assets::get_main_loop_manager(); }
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
@@ -685,7 +684,7 @@ void ParkBuilderMode::change_phase(uint32_t state)
     }
     modules::FrontEnd* front_end = modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
     if (state == kStateEdit) {
-        skate_module()->tidy_before_park_build();
+        modules::Skate::sole()->tidy_before_park_build();
         front_end->hold_repeat_ms_ = 320;
         front_end->auto_repeat_rate_ = 100;
         hub()->highlight_gap_pieces(false, nullptr);

@@ -322,7 +322,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
         if (!entry->fetch_int_value(kScore, &needed, 0))
             args_->fetch_int_value(kScore, &needed, 1);
         if (id == cluster && score > needed) {
-            if (!objects::g_trick_spot_hub->set_object_graffiti_color(cluster, 0))
+            if (!objects::trick_spot_hub()->set_object_graffiti_color(cluster, 0))
                 debug::printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
             uint32_t flag = 0;
             entry->read_hash_value(kFlag, &flag, 1);
