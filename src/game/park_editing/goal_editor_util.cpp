@@ -7,6 +7,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/core/format.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"

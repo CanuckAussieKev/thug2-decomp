@@ -4,9 +4,12 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
+#include "engine/core/format.h"
 #include "engine/core/manager.h"
+#include "engine/script/cell.h"
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/nodes.h"

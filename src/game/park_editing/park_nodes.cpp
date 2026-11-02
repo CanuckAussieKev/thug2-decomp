@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/assets/resource_entry.h"
 #include "engine/core/checksums.h"

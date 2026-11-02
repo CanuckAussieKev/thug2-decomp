@@ -8,6 +8,9 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
+#include "engine/core/format.h"
+#include "engine/maths/vec4.h"
+#include "engine/script/cell.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/goal_editor_util.h"
 #include "game/goals/objective.h"

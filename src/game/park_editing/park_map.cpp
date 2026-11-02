@@ -9,9 +9,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"

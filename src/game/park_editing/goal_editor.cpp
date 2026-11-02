@@ -9,6 +9,9 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/core/format.h"
+#include "engine/maths/vec4.h"
+#include "engine/script/cell.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/manager.h"

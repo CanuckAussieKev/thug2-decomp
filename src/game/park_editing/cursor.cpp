@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <new>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"

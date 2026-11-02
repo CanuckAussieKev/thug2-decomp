@@ -9,6 +9,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
+#include "engine/core/format.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/goal_editor_util.h"
 #include "game/park_editing/park_editor.h"

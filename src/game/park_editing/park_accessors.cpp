@@ -3,15 +3,19 @@
 
 #include "game/park_editing/park.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <string_view>
 #include <array>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/maths/vec4.h"
+#include "formats/park_map_format.h"
 #include "game/park/park_memory.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

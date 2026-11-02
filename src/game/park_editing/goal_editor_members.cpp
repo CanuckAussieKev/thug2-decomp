@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "engine/core/checksums.h"
+#include "engine/core/format.h"
+#include "engine/maths/vec4.h"
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

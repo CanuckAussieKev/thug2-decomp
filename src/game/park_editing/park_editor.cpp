@@ -11,6 +11,8 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
+#include "formats/park_map_format.h"
+#include "game/park_editing/park.h"
 #include "game/park_editing/piece_menu.h"
 #include "frontend/front_end.h"
 #include "engine/maths/mat4.h"

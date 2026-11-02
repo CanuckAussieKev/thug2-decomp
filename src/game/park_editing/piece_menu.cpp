@@ -13,6 +13,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/park.h"
 
 namespace park_editing {
 

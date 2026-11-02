@@ -2,6 +2,7 @@
 // into the "cloned" scene and lit by the park's lights, the scene rebuilt, and the restart points. The data is laid
 // out in park_scene.h; the node array the park's level runs on is park_nodes.cpp.
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <span>
@@ -12,6 +13,8 @@
 #include "engine/core/span_copy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/engine_scene_list.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_nx.h"
 #include "game/park_editing/rail_editor.h"

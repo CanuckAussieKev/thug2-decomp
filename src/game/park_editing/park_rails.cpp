@@ -14,6 +14,8 @@
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/slab_bank.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 

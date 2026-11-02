@@ -12,6 +12,8 @@
 #include "platform/d3dx.h"
 
 #include "engine/core/mem.h"
+#include "engine/maths/vec4.h"
+#include "engine/script/cell.h"
 #include "game/park_editing/park_nx.h"
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
