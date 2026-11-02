@@ -22,8 +22,8 @@
 #include "engine/gfx/settings.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "gpu/vertex_view.h"
 #include <bit>
 
 namespace render {
@@ -68,8 +68,10 @@ void add_bone(float* blended, const SkinVertex& v, uint8_t bone, float weight)
 // exactly 1 - scaled by it and the others' added (the third's only when its weight isn't 0).
 void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 {
-    const auto* v = raw::as<const SkinVertex>(mesh->per_vertex_data_);
-    for (uint32_t i = 0; i < mesh->vertex_count_; ++i, ++v) {
+    const gpu::VertexView vertices(mesh->per_vertex_data_, sizeof(SkinVertex)); // (the CPU copy: SkinVertex records)
+    for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
+        const auto vertex = vertices.value<SkinVertex>(i, 0);
+        const SkinVertex* v = &vertex;
         std::array<float, 6> blended{};
         transform_coord(blended.data(), v->position.data(), skin_matrix(core::at(v->bones, 0)));
         transform_normal(blended.data() + 3, v->normal.data(), skin_matrix(core::at(v->bones, 0)));
@@ -80,25 +82,19 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
             if (bones > 2 && !(core::at(v->weights, 2) == 0.0f))
                 add_bone(blended.data(), *v, core::at(v->bones, 2), core::at(v->weights, 2));
         }
-        auto* vertex = raw::as<uint32_t>(out);
-        std::memcpy(vertex, blended.data(), sizeof(blended));
-        vertex[6] = v->color;
+        const gpu::VertexWriter written(out, mesh->stride);
+        written.set_floats<6>(0, 0, blended); // the position and normal
+        written.set_word(0, 0x18, v->color);
         for (uint32_t k = 0; k < 2 * mesh->unknowna4_; ++k)
-            raw::as<float>(vertex)[7 + k] = core::at(v->uv, k);
+            written.set_value(0, 0x1C + 4 * k, core::at(v->uv, k));
         out += mesh->stride;
     }
 }
 
-// The index buffers and their counts by level (a level past the eighth reads on into the fields after them, as the
-// original does).
-IdxStore* index_buffer_at(MeshRef* mesh, int level)
-{
-    return *raw::field_at<IdxStore*>(mesh, 0x54 + 4 * level);
-}
-uint16_t index_count_at(MeshRef* mesh, int level)
-{
-    return *raw::field_at<uint16_t>(mesh, 0x24 + 2 * level);
-}
+// The index buffers and their counts by level (the original read a level past the eighth on into the fields after
+// them: here it stops the game with a report).
+IdxStore* index_buffer_at(MeshRef* mesh, int level) { return core::at(mesh->index_buffers_, level); }
+uint16_t index_count_at(MeshRef* mesh, int level) { return core::at(mesh->index_counts_, level); }
 
 void count_draw(uint32_t primitives)
 {
@@ -170,7 +166,9 @@ void MeshRef::render()
         vb->lock_size_ = vb->size;
         vb->lock_offset_ = 0;
         vb->lock_flags_ = D3DLOCK_DISCARD;
-        static_cast<IDirect3DVertexBuffer9*>(vb->buffer)->Lock(0, 0, raw::as<void*>(&out), D3DLOCK_DISCARD);
+        void* locked = out;
+        static_cast<IDirect3DVertexBuffer9*>(vb->buffer)->Lock(0, 0, &locked, D3DLOCK_DISCARD);
+        out = static_cast<uint8_t*>(locked);
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (unknowna8_) {
         case 1:

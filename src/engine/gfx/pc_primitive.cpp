@@ -2,6 +2,8 @@
 
 #include "engine/gfx/pc_primitive.h"
 
+#include "gpu/vertex_view.h"
+
 #include <windows.h>
 
 #include <d3d9.h>
@@ -22,7 +24,6 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
@@ -60,15 +61,15 @@ struct VertexNormalColourUv {
 static_assert(sizeof(VertexColour) == 0x10 && sizeof(VertexColourUv) == 0x18 && sizeof(VertexNormalColourUv) == 0x24,
               "the Direct3D vertex layouts");
 
-// The vertex `index` in the layout V / its position (any layout, by the stride).
+// The vertex `index` in the layout V / its position (any layout, by the stride): gpu/vertex_view.h.
 template <typename V>
 V& vertex_at(uint8_t* vertices, int index)
 {
-    return raw::as<V>(vertices)[index];
+    return gpu::record_at<V>(vertices, static_cast<size_t>(index));
 }
 float* position_at(uint8_t* vertices, int stride, int index)
 {
-    return raw::field_at<float>(vertices, stride * index);
+    return gpu::position_at(vertices, static_cast<size_t>(stride), static_cast<size_t>(index));
 }
 
 // RGBA with red and blue swapped (d_3d's BGRA).

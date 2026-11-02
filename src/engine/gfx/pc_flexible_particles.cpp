@@ -25,8 +25,8 @@
 #include "engine/gfx/engine.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "gpu/vertex_view.h"
 #include "engine/core/packed_colour.h"
 
 namespace render {
@@ -926,10 +926,14 @@ void PcRibbonParticles::render()
             for (int k = 0; k < 4; ++k) {
                 const uint32_t colour = core::at(colours, k / 2);
                 if (textured) {
-                    raw::as<QuadVertex>(out)[k] = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1), core::at(core::at(corners, k), 2),
-                                                             colour,        core::at(core::at(kUv, k), 0),     core::at(core::at(kUv, k), 1)};
+                    const QuadVertex vertex = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1),
+                                               core::at(core::at(corners, k), 2), colour, core::at(core::at(kUv, k), 0),
+                                               core::at(core::at(kUv, k), 1)};
+                    gpu::VertexWriter(out, sizeof(QuadVertex)).set_value(static_cast<size_t>(k), 0, vertex);
                 } else {
-                    raw::as<TrailVertex>(out)[k] = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1), core::at(core::at(corners, k), 2), colour};
+                    const TrailVertex vertex = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1),
+                                                core::at(core::at(corners, k), 2), colour};
+                    gpu::VertexWriter(out, sizeof(TrailVertex)).set_value(static_cast<size_t>(k), 0, vertex);
                 }
             }
             out += 4 * stride;

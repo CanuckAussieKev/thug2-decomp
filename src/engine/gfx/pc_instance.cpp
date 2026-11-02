@@ -197,7 +197,7 @@ void Singleton::render(uint32_t draw_bits)
         }
         g_skipped_passes &= ~8u;
         g_vertex_format_locked = 0;
-        g_pixel_shader_locked = 0;
+        g_pixel_shader_locked = nullptr;
         g_submit_locked = 0;
         set_texture(3, nullptr);
         g_palette_base = nullptr;

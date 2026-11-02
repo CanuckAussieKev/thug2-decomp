@@ -28,14 +28,13 @@
 #include "platform/platform_d3d.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
 
 namespace {
 // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-std::array<uint32_t, 0x1C00> g_text_vertex_store;
+std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)> g_text_vertex_store; // (0x7000 bytes)
 std::array<uint16_t, 0x100 * 6> g_text_quad_indices;
 
 TypefaceData* g_typeface_head;
@@ -299,8 +298,7 @@ void GlyphRun::draw()
             auto top =
                 static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
-                effects ? raw::field_at<const TextEffect>(effects, effect)
-                        : nullptr;
+                effects ? &effects[effect / static_cast<int>(sizeof(TextEffect))] : nullptr;
             float right = 0.0f, bottom = 0.0f;
             if (e) {
                 const int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
@@ -389,7 +387,7 @@ void set_texture_stage_state(int stage, int type, int value)
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-TextVertex* vertex_store() { return raw::as<TextVertex>(g_text_vertex_store.data()); }
+TextVertex* vertex_store() { return g_text_vertex_store.data(); }
 uint16_t* quad_indices() { return g_text_quad_indices.data(); }
 bool& quad_indices_made() { return g_quad_indices_made; }
 constexpr int kQuads = 0x100;

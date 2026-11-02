@@ -11,6 +11,8 @@
 // the platform through a virtual slot.
 namespace render {
 
+class BitmapTexture;
+
 // The sprite (0x44 bytes of the engine's; vtable 0x00649A80 - PC 0x0064A744).
 class BillboardQuad : public memory::HeapObject {
 public:
@@ -36,7 +38,7 @@ public:
     // 0x0049EBB0: hidden or shown.
     void change_concealed(bool hidden);
     // 0x0049EBC0: the texture (an engine BitmapTexture, or null) - and the size, its image's, when there is one.
-    void set_texture(uint8_t* texture);
+    void set_texture(BitmapTexture* texture);
     // 0x0049EC00 (not a function in Ghidra): the blend mode (a checksum).
     void choose_blend_mode(uint32_t blend);
     // 0x0049EC10: where it's drawn (640x480 layout).
@@ -60,7 +62,7 @@ public:
     // 0x0049ECF0: its colour (RGBA).
     void change_rgba(uint32_t rgba);
 
-    uint8_t* bitmap_{nullptr};            // +0x04: an engine BitmapTexture
+    BitmapTexture* bitmap_{nullptr};      // +0x04
     uint32_t mix_mode_{kBlend};           // +0x08
     float pos_x_{-1.0f}, y_{-1.0f};       // +0x0C
     float scale_h_{1.0f}, scale_v_{1.0f}; // +0x14
@@ -95,7 +97,7 @@ public:
     // 0x0049ED10: hidden or shown.
     void change_concealed(bool hidden);
     // 0x0049ED40: the texture (an engine BitmapTexture).
-    void set_texture(uint8_t* texture);
+    void set_texture(BitmapTexture* texture);
     // 0x0049ED00: the blend mode (a checksum).
     void choose_blend_mode(uint32_t blend);
     // 0x0049ED20: drawn in priority order.
@@ -104,7 +106,7 @@ public:
     void change_rgba(uint32_t rgba);
 
     void* screen_region_; // (the original's offsets: +0x04)
-    uint8_t* bitmap_{nullptr}; // +0x08
+    BitmapTexture* bitmap_{nullptr}; // +0x08
     bool invisible_{true};     // +0x0C
     std::array<uint8_t, 3> padd_{};
     float rank_{};   // +0x10

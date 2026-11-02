@@ -8,10 +8,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <array>
 
 #include "engine/gfx/device.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -65,7 +65,10 @@ void set_device_gamma(float r, float g, float b)
     gammas()[1] = static_cast<float>(static_cast<double>(g) + g + 0.5f);
     gammas()[2] = static_cast<float>(static_cast<double>(b) + b + 0.5f);
     build_gamma_ramp();
-    g_d3d_device->SetGammaRamp(0, 0, raw::as<const D3DGAMMARAMP>(get_ramp()));
+    D3DGAMMARAMP ramp{}; // (red, green, blue: the table's three runs)
+    static_assert(sizeof(ramp) == sizeof(g_gamma_ramp));
+    std::memcpy(&ramp, g_gamma_ramp.data(), sizeof(ramp));
+    g_d3d_device->SetGammaRamp(0, 0, &ramp);
 }
 
 } // namespace render

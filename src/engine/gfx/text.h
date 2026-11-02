@@ -3,9 +3,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <utility>
 
 #include "engine/gfx/draw2d.h"
-#include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
+#include "engine/gfx/engine_text.h"
 
 // Bitmap fonts and the screen text drawn with them (Nx engine, PC). Text can hold escapes: "\\" (a backslash),
 // "\c<d>" colour d of the font's table (0 = the text's own), "\s<d>" special glyph d, "\b<d>" a button (glyph
@@ -38,10 +40,13 @@ struct TypefaceData {
     void* texture;        // IDirect3DTexture9 (A8R8G8B8, managed)
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
 
-    // The colour "\c<index>" picks: index 1 is colors[0]; the original reads past the table for larger ones.
+    // The colour "\c<index>" picks: index 1 is colors[0]; index 0 the word before the table (the two gaps, as the
+    // original read it). NOT ORIGINAL: past the table, 0 (the original read on into the texture's fields).
     [[nodiscard]] uint32_t get_color(int index) const
     {
-        return *raw::field_at<const uint32_t>(this, 0x134 + 4 * index);
+        if (index == 0)
+            return static_cast<uint16_t>(glyph_gap_) | static_cast<uint32_t>(static_cast<uint16_t>(blank_gap_)) << 16;
+        return index > 0 && std::cmp_less_equal(index, colors.size()) ? core::at(colors, index - 1) : 0;
     }
 
     // 0x004CECB0: the size `text` would be drawn at (pixels at scale 1): the width of the whole text
@@ -65,12 +70,9 @@ static_assert(offsetof(TypefaceData, texture) == 0x178 && sizeof(TypefaceData) =
               "layout must match the original");
 
 // Per-character effects (an array parallel to the text, one record per character).
-struct TextEffect {
-    int16_t x, y;           // offset in pixels
-    int16_t xscale, yscale; // 16384 = 1
-    int16_t rotation;       // radians * 16384, about the character's centre
-};
-static_assert(sizeof(TextEffect) == 10, "layout must match the original");
+// (a character's effect: engine_text.h's CharEffect - offset in pixels, scale 16384 = 1, rotation radians * 16384
+// about the character's centre)
+using TextEffect = CharEffect;
 
 // A vertex of the text's quads (pre-transformed, coloured, textured).
 struct TextVertex {

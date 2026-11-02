@@ -1,6 +1,7 @@
 // The renderer's cached Direct3D 9 state: render states, sampler states, textures, blend modes, pixel shaders.
 
 #include "engine/gfx/render_state.h"
+#include "engine/gfx/surface_material.h"
 
 #include <windows.h>
 
@@ -21,7 +22,6 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -60,7 +60,7 @@ std::array<uint32_t, 4> g_border_colours;
 namespace {
 uint32_t g_vertex_format;
 } // namespace
-uint32_t g_pixel_shader_locked;
+const void* g_pixel_shader_locked; // (a shader set for a whole pass: set_pixel_shader leaves the device's alone)
 void* g_current_pixel_shader;
 std::array<float, 20> g_ps_constant_bank;
 uint32_t g_instance_colour_on;
@@ -103,7 +103,7 @@ uint32_t* mip_lod_biases() { return g_mip_lod_biases.data(); } // [4]: float bit
 uint32_t* filters() { return g_filters.data(); }               // [4]: min low 16 bits, mag high
 void** get_textures() { return g_textures.data(); }            // [4]
 uint32_t& vertex_format() { return g_vertex_format; }
-uint32_t& pixel_shader_locked() { return g_pixel_shader_locked; }
+const void*& pixel_shader_locked() { return g_pixel_shader_locked; }
 void*& current_pixel_shader() { return g_current_pixel_shader; }
 float* ps_constant_bank() { return g_ps_constant_bank.data(); } // [5][4]; [4] is 0x00786F0C
 uint8_t& pixel_shader_changed() { return g_pixel_shader_changed; }
@@ -518,27 +518,27 @@ void set_fixed_function_stages(void* shader, uint32_t factor)
 }
 
 // 0x004DAA10
-void set_fixed_function_stages_for_material(void* shader, const void* material)
+void set_fixed_function_stages_for_material(void* shader, const MaterialRef* material)
 {
     if (!material) {
         set_fixed_function_stages(shader, 0xFFFFFFFF);
         return;
     }
-    const auto* color = raw::field_at<const float>(static_cast<const uint8_t*>(material), 0x40);
-    const uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(color[0]) * k255));
-    const uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(color[1]) * k255));
-    const uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(color[2]) * k255));
+    const std::array<float, 4>& color = core::at(material->pass_color_, 0); // (the first pass's colour)
+    const uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(std::get<0>(color)) * k255));
+    const uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(std::get<1>(color)) * k255));
+    const uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(std::get<2>(color)) * k255));
     set_fixed_function_stages(shader, (((r | 0xFFFFFF00) << 8 | g) << 8) | b);
 }
 
 // 0x004DAA80
-void set_pixel_shader(void* shader, const void* material)
+void set_pixel_shader(void* shader, const MaterialRef* material)
 {
     if (!has_pixel_shaders()) {
         set_fixed_function_stages_for_material(shader, material);
         return;
     }
-    if (pixel_shader_locked() == 0) {
+    if (pixel_shader_locked() == nullptr) {
         if (current_pixel_shader() != shader) {
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the shader's unlit twin during the 3D
             // passes. Original behaviour: the device gets `shader`.
@@ -554,7 +554,7 @@ void set_pixel_shader(void* shader, const void* material)
 // 0x004DAAF0
 void set_pixel_shader_with_constants(void* shader, uint32_t count)
 {
-    if (pixel_shader_locked() == 0) {
+    if (pixel_shader_locked() == nullptr) {
         if (current_pixel_shader() != shader) {
             // Not original - the Unlit view's twin (view_mode.h), as in SetPixelShader.
             input_port()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(view_mode::device_shader(shader)));
@@ -626,7 +626,7 @@ void reset_render_state()
     core::at(g_ps_constant_bank, 17) = 0.5f;
     core::at(g_ps_constant_bank, 18) = 0.0f;
     core::at(g_ps_constant_bank, 19) = 0.5f;
-    pixel_shader_locked() = 0;
+    pixel_shader_locked() = nullptr;
     current_pixel_shader() = nullptr;
     pixel_shader_changed() = 0;
     g_camera.custom_transforms_ = 0;

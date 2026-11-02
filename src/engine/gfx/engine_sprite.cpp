@@ -35,7 +35,7 @@ void BillboardQuad::change_concealed(bool hidden)
 }
 
 // 0x0049EBC0
-void BillboardQuad::set_texture(uint8_t* texture)
+void BillboardQuad::set_texture(BitmapTexture* texture)
 {
     bitmap_ = texture;
     if (texture) {
@@ -156,7 +156,7 @@ gsl::owner<TexturedQuad*> TexturedQuad::fabricate() { return new TexturedQuad(nu
 void TexturedQuad::change_concealed(bool hidden) { invisible_ = hidden; }
 
 // 0x0049ED40
-void TexturedQuad::set_texture(uint8_t* texture) { bitmap_ = texture; }
+void TexturedQuad::set_texture(BitmapTexture* texture) { bitmap_ = texture; }
 
 // 0x0049ED00
 void TexturedQuad::choose_blend_mode(uint32_t blend) { mix_mode_ = blend; }

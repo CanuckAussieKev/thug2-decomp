@@ -76,8 +76,8 @@ void QuadSprite::draw()
 {
     float u0 = 0.0f, v_top = 1.0f, u1 = 0.0f, v_bottom = 0.0f;
     if (texture) {
-        u1 = static_cast<float>(static_cast<double>(texture->actual_width_) / texture->base_width_);
-        v_bottom = static_cast<float>(1.0 - static_cast<double>(texture->actual_height_) / texture->base_height_);
+        u1 = static_cast<float>(static_cast<double>(texture->image_width_) / texture->width);
+        v_bottom = static_cast<float>(1.0 - static_cast<double>(texture->image_height_) / texture->height);
     } else {
         u1 = 1.0f;
         v_bottom = 0.0f;
@@ -251,7 +251,7 @@ void QuadSprite::open_sketch()
     if (texture) {
         set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-        render::set_texture(0, texture->device_texture_);
+        render::set_texture(0, texture->texture);
     } else {
         set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
         set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);

@@ -29,7 +29,6 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/glow.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/bitmap_texture.h"
@@ -51,7 +50,7 @@ bool omit_from_draw() { return g_suppress_draw; }
 uint32_t& get_fog() { return g_fog_active; }
 uint32_t& depth_bias() { return g_depth_bias; }
 uint32_t& cull_mode() { return g_cull_mode; }
-uint32_t& pixel_shader_locked() { return g_pixel_shader_locked; }
+const void*& pixel_shader_locked() { return g_pixel_shader_locked; }
 bool two_sided_stencil() { return g_two_sided_stencil; }
 
 // The projection buffer (project_shadow_vertices) and the triangle buffer (clip_shadow_triangles).
@@ -211,7 +210,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
 {
     void* vertex_colour = core::at(g_pixel_shaders, kPixelShader94c);
     set_pixel_shader(vertex_colour, nullptr);
-    pixel_shader_locked() = cell::of(vertex_colour);
+    pixel_shader_locked() = vertex_colour;
     set_texture(0, nullptr);
     change_phase(kZWrite, 0);
     change_phase(kZTest, 1);
@@ -240,7 +239,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
         }
         draw_scene_mesh(mesh);
     }
-    pixel_shader_locked() = 0;
+    pixel_shader_locked() = nullptr;
     change_phase(kZWrite, 1);
     change_phase(kCullMode, D3DCULL_CW);
     input_port()->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
@@ -303,7 +302,7 @@ void render_shadow_textures()
         get_fog() = saved_fog;
         input_port()->SetRenderState(D3DRS_FOGENABLE, saved_fog != 0);
     }
-    pixel_shader_locked() = 0;
+    pixel_shader_locked() = nullptr;
     std::memcpy(view_matrix(), saved_view.data(), sizeof(saved_view));
     std::memcpy(projection_matrix(), saved_projection.data(), sizeof(saved_projection));
     custom_transforms() = 0;
@@ -319,7 +318,7 @@ void render_shadow_textures()
 }
 
 // 0x004DBF50
-void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
+void draw_shadows(const void* /*unused*/, MeshRef* const* meshes, int count)
 {
     if (omit_from_draw())
         return;
@@ -377,7 +376,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
             input_port()->SetRenderState(D3DRS_DEPTHBIAS, 0xB7DA1A93);
         }
         for (int i = 0; i < count; ++i) {
-            auto* mesh = static_cast<const MeshRef*>(meshes[i]);
+            const MeshRef* mesh = meshes[i];
             if (mesh->flags & 2)
                 continue;
             if (const maths::Vec4 sphere = sphere_of(mesh->centre, mesh->radius); !sphere_in_view(&sphere, mesh->radius))

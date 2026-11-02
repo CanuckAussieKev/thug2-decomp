@@ -10,7 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/draw2d.h"
 #include "engine/gfx/engine_sprite.h"
-#include "engine/core/raw_view.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -35,10 +35,7 @@ void PcSprite::update_hidden() { sprite->change_concealed(invisible_); }
 void PcSprite::update_settings()
 {
     if (bitmap_) {
-        uint8_t* holder = *raw::field_at<uint8_t*>(bitmap_, 0x10);
-        if (bitmap_[8] & 1)
-            holder = *raw::as<uint8_t*>(holder);
-        sprite->texture = raw::as<SpriteTexture>(holder);
+        sprite->texture = image_of(bitmap_); // (its image, or its edit's)
     }
     std::memcpy(&sprite->flip_v_, &flip_v_, 2); // (the bytes as they are)
     sprite->x = pos_x_;

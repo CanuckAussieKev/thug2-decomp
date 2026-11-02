@@ -17,8 +17,6 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -117,7 +115,7 @@ void* pixel_shader_from_index(uint32_t index)
                                        kPixelShader924,
                                        kPixelShader920}};
     if (index > 0x12)
-        return cell::pointer<void>(index); // (the original returns the index itself)
+        return nullptr; // (NOT ORIGINAL: none - the original returned the index itself as the shader)
     return core::at(kShaders, index) >= 0 ? core::at(g_pixel_shaders, core::at(kShaders, index)) : nullptr;
 }
 

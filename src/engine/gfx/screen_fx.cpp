@@ -19,8 +19,8 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
 
 namespace render {
 
@@ -205,9 +205,10 @@ void get_bloom()
     IDirect3DTexture9* bright = screen_copy(3);
     set_pixel_shader(get_shader(kPixelShader948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
-    const uint8_t* cutoff = raw::bytes(&g_bloom_cut_off);
-    std::array<float, 4> constant = {{static_cast<float>(cutoff[0] * (1.0 / 128)), static_cast<float>(cutoff[1] * (1.0 / 128)),
-                         static_cast<float>(cutoff[2] * (1.0 / 128)), 0.5f}};
+    const colour::Bytes cutoff = colour::bytes_of(g_bloom_cut_off);
+    std::array<float, 4> constant = {{static_cast<float>(std::get<0>(cutoff) * (1.0 / 128)),
+                                      static_cast<float>(std::get<1>(cutoff) * (1.0 / 128)),
+                                      static_cast<float>(std::get<2>(cutoff) * (1.0 / 128)), 0.5f}};
     input_port()->SetPixelShaderConstantF(0, constant.data(), 1);
     draw_screen_quad(0, bright, quarter, 0.0f, 0.0f, 0x80808080, false);
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.

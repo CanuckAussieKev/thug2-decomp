@@ -13,7 +13,6 @@
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_obj.h"
 #include <gsl/pointers>
-#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -24,8 +23,14 @@ Geom* geom_of(void* geom) { return static_cast<Geom*>(geom); }
 const maths::Vec4* geom_world_position(void* geom) { return geom_of(geom)->get_absolute_point(); }
 void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom*>(geom)->choose_tri_source(faces); }
 
-// The collision object's flag byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder.
-uint8_t& coll_flags(HitMesh* coll) { return *raw::bytes(&coll->flag_bits_); }
+// The collision object's flags' low byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder (the original
+// read and wrote the byte; the high byte is kept).
+struct CollFlags {
+    HitMesh* coll;
+    [[nodiscard]] uint8_t get() const { return static_cast<uint8_t>(coll->flag_bits_); }
+    void set(uint8_t low) const { coll->flag_bits_ = static_cast<uint16_t>((coll->flag_bits_ & 0xFF00) | low); }
+};
+CollFlags coll_flags(HitMesh* coll) { return {coll}; }
 
 
 } // namespace
@@ -145,9 +150,9 @@ void WorldCell::change_live(bool active)
 {
     if (hit_body_) {
         if (active)
-            coll_flags(hit_body_) &= ~4;
+            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() & ~4));
         else
-            coll_flags(hit_body_) |= 4;
+            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() | 4));
     }
     if (geom_handle_)
         geom_of(geom_handle_)->change_live(active);
@@ -158,7 +163,7 @@ bool WorldCell::is_operative()
 {
     if (geom_handle_)
         return geom_of(geom_handle_)->is_operative();
-    return !(coll_flags(hit_body_) & 4);
+    return !(coll_flags(hit_body_).get() & 4);
 }
 
 // 0x0049EA30
@@ -170,9 +175,9 @@ void WorldCell::enable_collision(bool collidable)
         flag_bits_ &= ~kSectorCollidable;
     if (hit_body_) {
         if (collidable)
-            coll_flags(hit_body_) &= ~2;
+            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() & ~2));
         else
-            coll_flags(hit_body_) |= 2;
+            coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() | 2));
     }
 }
 
@@ -182,10 +187,10 @@ void WorldCell::mark_as_occluder(bool occluder)
     if (!hit_body_)
         return;
     if (!occluder) {
-        coll_flags(hit_body_) &= 0x7F;
+        coll_flags(hit_body_).set(static_cast<uint8_t>(coll_flags(hit_body_).get() & 0x7F));
         return;
     }
-    if (!(coll_flags(hit_body_) & 0x80)) {
+    if (!(coll_flags(hit_body_).get() & 0x80)) {
         hit_body_->flag_bits_ |= 0x80;
         hit_body_->add_occlusion_polys(); // its occlusion polygons added
     }

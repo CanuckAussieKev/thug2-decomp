@@ -8,6 +8,8 @@
 // when the device is created and pushed to the device again (apply_render_state) after a reset.
 namespace render {
 
+struct MaterialRef;
+
 // The renderer's own render state numbering (change_phase's `state`).
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum RenderStateId : uint8_t {
@@ -43,10 +45,10 @@ void choose_blend_mode(uint32_t mode);
 void set_fixed_function_stages(void* shader, uint32_t factor);
 // 0x004DAA10: the same with the material's colour (+0x40, three floats 0-1) as the factor - opaque white
 // without a material.
-void set_fixed_function_stages_for_material(void* shader, const void* material);
+void set_fixed_function_stages_for_material(void* shader, const MaterialRef* material);
 // 0x004DAA80: the pixel shader and its five constants (0x00786ECC) - or the stand-in texture stages without
 // pixel shaders (0x00786AB8).
-void set_pixel_shader(void* shader, const void* material);
+void set_pixel_shader(void* shader, const MaterialRef* material);
 // 0x004DAAF0: the pixel shader with `count` constants, and constant 4 (0x00786F0C) again.
 void set_pixel_shader_with_constants(void* shader, uint32_t count);
 // 0x004DA0E0: the value 0x007CA978 (a distance the visibility test 0x004DB790 leaves).
@@ -85,7 +87,7 @@ extern uint32_t g_cull_mode;
 extern bool g_near_camera;
 extern std::array<void*, 4> g_textures;
 extern std::array<uint32_t, 4> g_border_colours;
-extern uint32_t g_pixel_shader_locked;
+extern const void* g_pixel_shader_locked;
 extern void* g_current_pixel_shader;
 extern std::array<float, 20> g_ps_constant_bank;
 extern uint32_t g_instance_colour_on;

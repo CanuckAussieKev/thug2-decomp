@@ -13,8 +13,8 @@
 #include "engine/gfx/light_manager.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
 
 namespace render {
 
@@ -192,9 +192,9 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         if (light->type == 1) {
             const double factor = (1.0 - falloff) * light->intensity * kPer255;
             float* out = light_color_constant(first_dynamic_ + j);
-            const auto* colour = raw::bytes(&light->colour); // (its r, g, b bytes)
+            const colour::Bytes colour = colour::bytes_of(light->colour); // (its r, g, b bytes)
             for (int k = 0; k < 3; ++k)
-                out[k] = static_cast<float>(colour[k] * factor);
+                out[k] = static_cast<float>(core::at(colour, k) * factor);
         }
     }
 }

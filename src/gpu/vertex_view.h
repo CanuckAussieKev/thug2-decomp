@@ -7,6 +7,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "engine/core/raw_view.h"
+
 // NOT ORIGINAL - a vertex buffer's bytes (the copy kept in memory, or a mesh file's vertex block) read and written
 // by attribute: `stride` bytes per vertex, each attribute a run of floats at its offset in the vertex (the position
 // at 0, then whatever the mesh's vertex format puts where). The game above the boundary reads positions, normals and
@@ -93,5 +95,17 @@ private:
     uint8_t* bytes_;
     size_t stride_;
 };
+
+// A vertex buffer of one drawn layout V (a record the card reads: the PC primitives' VertexColour...), its vertex
+// `index` in place; and the position (three floats at the start) of vertex `index` in a buffer of any layout.
+template <typename V>
+V& record_at(uint8_t* vertices, size_t index)
+{
+    return raw::as<V>(vertices)[index];
+}
+inline float* position_at(uint8_t* vertices, size_t stride, size_t index)
+{
+    return raw::field_at<float>(vertices, stride * index);
+}
 
 } // namespace gpu

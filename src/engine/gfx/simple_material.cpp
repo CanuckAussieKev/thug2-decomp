@@ -12,7 +12,6 @@
 #include "engine/file/file_load.h"
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 #include <gsl/pointers>
@@ -116,7 +115,9 @@ int skip_file_chunk(void* file)
 // 0x004DA710
 int skip_memory_chunk(uint8_t** data)
 {
-    *data = *data + *raw::field_at<uint32_t>(*data, 4) + 8;
+    uint32_t size = 0; // (the chunk's: its second word)
+    std::memcpy(&size, *data + 4, sizeof(size));
+    *data = *data + size + 8;
     return 0;
 }
 

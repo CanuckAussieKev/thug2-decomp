@@ -19,7 +19,6 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
@@ -101,7 +100,7 @@ long MeshRef::apply_vertex_colors()
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         const int index = int{static_cast<int8_t>(per_vertex_bytes_[i])};
         if (index)
-            *raw::as<uint32_t>(out) = colors[index - 1];
+            std::memcpy(out, &colors[index - 1], sizeof(uint32_t)); // (the vertex's colour word)
         out += stride;
     }
     return core::at(vertex_buffers_, current_vertex_buffer_)->get_unlock();

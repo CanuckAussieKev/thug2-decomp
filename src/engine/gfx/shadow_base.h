@@ -9,6 +9,7 @@
 namespace render {
 
 struct TextureRef;
+struct MeshRef;
 
 // A shadow caster (the table's values).
 struct ShadowCaster {
@@ -37,7 +38,7 @@ void draw_shadow_volumes(const void* scene, int viewport); // (the viewport isn'
 // 0x004DBBD0: each caster's model into its shadow texture.
 void render_shadow_textures();
 // 0x004DBF50: each caster's shadow onto the meshes in view (`meshes`, `count`).
-void draw_shadows(const void* unused, void* const* meshes, int count);
+void draw_shadows(const void* unused, MeshRef* const* meshes, int count);
 // 0x004DDC90: a new caster drawing `model` into `target` (its key), with identity view and projection.
 void add_shadow_caster(TextureRef* target, void* model, uint32_t unknown);
 // 0x004DB0A0: remove the caster with this key (freed).

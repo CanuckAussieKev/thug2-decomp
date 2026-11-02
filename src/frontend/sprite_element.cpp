@@ -100,7 +100,7 @@ void TextureElement::change_traits(Struct* params)
     uint32_t texture = 0;
     if (params->read_hash_value(kTexture, &texture, 0)) {
         texture_ = texture;
-        piece_->set_texture(static_cast<uint8_t*>(find_texture(texture)));
+        piece_->set_texture(static_cast<render::BitmapTexture*>(find_texture(texture)));
         object_flags_ |= kVisibleNow;
     }
     float angle = 0.0f;
@@ -157,7 +157,7 @@ void ImageWidget::set_texture(uint32_t texture)
 {
     texture_ = texture;
     void* found = find_texture(texture);
-    quad_->set_texture(static_cast<uint8_t*>(found));
+    quad_->set_texture(static_cast<render::BitmapTexture*>(found));
     auto height = static_cast<float>(texels_down(found));
     auto width = static_cast<float>(texels_across(found));
     fit_to_size(width, height, 0);

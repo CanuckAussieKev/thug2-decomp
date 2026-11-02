@@ -4,20 +4,11 @@
 #include <cstdint>
 
 #include "engine/gfx/draw2d.h"
+#include "engine/gfx/bitmap_texture.h"
 
 // 2D sprites: a texture drawn as a quad in the 640x480 screen layout (Nx engine, PC). The front end's sprite
 // screen elements draw through these.
 namespace render {
-
-// The size of a sprite's texture: the image's own size and the (power-of-two) size of the texture holding it.
-struct SpriteTexture {
-    uint32_t unknown0;
-    uint16_t base_width_, base_height_;     // the texture's
-    uint16_t actual_width_, actual_height_; // the image's, at the texture's top left
-    uint32_t unknownc_;
-    void* device_texture_; // +0x10 what the device is given
-};
-static_assert(offsetof(SpriteTexture, actual_width_) == 8, "layout must match the original");
 
 // A sprite. Virtual (vtable 0x0064AD28): [0] destructor 0x4DFCC0, [1] open_sketch 0x4DF990, [2] Draw, [3] close_sketch
 // 0x4DFA40. Built on the base of things drawn in priority order (vtable 0x0064AD18, as GlyphRun - see text.h).
@@ -28,7 +19,7 @@ public:
     // 0x004DFC80 (0x004DFCC0 the scalar deleting destructor): the base's (out of the draw list).
     ~QuadSprite() override = default;
 
-    SpriteTexture* texture{nullptr}; // or null: the whole of whatever texture is set
+    const TextureImage* texture{nullptr}; // its image (sizes, device texture); or null: the whole of whatever texture is set
     float x{}, y{};         // position (of the hot spot), in 640x480 screen layout units
     uint16_t width{}, height{}; // in pixels at scale 1
     float xscale{}, yscale{};   // negative: mirrored

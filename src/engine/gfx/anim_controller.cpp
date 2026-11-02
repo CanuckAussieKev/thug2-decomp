@@ -30,7 +30,6 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/script_startup.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 
@@ -192,7 +191,7 @@ StandardAnimController::~StandardAnimController()
 bool StandardAnimController::fetch_pose(Stance* pose)
 {
     if (frame_index_ == -1) {
-        if (*raw::field_at<int>(static_cast<uint8_t*>(frame_source_), 0x24))
+        if (static_cast<JointClipFrames*>(frame_source_)->cache_slot_) // (in the animation cache)
             frame_index_ = frame_index(frame_source_);
         else
             frame_source_ = source_frame(blend_source_, false);

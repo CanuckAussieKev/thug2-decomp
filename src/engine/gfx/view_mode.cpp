@@ -17,7 +17,6 @@
 #include "platform/run_log.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render::view_mode {
@@ -127,11 +126,10 @@ void* make_twin(void* original, Twin* twin)
     }
     void* code = nullptr;
     void* errors = nullptr;
-    void* made = nullptr;
+    IDirect3DPixelShader9* made = nullptr;
     const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
     if (result >= 0 && code && input_port())
-        input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)),
-                                        raw::as<IDirect3DPixelShader9*>(&made));
+        input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
     if (!made && !g_assemble_failed_logged) {
         g_assemble_failed_logged = true;
         get_log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",

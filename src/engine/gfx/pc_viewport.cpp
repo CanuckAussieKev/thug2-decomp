@@ -21,7 +21,6 @@
 #include "engine/gfx/glow.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -29,8 +28,18 @@ namespace render {
 std::array<uint8_t, 1024> g_occlusion_slots{{1}};
 namespace {
 uint32_t g_occlusion_pixels;
-std::array<float, 20> g_query_rect_strip;
-std::array<uint32_t, 16> g_query_point_strip;
+// The queries' strips: four pre-transformed corners (x, y, z, rhw, colour) for a rectangle, four points (x, y, z,
+// colour) for a point.
+struct QueryRectVertex {
+    float x, y, z, rhw;
+    uint32_t colour;
+};
+struct QueryPointVertex {
+    float x, y, z;
+    uint32_t colour;
+};
+std::array<QueryRectVertex, 4> g_query_rect_strip;
+std::array<QueryPointVertex, 4> g_query_point_strip;
 
 float g_virtual_screen_height{448.0f};
 float g_virtual_screen_width{640.0f};
@@ -107,14 +116,9 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
     change_phase(kZWrite, 0);
     input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    auto* strip = g_query_point_strip.data(); // (four vertices: position, colour)
-    for (int k = 0; k < 4; ++k) {
-        strip[4 * k] = raw::as<const uint32_t>(point)[0];
-        strip[4 * k + 1] = raw::as<const uint32_t>(point)[1];
-        strip[4 * k + 2] = raw::as<const uint32_t>(point)[2];
-        strip[4 * k + 3] = 0xFFFFFFFF;
-    }
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, strip, 0x10);
+    for (QueryPointVertex& vertex : g_query_point_strip)
+        vertex = {point->x, point->y, point->z, 0xFFFFFFFF};
+    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, g_query_point_strip.data(), sizeof(QueryPointVertex));
     end_query_draw(query);
     return query;
 }
@@ -127,17 +131,12 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
     input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     change_phase(kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
-    struct Vertex {
-        float x, y, z, rhw;
-        uint32_t colour;
-    };
-    auto* strip = raw::as<Vertex>(g_query_rect_strip.data());
     auto depth = static_cast<float>(static_cast<double>(z));
-    strip[0] = {x0, y0, depth, 1.0f, 0xFFFFFFFF};
-    strip[1] = {x0, y1, depth, 1.0f, 0xFFFFFFFF};
-    strip[2] = {x1, y0, depth, 1.0f, 0xFFFFFFFF};
-    strip[3] = {x1, y1, depth, 1.0f, 0xFFFFFFFF};
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, strip, 0x14);
+    g_query_rect_strip = {{{x0, y0, depth, 1.0f, 0xFFFFFFFF},
+                           {x0, y1, depth, 1.0f, 0xFFFFFFFF},
+                           {x1, y0, depth, 1.0f, 0xFFFFFFFF},
+                           {x1, y1, depth, 1.0f, 0xFFFFFFFF}}};
+    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, g_query_rect_strip.data(), sizeof(QueryRectVertex));
     end_query_draw(query);
     return query;
 }

@@ -29,8 +29,6 @@
 #include "platform/crt.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 
@@ -54,9 +52,9 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 gsl::owner<MaterialRef*> construct_material(void* memory) { return new (memory) MaterialRef; }
 void destroy_material(MaterialRef* material) { material->~MaterialRef(); }
 void set_material_states(MaterialRef* material) { material->submit_states(); }
-void change_material_layer(MaterialRef* material, int pass, int flags)
+void change_material_layer(MaterialRef* material, int pass)
 {
-    material->submit_pass(pass, cell::pointer<const float>(static_cast<intptr_t>(flags)));
+    material->submit_pass(pass, nullptr); // (the original passed 0 as the colour: not read)
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const BitmapTexture* find_texture(uint32_t checksum) { return g_particle_texture_dict->fetch_skin(checksum); }
@@ -359,7 +357,7 @@ void PcParticleSystem::draw(bool advance)
     }
 
     set_material_states(material);
-    change_material_layer(material, 0, 0);
+    change_material_layer(material, 0);
     std::array<float, 3> r{};
     std::array<float, 3> u{};
     camera_axes(r, u);
