@@ -25,6 +25,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::nodes {
 
@@ -537,7 +538,7 @@ std::string get_name_text(uint32_t checksum)
     if (const char* name = object_edit::get_name_of(checksum))
         return name;
     std::array<char, 16> hex{};
-    std::snprintf(hex.data(), sizeof(hex), "#%08X", checksum);
+    text::format_to(hex, "#%08X", checksum);
     return hex.data();
 }
 
@@ -555,11 +556,11 @@ std::string array_text(script::Array* array, int depth)
         std::array<char, 48> buffer{};
         switch (array->kind_tag_) {
         case script::kQbvalInteger:
-            std::snprintf(buffer.data(), sizeof(buffer), "%d", static_cast<int>(array->fetch_part(i)));
+            text::format_to(buffer, "%d", static_cast<int>(array->fetch_part(i)));
             text += buffer.data();
             break;
         case script::kQbvalFloat:
-            std::snprintf(buffer.data(), sizeof(buffer), "%g", array->fetch_float(i));
+            text::format_to(buffer, "%g", array->fetch_float(i));
             text += buffer.data();
             break;
         case script::kQbvalName:
@@ -586,21 +587,22 @@ std::string value_text(script::Component* c, int depth)
     std::array<char, 96> buffer{};
     switch (c->kind_tag()) {
     case script::kQbvalInteger:
-        std::snprintf(buffer.data(), sizeof(buffer), "%d", c->value.integer());
+        text::format_to(buffer, "%d", c->value.integer());
         return buffer.data();
     case script::kQbvalFloat:
-        std::snprintf(buffer.data(), sizeof(buffer), "%g", c->value.real());
+        text::format_to(buffer, "%g", c->value.real());
         return buffer.data();
     case script::kQbvalString:
     case script::kQbvalInlineText:
         return std::string("\"") + (c->value.text() ? c->value.text() : "") + "\"";
     case script::kQbvalPair:
         if (c->value.pair())
-            std::snprintf(buffer.data(), sizeof(buffer), "(%g, %g)", c->value.pair()->x, c->value.pair()->y);
+            text::format_to(buffer, "(%g, %g)", c->value.pair()->x, c->value.pair()->y);
         return c->value.pair() ? buffer.data() : "()";
     case script::kQbvalVector:
         if (c->value.vector())
-            std::snprintf(buffer.data(), sizeof(buffer), "(%.2f, %.2f, %.2f)", c->value.vector()->x, c->value.vector()->y, c->value.vector()->z);
+            text::format_to(buffer, "(%.2f, %.2f, %.2f)", c->value.vector()->x, c->value.vector()->y,
+                            c->value.vector()->z);
         return c->value.vector() ? buffer.data() : "()";
     case script::kQbvalName:
         return get_name_text(c->value.word());

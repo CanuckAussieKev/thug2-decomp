@@ -29,6 +29,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -270,7 +271,7 @@ float rise_height(float vertical_speed, float gravity)
 std::string span_to(float units)
 {
     std::array<char, 48> text{};
-    std::snprintf(text.data(), sizeof(text), "%.0f (%.1f ft)", units, units / 12.0f);
+    text::format_to(text, "%.0f (%.1f ft)", units, units / 12.0f);
     return text.data();
 }
 
@@ -339,8 +340,8 @@ void read_physics()
     stat_value(physics, kMaxSpeed, p.speed_stat_, &core::at(p.speeds, 1));
     stat_value(physics, kSpeedCapStat, p.speed_stat_, &core::at(p.speeds, 2));
     std::array<char, 96> source{};
-    std::snprintf(source.data(), sizeof(source), "%s, speed stat %.1f, ollie stat %.1f",
-                  skater ? "the skater's physics" : "skater_physics", p.speed_stat_, p.ollie_stat_);
+    text::format_to(source, "%s, speed stat %.1f, ollie stat %.1f", skater ? "the skater's physics" : "skater_physics",
+                    p.speed_stat_, p.ollie_stat_);
     p.source = source.data();
     physics_state() = p;
 }
@@ -503,8 +504,8 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
         (void)painter.get_seg(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
         (void)painter.get_seg(lip.point, lip.point + lip.tangent * 40.0f, 0xC0FFFFFF, 1.5f);
         std::array<char, 96> label{};
-        std::snprintf(label.data(), sizeof(label), "lip %.0f high, %.0f deg%s", lip.height,
-                      std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * 57.29578f, lip.vert ? " (vert)" : "");
+        text::format_to(label, "lip %.0f high, %.0f deg%s", lip.height,
+                        std::asin(std::clamp(lip.tangent.y, -1.0f, 1.0f)) * 57.29578f, lip.vert ? " (vert)" : "");
         painter.draw_label(lip.point, 0xFFFFFFFF, label.data(), 6.0f, 6.0f);
         for (int i = 0; i < kSpeeds; ++i) {
             const uint32_t colour = speed_colour(i);
@@ -532,7 +533,7 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             const float across = std::sqrt(gap.x * gap.x + gap.z * gap.z);
             std::string text = std::string(speed_name(i)) + ": " + span_to(across);
             std::array<char, 48> drop{};
-            std::snprintf(drop.data(), sizeof(drop), gap.y < 0.0f ? ", %.0f lower" : ", %.0f higher", std::fabs(gap.y));
+            text::format_to(drop, ", %.0f %s", std::fabs(gap.y), gap.y < 0.0f ? "lower" : "higher");
             text += drop.data();
             if (std::fabs(flight.normal.y) < 0.5f)
                 text += " - hits a wall";
@@ -553,17 +554,16 @@ std::string describe()
         return "Jump Arcs: no lip found";
     const LipArcs& first = g_cache.arcs.front();
     if (first.lip.vert)
-        std::snprintf(text.data(), sizeof(text), "jump arcs: %d lips; vert - rises %.0f at top speed",
-                      static_cast<int>(g_cache.arcs.size()), core::at(first.rise, 1));
+        text::format_to(text, "jump arcs: %d lips; vert - rises %.0f at top speed",
+                        static_cast<int>(g_cache.arcs.size()), core::at(first.rise, 1));
     else if (core::at(first.flights, 1).landed)
-        std::snprintf(
-            text.data(), sizeof(text), "jump arcs: %d lips; lands %.0f out at top speed",
-            static_cast<int>(g_cache.arcs.size()),
-            std::sqrt(
-                (core::at(first.flights, 1).landing.x - first.lip.point.x) * (core::at(first.flights, 1).landing.x - first.lip.point.x) +
-                (core::at(first.flights, 1).landing.z - first.lip.point.z) * (core::at(first.flights, 1).landing.z - first.lip.point.z)));
+        text::format_to(text, "jump arcs: %d lips; lands %.0f out at top speed", static_cast<int>(g_cache.arcs.size()),
+                        std::sqrt((core::at(first.flights, 1).landing.x - first.lip.point.x) *
+                                      (core::at(first.flights, 1).landing.x - first.lip.point.x) +
+                                  (core::at(first.flights, 1).landing.z - first.lip.point.z) *
+                                      (core::at(first.flights, 1).landing.z - first.lip.point.z)));
     else
-        std::snprintf(text.data(), sizeof(text), "jump arcs: %d lips", static_cast<int>(g_cache.arcs.size()));
+        text::format_to(text, "jump arcs: %d lips", static_cast<int>(g_cache.arcs.size()));
     return text.data();
 }
 

@@ -13,6 +13,7 @@
 
 #include "editor/level_editor_fields.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::changes {
 
@@ -75,7 +76,7 @@ bool is_hex8(const std::string& w)
 std::string get_num(float v)
 {
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "%.0f", v);
+    text::format_to(text, "%.0f", v);
     return text.data();
 }
 
@@ -201,7 +202,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             const std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? core::at(words, 1) : "?")
                                           : name_of(e.id, words.empty() ? "?" : core::at(words, 0));
             std::array<char, 96> text{};
-            std::snprintf(text.data(), sizeof(text), " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
+            text::format_to(text, " at (%.0f, %.0f, %.0f), heading %.0f\xC2\xB0", x, y, z, heading);
             e.summary = name + text.data() + scale_of();
         } else if (keyword == "set") {
             e.id = words.empty() ? 0 : id_of(core::at(words, 0));

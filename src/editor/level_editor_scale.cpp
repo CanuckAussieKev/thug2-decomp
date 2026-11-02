@@ -35,6 +35,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -138,9 +139,9 @@ std::string describe(V3 scale)
 {
     std::array<char, 48> text{};
     if (is_uniform_scale(scale))
-        std::snprintf(text.data(), sizeof(text), "%.2fx", scale.x);
+        text::format_to(text, "%.2fx", scale.x);
     else
-        std::snprintf(text.data(), sizeof(text), "%.2f x %.2f x %.2f", scale.x, scale.y, scale.z);
+        text::format_to(text, "%.2f x %.2f x %.2f", scale.x, scale.y, scale.z);
     return text.data();
 }
 
@@ -207,9 +208,9 @@ std::string get_token(V3 scale)
         return "";
     std::array<char, 64> text{};
     if (is_uniform_scale(scale))
-        std::snprintf(text.data(), sizeof(text), " scale=%.9g", scale.x);
+        text::format_to(text, " scale=%.9g", scale.x);
     else
-        std::snprintf(text.data(), sizeof(text), " scale=%.9g,%.9g,%.9g", scale.x, scale.y, scale.z);
+        text::format_to(text, " scale=%.9g,%.9g,%.9g", scale.x, scale.y, scale.z);
     return text.data();
 }
 

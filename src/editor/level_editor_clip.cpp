@@ -20,6 +20,7 @@
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::clip {
 
@@ -39,7 +40,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         std::string name = hooks.label ? hooks.label(checksum) : "";
         if (name.empty()) {
             std::array<char, 16> text{};
-            std::snprintf(text.data(), sizeof(text), "%08X", checksum);
+            text::format_to(text, "%08X", checksum);
             name = text.data();
         }
         return name;
@@ -75,7 +76,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         layout::CopyRecord copy = c;
         for (;;) {
             std::array<char, 64> text{};
-            std::snprintf(text.data(), sizeof(text), "level_editor_copy_%08X_p%u", c.source, ++counter);
+            text::format_to(text, "level_editor_copy_%08X_p%u", c.source, ++counter);
             copy.name = fields::hash_of_name(text.data());
             if (std::ranges::find(used_ids, copy.name) == used_ids.end() &&
                 !(hooks.id_taken_ && hooks.id_taken_(copy.name)))
@@ -403,8 +404,8 @@ std::string describe()
     std::string text;
     if (g_props.have_transform_) {
         std::array<char, 96> t{};
-        std::snprintf(t.data(), sizeof(t), "transform (%.0f, %.0f, %.0f)", g_props.transform.pos.x, g_props.transform.pos.y,
-                      g_props.transform.pos.z);
+        text::format_to(t, "transform (%.0f, %.0f, %.0f)", g_props.transform.pos.x, g_props.transform.pos.y,
+                        g_props.transform.pos.z);
         text = t.data();
     }
     if (!g_props.fields.empty())

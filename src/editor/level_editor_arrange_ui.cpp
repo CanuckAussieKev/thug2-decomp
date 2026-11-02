@@ -14,6 +14,7 @@
 #include "editor/level_editor_transform.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -71,7 +72,7 @@ void pane(float ui_scale)
         if (edge)
             ImGui::SameLine();
         std::array<char, 32> label{};
-        std::snprintf(label.data(), sizeof(label), "Align %s", core::at(kEdges, edge));
+        text::format_to(label, "Align %s", core::at(kEdges, edge));
         if (ImGui::Button(label.data())) {
             const int axis = s.axis;
             get_later([axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
@@ -144,7 +145,7 @@ void get_panel(float x, float y, float ui_scale)
     ImGui::SetNextWindowPos(ImVec2(x + 8.0f * ui_scale, y - 8.0f * ui_scale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(280.0f * ui_scale, 0.0f));
     std::array<char, 64> title{};
-    std::snprintf(title.data(), sizeof(title), "Adjust: %s (F4)###adjust_last", get_title(last.kind));
+    text::format_to(title, "Adjust: %s (F4)###adjust_last", get_title(last.kind));
     if (!ImGui::Begin(title.data(), nullptr,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                           ImGuiWindowFlags_AlwaysAutoResize)) {

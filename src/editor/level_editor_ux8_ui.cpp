@@ -16,6 +16,7 @@
 #include "editor/level_editor_ux8_pie.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ux8 {
 
@@ -299,8 +300,9 @@ void sets_menu(const Fonts& fonts)
         const int at = nav::find_group(state, name);
         ImGui::PushID(i);
         std::array<char, 64> label{};
-        std::snprintf(label.data(), sizeof(label), "%s  %s", name.c_str(),
-                      at >= 0 ? ("(" + std::to_string(core::at(state.groups, at).members.size()) + ")").c_str() : "-");
+        text::format_to(label, "%s  %s", name.c_str(),
+                        at >= 0 ? ("(" + std::to_string(core::at(state.groups, at).members.size()) + ")").c_str()
+                                : "-");
         ImGui::TextUnformatted(label.data());
         ImGui::SameLine(110.0f * s);
         if (ImGui::SmallButton("Store"))

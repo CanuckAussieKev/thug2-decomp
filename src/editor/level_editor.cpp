@@ -2411,9 +2411,9 @@ void add_node_gizmos(const TickCycle& frame, int selected)
             o.triangles.push_back({px - r, py, px + r, py, px, py + r * 1.4f, c});
             std::array<char, 16> text{};
             if (n.order >= 0)
-                std::snprintf(text.data(), sizeof(text), "#%d", n.order);
+                text::format_to(text, "#%d", n.order);
             else
-                std::snprintf(text.data(), sizeof(text), "hidden");
+                text::format_to(text, "hidden");
             o.texts.push_back({px + r + 4.0f * k, py - r * 1.4f, c, text.data()});
             break;
         }
@@ -2988,8 +2988,8 @@ std::string hover_text()
                                            : "-";
     if (g_hover_axis < 0 && g_hover_cycle >= 0) {
         std::array<char, 64> place{};
-        std::snprintf(place.data(), sizeof(place), "  (%d of %d under the cursor: click)", g_hover_cycle + 1,
-                      static_cast<int>(g_cycle.order.size()));
+        text::format_to(place, "  (%d of %d under the cursor: click)", g_hover_cycle + 1,
+                        static_cast<int>(g_cycle.order.size()));
         text += place.data();
     } else if (g_hover_axis < 0 && !g_hover_sector && !get_live(g_hover) && g_hover_passed) {
         text = "-  (passing " + scenery::describe_hover(g_hover_passed) + " - Alt+click takes it)";
@@ -3005,13 +3005,13 @@ void update_hud()
         return;
     std::array<char, 200> text{};
     // (which level: always its edited copy - never the level as shipped)
-    std::snprintf(text.data(), sizeof(text), "EDITING %.24s (EDITED COPY)   %s%s%s", layout::level_title().c_str(),
-                  mode_name(), g_unsaved ? "   (unsaved)" : "", g_offer_pending ? "   (autosave: Ctrl+R)" : "");
+    text::format_to(text, "EDITING %.24s (EDITED COPY)   %s%s%s", layout::level_title().c_str(), mode_name(),
+                    g_unsaved ? "   (unsaved)" : "", g_offer_pending ? "   (autosave: Ctrl+R)" : "");
     hud::change_strand(1, text.data());
     hud::change_strand(2, "Selected: " + describe_selection());
     hud::change_strand(3, "Under the cursor: " + hover_text());
-    std::snprintf(text.data(), sizeof(text), "Camera (%.0f, %.0f, %.0f)  speed %.0f    %d changes    %d pieces moved", g_pos.x,
-                  g_pos.y, g_pos.z, g_speed, g_moves, scenery::get_moved_count());
+    text::format_to(text, "Camera (%.0f, %.0f, %.0f)  speed %.0f    %d changes    %d pieces moved", g_pos.x, g_pos.y,
+                    g_pos.z, g_speed, g_moves, scenery::get_moved_count());
     hud::change_strand(4, text.data());
     // (each line at most 90 characters with its colour codes - 6 a key)
     if (g_browser.open) {
@@ -3598,7 +3598,7 @@ void move_selected_crown(int delta)
     if (now >= 0) {
         select_node_only(now);
         std::array<char, 96> text{};
-        std::snprintf(text.data(), sizeof(text), "Now crown #%d", core::at(nodes::get_all(), now).order);
+        text::format_to(text, "Now crown #%d", core::at(nodes::get_all(), now).order);
         hud::get_message(text.data());
     }
     note_online_change(family, nodes::caption(name).c_str(), "reordered");
@@ -3818,7 +3818,7 @@ ui::ShapeMesh assemble_model()
                 if (scenery::cuboid(checksum, &box)) {
                     std::array<char, 48> size{};
                     const V3 extent = box_size(box);
-                    std::snprintf(size.data(), sizeof(size), "%.0f x %.0f x %.0f", extent.x, extent.y, extent.z);
+                    text::format_to(size, "%.0f x %.0f x %.0f", extent.x, extent.y, extent.z);
                     member.size = size.data();
                 }
                 s.members.push_back(member);
@@ -3998,8 +3998,8 @@ void fill_browser()
             OrientedBox box{};
             std::array<char, 48> size = {""};
             if (scenery::cuboid(checksum, &box))
-                std::snprintf(size.data(), sizeof(size), "  %.0f x %.0f x %.0f", box.max.x - box.min.x, box.max.y - box.min.y,
-                              box.max.z - box.min.z);
+                text::format_to(size, "  %.0f x %.0f x %.0f", box.max.x - box.min.x, box.max.y - box.min.y,
+                                box.max.z - box.min.z);
             g_browser.items.push_back({checksum, object_edit::caption(checksum) + size.data()});
         }
         std::ranges::sort(g_browser.items,
@@ -4016,8 +4016,8 @@ void show_browser()
 {
     std::vector<std::string> lines;
     std::array<char, 96> title{};
-    std::snprintf(title.data(), sizeof(title), "ADD   %s / %s   (%d)", g_browser.tab == 0 ? "SCENERY" : "scenery",
-                  g_browser.tab == 1 ? "OBJECTS" : "objects", static_cast<int>(g_browser.items.size()));
+    text::format_to(title, "ADD   %s / %s   (%d)", g_browser.tab == 0 ? "SCENERY" : "scenery",
+                    g_browser.tab == 1 ? "OBJECTS" : "objects", static_cast<int>(g_browser.items.size()));
     lines.emplace_back(title.data());
     const int count = static_cast<int>(g_browser.items.size());
     if (g_browser.index < g_browser.top)
@@ -4340,8 +4340,7 @@ void switch_scenery_collision(bool off)
         return;
     push_undo(step, "Collision on / off");
     std::array<char, 160> text{};
-    std::snprintf(text.data(), sizeof(text), off ? "Collision off (%d piece%s)" : "Collision on (%d piece%s)", changed,
-                  changed == 1 ? "" : "s");
+    text::format_to(text, "Collision %s (%d piece%s)", off ? "off" : "on", changed, changed == 1 ? "" : "s");
     hud::get_message(text.data());
     note_action("scenery collision %s (%d pieces)", off ? "off" : "on", changed);
 }
@@ -4540,8 +4539,7 @@ void note_click_for_cycle(float x, float y, V3 dir, bool plain)
     }
     if (g_cycle.index >= 0 && g_cycle.order.size() > 1) {
         std::array<char, 64> text{};
-        std::snprintf(text.data(), sizeof(text), "%d of %d under cursor", g_cycle.index + 1,
-                      static_cast<int>(g_cycle.order.size()));
+        text::format_to(text, "%d of %d under cursor", g_cycle.index + 1, static_cast<int>(g_cycle.order.size()));
         hud::get_message(text.data(), 2.5);
     }
 }
@@ -4607,7 +4605,7 @@ void view_hide(bool isolate)
         unpick();
     note_action("view: %s (%d hidden)", isolate ? "isolated" : "hid", count);
     std::array<char, 128> text{};
-    std::snprintf(text.data(), sizeof(text), "%s %d in editor", isolate ? "Isolated: hid" : "Hid", count);
+    text::format_to(text, "%s %d in editor", isolate ? "Isolated: hid" : "Hid", count);
     hud::get_message(text.data());
 }
 
@@ -4640,7 +4638,7 @@ void toggle_lock()
     if (locks.empty() && !g_node_selected && !picking::get_locks().empty()) {
         // (nothing selected: every lock dropped - the old HUD has no Inspector to unlock one)
         std::array<char, 64> text{};
-        std::snprintf(text.data(), sizeof(text), "Unlocked %d", static_cast<int>(picking::get_locks().size()));
+        text::format_to(text, "Unlocked %d", static_cast<int>(picking::get_locks().size()));
         push_locks_undo(); // (one undo step - unsaved with it)
         picking::clear_locks();
         hud::get_message(text.data());
@@ -5375,7 +5373,7 @@ void drill_through(int steps, float x, float y, V3 dir)
     g_cycle.index = nav::cycle_index_showing(at, count);
     g_drilled = true;
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), "%d of %d under cursor", at + 1, count);
+    text::format_to(text, "%d of %d under cursor", at + 1, count);
     hud::get_message(text.data(), 2.0);
 }
 
@@ -6650,16 +6648,15 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
     out.emplace_back("mode", std::string(model.mode ? model.mode : "") +
                                  (ui::underway() ? " (Dear ImGui panels)" : " (old HUD)"));
     out.emplace_back("level", model.level);
-    std::snprintf(text.data(), sizeof(text), "(%.1f, %.1f, %.1f)", g_pos.x, g_pos.y, g_pos.z);
+    text::format_to(text, "(%.1f, %.1f, %.1f)", g_pos.x, g_pos.y, g_pos.z);
     out.emplace_back("camera", text.data());
-    std::snprintf(text.data(), sizeof(text), "yaw %.1f, pitch %.1f degrees", g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
+    text::format_to(text, "yaw %.1f, pitch %.1f degrees", g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
     out.emplace_back("camera turn", text.data());
     out.emplace_back("selected", model.selected);
     // The view options (level_editor_view.h).
-    std::snprintf(text.data(), sizeof(text),
-                  "collision %s (%d faces, %d pieces, %d invisible walls%s), %d hidden in the editor",
-                  model.view.collision ? "shown" : "off", model.view.triangles, model.view.sectors, model.view.walls,
-                  model.view.capped ? ", capped" : "", model.view.hidden);
+    text::format_to(text, "collision %s (%d faces, %d pieces, %d invisible walls%s), %d hidden in the editor",
+                    model.view.collision ? "shown" : "off", model.view.triangles, model.view.sectors, model.view.walls,
+                    model.view.capped ? ", capped" : "", model.view.hidden);
     out.emplace_back("view", text.data());
     out.emplace_back("triggers", std::string(triggers::get_shown() ? "shown: " : "hidden: ") + triggers::describe());
     out.emplace_back("goals", goal_edit::describe());
@@ -6667,38 +6664,36 @@ std::vector<std::pair<std::string, std::string>> describe_for_screenshot()
         out.emplace_back("invisible wall", model.view.wall_name_ + ": " + model.view.wall_info_);
     const ui::ShapeMesh::Selection& sel = model.selection;
     if (!sel.kind.empty()) {
-        std::snprintf(text.data(), sizeof(text), "%s %s at (%.1f, %.1f, %.1f)", sel.kind.c_str(), sel.name.c_str(), sel.pos.x,
-                      sel.pos.y, sel.pos.z);
+        text::format_to(text, "%s %s at (%.1f, %.1f, %.1f)", sel.kind.c_str(), sel.name.c_str(), sel.pos.x, sel.pos.y,
+                        sel.pos.z);
         out.emplace_back("selection", text.data());
     }
     if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
         const nodes::Elem& node = core::at(nodes::get_all(), model.nodes.selected);
-        std::snprintf(text.data(), sizeof(text), "%s (%s, %s) at (%.1f, %.1f, %.1f)%s%s", nodes::caption(node.name).c_str(),
-                      nodes::caption(node.cls).c_str(), nodes::family_name(node.family), node.pos.x, node.pos.y,
-                      node.pos.z, node.added ? ", added" : "", node.hidden ? ", hidden" : "");
+        text::format_to(text, "%s (%s, %s) at (%.1f, %.1f, %.1f)%s%s", nodes::caption(node.name).c_str(),
+                        nodes::caption(node.cls).c_str(), nodes::family_name(node.family), node.pos.x, node.pos.y,
+                        node.pos.z, node.added ? ", added" : "", node.hidden ? ", hidden" : "");
         out.emplace_back("inspected node", text.data());
     }
     out.emplace_back("under the cursor", model.hover);
     // (the view menus - level_editor_overlays.h: the view mode, the overlays' bits, the arcs, the ruler, the rail shown)
-    std::snprintf(text.data(), sizeof(text), "%s, overlays 0x%03X", overlays::view_mode_name(overlays::view_mode()),
-                  overlays::at_hand());
+    text::format_to(text, "%s, overlays 0x%03X", overlays::view_mode_name(overlays::view_mode()), overlays::at_hand());
     out.emplace_back("view mode", text.data());
     for (const std::string& line : {arcs::describe(), ruler::describe(), grind_preview::describe()})
         if (!line.empty())
             out.emplace_back("measure", line);
     if (const std::string ux9 = ux9::describe(); !ux9.empty())
         out.emplace_back("ux9", ux9);
-    std::snprintf(text.data(), sizeof(text), "%d changes, %d pieces moved%s", model.changes, model.moved,
-                  model.unsaved ? ", unsaved" : "");
+    text::format_to(text, "%d changes, %d pieces moved%s", model.changes, model.moved,
+                    model.unsaved ? ", unsaved" : "");
     out.emplace_back("changes", text.data());
     // (UX5) the problem checker's last count (the level's own and ignored ones left out) and the notes
     {
         int errors = 0, warnings = 0, infos = 0;
         checks::shown_counts(&errors, &warnings, &infos);
-        std::snprintf(text.data(), sizeof(text),
-                      "%d errors, %d warnings, %d notes; %u layout records unresolved; %u note pins", errors, warnings,
-                      infos, static_cast<unsigned>(checks::layout_issues().size()),
-                      static_cast<unsigned>(notes::get_all().size()));
+        text::format_to(text, "%d errors, %d warnings, %d notes; %u layout records unresolved; %u note pins", errors,
+                        warnings, infos, static_cast<unsigned>(checks::layout_issues().size()),
+                        static_cast<unsigned>(notes::get_all().size()));
         out.emplace_back("problems", text.data());
     }
     if (!model.message.empty())

@@ -28,6 +28,7 @@
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::organize {
 
@@ -45,7 +46,7 @@ std::string get_lower(std::string text)
 std::string hex_text(uint32_t value)
 {
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "%08X", value);
+    text::format_to(text, "%08X", value);
     return text.data();
 }
 
@@ -852,12 +853,12 @@ void apply_box()
     std::array<char, 160> text{};
     if (!objects.empty() || (op == 2 && !now.objects.empty())) {
         next.objects = combine(now.objects, objects, op);
-        std::snprintf(text.data(), sizeof(text), "Box (%s): %d objects - %d selected", how, static_cast<int>(objects.size()),
-                      static_cast<int>(next.objects.size()));
+        text::format_to(text, "Box (%s): %d objects - %d selected", how, static_cast<int>(objects.size()),
+                        static_cast<int>(next.objects.size()));
     } else if (!sectors.empty() || (op == 2 && !now.sectors.empty())) {
         next.sectors = combine(now.sectors, sectors, op);
-        std::snprintf(text.data(), sizeof(text), "Box (%s): %d scenery pieces - %d selected", how,
-                      static_cast<int>(sectors.size()), static_cast<int>(next.sectors.size()));
+        text::format_to(text, "Box (%s): %d scenery pieces - %d selected", how, static_cast<int>(sectors.size()),
+                        static_cast<int>(next.sectors.size()));
     } else {
         // (no objects or scenery: the point node nearest the box's middle - nodes select one at a time)
         uint32_t best = 0;
@@ -884,9 +885,9 @@ void apply_box()
         }
         if (best && op != 2) {
             next.node = best;
-            std::snprintf(text.data(), sizeof(text), "Box: %d nodes, nearest selected", in_box);
+            text::format_to(text, "Box: %d nodes, nearest selected", in_box);
         } else if (op == 0) {
-            std::snprintf(text.data(), sizeof(text), "Box (%s): nothing there", how);
+            text::format_to(text, "Box (%s): nothing there", how);
         } else {
             return; // (adding / removing nothing: the selection stays)
         }

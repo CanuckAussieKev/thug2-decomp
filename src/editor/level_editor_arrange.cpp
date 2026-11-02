@@ -46,6 +46,7 @@
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -212,18 +213,18 @@ std::vector<std::string> readout_lines(const Readout& r)
 {
     std::vector<std::string> lines;
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), "size %.0f x %.0f x %.0f", r.size.x, r.size.y, r.size.z);
+    text::format_to(text, "size %.0f x %.0f x %.0f", r.size.x, r.size.y, r.size.z);
     lines.emplace_back(text.data());
     if (r.moved >= 0.5f) {
-        std::snprintf(text.data(), sizeof(text), "moved %.0f", r.moved);
+        text::format_to(text, "moved %.0f", r.moved);
         lines.emplace_back(text.data());
     }
     if (r.have_ground_) {
-        std::snprintf(text.data(), sizeof(text), "above ground %.0f", r.above);
+        text::format_to(text, "above ground %.0f", r.above);
         lines.emplace_back(text.data());
     }
     if (r.have_rail_) {
-        std::snprintf(text.data(), sizeof(text), "%s %.0f", r.ledge ? "ledge" : "rail", r.rail);
+        text::format_to(text, "%s %.0f", r.ledge ? "ledge" : "rail", r.rail);
         lines.emplace_back(text.data());
     }
     return lines;
@@ -529,12 +530,12 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
     const std::vector<float> moves = align_moves(spans, edge, reference);
     move_units(selection, units, core::at(axes, axis), moves);
     std::array<char, 128> text{};
-    std::snprintf(text.data(), sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()),
-                  edge == Edge::kMin   ? "min"
-                  : edge == Edge::kMax ? "max"
-                                       : "centre",
-                  get_axis_name(axis), local ? "local" : "world",
-                  reference == Reference::kFirst ? "the first" : "the bounds");
+    text::format_to(text, "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()),
+                    edge == Edge::kMin   ? "min"
+                    : edge == Edge::kMax ? "max"
+                                         : "centre",
+                    get_axis_name(axis), local ? "local" : "world",
+                    reference == Reference::kFirst ? "the first" : "the bounds");
     hud::get_message(text.data(), 4.0);
     adjust::ActStep action;
     action.kind = adjust::Kind::kJustify;
@@ -563,8 +564,8 @@ bool distribute(int axis, bool gaps, bool local)
         spans.push_back(span_along(unit.corners, core::at(axes, axis)));
     move_units(selection, units, core::at(axes, axis), distribute_moves(spans, gaps));
     std::array<char, 128> text{};
-    std::snprintf(text.data(), sizeof(text), "Distributed %d pieces along %s (%s)", static_cast<int>(units.size()),
-                  get_axis_name(axis), gaps ? "equal gaps" : "evenly spaced centres");
+    text::format_to(text, "Distributed %d pieces along %s (%s)", static_cast<int>(units.size()), get_axis_name(axis),
+                    gaps ? "equal gaps" : "evenly spaced centres");
     hud::get_message(text.data(), 4.0);
     adjust::ActStep action;
     action.kind = adjust::Kind::kDistribute;
@@ -722,8 +723,7 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
     if (!made.empty())
         edit::choose_one({edit::Kind::kObject, made});
     std::array<char, 160> text{};
-    std::snprintf(text.data(), sizeof(text), "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()),
-                  swaps);
+    text::format_to(text, "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()), swaps);
     hud::get_message(text.data(), 5.0);
     get_log("level editor: replace with %s: %d copies made again, %d model swaps", object_edit::caption(source).c_str(),
             static_cast<int>(made.size()), swaps);
@@ -956,8 +956,7 @@ bool edge_click(float x, float y)
     const platform::KeyState keys = platform::keyboard_keys();
     const bool more = core::at(keys, SDL_SCANCODE_LSHIFT) || core::at(keys, SDL_SCANCODE_RSHIFT);
     std::array<char, 128> text{};
-    std::snprintf(text.data(), sizeof(text), "Rail added: %d points, %.0f long", static_cast<int>(run.points.size()),
-                  run.length);
+    text::format_to(text, "Rail added: %d points, %.0f long", static_cast<int>(run.points.size()), run.length);
     // (Shift: the piece stays selected for the next edge; else the rail's first point is selected)
     edit::chain_changed(&before, more ? 0 : select, text.data());
     if (more)
@@ -1393,7 +1392,7 @@ void add_edges(const Painter& p)
             p.get_seg(core::at(core::at(runs, r).points, i - 1), core::at(core::at(runs, r).points, i), lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
         if (lit) {
             std::array<char, 48> text{};
-            std::snprintf(text.data(), sizeof(text), "rail here: %.0f long", core::at(runs, r).length);
+            text::format_to(text, "rail here: %.0f long", core::at(runs, r).length);
             float px = 0.0f, py = 0.0f;
             if (p.get_pixel(core::at(runs, r).points.front(), &px, &py))
                 p.draw_label(px + 8.0f, py - 20.0f, 0xFFFFE040, text.data());

@@ -39,6 +39,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -351,8 +352,8 @@ std::string write_record(const Goal& g)
     std::array<char, 200> buffer{};
     for (size_t i = 0; i < g.points.size(); ++i) {
         const Point& p = core::at(g.points, i);
-        std::snprintf(buffer.data(), sizeof(buffer), " p%u=%.9g,%.9g,%.9g,%.9g,%.9g", static_cast<unsigned>(i), p.pos.x,
-                      p.pos.y, p.pos.z, p.heading, p.height);
+        text::format_to(buffer, " p%u=%.9g,%.9g,%.9g,%.9g,%.9g", static_cast<unsigned>(i), p.pos.x, p.pos.y, p.pos.z,
+                        p.heading, p.height);
         out += buffer.data();
     }
     if (g.type == KindTag::kRace) {
@@ -375,7 +376,7 @@ std::string write_record(const Goal& g)
         out += " sets=" + (sets.empty() ? std::string("none") : sets);
         number("spin", g.spin);
         number("accel", g.accel_interval_);
-        std::snprintf(buffer.data(), sizeof(buffer), " accelpct=%.9g", g.accel_percent_);
+        text::format_to(buffer, " accelpct=%.9g", g.accel_percent_);
         out += buffer.data();
         number("tricktime", g.combo_time_);
         number("stopat", g.stop_at_);
@@ -632,11 +633,11 @@ std::string play_node_name(int which, int index)
 {
     std::array<char, 64> name{};
     if (which == 0)
-        std::snprintf(name.data(), sizeof(name), "TRG_EditedGoal%d_Pro", index);
+        text::format_to(name, "TRG_EditedGoal%d_Pro", index);
     else if (which == 1)
-        std::snprintf(name.data(), sizeof(name), "TRG_EditedGoal%d_Restart", index);
+        text::format_to(name, "TRG_EditedGoal%d_Restart", index);
     else
-        std::snprintf(name.data(), sizeof(name), "TRG_EditedGoal%d_Object_%d", index, which - 2);
+        text::format_to(name, "TRG_EditedGoal%d_Object_%d", index, which - 2);
     return name.data();
 }
 
@@ -1433,8 +1434,8 @@ std::string describe()
     for (const Goal& g : g_goals)
         complete += get_complete(g) ? 1 : 0;
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), "%u goals (%d complete, %u in play)", static_cast<unsigned>(g_goals.size()),
-                  complete, static_cast<unsigned>(g_in_play.size()));
+    text::format_to(text, "%u goals (%d complete, %u in play)", static_cast<unsigned>(g_goals.size()), complete,
+                    static_cast<unsigned>(g_in_play.size()));
     return text.data();
 }
 

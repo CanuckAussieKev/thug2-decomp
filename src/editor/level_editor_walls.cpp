@@ -17,6 +17,7 @@
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/geom.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::walls {
 
@@ -355,11 +356,11 @@ std::string describe_state(uint32_t checksum)
     const bool moved = get_moved(checksum, &placement);
     std::array<char, 192> text{};
     if (moved)
-        std::snprintf(text.data(), sizeof(text), "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s",
-                      off ? "OFF" : "on", placement.offset.x, placement.offset.y, placement.offset.z,
-                      placement.quarters, placement.quarters == 1 ? "" : "s");
+        text::format_to(text, "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s", off ? "OFF" : "on",
+                        placement.offset.x, placement.offset.y, placement.offset.z, placement.quarters,
+                        placement.quarters == 1 ? "" : "s");
     else
-        std::snprintf(text.data(), sizeof(text), "Collision %s - where the level has it", off ? "OFF" : "on");
+        text::format_to(text, "Collision %s - where the level has it", off ? "OFF" : "on");
     return text.data();
 }
 

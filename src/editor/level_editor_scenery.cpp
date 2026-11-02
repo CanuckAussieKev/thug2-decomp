@@ -49,6 +49,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor {
 
@@ -453,9 +454,9 @@ std::string caption(uint32_t checksum)
     std::array<char, 96> text{};
     const char* name = get_name_of(checksum);
     if (name)
-        std::snprintf(text.data(), sizeof(text), "%s", name);
+        text::format_to(text, "%s", name);
     else
-        std::snprintf(text.data(), sizeof(text), "%08X", checksum);
+        text::format_to(text, "%08X", checksum);
     return text.data();
 }
 
@@ -1102,13 +1103,13 @@ std::string describe_hover(uint32_t checksum)
     if (cuboid(checksum, &box)) {
         std::array<char, 64> size{};
         const V3 size3 = box_size(box); // (scaled: level_editor_scale.h)
-        std::snprintf(size.data(), sizeof(size), "  %.0f x %.0f x %.0f", size3.x, size3.y, size3.z);
+        text::format_to(size, "  %.0f x %.0f x %.0f", size3.x, size3.y, size3.z);
         text += size.data();
     }
     if (const uint32_t cluster = cluster_of(checksum)) {
         const char* name = get_name_of(cluster);
         std::array<char, 64> line{};
-        std::snprintf(line.data(), sizeof(line), "  cluster %s", name ? name : "");
+        text::format_to(line, "  cluster %s", name ? name : "");
         text += name ? line.data() : "  (in a cluster)";
     }
     if (const char* why = why_not_movable(checksum))
@@ -1129,11 +1130,10 @@ std::string describe_selection()
         quarters = it->second.placement.quarters;
         scale = it->second.placement.scale;
     }
-    std::snprintf(more.data(), sizeof(more), "  at (%.0f, %.0f, %.0f)  turned %d", g_pivot.x, g_pivot.y, g_pivot.z,
-                  quarters * 90);
+    text::format_to(more, "  at (%.0f, %.0f, %.0f)  turned %d", g_pivot.x, g_pivot.y, g_pivot.z, quarters * 90);
     if (!is_unit_scale(scale)) {
         const size_t used = std::strlen(more.data());
-        std::snprintf(std::next(more.data(), static_cast<std::ptrdiff_t>(used)), sizeof(more) - used, "  scaled %s", scale_tool::describe(scale).c_str());
+        text::format_to(std::span(more).subspan(used), "  scaled %s", scale_tool::describe(scale).c_str());
     }
     if (g_selection.size() > 1)
         text += " + " + std::to_string(g_selection.size() - 1) + " more";
@@ -1629,7 +1629,7 @@ uint32_t get_duplicate(uint32_t source)
     mark_dirty(scene);
     get_clones().push_back({made, source, source_placement});
     std::array<char, 96> name{};
-    std::snprintf(name.data(), sizeof(name), "%s copy", caption(source).c_str());
+    text::format_to(name, "%s copy", caption(source).c_str());
     script::note_qb_name(made, name.data());
     if (debug_enabled())
         get_log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,

@@ -31,6 +31,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -205,9 +206,9 @@ std::string caption(uint32_t checksum)
     std::array<char, 96> text{};
     const char* name = get_name_of(checksum);
     if (name)
-        std::snprintf(text.data(), sizeof(text), "%s", name);
+        text::format_to(text, "%s", name);
     else
-        std::snprintf(text.data(), sizeof(text), "%08X", checksum);
+        text::format_to(text, "%08X", checksum);
     return text.data();
 }
 
@@ -371,9 +372,9 @@ std::string describe(objects::GameEntity* object)
         return "-";
     const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
     std::array<char, 200> text{};
-    std::snprintf(text.data(), sizeof(text), "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident_),
-                  caption(object->ident_).c_str(), object->at_point_.x, object->at_point_.y, object->at_point_.z,
-                  std::atan2(at.x, at.z) * 180.0f / kPi);
+    text::format_to(text, "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident_),
+                    caption(object->ident_).c_str(), object->at_point_.x, object->at_point_.y, object->at_point_.z,
+                    std::atan2(at.x, at.z) * 180.0f / kPi);
     return text.data();
 }
 
@@ -452,10 +453,10 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         std::array<char, 64> text{};
         do {
             ++g_copy_counter;
-            std::snprintf(text.data(), sizeof(text), "level_editor_copy_%08X_%d", source, g_copy_counter);
+            text::format_to(text, "level_editor_copy_%08X_%d", source, g_copy_counter);
             name = checksums::hash_from_text(text.data());
         } while (objects::find_object(name));
-        std::snprintf(text.data(), sizeof(text), "%s copy %d", caption(source).c_str(), g_copy_counter);
+        text::format_to(text, "%s copy %d", caption(source).c_str(), g_copy_counter);
         script::note_qb_name(name, text.data());
     }
     if (objects::find_object(name))

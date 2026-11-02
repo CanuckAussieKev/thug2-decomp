@@ -22,6 +22,7 @@
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::links {
 
@@ -102,12 +103,12 @@ std::string ref_text(const RefTo& ref, bool member, bool scenery)
 {
     std::array<char, 32> text{};
     if (ref.clone >= 0)
-        std::snprintf(text.data(), sizeof(text), "c%d", ref.clone);
+        text::format_to(text, "c%d", ref.clone);
     else
-        std::snprintf(text.data(), sizeof(text), "%08X", ref.id);
+        text::format_to(text, "%08X", ref.id);
     std::string out = text.data();
     if (member && scenery && (ref.quarters & 3)) {
-        std::snprintf(text.data(), sizeof(text), "@%d", ref.quarters & 3);
+        text::format_to(text, "@%d", ref.quarters & 3);
         out += text.data();
     }
     return out;
@@ -250,7 +251,7 @@ std::string fields_of(uint32_t source)
         if (!fields::get_capture(source, key, &own))
             continue;
         std::array<char, 16> hex{};
-        std::snprintf(hex.data(), sizeof(hex), "%08X=", key);
+        text::format_to(hex, "%08X=", key);
         out += hex.data();
         out += own.present ? fields::encode_value(own.value, fields::get_name_of) : std::string("-");
         out += ';';
@@ -436,11 +437,11 @@ std::string describe()
     const GroupSet& group = core::at(g_state, index);
     std::array<char, 160> text{};
     if (is_source)
-        std::snprintf(text.data(), sizeof(text), "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
-                      group.members.size() == 1 ? "y" : "ies");
+        text::format_to(text, "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
+                        group.members.size() == 1 ? "y" : "ies");
     else
-        std::snprintf(text.data(), sizeof(text), "Linked copy of %s (%d copies)", object_edit::caption(group.source).c_str(),
-                      static_cast<int>(group.members.size()));
+        text::format_to(text, "Linked copy of %s (%d copies)", object_edit::caption(group.source).c_str(),
+                        static_cast<int>(group.members.size()));
     return text.data();
 }
 

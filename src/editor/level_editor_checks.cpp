@@ -46,6 +46,7 @@
 #include "imgui.h"
 #include "engine/gfx/sector.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::checks {
 
@@ -1231,12 +1232,12 @@ void problems_tab(float scale, ImFont* mono)
         ignored += ignored_state().count(issue.key) != 0;
     }
     std::array<char, 64> label{};
-    std::snprintf(label.data(), sizeof(label), "Original Level (%d)", own);
+    text::format_to(label, "Original Level (%d)", own);
     ImGui::Checkbox(label.data(), &g_show_own);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Problems present in the original level");
     ImGui::SameLine();
-    std::snprintf(label.data(), sizeof(label), "Ignored (%d)", ignored);
+    text::format_to(label, "Ignored (%d)", ignored);
     ImGui::Checkbox(label.data(), &g_show_ignored);
     ImGui::SameLine();
     ImGui::TextDisabled(g_checked_once ? "%.0f ms" : "not checked", g_last_seconds * 1000.0);
@@ -1331,7 +1332,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         int errors = 0, warnings = 0, infos = 0;
         shown_counts(&errors, &warnings, &infos);
         std::array<char, 64> label{};
-        std::snprintf(label.data(), sizeof(label), "Problems (%d)###problemsTab", errors + warnings + infos);
+        text::format_to(label, "Problems (%d)###problemsTab", errors + warnings + infos);
         const ImGuiTabItemFlags problems_flags =
             g_tab_pending && g_tab == kProblemsTab ? ImGuiTabItemFlags_SetSelected : 0;
         const ImGuiTabItemFlags budget_flags = g_tab_pending && g_tab == kBudgetTab ? ImGuiTabItemFlags_SetSelected : 0;

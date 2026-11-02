@@ -31,6 +31,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::view {
 
@@ -702,8 +703,8 @@ std::string describe_wall(uint32_t checksum)
             ++it->second;
     }
     std::array<char, 256> text{};
-    std::snprintf(
-        text.data(), sizeof(text),
+    text::format_to(
+        text,
         "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
         "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
         tri->tri_count_, tri->num_vertices_, tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z,
@@ -711,7 +712,7 @@ std::string describe_wall(uint32_t checksum)
         tri->bounds_.max.y - tri->bounds_.min.y, tri->bounds_.max.z - tri->bounds_.min.z);
     std::string out = text.data();
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
-        std::snprintf(text.data(), sizeof(text), " 0x%04X x%d", core::at(counts, i).first, core::at(counts, i).second);
+        text::format_to(text, " 0x%04X x%d", core::at(counts, i).first, core::at(counts, i).second);
         out += text.data();
     }
     if (counts.size() > 8)

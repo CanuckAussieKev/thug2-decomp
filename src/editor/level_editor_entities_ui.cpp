@@ -18,6 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::entities {
 
@@ -112,7 +113,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
                 continue;
             }
             std::array<char, 128> buffer{};
-            std::snprintf(buffer.data(), sizeof(buffer), "%s", text.c_str());
+            text::format_to(buffer, "%s", text.c_str());
             ImGui::PushID(field);
             ImGui::SetNextItemWidth(-1.0f);
             if (ImGui::InputText("##v", buffer.data(), sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer.data())

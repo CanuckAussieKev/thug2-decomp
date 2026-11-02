@@ -44,6 +44,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::entities {
 
@@ -143,7 +144,7 @@ bool path_sample(const std::vector<V3>& points, bool closed, float distance, V3*
 std::string type_key(uint32_t cls, uint32_t type, uint32_t profile, const std::string& model)
 {
     std::array<char, 40> text{};
-    std::snprintf(text.data(), sizeof(text), "%08X:%08X:%08X:", cls, type, profile);
+    text::format_to(text, "%08X:%08X:%08X:", cls, type, profile);
     std::string key = text.data();
     for (const char c : model)
         key += static_cast<char>(std::tolower(static_cast<unsigned char>(c == '/' ? '\\' : c)));
@@ -226,14 +227,14 @@ namespace {
 void get_number(std::ostringstream& out, float value)
 {
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "%.9g", value);
+    text::format_to(text, "%.9g", value);
     out << text.data();
 }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
     std::array<char, 12> text{};
-    std::snprintf(text.data(), sizeof(text), "%08X", value);
+    text::format_to(text, "%08X", value);
     out << text.data();
 }
 
@@ -949,7 +950,7 @@ void build_palette()
         if (names.size() > 24)
             names.resize(24);
         std::array<char, 160> label{};
-        std::snprintf(label.data(), sizeof(label), "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
+        text::format_to(label, "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
         g_palette.push_back({label.data(), 0xFFFFB060, ""});
         g_sources.push_back({SourceKind::kAssignValue, names});
     }
@@ -1228,7 +1229,7 @@ Placed get_place(int index, V3 at, float yaw)
             placed.copies.push_back(copy->ident_);
     }
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));
+    text::format_to(text, "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));
     placed.message = text.data();
     return placed;
 }

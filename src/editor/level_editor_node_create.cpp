@@ -33,6 +33,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::node_create {
 
@@ -258,7 +259,7 @@ std::string fresh_name(const std::string& stem, const std::function<bool(const s
 {
     for (int n = 1; n < 100000; ++n) {
         std::array<char, 16> number{};
-        std::snprintf(number.data(), sizeof(number), "%02d", n);
+        text::format_to(number, "%02d", n);
         std::string name = stem + number.data();
         if (!taken(name))
             return name;

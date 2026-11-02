@@ -10,6 +10,7 @@
 #include "editor/level_editor_hud.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -32,7 +33,7 @@ bool text_field(const char* label, const std::string& key, std::string* value, s
 {
     TextBuffer& b = buffers()[key];
     if (!b.editing)
-        std::snprintf(b.text.data(), sizeof(b.text), "%s", value->c_str());
+        text::format_to(b.text, "%s", value->c_str());
     const size_t size = std::min(sizeof(b.text), limit + 1);
     if (multiline)
         ImGui::InputTextMultiline(label, b.text.data(), size, ImVec2(-1.0f, ImGui::GetTextLineHeight() * 3.2f));

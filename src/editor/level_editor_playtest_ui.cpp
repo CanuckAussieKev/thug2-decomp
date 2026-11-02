@@ -12,6 +12,7 @@
 #include "editor/level_editor_playtest.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -118,8 +119,8 @@ void pane(float scale, ImFont* heading, ImFont* small)
                 for (int m = 0; m < kMotions; ++m) {
                     if (core::at(run.motion_seconds_, m) < 0.05f)
                         continue;
-                    std::snprintf(part.data(), sizeof(part), "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
-                                  core::at(run.motion_seconds_, m));
+                    text::format_to(part, "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
+                                    core::at(run.motion_seconds_, m));
                     text += part.data();
                 }
                 ImGui::SetTooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
@@ -161,7 +162,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
     for (const GapRead& g : gaps)
         landed += gap_landed(g.name) ? 1 : 0;
     std::array<char, 96> title{};
-    std::snprintf(title.data(), sizeof(title), "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
+    text::format_to(title, "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
     current_heading(title.data(), heading);
     static bool g_untested_only;
     ImGui::Checkbox("Untested Only", &g_untested_only);

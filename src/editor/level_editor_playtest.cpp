@@ -52,6 +52,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
+#include "engine/core/field_reader.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -295,16 +297,16 @@ std::string get_format(const LevelTrails& trails)
     for (const std::string& gap : trails.landed)
         out += "gap " + one_line(gap) + "\n";
     for (const Run& run : trails.runs) {
-        std::snprintf(line.data(), sizeof(line), "run %d %.2f %d\n", run.number, run.seconds, run.visible ? 1 : 0);
+        text::format_to(line, "run %d %.2f %d\n", run.number, run.seconds, run.visible ? 1 : 0);
         out += line.data();
         for (const Sample& s : run.samples) {
-            std::snprintf(line.data(), sizeof(line), "s %.1f %.1f %.1f %s %d\n", s.pos.x, s.pos.y, s.pos.z,
-                          motion_name(s.motion), s.jump ? 1 : 0);
+            text::format_to(line, "s %.1f %.1f %.1f %s %d\n", s.pos.x, s.pos.y, s.pos.z, motion_name(s.motion),
+                            s.jump ? 1 : 0);
             out += line.data();
         }
         for (const Occurrence& e : run.events) {
-            std::snprintf(line.data(), sizeof(line), "e %s %.1f %.1f %.1f %d %s ", event_word(e.kind), e.pos.x, e.pos.y,
-                          e.pos.z, e.value, status_word(e.status));
+            text::format_to(line, "e %s %.1f %.1f %.1f %d %s ", event_word(e.kind), e.pos.x, e.pos.y, e.pos.z, e.value,
+                            status_word(e.status));
             out += line.data() + one_line(e.name) + "\n";
         }
     }
@@ -334,8 +336,10 @@ bool parse(const std::string& text, LevelTrails* trails)
         } else if (line.starts_with("run ")) {
             int number = 0, visible = 1;
             float seconds = 0.0f;
-            if (sscanf_s(std::next(line.c_str(), 4), "%d %f %d", &number, &seconds, &visible) < 2 || number <= 0)
+            text::FieldReader fields(std::string_view(line).substr(4)); // "%d %f %d", the last one optional
+            if (!(fields.read(number) && fields.read(seconds)) || number <= 0)
                 continue;
+            fields.read(visible);
             Run r;
             r.number = number;
             r.seconds = seconds;
@@ -386,7 +390,7 @@ bool parse(const std::string& text, LevelTrails* trails)
 std::string get_file_name(uint32_t scene)
 {
     std::array<char, 32> name{};
-    std::snprintf(name.data(), sizeof(name), "%08X.trails.txt", scene);
+    text::format_to(name, "%08X.trails.txt", scene);
     return name.data();
 }
 

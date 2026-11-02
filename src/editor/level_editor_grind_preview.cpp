@@ -18,6 +18,7 @@
 #include "engine/objects/rail_manager.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::grind_preview {
 
@@ -222,7 +223,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             ++speed_ups;
             (void)painter.get_seg(s.a, s.b, 0xFF40FF70, 5.0f);
             std::array<char, 48> text{};
-            std::snprintf(text.data(), sizeof(text), "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
+            text::format_to(text, "speed-up %.1f%%%s", s.rate * 100.0f, s.level ? " (level)" : "");
             painter.draw_label((s.a + s.b) * 0.5f, 0xFF40FF70, text.data());
             break;
         }
@@ -249,7 +250,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
             (void)painter.get_seg(core::at(positions, e), core::at(positions, q), 0xC0FF80FF, 1.5f);
             painter.get_dot(core::at(positions, q), 6.0f, 0xFFFF80FF, false);
             std::array<char, 48> text{};
-            std::snprintf(text.data(), sizeof(text), "transfer %.0f", distance);
+            text::format_to(text, "transfer %.0f", distance);
             painter.draw_label((core::at(positions, e) + core::at(positions, q)) * 0.5f, 0xFFFF80FF, text.data());
         }
     }
@@ -261,15 +262,15 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
                                                                                            : std::string("terrain ?");
     }
     std::array<char, 256> text{};
-    std::snprintf(text.data(), sizeof(text), "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),
-                  static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
-                  g_terrain.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
-                  rail.links.empty() ? ", a single point (not grindable)" : "");
+    text::format_to(text, "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),
+                    static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
+                    g_terrain.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
+                    rail.links.empty() ? ", a single point (not grindable)" : "");
     painter.draw_label(core::at(positions, start), 0xFFFFF060, text.data(), 10.0f, -24.0f);
     g_describe = text.data();
     if (transfers || !get_branches(rail).empty()) {
-        std::snprintf(text.data(), sizeof(text), "%d transfers within %.0f, %d branches", transfers, kTransferReach,
-                      static_cast<int>(get_branches(rail).size()));
+        text::format_to(text, "%d transfers within %.0f, %d branches", transfers, kTransferReach,
+                        static_cast<int>(get_branches(rail).size()));
         painter.draw_label(core::at(positions, start), 0xFFFF80FF, text.data(), 10.0f, -8.0f);
         g_describe += std::string("; ") + text.data();
     }

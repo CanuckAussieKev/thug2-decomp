@@ -15,6 +15,7 @@
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ground {
 
@@ -338,7 +339,7 @@ namespace {
 std::string get_number(float v)
 {
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "%.9g", v);
+    text::format_to(text, "%.9g", v);
     return text.data();
 }
 
@@ -403,9 +404,9 @@ std::string link_record(const Spec& s, const char* material_name)
 {
     std::ostringstream out;
     std::array<char, 16> colour{};
-    std::snprintf(colour.data(), sizeof(colour), "%08X", s.colour);
+    text::format_to(colour, "%08X", s.colour);
     std::array<char, 16> material{};
-    std::snprintf(material.data(), sizeof(material), "0x%08X", s.material);
+    text::format_to(material, "0x%08X", s.material);
     const std::string material_text =
         material_name && *material_name && valid_word(material_name) && name_checksum_for(material_name) == s.material
             ? std::string(material_name)
@@ -420,7 +421,7 @@ std::string link_record(const Spec& s, const char* material_name)
         out << " hides=";
         for (size_t i = 0; i < s.hides.size(); ++i) {
             std::array<char, 16> hex{};
-            std::snprintf(hex.data(), sizeof(hex), "0x%08X", core::at(s.hides, i));
+            text::format_to(hex, "0x%08X", core::at(s.hides, i));
             out << (i ? "," : "") << hex.data();
         }
     }
@@ -520,7 +521,7 @@ std::string fresh_name(const std::vector<Spec>& specs)
 {
     for (int n = 1;; ++n) {
         std::array<char, 32> name{};
-        std::snprintf(name.data(), sizeof(name), "ed_ground%02d", n);
+        text::format_to(name, "ed_ground%02d", n);
         const bool taken = std::ranges::any_of(specs, [&](const Spec& s) { return s.name == name.data(); });
         if (!taken)
             return name.data();

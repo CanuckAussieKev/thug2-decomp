@@ -23,6 +23,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -199,7 +200,7 @@ void history_window()
         ImGui::PushID(i);
         const bool current = i == static_cast<int>(undo.size()) - 1;
         std::array<char, 200> text{};
-        std::snprintf(text.data(), sizeof(text), "%2d  %s", i + 1, core::at(undo, i).label.c_str());
+        text::format_to(text, "%2d  %s", i + 1, core::at(undo, i).label.c_str());
         if (ImGui::Selectable(text.data(), current))
             jump = -(static_cast<int>(undo.size()) - 1 - i), any = true;
         if (ImGui::IsItemHovered() && !core::at(undo, i).detail.empty())
@@ -211,8 +212,8 @@ void history_window()
     for (int j = 0; std::cmp_less(j, redo.size()); ++j) {
         ImGui::PushID(1000 + j);
         std::array<char, 200> text{};
-        std::snprintf(text.data(), sizeof(text), "%2d  %s  (undone)", static_cast<int>(undo.size()) + j + 1,
-                      core::at(redo, j).label.c_str());
+        text::format_to(text, "%2d  %s  (undone)", static_cast<int>(undo.size()) + j + 1,
+                        core::at(redo, j).label.c_str());
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
         if (ImGui::Selectable(text.data(), false))
             jump = j + 1, any = true;
@@ -260,7 +261,7 @@ void changes_window()
         if (in.empty())
             continue;
         std::array<char, 96> header{};
-        std::snprintf(header.data(), sizeof(header), "%s (%d)###chg_%s", group, static_cast<int>(in.size()), group);
+        text::format_to(header, "%s (%d)###chg_%s", group, static_cast<int>(in.size()), group);
         if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen))
             continue;
         for (const ChangeRow* row : in) {
@@ -438,7 +439,7 @@ void get_menus()
     }
     if (take_group_name() || g_group_asked) {
         g_group_asked = false;
-        std::snprintf(g_group_name.data(), sizeof(g_group_name), "Group");
+        text::format_to(g_group_name, "Group");
         ImGui::OpenPopup("Group the selection###ux3group");
     }
     if (ImGui::BeginPopupModal("Group the selection###ux3group", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -699,7 +700,7 @@ void bunches()
     if (state.groups.empty())
         return;
     std::array<char, 48> header{};
-    std::snprintf(header.data(), sizeof(header), "Groups###ux3groups");
+    text::format_to(header, "Groups###ux3groups");
     const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen);
     ImGui::SameLine();
     ImGui::TextDisabled("%d", static_cast<int>(state.groups.size()));
@@ -709,7 +710,7 @@ void bunches()
         const organize::GroupSet& g = core::at(state.groups, i);
         ImGui::PushID(i);
         std::array<char, 96> text{};
-        std::snprintf(text.data(), sizeof(text), "%s  (%d)", g.name.c_str(), static_cast<int>(g.members.size()));
+        text::format_to(text, "%s  (%d)", g.name.c_str(), static_cast<int>(g.members.size()));
         if (ImGui::Selectable(text.data()))
             get_queue([i] { organize::select_group(i); });
         if (ImGui::IsItemHovered())
@@ -719,7 +720,7 @@ void bunches()
                 get_queue([i] { organize::add_to_group(i); });
             if (ImGui::MenuItem("Rename...")) {
                 g_rename_group = i;
-                std::snprintf(g_rename_text.data(), sizeof(g_rename_text), "%s", g.name.c_str());
+                text::format_to(g_rename_text, "%s", g.name.c_str());
                 g_rename_asked = true;
             }
             if (ImGui::MenuItem("Delete Group"))
@@ -791,7 +792,7 @@ void row_menu(const nodes::Elem& node)
     ImGui::Separator();
     if (ImGui::MenuItem("Label...")) {
         g_label_for = node.name;
-        std::snprintf(g_label_text.data(), sizeof(g_label_text), "%s", row_label(node.name).c_str());
+        text::format_to(g_label_text, "%s", row_label(node.name).c_str());
         g_label_asked = true;
     }
     const nodes::Elem& copy = node;
@@ -871,7 +872,7 @@ void inspector_section(const ui::ShapeMesh& model)
     if (nodes.size() < 2)
         return;
     std::array<char, 64> header{};
-    std::snprintf(header.data(), sizeof(header), "Shared fields (%d nodes)###ux3multi", static_cast<int>(nodes.size()));
+    text::format_to(header, "Shared fields (%d nodes)###ux3multi", static_cast<int>(nodes.size()));
     if (!ImGui::CollapsingHeader(header.data()))
         return;
     // (the fields every selected node has and can edit; a value where they agree, "mixed" where not)
@@ -924,7 +925,7 @@ void inspector_section(const ui::ShapeMesh& model)
         // (the value shown afresh unless it's being typed in)
         if (g_shared_active != id || edit.key != f.key) {
             edit.key = f.key;
-            std::snprintf(edit.text.data(), sizeof(edit.text), "%s", f.mixed ? "" : f.text.c_str());
+            text::format_to(edit.text, "%s", f.mixed ? "" : f.text.c_str());
         }
         ImGui::SetNextItemWidth(-1.0f);
         if (g_fonts.mono)

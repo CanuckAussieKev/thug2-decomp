@@ -9,6 +9,7 @@
 
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ui_strip {
 
@@ -179,7 +180,7 @@ std::string get_key_of(const State& s, const char* id) { return s.key_of_ ? s.ke
 std::string grid_text(float grid)
 {
     std::array<char, 24> text{};
-    std::snprintf(text.data(), sizeof(text), "%g%s###stripgrid", grid, kDown.data());
+    text::format_to(text, "%g%s###stripgrid", grid, kDown.data());
     return text.data();
 }
 
@@ -206,9 +207,9 @@ std::string problems_text(const State& s)
     const int count = s.errors + s.warnings;
     std::array<char, 48> text{};
     if (count > 0)
-        std::snprintf(text.data(), sizeof(text), "Problems %d###stripproblems", count);
+        text::format_to(text, "Problems %d###stripproblems", count);
     else
-        std::snprintf(text.data(), sizeof(text), "Problems###stripproblems");
+        text::format_to(text, "Problems###stripproblems");
     return text.data();
 }
 
@@ -223,7 +224,7 @@ std::string get_level_text(const State& s, float scale)
 std::string show_all_text(const State& s)
 {
     std::array<char, 48> text{};
-    std::snprintf(text.data(), sizeof(text), "Show All (%d)###stripshowall", s.hidden);
+    text::format_to(text, "Show All (%d)###stripshowall", s.hidden);
     return text.data();
 }
 
@@ -321,7 +322,7 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         if (ImGui::BeginPopup("##stripgridlist")) {
             for (const float size : s.grids) {
                 std::array<char, 16> label{};
-                std::snprintf(label.data(), sizeof(label), "%g", size);
+                text::format_to(label, "%g", size);
                 if (ImGui::Selectable(label.data(), size == s.grid))
                     out->events.push_back({Occurrence::Kind::kGrid, size});
             }

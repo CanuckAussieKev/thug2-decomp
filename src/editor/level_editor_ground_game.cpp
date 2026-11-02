@@ -42,6 +42,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ground {
 
@@ -124,7 +125,7 @@ uint32_t g_active_scene_key;
 uint32_t sector_key_from_spec(const Spec& spec)
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), "%s_%08X", spec.name.c_str(), spec.material);
+    text::format_to(text, "%s_%08X", spec.name.c_str(), spec.material);
     return checksums::hash_from_text(text.data());
 }
 
@@ -589,8 +590,8 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                 return;
             }
             std::array<char, 320> text{};
-            std::snprintf(
-                text.data(), sizeof(text),
+            text::format_to(
+                text,
                 "the floor here is %s%s, %.0f x %.0f - bigger than the rectangle. THUG2's floors can't be cut: "
                 "make the rectangle cover that whole piece, or raise around it instead",
                 object_edit::caption(checksum).c_str(), geom_of(sector) ? "" : " (collision only)", hi.x - lo.x,

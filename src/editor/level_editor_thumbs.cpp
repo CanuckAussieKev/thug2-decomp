@@ -20,6 +20,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::thumbs {
 
@@ -89,7 +90,7 @@ void cell_uv(int cell, float* u0, float* v0, float* u1, float* v1)
 std::string get_entry_name(int tab, uint32_t id)
 {
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "%c:%08X", tab == 0 ? 's' : 'o', id);
+    text::format_to(text, "%c:%08X", tab == 0 ? 's' : 'o', id);
     return text.data();
 }
 

@@ -22,6 +22,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::level_props {
 
@@ -99,7 +100,7 @@ std::string write_record(const Props& props)
     if (!props.name.empty())
         line += " name=" + fields::escape(props.name);
     if (props.start) {
-        std::snprintf(text.data(), sizeof(text), " start=%08X", props.start);
+        text::format_to(text, " start=%08X", props.start);
         line += text.data();
     }
     if (tod_name(props.tod))
@@ -107,12 +108,13 @@ std::string write_record(const Props& props)
     if (props.time == 0 || props.time == 1)
         line += props.time ? " time=1" : " time=0";
     if (props.has_ambient_) {
-        std::snprintf(text.data(), sizeof(text), " ambient=%d,%d,%d", core::at(props.ambient, 0), core::at(props.ambient, 1), core::at(props.ambient, 2));
+        text::format_to(text, " ambient=%d,%d,%d", core::at(props.ambient, 0), core::at(props.ambient, 1),
+                        core::at(props.ambient, 2));
         line += text.data();
     }
     if (props.has_fog_) {
-        std::snprintf(text.data(), sizeof(text), " fog=%d,%d,%d,%d,%d", core::at(props.fog, 0), core::at(props.fog, 1), core::at(props.fog, 2), core::at(props.fog, 3),
-                      core::at(props.fog, 4));
+        text::format_to(text, " fog=%d,%d,%d,%d,%d", core::at(props.fog, 0), core::at(props.fog, 1),
+                        core::at(props.fog, 2), core::at(props.fog, 3), core::at(props.fog, 4));
         line += text.data();
     }
     if (!props.sky.empty())

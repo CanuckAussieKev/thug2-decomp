@@ -27,6 +27,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ux9 {
 
@@ -198,8 +199,8 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     if (!ground::get_all().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
         for (const ground::Spec& s : ground::get_all()) {
             std::array<char, 160> row{};
-            std::snprintf(row.data(), sizeof(row), "%s  %s %.0f x %.0f, %.0f", s.name.c_str(), s.lower ? "pit" : "platform",
-                          s.x1 - s.x0, s.z1 - s.z0, s.height);
+            text::format_to(row, "%s  %s %.0f x %.0f, %.0f", s.name.c_str(), s.lower ? "pit" : "platform", s.x1 - s.x0,
+                            s.z1 - s.z0, s.height);
             if (ImGui::Selectable(row.data(), g_editing && s.name == d.name)) {
                 const std::string name = s.name;
                 g_queue.emplace_back([name] {
@@ -396,7 +397,7 @@ void add_overlay(const overlays::Painter& painter)
         for (int i = 0; i < 4; ++i)
             (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, 2.0f);
         std::array<char, 64> text{};
-        std::snprintf(text.data(), sizeof(text), "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
+        text::format_to(text, "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
         painter.draw_label(b, kRect, text.data());
     } else if (g_stage == Stage::kFirst && g_have_hover) {
         painter.perpendicular(g_hover, 25.0f, kRect, 2.0f);

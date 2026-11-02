@@ -29,6 +29,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::preview {
 
@@ -309,8 +310,8 @@ void tick_cycle(ui::ShapeMesh* model)
     OrientedBox box{};
     if (subject_box(&box)) {
         std::array<char, 96> size{};
-        std::snprintf(size.data(), sizeof(size), "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x,
-                      box.max.y - box.min.y, box.max.z - box.min.z);
+        text::format_to(size, "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x, box.max.y - box.min.y,
+                        box.max.z - box.min.z);
         view.size = size.data();
     }
     if (g_kind == Kind::kSector) {

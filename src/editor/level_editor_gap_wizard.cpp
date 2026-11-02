@@ -21,6 +21,7 @@
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::gap_wizard {
 
@@ -336,8 +337,8 @@ void add_overlay(const overlays::Painter& painter)
         (void)painter.get_seg(core::at(g_spots, 0).point, core::at(g_spots, 1).point, 0xFFFFFFFF, 2.0f);
         const V3 d = core::at(g_spots, 1).point - core::at(g_spots, 0).point;
         std::array<char, 64> text{};
-        std::snprintf(text.data(), sizeof(text), "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
-                      d.y >= 0.0f ? "up" : "down");
+        text::format_to(text, "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
+                        d.y >= 0.0f ? "up" : "down");
         painter.draw_label((core::at(g_spots, 0).point + core::at(g_spots, 1).point) * 0.5f, 0xFFFFFFFF, text.data());
     } else if (g_have_hover) {
         painter.get_dot(g_hover.point, 5.0f, kHover);

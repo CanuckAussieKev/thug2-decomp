@@ -15,6 +15,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/mem.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::hud {
 namespace {
@@ -72,7 +73,7 @@ const std::string& current_message() { return g_message; }
 void change_strand(int line, const std::string& text)
 {
     std::array<char, 32> id{};
-    std::snprintf(id.data(), sizeof(id), "level_editor_hud_%d", line);
+    text::format_to(id, "level_editor_hud_%d", line);
     change_caption(id.data(), text);
 }
 
@@ -114,7 +115,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     }
     for (size_t i = 0; i < lines.size(); ++i) {
         std::array<char, 32> id{};
-        std::snprintf(id.data(), sizeof(id), "level_editor_panel_%u", static_cast<unsigned>(i));
+        text::format_to(id, "level_editor_panel_%u", static_cast<unsigned>(i));
         change_caption(id.data(), core::at(lines, i));
     }
 }

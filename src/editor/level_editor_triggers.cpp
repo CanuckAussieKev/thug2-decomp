@@ -58,6 +58,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -201,7 +202,7 @@ bool read_triple(const std::string& text, V3* out)
 std::string triple(V3 v)
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), "%.9g,%.9g,%.9g", v.x, v.y, v.z);
+    text::format_to(text, "%.9g,%.9g,%.9g", v.x, v.y, v.z);
     return text.data();
 }
 
@@ -349,7 +350,7 @@ std::string name_for(uint32_t checksum, const char* known)
     if (known && *known && valid_name(known) && get_checksums(known) == checksum)
         return known;
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+    text::format_to(text, "0x%08X", checksum);
     return text.data();
 }
 
@@ -648,7 +649,7 @@ std::string link_record(const Placed& placed)
     std::ostringstream out;
     out << s.name << ' ' << kind_word(s.kind) << " pos=" << triple(placed.pos);
     std::array<char, 48> number{};
-    std::snprintf(number.data(), sizeof(number), " yaw=%.9g", placed.yaw);
+    text::format_to(number, " yaw=%.9g", placed.yaw);
     out << number.data() << " size=" << triple(s.size);
     if (!s.target.empty())
         out << " target=" << s.target;
@@ -666,7 +667,7 @@ std::string link_record(const Placed& placed)
     if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd)
         out << " score=" << s.score;
     if (s.replaces) {
-        std::snprintf(number.data(), sizeof(number), " replaces=%08X", s.replaces);
+        text::format_to(number, " replaces=%08X", s.replaces);
         out << number.data();
     }
     if (s.exit)
@@ -676,7 +677,7 @@ std::string link_record(const Placed& placed)
     if (!s.sound.empty())
         out << " sound=" << s.sound;
     if (s.kind == Kind::kViewCam) {
-        std::snprintf(number.data(), sizeof(number), " seconds=%.9g", clamp_seconds(s.seconds));
+        text::format_to(number, " seconds=%.9g", clamp_seconds(s.seconds));
         out << number.data();
     }
     const std::string text = clean_text(s.text.data());
@@ -821,7 +822,7 @@ std::string proxim_record(const ProximEdit& e, const char* known)
 {
     std::ostringstream out;
     std::array<char, 16> hex{};
-    std::snprintf(hex.data(), sizeof(hex), "%08X", e.node);
+    text::format_to(hex, "%08X", e.node);
     out << hex.data();
     if (!e.enter.empty())
         out << " enter=" << e.enter;
@@ -833,7 +834,7 @@ std::string proxim_record(const ProximEdit& e, const char* known)
             out << " size=" << triple(e.size) << " offset=" << triple(e.offset);
         } else {
             std::array<char, 48> radius{};
-            std::snprintf(radius.data(), sizeof(radius), " radius=%.9g", e.radius);
+            text::format_to(radius, " radius=%.9g", e.radius);
             out << radius.data();
         }
     }
@@ -899,7 +900,7 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
 std::string proxim_script_name(uint32_t node)
 {
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "ed_proxim_%08X", node);
+    text::format_to(text, "ed_proxim_%08X", node);
     return text.data();
 }
 
@@ -1977,7 +1978,7 @@ void register_gap_entry()
     start.spec.flags = {"CANCEL_GROUND"};
     const int number = text::to_int(std::next(gap.c_str(), 6));
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "Editor Gap %d", number > 0 ? number : 1);
+    text::format_to(text, "Editor Gap %d", number > 0 ? number : 1);
     start.spec.text = text.data();
     start.spec.score = 100;
     start.pos = place_ahead(start.spec.size, 0.0f);
@@ -2261,9 +2262,9 @@ std::string describe(const Calls& calls, Kind kind)
     case Kind::kBoost: {
         std::array<char, 48> value{};
         if (calls.boost_speed_ > 0.0f)
-            std::snprintf(value.data(), sizeof(value), " (speed %.0f)", calls.boost_speed_);
+            text::format_to(value, " (speed %.0f)", calls.boost_speed_);
         else
-            std::snprintf(value.data(), sizeof(value), " (x%.1f)", calls.boost_multi_ > 0.0f ? calls.boost_multi_ : 7.5f);
+            text::format_to(value, " (x%.1f)", calls.boost_multi_ > 0.0f ? calls.boost_multi_ : 7.5f);
         text += value.data();
         break;
     }
@@ -2419,7 +2420,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
         const V3 m = middle - camera;
         if (get_dot(m, m) < 1500.0f * 1500.0f) {
             std::array<char, 64> text{};
-            std::snprintf(text.data(), sizeof(text), "%s+%.1f%%", s.level ? "level speed-up " : "speed-up ", s.rate * 100.0f);
+            text::format_to(text, "%s+%.1f%%", s.level ? "level speed-up " : "speed-up ", s.rate * 100.0f);
             label(middle + up * 14.0f, colour, text.data());
         }
     }
@@ -3097,8 +3098,8 @@ std::string describe()
     for (const LevelTrigger& l : g_level)
         off += l.off ? 1 : 0;
     std::array<char, 160> text{};
-    std::snprintf(text.data(), sizeof(text), "%u level trigger volumes (%d off), %d added",
-                  static_cast<unsigned>(g_level.size()), off, alive);
+    text::format_to(text, "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(g_level.size()), off,
+                    alive);
     return text.data();
 }
 

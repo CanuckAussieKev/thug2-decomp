@@ -7,6 +7,7 @@
 #include "editor/level_editor_transform.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::xform {
 
@@ -29,7 +30,7 @@ void options_menu_items()
     if (ImGui::BeginMenu("Rotation Snap")) {
         for (const float step : angle_steps()) {
             std::array<char, 16> label{};
-            std::snprintf(label.data(), sizeof(label), "%g\xC2\xB0", step);
+            text::format_to(label, "%g\xC2\xB0", step);
             if (ImGui::MenuItem(label.data(), nullptr, angle_step() == step))
                 set_angle_step(step);
         }

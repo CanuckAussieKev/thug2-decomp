@@ -29,6 +29,7 @@
 #include "imgui.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::clusters {
 
@@ -52,9 +53,9 @@ std::string write_record(const Membership& m)
 {
     std::array<char, 48> text{};
     if (m.trick)
-        std::snprintf(text.data(), sizeof(text), "cluster %08X %08X", m.sector, m.cluster);
+        text::format_to(text, "cluster %08X %08X", m.sector, m.cluster);
     else
-        std::snprintf(text.data(), sizeof(text), "cluster %08X -", m.sector);
+        text::format_to(text, "cluster %08X -", m.sector);
     return text.data();
 }
 
@@ -272,10 +273,10 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
     push_module_undo(before);
     std::array<char, 160> text{};
     if (trick)
-        std::snprintf(text.data(), sizeof(text), "%d piece%s set to cluster %s", changed, changed == 1 ? "" : "s",
-                      cluster ? get_name_of(cluster).c_str() : "their own names");
+        text::format_to(text, "%d piece%s set to cluster %s", changed, changed == 1 ? "" : "s",
+                        cluster ? get_name_of(cluster).c_str() : "their own names");
     else
-        std::snprintf(text.data(), sizeof(text), "%d piece%s cleared", changed, changed == 1 ? "" : "s");
+        text::format_to(text, "%d piece%s cleared", changed, changed == 1 ? "" : "s");
     hud::get_message(text.data());
     get_log("level editor: %s", text.data());
     return true;
@@ -413,7 +414,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         const uint32_t cluster = core::at(now, 0).cluster;
         ImGui::SameLine();
         if (ImGui::SmallButton("Use Name"))
-            std::snprintf(g_typed.data(), sizeof(g_typed), "%s", get_name_of(cluster).c_str());
+            text::format_to(g_typed, "%s", get_name_of(cluster).c_str());
     }
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Clear Trick Object"))

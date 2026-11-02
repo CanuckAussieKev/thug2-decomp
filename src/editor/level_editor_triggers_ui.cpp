@@ -19,6 +19,7 @@
 #include "editor/level_editor_playtest.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -66,7 +67,7 @@ void update_lists()
 bool name_field(const char* label, std::string* value, char* buffer, size_t size, bool* editing)
 {
     if (!*editing) {
-        std::snprintf(buffer, size, "%s", value->c_str());
+        text::format_to(std::span(buffer, size), "%s", value->c_str());
     }
     ImGui::InputText(label, buffer, size);
     *editing = ImGui::IsItemActive();

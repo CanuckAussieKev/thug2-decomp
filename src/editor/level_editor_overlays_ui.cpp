@@ -10,6 +10,7 @@
 #include "editor/level_editor_triggers.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::overlays {
 
@@ -33,7 +34,7 @@ void view_mode_items()
     }};
     for (int mode = 0; mode < kViewModes; ++mode) {
         std::array<char, 16> keys{};
-        std::snprintf(keys.data(), sizeof(keys), "Alt+%d", mode + 1);
+        text::format_to(keys, "Alt+%d", mode + 1);
         if (ImGui::MenuItem(view_mode_name(mode), keys.data(), view_mode() == mode))
             change_view_mode(mode);
         get_tip(core::at(kTips, mode));
@@ -53,7 +54,7 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
     get_tip("Kill zones, teleports, gaps and script triggers");
     for (const BitInfo& info : get_bits()) {
         std::array<char, 64> item{};
-        std::snprintf(item.data(), sizeof(item), "%s##ov%u", info.label, info.bit);
+        text::format_to(item, "%s##ov%u", info.label, info.bit);
         if (ImGui::MenuItem(item.data(), *info.key ? info.key : nullptr, get_shown(info.bit)))
             assign_value(info.bit, !get_shown(info.bit));
         get_tip(info.tip);
@@ -66,7 +67,7 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
                 continue; // (scenery: its own geometry shows it)
             const bool on = (families & nodes::get_bit(family)) != 0;
             std::array<char, 48> item{};
-            std::snprintf(item.data(), sizeof(item), "%s##fam%d", nodes::family_name(family), f);
+            text::format_to(item, "%s##fam%d", nodes::family_name(family), f);
             if (ImGui::MenuItem(item.data(), nullptr, on)) {
                 ui::Request r{ui::Request::Kind::kFamilies};
                 r.id = on ? families & ~nodes::get_bit(family) : families | nodes::get_bit(family);

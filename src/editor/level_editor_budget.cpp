@@ -31,6 +31,7 @@
 #include "engine/script/cscript.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::budget {
 
@@ -80,11 +81,11 @@ std::string get_bytes(double bytes)
     std::array<char, 32> text{};
     const double a = std::fabs(bytes);
     if (a < 1024.0)
-        std::snprintf(text.data(), sizeof(text), "%.0f B", bytes);
+        text::format_to(text, "%.0f B", bytes);
     else if (a < 1024.0 * 1024.0)
-        std::snprintf(text.data(), sizeof(text), "%.1f KB", bytes / 1024.0);
+        text::format_to(text, "%.1f KB", bytes / 1024.0);
     else
-        std::snprintf(text.data(), sizeof(text), "%.2f MB", bytes / (1024.0 * 1024.0));
+        text::format_to(text, "%.2f MB", bytes / (1024.0 * 1024.0));
     return text.data();
 }
 
@@ -95,7 +96,7 @@ std::string get_amount(const Meter& meter, double value)
     if (meter.bytes)
         return get_bytes(value);
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "%.0f", value);
+    text::format_to(text, "%.0f", value);
     return text.data();
 }
 

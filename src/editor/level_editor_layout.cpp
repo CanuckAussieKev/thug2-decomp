@@ -45,6 +45,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::layout {
 
@@ -89,21 +90,21 @@ bool read_triple(const std::string& text, std::span<float, 3> out)
 void triple(std::ostringstream& out, const char* key, std::span<const float, 3> value)
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), " %s=%.9g,%.9g,%.9g", key, core::at(value, 0), core::at(value, 1), core::at(value, 2));
+    text::format_to(text, " %s=%.9g,%.9g,%.9g", key, core::at(value, 0), core::at(value, 1), core::at(value, 2));
     out << text.data();
 }
 
 void get_number(std::ostringstream& out, float value)
 {
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), " %.9g", value);
+    text::format_to(text, " %.9g", value);
     out << text.data();
 }
 
 void get_hex(std::ostringstream& out, uint32_t value)
 {
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), " %08X", value);
+    text::format_to(text, " %08X", value);
     out << text.data();
 }
 
@@ -278,12 +279,12 @@ std::string emit_out(const FileLoad& file)
         if (node_create::kind_of(a, &kind) && kind == node_create::Kind::kLight) {
             out << " color=" << core::at(a.colour, 0) << ',' << core::at(a.colour, 1) << ',' << core::at(a.colour, 2);
             std::array<char, 96> text{};
-            std::snprintf(text.data(), sizeof(text), " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
+            text::format_to(text, " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
             out << text.data();
         }
         if (a.radius != 0.0f) {
             std::array<char, 32> text{};
-            std::snprintf(text.data(), sizeof(text), " radius=%.9g", a.radius);
+            text::format_to(text, " radius=%.9g", a.radius);
             out << text.data();
         }
         out << '\n';
@@ -527,14 +528,14 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
 std::string saved_file_name(uint32_t scene)
 {
     std::array<char, 32> name{};
-    std::snprintf(name.data(), sizeof(name), "%08X.txt", scene);
+    text::format_to(name, "%08X.txt", scene);
     return name.data();
 }
 
 std::string autosave_file_name(uint32_t scene)
 {
     std::array<char, 32> name{};
-    std::snprintf(name.data(), sizeof(name), "%08X.autosave.txt", scene);
+    text::format_to(name, "%08X.autosave.txt", scene);
     return name.data();
 }
 
@@ -710,7 +711,7 @@ bool write_time(const std::string& path, uint64_t* time)
 bool write_whole(const char* folder, const char* path, const char* data, size_t size)
 {
     std::array<char, MAX_PATH + 8> temporary{};
-    if (std::snprintf(temporary.data(), sizeof(temporary), "%s.tmp", path) <= 0)
+    if (text::format_to(temporary, "%s.tmp", path) == 0)
         return false;
     CreateDirectoryA(folder, nullptr);
     util::UniqueHandle file(
@@ -978,14 +979,15 @@ std::string get_apply(const FileLoad& file)
         get_log("level editor: the layout's %d notes put in place", notes);
     checks::note_layout_applied(file); // (UX5: records that don't resolve - logged, listed, kept)
     std::array<char, 360> summary{};
-    std::snprintf(summary.data(), sizeof(summary),
-                  "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
-                  "%u chain points, %u relinked, %u dropped, %u collision switches / walls, %d triggers, %d fields%s",
-                  static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
-                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden,
-                  static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
-                  static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()), triggers,
-                  fields, level_props::vacant(file.level) ? "" : ", level properties");
+    text::format_to(
+        summary,
+        "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
+        "%u chain points, %u relinked, %u dropped, %u collision switches / walls, %d triggers, %d fields%s",
+        static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
+        static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden,
+        static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
+        static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()), triggers, fields,
+        level_props::vacant(file.level) ? "" : ", level properties");
     return summary.data();
 }
 
@@ -1076,8 +1078,8 @@ bool store_away(std::string* message)
         return false;
     }
     std::array<char, 256> text{};
-    std::snprintf(
-        text.data(), sizeof(text),
+    text::format_to(
+        text,
         "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden, "
         "%u triggers",
         static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),

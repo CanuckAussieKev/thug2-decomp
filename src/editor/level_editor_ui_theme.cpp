@@ -11,6 +11,7 @@
 #include "editor/level_editor_ui_layout.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ui_theme {
 
@@ -25,7 +26,7 @@ ImFont* add_font(ui_fonts::CompressedFont font, float size)
     config.OversampleH = 2;
     config.OversampleV = 1;
     config.PixelSnapH = true;
-    std::snprintf(std::data(config.Name), sizeof(config.Name), "%.0fpx", size);
+    text::format_to(config.Name, "%.0fpx", size);
     return ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(font.data, font.size, size, &config, kRanges.data());
 }
 

@@ -32,6 +32,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::cameras {
 
@@ -135,8 +136,8 @@ bool get_same(const ViewCam& a, const ViewCam& b)
 std::string write_record(const ViewCam& c)
 {
     std::array<char, 320> text{};
-    std::snprintf(text.data(), sizeof(text), "camera %s pos=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g dist=%.9g", c.name.c_str(),
-                  c.pos.x, c.pos.y, c.pos.z, c.angles.x, c.angles.y, c.angles.z, c.distance);
+    text::format_to(text, "camera %s pos=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g dist=%.9g", c.name.c_str(), c.pos.x,
+                    c.pos.y, c.pos.z, c.angles.x, c.angles.y, c.angles.z, c.distance);
     return text.data();
 }
 

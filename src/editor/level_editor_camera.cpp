@@ -20,6 +20,8 @@
 #include "editor/level_editor_prefs.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
+#include "engine/core/field_reader.h"
 
 namespace frontend::level_editor::view_cam {
 
@@ -152,8 +154,8 @@ std::string format_bookmarks(std::span<const Bookmark, kBookmarks> marks)
         if (!m.set)
             continue;
         std::array<char, 256> line{};
-        std::snprintf(line.data(), sizeof(line), "%d %.9g %.9g %.9g %.9g %.9g %d %.9g\n", i + 1, m.pose.pos.x, m.pose.pos.y,
-                      m.pose.pos.z, m.pose.yaw, m.pose.pitch, static_cast<int>(m.view), m.equivalent);
+        text::format_to(line, "%d %.9g %.9g %.9g %.9g %.9g %d %.9g\n", i + 1, m.pose.pos.x, m.pose.pos.y, m.pose.pos.z,
+                        m.pose.yaw, m.pose.pitch, static_cast<int>(m.view), m.equivalent);
         text += line.data();
     }
     return text;
@@ -170,7 +172,9 @@ bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> ma
     while (std::getline(in, line)) {
         int n = 0, view = 0;
         float x = 0.0f, y = 0.0f, z = 0.0f, yaw = 0.0f, pitch = 0.0f, equivalent = 0.0f;
-        if (sscanf_s(line.c_str(), "%d %f %f %f %f %f %d %f", &n, &x, &y, &z, &yaw, &pitch, &view, &equivalent) != 8)
+        text::FieldReader fields(line); // "%d %f %f %f %f %f %d %f"
+        if (!(fields.read(n) && fields.read(x) && fields.read(y) && fields.read(z) && fields.read(yaw) &&
+              fields.read(pitch) && fields.read(view) && fields.read(equivalent)))
             continue;
         if (n < 1 || n > kBookmarks || view < 0 || view > static_cast<int>(View::kDealloc))
             continue;
@@ -186,7 +190,7 @@ bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> ma
 std::string bookmarks_file_name(uint32_t scene)
 {
     std::array<char, 32> name{};
-    std::snprintf(name.data(), sizeof(name), "%08X.cameras.txt", scene);
+    text::format_to(name, "%08X.cameras.txt", scene);
     return name.data();
 }
 
@@ -356,7 +360,7 @@ std::string get_standing()
     std::string s;
     if (ortho()) {
         std::array<char, 64> text{};
-        std::snprintf(text.data(), sizeof(text), "%s ortho (%.0f)", view_name(g_ortho.view), g_ortho.equivalent);
+        text::format_to(text, "%s ortho (%.0f)", view_name(g_ortho.view), g_ortho.equivalent);
         s = text.data();
     }
     if (g_orbit.orbiting)
@@ -373,7 +377,7 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
         *rig.speed = std::clamp(*rig.speed * std::pow(1.25f, static_cast<float>(*m.wheel)), 50.0f, 20000.0f);
         *m.wheel = 0;
         std::array<char, 64> text{};
-        std::snprintf(text.data(), sizeof(text), "Fly speed %.0f", *rig.speed);
+        text::format_to(text, "Fly speed %.0f", *rig.speed);
         hud::get_message(text.data(), 1.2);
     }
     // Looking about ends an ortho view (Blender's auto perspective).
@@ -498,8 +502,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             if (ortho())
                 m.pose.pos = rig.have_selection_ ? rig.target : g_ortho.pivot; // (an ortho bookmark keeps its pivot)
             const bool saved = save_bookmarks();
-            std::snprintf(text.data(), sizeof(text), "Camera bookmark %d stored%s", i + 1,
-                          saved ? "" : " (not saved: the file)");
+            text::format_to(text, "Camera bookmark %d stored%s", i + 1, saved ? "" : " (not saved: the file)");
             hud::get_message(text.data(), 2.0);
         } else if (core::at(g_marks, i).set) {
             const Bookmark& m = core::at(g_marks, i);
@@ -515,10 +518,10 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             } else {
                 fly_to(free, m.pose);
             }
-            std::snprintf(text.data(), sizeof(text), "Camera bookmark %d", i + 1);
+            text::format_to(text, "Camera bookmark %d", i + 1);
             hud::get_message(text.data(), 1.5);
         } else {
-            std::snprintf(text.data(), sizeof(text), "No camera bookmark %d yet - Ctrl+%d stores one", i + 1, i + 1);
+            text::format_to(text, "No camera bookmark %d yet - Ctrl+%d stores one", i + 1, i + 1);
             hud::get_message(text.data(), 2.0);
         }
     }

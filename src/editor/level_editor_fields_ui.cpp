@@ -19,6 +19,7 @@
 #include "imgui.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::ui {
 
@@ -48,10 +49,7 @@ Typing& typing()
     return value;
 }
 
-void dup_from(ScratchBuf* buffer, const std::string& text)
-{
-    std::snprintf(buffer->data(), buffer->size(), "%s", text.c_str());
-}
+void dup_from(ScratchBuf* buffer, const std::string& text) { text::format_to(*buffer, "%s", text.c_str()); }
 
 void set_field(std::vector<Request>* requests, uint32_t node, uint32_t key, fields::Kind kind, const std::string& text,
                const std::string& label = "")
@@ -136,8 +134,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         any_edited = any_edited || row.edited;
     ImGui::Spacing();
     std::array<char, 64> header{};
-    std::snprintf(header.data(), sizeof(header), "All fields (%d)%s###fields", static_cast<int>(rows.size()),
-                  any_edited ? " - edited" : "");
+    text::format_to(header, "All fields (%d)%s###fields", static_cast<int>(rows.size()), any_edited ? " - edited" : "");
     if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen))
         return;
     bool still_active = false;
@@ -414,9 +411,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TextDisabled("Time of day");
         ImGui::TableNextColumn();
         std::array<char, 48> own_state{};
-        std::snprintf(own_state.data(), sizeof(own_state), "(original: %s)",
-                      level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
-                                                                             : "afternoon");
+        text::format_to(own_state, "(original: %s)",
+                        level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
+                                                                               : "afternoon");
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::BeginCombo("##tod", props.tod >= 0 ? core::at(kStates, props.tod) : own_state.data())) {
             if (ImGui::Selectable(own_state.data(), props.tod < 0)) {

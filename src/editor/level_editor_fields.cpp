@@ -21,6 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::fields {
 
@@ -107,7 +108,7 @@ bool is_identifier(const std::string& text)
 std::string hex8(uint32_t value)
 {
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "%08X", value);
+    text::format_to(text, "%08X", value);
     return text.data();
 }
 
@@ -172,7 +173,7 @@ std::string float_text(float value)
 {
     std::array<char, 32> text{};
     for (int digits = 6; digits <= 9; ++digits) {
-        std::snprintf(text.data(), sizeof(text), "%.*g", digits, static_cast<double>(value));
+        text::format_to(text, "%.*g", digits, static_cast<double>(value));
         if (std::strtof(text.data(), nullptr) == value)
             break;
     }
@@ -393,7 +394,7 @@ std::string escape(const std::string& text)
             out += static_cast<char>(c);
         } else {
             std::array<char, 4> hex{};
-            std::snprintf(hex.data(), sizeof(hex), "%%%02X", c);
+            text::format_to(hex, "%%%02X", c);
             out += hex.data();
         }
     }
@@ -437,15 +438,16 @@ std::string encode_value(const Value& value, const NameLookup& names)
     case Kind::kInteger:
         return "i:" + std::to_string(value.integer);
     case Kind::kFloat:
-        std::snprintf(text.data(), sizeof(text), "f:%.9g", static_cast<double>(core::at(value.numbers, 0)));
+        text::format_to(text, "f:%.9g", static_cast<double>(core::at(value.numbers, 0)));
         return text.data();
     case Kind::kPair:
-        std::snprintf(text.data(), sizeof(text), "p:%.9g,%.9g", static_cast<double>(core::at(value.numbers, 0)),
-                      static_cast<double>(core::at(value.numbers, 1)));
+        text::format_to(text, "p:%.9g,%.9g", static_cast<double>(core::at(value.numbers, 0)),
+                        static_cast<double>(core::at(value.numbers, 1)));
         return text.data();
     case Kind::kVec4:
-        std::snprintf(text.data(), sizeof(text), "v:%.9g,%.9g,%.9g", static_cast<double>(core::at(value.numbers, 0)),
-                      static_cast<double>(core::at(value.numbers, 1)), static_cast<double>(core::at(value.numbers, 2)));
+        text::format_to(text, "v:%.9g,%.9g,%.9g", static_cast<double>(core::at(value.numbers, 0)),
+                        static_cast<double>(core::at(value.numbers, 1)),
+                        static_cast<double>(core::at(value.numbers, 2)));
         return text.data();
     case Kind::kName:
         return "n:" + record_name(value.checksum, names);
@@ -472,7 +474,7 @@ std::string encode_value(const Value& value, const NameLookup& names)
     case Kind::kFloats: {
         std::vector<std::string> parts;
         for (const float f : value.floats) {
-            std::snprintf(text.data(), sizeof(text), "%.9g", static_cast<double>(f));
+            text::format_to(text, "%.9g", static_cast<double>(f));
             parts.emplace_back(text.data());
         }
         return "af:" + get_join(parts, ",");

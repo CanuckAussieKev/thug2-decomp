@@ -499,7 +499,7 @@ std::string row_tag_of(const nodes::Elem& node)
     case nodes::Family::kCrown:
         if (node.order < 0)
             return "";
-        std::snprintf(text.data(), sizeof(text), "#%d", node.order);
+        text::format_to(text, "#%d", node.order);
         return text.data();
     case nodes::Family::kRail:
     case nodes::Family::kRouteWay:
@@ -554,7 +554,7 @@ void get_outliner(const ShapeMesh& model)
     ImGui::SetNextItemWidth(-1.0f);
     // (Select similar on a node asks for its family here - level_editor_ux3.h)
     if (const std::string asked = ux3::take_outliner_search(); !asked.empty())
-        std::snprintf(g_outliner_search.data(), sizeof(g_outliner_search), "%s", asked.c_str());
+        text::format_to(g_outliner_search, "%s", asked.c_str());
     ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6", g_outliner_search.data(), sizeof(g_outliner_search));
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Filter by name. Prefixes: rail: spawn: object: group:<name> label: locked: hidden:");
@@ -599,7 +599,7 @@ void get_outliner(const ShapeMesh& model)
         if (holds_selected || core::at(g_outliner_search, 0) || g_changed_only)
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
         std::array<char, 64> header{};
-        std::snprintf(header.data(), sizeof(header), "%s###family%d", nodes::family_name(family), f);
+        text::format_to(header, "%s###family%d", nodes::family_name(family), f);
         const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
         ImGui::SameLine();
         ImGui::PushFont(g_mono);
@@ -794,8 +794,8 @@ void node_section(const ShapeMesh& model, int index)
                 field_label("Moves");
                 bool whole = model.nodes.entire_rail_;
                 std::array<char, 64> label{};
-                std::snprintf(label.data(), sizeof(label), "Whole %s (%d point%s)", model.nodes.chain_noun_,
-                              model.nodes.rail_points_, model.nodes.rail_points_ == 1 ? "" : "s");
+                text::format_to(label, "Whole %s (%d point%s)", model.nodes.chain_noun_, model.nodes.rail_points_,
+                                model.nodes.rail_points_ == 1 ? "" : "s");
                 if (ImGui::Checkbox(label.data(), &whole))
                     get_ask(Request::Kind::kReqEntireRail, whole ? 1 : 0);
                 if (ImGui::IsItemHovered())
@@ -962,7 +962,7 @@ void lock_list(const ShapeMesh& model)
     ImGui::Spacing();
     ImGui::Separator();
     std::array<char, 48> title{};
-    std::snprintf(title.data(), sizeof(title), "Locked (%d)###locks", static_cast<int>(model.locks.size()));
+    text::format_to(title, "Locked (%d)###locks", static_cast<int>(model.locks.size()));
     if (!ImGui::CollapsingHeader(title.data(), ImGuiTreeNodeFlags_DefaultOpen))
         return;
     for (size_t i = 0; i < model.locks.size(); ++i) {
@@ -1169,10 +1169,9 @@ void status_bar(const ShapeMesh& model)
     // Right: unsaved, the changes, the camera (elided before the hints are crowded out).
     std::array<char, 224> right{};
     const std::string view = view_cam::get_standing(); // (an ortho view, orbiting - level_editor_camera.h)
-    std::snprintf(right.data(), sizeof(right),
-                  "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  %.0f, %.0f, %.0f  \xC2\xB7  speed %.0f%s%s",
-                  model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
-                  model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
+    text::format_to(right, "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  %.0f, %.0f, %.0f  \xC2\xB7  speed %.0f%s%s",
+                    model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
+                    model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
     const ui_layout::Rect2& bar = g_layout.status;
     const float pad_x = 8.0f * g_scale;
     ImGui::PushFont(g_small);
@@ -1335,7 +1334,7 @@ void get_browser(const ShapeMesh& model)
         ImVec2(360.0f * g_scale, std::min(760.0f * g_scale, g_layout.viewport.height - 16.0f * g_scale)));
     bool open = true;
     std::array<char, 64> title{};
-    std::snprintf(title.data(), sizeof(title), "Add Piece (%d)###browser", static_cast<int>(model.browser_items_->size()));
+    text::format_to(title, "Add Piece (%d)###browser", static_cast<int>(model.browser_items_->size()));
     ImGui::Begin(title.data(), &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);

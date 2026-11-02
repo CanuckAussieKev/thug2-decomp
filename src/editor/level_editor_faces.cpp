@@ -27,6 +27,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::level_editor::faces {
 
@@ -97,11 +98,11 @@ std::string write_records(const std::vector<SectorFaces>& sectors)
     for (const SectorFaces& s : sectors) {
         if (s.faces.empty())
             continue;
-        std::snprintf(text.data(), sizeof(text), "faces %08X ", s.checksum);
+        text::format_to(text, "faces %08X ", s.checksum);
         out += text.data();
         for (size_t i = 0; i < s.faces.size(); ++i) {
-            std::snprintf(text.data(), sizeof(text), "%s%u:%04X", i ? "," : "", static_cast<unsigned>(core::at(s.faces, i).first),
-                          static_cast<unsigned>(core::at(s.faces, i).second));
+            text::format_to(text, "%s%u:%04X", i ? "," : "", static_cast<unsigned>(core::at(s.faces, i).first),
+                            static_cast<unsigned>(core::at(s.faces, i).second));
             out += text.data();
         }
         out += '\n';
@@ -381,9 +382,9 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
     uint16_t flags = 0;
     get_take_in(key, &flags);
     std::array<char, 160> text{};
-    std::snprintf(text.data(), sizeof(text), "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
-                  piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
-                  static_cast<unsigned>(g_selection.size()));
+    text::format_to(text, "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
+                    piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
+                    static_cast<unsigned>(g_selection.size()));
     hud::get_message(text.data());
     if (debug_enabled())
         get_log("level editor: %s", text.data());
@@ -462,8 +463,8 @@ bool set_flag(uint16_t bit, bool on)
     push_module_undo(before);
     view::stale_cache();
     std::array<char, 128> text{};
-    std::snprintf(text.data(), sizeof(text), "Face flag 0x%04X %s on %d face%s", bit, on ? "set" : "cleared", faces,
-                  faces == 1 ? "" : "s");
+    text::format_to(text, "Face flag 0x%04X %s on %d face%s", bit, on ? "set" : "cleared", faces,
+                    faces == 1 ? "" : "s");
     hud::get_message(text.data());
     get_log("level editor: %s", text.data());
     return true;
@@ -585,8 +586,8 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
 std::string describe()
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), "Faces mode%s: %u selected", g_picking ? "" : " off",
-                  static_cast<unsigned>(g_selection.size()));
+    text::format_to(text, "Faces mode%s: %u selected", g_picking ? "" : " off",
+                    static_cast<unsigned>(g_selection.size()));
     return text.data();
 }
 
@@ -630,7 +631,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         const int state = get_combined(flags, info.bit);
         bool on = state == 1;
         std::array<char, 64> label{};
-        std::snprintf(label.data(), sizeof(label), "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
+        text::format_to(label, "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
         if (ImGui::Checkbox(label.data(), &on)) {
             const uint16_t bit = info.bit;
             const bool set = state != 1; // (mixed or clear: set on all; all set: clear)
