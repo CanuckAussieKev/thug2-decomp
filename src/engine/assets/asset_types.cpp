@@ -21,7 +21,6 @@
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "engine/gfx/pc_lights.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/engine_glue.h"

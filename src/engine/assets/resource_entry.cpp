@@ -4,8 +4,6 @@
 
 #include "engine/assets/resource_entry.h"
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/file/async.h"
 #include "engine/script/node_manager.h"
 #include "engine/core/arena_alloc.h"
