@@ -102,6 +102,4 @@ struct ObjectSearch {
 // 0x00461FA0: drop a reference; the last one deletes it.
 void release_tracker();
 
-extern uint32_t g_tracker_references;
-
 } // namespace objects

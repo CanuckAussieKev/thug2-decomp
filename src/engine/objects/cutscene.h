@@ -308,10 +308,6 @@ static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEn
                   offsetof(CinematicEntry, unknown60_) == 0x60,
               "layout must match the original");
 
-extern std::array<uint8_t, 64> g_cutscene_camera_slot;
 extern bool g_cutscene_playing;
-extern int g_cutscene_fixed_frame;
-extern std::array<float, 512> g_cutscene_rotations;
-extern std::array<float, 512> g_cutscene_translations;
 
 } // namespace objects

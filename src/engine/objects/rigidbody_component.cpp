@@ -27,26 +27,24 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/render/coll_cache.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "engine/objects/shared_state.h"
 
 namespace objects {
 
-std::array<float, 8> g_rigid_body_pusher_reach;
-std::optional<render::HitMeshCache> g_rigid_body_cache;
-std::array<BodyDynamicsModule::Contact, 24> g_rigid_body_contacts;
-std::array<maths::Vec4, 24> g_rigid_body_world_contact_points;
-std::array<maths::Vec4, 24> g_rigid_body_world_sphere_centers;
-std::array<maths::Vec4, 2> g_rigid_body_world_spring_points;
-std::array<SharedRef<GameEntity>, 8> g_rigid_body_pushers;
+RigidbodyComponentShared& rigidbody_component_shared()
+{
+    static core::NoDestroy<RigidbodyComponentShared> state;
+    return state.get();
+}
 
-std::array<maths::Vec4, 24>& BodyDynamicsModule::world_contact_points() { return g_rigid_body_world_contact_points; }
-std::array<maths::Vec4, 24>& BodyDynamicsModule::world_sphere_centers() { return g_rigid_body_world_sphere_centers; }
-std::array<maths::Vec4, 2>& BodyDynamicsModule::world_spring_points() { return g_rigid_body_world_spring_points; }
-std::span<BodyDynamicsModule::Contact> BodyDynamicsModule::get_contacts() { return g_rigid_body_contacts; }
-float g_rigid_body_pusher_height;
+std::array<maths::Vec4, 24>& BodyDynamicsModule::world_contact_points() { return rigidbody_component_shared().rigid_body_world_contact_points_; }
+std::array<maths::Vec4, 24>& BodyDynamicsModule::world_sphere_centers() { return rigidbody_component_shared().rigid_body_world_sphere_centers_; }
+std::array<maths::Vec4, 2>& BodyDynamicsModule::world_spring_points() { return rigidbody_component_shared().rigid_body_world_spring_points_; }
+std::span<BodyDynamicsModule::Contact> BodyDynamicsModule::get_contacts() { return rigidbody_component_shared().rigid_body_contacts_; }
 
 namespace {
 
@@ -498,7 +496,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
     if (params->has_bare_flag(0xA92B9954)) // disable_player_collision
         flag_bits_ |= kFlagNoPlayerCollision;
-    g_rigid_body_pusher_height = 77.0f;
+    rigidbody_component_shared().rigid_body_pusher_height_ = 77.0f;
 
     // The bounding radius (squared lengths compared unrounded).
     radius_ = 0.0f;
@@ -658,12 +656,12 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
 // 0x0042E380
 void add_rigid_body_pusher(GameEntity* object)
 {
-    auto& pushers = g_rigid_body_pushers;
+    auto& pushers = rigidbody_component_shared().rigid_body_pushers_;
     for (int i = 7; i >= 0; --i) {
         if (core::at(pushers, i).get_pull())
             continue;
         core::at(pushers, i).assign_value(object);
-        core::at(g_rigid_body_pusher_reach, i) = 0.0f; // (its extra reach: set_rigid_body_pusher_reach)
+        core::at(rigidbody_component_shared().rigid_body_pusher_reach_, i) = 0.0f; // (its extra reach: set_rigid_body_pusher_reach)
         return;
     }
 }
@@ -674,6 +672,6 @@ namespace objects {
 
 // 0x00640900 (a static initialiser): the rigid bodies' collision cache (registered among the caches, empty).
 // (never destroyed: it stays registered to the end)
-void construct_rigid_body_cache() { g_rigid_body_cache.emplace(); }
+void construct_rigid_body_cache() { rigidbody_component_shared().rigid_body_cache_.emplace(); }
 
 } // namespace objects

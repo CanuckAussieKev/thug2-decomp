@@ -20,11 +20,16 @@
 #include "engine/sound/sfx.h"
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "engine/objects/shared_state.h"
 
 namespace objects {
 
-bool g_rigid_body_draw_shape;
-bool g_rigid_body_draw_details;
+RigidbodyPhysicsShared& rigidbody_physics_shared()
+{
+    static core::NoDestroy<RigidbodyPhysicsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -46,8 +51,8 @@ float append_one(float a, float b) { return get_narrow(get_wide(a) + b); }
 float get_sub(float a, float b) { return get_narrow(get_wide(a) - b); }
 
 // Debug drawing switches (0x006939D4: the shape each frame; 0x006939D5: the centre, the contacts' pushes).
-bool draw_shape() { return g_rigid_body_draw_shape; }
-bool draw_details() { return g_rigid_body_draw_details; }
+bool draw_shape() { return rigidbody_physics_shared().rigid_body_draw_shape_; }
+bool draw_details() { return rigidbody_physics_shared().rigid_body_draw_details_; }
 
 // Quaternions: `quat` times `other`, in place (0x00420140); the matrix of one.
 void quat_multiply(maths::QuatRotation* quat, const maths::QuatRotation* other) { *quat *= *other; }

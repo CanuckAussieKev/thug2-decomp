@@ -282,17 +282,7 @@ void set_rigid_body_pusher_reach(GameEntity* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
 bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* script);
 
-extern std::array<maths::Vec4, 24> g_rigid_body_world_contact_points;     // 0x00694E30
-extern std::array<maths::Vec4, 24> g_rigid_body_world_sphere_centers;     // 0x00694FB0
-extern std::array<maths::Vec4, 2> g_rigid_body_world_spring_points;       // 0x00695130
-extern std::array<BodyDynamicsModule::Contact, 24> g_rigid_body_contacts; // 0x006949B0
-extern std::array<SharedRef<GameEntity>, 8> g_rigid_body_pushers;         // 0x00695150
 // (made by the start-up's construct_rigid_body_cache; never destroyed - the game ends with a quick exit)
-extern std::optional<render::HitMeshCache> g_rigid_body_cache; // 0x006939E0
-extern std::array<float, 8> g_rigid_body_pusher_reach;
-extern float g_rigid_body_pusher_height;
-extern bool g_rigid_body_draw_shape;
-extern bool g_rigid_body_draw_details;
 
 } // namespace objects
 

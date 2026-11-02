@@ -34,6 +34,7 @@
 #include <array>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/objects/shared_state.h"
 
 namespace objects {
 
@@ -80,8 +81,8 @@ void set_matrices(GameEntity* object, const float* matrix)
     std::memcpy(&object->basis_frame_, matrix, 64);
     std::memcpy(&object->display_matrix_, matrix, 64);
 }
-std::array<float, 512>& get_rotations() { return g_cutscene_rotations; }
-std::array<float, 512>& get_translations() { return g_cutscene_translations; }
+std::array<float, 512>& get_rotations() { return cutscene_data_shared().cutscene_rotations_; }
+std::array<float, 512>& get_translations() { return cutscene_data_shared().cutscene_translations_; }
 
 // (debug drawing, compiled out: the object's box)
 inline void debug_draw_box(const void*, const void*, const float*, int, int, int, uint32_t) {}
@@ -122,7 +123,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
 {
     previous_clock_ = clock_;
     if (script::fetch_int_value(kFixedTime) != 0) {
-        clock_ = static_cast<float>(g_cutscene_fixed_frame * static_cast<double>(kFrame));
+        clock_ = static_cast<float>(cutscene_play_shared().cutscene_fixed_frame_ * static_cast<double>(kFrame));
     } else if (unknown3474_) {
         // a fixed step a frame (looping back at the end)
         const double time = static_cast<double>(unknown3470_) * kStep + clock_;
@@ -231,7 +232,7 @@ void CinematicTable::update_object_transforms()
 {
     if (!object_source_)
         return;
-    anim_list_->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot.data(),
+    anim_list_->get_float_key_pose(get_rotations(), get_translations(), cutscene_data_shared().cutscene_camera_slot_.data(),
                                    static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                    0); // (the original passed the animation source's address: not read)
     // the animated objects of the level (not the cutscene's own)

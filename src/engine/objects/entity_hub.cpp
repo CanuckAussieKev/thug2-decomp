@@ -15,16 +15,22 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/entity.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/no_destroy.h"
+#include "engine/objects/shared_state.h"
 namespace objects {
 
-uint32_t g_tracker_references;
+EntityHubShared& entity_hub_shared()
+{
+    static core::NoDestroy<EntityHubShared> state;
+    return state.get();
+}
 
 namespace {
 
 constexpr int kFlushTaskPriority = 1000;
 
 // The tracker's reference count.
-uint32_t& tracker_references() { return g_tracker_references; }
+uint32_t& tracker_references() { return entity_hub_shared().tracker_references_; }
 
 // lists::Foremost<Entity>'s insert by priority (the highest first, equal ones newest first).
 void add_node_by_priority(memory::ListNode* head, memory::ListNode* node)

@@ -23,6 +23,8 @@
 #include "engine/sys/game_config.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
+#include "engine/objects/shared_state.h"
 
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
@@ -32,7 +34,11 @@ void sync_music_to_time(float seconds);
 namespace objects {
 
 bool g_cutscene_playing;
-int g_cutscene_fixed_frame;
+CutscenePlayShared& cutscene_play_shared()
+{
+    static core::NoDestroy<CutscenePlayShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -50,7 +56,7 @@ constexpr uint32_t kFieldOfView = 0x99529205; // a global float: the cutscene ca
 constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
-int& fixed_frame() { return g_cutscene_fixed_frame; }
+int& fixed_frame() { return cutscene_play_shared().cutscene_fixed_frame_; }
 std::array<char, 256>& shot_name()
 {
     static std::array<char, 256> cutscene_shot_name{};

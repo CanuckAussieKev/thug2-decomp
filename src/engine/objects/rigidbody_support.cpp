@@ -26,6 +26,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
+#include "engine/objects/shared_state.h"
 
 namespace objects {
 
@@ -47,12 +48,12 @@ double get_wide(float value) { return value; }
 float get_narrow(double value) { return static_cast<float>(value); }
 
 // The debug drawing switches (rigidbody_physics.cpp reads them): the shapes, the details.
-bool& draw_shape() { return g_rigid_body_draw_shape; }
-bool& draw_details() { return g_rigid_body_draw_details; }
+bool& draw_shape() { return rigidbody_physics_shared().rigid_body_draw_shape_; }
+bool& draw_details() { return rigidbody_physics_shared().rigid_body_draw_details_; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
-std::array<SharedRef<GameEntity>, 8>& get_pushers() { return g_rigid_body_pushers; }
-std::array<float, 8>& pusher_reach() { return g_rigid_body_pusher_reach; }
+std::array<SharedRef<GameEntity>, 8>& get_pushers() { return rigidbody_component_shared().rigid_body_pushers_; }
+std::array<float, 8>& pusher_reach() { return rigidbody_component_shared().rigid_body_pusher_reach_; }
 
 // The matrix's element at byte offset `offset` from its start (the original's: row offset / 16, column 4 bytes each).
 double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset / 16)[(offset % 16) / 4]; }
@@ -264,7 +265,7 @@ constexpr uint32_t kPercent = 0x9E497FC6; // percent
 
 // The pushers' height (0x006939D0: 77, set by configure_from_data) and the time the next collide sound of any rigid
 // body may play (0x006939D8).
-float pusher_height() { return g_rigid_body_pusher_height; }
+float pusher_height() { return rigidbody_component_shared().rigid_body_pusher_height_; }
 int& next_collide_sound_time()
 {
     static int next_collide_sound_time{};

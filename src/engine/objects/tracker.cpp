@@ -34,6 +34,7 @@
 #include "platform/all_ones.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/objects/shared_state.h"
 
 namespace objects {
 
@@ -600,7 +601,7 @@ EventWaitBoard* create_tracker(bool create)
 {
     if (!g_tracker && create)
         g_tracker = std::make_unique<EventWaitBoard>(); // (null when the heap is full)
-    ++g_tracker_references;
+    ++entity_hub_shared().tracker_references_;
     return g_tracker.get();
 }
 
