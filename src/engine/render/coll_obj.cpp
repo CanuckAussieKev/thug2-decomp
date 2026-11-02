@@ -12,7 +12,6 @@
 #include "platform/code_address.h"
 #include "engine/render/coll_static.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -46,7 +45,7 @@ void HitMesh::assign_shape_data(TriMeshSource* geometry)
 {
     geometry_ = geometry;
     if (geometry)
-        checksum_ = *raw::as<uint32_t>(geometry);
+        checksum_ = geometry->checksum_;
 }
 
 // 0x00413390 (the base's part of every deleting destructor)

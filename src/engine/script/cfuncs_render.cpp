@@ -31,7 +31,6 @@
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/settings.h"
 #include "engine/gfx/device.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace commands {
@@ -117,7 +116,7 @@ inline void print_anim_cache_info(void* /*cache*/) {}
 gfx::ClipStore* clip_store_ref() { return gfx::ClipStore::get_pull(); }
 
 // The viewport's camera `index` (0x004A0950: null if the viewport has none).
-uint8_t* viewport_camera(int index) { return raw::bytes(render::obtain_active_lens(index)); }
+gfx::ViewCam* viewport_camera(int index) { return render::obtain_active_lens(index); }
 
 // A colour of four bytes (r, g, b, a in memory order).
 uint32_t pack_bytes(int r, int g, int b, int a)
@@ -328,7 +327,7 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
         offset.feet_as_inches();
     box.min = {offset.x + low.x, offset.y + low.y, offset.z + low.z, offset.w + 1.0f};
     box.max = {offset.x + high.x, offset.y + high.y, offset.z + high.z, offset.w + 1.0f};
-    render::engine::kill_texture_splats_in_box(raw::as<const float>(&box));
+    render::engine::kill_texture_splats_in_box(&box);
     return true;
 }
 
@@ -379,7 +378,7 @@ bool cfunc_set_clipping_distances(Struct* params, Script*)
     params->fetch_float("Near", &near_plane, 0);
     params->fetch_float("Far", &far_plane, 0);
     for (int i = 0; i < 2; ++i) {
-        if (auto* camera = raw::as<gfx::ViewCam>(viewport_camera(i))) {
+        if (gfx::ViewCam* camera = viewport_camera(i)) {
             camera->near_dist_ = near_plane;
             camera->far_clip_ = far_plane;
         }

@@ -18,6 +18,9 @@ void* code_address(F f) noexcept
     return p;
 }
 
+// A code address as a number (a log's caller).
+inline uintptr_t code_address_value(const void* address) noexcept { return std::bit_cast<uintptr_t>(address); }
+
 // A code address back as a function of type F (code_address's inverse): a callback the game keeps as a plain
 // pointer, a DLL's export.
 template <typename F>

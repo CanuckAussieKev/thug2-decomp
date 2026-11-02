@@ -20,7 +20,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/util/com_ptr.h"
-#include "engine/core/pointer_cell.h"
+#include "platform/platform_d3d.h"
 #include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui_backend {
@@ -203,7 +203,7 @@ uint64_t create_texture(int width, int height, PixelLayout format, const void* d
 void release_texture(uint64_t id)
 {
     if (id)
-        cell::pointer<IDirect3DTexture9>(static_cast<uintptr_t>(id))->Release();
+        os_layer::imgui_texture_of(id)->Release();
 }
 
 void window_size(int* width, int* height)
@@ -222,7 +222,7 @@ void back_buffer_size(int* width, int* height)
 uint64_t get_texture_id(void* renderer_texture)
 {
     // (the Direct3D 9 backend takes an IDirect3DTexture9*)
-    return static_cast<uint64_t>(cell::address(static_cast<IDirect3DTexture9*>(renderer_texture)));
+    return os_layer::imgui_texture_id(static_cast<IDirect3DTexture9*>(renderer_texture));
 }
 
 bool begin_offscreen(int size, uint32_t argb)

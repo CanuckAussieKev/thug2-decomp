@@ -43,7 +43,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace sio {
@@ -578,18 +577,10 @@ void special_key_input(int key, int flags)
 // --- the original pad read --------------------------------------------------------------------------------
 
 namespace {
-struct LevelInfo {
-    std::array<uint8_t, 0x40> unknown;
-    uint32_t checksum;
-};
-} // namespace
-
-namespace {
-// Flags the read consults (meaning partly unknown): two that turn the menu handling off, and the level
-// (0x007CE5D8; its +0x40 is the level's checksum - 0x7ECA21E5 is the park editor's).
+// Flags the read consults (meaning partly unknown): two that turn the menu handling off; and the park editor
+// (0x007CE5D8), editing when its state is "edit" (0x7ECA21E5).
 bool& flag_696d_95() { return render::g_movie_playing; }
 bool& flag_6f_1158() { return objects::g_cutscene_playing; }
-constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 // The platform layer: the pad mode and the default keys' Enter / Escape (os_layer::set_pad_mode...), its window
 // message pump, the pad read and whether a DirectInput key is down.
 void set_pad_mode(int mode) { os_layer::set_pad_mode(mode); }
@@ -696,8 +687,8 @@ void InputPort::pull_data(int)
         second ^= p[0] >= 0x20 ? 0x40 : 0;
     second ^= p[2] >= 0x20 ? 0x80 : 0;
     const uint8_t buttons_so_far = second;
-    auto* level = raw::as<LevelInfo>(park_editing::g_park_editor);
-    if (level && level->checksum == kParkEditorLevel) {
+    const park_editing::ParkBuilderMode* editor = park_editing::g_park_editor;
+    if (editor && editor->cur_phase_ == park_editing::ParkBuilderMode::kStateEdit) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;
         if (frontend::g_ui_element_hub) {

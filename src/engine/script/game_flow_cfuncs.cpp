@@ -61,7 +61,6 @@
 #include "wire/play_messages.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -114,21 +113,18 @@ void unload_qb_file(uint32_t file) { script::unload_qb_file(file); }
 uint32_t* level_qb_files() { return g_level_qb_files.data(); }
 constexpr int kLevelQbFiles = 15;
 
-// What a manager walk does to the objects of a name (0x005A01D0's structure; the object's part from +4).
-struct FlagCommand {
-    uint32_t id;
+// The object's part of a manager walk's command (what 0x005A0120 is given).
+struct FlagCommandData {
     uint32_t value; // a flag's number, a mask, or an exception
     int action;     // FlagAction
     bool result;
     bool found;
 };
 
-// The object's part of it (what 0x005A0120 is given).
-struct FlagCommandData {
-    uint32_t value;
-    int action;
-    bool result;
-    bool found;
+// What a manager walk does to the objects of a name: their id, and the command.
+struct FlagCommand {
+    uint32_t id;
+    FlagCommandData data;
 };
 
 } // namespace
@@ -260,7 +256,7 @@ void apply_flag_command_to_object(objects::Entity* object, void* data)
 {
     auto* command = static_cast<FlagCommand*>(data);
     if (object->ident_ == command->id)
-        apply_flag_command(raw::as<FlagCommandData>(&command->value), object);
+        apply_flag_command(&command->data, object);
 }
 
 // 0x005A01D0
@@ -277,13 +273,13 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     FlagCommand command{};
     uint32_t id = 0;
     if (params->read_hash_value(kName, &id, 0)) {
-        command.value = value;
+        command.data.value = value;
         command.id = id;
-        command.action = action;
-        command.found = false;
-        command.result = false;
+        command.data.action = action;
+        command.data.found = false;
+        command.data.result = false;
         object_edit()->for_each(&apply_flag_command_to_object, &command);
-        return command.result;
+        return command.data.result;
     }
     const char* prefix = nullptr;
     if (!params->fetch_text(kPrefix, &prefix, 0))
@@ -291,15 +287,15 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     uint16_t count = 0;
     const uint32_t* nodes =
         level_nodes::collect_nodes_by_prefix(prefix, &count); // (the original passes a third argument, 1)
-    command.value = value;
-    command.action = action;
-    command.found = false;
-    command.result = false;
+    command.data.value = value;
+    command.data.action = action;
+    command.data.found = false;
+    command.data.result = false;
     for (int i = 0; std::cmp_less(i, count); ++i) {
         command.id = nodes[i];
         object_edit()->for_each(&apply_flag_command_to_object, &command);
     }
-    return command.result;
+    return command.data.result;
 }
 
 // 0x005A0300: MakeSkaterGoto <script> [params={...}] [skater=n]: the skater switches to the script - the calling

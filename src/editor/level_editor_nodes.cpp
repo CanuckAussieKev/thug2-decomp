@@ -24,7 +24,6 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::nodes {
@@ -198,21 +197,26 @@ std::unordered_map<uint32_t, int>& by_name()
     return value;
 }
 std::array<int, kFamilies> g_counts;
-std::vector<uint32_t> g_signature; // (the arrays' names and sizes when scanned)
+// The node arrays as last scanned: each one's name, size and script array.
+struct ArraySignature {
+    uint32_t label;
+    uint32_t extent;
+    const script::Array* nodes;
+    bool operator==(const ArraySignature&) const = default;
+};
+std::vector<ArraySignature> g_signature;
 int g_walked_crowns, g_walked_spawns;
 uint32_t g_generation;
 
-std::vector<uint32_t> get_signature()
+std::vector<ArraySignature> get_signature()
 {
-    std::vector<uint32_t> signature;
+    std::vector<ArraySignature> signature;
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager)
         return signature;
     for (uint32_t i = 0; i < manager->num_ && i < level_nodes::NodeManager::kMaxArrays; ++i) {
         const level_nodes::NodeArrayEntry& entry = core::at(manager->arrays_, i);
-        signature.push_back(entry.label_);
-        signature.push_back(entry.node_entries_ ? entry.node_entries_->extent_ : 0);
-        signature.push_back(static_cast<uint32_t>(cell::address(entry.node_entries_)));
+        signature.push_back({entry.label_, entry.node_entries_ ? entry.node_entries_->extent_ : 0, entry.node_entries_});
     }
     return signature;
 }
@@ -414,7 +418,7 @@ void sync_rails()
 
 void get_refresh()
 {
-    const std::vector<uint32_t> signature = get_signature();
+    const std::vector<ArraySignature> signature = get_signature();
     if (signature != g_signature) {
         g_signature = signature;
         get_scan();

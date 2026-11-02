@@ -20,8 +20,6 @@
 #include "formats/byte_stream.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
 
@@ -134,14 +132,15 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
     // First the checksums' names.
     for (const uint8_t* p = data; *p;) {
         if (*p == 0x2B) {
-            const uint32_t checksum = fetch_word32(p + 1);
-            const char* name = raw::chars(p + 5);
+            uint32_t checksum = 0;
+            const char* name = nullptr;
+            const uint8_t* next = read_name_token(p, &checksum, &name);
             if (use_qb_names)
                 add_script_checksum_name(checksum, name);
             else
                 register_name_hash(checksum, name);
             note_qb_name(checksum, name); // (ours: kept for the level editor when it's on)
-            p = raw::bytes(name + std::strlen(name) + 1);
+            p = next;
         } else {
             p = step_over_token(p);
         }
@@ -321,9 +320,3 @@ void unload_qb(uint32_t file_checksum)
 }
 
 } // namespace script
-
-namespace {
-struct ScriptAdapter {
-    bool refers_to(uint32_t name) { return script::script_refers_to(raw::as<script::Script>(this), name); }
-};
-} // namespace

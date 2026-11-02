@@ -11,7 +11,6 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_world.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -31,10 +30,10 @@ memory::ListNode* first_movable() { return g_movables.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
-void** grid_lists_along(maths::Seg* line) { return raw::as<void*>(get_coll_grids_on_line(line)); }
-HitMesh** objects_along(void* list, maths::Seg* line)
+CollGrid** grid_lists_along(maths::Seg* line) { return get_coll_grids_on_line(line); }
+HitMesh** objects_along(CollGrid* list, maths::Seg* line)
 {
-    return static_cast<CollGrid*>(list)->objects_along_line(line, nullptr);
+    return list->objects_along_line(line, nullptr);
 }
 
 void get_clear(HitMeshCache* cache)
@@ -63,7 +62,7 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
 {
     get_clear(this);
     maths::Seg line(box.min, box.max);
-    void* const* lists = grid_lists_along(&line);
+    CollGrid* const* lists = grid_lists_along(&line);
     if (!lists)
         return;
     box_ = box;

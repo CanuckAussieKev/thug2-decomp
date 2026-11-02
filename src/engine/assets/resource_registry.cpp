@@ -17,7 +17,6 @@
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace assets {
@@ -166,7 +165,7 @@ void ResourceRegistry::stop_callback() { task_->drop_out(); }
 
 // 0x00408060
 void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data,
-                                                  uint32_t size, bool permanent, bool copy, void* params, int extra)
+                                                  uint32_t size, bool permanent, bool copy, void* params, void* structure)
 {
     memory::push_mem_profile("Asset Overhead");
     gsl::owner<Resource*> asset = make_asset(type, false);
@@ -178,7 +177,7 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
     join_group(this, asset, group);
     memory::pop_mem_profile();
-    const int failed = asset->load_from_buffer(data, size, copy, params, cell::pointer<void>(extra));
+    const int failed = asset->load_from_buffer(data, size, copy, params, structure);
     memory::push_mem_profile("Asset Overhead");
     if (failed) {
         if (!keep_failed_assets())
@@ -194,7 +193,7 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
 
 // 0x00408440
 void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
-                                   bool use_archive, bool permanent, void* params, int extra)
+                                   bool use_archive, bool permanent, void* params, void* structure)
 {
     if (!checksum)
         checksum = checksums::hash_from_text(name);
@@ -207,7 +206,7 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
     give_callback(this, asset);
     asset->set_checksum(checksum);
     join_group(this, asset, group);
-    const int failed = asset->read_in(name, async, use_archive, params, cell::pointer<void>(extra));
+    const int failed = asset->read_in(name, async, use_archive, params, structure);
     if (failed) {
         if (!keep_failed_assets())
             delete asset;
@@ -220,7 +219,7 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
 
 // 0x004087B0
 void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group,
-                                               bool async, bool use_archive, bool permanent, void* params, int extra)
+                                               bool async, bool use_archive, bool permanent, void* params, void* structure)
 {
     if (!checksum)
         checksum = checksums::hash_from_text(name);
@@ -229,7 +228,7 @@ void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint3
         data = asset->get_data();
         wait_until_loaded(asset);
     } else {
-        data = load_asset(name, type, checksum, group, async, use_archive, permanent, params, extra);
+        data = load_asset(name, type, checksum, group, async, use_archive, permanent, params, structure);
     }
     keep_failed_assets(); // (looked up and not used)
     return data;
@@ -244,7 +243,7 @@ bool ResourceRegistry::load_anim(const char* name, uint32_t base, uint32_t offse
     if (asset_exists(checksum))
         return false;
     return fetch_or_load_resource(name, kAnimation, checksum, 0, async, use_archive, permanent_by_default_, nullptr,
-                                  0) != nullptr;
+                                  nullptr) != nullptr;
 }
 
 // 0x00407EC0

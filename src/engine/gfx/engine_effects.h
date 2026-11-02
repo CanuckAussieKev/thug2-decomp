@@ -69,7 +69,7 @@ void light_all_texture_splats();
 void kill_all_texture_splats();
 // 0x00491630: the recent splat positions in the box (min, then max at +0x10) forgotten (their time zeroed), then
 // the triangles in it killed.
-void kill_texture_splats_in_box(const float* box);
+void kill_texture_splats_in_box(const maths::BBox* box);
 // 0x004916F0: the sets of a texture freed (not their materials) and taken out of the table.
 void kill_texture_splats_of_texture(uint32_t texture);
 

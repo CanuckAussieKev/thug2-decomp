@@ -544,30 +544,3 @@ bool point_in_box(const Vec4* point, const Vec4* max, const Vec4* min)
 }
 
 } // namespace maths
-
-// --- replacements -------------------------------------------------------------------------------------
-namespace {
-
-using maths::BBox;
-using maths::Capsule;
-using maths::Seg;
-using maths::Vec4;
-
-// Constructors keep the original __thiscall shape (object in ECX, returned in EAX).
-struct GeometryAdapter {
-    BBox* construct_b_box() { return new (this) BBox(); }
-    Capsule* construct_empty_capsule() { return new (this) Capsule(); }
-    maths::Sphere* construct_sphere() { return new (this) maths::Sphere(); }
-    BBox* construct_b_box_at(const Vec4& point) { return new (this) BBox(point); }
-    Capsule* construct_capsule(const Vec4& start, const Vec4& offset, float radius)
-    {
-        return new (this) Capsule(start, offset, radius);
-    }
-    Capsule* construct_capsule_from_line(const Seg& line, float radius) { return new (this) Capsule(line, radius); }
-    maths::Rect2* construct_rect(int left, int top, int right, int bottom)
-    {
-        return new (this) maths::Rect2(left, top, right, bottom);
-    }
-};
-
-} // namespace

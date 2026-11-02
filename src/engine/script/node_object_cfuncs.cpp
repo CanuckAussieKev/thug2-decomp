@@ -54,7 +54,6 @@
 #include "engine/script/skate_cfuncs.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -590,9 +589,8 @@ bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
     const char* loaded_node_list = g_node_list_name.data();
     assets::ResourceRegistry* assets = assets::asset_manager();
     assets->discard_loaded_item(assets->obtain_loaded_item(checksums::hash_from_text(loaded_node_list), 0));
-    alignas(4) std::array<uint8_t, 8> storage{};
-    auto* file = raw::as<script::Struct>(storage.data());
-    new (file) script::Struct;
+    script::Struct file_params; // (on the stack; emptied at the end, never destroyed - as the original)
+    script::Struct* file = &file_params;
     file->append_word(0u, loaded_node_list);
     const char* name = nullptr;
     file->fetch_text(0u, &name, 1);
@@ -823,11 +821,11 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
         return true;
     uint32_t prefix = 0;
     if (params->hash_from_name_or_text(0x6C4E7971u, &prefix, 0)) { // "prefix"
-        uint32_t count = 0;                                        // (a 16-bit count in a zeroed 32-bit slot)
+        uint16_t count = 0;
         const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
-        const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, raw::as<uint16_t>(&count));
-        for (int i = 0; std::cmp_less(i, static_cast<uint16_t>(count)); ++i) {
+        const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
+        for (int i = 0; std::cmp_less(i, count); ++i) {
             if (node_command(nodes[i], action, script, params) && action == 5)
                 break;
         }

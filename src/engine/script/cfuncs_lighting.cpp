@@ -19,7 +19,6 @@
 #include "engine/gfx/sector.h"
 #include "engine/sys/game_config.h"
 #include "engine/gfx/settings.h"
-#include "engine/core/raw_view.h"
 #include "platform/registry.h"
 
 namespace commands {
@@ -73,19 +72,6 @@ void set_gamma(float red, float green, float blue) { render::set_gamma(red, gree
 inline void set_color_buffer_clear(bool /*clear*/) {}
 
 // The sun's settings as SetSunProps passes them (0x004426D0 copies the fields its mask names).
-struct SunProps {
-    float theta;              // +0x00 (mask 0x01)
-    float phi;                // +0x04 (0x02)
-    float radius;             // +0x08 (0x04)
-    float size;               // +0x0C (0x08)
-    uint32_t texture;         // +0x10 (0x20)
-    uint32_t corona_texture_; // +0x14 (0x40)
-    std::array<float, 4> colour;          // +0x18 (0x10: never set by the command)
-    std::array<uint8_t, 0x18> unknown28;
-    bool enabled; // +0x40 (0x80)
-    std::array<uint8_t, 3> pad41;
-};
-static_assert(sizeof(SunProps) == 0x44, "layout must match the original");
 
 } // namespace
 
@@ -129,7 +115,7 @@ bool cfunc_get_terrain_type_param(Struct* params, Script* script)
 // settings given are passed on (0x004426D0 with the mask of those given). Always true.
 bool cfunc_set_sun_props(Struct* params, Script*)
 {
-    SunProps props{}; // (the fields not given are uninitialised in the original; the callee doesn't read them)
+    sun::Settings props{}; // (the fields not given are uninitialised in the original; the callee doesn't read them)
     uint32_t mask = 0;
     if (params->fetch_float(kTheta, &props.theta, 0))
         mask = 0x01;
@@ -144,13 +130,13 @@ bool cfunc_set_sun_props(Struct* params, Script*)
     if (params->read_hash_value(kCoronaTexture, &props.corona_texture_, 0))
         mask |= 0x40;
     if (params->has_bare_flag(kEnable)) {
-        props.enabled = true;
+        props.shown = true;
         mask |= 0x80;
     } else if (params->has_bare_flag(kDisable)) {
-        props.enabled = false;
+        props.shown = false;
         mask |= 0x80;
     }
-    sun::set_sun(raw::as<const sun::Settings>(&props), mask);
+    sun::set_sun(&props, mask);
     return true;
 }
 

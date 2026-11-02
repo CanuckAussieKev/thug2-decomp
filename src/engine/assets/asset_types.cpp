@@ -29,7 +29,6 @@
 #include "engine/script/qb.h"
 #include "engine/script/script_startup.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
 namespace assets {
@@ -877,7 +876,7 @@ bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* model = group_data(this);
     add_skin_collision(model, buffer, size); // (not original: the size)
-    change_contents(*raw::field_at<void*>(static_cast<uint8_t*>(model), 0x8C));
+    change_contents(static_cast<render::SubMesh*>(model)->hit_shape_); // (its collision objects)
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);

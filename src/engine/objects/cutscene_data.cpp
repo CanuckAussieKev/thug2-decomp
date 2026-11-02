@@ -78,7 +78,7 @@ assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
 // (from memory: not permanent, copied)
 void load_asset_file(uint32_t name, void* data, uint32_t size)
 {
-    asset_manager()->read_resource_from_stream(name, 5, 0, data, size, false, true, nullptr, 0);
+    asset_manager()->read_resource_from_stream(name, 5, 0, data, size, false, true, nullptr, nullptr);
 }
 
 } // namespace

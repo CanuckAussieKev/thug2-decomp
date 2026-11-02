@@ -25,8 +25,6 @@
 #include "engine/sys/game_config.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -215,7 +213,7 @@ bool cfunc_load_asset(Struct* params, Script*)
     uint32_t desc = 0;
     params->read_hash_value(kDesc, &desc, false);
     if (!assets->fetch_or_load_resource(name, 0, desc, parent, async, false, assets->get_permanent_by_default(),
-                                        nullptr, static_cast<int>(cell::address(params))))
+                                        nullptr, params))
         script::fetch_int_value(kAssertOnMissingAssets); // (an assert on it compiled out)
     return true;
 }
@@ -241,7 +239,7 @@ bool cfunc_load_skeleton(Struct* params, Script*)
     uint32_t checksum = 0;
     params->fetch_text(kName, &name, true);
     params->read_hash_value(0u, &checksum, 1);
-    assets->fetch_or_load_resource(name, 0, checksum, 0, false, false, assets->get_permanent_by_default(), nullptr, 0);
+    assets->fetch_or_load_resource(name, 0, checksum, 0, false, false, assets->get_permanent_by_default(), nullptr, nullptr);
     return true;
 }
 
@@ -295,7 +293,7 @@ bool cfunc_unload_scene(Struct* params, Script*)
         else
             scene = first_scene();
         if (scene) {
-            void* textures = *raw::field_at<void*>(static_cast<uint8_t*>(scene), 0x88);
+            void* textures = static_cast<render::WorldScene*>(scene)->texture_set_;
             unload_scene(scene, 1);
             if (textures)
                 unload_tex_dict(textures);

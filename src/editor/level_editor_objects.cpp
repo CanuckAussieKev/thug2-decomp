@@ -26,8 +26,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/maths/shape_tests.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -235,14 +235,14 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     const uint8_t flags = model->flag_bits_;
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
-    void* geometry = model->get_geom_by_name(0);
-    const maths::Vec4* box =
-        geometry ? raw::as<const maths::Vec4>(static_cast<render::Geom*>(geometry)->fetch_bounds()) : nullptr;
+    render::Geom* geometry = model->get_geom_by_name(0);
+    const maths::BBox* bounds = geometry ? geometry->fetch_bounds() : nullptr;
+
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
     V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
-    if (box && box[0].x <= box[1].x && box[0].y <= box[1].y && box[0].z <= box[1].z) {
-        min = {box[0].x, box[0].y, box[0].z};
-        max = {box[1].x, box[1].y, box[1].z};
+    if (bounds && bounds->min.x <= bounds->max.x && bounds->min.y <= bounds->max.y && bounds->min.z <= bounds->max.z) {
+        min = {bounds->min.x, bounds->min.y, bounds->min.z};
+        max = {bounds->max.x, bounds->max.y, bounds->max.z};
     }
     if (flags & 8) {
         const maths::Vec4& scale = model->size_factor_;

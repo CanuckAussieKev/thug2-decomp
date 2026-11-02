@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/checked_index.h"
+#include "engine/pad_input/input_hub.h"
+
 namespace script {
 class Struct;
 class Script;
@@ -13,25 +16,24 @@ class Script;
 // All are cdecl (params, script) and return whether the script's `if` should be taken.
 namespace commands {
 
-// The controller's input state (the object at the controller's +0x18): one byte per button, non-zero = held.
+// The controller's input state (its data this frame): one byte per button, non-zero = held.
 struct PadInputSample {
-    std::array<uint8_t, 4> unknown0;
-    uint8_t right;    // +0x04
-    uint8_t left;     // +0x05
-    uint8_t up;       // +0x06
-    uint8_t down;     // +0x07
-    uint8_t triangle; // +0x08
-    uint8_t circle;   // +0x09
-    uint8_t x;        // +0x0A
-    uint8_t square;   // +0x0B
-    uint8_t l1;       // +0x0C
-    uint8_t r1;       // +0x0D
-    uint8_t l2;       // +0x0E
-    uint8_t r2;       // +0x0F
-    std::array<uint8_t, 6> unknown10;
-    uint8_t black; // +0x16
-    uint8_t white; // +0x17
-    uint8_t z;     // +0x18
+    const pad_input::Payload* data;
+    [[nodiscard]] uint8_t right() const { return core::at(data->incident_, 0x04); }
+    [[nodiscard]] uint8_t left() const { return core::at(data->incident_, 0x05); }
+    [[nodiscard]] uint8_t up() const { return core::at(data->incident_, 0x06); }
+    [[nodiscard]] uint8_t down() const { return core::at(data->incident_, 0x07); }
+    [[nodiscard]] uint8_t triangle() const { return core::at(data->incident_, 0x08); }
+    [[nodiscard]] uint8_t circle() const { return core::at(data->incident_, 0x09); }
+    [[nodiscard]] uint8_t x() const { return core::at(data->incident_, 0x0A); }
+    [[nodiscard]] uint8_t square() const { return core::at(data->incident_, 0x0B); }
+    [[nodiscard]] uint8_t l1() const { return core::at(data->incident_, 0x0C); }
+    [[nodiscard]] uint8_t r1() const { return core::at(data->incident_, 0x0D); }
+    [[nodiscard]] uint8_t l2() const { return core::at(data->incident_, 0x0E); }
+    [[nodiscard]] uint8_t r2() const { return core::at(data->incident_, 0x0F); }
+    [[nodiscard]] uint8_t black() const { return core::at(data->incident_, 0x16); }
+    [[nodiscard]] uint8_t white() const { return core::at(data->incident_, 0x17); }
+    [[nodiscard]] uint8_t z() const { return core::at(data->incident_, 0x18); }
 };
 
 // The per-button debounce times (0x007CE758, 22 entries, indexed like the button table 0x0067D6D8): a button
@@ -41,7 +43,7 @@ uint32_t* debounce_times();
 // 0x0059EE80: whether `button` (a checksum: up, down, left, right, the diagonals, x, triangle, square,
 // circle, l1, l2, r1, r2, black, white, z) is held on `controller` (its input state at +0x18) and isn't being
 // debounced. A diagonal is held when both its directions are. Unknown buttons: false.
-bool controller_pressed(const void* controller, uint32_t button);
+bool controller_pressed(const pad_input::InputHandler* controller, uint32_t button);
 
 bool cfunc_controller_debounce(script::Struct* params, script::Script* script);          // 0x0059EDF0
 bool cfunc_fake_lights(script::Struct* params, script::Script* script);                  // 0x0059F0F0

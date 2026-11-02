@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include "engine/script/preferences.h"
-#include "engine/core/pointer_cell.h"
 
 namespace prefs {
 
@@ -37,7 +36,7 @@ const char* Preferences::get_preference_string(uint32_t name, uint32_t field)
 {
     script::Struct* preference = nullptr;
     top_entry_.read_sub_struct(name, &preference, 0);
-    const char* value = cell::pointer<const char>(name); // (the argument's slot, as the original)
+    const char* value = nullptr; // (the original read into its argument slot: the name's bits)
     preference->fetch_text(field, &value, 1);
     return value;
 }

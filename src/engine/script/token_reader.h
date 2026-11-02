@@ -45,6 +45,9 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args);
 // A ( ... ) expression, evaluated into `result`.
 const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* result);
 
+// A checksum-name token (0x2B) at `token`: its checksum and its text (in place); the token after it.
+const uint8_t* read_name_token(const uint8_t* token, uint32_t* checksum, const char** name);
+
 extern float g_parse_nudge;
 extern StoredRandom* g_stored_randoms_newest;
 

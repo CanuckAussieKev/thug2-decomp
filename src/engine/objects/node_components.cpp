@@ -63,7 +63,7 @@ void WaypointListModule::configure_from_data(script::Struct* params)
     else
         std::snprintf(path.data() + std::strlen(path.data()), sizeof(path) - std::strlen(path.data()), ".qb");
     nodes_ = static_cast<script::Array*>(
-        assets::asset_manager()->fetch_or_load_resource(path.data(), 0, 0, 0, false, false, false, nullptr, 0));
+        assets::asset_manager()->fetch_or_load_resource(path.data(), 0, 0, 0, false, false, false, nullptr, nullptr));
 }
 
 // 0x00427EB0

@@ -20,7 +20,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "platform/compiler.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace file {
@@ -485,7 +484,8 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
         return false; // (the busy counts stay raised, as in the original)
     payload_bytes_ = static_cast<int>(::GetFileSize(file_ref_, nullptr));
     payload_bytes_ = (payload_bytes_ + 0x7FF) & ~0x7FF; // whole 2 KB sectors (unbuffered reads)
-    io_done_handler(operation_, false, static_cast<int>(cell::of(file_ref_)), static_cast<int>(payload_bytes_));
+    // (the original passed the handle's value as the result: only checked for a sign, and the next operation sets it)
+    io_done_handler(operation_, false, 0, static_cast<int>(payload_bytes_));
     return true;
 }
 

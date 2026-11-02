@@ -140,13 +140,13 @@ void kill_all_texture_splats()
 }
 
 // 0x004B92A0
-void kill_texture_splats_in_box(const float* box)
+void kill_texture_splats_in_box(const maths::BBox* box)
 {
     g_splat_sets.for_each([box](TextureSplats* splats) {
         for (int i = 0; i < 0x100; ++i) {
             const auto& p = core::at(core::at(splats->vertices, i), 0).position;
-            if (core::at(p, 0) >= box[0] && core::at(p, 1) >= box[1] && core::at(p, 2) >= box[2] && core::at(p, 0) <= box[4] && core::at(p, 1) <= box[5] &&
-                core::at(p, 2) <= box[6])
+            if (core::at(p, 0) >= box->min.x && core::at(p, 1) >= box->min.y && core::at(p, 2) >= box->min.z &&
+                core::at(p, 0) <= box->max.x && core::at(p, 1) <= box->max.y && core::at(p, 2) <= box->max.z)
                 core::at(splats->alive, i) = 0;
         }
     });

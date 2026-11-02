@@ -37,7 +37,6 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
@@ -229,7 +228,7 @@ void PreviewEntity::read_in(script::Struct* params)
         params->read_hash_value(kSkeletonName, &skeleton, 1);
         assets::ResourceRegistry* assets = assets::asset_manager();
         if (!assets->obtain_loaded_item(skeleton, 0)) {
-            assets->load_asset(skeleton_file, kAssetKindSkeleton, skeleton, 0, false, false, false, nullptr, 0);
+            assets->load_asset(skeleton_file, kAssetKindSkeleton, skeleton, 0, false, false, false, nullptr, nullptr);
             asset_ = skeleton;
         }
     }
@@ -529,7 +528,7 @@ int handle_step_animation(net::InboundMsgCtx* context)
 int handle_reload_animation(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body_);
-    object_of(context)->reload_animation(message, *raw::field_at<const uint32_t>(message, 0x80));
+    object_of(context)->reload_animation(message, net::wire::value_at<uint32_t>(context->body_, 0x80));
     return 1;
 }
 
@@ -539,7 +538,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
     const char* message = net::wire::text_of(context->body_);
     script::StructPtr params = script::make_struct();
     params->append_word(0u, message);
-    params->put_name_key(0u, *raw::field_at<const uint32_t>(message, 0x80));
+    params->put_name_key(0u, net::wire::value_at<uint32_t>(context->body_, 0x80));
     commands::cfunc_reload_skater_cam_anim(params.get(), nullptr);
     params.reset();
     return 1;

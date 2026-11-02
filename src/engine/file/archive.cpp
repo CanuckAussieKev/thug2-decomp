@@ -24,8 +24,6 @@
 #include "formats/lzss.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace pre {
@@ -292,7 +290,7 @@ memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_
 void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
 {
     if (event == 3) // finished
-        static_cast<ArchiveManager*>(manager)->finish_load(static_cast<int>(cell::of(file)), static_cast<uint8_t*>(data),
+        static_cast<ArchiveManager*>(manager)->finish_load(file, static_cast<uint8_t*>(data),
                                                            size);
 }
 } // namespace
@@ -319,7 +317,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
             PendingLoad& pending = core::at(pending_, queued_archive_count_);
             // The original copies with no limit; the field holds 63 characters.
             strncpy_s(pending.name.data(), pending.name.size(), name, _TRUNCATE);
-            pending.handle = static_cast<int>(cell::of(file));
+            pending.handle = file;
             ++queued_archive_count_;
             const int size = file::async_get_file_size(file);
             gfx::loading_console::note_file("read (async)", path.data(), size); // (not original: the loading console)
@@ -346,7 +344,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
         // English archive (.ppf/.ppd).
         const size_t length = std::strlen(path.data());
-        uint32_t* patch = nullptr;
+        uint8_t* patch = nullptr;
         uint32_t patch_size = 0;
         bool patched = false;
         const char letter = get_language() == 3 ? 'f' : get_language() == 5 ? 'd' : '\0';
@@ -357,7 +355,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
                 if (file::is_present(path.data())) {
                     file::Hdl file = file::unseal(path.data(), "rb");
                     patch_size = file::get_file_size(file);
-                    patch = static_cast<uint32_t*>(memory::alloc(patch_size));
+                    patch = static_cast<uint8_t*>(memory::alloc(patch_size));
                     file::get_take_in(patch, 1, static_cast<int>(patch_size), file);
                     file::shut(file);
                     patched = true;
@@ -394,7 +392,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
                 std::memset(data + file_size, 0, allocated - file_size);
             // Not original - bounded by the archive's room and the patch's size (the original wrote each record
             // where it said).
-            if (!pre_format::apply_patch(data, allocated, raw::bytes(patch), patch_size))
+            if (!pre_format::apply_patch(data, allocated, patch, patch_size))
                 debug::printf("%s: a damaged patch\n", path.data());
             memory::dealloc(patch);
         }
@@ -485,7 +483,7 @@ bool ArchiveManager::has_finished_loading(const char* name)
 }
 
 // 0x005B8DB0
-void ArchiveManager::finish_load(int handle, uint8_t* data, int size)
+void ArchiveManager::finish_load(const file::AsyncFileHandle* handle, uint8_t* data, int size)
 {
     int i = 0;
     while (i < queued_archive_count_ && core::at(pending_, i).handle != handle)
@@ -693,26 +691,3 @@ bool cfunc_in_pre_file(script::Struct* params, script::Script* /*script*/)
 }
 
 } // namespace pre
-
-namespace {
-
-struct PreFileAdapter {
-    pre::ArchiveFile* make_new(uint8_t* block, size_t size, bool bottom_up)
-    {
-        return new (this) pre::ArchiveFile(block, size, bottom_up);
-    }
-    pre::ArchiveFile* teardown(unsigned int flags)
-    {
-        auto* self = raw::as<pre::ArchiveFile>(this);
-        self->~ArchiveFile();
-        if (flags & 1)
-            memory::dealloc(self);
-        return self;
-    }
-};
-
-struct PreMgrAdapter {
-    pre::ArchiveManager* make_new() { return new (this) pre::ArchiveManager(); }
-};
-
-} // namespace

@@ -48,4 +48,8 @@ void release_occlusion_queries();
 // 0x005F55E0 (cdecl): the buffers, the queries, the device and Direct3D released.
 void release_direct_3d();
 
+// Dear ImGui's Direct3D 9 backend names a texture by its IDirect3DTexture9* as a 64-bit id (ImTextureID).
+uint64_t imgui_texture_id(IDirect3DTexture9* texture);
+IDirect3DTexture9* imgui_texture_of(uint64_t id);
+
 } // namespace os_layer

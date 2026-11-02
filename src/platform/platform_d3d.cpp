@@ -8,6 +8,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/pointer_cell.h"
 
 namespace os_layer {
 
@@ -203,5 +204,8 @@ void release_direct_3d()
     dynamic_vertices_used() = 0;
     dynamic_vertices_locked() = nullptr;
 }
+
+uint64_t imgui_texture_id(IDirect3DTexture9* texture) { return static_cast<uint64_t>(cell::address(texture)); }
+IDirect3DTexture9* imgui_texture_of(uint64_t id) { return cell::pointer<IDirect3DTexture9>(static_cast<uintptr_t>(id)); }
 
 } // namespace os_layer

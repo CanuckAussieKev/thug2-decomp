@@ -325,11 +325,12 @@ void kill_all_texture_splats()
 }
 
 // 0x00491630
-void kill_texture_splats_in_box(const float* box)
+void kill_texture_splats_in_box(const maths::BBox* box)
 {
     recent_splats().for_each([box](RecentSplat* recent) {
         const maths::Vec4& at = recent->pos;
-        if (at.x >= box[0] && at.y >= box[1] && at.z >= box[2] && at.x <= box[4] && at.y <= box[5] && at.z <= box[6])
+        if (at.x >= box->min.x && at.y >= box->min.y && at.z >= box->min.z && at.x <= box->max.x &&
+            at.y <= box->max.y && at.z <= box->max.z)
             recent->time = 0; // (the original stored 0.0f: the same bits)
     });
     render::kill_texture_splats_in_box(box);

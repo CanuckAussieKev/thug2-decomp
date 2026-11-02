@@ -1028,6 +1028,13 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
 
 namespace script {
 
+const uint8_t* read_name_token(const uint8_t* token, uint32_t* checksum, const char** name)
+{
+    *checksum = fetch_word32(token + 1);
+    *name = raw::chars(token + 5);
+    return token + 5 + std::strlen(*name) + 1;
+}
+
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
 void construct_evaluator() { g_evaluator.prepare_all(); }
 

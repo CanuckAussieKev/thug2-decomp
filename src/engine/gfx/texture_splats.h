@@ -11,6 +11,10 @@
 // perspective correction of their texture coordinates, lit, killed by box or all at once - and the geometry helpers
 // the projection uses: 2D segment and triangle tests against the screen square, and splitting triangles that are too
 // big (a stack of vertices at 0x006FC4A0).
+namespace maths {
+class BBox;
+}
+
 namespace render {
 
 class BitmapTexture;
@@ -49,7 +53,7 @@ void light_texture_splats(TextureSplats* splats);
 // 0x004B9200: every set freed (its material too) and taken out of the table.
 void kill_all_texture_splats();
 // 0x004B92A0: the triangles whose first vertex is in the box (min, then max at +0x10) killed.
-void kill_texture_splats_in_box(const float* box);
+void kill_texture_splats_in_box(const maths::BBox* box);
 // 0x004B9380: every set drawn - each vertex's texture coordinates corrected first about 0.5 by 1 / (r + t (1 - r)),
 // r = A / B and t = (steps - alive) / steps (1 when A - B is 0) - with linear
 // minification (put back after).

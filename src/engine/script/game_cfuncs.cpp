@@ -2,6 +2,7 @@
 // preferences, some network flags (see game_cfuncs.h).
 
 #include "engine/script/game_cfuncs.h"
+#include "engine/objects/camera_component.h"
 
 #include "engine/core/str.h"
 
@@ -61,7 +62,6 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/script/cfuncs_scene.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -116,9 +116,11 @@ objects::ObjectHubBase* object_edit()
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
 gfx::ViewCam* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
-void set_viewport_camera(int viewport, void* camera)
+void set_viewport_camera(int viewport, gfx::ViewCam* camera) { render::choose_camera(viewport, camera); }
+// A camera component's camera.
+gfx::ViewCam* viewpoint_camera(objects::ObjectModule* camera)
 {
-    render::choose_camera(viewport, static_cast<gfx::ViewCam*>(camera));
+    return core::down_cast<objects::ViewpointModule>(camera)->view_camera_.get();
 }
 
 // The preferences of a type (0x00565680: the network's, the taunts', the skate module's; null for others). The
@@ -286,7 +288,7 @@ bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
         object->at_point_ = *viewport_camera(viewport)->fetch_location();
         camera->tick_frame(); // (vtable slot 1)
     }
-    set_viewport_camera(viewport, raw::as<void*>(camera)[0x18 / 4]); // the component's camera (+0x18)
+    set_viewport_camera(viewport, viewpoint_camera(camera)); // the component's camera
     return true;
 }
 
@@ -361,7 +363,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
     text::copy_unbounded(g_node_list_name.data(), file);
-    assets::asset_manager()->load_asset(file, 11, 0, 0, false, false, false, nullptr, 0);
+    assets::asset_manager()->load_asset(file, 11, 0, 0, false, false, false, nullptr, nullptr);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;
 }
@@ -451,7 +453,7 @@ void apply_view_mode(int mode)
         make_camera_active(kViewerCameraObject, 0, true);
     } else if (objects::Entity* object = object_edit()->look_up_entity(kSkaterCamObject)) {
         if (objects::ObjectModule* camera = core::down_cast<objects::GameEntity>(object)->fetch_module(kCamera))
-            set_viewport_camera(0, raw::as<void*>(camera)[0x18 / 4]);
+            set_viewport_camera(0, viewpoint_camera(camera));
     }
     for (int i = 0; i < 8; ++i) {
         if (objects::Rider* skater = get_rider_at(i))
@@ -711,17 +713,18 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
         debug::printf("Can't find file: %s\n", file); // "Can't find file: %s\n"
         return false;                                 // (as in the original, the debug heap stays pushed)
     }
-    auto* data = static_cast<uint8_t*>(packs::load_file_into(file, &size, nullptr));
+    void* loaded = packs::load_file_into(file, &size, nullptr);
+    const auto* data = static_cast<const char*>(loaded); // (a text file)
     debug::printf("Loaded %s, size = %d, at %p\n", file, size, data); // "Loaded %s, size = %d, at %p\n"
     memory::Hub::get_pull()->leave_heap_scope();
     int count1 = 0;
     int count2 = 0;
     int count3 = 0;
     int count4 = 0;
-    for (const uint8_t* at = data; at < data + size; ++at) {
+    for (const char* at = data; at < data + size; ++at) {
         static const auto kTracking = std::to_array("\nTracking");
         int matched = 0; // (compared a byte at a time: never past the first difference)
-        while (matched < 9 && at[matched] == static_cast<uint8_t>(core::at(kTracking, matched)))
+        while (matched < 9 && at[matched] == core::at(kTracking, matched))
             ++matched;
         if (matched < 9)
             continue;
@@ -729,7 +732,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
         at += 11;
         std::array<float, 6> values{};
         for (float& value : values) {
-            value = static_cast<float>(game_atof(raw::chars(at)));
+            value = static_cast<float>(game_atof(at));
             while (*at == '-' || *at == '.' || (*at >= '0' && *at <= '9'))
                 ++at;
             ++at;
@@ -774,7 +777,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
     }
     debug::printf("Bonks = %d,  Grinds = %d, verts= %d, lines = %d\n", count1, count2, count3,
                   count4); // "Bonks = %d, ..."
-    memory::free_malloc(data);
+    memory::free_malloc(loaded);
     return true;
 }
 

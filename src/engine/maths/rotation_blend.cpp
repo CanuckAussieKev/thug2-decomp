@@ -80,14 +80,3 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
 }
 
 } // namespace maths
-
-namespace {
-
-struct SlerpAdapter {
-    maths::ArcRotationBlender* make_new(const maths::Mat4& from, const maths::Mat4& to)
-    {
-        return new (this) maths::ArcRotationBlender(from, to);
-    }
-};
-
-} // namespace

@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string>
 
+#include "engine/file/async.h"
+
 namespace script {
 class Struct;
 class Script;
@@ -41,7 +43,7 @@ struct FileTables {
 // Load a file into memory, or add a use to it if it's already loaded (on its own or inside a .pre
 // archive). Returns its data, or null. `async` loads through the asynchronous file loader, with an
 // optional completion callback and two arguments for it.
-void* read_in(const char* name, bool async, void* callback, void* hook_user_a, void* hook_user_b);
+void* read_in(const char* name, bool async, file::IoCompletionHook callback, void* hook_user_a, void* hook_user_b);
 
 // Release one use of a file; a file loaded on its own is freed when its last use goes.
 void offload(uint32_t checksum);

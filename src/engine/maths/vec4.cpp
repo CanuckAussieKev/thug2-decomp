@@ -5,7 +5,6 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/core/raw_view.h"
 
 namespace maths {
 
@@ -395,24 +394,3 @@ double get_distance_squared(const Vec4& a, const Vec4& b)
 }
 
 } // namespace maths
-
-// --- replacements -------------------------------------------------------------------------------------
-// Members are __thiscall (object in ECX, callee pops arguments) and return the object in EAX, matching the
-// originals. Free functions returning a Vector use the hidden result pointer, as the originals do.
-namespace {
-
-using maths::Vec4;
-
-struct VectorAdapter {
-    Vec4* construct_point(float x, float y, float z)
-    {
-        *raw::as<Vec4>(this) = {x, y, z, 1.0f};
-        return raw::as<Vec4>(this);
-    }
-};
-
-struct LineAdapter {
-    maths::Seg* make_new(const Vec4& start, const Vec4& end) { return new (this) maths::Seg(start, end); }
-};
-
-} // namespace

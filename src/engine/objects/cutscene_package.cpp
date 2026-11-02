@@ -88,7 +88,7 @@ assets::ResourceRegistry* get_assets() { return assets::g_asset_manager; }
 void* load_asset_data(uint32_t name, int type, uint32_t textures, void* data, uint32_t size, void* params)
 {
     return get_assets()->read_resource_from_stream(name, type, textures, data, size, false, true,
-                                                   params, 0);
+                                                   params, nullptr);
 }
 void discard_loaded_item(uint32_t name)
 {
@@ -173,7 +173,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             gfx::hide_models_for_cutscene();
             get_run(0xE1CE826A, args_);
             content_ =
-                static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, 0, 0, false, false, false, &skater_, 0));
+                static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, 0, 0, false, false, false, &skater_, nullptr));
             float start = 0.0f;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
@@ -438,9 +438,9 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         if (params.cas_data_)
             params.cas_size_ = bundle_ptr_->find_entry(entry->name, kTypeExtra, 1)->size;
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(
-            textures_name, 3, 0, texture_data, texture_size, false, true, &texture_params, 0);
+            textures_name, 3, 0, texture_data, texture_size, false, true, &texture_params, nullptr);
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(model_name, 7, textures_name, data,
-                                                                                  entry->size, false, true, &params, 0);
+                                                                                  entry->size, false, true, &params, nullptr);
         core::at(assets_, asset_count_) = model_name;
         ++asset_count_;
         core::at(assets_, asset_count_) = textures_name;

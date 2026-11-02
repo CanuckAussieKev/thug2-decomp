@@ -41,17 +41,17 @@ public:
     void stop_callback() override;
 
     // 0x00408060: an asset of `type` from data in memory (load_from_buffer with `data`, `size`, `copy`, `params`,
-    // `extra`); `group` is the checksum of an asset it depends on. Returns the asset's data, or null if it failed
+    // `structure`); `group` is the checksum of an asset it depends on. Returns the asset's data, or null if it failed
     // (the asset deleted - unless the script integer 0x25DC7904 is set, a debug leftover).
     void* read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size,
-                                    bool permanent, bool copy, void* params, int extra);
-    // 0x00408440: an asset loaded from a file (Load with `name`, `async`, `use_archive`, `params`, `extra`). A zero
+                                    bool permanent, bool copy, void* params, void* structure);
+    // 0x00408440: an asset loaded from a file (Load with `name`, `async`, `use_archive`, `params`, `structure`). A zero
     // checksum is the name's, a zero type the extension's. An async one goes on the pending list.
     void* load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
-                     bool permanent, void* params, int extra);
+                     bool permanent, void* params, void* structure);
     // 0x004087B0: the asset's data if it's there (waiting for it to load), else LoadAsset.
     void* fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
-                                 bool use_archive, bool permanent, void* params, int extra);
+                                 bool use_archive, bool permanent, void* params, void* structure);
     // 0x00408870: an animation by name (its checksum `base` + `offset` if `base` isn't zero); false if one with
     // that checksum is there already or loading failed.
     bool load_anim(const char* name, uint32_t base, uint32_t offset, bool async, bool use_archive);

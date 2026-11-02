@@ -35,7 +35,6 @@
 #include "engine/gfx/movie.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/draw_frame.h"
-#include "engine/core/pointer_cell.h"
 
 namespace frame_loop {
 
@@ -83,7 +82,8 @@ void restore_device_objects()
 // A task list's tasks, in order (0x004070A0; the profiling flag is passed but unused).
 void run_tasks(tasks::PileUp& list, bool profiling)
 {
-    list.work_on(cell::pointer<void>(static_cast<uintptr_t>(profiling)));
+    (void)profiling; // (the original passed it on as the pointer argument, which isn't read)
+    list.work_on(nullptr);
 }
 void begin_scene() { render::begin_frame_draw(); }      // the device's BeginScene
 void render_frame() { render::engine::render_frame(); } // the world, then the 2D

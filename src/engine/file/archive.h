@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <array>
 
+namespace file {
+class AsyncFileHandle;
+}
 namespace script {
 class Struct;
 class Script;
@@ -87,13 +90,13 @@ public:
     bool has_finished_loading(const char* name);
     // An archive's data has arrived for pending load `handle`: index it and add it to the loaded archives.
     // The third argument (probably the data's size) isn't used, but callers pass it.
-    void finish_load(int handle, uint8_t* data, int size);
+    void finish_load(const file::AsyncFileHandle* handle, uint8_t* data, int size);
     // Unload the archive `name`. With `only_if_loaded` false the name is removed from the table even if no
     // archive is attached to it. Does nothing while pre loading is blocked (see LoadPre).
     void unload_pre(const char* name, bool only_if_loaded);
 
     struct PendingLoad {
-        int handle;
+        const file::AsyncFileHandle* handle;
         std::array<char, 64> name;
     };
 

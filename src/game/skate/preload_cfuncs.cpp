@@ -166,7 +166,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
                 assets::ResourceRegistry* assets = assets::asset_manager();
                 const bool permanent = assets->get_permanent_by_default();
                 assets->fetch_or_load_resource(name.data(), 8, 0, checksums::hash_from_text(file), false, false, permanent,
-                                               nullptr, 0);
+                                               nullptr, nullptr);
             }
         }
         if (node_class == kVehicle) {
@@ -175,7 +175,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
             std::memcpy(script.data() + std::strlen(script.data()), ".qb", 4);
             assets::ResourceRegistry* assets = assets::asset_manager();
             const bool permanent = assets->get_permanent_by_default();
-            assets->fetch_or_load_resource(script.data(), 0xA, 0, 0, false, false, permanent, nullptr, 0);
+            assets->fetch_or_load_resource(script.data(), 0xA, 0, 0, false, false, permanent, nullptr, nullptr);
         }
         delete_model(nx_model);
     }

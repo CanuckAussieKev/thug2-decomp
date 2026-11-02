@@ -218,8 +218,6 @@ inline bool is_static_collider(const void* object)
 HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, objects::GameEntity* owner);
 
 // 0x00414D60: the geometry's debug rendering (compiled out: returns).
-struct CollGeometryStubs {
-    void draw_diagnostic(const maths::Mat4* transform, int a, int b, int c);
-};
+void draw_geometry_diagnostic(const TriMeshSource* geometry, const maths::Mat4* transform, int a, int b, int c);
 
 } // namespace render

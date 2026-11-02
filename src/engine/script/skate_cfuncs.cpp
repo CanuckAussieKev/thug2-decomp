@@ -26,7 +26,6 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/script/game_cfuncs.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -71,55 +70,57 @@ inline void dump_scripts_list(bool /*flag*/) {}
 uint32_t* debounce_times() { return g_debounce_times.data(); }
 
 // 0x0059EE80
-bool controller_pressed(const void* controller, uint32_t button)
+bool controller_pressed(const pad_input::InputHandler* controller, uint32_t button)
 {
     if (!controller)
         return false;
-    auto* input = *raw::field_at<PadInputSample* const>(static_cast<const uint8_t*>(controller), 0x18);
-    if (!input)
+    const pad_input::Payload* data = controller->control_data_;
+    if (!data)
         return false;
+    // (the pressures of the d-pad and the buttons, by their places in the controller's data)
+    const PadInputSample input{data};
     const int index = glyph_for_button_tag(button);
     if (debounce_times()[index] > frame_clock::get_time())
         return false;
     switch (button) {
     case 0xBC6B118F:
-        return input->up != 0; // up
+        return input.up() != 0; // up
     case 0xE3006FC4:
-        return input->down != 0; // down
+        return input.down() != 0; // down
     case 0x85981897:
-        return input->left != 0; // left
+        return input.left() != 0; // left
     case 0x4B358AEB:
-        return input->right != 0; // right
+        return input.right() != 0; // right
     case 0xB7231A95:
-        return input->up && input->left; // upleft
+        return input.up() && input.left(); // upleft
     case 0xA50950C5:
-        return input->up && input->right; // upright
+        return input.up() && input.right(); // upright
     case 0xD8847EFA:
-        return input->down && input->left; // downleft
+        return input.down() && input.left(); // downleft
     case 0x786B8B68:
-        return input->down && input->right; // downright
+        return input.down() && input.right(); // downright
     case 0x7323E97C:
-        return input->x != 0; // x
+        return input.x() != 0; // x
     case 0x20689278:
-        return input->triangle != 0; // triangle
+        return input.triangle() != 0; // triangle
     case 0x321C9756:
-        return input->square != 0; // square
+        return input.square() != 0; // square
     case 0x2B489A86:
-        return input->circle != 0; // circle
+        return input.circle() != 0; // circle
     case 0x26B0C991:
-        return input->l1 != 0; // l1
+        return input.l1() != 0; // l1
     case 0xBFB9982B:
-        return input->l2 != 0; // l2
+        return input.l2() != 0; // l2
     case 0xF2F1F64E:
-        return input->r1 != 0; // r1
+        return input.r1() != 0; // r1
     case 0x6BF8A7F4:
-        return input->r2 != 0; // r2
+        return input.r2() != 0; // r2
     case 0x767A45D7:
-        return input->black != 0; // black
+        return input.black() != 0; // black
     case 0xBD30325B:
-        return input->white != 0; // white
+        return input.white() != 0; // white
     case 0x9D2D8850:
-        return input->z != 0; // z
+        return input.z() != 0; // z
     default:
         return false;
     }
@@ -156,12 +157,12 @@ bool cfunc_fake_lights(script::Struct* params, script::Script*)
     uint32_t prefix = 0;
     if (!params->hash_from_name_or_text(kPrefix, &prefix, 0))
         return false;
-    uint32_t count = 0; // a 16-bit count in a zeroed 32-bit slot
+    uint16_t count = 0;
     const bool is_prefix = !params->has_bare_flag(kFakeLightsExact);
     // (the original passes is_prefix too: 0x0045BF90 takes two arguments and ignores it)
     (void)is_prefix;
-    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, raw::as<uint16_t>(&count));
-    render::queue_scene_lights(nodes, static_cast<uint16_t>(count), time, params);
+    const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
+    render::queue_scene_lights(nodes, count, time, params);
     return true;
 }
 

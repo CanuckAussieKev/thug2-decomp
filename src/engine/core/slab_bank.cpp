@@ -13,7 +13,6 @@
 
 #include "engine/core/mem.h"
 #include "platform/run_log.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace memory {
@@ -157,14 +156,3 @@ void PoolPair::dealloc(void* item)
 }
 
 } // namespace memory
-
-namespace {
-
-struct PoolAdapter {
-    memory::SlabBank* make_new(int item_size, int count, const char* name)
-    {
-        return new (this) memory::SlabBank(item_size, count, name);
-    }
-};
-
-} // namespace

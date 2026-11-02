@@ -24,8 +24,6 @@
 #include "formats/byte_stream.h"
 #include "formats/lzss.h"
 #include "engine/gfx/loading_console.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 
@@ -83,7 +81,7 @@ PackedFile* find_pre_entry(uint32_t checksum)
 }
 
 // 0x005B7C00 (PartyMod's script patching wraps calls to this, and calls it by address)
-void* read_in(const char* name, bool async, void* callback, void* hook_user_a, void* hook_user_b)
+void* read_in(const char* name, bool async, file::IoCompletionHook callback, void* hook_user_a, void* hook_user_b)
 {
     const uint32_t checksum = checksums::hash_from_text(name);
     // Not original - the data overlay (frontend/data_overlay.h): a file of the data overlay is read from it,
@@ -122,7 +120,7 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
         data = allocate_file_memory(sector_aligned(static_cast<unsigned int>(size)));
         if (callback) {
             file::async_set_callback_mask(file, 1u << file::kOpReadFile); // call back when the read completes
-            file::async_set_callback(file, function_at<file::IoCompletionHook>(callback), hook_user_a,
+            file::async_set_callback(file, callback, hook_user_a,
                                      hook_user_b);
         }
         file::start_background_read(file, data, size);
@@ -219,7 +217,7 @@ void load_pre(const char* name)
 
     // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
     // English archive (.ppf/.ppd).
-    uint32_t* patch = nullptr;
+    uint8_t* patch = nullptr;
     uint32_t patch_size = 0;
     pre_format::PatchHeader patch_header;
     bool patched = false;
@@ -236,7 +234,7 @@ void load_pre(const char* name)
                 file::Hdl file = file::unseal(path.data(), "rb");
                 file_size = file::get_file_size(file);
                 patch_size = file_size;
-                patch = static_cast<uint32_t*>(memory::alloc(file_size));
+                patch = static_cast<uint8_t*>(memory::alloc(file_size));
                 file::get_take_in(patch, 1, static_cast<int>(file_size), file);
                 file::shut(file);
                 core::at(path, length - 2) = 'r';
@@ -289,7 +287,7 @@ void load_pre(const char* name)
         if (allocated > file_size)
             std::memset(data + file_size, 0, allocated - file_size - prefix);
         // Not original - bounded by the block and the patch's size (the original wrote each record where it said).
-        if (!pre_format::apply_patch(data, allocated - prefix, raw::bytes(patch), patch_size))
+        if (!pre_format::apply_patch(data, allocated - prefix, patch, patch_size))
             debug::printf("%s: a damaged patch\n", path.data());
         memory::dealloc(patch);
     }

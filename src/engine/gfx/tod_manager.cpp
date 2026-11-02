@@ -40,8 +40,6 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/engine_glue.h"
 #include "frontend/front_end.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -172,28 +170,9 @@ void change_ambient_tint(uint32_t color) { render::set_light_ambient_color(color
 void change_light_tint(int index, uint32_t color) { render::set_light_diffuse_color(index, color); }
 void set_ambient_modulation(float lo, float hi) { render::change_ambient_scale(lo, hi); }
 void set_light_modulation(int index, float lo, float hi) { render::change_diffuse_scale(index, lo, hi); }
-void set_light_direction_vector(int index, const float* direction)
-{
-    render::set_light_direction(index, raw::as<const maths::Vec4>(direction));
-}
-// The sun: its parameters (theta +0x00, phi +0x04, colour +0x18 as r g b 128, shown +0x40) by mask.
-struct SunParams {
-    float theta;
-    float phi;
-    std::array<uint32_t, 4> unknown08;
-    std::array<float, 4> color;
-    std::array<uint32_t, 6> unknown28;
-    bool shown;
-    std::array<uint8_t, 0xF> pad41;
-};
-static_assert(offsetof(SunParams, color) == 0x18 && offsetof(SunParams, shown) == 0x40, "0x004426D0's layout");
-constexpr int kSunAngles = 0x01 | 0x02, kSunColor = 0x10, kSunShown = 0x80;
-void set_sun(const SunParams* sun, int mask)
-{
-    static_assert(offsetof(SunParams, shown) == offsetof(sun::Settings, shown),
-                  "the sun's settings (SetSun reads 0x44 bytes)");
-    sun::set_sun(raw::as<const sun::Settings>(sun), static_cast<uint32_t>(mask));
-}
+void set_light_direction_vector(int index, const maths::Vec4* direction) { render::set_light_direction(index, direction); }
+// The sun: its parameters (theta, phi, colour as r g b 128, shown) by mask.
+constexpr uint32_t kSunAngles = sun::kTheta | sun::kPhi, kSunColor = sun::kColor, kSunShown = 0x80;
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
 void set_level_color(const float* color)
 {
@@ -240,8 +219,7 @@ void set_model_color(objects::ObjectModule* model, uint32_t color)
 
 TodSystem& system_at(CtodManager* manager, int index)
 {
-    // (no bounds check: index 2 is past the end, as in the original)
-    return *raw::field_at<TodSystem>(manager->systems_.data(), index * sizeof(TodSystem));
+    return core::at(manager->systems_, index); // (the original had no bounds check)
 }
 
 BloomParams bloom_of(const TodParams& params)
@@ -575,15 +553,13 @@ void CtodManager::update_sun()
     auto blend = [t](float from, float to) { return static_cast<float>((static_cast<double>(to) - from) * t + from); };
     const TodParams& a = system.current;
     const TodParams& b = system.next;
-    SunParams sun = {};
+    sun::Settings sun = {};
     sun.theta = blend(a.sun_theta_, b.sun_theta_);
     sun.phi = blend(a.sun_phi_, b.sun_phi_);
-    core::at(sun.color, 0) = blend(a.sun_red_, b.sun_red_);
-    core::at(sun.color, 1) = blend(a.sun_green_, b.sun_green_);
-    core::at(sun.color, 2) = blend(a.sun_blue_, b.sun_blue_);
-    core::at(sun.color, 3) = 128.0f;
+    sun.color = {blend(a.sun_red_, b.sun_red_), blend(a.sun_green_, b.sun_green_), blend(a.sun_blue_, b.sun_blue_),
+                 128.0f};
     sun.shown = system.state != kNight;
-    set_sun(&sun, kSunAngles | kSunColor | kSunShown);
+    sun::set_sun(&sun, kSunAngles | kSunColor | kSunShown);
 }
 
 namespace {
@@ -699,17 +675,17 @@ void set_light_direction(int index, float heading, float pitch)
     const double p = static_cast<double>(pitch) * degree_to_radian_conv();
     const double sin_pitch = std::sin(p);
     const double cos_pitch = std::cos(p);
-    std::array<float, 4> direction{};
-    core::at(direction, 3) = 0.0f;
-    core::at(direction, 1) = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
+    maths::Vec4 direction{};
+    direction.w = 0.0f;
+    direction.y = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
     const double horizontal = cos_pitch + sin_pitch * get_zero();
     const double h = static_cast<double>(heading) * degree_to_radian_conv();
     auto sin_heading = static_cast<float>(std::sin(h));
     const double cos_heading = std::cos(h);
     auto cos_heading_float = static_cast<float>(std::cos(h));
-    core::at(direction, 2) = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
-    core::at(direction, 0) = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
-    set_light_direction_vector(index, direction.data());
+    direction.z = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
+    direction.x = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
+    set_light_direction_vector(index, &direction);
 }
 
 // 0x00572A10

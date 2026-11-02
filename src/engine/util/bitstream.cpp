@@ -106,11 +106,3 @@ int32_t PackedBitBuffer::read_signed_bits(int count)
 }
 
 } // namespace util
-
-namespace {
-
-struct BitStreamAdapter {
-    util::PackedBitBuffer* make_new() { return new (this) util::PackedBitBuffer(); }
-};
-
-} // namespace
