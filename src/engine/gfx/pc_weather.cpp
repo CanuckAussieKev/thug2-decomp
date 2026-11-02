@@ -12,6 +12,7 @@
 #include <limits>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -25,6 +26,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/weather.h"
 #include "engine/maths/random.h"
+#include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/device.h"

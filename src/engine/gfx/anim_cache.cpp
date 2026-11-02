@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <utility>
 
 #include "engine/core/dbg.h"

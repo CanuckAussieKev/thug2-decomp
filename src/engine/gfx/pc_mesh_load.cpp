@@ -31,6 +31,7 @@
 #include "formats/scene_format.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/shader_slots.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"

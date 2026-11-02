@@ -17,6 +17,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 

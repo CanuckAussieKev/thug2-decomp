@@ -5,9 +5,11 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/packed_colour.h"
 #include "engine/core/str.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/model.h"

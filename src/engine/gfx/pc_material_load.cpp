@@ -9,6 +9,7 @@
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
+#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/scene_file_stream.h"
 #include "formats/scene_format.h"
 #include "engine/gfx/surface_material.h"

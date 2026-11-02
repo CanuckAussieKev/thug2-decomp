@@ -6,6 +6,7 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>

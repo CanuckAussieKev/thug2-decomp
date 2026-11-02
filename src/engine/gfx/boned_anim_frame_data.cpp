@@ -4,9 +4,11 @@
 #include "engine/gfx/boned_anim_frame_data.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

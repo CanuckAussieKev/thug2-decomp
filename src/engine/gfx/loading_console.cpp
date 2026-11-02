@@ -20,6 +20,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 #include <array>

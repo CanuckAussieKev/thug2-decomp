@@ -15,6 +15,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport.h"
+#include "engine/maths/vec4.h"
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"

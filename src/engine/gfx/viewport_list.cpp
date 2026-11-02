@@ -4,6 +4,9 @@
 #include "engine/gfx/viewport.h"
 #include "engine/core/checked_index.h"
 
+#include <cstddef>
+#include <span>
+
 namespace render {
 
 namespace {

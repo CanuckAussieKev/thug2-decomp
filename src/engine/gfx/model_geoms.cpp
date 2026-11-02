@@ -3,9 +3,11 @@
 // model.h (the simpler members: model.cpp).
 
 #include <bit>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <iterator>
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
@@ -26,6 +28,7 @@
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
+#include "engine/maths/vec4.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"

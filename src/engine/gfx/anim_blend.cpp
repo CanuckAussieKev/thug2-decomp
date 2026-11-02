@@ -12,6 +12,7 @@
 #include <span>
 
 #include "engine/gfx/anim_controller.h"
+#include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/walk_hang.h"
 #include "engine/objects/entity.h"

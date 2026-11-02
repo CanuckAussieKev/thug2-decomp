@@ -16,6 +16,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <array>
+#include <iterator>
 
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_texture.h"

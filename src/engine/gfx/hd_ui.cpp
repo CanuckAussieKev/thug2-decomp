@@ -4,6 +4,8 @@
 
 #include "platform/run_log.h"
 
+#include <cstdint>
+
 namespace render::hd_ui {
 
 namespace {

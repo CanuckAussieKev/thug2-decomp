@@ -9,8 +9,11 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/gfx/device.h"
+#include "engine/maths/mat4.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/d3dx.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/surface_material.h"

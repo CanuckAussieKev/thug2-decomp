@@ -9,10 +9,12 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <vector>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/gfx/anim_controller.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/flip_rotate.h"
 #include "engine/objects/entity.h"

@@ -7,6 +7,7 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"

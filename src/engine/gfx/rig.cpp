@@ -9,10 +9,13 @@
 #include <initializer_list>
 #include <memory>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/quat_rotation.h"
 #include "formats/skeleton_format.h"
 #include "formats/byte_stream.h"
 #include "engine/gfx/anim_blend.h"

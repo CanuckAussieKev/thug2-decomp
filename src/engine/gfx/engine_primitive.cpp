@@ -2,6 +2,7 @@
 // 0x0049C390-0x0049C906.
 
 #include <cstdint>
+#include <span>
 
 #include "engine/gfx/engine_primitive.h"
 

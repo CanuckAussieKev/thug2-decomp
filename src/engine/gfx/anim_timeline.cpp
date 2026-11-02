@@ -2,6 +2,7 @@
 // the base animation controller's members and the base animation event's destructor body
 // (0x00481380-0x004819E6, but 0x004817D0). From the disassembly.
 
+#include <cstddef>
 #include <cstdint>
 
 #include "engine/gfx/anim_track.h"
@@ -9,6 +10,8 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
+#include "engine/gfx/anim_blend.h"
+#include "engine/gfx/anim_controller.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/script/param_struct.h"

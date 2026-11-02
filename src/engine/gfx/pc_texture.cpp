@@ -21,6 +21,7 @@
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
+#include "engine/gfx/bitmap_texture.h"
 #include "engine/lists/key_map.h"
 #include "engine/maths/maths.h"
 #include "engine/gfx/device.h"

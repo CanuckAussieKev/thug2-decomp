@@ -7,6 +7,8 @@
 #include "engine/pad_input/sdl_input.h"
 #include "platform/platform_config.h"
 
+#include <cstdint>
+
 namespace render {
 
 namespace {

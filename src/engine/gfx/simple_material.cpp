@@ -4,8 +4,11 @@
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/texture_dict.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <iterator>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

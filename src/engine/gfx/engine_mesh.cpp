@@ -6,7 +6,9 @@
 #include "engine/core/str.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <span>
 #include <cstring>
 #include <new>

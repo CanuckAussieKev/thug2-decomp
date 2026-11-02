@@ -19,6 +19,8 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/lists/key_map.h"
 #include "engine/core/checked_index.h"
+#include "engine/lists/object_set.h"
+#include "engine/maths/mat4.h"
 #include <gsl/pointers>
 
 namespace render {

@@ -3,6 +3,7 @@
 #include "engine/gfx/viewport.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <span>
@@ -14,6 +15,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/gfx/screen.h"
+#include "engine/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"

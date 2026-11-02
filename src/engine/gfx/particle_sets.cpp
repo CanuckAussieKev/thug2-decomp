@@ -10,10 +10,13 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/particle_maths.h"

@@ -13,6 +13,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/settings.h"
+#include "engine/maths/vec4.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 

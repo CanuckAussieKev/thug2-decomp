@@ -10,10 +10,13 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
+#include "engine/core/packed_colour.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/viewport.h"
+#include "engine/maths/mat4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

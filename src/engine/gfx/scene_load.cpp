@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"

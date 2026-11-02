@@ -11,6 +11,7 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"

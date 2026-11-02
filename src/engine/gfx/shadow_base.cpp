@@ -31,6 +31,7 @@
 #include "engine/gfx/glow.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "engine/lists/object_set.h"
 #include <span>
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/bitmap_texture.h"

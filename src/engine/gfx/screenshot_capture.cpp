@@ -9,10 +9,13 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/format.h"
+#include "platform/screenshot_files.h"
 
 namespace gfx::screenshot_capture {
 

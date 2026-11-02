@@ -5,11 +5,14 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
+#include <cstring>
 #include <span>
 
 #include "engine/core/manager.h"
+#include "engine/maths/vec4.h"
 #include "platform/d3dx.h"
 #include "engine/gfx/pc_instance.h"
 #include "engine/gfx/geom.h"

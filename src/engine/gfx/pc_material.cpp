@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/maths/trig.h"

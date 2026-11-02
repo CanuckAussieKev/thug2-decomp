@@ -8,6 +8,7 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -15,6 +16,7 @@
 #include "engine/lists/key_map.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
 #include "engine/script/param_struct.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"

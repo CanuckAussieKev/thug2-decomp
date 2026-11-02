@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <span>
 
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"

@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <iterator>
+#include <span>
 
 #include "engine/core/checked_index.h"
 #include "engine/core/manager.h"

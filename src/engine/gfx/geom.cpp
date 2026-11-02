@@ -17,6 +17,8 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/maths/mat4.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/code_address.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"

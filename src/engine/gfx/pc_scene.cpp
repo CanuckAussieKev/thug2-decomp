@@ -22,6 +22,8 @@
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_grass.h"
 #include "engine/gfx/scene_file_stream.h"
+#include "engine/maths/shape_tests.h"
+#include "engine/maths/vec4.h"
 #include "formats/scene_format.h"
 #include "engine/gfx/screen_effects.h"
 #include "engine/gfx/sector.h"

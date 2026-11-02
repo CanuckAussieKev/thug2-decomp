@@ -13,6 +13,7 @@
 #include <cstring>
 #include <span>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/surface_material.h"
@@ -21,6 +22,8 @@
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/device.h"
+#include "engine/maths/vec4.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"

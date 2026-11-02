@@ -19,6 +19,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/objects/anim_blender.h"
+#include "engine/objects/anim_movies.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

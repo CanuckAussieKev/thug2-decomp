@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <array>
+#include <utility>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/draw2d.h"

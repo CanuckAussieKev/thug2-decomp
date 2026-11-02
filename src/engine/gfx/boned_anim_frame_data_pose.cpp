@@ -2,6 +2,7 @@
 
 #include "engine/gfx/boned_anim_frame_data.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -11,6 +12,7 @@
 #include "engine/gfx/anim_cache.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
+#include "formats/anim_format.h"
 #include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 #include "platform/stopwatch.h"

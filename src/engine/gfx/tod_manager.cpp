@@ -7,9 +7,11 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <span>
 #include <utility>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/sector.h"

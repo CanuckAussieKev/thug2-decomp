@@ -17,6 +17,7 @@
 #include "engine/file/packs.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/sector.h"
+#include "engine/maths/shape_tests.h"
 #include "engine/net/buddy_status.h"
 #include "engine/lists/key_map.h"
 #include "engine/render/coll_grid.h"

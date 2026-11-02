@@ -22,6 +22,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/settings.h"
 #include "engine/gfx/window2d.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/code_address.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"

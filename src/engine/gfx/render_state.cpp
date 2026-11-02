@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <array>
+#include <span>
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/graphics_options.h"
@@ -23,6 +24,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/mat4.h"
 
 namespace render {
 

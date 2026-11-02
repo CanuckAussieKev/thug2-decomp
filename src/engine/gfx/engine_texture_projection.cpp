@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/gfx/view_cam.h"
@@ -14,6 +15,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/viewport.h"
+#include "engine/maths/mat4.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/render/coll_grid.h"
 #include "engine/render/coll_obj.h"

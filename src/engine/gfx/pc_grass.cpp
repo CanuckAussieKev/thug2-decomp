@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -26,10 +27,12 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/bitmap_texture.h"
+#include "engine/maths/vec4.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include "gpu/vertex_buffers.h"
 #include <bit>
 #include "gpu/vertex_view.h"
 #include "engine/gfx/pc_scene.h"

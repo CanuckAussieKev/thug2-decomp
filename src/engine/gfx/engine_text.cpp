@@ -8,6 +8,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

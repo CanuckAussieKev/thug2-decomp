@@ -12,6 +12,7 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "engine/gfx/surface_material.h"
@@ -20,6 +21,7 @@
 #include "engine/lists/key_map.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
+#include "engine/lists/object_set.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"

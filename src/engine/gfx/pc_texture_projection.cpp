@@ -10,6 +10,7 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <cstring>
@@ -20,6 +21,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_texture_projection.h"
+#include "engine/gfx/projected_vertex.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/pc_scene.h"
@@ -28,6 +30,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/texture_splats.h"
+#include "engine/maths/mat4.h"
 #include "platform/code_address.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"

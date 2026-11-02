@@ -7,6 +7,7 @@
 
 #include <d3d9.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <span>
@@ -19,6 +20,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/view_mode.h"
+#include "engine/maths/vec4.h"
 #include "platform/crt.h"
 
 namespace render {

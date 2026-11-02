@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -14,6 +15,7 @@
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/pc_flexible_particles.h"
+#include "engine/maths/vec4.h"
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
 #include "engine/objects/movie_manager.h"
