@@ -22,8 +22,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 2> g_vibration_component_member_functions{{
-    {.callsign_ = 0xDF8A5F0A, .owner_kind_ = 0x404EB936}, {.callsign_ = 0, .owner_kind_ = 0x404EB936}}};
+std::array<script::MemberFunctionEntry, 2>& vibration_component_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 2> vibration_component_member_functions{{
+        {.callsign_ = 0xDF8A5F0A, .owner_kind_ = 0x404EB936}, {.callsign_ = 0, .owner_kind_ = 0x404EB936}}};
+    return vibration_component_member_functions;
+}
 
 namespace {
 
@@ -54,7 +58,7 @@ PadRumbleModule::PadRumbleModule()
 // 0x0043D490
 void PadRumbleModule::publish_method_table()
 {
-    script::register_member_function_table(g_vibration_component_member_functions);
+    script::register_member_function_table(vibration_component_member_functions());
 }
 
 // 0x0043D4B0 (0x0043D5E0 the deleting one)

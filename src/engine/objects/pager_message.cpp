@@ -20,9 +20,13 @@
 #include "engine/objects/camera_lookaround.h"
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 6> g_pager_message_member_functions{{
-    {.callsign_ = 0x4824484A, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xD65B2BB5, .owner_kind_ = 0xD1515392}, {.callsign_ = 0x5B64BFEC, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xAF88BE7A, .owner_kind_ = 0xD1515392},
-    {.callsign_ = 0xE7DF996D, .owner_kind_ = 0xD1515392}, {.callsign_ = 0, .owner_kind_ = 0xD1515392}}};
+std::array<script::MemberFunctionEntry, 6>& pager_message_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 6> pager_message_member_functions{{
+        {.callsign_ = 0x4824484A, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xD65B2BB5, .owner_kind_ = 0xD1515392}, {.callsign_ = 0x5B64BFEC, .owner_kind_ = 0xD1515392}, {.callsign_ = 0xAF88BE7A, .owner_kind_ = 0xD1515392},
+        {.callsign_ = 0xE7DF996D, .owner_kind_ = 0xD1515392}, {.callsign_ = 0, .owner_kind_ = 0xD1515392}}};
+    return pager_message_member_functions;
+}
 
 namespace {
 
@@ -30,7 +34,6 @@ constexpr uint32_t kPagerMessage = 0xD1515392;
 constexpr uint32_t kPagerScript = 0xE8DA4931;
 
 void dealloc(void* block) { memory::Hub::get_pull()->dealloc(block); }
-
 
 } // namespace
 
@@ -40,7 +43,7 @@ gsl::owner<ObjectModule*> PagerMessageComponent::fabricate() { return new PagerM
 // 0x004EC960
 void PagerMessageComponent::publish_method_table()
 {
-    script::register_member_function_table(g_pager_message_member_functions);
+    script::register_member_function_table(pager_message_member_functions());
 }
 
 // 0x004ECE10

@@ -32,10 +32,14 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 9> g_avoid_member_functions{{
-    {.callsign_ = 0x6157CBC0, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0xD2AA4D2D, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x41226942, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3C7F8F3E, .owner_kind_ = 0x6EB050ED},
-    {.callsign_ = 0x6A4BCA91, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3FB422E8, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x539A32DC, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x53BC3B4E, .owner_kind_ = 0x6EB050ED},
-    {.callsign_ = 0, .owner_kind_ = 0x6EB050ED}}};
+std::array<script::MemberFunctionEntry, 9>& avoid_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 9> avoid_member_functions{{
+        {.callsign_ = 0x6157CBC0, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0xD2AA4D2D, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x41226942, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3C7F8F3E, .owner_kind_ = 0x6EB050ED},
+        {.callsign_ = 0x6A4BCA91, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x3FB422E8, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x539A32DC, .owner_kind_ = 0x6EB050ED}, {.callsign_ = 0x53BC3B4E, .owner_kind_ = 0x6EB050ED},
+        {.callsign_ = 0, .owner_kind_ = 0x6EB050ED}}};
+    return avoid_member_functions;
+}
 
 namespace {
 
@@ -152,7 +156,7 @@ gsl::owner<ObjectModule*> ObstacleDodgeModule::fabricate() { return new Obstacle
 // 0x004E3310
 void ObstacleDodgeModule::publish_method_table()
 {
-    script::register_member_function_table(g_avoid_member_functions);
+    script::register_member_function_table(avoid_member_functions());
 }
 
 // 0x004E3660

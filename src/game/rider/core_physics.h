@@ -903,5 +903,5 @@ void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 
 namespace skater {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 110> g_core_member_functions;
+std::array<script::MemberFunctionEntry, 110>& core_member_functions();
 } // namespace skater

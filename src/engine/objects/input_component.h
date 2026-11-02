@@ -125,5 +125,5 @@ static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInpu
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 15> g_input_component_member_functions;
+std::array<script::MemberFunctionEntry, 15>& input_component_member_functions();
 } // namespace objects

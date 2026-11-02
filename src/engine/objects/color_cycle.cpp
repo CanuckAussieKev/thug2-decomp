@@ -21,9 +21,13 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 5> g_color_cycle_member_functions{{
-    {.callsign_ = 0x4AF8B9AE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x1DE2F35B, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x4A752AAE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x80D5F732, .owner_kind_ = 0xCDC76A22},
-    {.callsign_ = 0, .owner_kind_ = 0xCDC76A22}}};
+std::array<script::MemberFunctionEntry, 5>& color_cycle_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 5> color_cycle_member_functions{{
+        {.callsign_ = 0x4AF8B9AE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x1DE2F35B, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x4A752AAE, .owner_kind_ = 0xCDC76A22}, {.callsign_ = 0x80D5F732, .owner_kind_ = 0xCDC76A22},
+        {.callsign_ = 0, .owner_kind_ = 0xCDC76A22}}};
+    return color_cycle_member_functions;
+}
 
 namespace {
 
@@ -58,7 +62,7 @@ ColorCycleComponent::ColorCycleComponent() { kind_tag_ = kType; }
 // 0x0041B280
 void ColorCycleComponent::publish_method_table()
 {
-    script::register_member_function_table(g_color_cycle_member_functions);
+    script::register_member_function_table(color_cycle_member_functions());
 }
 
 // 0x0041B2A0 (0x0041B2E0 the deleting one)

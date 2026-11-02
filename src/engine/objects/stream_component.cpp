@@ -22,9 +22,13 @@
 #include "engine/objects/camera_lookaround.h"
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 5> g_stream_component_member_functions{{
-    {.callsign_ = 0xDB05A233, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xC66E1B17, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0x82EC1DDD, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xA738AEB8, .owner_kind_ = 0x0F1641E3},
-    {.callsign_ = 0, .owner_kind_ = 0x0F1641E3}}};
+std::array<script::MemberFunctionEntry, 5>& stream_component_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 5> stream_component_member_functions{{
+        {.callsign_ = 0xDB05A233, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xC66E1B17, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0x82EC1DDD, .owner_kind_ = 0x0F1641E3}, {.callsign_ = 0xA738AEB8, .owner_kind_ = 0x0F1641E3},
+        {.callsign_ = 0, .owner_kind_ = 0x0F1641E3}}};
+    return stream_component_member_functions;
+}
 
 namespace {
 
@@ -40,7 +44,7 @@ gsl::owner<ObjectModule*> AudioStreamModule::fabricate() { return new AudioStrea
 // 0x00433870
 void AudioStreamModule::publish_method_table()
 {
-    script::register_member_function_table(g_stream_component_member_functions);
+    script::register_member_function_table(stream_component_member_functions());
 }
 
 // 0x00433C10

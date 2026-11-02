@@ -27,8 +27,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 4> g_vehicle_sound_member_functions{{
-    {.callsign_ = 0xB8451886, .owner_kind_ = 0x1859F772}, {.callsign_ = 0x0F6E8120, .owner_kind_ = 0x1859F772}, {.callsign_ = 0xF876FAE9, .owner_kind_ = 0x1859F772}, {.callsign_ = 0, .owner_kind_ = 0x1859F772}}};
+std::array<script::MemberFunctionEntry, 4>& vehicle_sound_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 4> vehicle_sound_member_functions{{
+        {.callsign_ = 0xB8451886, .owner_kind_ = 0x1859F772}, {.callsign_ = 0x0F6E8120, .owner_kind_ = 0x1859F772}, {.callsign_ = 0xF876FAE9, .owner_kind_ = 0x1859F772}, {.callsign_ = 0, .owner_kind_ = 0x1859F772}}};
+    return vehicle_sound_member_functions;
+}
 
 namespace {
 
@@ -43,7 +47,6 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;
 const float kSpeedScale = std::bit_cast<float>(0x40400000u); // 0x006467A8: 3
 const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);      // 0x00646828: 1 / 17.6
 const double kTwoTo32 = 4294967296.0;                        // 0x006453B4 (an unsigned clock difference)
-
 
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 
@@ -105,7 +108,7 @@ gsl::owner<ObjectModule*> SkaterVehicleSoundComponent::fabricate() { return new 
 // 0x0051AD90
 void SkaterVehicleSoundComponent::publish_method_table()
 {
-    script::register_member_function_table(g_vehicle_sound_member_functions);
+    script::register_member_function_table(vehicle_sound_member_functions());
 }
 
 // 0x0051ADD0

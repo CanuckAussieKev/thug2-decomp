@@ -23,10 +23,9 @@ constexpr uint32_t kMotionPathStopping = 0x8;   // Obj_StopAlongPath: slowing to
 constexpr uint32_t kMotionPathNoHeading = 0x10; // Obj_PathHeading off
 constexpr uint32_t kMotionPathRandom = 0x200;   // Obj_RandomPathMode: a random link at each node
 
-
 } // namespace objects
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 49> g_motion_path_member_functions;
+std::array<script::MemberFunctionEntry, 49>& motion_path_member_functions();
 } // namespace objects

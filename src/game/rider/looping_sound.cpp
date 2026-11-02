@@ -26,8 +26,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 1> g_looping_sound_member_functions{{
-    {.callsign_ = 0, .owner_kind_ = 0xB5F1E9D2}}};
+std::array<script::MemberFunctionEntry, 1>& looping_sound_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 1> looping_sound_member_functions{{
+        {.callsign_ = 0, .owner_kind_ = 0xB5F1E9D2}}};
+    return looping_sound_member_functions;
+}
 
 namespace {
 
@@ -46,7 +50,6 @@ constexpr float kAirPitchFall = 18.3333340f; // 0x4192AAAB (a second)
 constexpr float kPercent = 100.0f;           // 0x0064BF2C
 constexpr float kChangeThreshold = 0.5f;     // 0x0064BF28 (volume or pitch: an update when it moved more)
 constexpr float kCapsizedFraction = 0.5f;    // the core physics' +0x2EC
-
 
 sound::AudioMixer* audio_mixer_handle() { return sound::get_audio_mixer(); }
 
@@ -86,7 +89,7 @@ gsl::owner<ObjectModule*> RiderRollingAudio::fabricate() { return new RiderRolli
 // 0x00513860
 void RiderRollingAudio::publish_method_table()
 {
-    script::register_member_function_table(g_looping_sound_member_functions);
+    script::register_member_function_table(looping_sound_member_functions());
 }
 
 // 0x005138E0

@@ -121,5 +121,5 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* task);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 2> g_suspend_component_member_functions;
+std::array<script::MemberFunctionEntry, 2>& suspend_component_member_functions();
 } // namespace objects

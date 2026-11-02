@@ -26,10 +26,14 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 11> g_physics_control_member_functions{{
-    {.callsign_ = 0x3522D612, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x0595627C, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x9569D5B1, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xA887285A, .owner_kind_ = 0xD9151D4D},
-    {.callsign_ = 0x9366A509, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x04830E80, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xD5A9F889, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x27FDDEB7, .owner_kind_ = 0xD9151D4D},
-    {.callsign_ = 0x174A6AD9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x246322C9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0, .owner_kind_ = 0xD9151D4D}}};
+std::array<script::MemberFunctionEntry, 11>& physics_control_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 11> physics_control_member_functions{{
+        {.callsign_ = 0x3522D612, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x0595627C, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x9569D5B1, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xA887285A, .owner_kind_ = 0xD9151D4D},
+        {.callsign_ = 0x9366A509, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x04830E80, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xD5A9F889, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x27FDDEB7, .owner_kind_ = 0xD9151D4D},
+        {.callsign_ = 0x174A6AD9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x246322C9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0, .owner_kind_ = 0xD9151D4D}}};
+    return physics_control_member_functions;
+}
 
 namespace {
 
@@ -42,7 +46,6 @@ constexpr uint32_t kTimeSincePhysicsSwitch = 0x27F48E93, kPreviousPhysicsStateDu
 
 constexpr int kSkating = 0, kWalking = 1; // the state component's physics mode (+0x1C)
 constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
-
 
 int get_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 
@@ -93,7 +96,7 @@ RiderBoardPhysics::RiderBoardPhysics() { kind_tag_ = kSkaterPhysicsControl; }
 // 0x005176A0
 void RiderBoardPhysics::publish_method_table()
 {
-    script::register_member_function_table(g_physics_control_member_functions);
+    script::register_member_function_table(physics_control_member_functions());
 }
 
 // 0x005176C0 (0x00517740 the deleting one)

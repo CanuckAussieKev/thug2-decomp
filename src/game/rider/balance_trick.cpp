@@ -26,8 +26,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 2> g_balance_trick_member_functions{{
-    {.callsign_ = 0x6DF82E70, .owner_kind_ = 0x589E5FB3}, {.callsign_ = 0, .owner_kind_ = 0x589E5FB3}}};
+std::array<script::MemberFunctionEntry, 2>& balance_trick_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 2> balance_trick_member_functions{{
+        {.callsign_ = 0x6DF82E70, .owner_kind_ = 0x589E5FB3}, {.callsign_ = 0, .owner_kind_ = 0x589E5FB3}}};
+    return balance_trick_member_functions;
+}
 
 namespace {
 
@@ -54,7 +58,6 @@ constexpr uint32_t kGrindParams = 0x6B7FDADD, kManualParams = 0xB8CC8633, kSkitc
 
 Rider* skater_of(GameEntity* object) { return core::down_cast<Rider>(object); }
 
-
 } // namespace
 
 // 0x004F9170
@@ -63,7 +66,7 @@ gsl::owner<ObjectModule*> RiderTeeterMoves::fabricate() { return new RiderTeeter
 // 0x004F8CD0
 void RiderTeeterMoves::publish_method_table()
 {
-    script::register_member_function_table(g_balance_trick_member_functions);
+    script::register_member_function_table(balance_trick_member_functions());
 }
 
 // 0x004F8F80

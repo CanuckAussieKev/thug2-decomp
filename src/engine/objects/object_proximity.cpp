@@ -21,9 +21,13 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 7> g_object_proximity_member_functions{{
-    {.callsign_ = 0x82A0A873, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x8CB5D0C0, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x50F28D36, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x2D703B94, .owner_kind_ = 0x1D5B1AE6},
-    {.callsign_ = 0x13C0D8DC, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x9522F906, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0, .owner_kind_ = 0x1D5B1AE6}}};
+std::array<script::MemberFunctionEntry, 7>& object_proximity_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 7> object_proximity_member_functions{{
+        {.callsign_ = 0x82A0A873, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x8CB5D0C0, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x50F28D36, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x2D703B94, .owner_kind_ = 0x1D5B1AE6},
+        {.callsign_ = 0x13C0D8DC, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0x9522F906, .owner_kind_ = 0x1D5B1AE6}, {.callsign_ = 0, .owner_kind_ = 0x1D5B1AE6}}};
+    return object_proximity_member_functions;
+}
 
 namespace {
 
@@ -64,7 +68,7 @@ gsl::owner<ObjectModule*> ObjectProximityComponent::fabricate() { return new Obj
 // 0x004EC220
 void ObjectProximityComponent::publish_method_table()
 {
-    script::register_member_function_table(g_object_proximity_member_functions);
+    script::register_member_function_table(object_proximity_member_functions());
 }
 
 // 0x004EC370

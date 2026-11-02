@@ -52,14 +52,18 @@ uint32_t next_unnamed_label()
     return s_last;
 }
 } // namespace
-std::array<script::MemberFunctionEntry, 26> g_flexible_particle_member_functions{{
-    {.callsign_ = 0x63274395, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x8FFDEF38, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7911855B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xDB8621F7, .owner_kind_ = 0xC5BCEB9E},
-    {.callsign_ = 0xE985A9A6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xE3309AB5, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xFBB6720D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xA075EE45, .owner_kind_ = 0xC5BCEB9E},
-    {.callsign_ = 0x2A479569, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2E66815E, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xD3F1D333, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xB373FB6E, .owner_kind_ = 0xC5BCEB9E},
-    {.callsign_ = 0x1CFBF078, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x514B2584, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x711B1A6A, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x35B65BD4, .owner_kind_ = 0xC5BCEB9E},
-    {.callsign_ = 0x099CD17B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x4893F05D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x482482C6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7F97BAD3, .owner_kind_ = 0xC5BCEB9E},
-    {.callsign_ = 0xE99D53A8, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xED0FE310, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2A1F307B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xABF5F9E1, .owner_kind_ = 0xC5BCEB9E},
-    {.callsign_ = 0x83B57984, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0, .owner_kind_ = 0xC5BCEB9E}}};
+std::array<script::MemberFunctionEntry, 26>& flexible_particle_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 26> flexible_particle_member_functions{{
+        {.callsign_ = 0x63274395, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x8FFDEF38, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7911855B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xDB8621F7, .owner_kind_ = 0xC5BCEB9E},
+        {.callsign_ = 0xE985A9A6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xE3309AB5, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xFBB6720D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xA075EE45, .owner_kind_ = 0xC5BCEB9E},
+        {.callsign_ = 0x2A479569, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2E66815E, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xD3F1D333, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xB373FB6E, .owner_kind_ = 0xC5BCEB9E},
+        {.callsign_ = 0x1CFBF078, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x514B2584, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x711B1A6A, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x35B65BD4, .owner_kind_ = 0xC5BCEB9E},
+        {.callsign_ = 0x099CD17B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x4893F05D, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x482482C6, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x7F97BAD3, .owner_kind_ = 0xC5BCEB9E},
+        {.callsign_ = 0xE99D53A8, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xED0FE310, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0x2A1F307B, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0xABF5F9E1, .owner_kind_ = 0xC5BCEB9E},
+        {.callsign_ = 0x83B57984, .owner_kind_ = 0xC5BCEB9E}, {.callsign_ = 0, .owner_kind_ = 0xC5BCEB9E}}};
+    return flexible_particle_member_functions;
+}
 
 namespace {
 
@@ -176,7 +180,7 @@ gsl::owner<ObjectModule*> FlexibleParticleComponent::fabricate() { return new Fl
 // 0x0041D6E0
 void FlexibleParticleComponent::publish_method_table()
 {
-    script::register_member_function_table(g_flexible_particle_member_functions);
+    script::register_member_function_table(flexible_particle_member_functions());
 }
 
 // 0x0041DA00

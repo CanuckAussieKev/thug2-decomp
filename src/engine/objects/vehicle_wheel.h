@@ -28,5 +28,5 @@ void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 10> g_vehicle_wheel_member_functions;
+std::array<script::MemberFunctionEntry, 10>& vehicle_wheel_member_functions();
 } // namespace objects

@@ -103,5 +103,5 @@ bool line_collides(const maths::Vec4& start, const maths::Vec4& end);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 9> g_avoid_member_functions;
+std::array<script::MemberFunctionEntry, 9>& avoid_member_functions();
 } // namespace objects

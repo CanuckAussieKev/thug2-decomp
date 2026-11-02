@@ -32,7 +32,6 @@ public:
     AutomobileDynamicsModule& operator=(const AutomobileDynamicsModule&) = delete;
     static constexpr uint32_t kType = 0xC695136D;
 
-
     // 0x0041BD90 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined; 0
     // if out of memory).
     static gsl::owner<ObjectModule*> fabricate();
@@ -105,5 +104,5 @@ static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 3> g_car_physics_member_functions;
+std::array<script::MemberFunctionEntry, 3>& car_physics_member_functions();
 } // namespace objects

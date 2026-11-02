@@ -103,5 +103,5 @@ struct LoopingSoundVolume : sound::VolumeRef {
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 1> g_looping_sound_member_functions;
+std::array<script::MemberFunctionEntry, 1>& looping_sound_member_functions();
 } // namespace objects

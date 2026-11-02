@@ -156,10 +156,9 @@ public:
 // 0x004196B0 (cdecl): the larger of `a` and `b` (`b` when they're equal or NaN).
 float larger_of(float a, float b);
 
-
 } // namespace objects
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 30> g_anim_blender_member_functions;
+std::array<script::MemberFunctionEntry, 30>& anim_blender_member_functions();
 } // namespace objects

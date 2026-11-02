@@ -27,8 +27,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 3> g_fam_member_functions{{
-    {.callsign_ = 0xE5894C80, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0x48AC2139, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0, .owner_kind_ = 0x0301D67C}}};
+std::array<script::MemberFunctionEntry, 3>& fam_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 3> fam_member_functions{{
+        {.callsign_ = 0xE5894C80, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0x48AC2139, .owner_kind_ = 0x0301D67C}, {.callsign_ = 0, .owner_kind_ = 0x0301D67C}}};
+    return fam_member_functions;
+}
 
 namespace {
 
@@ -67,7 +71,7 @@ FamComponent::FamComponent() { kind_tag_ = kType; }
 // 0x0041D170
 void FamComponent::publish_method_table()
 {
-    script::register_member_function_table(g_fam_member_functions);
+    script::register_member_function_table(fam_member_functions());
 }
 
 // 0x0041D190 (0x0041D1A0 the deleting one)

@@ -78,5 +78,5 @@ static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == 0x18 
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 7> g_object_proximity_member_functions;
+std::array<script::MemberFunctionEntry, 7>& object_proximity_member_functions();
 } // namespace objects

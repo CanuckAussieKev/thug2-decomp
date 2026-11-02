@@ -24,12 +24,16 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 19> g_skater_state_member_functions{{
-    {.callsign_ = 0x5EA287F2, .owner_kind_ = 0x43686585}, {.callsign_ = 0x3527FC07, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA32C1A15, .owner_kind_ = 0x43686585}, {.callsign_ = 0x5CB1FBD8, .owner_kind_ = 0x43686585},
-    {.callsign_ = 0xE9851E62, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA64DCF8B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x1AB2389B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x57BFBAE8, .owner_kind_ = 0x43686585},
-    {.callsign_ = 0xF2813EE5, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEE584CBC, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB32E9EAE, .owner_kind_ = 0x43686585}, {.callsign_ = 0x953A7B6D, .owner_kind_ = 0x43686585},
-    {.callsign_ = 0x58AD903F, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB07AC662, .owner_kind_ = 0x43686585}, {.callsign_ = 0x0E11B7CA, .owner_kind_ = 0x43686585}, {.callsign_ = 0x44BA5FCE, .owner_kind_ = 0x43686585},
-    {.callsign_ = 0xE0645004, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEF7A8687, .owner_kind_ = 0x43686585}, {.callsign_ = 0, .owner_kind_ = 0x43686585}}};
+std::array<script::MemberFunctionEntry, 19>& skater_state_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 19> skater_state_member_functions{{
+        {.callsign_ = 0x5EA287F2, .owner_kind_ = 0x43686585}, {.callsign_ = 0x3527FC07, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA32C1A15, .owner_kind_ = 0x43686585}, {.callsign_ = 0x5CB1FBD8, .owner_kind_ = 0x43686585},
+        {.callsign_ = 0xE9851E62, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA64DCF8B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x1AB2389B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x57BFBAE8, .owner_kind_ = 0x43686585},
+        {.callsign_ = 0xF2813EE5, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEE584CBC, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB32E9EAE, .owner_kind_ = 0x43686585}, {.callsign_ = 0x953A7B6D, .owner_kind_ = 0x43686585},
+        {.callsign_ = 0x58AD903F, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB07AC662, .owner_kind_ = 0x43686585}, {.callsign_ = 0x0E11B7CA, .owner_kind_ = 0x43686585}, {.callsign_ = 0x44BA5FCE, .owner_kind_ = 0x43686585},
+        {.callsign_ = 0xE0645004, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEF7A8687, .owner_kind_ = 0x43686585}, {.callsign_ = 0, .owner_kind_ = 0x43686585}}};
+    return skater_state_member_functions;
+}
 
 namespace {
 
@@ -70,7 +74,7 @@ RiderPoseState::RiderPoseState()
 // 0x00519430
 void RiderPoseState::publish_method_table()
 {
-    script::register_member_function_table(g_skater_state_member_functions);
+    script::register_member_function_table(skater_state_member_functions());
 }
 
 // 0x00519450 (0x00519620 the deleting one)

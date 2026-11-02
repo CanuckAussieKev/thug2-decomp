@@ -33,9 +33,13 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 6> g_skeleton_component_member_functions{{
-    {.callsign_ = 0x20F7B992, .owner_kind_ = 0x222756D5}, {.callsign_ = 0x613831F2, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xBE1C58CA, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xB244C9CF, .owner_kind_ = 0x222756D5},
-    {.callsign_ = 0xF99F9FAF, .owner_kind_ = 0x222756D5}, {.callsign_ = 0, .owner_kind_ = 0x222756D5}}};
+std::array<script::MemberFunctionEntry, 6>& skeleton_component_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 6> skeleton_component_member_functions{{
+        {.callsign_ = 0x20F7B992, .owner_kind_ = 0x222756D5}, {.callsign_ = 0x613831F2, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xBE1C58CA, .owner_kind_ = 0x222756D5}, {.callsign_ = 0xB244C9CF, .owner_kind_ = 0x222756D5},
+        {.callsign_ = 0xF99F9FAF, .owner_kind_ = 0x222756D5}, {.callsign_ = 0, .owner_kind_ = 0x222756D5}}};
+    return skeleton_component_member_functions;
+}
 
 namespace {
 
@@ -80,7 +84,7 @@ BoneRigModule::BoneRigModule() { kind_tag_ = kType; }
 // 0x00431BE0
 void BoneRigModule::publish_method_table()
 {
-    script::register_member_function_table(g_skeleton_component_member_functions);
+    script::register_member_function_table(skeleton_component_member_functions());
 }
 
 // 0x00431FE0 (0x00432790 the deleting one)

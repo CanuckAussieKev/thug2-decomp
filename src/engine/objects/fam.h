@@ -71,5 +71,5 @@ static_assert(offsetof(FamComponent, fam_) == 0x18 && offsetof(FamComponent, fee
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 3> g_fam_member_functions;
+std::array<script::MemberFunctionEntry, 3>& fam_member_functions();
 } // namespace objects

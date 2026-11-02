@@ -33,8 +33,13 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 2> g_suspend_component_member_functions{{
-    {.callsign_ = 0xA0B7E09B, .owner_kind_ = 0xCE0CA665}, {.callsign_ = 0, .owner_kind_ = 0xCE0CA665}}};
+std::array<script::MemberFunctionEntry, 2>& suspend_component_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 2> suspend_component_member_functions{{
+        {.callsign_ = 0xA0B7E09B, .owner_kind_ = 0xCE0CA665}, {.callsign_ = 0, .owner_kind_ = 0xCE0CA665}}};
+    return suspend_component_member_functions;
+}
+
 namespace {
 // NOT ORIGINAL grouping - suspend_component.cpp's state (the original's globals). Made on first use, never destroyed
 // (suspend_component_state()).
@@ -96,7 +101,7 @@ gsl::owner<ObjectModule*> DormancyModule::fabricate() { return new DormancyModul
 // 0x00434610
 void DormancyModule::publish_method_table()
 {
-    script::register_member_function_table(g_suspend_component_member_functions);
+    script::register_member_function_table(suspend_component_member_functions());
     create_suspend_task();
 }
 

@@ -116,5 +116,5 @@ public:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 4> g_vehicle_sound_member_functions;
+std::array<script::MemberFunctionEntry, 4>& vehicle_sound_member_functions();
 } // namespace objects

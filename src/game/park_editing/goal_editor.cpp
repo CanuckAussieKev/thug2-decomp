@@ -34,16 +34,20 @@
 
 namespace park_editing {
 
-std::array<script::MemberFunctionEntry, 36> g_goal_editor_member_functions{{
-    {.callsign_ = 0x0AB710F3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5C155A29, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFB279560, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xCCA11C78, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0x1D30A7B6, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xE5ED63B7, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x03EBD2C9, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x47208C6D, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0x769309E1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x88D54A10, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFF9E8752, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x259C59DD, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0x1F80B5AE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x26848221, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFDB2C514, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x98ABBD09, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0x66A33157, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7AABBC09, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x69B872E3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x96F11BD3, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0x96874358, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5BD8050A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5408AC04, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xB525B113, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0x4A569426, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x410821DF, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x60288ABE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x831ECA10, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0xDBA8E3FC, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD7258335, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x9E5A634A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7D5073F6, .owner_kind_ = 0x81F01058},
-    {.callsign_ = 0xEC316A9C, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x20B566B1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD5F6EA3B, .owner_kind_ = 0x81F01058}, {.callsign_ = 0, .owner_kind_ = 0x81F01058}}};
+std::array<script::MemberFunctionEntry, 36>& goal_editor_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 36> goal_editor_member_functions{{
+        {.callsign_ = 0x0AB710F3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5C155A29, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFB279560, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xCCA11C78, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0x1D30A7B6, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xE5ED63B7, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x03EBD2C9, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x47208C6D, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0x769309E1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x88D54A10, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFF9E8752, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x259C59DD, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0x1F80B5AE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x26848221, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFDB2C514, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x98ABBD09, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0x66A33157, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7AABBC09, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x69B872E3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x96F11BD3, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0x96874358, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5BD8050A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5408AC04, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xB525B113, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0x4A569426, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x410821DF, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x60288ABE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x831ECA10, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0xDBA8E3FC, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD7258335, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x9E5A634A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7D5073F6, .owner_kind_ = 0x81F01058},
+        {.callsign_ = 0xEC316A9C, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x20B566B1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD5F6EA3B, .owner_kind_ = 0x81F01058}, {.callsign_ = 0, .owner_kind_ = 0x81F01058}}};
+    return goal_editor_member_functions;
+}
 
 namespace {
 
@@ -93,7 +97,7 @@ gsl::owner<objects::ObjectModule*> ObjectiveAuthoring::fabricate() { return new 
 // 0x004E6FB0
 void ObjectiveAuthoring::publish_method_table()
 {
-    script::register_member_function_table(g_goal_editor_member_functions);
+    script::register_member_function_table(goal_editor_member_functions());
 }
 
 // 0x004EA230

@@ -366,5 +366,5 @@ static_assert(offsetof(ObjectiveAuthoring, goals_) == 0x18 && offsetof(Objective
 
 namespace park_editing {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 36> g_goal_editor_member_functions;
+std::array<script::MemberFunctionEntry, 36>& goal_editor_member_functions();
 } // namespace park_editing

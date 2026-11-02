@@ -30,22 +30,30 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 31> g_composite_object_member_functions{{
-    {.callsign_ = 0xE90AAD2D, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC2404947, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x406998A5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2BFFEAA3, .owner_kind_ = 0x0ADA4E74},
-    {.callsign_ = 0xF7251A64, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC6F3BAA5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x77403AFC, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC1BFF0F3, .owner_kind_ = 0x0ADA4E74},
-    {.callsign_ = 0x11FE9F71, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC0CAAC4A, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x5B6634D4, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB60D1F35, .owner_kind_ = 0x0ADA4E74},
-    {.callsign_ = 0xB16619AE, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x10C1C887, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCE0CA665, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCA3C59A6, .owner_kind_ = 0x0ADA4E74},
-    {.callsign_ = 0x28656D12, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xFF85D4D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x0168B09C, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB9ED09D2, .owner_kind_ = 0x0ADA4E74},
-    {.callsign_ = 0xD96C0A20, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x4AF57BBB, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2A26FFA2, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xF8CFD515, .owner_kind_ = 0x0ADA4E74},
-    {.callsign_ = 0x7DCC5FB9, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xE5DF66D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xDD468509, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x37185D8A, .owner_kind_ = 0x0ADA4E74},
-    {.callsign_ = 0x70ED3048, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x33CAC5FF, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0, .owner_kind_ = 0x0ADA4E74}}};
+std::array<script::MemberFunctionEntry, 31>& composite_object_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 31> composite_object_member_functions{{
+        {.callsign_ = 0xE90AAD2D, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC2404947, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x406998A5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2BFFEAA3, .owner_kind_ = 0x0ADA4E74},
+        {.callsign_ = 0xF7251A64, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC6F3BAA5, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x77403AFC, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC1BFF0F3, .owner_kind_ = 0x0ADA4E74},
+        {.callsign_ = 0x11FE9F71, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xC0CAAC4A, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x5B6634D4, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB60D1F35, .owner_kind_ = 0x0ADA4E74},
+        {.callsign_ = 0xB16619AE, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x10C1C887, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCE0CA665, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xCA3C59A6, .owner_kind_ = 0x0ADA4E74},
+        {.callsign_ = 0x28656D12, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xFF85D4D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x0168B09C, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xB9ED09D2, .owner_kind_ = 0x0ADA4E74},
+        {.callsign_ = 0xD96C0A20, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x4AF57BBB, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x2A26FFA2, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xF8CFD515, .owner_kind_ = 0x0ADA4E74},
+        {.callsign_ = 0x7DCC5FB9, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xE5DF66D7, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0xDD468509, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x37185D8A, .owner_kind_ = 0x0ADA4E74},
+        {.callsign_ = 0x70ED3048, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0x33CAC5FF, .owner_kind_ = 0x0ADA4E74}, {.callsign_ = 0, .owner_kind_ = 0x0ADA4E74}}};
+    return composite_object_member_functions;
+}
 
-std::array<script::MemberFunctionEntry, 17> g_object_member_functions{{
-    {.callsign_ = 0x3611C136, .owner_kind_ = 0x57525413}, {.callsign_ = 0x62C11CB9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xEEEB7220, .owner_kind_ = 0x57525413}, {.callsign_ = 0xA58079EB, .owner_kind_ = 0x57525413},
-    {.callsign_ = 0x0C7CD27A, .owner_kind_ = 0x57525413}, {.callsign_ = 0xB3C262EC, .owner_kind_ = 0x57525413}, {.callsign_ = 0x500EB224, .owner_kind_ = 0x57525413}, {.callsign_ = 0x4BABC987, .owner_kind_ = 0x57525413},
-    {.callsign_ = 0x53EBEE03, .owner_kind_ = 0x57525413}, {.callsign_ = 0x6C2B67F9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xBE563426, .owner_kind_ = 0x57525413}, {.callsign_ = 0xFBD89CD5, .owner_kind_ = 0x57525413},
-    {.callsign_ = 0x23A4E5C2, .owner_kind_ = 0x57525413}, {.callsign_ = 0x714937C7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x20D125D7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x3578E5A9, .owner_kind_ = 0x57525413},
-    {.callsign_ = 0, .owner_kind_ = 0x57525413}}};
+std::array<script::MemberFunctionEntry, 17>& object_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 17> object_member_functions{{
+        {.callsign_ = 0x3611C136, .owner_kind_ = 0x57525413}, {.callsign_ = 0x62C11CB9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xEEEB7220, .owner_kind_ = 0x57525413}, {.callsign_ = 0xA58079EB, .owner_kind_ = 0x57525413},
+        {.callsign_ = 0x0C7CD27A, .owner_kind_ = 0x57525413}, {.callsign_ = 0xB3C262EC, .owner_kind_ = 0x57525413}, {.callsign_ = 0x500EB224, .owner_kind_ = 0x57525413}, {.callsign_ = 0x4BABC987, .owner_kind_ = 0x57525413},
+        {.callsign_ = 0x53EBEE03, .owner_kind_ = 0x57525413}, {.callsign_ = 0x6C2B67F9, .owner_kind_ = 0x57525413}, {.callsign_ = 0xBE563426, .owner_kind_ = 0x57525413}, {.callsign_ = 0xFBD89CD5, .owner_kind_ = 0x57525413},
+        {.callsign_ = 0x23A4E5C2, .owner_kind_ = 0x57525413}, {.callsign_ = 0x714937C7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x20D125D7, .owner_kind_ = 0x57525413}, {.callsign_ = 0x3578E5A9, .owner_kind_ = 0x57525413},
+        {.callsign_ = 0, .owner_kind_ = 0x57525413}}};
+    return object_member_functions;
+}
 
 namespace {
 constexpr int kCompositeMgrBlockHeaderSize{16};
@@ -152,8 +160,8 @@ EntityHub::EntityHub()
 {
     update_job_ = std::make_unique<tasks::Task<EntityHub>>(&composite_object_manager_task, this, kLogicTaskPriority);
     register_logic_task(update_job_.get());
-    script::register_member_function_table(g_object_member_functions);
-    script::register_member_function_table(g_composite_object_member_functions);
+    script::register_member_function_table(object_member_functions());
+    script::register_member_function_table(composite_object_member_functions());
 }
 
 // 0x0045F200

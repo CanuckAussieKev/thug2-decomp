@@ -31,13 +31,18 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 21> g_particle_component_member_functions{{
-    {.callsign_ = 0x88BE2262, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xBB6018F4, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE5134689, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xF71D696E, .owner_kind_ = 0xA9DB601E},
-    {.callsign_ = 0x0AAB006D, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE2B99038, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC036F4D0, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC6525C4E, .owner_kind_ = 0xA9DB601E},
-    {.callsign_ = 0x31FCC8ED, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x19AF74D1, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x4AA40FB5, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x234CEABB, .owner_kind_ = 0xA9DB601E},
-    {.callsign_ = 0x9E100F60, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x2F0DA461, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xEEFFAE18, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x0FE869E8, .owner_kind_ = 0xA9DB601E},
-    {.callsign_ = 0x19AA4CD3, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x5446AF14, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x55835CF2, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x3D05AFE0, .owner_kind_ = 0xA9DB601E},
-    {.callsign_ = 0, .owner_kind_ = 0xA9DB601E}}};
+std::array<script::MemberFunctionEntry, 21>& particle_component_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 21> particle_component_member_functions{{
+        {.callsign_ = 0x88BE2262, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xBB6018F4, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE5134689, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xF71D696E, .owner_kind_ = 0xA9DB601E},
+        {.callsign_ = 0x0AAB006D, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xE2B99038, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC036F4D0, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xC6525C4E, .owner_kind_ = 0xA9DB601E},
+        {.callsign_ = 0x31FCC8ED, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x19AF74D1, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x4AA40FB5, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x234CEABB, .owner_kind_ = 0xA9DB601E},
+        {.callsign_ = 0x9E100F60, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x2F0DA461, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0xEEFFAE18, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x0FE869E8, .owner_kind_ = 0xA9DB601E},
+        {.callsign_ = 0x19AA4CD3, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x5446AF14, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x55835CF2, .owner_kind_ = 0xA9DB601E}, {.callsign_ = 0x3D05AFE0, .owner_kind_ = 0xA9DB601E},
+        {.callsign_ = 0, .owner_kind_ = 0xA9DB601E}}};
+    return particle_component_member_functions;
+}
+
 std::unique_ptr<render::EffectsDirector> g_particle_hub;
 
 namespace {
@@ -94,7 +99,7 @@ gsl::owner<ObjectModule*> EffectsEmitterModule::fabricate() { return new Effects
 // 0x00429940
 void EffectsEmitterModule::publish_method_table()
 {
-    script::register_member_function_table(g_particle_component_member_functions);
+    script::register_member_function_table(particle_component_member_functions());
 }
 
 // 0x00429B20

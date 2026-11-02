@@ -30,11 +30,16 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 13> g_rigid_body_member_functions{{
-    {.callsign_ = 0xCC12CF87, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x9599C10F, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xCD5BA67B, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xAE24DF9F, .owner_kind_ = 0xFFB39248},
-    {.callsign_ = 0xE8B73AB3, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x8A3A6B5F, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x39D708AC, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x92F5DB9A, .owner_kind_ = 0xFFB39248},
-    {.callsign_ = 0x0A2BBB3A, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x49F44585, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xD4A0946B, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x949BE8A9, .owner_kind_ = 0xFFB39248},
-    {.callsign_ = 0, .owner_kind_ = 0xFFB39248}}};
+std::array<script::MemberFunctionEntry, 13>& rigid_body_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 13> rigid_body_member_functions{{
+        {.callsign_ = 0xCC12CF87, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x9599C10F, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xCD5BA67B, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xAE24DF9F, .owner_kind_ = 0xFFB39248},
+        {.callsign_ = 0xE8B73AB3, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x8A3A6B5F, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x39D708AC, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x92F5DB9A, .owner_kind_ = 0xFFB39248},
+        {.callsign_ = 0x0A2BBB3A, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x49F44585, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0xD4A0946B, .owner_kind_ = 0xFFB39248}, {.callsign_ = 0x949BE8A9, .owner_kind_ = 0xFFB39248},
+        {.callsign_ = 0, .owner_kind_ = 0xFFB39248}}};
+    return rigid_body_member_functions;
+}
+
 namespace {
 
 constexpr uint32_t kSound = 0x07713C7B;        // the sound component
@@ -77,7 +82,7 @@ bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 // 0x0042BB00
 void BodyDynamicsModule::publish_method_table()
 {
-    script::register_member_function_table(g_rigid_body_member_functions);
+    script::register_member_function_table(rigid_body_member_functions());
 }
 
 // 0x0042BB20

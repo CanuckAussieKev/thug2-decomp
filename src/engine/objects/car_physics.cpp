@@ -35,8 +35,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 3> g_car_physics_member_functions{{
-    {.callsign_ = 0xA2331896, .owner_kind_ = 0xC695136D}, {.callsign_ = 0xC9F0DB4B, .owner_kind_ = 0xC695136D}, {.callsign_ = 0, .owner_kind_ = 0xC695136D}}};
+std::array<script::MemberFunctionEntry, 3>& car_physics_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 3> car_physics_member_functions{{
+        {.callsign_ = 0xA2331896, .owner_kind_ = 0xC695136D}, {.callsign_ = 0xC9F0DB4B, .owner_kind_ = 0xC695136D}, {.callsign_ = 0, .owner_kind_ = 0xC695136D}}};
+    return car_physics_member_functions;
+}
 
 namespace {
 
@@ -99,7 +103,7 @@ gsl::owner<ObjectModule*> AutomobileDynamicsModule::fabricate() { return new Aut
 // 0x0041B910
 void AutomobileDynamicsModule::publish_method_table()
 {
-    script::register_member_function_table(g_car_physics_member_functions);
+    script::register_member_function_table(car_physics_member_functions());
 }
 
 // 0x0041BAD0

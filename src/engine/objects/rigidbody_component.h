@@ -288,5 +288,5 @@ bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* scrip
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-extern std::array<script::MemberFunctionEntry, 13> g_rigid_body_member_functions;
+std::array<script::MemberFunctionEntry, 13>& rigid_body_member_functions();
 } // namespace objects

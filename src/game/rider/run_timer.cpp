@@ -22,9 +22,13 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 7> g_run_timer_member_functions{{
-    {.callsign_ = 0x82445966, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x956236B1, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0xAB04CBF9, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x96D81D8E, .owner_kind_ = 0x8BCE7E66},
-    {.callsign_ = 0x81AAA6DD, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x37CC7691, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0, .owner_kind_ = 0x8BCE7E66}}};
+std::array<script::MemberFunctionEntry, 7>& run_timer_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 7> run_timer_member_functions{{
+        {.callsign_ = 0x82445966, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x956236B1, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0xAB04CBF9, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x96D81D8E, .owner_kind_ = 0x8BCE7E66},
+        {.callsign_ = 0x81AAA6DD, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x37CC7691, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0, .owner_kind_ = 0x8BCE7E66}}};
+    return run_timer_member_functions;
+}
 
 namespace {
 
@@ -72,7 +76,7 @@ RiderRunClock::RiderRunClock() { kind_tag_ = kSkaterRunTimer; }
 // 0x00518240
 void RiderRunClock::publish_method_table()
 {
-    script::register_member_function_table(g_run_timer_member_functions);
+    script::register_member_function_table(run_timer_member_functions());
 }
 
 // 0x00518260 (0x005182B0 the deleting one)

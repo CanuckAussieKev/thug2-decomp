@@ -11,10 +11,14 @@
 #include "engine/script/param_struct.h"
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 10> g_vehicle_wheel_member_functions{{
-    {.callsign_ = 0x93B713A6, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xA80A0D36, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4B0B27DD, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xC33608E4, .owner_kind_ = 0xE47F1B79},
-    {.callsign_ = 0xDB35AAD8, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x5008B253, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x279602ED, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4C73526B, .owner_kind_ = 0xE47F1B79},
-    {.callsign_ = 0x81FAAC21, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0, .owner_kind_ = 0xE47F1B79}}};
+std::array<script::MemberFunctionEntry, 10>& vehicle_wheel_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 10> vehicle_wheel_member_functions{{
+        {.callsign_ = 0x93B713A6, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xA80A0D36, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4B0B27DD, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0xC33608E4, .owner_kind_ = 0xE47F1B79},
+        {.callsign_ = 0xDB35AAD8, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x5008B253, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x279602ED, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0x4C73526B, .owner_kind_ = 0xE47F1B79},
+        {.callsign_ = 0x81FAAC21, .owner_kind_ = 0xE47F1B79}, {.callsign_ = 0, .owner_kind_ = 0xE47F1B79}}};
+    return vehicle_wheel_member_functions;
+}
 
 namespace {
 
@@ -50,7 +54,7 @@ void read_feet(script::Struct* params, uint32_t name, float& value)
 // 0x00434F00
 void register_vehicle_member_functions()
 {
-    script::register_member_function_table(g_vehicle_wheel_member_functions);
+    script::register_member_function_table(vehicle_wheel_member_functions());
 }
 
 // 0x00434F20

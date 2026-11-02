@@ -36,11 +36,15 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 15> g_input_component_member_functions{{
-    {.callsign_ = 0xBF7D6C46, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x6E24F5FD, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x56C6C0CD, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x6DF51774, .owner_kind_ = 0x27D7CD28},
-    {.callsign_ = 0x31C6454F, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x0660746A, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x78238598, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x1D604A9D, .owner_kind_ = 0x27D7CD28},
-    {.callsign_ = 0x89AA9B5F, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x83028FC5, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0xB2A022DE, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x2366469C, .owner_kind_ = 0x27D7CD28},
-    {.callsign_ = 0x1090A150, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x28729460, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0, .owner_kind_ = 0x27D7CD28}}};
+std::array<script::MemberFunctionEntry, 15>& input_component_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 15> input_component_member_functions{{
+        {.callsign_ = 0xBF7D6C46, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x6E24F5FD, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x56C6C0CD, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x6DF51774, .owner_kind_ = 0x27D7CD28},
+        {.callsign_ = 0x31C6454F, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x0660746A, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x78238598, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x1D604A9D, .owner_kind_ = 0x27D7CD28},
+        {.callsign_ = 0x89AA9B5F, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x83028FC5, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0xB2A022DE, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x2366469C, .owner_kind_ = 0x27D7CD28},
+        {.callsign_ = 0x1090A150, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0x28729460, .owner_kind_ = 0x27D7CD28}, {.callsign_ = 0, .owner_kind_ = 0x27D7CD28}}};
+    return input_component_member_functions;
+}
 
 namespace {
 
@@ -123,7 +127,7 @@ gsl::owner<ObjectModule*> PadInputModule::fabricate() { return new PadInputModul
 // 0x0041E6F0
 void PadInputModule::publish_method_table()
 {
-    script::register_member_function_table(g_input_component_member_functions);
+    script::register_member_function_table(input_component_member_functions());
 }
 
 // 0x0041E850

@@ -31,10 +31,14 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 10> g_stats_manager_member_functions{{
-    {.callsign_ = 0x82CE30CE, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x57879C96, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xEE59073C, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xF1745991, .owner_kind_ = 0x4FF8DAC6},
-    {.callsign_ = 0x78E7D855, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB341B5A5, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB7FAC894, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x629D29FA, .owner_kind_ = 0x4FF8DAC6},
-    {.callsign_ = 0xB1652DEC, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0, .owner_kind_ = 0x4FF8DAC6}}};
+std::array<script::MemberFunctionEntry, 10>& stats_manager_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 10> stats_manager_member_functions{{
+        {.callsign_ = 0x82CE30CE, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x57879C96, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xEE59073C, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xF1745991, .owner_kind_ = 0x4FF8DAC6},
+        {.callsign_ = 0x78E7D855, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB341B5A5, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB7FAC894, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x629D29FA, .owner_kind_ = 0x4FF8DAC6},
+        {.callsign_ = 0xB1652DEC, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0, .owner_kind_ = 0x4FF8DAC6}}};
+    return stats_manager_member_functions;
+}
 
 namespace {
 
@@ -73,12 +77,10 @@ constexpr uint32_t kLip = 0xA549B57B;
 
 constexpr float kFeet = 12.0f; // 0x0064546C
 
-
 void launch_script(uint32_t name, script::Struct* params = nullptr)
 {
     script::launch_script(name, params, nullptr, false, nullptr);
 }
-
 
 void* skate_module() { return static_cast<void*>(modules::g_skate_module.get()); }
 RiderIdentity* first_profile()
@@ -117,7 +119,7 @@ gsl::owner<ObjectModule*> AttributeTracker::fabricate() { return new AttributeTr
 // 0x0051C440
 void AttributeTracker::publish_method_table()
 {
-    script::register_member_function_table(g_stats_manager_member_functions);
+    script::register_member_function_table(stats_manager_member_functions());
 }
 
 // 0x0051C5A0

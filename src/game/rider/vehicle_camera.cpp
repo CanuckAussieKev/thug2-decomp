@@ -30,8 +30,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 2> g_vehicle_camera_member_functions{{
-    {.callsign_ = 0x000469FD, .owner_kind_ = 0x2C747D8A}, {.callsign_ = 0, .owner_kind_ = 0x2C747D8A}}};
+std::array<script::MemberFunctionEntry, 2>& vehicle_camera_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 2> vehicle_camera_member_functions{{
+        {.callsign_ = 0x000469FD, .owner_kind_ = 0x2C747D8A}, {.callsign_ = 0, .owner_kind_ = 0x2C747D8A}}};
+    return vehicle_camera_member_functions;
+}
 
 namespace {
 
@@ -80,7 +84,7 @@ CarView::CarView() { kind_tag_ = kVehicleCamera; }
 // 0x00524420
 void CarView::publish_method_table()
 {
-    script::register_member_function_table(g_vehicle_camera_member_functions);
+    script::register_member_function_table(vehicle_camera_member_functions());
 }
 
 // 0x00524440 (0x00524470 the deleting one)

@@ -31,8 +31,12 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 4> g_trick_component_member_functions{{
-    {.callsign_ = 0xE4AB4785, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x46D49242, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x1FC98415, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0, .owner_kind_ = 0x270F56E1}}};
+std::array<script::MemberFunctionEntry, 4>& trick_component_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 4> trick_component_member_functions{{
+        {.callsign_ = 0xE4AB4785, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x46D49242, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x1FC98415, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0, .owner_kind_ = 0x270F56E1}}};
+    return trick_component_member_functions;
+}
 
 namespace {
 
@@ -44,7 +48,6 @@ constexpr uint32_t kSkaterState = 0x43686585;
 constexpr uint32_t kStatsManager = 0x4FF8DAC6;
 
 constexpr uint32_t kSecond = 1000; // the sequences' window (ms)
-
 
 // The events from the newest back, `count` of them (the count read again each step, as the original does).
 template <typename Visit>
@@ -98,7 +101,7 @@ bool is_direction(uint32_t button)
 // 0x0051EA90
 void MoveExecutor::publish_method_table()
 {
-    script::register_member_function_table(g_trick_component_member_functions);
+    script::register_member_function_table(trick_component_member_functions());
 }
 
 // 0x0051F2B0

@@ -44,12 +44,16 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 19> g_walk_member_functions{{
-    {.callsign_ = 0x893213E5, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x5012082E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9A3CA853, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x19702CA8, .owner_kind_ = 0x726E85AA},
-    {.callsign_ = 0x8FE2B013, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xCE64576C, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x83E4BD70, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAF04B983, .owner_kind_ = 0x726E85AA},
-    {.callsign_ = 0x56112C03, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9D3EEBE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xC6CD659E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x55BF1CD6, .owner_kind_ = 0x726E85AA},
-    {.callsign_ = 0xE9B1CDE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAC7B36C8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x7E01B923, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x492EBA50, .owner_kind_ = 0x726E85AA},
-    {.callsign_ = 0xF8F754EF, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x8BC2C0EC, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0, .owner_kind_ = 0x726E85AA}}};
+std::array<script::MemberFunctionEntry, 19>& walk_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 19> walk_member_functions{{
+        {.callsign_ = 0x893213E5, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x5012082E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9A3CA853, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x19702CA8, .owner_kind_ = 0x726E85AA},
+        {.callsign_ = 0x8FE2B013, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xCE64576C, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x83E4BD70, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAF04B983, .owner_kind_ = 0x726E85AA},
+        {.callsign_ = 0x56112C03, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9D3EEBE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xC6CD659E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x55BF1CD6, .owner_kind_ = 0x726E85AA},
+        {.callsign_ = 0xE9B1CDE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAC7B36C8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x7E01B923, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x492EBA50, .owner_kind_ = 0x726E85AA},
+        {.callsign_ = 0xF8F754EF, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x8BC2C0EC, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0, .owner_kind_ = 0x726E85AA}}};
+    return walk_member_functions;
+}
 
 namespace {
 
@@ -109,7 +113,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 // 0x00525E40
 void FootMovement::publish_method_table()
 {
-    script::register_member_function_table(g_walk_member_functions);
+    script::register_member_function_table(walk_member_functions());
 }
 
 // 0x005288B0 (0x0052A290 the deleting one)

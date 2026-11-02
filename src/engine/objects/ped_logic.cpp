@@ -31,15 +31,19 @@
 
 namespace objects {
 
-std::array<script::MemberFunctionEntry, 29> g_ped_logic_member_functions{{
-    {.callsign_ = 0x3685B765, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x423B7B29, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE9906815, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0D711542, .owner_kind_ = 0x6EFDDFB8},
-    {.callsign_ = 0xCC85ADFE, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x68D298B0, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x2CC086DD, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC643E8F5, .owner_kind_ = 0x6EFDDFB8},
-    {.callsign_ = 0x13713760, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xF5627596, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE575EFA9, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xB4445051, .owner_kind_ = 0x6EFDDFB8},
-    {.callsign_ = 0x744CD649, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xEE24A410, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0C076D74, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xDA7BE9E2, .owner_kind_ = 0x6EFDDFB8},
-    {.callsign_ = 0x1AFFFFB3, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5C794C57, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5BB23915, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x56D9F55F, .owner_kind_ = 0x6EFDDFB8},
-    {.callsign_ = 0x749DE914, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x58A588B5, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5CFBFB31, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C37FBF5, .owner_kind_ = 0x6EFDDFB8},
-    {.callsign_ = 0x35D3CA5E, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C209251, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC33754F7, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5F041C7D, .owner_kind_ = 0x6EFDDFB8},
-    {.callsign_ = 0, .owner_kind_ = 0x6EFDDFB8}}};
+std::array<script::MemberFunctionEntry, 29>& ped_logic_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 29> ped_logic_member_functions{{
+        {.callsign_ = 0x3685B765, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x423B7B29, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE9906815, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0D711542, .owner_kind_ = 0x6EFDDFB8},
+        {.callsign_ = 0xCC85ADFE, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x68D298B0, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x2CC086DD, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC643E8F5, .owner_kind_ = 0x6EFDDFB8},
+        {.callsign_ = 0x13713760, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xF5627596, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xE575EFA9, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xB4445051, .owner_kind_ = 0x6EFDDFB8},
+        {.callsign_ = 0x744CD649, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xEE24A410, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x0C076D74, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xDA7BE9E2, .owner_kind_ = 0x6EFDDFB8},
+        {.callsign_ = 0x1AFFFFB3, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5C794C57, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5BB23915, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x56D9F55F, .owner_kind_ = 0x6EFDDFB8},
+        {.callsign_ = 0x749DE914, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x58A588B5, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5CFBFB31, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C37FBF5, .owner_kind_ = 0x6EFDDFB8},
+        {.callsign_ = 0x35D3CA5E, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x9C209251, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0xC33754F7, .owner_kind_ = 0x6EFDDFB8}, {.callsign_ = 0x5F041C7D, .owner_kind_ = 0x6EFDDFB8},
+        {.callsign_ = 0, .owner_kind_ = 0x6EFDDFB8}}};
+    return ped_logic_member_functions;
+}
 
 namespace {
 
@@ -112,7 +116,6 @@ KinematicsModule* get_motion(GameEntity* object)
     return core::down_cast<KinematicsModule>(object->fetch_module(kMotion));
 }
 
-
 } // namespace
 
 // 0x004EDC10
@@ -129,7 +132,7 @@ gsl::owner<ObjectModule*> PedestrianBrainModule::fabricate() { return new Pedest
 // 0x004ECFB0
 void PedestrianBrainModule::publish_method_table()
 {
-    script::register_member_function_table(g_ped_logic_member_functions);
+    script::register_member_function_table(ped_logic_member_functions());
 }
 
 // 0x004ECFD0

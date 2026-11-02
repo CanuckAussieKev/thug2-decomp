@@ -28,35 +28,39 @@
 
 namespace skater {
 
-std::array<script::MemberFunctionEntry, 110> g_core_member_functions{{
-    {.callsign_ = 0x584CF9E9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0C7A712C, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8F66B80B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x4ADC6C2A, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x262D42D5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xCA6B3809, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9C6A7E41, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x32DCC9CF, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x5E8F9E77, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0C890A84, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBBF2B570, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xDE583E34, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x1996B797, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1F8BBD05, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xEBBCF455, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBC19E291, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x02F66333, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x68BF6C13, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE8DEB0D7, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x34DCFC97, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x0257947E, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x01BAA1D9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9FCFDFEB, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xFEFF11CC, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xFE243FEF, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE168CFE0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x29FBA9DF, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x17846595, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x259CB90D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1D1FD4F0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x383B939B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x54EF2B79, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x0E2998B9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x6FC5AAE0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBD4303F4, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA901A50C, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xE0DF1F0A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8C3D7864, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0E1D5168, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x948EBF96, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x947FCCF4, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xACB82C02, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x510F983B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x71B993B7, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xBE371B7B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x55934543, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB424244D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x224CDDC9, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x6C8A1316, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x448E3630, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF37CE040, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x133E1293, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x0F922431, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xDFB8F052, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xC5B4B390, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB9EEBFF6, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xEC681A59, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x065A559A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x461E5B92, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA14A467F, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x90F1D8D5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5E8D9B80, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB94BC0C6, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE47FF4B5, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x05144783, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF7E21884, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0BFF3271, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x2A547E37, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xAAE7E1D8, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA038260D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xD27F89E8, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x25B393E7, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xB6222B3A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9D8BDE21, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x83A46968, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x6A0834C5, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x675CF35E, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xD3E1A093, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x3BAAC2C5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB195C726, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xB649958F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x11B99941, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xEFFC54DC, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE3822CCE, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xD5BCAB93, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9AF4A4C2, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8A8EBE72, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xC5623AEE, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xD7ECF37C, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x43A7516D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5F48F4D1, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5F43DDF3, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x68F6DB80, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1B4A5FF9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x007CDADB, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x27C92E33, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x8476CA5B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF900547B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xFC9E2886, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x3981FBF0, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x821BF006, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x2C30B07A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1EB4121A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA751E3D8, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0x03B9946F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xADCA7EE6, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0898E60F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB17D17CD, .owner_kind_ = 0x5BD63B29},
-    {.callsign_ = 0xF22B4480, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0, .owner_kind_ = 0x5BD63B29}}};
+std::array<script::MemberFunctionEntry, 110>& core_member_functions()
+{
+    static std::array<script::MemberFunctionEntry, 110> core_member_functions{{
+        {.callsign_ = 0x584CF9E9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0C7A712C, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8F66B80B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x4ADC6C2A, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x262D42D5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xCA6B3809, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9C6A7E41, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x32DCC9CF, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x5E8F9E77, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0C890A84, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBBF2B570, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xDE583E34, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x1996B797, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1F8BBD05, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xEBBCF455, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBC19E291, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x02F66333, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x68BF6C13, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE8DEB0D7, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x34DCFC97, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x0257947E, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x01BAA1D9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9FCFDFEB, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xFEFF11CC, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xFE243FEF, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE168CFE0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x29FBA9DF, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x17846595, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x259CB90D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1D1FD4F0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x383B939B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x54EF2B79, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x0E2998B9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x6FC5AAE0, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xBD4303F4, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA901A50C, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xE0DF1F0A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8C3D7864, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0E1D5168, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x948EBF96, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x947FCCF4, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xACB82C02, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x510F983B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x71B993B7, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xBE371B7B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x55934543, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB424244D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x224CDDC9, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x6C8A1316, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x448E3630, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF37CE040, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x133E1293, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x0F922431, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xDFB8F052, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xC5B4B390, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB9EEBFF6, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xEC681A59, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x065A559A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x461E5B92, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA14A467F, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x90F1D8D5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5E8D9B80, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB94BC0C6, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE47FF4B5, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x05144783, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF7E21884, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0BFF3271, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x2A547E37, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xAAE7E1D8, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA038260D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xD27F89E8, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x25B393E7, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xB6222B3A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9D8BDE21, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x83A46968, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x6A0834C5, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x675CF35E, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xD3E1A093, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x3BAAC2C5, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB195C726, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xB649958F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x11B99941, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xEFFC54DC, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xE3822CCE, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xD5BCAB93, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x9AF4A4C2, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x8A8EBE72, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xC5623AEE, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xD7ECF37C, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x43A7516D, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5F48F4D1, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x5F43DDF3, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x68F6DB80, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1B4A5FF9, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x007CDADB, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x27C92E33, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x8476CA5B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xF900547B, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xFC9E2886, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x3981FBF0, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x821BF006, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x2C30B07A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x1EB4121A, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xA751E3D8, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0x03B9946F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xADCA7EE6, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0x0898E60F, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0xB17D17CD, .owner_kind_ = 0x5BD63B29},
+        {.callsign_ = 0xF22B4480, .owner_kind_ = 0x5BD63B29}, {.callsign_ = 0, .owner_kind_ = 0x5BD63B29}}};
+    return core_member_functions;
+}
 
 using namespace physics;
 
@@ -188,7 +192,7 @@ bool hit_wall(const render::ProbeRay& feeler)
 // 0x004FBE80
 void SkaterPhysicsModule::publish_method_table()
 {
-    script::register_member_function_table(g_core_member_functions);
+    script::register_member_function_table(core_member_functions());
 }
 
 // 0x004FBEA0
