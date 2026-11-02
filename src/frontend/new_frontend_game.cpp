@@ -35,7 +35,7 @@ constexpr uint32_t kMenuEvent = 0x36B2EE74;    // the pad events' target and sou
 constexpr uint32_t kDeviceNum = 0xC9428A08;    // "device_num"
 constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 
 uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident_; }
@@ -65,7 +65,7 @@ const char* anchor_name(Anchor anchor)
 
 std::string active_ruleset_label()
 {
-    goals::MatchRules* mode = goals::g_game_mode;
+    goals::MatchRules* mode = goals::g_game_mode.get();
     if (!mode)
         return {};
     const uint32_t name = mode->get_name_key();

@@ -338,7 +338,8 @@ void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
     if (!keep_sector)
         destroy_sector(piece->sector_, static_cast<int>(piece->flag_bits_));
     set_counts_dirty();
-    delete piece;
+    gsl::owner<decltype(piece)> owned = memory::owned_element(piece); // (the generator's list's)
+    delete owned;
     if (!pieces_)
         flag_bits_ &= ~ParkAssembler::kHasPieces;
 }

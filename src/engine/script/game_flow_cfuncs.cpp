@@ -89,7 +89,7 @@ constexpr uint32_t kFlashFlag4 = 0x387C9ED6;
 constexpr uint32_t kFlashFlag8 = 0xDF6436D2;
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 modules::Skate* skate_module() { return get_skate(); }
 objects::Rider* get_rider_at(int index) { return core::down_cast<objects::Rider>(skate_module()->get_rider_at(index)); }
 objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
@@ -97,7 +97,7 @@ objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
 // The object manager (0x006F0FB8).
 objects::EntityHub* object_edit() { return objects::g_composite_registry.get(); }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
-void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
+void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
 goals::MatchRules* game_mode_object() { return static_cast<goals::MatchRules*>(get_game_mode()); }
 int game_mode_time_limit() { return game_mode_object()->get_time_limit(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }

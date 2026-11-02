@@ -98,7 +98,7 @@ constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore
 
 // --- the game's state ---
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }

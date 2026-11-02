@@ -303,7 +303,7 @@ void add_overlay(const overlays::Painter& painter)
             (void)painter.get_seg(core::at(corner, core::at(e, 0)), core::at(corner, core::at(e, 1)), colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
-    const modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module.get();
     auto* rails = skate ? skate->rail_manager_.get() : nullptr;
     if (rails && !rails->on_object_ && rails->nodes_) {
         int drawn = 0;

@@ -38,6 +38,7 @@
 #include "frontend/menu_element.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 
 namespace mouse_menus {
 
@@ -512,7 +513,7 @@ void handle_mouse_event(SDL_Event* event)
     }
 }
 
-void* ui_tree_handle() { return frontend::g_ui_element_hub; }
+void* ui_tree_handle() { return frontend::g_ui_element_hub.get(); }
 UiWidget* root_element(void* manager) { return static_cast<UiTree*>(manager)->tree_root_.get_pull(); }
 
 bool in_park_editor()
@@ -724,7 +725,7 @@ Awaiting s_pending;
 // on the game's memory at exit.
 frontend::ElementPtr& pending_menu()
 {
-    static auto* menu = new frontend::ElementPtr;
+    static auto menu = memory::make_owned<frontend::ElementPtr>();
     return *menu;
 }
 

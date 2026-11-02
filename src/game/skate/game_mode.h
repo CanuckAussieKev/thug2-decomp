@@ -11,6 +11,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/script/param_struct.h"
+#include <memory>
 
 namespace script {
 class Script;
@@ -46,7 +47,7 @@ public:
     // The victory conditions' list (an intrusive ring; the head's condition is -1). The original's list types have
     // a vtable each (the head's 0x0064DD90, the nodes' 0x0064DD54) holding only their destructors.
     struct ConditionNode {
-        gsl::owner<WinRule*> condition_; // (-1 for the head; the intrusive list's nodes own their conditions)
+        WinRule* condition_; // (-1 for the head; the intrusive list's nodes own their conditions)
         int rank_;
         ConditionNode* succ_;
         ConditionNode* last_value_;
@@ -131,6 +132,6 @@ public:
 // 0x00553C90: OverrideGameModeOptions - the game mode's options overridden by the command's parameters.
 bool cfunc_override_game_mode_options(script::Struct* params, script::Script* script);
 
-extern goals::MatchRules* g_game_mode;
+extern std::unique_ptr<goals::MatchRules> g_game_mode;
 
 } // namespace goals

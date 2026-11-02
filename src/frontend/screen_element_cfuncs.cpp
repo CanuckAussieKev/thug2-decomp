@@ -27,11 +27,21 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <utility>
 
 namespace frontend {
 
 uint32_t g_unassigned_id{0xFFFFFFFF};
 namespace {
+
+// A new screen element of type T in `element` (the screen element manager owns it: it deletes the element when
+// the element is destroyed) - `new T(args...)`, as the original.
+template <typename T, typename... Args>
+void make_element(ElementPtr& element, Args&&... args)
+{
+    auto made = memory::make_owned<T>(std::forward<Args>(args)...);
+    element.assign_value(made);
+}
 
 using script::Script;
 using script::Struct;
@@ -146,37 +156,37 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
     }
     switch (type) {
     case kContainerElement:
-        element.assign_value(new GroupWidget);
+        make_element<GroupWidget>(element);
         break;
     case kHScrollingMenu:
-        element.assign_value(new WindowedList(false));
+        make_element<WindowedList>(element, false);
         break;
     case kTextureElement:
-        element.assign_value(new TextureElement);
+        make_element<TextureElement>(element);
         break;
     case kVMenu:
-        element.assign_value(new MenuBase(true));
+        make_element<MenuBase>(element, true);
         break;
     case kTextBlockElement:
-        element.assign_value(new ParagraphWidget);
+        make_element<ParagraphWidget>(element);
         break;
     case kTextElement:
-        element.assign_value(new LabelWidget);
+        make_element<LabelWidget>(element);
         break;
     case kWindowElement:
-        element.assign_value(new PanelWidget);
+        make_element<PanelWidget>(element);
         break;
     case kElement3d:
-        element.assign_value(new ModelWidget);
+        make_element<ModelWidget>(element);
         break;
     case kVScrollingMenu:
-        element.assign_value(new WindowedList(true));
+        make_element<WindowedList>(element, true);
         break;
     case kSpriteElement:
-        element.assign_value(new ImageWidget);
+        make_element<ImageWidget>(element);
         break;
     case kHMenu:
-        element.assign_value(new MenuBase(false));
+        make_element<MenuBase>(element, false);
         break;
     default:
         break;

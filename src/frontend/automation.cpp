@@ -687,7 +687,7 @@ using mouse_menus::child_count;
 using mouse_menus::is_menu;
 using mouse_menus::selected_index;
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
@@ -834,7 +834,7 @@ std::string net_refusal()
     if (void* game_net = online::g_online_hub)
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return "a network game runs";
-    if (goals::MatchRules* mode = goals::g_game_mode) {
+    if (goals::MatchRules* mode = goals::g_game_mode.get()) {
         const std::string name = get_name_of(mode->get_name_key());
         if (name.starts_with("net"))
             return "the game mode is a network one (" + name + ")";
@@ -844,7 +844,7 @@ std::string net_refusal()
 
 std::string active_ruleset_label()
 {
-    goals::MatchRules* mode = goals::g_game_mode;
+    goals::MatchRules* mode = goals::g_game_mode.get();
     return mode ? get_name_of(mode->get_name_key()) : "";
 }
 
@@ -977,14 +977,14 @@ struct Runner {
 
 Runner& get_state()
 {
-    static auto* runner = new Runner; // (never freed: nothing runs on the game's memory at exit)
+    static auto runner = memory::make_owned<Runner>(); // (never freed: nothing runs on the game's memory at exit)
     return *runner;
 }
 
 // The menu the running choose / focus is moving (cleared if it dies).
 ElementPtr& target_menu()
 {
-    static auto* menu = new ElementPtr;
+    static auto menu = memory::make_owned<ElementPtr>();
     return *menu;
 }
 

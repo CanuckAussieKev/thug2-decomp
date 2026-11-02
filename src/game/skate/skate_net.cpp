@@ -137,9 +137,9 @@ constexpr uint8_t kSymbolString = 3;     // kQbvalString
 
 // The singletons (not rewritten): the skate module, the network manager (online::Hub), the game mode
 // (goals::MatchRules), the object manager, the goal manager, the profile manager (graffiti colours).
-Skate* skate_module() { return g_skate_module; }
+Skate* skate_module() { return g_skate_module.get(); }
 online::Hub* net_session_slot() { return online::g_online_hub; }
-goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 objects::ObjectHubBase* entity_hub_handle()
 {
     return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
@@ -190,15 +190,15 @@ void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint
 // 0x0056E2B0
 void SkateNet::create_network_tasks(Skate* skate)
 {
-    core::at(skate->server_tasks_, 0) = new tasks::Task<Skate>(&SkateNet::server_task, skate, -1000);
-    core::at(skate->server_tasks_, 1) = new tasks::Task<Skate>(&SkateNet::score_task, skate, -1000);
+    core::at(skate->server_tasks_, 0) = std::make_unique<tasks::Task<Skate>>(&SkateNet::server_task, skate, -1000);
+    core::at(skate->server_tasks_, 1) = std::make_unique<tasks::Task<Skate>>(&SkateNet::score_task, skate, -1000);
 }
 
 // 0x00569530
 void SkateNet::delete_network_tasks(Skate* skate)
 {
-    for (const tasks::Task<Skate>* task : skate->server_tasks_)
-        delete task;
+    for (std::unique_ptr<tasks::Task<Skate>>& task : skate->server_tasks_)
+        memory::destroy_then_clear(task); // (the original left the pointers as they were)
 }
 
 // 0x0056DEE0
@@ -214,8 +214,8 @@ void SkateNet::launch_host(Skate* skate)
     auto* server = net->start_host_session(!auto_serving, true);
     if (!server)
         return;
-    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 0));
-    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 1));
+    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 0).get());
+    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 1).get());
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
     append_listener(server, 0x52, handle_combo_score, 0, skate);
     append_listener(server, 0x86, handle_game_stats, 0, skate);

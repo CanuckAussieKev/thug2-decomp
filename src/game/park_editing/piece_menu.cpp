@@ -171,7 +171,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         first = first + (count - last) - 1;
         last = count - 1;
     }
-    void* elements = frontend::g_ui_element_hub;
+    void* elements = frontend::g_ui_element_hub.get();
     frontend::ElementPtr slider;
     fetch_part(elements, &slider, kPieceSlider);
     float x = 0.0f;

@@ -48,7 +48,7 @@ void dup_from(char* dest, const char* text)
 }
 void get_append(char* dest, const char* text) { dup_from(dest + std::strlen(dest), text); }
 
-MatchRules* get_game_mode() { return g_game_mode; }
+MatchRules* get_game_mode() { return g_game_mode.get(); }
 // The level structure being played (the skate module's +0x380 names it).
 script::Struct* level_params_ref() { return script::read_sub_struct(modules::Skate::sole()->level_params_); }
 

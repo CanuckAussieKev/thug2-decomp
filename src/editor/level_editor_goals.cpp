@@ -799,7 +799,7 @@ void push_undo()
 
 // --- the goal manager (the skate module's - 0x005591B0 - through its script commands) ---
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 
 // The current level as the goal editor keeps it (modules::Skate +0x378; Load_Sk5Ed_gameplay counts as Load_Sk5Ed - as
 // 0x004E7D00 / 0x004EC010 / 0x004EA6C0 do).

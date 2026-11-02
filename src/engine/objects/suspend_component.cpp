@@ -264,7 +264,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
 {
     // The camera the distances are measured from: the skate module's (a flag that turns the checks off, then the
     // position).
-    const modules::Skate* camera = modules::g_skate_module;
+    const modules::Skate* camera = modules::g_skate_module.get();
     auto* component = core::down_cast<DormancyModule>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
         component->distance_squared_ = 0.0f;

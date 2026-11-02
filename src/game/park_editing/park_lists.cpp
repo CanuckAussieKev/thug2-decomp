@@ -22,7 +22,7 @@ memory::PoolPair& node_pools() { return g_node_pools; }
 
 // The generator's piece making.
 TileTemplate* get_piece_source(ParkAssembler* generator, uint32_t name) { return generator->get_piece_source(name); }
-ParkTile* create_piece(ParkAssembler* generator, TileTemplate* source, uint32_t flags)
+gsl::owner<ParkTile*> create_piece(ParkAssembler* generator, TileTemplate* source, uint32_t flags)
 {
     return generator->create_piece(source, flags);
 }
@@ -100,7 +100,7 @@ PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t pi
         NamedSlot entry{};
         core::down_cast<PieceBlueprint>(abstract_meta)->get_entry(&entry, i); // entry `i`, copied
         TileTemplate* source = get_piece_source(singleton()->builder_, entry.piece);
-        ParkTile* piece = create_piece(builder_, source, piece_flags);
+        gsl::owner<ParkTile*> piece = create_piece(builder_, source, piece_flags); // (the generator's list's)
         piece->set_quarter_turns(entry.rot, 0); // turn it
         CellBox pos{};
         pos.assign_value(entry.x, entry.y, entry.z, 0, 0, 0);

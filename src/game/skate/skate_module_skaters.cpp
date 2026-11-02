@@ -77,8 +77,8 @@ namespace modules {
 
 int g_viewport_count;
 namespace {
-script::Struct* g_cat_info;
-script::Struct* g_stat_target_info;
+gsl::owner<script::Struct*> g_cat_info;
+gsl::owner<script::Struct*> g_stat_target_info;
 
 constexpr uint32_t kBailBoard = 0x884EF81B;                     // BailBoard (+ the skater's id)
 constexpr uint32_t kSkaterId = 0x5B24FAAA;                      // SkaterId
@@ -130,12 +130,10 @@ constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
-goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::g_online_hub; }
 objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::g_composite_registry.get()); }
 objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
-script::Struct*& cat_info() { return g_cat_info; }
-script::Struct*& stat_goal_params_ref() { return g_stat_target_info; }
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 memory::Arena* rider_heap_at(int index) { return core::at(memory::Hub::get_pull()->skater_heaps_, index); }
@@ -216,23 +214,24 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
     }
     if (skater->is_local_skater_ && skater->view_slot_ == 0) {
         // The local player's created tricks and stat goals kept for the skater that replaces it.
-        if (cat_info()) {
-            script::free_struct(cat_info());
-            cat_info() = nullptr;
+        if (g_cat_info) {
+            script::free_struct(g_cat_info);
+            g_cat_info = nullptr;
         }
         debug::printf("CAT: Storing Created Trick data\n"); // "CAT: Storing Created Trick data\n"
-        cat_info() = script::new_struct();
-        skater->write_cat_info(cat_info());
-        if (stat_goal_params_ref()) {
-            script::free_struct(stat_goal_params_ref());
-            stat_goal_params_ref() = nullptr;
+        g_cat_info = script::new_struct();
+        skater->write_cat_info(g_cat_info);
+        if (g_stat_target_info) {
+            script::free_struct(g_stat_target_info);
+            g_stat_target_info = nullptr;
         }
         debug::printf("CAT: Storing Stat Goal data\n"); // "CAT: Storing Stat Goal data\n"
-        stat_goal_params_ref() = script::new_struct();
-        skater->write_list_44b_66a_9f(stat_goal_params_ref());
+        g_stat_target_info = script::new_struct();
+        skater->write_list_44b_66a_9f(g_stat_target_info);
     }
     unlink_skater_node(skater->get_skater_link());
-    delete skater;
+    gsl::owner<decltype(skater)> owned = memory::owned_element(skater); // (the module's list's)
+    delete owned;
 }
 
 // 0x00567180
@@ -267,7 +266,8 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
             }
         } else if (objects::Entity* camera = entity_hub_handle()->look_up_entity(kSkaterCam0)) {
             camera->object_flags_ &= ~2u;
-            delete camera;
+            gsl::owner<objects::Entity*> owned = memory::owned_element(camera); // (the object manager's)
+            delete owned;
         }
     } else if (net->in_net_game()) {
         if (objects::Rider* skater = get_home_rider()) {
@@ -294,17 +294,17 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     riders_.insert_by_unique_order(node);
     bind_controllers();
     if (skater->is_local_skater_ && skater->view_slot_ == 0) {
-        if (cat_info()) {
+        if (g_cat_info) {
             debug::printf("CAT: Restoring Created Tricks\n"); // "CAT: Restoring Created Tricks\n"
-            skater->load_cat_info(cat_info());
-            script::free_struct(cat_info());
-            cat_info() = nullptr;
+            skater->load_cat_info(g_cat_info);
+            script::free_struct(g_cat_info);
+            g_cat_info = nullptr;
         }
-        if (stat_goal_params_ref()) {
+        if (g_stat_target_info) {
             debug::printf("CAT: Restoring Stat Goal data\n"); // "CAT: Restoring Stat Goal data\n"
-            skater->load_list_44b_66a_9f(stat_goal_params_ref());
-            script::free_struct(stat_goal_params_ref());
-            stat_goal_params_ref() = nullptr;
+            skater->load_list_44b_66a_9f(g_stat_target_info);
+            script::free_struct(g_stat_target_info);
+            g_stat_target_info = nullptr;
         }
     }
     if (skater->ident_ == 1 && static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)))

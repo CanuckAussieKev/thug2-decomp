@@ -198,12 +198,11 @@ ParkBuilderMode::ParkBuilderMode()
 ParkBuilderMode* ParkBuilderMode::fabricate(bool create)
 {
     if (!sole() && create) {
-        sole() = new ParkBuilderMode;
+        g_park_editor = std::make_unique<ParkBuilderMode>(); // (null when the heap is full)
         if (sole()) {
             ++ref_tally();
             return sole();
         }
-        sole() = nullptr;
     }
     ++ref_tally();
     return sole();

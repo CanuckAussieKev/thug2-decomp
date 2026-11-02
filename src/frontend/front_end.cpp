@@ -105,7 +105,7 @@ bool& menu_on_screen() { return sio::g_in_menu_flag; } // a menu, dialog box or 
 bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xFB11E6CD next frame
 bool& is_game_halted() { return objects::g_simulation_halted; }
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager.get(); }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
 
@@ -146,13 +146,7 @@ struct InputManagerRef {
     InputManagerRef& operator=(const InputManagerRef&) = delete;
 };
 
-script::Struct* new_params()
-{
-    gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
-        params = new (params) script::Struct;
-    return params;
-}
+gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
 void delete_params(script::Struct* params)
 {
     if (params) {
@@ -397,7 +391,7 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
         // Printable (and the high half), Enter and Backspace.
         if (!(key >= 0x20 || key < 0 || key == kKeyEnter || key == kKeyBackspace))
             continue;
-        script::Struct* params = new_params();
+        gsl::owner<script::Struct*> params = new_params();
         if (core::at(keys, i) == kKeyEnter) {
             params->put_name_key(0u, kEnterKey);
         } else if (core::at(keys, i) == kKeyBackspace) {
@@ -420,7 +414,7 @@ void FrontEnd::tick_frame(bool game_paused)
     if (skateshop_override())
         in_skateshop = false;
     bool keyboard_up = false;
-    script::Struct* params = new_params();
+    gsl::owner<script::Struct*> params = new_params();
     if (anchor_exists(params, checksums::hash_from_text("keyboard_anchor"), false))
         keyboard_up = true;
     params->get_clear();
@@ -482,7 +476,7 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
     for (int i = 0; i < count; ++i) {
         const char key = core::at(keys, i);
         if (key == kKeyEscape) {
-            script::Struct* params = new_params();
+            gsl::owner<script::Struct*> params = new_params();
             event = anchor_exists(params, kCurrentMenuAnchor, false) ? kPadBack : kPadStart;
             sio::clear_keyboard_chars();
             delete_params(params);
@@ -490,7 +484,7 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
         }
         if (key != kKeyEnter && key != ' ')
             continue;
-        script::Struct* params = new_params();
+        gsl::owner<script::Struct*> params = new_params();
         if (!anchor_exists(params, kKeyboardAnchor, false)) {
             if (anchor_exists(params, 0x487FBC86) && core::at(keys, i) == ' ')
                 return 0; // (the original leaks params here)
@@ -559,7 +553,7 @@ void FrontEnd::get_pause_game(bool pause)
     if (is_halted_ || !skate->get_home_rider())
         return;
     // Back in the game with a skater: the camera's view mode back to the global's.
-    script::Struct* params = new_params();
+    gsl::owner<script::Struct*> params = new_params();
     params->put_int(0u, script::fetch_int_value(0x968F7408u));
     commands::cfunc_set_view_mode(params, nullptr);
     delete_params(params);

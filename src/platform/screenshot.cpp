@@ -95,7 +95,7 @@ float g_message_y = 40.0f; // (show_notice's lower, clear of the score: 100)
 
 // --- the game's state ---
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool loading_screen_up()
@@ -114,7 +114,7 @@ std::string get_name_of(uint32_t checksum)
 }
 std::string active_ruleset_label()
 {
-    goals::MatchRules* mode = goals::g_game_mode;
+    goals::MatchRules* mode = goals::g_game_mode.get();
     return mode ? get_name_of(mode->get_name_key()) : "";
 }
 // The local skater (the skate module's 0x00566520; null with none).

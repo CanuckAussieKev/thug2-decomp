@@ -685,7 +685,7 @@ bool in_net_game()
 // The level loaded: its load script (the skate module 0x007CE478, +0x378 - as automation.h and the node layer read it).
 uint32_t current_load()
 {
-    const modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module.get();
     return skate ? skate->level_ : 0;
 }
 
@@ -1454,7 +1454,7 @@ ModeFlags current_mode()
                           kIsParkEditor = checksums::hash_from_text("is_parkeditor"),
                           kIsNet = checksums::hash_from_text("is_net");
     ModeFlags flags;
-    goals::MatchRules* mode = goals::g_game_mode;
+    goals::MatchRules* mode = goals::g_game_mode.get();
     if (!mode)
         return flags;
     // (0x00553220: the mode's structure's integer `property`, non-zero)

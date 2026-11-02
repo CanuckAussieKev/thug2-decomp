@@ -92,7 +92,7 @@ constexpr uint32_t kClassTrigger = 0xE594F0A2;        // "Trigger"
 constexpr uint32_t kClassSkater = 0x5B8AB877;         // "skater"
 constexpr uint32_t kClassA0e52802 = 0xA0E52802;       // (name unknown) killed through 0x0048FCA0
 
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 objects::GrindRailHub* rail_manager() { return modules::g_skate_module->rail_manager_.get(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 

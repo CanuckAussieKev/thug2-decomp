@@ -35,7 +35,7 @@ constexpr uint32_t kText = 0xC4745838;          // text
 constexpr uint32_t kCombinedFlags = 0x2760DE9E; // combined_flags
 constexpr uint32_t kCancelGround = 0x9A27E74D;  // CANCEL_GROUND (the global integer: the default cancel flags)
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 // The skate module's career (+0x20).
 objects::RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
 // 0x005656C0: the skate module's (the current level's) gap checklist.

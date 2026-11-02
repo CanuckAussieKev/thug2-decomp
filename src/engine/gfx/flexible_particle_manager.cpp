@@ -167,15 +167,16 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
                                                           int perm, bool use_level_colour, const char* model)
 {
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
-    EmitterInstance* system = (create_flexible_particles(name, type, particle_cap, max_streams, texture, blend_mode,
-                                                         fixed_alpha, segments, unknown, history, model));
+    gsl::owner<EmitterInstance*> made = create_flexible_particles(name, type, particle_cap, max_streams, texture,
+                                                                  blend_mode, fixed_alpha, segments, unknown, history, model);
     memory::Hub::get_pull()->leave_heap_scope();
-    if (!system)
+    if (!made)
         return nullptr;
-    if (!(system->flag_bits_ & 4u)) { // (not everything allocated)
-        delete system;
+    if (!(made->flag_bits_ & 4u)) { // (not everything allocated)
+        delete made;
         return nullptr;
     }
+    EmitterInstance* const system = made; // (the manager's ring's, below)
     system->unknown12e_ = perm != 0;
     system->flag_bits_ |= 1u;
     system->set_wants_time(1);

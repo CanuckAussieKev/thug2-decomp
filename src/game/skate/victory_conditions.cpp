@@ -35,7 +35,7 @@ constexpr uint32_t kElimination = 0xA6B8D7B0;       // elimination
 constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 
 // The skate module (modules::Skate, 0x007CE478) and its skaters (not rewritten yet).
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 // How many skaters there are: the skate module's skater list (memory::ListNode: data the skater, -1 at the head).
 uint32_t skater_count(modules::Skate* skate)
 {
@@ -61,7 +61,7 @@ modules::PointTally* get_score_of(objects::Rider* skater)
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
 
 // The game mode (0x007CE470).
-void* get_game_mode() { return static_cast<void*>(g_game_mode); }
+void* get_game_mode() { return static_cast<void*>(g_game_mode.get()); }
 bool is_squad_match() { return static_cast<MatchRules*>(get_game_mode())->is_squad_match() != 0; }
 int current_num_teams() { return static_cast<MatchRules*>(get_game_mode())->current_num_teams(); }
 

@@ -456,7 +456,7 @@ void EditorViewModule::tick_frame()
     }
     level_y_ = rise + level_y_;
 
-    const modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module.get();
     if (in_park_editor())
         rail_editor_moving(0);
 

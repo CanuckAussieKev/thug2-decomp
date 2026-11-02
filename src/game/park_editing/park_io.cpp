@@ -31,7 +31,7 @@ namespace park_editing {
 namespace {
 float g_park_gap_grid_offset{28.0f};
 } // namespace
-park_editing::ParkBuilderMode* g_park_editor;
+std::unique_ptr<park_editing::ParkBuilderMode> g_park_editor;
 
 namespace {
 
@@ -447,7 +447,7 @@ void ParkLayout::clear_compressed_map()
     map.depth_cell_ = build_area_.z;
     map.w_ = build_area_.w;
     map.l_ = build_area_.l;
-    map.style_set_ = static_cast<void*>(g_park_editor) ? editor_value78() : 0;
+    map.style_set_ = static_cast<void*>(g_park_editor.get()) ? editor_value78() : 0;
     map.max_players_ = 2;
     std::memcpy(map.label_.data(), "Unnamed park", 13); // "Unnamed park"
     std::memset(map.floor_heights_.data(), 0, kFloorSize * kFloorSize);

@@ -96,7 +96,7 @@ constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the objec
 constexpr uint32_t kSkaterCamObject = 0x967C138C;    // (name unknown) the object whose camera is used otherwise
 
 // The skate module (modules::Skate, 0x007CE478) and its code we call through the game.
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 // The current profile: the skate module's overload taking the params, with none (the original passes a 0 index in
 // the params' place - 0x00564F80; every caller passes 0).
 objects::RiderIdentity* current_account()

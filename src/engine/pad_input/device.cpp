@@ -687,7 +687,7 @@ void InputPort::pull_data(int)
         second ^= p[0] >= 0x20 ? 0x40 : 0;
     second ^= p[2] >= 0x20 ? 0x80 : 0;
     const uint8_t buttons_so_far = second;
-    const park_editing::ParkBuilderMode* editor = park_editing::g_park_editor;
+    const park_editing::ParkBuilderMode* editor = park_editing::g_park_editor.get();
     if (editor && editor->cur_phase_ == park_editing::ParkBuilderMode::kStateEdit) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;

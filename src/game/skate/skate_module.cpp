@@ -7,9 +7,9 @@
 
 namespace modules {
 
-Skate* g_skate_module;
+std::unique_ptr<Skate> g_skate_module;
 
-Skate* Skate::sole() { return g_skate_module; }
+Skate* Skate::sole() { return g_skate_module.get(); }
 
 // 0x0041AD90
 int Skate::count_riders()

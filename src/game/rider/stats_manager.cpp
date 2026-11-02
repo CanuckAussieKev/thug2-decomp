@@ -82,7 +82,7 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
 }
 
 
-void* skate_module() { return static_cast<void*>(modules::g_skate_module); }
+void* skate_module() { return static_cast<void*>(modules::g_skate_module.get()); }
 RiderIdentity* first_profile()
 {
     return static_cast<modules::Skate*>(skate_module())->fetch_account(static_cast<int>(0));

@@ -71,7 +71,7 @@ constexpr uint32_t kVehicleComponent = 0x18223FD6; // SkaterStateHistory (its ve
 constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 
 Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 
 // The skate module's list of skaters (its head at +0x28): how many.
 int skater_count(modules::Skate* skate)

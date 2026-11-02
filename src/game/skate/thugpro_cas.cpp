@@ -493,7 +493,8 @@ void load_once()
         script::delete_array(theirs);
     }
     memory::leave_heap_scope();
-    s_served.store(new std::set<std::string>(their_files())); // (kept for the game's life)
+    auto served = memory::make_owned<std::set<std::string>>(their_files()); // (kept for the game's life)
+    s_served.store(served);
     get_log(
         "THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
         "the install's loose data); %d of its loose files to read from there when asked for",

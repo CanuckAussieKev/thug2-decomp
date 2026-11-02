@@ -26,7 +26,7 @@ namespace {
 double g_park_memory_full_usage{0.95};
 double g_park_memory_nearly_full_usage{0.9};
 MemoryStats g_park_memory_stats;
-memory::Zone* g_park_region;
+gsl::owner<memory::Zone*> g_park_region; // 0x007CE684 (power_down deletes it)
 } // namespace
 memory::Arena* g_park_heap;
 namespace {
@@ -109,7 +109,6 @@ float pool_usage(memory::PoolPair& pair, const char* base_name, const int& items
 
 memory::PoolPair& clipboard_pools() { return g_clipboard_pools; }
 MemoryStats& get_attributes() { return g_park_memory_stats; }
-memory::Zone*& park_region() { return g_park_region; }
 memory::Arena*& park_heap() { return g_park_heap; }
 int& dma_pieces() { return g_dma_pieces; }
 bool& counts_dirty() { return g_counts_dirty; }
@@ -216,9 +215,9 @@ void power_down()
     delete_pool(clipboard_entry_pools());
     delete_pool(map_list_node_pools());
     memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(park_heap()));
-    delete park_region();
+    delete g_park_region;
     park_heap() = nullptr;
-    park_region() = nullptr;
+    g_park_region = nullptr;
 }
 
 // 0x0059E5C0
@@ -264,7 +263,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     stats.main_heap_free_ -= get_memory_value("anim_set_mem", -1) + main_pad; // "anim_set_mem"
     const int park_pad = get_memory_value("park_heap_pad", -1);               // "park_heap_pad"
     stats.park_bytes_in_use_ = park_heap()->used_size_;
-    stats.park_heap_free_ = park_region()->free_byte_count() + (park_heap()->free_size_ - park_pad);
+    stats.park_heap_free_ = g_park_region->free_byte_count() + (park_heap()->free_size_ - park_pad);
 
     // Fragmented: the largest block is all that can be counted on.
     if (ints::as_signed(main_heap->largest_free()) < stats.main_heap_free_ &&
@@ -367,7 +366,7 @@ void prepare_all(uint32_t level)
         const int size = get_memory_value("park_heap_size", -1); // "park_heap_size"
         region = memory::construct_in<memory::MemoryArena>(memory, static_cast<uint32_t>(size));
     }
-    park_region() = region;
+    g_park_region = region;
     park_heap() = manager->add_heap(region, direction, name);
     create_map_list_node_pool(16000, "CMapListNode");                          // "CMapListNode"
     debug::printf("pool is at %p\n", active_slab_pool(map_list_node_pools())); // "pool is at %p\n"

@@ -122,7 +122,7 @@ constexpr auto kSentCheats = std::to_array<uint32_t>({
 });
 
 online::Hub* net_link() { return online::g_online_hub; }
-goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 objects::ObjectHubBase* entity_hub_handle()
 {
     return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());

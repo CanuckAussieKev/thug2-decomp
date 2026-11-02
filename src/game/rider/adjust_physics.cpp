@@ -82,7 +82,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (raise != 0.0f)
         start.y += raise;
     auto* physics = static_cast<skater::SkaterPhysicsModule*>(core);
-    const park_editing::ParkBuilderMode* park_editor = park_editing::g_park_editor;
+    const park_editing::ParkBuilderMode* park_editor = park_editing::g_park_editor.get();
 
     if (!physics->probe_touches_zone(0x10, 0)) {
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame

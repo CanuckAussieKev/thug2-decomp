@@ -59,7 +59,7 @@ constexpr uint32_t kSlomoComponent = 0x5BD63B29;       // (name unknown) the loc
 constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
 constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the skaters' object type
 
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 objects::GameEntity* get_home_rider() { return get_skate()->get_home_rider(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
 net::Hub* net_session_slot() { return net::g_net_core.get(); }

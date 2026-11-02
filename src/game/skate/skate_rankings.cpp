@@ -47,7 +47,7 @@ constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
 constexpr uint32_t kKing = 0x5D32129C;              // king
 constexpr uint32_t kFirstLine = 0x00039447;         // the first score line's id
 
-goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::g_online_hub; }
 bool is_crown_rule_active()
 {

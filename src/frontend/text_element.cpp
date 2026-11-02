@@ -413,14 +413,18 @@ void LabelWidget::make_text_objects(int count, bool only_shadow)
 {
     if (shadow_) {
         shadows_ = static_cast<void**>(front_end_new(static_cast<unsigned int>(count) * 4));
-        for (int i = 0; i < count; ++i)
-            shadows_[i] = new_text_object();
+        for (int i = 0; i < count; ++i) {
+            gsl::owner<void*> text = new_text_object(); // (the element's)
+            shadows_[i] = text;
+        }
     }
     if (!only_shadow) {
         num_ = count;
         texts_ = static_cast<void**>(front_end_new(static_cast<unsigned int>(count) * 4));
-        for (int i = 0; i < count; ++i)
-            texts_[i] = new_text_object();
+        for (int i = 0; i < count; ++i) {
+            gsl::owner<void*> text = new_text_object(); // (the element's)
+            texts_[i] = text;
+        }
     }
     set_viewports();
 }

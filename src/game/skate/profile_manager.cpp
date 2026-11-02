@@ -140,7 +140,8 @@ void ProfileRoster::prepare_all()
     uint32_t key = 0;
     core::at(profiles_, 0) = templates_.get_by_index(0, &key);
     for (int i = 1; i < 2; ++i) {
-        core::at(profiles_, i) = new_profile();
+        gsl::owner<RiderIdentity*> made = new_profile(); // (the roster's)
+        core::at(profiles_, i) = made;
         core::at(profiles_, i)->copy_from(templates_.get_by_index(i, &key));
     }
     memory::Hub::get_pull()->leave_heap_scope();
@@ -206,7 +207,8 @@ void ProfileRoster::write_custom_skaters(script::Struct* save)
 // 0x0057B970
 bool ProfileRoster::add_extra_profile(uint32_t name)
 {
-    core::at(extra_profiles_, extra_count_) = new_profile();
+    gsl::owner<RiderIdentity*> made = new_profile(); // (the roster's)
+    core::at(extra_profiles_, extra_count_) = made;
     core::at(extra_names_, extra_count_) = name;
     ++extra_count_;
     return true;

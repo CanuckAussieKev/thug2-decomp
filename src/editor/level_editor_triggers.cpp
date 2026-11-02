@@ -1315,7 +1315,7 @@ void drop_boxes()
 
 goals::GapTally* get_checklist()
 {
-    modules::Skate* skate = modules::g_skate_module;
+    modules::Skate* skate = modules::g_skate_module.get();
     return skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
 }
 

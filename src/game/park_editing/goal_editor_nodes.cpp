@@ -52,12 +52,12 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
     for (int goal = 0; goal < 10; ++goal) {
         // The pro, the restart, then eleven objects.
         for (int which = 0; which < 13; ++which) {
-            gsl::owner<script::Struct*> node = nullptr;
+            script::Struct* node = nullptr;
             if (in_place) {
                 node = nodes->struct_at(static_cast<uint32_t>(*index));
             } else {
-                node = script::spawn_param_bag();
-                node = node ? new (node) script::Struct : nullptr;
+                gsl::owner<script::Struct*> made = script::new_struct(); // (the node array's, below)
+                node = made;
             }
             static const std::array<uint32_t, 3> kKinds = {{0x8F0F67D7, 0xC9119673, 0x000B52B3}};
             node->append_structure_if_any(script::read_sub_struct(core::at(kKinds, which < 2 ? which : 2)));

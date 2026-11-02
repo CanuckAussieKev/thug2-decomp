@@ -145,7 +145,7 @@ void complete_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(
 void fail_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(manager)->fail_objective(id); }
 
 // The skate module (0x007CE478): the local skater, its score (modules::PointTally), the tricks the score has seen.
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 objects::Rider* local_skater() { return modules::Skate::sole()->get_home_rider(); }
 modules::PointTally* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
@@ -168,7 +168,7 @@ int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, bo
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
 // makes is let go at once, as in the original), the containers and text elements made for the tricks.
 using frontend::ElementPtr;
-void* ui_tree_handle() { return frontend::g_ui_element_hub; }
+void* ui_tree_handle() { return frontend::g_ui_element_hub.get(); }
 frontend::UiTree* hub(void* manager) { return static_cast<frontend::UiTree*>(manager); }
 frontend::UiWidget* element_by_id(void* manager, uint32_t id)
 {

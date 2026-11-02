@@ -204,7 +204,7 @@ std::string level_file_stamp(const std::string& level, const char* kind)
 // The local skater (the skate module's 0x00566520; null with none).
 void* local_skater()
 {
-    auto* module = modules::g_skate_module;
+    auto* module = modules::g_skate_module.get();
     return module ? module->get_home_rider() : nullptr;
 }
 

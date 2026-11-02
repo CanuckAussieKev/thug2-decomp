@@ -144,8 +144,10 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
         gsl::owner<script::Array*> rails = script::new_array();
         rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
         uint32_t i = 0;
-        for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
-            rails->set_cell(i++, script::Cell::of(script::new_struct()));
+        for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+            gsl::owner<script::Struct*> entry = script::new_struct(); // (the array's)
+            rails->set_cell(i++, script::Cell::of(entry));
+        }
         info->append_array_ref(kRails, rails);
     }
     // (then the base's - the empty 0x005BAB90)

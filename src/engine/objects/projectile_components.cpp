@@ -74,7 +74,7 @@ using online::kMsgHit;
 using online::kMsgHitOwner;
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
 Rider* local_skater() { return skate_module()->get_home_rider(); }

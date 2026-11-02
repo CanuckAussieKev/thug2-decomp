@@ -114,7 +114,7 @@ double dot3(const maths::Vec4& a, const maths::Vec4& b)
 // The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
 objects::GrindRailHub* get_level_rails()
 {
-    const modules::Skate* module = modules::g_skate_module;
+    const modules::Skate* module = modules::g_skate_module.get();
     return module ? module->rail_manager_.get() : nullptr;
 }
 

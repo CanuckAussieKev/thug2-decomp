@@ -55,7 +55,7 @@ std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters> s_dirty_clusters;
 
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord>
 // (vtable 0x0064C1A8).
-void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
+void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
 online::Hub* net_session_slot() { return online::g_online_hub; }
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
@@ -592,7 +592,7 @@ bool TrickSpotHub::release_player_clusters(int player)
 void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
 {
     online::Hub* net = net_session_slot();
-    void* skate = static_cast<void*>(modules::g_skate_module);
+    void* skate = static_cast<void*>(modules::g_skate_module.get());
     net::NetMessageInfo desc;
     PlayerSearch search;
     if (send) {

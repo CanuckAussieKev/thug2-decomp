@@ -54,7 +54,6 @@ static_assert(sizeof(MemoryStats) == 0x6C && offsetof(MemoryStats, max_usage_) =
 
 MemoryStats& get_attributes();       // 0x007CE618
 memory::PoolPair& clipboard_pools(); // 0x007CE5B4 (CClipboard's CPoolable pools)
-memory::Zone*& park_region();        // 0x007CE684
 memory::Arena*& park_heap();         // 0x007CE688
 int& dma_pieces();                   // 0x007CE690 the DMA pieces the park's pieces use
 bool& counts_dirty();                // 0x007CE694 the piece counts need counting again

@@ -21,7 +21,7 @@
 
 namespace goals {
 
-goals::MatchRules* g_game_mode;
+std::unique_ptr<goals::MatchRules> g_game_mode;
 namespace {
 uint32_t g_game_mode_references;
 
@@ -70,7 +70,7 @@ WinRule* const kHeadMarker = platform::all_ones_pointer<WinRule>();
 // as round 3c's argument-slot defaults)
 int unset(const void* /*mode*/) { return 0; }
 
-MatchRules*& the_game_mode() { return g_game_mode; }
+MatchRules* the_game_mode() { return g_game_mode.get(); }
 uint32_t& ref_tally() { return g_game_mode_references; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
 
@@ -145,10 +145,10 @@ void MatchFlow::tick_frame()
 // 0x00553DB0
 MatchRules* MatchRules::sole(bool create)
 {
-    gsl::owner<MatchRules*> mode = the_game_mode();
+    MatchRules* mode = the_game_mode();
     if (!mode && create) {
-        mode = new MatchRules;
-        the_game_mode() = mode;
+        g_game_mode = std::make_unique<MatchRules>();
+        mode = g_game_mode.get();
     }
     ++ref_tally();
     return mode;
@@ -161,8 +161,7 @@ void MatchRules::get_release()
         --ref_tally();
         return;
     }
-    delete the_game_mode();
-    the_game_mode() = nullptr;
+    memory::destroy_then_clear(g_game_mode);
     ref_tally() = 0;
 }
 
@@ -213,7 +212,8 @@ void MatchRules::clear_victory_conditions()
         node->succ_->last_value_ = node->last_value_;
         node->succ_ = node;
         node->last_value_ = node;
-        delete node->condition_;
+        gsl::owner<WinRule*> condition = memory::owned_element(node->condition_); // (the node's)
+        delete condition;
         memory::dealloc(node); // (its destructor only unlinks it again)
         node = next;
     }

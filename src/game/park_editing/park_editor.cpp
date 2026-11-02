@@ -32,6 +32,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 
 namespace park_editing {
 
@@ -87,7 +88,7 @@ constexpr float kMinTilt = 10.0f;                 // 0x00646710
 constexpr double kMaxTilt = 90.0;                 // 0x0064F340
 constexpr double kFullTurn = 360.0;               // 0x0064F348 (and 360.0f, 0x00645EA8)
 
-modules::Skate* skate_module() { return modules::g_skate_module; }
+modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 frame_loop::Hub* get_main_loop() { return assets::g_main_loop_manager.get(); }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager.get(); }
 
@@ -157,8 +158,7 @@ void ParkBuilderMode::get_release()
         --ref_tally();
         return;
     }
-    delete sole();
-    sole() = nullptr;
+    memory::destroy_then_clear(g_park_editor);
     ref_tally() = 0;
 }
 

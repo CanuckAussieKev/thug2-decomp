@@ -81,7 +81,7 @@ gsl::owner<render::RenderModel*> spawn_render_model(int)
 {
     return render::spawn_model();
 } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
-void delete_model(render::RenderModel* model) { delete model; }
+void delete_model(gsl::owner<render::RenderModel*> model) { delete model; }
 void ingest_mesh(render::RenderModel* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
     model->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);

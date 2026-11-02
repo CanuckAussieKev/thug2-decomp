@@ -674,7 +674,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn_;
     auto* manager = static_cast<Hub*>(context->content_);
-    modules::Skate* skate = modules::g_skate_module;
+    modules::Skate* skate = modules::g_skate_module.get();
     context->acknowledge_ = true;
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     util::ByteReader reader(context->body_, context->body_size_);

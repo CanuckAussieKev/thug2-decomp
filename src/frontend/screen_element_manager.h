@@ -7,6 +7,7 @@
 #include "frontend/screen_element.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/entity_hub.h"
+#include <memory>
 
 namespace script {
 class Script;
@@ -21,7 +22,7 @@ class Struct;
 namespace frontend {
 
 class UiTree;
-extern UiTree* g_ui_element_hub; // the singleton
+extern std::unique_ptr<UiTree> g_ui_element_hub; // the singleton
 
 class UiTree final : public objects::ObjectHubBase {
 public:
@@ -48,7 +49,7 @@ public:
     static constexpr int kPriorities = 10;
     static constexpr int kPadEventSlots = 0x30;
 
-    static UiTree*& sole() { return g_ui_element_hub; }
+    static UiTree* sole() { return g_ui_element_hub.get(); }
 
     // 0x004AB990: vtables 0x0064A0E8 / 0x0064A104 (the listener), no root, the listener on the tracker's list for no
     // object, no focus, no priorities, no pad event types read yet.

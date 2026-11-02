@@ -80,7 +80,7 @@ void launch_event(uint32_t type, uint32_t target)
     objects::get_tracker()->launch_event(type, target, kSystem, nullptr, false, -1.0f);
 }
 
-void* hub() { return g_ui_element_hub; }
+void* hub() { return g_ui_element_hub.get(); }
 
 // The screen element manager's pieces.
 UiTree* get_elements(void* manager) { return static_cast<UiTree*>(manager); }

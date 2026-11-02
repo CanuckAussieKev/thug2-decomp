@@ -79,7 +79,7 @@ constexpr uint32_t kScore = 0xCD66C8AE;                // "score"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 // The game mode (0x007CE470): its name (0x005532A0) and fireball level (0x005531F0) - neither has source yet.
-void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
+void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
 uint32_t active_ruleset_label() { return static_cast<goals::MatchRules*>(get_game_mode())->get_name_key(); }
 // The rail editor (0x004F4970 finds it).
 park_editing::RailAuthoring* get_rail_editor() { return park_editing::RailAuthoring::sole(); }

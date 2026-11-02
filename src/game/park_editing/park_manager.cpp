@@ -206,7 +206,8 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     for (uint32_t i = 0; i < meta->filled_slots_; ++i)
         builder_->destroy_piece(core::down_cast<PlacedPieceGroup>(meta)->slot(static_cast<int>(i)).piece);
     remove_piece_cost(meta);
-    delete meta;
+    gsl::owner<PieceGroup*> owned = memory::owned_element(meta); // (the list's)
+    delete owned;
     --num_concrete_metas_;
 }
 
@@ -271,9 +272,10 @@ void ParkLayout::teardown(int keep_rails)
         write_compressed_map();
     gap_registry_->clear_gap_entries();
     while (abstract_metas_) {
-        gsl::owner<PieceGroup*> meta = abstract_metas_->get_piece_group();
+        PieceGroup* meta = abstract_metas_->get_piece_group();
         remove_meta_from_list(meta, &abstract_metas_);
-        delete meta;
+        gsl::owner<PieceGroup*> owned = memory::owned_element(meta); // (the list's)
+        delete owned;
     }
     num_abstract_metas_ = 0;
     destroy_concrete_metas(keep_rails);

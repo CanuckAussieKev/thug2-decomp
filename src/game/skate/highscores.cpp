@@ -209,8 +209,10 @@ void BestEntryList::write_to_structure(script::Struct* params)
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(num_, script::kQbvalStruct);
-    for (int i = 0; i < num_; ++i)
-        array->set_cell(i, script::Cell::of(record_structure(&records_[i])));
+    for (int i = 0; i < num_; ++i) {
+        gsl::owner<script::Struct*> record = record_structure(&records_[i]); // (the array's)
+        array->set_cell(i, script::Cell::of(record));
+    }
     params->append_array_ref(kRecordTable, array);
 }
 
@@ -378,7 +380,7 @@ void BestResults::get_release()
 
 bool update_records(bool edited_copy)
 {
-    modules::Skate* skate = modules::g_skate_module;
+    modules::Skate* skate = modules::g_skate_module.get();
     if (edited_copy) {
         if (skate)
             skate->new_record_ = false; // (no record new: as 0x00566F40 sets it before comparing)

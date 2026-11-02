@@ -88,7 +88,7 @@ constexpr uint8_t kMsgCreatedGoals = 0x87; // the created goals ("goals data")
 constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
-goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 online::Hub* net_session_slot() { return online::g_online_hub; }
 objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 int& get_refs() { return g_skate_module_references; }
@@ -106,24 +106,22 @@ void Skate::discard_occurrence()
         --get_refs();
         return;
     }
-    delete sole();
-    g_skate_module = nullptr;
+    memory::destroy_then_clear(g_skate_module);
     get_refs() = 0;
 }
 
 // 0x005691A0
 Skate* Skate::spawn_occurrence(bool create)
 {
-    gsl::owner<Skate*> skate = sole();
+    Skate* skate = sole();
     if (!skate && create) {
-        skate = new Skate;
+        g_skate_module = std::make_unique<Skate>(); // (null when the heap is full)
+        skate = g_skate_module.get();
         if (skate) {
             const int refs = get_refs() + 1;
-            g_skate_module = skate;
             get_refs() = refs;
             return skate;
         }
-        g_skate_module = nullptr;
     }
     ++get_refs();
     return skate; // (the instance - null when none was made: main registers it as a module)

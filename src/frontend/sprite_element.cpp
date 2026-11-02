@@ -83,7 +83,7 @@ void free_window2d(void* window) { render::free_window_2d(static_cast<render::Sc
 // 0x004AED90
 TextureElement::TextureElement()
 {
-    piece_.reset(new_textured_piece());
+    piece_ = memory::take_unique<render::TexturedQuad>(new_textured_piece());
     change_species(kTextureElement);
 }
 
@@ -142,7 +142,7 @@ void TextureElement::tick_frame()
 // 0x004AF1A0
 ImageWidget::ImageWidget()
 {
-    quad_.reset(new_sprite(0));
+    quad_ = memory::take_unique<render::BillboardQuad>(new_sprite(0));
     change_species(kSpriteElement);
 }
 

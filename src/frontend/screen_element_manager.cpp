@@ -27,7 +27,7 @@
 
 namespace frontend {
 
-UiTree* g_ui_element_hub;
+std::unique_ptr<UiTree> g_ui_element_hub;
 
 namespace {
 
@@ -176,7 +176,8 @@ void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
             change_owner(&none, element, 1);
         }
         drop_entity_registration(element->get_pull());
-        delete element->get_pull();
+        gsl::owner<UiWidget*> owned = memory::owned_element(element->get_pull()); // (the manager's)
+        delete owned;
     }
 }
 
@@ -195,7 +196,8 @@ void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* 
         if (script && element.get_pull())
             script->object_destroyed(element.get_pull());
         drop_entity_registration(element.get_pull());
-        delete element.get_pull();
+        gsl::owner<UiWidget*> owned = memory::owned_element(element.get_pull()); // (the manager's)
+        delete owned;
     }
 }
 
@@ -648,10 +650,9 @@ uint32_t g_screen_element_manager_uses;
 // 0x004ACAF0
 void create_screen_element_manager(bool create)
 {
-    UiTree*& instance = UiTree::sole();
-    if (!instance && create) {
-        instance = new UiTree; // (zeroed, from the current heap)
-        if (instance) {
+    if (!g_ui_element_hub && create) {
+        g_ui_element_hub = std::make_unique<UiTree>(); // (zeroed, from the current heap; null when it's full)
+        if (g_ui_element_hub) {
             ++g_screen_element_manager_uses;
             return;
         }
@@ -667,8 +668,7 @@ void delete_screen_element_manager()
         --uses;
         return;
     }
-    delete UiTree::sole();
-    UiTree::sole() = nullptr;
+    memory::destroy_then_clear(g_ui_element_hub);
     uses = 0;
 }
 

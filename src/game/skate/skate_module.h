@@ -233,7 +233,7 @@ public:
     objects::Rider* get_skater_at(uint32_t index);
 
     std::unique_ptr<tasks::Task<Skate>> update_job_;         // +0x14 (front_end_tick)
-    std::array<tasks::Task<Skate>*, 2> server_tasks_{};                  // +0x18 (SkateNet::create_network_tasks)
+    std::array<std::unique_ptr<tasks::Task<Skate>>, 2> server_tasks_;                  // +0x18 (SkateNet::create_network_tasks)
     std::unique_ptr<objects::RiderStoryProgress> career_;    // +0x20
     memory::HeapUnique<objects::GrindRailHub> rail_manager_; // +0x24
     lists::Foremost riders_{}; // +0x28 (their nodes' data the skaters, in object id order)
@@ -276,6 +276,6 @@ public:
 void fill_elimination_ranking();
 
 extern int g_viewport_count;
-extern modules::Skate* g_skate_module;
+extern std::unique_ptr<modules::Skate> g_skate_module;
 
 } // namespace modules

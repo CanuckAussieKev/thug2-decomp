@@ -130,7 +130,7 @@ namespace {
 // are now; not one on an object.
 objects::GrindRailHub* get_rails()
 {
-    const modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module.get();
     auto* manager = skate ? skate->rail_manager_.get() : nullptr;
     return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
 }

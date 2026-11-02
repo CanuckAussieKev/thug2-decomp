@@ -370,11 +370,8 @@ bool RiderIdentity::get_reset(script::Struct* params)
     reset_appearance(this);
     script::Struct* mine = details_params();
     mine->get_clear();
-    gsl::owner<script::Struct*> memory = script::spawn_param_bag();
-    mine->append_struct_ref(
-        kTrickStyle, memory ? memory::construct_in<script::Struct>(memory) : nullptr);
-    memory = script::spawn_param_bag();
-    mine->append_struct_ref(kSpecials, memory ? new (memory) script::Struct : nullptr);
+    mine->append_struct_ref(kTrickStyle, script::new_struct());
+    mine->append_struct_ref(kSpecials, script::new_struct());
     pop_heap();
     if (!params)
         return true;

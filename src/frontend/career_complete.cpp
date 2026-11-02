@@ -39,7 +39,7 @@ constexpr uint32_t kRecord = 0xC22A2B72;
 constexpr uint32_t kCareer = 0x4DA4937B;  // career
 constexpr uint32_t kClassic = 0x4C10DE52; // classic
 
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 
 // The local skater's stats manager (its story stat challenges - stats_goals): every challenge done (the stat point
 // given; the stats menu counts the done ones: 3 + done = the stat's maximum) and none "just met".

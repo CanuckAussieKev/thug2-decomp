@@ -453,7 +453,7 @@ constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters)
 constexpr uint32_t kCamModuleName = 0xC4E311FA;        // (camera objects)
 
-modules::Skate* get_skate() { return modules::g_skate_module; }
+modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 
 goals::GapTally* get_checklist()
 {

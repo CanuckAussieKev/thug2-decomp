@@ -59,8 +59,8 @@ inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::En
 }
 
 // The singletons: the skate module, the game mode, the goal manager.
-inline modules::Skate* get_skate() { return modules::g_skate_module; }
-inline goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
+inline modules::Skate* get_skate() { return modules::g_skate_module.get(); }
+inline goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 inline bool is_squad_match() { return get_game_mode()->is_squad_match(); }
 inline uint32_t get_game_type() { return get_game_mode()->get_name_key(); }
 inline goals::GoalManager* objective_board() { return goals::get_objective_board(); }

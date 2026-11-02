@@ -802,7 +802,7 @@ script::Struct* look_up_node_params(uint32_t name)
 // The level's rail manager (modules::Skate +0x24; null when there is none or its rails ride an object).
 objects::GrindRailHub* get_rails()
 {
-    const modules::Skate* skate = modules::g_skate_module;
+    const modules::Skate* skate = modules::g_skate_module.get();
     auto* manager = skate ? skate->rail_manager_.get() : nullptr;
     return manager && !manager->on_object_ ? manager : nullptr;
 }

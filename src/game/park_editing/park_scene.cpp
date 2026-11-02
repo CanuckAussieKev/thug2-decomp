@@ -73,7 +73,7 @@ void rail_editor_rebuild() { get_rail_editor()->reassemble(); }
 // The generator's code in park_generator.cpp: a piece made from a source, a piece taken out and deleted (its sector
 // too unless `keep_sector`), the restart slots of a type, the bounds, the source pieces' flags from the pieces' node
 // array.
-DuplicatedTile* make_tile_copy(ParkAssembler* generator, TemplateTile* source, uint32_t flags)
+gsl::owner<DuplicatedTile*> make_tile_copy(ParkAssembler* generator, TemplateTile* source, uint32_t flags)
 {
     return generator->create_piece(source, flags);
 }
@@ -130,7 +130,8 @@ void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
     if (scene_updates())
         get_update_super_sectors(d);
     set_counts_dirty(); // (given the piece)
-    delete piece;
+    gsl::owner<decltype(piece)> owned = memory::owned_element(piece); // (the generator's list's)
+    delete owned;
     if (!d.pieces_)
         d.flag_bits_ &= ~ParkAssembler::kHasPieces;
 }
@@ -280,14 +281,15 @@ void* ParkAssembler::make_gap_marker_piece(maths::Vec4* position, float /*length
             break;
         }
     }
-    DuplicatedTile* piece = make_tile_copy(this, source, 0);
+    gsl::owner<DuplicatedTile*> piece = make_tile_copy(this, source, 0); // (the generator's list's)
     piece->change_place(position, 1);
     piece->set_quarter_turns(rot, 1);
     piece->flag_bits_ |= DuplicatedTile::kGap | DuplicatedTile::kInList;
     piece->following_ = pieces_;
     pieces_ = piece;
     flag_bits_ |= ParkAssembler::kHasPieces;
-    return piece;
+    void* const listed = piece; // (the generator's list's now)
+    return listed;
 }
 
 void ParkAssembler::destroy_pieces(int keep_rails)
@@ -342,7 +344,8 @@ void ParkAssembler::unload_pieces()
     }
     for (const TemplateTile* source = sources_; source;) {
         const TemplateTile* next = source->following_;
-        delete source;
+        gsl::owner<const TemplateTile*> owned = memory::owned_element(source); // (the list's)
+        delete owned;
         source = next;
     }
     sources_ = nullptr;
