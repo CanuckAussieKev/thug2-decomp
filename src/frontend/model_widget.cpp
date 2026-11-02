@@ -16,6 +16,7 @@
 #include "engine/gfx/screen.h"
 #include "engine/gfx/viewport.h"
 #include "engine/maths/mat4.h"
+#include "engine/maths/trig.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
@@ -72,7 +73,7 @@ float inv896() { return frontend::kInv896; }                     // 1/896
 float inv1280() { return frontend::kInv1280; }                   // 1/1280
 float inv_two_pi() { return frontend::kInvTwoPi; }
 float two_pi() { return frontend::kTwoPi; }
-float get_pi() { return frontend::g_pi; }
+float get_pi() { return maths::kPi; }
 float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
 float visible_alpha() { return ::modules::kCompetitionTiny; }      // 0.0001
 

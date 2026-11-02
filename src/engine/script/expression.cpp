@@ -27,11 +27,11 @@ namespace {
 constexpr float kEvalDivisorMinimum{0.000001f};
 
 // The operators' precedences, by operator.
-std::array<int, 74> g_operator_precedence{{-1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98, 99, 100, -1, -1, -1, -1, 80,
+constexpr std::array<int, 74> kOperatorPrecedence{{-1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98, 99, 100, -1, -1, -1, -1, 80,
                               79, 78, 77, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1, -1, -1,
                               -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, 58, 60,  59, 90, 89, -1, -1,
                               -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1}};
-int precedence(int op) { return core::at(g_operator_precedence, op); }
+int precedence(int op) { return core::at(kOperatorPrecedence, op); }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
 Component& get_result()

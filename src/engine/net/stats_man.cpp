@@ -345,7 +345,7 @@ void TopList::fill_sorted_scores(bool ratings)
 
 namespace {
 // The level checksums the personal stats list their high scores by.
-std::array<uint32_t, 15> g_level_checksums{{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
+constexpr std::array<uint32_t, 15> kLevelChecksums{{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
                                0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C,
                                0xCC877C27, 0x0C27CA5E, 0x532C99DE, 0xD4B48511, 0x8C32C761}};
 } // namespace
@@ -353,7 +353,7 @@ std::array<uint32_t, 15> g_level_checksums{{0x55894059, 0x2A179957, 0xCDAFB450, 
 // 0x0054DDB0
 void PersonalStats::get_fill()
 {
-    const auto& levels = g_level_checksums;
+    const auto& levels = kLevelChecksums;
     SortedList sorted;
     for (int i = 0; i < 15; ++i) {
         const int score = core::at(high_scores_, i);

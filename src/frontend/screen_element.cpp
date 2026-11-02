@@ -18,15 +18,12 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/entity.h"
-#include "frontend/screen_constants.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "game/goals/objective.h"
 
 namespace frontend {
-
-float g_pi{3.1415927f};
 
 namespace {
 

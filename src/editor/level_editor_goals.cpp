@@ -33,13 +33,13 @@
 #include "editor/level_editor_nodes.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/trig.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -891,7 +891,7 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
         f.text = value;
         return f;
     };
-    const float pi = objects::g_pi; // (the constant 0x004E79C0 subtracts)
+    const float pi = maths::kPi; // (the constant 0x004E79C0 subtracts)
     for (size_t k = 0; k < g.points.size(); ++k) {
         const Point& p = core::at(g.points, k);
         node_create::Spec s;

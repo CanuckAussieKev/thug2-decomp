@@ -40,10 +40,10 @@ constexpr uint32_t kAnimBlender = 0x7149B753;         // animblender
 
 // A trick's points by its repeats (percent: 100, 75, 50, 25, 10) and its spin (half the multiplier: 2 none ... 7),
 // read from the exe as the original does (an index outside the tables reads past them, as there).
-extern std::array<int, 5> g_trick_reduction; // (0x0064E280)
-extern std::array<int, 6> g_spin_multiplier; // (0x0064E268)
-inline int get_reduction(int repeats) { return repeats < 5 ? core::at(g_trick_reduction, repeats) : 10; }
-inline int spin_multiplier(int spin) { return spin < 6 ? core::at(g_spin_multiplier, spin) : 7; }
+inline constexpr std::array<int, 5> kTrickReduction{{100, 75, 50, 25, 10}}; // (0x0064E280)
+inline constexpr std::array<int, 6> kSpinMultiplier{{2, 3, 4, 5, 6, 7}}; // (0x0064E268)
+inline int get_reduction(int repeats) { return repeats < 5 ? core::at(kTrickReduction, repeats) : 10; }
+inline int spin_multiplier(int spin) { return spin < 6 ? core::at(kSpinMultiplier, spin) : 7; }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

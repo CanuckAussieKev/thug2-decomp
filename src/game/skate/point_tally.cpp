@@ -75,15 +75,6 @@ void TableReleaser::empty_table_items()
 
 namespace modules {
 
-namespace score_internal {
-
-std::array<int, 5> g_trick_reduction{{100, 75, 50, 25, 10}};
-std::array<int, 6> g_spin_multiplier{{2, 3, 4, 5, 6, 7}};
-
-
-
-} // namespace score_internal
-
 using namespace score_internal;
 
 namespace {

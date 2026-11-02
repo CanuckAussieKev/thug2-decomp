@@ -45,17 +45,28 @@
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
 #include "engine/objects/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 namespace {
-std::array<uint8_t, 80> g_skin_colour_table{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
+// NOT ORIGINAL grouping - the cutscene skin colours the package fills in (the original's globals). Made on first use,
+// never destroyed (skin_colour_tables()).
+struct SkinColourTables {
+    std::array<uint8_t, 80> skin_colour_table_{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
                                 239, 226, 125, 59, 80,  171, 108, 64, 205, 4,   143, 63, 0, 0, 128, 63,
                                 239, 226, 125, 59, 180, 212, 5,   65, 87,  207, 247, 63, 0, 0, 128, 63,
                                 153, 71,  126, 59, 185, 169, 157, 64, 74,  151, 190, 64, 0, 0, 128, 63,
                                 153, 71,  126, 59, 46,  84,  117, 64, 72,  24,  102, 64, 0, 0, 128, 63}};
-std::array<float, 20> g_skin_colours{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    std::array<float, 20> skin_colours_{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                          1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
+};
+
+SkinColourTables& skin_colour_tables()
+{
+    static core::NoDestroy<SkinColourTables> state;
+    return state.get();
+}
 
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kFlagParam = 0x82C84419;
@@ -393,13 +404,13 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         auto* part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartA));
         if (!part2)
             part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartB));
-        auto& skin = g_skin_colours;
-        core::at(g_skin_colours, 0) = core::at(g_skin_colours, 1) = core::at(g_skin_colours, 2) =
-            core::at(g_skin_colours, 3) = 1.0f;
+        auto& skin = skin_colour_tables().skin_colours_;
+        core::at(skin_colour_tables().skin_colours_, 0) = core::at(skin_colour_tables().skin_colours_, 1) = core::at(skin_colour_tables().skin_colours_, 2) =
+            core::at(skin_colour_tables().skin_colours_, 3) = 1.0f;
         for (int k = 0; k < 4; ++k) {
             std::array<float, 4> colour{};
             script::Struct* from = part1->has_entry_named(core::at(kColourNames, k)) ? part1 : part2;
-            std::memcpy(std::span(g_skin_colours).subspan(4 * (static_cast<size_t>(k) + 1), 4).data(),
+            std::memcpy(std::span(skin_colour_tables().skin_colours_).subspan(4 * (static_cast<size_t>(k) + 1), 4).data(),
                         read_colour(colour, from, core::at(kColourNames, k)).data(), 16);
         }
         // Not original - the colours read within their asset (bundle_format.h): a count past it reads none (the
@@ -412,7 +423,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         }
         SkinColours table{};
         table.entries = {read.entries, static_cast<std::size_t>(read.count) * bundle_format::kSkinColourSize};
-        table.table = g_skin_colour_table.data();
+        table.table = skin_colour_tables().skin_colour_table_.data();
         table.colours = skin;
         // which skin this is: the next names along say (none after it: the last)
         bool male = false, has_face = false;

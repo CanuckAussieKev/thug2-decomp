@@ -42,9 +42,9 @@ constexpr uint32_t kYouTied = 0x334622A1;         // horse_str_youtiedthetargets
 
 // The statuses (0x0067F340, null-terminated): GotLetter, TieScore, BeatScore, 0xAE7D29B0 (the game over), idle,
 // NoScoreSet.
-std::array<uint32_t, 7> g_horse_statuses{{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
+constexpr std::array<uint32_t, 7> kHorseStatuses{{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
                              0x23DB4AEA, 0xA71DD8EB, 0x00000000}}; // (zero-terminated)
-const std::array<uint32_t, 7>& statuses() { return g_horse_statuses; }
+const std::array<uint32_t, 7>& statuses() { return kHorseStatuses; }
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum StatusIndex : uint8_t {
     kGotLetter = 0,

@@ -3,12 +3,16 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <numbers>
 
 // The few trigonometry steps the original's x87 code shares between files, in plain C++ (they were inline assembly
 // until stage 7: the results now differ from the x87's in the last bits at most - src/tests/maths_check.cpp measures
 // it). Values the original kept in FPU registers are doubles here; where it stored a float, the result is rounded
 // to float at the same point.
 namespace maths {
+
+// pi as the original's float constants hold it (the screen elements' 0x00649FC8, the objects' copy).
+inline constexpr float kPi = std::numbers::pi_v<float>;
 
 // (a, b) turned by `angle`: a' = cos * a + sin * b, b' = cos * b - sin * a.
 inline void spin_by(double angle, double a, double b, double* rotated_a, double* rotated_b)

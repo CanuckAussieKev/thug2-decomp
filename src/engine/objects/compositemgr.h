@@ -100,7 +100,6 @@ void init_coim(int a, uint32_t heap_size, int b, int c);
 // 0x0045F1C0 (ResizeCOIMHeap's work): the heap made again `size` bytes, or destroyed for 0.
 void resize_coim_heap(uint32_t size);
 
-extern float g_pi;
 } // namespace objects
 
 namespace objects {

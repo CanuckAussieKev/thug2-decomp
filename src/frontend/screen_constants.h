@@ -20,7 +20,6 @@ inline constexpr float kInv896{0.0011160715f}; // 0x00649FD0
 inline constexpr float kInv1280{0.00078125f}; // 0x00649FD8
 inline constexpr float kInvTwoPi{0.15915494f}; // 0x0064A044
 inline constexpr float kTwoPi{6.2831855f}; // 0x0064545C
-extern float g_pi;                // 0x00649FC8
 inline constexpr float kLayoutTop{-2e+02f}; // 0x0064A258
 inline constexpr float kLayoutBottom{648.0f}; // 0x0064A254
 inline constexpr float kShadowBehind{0.005f}; // 0x0064541C

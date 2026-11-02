@@ -10,6 +10,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "engine/maths/mat4.h"
+#include "engine/maths/trig.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/compositemgr.h"
@@ -29,8 +30,6 @@
 #include "engine/core/mem.h"
 
 namespace objects {
-
-float g_pi{3.1415927f};
 
 using script::Array;
 using script::MemberFunctionEntry;
@@ -111,7 +110,7 @@ double fast_a_cos_unrounded(float value)
     const double a1 = kCompositeAcosA1;
     const double a2 = kCompositeAcosA2;
     const double a3 = kCompositeAcosA3;
-    const double pi = g_pi;
+    const double pi = maths::kPi;
     if (value < 0.0f) {
         const double x = -static_cast<double>(value);
         const double root = std::sqrt(1.0 - x);
