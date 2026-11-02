@@ -125,7 +125,7 @@ void BodyDynamicsModule::set_contacts(script::Array* points)
     contact_count_ = static_cast<uint16_t>(points->extent_);
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     for (uint32_t i = 0; i < contact_count_; ++i)
-        contacts_[i] = point_of(points->vector_at(i));
+        core::at(contact_run(), i) = point_of(points->vector_at(i));
 }
 
 // 0x0042D560
@@ -138,7 +138,7 @@ void BodyDynamicsModule::set_box(const maths::Vec4* top, const maths::Vec4* bott
         for (const bool upper : {false, true}) {
             const maths::Vec4& half = upper ? *top : *bottom;
             for (const bool front : {false, true}) {
-                contacts_[n++] = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
+                core::at(contact_run(), n++) = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
                                   half.z * (front ? 1.0f : -1.0f), 1.0f};
             }
         }
@@ -151,11 +151,11 @@ void BodyDynamicsModule::set_pyramid(float half_height, float half_depth)
     contact_count_ = 5;
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     const float base = half_height * kPyramidBase;
-    contacts_[0] = {half_depth, base, half_depth, 1.0f};
-    contacts_[1] = {-half_depth, base, half_depth, 1.0f};
-    contacts_[2] = {-half_depth, base, -half_depth, 1.0f};
-    contacts_[3] = {half_depth, base, -half_depth, 1.0f};
-    contacts_[4] = {0.0f, half_height * kPyramidTip, 0.0f, 1.0f};
+    core::at(contact_run(), 0) = {half_depth, base, half_depth, 1.0f};
+    core::at(contact_run(), 1) = {-half_depth, base, half_depth, 1.0f};
+    core::at(contact_run(), 2) = {-half_depth, base, -half_depth, 1.0f};
+    core::at(contact_run(), 3) = {half_depth, base, -half_depth, 1.0f};
+    core::at(contact_run(), 4) = {0.0f, half_height * kPyramidTip, 0.0f, 1.0f};
 }
 
 // 0x0042D790 (the angle's cosine taken unrounded, its sine from the angle rounded to a float, as the original)
@@ -170,7 +170,7 @@ void BodyDynamicsModule::set_cylinder(float top_radius, float bottom_radius, flo
             --i;
             const double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
             auto rounded = static_cast<float>(angle);
-            contacts_[n++] = {static_cast<float>(std::cos(angle) * radius), upper ? half_height : -half_height,
+            core::at(contact_run(), n++) = {static_cast<float>(std::cos(angle) * radius), upper ? half_height : -half_height,
                               static_cast<float>(std::sin(static_cast<double>(rounded)) * radius), 1.0f};
         }
     }
@@ -185,9 +185,9 @@ void BodyDynamicsModule::set_triangle(const maths::Vec4* dimensions)
     int n = 0;
     for (const bool back : {false, true}) {
         const float z = (back ? -1.0f : 1.0f) * d.z;
-        contacts_[n++] = {d.x, -d.y, z, 1.0f};
-        contacts_[n++] = {-d.x, -d.y, z, 1.0f};
-        contacts_[n++] = {0.0f, d.y, z, 1.0f};
+        core::at(contact_run(), n++) = {d.x, -d.y, z, 1.0f};
+        core::at(contact_run(), n++) = {-d.x, -d.y, z, 1.0f};
+        core::at(contact_run(), n++) = {0.0f, d.y, z, 1.0f};
     }
 }
 
@@ -416,7 +416,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         turn.init_from_angles(angles);
         auto m = [&turn](int r, int c) { return static_cast<double>((core::at(turn.row, r)).data()[c]); };
         for (int i = contact_count_; i != 0;) {
-            maths::Vec4& p = contacts_[--i];
+            maths::Vec4& p = core::at(contact_run(), --i);
             const double x = p.x;
             const double y = p.y;
             const double z = p.z;
@@ -441,7 +441,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         vector(0x737612C6, &center);
     if (center.x == 0.0f && center.y == 0.0f && center.z == 0.0f) {
         for (int i = contact_count_; i != 0;) {
-            const maths::Vec4& p = contacts_[--i];
+            const maths::Vec4& p = core::at(contact_run(), --i);
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
         for (int i = sphere_count_; i != 0;) {
@@ -459,7 +459,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     // The shape about the centre of mass (w too).
     auto recentre = [&center](maths::Vec4& p) { p = {p.x - center.x, p.y - center.y, p.z - center.z, p.w - center.w}; };
     for (int i = contact_count_; i != 0;)
-        recentre(contacts_[--i]);
+        recentre(core::at(contact_run(), --i));
     for (int i = sphere_count_; i != 0;)
         recentre(spheres_[--i].center);
     for (int i = spring_count_; i != 0;)
@@ -469,7 +469,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     if (!params->fetch_float(0x967CD3AE, &mass_over_moment_, 0)) {
         float extent = 0.0f;
         for (int i = contact_count_; i != 0;) {
-            const maths::Vec4& p = contacts_[--i];
+            const maths::Vec4& p = core::at(contact_run(), --i);
             const double x = p.x;
             const double y = p.y;
             const double z = p.z;
@@ -498,7 +498,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     // The bounding radius (squared lengths compared unrounded).
     radius_ = 0.0f;
     for (int i = contact_count_; i != 0;) {
-        const maths::Vec4& p = contacts_[--i];
+        const maths::Vec4& p = core::at(contact_run(), --i);
         const double x = p.x;
         const double y = p.y;
         const double z = p.z;

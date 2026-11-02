@@ -160,7 +160,7 @@ void BodyDynamicsModule::update_world_points()
 {
     const maths::Mat4& m = basis_frame_;
     for (int i = contact_count_ - 1; i >= 0; --i) {
-        const maths::Vec4& p = contacts_[i];
+        const maths::Vec4& p = core::at(contact_run(), i);
         maths::Vec4& out = core::at(world_contact_points(), i);
         const double x =
             (get_wide(p.y) * get_m(m, 0x10) + get_wide(p.z) * get_m(m, 0x20)) + get_wide(p.x) * get_m(m, 0x00);

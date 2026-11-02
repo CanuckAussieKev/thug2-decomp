@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -227,6 +228,8 @@ public:
     float linear_sleep_squared_{100.0f};               // +0x58 linear_velocity_sleep_point squared (100)
     float angular_sleep_squared_{0.1600000113248825f}; // +0x5C angular_velocity_sleep_point squared (0.16)
     maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)
+    // NOT ORIGINAL: the shape's points, as many as contact_count_.
+    [[nodiscard]] std::span<maths::Vec4> contact_run() const { return {contacts_, contact_count_}; }
     maths::Capsule capsule_;           // +0x64
     DirectedFriction* steer_friction_{}; // +0x88 one per contact (directed_friction=)
     uint16_t contact_count_{};           // +0x8C

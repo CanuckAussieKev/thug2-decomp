@@ -270,7 +270,7 @@ void BodyDynamicsModule::integrate(float dt)
     const maths::Mat4& t = basis_frame_;
     for (int i = contact_count_; i != 0;) {
         --i;
-        const maths::Vec4& c = contacts_[i];
+        const maths::Vec4& c = core::at(contact_run(), i);
         const double x = c.x, y = c.y, z = c.z;
         core::at(world_contact_points(), i) = {get_narrow((y * get_at(t, 1, 0) + get_at(t, 2, 0) * z) + get_at(t, 0, 0) * x),
                                      get_narrow((get_at(t, 0, 1) * x + get_at(t, 2, 1) * z) + y * get_at(t, 1, 1)),
