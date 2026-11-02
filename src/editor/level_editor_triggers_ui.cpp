@@ -4,14 +4,17 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <string>
 #include <vector>
 #include <utility>
 #include <array>
 
 #include "editor/level_editor_cameras.h"
+#include "editor/level_editor_node_create.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_triggers.h"
 #include "engine/script/qb.h"

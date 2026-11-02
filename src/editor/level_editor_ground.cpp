@@ -5,13 +5,19 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <span>
 #include <sstream>
 #include <array>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"

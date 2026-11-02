@@ -11,6 +11,7 @@
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_node_create.h"
+#include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/maths/mat4.h"

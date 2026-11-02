@@ -11,15 +11,19 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <initializer_list>
 #include <map>
 #include <span>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
@@ -39,6 +43,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "engine/gfx/geom.h"
 #include "engine/core/ints.h"

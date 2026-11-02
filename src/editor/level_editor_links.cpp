@@ -3,13 +3,19 @@
 #include "editor/level_editor_links.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <iterator>
 #include <map>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_hud.h"

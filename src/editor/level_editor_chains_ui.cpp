@@ -1,6 +1,8 @@
 // NOT ORIGINAL - the level editor's Inspector section for chains (ours; level_editor_chains.h, level_editor_ui.h): a
 // rail's / path's point's operations, a rail's terrain, a ped's / car's path. Only ImGui's own API here.
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <utility>

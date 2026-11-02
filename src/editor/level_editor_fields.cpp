@@ -5,14 +5,19 @@
 #include <algorithm>
 #include <cerrno>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <array>
+#include <vector>
 
+#include "editor/level_editor_nodes.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_objects.h"

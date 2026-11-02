@@ -1,13 +1,16 @@
 // NOT ORIGINAL - the level editor's entities: the Inspector's sections (ours). See level_editor_entities.h.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 #include <string>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor_ui.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_fields.h"

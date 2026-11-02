@@ -7,14 +7,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <ios>
 #include <span>
 #include <windows.h>
 #include <fstream>
 #include <sstream>
 #include <array>
+#include <string>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_prefs.h"

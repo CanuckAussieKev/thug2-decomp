@@ -1,11 +1,17 @@
 // NOT ORIGINAL - the level editor's navigation pieces (ours). See level_editor_nav.h.
 
 #include "editor/level_editor_nav.h"
+#include "editor/level_editor.h"
+#include "editor/level_editor_organize.h"
 #include "engine/core/checked_index.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace frontend::level_editor::nav {
 

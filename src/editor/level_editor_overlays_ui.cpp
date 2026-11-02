@@ -1,13 +1,16 @@
 // NOT ORIGINAL - the level editor's View and Overlays menus on the toolbar (ours). See level_editor_overlays.h. Only
 // ImGui's own API here.
 
+#include <cstdint>
 #include <cstdio>
 #include <array>
+#include <vector>
 
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_triggers.h"
+#include "editor/level_editor_ui.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

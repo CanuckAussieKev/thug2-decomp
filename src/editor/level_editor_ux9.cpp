@@ -10,9 +10,11 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <string>
 #include <vector>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_gap_wizard.h"
 #include "editor/level_editor_ground.h"

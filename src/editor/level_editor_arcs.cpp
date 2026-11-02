@@ -10,10 +10,12 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <string>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"

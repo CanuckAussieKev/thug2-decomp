@@ -4,11 +4,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <array>
 #include <span>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_prefs.h"
 #include "engine/core/checked_index.h"
 

@@ -5,22 +5,31 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
+#include "editor/level_editor.h"
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/gfx/sub_mesh.h"
+#include "engine/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_grid.h"
+#include "engine/render/coll_tri.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/geom.h"

@@ -1,8 +1,15 @@
 // NOT ORIGINAL - the level editor's status bar hints (ours). See level_editor_hints.h.
 
 #include "editor/level_editor_hints.h"
+#include "editor/level_editor_actions.h"
 #include "engine/core/checked_index.h"
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <initializer_list>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace frontend::level_editor::hints {
 

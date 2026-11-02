@@ -6,10 +6,16 @@
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <array>
+#include <string>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_fields.h"
+#include "editor/level_editor_layout.h"
+#include "editor/level_editor_modules.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"

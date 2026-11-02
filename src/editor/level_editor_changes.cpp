@@ -5,11 +5,14 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "editor/level_editor_fields.h"
 #include "engine/core/checked_index.h"

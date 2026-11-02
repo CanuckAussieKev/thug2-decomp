@@ -4,6 +4,7 @@
 // Inspector's own field edit (a kFieldSet of restart_types: one undo step, the `set` record's f.restart_types=, put back
 // by Home / Reset level). The H badge on the gizmo is drawn with the spawns (level_editor.cpp). Only ImGui's API here.
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <utility>

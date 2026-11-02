@@ -9,9 +9,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <vector>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_ui.h"

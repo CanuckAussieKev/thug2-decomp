@@ -11,15 +11,21 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <initializer_list>
+#include <iterator>
 #include <map>
 #include <set>
 #include <span>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
+#include "editor/level_editor_ui.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_node_create.h"

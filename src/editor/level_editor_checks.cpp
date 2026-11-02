@@ -17,12 +17,20 @@
 #include <set>
 #include <span>
 #include <sstream>
+#include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
+#include "editor/level_editor_chains.h"
+#include "editor/level_editor_clusters.h"
+#include "editor/level_editor_entities.h"
+#include "editor/level_editor_picking.h"
+#include "editor/level_editor_ui.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_budget.h"
 #include "editor/level_editor_faces.h"

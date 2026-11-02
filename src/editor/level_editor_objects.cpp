@@ -9,15 +9,20 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <iterator>
+#include <utility>
 #include <vector>
 #include <array>
 
+#include "editor/level_editor.h"
+#include "editor/level_editor_scenery.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scale.h"
 #include "engine/gfx/model.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
+#include "engine/script/cell.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/script/names.h"
 #include "engine/script/node_manager.h"

@@ -3,6 +3,7 @@
 #include "editor/level_editor_career.h"
 
 #include <algorithm>
+#include <string>
 #include <vector>
 #include <array>
 

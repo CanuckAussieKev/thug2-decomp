@@ -8,10 +8,14 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
+#include <sstream>
+#include <string>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor_fields.h"
 #include "engine/core/checksums.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/script/cscript.h"

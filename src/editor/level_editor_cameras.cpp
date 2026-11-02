@@ -11,18 +11,23 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <span>
+#include <sstream>
+#include <string>
 #include <vector>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_node_create.h"
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_nodes.h"
+#include "editor/level_editor_ui.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/movie_cfuncs.h"
 #include "engine/script/node_manager.h"

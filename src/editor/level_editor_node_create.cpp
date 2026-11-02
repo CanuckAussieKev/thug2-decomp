@@ -7,11 +7,15 @@
 #include <cstdio>
 #include <cstddef>
 #include <cstring>
+#include <functional>
 #include <initializer_list>
+#include <string>
+#include <string_view>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor_nodes.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_node_edit.h"

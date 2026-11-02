@@ -12,7 +12,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
+#include <map>
 #include <span>
+#include <sstream>
+#include <string>
 #include <string_view>
 #include <initializer_list>
 #include <set>
@@ -22,6 +26,7 @@
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

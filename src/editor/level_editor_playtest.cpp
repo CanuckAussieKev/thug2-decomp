@@ -13,15 +13,20 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <ios>
 #include <map>
+#include <set>
 #include <span>
 #include <sstream>
+#include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <windows.h>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor_actions.h"

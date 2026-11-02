@@ -12,11 +12,16 @@
 #include <cstring>
 #include <functional>
 #include <initializer_list>
+#include <iterator>
+#include <memory>
 #include <span>
+#include <string>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
+#include "editor/level_editor_ui.h"
 #include "engine/core/checksums.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/goal_editor_util.h"

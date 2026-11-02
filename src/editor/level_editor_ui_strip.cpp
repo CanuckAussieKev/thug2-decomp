@@ -6,7 +6,11 @@
 #include <algorithm>
 #include <cstdio>
 #include <array>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "editor/level_editor_ux8.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

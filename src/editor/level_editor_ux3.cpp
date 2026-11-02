@@ -6,10 +6,16 @@
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "editor/level_editor_actions.h"
+#include "editor/level_editor_changes.h"
 #include "editor/level_editor_clip.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"

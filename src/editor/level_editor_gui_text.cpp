@@ -3,6 +3,8 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
+#include <string>
+
 namespace frontend::level_editor::gui {
 
 namespace {

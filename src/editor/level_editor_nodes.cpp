@@ -8,11 +8,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"

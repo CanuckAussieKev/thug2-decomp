@@ -10,9 +10,12 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <vector>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_hud.h"

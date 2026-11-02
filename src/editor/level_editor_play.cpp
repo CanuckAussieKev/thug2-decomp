@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <SDL2/SDL.h>
 
+#include "editor/level_editor.h"
+#include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
 #include "editor/level_editor_layout.h"

@@ -6,9 +6,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <map>
+#include <string>
 #include <vector>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/render/coll_static.h"
 #include "engine/gfx/sector.h"

@@ -3,6 +3,7 @@
 #include "editor/level_editor_ux8_pie.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_camera.h"

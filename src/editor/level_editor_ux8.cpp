@@ -8,14 +8,20 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <functional>
+#include <span>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_camera.h"
 #include "editor/level_editor_modules.h"
+#include "editor/level_editor_nav.h"
 #include "editor/level_editor_organize.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_playtest.h"

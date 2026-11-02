@@ -9,7 +9,10 @@
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
+#include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_nodes.h"
+#include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"

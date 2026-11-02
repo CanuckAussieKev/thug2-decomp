@@ -7,9 +7,11 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <vector>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_carry.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_nodes.h"

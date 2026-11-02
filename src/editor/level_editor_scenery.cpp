@@ -8,13 +8,18 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "editor/level_editor.h"
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "editor/level_editor_clusters.h"
@@ -34,6 +39,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "game/skate/skate_module.h"

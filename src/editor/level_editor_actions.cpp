@@ -9,9 +9,14 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstring>
+#include <functional>
+#include <span>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"

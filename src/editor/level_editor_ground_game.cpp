@@ -13,13 +13,16 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <span>
 #include <sstream>
+#include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -34,6 +37,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
+#include "gpu/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "platform/crt.h"
 #include "engine/gfx/geom.h"

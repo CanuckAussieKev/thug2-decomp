@@ -10,11 +10,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
+#include <memory>
 #include <span>
+#include <string>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/model.h"
 #include "engine/render/coll_movable.h"

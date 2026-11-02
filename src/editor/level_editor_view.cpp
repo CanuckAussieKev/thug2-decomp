@@ -8,11 +8,14 @@
 #include <cstdint>
 #include <cstdio>
 #include <span>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
+#include "editor/level_editor_ui.h"
 #include "engine/render/coll_static.h"
 #include "engine/gfx/engine_geom.h"
 #include "editor/level_editor_objects.h"

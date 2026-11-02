@@ -2,6 +2,7 @@
 // a restart's Play from here. Only ImGui's API here.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 #include <vector>

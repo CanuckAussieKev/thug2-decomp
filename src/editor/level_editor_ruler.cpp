@@ -7,8 +7,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <string>
+#include <utility>
 #include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_arcs.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"

@@ -7,16 +7,22 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "editor/level_editor_actions.h"
+#include "editor/level_editor_changes.h"
 #include "editor/level_editor_clip.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_modules.h"
+#include "editor/level_editor_nodes.h"
 #include "editor/level_editor_organize.h"
 #include "editor/level_editor_ui.h"
 #include "platform/run_log.h"

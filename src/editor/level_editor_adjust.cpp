@@ -4,9 +4,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_arrange.h"
 #include "editor/level_editor_hud.h"
+#include "editor/level_editor_modules.h"
+#include "editor/level_editor_transform.h"
 #include "editor/level_editor_ui.h"
 #include "platform/run_log.h"
 

@@ -8,14 +8,19 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <iterator>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_preview.h"
+#include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_backend.h"
 #include "platform/run_log.h"
 #include "imgui.h"

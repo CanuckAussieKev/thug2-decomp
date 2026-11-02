@@ -7,11 +7,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <unordered_map>
 #include <vector>
 #include <utility>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_triggers.h"

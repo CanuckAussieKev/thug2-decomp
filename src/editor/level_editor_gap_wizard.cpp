@@ -8,9 +8,12 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <string>
+#include <string_view>
 #include <vector>
 #include <array>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_triggers.h"

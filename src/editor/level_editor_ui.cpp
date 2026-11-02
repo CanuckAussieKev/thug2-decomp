@@ -13,11 +13,15 @@
 #include <cfloat>
 #include <cstdarg>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_entities.h"
 #include "editor/level_editor_budget.h"
 #include "editor/level_editor_camera.h"

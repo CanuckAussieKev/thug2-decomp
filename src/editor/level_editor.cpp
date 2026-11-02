@@ -23,6 +23,9 @@
 #include <utility>
 #include <array>
 
+#include "editor/level_editor_fields.h"
+#include "editor/level_editor_level_props.h"
+#include "editor/level_editor_nav.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
@@ -71,6 +74,8 @@
 #include "editor/level_editor_ux9.h"
 #include "editor/level_editor_view.h"
 #include "editor/level_editor_walls.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
 #include "frontend/mouse_menus.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/occlusion.h"

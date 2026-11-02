@@ -11,14 +11,19 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <initializer_list>
+#include <iterator>
 #include <map>
 #include <new>
 #include <span>
 #include <sstream>
+#include <string>
 #include <vector>
 #include <utility>
 
+#include "editor/level_editor.h"
+#include "editor/level_editor_ui.h"
 #include "engine/render/coll_static.h"
 #include "engine/core/checksums.h"
 #include "editor/level_editor_cameras.h"

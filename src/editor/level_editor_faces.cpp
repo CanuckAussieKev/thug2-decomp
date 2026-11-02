@@ -3,22 +3,29 @@
 #include "editor/level_editor_faces.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <functional>
 #include <map>
 #include <memory>
 #include <span>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_shared_coll.h"
+#include "editor/level_editor_ui.h"
 #include "editor/level_editor_view.h"
+#include "engine/maths/vec4.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"

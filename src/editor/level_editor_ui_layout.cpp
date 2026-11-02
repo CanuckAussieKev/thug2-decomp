@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cmath>
 #include <array>
+#include <cstdint>
+#include <string>
 
 namespace frontend::level_editor::ui_layout {
 

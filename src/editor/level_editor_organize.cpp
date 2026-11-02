@@ -8,18 +8,25 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <ios>
 #include <iterator>
+#include <memory>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"
+#include "editor/level_editor_nodes.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scenery.h"

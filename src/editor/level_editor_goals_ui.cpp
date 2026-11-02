@@ -1,10 +1,12 @@
 // NOT ORIGINAL - the level editor's goals: the Inspector's sections (Dear ImGui). See level_editor_goals.h.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <map>
 #include <string>
 #include <array>
+#include <vector>
 
 #include "editor/level_editor_goals.h"
 #include "editor/level_editor_hud.h"

@@ -5,17 +5,25 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <array>
 #include <span>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "editor/level_editor.h"
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
+#include "editor/level_editor_ui.h"
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"

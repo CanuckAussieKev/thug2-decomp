@@ -1,12 +1,16 @@
 // NOT ORIGINAL - the level editor's shadows and the selection's parts (ours; level_editor_shadows.h).
 
 #include "editor/level_editor_shadows.h"
+#include "editor/level_editor.h"
 #include "engine/core/checked_index.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace frontend::level_editor::shadows {
 

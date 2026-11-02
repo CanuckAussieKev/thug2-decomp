@@ -4,10 +4,13 @@
 
 #include <SDL2/SDL.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <iterator>
 #include <map>
 #include <array>
+#include <string>
+#include <vector>
 
 #include "engine/core/checksums.h"
 #include "engine/script/cscript.h"

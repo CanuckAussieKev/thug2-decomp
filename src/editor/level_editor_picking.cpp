@@ -1,4 +1,5 @@
 #include "editor/level_editor_picking.h"
+#include "editor/level_editor.h"
 #include "engine/core/raw_view.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
@@ -6,6 +7,10 @@
 #include <algorithm>
 #include <cmath>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <vector>
 
 // NOT ORIGINAL - the level editor's picking rules (ours; level_editor_picking.h).
 namespace frontend::level_editor::picking {
