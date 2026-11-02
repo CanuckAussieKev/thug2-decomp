@@ -2,9 +2,6 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "engine/pad_input/device.h"
-#include "game/goals/objective.h"
-#include "engine/net/buddy_status.h"
-
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
@@ -27,7 +24,6 @@
 #include "game/skate/profile_manager.h"
 #include "platform/platform.h"
 #include "platform/platform_input.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/stubs.h"
 #include "engine/core/task_list.h"
@@ -36,7 +32,6 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
-#include "platform/code_address.h"
 #include "engine/gfx/movie.h"
 #include "engine/objects/cutscene.h"
 #include "game/park_editing/park_editor.h"
