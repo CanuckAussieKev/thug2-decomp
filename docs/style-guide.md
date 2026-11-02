@@ -209,6 +209,14 @@ keep a check carry a `NOLINT` with their reason:
     the getter the other files call (`pad_input::get_input_manager()`, `assets::get_main_loop_manager()`). Raw owners
     become `std::unique_ptr` members: freed with `memory::destroy_then_clear` where the original deleted them, given up
     with `memory::let_go` where the original left them.
+  - What other subsystems use is declared in the defining file's header, where the `extern` was: a getter for what
+    they only read (`render::d3d_device()`, `online::online_hub()`), a getter and `set_` setter for what they write
+    (`render::set_device_lost()`, `online::set_net_max_players()` - no `bits_as` views of another subsystem's
+    state), an accessor of what is used in place (`render::view_matrix()`, the memory pools, the script tables) and
+    an owner's getter (`objects::get_tracker()`, `park_editing::ParkBuilderMode::sole()`). A singleton's existing
+    accessor (`sole()`, `node_manager_instance()`, `gfx::tod_manager()`) holds the storage itself, out of the header
+    into the defining .cpp. Where a folder's files call these functions too, the record stays in its .cpp (gfx); no
+    file keeps a one-line wrapper of another file's state.
   - Hot paths take the reference once (`auto& voices = voice_state();`) rather than calling the accessor per element.
   - Tables that never change are `constexpr` / `const` (`k` names), not state; a cache of a pure result is a
     function-local static of its one function.
