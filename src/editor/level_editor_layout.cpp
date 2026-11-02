@@ -1157,9 +1157,10 @@ void write_autosave_from_crash()
     if (!g_snapshot_ready || g_snapshot_written || g_offer_pending || InterlockedExchange(&busy, 1))
         return;
     run_guarded(write_snapshot);
-    get_log(g_snapshot_written ? "level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)"
-                               : "level editor: the unsaved changes couldn't be autosaved - %s",
-            g_snapshot_path.data());
+    if (g_snapshot_written)
+        get_log("level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)", g_snapshot_path.data());
+    else
+        get_log("level editor: the unsaved changes couldn't be autosaved - %s", g_snapshot_path.data());
     busy = 0;
 }
 

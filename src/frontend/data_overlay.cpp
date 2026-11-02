@@ -79,11 +79,12 @@ bool anteara_mod()
         const bool setting = config_int("features", "anteara_mod", 0) != 0;
         if (setting) {
             const std::string folder = get_folder() + "\\anteara";
-            get_log(is_folder(folder)
-                        ? "anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)"
-                        : "anteara_mod: on, but %s not found - run tools/pipeline/menu_level/make_menu_level.ts; the "
-                          "game's scripts are used",
-                    folder.c_str());
+            if (is_folder(folder))
+                get_log("anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)", folder.c_str());
+            else
+                get_log("anteara_mod: on, but %s not found - run tools/pipeline/menu_level/make_menu_level.ts; the "
+                        "game's scripts are used",
+                        folder.c_str());
         }
         return setting;
     }();

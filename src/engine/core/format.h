@@ -64,7 +64,7 @@ consteval ArgType classify()
         return {ArgKind::kText, sizeof(void*)};
     else if constexpr (std::is_pointer_v<Value> && std::is_same_v<Bare<Value>, wchar_t>)
         return {ArgKind::kWideText, sizeof(void*)};
-    else if constexpr (std::is_pointer_v<Value> && std::is_object_v<std::remove_pointer_t<Value>>)
+    else if constexpr (std::is_pointer_v<Value> && !std::is_function_v<std::remove_pointer_t<Value>>)
         return {ArgKind::kPointer, sizeof(void*)};
     else
         return {};

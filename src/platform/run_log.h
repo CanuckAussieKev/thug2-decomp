@@ -1,30 +1,29 @@
 #pragma once
 
-#include <cstdio>
 #include <string>
 #include <vector>
 #include <array>
+
+#include "engine/core/format.h"
 
 // Appends to thug2-decomp.log next to the game exe.
 void log_open();
 // A line, as it is: kept for get_log_tail, passed to the listener, written to the log (or the console) with its
 // line end.
 void log_line(const char* line);
-// A printf-style line (as log_line).
+// A printf-style line (as log_line); the format is checked against the arguments when it's compiled (text::format).
 template <typename... Args>
-void get_log(const char* fmt, Args... args)
+void get_log(text::FormatFor<Args...> format, Args... args)
 {
     // (a stack buffer for the usual line - no allocation: a crash is logged through here - the heap for a longer one)
-    constexpr int kLineSize = 1024;
+    constexpr size_t kLineSize = 1024;
     std::array<char, kLineSize> line{};
-    const int length = std::snprintf(line.data(), sizeof(line), fmt, args...);
+    const size_t length = text::format_to(line, format, args...);
     if (length >= kLineSize) {
-        std::string longer(static_cast<size_t>(length), ' ');
-        std::snprintf(longer.data(), longer.size() + 1, fmt, args...);
-        log_line(longer.c_str());
+        log_line(text::format(format, args...).c_str());
         return;
     }
-    log_line(length < 0 ? "" : line.data());
+    log_line(line.data());
 }
 // The last `lines` lines logged (at most 32, oldest first; each cut at 319 characters) - kept in memory: the log file
 // itself can't be opened again while it's written.

@@ -241,11 +241,11 @@ script::Struct* physics_structure(const SkaterPhysicsModule* core)
     script::Struct* physics = script::read_sub_struct(name_hash(kPhysics));
     const int now = physics ? 1 : 2;
     if (now != s_logged) {
-        get_log(
-            physics
-                ? "thaw_bmx: on the bike - %s in use"
-                : "thaw_bmx: on the bike, but %s isn't loaded (the overlay's specialitems.qb) - the skater's physics",
-            kPhysics);
+        if (physics)
+            get_log("thaw_bmx: on the bike - %s in use", kPhysics);
+        else
+            get_log("thaw_bmx: on the bike, but %s isn't loaded (the overlay's specialitems.qb) - the skater's physics",
+                    kPhysics);
         s_logged = now;
     }
     return physics;
