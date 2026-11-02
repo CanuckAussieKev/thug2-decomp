@@ -168,6 +168,9 @@ const std::vector<Spec>& get_specs()
          Apply::kRelaunch},
         {"features", "thaw_bmx", text_tools::kOptBmx, text_tools::kOptBmxHelp, off_on(), 0, Apply::kRelaunch},
         {"features", "debug_mode", text_tools::kOptDebug, text_tools::kOptDebugHelp, off_on(), 0, Apply::kRelaunch},
+        // Sound (engine/audio/continue_music.h)
+        {"features", "continue_music", text_tools::kOptContinueMusic, text_tools::kOptContinueMusicHelp, off_on(), 0,
+         Apply::kLive},
     };
     return kSpecs;
 }
@@ -180,6 +183,7 @@ const std::vector<GroupSet>& bunches()
         {"gameplay", text_tools::kGroupGameplay, {8, 9, 10, 11, 12}},
         {"online", text_tools::kGroupOnline, {13, 14, 15}},
         {"mods", text_tools::kGroupMods, {16, 17, 18}},
+        {"sound", text_tools::kGroupSound, {19}},
     };
     return kGroups;
 }

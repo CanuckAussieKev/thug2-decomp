@@ -136,6 +136,7 @@ inline constexpr const char* kGroupInterface = "Interface";
 inline constexpr const char* kGroupGameplay = "Gameplay";
 inline constexpr const char* kGroupOnline = "Online";
 inline constexpr const char* kGroupMods = "Mods";
+inline constexpr const char* kGroupSound = "Sound";
 // Each option: its name, its help line ("" none) and the choices that aren't Off / On.
 inline constexpr const char* kOptAnisotropy = "Anisotropic filtering";
 inline constexpr const char* kOptAnisotropyHelp = "Sharper textures at an angle.";
@@ -179,6 +180,8 @@ inline constexpr const char* kOptBmx = "THAW BMX";
 inline constexpr const char* kOptBmxHelp = "Ride BMX. F7 or the pause menu.";
 inline constexpr const char* kOptDebug = "Debug mode";
 inline constexpr const char* kOptDebugHelp = "Neversoft's debug menus and free camera.";
+inline constexpr const char* kOptContinueMusic = "Keep music playing";
+inline constexpr const char* kOptContinueMusicHelp = "The song plays on between levels.";
 
 // --- restyled original screens --------------------------------------------------------------------------------------
 inline constexpr const char* kDialogConfirm = "Confirm";

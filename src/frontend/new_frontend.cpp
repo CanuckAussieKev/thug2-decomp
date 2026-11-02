@@ -42,6 +42,7 @@
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
 #include "frontend/restart_tester.h"
+#include "engine/audio/continue_music.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/sprite_element.h"
@@ -693,6 +694,8 @@ void apply_option(int option, int choice)
             restart_tester::is_switched_on() = on;
         else if (std::strcmp(spec.key, "level_editor") == 0)
             level_editor::is_switched_on() = on;
+        else if (std::strcmp(spec.key, "continue_music") == 0)
+            audio::continue_music::is_switched_on() = on;
         else if (std::strcmp(spec.key, "respect_locks") == 0)
             menu_state().set_views(get_views());
     } else if (std::cmp_less(option, s_restart_pending.size())) {

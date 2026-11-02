@@ -36,7 +36,7 @@ struct GroupSet {
     std::vector<int> rows; // indices into get_specs()
 };
 
-// Every option offered, and the groups they are shown in (Graphics, Interface, Gameplay, Online, Mods).
+// Every option offered, and the groups they are shown in (Graphics, Interface, Gameplay, Online, Mods, Sound).
 const std::vector<Spec>& get_specs();
 const std::vector<GroupSet>& bunches();
 // The option `section`/`key` (any case): its index, -1 if none.
