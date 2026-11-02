@@ -75,7 +75,7 @@ void skin_collision_file_name(char* out, const char* name)
     text::copy_unbounded(out, name); // (no length limit, as the original)
     char* extension = std::strstr(out, ".");
     if (!extension)
-        extension = out + std::strlen(out);
+        extension = std::next(out, static_cast<std::ptrdiff_t>(std::strlen(out)));
     std::memcpy(extension, ".col.", 6);
     text::append_unbounded(out, platform_suffix());
 }
@@ -86,7 +86,7 @@ VertexStack::VertexStack() noexcept { std::memset(data.data(), 3, sizeof(data));
 // 0x00490D50
 void VertexStack::stack_on(const uint8_t* in)
 {
-    std::memcpy(data.data() + used, in, vertex_size_);
+    std::memcpy(std::span(data).subspan(used, vertex_size_).data(), in, vertex_size_);
     used += vertex_size_;
 }
 

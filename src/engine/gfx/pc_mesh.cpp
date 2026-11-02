@@ -47,9 +47,10 @@ bool read_breaks(PcMesh* mesh, Stream& in)
     if (mesh->break_count_) {
         mesh->breaks = new_breaks(mesh->break_count_);
         for (uint32_t i = 0; i < mesh->break_count_; ++i) {
-            std::memcpy(&mesh->breaks[i], skin.breaks.data() + i * scene_format::kStripBreakSize,
+            StripBreak& strip_break = core::at(std::span<StripBreak>(mesh->breaks, mesh->break_count_), i);
+            std::memcpy(&strip_break, std::span<const uint8_t>(skin.breaks).subspan(i * scene_format::kStripBreakSize).data(),
                         scene_format::kStripBreakSize);
-            mesh->breaks[i].strip_index_ = 0;
+            strip_break.strip_index_ = 0;
         }
         sort_breaks(mesh->breaks, mesh->break_count_);
     }

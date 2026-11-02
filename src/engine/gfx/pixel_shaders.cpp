@@ -89,7 +89,7 @@ struct ShaderText {
     template <typename... Args>
     void append_one(const char* format, Args... args)
     {
-        length += std::snprintf(buffer.data() + length, sizeof(buffer) - length, format, args...);
+        length += std::snprintf(std::span(buffer).subspan(length).data(), sizeof(buffer) - length, format, args...);
     }
 };
 
@@ -162,7 +162,7 @@ void* generated_pixel_shader(const void* material)
     key |= (present * 8 | alpha_flags) << 22;
     // In the cache? (the first item with the key and a shader)
     lists::KeyMap& cache = get_cache();
-    for (const lists::KeyMap::Item* item = cache.buckets_ + (key & ((1u << cache.bits_) - 1)); item;
+    for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1u << cache.bits_) - 1)); item;
          item = item->next) {
         if (item->key == key && item->value)
             return item->value;

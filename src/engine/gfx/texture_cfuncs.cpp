@@ -390,7 +390,7 @@ bool cfunc_load_particle_texture(Struct* params, Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
-    if (file[0] == '\0')
+    if (*file == '\0')
         return false;
     const render::BitmapTexture* texture = get_texture_by_name(particle_textures(), file);
     const bool permanent = params->has_bare_flag(0xD5928F25u); // perm

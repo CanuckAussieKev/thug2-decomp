@@ -1026,12 +1026,13 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
             forwards = false;
     }
     AnimCacheEntry* entry = cache_slot_;
+    const std::span<const uint32_t> bone_masks = mask && source->bone_masks_ ? std::span<const uint32_t>(source->bone_masks_, static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
     for (int bone = 0; bone < bone_count_; ++bone) {
         const std::span<float, 4> rotation(core::at(rotations, bone).data(), 4);
         const std::span<float, 4> translation(core::at(translations, bone).data(), 4);
         const uint16_t quat_size = core::at(quat_sizes, bone);
         const uint16_t trans_size = core::at(trans_sizes, bone);
-        bool skip = mask ? (source->bone_masks_[bone] & mask) != 0 : false;
+        bool skip = mask ? (core::at(bone_masks, bone) & mask) != 0 : false;
         if (flag_bits_ & 0x80000)
             skip = !(core::at(partial_bone_run(), 1 + (bone / 32)) & (1u << (bone % 32)));
         if (skip) {

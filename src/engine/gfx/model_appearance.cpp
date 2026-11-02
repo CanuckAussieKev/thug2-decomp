@@ -7,6 +7,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/face_texture.h"
@@ -306,11 +307,11 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
         bytes = script::emit_into_buffer(copy.get(), buffer, static_cast<uint32_t>(size), 1, nullptr);
     }
     copy.reset();
-    uint8_t* end = buffer + bytes;
+    uint8_t& end = core::at(std::span<uint8_t>(buffer, size_t{bytes} + 1), bytes);
     if (no_face_texture)
-        *end = 0;
+        end = 0;
     else
-        *end = (face_skin_ && face_texture_is_valid(face_skin_)) || has_face_texture_;
+        end = (face_skin_ && face_texture_is_valid(face_skin_)) || has_face_texture_;
     return static_cast<int>(bytes) + 1;
 }
 
@@ -325,10 +326,10 @@ uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer, size_t size)
     // (Not original: within the size - none left, no face texture and the end where it is)
     if (ints::as_unsigned(end - buffer) >= size) {
         has_face_texture_ = false;
-        return buffer + size;
+        return std::span<uint8_t>(buffer, size).subspan(size).data();
     }
     has_face_texture_ = *end != 0;
-    return end + 1;
+    return std::next(end);
 }
 
 } // namespace gfx

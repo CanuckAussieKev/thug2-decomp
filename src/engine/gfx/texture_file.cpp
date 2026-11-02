@@ -250,7 +250,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
     auto copy_texels = [&reader, size](void* into) {
         const size_t available = reader.remaining() < size ? reader.remaining() : size;
         std::memcpy(into, reader.cursor(), available);
-        std::memset(static_cast<uint8_t*>(into) + available, 0, size - available);
+        std::memset(std::span<uint8_t>(static_cast<uint8_t*>(into), size).subspan(available).data(), 0, size - available);
     };
     D3DLOCKED_RECT locked;
     static_cast<IDirect3DTexture9*>(texture->texture)->LockRect(0, &locked, nullptr, 0);

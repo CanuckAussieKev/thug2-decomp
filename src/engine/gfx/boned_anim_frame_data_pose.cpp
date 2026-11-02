@@ -114,8 +114,9 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
     size_t rot_keys = 0;
     size_t trans_keys = 0;
     const uint32_t mask_bit = mask && mask->resume_ ? 1u << (mask->mask_bit_ & 31) : 0u;
+    const std::span<const uint32_t> bone_masks = mask_bit && mask->bone_masks_ ? std::span<const uint32_t>(mask->bone_masks_, static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
     for (int i = 0; i < bone_count_; ++i) {
-        bool skip = mask_bit ? (mask->bone_masks_[i] & mask_bit) != 0 : false;
+        bool skip = mask_bit ? (core::at(bone_masks, i) & mask_bit) != 0 : false;
         if (flag_bits_ & kBoneBits)
             skip = !(core::at(partial_bone_run(), 1 + (i / 32)) & (1u << (i % 32)));
         if (!skip) {

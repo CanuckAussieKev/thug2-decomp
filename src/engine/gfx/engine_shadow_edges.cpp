@@ -43,15 +43,37 @@ int get_mesh_count(const SubMesh* asset_data) { return asset_data->collision_cou
 
 bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & 0x40) != 0; }
 
+// The edges of a model as they are found: the array made from Euler's estimate, and - when the estimate was short -
+// the edges the original wrote on past the end of that allocation (over the heap after it, and read back from there
+// while it went on counting). They are kept here instead, so the count comes out the same and the heap is left alone.
+struct EdgeStore {
+    std::span<ShadowSilhouetteEdge> room;
+    std::vector<ShadowSilhouetteEdge> beyond;
+
+    ShadowSilhouetteEdge& at(int index)
+    {
+        const auto i = static_cast<size_t>(index);
+        return i < room.size() ? core::at(room, i) : core::at(beyond, i - room.size());
+    }
+    // The slot for the edge number `index`.
+    ShadowSilhouetteEdge& add(int index)
+    {
+        const auto i = static_cast<size_t>(index);
+        if (i < room.size())
+            return core::at(room, i);
+        if (beyond.size() <= i - room.size())
+            beyond.resize(i - room.size() + 1);
+        return core::at(beyond, i - room.size());
+    }
+};
+
 // The edge from `from` to `to` of a face with `normal`: an existing edge the other way round, or the same way, gets
-// its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short,
-// as the original).
-void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const maths::Vec4& normal)
+// its second face's corners; otherwise a new edge is added (past the end of the array if the estimate was short).
+void add_edge(EdgeStore& store, int& count, uint16_t from, uint16_t to, const maths::Vec4& normal)
 {
-    ShadowSilhouetteEdge* all = edges->edges;
     int i = 0;
     for (; i < count; ++i) {
-        ShadowSilhouetteEdge& edge = all[i];
+        ShadowSilhouetteEdge& edge = store.at(i);
         if (core::at(edge.corners, 0).vertex == from && core::at(edge.corners, 2).vertex == to) {
             core::at(edge.corners, 1).vertex = from;
             core::at(edge.corners, 3).vertex = to;
@@ -67,7 +89,7 @@ void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const 
     }
     if (i != count)
         return;
-    ShadowSilhouetteEdge& edge = all[count++];
+    ShadowSilhouetteEdge& edge = store.add(count++);
     for (int k = 0; k < 4; ++k) {
         core::at(edge.corners, k).vertex = k < 2 ? from : to;
         core::at(edge.corners, k).pad = 0;
@@ -93,10 +115,11 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
     // (with a key but no asset data, read through null - as the original)
     int faces = 0, vertices = 0;
     if (model_key_) {
-        for (int i = 0; i < get_mesh_count(asset_data); ++i) {
-            if (!get_skipped(meshes[i])) {
-                faces += meshes[i].tri_count_;
-                vertices += meshes[i].num_vertices_;
+        const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
+        for (const TriMeshSource& mesh : mesh_run) {
+            if (!get_skipped(mesh)) {
+                faces += mesh.tri_count_;
+                vertices += mesh.num_vertices_;
             }
         }
     }
@@ -107,9 +130,11 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
         std::memset(edges_->edges, 0, size);
     }
     int count = 0;
+    EdgeStore store{std::span<ShadowSilhouetteEdge>(edges_->edges, estimate >= 1 ? static_cast<size_t>(estimate) : 0), {}};
     if (model_key_) {
+        const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
         for (int m = 0; m < get_mesh_count(asset_data); ++m) {
-            const TriMeshSource& mesh = meshes[m];
+            const TriMeshSource& mesh = core::at(mesh_run, m);
             if (get_skipped(mesh))
                 continue;
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
@@ -119,9 +144,9 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
                 const auto c = static_cast<uint16_t>(mesh.face_vertex(f, 2));
                 const maths::Vec4 normal = mesh.get_triangle_normal(f);
                 edges_->last_mesh_ = m;
-                add_edge(edges_, count, a, b, normal);
-                add_edge(edges_, count, b, c, normal);
-                add_edge(edges_, count, c, a, normal);
+                add_edge(store, count, a, b, normal);
+                add_edge(store, count, b, c, normal);
+                add_edge(store, count, c, a, normal);
             }
         }
     }

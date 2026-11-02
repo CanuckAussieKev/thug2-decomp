@@ -116,7 +116,7 @@ uint32_t rgba_from_hsv(float h, float s, float v)
 
 // Strings copied and appended (no length limit, as the original's).
 void copy_string(char* into, const char* from) { std::memcpy(into, from, std::strlen(from) + 1); }
-void append_string(char* into, const char* from) { copy_string(into + std::strlen(into), from); }
+void append_string(char* into, const char* from) { copy_string(std::next(into, static_cast<std::ptrdiff_t>(std::strlen(into))), from); }
 
 // A texture name made lower case with ".png" on the end (unless it has it).
 void get_png_name(char* into, const char* name)

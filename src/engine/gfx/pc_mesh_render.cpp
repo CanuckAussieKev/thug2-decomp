@@ -53,15 +53,15 @@ const maths::Mat4& skin_matrix(uint8_t bone) { return core::at(bone_palette(), b
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
-void add_bone(float* blended, const SkinVertex& v, uint8_t bone, float weight)
+void add_bone(std::span<float, 6> blended, const SkinVertex& v, uint8_t bone, float weight)
 {
     std::array<float, 3> other{};
     transform_coord(other.data(), v.position.data(), skin_matrix(bone));
     for (int k = 0; k < 3; ++k)
-        blended[k] = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + blended[k]);
+        core::at(blended, k) = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + core::at(blended, k));
     transform_normal(other.data(), v.normal.data(), skin_matrix(bone));
     for (int k = 0; k < 3; ++k)
-        blended[3 + k] = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + blended[3 + k]);
+        core::at(blended, 3 + k) = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + core::at(blended, 3 + k));
 }
 
 // The vertices skinned with up to `bones` bones each: the first bone's transform, then - unless its weight is
@@ -75,13 +75,13 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
         const SkinVertex* v = &vertex;
         std::array<float, 6> blended{};
         transform_coord(blended.data(), v->position.data(), skin_matrix(core::at(v->bones, 0)));
-        transform_normal(blended.data() + 3, v->normal.data(), skin_matrix(core::at(v->bones, 0)));
+        transform_normal(std::span(blended).subspan(3).data(), v->normal.data(), skin_matrix(core::at(v->bones, 0)));
         if (bones > 1 && !(core::at(v->weights, 0) == 1.0f)) {
             for (float& value : blended)
                 value = static_cast<float>(static_cast<double>(value) * core::at(v->weights, 0));
-            add_bone(blended.data(), *v, core::at(v->bones, 1), core::at(v->weights, 1));
+            add_bone(blended, *v, core::at(v->bones, 1), core::at(v->weights, 1));
             if (bones > 2 && !(core::at(v->weights, 2) == 0.0f))
-                add_bone(blended.data(), *v, core::at(v->bones, 2), core::at(v->weights, 2));
+                add_bone(blended, *v, core::at(v->bones, 2), core::at(v->weights, 2));
         }
         written.set_floats<6>(i, 0, blended); // the position and normal
         written.set_word(i, 0x18, v->color);
@@ -196,7 +196,7 @@ void MeshRef::render()
                     --level;
                 break;
             }
-            if (distance < static_cast<const float*>(unknown48)[level])
+            if (distance < core::at(std::span<const float, 8>(static_cast<const float*>(unknown48), 8), level))
                 break;
         }
     }

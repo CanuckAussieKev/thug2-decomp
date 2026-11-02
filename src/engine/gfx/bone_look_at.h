@@ -61,8 +61,8 @@ public:
     ~BoneLookAt() override = default;
     // 0x00488410 (vtable slot 1): updated (slot 5), then each active bone with a name the skeleton has turned towards
     // its target in `rotations` (the pose's quaternions, one a bone) - and the turn kept. True.
-    bool get_apply(maths::QuatRotation* rotations);
-    bool fetch_pose(Stance* pose) override { return get_apply(pose->rotations.data()); }
+    bool get_apply(std::span<maths::QuatRotation> rotations);
+    bool fetch_pose(Stance* pose) override { return get_apply(pose->rotations); }
     // 0x00488B40 (vtable slot 3): the script member functions 0x20D24E9A (on), 0x027B2B1C (whether on), 0x4599FB80
     // (off) and 0xB040E943 (settings) on the bone index=n, or id=<bone>, or all - else bone 0. 2: not one of these.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;

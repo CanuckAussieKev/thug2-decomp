@@ -79,7 +79,7 @@ bool select_enabled()
 const char* original_of(const char* name)
 {
     const char* mark = std::strstr(name, "__");
-    return mark ? mark + 2 : name;
+    return mark ? std::next(mark, 2) : name;
 }
 
 // The bar's look over those pictures (the front end's: paper to safety yellow on ink; wider than the original's 140).
@@ -213,7 +213,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
             for (const char* suffix : {"_story", "_classic"}) {
                 const size_t length = std::strlen(picked.data());
                 const size_t tail = std::strlen(suffix);
-                if (length > tail && std::strcmp(picked.data() + length - tail, suffix) == 0)
+                if (length > tail && std::string_view(picked.data(), length).ends_with(suffix))
                     core::at(picked, length - tail) = '\0';
             }
             name = picked.data();

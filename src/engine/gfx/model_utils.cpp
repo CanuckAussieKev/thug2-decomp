@@ -8,6 +8,7 @@
 #include <new>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -192,10 +193,11 @@ void HiddenModels::conceal()
         memory::ensure_manager();
     ids_ptr_ = static_cast<uint32_t*>(memory::Hub::get_pull()->carve(count * 4, 1, nullptr));
     num_ = 0;
+    const std::span<uint32_t> ids(ids_ptr_, static_cast<size_t>(count));
     for (auto* component = first(); component;
          component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type_)) {
         if (hideable(component)) {
-            ids_ptr_[num_] = current_object_id(component);
+            core::at(ids, num_) = current_object_id(component);
             component->mesh_instance_->conceal(1);
             ++num_;
         }
@@ -207,8 +209,9 @@ void HiddenModels::conceal()
 void HiddenModels::get_show()
 {
     if (ids_ptr_) {
+        const std::span<const uint32_t> ids(ids_ptr_, static_cast<size_t>(num_));
         for (int i = 0; i < num_; ++i) {
-            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(ids_ptr_[i]))) {
+            if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(core::at(ids, i)))) {
                 auto* component =
                     core::down_cast<objects::MeshInstanceModule>(object->fetch_module(objects::MeshInstanceModule::kType));
                 component->mesh_instance_->conceal(0);

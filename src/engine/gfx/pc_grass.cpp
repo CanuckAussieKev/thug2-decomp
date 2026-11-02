@@ -79,9 +79,10 @@ void set_up_animated_grass_material(MaterialRef* m)
     core::at(m->texture_anim_->keys, 1) = nullptr;
     core::at(m->texture_anim_->keys, 2) = nullptr;
     core::at(m->texture_anim_->keys, 3) = nullptr;
+    const std::span<TextureKey> keys(core::at(m->texture_anim_->keys, 0), 18);
     for (int k = 0; k < 18; ++k) { // (a frame every 1000 / 30 ms, through 17 textures)
-        core::at(m->texture_anim_->keys, 0)[k].time = k * 1000 / 30;
-        core::at(m->texture_anim_->keys, 0)[k].texture = &core::at(g_grass_texture_animation, k % 17);
+        core::at(keys, k).time = k * 1000 / 30;
+        core::at(keys, k).texture = &core::at(g_grass_texture_animation, k % 17);
     }
 }
 
@@ -99,11 +100,10 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         uint8_t* to = nullptr;
         mesh->fetch_vertex_store(0)->get_lock(0, 0, &from, D3DLOCK_READONLY);
         wider->get_lock(0, 0, &to, 0);
-        for (int i = 0; std::cmp_less(i, mesh->vertex_count_); ++i) {
-            std::memcpy(to, from, mesh->stride);
-            to += mesh->stride + 8;
-            from += mesh->stride;
-        }
+        const std::span<const uint8_t> source_vertices(from, size_t{mesh->vertex_count_} * mesh->stride);
+        const std::span<uint8_t> wide_vertices(to, size_t{mesh->vertex_count_} * (mesh->stride + 8));
+        for (size_t i = 0; i < mesh->vertex_count_; ++i)
+            std::memcpy(wide_vertices.subspan(i * (mesh->stride + 8)).data(), source_vertices.subspan(i * mesh->stride).data(), mesh->stride);
         mesh->fetch_vertex_store(0)->teardown();
         mesh->buffer_usage_ = 0;
         mesh->set_vertex_buffer(0, wider);

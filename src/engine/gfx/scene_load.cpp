@@ -126,7 +126,7 @@ HierarchyNode* new_hierarchy(int count)
         return nullptr;
     auto* nodes = static_cast<HierarchyNode*>(memory);
     for (int i = 0; i < count; ++i)
-        new (&nodes[i]) HierarchyNode;
+        new (&core::at(std::span<HierarchyNode>(nodes, static_cast<size_t>(count)), i)) HierarchyNode;
     return nodes;
 }
 

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string_view>
 #include <array>
 
 #include "engine/core/checksums.h"
@@ -19,15 +20,15 @@ bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
     std::array<char, 0x200> path{};
     std::snprintf(path.data(), sizeof(path), "%s", name);
     if (static_cast<uint8_t>(in_images)) {
-        if (name[0] == '.' && name[1] == '.' && name[2] == '/')
-            std::snprintf(path.data(), sizeof(path), "%s", name + 3);
+        if (std::string_view(name).starts_with("../"))
+            std::snprintf(path.data(), sizeof(path), "%s", std::next(name, 3));
         else
             std::snprintf(path.data(), sizeof(path), "images/%s", name);
     }
     int start = static_cast<int>(std::strlen(path.data()));
     while (start > 0 && core::at(path, start - 1) != '\\' && core::at(path, start - 1) != '/')
         --start;
-    checksum_ = checksums::hash_from_text(path.data() + start);
+    checksum_ = checksums::hash_from_text(std::next(path.data(), start));
     return ingest_file(path.data(), in_images, argument);
 }
 

@@ -528,8 +528,8 @@ void draw_viewport(int index)
         SceneRef* group = scene->meshes;
         if (!(group->flags & 0x100)) {
             group->flags |= 0x100;
-            for (int i = 0; i < group->mesh_count_; ++i)
-                group->meshes[i]->build_collision();
+            for (MeshRef* mesh : group->mesh_run())
+                mesh->build_collision();
         }
         draw_scene_group(scene, 0x55, index);
     });

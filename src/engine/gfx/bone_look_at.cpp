@@ -96,12 +96,12 @@ int bone_from_params(BoneLookAt* look_at, Struct* params, bool* all, bool* by_id
 // 0x00487E00
 maths::Vec4* ClampVector::confine(const maths::Vec4* min, const maths::Vec4* max)
 {
-    float* values = &x;
+    const std::span<float, 4> values(&x, 4);
     const auto& low = *min;
     const auto& high = *max;
     for (int i = 0; i < 4; ++i) {
-        const float value = values[i] > high[i] ? high[i] : values[i];
-        values[i] = value < low[i] ? low[i] : value;
+        const float value = core::at(values, i) > high[i] ? high[i] : core::at(values, i);
+        core::at(values, i) = value < low[i] ? low[i] : value;
     }
     return this;
 }
@@ -203,7 +203,7 @@ void BoneLookAt::tick_frame()
 }
 
 // 0x00488410
-bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
+bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
 {
     tick_frame();
     objects::GameEntity* object = owner_object_;
@@ -223,7 +223,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
         float dy = bone.look_goal_.y - pos.y;
         float dz = bone.look_goal_.z - pos.z;
         normalize_xzy(dx, dy, dz);
-        maths::QuatRotation& pose = rotations[index];
+        maths::QuatRotation& pose = core::at(rotations, index);
         const double dot =
             (static_cast<double>(dx) * at.x + static_cast<double>(dz) * at.z) + static_cast<double>(dy) * at.y;
         auto angle = static_cast<float>(std::acos(dot));

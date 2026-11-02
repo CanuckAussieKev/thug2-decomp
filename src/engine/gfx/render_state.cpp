@@ -562,7 +562,7 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
             pixel_shader_changed() = 1;
         }
         input_port()->SetPixelShaderConstantF(0, ps_constant_bank().data(), count);
-        input_port()->SetPixelShaderConstantF(4, ps_constant_bank().data() + 16, 1);
+        input_port()->SetPixelShaderConstantF(4, std::span(ps_constant_bank()).subspan(16).data(), 1);
     }
     pixel_shader_changed() = 0;
 }
@@ -579,10 +579,11 @@ void set_world_transform(const float* matrix)
     }
     auto& world = g_world_transform_copy;
     g_world_transform = world.data();
+    const std::span<const float, 16> given(matrix, 16);
     for (int row = 0; row < 4; ++row) {
-        core::at(world, row * 4 + 0) = matrix[row * 4 + 0];
-        core::at(world, row * 4 + 1) = matrix[row * 4 + 1];
-        core::at(world, row * 4 + 2) = matrix[row * 4 + 2];
+        core::at(world, row * 4 + 0) = core::at(given, row * 4 + 0);
+        core::at(world, row * 4 + 1) = core::at(given, row * 4 + 1);
+        core::at(world, row * 4 + 2) = core::at(given, row * 4 + 2);
         core::at(world, row * 4 + 3) = row == 3 ? 1.0f : 0.0f;
     }
 }
@@ -593,9 +594,9 @@ void reset_render_state()
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
     for (maths::Mat4* matrix : {&g_world_matrix, &g_view_matrix, &g_projection_matrix}) {
-        auto* m = matrix->data();
+        const auto m = matrix->floats();
         for (int i = 0; i < 16; ++i)
-            m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
+            core::at(m, i) = (i % 5 == 0) ? 1.0f : 0.0f;
     }
     get_lighting() = 0;
     get_specular() = 0;

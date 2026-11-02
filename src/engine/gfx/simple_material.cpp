@@ -116,8 +116,8 @@ int skip_file_chunk(void* file)
 int skip_memory_chunk(uint8_t** data)
 {
     uint32_t size = 0; // (the chunk's: its second word)
-    std::memcpy(&size, *data + 4, sizeof(size));
-    *data = *data + size + 8;
+    std::memcpy(&size, std::next(*data, 4), sizeof(size));
+    *data = std::next(*data, static_cast<std::ptrdiff_t>(size) + 8);
     return 0;
 }
 

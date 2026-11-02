@@ -99,8 +99,11 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
     out->format = format;
     out->bytes.resize(static_cast<size_t>(row_bytes) * desc.Height);
     for (UINT y = 0; y < desc.Height; ++y)
-        std::memcpy(out->bytes.data() + static_cast<size_t>(row_bytes) * y,
-                    static_cast<const uint8_t*>(locked.pBits) + static_cast<size_t>(locked.Pitch) * y, row_bytes);
+        std::memcpy(std::span<uint8_t>(out->bytes).subspan(static_cast<size_t>(row_bytes) * y).data(),
+                    std::span<const uint8_t>(static_cast<const uint8_t*>(locked.pBits), static_cast<size_t>(locked.Pitch) * desc.Height)
+                        .subspan(static_cast<size_t>(locked.Pitch) * y)
+                        .data(),
+                    row_bytes);
     system->UnlockRect();
     get_release(system);
     get_release(resolved);
