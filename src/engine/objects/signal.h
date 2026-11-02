@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <cstddef>
+#include <span>
 
 #include "engine/objects/smtptr.h"
 
@@ -136,6 +138,10 @@ public:
 
     // 0x0045F880 (cdecl): print the table (null: "Emtpy" [sic]); returns debug::Printf's result.
     static int list_wait_table(SignalRouteTable* table);
+
+    // NOT ORIGINAL - the entries as a run (the array always holds exactly num_ of them: every change makes a new one
+    // of the new count).
+    [[nodiscard]] std::span<TableRow> entries() const { return {entries_, entries_ ? static_cast<std::size_t>(num_) : 0}; }
 
     TableRow* entries_{nullptr}; // +0x00
     int num_{0};                 // +0x04

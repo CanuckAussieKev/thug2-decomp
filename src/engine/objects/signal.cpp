@@ -5,6 +5,9 @@
 
 #include "engine/objects/signal.h"
 
+#include <cstddef>
+#include <span>
+
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -13,6 +16,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -118,7 +122,7 @@ SignalRouteTable::~SignalRouteTable()
     if (!entries_)
         return;
     for (int i = 0; i < num_; ++i) {
-        if (Struct* params = entries_[i].params)
+        if (Struct* params = core::at(entries(), i).params)
             free_struct(memory::owned_element(params)); // (the row's copy)
     }
     memory::Hub::get_pull()->dealloc(entries_);
@@ -128,7 +132,7 @@ SignalRouteTable::~SignalRouteTable()
 void SignalRouteTable::mark_group(uint32_t group)
 {
     for (int i = 0; i < num_; ++i) {
-        TableRow& entry = entries_[i];
+        TableRow& entry = core::at(entries(), i);
         if (entry.group == group && entry.script != kNullScript)
             entry.flags |= TableRow::kFlagMarked;
     }
@@ -143,7 +147,7 @@ int SignalRouteTable::list_wait_table(SignalRouteTable* table)
         debug::printf("  Emtpy\n");
     } else {
         for (int i = 0; i < table->num_; ++i) {
-            const TableRow& entry = table->entries_[i];
+            const TableRow& entry = core::at(table->entries(), i);
             debug::printf("------------------------------------\n");
             debug::printf("  Type     : %s\n", script::find_checksum_name_or_unknown(entry.type));
             debug::printf("  Script   : %s\n", script::find_checksum_name_or_unknown(entry.script));
@@ -162,7 +166,7 @@ int SignalRouteTable::list_wait_table(SignalRouteTable* table)
 void SignalRouteTable::enter_wait_board(Script* script)
 {
     for (int i = 0; i < num_; ++i) {
-        const TableRow& entry = entries_[i];
+        const TableRow& entry = core::at(entries(), i);
         if (entry.type && entry.script && entry.script != kNullScript)
             tracker_add_listener(entry.type, script);
     }
@@ -172,7 +176,7 @@ void SignalRouteTable::enter_wait_board(Script* script)
 void SignalRouteTable::unregister_with_tracker(Script* script)
 {
     for (int i = 0; i < num_; ++i) {
-        if (const uint32_t type = entries_[i].type)
+        if (const uint32_t type = core::at(entries(), i).type)
             tracker_remove_listener(type, script);
     }
 }
@@ -186,12 +190,12 @@ void SignalRouteTable::append_listener(Script* script, uint32_t type, uint32_t s
     if (!entries_) {
         num_ = 1;
         entries_ = static_cast<TableRow*>(memory::alloc(sizeof(TableRow)));
-        entry = entries_;
+        entry = &core::at(entries(), 0);
     } else {
         // The entry of that type (live or removed by group): reused; the tracker already knows a live one.
         for (int i = 0; i < num_; ++i) {
-            if (entries_[i].type == type) {
-                entry = &entries_[i];
+            if (core::at(entries(), i).type == type) {
+                entry = &core::at(entries(), i);
                 if (entry->params)
                     free_struct(memory::owned_element(entry->params)); // (the row's copy; the pointer is overwritten below)
                 tell_tracker = entry->script == kNullScript;
@@ -201,20 +205,22 @@ void SignalRouteTable::append_listener(Script* script, uint32_t type, uint32_t s
         // Else the first removed entry.
         if (!entry) {
             for (int i = 0; i < num_; ++i) {
-                if (entries_[i].script == kNullScript) {
-                    entry = &entries_[i];
+                if (core::at(entries(), i).script == kNullScript) {
+                    entry = &core::at(entries(), i);
                     break;
                 }
             }
         }
         // Else a bigger array (on the current heap), the new entry at the end.
         if (!entry) {
-            TableRow* old = entries_;
+            const std::span<TableRow> old = entries();
             entries_ = static_cast<TableRow*>(memory::alloc((num_ + 1) * sizeof(TableRow)));
-            for (int i = 0; i < num_; ++i)
-                entries_[i] = old[i];
-            memory::Hub::get_pull()->dealloc(old);
-            entry = &entries_[num_++];
+            ++num_;
+            const std::span<TableRow> grown = entries();
+            for (std::size_t i = 0; i < old.size(); ++i)
+                core::at(grown, i) = core::at(old, i);
+            memory::Hub::get_pull()->dealloc(old.data());
+            entry = &grown.back();
         }
     }
     entry->flags = static_cast<uint8_t>((entry->flags & ~(TableRow::kFlagReplacesRunning | TableRow::kFlagMarked)) |
@@ -232,7 +238,7 @@ void SignalRouteTable::append_listener(Script* script, uint32_t type, uint32_t s
 void SignalRouteTable::remove_type(uint32_t type)
 {
     for (int i = 0; i < num_; ++i) {
-        TableRow& entry = entries_[i];
+        TableRow& entry = core::at(entries(), i);
         if (entry.type == type) {
             entry.type = 0;
             entry.script = kNullScript;
@@ -245,7 +251,7 @@ void SignalRouteTable::remove_type(uint32_t type)
 void SignalRouteTable::remove_group(uint32_t group)
 {
     for (int i = 0; i < num_; ++i) {
-        TableRow& entry = entries_[i];
+        TableRow& entry = core::at(entries(), i);
         if (entry.group == group || group == kAllGroups) {
             entry.script = kNullScript;
             free_params(entry);
@@ -256,9 +262,9 @@ void SignalRouteTable::remove_group(uint32_t group)
 // 0x004600E0 (already removed entries are told to the tracker again)
 void SignalRouteTable::remove_group(Script* script, uint32_t group)
 {
-    TableRow* entries = entries_;
+    const std::span<TableRow> rows = entries();
     for (int i = 0; i < num_; ++i) {
-        TableRow& entry = entries[i];
+        TableRow& entry = core::at(rows, i);
         if (entry.group == group || group == kAllGroups) {
             if (entry.type)
                 tracker_remove_listener(entry.type, script);
@@ -272,7 +278,7 @@ void SignalRouteTable::remove_group(Script* script, uint32_t group)
 void SignalRouteTable::remove_marked(Script* script)
 {
     for (int i = 0; i < num_; ++i) {
-        TableRow& entry = entries_[i];
+        TableRow& entry = core::at(entries(), i);
         if (entry.flags & TableRow::kFlagMarked) {
             if (entry.type)
                 tracker_remove_listener(entry.type, script);
@@ -289,7 +295,7 @@ void SignalRouteTable::compact()
         return;
     int removed = 0;
     for (int i = 0; i < num_; ++i) {
-        if (entries_[i].script == kNullScript)
+        if (core::at(entries(), i).script == kNullScript)
             ++removed;
     }
     if (!removed)
@@ -298,20 +304,20 @@ void SignalRouteTable::compact()
     altered_ = true;
     if (live == 0) {
         for (int i = 0; i < num_; ++i)
-            free_params(entries_[i]);
+            free_params(core::at(entries(), i));
         memory::Hub::get_pull()->dealloc(entries_);
         entries_ = nullptr;
         num_ = 0;
         return;
     }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    auto* entries = static_cast<TableRow*>(memory::alloc(live * sizeof(TableRow)));
+    const std::span<TableRow> kept(static_cast<TableRow*>(memory::alloc(live * sizeof(TableRow))), static_cast<std::size_t>(live));
     memory::Hub::get_pull()->leave_heap_scope();
-    TableRow* out = entries;
+    std::size_t out = 0;
     for (int i = 0; i < num_; ++i) {
-        TableRow& entry = entries_[i];
+        TableRow& entry = core::at(entries(), i);
         if (entry.script != kNullScript) {
-            *out = entry;
+            core::at(kept, out) = entry;
             ++out;
         } else {
             free_params(entry);
@@ -319,7 +325,7 @@ void SignalRouteTable::compact()
     }
     memory::Hub::get_pull()->dealloc(entries_);
     num_ = live;
-    entries_ = entries;
+    entries_ = kept.data();
 }
 
 // 0x004601A0
@@ -331,7 +337,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         if (!entries_)
             return;
         for (int i = 0; i < num_; ++i) {
-            if (Struct* params = entries_[i].params)
+            if (Struct* params = core::at(entries(), i).params)
                 free_struct(memory::owned_element(params)); // (the row's copy)
         }
         memory::Hub::get_pull()->dealloc(entries_);
@@ -341,7 +347,8 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         return;
     }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    auto* entries = static_cast<TableRow*>(memory::alloc((num_ + count) * sizeof(TableRow)));
+    const std::span<TableRow> made(static_cast<TableRow*>(memory::alloc((num_ + count) * sizeof(TableRow))),
+                                   static_cast<std::size_t>(num_ + count));
     int used = 0;
     for (int i = 0; i < count; ++i) {
         auto* handler = handlers->struct_at(static_cast<uint32_t>(i));
@@ -349,7 +356,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         const script::Component* script = handler->step_to_entry(type);
         if (replace)
             remove_type(type->value.word());
-        TableRow& entry = entries[used++];
+        TableRow& entry = core::at(made, used++);
         Struct* params = nullptr;
         entry.params = handler->read_sub_struct(kParamsName, &params, 0) ? new_struct_copy(params) : nullptr;
         if (!handler->read_hash_value(kGroupName, &entry.group, 0))
@@ -363,10 +370,10 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
     // The old entries after the new ones.
     if (entries_) {
         for (int i = 0; i < num_; ++i)
-            entries[used++] = entries_[i];
+            core::at(made, used++) = core::at(entries(), i);
     }
     memory::Hub::get_pull()->dealloc(entries_);
-    entries_ = entries;
+    entries_ = made.data();
     num_ = used;
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -378,8 +385,9 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
     altered_ = false;
     ++in_use_;
     // (Read once: if a handler adds entries the array moves, altered_ is set and the loop stops after it.)
-    const TableRow* entry = entries_;
-    for (int i = 0; i < num_; ++i, ++entry) {
+    const std::span<const TableRow> rows = entries();
+    for (int i = 0; i < num_; ++i) {
+        const TableRow* entry = &core::at(rows, i);
         if (entry->type == event->kind_tag_ && entry->script != kNullScript) {
             // The event's data is added over the handler's own parameters, in a structure of its own.
             gsl::owner<Struct*> merged = nullptr;
