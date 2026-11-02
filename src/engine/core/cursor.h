@@ -3,6 +3,8 @@
 #include <concepts>
 #include <cstddef>
 #include <span>
+#include <string>
+#include <string_view>
 #include <type_traits>
 
 #include <gsl/assert>
@@ -107,6 +109,55 @@ public:
 private:
     std::span<T> run_;
     std::ptrdiff_t position_ = 0;
+};
+
+// NOT ORIGINAL - a position in a NUL-terminated text (the run is the text and its terminator): what the string walks of
+// the text drawing and the front end do with a `const char*`. `*cursor` is the character there, the terminator's 0 at the
+// end and also past it (the original read whatever followed the terminator when an escape's skip stepped over it; the
+// walks stop at the terminator instead), `++cursor` and `cursor += n` step on.
+class CStringCursor {
+public:
+    CStringCursor() = default;
+    explicit CStringCursor(const char* text) : run_(text, std::char_traits<char>::length(text) + 1) {}
+
+    [[nodiscard]] char operator*() const
+    {
+        return position_ < run_.size() ? gsl::at(run_, static_cast<std::ptrdiff_t>(position_)) : '\0';
+    }
+    // The character `offset` on (0 past the terminator).
+    [[nodiscard]] char operator[](std::size_t offset) const
+    {
+        return position_ + offset < run_.size() ? gsl::at(run_, static_cast<std::ptrdiff_t>(position_ + offset)) : '\0';
+    }
+    CStringCursor& operator++()
+    {
+        ++position_;
+        return *this;
+    }
+    CStringCursor operator++(int)
+    {
+        CStringCursor before = *this;
+        ++position_;
+        return before;
+    }
+    CStringCursor& operator+=(std::size_t count)
+    {
+        position_ += count;
+        return *this;
+    }
+    // The text from the position (the terminator alone at and past the end).
+    [[nodiscard]] std::string_view rest() const
+    {
+        if (position_ + 1 >= run_.size())
+            return {};
+        const std::span<const char> text = run_.subspan(position_, run_.size() - 1 - position_);
+        return {text.data(), text.size()};
+    }
+    [[nodiscard]] std::size_t position() const { return position_; }
+
+private:
+    std::span<const char> run_;
+    std::size_t position_ = 0;
 };
 
 } // namespace core

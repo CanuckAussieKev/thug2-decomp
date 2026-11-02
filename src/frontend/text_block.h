@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "frontend/screen_element.h"
 
@@ -39,7 +40,7 @@ public:
     void add_words(const char* text);
     // 0x004B0CD0: the lines made again from `texts` (run together): the old line elements destroyed, a text
     // element per line (the last ones that fit; with allow_expansion the block grows to fit them all).
-    void change_caption(const char** texts, int count);
+    void change_caption(std::span<const char* const> texts);
     // 0x004B11C0: the lines' text, joined with spaces, into `out` (false if it doesn't fit `size`).
     bool fetch_caption(char* out, int size);
     // 0x004B1390: the length of that text.

@@ -5,6 +5,8 @@
 #include <limits>
 #include <span>
 
+#include "engine/core/cursor.h"
+
 namespace text {
 
 // Convert ASCII letters in place; other bytes are left alone.
@@ -23,12 +25,13 @@ int compare_caseless(const char* a, const char* b);
 const char* format_with_separators(int value);
 
 // Value of one base-32 digit: '0'-'9' -> 0-9, 'A'-'V' / 'a'-'v' -> 10-31, anything else -> 0.
-int hex_digit_value(const char* digit);
+int hex_digit_value(char digit);
 
-// Copy the next word from `cursor` into `out` and advance past it. The word ends at (and keeps) the next space.
+// Copy the next word from `cursor` into `word` (the original's buffer had no limit; one that is too small ends the
+// game with a report) and advance past it. The word ends at (and keeps) the next space.
 // Escapes: "\_" becomes a space, "\n" ends the line, any other "\x" is copied as-is.
 // Returns 0 for a word, 1 at an end-of-line escape, 2 at the end of the text.
-int next_word(char* out, const char*& cursor);
+int next_word(std::span<char> word, core::CStringCursor& cursor);
 
 // NOT ORIGINAL - the original's inline strcpy: `source` copied into `dest` up to and including its terminator, with
 // no length limit (the destination is the original's buffer, sized as it was). Returns `dest`.

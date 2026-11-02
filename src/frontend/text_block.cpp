@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -44,13 +45,15 @@ constexpr int kLineBuffers = 30; // lines while they are made
 constexpr int kLineChars = 0x60;
 constexpr int kMaxTexts = 29; // (the original's stack room for an array's strings)
 
-// strcpy / strcat (the original's: no length limit).
-void copy_text(char* to, const char* from)
+using text::append_unbounded;
+using text::copy_unbounded;
+
+// The line buffers: the pointer table's entries, and the block they are cut from (kLineBuffers lines of kLineChars).
+std::span<char> line_block(char* const* lines) { return {*lines, static_cast<std::size_t>(kLineBuffers) * kLineChars}; }
+std::span<char> line_buffer(char* const* lines, int line)
 {
-    while ((*to++ = *from++) != '\0') {
-    }
+    return line_block(lines).subspan(static_cast<std::size_t>(line) * kLineChars, kLineChars);
 }
-void append_text(char* to, const char* from) { copy_text(to + std::strlen(to), from); }
 
 float get_half() { return ::gfx::g_half; }
 float get_one() { return ::objects::g_anim_movies_one; }
@@ -116,27 +119,30 @@ void ParagraphWidget::change_typeface(uint32_t font)
 void ParagraphWidget::add_words(const char* text)
 {
     void* font = get_font(font_name_);
-    const char* cursor = text;
+    core::CStringCursor cursor(text);
     int previous = 0;
     int result = 0;
     do {
         std::array<char, 0x64> word{};
-        result = text::next_word(word.data(), cursor);
+        result = text::next_word(word, cursor);
         float width = 0.0f, height = 0.0f;
         read_string_param(font, word.data(), &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
         const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span_;
         if (full || previous == 1 || std::strlen(word.data()) + static_cast<size_t>(line_length_) >= kLineChars) {
-            char* last = lines_[line_] + line_length_ - 1;
-            if (*last == ' ')
-                *last = 0;
+            // (the byte before the line: with an empty line, the end of the line before it - and before the first
+            // line, the byte before the block, which the original read and maybe wrote; here nothing)
+            const std::span<char> block = line_block(lines_);
+            const std::ptrdiff_t last = static_cast<std::ptrdiff_t>(line_) * kLineChars + line_length_ - 1;
+            if (last >= 0 && core::at(block, last) == ' ')
+                core::at(block, last) = 0;
             ++num_lines_;
             if (++line_ >= line_capacity_)
                 line_ = 0;
             line_length_ = 0;
             line_width_ = 0.0f;
         }
-        copy_text(lines_[line_] + line_length_, word.data());
+        copy_unbounded(line_buffer(lines_, line_).subspan(static_cast<std::size_t>(line_length_)).data(), word.data());
         line_length_ += static_cast<int>(std::strlen(word.data()));
         line_width_ = static_cast<float>(static_cast<double>(width) + line_width_);
         previous = result;
@@ -144,7 +150,7 @@ void ParagraphWidget::add_words(const char* text)
 }
 
 // 0x004B0CD0
-void ParagraphWidget::change_caption(const char** texts, int count)
+void ParagraphWidget::change_caption(std::span<const char* const> texts)
 {
     UiTree* manager = UiTree::sole();
     set_focus_sent(0);
@@ -161,12 +167,13 @@ void ParagraphWidget::change_caption(const char** texts, int count)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap_);
     lines_ = static_cast<char**>(memory::alloc(kLineBuffers * sizeof(char*)));
-    lines_[0] = static_cast<char*>(memory::alloc(kLineBuffers * kLineChars));
+    const std::span<char*> line_table(lines_, kLineBuffers);
+    core::at(line_table, 0) = static_cast<char*>(memory::alloc(kLineBuffers * kLineChars));
     memory::Hub::get_pull()->leave_heap_scope();
     for (int i = 1; i < kLineBuffers; ++i)
-        lines_[i] = lines_[0] + kLineChars * i;
+        core::at(line_table, i) = line_block(lines_).subspan(static_cast<std::size_t>(kLineChars) * i).data();
     for (int i = 0; i < kLineBuffers; ++i)
-        lines_[i][0] = 0;
+        core::at(line_buffer(lines_, i), 0) = 0;
     line_length_ = 0;
     num_lines_ = 0;
     line_ = 0;
@@ -175,9 +182,9 @@ void ParagraphWidget::change_caption(const char** texts, int count)
         level_y_ = 0.0f;
         line_capacity_ = 0;
     }
-    for (int i = 0; i < count; ++i)
-        add_words(texts[i]);
-    if (count != 0) {
+    for (const char* text : texts)
+        add_words(text);
+    if (!texts.empty()) {
         ++num_lines_;
         ++line_;
     }
@@ -197,8 +204,8 @@ void ParagraphWidget::change_caption(const char** texts, int count)
             line_ = 0;
             line_width_ = 0.0f;
             line_capacity_ = max_lines;
-            for (int i = 0; i < count; ++i)
-                add_words(texts[i]);
+            for (const char* text : texts)
+                add_words(text);
             rows_filled_ = line_capacity_;
         } else {
             // the last lines that fit (the lines wrapped round: the oldest kept first)
@@ -222,14 +229,14 @@ void ParagraphWidget::change_caption(const char** texts, int count)
         line->font_name_ = font_name_;
         line->typeface_ = get_font(font_name_);
         line->object_flags_ |= kVisibleNow;
-        line->change_caption(lines_[first]);
+        line->change_caption(line_buffer(lines_, first).data());
         line->change_scale(internal_scale_, internal_scale_, false, 0);
         lines_height_ =
             static_cast<float>(static_cast<double>(line->level_y_) * internal_scale_ * line_spacing_ + lines_height_);
         if (++first >= line_capacity_)
             first = 0;
     }
-    memory::dealloc(lines_[0]);
+    memory::dealloc(*lines_);
     memory::dealloc(static_cast<void*>(lines_));
     set_focus_sent(1);
     object_flags_ |= kVisibleNow;
@@ -251,9 +258,9 @@ bool ParagraphWidget::fetch_caption(char* out, int size)
             ++total;
         if (total >= size)
             return false;
-        append_text(out, text);
+        append_unbounded(out, text);
         if (next)
-            append_text(out, get_space());
+            append_unbounded(out, get_space());
         child.assign_value(next.get_pull());
     }
     return true;
@@ -288,7 +295,7 @@ bool ParagraphWidget::backspace()
         core::at(text, length - 2) = 0;
     std::array<const char*, 1> texts = {{text.data()}};
     core::at(text, length - 1) = 0;
-    change_caption(texts.data(), 1);
+    change_caption(texts);
     return true;
 }
 
@@ -297,13 +304,13 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
 {
     char* joined = static_cast<char*>(memory::alloc(0x200));
     fetch_caption(joined, 0x200);
-    append_text(joined, text);
+    append_unbounded(joined, text);
     if ((enforce_max_width && std::strcmp(text, get_space()) != 0) || last_line) {
         // the last word must fit the width
         void* font = get_font(font_name_);
-        const char* cursor = joined;
+        core::CStringCursor cursor(joined);
         std::array<char, 0x64> word{};
-        while (text::next_word(word.data(), cursor) != 2) {
+        while (text::next_word(word, cursor) != 2) {
         }
         float width = 0.0f, height = 0.0f;
         read_string_param(font, word.data(), &width, &height);
@@ -314,7 +321,7 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
         }
     }
     std::array<const char*, 1> texts = {{joined}};
-    change_caption(texts.data(), 1);
+    change_caption(texts);
     memory::dealloc(joined);
     return true;
 }
@@ -364,12 +371,12 @@ void ParagraphWidget::change_traits(Struct* params)
     std::array<const char*, kMaxTexts> texts{};
     script::Array* array = nullptr;
     if (params->fetch_text(kText, &core::at(texts, 0), 0)) {
-        change_caption(texts.data(), 1);
+        change_caption(std::span<const char* const>(texts).first(1));
     } else if (params->fetch_list(kText, &array, 0)) {
         const int count = static_cast<int>(array->extent_);
         for (int i = 0; i < count && i < kMaxTexts; ++i)
             core::at(texts, i) = array->fetch_text(static_cast<uint32_t>(i));
-        change_caption(texts.data(), count < kMaxTexts ? count : kMaxTexts);
+        change_caption(std::span<const char* const>(texts).first(static_cast<std::size_t>(count < kMaxTexts ? count : kMaxTexts)));
     }
     if (params->has_bare_flag(kBlurEffect) && !blur_) {
         memory::Hub* memory = memory::Hub::get_pull();

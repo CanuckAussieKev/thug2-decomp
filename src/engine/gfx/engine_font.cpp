@@ -43,7 +43,7 @@ void Typeface::change_colors(const uint32_t* /*colors*/) { debug::printf("STUB A
 void Typeface::flag_button_font(bool /*buttons*/) { debug::printf("STUB A DUB DUB"); }
 
 // 0x0048D6A0
-char button_glyph(const char* digit) { return core::at(glyph_escape_table(), text::hex_digit_value(digit)); }
+char button_glyph(char digit) { return core::at(glyph_escape_table(), text::hex_digit_value(digit)); }
 
 // 0x0048D6C0
 void unload_font(const char* name)

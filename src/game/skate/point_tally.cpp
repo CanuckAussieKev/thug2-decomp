@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <utility>
 #include <array>
 
@@ -274,9 +275,9 @@ void PointTally::dispatch_trick_sequence(bool clear)
     if (!clear) {
         for (int i = 0; i < log_.num_; ++i)
             core::at(lines, i) = get_trick(i)->shown_.data();
-        text->change_caption(lines.data(), log_.num_);
+        text->change_caption(std::span<const char* const>(lines).first(static_cast<std::size_t>(log_.num_)));
     } else {
-        text->change_caption(lines.data(), 0);
+        text->change_caption({});
     }
     script::launch_script(kUpdateTrickText, nullptr, nullptr, false, nullptr);
 }

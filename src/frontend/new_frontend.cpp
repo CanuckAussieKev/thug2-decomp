@@ -1255,12 +1255,9 @@ std::string pad_button_label_for(char tag, char digit)
 {
     int button = 0;
     if (tag == 'm' || tag == 'M') {
-        const char d = digit;
-        const char mapped = render::button_glyph(&d);
-        button = text::hex_digit_value(&mapped);
+        button = text::hex_digit_value(render::button_glyph(digit));
     } else {
-        const char d = digit;
-        button = static_cast<int>(render::button_for_tag(&d));
+        button = static_cast<int>(render::button_for_tag(digit));
     }
     switch (button) {
     case 4:

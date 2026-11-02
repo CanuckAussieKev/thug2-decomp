@@ -77,7 +77,7 @@ void unload_font(const char* name);
 // UnloadFont <name> (0x0048D7B0).
 bool cfunc_unload_font(script::Struct* params, script::Script* script);
 // 0x0048D6A0: the button glyph's character for the meta button a hex digit names (through the meta button map).
-char button_glyph(const char* digit);
+char button_glyph(char digit);
 
 extern std::array<char, 32> g_glyph_alias_table;
 

@@ -10,6 +10,7 @@
 #include <array>
 
 #include "engine/core/manager.h"
+#include "engine/core/cursor.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
 #include "frontend/model_widget.h"
@@ -500,7 +501,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     float max_width = 0.0f;
     params->fetch_float(kWidth, &max_width, 1);
     void* font = get_font(font_name);
-    const char* cursor = text;
+    core::CStringCursor cursor(text);
     float line_width = 0.0f;
     int line_length = 0;
     int previous = 0;
@@ -520,11 +521,11 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     };
     int result = 0;
     do {
-        result = text::next_word(word.data(), cursor);
+        result = text::next_word(word, cursor);
         if (texts && result == 2 && text_index < texts->extent_ - 1) {
             // the next string of the array, a space between
             text = texts->fetch_text(++text_index);
-            cursor = text;
+            cursor = core::CStringCursor(text);
             if (previous != 1) {
                 const size_t length = std::strlen(word.data());
                 core::at(word, length) = ' ';
@@ -546,7 +547,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
             line_width = 0.0f;
             make_element();
         }
-        std::memcpy(line.data() + line_length, word.data(), std::strlen(word.data()) + 1);
+        std::memcpy(std::span<char>(line).subspan(static_cast<std::size_t>(line_length)).data(), word.data(), std::strlen(word.data()) + 1);
         line_length += static_cast<int>(std::strlen(word.data()));
         line_width = static_cast<float>(static_cast<double>(word_width) + line_width);
         if (result == 2 && !new_line)

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 #include <utility>
 
 #include "engine/gfx/draw2d.h"
@@ -32,13 +33,20 @@ struct TypefaceData {
     std::array<uint8_t, 0x20> special_map_; // special glyph / button -> chars index; [0x1F] is also the default glyph (Load
                                 // gives it to the characters and specials the file leaves unmapped)
     uint8_t format;             // the file's character map format (1 or 2, see Load)
-    std::array<uint8_t, 3> pad12d_;
+    uint8_t pad12d_;
+    uint16_t glyph_count_; // NOT ORIGINAL: how many glyphs `chars` holds (the font file's count), for the checked access
     TypefaceData* next;   // the list of loaded fonts (0x00780FD8)
     int16_t glyph_gap_;   // added after every character
     int16_t blank_gap_;   // the width of a space ('I' when loaded)
     std::array<uint32_t, 16> colors;  // "\c1" ... (RGBA as bytes)
     void* texture;        // IDirect3DTexture9 (A8R8G8B8, managed)
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
+
+    // The glyph at `index` of `chars` (checked against the glyph count).
+    [[nodiscard]] Char& glyph(std::size_t index) const
+    {
+        return core::at(std::span<Char>(chars, glyph_count_), index);
+    }
 
     // The colour "\c<index>" picks: index 1 is colors[0]; index 0 the word before the table (the two gaps, as the
     // original read it). NOT ORIGINAL: past the table, 0 (the original read on into the texture's fields).

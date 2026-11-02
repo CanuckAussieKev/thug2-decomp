@@ -6,9 +6,11 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/str.h"
 #include "engine/core/stubs.h"
 #include "frontend/sprite_element.h"
 #include "engine/gfx/engine_text.h"
@@ -23,6 +25,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -43,13 +46,14 @@ constexpr uint32_t kCharProperties = 0x44B3B0F4, kIndex = 0x7F8C98FE, kOffset = 
 constexpr uint32_t kBlurAlphaPair = 0x21DE240C, kBlurBottomScales = 0x3E10436D;
 constexpr uint32_t kBlurMaxDisplacement = 0x4C2A3CDE, kTime = 0x906B67BA;
 
-// strcpy / strcat (the original's: no length limit).
-void copy_text(char* to, const char* from)
+// A text object of the element's table (the first the text, the others the blur copies; the shadows the same count).
+void*& object_at(void** table, int count, int index)
 {
-    while ((*to++ = *from++) != '\0') {
-    }
+    return core::at(std::span<void*>(table, static_cast<std::size_t>(count)), index);
 }
-void append_text(char* to, const char* from) { copy_text(to + std::strlen(to), from); }
+
+using text::append_unbounded;
+using text::copy_unbounded;
 
 float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
 float rotation_offset()
@@ -110,7 +114,7 @@ void read_string_param(void* font, const char* text, float* width, float* height
     static_cast<render::Typeface*>(font)->read_string_param(text, width, height);
 }
 // A button glyph's character for the text after \m (0x0048D6A0, cdecl).
-char button_glyph(const char* text) { return render::button_glyph(text); }
+char button_glyph(char digit) { return render::button_glyph(digit); }
 
 // The text objects: made / freed (cdecl), and their setters (thiscall).
 gsl::owner<void*> new_text_object() { return render::new_text(); }
@@ -176,11 +180,16 @@ void SmearEffect::tick_frame()
     else
         remaining_ = 0;
     last_time_ = now;
-    float* current = &core::at(ongoing_.alpha, 0);
-    const float* target = &core::at(aim_point_.alpha, 0);
     if (remaining_) {
-        for (int i = 0; i < 6; ++i)
-            current[i] = static_cast<float>((static_cast<double>(target[i]) - current[i]) * k + current[i]);
+        // (the settings' six floats, in order: the alpha pair, the bottom scales, the displacement)
+        const auto approach = [k](std::array<float, 2>& current, const std::array<float, 2>& target) {
+            for (int i = 0; i < 2; ++i)
+                core::at(current, i) =
+                    static_cast<float>((static_cast<double>(core::at(target, i)) - core::at(current, i)) * k + core::at(current, i));
+        };
+        approach(ongoing_.alpha, aim_point_.alpha);
+        approach(ongoing_.bottom_scales_, aim_point_.bottom_scales_);
+        approach(ongoing_.max_displacement_, aim_point_.max_displacement_);
     } else {
         ongoing_ = aim_point_;
     }
@@ -267,9 +276,9 @@ void LabelWidget::set_viewports()
     if (!window)
         return;
     if (num_)
-        text_viewport(texts_[0], window->fetch_screen_rect());
+        text_viewport(object_at(texts_, num_, 0), window->fetch_screen_rect());
     if (shadow_)
-        text_viewport(shadows_[0], window->fetch_screen_rect());
+        text_viewport(object_at(shadows_, num_, 0), window->fetch_screen_rect());
 }
 
 // 0x004AF8C0
@@ -282,29 +291,31 @@ void LabelWidget::change_caption(const char* text)
             memory::dealloc(chars_);
         chars_ = static_cast<char*>(front_end_new(static_cast<unsigned int>(size)));
     }
-    char* out = chars_;
-    while (*text) {
-        char c = *text;
+    core::Cursor<char> out(std::span<char>(chars_, size));
+    core::CStringCursor in(text);
+    while (*in) {
+        char c = *in;
         if (c == '\\') {
-            if (text[1] == '\\') {
+            if (in[1] == '\\') {
                 *out++ = '\\';
-                c = *++text;
-            } else if (text[1] == '_') {
-                text += 2;
+                ++in;
+                c = *in;
+            } else if (in[1] == '_') {
+                in += 2;
                 *out++ = ' ';
                 continue;
-            } else if (text[1] == 'm') {
+            } else if (in[1] == 'm') {
                 // a button: \b and its glyph (the character after \m taken too)
                 *out++ = '\\';
-                text += 2;
+                in += 2;
                 *out++ = 'b';
-                *out++ = button_glyph(text);
-                ++text;
+                *out++ = button_glyph(*in);
+                ++in;
                 continue;
             }
         }
         *out++ = c;
-        ++text;
+        ++in;
     }
     *out = 0;
     if (typeface_) {
@@ -342,9 +353,9 @@ void LabelWidget::set_text_rotation(float degrees, int now)
             y = 0.0f;
         else if (inner_align_v_ > get_zero())
             y = static_cast<float>(static_cast<double>(height) * summed_.scale_y_);
-        text_rotation(texts_[i], angle, x, y);
+        text_rotation(object_at(texts_, num_, i), angle, x, y);
         if (shadow_)
-            text_rotation(shadows_[i], angle, x, y);
+            text_rotation(object_at(shadows_, num_, i), angle, x, y);
     }
     object_flags_ |= kDirty;
     shown_.angle = angle;
@@ -353,25 +364,25 @@ void LabelWidget::set_text_rotation(float degrees, int now)
 // 0x004AFBB0
 void LabelWidget::set_char_properties(script::Array* chars)
 {
-    change_glyph_text(texts_[0], chars_);
+    change_glyph_text(object_at(texts_, num_, 0), chars_);
     for (uint32_t i = 0; i < chars->extent_; ++i) {
         auto* c = chars->struct_at(i);
         int index = 0;
         c->fetch_int_value(kIndex, &index, 1);
         float degrees = 0.0f;
         if (c->fetch_float(kRotAngle, &degrees, 0))
-            static_cast<render::GlyphString*>(texts_[0])->set_char_rotation(
+            static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_rotation(
                 index, static_cast<float>(static_cast<double>(degrees) * get_degrees()));
         float x = 0.0f, y = 0.0f;
         if (c->fetch_pair(kOffset, &x, &y, 0)) {
             const int iy = get_truncated(y);
             const int ix = get_truncated(x);
-            static_cast<render::GlyphString*>(texts_[0])->set_char_offset(index, static_cast<int16_t>(ix),
+            static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_offset(index, static_cast<int16_t>(ix),
                                                                           static_cast<int16_t>(iy));
         }
         float scale_x = 0.0f, scale_y = 0.0f;
         if (c->fetch_pair(kScale, &scale_x, &scale_y, 0))
-            static_cast<render::GlyphString*>(texts_[0])->set_char_scale(index, scale_x, scale_y);
+            static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_scale(index, scale_x, scale_y);
     }
 }
 
@@ -385,8 +396,8 @@ bool LabelWidget::join_onto(const char* text)
     std::array<char, 0x60> joined{};
     core::at(joined, 0) = 0;
     if (chars_)
-        copy_text(joined.data(), chars_);
-    append_text(joined.data(), text);
+        copy_unbounded(joined.data(), chars_);
+    append_unbounded(joined.data(), text);
     change_caption(joined.data());
     return true;
 }
@@ -400,7 +411,7 @@ bool LabelWidget::backspace()
     if (length == 0)
         return false;
     std::array<char, 0x60> shorter{};
-    copy_text(shorter.data(), chars_);
+    copy_unbounded(shorter.data(), chars_);
     if (length > 1 && core::at(shorter, length - 1) == '\\' && core::at(shorter, length - 2) == '\\')
         core::at(shorter, length - 2) = 0;
     core::at(shorter, length - 1) = 0;
@@ -415,7 +426,7 @@ void LabelWidget::make_text_objects(int count, bool only_shadow)
         shadows_ = static_cast<void**>(front_end_new(static_cast<unsigned int>(count) * 4));
         for (int i = 0; i < count; ++i) {
             gsl::owner<void*> text = new_text_object(); // (the element's)
-            shadows_[i] = text;
+            object_at(shadows_, count, i) = text;
         }
     }
     if (!only_shadow) {
@@ -423,7 +434,7 @@ void LabelWidget::make_text_objects(int count, bool only_shadow)
         texts_ = static_cast<void**>(front_end_new(static_cast<unsigned int>(count) * 4));
         for (int i = 0; i < count; ++i) {
             gsl::owner<void*> text = new_text_object(); // (the element's)
-            texts_[i] = text;
+            object_at(texts_, count, i) = text;
         }
     }
     set_viewports();
@@ -434,13 +445,13 @@ void LabelWidget::free_text_objects(bool only_shadow)
 {
     if (shadows_) {
         for (int i = 0; i < num_; ++i)
-            free_text_object(shadows_[i]);
+            free_text_object(object_at(shadows_, num_, i));
         memory::dealloc(static_cast<void*>(shadows_));
         shadows_ = nullptr;
     }
     if (!only_shadow) {
         for (int i = 0; i < num_; ++i)
-            free_text_object(texts_[i]);
+            free_text_object(object_at(texts_, num_, i));
         memory::dealloc(static_cast<void*>(texts_));
         num_ = 0;
     }
@@ -551,7 +562,7 @@ void LabelWidget::tick_frame()
     if (num_) {
         uint32_t shown = 0;
         std::memcpy(&shown, shown_.rgba.data(), 4);
-        void* t = texts_[0];
+        void* t = object_at(texts_, num_, 0);
         const uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed_.alpha));
         text_override_alpha(t, override_alpha_);
         // the point turned about (as set_text_rotation), from the text's size when it is turned
@@ -587,7 +598,7 @@ void LabelWidget::tick_frame()
         }
         text_hidden(t, hidden);
         if (shadow_) {
-            void* s = shadows_[0];
+            void* s = object_at(shadows_, num_, 0);
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_.data(), 4);
             const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed_.alpha));
@@ -619,7 +630,7 @@ void LabelWidget::tick_frame()
         const uint32_t blur = blur_->rgba_value_;
         const uint32_t rgba = with_alpha(
             blur, static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(blur >> 24)) * copy->alpha)));
-        void* t = texts_[i];
+        void* t = object_at(texts_, num_, i);
         auto x = static_cast<float>(centre_x - (static_cast<double>(span_) * copy->scale_x_ * get_half() + copy->dx) *
                                                    summed_.scale_x_);
         auto y = static_cast<float>(
@@ -636,7 +647,7 @@ void LabelWidget::tick_frame()
         change_glyph_text(t, chars_);
         text_hidden(t, outside || is_concealed());
         if (shadow_) {
-            void* s = shadows_[i];
+            void* s = object_at(shadows_, num_, i);
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_.data(), 4);
             text_override_alpha(s, override_alpha_);

@@ -10,9 +10,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <span>
+#include <string_view>
 #include <vector>
 #include <array>
 
+#include "engine/core/cursor.h"
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
@@ -43,7 +46,6 @@ TypefaceData* g_glyph_typeface;
 namespace {
 TypefaceData* g_texture_font;
 uint32_t g_text_vertex_count;
-TextVertex* g_text_vertex_buffer;
 bool g_quad_indices_made;
 
 constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
@@ -56,25 +58,27 @@ float vert_screen_ratio() { return g_display_factor_y; }
 int screen_offset_x() { return g_screen_offset_x; }
 int screen_offset_y() { return g_screen_offset_y; }
 
-// The text vertex buffer (open_sketch points it at 0x00779FD8) and how many vertices it holds.
-TextVertex*& get_vertex_buffer() { return g_text_vertex_buffer; }
+// How many vertices the text vertex store holds (the original's buffer pointer, open_sketch's 0x00779FD8, always
+// pointed at the store's start).
 uint32_t& get_vertex_count() { return g_text_vertex_count; }
+// The place of the next quad's four vertices in the store.
+core::Cursor<TextVertex> next_quad() { return core::Cursor<TextVertex>(std::span<TextVertex>(g_text_vertex_store), static_cast<std::ptrdiff_t>(get_vertex_count())); }
 constexpr uint32_t kVertexLimit = 0x400;
 // The font button glyphs come from, and the font whose texture the buffer is drawn with.
 TypefaceData* pad_glyph_typeface() { return g_glyph_typeface; }
 TypefaceData*& get_texture_font() { return g_texture_font; }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
-char meta_button(const char* digit) { return render::button_glyph(digit); }
+char meta_button(char digit) { return render::button_glyph(digit); }
 // The name of the key a button is mapped to.
 const char* button_key_name(int button) { return sio::get_button_key_name(button); }
 
-// "\b<d>" / "\m<d>" (the pointer at d): which button.
-int glyph_for_button_tag(char tag, const char* digit)
+// "\b<d>" / "\m<d>" (d the digit): which button.
+int glyph_for_button_tag(char tag, char digit)
 {
     if (tag == 'M' || tag == 'm') {
         const char mapped = meta_button(digit);
-        return text::hex_digit_value(&mapped);
+        return text::hex_digit_value(mapped);
     }
     // Originally from PartyMod Fixes (its call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
     // explicit button tags are turned back into the controller's. The original: TextUtil::hex_digit_value(digit).
@@ -102,21 +106,22 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 void TypefaceData::read_string_param(const char* text, float* out_width, float* out_height)
 {
     int total = 0;
-    const char* p = text;
+    core::CStringCursor p(text);
     for (;;) {
         const Char* glyph = nullptr; // set by an escape that draws a glyph in place of the next character
         const TypefaceData* font = this;
         bool counted = true;
         bool done = false;
         while (*p == '\\' && !done) {
-            const char tag = *++p;
+            ++p;
+            const char tag = *p;
             if (tag == '\\')
                 break; // "\\": the second backslash is a character
             switch (tag) {
             case 'S':
             case 's':
                 ++p;
-                glyph = &chars[core::at(special_map_, text::hex_digit_value(p))];
+                glyph = &this->glyph(core::at(special_map_, text::hex_digit_value(*p)));
                 done = true;
                 break;
             case 'B':
@@ -124,15 +129,15 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
             case 'M':
             case 'm': {
                 ++p;
-                const int button = glyph_for_button_tag(tag, p);
+                const int button = glyph_for_button_tag(tag, *p);
                 if (use_button_glyph(button)) {
                     font = pad_glyph_typeface();
-                    glyph = &font->chars[core::at(font->special_map_, button)];
+                    glyph = &font->glyph(core::at(font->special_map_, button));
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
                     const auto& name_map = map;
-                    for (const char* name = button_key_name(button); *name; ++name)
-                        total += chars[core::at(name_map, static_cast<signed char>(*name))].w + glyph_gap_;
+                    for (const char name : std::string_view(button_key_name(button)))
+                        total += this->glyph(core::at(name_map, static_cast<signed char>(name))).w + glyph_gap_;
                     counted = false; // not the digit
                 }
                 done = true;
@@ -160,7 +165,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
             else if (*p == ' ')
                 w = blank_gap_;
             else
-                w = font->chars[core::at(font->map, static_cast<uint8_t>(*p))].w;
+                w = font->glyph(core::at(font->map, static_cast<uint8_t>(*p))).w;
             total += w + glyph_gap_;
         }
         ++p;
@@ -179,14 +184,14 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
         *pen_x = static_cast<float>((font->blank_gap_ * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
         return;
     }
-    const Char* glyph = &font->chars[core::at(font->map, static_cast<uint8_t>(c))];
+    const Char* glyph = &font->glyph(core::at(font->map, static_cast<uint8_t>(c)));
     // (x87: top and bottom stay at double precision until stored)
     const double top = static_cast<double>(font->base - glyph->baseline) * yscale * scale_y + pen_y;
     const float left = *pen_x;
     auto right = static_cast<float>(glyph->w * scale_x * xscale + left);
     const double bottom = glyph->h * scale_y * yscale + top;
     const uint32_t vertex_color = get_vertex_color(color);
-    TextVertex* v = get_vertex_buffer() + get_vertex_count();
+    const core::Cursor<TextVertex> v = next_quad();
     v[0] = {left, static_cast<float>(top), z, 1.0f, vertex_color, glyph->u0, glyph->v0};
     v[1] = {left, static_cast<float>(bottom), z, 1.0f, vertex_color, glyph->u0, glyph->v1};
     v[2] = {right, static_cast<float>(bottom), z, 1.0f, vertex_color, glyph->u1, glyph->v1};
@@ -219,15 +224,18 @@ void GlyphRun::draw()
     const float sin_a = std::sin(angle);
     uint32_t vertex_color = get_vertex_color(color);
     int effect = 0; // byte offset of this character's effect record
-    const char* p = text;
+    core::CStringCursor p(text);
+    // (the effects array: one record per character of the string's buffer)
+    const std::span<const TextEffect> effect_records = effects ? std::span<const TextEffect>(effects, kCharEffects) : std::span<const TextEffect>();
     for (;;) {
-        TextVertex* v = get_vertex_buffer() + get_vertex_count();
+        core::Cursor<TextVertex> v = next_quad();
         const TypefaceData* char_font = font;
         const Char* glyph = nullptr;
         bool drawn = true;
         bool done = false;
         while (*p == '\\' && !done) {
-            const char tag = *++p;
+            ++p;
+            const char tag = *p;
             switch (tag) {
             case '\\':
                 done = true; // the second backslash is drawn
@@ -235,7 +243,7 @@ void GlyphRun::draw()
             case 'C':
             case 'c': {
                 ++p;
-                const int index = text::hex_digit_value(p);
+                const int index = text::hex_digit_value(*p);
                 ++p;
                 // colour 0, or any colour while the text's is fixed, is the text's own
                 vertex_color = get_vertex_color(index != 0 && !fixed_color_ ? font->get_color(index) : color);
@@ -244,7 +252,7 @@ void GlyphRun::draw()
             case 'S':
             case 's':
                 ++p;
-                glyph = &font->chars[core::at(font->special_map_, text::hex_digit_value(p))];
+                glyph = &font->glyph(core::at(font->special_map_, text::hex_digit_value(*p)));
                 done = true;
                 break;
             case 'B':
@@ -252,23 +260,23 @@ void GlyphRun::draw()
             case 'M':
             case 'm': {
                 ++p;
-                const int button = glyph_for_button_tag(tag, p);
+                const int button = glyph_for_button_tag(tag, *p);
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
                     TypefaceData* buttons = pad_glyph_typeface();
-                    glyph = &buttons->chars[core::at(buttons->special_map_, button)];
+                    glyph = &buttons->glyph(core::at(buttons->special_map_, button));
                     char_font = buttons;
                     close_sketch();
                     open_sketch();
-                    v = get_vertex_buffer() + get_vertex_count();
+                    v = next_quad();
                     get_texture_font() = buttons;
                 } else {
                     close_sketch();
                     open_sketch();
-                    v = get_vertex_buffer() + get_vertex_count();
+                    v = next_quad();
                     drawn = false; // not the digit
-                    for (const char* name = button_key_name(button); *name; ++name)
-                        draw_key_char(*name, &pos_x, pos_y);
+                    for (const char name : std::string_view(button_key_name(button)))
+                        draw_key_char(name, &pos_x, pos_y);
                 }
                 done = true;
                 break;
@@ -294,11 +302,11 @@ void GlyphRun::draw()
                 continue;
             }
             if (!glyph)
-                glyph = &char_font->chars[core::at(char_font->map, static_cast<uint8_t>(*p))];
+                glyph = &char_font->glyph(core::at(char_font->map, static_cast<uint8_t>(*p)));
             auto top =
                 static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
-                effects ? &effects[effect / static_cast<int>(sizeof(TextEffect))] : nullptr;
+                effects ? &core::at(effect_records, effect / static_cast<int>(sizeof(TextEffect))) : nullptr;
             float right = 0.0f, bottom = 0.0f;
             if (e) {
                 const int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
@@ -411,7 +419,10 @@ uint32_t get_u32(const uint8_t* p)
 } // namespace
 
 // 0x004CEF00
-void GlyphRun::open_sketch() { get_vertex_buffer() = vertex_store().data(); }
+void GlyphRun::open_sketch()
+{
+    // (the original pointed the vertex buffer at the store's start; the quads now go to the store at the count)
+}
 
 // 0x004CEF10
 void GlyphRun::close_sketch()
@@ -419,7 +430,7 @@ void GlyphRun::close_sketch()
     if (!quad_indices_made()) {
         for (int quad = 0; quad < kQuads; ++quad) {
             auto first = static_cast<uint16_t>(quad * 4);
-            uint16_t* triangles = quad_indices().data() + quad * 6;
+            const core::Cursor<uint16_t> triangles(std::span<uint16_t>(quad_indices()), quad * 6);
             triangles[0] = first;
             triangles[1] = static_cast<uint16_t>(first + 1);
             triangles[2] = static_cast<uint16_t>(first + 2);
@@ -492,8 +503,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     // glyph rectangles are in the original page's pixels.
     const uint32_t hd_scale = hd_ui::font_scale(page.hd_mark, page.hd_scale);
     const uint32_t size = font_format::texel_count(page);
-    const uint8_t* texels = reader.cursor();
-    const uint8_t* palette_bytes = texels + size;
+    const std::span<const uint8_t> page_bytes = reader.rest();
     reader.skip(hd_scale != 1 ? static_cast<size_t>(size) * 4 : size + font_format::kPaletteSize);
     std::array<font_format::GlyphRect, font_format::kMaxGlyphs> rects;
     if (!font_format::read_glyph_rects(reader, header.glyph_count, rects)) {
@@ -501,6 +511,9 @@ TypefaceData* TypefaceData::read_in(const char* name)
         return nullptr;
     }
     const int count = header.glyph_count;
+    // (the skip above passed: the page's texels - and, in the original page, its palette - are in the file)
+    const std::span<const uint8_t> texels = page_bytes.first(hd_scale != 1 ? static_cast<size_t>(size) * 4 : size);
+    const std::span<const uint8_t> palette_bytes = hd_scale != 1 ? std::span<const uint8_t>() : page_bytes.subspan(size, font_format::kPaletteSize);
 
     auto* font = static_cast<TypefaceData*>(memory::alloc(sizeof(TypefaceData)));
     if (font)
@@ -511,12 +524,13 @@ TypefaceData* TypefaceData::read_in(const char* name)
     std::memset(font->map.data(), 0, sizeof(font->map));
     std::memset(font->special_map_.data(), 0, sizeof(font->special_map_));
     font->chars = static_cast<Char*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Char)));
+    font->glyph_count_ = static_cast<uint16_t>(count);
 
     // The character map: which glyph each character (and special glyph) is.
     if (font->format == 1) {
         // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index).
         for (int i = 0; i < count; ++i) {
-            font->chars[i].baseline = core::at(entries, i).baseline;
+            font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
             const int16_t code = core::at(entries, i).code();
             if (code >= 0) {
                 core::at(font->map, code & 0xFF) = static_cast<uint8_t>(i);
@@ -529,11 +543,11 @@ TypefaceData* TypefaceData::read_in(const char* name)
     } else if (font->format == 2) {
         // Each glyph: its baseline, then up to four characters (0xFF ends them early).
         for (int i = 0; i < count; ++i) {
-            font->chars[i].baseline = core::at(entries, i).baseline;
-            const uint8_t* codes = core::at(entries, i).codes.data();
-            core::at(font->map, codes[0]) = static_cast<uint8_t>(i);
-            for (int c = 1; c < 4 && codes[c] != 0xFF; ++c)
-                core::at(font->map, codes[c]) = static_cast<uint8_t>(i);
+            font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
+            const auto& codes = core::at(entries, i).codes;
+            core::at(font->map, core::at(codes, 0)) = static_cast<uint8_t>(i);
+            for (int c = 1; c < 4 && core::at(codes, c) != 0xFF; ++c)
+                core::at(font->map, core::at(codes, c)) = static_cast<uint8_t>(i);
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
@@ -568,12 +582,12 @@ TypefaceData* TypefaceData::read_in(const char* name)
         // than the game's heap may have free while the front end loads)
         hd_pixels.resize(size);
         pixels = hd_pixels.data();
-        std::memcpy(pixels, texels, size * 4);
+        std::memcpy(pixels, texels.data(), size * 4);
     } else {
         indices = memory::heap_ptr<uint8_t>(memory::alloc(size));
         std::array<uint32_t, 256> palette{};
-        std::memcpy(indices.get(), texels, size);
-        std::memcpy(palette.data(), palette_bytes, font_format::kPaletteSize);
+        std::memcpy(indices.get(), texels.data(), size);
+        std::memcpy(palette.data(), palette_bytes.data(), font_format::kPaletteSize);
         for (uint32_t& color : palette) {
             const uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
             uint32_t alpha = argb >> 24;
@@ -599,7 +613,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     const double texels_high = static_cast<int>(height / hd_scale);
     for (int i = 0; i < count; ++i) {
         const font_format::GlyphRect& rect = core::at(rects, i);
-        Char& glyph = font->chars[i];
+        Char& glyph = font->glyph(static_cast<std::size_t>(i));
         glyph.w = rect.w;
         glyph.h = rect.h;
         const double u0 = rect.x / texels_wide;
@@ -612,7 +626,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
 
     font->next = typeface_chain();
     typeface_chain() = font;
-    font->blank_gap_ = static_cast<int16_t>(font->chars[core::at(font->map, 'I')].w);
+    font->blank_gap_ = static_cast<int16_t>(font->glyph(core::at(font->map, 'I')).w);
     return font;
 }
 

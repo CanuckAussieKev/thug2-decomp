@@ -28,10 +28,10 @@ void load_glyph_settings()
     s_glyph_style = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "GlyphStyle", 1));
 }
 
-uint32_t button_for_tag(const char* digit)
+uint32_t button_for_tag(char digit)
 {
     if (!key_names()) {
-        switch (*digit) {
+        switch (digit) {
         case 'M':
         case 'm':
             return 3;
