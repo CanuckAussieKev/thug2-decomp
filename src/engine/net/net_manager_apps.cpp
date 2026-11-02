@@ -37,9 +37,11 @@ constexpr int kClientMaxConnections = 1;
 
 memory::HeapUnique<Hub>& sole() { return g_net_core; }
 
-uint32_t g_net_manager_references;
-
-uint32_t& ref_tally() { return g_net_manager_references; }
+uint32_t& ref_tally()
+{
+    static uint32_t net_manager_references{};
+    return net_manager_references;
+}
 
 void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
 

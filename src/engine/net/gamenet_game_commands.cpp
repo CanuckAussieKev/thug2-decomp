@@ -113,9 +113,11 @@ constexpr int kMaxCrownSpawns = 10;
 Hub* net_link() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
-uint32_t g_last_team_request;
-
-uint32_t& last_team_request() { return g_last_team_request; }
+uint32_t& last_team_request()
+{
+    static uint32_t last_team_request{};
+    return last_team_request;
+}
 uint32_t& net_game_start_time() { return g_net_game_start_time; }
 uint8_t& game_reported() { return g_game_reported; } // GameSpy told a game is on
 

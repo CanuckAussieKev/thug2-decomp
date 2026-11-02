@@ -58,24 +58,32 @@ bool valid_key(const char* key)
     return true;
 }
 
-std::array<char, 64> s_name_setting;
+std::array<char, 64>& name_setting()
+{
+    static std::array<char, 64> name_setting{};
+    return name_setting;
+}
 
 // OnlineGameName, or the game's own (an invalid one too: set_up_online_identity reports it); never freed.
 const char* read_game_name()
 {
     build_info::prepare_all(); // (WinMain needs the name before the PC set-up has read the settings)
-    build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameName", "", s_name_setting.data(), sizeof(s_name_setting));
-    return core::at(s_name_setting, 0) != '\0' && valid_name(s_name_setting.data()) ? s_name_setting.data() : kOwnName;
+    build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameName", "", name_setting().data(), sizeof(name_setting()));
+    return core::at(name_setting(), 0) != '\0' && valid_name(name_setting().data()) ? name_setting().data() : kOwnName;
 }
 
-std::array<char, 64> s_key_setting;
+std::array<char, 64>& key_setting()
+{
+    static std::array<char, 64> key_setting{};
+    return key_setting;
+}
 
 // OnlineGameKey, or the game's own (an invalid one too); never freed.
 const char* read_game_key()
 {
     build_info::prepare_all();
-    build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", s_key_setting.data(), sizeof(s_key_setting));
-    return core::at(s_key_setting, 0) != '\0' && valid_key(s_key_setting.data()) ? s_key_setting.data() : kOwnKey;
+    build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", key_setting().data(), sizeof(key_setting()));
+    return core::at(key_setting(), 0) != '\0' && valid_key(key_setting().data()) ? key_setting().data() : kOwnKey;
 }
 
 } // namespace
@@ -95,9 +103,9 @@ const char* game_key()
 void set_up_online_identity()
 {
     const char* name = get_game_name();
-    if (core::at(s_name_setting, 0) != '\0' && name != s_name_setting.data())
+    if (core::at(name_setting(), 0) != '\0' && name != name_setting().data())
         debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
-                          s_name_setting.data());
+                          name_setting().data());
     std::array<char, 64> key{};
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", key.data(), sizeof(key));
     const char* use_key = nullptr;

@@ -34,7 +34,6 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 
-
 namespace online {
 
 using namespace detail;
@@ -106,7 +105,11 @@ void level_change_task(tasks::Task<Hub>* task)
 }
 
 namespace {
-uint32_t g_modem_dialog_end;
+uint32_t& modem_dialog_end()
+{
+    static uint32_t modem_dialog_end{};
+    return modem_dialog_end;
+}
 } // namespace
 
 // 0x00533810
@@ -157,11 +160,11 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         text::format_to(line, "%s", script::fetch_text(kRedialPause));
         params->append_word(kText, script::kQbvalString, line.data());
         get_run(kStateDialog, params);
-        g_modem_dialog_end = frame_clock::get_time() + 5000;
+        modem_dialog_end() = frame_clock::get_time() + 5000;
         net->set_dialup_status(8);
         break;
     case 8:
-        if (frame_clock::get_time() > g_modem_dialog_end) {
+        if (frame_clock::get_time() > modem_dialog_end()) {
             shown = -1;
             net->connect_to_internet();
             return; // (the parameters never deleted: the original's)

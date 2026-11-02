@@ -71,8 +71,6 @@ void send_to_server(Hub* manager, NetMessageInfo* desc)
 // Scripts::CStruct (8 bytes, from the current script struct pool when there is one).
 using ParamBag = script::Struct;
 
-uint32_t g_prev_taunt_stamp;
-
 gsl::owner<ParamBag*> new_script_struct()
 {
     const int current = script::g_struct_pools.current;
@@ -168,7 +166,11 @@ constexpr uint32_t kId = 0x40C698AF; // "id"
 constexpr uint32_t kOpenChatScript = 0x3B4548B8;
 constexpr uint32_t kTauntScript = 0x2C43B5BA;
 constexpr uint32_t kTauntName = 0xB53D0E0F;
-uint32_t& previous_taunt_stamp() { return g_prev_taunt_stamp; }
+uint32_t& previous_taunt_stamp()
+{
+    static uint32_t prev_taunt_stamp{};
+    return prev_taunt_stamp;
+}
 
 // The script command ObjectExists with these parameters.
 bool object_exists(script::Struct* params) { return objects::cfunc_object_exists(params, nullptr); }

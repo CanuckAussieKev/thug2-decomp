@@ -58,6 +58,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace online {
 
@@ -76,15 +77,25 @@ constexpr int kErrorNewUserNick = 0x201;
 constexpr int kErrorPassword = 0x202;
 constexpr int kErrorAlreadyBuddy = 0x603;
 
-bool g_creating_profile;
-uint32_t g_buddy_login_start;
-uint32_t g_last_process;
+// NOT ORIGINAL grouping - buddy_man.cpp's state (the original's globals). Made on first use, never destroyed
+// (buddy_man_state()).
+struct BuddyManState {
+    bool creating_profile_{};
+    uint32_t buddy_login_start_{};
+    uint32_t last_process_{};
+};
+
+BuddyManState& buddy_man_state()
+{
+    static core::NoDestroy<BuddyManState> state;
+    return state.get();
+}
 
 // The login's start (the task's 10 s limit), when GP was last processed once logged in, and "a new profile is being
 // made" (its gpConnectNewUser answer "nick taken" logs in instead).
-uint32_t& login_start() { return g_buddy_login_start; }
-uint32_t& last_process() { return g_last_process; }
-bool& creating_profile() { return g_creating_profile; }
+uint32_t& login_start() { return buddy_man_state().buddy_login_start_; }
+uint32_t& last_process() { return buddy_man_state().last_process_; }
+bool& creating_profile() { return buddy_man_state().creating_profile_; }
 
 Hub* net_session_slot() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }

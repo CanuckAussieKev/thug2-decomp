@@ -51,6 +51,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "wire/gamenet_messages.h"
+#include "engine/core/no_destroy.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
 
@@ -101,13 +102,23 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
-uint32_t g_last_refresh;
-bool g_show_pending;
-uint32_t g_list_clock;
+// NOT ORIGINAL grouping - server_list.cpp's state (the original's globals). Made on first use, never destroyed
+// (server_list_state()).
+struct ServerListState {
+    uint32_t last_refresh_{};
+    bool show_pending_{};
+    uint32_t list_clock_{};
+};
 
-uint32_t& last_refresh() { return g_last_refresh; }
-bool& show_pending() { return g_show_pending; }
-uint32_t& list_clock() { return g_list_clock; }
+ServerListState& server_list_state()
+{
+    static core::NoDestroy<ServerListState> state;
+    return state.get();
+}
+
+uint32_t& last_refresh() { return server_list_state().last_refresh_; }
+bool& show_pending() { return server_list_state().show_pending_; }
+uint32_t& list_clock() { return server_list_state().list_clock_; }
 
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
 memory::ListNode* head_of_scene_list(memory::ListNode* head)

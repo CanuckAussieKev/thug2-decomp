@@ -19,7 +19,11 @@ namespace online::thugpro {
 
 namespace {
 
-uint32_t g_hash_override = 0;
+uint32_t& hash_override()
+{
+    static uint32_t hash_override{0};
+    return hash_override;
+}
 
 uint32_t read_scripts_hash()
 {
@@ -49,13 +53,13 @@ constexpr auto kReasons = std::to_array<ReasonText>({
 
 uint32_t scripts_hash()
 {
-    if (g_hash_override)
-        return g_hash_override;
+    if (hash_override())
+        return hash_override();
     static const uint32_t kScriptsHash = read_scripts_hash();
     return kScriptsHash;
 }
 
-void set_scripts_hash_override(uint32_t hash) { g_hash_override = hash; }
+void set_scripts_hash_override(uint32_t hash) { hash_override() = hash; }
 
 uint16_t make_connect_request(const ConnectInfo& thug2, ConnectRequest* out)
 {

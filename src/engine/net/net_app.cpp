@@ -212,16 +212,20 @@ AppHost::AppHost(int flags)
 }
 
 namespace {
-EnqueueFilter g_enqueue_filter = nullptr; // NOT ORIGINAL - set_enqueue_filter's
+EnqueueFilter& enqueue_filter()
+{
+    static EnqueueFilter enqueue_filter{nullptr}; // NOT ORIGINAL - set_enqueue_filter's
+    return enqueue_filter;
+}
 }
 
-void set_enqueue_filter(EnqueueFilter filter) noexcept { g_enqueue_filter = filter; }
+void set_enqueue_filter(EnqueueFilter filter) noexcept { enqueue_filter() = filter; }
 
 // 0x00457EB0
 void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 {
     // (NOT ORIGINAL: the filter - set_enqueue_filter)
-    if (g_enqueue_filter && g_enqueue_filter(this, handle, desc))
+    if (enqueue_filter() && enqueue_filter()(this, handle, desc))
         return;
     push_network_heap();
     // Every connection that takes it (`accepts`), or every one but handle & 0x7F, or the handle's.

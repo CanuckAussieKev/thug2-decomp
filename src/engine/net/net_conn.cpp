@@ -33,10 +33,12 @@ constexpr uint32_t kWriteBufferSize = 0x514;
 constexpr uint32_t kMinResendThreshold = 500;
 constexpr uint32_t kStatus2ResendThreshold = 1000;
 
-uint32_t g_next_conn_id{1};
-
 // The running number each connection gets (+0x44).
-uint32_t& next_conn_id() { return g_next_conn_id; }
+uint32_t& next_conn_id()
+{
+    static uint32_t next_conn_id{1};
+    return next_conn_id;
+}
 
 // ~StreamDesc: frees the data unless it was sent in place.
 void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }

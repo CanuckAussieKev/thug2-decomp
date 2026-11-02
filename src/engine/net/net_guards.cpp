@@ -71,7 +71,11 @@ int leave_server(net::InboundMsgCtx* context)
 }
 
 const Lookups kGameLookups = {.animation_loaded_ = animation_loaded, .structure_exists_ = structure_exists, .game_mode_exists_ = game_mode_exists, .script_exists_ = script_exists, .leave_server_ = leave_server};
-Lookups s_lookups = kGameLookups;
+Lookups& current_lookups()
+{
+    static Lookups lookups{kGameLookups};
+    return lookups;
+}
 
 // Each name logged once (a THUGPRO player can send the same animation many times a second).
 void log_once(uint8_t id, uint32_t name, const char* what)
@@ -98,7 +102,7 @@ constexpr int kDropped = 1; // (as a handler that took the message: the dispatch
 } // namespace
 
 const Lookups& game_lookups() { return kGameLookups; }
-void set_lookups(const Lookups& lookups) { s_lookups = lookups; }
+void set_lookups(const Lookups& lookups) { current_lookups() = lookups; }
 
 int check_received_message(net::InboundMsgCtx* context)
 {
@@ -133,7 +137,7 @@ int check_received_message(net::InboundMsgCtx* context)
     switch (id) {
     case kMsgPrimaryAnim: {
         const uint32_t animation = read32(context, kAnimOffset);
-        if (!s_lookups.animation_loaded_(animation)) {
+        if (!current_lookups().animation_loaded_(animation)) {
             log_once(id, animation, "names an animation that isn't loaded, played as default:");
             write32(context, kAnimOffset, kDefaultAnim);
         }
@@ -142,7 +146,7 @@ int check_received_message(net::InboundMsgCtx* context)
     case kMsgCreateSpecialItem:
     case kMsgDestroySpecialItem: {
         const uint32_t details = read32(context, kSpecialItemDetails);
-        if (!s_lookups.structure_exists_(details)) {
+        if (!current_lookups().structure_exists_(details)) {
             log_once(id, details, "names special item details that don't exist, dropped:");
             return kDropped;
         }
@@ -150,12 +154,12 @@ int check_received_message(net::InboundMsgCtx* context)
     }
     case kMsgSessionBrief: {
         const uint32_t level = read32(context, kSessionBriefLevelAt);
-        if (!s_lookups.script_exists_(level)) {
+        if (!current_lookups().script_exists_(level)) {
             log_once(id, level, "names a level we haven't, leaving the server: load script");
-            return s_lookups.leave_server_(context);
+            return current_lookups().leave_server_(context);
         }
         const uint32_t mode = read32(context, kSessionBriefGameTypeAt);
-        if (!s_lookups.game_mode_exists_(mode)) {
+        if (!current_lookups().game_mode_exists_(mode)) {
             log_once(id, mode, "names a game mode we haven't, played as free skate:");
             write32(context, kSessionBriefGameTypeAt, kNetLobby);
         }
@@ -163,7 +167,7 @@ int check_received_message(net::InboundMsgCtx* context)
     }
     case kMsgStartGame: {
         const uint32_t mode = read32(context, kStartGameTypeAt);
-        if (!s_lookups.game_mode_exists_(mode)) {
+        if (!current_lookups().game_mode_exists_(mode)) {
             log_once(id, mode, "names a game mode we haven't, played as free skate:");
             write32(context, kStartGameTypeAt, kNetLobby);
         }
@@ -171,9 +175,9 @@ int check_received_message(net::InboundMsgCtx* context)
     }
     case kMsgLevelSwitch: {
         const uint32_t level = read32(context, kChangeLevelLevel);
-        if (!s_lookups.script_exists_(level)) {
+        if (!current_lookups().script_exists_(level)) {
             log_once(id, level, "names a level we haven't, leaving the server: load script");
-            return s_lookups.leave_server_(context);
+            return current_lookups().leave_server_(context);
         }
         return kDispatch;
     }

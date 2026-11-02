@@ -41,7 +41,6 @@
 
 namespace online {
 
-
 namespace {
 
 constexpr uint32_t kLoginTimeout = 10000;   // ms
@@ -62,10 +61,12 @@ int current_rank(double rating)
     return rank > kMaxRank ? kMaxRank : rank;
 }
 
-uint32_t g_stats_login_start;
-
 // The login's start (stats_task's limit).
-uint32_t& login_start() { return g_stats_login_start; }
+uint32_t& login_start()
+{
+    static uint32_t stats_login_start{};
+    return stats_login_start;
+}
 // Set by the cheat script commands (career.cpp): the game reported as a cheat's.
 bool cheat_flag() { return g_cheat_flag; }
 

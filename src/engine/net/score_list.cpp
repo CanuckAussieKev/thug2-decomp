@@ -64,9 +64,12 @@ constexpr std::array<uint32_t, 8> kScoreLines = {{0x2B083809, 0xB20169B3, 0xC506
                                      0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}}; // net_score_5 ... 8
 
 constexpr uint32_t kUpdateInterval = 1000; // ms
-uint32_t g_score_refresh_stamp;
 
-uint32_t& score_sync_stamp_slot() { return g_score_refresh_stamp; }
+uint32_t& score_sync_stamp_slot()
+{
+    static uint32_t score_refresh_stamp{};
+    return score_refresh_stamp;
+}
 
 // A player's SkaterScore's score object (no null checks: as the original).
 void* get_score_of(PlayerRecord* player)

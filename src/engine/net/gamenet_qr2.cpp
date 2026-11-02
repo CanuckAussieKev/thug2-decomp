@@ -78,10 +78,12 @@ void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(
 Hub* net_session_slot() { return g_online_hub; }
 prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 
-std::array<char, 128> g_fallback_map_name{{"Boston"}};
-
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
-std::array<char, 128>& fallback_map_name() { return g_fallback_map_name; }
+std::array<char, 128>& fallback_map_name()
+{
+    static std::array<char, 128> fallback_map_name{{"Boston"}};
+    return fallback_map_name;
+}
 
 } // namespace
 

@@ -239,7 +239,11 @@ void RoomManager::init_peer()
 }
 
 namespace {
-uint32_t g_unknowne430;
+uint32_t& unknowne430()
+{
+    static uint32_t unknowne430{};
+    return unknowne430;
+}
 } // namespace
 
 // 0x00541A10
@@ -248,7 +252,7 @@ void RoomManager::start_listing_games()
     Hub* manager = the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->set_service_state(14); // (the server list's state)
-    g_unknowne430 = 0;
+    unknowne430() = 0;
     g_listing_asked = false;
     g_listing_found = false;
     game_spy::peer_list_group_rooms(remote_, R"(\maxplayers\neversoft\maxrating\minrating)",

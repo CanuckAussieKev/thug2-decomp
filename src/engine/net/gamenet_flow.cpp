@@ -41,6 +41,7 @@
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/no_destroy.h"
 
 namespace online {
 
@@ -164,8 +165,19 @@ void Hub::reset_to_lobby()
 
 uint32_t g_auto_serve_start;
 namespace {
-bool g_waiting_shown;
-uint32_t g_auto_serve_checked;
+// NOT ORIGINAL grouping - gamenet_flow.cpp's state (the original's globals). Made on first use, never destroyed
+// (gamenet_flow_state()).
+struct GamenetFlowState {
+    bool waiting_shown_{};
+    uint32_t auto_serve_checked_{};
+};
+
+GamenetFlowState& gamenet_flow_state()
+{
+    static core::NoDestroy<GamenetFlowState> state;
+    return state.get();
+}
+
 } // namespace
 bool g_cheat_flag;
 
@@ -354,7 +366,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
 void Hub::start_game_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
-    bool& waiting_shown = g_waiting_shown;
+    bool& waiting_shown = gamenet_flow_state().waiting_shown_;
     if (manager->count_other_players() > 0) { // players still loading
         if (manager->get_on_server()) {
             if (!waiting_shown) {
@@ -385,7 +397,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     auto* skate = get_skate();
-    uint32_t& checked = g_auto_serve_checked; // the link checked last
+    uint32_t& checked = gamenet_flow_state().auto_serve_checked_; // the link checked last
     if (manager->is_network_game() && frame_clock::get_time() - checked > kLinkCheckInterval) {
         const bool net_game = manager->in_net_game();
         checked = frame_clock::get_time();

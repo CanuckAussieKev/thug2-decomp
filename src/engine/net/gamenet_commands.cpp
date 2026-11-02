@@ -93,9 +93,11 @@ constexpr int kProSetCount = 7;
 constexpr uint32_t kFlagBaseWarningInterval = 3000; // ms
 constexpr uint32_t kJustStartedTime = 5000;         // ms
 
-uint32_t g_last_flag_base_warning;
-
-uint32_t& last_flag_base_warning() { return g_last_flag_base_warning; }
+uint32_t& last_flag_base_warning()
+{
+    static uint32_t last_flag_base_warning{};
+    return last_flag_base_warning;
+}
 uint32_t& net_game_start_time() { return g_net_game_start_time; }
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }

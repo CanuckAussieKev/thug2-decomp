@@ -25,8 +25,6 @@ namespace net {
 
 namespace {
 
-const char* s_gamestats_host = nullptr;
-
 // `format` with the domain in place of its %s (other % signs are doubled in `format`). Never freed.
 gsl::owner<char*> get_host_name(const char* format, const char* domain)
 {
@@ -40,7 +38,11 @@ gsl::owner<char*> get_host_name(const char* format, const char* domain)
 
 } // namespace
 
-const char*& gamestats_host() { return s_gamestats_host; }
+const char*& gamestats_host()
+{
+    static const char* gamestats_host{nullptr};
+    return gamestats_host;
+}
 
 void set_up_online_hosts()
 {
@@ -49,7 +51,7 @@ void set_up_online_hosts()
 
     // gamestats: also the game's own top stats request (NetLink::RetrieveTopStats reads gamestats_host)
     const char* gamestats = get_host_name("gamestats.%s", domain.data());
-    s_gamestats_host = gamestats;
+    gamestats_host() = gamestats;
     game_spy::set_online_domain(domain.data());
 }
 

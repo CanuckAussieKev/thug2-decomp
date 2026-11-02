@@ -61,6 +61,7 @@
 #include "engine/core/checked_index.h"
 #include "wire/gamenet_messages.h"
 #include "wire/net_wire.h"
+#include "engine/core/no_destroy.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -133,7 +134,11 @@ constexpr uint32_t kPlayerPending = kPlayerPendingObserver; // (kPlayerLocal, kP
 
 // GameSpy CD-key's instance data for client_authorized (12 bytes, operator new).
 // (the join request being sent: the original's is on its stack)
-JoinRequestBlock g_join_scratch;
+JoinRequestBlock& join_scratch()
+{
+    static core::NoDestroy<JoinRequestBlock> join_scratch;
+    return join_scratch.get();
+}
 
 struct AuthInstance {
     AppHost* app;
@@ -141,11 +146,13 @@ struct AuthInstance {
     Conn* conn;
 };
 
-std::array<char, kPasswordSize> g_join_password;
-
 // The global passwords: the one being typed (12) and the one in use (10; resent with every request).
 std::array<char, kPasswordSize>& pending_password() { return g_pending_password; }
-std::array<char, kPasswordSize>& join_password() { return g_join_password; }
+std::array<char, kPasswordSize>& join_password()
+{
+    static std::array<char, kPasswordSize> join_password{};
+    return join_password;
+}
 
 net::Hub* net_session_slot() { return net::Hub::sole(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
@@ -784,7 +791,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     }
     set_maximum_players(proceed->max_players_);
     const char* name = preference_text(manager, kNetworkId);
-    JoinRequestBlock* info = &g_join_scratch; // (the original's is on its stack: 4 KB)
+    JoinRequestBlock* info = &join_scratch(); // (the original's is on its stack: 4 KB)
     std::memset(static_cast<JoinRequestHeader*>(info), 0, sizeof(JoinRequestHeader));
     // NOT ORIGINAL: in the THUGPRO peer mode the profile is our machine id, as THUGPRO's client sends it (TP-R12).
     info->profile =

@@ -46,6 +46,7 @@
 #include "platform/compiler.h"
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's own)
 
@@ -134,22 +135,28 @@ int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, gam
 }
 void* const kNoProgress = code_address(stubs::do_nothing); // (an empty function: no progress callback)
 
-bool g_not_posted_shown;
+// NOT ORIGINAL grouping - gamenet_lobby_peer.cpp's state (the original's globals). Made on first use, never destroyed
+// (gamenet_lobby_peer_state()).
+struct GamenetLobbyPeerState {
+    bool not_posted_shown_{};
+    uint32_t last_report_time_{};
+    uint32_t hosting_since_{};
+    uint32_t connected_time_{};
+};
+
+GamenetLobbyPeerState& gamenet_lobby_peer_state()
+{
+    static core::NoDestroy<GamenetLobbyPeerState> state;
+    return state.get();
+}
+
 } // namespace
 uint32_t g_connection_timer;
-namespace {
-uint32_t g_last_report_time;
-uint32_t g_hosting_since;
-} // namespace
 bool g_game_posted;
-namespace {
-uint32_t g_connected_time;
-} // namespace
-
 // 0x0053F570
 void RoomManager::disconnected_callback(void*, const char* reason, void* param)
 {
-    const uint32_t elapsed = frame_clock::get_time() - g_connected_time; // since connected
+    const uint32_t elapsed = frame_clock::get_time() - gamenet_lobby_peer_state().connected_time_; // since connected
     debug::printf("Disconnected at %d after %d ms. Reason: %s\n", frame_clock::get_time(), elapsed, reason);
     auto* lobby = static_cast<RoomManager*>(param);
     if (lobby->connecting_) {
@@ -290,7 +297,7 @@ void RoomManager::get_connect_callback(void* peer, int success, int, void* param
     net->set_local_address(game_spy::peer_get_public_ip(peer)); // the peer's public address
     commands::cfunc_start_lobby_list(nullptr, nullptr);
     lobby->drop_is_expected_ = false;
-    g_connected_time = frame_clock::get_time(); // connected
+    gamenet_lobby_peer_state().connected_time_ = frame_clock::get_time(); // connected
 }
 
 // 0x00540040
@@ -333,14 +340,14 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
     queued_count() = 0;
     Hub* manager = net_session_slot();
     if (!g_game_posted && manager->in_net_game() && manager->get_on_server()) { // not reported yet
-        if (now - g_hosting_since > kNotPostedTime) {
-            if (!g_not_posted_shown) {
+        if (now - gamenet_lobby_peer_state().hosting_since_ > kNotPostedTime) {
+            if (!gamenet_lobby_peer_state().not_posted_shown_) {
                 get_run(kCreateNotPostedDialog);
-                g_not_posted_shown = true;
+                gamenet_lobby_peer_state().not_posted_shown_ = true;
             }
-        } else if (now - g_last_report_time > kReportInterval) {
+        } else if (now - gamenet_lobby_peer_state().last_report_time_ > kReportInterval) {
             peer_state_changed(lobby->remote_);
-            g_last_report_time = now;
+            gamenet_lobby_peer_state().last_report_time_ = now;
         }
     }
     pop_heap();
@@ -357,10 +364,10 @@ void RoomManager::start_hosting()
         1) // reporting on its socket
         peer_state_changed(remote_);
     const uint32_t now = frame_clock::get_time();
-    g_hosting_since = now;    // hosting since
+    gamenet_lobby_peer_state().hosting_since_ = now;    // hosting since
     g_connection_timer = now; // the connection timer
-    g_last_report_time = now; // reported last
-    g_not_posted_shown = false;
+    gamenet_lobby_peer_state().last_report_time_ = now; // reported last
+    gamenet_lobby_peer_state().not_posted_shown_ = false;
     g_game_posted = false;
     tasks->queue_job(hosting_task_.get());
     hosting_ = true;

@@ -50,6 +50,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/field_reader.h"
+#include "engine/core/no_destroy.h"
 
 namespace script {
 class Struct;
@@ -83,7 +84,11 @@ constexpr int kHandleBroadcast = 0xFF;
 constexpr int kSettleFrames = 30;    // frames with the level up before the options are applied
 constexpr uint32_t kLoadGapMs = 400; // a frame this long: a level (re)load ran in it
 
-int g_override = -1;
+int& override()
+{
+    static int override{-1};
+    return override;
+}
 
 bool read_peer_mode()
 {
@@ -145,13 +150,13 @@ constexpr std::array<ProSetPrefixes, 8> kProSets = {{
 
 bool peer_mode()
 {
-    if (g_override >= 0)
-        return g_override != 0;
+    if (override() >= 0)
+        return override() != 0;
     static const bool kPeerMode = read_peer_mode();
     return kPeerMode;
 }
 
-void set_peer_mode_override(int mode) { g_override = mode; }
+void set_peer_mode_override(int mode) { override() = mode; }
 
 uint32_t get_machine_id()
 {
@@ -426,7 +431,11 @@ struct Session {
     int settle = 0; // frames the level has been up
     uint32_t last_time_ = 0;
 };
-Session g_session;
+Session& session()
+{
+    static core::NoDestroy<Session> session;
+    return session.get();
+}
 
 // The host's options (the chat commands): sent in server info.
 struct HostOptions {
@@ -434,25 +443,29 @@ struct HostOptions {
     uint8_t level_options_ = 0;
     uint8_t pro_sets_ = 0;
 };
-HostOptions g_host;
+HostOptions& host()
+{
+    static core::NoDestroy<HostOptions> host;
+    return host.get();
+}
 
 Hub* net_session_slot() { return fetch_hub(); }
 
 bool is_client_of_net_game(Hub* manager) { return manager && manager->in_net_game() && !manager->get_on_server(); }
 bool is_host_of_net_game(Hub* manager) { return manager && manager->in_net_game() && manager->get_on_server(); }
 
-bool level_up() { return g_session.settle >= kSettleFrames; }
+bool level_up() { return session().settle >= kSettleFrames; }
 
 void apply_session()
 {
     GameEffects effects;
     const char* prefix = current_level_prefix();
-    const HostListing& info = g_session.info;
+    const HostListing& info = session().info;
     get_log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
             prefix ? prefix : "(no level structure)", info.time_of_day_, info.weather, get_level_options(info),
             get_pro_sets(info));
     apply_server_info(info, prefix, net_session_slot()->level_, effects);
-    g_session.applied = true;
+    session().applied = true;
 }
 
 uint32_t get_word(net::InboundMsgCtx* context)
@@ -543,7 +556,7 @@ struct Install {
 
 } // namespace
 
-const HostListing* received_server_info() { return g_session.have ? &g_session.info : nullptr; }
+const HostListing* received_server_info() { return session().have ? &session().info : nullptr; }
 bool time_of_day_unlocked() { return unlock_time_of_day(); }
 bool filter_outgoing_message(net::AppHost* app, int handle, net::NetMessageInfo* desc)
 {
@@ -568,9 +581,9 @@ int handle_server_info(net::InboundMsgCtx* context)
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) ||
         !decode_server_info(context->body_, context->body_size_, &info))
         return 1;
-    g_session.have = true;
-    g_session.applied = false;
-    g_session.info = info;
+    session().have = true;
+    session().applied = false;
+    session().info = info;
     get_log("thugpro: server info: time of day %08X, weather %08X, level options %02X, pro sets %02X",
             info.time_of_day_, info.weather, get_level_options(info), get_pro_sets(info));
     return 1;
@@ -580,11 +593,11 @@ int handle_update_time_of_day(net::InboundMsgCtx* context)
 {
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
         return 1;
-    g_session.have = true;
-    g_session.info.time_of_day_ = get_word(context);
+    session().have = true;
+    session().info.time_of_day_ = get_word(context);
     if (level_up()) {
         GameEffects effects;
-        effects.set_time_of_day(g_session.info.time_of_day_);
+        effects.set_time_of_day(session().info.time_of_day_);
     }
     return 1;
 }
@@ -593,11 +606,11 @@ int handle_update_weather(net::InboundMsgCtx* context)
 {
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
         return 1;
-    g_session.have = true;
-    g_session.info.weather = get_word(context);
+    session().have = true;
+    session().info.weather = get_word(context);
     if (level_up()) {
         GameEffects effects;
-        effects.set_weather(g_session.info.weather);
+        effects.set_weather(session().info.weather);
     }
     return 1;
 }
@@ -621,30 +634,30 @@ void tick_frame()
 {
     Hub* manager = net_session_slot();
     if (!peer_mode() || !is_client_of_net_game(manager)) {
-        if (g_session.have)
+        if (session().have)
             get_log("thugpro: network game over - the host's options dropped");
-        g_session = Session();
+        session() = Session();
         return;
     }
     const uint32_t now = frame_clock::get_time();
-    const bool loaded = g_session.last_time_ != 0 && now - g_session.last_time_ > kLoadGapMs;
-    g_session.last_time_ = now;
+    const bool loaded = session().last_time_ != 0 && now - session().last_time_ > kLoadGapMs;
+    session().last_time_ = now;
     void* skater = objects::find_object(kSkater);
-    if (loaded || !skater || manager->level_ == kLoadMainMenu || manager->level_ != g_session.level ||
-        skater != g_session.skater) {
-        if (loaded || manager->level_ != g_session.level || skater != g_session.skater)
-            g_session.applied = false;
-        g_session.level = manager->level_;
-        g_session.skater = skater;
-        g_session.settle = 0;
+    if (loaded || !skater || manager->level_ == kLoadMainMenu || manager->level_ != session().level ||
+        skater != session().skater) {
+        if (loaded || manager->level_ != session().level || skater != session().skater)
+            session().applied = false;
+        session().level = manager->level_;
+        session().skater = skater;
+        session().settle = 0;
         if (!skater || manager->level_ == kLoadMainMenu)
             return;
     }
-    if (g_session.settle < kSettleFrames) {
-        ++g_session.settle;
+    if (session().settle < kSettleFrames) {
+        ++session().settle;
         return;
     }
-    if (g_session.have && !g_session.applied)
+    if (session().have && !session().applied)
         apply_session();
 }
 
@@ -652,7 +665,7 @@ void tick_frame()
 
 HostListing host_server_info()
 {
-    HostListing info = {.time_of_day_ = gfx::kAfternoon, .weather = g_host.weather, .flags = make_flags(g_host.level_options_, g_host.pro_sets_)};
+    HostListing info = {.time_of_day_ = gfx::kAfternoon, .weather = host().weather, .flags = make_flags(host().level_options_, host().pro_sets_)};
     if (const gfx::CtodManager* manager = gfx::tod_manager()) {
         const uint32_t state = manager->current_state();
         if (is_time_of_day(state))
@@ -703,14 +716,14 @@ bool handle_chat_command(const char* text)
     const bool client = is_client_of_net_game(manager);
     std::array<char, 160> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {
-        const HostListing& info = g_session.info;
+        const HostListing& info = session().info;
         text::format_to(
             line,
             "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
             "%02X",
-            get_machine_id(), client ? (g_session.have ? "the host's" : "no host options yet") : "ours",
-            client ? info.time_of_day_ : host_server_info().time_of_day_, client ? info.weather : g_host.weather,
-            client ? get_level_options(info) : g_host.level_options_, client ? get_pro_sets(info) : g_host.pro_sets_);
+            get_machine_id(), client ? (session().have ? "the host's" : "no host options yet") : "ours",
+            client ? info.time_of_day_ : host_server_info().time_of_day_, client ? info.weather : host().weather,
+            client ? get_level_options(info) : host().level_options_, client ? get_pro_sets(info) : host().pro_sets_);
         get_say(line.data());
         return true;
     }
@@ -738,7 +751,7 @@ bool handle_chat_command(const char* text)
             effects.set_time_of_day(state);
             get_broadcast(kMsgUpdateTimeOfDay, state);
         } else {
-            g_host.weather = state;
+            host().weather = state;
             effects.set_weather(state);
             get_broadcast(kMsgUpdateWeather, state);
         }
@@ -758,7 +771,7 @@ bool handle_chat_command(const char* text)
     auto bit = static_cast<uint8_t>(1 << (n - 1));
     const uint32_t load = manager ? manager->level_ : 0;
     if (option) {
-        g_host.level_options_ = static_cast<uint8_t>(on ? g_host.level_options_ | bit : g_host.level_options_ & ~bit);
+        host().level_options_ = static_cast<uint8_t>(on ? host().level_options_ | bit : host().level_options_ & ~bit);
         const char* prefix = current_level_prefix();
         std::array<char, 96> name{};
         text::format_to(name, "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
@@ -766,7 +779,7 @@ bool handle_chat_command(const char* text)
         text::format_to(line, "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
                         ran ? "" : " (this level has no such option)");
     } else {
-        g_host.pro_sets_ = static_cast<uint8_t>(on ? g_host.pro_sets_ | bit : g_host.pro_sets_ & ~bit);
+        host().pro_sets_ = static_cast<uint8_t>(on ? host().pro_sets_ | bit : host().pro_sets_ & ~bit);
         const bool here = pro_set_level(load);
         if (here)
             apply_pro_set(n - 1, on, load, effects);
