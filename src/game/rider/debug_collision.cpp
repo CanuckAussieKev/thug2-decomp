@@ -123,7 +123,11 @@ struct Recent {
     int face;
     DWORD time;
 };
-std::array<Recent, 32> g_recent;
+std::array<Recent, 32>& stored_recent()
+{
+    static core::NoDestroy<std::array<Recent, 32>> recent;
+    return recent.get();
+}
 // NOT ORIGINAL grouping - debug_collision.cpp's state (the original's globals). Made on first use, never destroyed
 // (debug_collision_state()).
 struct DebugCollisionState {
@@ -147,7 +151,7 @@ bool should_log(const void* what, int face)
     }
     if (debug_collision_state().lines_this_second_ >= 8)
         return false;
-    for (Recent& recent : g_recent) {
+    for (Recent& recent : stored_recent()) {
         if (recent.what == what && recent.face == face) {
             if (now - recent.time < 2000)
                 return false;
@@ -156,8 +160,8 @@ bool should_log(const void* what, int face)
             return true;
         }
     }
-    core::at(g_recent, debug_collision_state().next_recent_) = {.what = what, .face = face, .time = now};
-    debug_collision_state().next_recent_ = static_cast<int>((debug_collision_state().next_recent_ + 1) % (sizeof(g_recent) / sizeof(core::at(g_recent, 0))));
+    core::at(stored_recent(), debug_collision_state().next_recent_) = {.what = what, .face = face, .time = now};
+    debug_collision_state().next_recent_ = static_cast<int>((debug_collision_state().next_recent_ + 1) % (sizeof(stored_recent()) / sizeof(core::at(stored_recent(), 0))));
     ++debug_collision_state().lines_this_second_;
     return true;
 }

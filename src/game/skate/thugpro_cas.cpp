@@ -76,8 +76,19 @@ std::set<std::string>& their_files()
     static std::set<std::string> value; // the path keys of THUGPRO's loose files the added parts name (while loading)
     return value;
 }
-bool s_done;
-int s_frames;
+
+// NOT ORIGINAL grouping - whether the check is done and the frames it waited (were globals). Made on first use, never
+// destroyed (cas_check()).
+struct CasCheck {
+    bool done_{};
+    int frames_{};
+};
+
+CasCheck& cas_check()
+{
+    static core::NoDestroy<CasCheck> state;
+    return state.get();
+}
 
 bool is_file(const std::string& path)
 {
@@ -409,14 +420,14 @@ bool file_path(const char* relative, std::array<char, 260>& path)
 
 void load_once()
 {
-    if (s_done)
+    if (cas_check().done_)
         return;
     if (!script::fetch_list(kMasterEditableList)) {
-        if (++s_frames > kWaitFrames)
-            s_done = true;
+        if (++cas_check().frames_ > kWaitFrames)
+            cas_check().done_ = true;
         return;
     }
-    s_done = true;
+    cas_check().done_ = true;
     const int setting = config_int("features", "thugpro_parts", 1);
     if (!setting) {
         get_log("THUGPRO CAS (TP-R10): off ([features] thugpro_parts=0) - a THUGPRO player's own parts fall back to "

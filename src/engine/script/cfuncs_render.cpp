@@ -41,7 +41,11 @@ using script::Struct;
 namespace {
 constexpr float kRenderDefaultFarPlane{12.0f};
 constexpr float kRenderDefaultNearPlane{12000.0f};
-int g_render_mode;
+int& render_mode()
+{
+    static int render_mode{};
+    return render_mode;
+}
 
 constexpr uint32_t kIgnore1 = 0xD12347A6;        // "ignore_1"
 constexpr uint32_t kIgnore0 = 0xA6247730;        // "ignore_0"
@@ -431,7 +435,7 @@ bool cfunc_set_wireframe_mode(Struct* params, Script*)
 {
     int mode = 0;
     params->fetch_int_value(kMode, &mode, 0);
-    g_render_mode = mode;
+    render_mode() = mode;
     return true;
 }
 

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <array>
 
@@ -18,6 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace park_editing {
@@ -25,14 +27,25 @@ namespace park_editing {
 namespace {
 constexpr double kParkMemoryFullUsage{0.95};
 constexpr double kParkMemoryNearlyFullUsage{0.9};
-MemoryStats g_park_memory_stats;
-gsl::owner<memory::Zone*> g_park_region; // 0x007CE684 (power_down deletes it)
+// NOT ORIGINAL grouping - park_memory.cpp's state (the original's globals). Made on first use, never destroyed
+// (park_memory_state()).
+struct ParkMemoryState {
+    MemoryStats park_memory_stats_{};
+    std::unique_ptr<memory::Zone> park_region_{}; // 0x007CE684 (power_down deletes it)
+    int park_memory_unknown_7c_e_68c_{};
+    int dma_pieces_{};
+    bool counts_dirty_{};
+};
+
+ParkMemoryState& park_memory_state()
+{
+    static core::NoDestroy<ParkMemoryState> state;
+    return state.get();
+}
+
 } // namespace
 memory::Arena* g_park_heap;
 namespace {
-int g_park_memory_unknown_7c_e_68c;
-int g_dma_pieces;
-bool g_counts_dirty;
 
 constexpr uint32_t kPieceDmaTable = 0x9547DA8D; // the global structure of DMA pieces per piece type
 constexpr uint32_t kMemoryValueScript = 0x3CB03619;
@@ -53,7 +66,7 @@ memory::PoolPair& map_list_node_pools() { return g_node_pools; }
 uint8_t& pool_made_here(memory::PoolPair& pair) { return core::at(pair.made_here_, pair.current); }
 memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return core::at(pair.pools, pair.current); }
 
-int& unknown_7c_e_68c() { return g_park_memory_unknown_7c_e_68c; }
+int& unknown_7c_e_68c() { return park_memory_state().park_memory_unknown_7c_e_68c_; }
 
 // The park manager and its generator, whose +0x20 is the most players the park is set up for.
 park_editing::ParkAssembler* park_assembler_ref() { return park_editing::ParkLayout::singleton()->builder_; }
@@ -108,10 +121,10 @@ float pool_usage(memory::PoolPair& pair, const char* base_name, const int& items
 } // namespace
 
 memory::PoolPair& clipboard_pools() { return g_clipboard_pools; }
-MemoryStats& get_attributes() { return g_park_memory_stats; }
+MemoryStats& get_attributes() { return park_memory_state().park_memory_stats_; }
 memory::Arena*& park_heap() { return g_park_heap; }
-int& dma_pieces() { return g_dma_pieces; }
-bool& counts_dirty() { return g_counts_dirty; }
+int& dma_pieces() { return park_memory_state().dma_pieces_; }
+bool& counts_dirty() { return park_memory_state().counts_dirty_; }
 
 // 0x0059E100
 memory::Arena* get_park_heap() { return park_heap(); }
@@ -215,9 +228,8 @@ void power_down()
     delete_pool(clipboard_entry_pools());
     delete_pool(map_list_node_pools());
     memory::Hub::get_pull()->delete_heap(static_cast<memory::MemSource*>(park_heap()));
-    delete g_park_region;
+    memory::destroy_then_clear(park_memory_state().park_region_);
     park_heap() = nullptr;
-    g_park_region = nullptr;
 }
 
 // 0x0059E5C0
@@ -271,7 +283,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     stats.main_heap_free_ -= get_memory_value("anim_set_mem", -1) + main_pad; // "anim_set_mem"
     const int park_pad = get_memory_value("park_heap_pad", -1);               // "park_heap_pad"
     stats.park_bytes_in_use_ = park_heap()->used_size_;
-    stats.park_heap_free_ = g_park_region->free_byte_count() + (park_heap()->free_size_ - park_pad);
+    stats.park_heap_free_ = park_memory_state().park_region_->free_byte_count() + (park_heap()->free_size_ - park_pad);
 
     // Fragmented: the largest block is all that can be counted on.
     if (ints::as_signed(main_heap->largest_free()) < stats.main_heap_free_ &&
@@ -374,8 +386,8 @@ void prepare_all(uint32_t level)
         const int size = get_memory_value("park_heap_size", -1); // "park_heap_size"
         region = memory::construct_in<memory::MemoryArena>(memory, static_cast<uint32_t>(size));
     }
-    g_park_region = region;
-    park_heap() = manager->add_heap(region, direction, name);
+    park_memory_state().park_region_ = memory::take_unique<memory::Zone>(region);
+    park_heap() = manager->add_heap(park_memory_state().park_region_.get(), direction, name);
     create_map_list_node_pool(16000, "CMapListNode");                          // "CMapListNode"
     debug::printf("pool is at %p\n", active_slab_pool(map_list_node_pools())); // "pool is at %p\n"
     create_clipboard_entry_pool(1000, "CClipboardEntry");                      // "CClipboardEntry"

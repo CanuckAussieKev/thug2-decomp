@@ -36,7 +36,11 @@ LastBlock& last_block()
     return last_block.get();
 }
 // Counted up whenever a block is noted or forgotten.
-uint32_t g_generation;
+uint32_t& generation()
+{
+    static uint32_t generation{};
+    return generation;
+}
 
 // Whether `place` is in the block of `size` bytes at `begin` (its end included).
 bool holds(const uint8_t* begin, std::size_t size, const uint8_t* place)
@@ -65,7 +69,7 @@ void note_code_block(std::span<const uint8_t> block)
         it = blocks.erase(it);
     blocks[begin] = block.size();
     last_block() = {};
-    ++g_generation;
+    ++generation();
 }
 
 void forget_code_block(const void* block)
@@ -74,7 +78,7 @@ void forget_code_block(const void* block)
         return;
     code_blocks().erase(static_cast<const uint8_t*>(block));
     last_block() = {};
-    ++g_generation;
+    ++generation();
 }
 
 Tokens tokens_at(const uint8_t* place)
@@ -107,6 +111,6 @@ std::span<const uint8_t> code_between(Tokens from, Tokens to)
     return from.rest().first(static_cast<std::size_t>(to - from));
 }
 
-uint32_t code_blocks_generation() { return g_generation; }
+uint32_t code_blocks_generation() { return generation(); }
 
 } // namespace script

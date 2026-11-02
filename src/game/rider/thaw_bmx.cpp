@@ -30,13 +30,13 @@
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace skater::thaw_bmx {
 
 namespace {
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
-
 
 // The core physics component's fields read here (THUG2's).
 constexpr uint32_t kObject = 0xC; // its skater
@@ -161,8 +161,17 @@ bool cfunc_load_texture(script::Struct* params, script::Script* script)
     return commands::texture_loaded(file) || commands::cfunc_load_texture(params, script);
 }
 
-int g_key = SDL_SCANCODE_F7;
-bool g_key_up = true;
+// NOT ORIGINAL grouping - thaw_bmx.cpp's state (were globals). Made on first use, never destroyed (thaw_bmx_state()).
+struct ThawBmxState {
+    int key_ = SDL_SCANCODE_F7;
+    bool key_up_ = true;
+};
+
+ThawBmxState& thaw_bmx_state()
+{
+    static core::NoDestroy<ThawBmxState> state;
+    return state.get();
+}
 
 } // namespace
 
@@ -380,9 +389,9 @@ void register_script_functions()
     std::array<char, 64> setting = {""};
     build_info::fetch_text(build_info::kKeybinds, "ThawBmx", "", setting.data(), sizeof(setting));
     auto by_name = [](const std::string& text) { return static_cast<int>(SDL_GetScancodeFromName(text.c_str())); };
-    g_key = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F7, by_name);
+    thaw_bmx_state().key_ = sys::screenshot::parse_key(setting.data(), SDL_SCANCODE_F7, by_name);
     get_log("thaw_bmx: on - %s gets on / off THAW's BMX in a level (also the pause menu, or the script %s)",
-            SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)), kToggleScript);
+            SDL_GetScancodeName(static_cast<SDL_Scancode>(thaw_bmx_state().key_)), kToggleScript);
 }
 
 void on_skater_reset(objects::Rider* skater)
@@ -411,9 +420,9 @@ void tick_frame(modules::FrontEnd* front_end)
         get_log("thaw_bmx: no level with the bike's d-pad camera on - the stick moves through the menus again");
     }
     const platform::KeyState keys = platform::keyboard_keys();
-    const bool down = !keys.empty() && g_key > 0 && g_key < SDL_NUM_SCANCODES && core::at(keys, g_key);
-    const bool pressed = down && g_key_up;
-    g_key_up = !down;
+    const bool down = !keys.empty() && thaw_bmx_state().key_ > 0 && thaw_bmx_state().key_ < SDL_NUM_SCANCODES && core::at(keys, thaw_bmx_state().key_);
+    const bool pressed = down && thaw_bmx_state().key_up_;
+    thaw_bmx_state().key_up_ = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
         (front_end && front_end->is_halted_) || render::current_level() == 0)
         return;
