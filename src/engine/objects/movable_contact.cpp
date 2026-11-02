@@ -31,7 +31,7 @@ float get_sum(float a, double b) { return static_cast<float>(static_cast<double>
 gsl::owner<ObjectModule*> MovingSurfaceModule::fabricate() { return new MovingSurfaceModule; }
 
 // (the constructor: inlined in fabricate in the original)
-MovingSurfaceModule::MovingSurfaceModule() { kind_tag_ = kType; }
+MovingSurfaceModule::MovingSurfaceModule() { set_kind_tag(kType); }
 
 // 0x004276C0 (0x004276D0 the deleting one)
 MovingSurfaceModule::~MovingSurfaceModule() { memory::let_go(ride_); } // (a ride it's on is left, as the original)
@@ -174,7 +174,7 @@ void MovingSurfaceModule::update_contact_point()
     const maths::Vec4 at = object->at_point();
     maths::Mat4 inverse{};
     inverse = object->basis_frame();
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     contact_point_ = {
         .x = static_cast<float>(static_cast<double>(pos.x) - at.x), .y = static_cast<float>(static_cast<double>(pos.y) - at.y),
         .z = static_cast<float>(static_cast<double>(pos.z) - at.z), .w = static_cast<float>(static_cast<double>(pos.w) - at.w)};

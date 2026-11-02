@@ -114,17 +114,17 @@ void for_each_sector_geometry(render::WorldScene* scene, uint32_t light_group, F
     lists::KeyMap* sectors = scene->sectors();
     if (!sectors)
         return;
-    sectors->iter_bucket_ = -1;
-    sectors->iter_item_ = nullptr;
-    if (!sectors->step_iterator() || !sectors->iter_item_)
+    sectors->set_iter_bucket(-1);
+    sectors->set_iter_item(nullptr);
+    if (!sectors->step_iterator() || !sectors->iter_item())
         return;
-    for (auto* sector = static_cast<render::WorldCell*>(sectors->iter_item_->value); sector;) {
+    for (auto* sector = static_cast<render::WorldCell*>(sectors->iter_item()->value); sector;) {
         void* geometry = sector_geometry(sector);
         if (geometry && (!light_group || light_group == sector->light_group()))
             fn(geometry);
-        if (!sectors->step_iterator() || !sectors->iter_item_)
+        if (!sectors->step_iterator() || !sectors->iter_item())
             break;
-        sector = static_cast<render::WorldCell*>(sectors->iter_item_->value);
+        sector = static_cast<render::WorldCell*>(sectors->iter_item()->value);
     }
 }
 

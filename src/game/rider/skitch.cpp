@@ -49,13 +49,13 @@ void place_nodes(ClassNodeList* nodes, GameEntity* object)
 gsl::owner<ObjectModule*> TowRideHandler::fabricate() { return new TowRideHandler; }
 
 // (the constructor: inlined in fabricate in the original)
-TowRideHandler::TowRideHandler() { kind_tag_ = kType; }
+TowRideHandler::TowRideHandler() { set_kind_tag(kType); }
 
 // 0x0051B960 (0x0051B980 the deleting one)
 TowRideHandler::~TowRideHandler() = default;
 
 // 0x0051B9B0
-void TowRideHandler::configure_from_data(script::Struct*) { hooks_ = entity_->fetch_module(kObjectHookManager); }
+void TowRideHandler::configure_from_data(script::Struct*) { hooks_ = entity()->fetch_module(kObjectHookManager); }
 
 // 0x0051B9D0
 int TowRideHandler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
@@ -70,7 +70,7 @@ int TowRideHandler::invoke_method_by_name(uint32_t name, script::Struct* params,
 int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* target)
 {
     int nearest = -1;
-    GameEntity* object = entity_;
+    GameEntity* object = entity();
     if (!hooks_ || !object)
         return nearest;
     ClassNodeList* nodes = hook_nodes(hooks_);
@@ -80,7 +80,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
     auto nearest_distance = std::bit_cast<float>(0x56B5E621u); // (far enough)
     maths::Vec4 nearest_point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     int index = 0;
-    for (const ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++index) {
+    for (const ClassNodeList::TableRow* node = nodes->entries(); node; node = node->next, ++index) {
         maths::Vec4 point;
         nodes->xform(&point, &node->pos);
         const maths::Vec4& pos = object->at_point();
@@ -110,7 +110,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
 // 0x0051BC70
 bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
 {
-    GameEntity* object = entity_;
+    GameEntity* object = entity();
     if (!hooks_ || !object)
         return false;
     ClassNodeList* nodes = hook_nodes(hooks_);
@@ -118,7 +118,7 @@ bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
         return false;
     place_nodes(nodes, object);
     int i = 0;
-    for (const ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++i) {
+    for (const ClassNodeList::TableRow* node = nodes->entries(); node; node = node->next, ++i) {
         if (i != index)
             continue;
         maths::Vec4 point;

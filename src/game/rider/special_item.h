@@ -49,6 +49,10 @@ public:
     // any). Other names: 2 (not mine).
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] const std::array<GameEntity*, kItems>& items() const { return items_; }
+
+private:
     std::array<GameEntity*, kItems> items_{}; // +0x18
 };
 

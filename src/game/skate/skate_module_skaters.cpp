@@ -171,10 +171,10 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 // The skater list's node (lists::Elem<Rider>, +0x238 of the skater) out of the list.
 void unlink_skater_node(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 } // namespace
@@ -191,7 +191,7 @@ objects::GameEntity* Skate::get_rider_at(int index)
 {
     if (static_cast<uint32_t>(count_riders()) <= static_cast<uint32_t>(index))
         return nullptr;
-    return static_cast<objects::GameEntity*>(skater_node(static_cast<uint32_t>(index))->data);
+    return static_cast<objects::GameEntity*>(skater_node(static_cast<uint32_t>(index))->data());
 }
 
 // The skater at `index` as the module's loops find it (null past the end; the node's data otherwise).
@@ -199,14 +199,14 @@ objects::Rider* Skate::get_skater_at(uint32_t index)
 {
     if (ints::as_unsigned(count_riders()) <= index)
         return nullptr;
-    return static_cast<objects::Rider*>(skater_node(index)->data);
+    return static_cast<objects::Rider*>(skater_node(index)->data());
 }
 
 // 0x00566520
 objects::Rider* Skate::get_home_rider()
 {
     for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
-        auto* skater = static_cast<objects::Rider*>(skater_node(i)->data); // (no check: as the original)
+        auto* skater = static_cast<objects::Rider*>(skater_node(i)->data()); // (no check: as the original)
         if (skater->is_local_skater())
             return skater;
     }
@@ -217,7 +217,7 @@ objects::Rider* Skate::get_home_rider()
 objects::Rider* Skate::get_rider_by_number(uint32_t id)
 {
     for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
-        auto* skater = static_cast<objects::Rider*>(skater_node(i)->data);
+        auto* skater = static_cast<objects::Rider*>(skater_node(i)->data());
         if (skater->ident() == id)
             return skater;
     }
@@ -273,7 +273,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
                     return skater;
                 // The local skater given the new id (its place in the list by it, its particles, its score's).
                 auto* node = skater->get_skater_link();
-                node->priority = static_cast<int>(id);
+                node->set_priority(static_cast<int>(id));
                 unlink_skater_node(node);
                 riders_.insert_by_unique_order(node);
                 memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
@@ -310,7 +310,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     if (!skater->is_local_skater())
         script::launch_script(kClientSkaterInit, nullptr, skater, false, nullptr);
     auto* node = skater->get_skater_link();
-    node->priority = static_cast<int>(skater->ident());
+    node->set_priority(static_cast<int>(skater->ident()));
     riders_.insert_by_unique_order(node);
     bind_controllers();
     if (skater->is_local_skater() && skater->view_slot() == 0) {
@@ -341,7 +341,7 @@ int Skate::find_free_rider_heap(bool local)
     for (int tries = 0;;) {
         bool used = false;
         for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
-            if (static_cast<objects::Rider*>(skater_node(i)->data)->get_skater_number() == index) {
+            if (static_cast<objects::Rider*>(skater_node(i)->data())->get_skater_number() == index) {
                 used = true;
                 break;
             }
@@ -802,8 +802,8 @@ void Skate::debug_rails()
     stubs::ignore_argument(0); // (the rail manager's debug drawing)
     auto* manager = core::down_cast<objects::EntityHub>(entity_hub_handle());
     for (objects::ObjectModule* component = manager->find_first_module_of_kind(kRailManagerType); component;
-         component = component->next_of_type_) {
-        objects::GameEntity* object = component->entity_;
+         component = component->next_of_type()) {
+        objects::GameEntity* object = component->entity();
         std::array<float, 16> matrix{};
         std::memcpy(matrix.data(), &object->basis_frame(), sizeof(matrix));
         core::at(matrix, 3) = 0.0f;
@@ -925,7 +925,7 @@ void Skate::run_frame_logic()
         if (!skater || !skater->is_local_skater())
             continue;
         device = skater->pad_input()->handler();
-        if (device->dev_->is_attached())
+        if (device->dev()->is_attached())
             continue;
         unplugged = true;
         if (unplugged_frames_ > script::fetch_int_value(kUnpluggedFrameCount)) {
@@ -945,7 +945,7 @@ void Skate::run_frame_logic()
                     net->disconnect_clients();
                 }
             }
-            params->put_int(kDeviceNum, device->dev_->port_no());
+            params->put_int(kDeviceNum, device->dev()->port_no());
             script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
             script::free_struct(params);
             ++unplugged_frames_;
@@ -961,7 +961,7 @@ void Skate::run_frame_logic()
 // 0x00568C90 (the logic task's code)
 void Skate::front_end_tick(tasks::Task<Skate>* task)
 {
-    Skate* skate = task->content_;
+    Skate* skate = task->content();
     online::Hub* net = net_session_slot();
     skate->run_frame_logic();
     if (net->get_on_server() && skate->count_riders())

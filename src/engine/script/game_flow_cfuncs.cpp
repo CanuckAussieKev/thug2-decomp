@@ -712,7 +712,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
     debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2,
                   text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
     script::Array* cheats = script::fetch_list(kCheatList);
-    const int count = static_cast<int>(cheats->extent_);
+    const int count = static_cast<int>(cheats->extent());
     bool found = false;
     for (int i = 0; i < count; ++i) {
         auto* cheat = cheats->struct_at(static_cast<uint32_t>(i));

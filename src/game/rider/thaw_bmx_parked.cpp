@@ -125,10 +125,10 @@ bool thaw_spot(Point* pos, float* heading)
     if (!level || !level->fetch_text("level", &name, 0) || !name)
         return false;
     script::Array* bikes = script::fetch_list(kHomeBikes);
-    if (!bikes || bikes->kind_tag_ != script::kQbvalStruct)
+    if (!bikes || bikes->kind_tag() != script::kQbvalStruct)
         return false;
     const uint32_t want = name_hash(name);
-    for (uint32_t i = 0; i < bikes->extent_; ++i) {
+    for (uint32_t i = 0; i < bikes->extent(); ++i) {
         auto* bike = bikes->struct_at(i);
         uint32_t level_name = 0;
         script::VectorValue p = {};

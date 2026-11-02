@@ -18,24 +18,24 @@ const void* const kHeadData = memory::ListNode::head_marker();
 // A node's links taken out of its list and pointed at itself.
 void uncouple(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 // After `head`: the first node of its list.
 void insert_front(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head;
-    node->next = head->next;
-    head->next->prev = node;
-    head->next = node;
+    node->set_prev(head);
+    node->set_next(head->next());
+    head->next()->set_prev(node);
+    head->set_next(node);
 }
 // The node after `node` (null at the head) - lists::Hunt's step.
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == kHeadData ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == kHeadData ? nullptr : next;
 }
 } // namespace
 
@@ -59,15 +59,15 @@ void SchedulerTask::drop_out()
 {
     if (!sequence_)
         return;
-    ++sequence_->lock_;
+    ++sequence_->lock();
     sequence_->mark_changed();
     uncouple(list_link_);
-    --sequence_->lock_;
+    --sequence_->lock();
     sequence_ = nullptr;
 }
 
 // 0x00406850
-bool SchedulerTask::is_on_task_list() const { return list_link_->prev != list_link_; }
+bool SchedulerTask::is_on_task_list() const { return list_link_->prev() != list_link_; }
 
 // 0x00406A50
 LinkChain::LinkChain() { head_.make_head(); }
@@ -82,9 +82,9 @@ void LinkChain::mark_changed() { altered_ = true; }
 void LinkChain::queue_job(SchedulerTask* task)
 {
     ++lock_;
-    lists::append_vertex(head_, task->list_link_);
-    task->sequence_ = this;
-    task->pass_count_ = pass_count_ - 1;
+    lists::append_vertex(head_, task->list_link());
+    task->set_sequence(this);
+    task->set_pass_count(pass_count_ - 1);
     altered_ = true;
     --lock_;
 }
@@ -97,15 +97,15 @@ void LinkChain::work_on(void* /*unused*/, uint32_t mask)
     ++pass_count_;
     for (bool again = true; again; again = altered_) {
         memory::ListNode* node = get_next_node(&head_);
-        SchedulerTask* task = node ? static_cast<SchedulerTask*>(node->data) : nullptr;
+        SchedulerTask* task = node ? static_cast<SchedulerTask*>(node->data()) : nullptr;
         altered_ = false;
         while (task) {
             // (the next task is found before this one runs: it may take itself out)
             memory::ListNode* next_node = get_next_node(node);
-            SchedulerTask* next = next_node ? static_cast<SchedulerTask*>(next_node->data) : nullptr;
-            if (task->disabled_ == 0 && task->pass_count_ != pass_count_) {
-                task->pass_count_ = pass_count_;
-                if ((mask & task->skip_bits_) == 0)
+            SchedulerTask* next = next_node ? static_cast<SchedulerTask*>(next_node->data()) : nullptr;
+            if (task->disabled() == 0 && task->pass_count() != pass_count_) {
+                task->set_pass_count(pass_count_);
+                if ((mask & task->skip_bits()) == 0)
                     task->run();
             }
             if (altered_)
@@ -122,9 +122,9 @@ void LinkChain::clear_job_list()
     ++lock_;
     for (;;) {
         const memory::ListNode* node = get_next_node(&head_);
-        if (!node || !node->data)
+        if (!node || !node->data())
             break;
-        static_cast<SchedulerTask*>(node->data)->drop_out();
+        static_cast<SchedulerTask*>(node->data())->drop_out();
         altered_ = true;
     }
     --lock_;
@@ -158,8 +158,8 @@ PileUp::~PileUp()
 {
     // (the original counts the lists each time round)
     for (;;) {
-        const memory::ListNode* first = lists_.next;
-        if (first->data == kHeadData || !first)
+        const memory::ListNode* first = lists_.next();
+        if (first->data() == kHeadData || !first)
             break;
         stack_off();
     }
@@ -174,7 +174,7 @@ void PileUp::stack_on()
     void* memory = memory::alloc_zeroed(sizeof(StackList));
     auto* list = memory ? memory::construct_in<StackList>(memory) : nullptr;
     top_side_ = list;
-    insert_front(&lists_, list->list_link_); // (a failed allocation crashes here, as in the original)
+    insert_front(&lists_, list->list_link()); // (a failed allocation crashes here, as in the original)
     pushed_ = true;
 }
 
@@ -186,7 +186,7 @@ void PileUp::stack_off()
     if (ongoing_ == old) {
         // The current list becomes the one below (an empty stack would crash here, as in the original).
         const memory::ListNode* below = get_next_node(first);
-        ongoing_ = below ? static_cast<StackList*>(below->data) : nullptr;
+        ongoing_ = below ? static_cast<StackList*>(below->data()) : nullptr;
     } else {
         pushed_ = false;
     }
@@ -196,8 +196,8 @@ void PileUp::stack_off()
             memory::Hub::get_pull()->dealloc(old);
         }
     } else {
-        uncouple(old->list_link_);
-        insert_front(&popped_lists_, old->list_link_);
+        uncouple(old->list_link());
+        insert_front(&popped_lists_, old->list_link());
     }
     top_side_ = ongoing_;
     just_popped_ = true;
@@ -226,9 +226,9 @@ void PileUp::delete_popped_lists()
 {
     for (;;) {
         const memory::ListNode* node = get_next_node(&popped_lists_);
-        if (!node || !node->data)
+        if (!node || !node->data())
             break;
-        auto* list = static_cast<StackList*>(node->data);
+        auto* list = static_cast<StackList*>(node->data());
         list->~StackList(); // (inlined; deleting the node takes it out of the popped lists)
         memory::Hub::get_pull()->dealloc(list);
     }

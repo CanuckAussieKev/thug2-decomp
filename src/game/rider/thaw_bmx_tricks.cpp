@@ -93,7 +93,7 @@ constexpr auto kSoundTables = std::to_array<const char*>({
 });
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
-objects::GameEntity* object_of(const SkaterPhysicsModule* core) { return core->entity_; }
+objects::GameEntity* object_of(const SkaterPhysicsModule* core) { return core->entity(); }
 float get_frame_length(const SkaterPhysicsModule* core) { return core->frame_length(); }
 int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset(); }
 
@@ -171,7 +171,7 @@ objects::GameEntity* bike_of(void* skater)
     if (!items)
         return nullptr;
     const uint32_t id = name_hash(kBikeObject);
-    for (objects::GameEntity* item : items->items_) {
+    for (objects::GameEntity* item : items->items()) {
         if (item && (item->ident() == id || item->ident() == id + static_cast<objects::Entity*>(skater)->ident()))
             return item;
     }
@@ -566,7 +566,7 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
     if (kind == BikeSound::kAir)
         return 0;
     script::Array* table = script::fetch_list(name_hash(core::at(kSoundTables, static_cast<int>(kind))));
-    if (!table || table->extent_ == 0)
+    if (!table || table->extent() == 0)
         return -1;
     auto* entry = table->struct_at(0);
     if (!surface_kind::get_sound_info(entry, static_cast<surface_kind::SoundInfo*>(info)))

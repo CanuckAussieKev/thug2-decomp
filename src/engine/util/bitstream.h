@@ -28,6 +28,7 @@ public:
     // any negative value comes back as -1.)
     int32_t read_signed_bits(int count);
 
+private:
     std::span<uint32_t> words_;  // the data as words (the last one may be a partial one's room)
     size_t next_word_{0};        // the next word to read/write
     uint32_t octets_{0};        // bits waiting to be written / not yet read

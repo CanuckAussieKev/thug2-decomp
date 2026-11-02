@@ -54,6 +54,7 @@ public:
     // the trigger component (event 14) - any that does rests them for ten frames.
     void check_triggers();
 
+private:
     Rider* rider_ref_{};                // +0x18 the local skater (its projectile slots)
     int seat_{};                        // +0x1C its slot (-1: none)
     int rest_{0};                       // +0x20 frames left before the feelers run again

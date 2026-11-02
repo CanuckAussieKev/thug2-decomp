@@ -200,7 +200,7 @@ void* generated_pixel_shader(const void* material)
     key |= (present * 8 | alpha_flags) << 22;
     // In the cache? (the first item with the key and a shader)
     lists::KeyMap& cache = get_cache();
-    for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1u << cache.bits_) - 1)); item;
+    for (const lists::KeyMap::Item* item = &core::at(cache.bucket_run(), key & ((1u << cache.bits()) - 1)); item;
          item = item->next) {
         if (item->key == key && item->value)
             return item->value;
@@ -319,7 +319,7 @@ void material_pixel_shader(const void* material, void** shader)
         *shader = generated_pixel_shader(material);
         return;
     }
-    if (!core::at(static_cast<const MaterialRef*>(material)->textures_value(), 0)) { // no texture
+    if (!core::at(static_cast<const MaterialRef*>(material)->textures(), 0)) { // no texture
         *shader = hdl(kPixelShader95c);
         return;
     }

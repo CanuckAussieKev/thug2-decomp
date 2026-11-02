@@ -84,29 +84,29 @@ DynamicLightBase* new_dynamic_light(int type);
 // a colour, held by an object (the dynamic light component, `owner` its id).
 struct DynamicLightBase {
     // The fields other code reads and sets.
-    std::array<float, 4>& pos_value() { return pos; }
-    [[nodiscard]] const std::array<float, 4>& pos_value() const { return pos; }
-    [[nodiscard]] int type_value() const { return type; }
-    void set_type(int value) { type = value; }
-    [[nodiscard]] float radius_value() const { return radius; }
-    void set_radius(float value) { radius = value; }
+    std::array<float, 4>& pos() { return pos_; }
+    [[nodiscard]] const std::array<float, 4>& pos() const { return pos_; }
+    [[nodiscard]] int type() const { return type_; }
+    void set_type(int value) { type_ = value; }
+    [[nodiscard]] float radius() const { return radius_; }
+    void set_radius(float value) { radius_ = value; }
     void set_inverse_radius(float value) { inverse_radius_ = value; }
-    [[nodiscard]] float intensity_value() const { return intensity; }
-    void set_intensity(float value) { intensity = value; }
-    [[nodiscard]] uint32_t colour_value() const { return colour; }
-    void set_colour(uint32_t value) { colour = value; }
-    [[nodiscard]] uint32_t owner_value() const { return owner; }
-    void set_owner(uint32_t value) { owner = value; }
+    [[nodiscard]] float intensity() const { return intensity_; }
+    void set_intensity(float value) { intensity_ = value; }
+    [[nodiscard]] uint32_t colour() const { return colour_; }
+    void set_colour(uint32_t value) { colour_ = value; }
+    [[nodiscard]] uint32_t owner() const { return owner_; }
+    void set_owner(uint32_t value) { owner_ = value; }
     void set_unknown2c(bool value) { unknown2c_ = value; }
 
 private:
-    std::array<float, 4> pos;          // +0x04
-    int type;              // +0x14
-    float radius;          // +0x18
+    std::array<float, 4> pos_;          // +0x04
+    int type_;              // +0x14
+    float radius_;          // +0x18
     float inverse_radius_; // +0x1C
-    float intensity;       // +0x20
-    uint32_t colour;       // +0x24 (bytes r, g, b, a)
-    uint32_t owner;        // +0x28 the id of the object it belongs to (0 once it's let go)
+    float intensity_;       // +0x20
+    uint32_t colour_;       // +0x24 (bytes r, g, b, a)
+    uint32_t owner_;        // +0x28 the id of the object it belongs to (0 once it's let go)
     bool unknown2c_;
 
 public:

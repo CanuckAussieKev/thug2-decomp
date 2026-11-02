@@ -122,6 +122,13 @@ public:
     // skater_start_dir for each) and num_gaps_got. False with no gaps (num_gaps_got 0).
     bool create_gap_list(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool built() const { return built_; }
+    void set_built(bool value) { built_ = value; }
+    memory::ListNode& gaps() { return gaps_; }
+    [[nodiscard]] const memory::ListNode& gaps() const { return gaps_; }
+
+private:
     bool built_{false}; // +0x00 (also set by register_gap_entry)
     std::array<uint8_t, 3> pad01{};
     memory::ListNode gaps_{}; // +0x04 the list's head (lists::Foremost<GapEntry>)

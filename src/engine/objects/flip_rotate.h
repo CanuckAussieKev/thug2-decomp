@@ -30,11 +30,16 @@ public:
     // the rotation's x and w and the translation's x negated. True.
     bool fetch_pose(gfx::Stance* pose) override;
 
+private:
     bool mirrored_{false};    // +0x14
     bool has_pivoted_{false}; // +0x15
     std::array<uint8_t, 2> pad16{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(FlipRotateComponent, mirrored_) == 0x14);
+    }
 };
-static_assert(offsetof(FlipRotateComponent, mirrored_) == 0x14);
 static_assert(sizeof(FlipRotateComponent) == 0x18);
 
 } // namespace objects

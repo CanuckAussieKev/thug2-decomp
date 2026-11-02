@@ -58,6 +58,12 @@ public:
     // towards `end`, `size` big; with `send`, told to the server in a network game (message 0x99).
     void place_tag(bool sticker, maths::Vec4 start, maths::Vec4 end, int size, bool send);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool custom_tag() const { return custom_tag_; }
+    void set_custom_tag(bool value) { custom_tag_ = value; }
+    [[nodiscard]] render::BitmapTexture* graffiti() const { return graffiti_; }
+
+private:
     bool custom_tag_{false}; // +0x18
     std::array<uint8_t, 3> pad19{};
     render::BitmapTexture* graffiti_{nullptr}; // +0x1C the graffiti texture

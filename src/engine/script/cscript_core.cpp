@@ -117,9 +117,9 @@ void Script::teardown()
 
     forget_stored_randoms_of(this);
     if (objects::SignalRouteTable* table = signal_routes_) {
-        if (table->in_use_) {
+        if (table->in_use()) {
             // Its handlers are being run: it is marked dead and freed afterwards (by forward_trigger).
-            table->alive_ = false;
+            table->set_alive(false);
         } else {
             table->~SignalRouteTable();
             memory::Hub::get_pull()->dealloc(table);

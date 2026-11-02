@@ -335,7 +335,7 @@ bool item_passed_over(const UiWidget* item)
 {
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
     const script::Struct* tags = as_object(item)->tag_table();
-    for (const script::Component* c = tags ? tags->head_ : nullptr; c; c = c->next) {
+    for (const script::Component* c = tags ? tags->head() : nullptr; c; c = c->next) {
         if (c->name == 0 && c->kind_tag() == script::kQbvalName && c->value.word() == kTagBlank)
             return true;
         if (c->name == kTagActive && c->kind_tag() == script::kQbvalInteger && c->value.integer() == 0)
@@ -634,7 +634,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
         not_sent = "the first controller's pad mapping is inactive";
     else if (front_end->block_menu_input())
         not_sent = "menu input is blocked (SetButtonEventMappings block_menu_input)";
-    else if (!handler || !handler->dev_)
+    else if (!handler || !handler->dev())
         not_sent = "no input device";
     if (log_events() && debug_enabled())
         get_log("  %s %s%s%s", not_sent ? "NOT sent:" : "sent", event_name(event), not_sent ? " - " : "",
@@ -642,7 +642,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
     if (not_sent)
         return;
     script::Struct params;
-    params.put_int(kDeviceNum, handler->dev_->port_no());
+    params.put_int(kDeviceNum, handler->dev()->port_no());
     params.put_int(kController, 0);
     objects::get_tracker()
         ->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);

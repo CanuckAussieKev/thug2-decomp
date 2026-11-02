@@ -121,7 +121,7 @@ bool in_slap_game() { return commands::cfunc_in_slap_game(nullptr, nullptr); }
 GameEntity* skater_by_index(int index) { return static_cast<modules::Skate*>(skater_manager())->get_rider_at(index); }
 const char* get_skater_name(GameEntity* skater) { return core::down_cast<Rider>(skater)->fetch_shown_name(); }
 // A skater's score (its +0x278's +0x18).
-void* skater_score(GameEntity* skater) { return core::down_cast<Rider>(skater)->score_holder()->points_held_; }
+void* skater_score(GameEntity* skater) { return core::down_cast<Rider>(skater)->score_holder()->points_held(); }
 int get_points_total(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 void set_points_total(void* score, int value) { static_cast<modules::PointTally*>(score)->set_grand_total(value); }
 
@@ -199,13 +199,13 @@ RiderFrameLog::RiderFrameLog()
     // entries and the messages again.)
     std::memset(states_.data(), 0, sizeof(states_));
     std::memset(messages_.data(), 0, sizeof(messages_));
-    kind_tag_ = kType;
+    set_kind_tag(kType);
 }
 
 // 0x00519FA0
 void RiderFrameLog::get_frame_movement(maths::Vec4* out)
 {
-    const maths::Vec4& vel = entity_->vel();
+    const maths::Vec4& vel = entity()->vel();
     const double frame = frame_clock::get_frame_seconds();
     auto rounded = static_cast<float>(frame);
     out->x = rounded * vel.x;
@@ -215,12 +215,12 @@ void RiderFrameLog::get_frame_movement(maths::Vec4* out)
 }
 
 // 0x00519FF0
-void RiderFrameLog::fetch_place(maths::Vec4* out) { *out = entity_->at_point(); }
+void RiderFrameLog::fetch_place(maths::Vec4* out) { *out = entity()->at_point(); }
 
 // 0x0051A020
 double RiderFrameLog::get_collision_reach(bool driving)
 {
-    const float reach = script::fetch_float(entity_->is_local_skater() ? 0x0D24273Bu : 0x25F78481u);
+    const float reach = script::fetch_float(entity()->is_local_skater() ? 0x0D24273Bu : 0x25F78481u);
     if (!driving)
         return reach;
     return (script::fetch_float(0x0A49FF23u) + 1.0) * reach;
@@ -230,7 +230,7 @@ double RiderFrameLog::get_collision_reach(bool driving)
 double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 {
     uint32_t name = 0;
-    if (entity_->is_local_skater())
+    if (entity()->is_local_skater())
         name = manager_flag4() ? 0xF2E35FA3u : 0xECB41860u;
     else
         name = manager_flag4() ? 0xDBD6D58Au : 0xC5819249u;
@@ -245,7 +245,7 @@ double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 bool RiderFrameLog::is_near_local_skater()
 {
     const GameEntity* local = local_skater();
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     const float dx = get_difference(pos.x, local->at_point().x);
     const double dy = static_cast<double>(pos.y) - local->at_point().y;
     const double dz = static_cast<double>(pos.z) - local->at_point().z;
@@ -256,12 +256,12 @@ bool RiderFrameLog::is_near_local_skater()
 // 0x0051A1C0
 void RiderFrameLog::check_for_collisions(int first)
 {
-    online::PlayerRecord* me = find_player_slot_by_obj(static_cast<int>(entity_->ident()));
+    online::PlayerRecord* me = find_player_slot_by_obj(static_cast<int>(entity()->ident()));
     if (!me || is_observing(me))
         return;
     if (!manager_may_collide() && !is_it(me) && !on_a_team(me))
         return;
-    auto* my_state = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
+    auto* my_state = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
     // Whether this machine tells the players of a hit (not when the skater is in a bail, outside a slap game).
     bool tell_players = false;
     if (!my_state->flag(PoseFlag::kBailing).on || in_slap_game()) {
@@ -272,7 +272,7 @@ void RiderFrameLog::check_for_collisions(int first)
             return;
     }
     const bool my_driving = my_state->in_vehicle();
-    const maths::Vec4 my_pos = entity_->at_point();
+    const maths::Vec4 my_pos = entity()->at_point();
     maths::Vec4 my_move{};
     get_frame_movement(&my_move);
     maths::Vec4 my_dir = my_move;
@@ -282,7 +282,7 @@ void RiderFrameLog::check_for_collisions(int first)
 
     for (int i = first; i < 8; ++i) {
         GameEntity* skater = skater_by_index(i);
-        if (!skater || skater == entity_)
+        if (!skater || skater == entity())
             continue;
         auto* their_state = core::down_cast<RiderPoseState>(skater->fetch_module(kSkaterState));
         if (their_state->flag(PoseFlag::kBailing).on)
@@ -363,7 +363,7 @@ void RiderFrameLog::check_for_collisions(int first)
             std::array<uint8_t, online::kRanIntoSize> ran_into_bytes{};
             util::ByteWriter ran_into_writer(ran_into_bytes.data(), sizeof(ran_into_bytes));
             online::write_ran_into(ran_into_writer, ran_into);
-            if (ObjectModule* input = entity_->fetch_module(kInput))
+            if (ObjectModule* input = entity()->fetch_module(kInput))
                 core::down_cast<PadInputModule>(input)->set_disabled(true);
             mark_tag_time(me);
             msg.ident_ = kMsgRanInto;
@@ -372,7 +372,7 @@ void RiderFrameLog::check_for_collisions(int first)
             msg.queue_ = net::NetMessageInfo::kLaneOrdered;
             msg.group_id_ = 8;
             app->put_on_outbox(get_connection(me), &msg);
-            auto ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity_->ident()));
+            auto ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity()->ident()));
             msg.ident_ = kMsgRanIntoAck;
             msg.content_ = &ran_into_by;
             msg.byte_count_ = 1;

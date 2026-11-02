@@ -278,13 +278,13 @@ void MenuBase::arrange()
 bool MenuBase::pass_event_to_script(objects::Signal* event)
 {
     void* manager = park_owner();
-    if (manager_uses_priorities() && is_priority_event(manager, event->kind_tag_)) {
+    if (manager_uses_priorities() && is_priority_event(manager, event->kind_tag())) {
         if (!has_priority() || !has_top_precedence(manager, ident()))
             return false;
     }
     if (!objects::Entity::pass_event_to_script(event))
         return false;
-    if (event->kind_tag_ == kFocusSentEvent) {
+    if (event->kind_tag() == kFocusSentEvent) {
         // find the selected item again (by id, else by index), lay the items out
         bool refocus = false;
         if (chosen_item_id_) {
@@ -318,11 +318,11 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         arrange();
         event->set_event_handled(ident(), 0);
     }
-    if (event->kind_tag_ == kFocus && !focused_) {
+    if (event->kind_tag() == kFocus && !focused_) {
         controller_ = objects::event_controller(event);
         // the item to focus: grid_index (the last item whose tag_grid_x is at most it), child_id
         int grid = -1;
-        if (event->payload_ && event->payload_->fetch_int_value(kGridIndex, &grid, 0)) {
+        if (event->payload() && event->payload()->fetch_int_value(kGridIndex, &grid, 0)) {
             grid_index_ = grid;
             ElementPtr item;
             item.assign_value(eldest().get_pull());
@@ -339,7 +339,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
             }
         }
         uint32_t child_id = 0;
-        if (event->payload_ && event->payload_->read_hash_value(kChildId, &child_id, 0)) {
+        if (event->payload() && event->payload()->read_hash_value(kChildId, &child_id, 0)) {
             ElementPtr item;
             item.assign_value(eldest().get_pull());
             for (int i = 0; item; ++i) {
@@ -355,22 +355,22 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         if (chosen_item_id_) {
             move_selection(1, true, false);
             if (chosen_item_id_)
-                get_launch(kFocus, chosen_item_id_, event->payload_);
+                get_launch(kFocus, chosen_item_id_, event->payload());
         }
         event->set_event_handled(ident(), 0);
     }
-    if (event->kind_tag_ == kUnfocus && focused_) {
+    if (event->kind_tag() == kUnfocus && focused_) {
         focused_ = false;
         if (chosen_item_id_)
             get_launch(kUnfocus, chosen_item_id_, nullptr);
         event->set_event_handled(ident(), 0);
     }
-    uint32_t type = event->kind_tag_;
+    uint32_t type = event->kind_tag();
     if (((type == kPadUp && vertical_) || (type == kPadLeft && !vertical_)) && focused_ && pad_handling_) {
         get_step(-1);
         event->set_event_handled(ident(), 0);
     }
-    type = event->kind_tag_;
+    type = event->kind_tag();
     if (((type == kPadDown && vertical_) || (type == kPadRight && !vertical_)) && focused_ && pad_handling_) {
         get_step(1);
         event->set_event_handled(ident(), 0);
@@ -397,17 +397,17 @@ void GroupWidget::change_traits(script::Struct* params)
 bool GroupWidget::pass_event_to_script(objects::Signal* event)
 {
     void* manager = park_owner();
-    if (uses_priorities(manager) && is_priority_event(manager, event->kind_tag_)) {
+    if (uses_priorities(manager) && is_priority_event(manager, event->kind_tag())) {
         if (!has_priority() || !has_top_precedence(manager, ident()))
             return false;
     }
     if (!objects::Entity::pass_event_to_script(event))
         return false;
-    if (event->kind_tag_ == kFocus || event->kind_tag_ == kUnfocus) {
+    if (event->kind_tag() == kFocus || event->kind_tag() == kUnfocus) {
         if (focusable_child_) {
             Struct data;
             data.put_int(kController, objects::event_controller(event));
-            get_launch(event->kind_tag_, focusable_child_, &data);
+            get_launch(event->kind_tag(), focusable_child_, &data);
             data.get_clear();
         }
         event->set_event_handled(ident(), 0);

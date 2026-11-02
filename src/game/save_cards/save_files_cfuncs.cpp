@@ -65,22 +65,22 @@ void DeleteFile(FileLoad* file) { file->teardown(1); }
 // A pair's second pool made (as the pair's own creator, 0x0046F110 / 0x0046F190 / 0x0046F210, does).
 void create_reserve_pool(memory::PoolPair& pools, int item_size, int count, const char* name)
 {
-    ++pools.current;
+    ++pools.current();
     script::create_pool(pools, item_size, count, name);
-    --pools.current;
+    --pools.current();
 }
 // A pair's second pool deleted: its block and itself, if the pair made it.
 void delete_reserve_pool(memory::PoolPair& pools)
 {
-    ++pools.current;
-    if (memory::SlabBank* pool = core::at(pools.pools, pools.current)) {
-        if (core::at(pools.made_here_, pools.current)) {
+    ++pools.current();
+    if (memory::SlabBank* pool = core::at(pools.pools(), pools.current())) {
+        if (core::at(pools.made_here(), pools.current())) {
             memory::Hub::get_pull()->dealloc(pool->memory().data()); // (its destructor body, 0x005BA4E0)
             memory::Hub::get_pull()->dealloc(pool);
         }
-        core::at(pools.pools, pools.current) = nullptr;
+        core::at(pools.pools(), pools.current()) = nullptr;
     }
-    --pools.current;
+    --pools.current();
 }
 
 } // namespace
@@ -285,7 +285,7 @@ bool clear_mem_card_data_for_upload(Struct*, Script*)
 // 0x005A8DA0
 bool create_temporary_mem_card_pools(Struct*, Script*)
 {
-    if (core::at(script::component_pools().pools, script::component_pools().current + 1))
+    if (core::at(script::component_pools().pools(), script::component_pools().current() + 1))
         return true;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
@@ -356,10 +356,10 @@ std::array<uint8_t, kListedFileBytes>& listed_file()
 // The i-th file of a list (its nodes from the head's next; each file is its own node).
 FileLoad* list_entry(memory::ListNode* head, int index)
 {
-    const memory::ListNode* node = head->next;
+    const memory::ListNode* node = head->next();
     for (int i = 0; i < index; ++i)
-        node = node->next;
-    return static_cast<FileLoad*>(node->data);
+        node = node->next();
+    return static_cast<FileLoad*>(node->data());
 }
 
 // A save file's type from its name: on the consoles its letter after the folder, on the PC its extension.
@@ -429,9 +429,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
 
     // into the temporary component and structure pools, if they exist
     bool switched = false;
-    if (core::at(script::component_pools().pools, script::component_pools().current + 1)) {
-        ++script::component_pools().current;
-        ++script::struct_pools().current;
+    if (core::at(script::component_pools().pools(), script::component_pools().current() + 1)) {
+        ++script::component_pools().current();
+        ++script::struct_pools().current();
         switched = true;
     }
     int listed = 0;
@@ -439,8 +439,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     const char* folder = save_folder();
     const int folder_length = static_cast<int>(std::strlen(folder));
     int file_count = 0;
-    for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker() && node;
-         node = node->next)
+    for (const memory::ListNode* node = head.next(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next())
         ++file_count;
     debug::printf(
         "ScriptGetMemCardDirectoryListing: DirList Start\n"); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
@@ -508,14 +508,14 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         core::at(entries, listed++) = entry;
     }
     if (switched) {
-        --script::component_pools().current;
-        --script::struct_pools().current;
+        --script::component_pools().current();
+        --script::struct_pools().current();
     }
     // the list's nodes deleted (each file is its own node)
-    for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker();) {
-        const memory::ListNode* next = node->next;
+    for (const memory::ListNode* node = head.next(); node->data() != memory::ListNode::head_marker();) {
+        const memory::ListNode* next = node->next();
         const memory::ListNode* following = next->is_head() ? nullptr : next;
-        static_cast<FileLoad*>(node->data)->teardown(1);
+        static_cast<FileLoad*>(node->data())->teardown(1);
         node = following;
         if (!node)
             break;
@@ -546,8 +546,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         script->args().get()->append_array_ref(kDirectoryListing, listing);
     }
     // the head unlinked (its destructor's body)
-    head.prev->next = head.next;
-    head.next->prev = head.prev;
+    head.prev()->set_next(head.next());
+    head.next()->set_prev(head.prev());
     return true;
 }
 
@@ -583,10 +583,10 @@ bool save_to_memory_card(Struct* params, Script*)
     }
     // into the temporary pools, if they exist
     bool switched = false;
-    if (core::at(script::component_pools().pools, script::component_pools().current + 1)) {
-        ++script::component_pools().current;
-        ++script::struct_pools().current;
-        ++script::vector_pools().current;
+    if (core::at(script::component_pools().pools(), script::component_pools().current() + 1)) {
+        ++script::component_pools().current();
+        ++script::struct_pools().current();
+        ++script::vector_pools().current();
         switched = true;
     }
     gsl::owner<Struct*> contents = script::spawn_param_bag();
@@ -640,7 +640,7 @@ bool save_to_memory_card(Struct* params, Script*)
         }
         if (named) {
             file = card->unseal(path.data(), 6, file_size);
-            out_of_space = card->fault_ == 2;
+            out_of_space = card->fault() == 2;
         }
         if (file) {
             header = static_cast<uint8_t*>(memory::alloc_block(total));
@@ -666,13 +666,13 @@ bool save_to_memory_card(Struct* params, Script*)
                 header_writer.seek(0);
                 write_save_file_header(header_writer, file_header);
                 int written = file->emit_out(header, static_cast<int>(total));
-                out_of_space = card->fault_ == 2;
+                out_of_space = card->fault() == 2;
                 if (written == ints::as_signed(total)) {
                     if (os_layer() == 5 || padding_size == 0) {
                         saved = true;
                     } else {
                         written = file->emit_out(padding, static_cast<int>(padding_size));
-                        out_of_space = card->fault_ == 2;
+                        out_of_space = card->fault() == 2;
                         saved = written == ints::as_signed(padding_size);
                     }
                 }
@@ -699,9 +699,9 @@ bool save_to_memory_card(Struct* params, Script*)
         script::delete_struct(contents);
     }
     if (switched) {
-        --script::component_pools().current;
-        --script::struct_pools().current;
-        --script::vector_pools().current;
+        --script::component_pools().current();
+        --script::struct_pools().current();
+        --script::vector_pools().current();
     }
     if (os_layer() != 4) {
         audio::pause_music(-1);

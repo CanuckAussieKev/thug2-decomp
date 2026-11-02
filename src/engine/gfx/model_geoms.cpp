@@ -101,7 +101,7 @@ void detach_texture(void* texture)
 }
 
 // The texture's checksum (+4, the folded getter 0x005480C0).
-uint32_t texture_hash(void* texture) { return static_cast<BitmapTexture*>(texture)->checksum_; }
+uint32_t texture_hash(void* texture) { return static_cast<BitmapTexture*>(texture)->checksum(); }
 
 // A colour channel (0-1) as a byte: x * 255 + 0.5, truncated (the original's x87 and _ftol).
 uint32_t color_byte(float value)
@@ -138,7 +138,7 @@ RenderModel::RenderModel()
     auto* head = static_cast<ModelGeomNode*>(memory::alloc(sizeof(ModelGeomNode)));
     if (head)
         head->next = head->prev = head;
-    geom_ring_.head = head;
+    geom_ring_.set_head(head);
     bone_total_ = 0;
     skin_palette_ = nullptr;
     if (display_mode_ != 6 && allows_display_mode(6))
@@ -156,19 +156,19 @@ RenderModel::~RenderModel()
 {
     if (lights_ptr_)
         memory::destroy_then_clear(lights_ptr_);
-    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         if (const gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_)
-            gfx::release_bone_volumes(volumes->num_); // (the table keeps them by their bone count)
+            gfx::release_bone_volumes(volumes->num()); // (the table keeps them by their bone count)
     }
     drop_geoms();
-    erase_geoms(this, get_first(this), geom_ring_.head);
-    memory::Hub::get_pull()->dealloc(geom_ring_.head);
+    erase_geoms(this, get_first(this), geom_ring_.head());
+    memory::Hub::get_pull()->dealloc(geom_ring_.head());
 }
 
 // 0x00494BA0
 void RenderModel::drop_geoms()
 {
-    const ModelGeomNode* head = geom_ring_.head;
+    const ModelGeomNode* head = geom_ring_.head();
     for (const ModelGeomNode* node = get_first(this); node != head; node = node->next) {
         ModelGeom* entry = table_row(node);
         delete_geom_object(memory::owned_element(entry->geom));
@@ -176,7 +176,7 @@ void RenderModel::drop_geoms()
             delete_own_scene(memory::owned_element(entry->scene));
         memory::Hub::get_pull()->dealloc(entry);
     }
-    erase_geoms(this, get_first(this), geom_ring_.head);
+    erase_geoms(this, get_first(this), geom_ring_.head());
     geom_total_ = 0;
     num_file_geoms_ = 0;
     num_asset_geoms_ = 0;
@@ -186,9 +186,9 @@ void RenderModel::drop_geoms()
 void RenderModel::detach_geom(uint32_t name)
 {
     ModelGeomNode* node = get_first(this);
-    while (node != geom_ring_.head && table_row(node)->name != name)
+    while (node != geom_ring_.head() && table_row(node)->name != name)
         node = node->next;
-    if (node == geom_ring_.head)
+    if (node == geom_ring_.head())
         return;
     debug::printf("Uninitializing geometry named %s\n", script::find_checksum_name_or_unknown(name));
     ModelGeom* entry = table_row(node);
@@ -201,11 +201,11 @@ void RenderModel::detach_geom(uint32_t name)
         --num_asset_geoms_;
     --geom_total_;
     memory::Hub::get_pull()->dealloc(entry);
-    if (node != geom_ring_.head) {
+    if (node != geom_ring_.head()) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
         memory::Hub::get_pull()->dealloc(node);
-        --geom_ring_.size;
+        --geom_ring_.size();
     }
 }
 
@@ -235,7 +235,7 @@ bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multic
     if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
     entry->bone_volumes_ = nullptr;
-    insert_geom(this, geom_ring_.head, &entry);
+    insert_geom(this, geom_ring_.head(), &entry);
     if (geom_total_ == 1)
         source_path_ = kFirstAssetGeom;
     return true;
@@ -312,7 +312,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
     entry->bone_volumes_ = nullptr;
-    insert_geom(this, geom_ring_.head, &entry);
+    insert_geom(this, geom_ring_.head(), &entry);
     if (geom_total_ == 1)
         source_path_ = checksums::hash_from_text(file_name);
     return true;
@@ -335,7 +335,7 @@ bool RenderModel::add_geom(Geom* geom, uint32_t name, bool default_heap)
     entry->bone_volumes_ = nullptr;
     entry->scene = nullptr;
     entry->asset_name_ = 0;
-    insert_geom(this, geom_ring_.head, &entry);
+    insert_geom(this, geom_ring_.head(), &entry);
     ++geom_total_;
     if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
@@ -349,7 +349,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
 {
     const bool normal = display_mode_ == 0;
     int index = 0;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++index) {
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++index) {
         const bool active = normal && (flag_bits_ & kModelEnabledBit) && (visible_geoms_ & geom_bit(index));
         set_geom_active(get_geom(node), active);
     }
@@ -367,14 +367,14 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
         (*matrix)[2][3] = 0.0f;
         (*matrix)[3][3] = 1.0f;
         if (!skeleton || no_bones) {
-            for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
+            for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next)
                 set_geom_bone_matrices(get_geom(node), matrix, nullptr, 0, 0, 0);
         } else {
             const maths::Mat4* bones = skeleton_bones(skeleton);
             const int count = skeleton_bone_count(skeleton);
             const int flag = get_bone_flag(count);
             int geom = 0;
-            for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++geom)
+            for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next, ++geom)
                 set_geom_bone_matrices(get_geom(node), matrix, bones, count, flag, geom);
         }
         break;
@@ -410,7 +410,7 @@ int RenderModel::test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, c
     float hit_extra = 0.0f;
     float nearest = 0.01f;
     float extra = test.scale; // (the original's argument slot: each test's extra result lands there, kept between geoms)
-    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
@@ -431,7 +431,7 @@ int RenderModel::test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, c
 // 0x00493AB0
 float RenderModel::get_bone_volume(gfx::Rig* skeleton, const maths::Mat4* world, uint32_t bone)
 {
-    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
@@ -455,7 +455,7 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     text::to_lower_text(to.data());
     if (char* extension = std::strstr(to.data(), ".png"))
         *extension = 0;
-    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all || entry->name == 0) && entry->textures &&
             (entry->textures)->replace_texture_from_file(from.data(), to.data()))
@@ -476,7 +476,7 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
     std::array<char, 0x200> from{};
     get_png_name(from.data(), source);
     void* texture = find_texture(dest);
-    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         const ModelGeom* entry = table_row(node);
         if ((name == entry->name || all) && entry->textures &&
             (entry->textures)->swap_texture(from.data(), static_cast<BitmapTexture*>(texture)))
@@ -493,7 +493,7 @@ bool RenderModel::set_geom_color_hsv(uint32_t name, float h, float s, float v)
 {
     const bool all = name == kAllGeoms;
     bool any = false;
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         if ((name == table_row(node)->name || all) && !is_geom_multicolor(get_geom(node))) {
             set_geom_color(get_geom(node), rgba_from_hsv(h, s, v));
             any = true;
@@ -511,7 +511,7 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
     const uint32_t rgba = rgba_from_hsv(h, s, v);
     const bool all = name == kAllGeoms;
     uint32_t material = 0; // (uninitialised in the original; kept from one geom and pass to the next)
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         Geom* geom = get_geom(node);
         int pass = 0;
         if (!is_geom_multicolor(geom)) {
@@ -524,7 +524,7 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
         // A multicolour geom: its material passes.
         script::Array* materials = nullptr;
         if (params->fetch_list(kMaterials, &materials, 0)) {
-            for (uint32_t i = 0; i < materials->extent_; ++i) {
+            for (uint32_t i = 0; i < materials->extent(); ++i) {
                 auto* entry = materials->struct_at(i);
                 entry->read_hash_value(0u, &material, 1);
                 entry->fetch_int_value(0u, &pass, 1);
@@ -533,7 +533,7 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
         } else if (params->read_hash_value(kMaterial, &material, 0)) {
             script::Array* passes = nullptr;
             if (params->fetch_list(kPass, &passes, 0)) {
-                for (uint32_t i = 0; i < passes->extent_; ++i)
+                for (uint32_t i = 0; i < passes->extent(); ++i)
                     any |= set_geom_material_color(geom, material, static_cast<int>(passes->fetch_part(i)), rgba);
             } else if (params->fetch_int_value(kPass, &pass, 1)) {
                 any |= set_geom_material_color(geom, material, pass, rgba);
@@ -552,7 +552,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
     params->read_hash_value(kName, &name, 1);
     const bool all = name == kAllGeoms;
     uint32_t material = 0; // (as set_color_from_script)
-    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
+    for (ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         Geom* geom = get_geom(node);
         int pass = 0;
         if (!is_geom_multicolor(geom)) {
@@ -564,7 +564,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
         }
         script::Array* materials = nullptr;
         if (params->fetch_list(kMaterials, &materials, 0)) {
-            for (uint32_t i = 0; i < materials->extent_; ++i) {
+            for (uint32_t i = 0; i < materials->extent(); ++i) {
                 auto* entry = materials->struct_at(i);
                 entry->read_hash_value(0u, &material, 1);
                 entry->fetch_int_value(0u, &pass, 1);
@@ -573,7 +573,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
         } else if (params->read_hash_value(kMaterial, &material, 0)) {
             script::Array* passes = nullptr;
             if (params->fetch_list(kPass, &passes, 0)) {
-                for (uint32_t i = 0; i < passes->extent_; ++i)
+                for (uint32_t i = 0; i < passes->extent(); ++i)
                     any |= set_geom_material_color(geom, material, static_cast<int>(passes->fetch_part(i)), kGray);
             } else if (params->fetch_int_value(kPass, &pass, 1)) {
                 any |= set_geom_material_color(geom, material, pass, kGray);

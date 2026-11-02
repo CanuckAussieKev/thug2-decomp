@@ -166,9 +166,9 @@ public:
     };
 
     // The fields other code reads and sets.
-    uint32_t& cur_phase() { return cur_phase_; }
-    [[nodiscard]] uint32_t cur_phase() const { return cur_phase_; }
-    void set_cur_phase(uint32_t value) { cur_phase_ = value; }
+    uint32_t& editor_state() { return cur_phase_; }
+    [[nodiscard]] uint32_t editor_state() const { return cur_phase_; }
+    void set_editor_state(uint32_t value) { cur_phase_ = value; }
     uint32_t& actions() { return actions_; }
     [[nodiscard]] uint32_t actions() const { return actions_; }
     uint32_t& flag_bits() { return flag_bits_; }

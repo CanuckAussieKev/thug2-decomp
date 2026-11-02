@@ -90,7 +90,7 @@ void play_sound_from_structure(ObjectModule* sound, script::Struct* description)
 gsl::owner<ObjectModule*> EngineAudioModule::fabricate() { return new EngineAudioModule; }
 
 // 0x0043C590
-EngineAudioModule::EngineAudioModule() { kind_tag_ = kType; }
+EngineAudioModule::EngineAudioModule() { set_kind_tag(kType); }
 
 // 0x0043C5F0 (0x0043D020 the deleting one)
 EngineAudioModule::~EngineAudioModule()
@@ -108,14 +108,14 @@ EngineAudioModule::~EngineAudioModule()
 // 0x0043C670
 void EngineAudioModule::configure_from_data(script::Struct*)
 {
-    park_editor_level_ = park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorOff;
+    park_editor_level_ = park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff;
 }
 
 // 0x0043D050
 void EngineAudioModule::seal()
 {
-    vehicle_ptr_ = core::down_cast<DrivableModule>(entity_->fetch_module(kVehicle));
-    sound_ptr_ = entity_->fetch_module(kSound);
+    vehicle_ptr_ = core::down_cast<DrivableModule>(entity()->fetch_module(kVehicle));
+    sound_ptr_ = entity()->fetch_module(kSound);
     read_settings();
 }
 
@@ -146,7 +146,7 @@ void EngineAudioModule::read_settings()
     settings_->read_hash_value(0x667FA96A, &skid_sound_name_, 0);
     script::Array* gears = nullptr;
     settings_->fetch_list(0x83273E6B, &gears, 1);
-    gear_count_ = static_cast<int>(gears->extent_);
+    gear_count_ = static_cast<int>(gears->extent());
     for (int i = 0; i < gear_count_; ++i) {
         auto* gear = gears->struct_at(static_cast<uint32_t>(i));
         gear->fetch_float(0xFAD20901, &core::at(gear_steps_, i).up_at_, 1);
@@ -237,7 +237,7 @@ void EngineAudioModule::tick_engine()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point(), sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
+    sfx->fetch_loudness(&volume, &entity()->at_point(), sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
                         nullptr);
     const float loudest = get_setting(settings_, 0x288B029D);
     const float quiet = get_setting(settings_, 0xB8F81277);
@@ -278,7 +278,7 @@ void EngineAudioModule::update_skid()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point(), sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
+    sfx->fetch_loudness(&volume, &entity()->at_point(), sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
     const float loudest = get_setting(settings_, 0x42EA5746);
     const float quiet = get_setting(settings_, 0x43E6CDF2);
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));

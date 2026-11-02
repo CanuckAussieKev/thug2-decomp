@@ -65,10 +65,10 @@ void GrowableMap::append_one(void* item)
 // 0x00562920
 void TableReleaser::empty_table_items()
 {
-    const int count = lookup_table_->num_;
+    const int count = lookup_table_->num();
     for (int i = 0; i < count; ++i)
         memory::dealloc(core::at(lookup_table_->item_run(), i));
-    lookup_table_->num_ = 0;
+    lookup_table_->num() = 0;
 }
 
 } // namespace lists
@@ -127,7 +127,7 @@ uint32_t created_trick_name(int index)
     if (!skater)
         return 0;
     const char* name = nullptr;
-    core::at(skater->trick_slots(), index)->other_params_->fetch_text(kName, &name, 1);
+    core::at(skater->trick_slots(), index)->other_params()->fetch_text(kName, &name, 1);
     return checksums::hash_from_text(name);
 }
 
@@ -254,7 +254,7 @@ int PointTally::get_score_of_range(int first, int last)
 }
 
 // 0x00561640
-uint32_t PointTally::fetch_newest_trick_key() { return log_.num_ ? newest_logged_trick()->label_ : 0; }
+uint32_t PointTally::fetch_newest_trick_key() { return log_.num() ? newest_logged_trick()->label_ : 0; }
 
 // 0x00561660
 uint32_t PointTally::get_trick_name(int index) { return get_trick(index)->label_; }
@@ -269,9 +269,9 @@ void PointTally::dispatch_trick_sequence(bool clear)
         return;
     std::array<const char*, 0xFD> lines{};
     if (!clear) {
-        for (int i = 0; i < log_.num_; ++i)
+        for (int i = 0; i < log_.num(); ++i)
             core::at(lines, i) = get_trick(i)->shown_.data();
-        text->change_caption(std::span<const char* const>(lines).first(static_cast<std::size_t>(log_.num_)));
+        text->change_caption(std::span<const char* const>(lines).first(static_cast<std::size_t>(log_.num())));
     } else {
         text->change_caption({});
     }
@@ -284,7 +284,7 @@ void PointTally::setup_balance_meter()
     script::Struct* info = script::read_sub_struct(kBalanceMeterInfo);
     script::Array* arrows = nullptr;
     info->fetch_list(kArrowPositions, &arrows, 0);
-    arrow_count_ = static_cast<int>(arrows->extent_); // (no check: as the original)
+    arrow_count_ = static_cast<int>(arrows->extent()); // (no check: as the original)
     for (int i = 0; i < arrow_count_; ++i)
         core::at(arrows_, i) = *arrows->pair_at(static_cast<uint32_t>(i));
     core::at(arrows_, arrow_count_) = core::at(arrows_, arrow_count_ - 1);
@@ -376,7 +376,7 @@ uint32_t PointTally::trick_from_key_combo(uint32_t key_combo, int taps)
     if (!mapping->read_hash_value(key_combo, &trick, 0)) {
         script::Array* specials = nullptr;
         profile->get_specials()->fetch_list(0u, &specials, 1);
-        const int count = static_cast<int>(specials->extent_);
+        const int count = static_cast<int>(specials->extent());
         for (int i = 0; i < count; ++i) {
             auto* special = specials->struct_at(static_cast<uint32_t>(i));
             uint32_t slot = 0;
@@ -402,7 +402,7 @@ int PointTally::created_trick_from_key_combo(uint32_t key_combo)
         return index;
     script::Array* specials = nullptr;
     profile->get_specials()->fetch_list(0u, &specials, 1);
-    const int count = static_cast<int>(specials->extent_);
+    const int count = static_cast<int>(specials->extent());
     for (int i = 0; i < count; ++i) {
         auto* special = specials->struct_at(static_cast<uint32_t>(i));
         int is_cat = 0;
@@ -615,8 +615,8 @@ void PointTally::trim_log()
     TrickLog merged = {};
     std::memcpy(merged.text_.data(), "... + ", 7);      // "... + "
     std::memcpy(merged.shown_.data(), "...\\_+\\_", 9); // "...\_+\_"
-    int end = log_.num_;
-    for (int i = 0; i < log_.num_; ++i) {
+    int end = log_.num();
+    for (int i = 0; i < log_.num(); ++i) {
         if (i != 0 && !core::at(get_trick(i)->text_, 0)) {
             end = i;
             break;
@@ -629,10 +629,10 @@ void PointTally::trim_log()
     for (int left = end; left > 0; --left) {
         const std::span<void*> logged = log_.item_run();
         memory::dealloc(core::at(logged, 1));
-        for (int i = 1; i < log_.num_ - 1; ++i)
+        for (int i = 1; i < log_.num() - 1; ++i)
             core::at(logged, i) = core::at(logged, i + 1);
-        core::at(logged, log_.num_ - 1) = nullptr;
-        --log_.num_;
+        core::at(logged, log_.num() - 1) = nullptr;
+        --log_.num();
         --tricks_;
         --spin_trick_;
         --last_no_spin_;

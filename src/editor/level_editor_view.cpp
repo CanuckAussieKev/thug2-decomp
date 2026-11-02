@@ -220,8 +220,8 @@ render::TriMeshSource* any_tri_data_of(render::WorldCell* sector, bool* off)
     if (!render::is_static_collider(coll))
         return nullptr;
     if (off)
-        *off = (coll->flag_bits_ & 4) != 0;
-    return coll->geometry_;
+        *off = (coll->flag_bits() & 4) != 0;
+    return coll->geometry();
 }
 
 // The collision drawn for a sector (null: none): on, or switched off by the editor's switch (an invisible wall, or a

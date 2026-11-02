@@ -89,18 +89,18 @@ const char* const kStringSlot = "%s0"; // "%s0"
 
 bool is_head(const memory::ListNode* node) { return node->is_head(); }
 // The node after `node`; null at the list's end (the head).
-memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
+memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next()) ? nullptr : node->next(); }
 template <typename T>
 T* data_of(const memory::ListNode* node)
 {
-    return node ? static_cast<T*>(node->data) : nullptr;
+    return node ? static_cast<T*>(node->data()) : nullptr;
 }
 // The nodes from `node` to the list's end (the original's loop: the head's mark tested before a null node).
 unsigned int tally_nodes(const memory::ListNode* node)
 {
     unsigned int count = 0;
     while (!is_head(node) && node) {
-        node = node->next;
+        node = node->next();
         ++count;
     }
     return count;
@@ -187,12 +187,12 @@ void delete_new_player(JoinerRecord* player)
 // 0x00536820
 void Hub::remove_all_new_players()
 {
-    memory::ListNode* node = joiners_.next;
+    memory::ListNode* node = joiners_.next();
     if (is_head(node))
         return;
     while (node) {
-        auto* player = static_cast<JoinerRecord*>(node->data);
-        memory::ListNode* next = is_head(node->next) ? nullptr : node->next;
+        auto* player = static_cast<JoinerRecord*>(node->data());
+        memory::ListNode* next = is_head(node->next()) ? nullptr : node->next();
         if (host_)
             host_->sever_link(player->conn_);
         memory::ListNode::destroy(node); // (0x005367E0)
@@ -205,12 +205,12 @@ void Hub::remove_all_new_players()
 // 0x00536B10
 void Hub::remove_new_player(JoinerRecord* player)
 {
-    memory::ListNode* node = joiners_.next;
+    memory::ListNode* node = joiners_.next();
     // (the original tests for the list's end before it tests for a null node)
     if (is_head(node) || !node)
         return;
-    while (node->data != player) {
-        node = node->next;
+    while (node->data() != player) {
+        node = node->next();
         if (is_head(node) || !node)
             return;
     }
@@ -264,9 +264,9 @@ JoinerRecord* Hub::begin_joiner_walk(NewPlayerSearch* search)
 JoinerRecord* Hub::step_joiner_walk(NewPlayerSearch* search)
 {
     NewPlayerSearch* s = search;
-    memory::ListNode* next = s->list_link_->next;
-    s->list_link_ = next->data == memory::ListNode::head_marker() ? nullptr : next;
-    return s->list_link_ ? static_cast<JoinerRecord*>(next->data) : nullptr;
+    memory::ListNode* next = s->list_link_->next();
+    s->list_link_ = next->data() == memory::ListNode::head_marker() ? nullptr : next;
+    return s->list_link_ ? static_cast<JoinerRecord*>(next->data()) : nullptr;
 }
 
 // 0x005370A0
@@ -288,7 +288,7 @@ void Hub::set_ready_state(bool ready)
         return;
     cleared_to_start_ = ready;
     modules::Skate* skate = modules::Skate::sole();
-    const unsigned int count = tally_nodes(skate->riders().list_link_.next);
+    const unsigned int count = tally_nodes(skate->riders().list_link_.next());
     for (unsigned int i = 0; i < count; ++i) {
         auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (skater) { // (the original's skater slots 12 / 11)
@@ -334,8 +334,8 @@ void Hub::clear_roster()
         if (skater) {
             // (not checked for null, as in the original)
             auto* score = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
-            if (score->points_held_)
-                score->points_held_->get_reset();
+            if (score->points_held())
+                score->points_held()->get_reset();
         }
     }
 }
@@ -410,10 +410,10 @@ void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
     queued->entity_key_ = object_id;
     queued->own_script_ = script;
     // Onto the end of the list.
-    queued->prev = head->prev;
-    queued->next = head;
-    head->prev->next = queued;
-    head->prev = queued;
+    queued->set_prev(head->prev());
+    queued->set_next(head);
+    head->prev()->set_next(queued);
+    head->set_prev(queued);
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -574,7 +574,7 @@ void Hub::disconnect_clients()
     if (cleared_to_start_) {
         cleared_to_start_ = false;
         modules::Skate* skate = modules::Skate::sole();
-        const unsigned int count = tally_nodes(skate->riders().list_link_.next);
+        const unsigned int count = tally_nodes(skate->riders().list_link_.next());
         for (unsigned int i = 0; i < count; ++i) {
             auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
             if (skater)
@@ -631,7 +631,7 @@ bool Hub::prepare_local_face()
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem)
         return false;
     auto* profile = static_cast<modules::Skate*>(modules::Skate::sole())->fetch_account(0);
-    gfx::FaceSkin* face = profile->appearance()->face_skin_; // its face texture (0x00576E60)
+    gfx::FaceSkin* face = profile->appearance()->face_skin(); // its face texture (0x00576E60)
     if (!face || !face->is_sound())
         return false;
     memory::Hub* memory = memory::Hub::get_pull();
@@ -727,10 +727,10 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     // Its node, onto the end of the list.
     // (a null one is written to anyway, as in the original)
     memory::ListNode* node = memory::ListNode::create(record);
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -796,7 +796,7 @@ void carried_flags_task(tasks::Task<Hub>*)
         if (!flag)
             return;
         auto* skater = core::down_cast<objects::GameEntity>(player_skater(player));
-        gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(skater->fetch_module(kSkeleton))->bone_rig_;
+        gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(skater->fetch_module(kSkeleton))->bone_rig();
         maths::Mat4* matrix = &flag->basis_frame();
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};

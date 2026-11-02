@@ -280,7 +280,7 @@ void ClassNodeList::add_row(uint16_t index, script::Struct* params)
 void ClassNodeList::set_nodes(script::Array* nodes)
 {
     nodes_ = nodes;
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(0x12B4E660, &node_class, 0);

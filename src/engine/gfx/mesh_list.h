@@ -24,40 +24,40 @@ struct StripBreak;
 
 struct SceneRef {
     // The fields other code reads and sets.
-    uint32_t& flags_value() { return flags; }
-    [[nodiscard]] uint32_t flags_value() const { return flags; }
-    [[nodiscard]] lists::KeyMap* materials_value() const { return materials; }
-    void set_materials(lists::KeyMap* value) { materials = value; }
-    [[nodiscard]] MeshRef** meshes_value() const { return meshes; }
-    void set_meshes(MeshRef** value) { meshes = value; }
+    uint32_t& flags() { return flags_; }
+    [[nodiscard]] uint32_t flags() const { return flags_; }
+    [[nodiscard]] lists::KeyMap* materials() const { return materials_; }
+    void set_materials(lists::KeyMap* value) { materials_ = value; }
+    [[nodiscard]] MeshRef** meshes() const { return meshes_; }
+    void set_meshes(MeshRef** value) { meshes_ = value; }
     [[nodiscard]] int mesh_count() const { return mesh_count_; }
     [[nodiscard]] int transparent_count() const { return transparent_count_; }
     [[nodiscard]] int first_transparent() const { return first_transparent_; }
     [[nodiscard]] int first_flagged() const { return first_flagged_; }
     [[nodiscard]] int flagged_count() const { return flagged_count_; }
-    [[nodiscard]] uint8_t unknown40_value() const { return unknown40; }
-    void set_unknown40(uint8_t value) { unknown40 = value; }
-    maths::BBox& bounds_value() { return bounds; }
-    [[nodiscard]] const maths::BBox& bounds_value() const { return bounds; }
-    std::array<float, 3>& centre_value() { return centre; }
-    [[nodiscard]] const std::array<float, 3>& centre_value() const { return centre; }
-    float& radius_value() { return radius; }
-    [[nodiscard]] float radius_value() const { return radius; }
-    [[nodiscard]] HierarchyNode* hierarchy_value() const { return hierarchy; }
-    void set_hierarchy(HierarchyNode* value) { hierarchy = value; }
-    [[nodiscard]] uint32_t unknown78_value() const { return unknown78; }
-    void set_unknown78(uint32_t value) { unknown78 = value; }
+    [[nodiscard]] uint8_t unknown40() const { return unknown40_; }
+    void set_unknown40(uint8_t value) { unknown40_ = value; }
+    maths::BBox& bounds() { return bounds_; }
+    [[nodiscard]] const maths::BBox& bounds() const { return bounds_; }
+    std::array<float, 3>& centre() { return centre_; }
+    [[nodiscard]] const std::array<float, 3>& centre() const { return centre_; }
+    float& radius() { return radius_; }
+    [[nodiscard]] float radius() const { return radius_; }
+    [[nodiscard]] HierarchyNode* hierarchy() const { return hierarchy_; }
+    void set_hierarchy(HierarchyNode* value) { hierarchy_ = value; }
+    [[nodiscard]] uint32_t unknown78() const { return unknown78_; }
+    void set_unknown78(uint32_t value) { unknown78_ = value; }
     IDirect3DVertexBuffer9*& arena_buffer() { return arena_buffer_; }
     [[nodiscard]] IDirect3DVertexBuffer9* arena_buffer() const { return arena_buffer_; }
     void set_arena_buffer(IDirect3DVertexBuffer9* value) { arena_buffer_ = value; }
-    [[nodiscard]] uint32_t unknown80_value() const { return unknown80; }
-    void set_unknown80(uint32_t value) { unknown80 = value; }
+    [[nodiscard]] uint32_t unknown80() const { return unknown80_; }
+    void set_unknown80(uint32_t value) { unknown80_ = value; }
 
 private:
-    uint32_t flags{0}; // 0x100 once its meshes are prepared
+    uint32_t flags_{0}; // 0x100 once its meshes are prepared
     std::array<uint8_t, 0x14> unknown4{};
-    lists::KeyMap* materials{nullptr}; // +0x18, by checksum
-    MeshRef** meshes{nullptr};         // +0x1C
+    lists::KeyMap* materials_{nullptr}; // +0x18, by checksum
+    MeshRef** meshes_{nullptr};         // +0x1C
     int mesh_count_{0};                // +0x20
     int transparent_count_{0};         // +0x24: meshes with a transparent material
     int filled{0};                     // +0x28: where append_meshes puts the next
@@ -65,20 +65,20 @@ private:
     int first_flagged_{-1};            // +0x30: the first whose material has its byte +0xC set
     int flagged_count_{0};             // +0x34
     std::array<uint8_t, 8> unknown38{};
-    uint8_t unknown40{0};
+    uint8_t unknown40_{0};
     std::array<uint8_t, 3> pad41{};
-    maths::BBox bounds; // +0x44
-    std::array<float, 3> centre{};  // +0x64: the bounds' sphere
-    float radius{};     // +0x70
-    HierarchyNode* hierarchy{nullptr}; // +0x74: the scene's hierarchy (new_hierarchy's)
-    uint32_t unknown78{0};
+    maths::BBox bounds_; // +0x44
+    std::array<float, 3> centre_{};  // +0x64: the bounds' sphere
+    float radius_{};     // +0x70
+    HierarchyNode* hierarchy_{nullptr}; // +0x74: the scene's hierarchy (new_hierarchy's)
+    uint32_t unknown78_{0};
     IDirect3DVertexBuffer9* arena_buffer_{nullptr}; // +0x7C: the vertex arena's buffer (released with the scene)
-    uint32_t unknown80{0};
+    uint32_t unknown80_{0};
 
 public:
 
     // NOT ORIGINAL - the meshes as a run of mesh_count_.
-    [[nodiscard]] std::span<MeshRef*> mesh_run() const { return {meshes, static_cast<size_t>(mesh_count_)}; }
+    [[nodiscard]] std::span<MeshRef*> mesh_run() const { return {meshes_, static_cast<size_t>(mesh_count_)}; }
 
     // 0x004DE300: construct empty.
     SceneRef();
@@ -112,8 +112,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SceneRef, meshes) == 0x1C && offsetof(SceneRef, bounds) == 0x44 &&
-                          offsetof(SceneRef, radius) == 0x70 && offsetof(SceneRef, arena_buffer_) == 0x7C,
+        static_assert(offsetof(SceneRef, meshes_) == 0x1C && offsetof(SceneRef, bounds_) == 0x44 &&
+                          offsetof(SceneRef, radius_) == 0x70 && offsetof(SceneRef, arena_buffer_) == 0x7C,
                       "layout must match the original");
     }
 };

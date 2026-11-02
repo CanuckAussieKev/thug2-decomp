@@ -219,7 +219,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
             if (bounds->min.x > reach.max.x || reach.min.x > bounds->max.x || bounds->min.z > reach.max.z ||
                 reach.min.z > bounds->max.z || bounds->min.y > reach.max.y || reach.min.y > bounds->max.y)
                 continue;
-            void* sector = find_sector(found->checksum_);
+            void* sector = find_sector(found->checksum());
             core::at(projected_collision(), count) = found;
             core::at(projected_sectors(), count) = sector;
             ++count;

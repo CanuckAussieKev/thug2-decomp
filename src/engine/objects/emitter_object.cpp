@@ -48,14 +48,14 @@ const maths::BBox* sector_box(void* sector) { return static_cast<render::WorldCe
 // The node whose item the table's iteration is at (null at the end).
 EmitterNode* step_iterator(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item_)
+    if (!table->step_iterator() || !table->iter_item())
         return nullptr;
-    return static_cast<EmitterNode*>(table->iter_item_->value);
+    return static_cast<EmitterNode*>(table->iter_item()->value);
 }
 void start_iteration(lists::KeyMap* table)
 {
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
 }
 
 constexpr float kTrailSpacingSquared = 1600.0f; // 0x006479F4

@@ -109,7 +109,7 @@ int falloff_from_checksum(uint32_t checksum)
 VolumeRef::VolumeRef()
 {
     const AudioMixer* manager = sound_state().audio_mixer_.get();
-    kind_tag_ = manager ? manager->fallback_channel_mode_ : kTypeStereo;
+    kind_tag_ = manager ? manager->fallback_channel_mode() : kTypeStereo;
     change_muted();
 }
 

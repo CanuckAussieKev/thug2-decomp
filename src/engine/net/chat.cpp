@@ -68,8 +68,8 @@ using ParamBag = script::Struct;
 
 gsl::owner<ParamBag*> new_script_struct()
 {
-    const int current = script::struct_pools().current;
-    memory::SlabBank* pool = core::at(script::struct_pools().pools, current);
+    const int current = script::struct_pools().current();
+    memory::SlabBank* pool = core::at(script::struct_pools().pools(), current);
     void* memory = pool ? pool->carve() : memory::alloc(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }

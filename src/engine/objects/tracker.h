@@ -46,6 +46,16 @@ public:
 
     [[nodiscard]] bool is_head() const { return payload_ == platform::all_ones_pointer<script::Script>(); }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] script::Script* payload() const { return payload_; }
+    void set_payload(script::Script* value) { payload_ = value; }
+    void set_rank(int value) { rank_ = value; }
+    [[nodiscard]] ScriptNode* following() const { return following_; }
+    void set_following(ScriptNode* value) { following_ = value; }
+    [[nodiscard]] ScriptNode* preceding() const { return preceding_; }
+    void set_preceding(ScriptNode* value) { preceding_ = value; }
+
+private:
     script::Script* payload_; // the head: -1
     int rank_;                // always 0
     ScriptNode* following_;
@@ -62,7 +72,7 @@ public:
     void drop_out(script::Script* script);
     // (0x00462710, the head's deleting destructor - freeing to the heap, not the pool - is never called.)
 
-    [[nodiscard]] bool is_vacant() const { return preceding_ == this; }
+    [[nodiscard]] bool is_vacant() const { return preceding() == this; }
 
     // The pool pair 0x006F0FC8's new / delete (delete is 0x004624D0, cdecl).
     static void* operator new(size_t size);

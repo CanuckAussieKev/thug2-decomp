@@ -133,7 +133,7 @@ void keep_looping_sound(objects::AudioEmitterModule* object, PlaybackProps* prop
     object->keep_looping_sound(props, time);
 }
 void note_sound_update(objects::AudioEmitterModule* object, PlaybackProps* props) { object->update_props(props); }
-const maths::Vec4* object_position(objects::AudioEmitterModule* object) { return &object->at_point_; }
+const maths::Vec4* object_position(objects::AudioEmitterModule* object) { return &object->at_point(); }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
@@ -347,7 +347,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
     default:
         break;
     }
-    volume->kind_tag_ = VolumeRef::kType3d;
+    volume->set_kind_tag(VolumeRef::kType3d);
     const float magnitude = std::fabs(level);
     if (std::fabs(volume->find_peak_channel()) < magnitude) {
         // which way the sound is: in front of the camera, to its side
@@ -359,15 +359,15 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         const double side = (facing + 1.0f) * 0.5f;
         auto right = static_cast<float>((1.0f - side * side) * level);
         const double left = (1.0f - (1.0f - side) * (1.0f - side)) * level;
-        if (volume->kind_tag_ == VolumeRef::kTypePositional) {
+        if (volume->kind_tag() == VolumeRef::kTypePositional) {
             // (never: the type was just set to 3D)
             bool louder = false;
-            if (left > core::at(volume->lanes_, 0)) {
-                core::at(volume->lanes_, 0) = static_cast<float>(left);
+            if (left > core::at(volume->lanes(), 0)) {
+                core::at(volume->lanes(), 0) = static_cast<float>(left);
                 louder = true;
             }
-            if (right > core::at(volume->lanes_, 1)) {
-                core::at(volume->lanes_, 1) = right;
+            if (right > core::at(volume->lanes(), 1)) {
+                core::at(volume->lanes(), 1) = right;
                 louder = true;
             }
             if (louder) {
@@ -376,17 +376,17 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
                                      static_cast<double>(behind.y) * to_sound.y +
                                      static_cast<double>(behind.x) * to_sound.x;
                 if (ahead < 0.0)
-                    core::at(volume->lanes_, 0) = core::at(volume->lanes_, 0) * -1.0f;
+                    core::at(volume->lanes(), 0) = core::at(volume->lanes(), 0) * -1.0f;
             }
         } else {
-            if (left > core::at(volume->lanes_, 0))
-                core::at(volume->lanes_, 0) = static_cast<float>(left);
-            if (right > core::at(volume->lanes_, 1))
-                core::at(volume->lanes_, 1) = right;
+            if (left > core::at(volume->lanes(), 0))
+                core::at(volume->lanes(), 0) = static_cast<float>(left);
+            if (right > core::at(volume->lanes(), 1))
+                core::at(volume->lanes(), 1) = right;
         }
     }
-    volume->dropoff_ = dropoff;
-    volume->anchor_point_ = *position;
+    volume->set_dropoff(dropoff);
+    volume->anchor_point() = *position;
     return true;
 }
 
@@ -457,7 +457,7 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     float pitch = 100.0f;
     VolumeRef volume;
     const AudioMixer* manager = sole().get();
-    volume.kind_tag_ = manager ? manager->fallback_channel_mode_ : VolumeRef::kTypeStereo;
+    volume.set_kind_tag(manager ? manager->fallback_channel_mode_ : VolumeRef::kTypeStereo);
     volume.change_muted();
     if (extent || distance < dropoff) {
         maths::Vec4 heard{};
@@ -601,7 +601,7 @@ void update_voice_states()
 void init_voices(AudioMixer* manager)
 {
     if (manager)
-        manager->fallback_channel_mode_ = VolumeRef::kTypeStereo;
+        manager->set_fallback_channel_mode(VolumeRef::kTypeStereo);
     for (int i = 0; i < kMaxPlaying; ++i) {
         core::at(get_voices(), i).buffer = nullptr;
         core::at(get_voices(), i).buffer_3d_ = nullptr;
@@ -693,18 +693,18 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     util::ByteReader reader(contents.data(), contents.size());
     wave_format::Wave wave;
     const bool read = wave_format::read_wave(reader, &wave);
-    if (!read || wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes) {
+    if (!read || wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes()) {
         debug::printf("sound %s damaged: cut short, no format or data, or less data than it decodes\n", file_name);
         return false;
     }
-    std::memcpy(this, wave.format.data(), wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
+    std::memcpy(this, wave.format().data(), wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
     unknown12 = 0x40;
-    looping = wave.looping;
+    looping = wave.looping();
     uint32_t size = bytes_per_second_;
     bytes_per_second_ = bits_per_sample_ * samples_per_second_ >> 3;
     void* converted = memory::alloc(size);
     os_layer::decode_adpcm(std::span<int16_t>(static_cast<int16_t*>(converted), size >> 1),
-                           std::span<const uint8_t>(wave.samples, wave.sample_bytes));
+                           std::span<const uint8_t>(wave.samples(), wave.sample_bytes()));
     data = static_cast<uint8_t*>(converted);
     data_size_ = size;
     desc_size_ = 0;
@@ -762,11 +762,11 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     Voice& voice = core::at(get_voices(), index);
     if (!voice.buffer)
         return;
-    if (has_3d() && volume->kind_tag_ == VolumeRef::kType3d && voice.buffer_3d_) {
+    if (has_3d() && volume->kind_tag() == VolumeRef::kType3d && voice.buffer_3d_) {
         // 3D: the sound placed relative to the camera hearing it, the listener facing the viewport's way
-        void* camera = nearest_camera(&volume->anchor_point_, nullptr);
+        void* camera = nearest_camera(&volume->anchor_point(), nullptr);
         void* viewport = viewport_camera(0);
-        maths::Vec4 relative = volume->anchor_point_ - *viewer_location(camera);
+        maths::Vec4 relative = volume->anchor_point() - *viewer_location(camera);
         if (camera != viewport && viewport) {
             const maths::Vec4 front = -core::at(cam_orientation(viewport)->row, 2);
             listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
@@ -778,7 +778,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             const maths::Vec4 front = -core::at(cam_orientation(camera)->row, 2);
             listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
         }
-        const float range = volume->dropoff_;
+        const float range = volume->dropoff();
         IDirectSound3DBuffer* buffer_3d = buffer_3d_of(voice.buffer_3d_);
         buffer_3d->SetMaxDistance(range, DS3D_DEFERRED);
         buffer_3d->SetMinDistance(90.0f, DS3D_DEFERRED);
@@ -792,7 +792,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             else if (attenuation > 0)
                 attenuation = 0;
         }
-        const bool audible = core::at(volume->lanes_, 0) > 0.0f || core::at(volume->lanes_, 1) > 0.0f;
+        const bool audible = core::at(volume->lanes(), 0) > 0.0f || core::at(volume->lanes(), 1) > 0.0f;
         buffer_of(voice.buffer)
             ->SetVolume(output_attenuation(audible ? attenuation : -10000)); // (NOT ORIGINAL: mute_audio)
         if (get_listener())
@@ -802,8 +802,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     // stereo: the louder channel's level and the balance between the two as decibels
     int pan = 0;
     int attenuation = -10000;
-    const float left = core::at(volume->lanes_, 0);
-    const float right = core::at(volume->lanes_, 1);
+    const float left = core::at(volume->lanes(), 0);
+    const float right = core::at(volume->lanes(), 1);
     if (left > 0.0f || right > 0.0f) {
         double louder = 0.0;
         double ratio = 0.0;
@@ -865,7 +865,7 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
             buffer_of(voice.buffer)->Release();
         voice.buffer = nullptr;
         voice.wave = nullptr;
-        const bool three_d = has_3d() && volume->kind_tag_ == VolumeRef::kType3d;
+        const bool three_d = has_3d() && volume->kind_tag() == VolumeRef::kType3d;
         wave->desc_flags_ = three_d ? 0x400B0 : 0x400E0;
         std::memcpy(wave->desc_3d_algorithm_.data(), &kDefault3dAlgorithm, 16);
         // (the wave's buffer description, sfx.h; its format the wave's first fields - the original pointed
@@ -890,7 +890,7 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
         voice.buffer = created;
         if (made != DS_OK)
             return -1;
-        if (has_3d() && volume->kind_tag_ == VolumeRef::kType3d)
+        if (has_3d() && volume->kind_tag() == VolumeRef::kType3d)
             created->QueryInterface(kIidSound3dBuffer, &voice.buffer_3d_);
         void* first = nullptr;
         DWORD first_bytes = 0;

@@ -133,7 +133,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
-        std::memcpy(&last_ground_pos_, &entity_->at_point(), 16); // (where it jumped)
+        std::memcpy(&last_ground_pos_, &entity()->at_point(), 16); // (where it jumped)
         if (sound)
             play_jump_sound(floor_feeler_.hit().terrain);
         start_vert_air();
@@ -167,7 +167,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     params->fetch_float(kSpeed, &speed, 0);
 
     set_flag(this, PoseFlag::kCrouched, 0);
-    maths::Vec4& velocity = entity_->vel();
+    maths::Vec4& velocity = entity()->vel();
     if (bit_mark(this, PoseFlag::kVertAir) && velocity.y < 0.0f) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
         const maths::Vec4& away = drawn_normal_;
@@ -183,7 +183,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     } else if (velocity.y < 0.0f) {
         velocity.y = 0.0f;
     }
-    entity_->vel().y += speed;
+    entity()->vel().y += speed;
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
     if (bike)
         thaw_bmx::jump_boost(this);
@@ -240,12 +240,12 @@ void SkaterPhysicsModule::end_skitch()
         skitched.target_ = nullptr;
     }
     objects::MovingSurfaceModule* ride = ride_;
-    if (objects::RideTracker* tracker = ride->ride_.get()) {
-        ride->last_object_ = tracker->entity_.get_pull(); // (what it rode last)
+    if (objects::RideTracker* tracker = ride->ride().get()) {
+        ride->set_last_object(tracker->entity_.get_pull()); // (what it rode last)
         tracker->entity_.get_release();
         memory::Hub::get_pull()->dealloc(tracker);
-        ride->ride_ = nullptr;
-        ride->stop_time_ = get_now();
+        ride->ride() = nullptr;
+        ride->set_stop_time(get_now());
     }
 }
 
@@ -260,10 +260,10 @@ void SkaterPhysicsModule::step_wallplant()
         set_physics_state(kAir);
         maths::Vec4& start = probe_start_;
         maths::Vec4& end = probe_end_;
-        start = core::at(entity_->basis_frame().row, 2) * kFeelerAhead;
-        end = core::at(entity_->basis_frame().row, 2) * kFeelerBehind;
-        start += entity_->at_point();
-        end += entity_->at_point();
+        start = core::at(entity()->basis_frame().row, 2) * kFeelerAhead;
+        end = core::at(entity()->basis_frame().row, 2) * kFeelerBehind;
+        start += entity()->at_point();
+        end += entity()->at_point();
         if (get_feel(this, 0x10, 0))
             trigger_feeler(this, kWallplantEvents, &feeler_);
         return;
@@ -274,15 +274,15 @@ void SkaterPhysicsModule::step_wallplant()
     objects::RideTracker* tracker = get_tracker(this);
     if (!tracker)
         return;
-    if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point())) {
+    if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
         stop_riding(this);
         return;
     }
-    entity_->at_point() += get_tracker(this)->carried_;
+    entity()->at_point() += get_tracker(this)->carried_;
     tracker = get_tracker(this);
     if (tracker->turned_) {
         auto multiply = d3dx::matrix_multiply;
-        maths::Mat4& matrix = entity_->basis_frame();
+        maths::Mat4& matrix = entity()->basis_frame();
         multiply(&matrix, &matrix, &tracker->turn_);
         multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
     }
@@ -320,7 +320,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
         rail_node_ = nullptr;
     if (state_of(this) == kWallRide) {
         turn_to_normal(maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f});
-        display_matrix_ = entity_->basis_frame();
+        display_matrix_ = entity()->basis_frame();
     }
     switch (state) {
     case kAirName:

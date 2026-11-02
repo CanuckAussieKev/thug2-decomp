@@ -643,7 +643,7 @@ bool valid_links(const std::vector<uint32_t>& links, uint32_t self, const std::f
 void move_last_to(script::Struct* s, int index)
 {
     script::Component* previous = nullptr;
-    script::Component* last = s->head_;
+    script::Component* last = s->head();
     while (last && last->next) {
         previous = last;
         last = last->next;
@@ -652,7 +652,7 @@ void move_last_to(script::Struct* s, int index)
         return; // (the only one, or none: in its place already)
     int others = 0;
     script::Component* before = nullptr;
-    for (script::Component* c = s->head_; c != last && others < index; c = c->next) {
+    for (script::Component* c = s->head(); c != last && others < index; c = c->next) {
         before = c;
         ++others;
     }
@@ -663,8 +663,8 @@ void move_last_to(script::Struct* s, int index)
         last->next = before->next;
         before->next = last;
     } else {
-        last->next = s->head_;
-        s->head_ = last;
+        last->next = s->head();
+        s->set_head(last);
     }
 }
 
@@ -741,8 +741,8 @@ Value value_of(const script::Component* c)
     case script::kQbvalArray:
     case script::kEsymboltypeArraypointer: {
         script::Array* array = c->value.array();
-        const uint32_t size = array ? array->extent_ : 0;
-        const uint8_t type = array ? static_cast<uint8_t>(array->kind_tag_) : 0;
+        const uint32_t size = array ? array->extent() : 0;
+        const uint8_t type = array ? static_cast<uint8_t>(array->kind_tag()) : 0;
         if (size == 0 || type == script::kQbvalName) {
             v.kind = Kind::kNames;
             for (uint32_t i = 0; i < size; ++i)
@@ -840,7 +840,7 @@ Own own_of(script::Struct* s, uint32_t key, bool flag)
 {
     Own own;
     int others = 0;
-    for (const script::Component* c = s->head_; c; c = c->next) {
+    for (const script::Component* c = s->head(); c; c = c->next) {
         if (get_matches(c, key, flag)) {
             own.present = true;
             own.value = value_of(c);
@@ -857,7 +857,7 @@ Own own_of(script::Struct* s, uint32_t key, bool flag)
 bool included_after(script::Struct* s, uint32_t key, bool flag, int index)
 {
     int others = 0;
-    for (const script::Component* c = s->head_; c; c = c->next) {
+    for (const script::Component* c = s->head(); c; c = c->next) {
         if (get_matches(c, key, flag))
             continue;
         if (script::Struct* included = get_included(c)) {
@@ -918,7 +918,7 @@ bool key_is_flag(script::Struct* s, uint32_t key, const Value* value)
 {
     if (value && value->kind == Kind::kBitMark)
         return true;
-    for (const script::Component* c = s->head_; c; c = c->next) {
+    for (const script::Component* c = s->head(); c; c = c->next) {
         if (get_matches(c, key, true))
             return true;
         if (get_matches(c, key, false))
@@ -975,9 +975,9 @@ std::vector<Row> rows_of(const nodes::Elem& node)
         bool included;
     };
     std::vector<TableRow> entries;
-    for (script::Component* c = s->head_; c; c = c->next) {
+    for (script::Component* c = s->head(); c; c = c->next) {
         if (const script::Struct* included = get_included(c)) {
-            for (script::Component* inner = included->head_; inner; inner = inner->next) {
+            for (script::Component* inner = included->head(); inner; inner = inner->next) {
                 if (!get_included(inner)) // (one level of shared structures: the node arrays have no deeper ones)
                     entries.push_back({.key = get_key_of(inner), .c = inner, .included = true});
             }

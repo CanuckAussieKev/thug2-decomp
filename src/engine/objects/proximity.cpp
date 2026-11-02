@@ -421,7 +421,7 @@ int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start)
         script::Array* types = nullptr;
         if (!node->fetch_list("restart_types", &types, 0))
             continue;
-        for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(types->extent()); ++i) {
             if (types->fetch_part(i) == type)
                 core::at(out, count++) = name;
         }

@@ -81,12 +81,25 @@ public:
     BitmapTexture* copy_texture_with_overlay(uint32_t checksum, BitmapTexture* source, BitmapTexture* overlay,
                                              uint32_t argument);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t value) { checksum_ = value; }
+    uint16_t& share_count() { return share_count_; }
+    [[nodiscard]] uint16_t share_count() const { return share_count_; }
+    [[nodiscard]] lists::KeyMap* textures() const { return textures_; }
+    void set_textures(lists::KeyMap* value) { textures_ = value; }
+
+private:
     uint32_t checksum_;    // +0x04
     uint16_t share_count_; // +0x08: its loads (unload_tex_dict deletes it at 0)
     std::array<uint8_t, 2> pada_{};
     lists::KeyMap* textures_; // +0x0C
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(TextureSet, textures_) == 0xC && sizeof(TextureSet) == 0x10, "layout must match the original");
+    }
 };
-static_assert(offsetof(TextureSet, textures_) == 0xC && sizeof(TextureSet) == 0x10, "layout must match the original");
 
 // The loaded dictionaries (the hash table 0x00700F04), by checksum.
 // 0x0049F010: the dictionary `checksum`, or null.

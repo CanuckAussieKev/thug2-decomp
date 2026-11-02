@@ -56,8 +56,11 @@ public:
         void unlink();
     };
 
+private:
     script::Struct args_;      // the mode's definition (Name, the options)
     ConditionNode conditions_{}; // the head
+
+public:
 
     // 0x00553DB0 (cdecl): the singleton (made with `create`, counted); 0x00552F70: one reference let go (the last
     // deletes it).

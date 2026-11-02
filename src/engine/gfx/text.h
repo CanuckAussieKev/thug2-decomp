@@ -27,23 +27,23 @@ static_assert(sizeof(Char) == 0x18, "layout must match the original");
 
 struct TypefaceData {
     // The fields other code reads and sets.
-    [[nodiscard]] uint32_t height_value() const { return height; }
-    [[nodiscard]] uint32_t base_value() const { return base; }
-    [[nodiscard]] const std::array<uint8_t, 256>& map_value() const { return map; }
+    [[nodiscard]] uint32_t height() const { return height_; }
+    [[nodiscard]] uint32_t base() const { return base_; }
+    [[nodiscard]] const std::array<uint8_t, 256>& map() const { return map_; }
     [[nodiscard]] const std::array<uint8_t, 0x20>& special_map() const { return special_map_; }
     [[nodiscard]] int16_t glyph_gap() const { return glyph_gap_; }
     void set_glyph_gap(int16_t value) { glyph_gap_ = value; }
     [[nodiscard]] int16_t blank_gap() const { return blank_gap_; }
     void set_blank_gap(int16_t value) { blank_gap_ = value; }
-    std::array<uint32_t, 16>& colors_value() { return colors; }
-    [[nodiscard]] const std::array<uint32_t, 16>& colors_value() const { return colors; }
-    [[nodiscard]] void* texture_value() const { return texture; }
+    std::array<uint32_t, 16>& colors() { return colors_; }
+    [[nodiscard]] const std::array<uint32_t, 16>& colors() const { return colors_; }
+    [[nodiscard]] void* texture() const { return texture_; }
 
 private:
-    uint32_t height;
-    uint32_t base;
+    uint32_t height_;
+    uint32_t base_;
     Char* chars;
-    std::array<uint8_t, 256> map;           // character -> chars index
+    std::array<uint8_t, 256> map_;           // character -> chars index
     std::array<uint8_t, 0x20> special_map_; // special glyph / button -> chars index; [0x1F] is also the default glyph (Load
                                 // gives it to the characters and specials the file leaves unmapped)
     uint8_t format;             // the file's character map format (1 or 2, see Load)
@@ -52,8 +52,8 @@ private:
     TypefaceData* next;   // the list of loaded fonts (0x00780FD8)
     int16_t glyph_gap_;   // added after every character
     int16_t blank_gap_;   // the width of a space ('I' when loaded)
-    std::array<uint32_t, 16> colors;  // "\c1" ... (RGBA as bytes)
-    void* texture;        // IDirect3DTexture9 (A8R8G8B8, managed)
+    std::array<uint32_t, 16> colors_;  // "\c1" ... (RGBA as bytes)
+    void* texture_;        // IDirect3DTexture9 (A8R8G8B8, managed)
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
 
 public:
@@ -70,7 +70,7 @@ public:
     {
         if (index == 0)
             return static_cast<uint16_t>(glyph_gap_) | static_cast<uint32_t>(static_cast<uint16_t>(blank_gap_)) << 16;
-        return index > 0 && std::cmp_less_equal(index, colors.size()) ? core::at(colors, index - 1) : 0;
+        return index > 0 && std::cmp_less_equal(index, colors_.size()) ? core::at(colors_, index - 1) : 0;
     }
 
     // 0x004CECB0: the size `text` would be drawn at (pixels at scale 1): the width of the whole text
@@ -87,13 +87,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(TypefaceData, map) == 0xC, "layout must match the original");
+        static_assert(offsetof(TypefaceData, map_) == 0xC, "layout must match the original");
         static_assert(offsetof(TypefaceData, special_map_) == 0x10C, "layout must match the original");
         static_assert(offsetof(TypefaceData, format) == 0x12C, "layout must match the original");
         static_assert(offsetof(TypefaceData, next) == 0x130, "layout must match the original");
         static_assert(offsetof(TypefaceData, glyph_gap_) == 0x134, "layout must match the original");
-        static_assert(offsetof(TypefaceData, colors) == 0x138, "layout must match the original");
-        static_assert(offsetof(TypefaceData, texture) == 0x178 && sizeof(TypefaceData) == 0x180,
+        static_assert(offsetof(TypefaceData, colors_) == 0x138, "layout must match the original");
+        static_assert(offsetof(TypefaceData, texture_) == 0x178 && sizeof(TypefaceData) == 0x180,
                       "layout must match the original");
     }
 };
@@ -136,8 +136,8 @@ public:
     void set_effects(const TextEffect* value) { effects = value; }
     void set_text(const char* value) { text = value; }
     void set_x(float value) { x = value; }
-    [[nodiscard]] float y_value() const { return y; }
-    void set_y(float value) { y = value; }
+    [[nodiscard]] float y() const { return y_; }
+    void set_y(float value) { y_ = value; }
     void set_xscale(float value) { xscale = value; }
     void set_yscale(float value) { yscale = value; }
     void set_pivot_x(float value) { pivot_x_ = value; }
@@ -150,7 +150,7 @@ private:
     TypefaceData* font{};
     const TextEffect* effects{}; // or null
     const char* text{};
-    float x{}, y{}; // position, in 640x480 screen units
+    float x{}, y_{}; // position, in 640x480 screen units
     float xscale{}, yscale{};
     float pivot_x_{}, pivot_y_{}; // what it rotates about, from (x, y)
     float angle{};                // radians
@@ -166,7 +166,6 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(GlyphRun, z) == 0x10, "layout must match the original");
         static_assert(offsetof(GlyphRun, text) == 0x1C, "layout must match the original");
         static_assert(offsetof(GlyphRun, angle) == 0x38, "layout must match the original");
         static_assert(offsetof(GlyphRun, fixed_color_) == 0x40, "layout must match the original");

@@ -298,7 +298,7 @@ void Hub::enable_actuators(int index)
 // 0x0044E660
 void Hub::service_task(tasks::Task<Hub>* task)
 {
-    Hub* manager = task->content_;
+    Hub* manager = task->content();
     for (HostEnd& server : manager->hosts_) {
         if (server.data_in_ && server.data_in_ >= server.in_buf_limit_)
             server.data_in_ = nullptr;

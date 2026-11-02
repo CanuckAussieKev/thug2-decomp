@@ -251,7 +251,7 @@ void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* ou
 {
     // (iterative down the greater side, as the game's own walks; a guard against a broken tree)
     while (node && !node->is_end_node() && depth < 256) {
-        out->push_back({.node = node, .split = node->axis_tag_, .link = node->chain_link_});
+        out->push_back({.node = node, .split = node->axis_tag(), .link = node->chain_link()});
         split_nodes(node->less_child(), out, depth + 1);
         node = node->greater_child();
         ++depth;
@@ -302,8 +302,8 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
     data->bounds().max = copy.max;
     data->set_unknown3c(copy.rejection);
     for (const CollisionCopy::Elem& n : copy.nodes) {
-        n.node->axis_tag_ = n.split;
-        n.node->chain_link_ = n.link;
+        n.node->set_axis_tag(n.split);
+        n.node->set_chain_link(n.link);
     }
     const maths::Vec4 centre = {.x = from.x, .y = from.y, .z = from.z, .w = 0.0f};
     if (!is_unit_scale(scale)) {
@@ -360,17 +360,17 @@ gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector-
 render::TriMeshSource* collision_data(render::WorldCell* sector)
 {
     const render::HitMesh* coll = coll_of(sector);
-    return coll ? coll->geometry_ : nullptr;
+    return coll ? coll->geometry() : nullptr;
 }
 
 // The mesh's vertex format (+0x38: a Direct3D FVF, or a built-in vertex shader's handle).
-uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf_value(); }
+uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf(); }
 
 // The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as MeshRef::move_to).
 void upload(render::VertexBuffer* buffer)
 {
     buffer->set_lock_offset(0);
-    buffer->set_lock_size(buffer->size_value());
+    buffer->set_lock_size(buffer->size());
     buffer->set_lock_flags(0);
     buffer->get_unlock();
 }
@@ -395,7 +395,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
 {
     auto original = std::make_shared<Original>();
     original->geom = geom;
-    original->mesh_list_ = geom->meshes_value();
+    original->mesh_list_ = geom->meshes();
     original->mesh_count_ = geom->mesh_count();
     original->quarters = quarters;
     original->position = position;
@@ -404,41 +404,41 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
     const std::span<render::MeshRef*> mesh_run(original->mesh_list_, original->mesh_count_);
     for (uint32_t i = 0; i < original->mesh_count_; ++i) {
         render::MeshRef* mesh = core::at(mesh_run, i);
-        if (!mesh || mesh->stride_value() < 12 || mesh->vertex_buffer_count() > 3)
+        if (!mesh || mesh->stride() < 12 || mesh->vertex_buffer_count() > 3)
             return nullptr;
         MeshCopy copy = {.mesh = mesh,
                          .vertex_count_ = mesh->vertex_count(),
-                         .stride = mesh->stride_value(),
-                         .normal_offset_ = surface_nudge(vertex_format(mesh), mesh->stride_value()),
+                         .stride = mesh->stride(),
+                         .normal_offset_ = surface_nudge(vertex_format(mesh), mesh->stride()),
                          .buffers = {},
                          .data = {},
                          .positions = {},
                          .normals = {},
-                         .centre = {.x = core::at(mesh->centre_value(), 0), .y = core::at(mesh->centre_value(), 1), .z = core::at(mesh->centre_value(), 2)},
-                         .radius = mesh->radius_value(),
+                         .centre = {.x = core::at(mesh->centre(), 0), .y = core::at(mesh->centre(), 1), .z = core::at(mesh->centre(), 2)},
+                         .radius = mesh->radius(),
                          .list_count_ = mesh->position_count(),
-                         .list = mesh->positions_value(),
+                         .list = mesh->positions(),
                          .list_copy_ = {}};
         for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count()); ++b) {
             render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), b);
-            if (!buffer || !buffer->data_value() || buffer->size_value() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride_value())
+            if (!buffer || !buffer->data() || buffer->size() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride())
                 return nullptr;
             std::vector<float> positions(3u * mesh->vertex_count());
             std::vector<float> normals(copy.normal_offset_ >= 0 ? 3u * mesh->vertex_count() : 0u);
-            const std::span<const uint8_t> vertex_run(buffer->data_value(), size_t{mesh->vertex_count()} * mesh->stride_value());
+            const std::span<const uint8_t> vertex_run(buffer->data(), size_t{mesh->vertex_count()} * mesh->stride());
             for (uint32_t v = 0; v < mesh->vertex_count(); ++v) {
-                const std::span<const uint8_t> vertex = vertex_run.subspan(size_t{v} * mesh->stride_value(), mesh->stride_value());
+                const std::span<const uint8_t> vertex = vertex_run.subspan(size_t{v} * mesh->stride(), mesh->stride());
                 std::memcpy(&core::at(positions, 3u * v), vertex.data(), 12);
                 if (copy.normal_offset_ >= 0)
                     std::memcpy(&core::at(normals, 3u * v), vertex.subspan(static_cast<size_t>(copy.normal_offset_)).data(), 12);
             }
             copy.buffers.emplace_back(buffer);
-            copy.data.push_back(buffer->data_value());
+            copy.data.push_back(buffer->data());
             copy.positions.push_back(std::move(positions));
             copy.normals.push_back(std::move(normals));
         }
-        if (mesh->positions_value() && mesh->position_count()) {
-            const std::span<const float> position_list(mesh->positions_value(), 3u * size_t{mesh->position_count()});
+        if (mesh->positions() && mesh->position_count()) {
+            const std::span<const float> position_list(mesh->positions(), 3u * size_t{mesh->position_count()});
             copy.list_copy_.assign(position_list.begin(), position_list.end());
         }
         original->meshes.push_back(std::move(copy));
@@ -454,18 +454,18 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
                 V3 scale, int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
-    if (geom != original.geom || geom->meshes_value() != original.mesh_list_ || geom->mesh_count() != original.mesh_count_)
+    if (geom != original.geom || geom->meshes() != original.mesh_list_ || geom->mesh_count() != original.mesh_count_)
         return false;
     const std::span<render::MeshRef*> mesh_run(original.mesh_list_, original.mesh_count_);
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
         const MeshCopy& copy = core::at(original.meshes, i);
         const render::MeshRef* mesh = core::at(mesh_run, i);
-        if (mesh != copy.mesh || mesh->vertex_count() != copy.vertex_count_ || mesh->stride_value() != copy.stride ||
-            mesh->vertex_buffer_count() != copy.buffers.size() || mesh->positions_value() != copy.list ||
+        if (mesh != copy.mesh || mesh->vertex_count() != copy.vertex_count_ || mesh->stride() != copy.stride ||
+            mesh->vertex_buffer_count() != copy.buffers.size() || mesh->positions() != copy.list ||
             mesh->position_count() != copy.list_count_)
             return false;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            if (core::at(mesh->vertex_buffers(), b) != core::at(copy.buffers, b) || core::at(copy.buffers, b)->data_value() != core::at(copy.data, b))
+            if (core::at(mesh->vertex_buffers(), b) != core::at(copy.buffers, b) || core::at(copy.buffers, b)->data() != core::at(copy.data, b))
                 return false;
         }
     }
@@ -477,20 +477,20 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
     for (const MeshCopy& copy : original.meshes) {
         render::MeshRef* mesh = copy.mesh;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            rewrite_positions(core::at(copy.buffers, b)->data_value(), copy.stride, copy.vertex_count_, core::at(copy.positions, b).data(), f.from,
+            rewrite_positions(core::at(copy.buffers, b)->data(), copy.stride, copy.vertex_count_, core::at(copy.positions, b).data(), f.from,
                               f.to, f.turns, f.copy_scale_);
             if (copy.normal_offset_ >= 0)
-                rewrite_normals(core::at(copy.buffers, b)->data_value(), copy.stride, copy.vertex_count_,
+                rewrite_normals(core::at(copy.buffers, b)->data(), copy.stride, copy.vertex_count_,
                                 static_cast<uint32_t>(copy.normal_offset_), core::at(copy.normals, b).data(), scale,
                                 f.normal_turns_);
             upload(core::at(copy.buffers, b));
         }
         const V3 centre = get_rebuilt(copy.centre, f.from, f.to, f.turns, f.copy_scale_);
-        core::at(mesh->centre_value(), 0) = centre.x;
-        core::at(mesh->centre_value(), 1) = centre.y;
-        core::at(mesh->centre_value(), 2) = centre.z;
+        core::at(mesh->centre(), 0) = centre.x;
+        core::at(mesh->centre(), 1) = centre.y;
+        core::at(mesh->centre(), 2) = centre.z;
         mesh->set_radius(copy.radius * get_largest(scale));
-        const std::span<float> list = copy.list_copy_.empty() ? std::span<float>() : std::span<float>(mesh->positions_value(), 3u * size_t{copy.list_count_});
+        const std::span<float> list = copy.list_copy_.empty() ? std::span<float>() : std::span<float>(mesh->positions(), 3u * size_t{copy.list_count_});
         for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
             const V3 p = get_rebuilt({.x = core::at(copy.list_copy_, 3 * k), .y = core::at(copy.list_copy_, 3 * k + 1), .z = core::at(copy.list_copy_, 3 * k + 2)},
                                      f.from, f.to, 0, f.copy_scale_);
@@ -552,7 +552,7 @@ gsl::owner<render::HitMesh*> collision_of(objects::GameEntity* object)
 {
     auto* component =
         core::down_cast<objects::ContactShapeModule>(object->fetch_module(objects::ContactShapeModule::kType));
-    return component ? component->hit_shape_ : nullptr;
+    return component ? component->hit_shape() : nullptr;
 }
 
 bool get_alive(objects::GameEntity* object)
@@ -570,7 +570,7 @@ ObjectEntry* entry_of(objects::GameEntity* object)
             continue;
         bool same = entry.object == object && get_alive(object) && collision_of(object) == entry.collision;
         for (const ObjectEntry::Tri& t : entry.tris)
-            same = same && t.tri->geometry_ == t.copy.data && same_collision(t.copy);
+            same = same && t.tri->geometry() == t.copy.data && same_collision(t.copy);
         if (same)
             return &entry;
         stored_objects().erase(stored_objects().begin() + static_cast<std::ptrdiff_t>(i)); // (another object of that name now)
@@ -582,21 +582,21 @@ ObjectEntry* entry_of(objects::GameEntity* object)
 // A triangle object given a geometry of its own (unless it owns one already) and kept as copied.
 bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
 {
-    render::TriMeshSource* geometry = tri->geometry_;
+    render::TriMeshSource* geometry = tri->geometry();
     if (!geometry)
         return true;
     const bool owns =
-        (tri->flag_bits_ & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits_ & render::HitMesh::kSharedGeometry);
+        (tri->flag_bits() & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits() & render::HitMesh::kSharedGeometry);
     if (!owns) {
         render::TriMeshSource* own = geometry->replicate(0, false);
         if (!own)
             return false;
-        tri->flag_bits_ = static_cast<uint16_t>((tri->flag_bits_ | render::HitMesh::kOwnsGeometry) &
+        tri->flag_bits() = static_cast<uint16_t>((tri->flag_bits() | render::HitMesh::kOwnsGeometry) &
                                                 ~render::HitMesh::kSharedGeometry);
         tri->assign_shape_data(own);
         geometry = own;
     }
-    entry->tris.push_back({.tri = tri, .copy = copy_collision(geometry), .rejection = tri->unknownd0_});
+    entry->tris.push_back({.tri = tri, .copy = copy_collision(geometry), .rejection = tri->unknownd0()});
     return true;
 }
 
@@ -609,14 +609,14 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
         return take_tri(core::down_cast<render::HitMovingTriangles>(collision), entry);
     if (kind == render::HitMeshKind::kMovingBox) {
         auto* box = core::down_cast<render::HitMovingBox>(collision);
-        entry->boxes.push_back({.box = box, .original = box->box_});
+        entry->boxes.push_back({.box = box, .original = box->box()});
         return true;
     }
     if (kind == render::HitMeshKind::kGroup) {
-        const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(collision)->sub_nodes_;
-        for (const memory::ListNode* node = head ? head->next : nullptr;
-             node && node != head && node->data != kListHeadData; node = node->next) {
-            if (!take_collision(static_cast<render::HitMesh*>(node->data), entry))
+        const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(collision)->sub_nodes();
+        for (const memory::ListNode* node = head ? head->next() : nullptr;
+             node && node != head && node->data() != kListHeadData; node = node->next()) {
+            if (!take_collision(static_cast<render::HitMesh*>(node->data()), entry))
                 return false;
         }
         return true;
@@ -630,16 +630,16 @@ void apply_collision(ObjectEntry& entry)
     for (ObjectEntry::Tri& t : entry.tris) {
         rebuild_collision(t.copy, 0, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, entry.scale);
         t.tri->assign_shape_data(t.copy.data); // (its radius from the vertices; its box made again)
-        t.tri->unknownd0_ = is_unit_scale(entry.scale) ? t.rejection : t.copy.data->unknown3c();
+        t.tri->set_unknownd0(is_unit_scale(entry.scale) ? t.rejection : t.copy.data->unknown3c());
     }
     for (const ObjectEntry::Cuboid& b : entry.boxes) {
         const maths::Vec4& lo = b.original.min;
         const maths::Vec4& hi = b.original.max;
-        b.box->box_.min = {.x = lo.x * entry.scale.x, .y = lo.y * entry.scale.y, .z = lo.z * entry.scale.z, .w = lo.w};
-        b.box->box_.max = {.x = hi.x * entry.scale.x, .y = hi.y * entry.scale.y, .z = hi.z * entry.scale.z, .w = hi.w};
+        b.box->box().min = {.x = lo.x * entry.scale.x, .y = lo.y * entry.scale.y, .z = lo.z * entry.scale.z, .w = lo.w};
+        b.box->box().max = {.x = hi.x * entry.scale.x, .y = hi.y * entry.scale.y, .z = hi.z * entry.scale.z, .w = hi.w};
     }
     if (entry.collision && entry.collision->kind() == render::HitMeshKind::kGroup)
-        core::down_cast<render::HitMeshGroup>(entry.collision)->dirty_ = true;
+        core::down_cast<render::HitMeshGroup>(entry.collision)->set_dirty(true);
 }
 
 } // namespace
@@ -673,13 +673,13 @@ V3 object_limit(objects::GameEntity* object)
         pending.pop_back();
         if (!c)
             continue;
-        if (c->kind() == render::HitMeshKind::kMovingTriangles && c->geometry_)
-            narrow(c->geometry_, get_uniform(1.0f));
+        if (c->kind() == render::HitMeshKind::kMovingTriangles && c->geometry())
+            narrow(c->geometry(), get_uniform(1.0f));
         if (c->kind() == render::HitMeshKind::kGroup) {
-            const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(c)->sub_nodes_;
-            for (memory::ListNode* node = head ? head->next : nullptr;
-                 node && node != head && node->data != kListHeadData; node = node->next)
-                pending.push_back(static_cast<render::HitMesh*>(node->data));
+            const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(c)->sub_nodes();
+            for (const memory::ListNode* node = head ? head->next() : nullptr;
+                 node && node != head && node->data() != kListHeadData; node = node->next())
+                pending.push_back(static_cast<render::HitMesh*>(node->data()));
         }
     }
     return limit;

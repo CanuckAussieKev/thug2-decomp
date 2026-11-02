@@ -51,7 +51,7 @@ uint32_t written_since(const util::ByteWriter& out, size_t start)
 void write_name_and_type(util::ByteWriter& out, uint8_t type, uint32_t name)
 {
     Array* short_names = fetch_list(kShortNames);
-    for (int i = 0; i < ints::as_signed(short_names->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(short_names->extent()); ++i) {
         if (short_names->fetch_part(i) == name) {
             out.u8(type | 0x80);
             out.u8(static_cast<uint8_t>(i));
@@ -59,7 +59,7 @@ void write_name_and_type(util::ByteWriter& out, uint8_t type, uint32_t name)
         }
     }
     Array* medium_names = fetch_list(kMediumNames);
-    for (int i = 0; i < ints::as_signed(medium_names->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(medium_names->extent()); ++i) {
         if (medium_names->fetch_part(i) == name) {
             out.u8(type | 0x40);
             out.u16(static_cast<uint16_t>(i));
@@ -168,8 +168,8 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     if (out.remaining() < 3)
         return 0;
     const size_t start = out.position();
-    const uint8_t type = array->kind_tag_;
-    const uint32_t count = array->extent_;
+    const uint8_t type = array->kind_tag();
+    const uint32_t count = array->extent();
     out.u8(type);
     out.u16(static_cast<uint16_t>(count));
     switch (type) {

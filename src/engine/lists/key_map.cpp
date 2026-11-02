@@ -1,7 +1,6 @@
 #include "engine/lists/key_map.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
 #include <new>
 #include "engine/core/mem.h"
@@ -9,8 +8,6 @@
 #include "engine/core/slab_bank.h"
 namespace lists {
 
-static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10 && offsetof(KeyMap, flag_) == 0x14,
-              "layout must match the original");
 
 // 0x0049FD90
 KeyMap::KeyMap(int bits)

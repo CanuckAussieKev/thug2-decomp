@@ -65,7 +65,7 @@ void* ChunkPrefix::gate_off() { return heap_memory_span().subspan(block_offset()
 // 0x005BA080
 void* mark_block_in_use(void* block)
 {
-    ChunkPrefix::get_of(block)->marker = ChunkPrefix::kBlockInUse;
+    ChunkPrefix::get_of(block)->set_marker(ChunkPrefix::kBlockInUse);
     return block;
 }
 
@@ -73,16 +73,16 @@ void* mark_block_in_use(void* block)
 ChunkPrefix* fetch_chunk_prefix(void* block) { return ChunkPrefix::get_of(block); }
 
 // 0x005BA0A0
-uint32_t get_block_size(void* block) { return ChunkPrefix::get_of(block)->size; }
+uint32_t get_block_size(void* block) { return ChunkPrefix::get_of(block)->size(); }
 
 // 0x005BA0B0
 MemSource* free_block(void* block)
 {
     ChunkPrefix* header = ChunkPrefix::get_of(block);
-    MemSource* allocator = header->allocator;
-    if (header->marker != ChunkPrefix::kBlockFreed) {
+    MemSource* allocator = header->allocator();
+    if (header->marker() != ChunkPrefix::kBlockFreed) {
         allocator->dealloc(header);
-        header->marker = ChunkPrefix::kBlockFreed;
+        header->set_marker(ChunkPrefix::kBlockFreed);
     }
     return allocator;
 }
@@ -149,15 +149,15 @@ MemoryArena::MemoryArena(uint32_t size)
     if (size) {
         const uint32_t rounded = size & ~0xFu;
         // (New makes sure the memory system is set up)
-        memory_ = std::span<uint8_t>(static_cast<uint8_t*>(alloc(rounded)), rounded);
-        min_available_ = static_cast<int>(rounded);
-        core::at(allocators_, 1) = nullptr;
-        core::at(allocators_, 0) = nullptr;
+        memory() = std::span<uint8_t>(static_cast<uint8_t*>(alloc(rounded)), rounded);
+        set_min_available(static_cast<int>(rounded));
+        core::at(allocators(), 1) = nullptr;
+        core::at(allocators(), 0) = nullptr;
     }
 }
 
 // 0x005BC6B0
-MemoryArena::~MemoryArena() { memory::dealloc(memory_.data()); }
+MemoryArena::~MemoryArena() { memory::dealloc(memory().data()); }
 
 // --- allocators ----------------------------------------------------------------------------------------
 
@@ -165,20 +165,20 @@ MemoryArena::~MemoryArena() { memory::dealloc(memory_.data()); }
 // 0x005BCD30...)
 void ListNode::uncouple()
 {
-    prev->next = next;
-    next->prev = prev;
-    next = this;
-    prev = this;
+    prev_->next_ = next_;
+    next_->prev_ = prev_;
+    next_ = this;
+    prev_ = this;
 }
 
 void ListNode::make_head() { make_node(memory::ListNode::head_marker()); }
 
 void ListNode::make_node(void* item, int item_priority)
 {
-    data = item;
-    priority = item_priority;
-    next = this;
-    prev = this;
+    data_ = item;
+    priority_ = item_priority;
+    next_ = this;
+    prev_ = this;
 }
 
 ListNode* ListNode::create(void* item, int item_priority)
@@ -215,10 +215,10 @@ MemSource::MemSource(Zone* region, int direction, const char* name)
     region->add_allocator(this);
 
     // The base context starts the stack.
-    base_context_.node.prev = &zone_chain_;
-    base_context_.node.next = zone_chain_.next;
-    zone_chain_.next->prev = &base_context_.node;
-    zone_chain_.next = &base_context_.node;
+    base_context_.node.set_prev(&zone_chain_);
+    base_context_.node.set_next(zone_chain_.next());
+    zone_chain_.next()->set_prev(&base_context_.node);
+    zone_chain_.set_next(&base_context_.node);
     context_ = &base_context_;
 }
 
@@ -238,10 +238,10 @@ void MemSource::enter_heap_scope()
         context->node.make_node(context);
     // (an allocation failure crashes here, as in the original)
     context->free_list_ = nullptr;
-    context->node.prev = &zone_chain_;
-    context->node.next = zone_chain_.next;
-    zone_chain_.next->prev = &context->node;
-    zone_chain_.next = &context->node;
+    context->node.set_prev(&zone_chain_);
+    context->node.set_next(zone_chain_.next());
+    zone_chain_.next()->set_prev(&context->node);
+    zone_chain_.set_next(&context->node);
     context_ = context;
 }
 
@@ -252,8 +252,8 @@ void MemSource::leave_heap_scope()
         context->node.uncouple();
         memory::dealloc(context);
     }
-    const ListNode* next = zone_chain_.next;
-    context_ = next->data != memory::ListNode::head_marker() && next ? static_cast<CtxInfo*>(next->data) : nullptr;
+    const ListNode* next = zone_chain_.next();
+    context_ = next->data() != memory::ListNode::head_marker() && next ? static_cast<CtxInfo*>(next->data()) : nullptr;
 }
 
 } // namespace memory

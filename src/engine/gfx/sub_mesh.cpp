@@ -33,9 +33,9 @@ void get_unlock(VertexBuffer* buffer) { buffer->get_unlock(); }
 // The inlined lock: the whole buffer (flags 0x10: read only).
 uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 {
-    uint8_t* data = buffer->data_value();
+    uint8_t* data = buffer->data();
     buffer->set_lock_offset(0);
-    buffer->set_lock_size(buffer->size_value());
+    buffer->set_lock_size(buffer->size());
     buffer->set_lock_flags(flags);
     return data;
 }
@@ -50,11 +50,11 @@ gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 // The index buffer's Direct3D copy written again from the one in memory.
 void upload_indices(IdxStore* buffer)
 {
-    auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer);
+    auto* d3d = static_cast<IDirect3DIndexBuffer9*>(buffer->buffer());
     void* locked = nullptr;
     if (FAILED(d3d->Lock(0, 0, &locked, 0)))
         return;
-    std::memcpy(locked, buffer->indices, buffer->size);
+    std::memcpy(locked, buffer->indices(), buffer->size());
     d3d->Unlock();
 }
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
@@ -84,10 +84,10 @@ void MeshRef::add_vertex_buffers(int count)
     VertexBuffer* first = core::at(vertex_buffers_, 0);
     const uint8_t* source = get_lock(first, 0x10);
     for (int i = 0; i < count; ++i) {
-        gsl::owner<VertexBuffer*> buffer = new_vertex_buffer(vertex_count_ * stride); // (the mesh's)
+        gsl::owner<VertexBuffer*> buffer = new_vertex_buffer(vertex_count_ * stride_); // (the mesh's)
         core::at(vertex_buffers_, 1 + i) = buffer;
         uint8_t* data = get_lock(buffer, 0);
-        std::memcpy(data, source, vertex_count_ * stride);
+        std::memcpy(data, source, vertex_count_ * stride_);
         get_unlock(buffer);
     }
     get_unlock(core::at(vertex_buffers_, 0));
@@ -109,7 +109,7 @@ void MeshRef::move_to(const maths::Vec4* position)
     core::at(transform_floats(), 14) = position->z;
     core::at(transform_floats(), 15) = position->w;
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
-        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride, vertex_count_);
+        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride_, vertex_count_);
         for (uint32_t v = 0; v < vertex_count_; ++v) {
             auto p = vertices.view().point<maths::Vec4>(v);
             p.x = dx + p.x;
@@ -124,9 +124,9 @@ void MeshRef::move_to(const maths::Vec4* position)
         core::at(position_floats(), 3 * k + 1) = dy + core::at(position_floats(), 3 * k + 1);
         core::at(position_floats(), 3 * k + 2) = dz + core::at(position_floats(), 3 * k + 2);
     }
-    core::at(centre, 0) = dx + core::at(centre, 0);
-    core::at(centre, 1) = dy + core::at(centre, 1);
-    core::at(centre, 2) = dz + core::at(centre, 2);
+    core::at(centre_, 0) = dx + core::at(centre_, 0);
+    core::at(centre_, 1) = dy + core::at(centre_, 1);
+    core::at(centre_, 2) = dz + core::at(centre_, 2);
 }
 
 // 0x004D6FB0
@@ -139,7 +139,7 @@ void MeshRef::turn_y(int turns)
         get_identity(transform_floats());
     }
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
-        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride, vertex_count_);
+        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride_, vertex_count_);
         // (the transform's position re-read for every vertex, as the original does)
         switch (turns) {
         case 1:
@@ -152,12 +152,12 @@ void MeshRef::turn_y(int turns)
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - core::at(transform_floats(), 12));
-                const double z = static_cast<double>(core::at(centre, 2)) - core::at(transform_floats(), 14);
-                core::at(centre, 2) = static_cast<float>(z);
-                const float x = core::at(centre, 0);
-                core::at(centre, 0) = static_cast<float>(z + core::at(transform_floats(), 12));
-                core::at(centre, 2) = static_cast<float>(core::at(transform_floats(), 14) - static_cast<double>(x));
+                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), 12));
+                const double z = static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14);
+                core::at(centre_, 2) = static_cast<float>(z);
+                const float x = core::at(centre_, 0);
+                core::at(centre_, 0) = static_cast<float>(z + core::at(transform_floats(), 12));
+                core::at(centre_, 2) = static_cast<float>(core::at(transform_floats(), 14) - static_cast<double>(x));
             }
             break;
         case 2:
@@ -168,10 +168,10 @@ void MeshRef::turn_y(int turns)
                 p.z = static_cast<float>(core::at(transform_floats(), 14) - z);
                 vertices.set_point(v, 0, p);
             }
-            core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - core::at(transform_floats(), 12));
-            core::at(centre, 2) = static_cast<float>(static_cast<double>(core::at(centre, 2)) - core::at(transform_floats(), 14));
-            core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 12)) - core::at(centre, 0));
-            core::at(centre, 2) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 14)) - core::at(centre, 2));
+            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), 12));
+            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14));
+            core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 12)) - core::at(centre_, 0));
+            core::at(centre_, 2) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 14)) - core::at(centre_, 2));
             break;
         case 3:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
@@ -183,12 +183,12 @@ void MeshRef::turn_y(int turns)
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - core::at(transform_floats(), 12));
-                const double z = static_cast<double>(core::at(centre, 2)) - core::at(transform_floats(), 14);
-                core::at(centre, 2) = static_cast<float>(z);
-                const float x = core::at(centre, 0);
-                core::at(centre, 0) = static_cast<float>(core::at(transform_floats(), 12) - z);
-                core::at(centre, 2) = static_cast<float>(static_cast<double>(x) + core::at(transform_floats(), 14));
+                core::at(centre_, 0) = static_cast<float>(static_cast<double>(core::at(centre_, 0)) - core::at(transform_floats(), 12));
+                const double z = static_cast<double>(core::at(centre_, 2)) - core::at(transform_floats(), 14);
+                core::at(centre_, 2) = static_cast<float>(z);
+                const float x = core::at(centre_, 0);
+                core::at(centre_, 0) = static_cast<float>(core::at(transform_floats(), 12) - z);
+                core::at(centre_, 2) = static_cast<float>(static_cast<double>(x) + core::at(transform_floats(), 14));
             }
             break;
         default:
@@ -206,13 +206,13 @@ MeshRef* MeshRef::replicate(bool share)
     // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memcpy(copy, this, sizeof(MeshRef));
     if (share) {
-        copy->flags |= 1;
+        copy->flags_ |= 1;
     } else {
-        gsl::owner<VertexBuffer*> made = new_vertex_buffer(copy->vertex_count_ * copy->stride); // (the copy's)
+        gsl::owner<VertexBuffer*> made = new_vertex_buffer(copy->vertex_count_ * copy->stride_); // (the copy's)
         core::at(copy->vertex_buffers_, 0) = made;
         const uint8_t* source = get_lock(core::at(vertex_buffers_, 0), 0x10);
         uint8_t* data = get_lock(core::at(copy->vertex_buffers_, 0), 0);
-        std::memcpy(data, source, copy->vertex_count_ * copy->stride);
+        std::memcpy(data, source, copy->vertex_count_ * copy->stride_);
         get_unlock(core::at(vertex_buffers_, 0));
         get_unlock(core::at(copy->vertex_buffers_, 0));
         for (int k = 0; k < 8; ++k) {
@@ -220,7 +220,7 @@ MeshRef* MeshRef::replicate(bool share)
                 continue;
             gsl::owner<IdxStore*> buffer = new_index_buffer(core::at(copy->index_counts_, k) * 2);
             core::at(copy->index_buffers_, k) = buffer;
-            std::memcpy(buffer->indices, core::at(index_buffers_, k)->indices, core::at(copy->index_counts_, k) * 2);
+            std::memcpy(buffer->indices(), core::at(index_buffers_, k)->indices(), core::at(copy->index_counts_, k) * 2);
             upload_indices(core::at(index_buffers_, k)); // (the original's too)
             upload_indices(core::at(copy->index_buffers_, k));
         }
@@ -241,10 +241,10 @@ MeshRef* MeshRef::replicate(bool share)
         }
     }
     if (position_count_) {
-        copy->triangles = static_cast<uint16_t*>(alloc_block(triangle_count_ * 6));
-        std::memcpy(copy->triangles, triangles, triangle_count_ * 6);
-        copy->positions = static_cast<float*>(alloc_block(position_count_ * 12));
-        std::memcpy(copy->positions, positions, position_count_ * 12);
+        copy->triangles_ = static_cast<uint16_t*>(alloc_block(triangle_count_ * 6));
+        std::memcpy(copy->triangles_, triangles_, triangle_count_ * 6);
+        copy->positions_ = static_cast<float*>(alloc_block(position_count_ * 12));
+        std::memcpy(copy->positions_, positions_, position_count_ * 12);
     }
     return copy;
 }
@@ -253,7 +253,7 @@ MeshRef* MeshRef::replicate(bool share)
 void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Vec4* axis)
 {
     auto* info = static_cast<Billboard*>(memory::alloc(sizeof(Billboard)));
-    billboard = info;
+    billboard_ = info;
     if (type == 1) {
         info->type = 0;
     } else if (type == 2) {
@@ -270,7 +270,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     // The quad's plane from its first triangle.
     VertexBuffer* buffer = core::at(vertex_buffers_, 0);
     uint8_t* data = get_lock(buffer, 0x10);
-    const gpu::VertexWriter vertices(data, stride, vertex_count_);
+    const gpu::VertexWriter vertices(data, stride_, vertex_count_);
     IdxStore* indices = core::at(index_buffers_, 0);
     const auto p0 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 0));
     const auto p1 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 1));
@@ -303,7 +303,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     // The billboard's axes: row 0 across, row 1 up, the normal.
     std::array<float, 3> r0 = {{e1x, 0.0f, p2[2]}}; // (another type: the original reads what's on its stack - row 0's y unknown)
     float r1x = nx, r1y = ny, r1z = nz;
-    switch (billboard->type) {
+    switch (billboard_->type) {
     case 0:
     case 1:
     case 3: {
@@ -354,7 +354,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
         p.z = static_cast<float>((dx * nx + dz * nz) + dy * ny);
         vertices.set_point(v, 0, p);
     }
-    flags |= 0x10;
+    flags_ |= 0x10;
     get_unlock(buffer);
 }
 

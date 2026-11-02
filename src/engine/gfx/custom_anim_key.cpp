@@ -139,7 +139,7 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
 // 0x004861D0
 bool CameraKey::inside_range(float start, float end, bool inclusive)
 {
-    const double frame = tick_;
+    const double frame = tick();
     if (start < end) {
         if (cut_ ? end > frame : frame < static_cast<double>(end) - 1.0)
             return false;
@@ -155,7 +155,7 @@ bool CameraKey::inside_range(float start, float end, bool inclusive)
 // 0x00486390
 bool CameraKey::work_on(void* object)
 {
-    if (!tick_)
+    if (!tick())
         return false;
     read_debug_global();
     auto* camera = static_cast<ViewCam*>(object);
@@ -165,15 +165,15 @@ bool CameraKey::work_on(void* object)
     std::array<float, 4> rotation = {{orientation_turn_.x, orientation_turn_.y, orientation_turn_.z, orientation_turn_.w}};
     const std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
     objects::quat_to_matrix(rotation, origin, std::span<float, 16>(matrix->data(), 16));
-    armed_ = true;
+    set_armed(true);
     return true;
 }
 
 // 0x004865D0
 void AnimScriptKey::assign_value(int frame, uint32_t event, script::Struct* params)
 {
-    tick_ = frame;
-    armed_ = false;
+    set_tick(frame);
+    set_armed(false);
     kind_tag_ = event;
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     call_args_ = memory ? memory::construct_in<script::Struct>(memory) : nullptr;

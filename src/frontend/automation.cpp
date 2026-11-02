@@ -758,7 +758,7 @@ bool value_denied(uint32_t type, script::Cell value, int depth)
         if (!array->find_array_value())
             return false;
         for (const script::Cell& element : array->cells())
-            if (value_denied(array->kind_tag_, element, depth + 1))
+            if (value_denied(array->kind_tag(), element, depth + 1))
                 return true;
         return false;
     }
@@ -916,7 +916,7 @@ void trace_frame()
         const int trick = state ? state->in_trick_move() : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
         const auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kScoreModuleKey));
-        const modules::PointTally* score = score_component ? score_component->points_held_ : nullptr;
+        const modules::PointTally* score = score_component ? score_component->points_held() : nullptr;
         const int pot = score ? score->pot() : -1;
         const float multiplier = score ? score->multiplier() : 0.0f;
         const int landed = score ? score->pot_score() : -1;
@@ -1178,7 +1178,7 @@ bool menu_input_blocked(modules::FrontEnd* front_end)
     if (!front_end || ::core::at(front_end->pad_mappings(), 0).mapping_ == 0 || front_end->block_menu_input())
         return true;
     const modules::FrontEndInputHandler* handler = ::core::at(front_end->pad_listeners(), 0).get();
-    return !handler || !handler->dev_;
+    return !handler || !handler->dev();
 }
 
 // Whether a pad press would be lost on the menus now: in the front end or the pause menu, menu input blocked, or a
@@ -1367,8 +1367,8 @@ std::string log_tricks(int count, std::string* failed)
     }
     std::vector<uint32_t> objects;
     std::vector<void*> clusters;
-    const lists::KeyMap& table = manager->object_clusters_;
-    for (int bucket = 0; bucket < (1 << table.bits_); ++bucket) {
+    const lists::KeyMap& table = manager->object_clusters();
+    for (int bucket = 0; bucket < (1 << table.bits()); ++bucket) {
         for (const lists::KeyMap::Item* item = &::core::at(table.bucket_run(), bucket); item; item = item->next) {
             if (!item->value)
                 continue;

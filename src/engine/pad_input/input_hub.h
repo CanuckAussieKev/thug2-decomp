@@ -107,6 +107,14 @@ public:
     // 0x00406890's task, on `controller`.
     InputHandler(int priority, int controller) : SchedulerTask(priority), ordinal_(controller) {}
 
+    // The fields other code reads and sets.
+    [[nodiscard]] Payload* control_data() const { return control_data_; }
+    void set_control_data(Payload* value) { control_data_ = value; }
+    [[nodiscard]] sio::InputPort* dev() const { return dev_; }
+    void set_dev(sio::InputPort* value) { dev_ = value; }
+    [[nodiscard]] int ordinal() const { return ordinal_; }
+
+private:
     Payload* control_data_ = nullptr; // +0x18: the controller's data this frame (set when it's added to a list)
     sio::InputPort* dev_ = nullptr;   // +0x1C: the controller's device
     int ordinal_;                     // +0x20: the controller
@@ -126,6 +134,10 @@ public:
     // 0x00577270 (slot 0 of every Responder<T>): the code, given the handler.
     void run() override { code_value_(this); }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] Owner* content() const { return content_; }
+
+private:
     Code code_value_; // +0x24
     Owner* content_;  // +0x28
 };

@@ -72,8 +72,8 @@ void send_negated(std::span<float, 3> out, const maths::Vec4& v)
 }
 
 // NOT ORIGINAL - a model's colours and directions as runs of the model light count they were made for.
-std::span<uint32_t> colors_of(const PcModelLights& lights) { return {lights.colors, light_sets().model_light_count()}; }
-std::span<maths::Vec4> directions_of(const PcModelLights& lights) { return {lights.directions, light_sets().model_light_count()}; }
+std::span<uint32_t> colors_of(const PcModelLights& lights) { return {lights.colors(), light_sets().model_light_count()}; }
+std::span<maths::Vec4> directions_of(const PcModelLights& lights) { return {lights.directions(), light_sets().model_light_count()}; }
 
 // A dynamic light's falloff at `distance` (its vtable's slot 2).
 double get_falloff(DynamicLightBase* light, float distance) { return light->get_falloff(distance); }
@@ -90,8 +90,8 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::
 PcModelLights::PcModelLights()
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    colors = static_cast<uint32_t*>(memory::alloc(4 * light_sets().model_light_count()));
-    directions = static_cast<maths::Vec4*>(memory::alloc(16 * light_sets().model_light_count()));
+    colors_ = static_cast<uint32_t*>(memory::alloc(4 * light_sets().model_light_count()));
+    directions_ = static_cast<maths::Vec4*>(memory::alloc(16 * light_sets().model_light_count()));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     switch_ambient_light(false);
     for (uint32_t i = 0; i < light_sets().model_light_count(); ++i) {
@@ -104,13 +104,13 @@ PcModelLights::PcModelLights()
 // 0x004B6360
 PcModelLights::~PcModelLights()
 {
-    if (colors) {
-        memory::Hub::get_pull()->dealloc(colors);
-        colors = nullptr;
+    if (colors_) {
+        memory::Hub::get_pull()->dealloc(colors_);
+        colors_ = nullptr;
     }
-    if (directions) {
-        memory::Hub::get_pull()->dealloc(directions);
-        directions = nullptr;
+    if (directions_) {
+        memory::Hub::get_pull()->dealloc(directions_);
+        directions_ = nullptr;
     }
 }
 
@@ -187,7 +187,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     }
     for (uint32_t j = 0; j < count; ++j) {
         DynamicLightBase* light = core::at(dynamic, j);
-        const auto& at = light->pos_value();
+        const auto& at = light->pos();
         double dx = static_cast<double>(position->x) - core::at(at, 0);
         double dy = static_cast<double>(position->y) - core::at(at, 1);
         const double dz = static_cast<double>(position->z) - core::at(at, 2);
@@ -208,10 +208,10 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         core::at(direction, 0) = static_cast<float>(dx);
         core::at(direction, 1) = static_cast<float>(dy);
         core::at(direction, 2) = zf;
-        if (light->type_value() == 1) {
-            const double factor = (1.0 - falloff) * light->intensity_value() * kPer255;
+        if (light->type() == 1) {
+            const double factor = (1.0 - falloff) * light->intensity() * kPer255;
             const std::span<float, 3> out = light_color_constant(first_dynamic_ + j);
-            const colour::Bytes colour = colour::bytes_of(light->colour_value()); // (its r, g, b bytes)
+            const colour::Bytes colour = colour::bytes_of(light->colour()); // (its r, g, b bytes)
             for (int k = 0; k < 3; ++k)
                 core::at(out, k) = static_cast<float>(core::at(colour, k) * factor);
         }

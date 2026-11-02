@@ -33,12 +33,12 @@ ScreenWindow* allocate_window_2d(int x, int y, int width, int height)
 {
     ScreenWindow* window = screen_2d().free_windows();
     if (window)
-        screen_2d().free_windows() = window->following_;
-    window->pos_x_ = x;
-    window->y_ = y;
+        screen_2d().free_windows() = window->following();
+    window->set_pos_x(x);
+    window->set_y(y);
     window->tick_engine();
-    window->span_ = width;
-    window->level_y_ = height;
+    window->set_span(width);
+    window->set_level_y(height);
     window->tick_engine();
     return window;
 }
@@ -46,7 +46,7 @@ ScreenWindow* allocate_window_2d(int x, int y, int width, int height)
 // 0x004A1670
 void free_window_2d(ScreenWindow* window)
 {
-    window->following_ = screen_2d().free_windows();
+    window->set_following(screen_2d().free_windows());
     screen_2d().free_windows() = window;
 }
 

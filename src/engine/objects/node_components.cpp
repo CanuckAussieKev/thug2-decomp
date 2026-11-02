@@ -46,7 +46,7 @@ script::Array* node_array_of(ObjectModule* component)
 gsl::owner<ObjectModule*> WaypointListModule::fabricate() { return new WaypointListModule; }
 
 // (the constructor: inlined in fabricate in the original)
-WaypointListModule::WaypointListModule() { kind_tag_ = kType; }
+WaypointListModule::WaypointListModule() { set_kind_tag(kType); }
 
 // 0x00427EA0 (0x00427EF0 the deleting one)
 WaypointListModule::~WaypointListModule() = default;
@@ -81,7 +81,7 @@ void WaypointListModule::reapply_from_data(script::Struct* params)
 gsl::owner<ObjectModule*> HookPointRegistryModule::fabricate() { return new HookPointRegistryModule; }
 
 // (the constructor: inlined in fabricate in the original)
-HookPointRegistryModule::HookPointRegistryModule() { kind_tag_ = kType; }
+HookPointRegistryModule::HookPointRegistryModule() { set_kind_tag(kType); }
 
 // 0x004281B0 (0x00428220 the deleting one)
 HookPointRegistryModule::~HookPointRegistryModule()
@@ -95,7 +95,7 @@ HookPointRegistryModule::~HookPointRegistryModule()
 // 0x00428090
 void HookPointRegistryModule::configure_from_data(script::Struct*)
 {
-    ObjectModule* node_array = entity_->fetch_module(WaypointListModule::kType);
+    ObjectModule* node_array = entity()->fetch_module(WaypointListModule::kType);
     if (ClassNodeList* hooks = hooks_ptr_) {
         hooks->get_clear();
         memory::Hub::get_pull()->dealloc(hooks);
@@ -111,7 +111,7 @@ void HookPointRegistryModule::configure_from_data(script::Struct*)
 gsl::owner<ObjectModule*> GrindPathLinkModule::fabricate() { return new GrindPathLinkModule; }
 
 // (the constructor: inlined in fabricate in the original)
-GrindPathLinkModule::GrindPathLinkModule() { kind_tag_ = kType; }
+GrindPathLinkModule::GrindPathLinkModule() { set_kind_tag(kType); }
 
 // 0x0042B9A0 (0x0042BA90 the deleting one): the rails destroyed and freed (rail_groups_'s destructor)
 GrindPathLinkModule::~GrindPathLinkModule() = default;
@@ -119,7 +119,7 @@ GrindPathLinkModule::~GrindPathLinkModule() = default;
 // 0x0042B880
 void GrindPathLinkModule::configure_from_data(script::Struct*)
 {
-    ObjectModule* node_array = entity_->fetch_module(WaypointListModule::kType);
+    ObjectModule* node_array = entity()->fetch_module(WaypointListModule::kType);
     rail_groups_.reset(); // (the old ones destroyed and freed first)
     rail_groups_ = memory::make_zeroed<GrindRailHub>();
     rail_groups_->add_from_node_array(node_array_of(node_array));
@@ -129,11 +129,11 @@ void GrindPathLinkModule::configure_from_data(script::Struct*)
 maths::Mat4* GrindPathLinkModule::update_rail_matrix(maths::Mat4* out)
 {
     maths::Mat4 placement{};
-    placement = entity_->basis_frame();
+    placement = entity()->basis_frame();
     core::at(placement.row, 0).w = 0.0f;
     core::at(placement.row, 1).w = 0.0f;
     core::at(placement.row, 2).w = 0.0f;
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     core::at(placement.row, 3) = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
     rail_groups_->change_body_transform(placement);
     *out = placement;

@@ -28,9 +28,9 @@ constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 constexpr uint32_t kHoldsClipboards = 0x45C6C158; // a piece set's flag: its entries are the clipboards
 constexpr uint32_t kMetaHasGap = 0x1000;          // a meta piece's flag
 
-uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits_; }
-uint32_t meta_type(const PieceGroup* meta) { return meta->name_key_; }
-CellBox& meta_footprint(PieceGroup* meta) { return meta->cell_footprint_; }
+uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits(); }
+uint32_t meta_type(const PieceGroup* meta) { return meta->name_key(); }
+CellBox& meta_footprint(PieceGroup* meta) { return meta->cell_footprint(); }
 
 // The memory profiler's markers (compiled out of this build: the empty function 0x005480A0).
 inline void memory_marker(const char* /*what*/) {}
@@ -214,7 +214,7 @@ bool BuildPointer::remove_gap_half()
     hub()->rebuild_area(&get_area(), false);
     // The pieces that had gaps are told to look again.
     manager = hub();
-    for (auto* node = manager->concrete_metas(); node; node = node->following_) {
+    for (auto* node = manager->concrete_metas(); node; node = node->following()) {
         if (get_meta_flags(node_meta(node)) & kMetaHasGap)
             as_meta(node_meta(node))->spotlight(1, 1);
     }
@@ -363,7 +363,7 @@ bool BuildPointer::raise_lower(int dir)
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
     const CellBox above = {.x = area.x, .y = area.y, .z = area.z, .w = area.w, .h = 16, .l = area.l};
     MapListNode* list = metas_within(ParkLayout::sole(), above);
-    for (const MapListNode* node = list; node; node = node->following_) {
+    for (const MapListNode* node = list; node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group();
         const CellBox at = meta_footprint(meta);
         if (at.h > area.h)
@@ -421,9 +421,9 @@ void ParkLayout::commission(uint32_t level)
     // The palette's sets (Ed_piece_sets): each a run of the standard meta pieces (Ed_standard_metapieces) from its
     // `first` up to the next set's, or the clipboards.
     script::Array* sets = script::fetch_list("Ed_piece_sets"); // "Ed_piece_sets"
-    num_sets() = static_cast<int>(sets->extent_);
+    num_sets() = static_cast<int>(sets->extent());
     script::Array* standard = script::fetch_list("Ed_standard_metapieces"); // "Ed_standard_metapieces"
-    int end = static_cast<int>(standard->extent_);
+    int end = static_cast<int>(standard->extent());
     for (int i = num_sets() - 1; i >= 0; --i) {
         TileFamilyRef& set = core::at(get_sets(this), i);
         auto* description = sets->struct_at(static_cast<uint32_t>(i));
@@ -437,7 +437,7 @@ void ParkLayout::commission(uint32_t level)
             // `first`'s place in the standard pieces (the manager's list runs from the last to the first).
             int index = 0;
             int position = num_abstract_metas_ - 1;
-            for (auto* node = abstract_metas_; node; node = node->following_, --position) {
+            for (auto* node = abstract_metas_; node; node = node->following(), --position) {
                 if (meta_type(node_meta(node)) == first) {
                     index = position;
                     break;
@@ -449,7 +449,7 @@ void ParkLayout::commission(uint32_t level)
                 const int piece = index + entry;
                 const PieceGroup* meta = nullptr;
                 int at = num_abstract_metas_ - 1;
-                for (auto* node = abstract_metas_; node; node = node->following_, --at) {
+                for (auto* node = abstract_metas_; node; node = node->following(), --at) {
                     const PieceGroup* candidate = node_meta(node);
                     if (at == piece) {
                         meta = candidate;

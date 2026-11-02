@@ -75,7 +75,7 @@ uint32_t get_clock() { return static_cast<uint32_t>(frame_clock::game_clock_elap
 // A physics value (0x004F90A0 on the balance trick component).
 double get_physics(RiderTeeterMoves* balance_trick, uint32_t name) { return balance_trick->get_physics_value(name); }
 uint32_t& get_trick_type(RiderTeeterMoves* balance_trick) { return balance_trick->trick(); }
-modules::PointTally* score_display(RiderPointKeeper* score) { return score->points_held_; }
+modules::PointTally* score_display(RiderPointKeeper* score) { return score->points_held(); }
 // The score's two balance displays (0x00563370 / 0x00563390): on or off, and the lean shown.
 void show_lean(void* score, int on, float lean)
 {

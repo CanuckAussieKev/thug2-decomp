@@ -87,7 +87,7 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
     const int r = get_rand();
     material_.set_checksum(static_cast<uint32_t>(r * get_rand())); // (a sort key)
     material_.set_pass_count(1);
-    core::at(material_.textures_value(), 0) = nullptr;
+    core::at(material_.textures(), 0) = nullptr;
     material_.set_two_sided(1);
     material_.set_depth_bias(4);
     core::at(material_.blend_modes(), 0) = blend_mode_from_name(0x54628ED7);
@@ -114,7 +114,7 @@ void PcPrimitive::set_texture(const BitmapTexture* texture, int, int)
     const int r = get_rand();
     material_.set_checksum(static_cast<uint32_t>(r * get_rand()));
     material_.set_pass_count(1);
-    core::at(material_.textures_value(), 0) = pc_texture;
+    core::at(material_.textures(), 0) = pc_texture;
     material_.set_two_sided(1);
     material_.set_depth_bias(4);
     core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode());
@@ -174,7 +174,7 @@ void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int cou
 // 0x004C5320
 void PcPrimitive::end_setup()
 {
-    if (!(vertex_format_ & 0x100) || core::at(material_.textures_value(), 0) != nullptr)
+    if (!(vertex_format_ & 0x100) || core::at(material_.textures(), 0) != nullptr)
         flag_bits() = (flag_bits() & ~2u) | 4;
 }
 

@@ -271,7 +271,7 @@ void ModelWidget::change_traits(Struct* params)
         params->put_name_key(kClass, kLevelObject);
         script::Array* sectors = nullptr;
         params->fetch_list(kSectors, &sectors, 0);
-        for (uint32_t i = 0; i < sectors->extent_; ++i) {
+        for (uint32_t i = 0; i < sectors->extent(); ++i) {
             auto* entry = sectors->struct_at(i);
             uint32_t sector = 0;
             entry->read_hash_value(0u, &sector, 0);

@@ -96,22 +96,22 @@ void ParkLayout::discard_occurrence()
 // 0x00599A20
 void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
 {
-    meta->flag_bits_ |= PieceGroup::kInPark;
-    meta->cell_footprint_.x = pos.x;
-    meta->cell_footprint_.y = pos.y;
-    meta->cell_footprint_.z = pos.z;
+    meta->flag_bits() |= PieceGroup::kInPark;
+    meta->cell_footprint().x = pos.x;
+    meta->cell_footprint().y = pos.y;
+    meta->cell_footprint().z = pos.z;
 
     // Where its pieces go from: the middle of the metapiece in the world (the grid centred on the origin).
     maths::Vec4 origin;
-    origin.x = static_cast<float>((meta->cell_footprint_.w * 0.5 + pos.x) * kGridPitch -
+    origin.x = static_cast<float>((meta->cell_footprint().w * 0.5 + pos.x) * kGridPitch -
                                   static_cast<double>(kGridPitch) * kGridCells * 0.5);
-    origin.z = static_cast<float>((meta->cell_footprint_.l * 0.5 + pos.z) * kGridStepAlong -
+    origin.z = static_cast<float>((meta->cell_footprint().l * 0.5 + pos.z) * kGridStepAlong -
                                   static_cast<double>(kGridStepAlong) * kGridCells * 0.5);
     origin.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
-    if (meta->flag_bits_ & PieceGroup::kRiserBelow)
+    if (meta->flag_bits() & PieceGroup::kRiserBelow)
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);
     origin.w = 1.0f; // (the original leaves w as it was on the stack)
-    for (uint32_t i = 0; i < meta->filled_slots_; ++i) {
+    for (uint32_t i = 0; i < meta->filled_slots(); ++i) {
         maths::Vec4 relative;
         meta->get_relative_position(&relative, i);
         auto* piece = core::down_cast<ParkTile>(meta->get_piece(i)); // (a placed metapiece's)
@@ -121,19 +121,19 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
         position.y = static_cast<float>(static_cast<double>(relative.y) + origin.y);
         position.w = 1.0f; // (likewise)
         piece->change_place(&position, 1);
-        piece->set_quarter_turns((piece->quarter_turns_ + meta->quarter_turns_) & 3, 1);
+        piece->set_quarter_turns((piece->quarter_turns() + meta->quarter_turns()) & 3, 1);
         builder_->insert_tile(piece);
         builder_->light_piece(piece);
     }
     set_meta_in_cells(meta, 1);
     add_meta_to_cells(meta);
     for (int player = 1; player < 9; ++player) {
-        if (meta->name_key_ == core::at(restart_pieces_, player - 1)) {
-            builder_->plant_restart_point(&origin, meta->quarter_turns_, &pos, player, 0, 0);
+        if (meta->name_key() == core::at(restart_pieces_, player - 1)) {
+            builder_->plant_restart_point(&origin, meta->quarter_turns(), &pos, player, 0, 0);
             break;
         }
     }
-    if (!(meta->flag_bits_ & PieceGroup::kFence) && !(meta->flag_bits_ & PieceGroup::kBuiltShell))
+    if (!(meta->flag_bits() & PieceGroup::kFence) && !(meta->flag_bits() & PieceGroup::kBuiltShell))
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
     add_piece_cost(meta);
 }
@@ -145,11 +145,11 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
     uint16_t pieces = 0;
     MapListNode* list = get_intersecting_metas(area, 0, nullptr, (flags >> 1) & 0xFFFFFF01);
     if (list) {
-        for (MapListNode* node = list; node; node = node->following_) {
-            if ((flags & 4) && (node->get_placed_piece()->flag_bits_ & PieceGroup::kFlag20))
+        for (MapListNode* node = list; node; node = node->following()) {
+            if ((flags & 4) && (node->get_placed_piece()->flag_bits() & PieceGroup::kFlag20))
                 continue;
             ++metas;
-            pieces = static_cast<uint16_t>(pieces + node->get_placed_piece()->filled_slots_);
+            pieces = static_cast<uint16_t>(pieces + node->get_placed_piece()->filled_slots());
             free_placed_piece(node->get_placed_piece(), flags);
         }
     }
@@ -162,9 +162,9 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
 void ParkLayout::highlight_metas_within_area(CellBox area, int on)
 {
     const MapListHolder metas(collect_pieces_in_region(area));
-    for (MapListNode* node = metas.list; node; node = node->following_) {
+    for (MapListNode* node = metas.list; node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group();
-        if (meta && (meta->flag_bits_ & PieceGroup::kFlag1) && meta->fits_inside_region(&area))
+        if (meta && (meta->flag_bits() & PieceGroup::kFlag1) && meta->fits_inside_region(&area))
             node->get_placed_piece()->spotlight(on, 0);
     }
 }
@@ -172,7 +172,7 @@ void ParkLayout::highlight_metas_within_area(CellBox area, int on)
 // 0x0059AE90
 void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
 {
-    if (meta->flag_bits_ & PieceGroup::kCursor)
+    if (meta->flag_bits() & PieceGroup::kCursor)
         return;
     if (BuildPointer* cursor = BuildPointer::sole())
         cursor->forget_gap_at(meta);
@@ -182,13 +182,13 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
         drop_gap_entry(gap_registry_->get_gap_info(gap, &half));
     }
     // A change to the park the player made: the compressed map is out of date.
-    const uint32_t meta_flags = meta->flag_bits_;
+    const uint32_t meta_flags = meta->flag_bits();
     if (!(meta_flags & PieceGroup::kFence) && (meta_flags & PieceGroup::kInPark) &&
         !(meta_flags & PieceGroup::kBuiltShell))
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
     // What stands on it goes too.
-    if (!(meta->flag_bits_ & PieceGroup::kBuiltShell) && (flags & 1)) {
-        CellBox above = meta->cell_footprint_;
+    if (!(meta->flag_bits() & PieceGroup::kBuiltShell) && (flags & 1)) {
+        CellBox above = meta->cell_footprint();
         above.y = static_cast<int8_t>(above.h + above.y);
         above.stretch_vertically();
         free_piece_groups_in_region(above, 3);
@@ -197,12 +197,12 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     remove_meta_from_cells(meta);
     remove_meta_from_list(meta, &concrete_metas_);
     for (int player = 1; player < 9; ++player) {
-        if (meta->name_key_ == core::at(restart_pieces_, player - 1)) {
-            builder_->unplant_restart_point(&meta->cell_footprint_, player);
+        if (meta->name_key() == core::at(restart_pieces_, player - 1)) {
+            builder_->unplant_restart_point(&meta->cell_footprint(), player);
             break;
         }
     }
-    for (uint32_t i = 0; i < meta->filled_slots_; ++i)
+    for (uint32_t i = 0; i < meta->filled_slots(); ++i)
         builder_->destroy_piece(core::down_cast<PlacedPieceGroup>(meta)->slot(static_cast<int>(i)).piece);
     remove_piece_cost(meta);
     gsl::owner<PieceGroup*> owned = memory::owned_element(meta); // (the list's)
@@ -216,7 +216,7 @@ void ParkLayout::destroy_concrete_metas(int keep_rails)
     park_editing_state().set_collision_allowed(false);
     gap_registry_->clear_gap_entries();
     for (MapListNode* node = concrete_metas_; node;) {
-        MapListNode* next = node->following_;
+        MapListNode* next = node->following();
         free_placed_piece(node->get_placed_piece(), 0);
         node = next;
     }
@@ -230,10 +230,10 @@ void ParkLayout::destroy_concrete_metas(int keep_rails)
 // 0x0059B090
 PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int dz)
 {
-    CellBox pos = meta->cell_footprint_;
-    const uint32_t checksum = meta->name_key_;
-    const int rot = meta->quarter_turns_;
-    const uint32_t flags = meta->flag_bits_;
+    CellBox pos = meta->cell_footprint();
+    const uint32_t checksum = meta->name_key();
+    const int rot = meta->quarter_turns();
+    const uint32_t flags = meta->flag_bits();
     // The gap it's an end of goes with it (the lookup shrinks `pos` to 1x1x1, which the move ignores).
     bool had_gap = false;
     int half = 0;
@@ -255,7 +255,7 @@ PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int
     pos.z = static_cast<uint8_t>(pos.z + dz);
     PieceGroup* copy = make_placed_piece(find_piece_template(checksum), 0);
     copy->set_quarter_turns(rot);
-    copy->flag_bits_ = flags & ~PieceGroup::kInPark;
+    copy->flag_bits() = flags & ~PieceGroup::kInPark;
     place_meta_piece_in_park(pos, copy);
     if (had_gap)
         register_gap_entry(&moved);

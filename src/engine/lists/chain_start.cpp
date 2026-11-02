@@ -10,19 +10,19 @@ namespace {
 // `node` linked in before `next`.
 void insert_before(memory::ListNode* next, memory::ListNode* node)
 {
-    node->prev = next->prev;
-    node->next = next;
-    next->prev->next = node;
-    next->prev = node;
+    node->set_prev(next->prev());
+    node->set_next(next);
+    next->prev()->set_next(node);
+    next->set_prev(node);
 }
 
 // `node` linked in after `prev`.
 void insert_after(memory::ListNode* prev, memory::ListNode* node)
 {
-    node->prev = prev;
-    node->next = prev->next;
-    prev->next->prev = node;
-    prev->next = node;
+    node->set_prev(prev);
+    node->set_next(prev->next());
+    prev->next()->set_prev(node);
+    prev->set_next(node);
 }
 
 } // namespace
@@ -30,11 +30,11 @@ void insert_after(memory::ListNode* prev, memory::ListNode* node)
 // 0x0045A540
 void append_vertex(memory::ListNode& head, memory::ListNode* node)
 {
-    const int priority = node->priority;
-    for (memory::ListNode* next = head.next;; next = next->next) {
-        if (next->data == memory::ListNode::head_marker() || !next)
+    const int priority = node->priority();
+    for (memory::ListNode* next = head.next();; next = next->next()) {
+        if (next->data() == memory::ListNode::head_marker() || !next)
             break;
-        if (next->priority <= priority) {
+        if (next->priority() <= priority) {
             insert_before(next, node);
             return;
         }
@@ -45,13 +45,13 @@ void append_vertex(memory::ListNode& head, memory::ListNode* node)
 // 0x0045AEB0
 bool insert_by_unique_order(memory::ListNode& head, memory::ListNode* node)
 {
-    const int priority = node->priority;
-    for (memory::ListNode* next = head.next;; next = next->next) {
-        if (next->data == memory::ListNode::head_marker() || !next)
+    const int priority = node->priority();
+    for (memory::ListNode* next = head.next();; next = next->next()) {
+        if (next->data() == memory::ListNode::head_marker() || !next)
             break;
-        if (next->priority == priority)
+        if (next->priority() == priority)
             return false;
-        if (next->priority > priority) {
+        if (next->priority() > priority) {
             insert_before(next, node);
             return true;
         }
@@ -63,11 +63,11 @@ bool insert_by_unique_order(memory::ListNode& head, memory::ListNode* node)
 // 0x00457350
 void append_node(memory::ListNode& head, memory::ListNode* node)
 {
-    const int priority = node->priority;
-    for (memory::ListNode* prev = head.prev;; prev = prev->prev) {
-        if (prev->data == memory::ListNode::head_marker() || !prev)
+    const int priority = node->priority();
+    for (memory::ListNode* prev = head.prev();; prev = prev->prev()) {
+        if (prev->data() == memory::ListNode::head_marker() || !prev)
             break;
-        if (prev->priority >= priority) {
+        if (prev->priority() >= priority) {
             insert_after(prev, node);
             return;
         }
@@ -78,12 +78,12 @@ void append_node(memory::ListNode& head, memory::ListNode* node)
 // 0x0055D990
 memory::ListNode* node_at(memory::ListNode& head, int index)
 {
-    memory::ListNode* node = head.next;
-    if (node->data == memory::ListNode::head_marker() || !node)
+    memory::ListNode* node = head.next();
+    if (node->data() == memory::ListNode::head_marker() || !node)
         return nullptr;
     while (index--) {
-        node = node->next;
-        if (node->data == memory::ListNode::head_marker() || !node)
+        node = node->next();
+        if (node->data() == memory::ListNode::head_marker() || !node)
             return nullptr;
     }
     return node;
@@ -93,16 +93,16 @@ memory::ListNode* node_at(memory::ListNode& head, int index)
 void unlink_all(memory::ListNode& head)
 {
     // (The original reads the first node's data before checking the node for null.)
-    memory::ListNode* node = head.next;
-    if (node->data == memory::ListNode::head_marker() || !node)
+    memory::ListNode* node = head.next();
+    if (node->data() == memory::ListNode::head_marker() || !node)
         return;
     while (node) {
-        memory::ListNode* following = node->next;
-        node->prev->next = following;
-        following->prev = node->prev;
-        node->next = node;
-        node->prev = node;
-        node = following->data == memory::ListNode::head_marker() ? nullptr : following;
+        memory::ListNode* following = node->next();
+        node->prev()->set_next(following);
+        following->set_prev(node->prev());
+        node->set_next(node);
+        node->set_prev(node);
+        node = following->data() == memory::ListNode::head_marker() ? nullptr : following;
     }
 }
 

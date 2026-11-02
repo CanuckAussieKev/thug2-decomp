@@ -96,8 +96,8 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, int server)
 {
-    handler->control_data_ = &core::at(manager->hosts_, server).content_;
-    handler->dev_ = core::at(manager->hosts_, server).dev_;
+    handler->set_control_data(&core::at(manager->hosts_, server).content_);
+    handler->set_dev(core::at(manager->hosts_, server).dev_);
 }
 int player_controller(int player) { return input_manager()->get_player_controller(player); }
 
@@ -130,7 +130,7 @@ void PadInputModule::publish_method_table()
 }
 
 // 0x0041E850
-PadInputModule::PadInputModule() { kind_tag_ = kType; }
+PadInputModule::PadInputModule() { set_kind_tag(kType); }
 
 // 0x0041E710 (0x0041E8C0 the deleting one)
 PadInputModule::~PadInputModule()
@@ -164,12 +164,12 @@ void PadInputModule::link_to_pad(int controller)
         memory->enter_heap_scope(memory->skater_info_heap());
         handler_ = new_handler(0, handler_code, this);
         pad_input::Hub* manager = input_manager();
-        core::at(manager->hosts_, (handler_->ordinal_)).handlers_.queue_job(handler_);
-        place_handler(handler_, manager, handler_->ordinal_);
+        core::at(manager->hosts_, (handler_->ordinal())).handlers_.queue_job(handler_);
+        place_handler(handler_, manager, handler_->ordinal());
         handler2_ = new_handler(1, handler_code2, this);
         manager = input_manager();
-        core::at(manager->hosts_, (handler2_->ordinal_)).handlers_.queue_job(handler2_);
-        place_handler(handler2_, manager, handler2_->ordinal_);
+        core::at(manager->hosts_, (handler2_->ordinal())).handlers_.queue_job(handler2_);
+        place_handler(handler2_, manager, handler2_->ordinal());
         memory::Hub::get_pull()->leave_heap_scope();
     }
     Responder* handler = handler_;
@@ -182,26 +182,26 @@ void PadInputModule::link_to_pad(int controller)
     handler2->drop_out();
     core::at(manager->hosts_, 1).handlers_.queue_job(handler2);
     place_handler(handler2, manager, 1);
-    if (ObjectModule* vibration = entity_->fetch_module(kVibration))
-        core::down_cast<PadRumbleModule>(vibration)->change_gadget(handler_->dev_);
+    if (ObjectModule* vibration = entity()->fetch_module(kVibration))
+        core::down_cast<PadRumbleModule>(vibration)->change_gadget(handler_->dev());
 }
 
 // 0x0041F170
 void PadInputModule::handler_code(Responder* handler)
 {
-    handler->content_->update_pad(handler->control_data_);
+    handler->content()->update_pad(handler->control_data());
 }
 
 // 0x0041F190
 void PadInputModule::handler_code2(Responder* handler)
 {
-    handler->content_->update_pad2(handler->control_data_);
+    handler->content()->update_pad2(handler->control_data());
 }
 
 // 0x0041F090
 void PadInputModule::update_pad(const pad_input::Payload* data)
 {
-    if (entity_->composite_flags() & kCompositeFlagPaused)
+    if (entity()->composite_flags() & kCompositeFlagPaused)
         return;
     update_events(data->incident());
     const bool blocked = is_input_blocked();
@@ -217,7 +217,7 @@ void PadInputModule::update_pad(const pad_input::Payload* data)
 // 0x0041F100
 void PadInputModule::update_pad2(const pad_input::Payload* data)
 {
-    if (entity_->composite_flags() & kCompositeFlagPaused)
+    if (entity()->composite_flags() & kCompositeFlagPaused)
         return;
     const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
@@ -279,10 +279,10 @@ void PadInputModule::read_button_state(std::span<const uint8_t> data, int index,
     const bool events_on = input_events_ && !disabled_ && !net_disabled_;
     if (core::at(data, index)) {
         if (!(last_events_ & bit) && events_on)
-            entity_->post_own_event(down, nullptr);
+            entity()->post_own_event(down, nullptr);
         events_ |= bit;
     } else if ((last_events_ & bit) && events_on) {
-        entity_->post_own_event(up, nullptr);
+        entity()->post_own_event(up, nullptr);
     }
 }
 

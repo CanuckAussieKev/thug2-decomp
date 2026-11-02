@@ -218,7 +218,7 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots = nullptr;
     specials->fetch_list(0u, &slots, 1);
-    if (index < 0 || index >= ints::as_signed(slots->extent_)) {
+    if (index < 0 || index >= ints::as_signed(slots->extent())) {
         // (asserts, compiled out)
         // (0x005480A0, an empty function, given the info structure and the specials)
         stubs::do_nothing();
@@ -242,7 +242,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots = nullptr;
     specials->fetch_list(0u, &slots, 1);
-    if (index < 0 || index >= ints::as_signed(slots->extent_))
+    if (index < 0 || index >= ints::as_signed(slots->extent()))
         return false;
     uint32_t name = trick->trick, keys = trick->keys;
     if (trick->is_vacant())
@@ -275,7 +275,7 @@ void ChecksumSet::get_fill()
 {
     num_ = 0;
     script::Array* array = script::fetch_list(0x5004A967);
-    for (uint32_t i = 0; i < array->extent_; ++i) {
+    for (uint32_t i = 0; i < array->extent(); ++i) {
         const uint32_t item = array->fetch_part(i);
         int j = 0;
         for (; j < num_; ++j) {
@@ -353,7 +353,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
     }
     // Every stat in the global list.
     script::Array* stats = script::fetch_list(kStatCatalog);
-    for (uint32_t i = 0; i < stats->extent_; ++i) {
+    for (uint32_t i = 0; i < stats->extent(); ++i) {
         stats->struct_at(i)->read_hash_value(kName, &stat_name, 1);
         params->fetch_int_value(stat_name, &stat, 1);
         mine->put_int(stat_name, stat);
@@ -414,10 +414,10 @@ void RiderIdentity::write_to_save(script::Struct* save)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
         gsl::owner<script::Struct*> appearance = script::new_struct();
-        appearance->append_structure_if_any(&this->appearance()->structure_);
+        appearance->append_structure_if_any(&this->appearance()->structure());
         mine->append_struct_ref(kAppearance, appearance);
     }
-    void* face = appearance()->face_skin_; // (the appearance's face: 0x00576E60, a folded getter)
+    void* face = appearance()->face_skin(); // (the appearance's face: 0x00576E60, a folded getter)
     if (face && static_cast<gfx::FaceSkin*>(face)->is_sound()) {
         gsl::owner<script::Struct*> texture = script::new_struct();
         static_cast<gfx::FaceSkin*>(face)->save_to_structure(texture);
@@ -447,7 +447,7 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
     uint8_t* at = appearance()->decode_from_bytes(buffer, size); // the appearance
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
-    appearance_guard::sanitise(&appearance()->structure_);
+    appearance_guard::sanitise(&appearance()->structure());
     script::Struct* part = nullptr; // (the original read into its argument's slot: the buffer's address)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     part->get_clear();

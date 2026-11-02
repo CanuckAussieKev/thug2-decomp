@@ -281,7 +281,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         propagate_head_color();
         return true;
     case kModelApplyFaceTexture: {
-        FaceSkin* face = built_appearance()->face_skin_;
+        FaceSkin* face = built_appearance()->face_skin();
         if (!face || !face_texture_is_valid(face) || !built_model())
             return true;
         const char* source = nullptr; // (asserted; the original's slot held the method's name)
@@ -358,7 +358,7 @@ bool ModelAssembler::add_geom(uint32_t part)
         built_model()->add_file_geom(mesh, part, via_asset_store_, dict_shift_, false, multicolor != 0, true, false);
     };
     const char* mesh = nullptr;
-    FaceSkin* face = built_appearance()->face_skin_;
+    FaceSkin* face = built_appearance()->face_skin();
     if ((face && face_texture_is_valid(face)) || built_appearance()->has_face_texture()) {
         if (option->fetch_text(kMeshIfFacemapped, &mesh, 0)) {
             add(mesh);
@@ -375,7 +375,7 @@ bool ModelAssembler::add_geom(uint32_t part)
 // 0x0048A9C0
 bool ModelAssembler::remove_part(uint32_t part)
 {
-    built_appearance()->structure_.erase_module(part);
+    built_appearance()->structure().erase_module(part);
     return true;
 }
 
@@ -534,7 +534,7 @@ bool ModelAssembler::restore_scale()
 bool ModelAssembler::apply_body_shape()
 {
     script::Struct* body_shape = nullptr;
-    if (!built_appearance()->structure_.read_sub_struct(kBodyShape, &body_shape, 0))
+    if (!built_appearance()->structure().read_sub_struct(kBodyShape, &body_shape, 0))
         return false;
     return built_skeleton()->apply_bone_scales(body_shape);
 }
@@ -565,7 +565,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
         return false;
     maths::Vec4 scale;
     scale.w = 1.0f;
-    for (uint32_t i = 0; i < bones->extent_; ++i) {
+    for (uint32_t i = 0; i < bones->extent(); ++i) {
         const uint32_t bone = bones->fetch_part(i);
         built_skeleton()->fetch_bone_sizing(bone, &scale);
         bool local = true;
@@ -573,7 +573,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
         scale.y = static_cast<float>(static_cast<double>(y) * kPercent * scale.y);
         scale.z = static_cast<float>(static_cast<double>(z) * kPercent * scale.z);
         if (script::Array* nonlocal = script::fetch_list(kNonlocalBones)) {
-            for (uint32_t j = 0; j < nonlocal->extent_; ++j) {
+            for (uint32_t j = 0; j < nonlocal->extent(); ++j) {
                 if (nonlocal->fetch_part(j) == bone)
                     local = false;
             }
@@ -587,12 +587,12 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
 bool ModelAssembler::apply_object_scale()
 {
     maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
-    if (fetch_magnification(&scale, &built_appearance()->structure_)) {
+    if (fetch_magnification(&scale, &built_appearance()->structure())) {
         built_model()->change_scale(&scale);
         return true;
     }
     script::Struct* body_shape = nullptr;
-    if (built_appearance()->structure_.read_sub_struct(kBodyShape, &body_shape, 0) &&
+    if (built_appearance()->structure().read_sub_struct(kBodyShape, &body_shape, 0) &&
         fetch_magnification(&scale, body_shape)) {
         built_model()->change_scale(&scale);
         return true;

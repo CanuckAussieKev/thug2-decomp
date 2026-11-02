@@ -28,6 +28,12 @@ public:
     CreateATrick(const CreateATrick&) = delete;
     CreateATrick& operator=(const CreateATrick&) = delete;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] script::Struct* other_params() const { return other_params_; }
+    [[nodiscard]] script::Array* spin_list() const { return static_cast<script::Array*>(spin_list_); } // (a view: it stays the owner's)
+    [[nodiscard]] script::Array* animations() const { return static_cast<script::Array*>(animations_); } // (a view: it stays the owner's)
+
+private:
     script::Struct* other_params_; // Default_CAT_other_info's to begin with
     gsl::owner<script::Array*> spin_list_;     // six structures (Default_CAT_rotation_info's)
     gsl::owner<script::Array*> animations_;    // six structures (Default_CAT_animation_info's)

@@ -20,8 +20,17 @@ namespace render {
 // split node has its two children at +4 (the low 2 bits masked off): the one at +0 is the "less" side (below
 // the split) unless bit 0 is set, which swaps them.
 struct HitTreeNode {
+    // The fields other code reads and sets.
+    [[nodiscard]] int32_t axis_tag() const { return axis_tag_; }
+    void set_axis_tag(int32_t value) { axis_tag_ = value; }
+    [[nodiscard]] uint32_t chain_link() const { return chain_link_; }
+    void set_chain_link(uint32_t value) { chain_link_ = value; }
+
+private:
     int32_t axis_tag_{0};
     uint32_t chain_link_{0};
+
+public:
 
     // 0x00414D70 (not a function in Ghidra: new[]'s constructor): zeroed.
     HitTreeNode();
@@ -77,6 +86,7 @@ struct TriMeshSource {
     void set_unknown04(uint16_t value) { unknown04_ = value; }
     [[nodiscard]] uint16_t num_vertices() const { return num_vertices_; }
     void set_num_vertices(uint16_t value) { num_vertices_ = value; }
+    uint16_t& tri_count() { return tri_count_; }
     [[nodiscard]] uint16_t tri_count() const { return tri_count_; }
     void set_tri_count(uint16_t value) { tri_count_ = value; }
     [[nodiscard]] bool small_faces() const { return small_faces_; }

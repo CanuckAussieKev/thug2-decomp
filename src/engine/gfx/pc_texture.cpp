@@ -41,24 +41,24 @@ namespace render {
 
 namespace {
 
-TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->image_); }
+TextureEdit* get_edit(const PcTexture* texture) { return static_cast<TextureEdit*>(texture->image()); }
 
 // NOT ORIGINAL - an edit's pixel buffers as runs of the texture's width x height (the size begin_edit allocates them
 // at); empty when the texture is not being edited or the buffer is not there.
 std::span<uint32_t> run_of(const PcTexture* texture, uint32_t* pixels)
 {
-    if (!(texture->flag_bits_ & 1) || !pixels)
+    if (!(texture->flag_bits() & 1) || !pixels)
         return {};
     const TextureRef* image = get_edit(texture)->texture;
     return {pixels, static_cast<size_t>(image->width) * image->height};
 }
 std::span<uint32_t> edit_pixels(const PcTexture* texture)
 {
-    return (texture->flag_bits_ & 1) ? run_of(texture, get_edit(texture)->pixels) : std::span<uint32_t>();
+    return (texture->flag_bits() & 1) ? run_of(texture, get_edit(texture)->pixels) : std::span<uint32_t>();
 }
 std::span<uint32_t> edit_original(const PcTexture* texture)
 {
-    return (texture->flag_bits_ & 1) ? run_of(texture, get_edit(texture)->original) : std::span<uint32_t>();
+    return (texture->flag_bits() & 1) ? run_of(texture, get_edit(texture)->original) : std::span<uint32_t>();
 }
 
 gsl::owner<PcTexture*> alloc_pc_texture() { return new PcTexture; }
@@ -69,20 +69,20 @@ TextureRef* image_of(const BitmapTexture* texture) { return core::down_cast<cons
 
 TextureRef* PcTexture::get_texture() const
 {
-    return flag_bits_ & 1 ? get_edit(this)->texture : static_cast<TextureRef*>(image_);
+    return flag_bits() & 1 ? get_edit(this)->texture : static_cast<TextureRef*>(image_);
 }
 
 // 0x004C7EF0
 void PcTexture::set_texture(TextureRef* texture)
 {
     image_ = texture;
-    checksum_ = texture->checksum;
+    set_checksum(texture->checksum);
 }
 
 // 0x004C9D00
 PcTexture::~PcTexture()
 {
-    if (flag_bits_ & 1)
+    if (flag_bits() & 1)
         end_edit();
     if (auto* texture = static_cast<TextureRef*>(image_)) {
         texture->~TextureRef();
@@ -136,7 +136,7 @@ bool PcTexture::end_edit()
 {
     // (the edit's fields read whether or not it is one, as the original)
     auto* edit = get_edit(this);
-    void* texture = flag_bits_ & 1 ? edit->texture : image_;
+    void* texture = flag_bits() & 1 ? edit->texture : image_;
     if (edit->pixels) {
         memory::Hub::get_pull()->dealloc(edit->pixels);
         get_edit(this)->pixels = nullptr;
@@ -152,7 +152,7 @@ bool PcTexture::end_edit()
     }
     memory::Hub::get_pull()->dealloc(image_);
     image_ = texture;
-    flag_bits_ &= ~1u;
+    flag_bits() &= ~1u;
     return true;
 }
 
@@ -196,7 +196,7 @@ PcTexture::PcTexture(const PcTexture* source)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     unknownc_ = source->unknownc_;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    flag_bits_ = source->flag_bits_;
+    flag_bits() = source->flag_bits();
     TextureRef* copy = nullptr;
     if (source->get_texture()) {
         void* memory = memory::alloc(sizeof(TextureRef));
@@ -205,7 +205,7 @@ PcTexture::PcTexture(const PcTexture* source)
     // (the source's size through its virtual functions)
     const uint32_t width = source->fetch_breadth();
     const uint32_t height = source->fetch_tallness();
-    if (!(source->flag_bits_ & 1)) {
+    if (!(source->flag_bits() & 1)) {
         image_ = copy;
         return;
     }
@@ -245,7 +245,7 @@ bool PcTexture::create_image(uint32_t new_checksum, uint32_t width, uint32_t hei
         static_cast<IUnknown*>(old->texture)->Release();
     void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
-    checksum_ = new_checksum;
+    set_checksum(new_checksum);
     image_ = texture;                 // (an edit's place too)
     texture->checksum = new_checksum; // (no check, as the original)
     texture->unknownf_ = 0;
@@ -338,7 +338,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     edit->texture = texture;
     const uint32_t bytes = width * height * 4;
     edit->pixels = static_cast<uint32_t*>(memory::alloc(bytes));
-    flag_bits_ |= 1;
+    flag_bits() |= 1;
     const std::span<uint32_t> pixels(get_edit(this)->pixels, static_cast<size_t>(width) * height);
     auto* d3d = static_cast<IDirect3DTexture9*>(texture->texture);
     D3DSURFACE_DESC desc;
@@ -517,7 +517,7 @@ bool PcTexture::modulate(uint32_t colour, bool cumulative)
 bool PcTexture::resize_from(const BitmapTexture* source_texture, int /*unused*/)
 {
     const auto* source = core::down_cast<const PcTexture>(source_texture);
-    if (!(flag_bits_ & 1) || !(source->flag_bits_ & 1))
+    if (!(flag_bits() & 1) || !(source->flag_bits() & 1))
         return false;
     const TextureRef* into = get_edit(this)->texture;
     const TextureRef* from = get_edit(source)->texture;
@@ -550,7 +550,7 @@ bool PcTexture::get_zoom(float x_zoom, float y_zoom)
 void PcTexture::read_rect(std::span<uint32_t> out, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
     const uint32_t image_width = get_texture()->image_width_;
-    if (flag_bits_ & 1 && get_edit(this)->pixels) {
+    if (flag_bits() & 1 && get_edit(this)->pixels) {
         const std::span<const uint32_t> pixels = edit_pixels(this);
         size_t from_at = static_cast<size_t>(y) * image_width + x;
         size_t out_at = 0;
@@ -582,7 +582,7 @@ void PcTexture::write_rect(std::span<const uint32_t> in, uint16_t x, uint16_t y,
 {
     const uint32_t image_width = get_texture()->image_width_;
     const uint32_t image_height = get_texture()->image_height_;
-    if (flag_bits_ & 1 && get_edit(this)->pixels) {
+    if (flag_bits() & 1 && get_edit(this)->pixels) {
         const std::span<uint32_t> pixels = edit_pixels(this);
         size_t into_at = static_cast<size_t>(y) * image_width + x;
         size_t in_at = 0;
@@ -778,7 +778,7 @@ bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bo
 {
     const std::span<uint32_t> into = edit_pixels(this);
     std::span<const uint32_t> from;
-    if (flag_bits_ & 1)
+    if (flag_bits() & 1)
         from = get_edit(this)->original && !cumulative ? edit_original(this) : into;
     const int width = fetch_breadth();
     const int count = fetch_tallness() * width;
@@ -853,7 +853,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
                     column = part_width - 1;
                 const uint32_t pixel = core::at(part, row_start + column);
                 const uint32_t texels_wide = get_texture()->width;
-                if (flag_bits_ & 1 && get_edit(this)->pixels)
+                if (flag_bits() & 1 && get_edit(this)->pixels)
                     core::at(edit, static_cast<uint16_t>(y) * texels_wide + static_cast<uint16_t>(x)) = pixel;
             }
         }
@@ -1001,7 +1001,7 @@ BitmapTexture* PcTexDict::load_texture_data(const uint8_t* data, uint32_t size, 
 BitmapTexture* PcTexDict::make_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel,
                                        uint32_t a4, uint32_t a5)
 {
-    auto* texture = static_cast<BitmapTexture*>(textures_->fetch_entry(checksum));
+    auto* texture = static_cast<BitmapTexture*>(textures()->fetch_entry(checksum));
     if (!texture) {
         gsl::owner<PcTexture*> made = alloc_pc_texture(); // (the caller adds it to the dictionary)
         texture = made;
@@ -1043,12 +1043,12 @@ lists::KeyMap* remake_table(lists::KeyMap* table, uint32_t count)
         }
     }
     memory::MemSource* heap =
-        memory::fetch_chunk_prefix(table)->allocator; // (read before the null test, as the original)
+        memory::fetch_chunk_prefix(table)->allocator(); // (read before the null test, as the original)
     if (table) {
-        if (table->buckets_) {
+        if (table->buckets()) {
             table->empty_table();
-            memory::Hub::get_pull()->dealloc(table->buckets_);
-            table->buckets_ = nullptr;
+            memory::Hub::get_pull()->dealloc(table->buckets());
+            table->set_buckets(nullptr);
         }
         memory::Hub::get_pull()->dealloc(table);
     }
@@ -1083,8 +1083,8 @@ uint32_t pixel_layout(uint8_t compression, uint8_t depth, uint32_t last)
 void add_to_table(lists::KeyMap* table, TextureRef* texture)
 {
     auto holder = memory::make_owned<PcTexture>();
-    holder->image_ = texture; // (no check, as the original)
-    holder->checksum_ = texture->checksum;
+    holder->set_image(texture); // (no check, as the original)
+    holder->set_checksum(texture->checksum);
     table->store_entry(texture->checksum, holder);
 }
 
@@ -1256,10 +1256,10 @@ namespace {
 // Whether the table has any textures (iterated from the start).
 bool has_textures(lists::KeyMap* table)
 {
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
     int count = 0;
-    while (table->step_iterator() && table->iter_item_ && table->iter_item_->value)
+    while (table->step_iterator() && table->iter_item() && table->iter_item()->value)
         ++count;
     return count != 0;
 }
@@ -1269,11 +1269,11 @@ bool has_textures(lists::KeyMap* table)
 // 0x004CB380
 bool PcTexDict::ingest_file(const char* name)
 {
-    auto* table = textures_;
+    auto* table = textures();
     if (!table) {
         load_textures_from_file(name, nullptr, false);
     } else if (!has_textures(table)) {
-        textures_ = load_textures_from_file(name, table, true);
+        set_textures(load_textures_from_file(name, table, true));
     } else {
         load_textures_from_file(name, table, false);
     }
@@ -1283,11 +1283,11 @@ bool PcTexDict::ingest_file(const char* name)
 // 0x004CB7C0
 bool PcTexDict::load_memory(const uint8_t* data, size_t size)
 {
-    auto* table = textures_;
+    auto* table = textures();
     if (!table) {
         load_textures_from_memory(&data, size, nullptr, false);
     } else if (!has_textures(table)) {
-        textures_ = load_textures_from_memory(&data, size, table, true);
+        set_textures(load_textures_from_memory(&data, size, table, true));
     } else {
         load_textures_from_memory(&data, size, table, false);
     }

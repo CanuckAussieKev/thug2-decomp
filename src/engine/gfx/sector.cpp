@@ -25,8 +25,8 @@ void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom
 // read and wrote the byte; the high byte is kept).
 struct CollFlags {
     HitMesh* coll;
-    [[nodiscard]] uint8_t get() const { return static_cast<uint8_t>(coll->flag_bits_); }
-    void set(uint8_t low) const { coll->flag_bits_ = static_cast<uint16_t>((coll->flag_bits_ & 0xFF00) | low); }
+    [[nodiscard]] uint8_t get() const { return static_cast<uint8_t>(coll->flag_bits()); }
+    void set(uint8_t low) const { coll->flag_bits() = static_cast<uint16_t>((coll->flag_bits() & 0xFF00) | low); }
 };
 CollFlags coll_flags(HitMesh* coll) { return {coll}; }
 
@@ -85,7 +85,7 @@ gsl::owner<WorldCell*> WorldCell::replicate(int instance, bool flag, WorldScene*
         if (flag)
             clone->flag_bits_ |= kSectorAddToGrid;
         if (clone->geom_handle_)
-            set_geom_coll_tri_data(clone->geom_handle_, coll->geometry_);
+            set_geom_coll_tri_data(clone->geom_handle_, coll->geometry());
     } else {
         clone->flag_bits_ &= ~kSectorInGrid;
         clone->hit_body_ = nullptr;
@@ -105,7 +105,7 @@ bool WorldCell::set_coll_obj(HitMesh* coll)
         return false;
     hit_body_ = coll;
     if (geom_handle_)
-        set_geom_coll_tri_data(geom_handle_, coll->geometry_);
+        set_geom_coll_tri_data(geom_handle_, coll->geometry());
     return true;
 }
 
@@ -192,7 +192,7 @@ void WorldCell::mark_as_occluder(bool occluder)
         return;
     }
     if (!(coll_flags(hit_body_).get() & 0x80)) {
-        hit_body_->flag_bits_ |= 0x80;
+        hit_body_->flag_bits() |= 0x80;
         hit_body_->add_occlusion_polys(); // its occlusion polygons added
     }
 }
@@ -261,11 +261,11 @@ void WorldCell::change_scale(const maths::Vec4* scale)
 // 0x0049EA00
 void WorldCell::choose_raw_verts(const maths::Vec4* vertices)
 {
-    if (!hit_body_ || !hit_body_->geometry_)
+    if (!hit_body_ || !hit_body_->geometry())
         return;
     // TriMeshSource: every vertex set (0x00415C10)
     // (the vertices are made for the collision's vertex count)
-    hit_body_->geometry_->choose_raw_verts({vertices, hit_body_->geometry_->num_vertices()});
+    hit_body_->geometry()->choose_raw_verts({vertices, hit_body_->geometry()->num_vertices()});
     if (flag_bits_ & kSectorInGrid)
         flag_bits_ |= kSectorMoved;
 }

@@ -250,8 +250,8 @@ EffectsDirector::EffectsDirector()
 EffectsDirector::~EffectsDirector()
 {
     for (int pass = 0; pass < 2; ++pass)
-        systems_.erase(systems_.first(), systems_.head);
-    memory::dealloc(systems_.head);
+        systems_.erase(systems_.first(), systems_.head());
+    memory::dealloc(systems_.head());
 }
 
 // 0x00496510
@@ -260,9 +260,9 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
     Sparkle* particle = create_system();
     if (particle) {
         particle->prepare_all(params);
-        if (particle->args_.flag158_) {
+        if (particle->args().flag158_) {
             for (int i = 0; i < 4; ++i)
-                core::at(particle->args_.colour_scale_, i) = core::at(shade_, i);
+                core::at(particle->args().colour_scale_, i) = core::at(shade_, i);
             particle->set_colour_scale(shade_);
         }
         systems_.push_back(particle);
@@ -273,35 +273,35 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
 // 0x00496590
 void EffectsDirector::retire_particle(Sparkle* particle)
 {
-    if (particle->args_.emit_script_) {
-        script::stop_scripts_by_tag(particle->args_.emit_script_);
-        particle->args_.emit_script_ = 0;
+    if (particle->args().emit_script_) {
+        script::stop_scripts_by_tag(particle->args().emit_script_);
+        particle->args().emit_script_ = 0;
     }
     auto* node = systems_.first();
-    if (node == systems_.head)
+    if (node == systems_.head())
         return;
-    while (node->value->args_.label_ != particle->args_.label_) {
+    while (node->value->args().label_ != particle->args().label_) {
         node = node->next;
-        if (node == systems_.head)
+        if (node == systems_.head())
             return;
     }
     gsl::owner<Sparkle*> found = memory::adopt<Sparkle*>(node->value);
     found->get_release();
     delete found;
-    if (node != systems_.head) {
+    if (node != systems_.head()) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
         memory::dealloc(node);
-        --systems_.size;
+        --systems_.size();
     }
 }
 
 // 0x00496640
 void EffectsDirector::draw_particles()
 {
-    if (!systems_.size)
+    if (!systems_.size())
         return;
-    for (const auto* node = systems_.first(); node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head();
          node = node->next)
         node->value->render(!objects::simulation_halted());
 }
@@ -309,7 +309,7 @@ void EffectsDirector::draw_particles()
 // 0x00496680
 void EffectsDirector::tick_particles()
 {
-    for (const auto* node = systems_.first(); node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head();
          node = node->next)
         node->value->tick_frame();
 }
@@ -317,7 +317,7 @@ void EffectsDirector::tick_particles()
 // 0x004966B0
 void EffectsDirector::change_colour(std::span<const float, 4> rgba)
 {
-    for (const auto* node = systems_.first(); node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head();
          node = node->next)
         node->value->set_colour_scale(rgba);
     for (int i = 0; i < 4; ++i)
@@ -327,13 +327,13 @@ void EffectsDirector::change_colour(std::span<const float, 4> rgba)
 // 0x00496700
 void EffectsDirector::kill_every_particle()
 {
-    for (const auto* node = systems_.first(); node != systems_.head;
+    for (const auto* node = systems_.first(); node != systems_.head();
          node = node->next) {
         gsl::owner<Sparkle*> particle = memory::adopt<Sparkle*>(node->value);
         particle->get_release();
         delete particle;
     }
-    systems_.erase(systems_.first(), systems_.head);
+    systems_.erase(systems_.first(), systems_.head());
 }
 
 } // namespace render

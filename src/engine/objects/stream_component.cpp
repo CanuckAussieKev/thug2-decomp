@@ -48,7 +48,7 @@ void AudioStreamModule::publish_method_table()
 }
 
 // 0x00433C10
-AudioStreamModule::AudioStreamModule() { kind_tag_ = kType; }
+AudioStreamModule::AudioStreamModule() { set_kind_tag(kType); }
 
 // 0x00433890 (0x00433C40 the deleting one)
 AudioStreamModule::~AudioStreamModule()
@@ -74,7 +74,7 @@ maths::Vec4* AudioStreamModule::get_stream_position(maths::Vec4* out, void* came
         spewer_->nearest_point_on(out, viewer_location(camera));
         return out;
     }
-    *out = entity_->at_point();
+    *out = entity()->at_point();
     return out;
 }
 

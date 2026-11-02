@@ -52,7 +52,7 @@ void ProximityComponent::launch_script(uint32_t script, Entity* skater)
     params->put_name_key(kSkaterId, skater->ident());
     if (call_args_)
         params->merge_structure(call_args_);
-    script::launch_script(script, params, entity_, false, nullptr);
+    script::launch_script(script, params, entity(), false, nullptr);
     if (params) {
         params->get_clear(); // (its destructor)
         script::delete_struct(params);
@@ -68,7 +68,7 @@ void ProximityComponent::tick_frame()
     int inside = is_within_;
     bool within = false;
     if (active_) {
-        const maths::Vec4& at = entity_->at_point();
+        const maths::Vec4& at = entity()->at_point();
         const double dx = static_cast<double>(skater->at_point().x) - at.x;
         const double dy = static_cast<double>(skater->at_point().y) - at.y;
         const double dz = static_cast<double>(skater->at_point().z) - at.z;
@@ -81,12 +81,12 @@ void ProximityComponent::tick_frame()
             maths::Capsule capsule(line, 0.0f);
             if (!is_within_) {
                 capsule.radius = inner_radius_;
-                if (capsule.contains_point(entity_->at_point(), nullptr))
+                if (capsule.contains_point(entity()->at_point(), nullptr))
                     inside = 1;
                 within = true;
             } else {
                 capsule.radius = outer_radius_;
-                within = capsule.contains_point(entity_->at_point(), nullptr);
+                within = capsule.contains_point(entity()->at_point(), nullptr);
             }
         }
     }

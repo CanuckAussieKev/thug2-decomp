@@ -136,15 +136,15 @@ void FootMovement::configure_from_data(script::Struct* params)
 // 0x00525FB0
 void FootMovement::seal()
 {
-    find_module(entity_, input_, 0x27D7CD28);           // Input
-    find_module(entity_, anim_blender_, 0x7149B753);    // AnimBlender
-    find_module(entity_, model_, 0x286A8D26);           // Model
-    find_module(entity_, trigger_, 0xE594F0A2);         // Trigger
-    find_module(entity_, physics_control_, 0xD9151D4D); // SkaterPhysicsControl
-    find_module(entity_, ride_, 0x408D2AA9);            // MovableContact
-    find_module(entity_, skater_state_, 0x43686585);    // SkaterState
-    find_module(entity_, core_physics_, 0x5BD63B29);    // SkaterCorePhysics
-    find_module(entity_, tagging_, 0x380D909A);         // TaggingControl
+    find_module(entity(), input_, 0x27D7CD28);           // Input
+    find_module(entity(), anim_blender_, 0x7149B753);    // AnimBlender
+    find_module(entity(), model_, 0x286A8D26);           // Model
+    find_module(entity(), trigger_, 0xE594F0A2);         // Trigger
+    find_module(entity(), physics_control_, 0xD9151D4D); // SkaterPhysicsControl
+    find_module(entity(), ride_, 0x408D2AA9);            // MovableContact
+    find_module(entity(), skater_state_, 0x43686585);    // SkaterState
+    find_module(entity(), core_physics_, 0x5BD63B29);    // SkaterCorePhysics
+    find_module(entity(), tagging_, 0x380D909A);         // TaggingControl
 }
 
 // 0x00525E60
@@ -254,7 +254,7 @@ maths::Vec4* FootMovement::get_turned_facing(maths::Vec4* out, int index)
 void FootMovement::update_run_adjustment()
 {
     const modules::PointTally* score =
-        core::down_cast<RiderPointKeeper>(entity_->fetch_module(kSkaterScore))->points_held_;
+        core::down_cast<RiderPointKeeper>(entity()->fetch_module(kSkaterScore))->points_held();
     if (truncate(static_cast<double>(score->pot()) * score->multiplier()) > 0) {
         run_adjustment_ = 1.0f;
         return;

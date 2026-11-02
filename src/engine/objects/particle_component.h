@@ -101,6 +101,10 @@ public:
     // name, two floats, its three colours (arrays of four integers), positions, sizes and boxes.
     bool get_particle_params(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] render::Sparkle* effect_handle() const { return effect_handle_; }
+
+private:
     uint32_t emit_target_{0};                 // +0x18 (0xC036F4D0's checksum)
     render::Sparkle* effect_handle_{nullptr}; // +0x1C its particle system
     ObjectModule* suspend_{};        // +0x20 the object's suspend component

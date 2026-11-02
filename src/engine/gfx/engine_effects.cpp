@@ -145,7 +145,7 @@ SplatParams::SplatParams()
 
 // 0x004912C0
 Shatter::Shatter(int count)
-    : lifetime(fog_and_shatter().glass_life_span_), floor(fog_and_shatter().shatter_floor_), bounce(fog_and_shatter().glass_restitution_),
+    : lifetime_(fog_and_shatter().glass_life_span_), floor(fog_and_shatter().shatter_floor_), bounce(fog_and_shatter().glass_restitution_),
       triangle_count_(static_cast<uint16_t>(count)), unknown28(fog_and_shatter().shatter_value_af_1a_)
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
@@ -434,7 +434,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
             const maths::BBox* bounds = object->get_world_bounds();
             if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) && !(bounds->min.z > box.max.z) &&
                 !(box.min.z > bounds->max.z) && !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
-                void* sector = render::engine::look_up_sector(object->checksum_);
+                void* sector = render::engine::look_up_sector(object->checksum());
                 core::at(objects, count) = object;
                 core::at(sectors, count) = sector;
                 ++count;
@@ -466,7 +466,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         if (!follow && splats) {
             age_texture_splats(splats, frame_milliseconds());
             light_texture_splats(splats);
-            splats->texture = texture->checksum_;
+            splats->texture = texture->checksum();
         }
     }
     if (recent) {
@@ -485,7 +485,7 @@ void update_shatters()
         return;
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     effects_state().shatters().for_each([elapsed](PcShatter* shatter) {
-        const double left = static_cast<double>(shatter->lifetime_value()) - elapsed;
+        const double left = static_cast<double>(shatter->lifetime()) - elapsed;
         shatter->set_lifetime(static_cast<float>(left));
         if (left <= 0.0) {
             effects_state().shatters().erase(shatter);

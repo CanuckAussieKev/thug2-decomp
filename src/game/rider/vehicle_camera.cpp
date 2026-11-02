@@ -55,7 +55,7 @@ constexpr float kDegrees = 0.01745329238474369f;      // 0x00645464 (degrees to 
 // Its Camera component's camera (+0x18).
 gfx::ViewCam* camera_of(GameEntity* object)
 {
-    return core::down_cast<objects::ViewpointModule>(object->fetch_module(kCamera))->view_camera_.get();
+    return core::down_cast<objects::ViewpointModule>(object->fetch_module(kCamera))->view_camera().get();
 }
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
@@ -79,7 +79,7 @@ maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths:
 gsl::owner<ObjectModule*> CarView::fabricate() { return new CarView; }
 
 // (the constructor: inlined in fabricate in the original)
-CarView::CarView() { kind_tag_ = kVehicleCamera; }
+CarView::CarView() { set_kind_tag(kVehicleCamera); }
 
 // 0x00524420
 void CarView::publish_method_table()
@@ -108,7 +108,7 @@ void CarView::configure_from_data(script::Struct* params)
 // 0x00524C00
 void CarView::seal()
 {
-    free_look_ = core::down_cast<FreeLookModule>(entity_->fetch_module(kCameraLookAround));
+    free_look_ = core::down_cast<FreeLookModule>(entity()->fetch_module(kCameraLookAround));
     get_reset();
 }
 
@@ -168,9 +168,9 @@ void CarView::apply_to_camera()
     core::at(orientation_.row, 0).w = 0.0f;
     core::at(orientation_.row, 1).w = 0.0f;
     core::at(orientation_.row, 2).w = 0.0f;
-    entity_->at_point() = anchor_point_;
-    entity_->basis_frame() = orientation_;
-    entity_->display_matrix() = orientation_;
+    entity()->at_point() = anchor_point_;
+    entity()->basis_frame() = orientation_;
+    entity()->display_matrix() = orientation_;
 }
 
 // 0x00524780
@@ -210,13 +210,13 @@ void CarView::get_reset()
     direction_ = target_direction_;
     update_orientation();
     apply_to_camera();
-    entity_->fetch_module(kCamera)->tick_frame();
+    entity()->fetch_module(kCamera)->tick_frame();
 }
 
 // 0x00524940
 void CarView::tick_frame()
 {
-    camera_of(entity_)->remember_prev_pos();
+    camera_of(entity())->remember_prev_pos();
     update_target_direction();
     const double dot = static_cast<double>(direction_.z) * target_direction_.z +
                        static_cast<double>(direction_.y) * target_direction_.y +

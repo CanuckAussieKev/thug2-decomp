@@ -36,6 +36,7 @@ public:
     // alpha. (Slot 9 is 0x004AEE50, a jump to UiWidget::blend_towards.)
     void tick_frame() override;
 
+private:
     uint32_t texture_{0};                         // +0x178 the texture's checksum
     std::unique_ptr<render::TexturedQuad> piece_; // +0x17C
 };
@@ -66,6 +67,10 @@ public:
     // and colour (the shown colour with the summed alpha).
     void tick_frame() override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t texture() const { return texture_; }
+
+private:
     uint32_t texture_{0};                         // +0x178 the texture's checksum
     bool z_write_{true};                          // +0x17C (no_zwrite clears it)
     std::unique_ptr<render::BillboardQuad> quad_; // +0x180
@@ -86,6 +91,7 @@ public:
     // 0x004B21A0 (slot 10): after a change, the window moved to the element's top left and sized as it.
     void tick_frame() override;
 
+private:
     void* screen_region_; // +0x178
 };
 

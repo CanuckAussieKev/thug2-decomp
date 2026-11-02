@@ -454,14 +454,14 @@ void PcFlatRibbonParticles::render()
     const double c = core::at(renderer().view_matrix().row, 2).z;
     maths::Vec4 r, u;
     camera_axes(r, u);
-    const uint32_t particle_bytes = (segments_ - 1) * 16;
+    const uint32_t particle_bytes = (segments() - 1) * 16;
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
 
     // The ribbons.
     core::Cursor<const FlexibleParticle> particle(particle_list());
-    int remaining = (segments_ - 1) * particle_count() * 4;
+    int remaining = (segments() - 1) * particle_count() * 4;
     int index = 0;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
@@ -497,7 +497,7 @@ void PcFlatRibbonParticles::render()
                     static_cast<float>(static_cast<double>(core::at(p0, 1)) - o1),
                     static_cast<float>(core::at(p0, 2) - width * static_cast<double>(static_cast<float>(n2w)))}};
 
-                for (int k = 1; k < segments_; ++k) {
+                for (int k = 1; k < segments(); ++k) {
                     const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
                     if (k > 1) {
                         place_of(this, max_particles() * k + index, p1);
@@ -656,7 +656,7 @@ void PcGlowParticles::render()
         return;
     maths::Vec4 r, u;
     camera_axes(r, u);
-    const uint32_t particle_words = segments_ * 9 * 4; // (nine vertices of four words a segment)
+    const uint32_t particle_words = segments() * 9 * 4; // (nine vertices of four words a segment)
     uint32_t remaining = particle_count() * particle_words;
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
@@ -692,7 +692,7 @@ void PcGlowParticles::render()
             std::array<uint32_t, 3> colours{};
             for (int k = 0; k < 3; ++k)
                 core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
-            const double w = glow_width_;
+            const double w = glow_width();
 
             // The rings' points at angle 0: outer (r sin, u cos, times the width), inner.
             const double s = std::sin(0.0);
@@ -717,8 +717,8 @@ void PcGlowParticles::render()
                 core::at(inner, 1) = static_cast<float>(static_cast<double>(static_cast<float>(uy * c)) + core::at(inner, 1));
                 core::at(inner, 2) = static_cast<float>(static_cast<double>(static_cast<float>(uz * c)) + core::at(inner, 2));
             }
-            auto step = static_cast<float>(6.28318548f / static_cast<double>(segments_)); // (0x0064545C)
-            for (int i = 1; i <= segments_; ++i) {
+            auto step = static_cast<float>(6.28318548f / static_cast<double>(segments())); // (0x0064545C)
+            for (int i = 1; i <= segments(); ++i) {
                 const double angle = static_cast<double>(i) * step;
                 const double si = std::sin(angle);
                 const double ci = std::cos(angle);
@@ -856,7 +856,7 @@ void PcRibbonParticles::render()
     const double a = core::at(renderer().view_matrix().row, 0).z;
     const double b = core::at(renderer().view_matrix().row, 1).z;
     const double c = core::at(renderer().view_matrix().row, 2).z;
-    const bool textured = core::at(material->material->textures_value(), 0) != nullptr;
+    const bool textured = core::at(material->material->textures(), 0) != nullptr;
     const uint32_t stride = textured ? sizeof(QuadVertex) : sizeof(TrailVertex);
     set_material(material->material);
     if (textured) {
@@ -868,7 +868,7 @@ void PcRibbonParticles::render()
     }
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> head(position_array());
-    core::Cursor<const float> tail(position_array(), 3 * (steps_ - 1) * max_particles());
+    core::Cursor<const float> tail(position_array(), 3 * (steps() - 1) * max_particles());
     int index = 0;
     int remaining = particle_count() * 4;
     while (remaining != 0) {
@@ -1003,7 +1003,7 @@ void PcRibbonTrailParticles::render()
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
     core::Cursor<const FlexibleParticle> particle(particle_list());
-    int remaining = (steps_ - 1) * particle_count() * 4;
+    int remaining = (steps() - 1) * particle_count() * 4;
     int index = 0;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
@@ -1047,7 +1047,7 @@ void PcRibbonTrailParticles::render()
             std::array<float, 3> previous_minus = {{static_cast<float>(static_cast<double>(core::at(p0, 0)) - f0),
                                        static_cast<float>(static_cast<double>(core::at(p0, 1)) - f1),
                                        static_cast<float>(static_cast<double>(core::at(p0, 2)) - f2)}};
-            for (int k = 1; k < steps_; ++k) {
+            for (int k = 1; k < steps(); ++k) {
                 const uint32_t colour = get_colour(*this, *from++, *to++, span.t);
                 if (k > 1) {
                     place_of(this, max_particles() * k + index, p1);
@@ -1501,7 +1501,7 @@ void PcSmoothStarParticles::render()
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
-    int remaining = segments_ * particle_count() * 8;
+    int remaining = segments() * particle_count() * 8;
     constexpr float kDegrees = 0.0174532924f; // (0x00645464)
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
@@ -1532,7 +1532,7 @@ void PcSmoothStarParticles::render()
                 std::array<uint32_t, 3> colours{};
                 for (int k = 0; k < 3; ++k)
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
-                const double w = extent_;
+                const double w = star_extent();
                 // The outer point at angle 0 (the previous one for the first segment).
                 std::array<float, 3> outer{};
                 {
@@ -1550,8 +1550,8 @@ void PcSmoothStarParticles::render()
                     core::at(outer, 2) =
                         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
                 }
-                for (int i = 0, k = 1; i < segments_; ++i, k += 2) {
-                    auto step = static_cast<float>(360.0f / (static_cast<double>(segments_) + segments_));
+                for (int i = 0, k = 1; i < segments(); ++i, k += 2) {
+                    auto step = static_cast<float>(360.0f / (static_cast<double>(segments()) + segments()));
                     // The point between this segment's two outer points, out at the star's width.
                     const double angle1 = static_cast<double>(k) * step * kDegrees;
                     const double s1 = std::sin(angle1);
@@ -1672,7 +1672,7 @@ void PcStarParticles::render()
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
-    int remaining = segments_ * particle_count() * 4;
+    int remaining = segments() * particle_count() * 4;
     constexpr float kDegrees = 0.0174532924f; // (0x00645464)
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
@@ -1702,7 +1702,7 @@ void PcStarParticles::render()
                 std::array<uint32_t, 3> colours{};
                 for (int k = 0; k < 3; ++k)
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
-                const double w = extent_;
+                const double w = star_extent();
                 // The outer point at angle 0 (the previous one for the first segment).
                 std::array<float, 3> outer{};
                 {
@@ -1720,9 +1720,9 @@ void PcStarParticles::render()
                     core::at(outer, 2) =
                         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
                 }
-                for (int k = 1; k <= segments_; ++k) {
+                for (int k = 1; k <= segments(); ++k) {
                     // The next outer point (out at the width) and the inner one between (unscaled).
-                    const double angle_a = 360.0f / static_cast<double>(segments_) * k * kDegrees;
+                    const double angle_a = 360.0f / static_cast<double>(segments()) * k * kDegrees;
                     const double a = std::sin(angle_a);
                     const double c_a = std::cos(angle_a);
                     std::array<float, 3> next{};
@@ -1741,7 +1741,7 @@ void PcStarParticles::render()
                         core::at(next, 2) = static_cast<float>(static_cast<double>(uz) + nz);
                     }
                     const double angle_b =
-                        360.0f / (static_cast<double>(segments_) + segments_) * (2 * k - 1) * kDegrees;
+                        360.0f / (static_cast<double>(segments()) + segments()) * (2 * k - 1) * kDegrees;
                     const double b = std::sin(angle_b);
                     const double c_b = std::cos(angle_b);
                     std::array<float, 3> inner{};
@@ -1833,15 +1833,15 @@ void PcGlowRibbonTrailParticles::render()
                         static_cast<float>(a - b0)}};
     const std::array<float, 3> u = {{static_cast<float>(core::at(r, 1) * c - core::at(r, 2) * b), static_cast<float>(a * core::at(r, 2) - core::at(r, 0) * c),
                         static_cast<float>(core::at(r, 0) * b - a * core::at(r, 1))}};
-    const uint32_t per_particle = segments_ * 9 * 4 + (history_length() - 1) * 3 * 8;
+    const uint32_t per_particle = segments() * 9 * 4 + (history_length() - 1) * 3 * 8;
     uint32_t remaining = particle_count() * per_particle;
     set_material(material->material);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader95c), material->material);
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t first_vertex = 0, room = 0;
-    const uint32_t total_vertices = (segments_ * 9 + (history_length() * 3 - 3) * 2) * particle_count();
-    const uint32_t total_triangles = (segments_ * 3 - 2 + history_length() * 2) * particle_count();
+    const uint32_t total_vertices = (segments() * 9 + (history_length() * 3 - 3) * 2) * particle_count();
+    const uint32_t total_triangles = (segments() * 3 - 2 + history_length() * 2) * particle_count();
     auto vertex = os_layer::lock_vertices<TrailVertex>(total_vertices, &buffer, &first_vertex, &room);
     core::Cursor<const FlexibleParticle> particle(particle_list());
     int index = 0;
@@ -1892,7 +1892,7 @@ void PcGlowRibbonTrailParticles::render()
             uint32_t previous_colour = fine_colour(from[3], to[3], t);
             from += 4;
             to += 4;
-            const double w = span_;
+            const double w = span();
             // The head end's edge points.
             std::array<float, 3> previous_a{};
             std::array<float, 3> previous_b{};
@@ -1998,7 +1998,7 @@ void PcGlowRibbonTrailParticles::render()
                 core::at(inner, 1) = static_cast<float>(static_cast<double>(core::at(uu, 1)) + core::at(inner, 1));
                 core::at(inner, 2) = static_cast<float>(static_cast<double>(core::at(uu, 2)) + z);
             }
-            for (int i = 1; i <= segments_; ++i) {
+            for (int i = 1; i <= segments(); ++i) {
                 const double angle = static_cast<double>(i) * glow_step_ * 0.0174532924f;
                 auto s = static_cast<float>(std::sin(angle)), cs = static_cast<float>(std::cos(angle));
                 const double r0s = static_cast<double>(core::at(rr, 0)) * s;

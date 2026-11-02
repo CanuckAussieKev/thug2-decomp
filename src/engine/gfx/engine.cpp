@@ -58,16 +58,16 @@ constexpr const char* kModelFileFormat = "%s.%s.%s";                // 0x006458F
 
 const auto kNoScene = memory::ListNode::head_marker();
 // The node after `node`, null at the end (the head).
-memory::ListNode* next_scene(memory::ListNode* node) { return node->next->data == kNoScene ? nullptr : node->next; }
+memory::ListNode* next_scene(memory::ListNode* node) { return node->next()->data() == kNoScene ? nullptr : node->next(); }
 // The first node (null when there's none - the original reads the head's data before checking for no list).
 memory::ListNode* first_scene()
 {
-    memory::ListNode* first = engine_parts().scene_list().next;
-    if (first->data == kNoScene || !first)
+    memory::ListNode* first = engine_parts().scene_list().next();
+    if (first->data() == kNoScene || !first)
         return nullptr;
     return first;
 }
-WorldScene* scene_of(memory::ListNode* node) { return static_cast<WorldScene*>(node->data); }
+WorldScene* scene_of(memory::ListNode* node) { return static_cast<WorldScene*>(node->data()); }
 
 // NOT ORIGINAL grouping - engine.cpp's state (the original's globals). Made on first use, never destroyed
 // (engine_state()).
@@ -260,10 +260,10 @@ void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded,
     memory::ListNode* node = memory::ListNode::create(scene);
     // at the end of the list (no memory: a crash, as the original)
     memory::ListNode& head = engine_parts().scene_list();
-    node->prev = head.prev;
-    node->next = &head;
-    head.prev->next = node;
-    head.prev = node;
+    node->set_prev(head.prev());
+    node->set_next(&head);
+    head.prev()->set_next(node);
+    head.set_prev(node);
     memory::pop_mem_profile();
 }
 

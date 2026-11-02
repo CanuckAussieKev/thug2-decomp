@@ -105,15 +105,20 @@ public:
     // 0x00487680: the same written to a structure (the image as an array of 0x1108 checksums).
     void save_to_structure(script::Struct* params);
 
+private:
     bool is_usable_{false}; // +0x00
     std::array<uint8_t, 3> pad1{};
     FaceAnchors path_vertices_{}; // +0x04
     std::array<uint8_t, kTexelEdge> image_{}; // +0x3C
     std::array<char, 0x40> overlay_name_{};   // +0x445C
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(FaceSkin, image_) == 0x3C && offsetof(FaceSkin, overlay_name_) == 0x445C &&
+                          sizeof(FaceSkin) == 0x449C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(FaceSkin, image_) == 0x3C && offsetof(FaceSkin, overlay_name_) == 0x445C &&
-                  sizeof(FaceSkin) == 0x449C,
-              "layout must match the original");
 
 } // namespace gfx
 

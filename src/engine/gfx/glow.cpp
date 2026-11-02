@@ -67,9 +67,9 @@ int query_result(uint32_t query, uint32_t* pixels)
 Glow* next_glow()
 {
     lists::KeyMap& table = glows();
-    if (!table.step_iterator() || !table.iter_item_)
+    if (!table.step_iterator() || !table.iter_item())
         return nullptr;
-    return static_cast<Glow*>(table.iter_item_->value);
+    return static_cast<Glow*>(table.iter_item()->value);
 }
 
 // The glow's quad of half-size `size` facing the camera (across `u`, up `v`).
@@ -122,8 +122,8 @@ void update_glows(bool queries)
         }
     }
     lists::KeyMap& table = glows();
-    table.iter_bucket_ = -1;
-    table.iter_item_ = nullptr;
+    table.set_iter_bucket(-1);
+    table.set_iter_item(nullptr);
     Glow* glow = next_glow();
 
     if (queries) {

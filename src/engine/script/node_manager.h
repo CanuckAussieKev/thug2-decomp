@@ -89,16 +89,31 @@ public:
     void set_owner(assets::NodeTableResource* owner);
     script::Array* get_owner_nodes();
 
+    // The fields other code reads and sets.
+    std::array<NodeSlot, kSlots>& slots() { return slots_; }
+    [[nodiscard]] const std::array<NodeSlot, kSlots>& slots() const { return slots_; }
+    NodeSlot& walk() { return walk_; }
+    [[nodiscard]] const NodeSlot& walk() const { return walk_; }
+    uint32_t& num() { return num_; }
+    [[nodiscard]] uint32_t num() const { return num_; }
+    std::array<NodeArrayEntry, kMaxArrays>& arrays() { return arrays_; }
+    [[nodiscard]] const std::array<NodeArrayEntry, kMaxArrays>& arrays() const { return arrays_; }
+
+private:
     std::array<NodeSlot, kSlots> slots_{};          // +0x00000
     NodeSlot walk_{};                   // +0x10000 the walk's place (list_link_ -1: no walk)
     uint32_t num_{0};                   // +0x10004 node arrays in use
     std::array<NodeArrayEntry, kMaxArrays> arrays_{}; // +0x10008
     assets::NodeTableResource* owner_ptr_{}; // +0x100F8
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(NodeManager, walk_) == 0x10000 && offsetof(NodeManager, num_) == 0x10004 &&
+                          offsetof(NodeManager, arrays_) == 0x10008 && offsetof(NodeManager, owner_ptr_) == 0x100F8 &&
+                          sizeof(NodeManager) == 0x100FC,
+                      "layout must match the original (allocated as 0x100FC bytes)");
+    }
 };
-static_assert(offsetof(NodeManager, walk_) == 0x10000 && offsetof(NodeManager, num_) == 0x10004 &&
-                  offsetof(NodeManager, arrays_) == 0x10008 && offsetof(NodeManager, owner_ptr_) == 0x100F8 &&
-                  sizeof(NodeManager) == 0x100FC,
-              "layout must match the original (allocated as 0x100FC bytes)");
 
 // NOT ORIGINAL - `manager`'s name hash `slots` big (a power of two), kept beside it with 32-bit node indices, its walk
 // too (null / 0: none - every manager its own slots_, as the original). create_node_manager gives the game's one

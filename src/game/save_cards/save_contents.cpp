@@ -81,7 +81,7 @@ int os_layer() { return game_config::hardware(); }
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 prefs::Preferences* split_screen_preferences() { return get_skate()->get_split_view_settings(); }
 // A preferences object's structure.
-Struct* preferences_structure(prefs::Preferences* preferences) { return &preferences->top_entry_; }
+Struct* preferences_structure(prefs::Preferences* preferences) { return &preferences->top_entry(); }
 
 // The goal editor's component (its object's, both named GoalEditor).
 objects::ObjectModule* goal_editor_component()
@@ -248,9 +248,9 @@ void write_save_contents(Struct* contents, uint32_t type)
     case kSaveCat: {
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
         const goals::CreateATrick* trick_record = core::at(skater->trick_slots(), 0).get();
-        contents->put_sub_struct("other_params", trick_record->other_params_);
-        contents->append_array_value("rotation_info", trick_record->spin_list_);
-        contents->append_array_value("animation_info", trick_record->animations_);
+        contents->put_sub_struct("other_params", trick_record->other_params());
+        contents->append_array_value("rotation_info", trick_record->spin_list());
+        contents->append_array_value("animation_info", trick_record->animations());
         return;
     }
     case kSavePark:
@@ -305,16 +305,16 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             return;
         // (its fields by name: these were the original's byte offsets +4 / +8 / +0xC on a CreateATrick*, which
         // stepped whole objects past it - and the class has no vtable word here)
-        goals::CreateATrick* trick_record = core::at(skater->trick_slots(), 0).get();
+        const goals::CreateATrick* trick_record = core::at(skater->trick_slots(), 0).get();
         Struct* other = nullptr;
         contents->read_sub_struct("other_params", &other, 1);
-        trick_record->other_params_->append_structure_if_any(other);
+        trick_record->other_params()->append_structure_if_any(other);
         Array* rotation = nullptr;
         contents->fetch_list("rotation_info", &rotation, 1);
-        script::duplicate_array(trick_record->spin_list_, rotation);
+        script::duplicate_array(trick_record->spin_list(), rotation);
         Array* animation = nullptr;
         contents->fetch_list("animation_info", &animation, 1);
-        script::duplicate_array(trick_record->animations_, animation);
+        script::duplicate_array(trick_record->animations(), animation);
         return;
     }
     case kSavePark:

@@ -163,7 +163,7 @@ double ProbeRay::get_hit_vertex_value() const
     if (!hit_.hit)
         return kNoHitValue;
     const HitMesh* object = hit_.object;
-    const TriMeshSource* geometry = object->geometry_;
+    const TriMeshSource* geometry = object->geometry();
     const maths::Vec4& at = hit_.point;
     std::array<maths::Vec4, 3> corner{};
     std::array<float, 3> value{};

@@ -220,7 +220,7 @@ render::TriMeshSource* get_geometry(uint32_t checksum)
     const render::HitMesh* coll = sector ? sector->hit_body() : nullptr;
     if (!render::is_static_collider(coll))
         return nullptr;
-    auto* tri = coll->geometry_;
+    auto* tri = coll->geometry();
     return tri && tri->faces() ? tri : nullptr;
 }
 

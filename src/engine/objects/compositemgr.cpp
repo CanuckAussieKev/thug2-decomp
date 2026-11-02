@@ -90,8 +90,8 @@ uint32_t& ref_tally() { return compositemgr_state().composite_mgr_references_; }
 // The components of each type (index = the type's index in components_), linked through their +0x14.
 ObjectModule*& component_list(uint32_t index) { return core::at(compositemgr_state().component_list_, index); }
 // A component's type and its link to the next of its type.
-uint32_t type_of(ObjectModule* component) { return component->kind_tag_; }
-ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of_type_; }
+uint32_t type_of(ObjectModule* component) { return component->kind_tag(); }
+ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of_type(); }
 
 // A composite object's flags.
 uint32_t& composite_flags(GameEntity* object) { return object->composite_flags(); }
@@ -114,10 +114,10 @@ void register_logic_task(tasks::SchedulerTask* task) { assets::get_main_loop_man
 // The node after `node`, or null at the head; a node's object (null for none).
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == memory::ListNode::head_marker() ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == memory::ListNode::head_marker() ? nullptr : next;
 }
-GameEntity* object_of(memory::ListNode* node) { return node ? static_cast<GameEntity*>(node->data) : nullptr; }
+GameEntity* object_of(memory::ListNode* node) { return node ? static_cast<GameEntity*>(node->data()) : nullptr; }
 
 // The walk Update and Pause share (ObjectHubBase::for_each's, with the work inline): `visit` once for each object,
 // starting again from the front (past the objects done) whenever the list changes.
@@ -125,14 +125,14 @@ template <typename Visit>
 void walk_objects(ObjectHubBase* manager, Visit visit)
 {
     uint32_t bit = 1;
-    while (manager->walking_ & bit)
+    while (manager->walking() & bit)
         bit <<= 1;
-    manager->walking_ |= bit;
-    for (memory::ListNode* node = get_next_node(&manager->entities_); node && node->data; node = get_next_node(node))
-        static_cast<Entity*>(node->data)->visited_mask() &= ~bit;
-    for (bool again = true; again; again = manager->restart_walks_ & bit) {
-        manager->restart_walks_ &= ~bit;
-        memory::ListNode* node = get_next_node(&manager->entities_);
+    manager->walking() |= bit;
+    for (memory::ListNode* node = get_next_node(&manager->entities()); node && node->data(); node = get_next_node(node))
+        static_cast<Entity*>(node->data())->visited_mask() &= ~bit;
+    for (bool again = true; again; again = manager->restart_walks() & bit) {
+        manager->restart_walks() &= ~bit;
+        memory::ListNode* node = get_next_node(&manager->entities());
         GameEntity* object = object_of(node);
         while (object) {
             memory::ListNode* next_node = get_next_node(node);
@@ -140,14 +140,14 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
             if (!(object->visited_mask() & bit)) {
                 object->visited_mask() |= bit;
                 visit(object);
-                if (manager->restart_walks_ & bit)
+                if (manager->restart_walks() & bit)
                     break;
             }
             node = next_node;
             object = next;
         }
     }
-    manager->walking_ &= ~bit;
+    manager->walking() &= ~bit;
 }
 
 } // namespace
@@ -281,7 +281,7 @@ void EntityHub::get_freeze(bool pause)
 }
 
 // 0x0045F6D0
-void composite_object_manager_task(tasks::Task<EntityHub>* task) { task->content_->tick_frame(); }
+void composite_object_manager_task(tasks::Task<EntityHub>* task) { task->content()->tick_frame(); }
 
 // 0x0045F7A0
 EntityHub* create_composite_object_manager(bool create)
@@ -326,8 +326,8 @@ lists::PointerRing<CoimInstance>& instance_list()
     return instance_list.get();
 }
 using MaterializeNode = lists::PointerRing<CoimInstance>::Node;
-MaterializeNode* instance_list_head() { return instance_list().head; }
-int& instance_count() { return instance_list().size; }
+MaterializeNode* instance_list_head() { return instance_list().head(); }
+int& instance_count() { return instance_list().size(); }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void erase_instances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
 {
@@ -387,8 +387,8 @@ bool create_coim_heap(uint32_t size)
     if (size) {
         coim_region() = std::make_unique<memory::MemoryArena>(size);
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region().get(), 1, "COIMHeap");
-        coim_heap()->unknown64_ = true;
-        coim_heap()->unknown68_ = coim_b() - kCompositeMgrBlockHeaderSize; // (16: a block header)
+        coim_heap()->set_unknown64(true);
+        coim_heap()->set_unknown68(coim_b() - kCompositeMgrBlockHeaderSize); // (16: a block header)
         script::fetch_int_value(0xBA2C7CCB);                                    // (the result isn't used)
     }
     return false;

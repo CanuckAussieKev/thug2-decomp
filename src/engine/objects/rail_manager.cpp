@@ -205,7 +205,7 @@ void set_rail_clear_override(RailClearOverride override) { rail_clear_override()
 // 0x0057C600
 bool rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
-    if (park_editing::ParkBuilderMode::sole()->cur_phase() == 0xD443A2BC) // (the park editor's)
+    if (park_editing::ParkBuilderMode::sole()->editor_state() == 0xD443A2BC) // (the park editor's)
         return true;
     if (rail_clear_override() && rail_clear_override()(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
@@ -554,7 +554,7 @@ void GrindRailHub::remove_overlaps()
 // 0x0057D7A0
 void GrindRailHub::remove_overlaps_if_not_park()
 {
-    if (park_editing::ParkBuilderMode::sole()->cur_phase() == 0xD443A2BC) // (the park editor's level)
+    if (park_editing::ParkBuilderMode::sole()->editor_state() == 0xD443A2BC) // (the park editor's level)
         return;
     remove_overlaps();
 }
@@ -814,7 +814,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
         return node_class == kRailNode || node_class == kClimbingNode;
     };
     num_ = 0;
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         if (!skipped(node) && is_rail(node))
             ++num_;
@@ -841,7 +841,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
     auto entry = [&](uint32_t slot) { return big ? core::at(wide, slot) : core::at(small, slot); };
     adding_ = 0;
     const bool all_trick_objects = script::fetch_int_value(kAllRailsTrickObjects) != 0;
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         if (skipped(node) || !is_rail(node))
             continue;
@@ -875,7 +875,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
         params->fetch_list(kLinks, &links, 0);
         if (!links)
             continue;
-        const int link_count = static_cast<int>(links->extent_);
+        const int link_count = static_cast<int>(links->extent());
         for (int l = 0; l < link_count; ++l) {
             const uint32_t link = links->fetch_part(l);
             uint32_t slot = link & mask;

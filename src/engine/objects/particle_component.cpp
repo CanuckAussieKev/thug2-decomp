@@ -118,7 +118,7 @@ void EffectsEmitterModule::publish_method_table()
 // 0x00429B20
 EffectsEmitterModule::EffectsEmitterModule()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     start_time_ = frame_clock::game_clock_elapsed() + clock_offset();
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
@@ -132,7 +132,7 @@ EffectsEmitterModule::~EffectsEmitterModule()
 }
 
 // 0x00429BF0
-void EffectsEmitterModule::seal() { suspend_ = entity_->fetch_module(kSuspend); }
+void EffectsEmitterModule::seal() { suspend_ = entity()->fetch_module(kSuspend); }
 
 // 0x00429960
 void EffectsEmitterModule::conceal(bool hide) { effect_handle_->conceal(hide); }
@@ -175,7 +175,7 @@ bool EffectsEmitterModule::change_midpoint_fraction(script::Struct* params, scri
 {
     const float value = unnamed_float(params);
     if (effect_handle_) {
-        effect_handle_->args_.mid_percent_ = value;
+        effect_handle_->args().mid_percent_ = value;
         get_refresh(effect_handle_);
     }
     return true;
@@ -185,9 +185,9 @@ namespace {
 bool set_reach(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     const float value = unnamed_float(params);
-    if (component->effect_handle_) {
-        component->effect_handle_->change_extent(which, value);
-        get_refresh(component->effect_handle_);
+    if (component->effect_handle()) {
+        component->effect_handle()->change_extent(which, value);
+        get_refresh(component->effect_handle());
     }
     return true;
 }
@@ -195,9 +195,9 @@ bool change_location(EffectsEmitterModule* component, script::Struct* params, in
 {
     maths::Vec4 pos{};
     params->fetch_vec(0u, &pos, 1);
-    if (component->effect_handle_) {
-        component->effect_handle_->change_place(which, &pos);
-        get_refresh(component->effect_handle_);
+    if (component->effect_handle()) {
+        component->effect_handle()->change_place(which, &pos);
+        get_refresh(component->effect_handle());
     }
     return true;
 }
@@ -205,17 +205,17 @@ bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     maths::Vec4 box{};
     params->fetch_vec(0u, &box, 1);
-    if (component->effect_handle_)
-        component->effect_handle_->set_box(which, &box);
+    if (component->effect_handle())
+        component->effect_handle()->set_box(which, &box);
     return true;
 }
 bool change_colour(EffectsEmitterModule* component, script::Struct* params, int which)
 {
     script::Array* array = nullptr;
     params->fetch_list(0u, &array, 1);
-    if (component->effect_handle_) {
+    if (component->effect_handle()) {
         const render::Rgba colour = colour_of(array);
-        component->effect_handle_->change_colour(which, colour);
+        component->effect_handle()->change_colour(which, colour);
     }
     return true;
 }
@@ -275,7 +275,7 @@ bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Scrip
 {
     params->read_hash_value(0u, &emit_target_, 1);
     if (effect_handle_)
-        effect_handle_->set_emit_script(emit_target_, entity_->ident());
+        effect_handle_->set_emit_script(emit_target_, entity()->ident());
     return true;
 }
 
@@ -285,7 +285,7 @@ bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Sc
     int value = 0;
     params->fetch_int_value(0u, &value, 0);
     if (effect_handle_)
-        effect_handle_->args_.cull_outside_ = value == 1;
+        effect_handle_->args().cull_outside_ = value == 1;
     return true;
 }
 
@@ -309,7 +309,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.emit_script_ = 0;
     if (params->read_hash_value(0x092276DBu, &emit_target_, 0)) {
         p.emit_script_ = emit_target_;
-        p.entity_key_ = entity_->ident();
+        p.entity_key_ = entity()->ident();
     }
     params->fetch_int_value(0x5A235299u, &lifespan_, 0);
     params->read_hash_value(0xA1DC81F9u, &p.label_, 1);
@@ -445,11 +445,11 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     if (p.emit_script_) {
         script::Struct* script_params = nullptr;
         params->read_sub_struct(0x7031F10Cu, &script_params, 0);
-        entity_->start_script_task(p.emit_script_, 0, false, false, script_params);
+        entity()->start_script_task(p.emit_script_, 0, false, false, script_params);
     }
     uint32_t value54 = 0xE3714DC1;
     params->read_hash_value(0x7E4813A7u, &value54, 0);
-    effect_handle_->args_.unknown50_ = value54;
+    effect_handle_->args().unknown50_ = value54;
     if (p.flag158_)
         effect_handle_->change_colour(nullptr);
 }
@@ -466,23 +466,23 @@ void EffectsEmitterModule::tick_frame()
     if (lifespan_ != 0) {
         auto age = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - start_time_));
         if (age > lifespan_) {
-            entity_->flag_as_dead();
+            entity()->flag_as_dead();
             return;
         }
     }
     if (mesh_instance_)
         effect_handle_->set_brightness(core::down_cast<MeshInstanceModule>(mesh_instance_)->brightness());
-    const render::SparkleConfig& args = effect_handle_->args_;
+    const render::SparkleConfig& args = effect_handle_->args();
     if (!args.local_positions_)
         return;
     for (int i = 0; i < 3; ++i) {
         const maths::Vec4& local = core::at(args.offset_pos_, i);
-        const maths::Vec4& at = entity_->at_point();
+        const maths::Vec4& at = entity()->at_point();
         const maths::Vec4 pos = {.x = local.x + at.x, .y = local.y + at.y, .z = local.z + at.z, .w = local.w + at.w};
         effect_handle_->change_place(i, &pos);
         if (args.orient_with_object_) {
             maths::Mat4 orientation{};
-            orientation = entity_->basis_frame();
+            orientation = entity()->basis_frame();
             core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             effect_handle_->spin_by(i, &orientation);
         }
@@ -500,7 +500,7 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         // doubled (1 without a hit).
         float value = 1.0f;
         render::ProbeRay feeler;
-        const maths::Vec4& at = core::at(effect_handle_->args_.at_point_, 0);
+        const maths::Vec4& at = core::at(effect_handle_->args().at_point_, 0);
         feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0f), .z = at.z, .w = at.w};
         feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - 4800.0), .z = at.z, .w = at.w};
         if (feeler.get_hit_shape(true, false))
@@ -520,7 +520,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
         result = new (result) script::Struct;
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
-    const ParticleParams* own = &effect_handle_->args_;
+    const ParticleParams* own = &effect_handle_->args();
     result->put_name_key(0xA1DC81F9u, own->label_);
     result->push_float(0x35B65BD4u, own->rate_);
     result->push_float(0xC218CF77u, own->lifetime_);
@@ -539,7 +539,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     result->append_array_value(0x7E6BCBE6u, core::at(colours, 0));
     result->append_array_value(0x2A6B6FE2u, core::at(colours, 1));
     result->append_array_value(0x0481113Du, core::at(colours, 2));
-    auto get = [this] { return &effect_handle_->args_; };
+    auto get = [this] { return &effect_handle_->args(); };
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
         result->put_vec3(name, script::VectorValue{.x = v.x, .y = v.y, .z = v.z, .w = v.w});
     };

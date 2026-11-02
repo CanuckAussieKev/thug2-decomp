@@ -124,7 +124,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
     maths::BBox box;
     // The box: from 10 out to 500 out, 4000 down.
     for (const float out : {kTargetFirst, kTargetLast}) {
-        const maths::Vec4& position = entity_->at_point();
+        const maths::Vec4& position = entity()->at_point();
         const double w = static_cast<double>(direction->w) * out;
         auto z = static_cast<float>(direction->z * static_cast<double>(out));
         auto y = static_cast<float>(direction->y * static_cast<double>(out));
@@ -141,7 +141,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
     double along = 0.0;
     bool found = false;
     for (;;) {
-        const maths::Vec4& position = entity_->at_point();
+        const maths::Vec4& position = entity()->at_point();
         const double w = static_cast<double>(distance) * direction->w;
         auto z = static_cast<float>(static_cast<double>(distance) * direction->z);
         auto y = static_cast<float>(static_cast<double>(distance) * direction->y);
@@ -186,7 +186,7 @@ void SkaterPhysicsModule::update_speed_override()
     float& factor = speed_override_;
     if (frame_began_in_drop_ && !state_->flag(PoseFlag::kAcidDrop).on && !state_->flag(PoseFlag::kBailing).on) {
         auto stat = static_cast<float>(stat_value(object, kOverrideStat));
-        const double speed = length_unrounded(entity_->vel());
+        const double speed = length_unrounded(entity()->vel());
         auto speed_rounded = static_cast<float>(speed);
         if (speed < static_cast<double>(stat) * kOverrideStart)
             return;
@@ -252,7 +252,7 @@ double SkaterPhysicsModule::get_gravity()
         online::net_game_state().set_cheat_flag(true);
     }
     const float scale = script::fetch_float(kFallScale);
-    if (scale != 0.0f && !(entity_->vel().y > 0.0f) && entity_->vel().y == entity_->vel().y)
+    if (scale != 0.0f && !(entity()->vel().y > 0.0f) && entity()->vel().y == entity()->vel().y)
         return static_cast<double>(scale) * result;
     return result;
 }
@@ -268,7 +268,7 @@ void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
     velocity->y = static_cast<float>(inverse * velocity->y);
     velocity->z = static_cast<float>(inverse * velocity->z);
     velocity->w = static_cast<float>(inverse * velocity->w);
-    const maths::Vec4& facing = core::at(entity_->basis_frame().row, 2);
+    const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
     const double along = (static_cast<double>(facing.y) * velocity->y + static_cast<double>(facing.z) * velocity->z) +
                          static_cast<double>(facing.x) * velocity->x;
     const double scale = (along < 0.0 ? -1.0 : 1.0) * length;
@@ -288,7 +288,7 @@ bool SkaterPhysicsModule::wall_push_off()
     if (script::fetch_float(kPushOffWait) > since_last)
         return false;
     const double angle = std::sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
-    const maths::Vec4& facing = core::at(entity_->basis_frame().row, 2);
+    const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
     const maths::Vec4& wall = feeler_.surface_dir();
     const double into = (static_cast<double>(facing.z) * wall.z + static_cast<double>(facing.y) * wall.y) +
                         static_cast<double>(facing.x) * wall.x;
@@ -302,27 +302,27 @@ bool SkaterPhysicsModule::wall_push_off()
         set_timed_flag(this, PoseFlag::kCancelWallpush, 0);
         return false;
     }
-    maths::Vec4& velocity = entity_->vel();
+    maths::Vec4& velocity = entity()->vel();
     const float bounce = maths::dot_vec(velocity, wall);
     velocity -= 2.0f * (bounce * wall);
-    const double speed_unrounded = length_unrounded(entity_->vel());
+    const double speed_unrounded = length_unrounded(entity()->vel());
     auto speed = static_cast<float>(speed_unrounded);
-    maths::Vec4& v = entity_->vel();
+    maths::Vec4& v = entity()->vel();
     if (speed_unrounded > kPushOffStill) {
         auto slower = static_cast<float>(speed - static_cast<double>(script::fetch_float(kPushOffSlowing)));
         const float least = script::fetch_float(kPushOffSpeed);
         v *= static_cast<float>(objects::larger_of(least, slower) / static_cast<double>(speed));
     } else {
-        v = -script::fetch_float(kPushOffSpeed) * core::at(entity_->basis_frame().row, 2);
+        v = -script::fetch_float(kPushOffSpeed) * core::at(entity()->basis_frame().row, 2);
     }
-    entity_->vel().align_to_plane(floor_normal_);
+    entity()->vel().align_to_plane(floor_normal_);
     objects::GameEntity* object = object_of(this);
     core::at(object->basis_frame().row, 2) = object->vel();
-    core::at(entity_->basis_frame().row, 2).make_unit();
-    core::at(entity_->basis_frame().row, 1) = floor_normal_;
+    core::at(entity()->basis_frame().row, 2).make_unit();
+    core::at(entity()->basis_frame().row, 1) = floor_normal_;
     object = object_of(this);
     core::at(object->basis_frame().row, 0) = maths::cross_vec(core::at(object->basis_frame().row, 1), core::at(object->basis_frame().row, 2));
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
     last_push_off_ = get_now();
     return true;
 }
@@ -362,9 +362,9 @@ void SkaterPhysicsModule::turn_round_if_backwards()
             return;
         }
     }
-    maths::Vec4& facing = core::at(entity_->basis_frame().row, 2);
+    maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
     facing = -facing;
-    maths::Vec4& right = core::at(entity_->basis_frame().row, 0);
+    maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     right = -right;
     maths::Vec4& display_facing = core::at(display_matrix_.row, 2);
     display_facing = -display_facing;
@@ -402,7 +402,7 @@ void SkaterPhysicsModule::check_flip_spin()
     model_flipped_ = 0;
     auto* trick = core::down_cast<objects::MoveExecutor>(get_composite(object_of(this))->fetch_module(kTrickModuleKey));
     script::Array* spins = script::fetch_list(kFlipSpins);
-    const int count = static_cast<int>(spins->extent_);
+    const int count = static_cast<int>(spins->extent());
     script::Struct* spin = nullptr;
     bool found = false;
     for (int i = 0; i < count; ++i) {
@@ -469,7 +469,7 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
     feeler.line().end = maths::Vec4(x, static_cast<float>(static_cast<double>(y) + height), z, w);
     if (feeler.get_hit_shape(true, false))
         return false;
-    maths::Vec4& moved = entity_->at_point();
+    maths::Vec4& moved = entity()->at_point();
     moved = maths::Vec4(x, y, z, w);
     moved.y = static_cast<float>(static_cast<double>(moved.y) + kStepUpLift);
     return true;

@@ -65,12 +65,16 @@ public:
     // 0x0045F5D0: kCompositeFlagPaused set (or cleared) on every object it has now - the same walk.
     void get_freeze(bool pause);
 
+private:
     std::unique_ptr<tasks::Task<EntityHub>> update_job_; // +0x40 running composite_object_manager_task
     uint32_t component_types_{};                         // +0x44
+
+public:
     struct ComponentType {
         uint32_t type;
         ComponentCreateFunction create;
     };
+private:
     std::array<ComponentType, kMaxComponentTypes> components_{}; // +0x48
 };
 

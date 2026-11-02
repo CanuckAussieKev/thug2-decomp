@@ -84,7 +84,7 @@ gsl::owner<ObjectModule*> CbBoxComponent::fabricate() { return new CbBoxComponen
 // 0x0041AAD0
 CbBoxComponent::CbBoxComponent()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     box_max_ = {.x = 10.0f, .y = 10.0f, .z = 10.0f, .w = 1.0f};
     box_min_ = {.x = -10.0f, .y = -10.0f, .z = -10.0f, .w = 1.0f};
     shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -127,7 +127,7 @@ void CbBoxComponent::compute_rect(Rect2* rect)
 {
     if (rect->computed_)
         return;
-    rect->basis_frame_ = entity_->basis_frame();
+    rect->basis_frame_ = entity()->basis_frame();
     if (rect->angle_ != 0.0f) {
         maths::Mat4 rotation;
         matrix_multiply(&rect->basis_frame_, &maths::make_yaw_matrix(rotation, rect->angle_), &rect->basis_frame_);
@@ -183,7 +183,7 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
     const float offset_z = rect->shift_.z;
     compute_rect(rect);
     // From the box's middle (rounded where the original stores: x, the middle's z, the sum).
-    const maths::Vec4& self = entity_->at_point();
+    const maths::Vec4& self = entity()->at_point();
     auto dx = static_cast<float>((static_cast<double>(offset_x) + object->at_point().x) - self.x);
     const double dy = (static_cast<double>(offset_y) + object->at_point().y) - self.y;
     auto middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point().z);
@@ -210,12 +210,12 @@ bool CbBoxComponent::any_skater_near(Rect2* rect, float reach_squared, const mat
     const int count = modules::Skate::sole()->count_riders();
     for (int i = 0; i < count; ++i) {
         GameEntity* skater = modules::Skate::sole()->get_rider_at(i);
-        if (skater == entity_)
+        if (skater == entity())
             continue;
         if (rect) {
             if (is_in_rect(skater, rect))
                 return true;
-        } else if (is_near(skater, entity_, reach_squared, point)) {
+        } else if (is_near(skater, entity(), reach_squared, point)) {
             return true;
         }
     }
@@ -246,14 +246,14 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
     }
     ObjectSearch search;
     for (auto* object = core::down_cast<GameEntity>(
-             search.first_item_of_type(manager_object_list(entity_->park_owner()), object_type));
+             search.first_item_of_type(manager_object_list(entity()->park_owner()), object_type));
          object; object = core::down_cast<GameEntity>(search.next_item_of_type())) {
-        if (object == entity_)
+        if (object == entity())
             continue;
         if (rect) {
             if (is_in_rect(object, rect))
                 return true;
-        } else if (is_near(object, entity_, reach_squared, point)) {
+        } else if (is_near(object, entity(), reach_squared, point)) {
             return true;
         }
     }
@@ -276,7 +276,7 @@ bool CbBoxComponent::query_objects(script::Struct* params, script::Script* scrip
         return any_object_near(params, script, reach_squared, rect, type, point);
     script::Array* types = nullptr;
     if (params->fetch_list(kTypeParam, &types, 1)) {
-        for (uint32_t i = 0; i < types->extent_; ++i) {
+        for (uint32_t i = 0; i < types->extent(); ++i) {
             if (any_object_near(params, script, reach_squared, rect, types->fetch_part(i), point))
                 return true;
         }

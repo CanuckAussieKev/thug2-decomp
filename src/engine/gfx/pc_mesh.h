@@ -39,9 +39,19 @@ public:
     // collision), then the engine's.
     ~PcMesh() override;
 
-    StripBreak* breaks{};    // +0xBC
+    // The fields other code reads and sets.
+    [[nodiscard]] StripBreak* breaks() const { return breaks_; }
+    void set_breaks(StripBreak* value) { breaks_ = value; }
+    [[nodiscard]] uint32_t break_count() const { return break_count_; }
+    void set_break_count(uint32_t value) { break_count_ = value; }
+    [[nodiscard]] PcScene* scene() const { return scene_; }
+
+private:
+    StripBreak* breaks_{};    // +0xBC
     uint32_t break_count_{}; // +0xC0
-    PcScene* scene{};        // +0xC4: the scene loaded with it (a model file's)
+    PcScene* scene_{};        // +0xC4: the scene loaded with it (a model file's)
+
+public:
 
     // 0x004B7B50: the skin file read (opened "rb"). Whether it had breaks.
     bool load_skin_file(const char* name);
@@ -51,8 +61,13 @@ public:
     void load_skin(const uint8_t* data, size_t size);
     // 0x004B7ED0: its scene, and the scene's hierarchy.
     void choose_scene(PcScene* scene);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcMesh, scene_) == 0xC4 && sizeof(PcMesh) == 0xC8,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcMesh, scene) == 0xC4 && sizeof(PcMesh) == 0xC8,
-              "layout must match the original");
 
 } // namespace render

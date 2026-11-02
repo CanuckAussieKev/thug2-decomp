@@ -77,7 +77,7 @@ void AudioEmitterModule::publish_method_table()
 // 0x00432D90
 AudioEmitterModule::AudioEmitterModule()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     last_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
@@ -97,7 +97,7 @@ void AudioEmitterModule::configure_from_data(script::Struct* params)
 void AudioEmitterModule::tick_frame()
 {
     last_pos_ = at_point_;
-    at_point_ = entity_->at_point();
+    at_point_ = entity()->at_point();
     update_waiting_sounds();
 }
 

@@ -122,26 +122,26 @@ uint32_t& list_clock() { return server_list_state().list_clock_; }
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
 memory::ListNode* head_of_scene_list(memory::ListNode* head)
 {
-    memory::ListNode* node = head->next;
-    return node->data == memory::ListNode::head_marker() ? nullptr : node;
+    memory::ListNode* node = head->next();
+    return node->data() == memory::ListNode::head_marker() ? nullptr : node;
 }
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == memory::ListNode::head_marker() ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == memory::ListNode::head_marker() ? nullptr : next;
 }
 template <typename T>
 T* data_of(memory::ListNode* node)
 {
-    return node ? static_cast<T*>(node->data) : nullptr;
+    return node ? static_cast<T*>(node->data()) : nullptr;
 }
 
 // The nodes counted (the original's inlined count: data -1 checked before null).
 int total_of(memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != memory::ListNode::head_marker() && node;
-         node = node->next)
+    for (const memory::ListNode* node = head->next(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next())
         ++count;
     return count;
 }
@@ -161,17 +161,17 @@ void delete_all(memory::ListNode* head)
 
 void unlink_node(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 
 // A server's id in the menu and in fetch_host (HostListing::id_).
@@ -266,7 +266,7 @@ void HostListing::clear_players()
 const char* HostListing::get_entrant_name(int index)
 {
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
-        auto* player = static_cast<PlayerRecord*>(node->data);
+        auto* player = static_cast<PlayerRecord*>(node->data());
         if (!player)
             return nullptr;
         if (index == 0)
@@ -278,7 +278,7 @@ const char* HostListing::get_entrant_name(int index)
 int HostListing::get_entrant_rank(int index)
 {
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
-        auto* player = static_cast<PlayerRecord*>(node->data);
+        auto* player = static_cast<PlayerRecord*>(node->data());
         if (!player)
             return 0;
         if (index == 0)
@@ -377,7 +377,7 @@ void Hub::show_no_servers_found(bool refocus)
 void Hub::clear_chosen_servers()
 {
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
-        auto* server = static_cast<HostListing*>(node->data);
+        auto* server = static_cast<HostListing*>(node->data());
         if (!server)
             break;
         server->set_chosen(false);
@@ -389,7 +389,7 @@ int Hub::num_servers_in_menu()
 {
     int count = 0;
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
-        auto* server = static_cast<HostListing*>(node->data);
+        auto* server = static_cast<HostListing*>(node->data());
         if (!server)
             break;
         if (server->in_menu())
@@ -442,7 +442,7 @@ bool Hub::has_server(const char* name, uint32_t ip)
     for (memory::ListNode* list :
          {static_cast<memory::ListNode*>(&servers_), static_cast<memory::ListNode*>(&waiting_servers_)}) {
         for (memory::ListNode* node = head_of_scene_list(list); node; node = get_next_node(node)) {
-            auto* server = static_cast<HostListing*>(node->data);
+            auto* server = static_cast<HostListing*>(node->data());
             if (!server)
                 break;
             if (server->remote_ip() == ip && _stricmp(server->label().data(), name) == 0)
@@ -456,7 +456,7 @@ bool Hub::has_server(const char* name, uint32_t ip)
 void* Hub::fetch_host(uint32_t id)
 {
     for (memory::ListNode* node = head_of_scene_list(&servers_); node; node = get_next_node(node)) {
-        auto* server = static_cast<HostListing*>(node->data);
+        auto* server = static_cast<HostListing*>(node->data());
         if (!server)
             return nullptr;
         if (id == server_id(server))
@@ -502,7 +502,7 @@ void Hub::refresh_server_list(bool force)
 // 0x00547440
 void server_list_task(tasks::Task<Hub>* task)
 {
-    Hub* manager = task->content_;
+    Hub* manager = task->content();
     if (frame_clock::get_time() - list_clock() > kListClock) {
         list_clock() = frame_clock::get_time();
         return;

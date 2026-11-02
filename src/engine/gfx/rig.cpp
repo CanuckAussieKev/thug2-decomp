@@ -61,7 +61,7 @@ bool in_exceptions(uint32_t name)
     bool found = false;
     script::Array* array = script::fetch_list(kLocalScaleExceptions);
     if (array) {
-        for (uint32_t i = 0; i < array->extent_; ++i) {
+        for (uint32_t i = 0; i < array->extent(); ++i) {
             if (array->fetch_part(i) == name)
                 found = true;
         }

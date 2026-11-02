@@ -273,9 +273,9 @@ std::string Catalogue::menu_art(const std::string& id) const
 
 bool Catalogue::get_find(const std::string& load, int* section, int* level) const
 {
-    for (size_t s = 0; s < sections.size(); ++s)
-        for (size_t l = 0; l < core::at(sections, s).levels.size(); ++l)
-            if (same_text(core::at(core::at(sections, s).levels, l).load, load)) {
+    for (size_t s = 0; s < sections_.size(); ++s)
+        for (size_t l = 0; l < core::at(sections_, s).levels.size(); ++l)
+            if (same_text(core::at(core::at(sections_, s).levels, l).load, load)) {
                 if (section)
                     *section = static_cast<int>(s);
                 if (level)
@@ -315,7 +315,7 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
     if (const Json* art = root.get_pull("menu_art"); art && art->kind == Json::Kind::kObject)
         for (const auto& [key, value] : art->members)
             if (value.kind == Json::Kind::kChars)
-                result.menu_art_.emplace_back(key, value.text);
+                result.get_menu_art().emplace_back(key, value.text);
     const Json* sections = root.get_pull("sections");
     if (!sections || sections->kind != Json::Kind::kArray)
         return fail("no sections");
@@ -366,7 +366,7 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
                 return fail("a level of " + section.id + " has no name or load script");
             section.levels.push_back(std::move(level));
         }
-        result.sections.push_back(std::move(section));
+        result.sections().push_back(std::move(section));
     }
     *out = std::move(result);
     return true;
@@ -377,7 +377,7 @@ bool Catalogue::cycle_art(const std::string& load, int step)
     int s = 0, l = 0;
     if (!get_find(load, &s, &l))
         return false;
-    StageMap& level = core::at(core::at(sections, s).levels, l);
+    StageMap& level = core::at(core::at(sections_, s).levels, l);
     const int count = static_cast<int>(level.art_variants_.size());
     if (count < 2)
         return false;
@@ -391,7 +391,7 @@ void Catalogue::apply_art_choices(const std::vector<std::pair<std::string, int>>
         int s = 0, l = 0;
         if (!get_find(load, &s, &l))
             continue;
-        StageMap& level = core::at(core::at(sections, s).levels, l);
+        StageMap& level = core::at(core::at(sections_, s).levels, l);
         if (variant >= 0 && std::cmp_less(variant, level.art_variants_.size()))
             level.variant = variant;
     }
@@ -400,7 +400,7 @@ void Catalogue::apply_art_choices(const std::vector<std::pair<std::string, int>>
 std::vector<std::pair<std::string, int>> Catalogue::art_choices() const
 {
     std::vector<std::pair<std::string, int>> out;
-    for (const Section& s : sections)
+    for (const Section& s : sections_)
         for (const StageMap& l : s.levels)
             if (l.variant > 0)
                 out.emplace_back(l.load, l.variant);
@@ -474,9 +474,9 @@ TickCycle fit_frame(float window_width, float window_height)
     TickCycle frame;
     if (window_width <= 0.0f || window_height <= 0.0f)
         return frame;
-    frame.scale = std::min(window_width / kDesignWidth, window_height / kDesignHeight);
-    frame.left = std::floor((window_width - kDesignWidth * frame.scale) * 0.5f);
-    frame.top = std::floor((window_height - kDesignHeight * frame.scale) * 0.5f);
+    frame.set_scale(std::min(window_width / kDesignWidth, window_height / kDesignHeight));
+    frame.set_left(std::floor((window_width - kDesignWidth * frame.scale()) * 0.5f));
+    frame.set_top(std::floor((window_height - kDesignHeight * frame.scale()) * 0.5f));
     return frame;
 }
 
@@ -672,10 +672,10 @@ int Menu::level_row() const
 const StageMap* Menu::selected_level() const
 {
     const int row = level_row();
-    if (row < 0 || !catalogue_ || std::cmp_greater_equal(section_, catalogue_->sections.size()))
+    if (row < 0 || !catalogue_ || std::cmp_greater_equal(section_, catalogue_->sections().size()))
         return nullptr;
     const int index = core::at(get_view()->levels, row);
-    const std::vector<StageMap>& levels = core::at(catalogue_->sections, section_).levels;
+    const std::vector<StageMap>& levels = core::at(catalogue_->sections(), section_).levels;
     return index >= 0 && std::cmp_less(index, levels.size()) ? &core::at(levels, index) : nullptr;
 }
 
@@ -699,8 +699,8 @@ float Menu::get_pan() const
 
 uint32_t Menu::accent_colour() const
 {
-    if (shown_ == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections.size()))
-        return core::at(catalogue_->sections, section_).colour;
+    if (shown_ == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections().size()))
+        return core::at(catalogue_->sections(), section_).colour;
     return kHouseYellow;
 }
 
@@ -732,8 +732,8 @@ void Menu::get_go(Screen screen)
 {
     pile_.push_back(screen);
     uint32_t colour = kHouseYellow;
-    if (screen == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections.size()))
-        colour = core::at(catalogue_->sections, section_).colour;
+    if (screen == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections().size()))
+        colour = core::at(catalogue_->sections(), section_).colour;
     if (over_pause() && screen != Screen::kLevels) {
         // (over a level the game stays behind the screens, dimmed: no wipe - only the level select, all art, has one)
         cut_to(screen);
@@ -1027,20 +1027,20 @@ bool Menu::select_id(const std::string& id)
         return false;
     if (shown_ == Screen::kLevels) {
         if (id.starts_with("tab:")) {
-            for (size_t s = 0; catalogue_ && s < catalogue_->sections.size() && s < views_.size(); ++s)
-                if (same_text(core::at(catalogue_->sections, s).id, id.substr(4)) ||
-                    same_text(core::at(catalogue_->sections, s).tab, id.substr(4))) {
+            for (size_t s = 0; catalogue_ && s < catalogue_->sections().size() && s < views_.size(); ++s)
+                if (same_text(core::at(catalogue_->sections(), s).id, id.substr(4)) ||
+                    same_text(core::at(catalogue_->sections(), s).tab, id.substr(4))) {
                     set_section(static_cast<int>(s));
                     return true;
                 }
             return false;
         }
-        for (size_t s = 0; catalogue_ && s < catalogue_->sections.size() && s < views_.size(); ++s) {
+        for (size_t s = 0; catalogue_ && s < catalogue_->sections().size() && s < views_.size(); ++s) {
             // (the section shown first: a name in two games - Airport - picks the one there)
             const size_t section = (s + static_cast<size_t>(section_)) % views_.size();
             const std::vector<int>& rows = core::at(views_, section).levels;
             for (size_t r = 0; r < rows.size(); ++r) {
-                const StageMap& level = core::at(core::at(catalogue_->sections, section).levels, core::at(rows, r));
+                const StageMap& level = core::at(core::at(catalogue_->sections(), section).levels, core::at(rows, r));
                 if (same_text(level.load, id) || same_text(level.name, id)) {
                     set_section(static_cast<int>(section));
                     move_level(static_cast<int>(r));

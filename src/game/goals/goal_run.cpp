@@ -257,7 +257,7 @@ bool Objective::register_gap_hit(uint32_t gap)
         if (!get_trick_count(score, name) && !get_trick_count(score, backside) && !get_trick_count(score, frontside))
             return false;
     }
-    for (uint32_t i = 0; i < gaps->extent_; ++i) {
+    for (uint32_t i = 0; i < gaps->extent(); ++i) {
         if (gaps->fetch_part(i) == gap) {
             std::array<char, 32> flag{};
             text::format_to(flag, kGotFormat, static_cast<int>(i + 1));
@@ -274,7 +274,7 @@ bool Objective::step_to_next_waypoint()
     script::Array* waypoints = nullptr;
     if (!args_->fetch_list(kWaypoints, &waypoints, 0))
         args_->fetch_list(kWaypoints2, &waypoints, 1);
-    for (uint32_t i = 0; i < waypoints->extent_; ++i) {
+    for (uint32_t i = 0; i < waypoints->extent(); ++i) {
         auto* waypoint = waypoints->struct_at(i);
         uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
@@ -315,7 +315,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
 {
     script::Array* clusters = nullptr;
     args_->fetch_list(kKillClusters, &clusters, 1);
-    for (uint32_t i = 0; i < clusters->extent_; ++i) {
+    for (uint32_t i = 0; i < clusters->extent(); ++i) {
         auto* entry = clusters->struct_at(i);
         uint32_t id = 0;
         entry->read_hash_value(kIdName, &id, 1);
@@ -336,7 +336,7 @@ void Objective::kill_cluster(uint32_t cluster, int score)
 // 0x005553C0
 bool Objective::did_trick_string()
 {
-    void* score = core::down_cast<objects::RiderPointKeeper>(local_skater()->fetch_module(kSkaterScore))->points_held_;
+    void* score = core::down_cast<objects::RiderPointKeeper>(local_skater()->fetch_module(kSkaterScore))->points_held();
     const char* trick = nullptr;
     args_->fetch_text(kTrickString, &trick, 1);
     uint32_t type = 0;

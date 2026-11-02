@@ -60,14 +60,14 @@ constexpr uint32_t kSkaterScore = 0xD262802F;      // the score component
 constexpr uint32_t kVehicleComponent = 0x18223FD6; // SkaterStateHistory (its vehicle control type)
 constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 
-Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
+Hub* task_manager(tasks::Task<Hub>* task) { return task->content(); }
 
 // The skate module's list of skaters (its head at +0x28): how many.
 int skater_count(modules::Skate* skate)
 {
     int count = 0;
-    for (auto* node = skate->riders().list_link_.next; node->data != memory::ListNode::head_marker() && node;
-         node = node->next)
+    for (auto* node = skate->riders().list_link_.next(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next())
         ++count;
     return count;
 }
@@ -101,7 +101,7 @@ void Hub::add_new_player(JoinerRecord* info)
             if (info->drive_control_mode_) // its vehicle control type
                 core::down_cast<objects::RiderFrameLog>(
                     core::down_cast<objects::GameEntity>(skater)->fetch_module(kVehicleComponent))
-                    ->vehicle_control_type_ = static_cast<uint32_t>(info->drive_control_mode_);
+                    ->set_vehicle_control_type(static_cast<uint32_t>(info->drive_control_mode_));
         }
     }
     PlayerRecord* player = find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(obj_id)));
@@ -125,10 +125,10 @@ void Hub::add_new_player(JoinerRecord* info)
         player->set_eliminated_time(info->eliminated_time_);
         auto* head = &players_;
         memory::ListNode* node = player;
-        node->prev = head->prev;
-        node->next = head;
-        head->prev->next = node;
-        head->prev = node;
+        node->set_prev(head->prev());
+        node->set_next(head);
+        head->prev()->set_next(node);
+        head->set_prev(node);
         if (info->flag_bits_ & kNewHasCrown)
             player->give_crown(true);
     }
@@ -141,7 +141,7 @@ void Hub::add_new_player(JoinerRecord* info)
     if (!is_own_player(player)) {
         auto* object = core::down_cast<objects::GameEntity>(skater);
         modules::PointTally* score =
-            core::down_cast<objects::RiderPointKeeper>(object->fetch_module(kSkaterScore))->points_held_;
+            core::down_cast<objects::RiderPointKeeper>(object->fetch_module(kSkaterScore))->points_held();
         core::down_cast<objects::Rider>(skater)->conceal_skater(); // hidden
         score->set_grand_total(info->score_);
     }
@@ -155,12 +155,12 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     modules::Skate* skate = modules::Skate::sole();
     net::ConnSearch search;
-    auto* node = manager->joiners_.next; // (the joining players' first node)
+    auto* node = manager->joiners_.next(); // (the joining players' first node)
     bool added = false;
-    if (node->data != memory::ListNode::head_marker() && node) {
+    if (node->data() != memory::ListNode::head_marker() && node) {
         while (node) {
-            memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
-            auto* info = static_cast<JoinerRecord*>(node->data);
+            memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
+            auto* info = static_cast<JoinerRecord*>(node->data());
             if (info->add_at_frame_ > manager->client_app_->frame_count())
                 break; // (its time hasn't come: the rest wait too)
             manager->add_new_player(info);
@@ -275,12 +275,12 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     net::Hub* net = net::Hub::sole();
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    auto* node = manager->joiners_.next; // (the joining players' first node)
-    if (node->data != memory::ListNode::head_marker() && node) {
+    auto* node = manager->joiners_.next(); // (the joining players' first node)
+    if (node->data() != memory::ListNode::head_marker() && node) {
         while (node) {
             PlayerSearch search;
-            memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
-            auto* info = static_cast<JoinerRecord*>(node->data);
+            memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
+            auto* info = static_cast<JoinerRecord*>(node->data());
             net::AppHost* server = manager->host_;
             if (info->add_at_frame_ > server->frame_count())
                 break; // (its time hasn't come: the rest wait too)
@@ -299,10 +299,10 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             player->set_eliminated_time(0);
             auto* head = &manager->players_;
             memory::ListNode* player_node = player;
-            player_node->prev = head->prev;
-            player_node->next = head;
-            head->prev->next = player_node;
-            head->prev = player_node;
+            player_node->set_prev(head->prev());
+            player_node->set_next(head);
+            head->prev()->set_next(player_node);
+            head->set_prev(player_node);
             uint32_t now = frame_clock::get_time();
             static NewPlayerMessage msg; // (the original's is on its stack: 4 KB)
             auto obj_id = static_cast<int8_t>(info->entity_key_);

@@ -132,21 +132,21 @@ bool Resource::set_aborted()
 void Resource::add_dependent(Resource* asset)
 {
     memory::ListNode* node = memory::ListNode::create(asset);
-    node->prev = dependents_.prev;
-    node->next = &dependents_;
-    dependents_.prev->next = node;
-    dependents_.prev = node;
+    node->set_prev(dependents_.prev());
+    node->set_next(&dependents_);
+    dependents_.prev()->set_next(node);
+    dependents_.set_prev(node);
 }
 
 // 0x00407890
 void Resource::remove_dependent(Resource* asset)
 {
-    memory::ListNode* node = dependents_.next;
-    if (node->data == memory::ListNode::head_marker() || !node)
+    memory::ListNode* node = dependents_.next();
+    if (node->data() == memory::ListNode::head_marker() || !node)
         return;
     while (node) {
-        memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
-        if (node->data == asset) {
+        memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
+        if (node->data() == asset) {
             memory::ListNode::destroy(node); // (0x004077D0)
             return;
         }

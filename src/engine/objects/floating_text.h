@@ -61,6 +61,7 @@ public:
     // 0x0041E270 (vtable slot 12): 0xE357E3CB configure_from_data again (through the vtable), 1; anything else 2.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
+private:
     std::array<char, 0x40> text_{};           // +0x18 string (0 first: none)
     int tint_{2};                 // +0x58 color (a font colour index)
     float y_offset_{120.0f};      // +0x5C y_offset

@@ -83,7 +83,7 @@ void take_baseline(const char* why)
 Checklist get_take_in(goals::GapTally* checklist)
 {
     Checklist out;
-    out.built = checklist->built_;
+    out.built = checklist->built();
     const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {
         Gap gap;
@@ -122,7 +122,7 @@ void get_edited_copy(bool on)
                 checklist->set_gap_positions(gap.name.c_str(), {.x = core::at(gap.pos, 0), .y = core::at(gap.pos, 1), .z = core::at(gap.pos, 2), .w = core::at(gap.pos, 3)},
                                              {.x = core::at(gap.dir, 0), .y = core::at(gap.dir, 1), .z = core::at(gap.dir, 2), .w = core::at(gap.dir, 3)});
         }
-        checklist->built_ = level_editor_career_state().baseline_.built; // (register_gap_entry marks it built)
+        checklist->set_built(level_editor_career_state().baseline_.built); // (register_gap_entry marks it built)
         get_log(
             "level editor: the career's gap list put back as before the edited copy (%u gaps, %d landed; it had %u, "
             "%d landed)",

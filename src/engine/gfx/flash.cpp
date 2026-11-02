@@ -37,10 +37,10 @@ void draw_flash(const Flash* flash)
     const double width = renderer().back_buffer_width();
     const double height = renderer().back_buffer_height();
     // (x87: each product is rounded once, each sum to float)
-    auto left = static_cast<float>(width * view->pos_x_);
-    auto top = static_cast<float>(height * view->y_);
-    auto right = static_cast<float>(width * view->span_ + left);
-    auto bottom = static_cast<float>(height * view->level_y_ + top);
+    auto left = static_cast<float>(width * view->pos_x());
+    auto top = static_cast<float>(height * view->y());
+    auto right = static_cast<float>(width * view->span() + left);
+    auto bottom = static_cast<float>(height * view->level_y() + top);
     const float z = flash->z;
     const uint32_t color = static_cast<uint32_t>(core::at(flash->now, 3)) << 24 | static_cast<uint32_t>(core::at(flash->now, 0)) << 16 |
                      static_cast<uint32_t>(core::at(flash->now, 1)) << 8 | core::at(flash->now, 2);

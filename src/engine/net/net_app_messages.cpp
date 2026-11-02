@@ -399,7 +399,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
     OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, seq_msg) : nullptr;
     // (a failed allocation crashes here, as in the original)
-    link->list_link_.priority = static_cast<int>(sequence);
+    link->list_link_.set_priority(static_cast<int>(sequence));
     link->stamp_ms_ = 0;
     link->packet_clock_ = 0;
     link->bundle_id_ = group;
@@ -545,10 +545,10 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, desc) : nullptr;
         // at the end of the connection's streams
         memory::ListNode* head = &context->sender_conn_->received_streams();
-        link->list_link_.next = head;
-        link->list_link_.prev = head->prev;
-        head->prev->next = &link->list_link_;
-        head->prev = &link->list_link_;
+        link->list_link_.set_next(head);
+        link->list_link_.set_prev(head->prev());
+        head->prev()->set_next(&link->list_link_);
+        head->set_prev(&link->list_link_);
         if (static_cast<uint32_t>(desc->succ_ - desc->content_) >=
             static_cast<uint32_t>(desc->extent_))               // all in one message
             return dispatch_stream(context, link, desc, false); // (no checksum check on this path)

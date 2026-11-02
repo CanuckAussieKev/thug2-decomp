@@ -162,14 +162,22 @@ public:
     // 0x00469430: an entry for each node of the class in `nodes` (kept).
     void set_nodes(script::Array* nodes);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] TableRow* entries() const { return entries_; }
+
+private:
     TableRow* entries_{nullptr}; // +0x00
     bool transformed_{false};    // +0x04
     std::array<uint8_t, 3> unknown5_{};
     maths::Mat4 placement_mat_{}; // +0x08
     script::Array* nodes_{nullptr}; // +0x48
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ClassNodeList, placement_mat_) == 8 && offsetof(ClassNodeList, nodes_) == 0x48 &&
+                          sizeof(ClassNodeList::TableRow) == 0x18,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ClassNodeList, placement_mat_) == 8 && offsetof(ClassNodeList, nodes_) == 0x48 &&
-                  sizeof(ClassNodeList::TableRow) == 0x18,
-              "layout must match the original");
 
 } // namespace objects

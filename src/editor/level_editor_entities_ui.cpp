@@ -132,7 +132,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             ImGui::TableNextColumn();
             gui::text_disabled("contacts");
             ImGui::TableNextColumn();
-            gui::text("%u points", static_cast<unsigned>(contacts->extent_));
+            gui::text("%u points", static_cast<unsigned>(contacts->extent()));
         }
         ImGui::EndTable();
     }

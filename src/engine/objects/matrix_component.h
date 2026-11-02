@@ -32,6 +32,7 @@ public:
     // 0x0041CAC0: the matrix set.
     void change_mat(const maths::Mat4* matrix);
 
+private:
     maths::Mat4 basis_frame_{}; // +0x18
 };
 

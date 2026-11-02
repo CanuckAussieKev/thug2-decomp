@@ -67,7 +67,7 @@ const std::array<ExtensionType, 13>& get_extensions() { return kExtensions; }
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 {
-    for (const lists::KeyMap::Item* item = &core::at(table->bucket_run(), ((1u << table->bits_) - 1) & checksum); item;
+    for (const lists::KeyMap::Item* item = &core::at(table->bucket_run(), ((1u << table->bits()) - 1) & checksum); item;
          item = item->next) {
         if (item->key == checksum && item->value)
             return static_cast<Resource*>(item->value);
@@ -164,10 +164,10 @@ ResourceRegistry::~ResourceRegistry()
     unload_assets_in_list(ready_flag_, true); // (inlined)
     unload_assets_in_list(pending_, true);
     if (lists::KeyMap* table = assets_) {
-        if (table->buckets_) {
+        if (table->buckets()) {
             table->empty_table();
-            memory::Hub::get_pull()->dealloc(table->buckets_);
-            table->buckets_ = nullptr;
+            memory::Hub::get_pull()->dealloc(table->buckets());
+            table->set_buckets(nullptr);
         }
         memory::Hub::get_pull()->dealloc(table);
     }
@@ -425,7 +425,7 @@ void ResourceRegistry::process_pending_assets()
 }
 
 // 0x00407EB0
-void ResourceRegistry::process_task(tasks::Task<ResourceRegistry>* task) { task->content_->process_pending_assets(); }
+void ResourceRegistry::process_task(tasks::Task<ResourceRegistry>* task) { task->content()->process_pending_assets(); }
 
 // 0x00407A80
 bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)

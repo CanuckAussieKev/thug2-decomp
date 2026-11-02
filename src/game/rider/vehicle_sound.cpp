@@ -111,7 +111,7 @@ void SkaterVehicleSoundComponent::publish_method_table()
 }
 
 // 0x0051ADD0
-SkaterVehicleSoundComponent::SkaterVehicleSoundComponent() { kind_tag_ = kType; }
+SkaterVehicleSoundComponent::SkaterVehicleSoundComponent() { set_kind_tag(kType); }
 
 // 0x0051ADB0 (0x0051AE30 the deleting one)
 SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() = default;
@@ -119,15 +119,15 @@ SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() = default;
 // 0x0051AE60
 void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
 {
-    park_editor_level_ = park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorOff;
+    park_editor_level_ = park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff;
 }
 
 // 0x0051B8E0
 void SkaterVehicleSoundComponent::seal()
 {
-    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    sound_ = entity_->fetch_module(kSound);
-    input_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    sound_ = entity()->fetch_module(kSound);
+    input_ = core::down_cast<PadInputModule>(entity()->fetch_module(kInput));
     read_settings();
 }
 
@@ -149,7 +149,7 @@ void SkaterVehicleSoundComponent::read_settings()
     settings_->read_hash_value(0x667FA96A, &skid_sound_name_, 0);
     script::Array* gears = nullptr;
     settings_->fetch_list(0x83273E6B, &gears, 1);
-    gear_count_ = static_cast<int>(gears->extent_);
+    gear_count_ = static_cast<int>(gears->extent());
     for (int i = 0; i < gear_count_; ++i) {
         auto* gear = gears->struct_at(static_cast<uint32_t>(i));
         gear->fetch_float(0xFAD20901, &core::at(gear_steps_, i).up_at_, 1);
@@ -170,7 +170,7 @@ void SkaterVehicleSoundComponent::read_settings()
 void SkaterVehicleSoundComponent::tick_engine()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    auto speed = static_cast<float>(get_pace(entity_->vel()) * kToMph);
+    auto speed = static_cast<float>(get_pace(entity()->vel()) * kToMph);
     if (!input_->pad_primary().pos_x().held_down() || input_->pad_primary().btn_down().held_down())
         speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
 
@@ -232,7 +232,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point(), sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
+    sfx->fetch_loudness(&volume, &entity()->at_point(), sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
                         nullptr);
     const float loudest = get_setting(settings_, 0x288B029D);
     const float quiet = get_setting(settings_, 0xB8F81277);
@@ -252,7 +252,7 @@ void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
     if (input_->pad_primary().btn_down().held_down() && core_physics_->state()->cur_phase() == 0) {
-        const double speed = get_pace(entity_->vel());
+        const double speed = get_pace(entity()->vel());
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);
     }
@@ -264,7 +264,7 @@ void SkaterVehicleSoundComponent::update_skid()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point(), sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
+    sfx->fetch_loudness(&volume, &entity()->at_point(), sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
     const float loudest = get_setting(settings_, 0x42EA5746);
     const float quiet = get_setting(settings_, 0x43E6CDF2);
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));

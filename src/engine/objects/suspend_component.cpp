@@ -108,7 +108,7 @@ void DormancyModule::publish_method_table()
 // 0x00433F50
 DormancyModule::DormancyModule()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     const double distance = static_cast<double>(script::fetch_float(kDefaultSuspendDistance)) * kInchesPerFoot;
     suspend_distance_ = static_cast<float>(distance);
     suspend_distance_squared_ = static_cast<float>(distance * distance);
@@ -168,7 +168,7 @@ void DormancyModule::configure_from_data(script::Struct* params)
 }
 
 // 0x004341C0
-void DormancyModule::seal() { mesh_instance_ = entity_->fetch_module(kModel); }
+void DormancyModule::seal() { mesh_instance_ = entity()->fetch_module(kModel); }
 
 // 0x00433E60
 void DormancyModule::reset_counts()
@@ -211,7 +211,7 @@ void DormancyModule::refresh_shown_state()
     if (!mesh_instance_ || !model_of(mesh_instance_))
         return;
     bool visible = false;
-    if (!(entity_->object_flags() & kEntityHiddenBit)) {
+    if (!(entity()->object_flags() & kEntityHiddenBit)) {
         render::RenderModel* model = model_of(mesh_instance_);
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2)) {
@@ -228,8 +228,8 @@ void DormancyModule::refresh_shown_state()
                 model->fetch_bound_sphere(
                     &sphere);
                 maths::Vec4 centre = {.x = sphere[0], .y = sphere[1], .z = sphere[2], .w = 1.0f};
-                centre.multiply_by(entity_->basis_frame());
-                centre += entity_->at_point();
+                centre.multiply_by(entity()->basis_frame());
+                centre += entity()->at_point();
                 visible = render::engine::sphere_visible_in_one_viewport(&centre, sphere[3]) == 0;
             }
         }
@@ -246,7 +246,7 @@ bool DormancyModule::obj_reset_no_suspend_count(script::Struct* /*params*/, scri
 {
     frames_before_lod_ = kCheckFrames;
     frames_before_check_ = kCheckFrames;
-    entity_->hold_off(false);
+    entity()->hold_off(false);
     return true;
 }
 
@@ -294,7 +294,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
             if (component->frames_before_lod()) {
                 --component->frames_before_lod();
             } else {
-                const maths::Vec4& pos = component->entity_->at_point();
+                const maths::Vec4& pos = component->entity()->at_point();
                 const maths::Vec4& at = camera->viewer_pos();
                 const double dx = static_cast<double>(pos.x) - at.x;
                 const double dy = static_cast<double>(pos.y) - at.y;
@@ -304,7 +304,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
                 component->set_far(distance_squared > component->suspend_distance_squared());
             }
         }
-        GameEntity* object = component->entity_;
+        GameEntity* object = component->entity();
         const bool suspended = (object->composite_flags() & kCompositeFlagSuspended) != 0;
         if (component->far() && !suspended)
             object->hold_off(true);
@@ -318,7 +318,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
                 component->refresh_shown_state();
             }
         }
-        component = core::down_cast<DormancyModule>(component->next_of_type_);
+        component = core::down_cast<DormancyModule>(component->next_of_type());
     }
 }
 

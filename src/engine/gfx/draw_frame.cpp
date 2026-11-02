@@ -398,18 +398,18 @@ namespace {
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 // A node of the scene list (memory::ListNode): its scene, and whether it is the list's head.
 using SceneNode = memory::ListNode;
-PcScene* scene_of(const SceneNode* node) { return static_cast<PcScene*>(node->data); }
+PcScene* scene_of(const SceneNode* node) { return static_cast<PcScene*>(node->data()); }
 bool is_end(const SceneNode* node) { return node->is_head(); }
 
 // Calls fn(scene) for every scene in the list (the next node is taken before the call).
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = (engine_parts().scene_list().next);
+    auto* node = (engine_parts().scene_list().next());
     if (is_end(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
-        SceneNode* next = is_end(node->next) ? nullptr : node->next;
+        SceneNode* next = is_end(node->next()) ? nullptr : node->next();
         fn(scene_of(node));
         node = next;
     }
@@ -442,7 +442,7 @@ const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewC
 
 void draw_scene_group(PcScene* scene, int pass, int viewport)
 {
-    draw_scene(scene->meshes, static_cast<uint32_t>(pass), viewport);
+    draw_scene(scene->meshes(), static_cast<uint32_t>(pass), viewport);
 }
 void set_pass(int pass) { draw_instance_batch(static_cast<uint32_t>(pass), 0); }
 // No world transform (set_world_transform's null: the original passes 0).
@@ -451,7 +451,7 @@ void clear_world_transform() { set_world_transform(nullptr); }
 void draw_viewport(int index)
 {
     const ViewRegion* view = fetch_current_view(index);
-    void* camera = view->viewer_.get_pull();
+    void* camera = view->viewer().get_pull();
     if (!camera)
         return;
     // Not original - the level editor (editor/level_editor.h): while it runs, the first viewport's camera is put
@@ -465,10 +465,10 @@ void draw_viewport(int index)
     const double width = renderer().back_buffer_width();
     const double height = static_cast<float>(renderer().back_buffer_height());
     DeviceViewport& vp = renderer().device_viewport();
-    vp.x = static_cast<int>(width * view->pos_x_);
-    vp.y = static_cast<int>(height * view->y_);
-    vp.width = static_cast<int>(width * view->span_);
-    vp.height = static_cast<int>(height * view->level_y_);
+    vp.x = static_cast<int>(width * view->pos_x());
+    vp.y = static_cast<int>(height * view->y());
+    vp.width = static_cast<int>(width * view->span());
+    vp.height = static_cast<int>(height * view->level_y());
     vp.min_z_ = 0.0f;
     vp.max_z_ = 1.0f;
     if (renderer().render_camera().letterbox_active_ && !get_front_end_widescreen()) {
@@ -511,9 +511,9 @@ void draw_viewport(int index)
         collect_occluders(viewer_location(camera), index);
         set_render_state(1, 1);
         set_render_state(2, 1);
-        SceneRef* group = scene->meshes;
-        if (!(group->flags_value() & 0x100)) {
-            group->flags_value() |= 0x100;
+        SceneRef* group = scene->meshes();
+        if (!(group->flags() & 0x100)) {
+            group->flags() |= 0x100;
             for (MeshRef* mesh : group->mesh_run())
                 mesh->build_collision();
         }

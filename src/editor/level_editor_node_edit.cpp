@@ -142,7 +142,7 @@ std::unordered_map<uint32_t, Values>& rail_origins()
 script::Component* own_vector(script::Struct* node, uint32_t name)
 {
     script::Component* found = nullptr;
-    for (script::Component* c = node->head_; c; c = c->next) {
+    for (script::Component* c = node->head(); c; c = c->next) {
         if (c->name == name && c->kind_tag() == script::kQbvalVector && c->value.vector())
             found = c;
     }
@@ -167,10 +167,10 @@ void move_lights(uint32_t name, V3 pos)
     const int dynamic_count = render::light_sets().dynamic_light_count();
     for (int i = 0; i < dynamic_count && i < 256; ++i) {
         render::DynamicLightBase* light = core::at(render::light_sets().dynamic_lights(), i);
-        if (light && light->owner_value() == name) {
-            core::at(light->pos_value(), 0) = pos.x;
-            core::at(light->pos_value(), 1) = pos.y;
-            core::at(light->pos_value(), 2) = pos.z;
+        if (light && light->owner() == name) {
+            core::at(light->pos(), 0) = pos.x;
+            core::at(light->pos(), 1) = pos.y;
+            core::at(light->pos(), 2) = pos.z;
         }
     }
     const int level_count = render::light_sets().scene_light_count();

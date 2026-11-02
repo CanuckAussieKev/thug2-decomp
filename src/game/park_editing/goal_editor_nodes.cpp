@@ -43,12 +43,12 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
         manager = level_nodes::node_manager_instance().get();
         array_name = level_nodes::get_last_node_array_name();
         in_place = false;
-        count = static_cast<int>(nodes->extent_);
+        count = static_cast<int>(nodes->extent());
         index = &count;
         if (!count)
             nodes->configure_size_kind(0x82, script::kQbvalStruct);
         else
-            nodes->rescale(nodes->extent_ + 0x82);
+            nodes->rescale(nodes->extent() + 0x82);
     }
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(heap));
     std::array<char, 100> name{};

@@ -31,7 +31,7 @@ bool suspend_flag(ObjectModule* suspend) { return core::down_cast<DormancyModule
 gsl::owner<ObjectModule*> VelocityTrackerModule::fabricate() { return new VelocityTrackerModule; }
 
 // (the constructor: inlined in fabricate in the original)
-VelocityTrackerModule::VelocityTrackerModule() { kind_tag_ = kType; }
+VelocityTrackerModule::VelocityTrackerModule() { set_kind_tag(kType); }
 
 // 0x0043D2B0 (0x0043D2C0 the deleting one)
 VelocityTrackerModule::~VelocityTrackerModule() = default;
@@ -41,10 +41,10 @@ void VelocityTrackerModule::configure_from_data(script::Struct* params)
 {
     script::VectorValue vel{};
     params->fetch_vec(kVel, &vel, 1);
-    entity_->vel().x = vel.x;
-    entity_->vel().y = vel.y;
-    entity_->vel().z = vel.z;
-    entity_->vel().w = vel.w;
+    entity()->vel().x = vel.x;
+    entity()->vel().y = vel.y;
+    entity()->vel().z = vel.z;
+    entity()->vel().w = vel.w;
 }
 
 // 0x0043D340
@@ -52,19 +52,19 @@ void VelocityTrackerModule::tick_frame()
 {
     if (!net_hub()->in_net_game() && suspend_flag(suspend_))
         return;
-    const maths::Vec4& vel = entity_->vel();
+    const maths::Vec4& vel = entity()->vel();
     // Half the velocity (each rounded), the position as it was.
     const float half_x = vel.x * kHalf;
     const float half_y = vel.y * kHalf;
     const float half_z = vel.z * kHalf;
     const float half_w = vel.w * kHalf;
-    const maths::Vec4 pos = entity_->at_point();
+    const maths::Vec4 pos = entity()->at_point();
     const double frame = frame_clock::get_slomo_frame_seconds();
     // Each step rounded, then added - but w's step isn't rounded.
     auto step_x = static_cast<float>(half_x * frame);
     auto step_y = static_cast<float>(half_y * frame);
     auto step_z = static_cast<float>(half_z * frame);
-    maths::Vec4& out = entity_->at_point();
+    maths::Vec4& out = entity()->at_point();
     out.z = static_cast<float>(static_cast<double>(step_z) + pos.z);
     out.w = static_cast<float>(frame * half_w + pos.w);
     out.x = static_cast<float>(static_cast<double>(step_x) + pos.x);

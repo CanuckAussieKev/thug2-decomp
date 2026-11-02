@@ -70,17 +70,17 @@ void SkaterPhysicsModule::try_start_skitch()
     float nearest = script::fetch_float(kSkitchMaxDistance);
     objects::GameEntity* found = nullptr;
     for (objects::ObjectModule* skitch = objects::object_hub_slot()->find_first_module_of_kind(kSkitch); skitch;
-         skitch = skitch->next_of_type_) {
-        if (!core::down_cast<objects::TowRideHandler>(skitch)->allowed_)
+         skitch = skitch->next_of_type()) {
+        if (!core::down_cast<objects::TowRideHandler>(skitch)->allowed())
             continue;
-        objects::GameEntity* car = skitch->entity_;
+        objects::GameEntity* car = skitch->entity();
         if (car == object_of(this))
             continue;
         maths::Vec4 point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        const int index = closest_tow_point(skitch, &point, &entity_->at_point());
+        const int index = closest_tow_point(skitch, &point, &entity()->at_point());
         if (index == -1)
             continue;
-        const double distance = length_unrounded(point - entity_->at_point());
+        const double distance = length_unrounded(point - entity()->at_point());
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
             found = car;
@@ -100,7 +100,7 @@ void SkaterPhysicsModule::try_start_skitch()
 // 0x00501DB0
 void SkaterPhysicsModule::get_skitch()
 {
-    const objects::RideTracker* rider = ride_->ride_.get();
+    const objects::RideTracker* rider = ride_->ride().get();
     objects::PadSnapshot* pad = &input_->pad_primary();
     objects::GameEntity* car = rider ? rider->entity_.get_pull() : nullptr;
     if (!car) {
@@ -164,7 +164,7 @@ void SkaterPhysicsModule::get_skitch()
 
     // Held at the skitch point, Skitch_Offset behind it along the car; while moving to a new one, pulled towards it
     // at skitch_suck_speed (let go of when 180 or more away).
-    if (!ride_->ride_ || !state_->flag(PoseFlag::kSkitching).on)
+    if (!ride_->ride() || !state_->flag(PoseFlag::kSkitching).on)
         return;
     maths::Vec4 point;
     if (!static_cast<objects::TowRideHandler*>(skitch)->get_hook_point(&point, skitch_point_))
@@ -175,9 +175,9 @@ void SkaterPhysicsModule::get_skitch()
     const float offset = script::fetch_float(kSkitchOffset);
     const maths::Vec4 target = point + offset * back;
     if (skitch_moving_) {
-        const maths::Vec4 moved = ride_->ride_->carried_; // (the ride's last move)
-        entity_->at_point() += moved;
-        maths::Vec4 toward = target - entity_->at_point();
+        const maths::Vec4 moved = ride_->ride()->carried_; // (the ride's last move)
+        entity()->at_point() += moved;
+        maths::Vec4 toward = target - entity()->at_point();
         auto length_sqr = static_cast<float>(length_sqr_unrounded(toward));
         auto suck =
             static_cast<float>(static_cast<double>(tuning_float_lookup(kSkitchSuckSpeed, object)) * frame_length_);
@@ -186,17 +186,17 @@ void SkaterPhysicsModule::get_skitch()
             return;
         }
         if (static_cast<double>(suck) * suck >= length_sqr) {
-            entity_->at_point() = target;
+            entity()->at_point() = target;
             skitch_moving_ = 0;
         } else {
             toward *= static_cast<float>(suck / std::sqrt(static_cast<double>(length_sqr)));
-            entity_->at_point() += toward;
+            entity()->at_point() += toward;
         }
     } else {
-        entity_->at_point() = target;
+        entity()->at_point() = target;
     }
-    entity_->basis_frame() = static_cast<objects::GameEntity*>(car)->display_matrix(); // (the car's display matrix)
-    display_matrix_ = entity_->basis_frame();
+    entity()->basis_frame() = static_cast<objects::GameEntity*>(car)->display_matrix(); // (the car's display matrix)
+    display_matrix_ = entity()->basis_frame();
 }
 
 } // namespace skater

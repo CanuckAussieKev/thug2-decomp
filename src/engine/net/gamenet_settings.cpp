@@ -140,7 +140,7 @@ void Hub::use_network_preferences()
             std::strcpy(core::at(servers, next++).data(), text);
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
-    for (int i = 0; i < ints::as_signed(defaults->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(defaults->extent()); ++i) {
         auto* entry = defaults->struct_at(i);
         entry->fetch_text(kName, &text, 1);
         std::strcpy(core::at(servers, next + i).data(), text);
@@ -397,7 +397,7 @@ const char* Hub::get_game_type_name()
     // (the original's locals, reused: a missing checksum compares the last value read - uninitialised at first)
     uint32_t type = 0;
     uint32_t mode = 0;
-    for (int i = 0; i < ints::as_signed(modes->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(modes->extent()); ++i) {
         auto* entry = modes->struct_at(i);
         get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
         entry->read_hash_value(kChecksum, &mode, 0);

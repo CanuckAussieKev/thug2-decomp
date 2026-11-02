@@ -40,7 +40,7 @@ constexpr std::array<uint32_t, 5> kStanceTextures{{0x33A15296, 0xBE91F3B6, 0x9F9
 gsl::owner<ObjectModule*> RiderStanceDisplay::fabricate() { return new RiderStanceDisplay; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderStanceDisplay::RiderStanceDisplay() { kind_tag_ = kSkaterStancePanel; }
+RiderStanceDisplay::RiderStanceDisplay() { set_kind_tag(kSkaterStancePanel); }
 
 // 0x00519130 (0x005191E0 the deleting one)
 RiderStanceDisplay::~RiderStanceDisplay() = default;
@@ -51,7 +51,7 @@ void RiderStanceDisplay::configure_from_data(script::Struct* /*params*/) { shown
 // 0x00519210
 void RiderStanceDisplay::seal()
 {
-    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x00519150
@@ -59,7 +59,7 @@ int RiderStanceDisplay::get_stance()
 {
     auto* core = static_cast<ObjectModule*>(core_physics_);
     const uint8_t flip = core_physics_->state()->flag(PoseFlag::kFlipped).on;
-    const bool reversed = core::down_cast<Rider>(core->entity_)->goofy() != 0;
+    const bool reversed = core::down_cast<Rider>(core->entity())->goofy() != 0;
     const bool flipped = reversed ? flip != 0 : flip == 0;
     if (press_amount_)
         return flipped ? 3 : 4;
@@ -74,7 +74,7 @@ void RiderStanceDisplay::tick_frame()
     frontend::UiWidget* panel = nullptr;
     {
         frontend::ElementPtr found;
-        const uint32_t id = static_cast<uint32_t>(core::down_cast<Rider>(entity_)->get_skater_number()) - kPanelIdOffset;
+        const uint32_t id = static_cast<uint32_t>(core::down_cast<Rider>(entity())->get_skater_number()) - kPanelIdOffset;
         frontend::UiTree::sole()->fetch_part(&found, id, 0);
         panel = found.get_pull();
     }
@@ -97,13 +97,13 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
     case kNollieOn:
         if (!nollie_) {
             nollie_ = 1;
-            entity_->announce(kSkaterEnterNollie, nullptr, 0.0f);
+            entity()->announce(kSkaterEnterNollie, nullptr, 0.0f);
         }
         return 1;
     case kNollieOff:
         if (nollie_ == 1) {
             nollie_ = 0;
-            entity_->announce(kSkaterExitNollie, nullptr, 0.0f);
+            entity()->announce(kSkaterExitNollie, nullptr, 0.0f);
         }
         return 1;
     case kInNollie:
@@ -111,13 +111,13 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
     case kPressureOn:
         if (!press_amount_) {
             press_amount_ = 1;
-            entity_->announce(kSkaterEnterPressure, nullptr, 0.0f);
+            entity()->announce(kSkaterEnterPressure, nullptr, 0.0f);
         }
         return 1;
     case kPressureOff:
         if (press_amount_ == 1) {
             press_amount_ = 0;
-            entity_->announce(kSkaterExitPressure, nullptr, 0.0f);
+            entity()->announce(kSkaterExitPressure, nullptr, 0.0f);
         }
         return 1;
     case kInPressure:

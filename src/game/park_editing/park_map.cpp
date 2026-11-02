@@ -90,7 +90,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
         read_goals(goal_editor, goals, 1);
 
     const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
-    if (editor->cur_phase() != kEditLevel)
+    if (editor->editor_state() != kEditLevel)
         park_editing_state().set_rail_editor_flag(false);
     read_rails(params);
     park_editing_state().set_rail_editor_flag(true);
@@ -150,7 +150,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
 
     // A premade park keeps its name.
     if (script::Array* premade = script::fetch_list(kPremadeParksInfo)) {
-        const int count = static_cast<int>(premade->extent_);
+        const int count = static_cast<int>(premade->extent());
         for (int i = 0; i < count; ++i) {
             auto* info = premade->struct_at(i);
             if (!info)

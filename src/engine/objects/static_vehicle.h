@@ -33,6 +33,7 @@ public:
     // (0, 1, 0)) at the next of the hierarchy's objects 1-4.
     void seal() override;
 
+private:
     std::array<uint8_t, 0x40> unused18_{};
 };
 

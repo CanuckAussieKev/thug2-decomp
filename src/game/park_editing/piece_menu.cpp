@@ -133,7 +133,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
             } else {
                 // (an entry with no metapiece is read through a null pointer, as in the original)
                 PieceGroup* meta = park_owner_->find_piece_template(checksum);
-                if (meta->flag_bits_ & PieceGroup::kSector) {
+                if (meta->flag_bits() & PieceGroup::kSector) {
                     params.put_name_key(kSector, checksum);
                     launch_script(kMakePieceMenuItem, &params);
                 } else {

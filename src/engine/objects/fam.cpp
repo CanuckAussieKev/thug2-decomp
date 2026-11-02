@@ -66,7 +66,7 @@ void delete_params(script::Struct* params)
 gsl::owner<ObjectModule*> FamComponent::fabricate() { return new FamComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-FamComponent::FamComponent() { kind_tag_ = kType; }
+FamComponent::FamComponent() { set_kind_tag(kType); }
 
 // 0x0041D170
 void FamComponent::publish_method_table()
@@ -82,12 +82,12 @@ void FamComponent::unload_fam()
 {
     if (!fam_)
         return;
-    script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
+    script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(kTypeParam, kPartialAnim);
     params->put_name_key(kId, kJawRotation);
-    if (entity_)
-        entity_->fetch_module(AnimBlenderComponent::kType)
+    if (entity())
+        entity()->fetch_module(AnimBlenderComponent::kType)
             ->invoke_method_by_name(kRemoveAnimController, params, nullptr);
     delete_params(params);
     assets::ResourceRegistry* assets = asset_manager();
@@ -119,7 +119,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
     if (!audio::stream_exists(name))
         return false;
     if (feed_) {
-        script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
+        script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
         audio::halt_stream(feed_);
         feed_ = 0;
     }
@@ -129,7 +129,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
         params->put_int(kVol, volume);
     if (!stream_only) {
         params->put_int(kUsePosInfo, 0);
-        auto* blender = core::down_cast<AnimBlenderComponent>(entity_->fetch_module(AnimBlenderComponent::kType));
+        auto* blender = core::down_cast<AnimBlenderComponent>(entity()->fetch_module(AnimBlenderComponent::kType));
         const uint32_t anim_set = blender->get_anim_set();
         load_anim_bank(name, anim_set);
         const uint32_t stream = audio::prime_stream(name, priority);
@@ -139,7 +139,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
             params->put_name_key(0u, kPlayAnim);
     }
     script::Script* script = script::spawn_script(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
-    script->entity().assign_value(entity_);
+    script->entity().assign_value(entity());
     delete_params(params);
     return true;
 }
@@ -160,7 +160,7 @@ int FamComponent::obj_play_fam(script::Struct* params, script::Script*)
 int FamComponent::obj_stop_last_fam(script::Struct*, script::Script*)
 {
     if (feed_) {
-        script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
+        script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
         audio::halt_stream(feed_);
         feed_ = 0;
     }

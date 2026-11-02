@@ -199,7 +199,7 @@ void BuildPointer::free_copy_buffers()
 
 void BuildPointer::forget_gap_at(PieceGroup* meta)
 {
-    CellBox area = meta->cell_footprint_;
+    CellBox area = meta->cell_footprint();
     int half = 0;
     const GapDetails* gap = park_owner_->get_gap_info(&area, &half);
     if (!gap)

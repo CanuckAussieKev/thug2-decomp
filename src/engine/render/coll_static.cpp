@@ -64,7 +64,7 @@ uint16_t HitMesh::read_face_terrain(int face) const
 // 0x00412760
 StaticCollider::~StaticCollider()
 {
-    if ((flag_bits_ & kOwnsGeometry) && octets_) {
+    if ((flag_bits() & kOwnsGeometry) && octets_) {
         memory::free_malloc(octets_);
         octets_ = nullptr;
     }
@@ -74,7 +74,7 @@ StaticCollider::~StaticCollider()
 HitMesh* StaticCollider::replicate(int argument)
 {
     const bool instance = static_cast<uint8_t>(argument) != 0;
-    TriMeshSource* geometry = instance ? geometry_ : clone_geometry(geometry_, 0, 1);
+    TriMeshSource* geometry = instance ? this->geometry() : clone_geometry(this->geometry(), 0, 1);
     if (!geometry)
         return nullptr;
     gsl::owner<CollStaticInstance*> copy_instance = nullptr;
@@ -88,17 +88,17 @@ HitMesh* StaticCollider::replicate(int argument)
         made = copy;
     }
     // (a failed allocation crashes here, as in the original)
-    made->checksum_ = checksum_;
-    made->flag_bits_ = flag_bits_;
-    made->visit_stamp_ = visit_stamp_;
-    made->geometry_ = geometry_;
+    made->assign_checksum(checksum());
+    made->flag_bits() = flag_bits();
+    made->set_visit_stamp(visit_stamp());
+    made->set_geometry(this->geometry());
     if (copy_instance) {
         copy_instance->set_shared_geometry(geometry);
     } else if (copy) {
-        copy->flag_bits_ |= kOwnsGeometry;
-        copy->geometry_ = geometry;
+        copy->flag_bits() |= kOwnsGeometry;
+        copy->set_geometry(geometry);
         if (!instance && octets_) {
-            const uint32_t size = geometry_->tri_count();
+            const uint32_t size = this->geometry()->tri_count();
             memory::push_mem_profile("Collision face-rejection optimization");
             memory::enter_heap_scope(memory::bottom_up_heap());
             copy->octets_ = static_cast<uint8_t*>(memory::alloc_block(size));
@@ -118,7 +118,7 @@ void StaticCollider::place_at_absolute_point(const maths::Vec4* position)
     const maths::Vec4* current = get_absolute_point();
     const maths::Vec4 delta{.x = position->x - current->x, .y = position->y - current->y, .z = position->z - current->z,
                             .w = position->w - current->w};
-    translate_geometry(geometry_, &delta);
+    translate_geometry(geometry(), &delta);
 }
 
 // 0x004123A0
@@ -130,26 +130,26 @@ const maths::Mat4* StaticCollider::fetch_facing() { return &shared_placement().s
 // 0x00410980
 maths::Vec4 StaticCollider::read_vertex_point(int index) const
 {
-    const maths::Vec4 raw = geometry_->read_stored_vertex(index);
+    const maths::Vec4 raw = geometry()->read_stored_vertex(index);
     return {.x = raw.x, .y = raw.y, .z = raw.z, .w = 1.0f};
 }
 
 // 0x00410C70
 bool StaticCollider::inside_bounds(const maths::BBox* box)
 {
-    return box->intersects(geometry_->bounds());
+    return box->intersects(geometry()->bounds());
 }
 
 // 0x00412750
 const maths::BBox* StaticCollider::get_world_bounds()
 {
-    return &geometry_->bounds();
+    return &geometry()->bounds();
 }
 
 // 0x00412840
 CollStaticInstance::~CollStaticInstance()
 {
-    if ((flag_bits_ & kOwnsGeometry) && octets_) {
+    if ((flag_bits() & kOwnsGeometry) && octets_) {
         memory::free_malloc(octets_);
         octets_ = nullptr;
     }
@@ -159,15 +159,15 @@ CollStaticInstance::~CollStaticInstance()
 gsl::owner<CollStaticInstance*> CollStaticInstance::replicate(int /*argument*/)
 {
     auto copy = memory::make_owned<CollStaticInstance>(*this);
-    copy->set_shared_geometry(geometry_); // (on a null copy too: a crash, as in the original)
+    copy->set_shared_geometry(geometry()); // (on a null copy too: a crash, as in the original)
     return copy;
 }
 
 // 0x00411480
 void CollStaticInstance::set_shared_geometry(TriMeshSource* geometry)
 {
-    flag_bits_ |= kOwnsGeometry | kSharedGeometry;
-    geometry_ = geometry;
+    flag_bits() |= kOwnsGeometry | kSharedGeometry;
+    set_geometry(geometry);
     world_box_.min = geometry->bounds().min;
     world_box_.max = geometry->bounds().max;
     octets_ = nullptr;
@@ -176,7 +176,7 @@ void CollStaticInstance::set_shared_geometry(TriMeshSource* geometry)
 // 0x00413F00
 void CollStaticInstance::place_at_absolute_point(const maths::Vec4* position)
 {
-    core::at(basis_frame_.row, 3) = *position;
+    core::at(basis_frame().row, 3) = *position;
     update_inverse();
     recompute_world_bounds();
 }
@@ -191,7 +191,7 @@ void CollStaticInstance::change_facing(const maths::Mat4* orientation)
 // 0x00413F50
 void CollStaticInstance::change_scale(const maths::Vec4* scale)
 {
-    size_factor_ = *scale;
+    set_size_factor(*scale);
     update_inverse();
     recompute_world_bounds();
 }
@@ -201,14 +201,14 @@ void CollStaticInstance::recompute_world_bounds()
 {
     world_box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
     world_box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
-    const int count = geometry_->num_vertices();
+    const int count = geometry()->num_vertices();
     for (int i = 0; i < count; ++i) {
         maths::Vec4 raw{};
-        geometry_->read_stored_vertex(i, &raw);
-        const maths::Vec4 scaled{.x = raw.x * size_factor_.x, .y = raw.y * size_factor_.y, .z = raw.z * size_factor_.z,
-                                 .w = raw.w * size_factor_.w};
+        geometry()->read_stored_vertex(i, &raw);
+        const maths::Vec4 scaled{.x = raw.x * size_factor().x, .y = raw.y * size_factor().y, .z = raw.z * size_factor().z,
+                                 .w = raw.w * size_factor().w};
         maths::Vec4 placed{};
-        basis_frame_.carry_point_through(placed, scaled);
+        basis_frame().carry_point_through(placed, scaled);
         world_box_.append_spot(placed);
     }
 }
@@ -222,20 +222,20 @@ maths::BBox* CollStaticInstance::get_world_bounds() { return &world_box_; }
 // 0x00411330 (the position compared exactly; NaN is unequal)
 void CollStaticInstance::scale_about(const maths::Vec4* position, const maths::Vec4* scale)
 {
-    const maths::Vec4& at = core::at(basis_frame_.row, 3);
+    const maths::Vec4& at = core::at(basis_frame().row, 3);
     if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
         return;
-    const maths::Vec4 scaled{.x = scale->x * size_factor_.x, .y = scale->y * size_factor_.y, .z = scale->z * size_factor_.z,
-                             .w = scale->w * size_factor_.w};
+    const maths::Vec4 scaled{.x = scale->x * size_factor().x, .y = scale->y * size_factor().y, .z = scale->z * size_factor().z,
+                             .w = scale->w * size_factor().w};
     change_scale(&scaled);
 }
 
 // 0x00412F50
 void CollStaticInstance::draw_diagnostic(int a, int b)
 {
-    maths::Mat4 transform = basis_frame_;
-    transform.scale_rows(size_factor_);
-    draw_geometry(geometry_, &transform, a, b);
+    maths::Mat4 transform = basis_frame();
+    transform.scale_rows(size_factor());
+    draw_geometry(geometry(), &transform, a, b);
 }
 
 // 0x00413000
@@ -258,25 +258,25 @@ HitMovingTriangles::HitMovingTriangles(const HitMovingTriangles& other)
 gsl::owner<HitMovingTriangles*> HitMovingTriangles::replicate(int argument)
 {
     auto copy = memory::make_owned<HitMovingTriangles>(*this);
-    copy->flag_bits_ |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
-    copy->geometry_ = clone_geometry(geometry_, argument, 0);
+    copy->flag_bits() |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
+    copy->set_geometry(clone_geometry(geometry(), argument, 0));
     return copy;
 }
 
 // 0x00411780 (a null geometry crashes, as in the original)
 void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
 {
-    geometry_ = geometry;
+    set_geometry(geometry);
     if (geometry)
-        checksum_ = geometry->checksum();
+        assign_checksum(geometry->checksum());
     radius_ = 0.0f;
     for (int i = 0; std::cmp_less(i, geometry->num_vertices()); ++i) {
-        const maths::Vec4 v = geometry_->read_stored_vertex(i);
+        const maths::Vec4 v = this->geometry()->read_stored_vertex(i);
         const double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
                                         static_cast<double>(v.z) * v.z);
         if (length > radius_)
             radius_ = static_cast<float>(length);
-        geometry = geometry_;
+        geometry = this->geometry();
     }
     box_dirty_ = true;
 }
@@ -284,7 +284,7 @@ void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
 // 0x00412F90
 void HitMovingTriangles::place_at_absolute_point(const maths::Vec4* position)
 {
-    anchor_point_ = *position;
+    set_anchor_point(*position);
     box_dirty_ = true;
 }
 
@@ -311,16 +311,16 @@ maths::BBox* HitMovingTriangles::get_local_bounds()
 // 0x0040B390
 void HitMovingTriangles::update_b_box()
 {
-    box_.min = {.x = anchor_point_.x - radius_, .y = anchor_point_.y - radius_, .z = anchor_point_.z - radius_, .w = 1.0f};
-    box_.max = {.x = radius_ + anchor_point_.x, .y = anchor_point_.y + radius_, .z = anchor_point_.z + radius_, .w = 1.0f};
+    box_.min = {.x = anchor_point().x - radius_, .y = anchor_point().y - radius_, .z = anchor_point().z - radius_, .w = 1.0f};
+    box_.max = {.x = radius_ + anchor_point().x, .y = anchor_point().y + radius_, .z = anchor_point().z + radius_, .w = 1.0f};
 }
 
 // 0x00413130
 void HitMovingTriangles::draw_diagnostic(int a, int b)
 {
-    maths::Mat4 transform = orientation_;
-    core::at(transform.row, 3) = anchor_point_;
-    draw_geometry(geometry_, &transform, a, b);
+    maths::Mat4 transform = orientation();
+    core::at(transform.row, 3) = anchor_point();
+    draw_geometry(geometry(), &transform, a, b);
 }
 
 // 0x00414D60
@@ -332,13 +332,13 @@ void draw_geometry_diagnostic(const TriMeshSource* /*geometry*/, const maths::Ma
 // 0x0040AE80
 void StaticCollider::rotate_y(const maths::Vec4* centre, int quarter_turns)
 {
-    geometry_->rotate_y(centre, quarter_turns);
+    geometry()->rotate_y(centre, quarter_turns);
 }
 
 // 0x0040AE90
 void StaticCollider::scale_about(const maths::Vec4* centre, const maths::Vec4* scale)
 {
-    geometry_->scale_tool(centre, scale);
+    geometry()->scale_tool(centre, scale);
 }
 
 // 0x0040AEB0
@@ -363,7 +363,7 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
                 bounds.append_spot(core::at(geometries, i).bounds().min);
                 bounds.append_spot(core::at(geometries, i).bounds().max);
             }
-            box->box_ = bounds;
+            box->box() = bounds;
         }
         made = box;
     } else if (type == 4) {

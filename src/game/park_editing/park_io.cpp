@@ -71,7 +71,7 @@ uint8_t byte_at(script::Array* array, uint32_t i) { return static_cast<uint8_t>(
 void ParkLayout::set_up_abstract_metas()
 {
     script::Array* all = script::fetch_list("Ed_standard_metapieces"); // (0x00479090, asserting)
-    for (uint32_t i = 0; i < all->extent_; ++i) {
+    for (uint32_t i = 0; i < all->extent(); ++i) {
         auto* desc = all->struct_at(i);
         uint32_t single = 0;
         if (desc->read_hash_value("single", &single, 0))
@@ -80,7 +80,7 @@ void ParkLayout::set_up_abstract_metas()
 
     std::array<uint32_t, 1000> piece_names{}; // every piece a metapiece uses
     uint32_t num_piece_names = 0;
-    for (uint32_t n = 0; n < all->extent_; ++n) {
+    for (uint32_t n = 0; n < all->extent(); ++n) {
         auto* desc = all->struct_at(n);
         PieceGroup* meta = new_abstract_meta();
         uint32_t single = 0;
@@ -100,22 +100,22 @@ void ParkLayout::set_up_abstract_metas()
                 pos.z = z;
             }
             meta->insert_tile(source, &pos, 0, false);
-            const uint32_t name = source->sector_; // the source's name
+            const uint32_t name = source->sector(); // the source's name
             core::at(piece_names, num_piece_names++) = name;
-            meta->flag_bits_ |= PieceGroup::kSector;
-            meta->name_key_ = name;
+            meta->flag_bits() |= PieceGroup::kSector;
+            meta->name_key() = name;
             uint32_t special = 0;                                 // (left unset if there's none, as in the original)
             if (desc->read_hash_value(0xF176A9FD, &special, 0)) { // special_type
                 // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
                 switch (special) {
                 case 0x2813AB8A: // gap_placement
-                    meta->flag_bits_ |= PieceGroup::kGap;
+                    meta->flag_bits() |= PieceGroup::kGap;
                     break;
                 case 0xFC26B6F4: // area_selection
-                    meta->flag_bits_ |= PieceGroup::kMarqueeTool;
+                    meta->flag_bits() |= PieceGroup::kMarqueeTool;
                     break;
                 case 0xFFD81C08: // rail_placement
-                    meta->flag_bits_ |= PieceGroup::kRailPlacement;
+                    meta->flag_bits() |= PieceGroup::kRailPlacement;
                     break;
                 case 0x48FA9C7B: // restart_1
                     core::at(restart_pieces_, 0) = single;
@@ -131,26 +131,26 @@ void ParkLayout::set_up_abstract_metas()
                     break;
                 case 0x74B0F4E9: // red_flag
                     core::at(restart_pieces_, 4) = single;
-                    meta->flag_bits_ |= PieceGroup::kRestartFlag;
+                    meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
                 case 0xC893ACF8: // green_flag
                     core::at(restart_pieces_, 5) = single;
-                    meta->flag_bits_ |= PieceGroup::kRestartFlag;
+                    meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
                 case 0x40BDFA7E: // blue_flag
                     core::at(restart_pieces_, 6) = single;
-                    meta->flag_bits_ |= PieceGroup::kRestartFlag;
+                    meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
                 case 0x3AE047FC: // yellow_flag
                     core::at(restart_pieces_, 7) = single;
-                    meta->flag_bits_ |= PieceGroup::kRestartFlag;
+                    meta->flag_bits() |= PieceGroup::kRestartFlag;
                     break;
                 }
             }
         } else if (desc->fetch_list("multiple", &pieces, 0)) {
             bool unslidable = false;
-            meta->commission(static_cast<int>(pieces->extent_));
-            for (uint32_t i = 0; i < pieces->extent_; ++i) {
+            meta->commission(static_cast<int>(pieces->extent()));
+            for (uint32_t i = 0; i < pieces->extent(); ++i) {
                 auto* entry = pieces->struct_at(i);
                 const uint32_t name = entry->step_to_entry(nullptr)->value.word(); // the piece's name comes first
                 script::Array* at = nullptr;
@@ -165,46 +165,46 @@ void ParkLayout::set_up_abstract_metas()
                 pos.x = byte_at(at, 0);
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
-                const int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
+                const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
                 if (entry->has_bare_flag(0x0CD75A3Fu))
                     unslidable = true;
                 meta->insert_tile(source, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
             }
             if (unslidable)
-                meta->flag_bits_ |= PieceGroup::kFloorLocked;
+                meta->flag_bits() |= PieceGroup::kFloorLocked;
         } else if (desc->fetch_list("ack", &pieces, 0)) { // made of other palette metapieces
-            meta->commission(static_cast<int>(pieces->extent_));
-            for (uint32_t i = 0; i < pieces->extent_; ++i) {
+            meta->commission(static_cast<int>(pieces->extent()));
+            for (uint32_t i = 0; i < pieces->extent(); ++i) {
                 auto* entry = pieces->struct_at(i);
                 const uint32_t name = entry->step_to_entry(nullptr)->value.word();
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1);
                 PieceGroup* part = nullptr;
-                for (const MapListNode* node = abstract_metas_; node; node = node->following_) {
-                    if (node->get_piece_group()->get_cast()->name_key_ == name) {
+                for (const MapListNode* node = abstract_metas_; node; node = node->following()) {
+                    if (node->get_piece_group()->get_cast()->name_key() == name) {
                         part = node->get_piece_group()->get_cast();
                         break;
                     }
                 }
-                CellBox pos = part->cell_footprint_; // (an unknown name crashes, as in the original)
+                CellBox pos = part->cell_footprint(); // (an unknown name crashes, as in the original)
                 const uint8_t z = byte_at(at, 2);
                 const uint8_t y = byte_at(at, 1);
                 pos.x = byte_at(at, 0);
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
-                const int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
+                const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
                 core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
             }
         }
-        if (desc->read_hash_value("name", &meta->name_key_, 0))
-            meta->flag_bits_ &= ~PieceGroup::kSector;
+        if (desc->read_hash_value("name", &meta->name_key(), 0))
+            meta->flag_bits() &= ~PieceGroup::kSector;
         if (desc->has_bare_flag("is_riser"))
-            meta->flag_bits_ |= PieceGroup::kBuiltShell;
+            meta->flag_bits() |= PieceGroup::kBuiltShell;
         if (desc->has_bare_flag("no_rails"))
-            meta->flag_bits_ |= PieceGroup::kNoRails;
+            meta->flag_bits() |= PieceGroup::kNoRails;
         MapListNode* node = MapListNode::fabricate();
-        node->piece_group_ = meta; // (out of memory crashes, as in the original)
-        node->following_ = abstract_metas_;
+        node->set_piece_group(meta); // (out of memory crashes, as in the original)
+        node->set_following(abstract_metas_);
         abstract_metas_ = node;
         ++num_abstract_metas_;
     }
@@ -213,8 +213,8 @@ void ParkLayout::set_up_abstract_metas()
     for (uint32_t i = 0; i < num_piece_names; ++i) {
         const uint32_t name = core::at(piece_names, i);
         bool found = false;
-        for (const MapListNode* node = abstract_metas_; node; node = node->following_) {
-            if (node->get_piece_group()->get_cast()->name_key_ == name) {
+        for (const MapListNode* node = abstract_metas_; node; node = node->following()) {
+            if (node->get_piece_group()->get_cast()->name_key() == name) {
                 found = true;
                 break;
             }
@@ -228,11 +228,11 @@ void ParkLayout::set_up_abstract_metas()
         pos.assign_value(0, 0, 0, 0, 0, 0);
         get_footprint_size(source, &pos);
         meta->insert_tile(source, &pos, 0, false);
-        meta->name_key_ = name;
-        meta->flag_bits_ |= PieceGroup::kSector;
+        meta->name_key() = name;
+        meta->flag_bits() |= PieceGroup::kSector;
         MapListNode* node = MapListNode::fabricate();
-        node->piece_group_ = meta;
-        node->following_ = abstract_metas_;
+        node->set_piece_group(meta);
+        node->set_following(abstract_metas_);
         abstract_metas_ = node;
         ++num_abstract_metas_;
     }
@@ -245,7 +245,7 @@ void ParkLayout::write_compressed_map()
     ParkMap& map = map_;
     map = ParkMap{};
     script::Array* save_names = script::fetch_list("Ed_Save_Map"); // the palette names, by save index
-    const uint32_t name_total = save_names->extent_;
+    const uint32_t name_total = save_names->extent();
     map.set_version(kParkMapVersion);
     map.set_shell_size(static_cast<uint16_t>(shell_size_));
     map.set_reserved_0a(0);
@@ -263,14 +263,14 @@ void ParkLayout::write_compressed_map()
     out.seek(kParkMapRecordsStart);
 
     int num_metas = 0;
-    for (const MapListNode* node = concrete_metas_; node; node = node->following_) {
+    for (const MapListNode* node = concrete_metas_; node; node = node->following()) {
         const PieceGroup* meta = node->get_piece_group()->get_cast();
-        const uint32_t flags = meta->flag_bits_;
+        const uint32_t flags = meta->flag_bits();
         if ((flags & PieceGroup::kBuiltShell) || (flags & PieceGroup::kFence) || !(flags & PieceGroup::kInPark))
             continue;
-        const CellBox at = meta->cell_footprint_;
+        const CellBox at = meta->cell_footprint();
         uint32_t index = 0;
-        while (index < name_total && save_names->fetch_part(index) != meta->name_key_)
+        while (index < name_total && save_names->fetch_part(index) != meta->name_key())
             ++index;
         if (index >= name_total)
             continue;
@@ -279,7 +279,7 @@ void ParkLayout::write_compressed_map()
         piece.x = at.x;
         piece.z = at.z;
         piece.y = at.y;
-        piece.quarter_turns = static_cast<uint8_t>(meta->quarter_turns_);
+        piece.quarter_turns = static_cast<uint8_t>(meta->quarter_turns());
         if (!write_park_map_piece(out, piece))
             break;
         ++num_metas;
@@ -334,7 +334,7 @@ void ParkLayout::set_default_bounds()
 void ParkLayout::set_up_road_mask()
 {
     script::Array* roads = script::fetch_list("Ed_Roadmask");
-    num_blocked_areas_ = roads->extent_;
+    num_blocked_areas_ = roads->extent();
     // (the first four rectangles are set elsewhere; this reads the array from element 4, past its end, as the
     // original does)
     for (uint32_t i = 4; i < num_blocked_areas_ + 4; ++i) {
@@ -365,10 +365,10 @@ void ParkLayout::set_up_lights()
     info->fetch_float("cursor_ambience", &cursor_ambience, 1);
     info->fetch_list("pos", &positions, 1);
     // The generator's lights and their positions
-    builder_->configure_lighting(static_cast<int>(positions->extent_), ambient.x * ambient_const,
+    builder_->configure_lighting(static_cast<int>(positions->extent()), ambient.x * ambient_const,
                                  ambient.y * ambient_const, ambient.z * ambient_const, falloff.x * falloff_const,
                                  falloff.y * falloff_const, falloff.z * falloff_const, cursor_ambience);
-    for (int i = 0; i < ints::as_signed(positions->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(positions->extent()); ++i) {
         const script::Vector* v = positions->vector_at(static_cast<uint32_t>(i));
         maths::Vec4 pos;
         pos.x = cell_size_x() * v->x;
@@ -481,9 +481,9 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         if (!metas.list)
             return false;
         PieceGroup* meta = metas.list->get_piece_group()->get_cast();
-        meta->flag_bits_ |= PieceGroup::kHighlightable;
-        pos = meta->cell_footprint_;
-        const CellBox d = meta->cell_footprint_;
+        meta->flag_bits() |= PieceGroup::kHighlightable;
+        pos = meta->cell_footprint();
+        const CellBox d = meta->cell_footprint();
         const float length = gap->fetch_magnitude(half);
         const double w = cell_size_x(), l = cell_size_z();
         const double y = static_cast<double>(d.y) * cell_size_y();
@@ -535,18 +535,18 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
     std::array<PieceGroup*, 2> halves{}; // (unset for a half with nothing there, as in the original)
     for (int half = 0; half < gap->halves_placed_; ++half) {
         const MapListHolder metas(get_intersecting_metas(core::at(gap->at_point_, half), 0, nullptr, true));
-        if (metas.list->following_)
+        if (metas.list->following())
             print_map_list(metas.list);
-        for (const MapListNode* node = metas.list; node; node = node->following_) {
+        for (const MapListNode* node = metas.list; node; node = node->following()) {
             PieceGroup* meta = node->get_piece_group()->get_cast();
             core::at(halves, half) = meta;
-            const CellBox& d = meta->cell_footprint_;
+            const CellBox& d = meta->cell_footprint();
             if (d.x == core::at(gap->at_point_, half).x && d.y == core::at(gap->at_point_, half).y && d.z == core::at(gap->at_point_, half).z)
                 break;
         }
         PieceGroup* meta = core::at(halves, half);
         meta->spotlight(false, 0);
-        meta->flag_bits_ &= ~PieceGroup::kHighlightable;
+        meta->flag_bits() &= ~PieceGroup::kHighlightable;
     }
     int index = 0;
     // The gap of the first half, removed
@@ -559,9 +559,9 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
 void ParkLayout::print_map_list(const MapListNode* list)
 {
     debug::printf("contents of map list:\n");
-    for (const MapListNode* node = list; node; node = node->following_) {
-        debug::printf("   address=%p area=", node->piece_group_);
-        const CellBox& d = node->piece_group_->cell_footprint_;
+    for (const MapListNode* node = list; node; node = node->following()) {
+        debug::printf("   address=%p area=", node->piece_group());
+        const CellBox& d = node->piece_group()->cell_footprint();
         debug::printf("pos=(%d,%d,%d) dims=(%d,%d,%d)\n", d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
     }
 }

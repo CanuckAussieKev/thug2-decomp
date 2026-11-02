@@ -49,7 +49,7 @@ gsl::owner<ObjectModule*> PadRumbleModule::fabricate() { return new PadRumbleMod
 // (the constructor: inlined in fabricate in the original)
 PadRumbleModule::PadRumbleModule()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     for (int i = kActuators - 1; i >= 0; --i)
         core::at(timers_, i).running = false;
 }
@@ -144,7 +144,7 @@ void PadRumbleModule::change_gadget(sio::InputPort* device)
 // 0x0043D6F0
 bool PadRumbleModule::vibrate(script::Struct* params, script::Script*)
 {
-    if (!params->has_bare_flag(kOff) && (simulation_halted() || (entity_->composite_flags() & kCompositeFlagPaused)))
+    if (!params->has_bare_flag(kOff) && (simulation_halted() || (entity()->composite_flags() & kCompositeFlagPaused)))
         return true;
     if (!active_)
         return true;

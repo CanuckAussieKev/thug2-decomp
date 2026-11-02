@@ -178,7 +178,10 @@ bool refresh_resource(Resource* asset, const char* name);
 struct AnimResource final : Resource {
     // 0x004071A0 (vtable 0x006454B0)
     AnimResource();
+private:
     uint32_t archive_{0};
+
+public:
     // 0x004072E0 / 0x004072D0
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
@@ -277,7 +280,10 @@ static_assert(sizeof(SceneLoadParams) == 0x48 && sizeof(SceneCollisionLoadParams
 struct SceneAsset final : Resource {
     // 0x00409220 (vtable 0x00645700)
     SceneAsset();
+private:
     SceneLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
+
+public:
     // 0x004093D0
     // (0x0049B8C0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kScene; }
@@ -297,7 +303,10 @@ struct SceneAsset final : Resource {
 struct SceneCollisionAsset final : Resource {
     // 0x004095F0 (vtable 0x00645778)
     SceneCollisionAsset();
+private:
     SceneCollisionLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
+
+public:
     // 0x00409750
     // (0x0049BB70, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kSceneCollision; }
@@ -349,11 +358,14 @@ struct SkinParams {
 struct SkinResource final : Resource {
     // 0x00409C40 (vtable 0x00645888)
     SkinResource();
+private:
     uint32_t archive_{};
     SkinParams* args_{nullptr};
     file::AsyncFileHandle* cas_file_{nullptr};
     void* cas_buffer_{nullptr};
     int files_reading_{0};
+
+public:
     // 0x00409E00 / 0x00409DF0
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
@@ -376,7 +388,10 @@ struct SkinResource final : Resource {
 struct SkinCollisionAsset final : Resource {
     // 0x0040A210 (vtable 0x00645928)
     SkinCollisionAsset();
+private:
     SkinCollisionLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
+
+public:
     // 0x0040A290 / 0x0040A280
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
@@ -393,7 +408,10 @@ struct SkinCollisionAsset final : Resource {
 struct TexDictAsset final : Resource {
     // 0x0040A580 (vtable 0x006459A8)
     TexDictAsset();
+private:
     TexDictLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
+
+public:
     // 0x0040A710
     // (0x0049C0F0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kResTexDict; }

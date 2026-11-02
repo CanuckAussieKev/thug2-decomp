@@ -73,12 +73,28 @@ public:
         return {buckets_, buckets_ ? std::size_t{1} << bits_ : std::size_t{0}};
     }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int bits() const { return bits_; }
+    [[nodiscard]] Item* buckets() const { return buckets_; }
+    void set_buckets(Item* value) { buckets_ = value; }
+    [[nodiscard]] int extent() const { return extent_; }
+    void set_iter_bucket(int value) { iter_bucket_ = value; }
+    [[nodiscard]] Item* iter_item() const { return iter_item_; }
+    void set_iter_item(Item* value) { iter_item_ = value; }
+
+private:
     int bits_;
     Item* buckets_;
     int extent_;
     int iter_bucket_{};
     Item* iter_item_{};
     bool flag_; // cleared by the constructor; its use isn't known yet
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10 && offsetof(KeyMap, flag_) == 0x14,
+                      "layout must match the original");
+    }
 };
 
 } // namespace lists

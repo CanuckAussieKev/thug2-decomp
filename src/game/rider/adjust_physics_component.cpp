@@ -46,7 +46,7 @@ void change_phase(void* core, int state) { static_cast<skater::SkaterPhysicsModu
 gsl::owner<ObjectModule*> RiderPhysicsTweaks::fabricate() { return new RiderPhysicsTweaks; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderPhysicsTweaks::RiderPhysicsTweaks() { kind_tag_ = kType; }
+RiderPhysicsTweaks::RiderPhysicsTweaks() { set_kind_tag(kType); }
 
 // 0x004F8040 (0x004F8050 the deleting one)
 RiderPhysicsTweaks::~RiderPhysicsTweaks() = default;
@@ -54,18 +54,18 @@ RiderPhysicsTweaks::~RiderPhysicsTweaks() = default;
 // 0x004F8080
 void RiderPhysicsTweaks::seal()
 {
-    core_ptr_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    mesh_instance_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel));
-    shadow_handle_ = core::down_cast<GroundShadowModule>(entity_->fetch_module(kShadow));
-    ride_ = core::down_cast<MovingSurfaceModule>(entity_->fetch_module(kMovableContact));
-    state_ref_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
+    core_ptr_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    mesh_instance_ = core::down_cast<MeshInstanceModule>(entity()->fetch_module(kModel));
+    shadow_handle_ = core::down_cast<GroundShadowModule>(entity()->fetch_module(kShadow));
+    ride_ = core::down_cast<MovingSurfaceModule>(entity()->fetch_module(kMovableContact));
+    state_ref_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
 }
 
 // 0x004F8C40
 void RiderPhysicsTweaks::tick_frame()
 {
     objects::RiderPoseState* flags = core_ptr_->state();
-    if (flags->cur_phase() == 0 || entity_->vel().y < 0.0f) {
+    if (flags->cur_phase() == 0 || entity()->vel().y < 0.0f) {
         if (flags->flag(PoseFlag::kDescended).on != 1) {
             flags->flag(PoseFlag::kDescended).on = 1;
             flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
@@ -74,19 +74,19 @@ void RiderPhysicsTweaks::tick_frame()
     if (!core_ptr_->state()->flag(PoseFlag::kSkitching).on)
         check_inside_moving_object();
     keep_above_ground();
-    entity_->old_pos() = entity_->at_point();
+    entity()->old_pos() = entity()->at_point();
 }
 
 // 0x004F8AA0
 void RiderPhysicsTweaks::check_inside_moving_object()
 {
     const maths::Vec4& frame_start = core_ptr_->safe_pos();
-    if (!ride_->find_contact_ahead(&entity_->at_point(), &frame_start))
+    if (!ride_->find_contact_ahead(&entity()->at_point(), &frame_start))
         return;
     debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
                   "found to be inside a moving object");
     render::ProbeRay feeler;
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), .z = pos.z, .w = pos.w};
     feeler.change_origin(&start);
     const maths::Vec4 end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), .z = pos.z, .w = pos.w};
@@ -95,9 +95,9 @@ void RiderPhysicsTweaks::check_inside_moving_object()
         ride_->ride_on(feeler.get_hit_object());
     if (core_ptr_->state()->cur_phase() == 4) {
         change_phase(core_ptr_, 1);
-        entity_->post_own_event(kUnderTheFloor, nullptr);
-    } else if (entity_->at_point() == frame_start) {
-        entity_->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity()->post_own_event(kUnderTheFloor, nullptr);
+    } else if (entity()->at_point() == frame_start) {
+        entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
     feeler.entity().get_release();
 }

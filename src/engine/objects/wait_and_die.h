@@ -25,7 +25,7 @@ public:
     static constexpr uint32_t kType = 0x03AC8065;
 
     // (0x0043D930's inlined constructor: create_wait_and_die_component) Its type.
-    WaitAndDieComponent() { kind_tag_ = kType; }
+    WaitAndDieComponent() { set_kind_tag(kType); }
     // 0x0043D840 (0x0043D850 the deleting one): the base's.
     ~WaitAndDieComponent() override;
     // 0x0043D880 (vtable slot 2): the object to wait for (0x1869F559, a checksum; none: 0) - without one, the
@@ -35,6 +35,11 @@ public:
     // object it waits for can't be found, or - waiting for none - once the time is past the lifetime.
     void tick_frame() override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t elapsed() const { return elapsed_; }
+    [[nodiscard]] uint32_t lifespan() const { return lifespan_; }
+
+private:
     int outset_{};        // +0x18 the game clock (with its offset) at configure_from_data
     uint32_t elapsed_{};  // +0x1C ms since then (each update)
     uint32_t lifespan_{}; // +0x20 ms

@@ -122,7 +122,7 @@ uint32_t key_combo_for_cat(Struct* mapping, int cat)
 
 // The profile manager's template table: its count (0x00469490, single::PointerMember::get_pull folded) and the template at
 // `index` (0x00557FB0, no source yet).
-int template_count(objects::ProfileRoster* manager) { return static_cast<int>(manager->templates().num_); }
+int template_count(objects::ProfileRoster* manager) { return static_cast<int>(manager->templates().num()); }
 RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
     return manager->templates().get_by_index(index, nullptr); // (the original: the goal table's code, shared)
@@ -291,7 +291,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
     int trick_count = 0;
     int cat_count = 0;
     Array* configurable = script::fetch_list(kEditableTrickList);
-    const int size = static_cast<int>(configurable->extent_);
+    const int size = static_cast<int>(configurable->extent());
     uint32_t trick_type = 0;
     for (int i = 0; i < size; ++i) {
         const uint32_t name = configurable->fetch_part(i);
@@ -314,7 +314,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
             const auto& created = core::down_cast<objects::Rider>(skater)->trick_slots();
             for (int slot = 1; slot < 11; ++slot) {
                 int full = 0;
-                if (core::at(created, slot)->other_params_->fetch_int_value(kFull, &full, 0) && full)
+                if (core::at(created, slot)->other_params()->fetch_int_value(kFull, &full, 0) && full)
                     core::at(cats, cat_count++) = slot;
             }
         }
@@ -443,7 +443,7 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
     params->fetch_int_value(kIndex, &index, 0);
     uint32_t value = 0;
     params->read_hash_value(kValue, &value, 1);
-    const int size = static_cast<int>(array->extent_);
+    const int size = static_cast<int>(array->extent());
     for (; index < size; ++index) {
         auto* item = array->struct_at(index);
         if (!item->has_entry_named(name))
@@ -585,7 +585,7 @@ bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::
     params->fetch_list(kTricks, &tricks, 1);
     RiderIdentity* profile = profile_for(nullptr);
     Struct* mapping = profile->fetch_details_params(kTrickMapping);
-    const int size = static_cast<int>(tricks->extent_);
+    const int size = static_cast<int>(tricks->extent());
     gsl::owner<Array*> key_combos = script::new_array();
     key_combos->configure_size_kind(size, script::kQbvalName);
     for (int i = 0; i < size; ++i) {

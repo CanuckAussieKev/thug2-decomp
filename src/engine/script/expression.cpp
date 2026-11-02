@@ -105,8 +105,8 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
 // 0x0047A910
 void copy_array_element_to_component(Array* array, uint32_t index, Component* to, int reference)
 {
-    to->type_and_flag_ = static_cast<uint8_t>((to->type_and_flag_ & 1) | (array->kind_tag_ << 1));
-    switch (array->kind_tag_) {
+    to->type_and_flag_ = static_cast<uint8_t>((to->type_and_flag_ & 1) | (array->kind_tag() << 1));
+    switch (array->kind_tag()) {
     case kQbvalInteger:
     case kQbvalName:
         to->value.set_word(array->fetch_part(index));
@@ -538,15 +538,15 @@ void ValueResolver::execute()
             gsl::owner<Array*> array = script::new_array();
             set_result_type(kQbvalArray);
             result.value.set_array(array);
-            const uint32_t size_a = a->value.array()->extent_;
-            const uint32_t size_b = b->value.array()->extent_;
+            const uint32_t size_a = a->value.array()->extent();
+            const uint32_t size_b = b->value.array()->extent();
             if (size_a == 0) {
                 duplicate_array(array, b->value.array());
             } else if (size_b == 0) {
                 duplicate_array(array, a->value.array());
             } else {
                 // (the elements are all taken to be of the first array's type)
-                const QbValueKind type = a->value.array()->kind_tag_;
+                const QbValueKind type = a->value.array()->kind_tag();
                 array->configure_size_kind(size_a + size_b, type);
                 copy_array_elements(array->cells(), a->value.array()->cells(), type);
                 copy_array_elements(array->cells().subspan(size_a), b->value.array()->cells(), type);
@@ -609,14 +609,14 @@ void ValueResolver::execute()
             } else if (is_array(type_b)) {
                 // Without each name in the array.
                 Array* names = b->value.array();
-                if (names->kind_tag_ != kQbvalName && names->kind_tag_ != kQbvalNone) {
+                if (names->kind_tag() != kQbvalName && names->kind_tag() != kQbvalNone) {
                     // "Subtracting an array from a structure requires the array to be an array of names"
                     error("Subtracting an array from a structure requires the array to be an array of names");
                     break;
                 }
                 Struct* structure = new_result_structure();
                 structure->append_structure_if_any(a->value.structure());
-                for (uint32_t i = 0; i < names->extent_; ++i) {
+                for (uint32_t i = 0; i < names->extent(); ++i) {
                     result.value.structure()->erase_module(names->fetch_part(i));
                     result.value.structure()->remove_flag(names->fetch_part(i));
                 }
@@ -849,7 +849,7 @@ void ValueResolver::execute()
                 "Array element operator not supported for this type"); // "Array element operator not supported for this type"
         } else if (type_b != kQbvalInteger) {
             error("[] index must be an integer"); // "[] index must be an integer"
-        } else if (b->value.word() >= a->value.array()->extent_) {
+        } else if (b->value.word() >= a->value.array()->extent()) {
             error("[] index out of range"); // "[] index out of range"
         } else {
             copy_array_element_to_component(a->value.array(), b->value.word(), &result, type_a == kEsymboltypeArraypointer);

@@ -206,7 +206,7 @@ bool StandardAnimController::fetch_pose(Stance* pose)
     }
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));
-    frame_pose(frame_source_, pose, timeline_ptr_->ongoing(), frame_index_, blend_source_);
+    frame_pose(frame_source_, pose, timeline_ptr()->ongoing(), frame_index_, blend_source_);
     source_frame(blend_source_, true);
     return true;
 }
@@ -217,7 +217,7 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
     switch (name) {
     case kPlayAnim: {
         const PlayParams p = read_play_params(params);
-        play_anim(timeline_ptr_, p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
+        play_anim(timeline_ptr(), p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
         frame_source_ = logged_source_frame_of(blend_source_, anim_set_, p.anim);
         frame_index_ = frame_index(frame_source_);
         return 1;
@@ -253,10 +253,10 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 // 0x004A4620
 void StandardAnimController::tick_frame()
 {
-    const float before = timeline_ptr_->ongoing();
-    timeline_ptr_->set_ongoing(get_step(timeline_ptr_));
-    passed_events(timeline_ptr_, before, timeline_ptr_->ongoing());
-    if (timeline_ptr_->ongoing() < before)
+    const float before = timeline_ptr()->ongoing();
+    timeline_ptr()->set_ongoing(get_step(timeline_ptr()));
+    passed_events(timeline_ptr(), before, timeline_ptr()->ongoing());
+    if (timeline_ptr()->ongoing() < before)
         frame_source_ = source_frame(blend_source_, false);
 }
 
@@ -266,11 +266,11 @@ void StandardAnimController::tick_frame()
 WeightedAnimController::WeightedAnimController(AnimTimeline* timeline, objects::GameEntity* object)
     : AnimDriver(timeline)
 {
-    owner_object_ = timeline ? object_of(this) : object;
+    set_owner_object(timeline ? object_of(this) : object);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     blend_source_ = new_source();
     frame_source_ = source_frame(blend_source_, false);
-    anim_set_ = current_anim_set(owner_object_);
+    anim_set_ = current_anim_set(owner_object());
     frame_source_ = nullptr;
     weight_ = 0.0f;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
@@ -294,8 +294,8 @@ bool WeightedAnimController::fetch_pose(Stance* pose)
     frame_source_ = source_frame(blend_source_, false);
     // (the skeleton component's skeleton, +0x18 - read through null without one, as the original)
     auto skeleton = [this] {
-        objects::ObjectModule* component = owner_object_->fetch_module(kSkeleton);
-        return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig_ : nullptr;
+        objects::ObjectModule* component = owner_object()->fetch_module(kSkeleton);
+        return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig() : nullptr;
     };
     set_bones(blend_source_, skeleton());
     set_bone_count(blend_source_, skeleton());
@@ -376,7 +376,7 @@ bool WobbleDriver::fetch_pose(Stance* pose)
 {
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));
-    frame_pose(frame_source_, pose, timeline_ptr_->ongoing(), -1, blend_source_);
+    frame_pose(frame_source_, pose, timeline_ptr()->ongoing(), -1, blend_source_);
     source_frame(blend_source_, true);
     return true;
 }
@@ -387,7 +387,7 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
     switch (name) {
     case kPlayAnim: {
         const PlayParams p = read_play_params(params);
-        play_anim(timeline_ptr_, p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
+        play_anim(timeline_ptr(), p.anim, p.start, p.end, p.loop_type_, p.blend, p.speed);
         frame_source_ = source_frame_of(blend_source_, anim_set_ + p.anim);
         return 1;
     }
@@ -401,7 +401,7 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 fraction = 0.0f;
             else if (fraction > 1.0f)
                 fraction = 1.0f;
-            const AnimTimeline* t = timeline_ptr_;
+            const AnimTimeline* t = timeline_ptr();
             aim_point_ = static_cast<float>((static_cast<double>(t->finish()) - t->outset()) * fraction + t->outset());
         }
         return 1;
@@ -429,7 +429,7 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
 // second's amplitude around amp_a, and the second (K2) the time around the target; within the timeline.
 float WobbleDriver::wobble_time()
 {
-    const AnimTimeline* t = timeline_ptr_;
+    const AnimTimeline* t = timeline_ptr();
     float target = aim_point_;
     const float k1 = k1_;
     const float k2 = k2_;
@@ -460,9 +460,9 @@ float WobbleDriver::wobble_time()
 // 0x004A52E0
 void WobbleDriver::tick_frame()
 {
-    const float before = timeline_ptr_->ongoing();
-    timeline_ptr_->set_ongoing(wobble_time());
-    if (timeline_ptr_->ongoing() < before)
+    const float before = timeline_ptr()->ongoing();
+    timeline_ptr()->set_ongoing(wobble_time());
+    if (timeline_ptr()->ongoing() < before)
         frame_source_ = source_frame(blend_source_, false);
 }
 

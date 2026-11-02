@@ -50,6 +50,14 @@ struct Signal {
     // 0x00460150: the destructor: the data goes if the event owns it.
     void teardown();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t kind_tag() const { return kind_tag_; }
+    [[nodiscard]] uint32_t from_where() const { return from_where_; }
+    [[nodiscard]] uint32_t aim_point() const { return aim_point_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] script::Struct* payload() const { return payload_; }
+
+private:
     uint32_t kind_tag_;       // +0x00
     uint32_t from_where_;     // +0x04 the id of the sender
     uint32_t aim_point_;      // +0x08 the id of the object (or spawned script) it is for
@@ -77,6 +85,14 @@ public:
     // 0x0045FB30: listen on behalf of `object`: point at it, onto the tracker's list.
     void enter_wait_board(Entity* object);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] SignalReceiver* next_subscriber() const { return next_subscriber_; }
+    void set_next_subscriber(SignalReceiver* value) { next_subscriber_ = value; }
+    void set_on_board(bool value) { on_board_ = value; }
+    int& busy() { return busy_; }
+    [[nodiscard]] int busy() const { return busy_; }
+
+private:
     SharedRef<Entity> owner_object_;            // +0x04
     SignalReceiver* next_subscriber_ = nullptr; // +0x10 the tracker's list (set by the tracker)
     bool on_board_ = false;                     // +0x14 on the tracker's list
@@ -143,6 +159,11 @@ public:
     // of the new count).
     [[nodiscard]] std::span<TableRow> entries() const { return {entries_, entries_ ? static_cast<std::size_t>(num_) : 0}; }
 
+    // The fields other code reads and sets.
+    void set_alive(bool value) { alive_ = value; }
+    [[nodiscard]] int in_use() const { return in_use_; }
+
+private:
     TableRow* entries_{nullptr}; // +0x00
     int num_{0};                 // +0x04
     bool alive_{

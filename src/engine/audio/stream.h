@@ -222,22 +222,22 @@ struct StreamSlot {
     // 0x004538F0: the stream deleted (either class).
     void dealloc();
 
-    [[nodiscard]] bool get_playing() const { return wad || bink; }
+    [[nodiscard]] bool get_playing() const { return wad_ || bink_; }
 
     // The fields other code reads and sets.
-    [[nodiscard]] WadStream* wad_value() const { return wad; }
-    [[nodiscard]] BinkStream* bink_value() const { return bink; }
-    [[nodiscard]] float volume_value() const { return volume; }
-    void set_volume(float value) { volume = value; }
-    [[nodiscard]] bool paused_value() const { return paused; }
-    void set_paused(bool value) { paused = value; }
+    [[nodiscard]] WadStream* wad() const { return wad_; }
+    [[nodiscard]] BinkStream* bink() const { return bink_; }
+    [[nodiscard]] float volume() const { return volume_; }
+    void set_volume(float value) { volume_ = value; }
+    [[nodiscard]] bool paused() const { return paused_; }
+    void set_paused(bool value) { paused_ = value; }
 
 private:
-    WadStream* wad;     // +0x00
-    BinkStream* bink;   // +0x04
+    WadStream* wad_;     // +0x00
+    BinkStream* bink_;   // +0x04
     uint32_t unknown08; // +0x08
-    float volume;       // +0x0C
-    bool paused;        // +0x10 (cleared as a dword at start-up)
+    float volume_;       // +0x0C
+    bool paused_;        // +0x10 (cleared as a dword at start-up)
     std::array<uint8_t, 3> pad11;
 };
 static_assert(sizeof(StreamSlot) == 0x14, "layout must match the original");

@@ -115,7 +115,7 @@ constexpr uint32_t kAnimLadderOntoTop = 0xD63ADCAD;         // "LadderOntoTop"
 constexpr uint32_t kAnimLadderOffBottom = 0x4DB1BBB1;       // "LadderOffBottom"
 constexpr uint32_t kAnimLadderOffTop = 0x12521BFB;          // "LadderOffTop"
 
-objects::GameEntity* object_of(objects::FootMovement* walk) { return walk->entity_; }
+objects::GameEntity* object_of(objects::FootMovement* walk) { return walk->entity(); }
 objects::GrindRailHub*& get_rails_of(objects::FootMovement* walk) { return walk->rail_manager(); }
 skater::SkaterPhysicsModule* physics_of(objects::FootMovement* walk) { return walk->core_physics(); }
 
@@ -165,7 +165,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
         return true;
     }
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(kRailHubModuleName);
-         component; component = component->next_of_type_) {
+         component; component = component->next_of_type()) {
         maths::Mat4 to_local{};
         object_matrix_of(component, &to_local);
         to_local.upend();
@@ -176,7 +176,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
         towards = direction(walk, &buffer);
         snap = script::fetch_float(margin);
         if (get_rails_of(walk)->find_rail(&local_start, &local_end, towards, walk, found, snap)) {
-            walk->ride()->ride_on(component->entity_);
+            walk->ride()->ride_on(component->entity());
             return true;
         }
     }
@@ -184,11 +184,11 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
 }
 const maths::Vec4* facing_away(objects::FootMovement* walk, maths::Vec4* buffer)
 {
-    const maths::Vec4& facing = walk->facing_value();
+    const maths::Vec4& facing = walk->facing();
     *buffer = {.x = -facing.x, .y = -facing.y, .z = -facing.z, .w = -facing.w};
     return buffer;
 }
-const maths::Vec4* current_facing(objects::FootMovement* walk, maths::Vec4*) { return &walk->facing_value(); }
+const maths::Vec4* current_facing(objects::FootMovement* walk, maths::Vec4*) { return &walk->facing(); }
 
 // The animation-end callback (+0x1948): the code, no adjustment.
 void set_anim_done(objects::FootMovement* walk, script::ObjectCallback code)
@@ -222,7 +222,7 @@ void trigger_rail_script(objects::FootMovement* walk, const std::array<int, 3>& 
 void set_hang_offset(objects::FootMovement* walk)
 {
     const float horiz = objects::FootMovement::get_param(kHangCriticalPointHorizOffset);
-    const maths::Vec4& facing = walk->facing_value();
+    const maths::Vec4& facing = walk->facing();
     maths::Vec4& offset = walk->critical_point_offset();
     offset.z = horiz * facing.z;
     offset.w = horiz * facing.w;
@@ -244,14 +244,14 @@ int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset
 // The movable contact's ride let go (its object kept at +0x6C, the time at +0x70).
 void let_go_of_ride(objects::MovingSurfaceModule* contact)
 {
-    auto* tracker = contact->ride_.get();
+    auto* tracker = contact->ride().get();
     if (!tracker)
         return;
-    contact->last_object_ = tracker->entity_.get_pull(); // (the object last ridden)
+    contact->set_last_object(tracker->entity_.get_pull()); // (the object last ridden)
     tracker->~RideTracker();                             // (its smart pointer lets go)
     memory::dealloc(tracker);
-    contact->ride_ = nullptr;
-    contact->stop_time_ = get_now();
+    contact->ride() = nullptr;
+    contact->set_stop_time(get_now());
 }
 
 // The skater core's timed flag +0xA0 of +0x1528 set (with the time at +0xA4), unless it is.
@@ -809,7 +809,7 @@ void objects::FootMovement::place_on_hang()
 
     // riding something: let go of it once it's gone; when it turned, the facing across the rail again
     const objects::MovingSurfaceModule* contact = ride_;
-    auto* tracker = contact->ride_.get();
+    auto* tracker = contact->ride().get();
     if (!tracker)
         return;
     if (!tracker->entity_.get_pull()) {
@@ -1065,11 +1065,11 @@ void objects::FootMovement::update_hang()
 {
     // carried by what it rides on
     const objects::MovingSurfaceModule* contact = ride_;
-    if (auto* tracker = contact->ride_.get()) {
+    if (auto* tracker = contact->ride().get()) {
         if (!tracker->entity_.get_pull() || !tracker->tick_frame(&pos_)) {
             stop_riding(this);
         } else {
-            ObjectModule* component = ride_->ride_->entity_.get_pull()->fetch_module(kRailHubModuleName);
+            ObjectModule* component = ride_->ride()->entity_.get_pull()->fetch_module(kRailHubModuleName);
             maths::Mat4 matrix{};
             object_matrix_of(component, &matrix); // (unused)
             place_on_hang();

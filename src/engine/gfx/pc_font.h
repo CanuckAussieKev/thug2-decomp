@@ -41,7 +41,11 @@ public:
     uint32_t get_base() override;
     void read_string_param(const char* text, float* width, float* height) override;
 
-    TypefaceData* font{nullptr}; // +0x08
+    // The fields other code reads and sets.
+    [[nodiscard]] TypefaceData* font() const { return font_; }
+
+private:
+    TypefaceData* font_{nullptr}; // +0x08
 };
 static_assert(sizeof(PcFont) == 0xC, "layout must match the original");
 
@@ -64,6 +68,7 @@ public:
     // 0x004B3DB0 (slot 4): the priority, and the depth (0 without z_enabled_).
     void update_priority() override;
 
+private:
     std::unique_ptr<GlyphRun> text; // +0x48
 };
 static_assert(sizeof(PcText) == 0x4C, "layout must match the original");

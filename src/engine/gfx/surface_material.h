@@ -69,8 +69,8 @@ struct ColorAnim {
 
 struct MaterialRef {
     // The fields other code reads and sets.
-    [[nodiscard]] uint32_t checksum_value() const { return checksum; }
-    void set_checksum(uint32_t value) { checksum = value; }
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t value) { checksum_ = value; }
     [[nodiscard]] uint32_t name_hash() const { return name_hash_; }
     void set_name_hash(uint32_t value) { name_hash_ = value; }
     [[nodiscard]] uint32_t pass_count() const { return pass_count_; }
@@ -85,16 +85,16 @@ struct MaterialRef {
     void set_alpha_ref(uint8_t value) { alpha_ref_ = value; }
     [[nodiscard]] uint8_t depth_bias() const { return depth_bias_; }
     void set_depth_bias(uint8_t value) { depth_bias_ = value; }
-    [[nodiscard]] uint32_t unknown14_value() const { return unknown14; }
-    void set_unknown14(uint32_t value) { unknown14 = value; }
-    [[nodiscard]] uint32_t unknown18_value() const { return unknown18; }
-    void set_unknown18(uint32_t value) { unknown18 = value; }
+    [[nodiscard]] uint32_t unknown14() const { return unknown14_; }
+    void set_unknown14(uint32_t value) { unknown14_ = value; }
+    [[nodiscard]] uint32_t unknown18() const { return unknown18_; }
+    void set_unknown18(uint32_t value) { unknown18_ = value; }
     [[nodiscard]] float sort_key() const { return sort_key_; }
     void set_sort_key(float value) { sort_key_ = value; }
     std::array<uint32_t, 4>& pass_flags() { return pass_flags_; }
     [[nodiscard]] const std::array<uint32_t, 4>& pass_flags() const { return pass_flags_; }
-    std::array<TextureImage*, 4>& textures_value() { return textures; }
-    [[nodiscard]] const std::array<TextureImage*, 4>& textures_value() const { return textures; }
+    std::array<TextureImage*, 4>& textures() { return textures_; }
+    [[nodiscard]] const std::array<TextureImage*, 4>& textures() const { return textures_; }
     std::array<std::array<float, 4>, 4>& pass_color() { return pass_color_; }
     [[nodiscard]] const std::array<std::array<float, 4>, 4>& pass_color() const { return pass_color_; }
     std::array<uint32_t, 4>& blend_modes() { return blend_modes_; }
@@ -114,13 +114,13 @@ struct MaterialRef {
     void set_anim_colors(uint32_t* value) { anim_colors_ = value; }
     [[nodiscard]] TextureAnim* texture_anim() const { return texture_anim_; }
     void set_texture_anim(TextureAnim* value) { texture_anim_ = value; }
-    std::array<float, 3>& specular_value() { return specular; }
-    [[nodiscard]] const std::array<float, 3>& specular_value() const { return specular; }
+    std::array<float, 3>& specular() { return specular_; }
+    [[nodiscard]] const std::array<float, 3>& specular() const { return specular_; }
     [[nodiscard]] float specular_power() const { return specular_power_; }
     void set_specular_power(float value) { specular_power_ = value; }
 
 private:
-    uint32_t checksum{};
+    uint32_t checksum_{};
     uint32_t name_hash_{}; // passes are named relative to it (see pass_from_checksum)
     uint32_t pass_count_{0};
     uint8_t sort_flag_{};   // +0x0C
@@ -130,14 +130,14 @@ private:
     uint8_t alpha_ref_{};   // +0x10 (0: no alpha test)
     uint8_t depth_bias_{0}; // +0x11 (up to 16)
     std::array<uint8_t, 2> unknown12{};
-    uint32_t unknown14{};
-    uint32_t unknown18{0};
+    uint32_t unknown14_{};
+    uint32_t unknown18_{0};
     float sort_key_{}; // +0x1C
     std::array<uint32_t, 4> pass_flags_{};   // +0x20: 1 UV wibble, 2 (pass 0) colour animations, 8 environment mapped, 0x80 (byte) the
                             // colour isn't to be changed, 0x100 (pass 0) specular, 0x200 a border colour, 0x400 bump
                             // environment, 0x800 texture animation, 0x1000 alpha from the texture alone, 0x4000
                             // explicit UV wibble (not animated)
-    std::array<TextureImage*, 4> textures{}; // +0x30
+    std::array<TextureImage*, 4> textures_{}; // +0x30
     std::array<std::array<float, 4>, 4> pass_color_{};        // +0x40: r, g, b (0.5: unchanged) and a fourth value
     std::array<uint32_t, 4> blend_modes_{};       // +0x80 (choose_blend_mode's)
     std::array<uint32_t, 4> address_modes_{};     // +0x90 (kAddressMode0's)
@@ -156,7 +156,7 @@ public:
     [[nodiscard]] std::span<uint32_t> anim_colour_run() const { return {anim_colors_, color_anim_count_}; }
 private:
     TextureAnim* texture_anim_{nullptr}; // +0xFC
-    std::array<float, 3> specular{};            // +0x100
+    std::array<float, 3> specular_{};            // +0x100
     float specular_power_{};        // +0x10C
 
 public:

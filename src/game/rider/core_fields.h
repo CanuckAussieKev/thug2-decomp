@@ -63,7 +63,7 @@ constexpr uint32_t kUp = 0x7C;
 constexpr uint32_t kFacing = 0x8C;
 constexpr uint32_t kVelocity = 0xAC;
 
-inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
+inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity(); }
 using objects::PoseFlag;
 inline int state_of(const SkaterPhysicsModule* component) { return component->state()->cur_phase(); }
 
@@ -134,7 +134,7 @@ inline void assign_feeler(void* to, const void* from)
     static_cast<render::ProbeRay*>(to)->get_assign(*static_cast<const render::ProbeRay*>(from));
 }
 // The ride tracker (+0x152C's +0x18) and what its smart pointer points at; 0x00427C70: stop riding.
-inline objects::RideTracker* get_tracker(SkaterPhysicsModule* component) { return component->ride()->ride_.get(); }
+inline objects::RideTracker* get_tracker(SkaterPhysicsModule* component) { return component->ride()->ride().get(); }
 inline void stop_riding(SkaterPhysicsModule* component) { component->ride()->stop_riding(); }
 
 inline void destroy_feeler(void* feeler) { static_cast<render::ProbeRay*>(feeler)->destruct(); }

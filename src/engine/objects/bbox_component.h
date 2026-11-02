@@ -78,14 +78,19 @@ public:
     // array of them (any one there: true; neither: false).
     bool query_objects(script::Struct* params, script::Script* script, Rect2* rect, const maths::Vec4* point);
 
+private:
     maths::Vec4 box_max_{}; // +0x18
     maths::Vec4 box_min_{}; // +0x28
     maths::Vec4 shift_{};   // +0x38
     std::array<uint8_t, 4> unknown48{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(CbBoxComponent, box_max_) == 0x18 && offsetof(CbBoxComponent, box_min_) == 0x28 &&
+                          offsetof(CbBoxComponent, shift_) == 0x38 && sizeof(CbBoxComponent) == 0x4C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(CbBoxComponent, box_max_) == 0x18 && offsetof(CbBoxComponent, box_min_) == 0x28 &&
-                  offsetof(CbBoxComponent, shift_) == 0x38 && sizeof(CbBoxComponent) == 0x4C,
-              "layout must match the original");
 static_assert(offsetof(CbBoxComponent::Rect2, level_y_) == 0x40 && offsetof(CbBoxComponent::Rect2, angle_) == 0x4C &&
                   offsetof(CbBoxComponent::Rect2, upper_limit_) == 0x50 &&
                   offsetof(CbBoxComponent::Rect2, shift_) == 0x70 &&

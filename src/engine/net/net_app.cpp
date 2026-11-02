@@ -119,7 +119,7 @@ gsl::owner<OrderedMsgNode*> construct_msg_seq_link(void* memory, SeqQueuedMsg* m
 
 // BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
 gsl::owner<BulkStreamNode*> construct_stream_link(void* memory, StreamDesc* stream) { return new (memory) BulkStreamNode(stream); }
-StreamDesc* stream_of(const ListNode* link) { return static_cast<BulkStreamNode*>(link->data)->msg_meta_; }
+StreamDesc* stream_of(const ListNode* link) { return static_cast<BulkStreamNode*>(link->data())->msg_meta_; }
 gsl::owner<StreamDesc*> construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
 void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
@@ -138,18 +138,18 @@ void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 // The tail of a list.
 void append_last(ListNode* head, ListNode* node)
 {
-    node->next = head;
-    node->prev = head->prev;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_next(head);
+    node->set_prev(head->prev());
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 // Out of its list.
 void drop_out(ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 // The memory manager.
@@ -185,7 +185,7 @@ gsl::owner<tasks::SchedulerTask*> new_task(int priority, tasks::Task<AppHost>::C
 {
     return new tasks::Task<AppHost>(callback, app, priority);
 }
-AppHost* task_app(tasks::Task<AppHost>* task) { return task->content_; }
+AppHost* task_app(tasks::Task<AppHost>* task) { return task->content(); }
 
 } // namespace
 
@@ -267,7 +267,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             ++message->share_count_;
             void* link_memory = memory::alloc_zeroed(sizeof(MsgNormalLink));
             MsgNormalLink* link = link_memory ? construct_msg_link(link_memory, message) : nullptr;
-            link->list_link_.priority = desc->rank_;
+            link->list_link_.set_priority(desc->rank_);
             link->due_time_ = desc->delay_ + clock_;
             add_link(normal_queue(conn), &link->list_link_);
         });
@@ -288,7 +288,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             ++message->share_count_;
             void* link_memory = memory::alloc_zeroed(sizeof(ReliableMsgNode));
             ReliableMsgNode* link = link_memory ? construct_msg_important_link(link_memory, message) : nullptr;
-            link->list_link_.priority = desc->rank_;
+            link->list_link_.set_priority(desc->rank_);
             link->due_time_ = desc->delay_ + clock_;
             link->stamp_ms_ = 0;
             add_link(important_queue(conn), &link->list_link_);
@@ -307,7 +307,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
             OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, message) : nullptr;
             // The original's broadcast gives the links the queue number (2) as their priority instead.
-            link->list_link_.priority = handle == kHandleBroadcast ? desc->queue_ : desc->rank_;
+            link->list_link_.set_priority(handle == kHandleBroadcast ? desc->queue_ : desc->rank_);
             link->stamp_ms_ = 0;
             link->due_time_ = desc->delay_ + clock_;
             link->bundle_id_ = desc->group_id_;
@@ -429,9 +429,9 @@ void AppHost::send_bulk_message(int handle, uint8_t msg_id, uint16_t size, void*
 Conn* AppHost::begin_conn_walk(ConnSearch* search)
 {
     search->list_link_ = &circuits_;
-    ListNode* next = circuits_.next;
-    search->list_link_ = next->data == memory::ListNode::head_marker() ? nullptr : next;
-    return search->list_link_ ? static_cast<Conn*>(search->list_link_->data) : nullptr;
+    ListNode* next = circuits_.next();
+    search->list_link_ = next->data() == memory::ListNode::head_marker() ? nullptr : next;
+    return search->list_link_ ? static_cast<Conn*>(search->list_link_->data()) : nullptr;
 }
 
 // 0x00458C10
@@ -543,8 +543,8 @@ void AppHost::pump_stream_traffic()
             max_per_frame = 1;
         }
         unsigned int streams = 0;
-        for (ListNode* node = get_streams(conn)->next; node->data != memory::ListNode::head_marker() && node;
-             node = node->next)
+        for (ListNode* node = get_streams(conn)->next(); node->data() != memory::ListNode::head_marker() && node;
+             node = node->next())
             ++streams;
         if (streams == 0)
             continue;
@@ -587,7 +587,7 @@ void AppHost::pump_stream_traffic()
             if (!unfinished) {
                 destroy_stream_desc_body(stream);
                 ram_stats()->dealloc(stream);
-                static_cast<BulkStreamNode*>(link->data)->teardown(1);
+                static_cast<BulkStreamNode*>(link->data())->teardown(1);
             }
             link = next_link;
         }

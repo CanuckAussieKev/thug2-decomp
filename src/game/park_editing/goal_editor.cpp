@@ -103,7 +103,7 @@ void ObjectiveAuthoring::publish_method_table()
 // (the goals made first by their constructors)
 ObjectiveAuthoring::ObjectiveAuthoring()
 {
-    kind_tag_ = kGoalEditor;
+    set_kind_tag(kGoalEditor);
     clear_level_goals();
     clear_park_goals();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
@@ -122,8 +122,8 @@ ObjectiveAuthoring::~ObjectiveAuthoring()
 // 0x004E8210
 void ObjectiveAuthoring::seal()
 {
-    input_ptr_ = entity_->fetch_module(kInput);
-    view_camera_ = entity_->fetch_module(kEditorCamera);
+    input_ptr_ = entity()->fetch_module(kInput);
+    view_camera_ = entity()->fetch_module(kEditorCamera);
 }
 
 // 0x004E8470
@@ -350,7 +350,7 @@ void ObjectiveAuthoring::refresh_cursor()
     else if (kind == kPointCheckpoint)
         params.put_name_key(0x7321A8D6, 0xF0FF0841);
     params.append_word(0x286A8D26, model);
-    script::launch_script(0x36791E3C, &params, entity_, false, nullptr);
+    script::launch_script(0x36791E3C, &params, entity(), false, nullptr);
     update_camera_collision();
     params.get_clear();
 }
@@ -406,7 +406,7 @@ void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
     params->fetch_list(kGoalListName, &goals, 0);
     if (!goals)
         return;
-    const uint32_t count = goals->extent_;
+    const uint32_t count = goals->extent();
     for (uint32_t i = 0; i < count; ++i) {
         auto* entry = goals->struct_at(i);
         uint32_t level = 0;
@@ -438,7 +438,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
     active_node_ = nullptr;
     script::Array* goals = nullptr;
     params->fetch_list(kGoalListName, &goals, 1);
-    uint32_t left = goals ? goals->extent_ : 0; // (Not original: none - the original read through null)
+    uint32_t left = goals ? goals->extent() : 0; // (Not original: none - the original read through null)
     uint32_t next = 0;
     for (EditedGoal& goal : goals_) {
         if (!left)
@@ -521,11 +521,11 @@ namespace {
 // goal's start.
 bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float height)
 {
-    const EditedGoal* goal = editor->active_node_;
+    const EditedGoal* goal = editor->active_node();
     if (goal->vertex_total() && core::at(goal->path_vertices(), goal->current_point()).kind == kPointStart &&
         editor->point_near_any_goal(pos, height, goal->level(), 0))
         return true;
-    goal = editor->active_node_;
+    goal = editor->active_node();
     if (!goal->vertex_total() || core::at(goal->path_vertices(), goal->current_point()).kind == kPointPro)
         return editor->point_near_any_goal(pos, height, goal->level(), 1);
     return false;
@@ -555,16 +555,16 @@ void ObjectiveAuthoring::tick_frame()
         const float angle = camera->heading();
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (near_other_goals(this, pos, height)) {
-            script::launch_script(0xAEBC7020, nullptr, entity_, false, nullptr);
+            script::launch_script(0xAEBC7020, nullptr, entity(), false, nullptr);
         } else if (active_node_->place_point(pos, height, angle)) {
-            script::launch_script(0x718B071B, nullptr, entity_, false, nullptr);
+            script::launch_script(0x718B071B, nullptr, entity(), false, nullptr);
             refresh_cursor();
             move_cursor_to_current_point();
         } else {
-            script::launch_script(0xAEBC7020, nullptr, entity_, false, nullptr);
+            script::launch_script(0xAEBC7020, nullptr, entity(), false, nullptr);
         }
         if (active_node_->last_point_placed())
-            script::launch_script(0xC05E7E20, nullptr, entity_, false, nullptr);
+            script::launch_script(0xC05E7E20, nullptr, entity(), false, nullptr);
     }
     objects::ControlButton* back = get_button(input_ptr_, 0x1A0);
     if (back->fired()) {
@@ -574,11 +574,11 @@ void ObjectiveAuthoring::tick_frame()
         const float height = camera->level_y();
         const float angle = camera->heading();
         if (!near_other_goals(this, pos, height) && active_node_->place_point_and_step_back(pos, height, angle)) {
-            script::launch_script(0xFA275CC5, nullptr, entity_, false, nullptr);
+            script::launch_script(0xFA275CC5, nullptr, entity(), false, nullptr);
             refresh_cursor();
             move_cursor_to_current_point();
         } else {
-            script::launch_script(0xADE100D6, nullptr, entity_, false, nullptr);
+            script::launch_script(0xADE100D6, nullptr, entity(), false, nullptr);
         }
     }
     run_cursor_script();

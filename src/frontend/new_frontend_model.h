@@ -48,8 +48,17 @@ struct Section {
 };
 
 struct Catalogue {
-    std::vector<Section> sections;
+    // The fields other code reads and sets.
+    std::vector<Section>& sections() { return sections_; }
+    [[nodiscard]] const std::vector<Section>& sections() const { return sections_; }
+    std::vector<std::pair<std::string, std::string>>& get_menu_art() { return menu_art_; }
+    [[nodiscard]] const std::vector<std::pair<std::string, std::string>>& get_menu_art() const { return menu_art_; }
+
+private:
+    std::vector<Section> sections_;
     std::vector<std::pair<std::string, std::string>> menu_art_; // a main menu item's id -> its image
+
+public:
     // The image for a menu item ("" if none).
     [[nodiscard]] std::string menu_art(const std::string& id) const;
     // The level whose load script is `load` (any case): its section and index. False if none.
@@ -86,13 +95,24 @@ std::string format_state(const SavedState& state);
 constexpr float kDesignWidth = 1280.0f;
 constexpr float kDesignHeight = 720.0f;
 struct TickCycle {
-    float left = 0.0f, top = 0.0f, scale = 1.0f;
-    [[nodiscard]] float get_x(float x) const { return left + x * scale; }
-    [[nodiscard]] float get_y(float y) const { return top + y * scale; }
-    [[nodiscard]] float current_s(float v) const { return v * scale; }
+    // The fields other code reads and sets.
+    [[nodiscard]] float left() const { return left_; }
+    void set_left(float value) { left_ = value; }
+    [[nodiscard]] float top() const { return top_; }
+    void set_top(float value) { top_ = value; }
+    [[nodiscard]] float scale() const { return scale_; }
+    void set_scale(float value) { scale_ = value; }
+
+private:
+    float left_ = 0.0f, top_ = 0.0f, scale_ = 1.0f;
+
+public:
+    [[nodiscard]] float get_x(float x) const { return left_ + x * scale_; }
+    [[nodiscard]] float get_y(float y) const { return top_ + y * scale_; }
+    [[nodiscard]] float current_s(float v) const { return v * scale_; }
     // Window point -> design point.
-    [[nodiscard]] float design_x(float x) const { return (x - left) / scale; }
-    [[nodiscard]] float design_y(float y) const { return (y - top) / scale; }
+    [[nodiscard]] float design_x(float x) const { return (x - left_) / scale_; }
+    [[nodiscard]] float design_y(float y) const { return (y - top_) / scale_; }
 };
 TickCycle fit_frame(float window_width, float window_height);
 

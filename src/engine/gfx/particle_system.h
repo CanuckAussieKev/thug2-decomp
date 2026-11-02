@@ -276,7 +276,13 @@ struct NewFlatParticles : EmitterInstance {
 struct FlatRibbonParticles : EmitterInstance {
     FlatRibbonParticles(const FlatRibbonParticles&) = delete;
     FlatRibbonParticles& operator=(const FlatRibbonParticles&) = delete;
+    // The fields other code reads and sets.
+    [[nodiscard]] int segments() const { return segments_; }
+
+private:
     int segments_; // +0x134: history + 1
+
+public:
 
     // 0x004992C0
     FlatRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -291,8 +297,15 @@ struct FlatRibbonParticles : EmitterInstance {
 
 // "glow" (vtable 0x00649464): three colours.
 struct GlowParticles : EmitterInstance {
+    // The fields other code reads and sets.
+    [[nodiscard]] int segments() const { return segments_; }
+    [[nodiscard]] float glow_width() const { return glow_width_; }
+
+private:
     int segments_;     // +0x134
     float glow_width_; // +0x138
+
+public:
 
     // 0x004995B0
     GlowParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
@@ -305,8 +318,15 @@ struct GlowParticles : EmitterInstance {
 
 // "glowribbontrail" (vtable 0x00649478): history + 1 positions each (history_length_), colours as the flat ribbon.
 struct GlowRibbonTrailParticles : EmitterInstance {
+    // The fields other code reads and sets.
+    [[nodiscard]] int segments() const { return segments_; }
+    [[nodiscard]] float span() const { return span_; }
+
+private:
     int segments_; // +0x134: the glow's
     float span_;   // +0x138
+
+public:
 
     // 0x00499880
     GlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -320,7 +340,10 @@ struct GlowRibbonTrailParticles : EmitterInstance {
 
 // "line" (vtable 0x0064948C): history + 1 positions each, a colour a step.
 struct LineParticles : EmitterInstance {
+private:
     int steps_; // +0x134: history + 1
+
+public:
 
     // 0x00499B80
     LineParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
@@ -336,12 +359,15 @@ struct LineParticles : EmitterInstance {
 struct ModelParticles final : EmitterInstance {
     ModelParticles(const ModelParticles&) = delete;
     ModelParticles& operator=(const ModelParticles&) = delete;
+private:
     unsigned int model_count_;  // +0x134
     unsigned int drawn_models_; // +0x138: the models Render goes through (the same count)
     void* unknown_13c_ptr_{
         nullptr}; // +0x13C (freed): a rotation (maths::QuatRotation) a model, turned by its particle's velocity
     std::array<uint8_t, 4> unknown140{};
     RenderModel** model_list_{nullptr}; // +0x144: model_count_ of them
+
+public:
 
     // 0x0049A0C0 (model_particles.cpp): constructed with (name, max particles, model file name, ...): the base's,
     // `particleCap` particles, positions and models - each from "<model>.mdl" (lower case) at a random scale 1 - 2.98 -

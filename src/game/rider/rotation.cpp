@@ -116,7 +116,7 @@ void face_along_velocity(objects::GameEntity* object)
 void SkaterPhysicsModule::get_spin()
 {
     objects::PadSnapshot* pad = &input_->pad_primary();
-    objects::GameEntity* object = entity_;
+    objects::GameEntity* object = entity();
     if (no_spin_)
         return;
     objects::RiderPoseState* flags = state_;
@@ -242,14 +242,14 @@ void SkaterPhysicsModule::get_spin()
         if (!(snap <= size))
             return;
     }
-    void* display = score_->points_held_;
+    void* display = score_->points_held();
     static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
 }
 
 // 0x00507120
 void SkaterPhysicsModule::break_vert(bool force)
 {
-    objects::GameEntity* object = entity_;
+    objects::GameEntity* object = entity();
     objects::PadSnapshot* pad = &input_->pad_primary();
     // The two buttons: both (PartyMod's PS2 controls: either - its JNZs at 0x00507184 / 0x005071AE).
     auto triggers = [&] {

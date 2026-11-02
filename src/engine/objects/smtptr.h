@@ -30,6 +30,7 @@ public:
     // 0x00463820: every smart pointer cleared (each is taken out of the list and nulled).
     void clear();
 
+private:
     SharedLink* head_ = nullptr;
 };
 
@@ -59,9 +60,18 @@ public:
     void attach_shared_ref(SharedLink* pointer) { smart_pointers_.attach(pointer); }
     void detach_shared_ref(SharedLink* pointer) { smart_pointers_.detach(pointer); }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] const SharedRefList& smart_pointers() const { return smart_pointers_; }
+    void set_smart_pointers(const SharedRefList& value) { smart_pointers_ = value; }
+
+private:
     SharedRefList smart_pointers_; // +0x04
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) == 8, "layout must match the original");
+    }
 };
-static_assert(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) == 8, "layout must match the original");
 
 // A pointer the object knows about (12 bytes).
 template <typename T>

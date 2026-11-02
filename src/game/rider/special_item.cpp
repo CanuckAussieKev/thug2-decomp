@@ -85,7 +85,7 @@ gsl::owner<ObjectModule*> PickupItemHandler::fabricate() { return new PickupItem
 // (the constructor: inlined in fabricate in the original)
 PickupItemHandler::PickupItemHandler()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     core::at(items_, 0) = nullptr;
     core::at(items_, 1) = nullptr;
 }
@@ -126,7 +126,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
         destroy_item(slot);
     uint32_t id = 0;
     if (params->read_hash_value(kId, &id, 0)) {
-        id += entity_->ident();
+        id += entity()->ident();
         params->put_name_key(kId, id);
     }
     memory::push_mem_profile("Game Objects");
@@ -135,7 +135,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     core::at(items_, slot) = item;
 
     script::StructPtr tags = script::make_struct();
-    tags->put_name_key(kOwner, entity_->ident());
+    tags->put_name_key(kOwner, entity()->ident());
     uint32_t script = 0;
     if (params->read_hash_value(kOnDestroyScript, &script, 0))
         tags->put_name_key(kOnDestroyScript, script);
@@ -143,7 +143,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     tags.reset();
 
     // In the object's colour.
-    const render::RenderModel* mine = get_model_data(entity_);
+    const render::RenderModel* mine = get_model_data(entity());
     render::RenderModel* its = get_model_data(item);
     if (mine && its) {
         const maths::Vec4 colour = mine->size_factor();
@@ -168,13 +168,13 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         GameEntity* item = create_item(slot, script::read_sub_struct(item_params));
         script::StructPtr lock = script::make_struct();
         lock->append_structure_if_any(params);
-        lock->put_name_key(kObjectId, entity_->ident());
+        lock->put_name_key(kObjectId, entity()->ident());
         item->fetch_module(kLockObj)->configure_from_data(lock.get());
         lock.reset();
         online::SpecialItemMessage created;
         created.params = item_params;
         created.bone = bone;
-        created.object_id = static_cast<uint8_t>(entity_->ident());
+        created.object_id = static_cast<uint8_t>(entity()->ident());
         created.slot = static_cast<int8_t>(slot);
         send_to_server(online::kMsgCreateSpecialItem, created);
         return 1;
@@ -184,7 +184,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         params->fetch_int_value(kIndex, &slot, 1);
         destroy_item(slot);
         online::SpecialItemMessage destroyed; // (params and bone: not set by the original)
-        destroyed.object_id = static_cast<uint8_t>(entity_->ident());
+        destroyed.object_id = static_cast<uint8_t>(entity()->ident());
         destroyed.slot = static_cast<int8_t>(slot);
         send_to_server(online::kMsgDestroySpecialItem, destroyed);
         return 1;

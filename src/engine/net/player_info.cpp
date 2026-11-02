@@ -57,10 +57,10 @@ gsl::owner<objects::RiderIdentity*> new_profile()
 // A node's unlinking, as lists::Elem's destructor does it (the node linked to itself after).
 void unlink_node(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 } // namespace
@@ -187,7 +187,7 @@ void PlayerRecord::set_custom_tag(bool custom)
     if (!skater_)
         return;
     if (objects::ObjectModule* tagging = rider()->fetch_module(kTagging))
-        core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ = custom; // (0x004E4000, a setter folded there)
+        core::down_cast<objects::TaggingComponent>(tagging)->set_custom_tag(custom); // (0x004E4000, a setter folded there)
 }
 
 // 0x00543090
@@ -196,7 +196,7 @@ bool PlayerRecord::has_custom_tag()
     if (!skater_)
         return false;
     objects::ObjectModule* tagging = rider()->fetch_module(kTagging);
-    return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ : false; // (0x0051D850)
+    return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->custom_tag() : false; // (0x0051D850)
 }
 
 // 0x005430B0
@@ -205,7 +205,7 @@ void* PlayerRecord::get_graffiti_texture()
     if (!skater_)
         return nullptr;
     objects::ObjectModule* tagging = rider()->fetch_module(kTagging);
-    return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->graffiti_
+    return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->graffiti()
                    : nullptr; // (0x00553E90, a getter folded there)
 }
 
@@ -287,7 +287,7 @@ bool PlayerRecord::is_eliminated()
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
     objects::ObjectModule* score = rider()->fetch_module(kSkaterScore);
-    return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held_)
+    return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held())
                             ->get_total_score() == 0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> 7) & 1); }

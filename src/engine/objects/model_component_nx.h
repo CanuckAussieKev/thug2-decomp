@@ -29,7 +29,7 @@ class RenderModel;
 namespace objects::model_nx {
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-inline gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
+inline gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig(); }
 
 // The model's lights (+0x2C, the folded getter 0x00532EB0), its file checksum (+0x30) and flags (+0x44: 2 active, 4
 // hidden).

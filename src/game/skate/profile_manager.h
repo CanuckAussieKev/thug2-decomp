@@ -31,8 +31,11 @@ namespace objects {
 // info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code is in
 // skater_profile.cpp (0x00585ED0-0x005871A0); the appearance's (0x00488xxx-0x00489xxx) is called through the game.
 struct RiderIdentity {
+private:
     gfx::ModelLook look_;    // the appearance
     script::Struct details_; // its details (name, is_pro, specials...)
+
+public:
 
     RiderIdentity();                                    // 0x00586D60
     uint32_t fetch_title();                                       // 0x00586150 (its info's name)

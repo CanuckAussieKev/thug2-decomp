@@ -262,7 +262,7 @@ objects::GameEntity* AnimDriver::fetch_subject() { return core::down_cast<AnimTr
 Rig* AnimDriver::fetch_rig()
 {
     objects::ObjectModule* component = core::down_cast<AnimTrack>(timeline_ptr_)->fetch_subject()->fetch_module(kSkeleton);
-    return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig_ : nullptr;
+    return component ? core::down_cast<objects::BoneRigModule>(component)->bone_rig() : nullptr;
 }
 
 } // namespace gfx

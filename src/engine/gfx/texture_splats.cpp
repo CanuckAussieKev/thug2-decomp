@@ -386,7 +386,7 @@ ProjectedVertex piece_at(const gpu::VertexView& pieces, size_t index)
 TextureSplats* get_texture_splats(TextureImage* texture)
 {
     if (TextureSplats* splats = effects_state().splat_sets().find_if(
-            [texture](const TextureSplats* set) { return core::at(set->material->textures_value(), 0) == texture; }))
+            [texture](const TextureSplats* set) { return core::at(set->material->textures(), 0) == texture; }))
         return splats;
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* material = memory ? memory::construct_in<MaterialRef>(memory) : nullptr;
@@ -395,7 +395,7 @@ TextureSplats* get_texture_splats(TextureImage* texture)
     const int a = get_rand();
     const int b = get_rand();
     material->set_checksum(a * b);                                  // a random checksum
-    core::at(material->textures_value(), 0) = texture;
+    core::at(material->textures(), 0) = texture;
     material->set_pass_count(1);                                   // one pass
     material->set_two_sided(1);
     material->set_depth_bias(0x14);
@@ -489,11 +489,11 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         if (!geom)
             continue;
         for (MeshRef* const mesh : geom->mesh_run()) {
-            if (mesh->flags_value() & 2)
+            if (mesh->flags() & 2)
                 continue;
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, 0x10);
-            const gpu::VertexView mesh_vertices(vertices, mesh->stride_value(), mesh->vertex_count());
+            const gpu::VertexView mesh_vertices(vertices, mesh->stride(), mesh->vertex_count());
             uint16_t* locked_indices = nullptr;
             core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, 0x10);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));

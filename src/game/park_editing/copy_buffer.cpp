@@ -78,7 +78,7 @@ const maths::Vec4* rail_origin() { return &park_editing_state().get_zero(); } //
 // A preview metapiece taken out of the park.
 void destroy_preview(ClipboardEntry* entry)
 {
-    entry->preview()->flag_bits_ &= ~PieceGroup::kCursor;
+    entry->preview()->flag_bits() &= ~PieceGroup::kCursor;
     ParkLayout::singleton()->free_placed_piece(entry->preview(), 0);
     ParkLayout::singleton()->rebuild_park_geometry(0);
     entry->set_preview(nullptr);
@@ -94,7 +94,7 @@ void ClipboardEntry::fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centr
     CellBox size = CellBox::get_make(0, 0, 0, 0, 0, 0);
     uint8_t width = 1, length = 1;
     if (piece_group_) {
-        size = piece_group_->cell_footprint_;
+        size = piece_group_->cell_footprint();
         width = size.w;
         length = size.l;
     }
@@ -163,8 +163,8 @@ void ClipboardEntry::graft(uint8_t centre_x, int height, uint8_t centre_z, Build
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     fetch_extent(&area, centre_x, centre_z, cursor);
     int top = y_ + height;
-    if (piece_group_ && (piece_group_->flag_bits_ & PieceGroup::kBuiltShell))
-        top += piece_group_->cell_footprint_.h;
+    if (piece_group_ && (piece_group_->flag_bits() & PieceGroup::kBuiltShell))
+        top += piece_group_->cell_footprint().h;
     if (top >= 16)
         top = 15;
     area.y = static_cast<int8_t>(top);
@@ -179,7 +179,7 @@ void ClipboardEntry::graft(uint8_t centre_x, int height, uint8_t centre_z, Build
         flat = false;
         floor = manager->get_ground_level(area, &flat);
     }
-    if (piece_group_ && !(piece_group_->flag_bits_ & PieceGroup::kBuiltShell)) {
+    if (piece_group_ && !(piece_group_->flag_bits() & PieceGroup::kBuiltShell)) {
         PieceGroup* meta = manager->make_placed_piece(piece_group_, 0);
         meta->set_quarter_turns((cursor->quarter_turns() + quarter_turns_) & 3);
         manager->place_meta_piece_in_park(area, meta);
@@ -202,9 +202,9 @@ void ClipboardEntry::glow_overlapping_pieces(uint8_t centre_x, uint8_t centre_z,
     fetch_extent(&area, centre_x, centre_z, cursor);
     area.y = 0;
     const MapListHolder metas(ParkLayout::singleton()->collect_pieces_in_region(area));
-    for (const MapListNode* node = metas.list; node; node = node->following_) {
+    for (const MapListNode* node = metas.list; node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
-        if (!(meta->flag_bits_ & PieceGroup::kBuiltShell))
+        if (!(meta->flag_bits() & PieceGroup::kBuiltShell))
             meta->spotlight(on, 0);
     }
 }
@@ -232,7 +232,7 @@ void ClipboardEntry::show_preview(uint8_t centre_x, int /*height*/, uint8_t cent
     at.y = static_cast<float>(y_ * static_cast<double>(kGridStepUp) + position.y);
     if (!preview_) {
         preview_ = ParkLayout::singleton()->make_placed_piece(piece_group_, 0x204);
-        preview_->flag_bits_ |= PieceGroup::kCursor;
+        preview_->flag_bits() |= PieceGroup::kCursor;
     }
     preview_->change_place(at, static_cast<float>(quarter_turns_ * static_cast<double>(kQuarterTurnDegrees) + angle));
 }
@@ -368,18 +368,18 @@ void Clipboard::free_all_piece_groups()
 // 0x0058C270
 bool Clipboard::add_row(PieceGroup* meta, int dy)
 {
-    const CellBox area = meta->cell_footprint_;
+    const CellBox area = meta->cell_footprint();
     const auto y = static_cast<int8_t>(area.y + dy);
-    PieceGroup* source = ParkLayout::singleton()->fetch_meta_template(meta->name_key_, nullptr);
+    PieceGroup* source = ParkLayout::singleton()->fetch_meta_template(meta->name_key(), nullptr);
     // (Already in it: done.)
     for (const ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         if (entry->piece_group() == source && entry->pos_x() == area.x && entry->y() == y &&
             entry->depth_cell() == area.z && entry->w() == area.w && entry->l() == area.l &&
-            entry->quarter_turns() == meta->quarter_turns_)
+            entry->quarter_turns() == meta->quarter_turns())
             return true;
     }
     memory::PoolPair& pools = clipboard_entry_pools();
-    const memory::SlabBank* pool = core::at(pools.pools, pools.current); // (not null-checked: as the original)
+    const memory::SlabBank* pool = core::at(pools.pools(), pools.current()); // (not null-checked: as the original)
     if (pool->taken_count() == pool->num())
         return false;
     auto* entry = pools.allocate<ClipboardEntry>();
@@ -413,7 +413,7 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
     };
     take_in(area.x, area.z);
     take_in(static_cast<uint8_t>(area.w + area.x - 1), static_cast<uint8_t>(area.l + area.z - 1));
-    entry->set_quarter_turns(meta->quarter_turns_);
+    entry->set_quarter_turns(meta->quarter_turns());
     entry->set_following(metas_);
     metas_ = entry;
     return true;
@@ -454,12 +454,12 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
     int lowest = 0;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following_) {
+            for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following()) {
                 const PieceGroup* meta = node->get_piece_group()->get_cast();
-                int y = int{meta->cell_footprint_.y};
-                if (meta->name_key_ == kRiserBelow)
+                int y = int{meta->cell_footprint().y};
+                if (meta->name_key() == kRiserBelow)
                     y += 15;
-                else if (meta->name_key_ == kRiserFloor)
+                else if (meta->name_key() == kRiserFloor)
                     y += 1;
                 if (y < lowest)
                     lowest = y;
@@ -470,9 +470,9 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
     // Every metapiece wholly inside (not restart points or risers below), raised by that.
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following_) {
+            for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following()) {
                 PieceGroup* meta = node->get_piece_group()->get_cast();
-                if (meta->is_spawn_marker() || !meta->fits_inside_region(&area) || meta->name_key_ == kRiserBelow)
+                if (meta->is_spawn_marker() || !meta->fits_inside_region(&area) || meta->name_key() == kRiserBelow)
                     continue;
                 if (!add_row(meta, dy)) {
                     teardown();

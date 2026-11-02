@@ -147,7 +147,7 @@ gsl::owner<Array*> new_array_of(script::QbValueKind type, uint32_t value)
 
 uint32_t ParkAssembler::next_geometry_node(Array* nodes, int* index)
 {
-    const int count = static_cast<int>(nodes->extent_);
+    const int count = static_cast<int>(nodes->extent());
     for (; *index < count; ++*index) {
         Struct* node = elem(nodes, *index);
         uint32_t node_class = 0;
@@ -182,7 +182,7 @@ uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry
     } else {
         from = rail_search_start();
     }
-    const int count = static_cast<int>(nodes->extent_);
+    const int count = static_cast<int>(nodes->extent());
     const std::span<PieceNodeInfo> info_run(node_info_, static_cast<size_t>(count));
     for (int i = from; i < count; ++i) {
         const PieceNodeInfo& node = core::at(info_run, i);
@@ -248,12 +248,12 @@ void ParkAssembler::build_source_rails(Array* nodes)
     rails.get_clear();
 
     // what's needed of each node
-    const int count = static_cast<int>(nodes->extent_);
+    const int count = static_cast<int>(nodes->extent());
     used_nodes_ = static_cast<int*>(memory::alloc(0x400)); // (room for 256)
     num_used_nodes_ = 0;
     node_info_ = static_cast<PieceNodeInfo*>(memory::alloc(count * sizeof(PieceNodeInfo)));
     const std::span<PieceNodeInfo> info_run(node_info_, static_cast<size_t>(count));
-    for (int i = 0; i < ints::as_signed(nodes->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(nodes->extent()); ++i) {
         Struct* node = elem(nodes, i);
         PieceNodeInfo& info = core::at(info_run, i);
         info.class_ = 0;
@@ -267,7 +267,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     // each piece's rails: from a first node (or, for a loop, any) along the links
     int index = 0;
     uint32_t geometry = next_geometry_node(nodes, &index);
-    while (index < ints::as_signed(nodes->extent_)) {
+    while (index < ints::as_signed(nodes->extent())) {
         num_used_nodes_ = 0;
         bool is_loop = false;
         RailNodeInfo info{};
@@ -304,12 +304,12 @@ void ParkAssembler::build_source_rails(Array* nodes)
     memory::dealloc(node_info_);
 
     // each source piece's rail points and segments
-    for (TemplateTile* source = sources_; source; source = source->following_) {
-        source->rail_point_total_ = 0;
-        source->num_rail_segments_ = 0;
-        for (int i = 0; const Rail* rail = rails.find_rail(source->sector_, i); ++i) {
-            source->rail_point_total_ += rail->vertex_total();
-            source->num_rail_segments_ += rail->count_segments();
+    for (TemplateTile* source = sources_; source; source = source->following()) {
+        source->rail_point_total() = 0;
+        source->num_rail_segments() = 0;
+        for (int i = 0; const Rail* rail = rails.find_rail(source->sector(), i); ++i) {
+            source->rail_point_total() += rail->vertex_total();
+            source->num_rail_segments() += rail->count_segments();
         }
     }
 }
@@ -342,12 +342,12 @@ void ParkAssembler::get_node_counts(std::span<int, 6> counts)
 {
     for (int& count : counts)
         count = 0;
-    for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
-        if (!(piece->flag_bits_ & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80)))
+    for (const DuplicatedTile* piece = pieces_; piece; piece = piece->following()) {
+        if (!(piece->flag_bits() & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80)))
             ++core::at(counts, 0);
-        if (!(piece->flag_bits_ & DuplicatedTile::kCursor) && !(piece->flag_bits_ & DuplicatedTile::kNoRails)) {
-            core::at(counts, 1) += piece->blend_source_->rail_point_total_;
-            core::at(counts, 2) += piece->blend_source_->num_rail_segments_;
+        if (!(piece->flag_bits() & DuplicatedTile::kCursor) && !(piece->flag_bits() & DuplicatedTile::kNoRails)) {
+            core::at(counts, 1) += piece->blend_source()->rail_point_total();
+            core::at(counts, 2) += piece->blend_source()->num_rail_segments();
         }
     }
     const int points = core::at(counts, 1) + get_rail_editor_points();
@@ -402,21 +402,21 @@ void ParkAssembler::build_rails(MapListNode* metas)
     const int points = get_memory_value("out_railpoint_pool", -1);
     rails.prepare_all(points, strings, false);
     memory::leave_heap_scope();
-    for (const MapListNode* node = metas; node; node = node->following_) {
+    for (const MapListNode* node = metas; node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
-        if (!(meta->flag_bits_ & PieceGroup::kInPark) || (meta->flag_bits_ & PieceGroup::kNoRails))
+        if (!(meta->flag_bits() & PieceGroup::kInPark) || (meta->flag_bits() & PieceGroup::kNoRails))
             continue;
-        const int pieces = static_cast<int>(meta->filled_slots_);
+        const int pieces = static_cast<int>(meta->filled_slots());
         for (int i = 0; i < pieces; ++i) {
             const DuplicatedTile* piece = get_cloned(meta->get_piece(static_cast<uint32_t>(i)));
             for (int j = 0;; ++j) {
-                const uint32_t name = piece->blend_source_->sector_;
+                const uint32_t name = piece->blend_source()->sector();
                 const Rail* source = source_rails_.find_rail(name, j);
                 if (!source)
                     break;
                 Rail* rail = rails.get_new_rail();
-                uint32_t cluster = piece->ident_;
-                if (meta->flag_bits_ & PieceGroup::kBuiltShell)
+                uint32_t cluster = piece->ident();
+                if (meta->flag_bits() & PieceGroup::kBuiltShell)
                     cluster = 0;
                 float angle = 0.0f;
                 if (name == kLadderSmall || name == kLadderMid || name == kLadderTall)
@@ -427,7 +427,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
                 }
                 if (name == kQuarterTurnedA || name == kQuarterTurnedB)
                     angle = kHalfPi;
-                rail->copy_from(source, &piece->at_point_, piece->quarter_turns_, cluster, angle);
+                rail->copy_from(source, &piece->at_point(), piece->quarter_turns(), cluster, angle);
                 rails.add_rail(rail);
             }
         }
@@ -436,24 +436,24 @@ void ParkAssembler::build_rails(MapListNode* metas)
 
 void ParkAssembler::write_piece_nodes(Array* nodes, int* index)
 {
-    for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_) {
-        if (piece->flag_bits_ & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80))
+    for (DuplicatedTile* piece = pieces_; piece; piece = piece->following()) {
+        if (piece->flag_bits() & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80))
             continue;
         Struct* node = elem(nodes, *index);
-        node->put_vec3(kPos, get_value(piece->at_point_));
-        node->put_name_key(kName, piece->sector_);
-        const uint32_t flags = piece->blend_source_->flag_bits_;
+        node->put_vec3(kPos, get_value(piece->at_point()));
+        node->put_name_key(kName, piece->sector());
+        const uint32_t flags = piece->blend_source()->flag_bits();
         if (!(flags & TemplateTile::kGameObject)) {
             node->put_name_key(kFlag, kPieceFlag);
-            node->put_name_key(kCluster, ~piece->ident_);
+            node->put_name_key(kCluster, ~piece->ident());
         } else if (flags & TemplateTile::kAbsentInNetGames) {
             node->put_name_key(kFlag, kNetAbsentFlag);
         } else {
             node->put_name_key(kFlag, kGameObjectFlag);
         }
-        if (piece->flag_bits_ & DuplicatedTile::kGap)
+        if (piece->flag_bits() & DuplicatedTile::kGap)
             node->put_name_key(kTriggerScript, gap_fire_script(piece));
-        else if (const uint32_t script = piece->blend_source_->trigger_script_)
+        else if (const uint32_t script = piece->blend_source()->trigger_script())
             node->put_name_key(kTriggerScript, script);
         ++*index;
     }

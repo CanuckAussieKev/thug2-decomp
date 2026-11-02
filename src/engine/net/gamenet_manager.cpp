@@ -28,7 +28,7 @@ constexpr auto kPortedLevelLists = std::to_array<const char*>({
 // before (the original's quirk: at first it holds the manager's address, its stack slot was ECX's).
 script::Struct* find_level(script::Array* levels, uint32_t level, uint32_t& entry_level)
 {
-    for (uint32_t i = 0; i < levels->extent_; ++i) {
+    for (uint32_t i = 0; i < levels->extent(); ++i) {
         auto* entry = levels->struct_at(i);
         entry->read_hash_value(kLevel, &entry_level, 0);
         if (entry_level == level)

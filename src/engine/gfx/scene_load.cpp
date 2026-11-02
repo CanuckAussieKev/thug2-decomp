@@ -81,12 +81,12 @@ gsl::owner<PcScene*> build_world_scene(int sectors, bool with_super_sectors, boo
     auto scene = memory::make_owned<PcScene>(table_bit_width(sectors));
     scene->set_builds_collision_grid(with_super_sectors);
     scene->set_is_sky(flag_8d);
-    scene->meshes = list;
+    scene->set_meshes(list);
     return scene;
 }
 
 // The texture dictionary's table of textures by checksum.
-const lists::KeyMap* texture_table(const TextureSet* textures) { return textures->textures_; }
+const lists::KeyMap* texture_table(const TextureSet* textures) { return textures->textures(); }
 
 // What both of the original's scene loaders do after the materials (0x004B3490 from memory, 0x004B36D0 from a file -
 // the same records, scene_format.h): the sectors (each loaded by `load_sector`), the hierarchy.

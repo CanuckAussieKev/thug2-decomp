@@ -129,8 +129,8 @@ void launch_pad(modules::FrontEnd* front_end, uint32_t type, UiWidget* element)
         return;
     script::Struct params;
     int device = 0;
-    if (front_end && core::at(front_end->pad_listeners(), 0) && core::at(front_end->pad_listeners(), 0)->dev_)
-        device = core::at(front_end->pad_listeners(), 0)->dev_->port_no();
+    if (front_end && core::at(front_end->pad_listeners(), 0) && core::at(front_end->pad_listeners(), 0)->dev())
+        device = core::at(front_end->pad_listeners(), 0)->dev()->port_no();
     params.put_int(kDeviceNum, device);
     params.put_int(kController, 0);
     objects::get_tracker()->launch_event(type, id_of(element), kMenuEvent, &params, false, -1.0f);

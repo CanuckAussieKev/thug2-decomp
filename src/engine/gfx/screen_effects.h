@@ -54,6 +54,7 @@ public:
     // (slot 12), colours 0x0F3BF443 (slot 8) and 0xFC5C7D61 (slot 7). True.
     bool set_dof_params(script::Struct* params, script::Script* script);
 
+private:
     bool on_{true}; // +0x04
     std::array<uint8_t, 3> spare_slot5_{};
 };

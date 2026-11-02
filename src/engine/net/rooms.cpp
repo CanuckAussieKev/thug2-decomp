@@ -86,25 +86,25 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
 memory::ListNode* head_of_scene_list(memory::ListNode* head)
 {
-    memory::ListNode* node = head->next;
-    return node->data == memory::ListNode::head_marker() ? nullptr : node;
+    memory::ListNode* node = head->next();
+    return node->data() == memory::ListNode::head_marker() ? nullptr : node;
 }
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == memory::ListNode::head_marker() ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == memory::ListNode::head_marker() ? nullptr : next;
 }
 template <typename T>
 T* data_of(memory::ListNode* node)
 {
-    return node ? static_cast<T*>(node->data) : nullptr;
+    return node ? static_cast<T*>(node->data()) : nullptr;
 }
 
 // The listed player named `nick` (case ignored), or null.
 LobbyPlayer* find_player(RoomManager* lobby, const char* nick)
 {
     for (memory::ListNode* node = head_of_scene_list(&lobby->participants()); node; node = get_next_node(node)) {
-        auto* player = static_cast<LobbyPlayer*>(node->data);
+        auto* player = static_cast<LobbyPlayer*>(node->data());
         if (!player)
             break;
         if (_stricmp(player->nick_.data(), nick) == 0)
@@ -129,10 +129,10 @@ LobbyPlayer* enroll_player(RoomManager* lobby, void* peer, const char* nick, boo
     if (listed)
         player->listed_ = true;
     memory::ListNode* head = &lobby->participants();
-    player->list_link_.prev = head->prev;
-    player->list_link_.next = head;
-    head->prev->next = &player->list_link_;
-    head->prev = &player->list_link_;
+    player->list_link_.set_prev(head->prev());
+    player->list_link_.set_next(head);
+    head->prev()->set_next(&player->list_link_);
+    head->set_prev(&player->list_link_);
     return player;
 }
 
@@ -278,7 +278,7 @@ void RoomManager::populate_room_list()
     get_run(kCreateLobbyListMenu);
     int index = 0;
     for (memory::ListNode* node = head_of_scene_list(&rooms_); node; node = get_next_node(node)) {
-        auto* lobby = static_cast<LobbyRoom*>(node->data);
+        auto* lobby = static_cast<LobbyRoom*>(node->data());
         if (!lobby)
             break;
         add_room_menu_item(lobby, index); // (its menu item)
@@ -290,7 +290,7 @@ void RoomManager::populate_room_list()
 LobbyRoom* RoomManager::get_lobby(int index)
 {
     for (memory::ListNode* node = head_of_scene_list(&rooms_); node; node = get_next_node(node)) {
-        auto* lobby = static_cast<LobbyRoom*>(node->data);
+        auto* lobby = static_cast<LobbyRoom*>(node->data());
         if (!lobby)
             return nullptr;
         if (index == 0)
@@ -312,7 +312,7 @@ void RoomManager::fill_player_list()
 {
     get_run(kDestroyUserChildren);
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
-        auto* player = static_cast<LobbyPlayer*>(node->data);
+        auto* player = static_cast<LobbyPlayer*>(node->data());
         if (!player)
             break;
         if (player->listed_)
@@ -327,7 +327,7 @@ void RoomManager::fill_prospective_buddy_list()
     const Hub* manager = net_game_state().the_manager();
     get_run(kDestroyBuddyChildren);
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
-        auto* player = static_cast<LobbyPlayer*>(node->data);
+        auto* player = static_cast<LobbyPlayer*>(node->data());
         if (!player)
             break;
         const int profile = player->account_;
@@ -432,7 +432,7 @@ void RoomManager::room_keys_callback(void* peer, int success, int room_type, con
     if (count <= 0 || !*keys || _stricmp(*keys, "b_rating") != 0)
         return;
     for (memory::ListNode* node = head_of_scene_list(&lobby->participants_); node; node = get_next_node(node)) {
-        auto* player = static_cast<LobbyPlayer*>(node->data);
+        auto* player = static_cast<LobbyPlayer*>(node->data());
         if (!player)
             break;
         if (_stricmp(player->nick_.data(), nick) == 0)

@@ -62,6 +62,7 @@ public:
     // x, raised 18 above the head, in the skater's frame, at the skater's position.
     void own_update() override;
 
+private:
     GameEntity* skater_{}; // +0x108
     uint32_t unknown10c_{};
     bool worn_; // +0x110

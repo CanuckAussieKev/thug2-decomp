@@ -269,16 +269,16 @@ bool TrickObjectCluster::add_object(uint32_t name)
     auto* object = static_cast<TrickSpot*>(memory::alloc_zeroed(sizeof(TrickSpot)));
     if (!object)
         return false;
-    object->list_link_.make_node(object);
-    object->label_ = name;
+    object->list_link().make_node(object);
+    object->set_label(name);
     clear_sector_color(find_sector(name));
     if (!game_config::from_cd() && script::fetch_int_value("show_all_trick_objects"))
         object->set_graffiti_color(2);
     // Last in the list (before the head).
-    object->list_link_.next = &entities_;
-    object->list_link_.prev = entities_.prev;
-    entities_.prev->next = &object->list_link_;
-    entities_.prev = &object->list_link_;
+    object->list_link().set_next(&entities_);
+    object->list_link().set_prev(entities_.prev());
+    entities_.prev()->set_next(&object->list_link());
+    entities_.set_prev(&object->list_link());
     return true;
 }
 
@@ -340,7 +340,7 @@ void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer
     if (!cluster->owned() || cluster->owner() != writer->player)
         return;
     ClusterIndexSearch search = {.name = cluster->label(), .index = 0, .found = false};
-    writer->manager->clusters_.run_hook<&find_cluster_index>(&search);
+    writer->manager->clusters().run_hook<&find_cluster_index>(&search);
     core::at(writer->buffer, writer->count + 8) = search.index; // (a byte: past 255 clusters it wraps, as THUG2's and THUGPRO's)
     ++writer->count;
     ++core::at(writer->buffer, writer->player);
@@ -398,7 +398,7 @@ uint32_t HitClusterLog::copy_cluster_names(std::span<uint32_t> out, uint32_t max
     const TrickSpotHub* manager = stored_trick_spot_hub().get();
     uint32_t bytes = 0;
     for (uint32_t i = 0; i < listed; ++i) {
-        auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters_.fetch_entry(core::at(items_, i)));
+        auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters().fetch_entry(core::at(items_, i)));
         if (cluster && cluster->label()) {
             core::at(out, bytes / 4) = core::at(items_, i);
             bytes += 4;
@@ -437,13 +437,13 @@ namespace {
 uint32_t count_objects(const memory::ListNode& head)
 {
     uint32_t count = 0;
-    for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker() && node; node = node->next)
+    for (const memory::ListNode* node = head.next(); node->data() != memory::ListNode::head_marker() && node; node = node->next())
         ++count;
     return count;
 }
 memory::ListNode* object_at(const memory::ListNode& head, uint32_t index)
 {
-    for (memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker() && node; node = node->next) {
+    for (memory::ListNode* node = head.next(); node->data() != memory::ListNode::head_marker() && node; node = node->next()) {
         if (index-- == 0)
             return node;
     }
@@ -456,7 +456,7 @@ memory::ListNode* object_at(const memory::ListNode& head, uint32_t index)
 TrickObjectCluster::~TrickObjectCluster()
 {
     for (uint32_t count = count_objects(entities_); count != 0; --count) {
-        if (auto* object = static_cast<TrickSpot*>(object_at(entities_, 0)->data))
+        if (auto* object = static_cast<TrickSpot*>(object_at(entities_, 0)->data()))
             object->teardown(1);
     }
     lists::unlink_all(entities_);
@@ -469,7 +469,7 @@ bool TrickObjectCluster::set_graffiti_color(int index)
 {
     const uint32_t count = count_objects(entities_);
     for (uint32_t i = 0; i < count; ++i)
-        static_cast<TrickSpot*>(object_at(entities_, i)->data)->set_graffiti_color(index);
+        static_cast<TrickSpot*>(object_at(entities_, i)->data())->set_graffiti_color(index);
     if (modules::Skate::sole()->level() == kLoadCreatedPark) {
         park_editing::RailAuthoring::sole()->set_cluster_colour(label_, index);
     }
@@ -494,7 +494,7 @@ bool TrickObjectCluster::clear_graffiti_color(int index)
 {
     const uint32_t count = count_objects(entities_);
     for (uint32_t i = 0; i < count; ++i) {
-        if (!static_cast<TrickSpot*>(object_at(entities_, i)->data)->clear_graffiti_color(index))
+        if (!static_cast<TrickSpot*>(object_at(entities_, i)->data())->clear_graffiti_color(index))
             return false;
     }
     if (modules::Skate::sole()->level() == kLoadCreatedPark) {
@@ -516,10 +516,10 @@ bool TrickSpotHub::set_object_graffiti_color(uint32_t object_name, int player)
 // 0x00589030
 bool TrickSpotHub::clear_graffiti_color(int index)
 {
-    clusters_.iter_bucket_ = -1;
-    clusters_.iter_item_ = nullptr;
-    while (clusters_.step_iterator() && clusters_.iter_item_ && clusters_.iter_item_->value) {
-        if (!static_cast<TrickObjectCluster*>(clusters_.iter_item_->value)->clear_graffiti_color(index))
+    clusters_.set_iter_bucket(-1);
+    clusters_.set_iter_item(nullptr);
+    while (clusters_.step_iterator() && clusters_.iter_item() && clusters_.iter_item()->value) {
+        if (!static_cast<TrickObjectCluster*>(clusters_.iter_item()->value)->clear_graffiti_color(index))
             return false;
     }
     return true;
@@ -560,7 +560,7 @@ void TrickSpotHub::apply_player_graffiti()
         script::Array* objects = nullptr;
         if (!args_->fetch_list(name.data(), &objects, 0))
             continue;
-        for (int i = 0; i < ints::as_signed(objects->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(objects->extent()); ++i) {
             auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(objects->fetch_part(i)));
             if (cluster)
                 cluster->set_graffiti_color(player == -1 ? -1 : player + 1);
@@ -689,7 +689,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
             return;
     }
     for (uint32_t i = 0; i < count; ++i) {
-        auto* cluster = static_cast<TrickObjectCluster*>(stored_trick_spot_hub()->object_clusters_.fetch_entry(core::at(objects, i)));
+        auto* cluster = static_cast<TrickObjectCluster*>(stored_trick_spot_hub()->object_clusters().fetch_entry(core::at(objects, i)));
         if (cluster)
             cluster->set_graffiti_color(player == -1 ? -1 : player + 1);
     }

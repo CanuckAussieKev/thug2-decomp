@@ -133,6 +133,10 @@ public:
     // written without a channel).
     void get_times(float* start, float* current, float* end);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] float distance_squared() const { return distance_squared_; }
+
+private:
     ObjectModule* component18_{};   // +0x18 the object's 0xCE0CA665 component
     ObjectModule* bone_rig_{};      // +0x1C its 0x222756D5 component
     ObjectModule* mesh_instance_{}; // +0x20 its 0x286A8D26 component

@@ -34,14 +34,14 @@ Catalog& current_catalog()
 script::Array* part_list(uint32_t slot)
 {
     script::Array* list = current_catalog().part_list_(slot);
-    if (!list || list->extent_ == 0 || list->kind_tag_ != script::kQbvalStruct)
+    if (!list || list->extent() == 0 || list->kind_tag() != script::kQbvalStruct)
         return nullptr;
     return list;
 }
 
 bool list_has(script::Array* list, uint32_t desc)
 {
-    for (uint32_t i = 0; i < list->extent_; ++i) {
+    for (uint32_t i = 0; i < list->extent(); ++i) {
         auto* part = list->struct_at(i);
         uint32_t id = 0;
         if (part && part->read_hash_value(kDescId, &id, 0) && id == desc)

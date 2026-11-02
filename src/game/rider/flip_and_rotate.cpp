@@ -77,7 +77,7 @@ int get_skater_index(GameEntity* skater) { return core::down_cast<Rider>(skater)
 gsl::owner<ObjectModule*> RiderSpinAndFlip::fabricate() { return new RiderSpinAndFlip; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderSpinAndFlip::RiderSpinAndFlip() { kind_tag_ = kSkaterFlipAndRotate; }
+RiderSpinAndFlip::RiderSpinAndFlip() { set_kind_tag(kSkaterFlipAndRotate); }
 
 // 0x00511300 (0x00511320 the deleting one)
 RiderSpinAndFlip::~RiderSpinAndFlip() = default;
@@ -85,9 +85,9 @@ RiderSpinAndFlip::~RiderSpinAndFlip() = default;
 // 0x00511350
 void RiderSpinAndFlip::seal()
 {
-    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    mesh_set_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel));
-    anim_blender_ = entity_->fetch_module(kAnimBlender);
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    mesh_set_ = core::down_cast<MeshInstanceModule>(entity()->fetch_module(kModel));
+    anim_blender_ = entity()->fetch_module(kAnimBlender);
 }
 
 // 0x00511390
@@ -120,15 +120,15 @@ void RiderSpinAndFlip::clear_after_flags()
 // 0x00511420
 void RiderSpinAndFlip::apply_flip_to_anims()
 {
-    net::Guest* app = client_app(get_skater_index(entity_));
-    auto* state = core::down_cast<objects::RiderPoseState>(entity_->fetch_module(kSkaterState));
-    flip_anims(anim_blender_, entity_->ident(), state->flag(PoseFlag::kFlipped).on, app_value8(app), 1);
+    net::Guest* app = client_app(get_skater_index(entity()));
+    auto* state = core::down_cast<objects::RiderPoseState>(entity()->fetch_module(kSkaterState));
+    flip_anims(anim_blender_, entity()->ident(), state->flag(PoseFlag::kFlipped).on, app_value8(app), 1);
 }
 
 // 0x005114F0
 void RiderSpinAndFlip::get_flip()
 {
-    auto* state = core::down_cast<objects::RiderPoseState>(entity_->fetch_module(kSkaterState));
+    auto* state = core::down_cast<objects::RiderPoseState>(entity()->fetch_module(kSkaterState));
     uint8_t& flipped = state->flag(PoseFlag::kFlipped).on;
     const uint8_t flip = flipped == 0 ? 1 : 0;
     if (flipped != flip) { // (always)
@@ -156,8 +156,8 @@ void RiderSpinAndFlip::do_after_anim()
     }
     if (board_rotate_after_) {
         // (the player isn't checked for null here)
-        net::Guest* app = client_app(player_skater_index(find_player_slot_by_obj(entity_->ident())));
-        apply_board_turned(entity_->ident(), !deck_turned_, app_value8(app), true);
+        net::Guest* app = client_app(player_skater_index(find_player_slot_by_obj(entity()->ident())));
+        apply_board_turned(entity()->ident(), !deck_turned_, app_value8(app), true);
         board_rotate_after_ = false;
     }
     mesh_set_->set_flip(false);
@@ -199,9 +199,9 @@ int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* param
         return 1;
     case kBoardRotate: {
         // (the player isn't checked for null here)
-        net::Guest* app = client_app(player_skater_index(find_player_slot_by_obj(entity_->ident())));
+        net::Guest* app = client_app(player_skater_index(find_player_slot_by_obj(entity()->ident())));
         const bool rotated = params->has_bare_flag(kNormal) ? false : !deck_turned_;
-        apply_board_turned(entity_->ident(), rotated, app_value8(app), true);
+        apply_board_turned(entity()->ident(), rotated, app_value8(app), true);
         return 1;
     }
     default:

@@ -57,9 +57,20 @@ static_assert(sizeof(LevelScores) == 0x24 && offsetof(LevelScores, entries_) == 
 // One of the five top-score lists (0x48 bytes in the original): the levels' scores (high scores / combos, all time /
 // monthly) or, for the ratings list, the entries themselves.
 struct TopList {
+    // The fields other code reads and sets.
+    memory::ListNode& levels() { return levels_; }
+    [[nodiscard]] const memory::ListNode& levels() const { return levels_; }
+    memory::ListNode& entries() { return entries_; }
+    [[nodiscard]] const memory::ListNode& entries() const { return entries_; }
+    std::array<char, 0x20>& title() { return title_; }
+    [[nodiscard]] const std::array<char, 0x20>& title() const { return title_; }
+
+private:
     memory::ListNode levels_{};  // +0x00 lists::Foremost<LevelScores>
     memory::ListNode entries_{}; // +0x10 lists::Foremost<TopEntry>: the ratings list's
     std::array<char, 0x20> title_{};         // +0x20 the file's first line (the lists of combos)
+
+public:
 
     // 0x0054D8B0: two empty heads.
     TopList();
@@ -75,8 +86,13 @@ struct TopList {
     // 0x0054E4A0: every entry (ratings: the list's own; else every level's) sorted by score, the best 50 with a score
     // into the menu (script 0x0AC09E3B for ratings, else 0x19F7BC28 with the level's name).
     void fill_sorted_scores(bool ratings);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(TopList) == 0x40 && offsetof(TopList, title_) == 0x20);
+    }
 };
-static_assert(sizeof(TopList) == 0x40 && offsetof(TopList, title_) == 0x20);
 
 // A sorted line for the menus (0x40 bytes in the original, on a local list): lists::Elem<SortEntry>, its priority
 // the score.

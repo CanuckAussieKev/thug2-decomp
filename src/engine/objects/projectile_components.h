@@ -102,6 +102,7 @@ public:
     // component yet (and an object id), that is.
     void tick_frame() override;
 
+private:
     float reach_squared_{};              // +0x18 2304 (48 squared)
     Rider* rider_ref_{};                 // +0x1C the local skater
     PedestrianBrainModule* ped_logic_{}; // +0x20 the object's

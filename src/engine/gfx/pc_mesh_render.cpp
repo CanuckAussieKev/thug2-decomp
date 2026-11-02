@@ -71,7 +71,7 @@ void add_bone(std::span<float, 6> blended, const SkinVertex& v, uint8_t bone, fl
 void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 {
     const gpu::VertexView vertices(mesh->per_vertex_data(), sizeof(SkinVertex), mesh->vertex_count()); // (the CPU copy: SkinVertex records)
-    const gpu::VertexWriter written(out, mesh->stride_value(), mesh->vertex_count());
+    const gpu::VertexWriter written(out, mesh->stride(), mesh->vertex_count());
     for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
         const auto vertex = vertices.value<SkinVertex>(i, 0);
         const SkinVertex* v = &vertex;
@@ -134,11 +134,11 @@ void MeshRef::render()
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, &boned);
     }
     apply_vertex_colors();
-    set_vertex_format(fvf);
-    auto* mat = material;
+    set_vertex_format(fvf_);
+    auto* mat = material_;
     if (renderer().shaders_available()) {
         mat->hand_in();
-        if (!renderer().instance_colour_on() && !(flags & 4))
+        if (!renderer().instance_colour_on() && !(flags_ & 4))
             set_pixel_shader_with_constants(pixel_shader_, mat->pass_count());
         else
             set_pixel_shader_colored();
@@ -146,12 +146,12 @@ void MeshRef::render()
         mat->submit_states();
     }
     DWORD min_filter = 0, z_write = 0;
-    if (flags & 0x80) {
+    if (flags_ & 0x80) {
         renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
         if (min_filter != D3DTEXF_LINEAR)
             renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     }
-    if (flags & 0x100) {
+    if (flags_ & 0x100) {
         renderer().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
         if (z_write == 1)
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
@@ -162,12 +162,12 @@ void MeshRef::render()
          unknowna0_ != mesh_pass().current_instance())) { // (once a frame per instance)
         unknown9c_ = renderer().frames_rendered();
         unknowna0_ = mesh_pass().current_instance();
-        uint8_t* out = vb->data_value(); // (locked whole with DISCARD, inline: the card's buffer written)
-        vb->set_lock_size(vb->size_value());
+        uint8_t* out = vb->data(); // (locked whole with DISCARD, inline: the card's buffer written)
+        vb->set_lock_size(vb->size());
         vb->set_lock_offset(0);
         vb->set_lock_flags(D3DLOCK_DISCARD);
         void* locked = out;
-        static_cast<IDirect3DVertexBuffer9*>(vb->buffer_value())->Lock(0, 0, &locked, D3DLOCK_DISCARD);
+        static_cast<IDirect3DVertexBuffer9*>(vb->buffer())->Lock(0, 0, &locked, D3DLOCK_DISCARD);
         out = static_cast<uint8_t*>(locked);
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (unknowna8_) {
@@ -185,11 +185,11 @@ void MeshRef::render()
     }
     if (vertex_buffer_count_ > 1)
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
-    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer_value()), vb->arena_offset(), stride);
+    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer()), vb->arena_offset(), stride_);
     int level = 0;
-    if (unknown48) { // (the levels of detail's distances)
-        const maths::Vec4 sphere = sphere_of(centre, radius);
-        sphere_in_view(&sphere, radius);
+    if (unknown48_) { // (the levels of detail's distances)
+        const maths::Vec4 sphere = sphere_of(centre_, radius_);
+        sphere_in_view(&sphere, radius_);
         const float distance = view_setup().last_sphere_distance();
         for (; level < 8; ++level) {
             if (!core::at(index_buffers_, level)) {
@@ -197,11 +197,11 @@ void MeshRef::render()
                     --level;
                 break;
             }
-            if (distance < core::at(std::span<const float, 8>(static_cast<const float*>(unknown48), 8), level))
+            if (distance < core::at(std::span<const float, 8>(static_cast<const float*>(unknown48_), 8), level))
                 break;
         }
     }
-    renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(index_buffer_at(this, level)->buffer));
+    renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(index_buffer_at(this, level)->buffer()));
     const uint32_t primitives = index_count_at(this, level) - 2u;
     if (renderer().shaders_available()) {
         count_draw(primitives);
@@ -215,8 +215,8 @@ void MeshRef::render()
                 for (int k = 0; k < 3; ++k)
                     core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) * static_cast<double>(1.0f / 255));
                 tint = instance.data();
-            } else if (flags & 4) {
-                tint = color.data();
+            } else if (flags_ & 4) {
+                tint = color_.data();
             }
             mat->submit_pass(pass, tint);
             renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
@@ -224,9 +224,9 @@ void MeshRef::render()
             count_draw(index_count_at(this, level) - 2u);
         }
     }
-    if ((flags & 0x80) && min_filter != D3DTEXF_LINEAR)
+    if ((flags_ & 0x80) && min_filter != D3DTEXF_LINEAR)
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
-    if ((flags & 0x100) && z_write == 1)
+    if ((flags_ & 0x100) && z_write == 1)
         renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
     if (unknown98 != -1)
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, &world);

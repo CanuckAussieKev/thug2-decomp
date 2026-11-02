@@ -91,7 +91,7 @@ std::vector<Relaunch> level_restarts()
         node->fetch_vec(pos, &r.pos, 0);
         script::Array* types = nullptr;
         if (node->fetch_list(types_key, &types, 0) && types) {
-            for (uint32_t t = 0; t < types->extent_; ++t) {
+            for (uint32_t t = 0; t < types->extent(); ++t) {
                 const char* type = current_type_name(types->fetch_part(t));
                 if (!r.types.empty())
                     r.types += " ";

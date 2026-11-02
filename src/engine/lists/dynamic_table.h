@@ -10,10 +10,18 @@
 namespace lists {
 
 struct GrowableMap {
+    // The fields other code reads and sets.
+    [[nodiscard]] void** items() const { return items_; }
+    int& num() { return num_; }
+    [[nodiscard]] int num() const { return num_; }
+
+private:
     void** items_; // +0x00
     int capacity_; // +0x04
     int num_{0};   // +0x08
     int grow_;     // +0x0C
+
+public:
 
     // NOT ORIGINAL: the slots as a run of capacity_.
     [[nodiscard]] std::span<void*> item_run() const { return {items_, static_cast<std::size_t>(capacity_)}; }

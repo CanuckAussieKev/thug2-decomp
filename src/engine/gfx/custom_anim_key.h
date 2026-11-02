@@ -45,6 +45,12 @@ public:
     // 0x00486160: when active: no longer, and processed (work_on - a tail jump). False when it wasn't active.
     bool process_if_active(void* object);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int tick() const { return tick_; }
+    void set_tick(int value) { tick_ = value; }
+    void set_armed(bool value) { armed_ = value; }
+
+private:
     int tick_{};   // +0x04
     bool armed_{}; // +0x08: fires once (process_if_active disarms it; the camera key's work_on arms it again)
     std::array<uint8_t, 3> pad9{};
@@ -64,6 +70,7 @@ public:
     // float. True.
     bool work_on(void* camera) override;
 
+private:
     float field_of_view_; // +0x0C
 };
 
@@ -82,6 +89,7 @@ public:
     // kept). True.
     bool work_on(void* object) override;
 
+private:
     uint32_t own_script_; // +0x0C
 };
 
@@ -92,6 +100,7 @@ public:
     // 0x00486300: nothing when there's no such structure. True.
     bool work_on(void* object) override;
 
+private:
     uint32_t structure_; // +0x0C
 };
 
@@ -102,6 +111,7 @@ public:
     // 0x00486340: the object's flag_as_dead (vtable slot 6; not checked for null). True.
     bool work_on(void* object) override;
 
+private:
     uint32_t structure_; // +0x0C
 };
 
@@ -118,12 +128,17 @@ public:
     // time. True.
     bool work_on(void* camera) override;
 
+private:
     maths::QuatRotation orientation_turn_{}; // +0x0C
     maths::Vec4 at_point_{};                 // +0x1C (w 1)
     bool cut_;                             // +0x2C
     std::array<uint8_t, 3> pad2d_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x30, "the original's layout");
+    }
 };
-static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x30, "the original's layout");
 
 // An animation track's event (0x14 bytes, vtable 0x006487BC; made in an array - new[] / delete[], the count before
 // it as the original's): at a frame, an event type with parameters, sent by the object to itself once the timeline
@@ -141,6 +156,7 @@ public:
     // 0x00486440: the event sent by the object to itself. True.
     bool work_on(void* object) override;
 
+private:
     uint32_t kind_tag_{};                // +0x0C
     script::Struct* call_args_{nullptr}; // +0x10
 };

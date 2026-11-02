@@ -356,7 +356,7 @@ void FaceSkin::load_from_structure(Struct* params)
     params->fetch_list(kImageData, &image, 1);
     // (NOT ORIGINAL: no more words than the image holds - the original wrote as many as the array had)
     constexpr uint32_t kWords = kTexelEdge / 4;
-    for (uint32_t i = 0; i < image->extent_ && i < kWords; ++i) {
+    for (uint32_t i = 0; i < image->extent() && i < kWords; ++i) {
         const uint32_t word = image->fetch_part(i);
         std::memcpy(&core::at(image_, 4 * i), &word, sizeof(word));
     }

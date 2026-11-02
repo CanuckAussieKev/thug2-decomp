@@ -65,29 +65,29 @@ Hub::~Hub()
 // 0x0044F3C0
 void Hub::enrol_unit(PartUnit* module)
 {
-    memory::ListNode* node = module->list_link_;
-    node->prev = modules_.prev;
-    node->next = &modules_;
-    modules_.prev->next = node;
-    modules_.prev = node;
+    memory::ListNode* node = module->list_link();
+    node->set_prev(modules_.prev());
+    node->set_next(&modules_);
+    modules_.prev()->set_next(node);
+    modules_.set_prev(node);
 }
 
 // 0x0044F3E0
 void Hub::remove_module(PartUnit* module)
 {
-    memory::ListNode* node = module->list_link_;
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    memory::ListNode* node = module->list_link();
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 // 0x0044F310
 void Hub::launch_module(PartUnit* module)
 {
-    if (module->locked_)
+    if (module->locked())
         return;
-    module->queued_op_ = PartUnit::kStart;
+    module->set_queued_op(PartUnit::kStart);
     command_pending_ = true;
 }
 
@@ -98,10 +98,10 @@ void Hub::halt_every_module()
     PartUnit* next = search.head_element(&modules_);
     while (PartUnit* module = next) {
         next = search.following_item();
-        if (!module->locked_ && module->cur_phase_ == PartUnit::kRunning) {
+        if (!module->locked() && module->cur_phase() == PartUnit::kRunning) {
             module->stop_callback();
-            module->queued_op_ = PartUnit::kNone;
-            module->cur_phase_ = PartUnit::kStopped;
+            module->set_queued_op(PartUnit::kNone);
+            module->set_cur_phase(PartUnit::kStopped);
         }
     }
 }
@@ -109,7 +109,7 @@ void Hub::halt_every_module()
 // 0x0044F440
 void Hub::tick_modules(tasks::Task<Hub>* task)
 {
-    Hub* manager = task->content_;
+    Hub* manager = task->content();
     if (!manager->command_pending_)
         return;
     manager->command_pending_ = false;
@@ -118,23 +118,23 @@ void Hub::tick_modules(tasks::Task<Hub>* task)
     while (PartUnit* module = next) {
         next = search.following_item();
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-        switch (module->cur_phase_) {
+        switch (module->cur_phase()) {
         case PartUnit::kStopped:
-            if (module->queued_op_ == PartUnit::kStart || module->queued_op_ == PartUnit::kRestart) {
+            if (module->queued_op() == PartUnit::kStart || module->queued_op() == PartUnit::kRestart) {
                 module->start_callback();
-                module->cur_phase_ = PartUnit::kRunning;
-                module->queued_op_ = PartUnit::kNone;
+                module->set_cur_phase(PartUnit::kRunning);
+                module->set_queued_op(PartUnit::kNone);
             }
             break;
         case PartUnit::kRunning:
-            if (module->queued_op_ == PartUnit::kStop) {
+            if (module->queued_op() == PartUnit::kStop) {
                 module->stop_callback();
-                module->cur_phase_ = PartUnit::kStopped;
-                module->queued_op_ = PartUnit::kNone;
-            } else if (module->queued_op_ == PartUnit::kRestart) {
+                module->set_cur_phase(PartUnit::kStopped);
+                module->set_queued_op(PartUnit::kNone);
+            } else if (module->queued_op() == PartUnit::kRestart) {
                 module->stop_callback();
                 module->start_callback();
-                module->queued_op_ = PartUnit::kNone;
+                module->set_queued_op(PartUnit::kNone);
             }
             break;
         }

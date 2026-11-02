@@ -103,10 +103,10 @@ GoalEdge* alloc_chain_link()
 // A goal's list node out of its list (linked to itself).
 void uncouple(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 // The goal's pro (goals::ObjectiveNpc, 0x14 bytes): 0x0055EB40 the constructor (its goal's parameters); its destructor
@@ -124,7 +124,7 @@ objects::GameEntity* player_skater(void* player) { return static_cast<online::Pl
 // A skater's score (its SkaterScore component's modules::PointTally) reset (0x00564A10) / its total (0x00561B40).
 void* get_score_of(objects::GameEntity* skater)
 {
-    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
+    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held();
 }
 void reset_score(void* score) { static_cast<modules::PointTally*>(score)->get_reset(); }
 int total_score(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
@@ -487,7 +487,7 @@ void Objective::open_up_prize_objectives()
     script::Array* goals = nullptr;
     if (!args_->fetch_list(kRewardGoal, &goals, 0))
         return;
-    const int count = static_cast<int>(goals->extent_);
+    const int count = static_cast<int>(goals->extent());
     for (int i = 0; i < count; ++i) {
         const uint32_t id = goals->fetch_part(static_cast<uint32_t>(i));
         if (id)
@@ -504,7 +504,7 @@ int Objective::get_reward_points()
     script::Array* by_level = nullptr;
     if (args_->fetch_list(kRewardPoints, &by_level, 0)) {
         const int level = get_skill_tier(objective_board(), false);
-        if (level >= 0 && level < ints::as_signed(by_level->extent_))
+        if (level >= 0 && level < ints::as_signed(by_level->extent()))
             return static_cast<int>(by_level->fetch_part(static_cast<uint32_t>(level)));
     }
     return 0;
@@ -571,10 +571,10 @@ void Objective::alloc_objective_bits(script::Struct* params)
     num_flags_ = 0;
     script::Array* flags = nullptr;
     if (params->fetch_list(kGoalFlags, &flags, 0)) {
-        if (flags->kind_tag_ == script::kQbvalStruct) {
+        if (flags->kind_tag() == script::kQbvalStruct) {
             // One structure per skater: its own flags and counts.
             goal_flags_->put_name_key(kNoName, kSkaterTraits);
-            const int skaters = static_cast<int>(flags->extent_);
+            const int skaters = static_cast<int>(flags->extent());
             for (int i = 0; i < skaters; ++i) {
                 auto* entry = flags->struct_at(static_cast<uint32_t>(i));
                 uint32_t skater = 0;
@@ -582,7 +582,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 const script::StructPtr own = script::make_struct();
                 script::Array* names = nullptr;
                 entry->fetch_list(kGoalFlags, &names, 1);
-                const int count = static_cast<int>(names->extent_);
+                const int count = static_cast<int>(names->extent());
                 for (int k = 0; k < count; ++k)
                     own->put_int(names->fetch_part(static_cast<uint32_t>(k)), 0);
                 own->put_int(kNumFlags, count);
@@ -590,7 +590,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 goal_flags_->put_sub_struct(skater, own.get());
             }
         } else {
-            for (uint32_t i = 0; i < flags->extent_; ++i) {
+            for (uint32_t i = 0; i < flags->extent(); ++i) {
                 goal_flags_->put_int(flags->fetch_part(i), 0);
                 ++num_flags_;
             }

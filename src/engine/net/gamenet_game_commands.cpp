@@ -118,8 +118,8 @@ uint32_t& last_team_request()
 }
 
 bool is_head(const memory::ListNode* node) { return node->is_head(); }
-memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
-PlayerRecord* data_of(const memory::ListNode* node) { return node ? static_cast<PlayerRecord*>(node->data) : nullptr; }
+memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next()) ? nullptr : node->next(); }
+PlayerRecord* data_of(const memory::ListNode* node) { return node ? static_cast<PlayerRecord*>(node->data()) : nullptr; }
 
 enum class Recipients : uint8_t { kAll, kRemote, kObservers };
 // `desc` through the server to the players (all, those not local, the observers).
@@ -248,7 +248,7 @@ bool cfunc_start_network_game(Struct*, Script*)
         core::at(buffer, 0) = 1;
         size_t end = 1;
         const int count = goals
-                              ->goals().num_; // (its first word, read by the getter folded at 0x00469490)
+                              ->goals().num(); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
             if (goal->is_picked()) {

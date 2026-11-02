@@ -78,7 +78,7 @@ bool cfunc_display_free_mem(script::Struct*, script::Script*)
         params->get_clear();
         params->put_name_key(kId, checksums::hash_from_text(heap->label()));
         params->put_int(kFreeMem, region->free_byte_count());
-        params->put_int(kMinFreeMem, region->min_available_);
+        params->put_int(kMinFreeMem, region->min_available());
         script::launch_script(kUpdateDisplayFreeMemory, params, nullptr, false, nullptr);
     }
     if (params) {
@@ -182,11 +182,11 @@ bool cfunc_english(script::Struct*, script::Script*) { return get_language() == 
 bool cfunc_proxim_cleanup(script::Struct*, script::Script*)
 {
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c;
-         c = c->next_of_type_)
-        core::down_cast<objects::AudioEmitterModule>(c)->proxim_ = nullptr;
+         c = c->next_of_type())
+        core::down_cast<objects::AudioEmitterModule>(c)->set_proxim(nullptr);
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kStream); c;
-         c = c->next_of_type_)
-        core::down_cast<objects::AudioStreamModule>(c)->proxim_ = nullptr;
+         c = c->next_of_type())
+        core::down_cast<objects::AudioStreamModule>(c)->set_proxim(nullptr);
     objects::nearby_zone_shutdown();
     return true;
 }

@@ -38,6 +38,7 @@ public:
     // told the terrain and state, the looping sound the speed as a fraction of the top speed.
     void tick_frame() override;
 
+private:
     skater::SkaterPhysicsModule* core_physics_{nullptr}; // +0x18 SkaterCorePhysics (0x5BD63B29)
     RiderPoseState* pose_{nullptr};                      // +0x1C SkaterState (0x43686585)
 };

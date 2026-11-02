@@ -22,7 +22,7 @@ namespace park_editing {
 namespace {
 
 // Which end slot `slot` is of its gap: 0 its first (StartGap's), 1 its second.
-int get_half(const GapRegistry* manager, int slot) { return core::at(manager->started_first_, slot) ? 0 : 1; }
+int get_half(const GapRegistry* manager, int slot) { return core::at(manager->started_first(), slot) ? 0 : 1; }
 
 // A piece's highlight (its sector's).
 void highlight_piece(ParkTile* piece, bool on) { piece->set_visible(on); }

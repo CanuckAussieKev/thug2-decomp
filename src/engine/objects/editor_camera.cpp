@@ -202,7 +202,7 @@ gsl::owner<ObjectModule*> EditorViewModule::fabricate() { return new EditorViewM
 // 0x004E5060
 EditorViewModule::EditorViewModule()
 {
-    kind_tag_ = kEditorCamera;
+    set_kind_tag(kEditorCamera);
     for (maths::Vec4* v : {&focus_, &viewer_, &cursor_, &right_side_, &forward_})
         *v = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     zoom_ = min_zoom_ = max_zoom_ = heading_ = lean_angle_ = min_tilt_ = max_tilt_ = level_y_ = min_height_ = 0.0f;
@@ -231,7 +231,7 @@ void EditorViewModule::configure_from_data(script::Struct* params)
 }
 
 // 0x004E51F0
-void EditorViewModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput)); }
+void EditorViewModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(entity()->fetch_module(kInput)); }
 
 // 0x004E5170
 void EditorViewModule::build_blob_shadow()
@@ -239,7 +239,7 @@ void EditorViewModule::build_blob_shadow()
     if (shadow_handle_)
         return;
     shadow_handle_ = std::make_unique<render::BlobShadow>();
-    shadow_handle_->size_factor_ = 1.2f; // (no null check)
+    shadow_handle_->set_size_factor(1.2f); // (no null check)
     shadow_handle_->load_mesh("Ped_Shadow");
 }
 
@@ -326,7 +326,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
     if (height >= cursor_.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
         auto lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
-        if (!simple_collision_ || entity_->ident() == 0x5B509AD3 || get_global(0x71EC75E9) < level_y_)
+        if (!simple_collision_ || entity()->ident() == 0x5B509AD3 || get_global(0x71EC75E9) < level_y_)
             level_y_ = lowered;
         if (level_y_ < min_height_)
             level_y_ = min_height_;
@@ -406,7 +406,7 @@ void EditorViewModule::tick_frame()
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
-        if (park_editing::ParkBuilderMode::sole()->cur_phase() == 0x7ECA21E5) {
+        if (park_editing::ParkBuilderMode::sole()->editor_state() == 0x7ECA21E5) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {
@@ -565,7 +565,7 @@ void EditorViewModule::tick_frame()
         .w = 0.0f};
     core::at(look.row, 2) = {.x = at_x, .y = at_y, .z = at_z, .w = 0.0f};
     core::at(look.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    entity_->basis_frame() = look;
+    entity()->basis_frame() = look;
     const float zoom_now = zoom_;
     const float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)
     const float off_z = at_z * zoom_now;
@@ -576,7 +576,7 @@ void EditorViewModule::tick_frame()
     viewer_.z = focus_.z + off_z;
     viewer_.w = focus_.w + off_w;
     viewer_.w = 1.0f;
-    entity_->at_point() = viewer_;
+    entity()->at_point() = viewer_;
     resync_ground_shadow();
 }
 

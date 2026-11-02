@@ -645,8 +645,8 @@ Cell* Array::find_array_value() { return extent_ == 1 ? &storage_ : storage_.blo
 // 0x00477140
 void release_array_storage(Array* array)
 {
-    const uint32_t count = array->extent_;
-    const QbValueKind type = array->kind_tag_;
+    const uint32_t count = array->extent();
+    const QbValueKind type = array->kind_tag();
     const std::span<Cell> elements = array->cells();
     for (uint32_t i = 0; i < count; ++i) {
         Cell& element = core::at(elements, i);
@@ -1397,8 +1397,8 @@ void copy_array_elements(std::span<Cell> dest, std::span<const Cell> source, uin
 
 std::vector<uint32_t> words_of(Array* array)
 {
-    std::vector<uint32_t> words(array->extent_);
-    for (uint32_t i = 0; i < array->extent_; ++i)
+    std::vector<uint32_t> words(array->extent());
+    for (uint32_t i = 0; i < array->extent(); ++i)
         core::at(words, i) = array->fetch_part(i);
     return words;
 }
@@ -1407,8 +1407,8 @@ std::vector<uint32_t> words_of(Array* array)
 void duplicate_array(Array* dest, Array* source)
 {
     release_array_storage(dest);
-    const QbValueKind type = source->kind_tag_;
-    const uint32_t size = source->extent_;
+    const QbValueKind type = source->kind_tag();
+    const uint32_t size = source->extent();
     dest->configure_size_kind(size, type);
     if (size)
         copy_array_elements(dest->cells(), source->cells().first(size), type);

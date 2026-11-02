@@ -302,7 +302,7 @@ bool Hub::send_custom_tag_texture()
         if (profile_has_part(profile, kDeckGraphic))
             logos |= 8;
         // the custom tag texture (the original reads it through Objective::fetch_args: the same +0x1C)
-        void* texture = tagging->graffiti_;
+        void* texture = tagging->graffiti();
         if (texture) {
             net::NetMessageInfo desc;
             desc.ident_ = kMsgTagLogos;
@@ -333,7 +333,7 @@ const char* Hub::get_choice_name(uint32_t list, uint32_t choice)
     // The checksum is read into the argument's slot: an entry without one compares what the slot last held (at
     // first the list's own name).
     uint32_t checksum = list;
-    for (int i = 0; i < ints::as_signed(choices->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(choices->extent()); ++i) {
         auto* entry = choices->struct_at(i);
         entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)
@@ -349,7 +349,7 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
     int value = 0;
     // (as above, the checksum goes into `choice`'s slot: an entry without one matches)
     uint32_t checksum = choice;
-    for (int i = 0; i < ints::as_signed(choices->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(choices->extent()); ++i) {
         auto* entry = choices->struct_at(i);
         entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)
@@ -368,7 +368,7 @@ void Hub::choose_start_points()
         count = 8;
     } else {
         count = mode_max_players();
-        if (park_editing::ParkBuilderMode::sole()->cur_phase() != kOff && !mode_is_true(kIsHorse)) {
+        if (park_editing::ParkBuilderMode::sole()->editor_state() != kOff && !mode_is_true(kIsHorse)) {
             count = 2;
             offset = 0;
         }
@@ -425,16 +425,16 @@ void Hub::set_preset_option_bits(char flags) { script_flag_bits_ = static_cast<u
 // as there)
 void Hub::unlink_all_nodes(memory::ListNode* head)
 {
-    memory::ListNode* node = head->next;
-    if (node->data == memory::ListNode::head_marker() || !node)
+    memory::ListNode* node = head->next();
+    if (node->data() == memory::ListNode::head_marker() || !node)
         return;
     while (node) {
-        memory::ListNode* following = node->next;
-        node->prev->next = following;
-        following->prev = node->prev;
-        node->next = node;
-        node->prev = node;
-        node = following->data == memory::ListNode::head_marker() ? nullptr : following;
+        memory::ListNode* following = node->next();
+        node->prev()->set_next(following);
+        following->set_prev(node->prev());
+        node->set_next(node);
+        node->set_prev(node);
+        node = following->data() == memory::ListNode::head_marker() ? nullptr : following;
     }
 }
 

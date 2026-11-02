@@ -34,7 +34,7 @@ constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the s
 float update_wobble_step() { return kLockObjUpdateWobbleStep; }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
+void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig(); }
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
 // data (+0x08), a bone's parent (0x004A2C50).
 bool skin_matrix_ptr(void* skeleton, uint32_t bone, maths::Mat4* out)
@@ -75,7 +75,7 @@ gsl::owner<ObjectModule*> PinnedObjectModule::fabricate() { return new PinnedObj
 PinnedObjectModule::PinnedObjectModule()
 {
     lock_flags_ &= ~kLockFlagLocked;
-    kind_tag_ = kType;
+    set_kind_tag(kType);
 }
 
 // 0x0041F400 (0x0041F440 the deleting one)
@@ -91,17 +91,17 @@ void PinnedObjectModule::update_lock()
         if (!target)
             return;
     }
-    maths::Vec4 pos = entity_->at_point();         // where it goes
+    maths::Vec4 pos = entity()->at_point();         // where it goes
     maths::Vec4 extra = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // added to it when there's no lag
     maths::Vec4 local{};
     if (bone_) {
         // On a bone: its orientation, and its "at" towards its parent.
         const ObjectModule* skeleton_component = target->fetch_module(kSkeleton);
         void* skeleton = skeleton_component ? skeleton_of(target->fetch_module(kSkeleton)) : nullptr;
-        if (skeleton && skin_matrix_ptr(skeleton, bone_, &entity_->basis_frame())) {
+        if (skeleton && skin_matrix_ptr(skeleton, bone_, &entity()->basis_frame())) {
             maths::Mat4 parent{};
             skin_matrix_ptr(skeleton, parent_bone(skeleton, bone_index(skeleton, bone_)), &parent);
-            GameEntity* object = entity_;
+            GameEntity* object = entity();
             const maths::Vec4 joint_world = core::at(object->basis_frame().row, 3);
             maths::Vec4 owner_pos = core::at(parent.row, 3);
             core::at(object->basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -112,31 +112,31 @@ void PinnedObjectModule::update_lock()
                 compose_object_transform(model, &frame);
                 extra = core::at(frame.row, 3) - target->at_point();
                 core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-                set_product(entity_->basis_frame(), entity_->basis_frame(), frame);
+                set_product(entity()->basis_frame(), entity()->basis_frame(), frame);
                 set_product(parent, parent, frame);
                 pos = frame.xform(local, joint_world);
-                pos += target->at_point() + shift_ * entity_->basis_frame();
+                pos += target->at_point() + shift_ * entity()->basis_frame();
                 owner_pos = frame.xform(local, owner_pos);
                 owner_pos += target->at_point() + shift_ * parent;
             } else {
                 const maths::Mat4& frame = target->display_matrix();
-                set_product(entity_->basis_frame(), entity_->basis_frame(), frame);
+                set_product(entity()->basis_frame(), entity()->basis_frame(), frame);
                 set_product(parent, parent, frame);
                 pos = frame.xform(local, joint_world);
-                pos += target->at_point() + shift_ * entity_->basis_frame();
+                pos += target->at_point() + shift_ * entity()->basis_frame();
                 owner_pos = frame.xform(local, owner_pos);
                 owner_pos += target->at_point() + shift_ * parent;
             }
-            object = entity_;
+            object = entity();
             maths::Vec4& at = core::at(object->basis_frame().row, 2);
             at = {.x = owner_pos.x - pos.x, .y = owner_pos.y - pos.y, .z = owner_pos.z - pos.z, .w = owner_pos.w - pos.w};
-            core::at(entity_->basis_frame().row, 2).make_unit();
+            core::at(entity()->basis_frame().row, 2).make_unit();
             const maths::Vec4 up = core::at(target->display_matrix().row, 1);
-            object = entity_;
+            object = entity();
             core::at(object->basis_frame().row, 0) = maths::cross_vec(core::at(object->basis_frame().row, 2), up);
-            object = entity_;
+            object = entity();
             core::at(object->basis_frame().row, 1) = maths::cross_vec(core::at(object->basis_frame().row, 2), core::at(object->basis_frame().row, 0));
-            entity_->display_matrix() = entity_->basis_frame();
+            entity()->display_matrix() = entity()->basis_frame();
         }
     } else {
         // At the target (or its model): its orientation, and the offset turned by it.
@@ -146,15 +146,15 @@ void PinnedObjectModule::update_lock()
             compose_object_transform(model, &frame);
             pos = shift_ * frame;
             core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-            entity_->basis_frame() = frame;
+            entity()->basis_frame() = frame;
         } else {
-            entity_->basis_frame() = target->display_matrix();
-            const maths::Vec4 turned = shift_ * entity_->basis_frame();
+            entity()->basis_frame() = target->display_matrix();
+            const maths::Vec4 turned = shift_ * entity()->basis_frame();
             pos = {.x = turned.x + target->at_point().x, .y = target->at_point().y + turned.y, .z = target->at_point().z + turned.z,
                    .w = target->at_point().w + turned.w};
         }
     }
-    GameEntity* object = entity_;
+    GameEntity* object = entity();
     if (lock_flags_ & kLockFlagLag) {
         // Part of the way there (the roundings where the original stores).
         const float lag = lag_;
@@ -182,10 +182,10 @@ void PinnedObjectModule::update_lock()
     } else {
         object->at_point() = {.x = extra.x + pos.x, .y = extra.y + pos.y, .z = extra.z + pos.z, .w = extra.w + pos.w};
     }
-    entity_->vel() = target->vel();
+    entity()->vel() = target->vel();
     if (lock_flags_ & kLockFlagAngles)
-        matrix_multiply(&entity_->basis_frame(), &entity_->basis_frame(), &orientation_turn_);
-    entity_->display_matrix() = entity_->basis_frame();
+        matrix_multiply(&entity()->basis_frame(), &entity()->basis_frame(), &orientation_turn_);
+    entity()->display_matrix() = entity()->basis_frame();
 }
 
 } // namespace objects

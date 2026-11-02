@@ -98,21 +98,21 @@ bool add_copy_node(script::Struct* node)
         return false;
     const uint32_t name = copy_nodes_name();
     int index = -1;
-    for (uint32_t i = 0; i < manager->num_; ++i) {
-        if (core::at(manager->arrays_, i).label_ == name)
+    for (uint32_t i = 0; i < manager->num(); ++i) {
+        if (core::at(manager->arrays(), i).label_ == name)
             index = static_cast<int>(i);
     }
     if (index < 0) {
-        if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays))
+        if (manager->num() >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays))
             return false;
         gsl::owner<script::Array*> made = script::new_array(); // (the node manager's, below)
         level_editor_objects_state().copy_nodes_ = made;
         level_editor_objects_state().copy_node_list_.clear();
-        index = static_cast<int>(manager->num_);
-        core::at(manager->arrays_, index).label_ = name;
-        core::at(manager->arrays_, index).node_entries_ = level_editor_objects_state().copy_nodes_;
-        core::at(manager->arrays_, index).flag_ = false;
-        ++manager->num_;
+        index = static_cast<int>(manager->num());
+        core::at(manager->arrays(), index).label_ = name;
+        core::at(manager->arrays(), index).node_entries_ = level_editor_objects_state().copy_nodes_;
+        core::at(manager->arrays(), index).flag_ = false;
+        ++manager->num();
     }
     level_editor_objects_state().copy_node_list_.push_back(node);
     auto count = static_cast<uint32_t>(level_editor_objects_state().copy_node_list_.size());
@@ -584,11 +584,11 @@ std::vector<TableRow> copyable()
     if (!manager)
         return entries;
     static const uint32_t kModel = checksums::hash_from_text("model");
-    for (uint32_t a = 0; a < manager->num_ && a < level_nodes::NodeManager::kMaxArrays; ++a) {
-        script::Array* nodes = core::at(manager->arrays_, a).node_entries_;
-        if (!nodes || nodes->kind_tag_ != script::kQbvalStruct)
+    for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
+        script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
+        if (!nodes || nodes->kind_tag() != script::kQbvalStruct)
             continue;
-        for (uint32_t i = 0; i < nodes->extent_; ++i) {
+        for (uint32_t i = 0; i < nodes->extent(); ++i) {
             auto* node = nodes->struct_at(i);
             const uint32_t cls = node_class_hash(node);
             uint32_t name = 0;

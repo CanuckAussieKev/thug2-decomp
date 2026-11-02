@@ -64,7 +64,7 @@ gsl::owner<ObjectModule*> ImpactDestructModule::fabricate() { return new ImpactD
 // 0x0041C210
 ImpactDestructModule::ImpactDestructModule()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     made_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset());
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
@@ -85,7 +85,7 @@ void ImpactDestructModule::configure_from_data(script::Struct* params)
 }
 
 // 0x0041C330
-void ImpactDestructModule::seal() { suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(kSuspend)); }
+void ImpactDestructModule::seal() { suspend_ = core::down_cast<DormancyModule>(entity()->fetch_module(kSuspend)); }
 
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
@@ -95,13 +95,13 @@ void ImpactDestructModule::tick_frame()
     const int offset = clock_offset();
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
         kLifetime) {
-        get_kill(entity_);
+        get_kill(entity());
     } else if (fading_out_) {
         if (ints::as_unsigned(frame_clock::game_clock_elapsed() + offset) > death_time_)
-            get_kill(entity_);
+            get_kill(entity());
     } else {
         render::ProbeRay feeler;
-        const GameEntity* object = entity_;
+        const GameEntity* object = entity();
         maths::Vec4 direction = object->vel();
         direction.make_unit();
         // From where it was (24 up)...
@@ -120,7 +120,7 @@ void ImpactDestructModule::tick_frame()
         feeler.change_origin(&start);
         feeler.change_finish(&end);
         if (feeler.get_hit_shape(true, false) && !fading_out_) {
-            if (ObjectModule* projectile = entity_->fetch_module(kProjectileCollision))
+            if (ObjectModule* projectile = entity()->fetch_module(kProjectileCollision))
                 projectile_hit(projectile);
             fading_out_ = true;
             death_time_ =
@@ -141,7 +141,7 @@ void ImpactDestructModule::tick_frame()
             }
         }
     } // (the feeler's destructor lets go of the object it hit)
-    last_pos_ = entity_->at_point();
+    last_pos_ = entity()->at_point();
     first_update_ = false;
 }
 

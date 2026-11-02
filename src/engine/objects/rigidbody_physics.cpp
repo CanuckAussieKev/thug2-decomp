@@ -307,7 +307,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
         if (callback_params_ptr_)
             params->merge_structure(callback_params_ptr_); // (out of memory: through null, as the original)
         params->put_vec3(0x43F454D0, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
-        entity_->spawn_script(bounce_script_, params, 0, false)->tick_frame();
+        entity()->spawn_script(bounce_script_, params, 0, false)->tick_frame();
         if (params) {
             params->get_clear();
             script::delete_struct(params);
@@ -372,7 +372,7 @@ void BodyDynamicsModule::resolve_contacts()
         if (++round == kMaxRounds) {
             // Stuck: the script, or no velocity at all.
             if (script_d0_) {
-                entity_->spawn_script(script_d0_, callback_params_ptr_, 0, false)->tick_frame();
+                entity()->spawn_script(script_d0_, callback_params_ptr_, 0, false)->tick_frame();
                 return;
             }
             vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -537,12 +537,12 @@ void BodyDynamicsModule::tick_frame()
         feel_pushers();
     if (die_timer_ >= kZero) {
         if (die_timer_ <= frame)
-            flag_as_dead(entity_);
+            flag_as_dead(entity());
         else
             die_timer_ = get_sub(die_timer_, frame);
     }
     if (cur_phase_ == kStateAsleep) {
-        entity_->display_matrix() = basis_frame_;
+        entity()->display_matrix() = basis_frame_;
         return;
     }
 
@@ -597,11 +597,11 @@ void BodyDynamicsModule::tick_frame()
 
     maths::Vec4 offset{};
     basis_frame_.rotate_vector(offset, model_offset_);
-    entity_->at_point() = {.x = append_one(at_point_.x, offset.x), .y = append_one(at_point_.y, offset.y),
+    entity()->at_point() = {.x = append_one(at_point_.x, offset.x), .y = append_one(at_point_.y, offset.y),
                           .z = append_one(at_point_.z, offset.z), .w = append_one(at_point_.w, offset.w)};
-    entity_->basis_frame() = basis_frame_;
-    entity_->display_matrix() = basis_frame_;
-    entity_->vel() = vel_;
+    entity()->basis_frame() = basis_frame_;
+    entity()->display_matrix() = basis_frame_;
+    entity()->vel() = vel_;
     if (objects_shared().draw_shape())
         debug_draw();
 }

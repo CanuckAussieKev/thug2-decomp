@@ -151,7 +151,7 @@ constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(core::at(kPo
 
 bool pool_use(memory::PoolPair& pools, int* used, int* count)
 {
-    const memory::SlabBank* pool = pools.current == 0 || pools.current == 1 ? core::at(pools.pools, pools.current) : nullptr;
+    const memory::SlabBank* pool = pools.current() == 0 || pools.current() == 1 ? core::at(pools.pools(), pools.current()) : nullptr;
     if (!pool)
         return false;
     *used = pool->taken_count();
@@ -165,7 +165,7 @@ bool region_use(memory::Zone* region, double* size, double* used)
     if (!region)
         return false;
     double free = region->free_byte_count();
-    for (const memory::MemSource* allocator : region->allocators_) {
+    for (const memory::MemSource* allocator : region->allocators()) {
         if (allocator)
             free += allocator->free_size();
     }
@@ -265,7 +265,7 @@ std::vector<Meter> get_meters()
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
     if (const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get())
-        count("Node arrays", manager->num_, level_nodes::NodeManager::kMaxArrays, 0,
+        count("Node arrays", manager->num(), level_nodes::NodeManager::kMaxArrays, 0,
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
     count("Editor trigger volumes", static_cast<double>(triggers::added_triggers().size()), 0,
           static_cast<double>(triggers::added_triggers().size()), "the movable collision list (no fixed limit)");

@@ -67,7 +67,7 @@ constexpr uint32_t kBoneVolumesOn = 0x74FF5CB4; // (a script global integer: bon
 constexpr uint32_t kBoneVolumeHeap = 0xA432DC41;
 
 // A skeleton component's skeleton (0x005480F0: its +0x18), a skeleton's name (0x004A2BA0: its +0x14) and data (+0x08).
-gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
+gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig(); }
 
 // Nx (not rewritten yet): a new model (0x0048BFA0) and its deletion (0x0048C3C0); the model's geoms cleared
 // (0x00494BA0), counted (0x00492E40), by index (0x00494640) and name (0x00493CD0), their names (0x00494680), one added
@@ -110,7 +110,7 @@ gsl::owner<ObjectModule*> MeshInstanceModule::fabricate() { return new MeshInsta
 // 0x00420BF0
 MeshInstanceModule::MeshInstanceModule()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     mesh_instance_ = memory::take_unique<render::RenderModel>(spawn_render_model(1));
     pivot_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -132,9 +132,9 @@ MeshInstanceModule::~MeshInstanceModule() { memory::destroy_then_clear(mesh_inst
 // 0x004204B0
 void MeshInstanceModule::seal()
 {
-    bone_rig_ = entity_->fetch_module(kSkeleton);
-    anim_blender_ptr_ = entity_->fetch_module(kAnimBlender);
-    suspend_ = entity_->fetch_module(kSuspend);
+    bone_rig_ = entity()->fetch_module(kSkeleton);
+    anim_blender_ptr_ = entity()->fetch_module(kAnimBlender);
+    suspend_ = entity()->fetch_module(kSuspend);
 }
 
 // 0x004214F0
@@ -144,7 +144,7 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
         if (!model_lights(mesh_instance_.get())) {
             mesh_instance_->create_lights();
             render::ModelLights* lights = model_lights(mesh_instance_.get());
-            lights->bind_position_source(&entity_->at_point());
+            lights->bind_position_source(&entity()->at_point());
             int count = 1;
             params->fetch_int_value(kMaxSceneLights, &count, 0);
             lights->set_dynamic_radius(static_cast<uint32_t>(count)); // (0x00407700)
@@ -152,7 +152,7 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
     } else if (model_lights(mesh_instance_.get())) {
         mesh_instance_->destroy_lights();
     }
-    if (ObjectModule* skeleton = entity_->fetch_module(kSkeleton))
+    if (ObjectModule* skeleton = entity()->fetch_module(kSkeleton))
         mesh_instance_->choose_rig(skeleton_of(skeleton));
     int shadow = 0;
     params->fetch_int_value(kShadowVolume, &shadow, 0);
@@ -166,7 +166,7 @@ void MeshInstanceModule::tick_frame()
     maths::Mat4 matrix{};
     if (level_object_) {
         // A level object: its sector's model follows.
-        GameEntity* object = entity_;
+        GameEntity* object = entity();
         auto* source = core::down_cast<GameEntity>(find_object(linked_entity_label_));
         render::RenderModel* model = core::down_cast<MeshInstanceModule>(source->fetch_module(kModel))->mesh_instance_.get();
         ObjectModule* skeleton = object->fetch_module(kSkeleton);
@@ -200,7 +200,7 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
     // (the model it had isn't deleted: the caller has it - the model swap hands it to the other component)
     memory::let_go(mesh_instance_);
     mesh_instance_.reset(model);
-    if (entity_->composite_flags() & kCompositeFlagFinalized) {
+    if (entity()->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
             update_lights_brightness(model_lights(mesh_instance_.get()));
@@ -215,12 +215,12 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
 {
     render::RenderModel* model = mesh_instance_.get();
     gfx::Rig* skeleton = nullptr;
-    if (ObjectModule* component = entity_->fetch_module(kSkeleton))
+    if (ObjectModule* component = entity()->fetch_module(kSkeleton))
         skeleton = skeleton_of(component);
     gfx::ModelAssembler builder(via_resource_store, tex_dict_offset); // (destroyed at the end)
     builder.get_build(static_cast<gfx::ModelLook*>(profile), model, skeleton,
                       build_script ? build_script : kDefaultBuildScript);
-    if (entity_->composite_flags() & kCompositeFlagFinalized) {
+    if (entity()->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
             update_lights_brightness(model_lights(mesh_instance_.get()));
@@ -250,7 +250,7 @@ void MeshInstanceModule::init_from_sector(uint32_t name)
 void MeshInstanceModule::init_bone_volumes()
 {
     if (!bone_rig_) {
-        bone_rig_ = entity_->fetch_module(kSkeleton);
+        bone_rig_ = entity()->fetch_module(kSkeleton);
         if (!bone_rig_)
             return;
     }
@@ -263,7 +263,7 @@ void MeshInstanceModule::init_bone_volumes()
     // (the volumes are shared by skeletons of the same bone count)
     gfx::BoneVolumes* volumes = gfx::find_bone_volumes(static_cast<uint32_t>(skeleton->bone_total()));
     if (volumes) {
-        ++volumes->users_; // (another user)
+        ++volumes->users(); // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
         gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(0x0C));
@@ -321,7 +321,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                 activate_geom(clone);
                 add_geom(mesh_instance_.get(), clone, mesh_label);
             } else if (params->fetch_list(kGeoms, &geoms, 0)) {
-                for (uint32_t i = 0; i < geoms->extent_; ++i) {
+                for (uint32_t i = 0; i < geoms->extent(); ++i) {
                     mesh_label = geoms->fetch_part(i);
                     if (!mesh_label)
                         continue;
@@ -365,7 +365,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             }
         }
     }
-    if (entity_->composite_flags() & kCompositeFlagFinalized) {
+    if (entity()->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
             update_lights_brightness(model_lights(mesh_instance_.get()));

@@ -234,7 +234,7 @@ void RiderChaseView::save_state(WalkCameraState* state)
 // 0x004FA4B0
 RiderChaseView::RiderChaseView()
 {
-    kind_tag_ = kSkaterCamera;
+    set_kind_tag(kSkaterCamera);
     if (!memory::manager_ready_flag())
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(0x98, 1, nullptr);
@@ -256,7 +256,7 @@ RiderChaseView::RiderChaseView()
 // 0x004FA5C0
 void RiderChaseView::configure_from_data(script::Struct* params)
 {
-    maths::Mat4& matrix = entity_->basis_frame();
+    maths::Mat4& matrix = entity()->basis_frame();
     core::at(matrix.row, 0) = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
     core::at(matrix.row, 1) = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
     core::at(matrix.row, 2) = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
@@ -319,12 +319,12 @@ RiderStateReset::~RiderStateReset() = default;
 void RiderStateReset::configure_from_data(script::Struct*) { state_ref_ = nullptr; }
 
 // 0x004FBDE0
-void RiderStateReset::seal() { state_ref_ = entity_->fetch_module(kSkaterState); }
+void RiderStateReset::seal() { state_ref_ = entity()->fetch_module(kSkaterState); }
 
 // 0x004FBE00
 void RiderStateReset::tick_frame()
 {
-    GameEntity* skater = entity_;
+    GameEntity* skater = entity();
     core::down_cast<Rider>(skater)->update_shadow_light(); // (the original passed the position and matrix: not read)
 }
 
@@ -332,7 +332,7 @@ void RiderStateReset::tick_frame()
 gsl::owner<ObjectModule*> RiderStateReset::fabricate() { return new RiderStateReset; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderStateReset::RiderStateReset() { kind_tag_ = kCleanupState; }
+RiderStateReset::RiderStateReset() { set_kind_tag(kCleanupState); }
 
 } // namespace objects
 

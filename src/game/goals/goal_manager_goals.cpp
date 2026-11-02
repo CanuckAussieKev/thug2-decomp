@@ -120,7 +120,7 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
     script::Struct* own = goal->fetch_args();
     script::Array* children = nullptr;
     if (own->fetch_list(kChildren, &children, 0)) {
-        const int count = static_cast<int>(children->extent_);
+        const int count = static_cast<int>(children->extent());
         for (int i = 0; i < count; ++i) {
             children->fetch_part(i); // (read twice, as the original)
             goal->attach_child(children->fetch_part(i));
@@ -167,7 +167,7 @@ void GoalManager::level_unload()
     own->put_sub_struct(kSkillTiers, args_);
     goal_data_->put_sub_struct(kGoalManagerParams, own.get());
     own.reset();
-    for (int i = 0; i < goals_.num_; ++i) {
+    for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->fetch_args()->has_bare_flag(kNullGoal) || goal->is_user_made_objective())
             continue;
@@ -200,7 +200,7 @@ int GoalManager::count_cleared_in_stage(int level, int)
 // 0x0055C2F0
 void GoalManager::append_objective_options(bool selected_only, bool skip_edited, bool edited_only)
 {
-    for (int i = 0; i < goals_.num_; ++i) {
+    for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
         goal->swap_move_caption();
         const char* text = nullptr;
@@ -233,7 +233,7 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
     params->fetch_list(kButtonSequences, &key_combos, 1);
     script::ArrayPtr key_texts = script::make_array();
     script::ArrayPtr trick_texts = script::make_array();
-    const uint32_t count = key_combos->extent_;
+    const uint32_t count = key_combos->extent();
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
     int premade = -1; // (the created trick's number, with create_a_trick)
@@ -252,7 +252,7 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
 // 0x0055C6E0
 gsl::owner<script::Struct*> GoalManager::get_objective_try_details()
 {
-    const int count = goals_.num_; // (read once)
+    const int count = goals_.num(); // (read once)
     gsl::owner<script::Struct*> info = script::new_struct();
     int attempts = 0;
     for (int i = 0; i < count; ++i) {

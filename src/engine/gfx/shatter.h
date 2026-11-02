@@ -31,8 +31,8 @@ public:
     Shatter& operator=(const Shatter&) = delete;
 
     // The fields other code reads and sets.
-    [[nodiscard]] float lifetime_value() const { return lifetime; }
-    void set_lifetime(float value) { lifetime = value; }
+    [[nodiscard]] float lifetime() const { return lifetime_; }
+    void set_lifetime(float value) { lifetime_ = value; }
     [[nodiscard]] uint16_t triangle_count() const { return triangle_count_; }
 
 private:
@@ -40,7 +40,7 @@ private:
     maths::Vec4* velocities; // +0x08
     uint32_t unknown0c_{};
     maths::Mat4* rotations;   // +0x10
-    float lifetime;           // +0x14: seconds left
+    float lifetime_;           // +0x14: seconds left
     float gravity{128.0f};    // +0x18 (128)
     float floor;              // +0x1C: the height the triangles bounce at
     float bounce;             // +0x20: the speed kept in a bounce
@@ -80,15 +80,24 @@ public:
     // engine's.
     ~PcShatter() override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] MeshRef* mesh() const { return mesh_; }
+    [[nodiscard]] uint8_t* vertices() const { return vertices_; }
+
+private:
     float* positions;       // +0x2C: three floats per triangle
     MaterialRef* material;  // +0x30: a material of its own when asked for
     uint32_t own_material_; // +0x34
-    MeshRef* mesh;          // +0x38: what it was made from (its material, vertex size and format)
-    uint8_t* vertices;      // +0x3C: three per triangle
+    MeshRef* mesh_;          // +0x38: what it was made from (its material, vertex size and format)
+    uint8_t* vertices_;      // +0x3C: three per triangle
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcShatter, positions) == 0x2C && offsetof(PcShatter, vertices_) == 0x3C &&
+                          sizeof(PcShatter) == 0x40,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcShatter, positions) == 0x2C && offsetof(PcShatter, vertices) == 0x3C &&
-                  sizeof(PcShatter) == 0x40,
-              "layout must match the original");
 
 // 0x004B80B0: a shatter's triangles drawn with its mesh's material, shader and format (counted in the frame's
 // draw counts).

@@ -66,10 +66,10 @@ void copy_string(std::span<char> to, const char* from)
 template <typename Body>
 void for_each_sector(lists::KeyMap* table, Body body)
 {
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
     while (table->step_iterator()) {
-        const lists::KeyMap::Item* item = table->iter_item_;
+        const lists::KeyMap::Item* item = table->iter_item();
         if (!item || !item->value)
             break;
         body(item->value);
@@ -130,7 +130,7 @@ int make_collision_file_name(char* out, const char* level)
 WorldCell* WorldScene::look_up_sector(uint32_t name)
 {
     const lists::KeyMap* table = sectors_;
-    const lists::KeyMap::Item* item = &core::at(table->bucket_run(), name & ((1u << table->bits_) - 1));
+    const lists::KeyMap::Item* item = &core::at(table->bucket_run(), name & ((1u << table->bits()) - 1));
     for (; item; item = item->next) {
         if (item->key == name && item->value)
             return static_cast<WorldCell*>(item->value);

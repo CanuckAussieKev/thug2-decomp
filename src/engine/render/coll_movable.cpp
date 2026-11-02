@@ -69,7 +69,7 @@ maths::Mat4* HitMovingMesh::fetch_facing() { return &orientation_; }
 // 0x00412230
 maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
 {
-    maths::Vec4 raw = geometry_->read_stored_vertex(index);
+    maths::Vec4 raw = geometry()->read_stored_vertex(index);
     raw.w = 0.0f;
     maths::Vec4 turned{};
     orientation_.rotate_vector(turned, raw);
@@ -138,9 +138,9 @@ HitMovingBox::HitMovingBox(const HitMovingBox& other)
 // 0x00412600
 void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
 {
-    geometry_ = geometry;
+    set_geometry(geometry);
     if (geometry)
-        checksum_ = geometry->checksum();
+        assign_checksum(geometry->checksum());
     box_.min = geometry->bounds().min;
     box_.max = geometry->bounds().max;
 }
@@ -155,16 +155,16 @@ uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_typ
 gsl::owner<HitMovingBox*> HitMovingBox::replicate(int)
 {
     auto copy = memory::make_owned<HitMovingBox>(*this);
-    copy->flag_bits_ |= 0x8000;
-    copy->geometry_ = nullptr;
+    copy->flag_bits() |= 0x8000;
+    copy->set_geometry(nullptr);
     return copy;
 }
 
 // 0x004126E0
 void HitMovingBox::draw_diagnostic(int /*a*/, int /*b*/)
 {
-    maths::Mat4 transform = orientation_;
-    core::at(transform.row, 3) = anchor_point_;
+    maths::Mat4 transform = orientation();
+    core::at(transform.row, 3) = anchor_point();
     draw_box(&box_, &transform, 0x80808080, 1);
 }
 
@@ -234,7 +234,7 @@ maths::Vec4* CollScaled::get_absolute_point() { return &core::at(basis_frame_.ro
 // 0x004109D0
 maths::Vec4 CollScaled::read_vertex_point(int index) const
 {
-    const maths::Vec4 raw = geometry_->read_stored_vertex(index);
+    const maths::Vec4 raw = geometry()->read_stored_vertex(index);
     const maths::Vec4 scaled{.x = raw.x * size_factor_.x, .y = raw.y * size_factor_.y, .z = raw.z * size_factor_.z, .w = size_factor_.w};
     maths::Vec4 out{};
     basis_frame_.xform(out, scaled);

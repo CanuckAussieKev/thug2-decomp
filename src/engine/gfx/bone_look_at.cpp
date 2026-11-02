@@ -166,7 +166,7 @@ maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q)
 // 0x00488300
 BoneLookAt::BoneLookAt(AnimTimeline* owner, void* object) : AnimDriver(owner)
 {
-    owner_object_ = owner ? fetch_subject() : static_cast<objects::GameEntity*>(object);
+    set_owner_object(owner ? fetch_subject() : static_cast<objects::GameEntity*>(object));
     for (Bone& bone : bones_) {
         bone.active_ = false;
         bone.clamp_ = true;
@@ -203,10 +203,10 @@ void BoneLookAt::tick_frame()
 bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
 {
     tick_frame();
-    objects::GameEntity* object = owner_object_;
+    objects::GameEntity* object = owner_object();
     objects::ObjectModule* component = object->fetch_module(kSkeletonModuleName);
     auto* skeleton =
-        component ? (core::down_cast<objects::BoneRigModule>(component)->bone_rig_) : nullptr;
+        component ? (core::down_cast<objects::BoneRigModule>(component)->bone_rig()) : nullptr;
     for (Bone& bone : bones_) {
         if (bone.bone_ == kNoBone)
             continue;

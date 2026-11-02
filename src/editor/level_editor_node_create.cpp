@@ -696,7 +696,7 @@ bool get_sync()
         symbol->type = script::kQbvalArray;
         symbol->value.set_array(level_editor_node_create_state().array_);
     }
-    if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
+    if (manager->num() >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
         get_log("level editor: the node manager's 20 node arrays are in use - added nodes not registered");
         return false;
     }
@@ -795,7 +795,7 @@ void get_forget()
 bool in_level()
 {
     const level_nodes::NodeManager* manager = hub();
-    return manager && manager->num_ > (level_editor_node_create_state().registered_ ? 1u : 0u) && render::current_level() != 0;
+    return manager && manager->num() > (level_editor_node_create_state().registered_ ? 1u : 0u) && render::current_level() != 0;
 }
 
 } // namespace

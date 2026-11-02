@@ -31,10 +31,21 @@ uint32_t heap_offset(const void* place);
 
 // In front of every block: the allocator that owns it, its size, and a marker.
 struct ChunkPrefix {
-    MemSource* allocator;
-    uint32_t size;
-    uint32_t marker; // kBlockInUse, or kBlockFreed once released
+    // The fields other code reads and sets.
+    [[nodiscard]] MemSource* allocator() const { return allocator_; }
+    void set_allocator(MemSource* value) { allocator_ = value; }
+    uint32_t& size() { return size_; }
+    [[nodiscard]] uint32_t size() const { return size_; }
+    [[nodiscard]] uint32_t marker() const { return marker_; }
+    void set_marker(uint32_t value) { marker_ = value; }
+
+private:
+    MemSource* allocator_;
+    uint32_t size_;
+    uint32_t marker_; // kBlockInUse, or kBlockFreed once released
     ChunkPrefix* next_free_; // while the block is on a heap's free list: the next free block (the original kept
+
+public:
                              // the link in `allocator`; the fourth word was unused)
 
     static constexpr uint32_t kBlockInUse = 0xCF801FE1;
@@ -48,7 +59,7 @@ struct ChunkPrefix {
     // block sizes are multiples of the header's 16 bytes).
     [[nodiscard]] uint32_t offset() const { return heap_offset(this); }
     [[nodiscard]] uint32_t block_offset() const;
-    [[nodiscard]] uint32_t end_offset() const { return block_offset() + size; }
+    [[nodiscard]] uint32_t end_offset() const { return block_offset() + size_; }
     // The block itself.
     void* gate_off();
     // Whether `other` is the header right after this block.
@@ -96,6 +107,15 @@ public:
     [[nodiscard]] uint32_t byte_size() const { return static_cast<uint32_t>(memory_.size()); }
     [[nodiscard]] uint32_t offset_of(const void* place) const;
 
+    // The fields other code reads and sets.
+    std::span<uint8_t>& memory() { return memory_; }
+    [[nodiscard]] const std::span<uint8_t>& memory() const { return memory_; }
+    [[nodiscard]] int min_available() const { return min_available_; }
+    void set_min_available(int value) { min_available_ = value; }
+    std::array<MemSource*, 2>& allocators() { return allocators_; }
+    [[nodiscard]] const std::array<MemSource*, 2>& allocators() const { return allocators_; }
+
+private:
     std::span<uint8_t> memory_; // the region's bytes (the original's start and end pointers)
     int min_available_{}; // the least free_byte_count has been (starts as the whole region)
     std::array<MemSource*, 2> allocators_{}; // growing up, growing down
@@ -124,10 +144,23 @@ struct ListNode {
     // not just the marker, is what they compare).
     static void* head_marker() noexcept { return platform::all_ones_pointer(); }
 
-    void* data;
-    int priority;
-    ListNode* next;
-    ListNode* prev;
+    // The fields other code reads and sets.
+    [[nodiscard]] void* data() const { return data_; }
+    void set_data(void* value) { data_ = value; }
+    [[nodiscard]] int priority() const { return priority_; }
+    void set_priority(int value) { priority_ = value; }
+    [[nodiscard]] ListNode* next() const { return next_; }
+    void set_next(ListNode* value) { next_ = value; }
+    [[nodiscard]] ListNode* prev() const { return prev_; }
+    void set_prev(ListNode* value) { prev_ = value; }
+
+private:
+    void* data_;
+    int priority_;
+    ListNode* next_;
+    ListNode* prev_;
+
+public:
 
     // 0x005BA0E0 (and the other node types' destructors, 0x005BC990 / 0x005BCD30...): out of its list, linked to
     // itself.
@@ -137,7 +170,7 @@ struct ListNode {
     // A node for `item`, linked to itself.
     void make_node(void* item, int item_priority = 0);
     // Whether this is a list's head.
-    [[nodiscard]] bool is_head() const { return data == head_marker(); }
+    [[nodiscard]] bool is_head() const { return data_ == head_marker(); }
 
     // A node of its own (zeroed from the current heap, then made for `item`; null without memory) and its deleting
     // destructor (out of its list, freed; null-safe).
@@ -247,6 +280,11 @@ public:
     void* trim_block_end(uint32_t new_size, void* block) override;
     void dealloc(ChunkPrefix* header) override;
 
+    // The fields other code reads and sets.
+    void set_unknown64(bool value) { unknown64_ = value; }
+    void set_unknown68(int value) { unknown68_ = value; }
+
+private:
     bool unknown64_{false};
     int unknown68_{-1};
     int use_fallbacks_{0};

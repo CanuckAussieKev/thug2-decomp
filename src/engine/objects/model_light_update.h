@@ -52,6 +52,7 @@ public:
     // `lerp`) and kept; nothing hit: nothing.
     void get_sample(bool lerp, float rate);
 
+private:
     uint32_t light_flags_{0};             // +0x18 MODEL_LIGHT_*
     uint32_t gap_time_{0};                // +0x1C 0x470B8AE9 (frames)
     uint32_t counter_{0};                 // +0x20

@@ -107,12 +107,12 @@ void MoveExecutor::publish_method_table()
 // 0x0051F2B0
 void MoveExecutor::seal()
 {
-    input_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
-    balance_trick_ = core::down_cast<RiderTeeterMoves>(entity_->fetch_module(kSkaterBalanceTrick));
-    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    flip_rotate_ = core::down_cast<RiderSpinAndFlip>(entity_->fetch_module(kSkaterFlipAndRotate));
-    skater_state_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
-    stats_manager_ = core::down_cast<AttributeTracker>(entity_->fetch_module(kStatsManager));
+    input_ = core::down_cast<PadInputModule>(entity()->fetch_module(kInput));
+    balance_trick_ = core::down_cast<RiderTeeterMoves>(entity()->fetch_module(kSkaterBalanceTrick));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    flip_rotate_ = core::down_cast<RiderSpinAndFlip>(entity()->fetch_module(kSkaterFlipAndRotate));
+    skater_state_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
+    stats_manager_ = core::down_cast<AttributeTracker>(entity()->fetch_module(kStatsManager));
 }
 
 // 0x0051F320
@@ -1088,7 +1088,7 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
     script::Array* tricks = script::fetch_list(list);
     if (!tricks)
         return;
-    const int count = static_cast<int>(tricks->extent_);
+    const int count = static_cast<int>(tricks->extent());
     const uint32_t mask = ~used & 0xFFFFFFFB;
     for (int i = 0; i < count; ++i) {
         auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
@@ -1117,7 +1117,7 @@ void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
     script::Array* tricks = script::fetch_list(list);
     if (!tricks)
         return;
-    const int count = static_cast<int>(tricks->extent_);
+    const int count = static_cast<int>(tricks->extent());
     for (int i = 0; i < count; ++i) {
         auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
         if (!is_trick_entry(trick))

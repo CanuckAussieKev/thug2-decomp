@@ -55,7 +55,7 @@ void change_phase(skater::SkaterPhysicsModule* core, int state) { core->set_phys
 void RiderPhysicsTweaks::keep_above_ground()
 {
     skater::SkaterPhysicsModule* core = core_ptr_;
-    GameEntity* object = entity_;
+    GameEntity* object = entity();
     uber_frigged_ = 0;
     maths::Vec4& position = object->at_point();
     const maths::Vec4& frame_start = core->safe_pos();
@@ -87,7 +87,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame
         // began (a little off it each try), going the other way; out of the air states, into the air.
         int state = state_of(core);
-        if (!((state == 4 || state == 3) && park_editor->cur_phase() == kParkEditorTestPlay)) {
+        if (!((state == 4 || state == 3) && park_editor->editor_state() == kParkEditorTestPlay)) {
             uber_frigged_ = 1;
             if (uber_frig_tries_ < 5) {
                 const auto& offset = core::at(kUberFrigOffsets, uber_frig_tries_++);
@@ -110,8 +110,8 @@ void RiderPhysicsTweaks::keep_above_ground()
     // Ground. Standing on a moving object (the skater on the ground or in the air, not skitching (+0x88) nor
     // wallriding (+0x78)) that isn't what the feeler hit: off it, with its velocity.
     objects::RiderPoseState* flags = core->state();
-    if (!flags->flag(PoseFlag::kSkitching).on && !flags->flag(PoseFlag::kAcidDrop).on && ride_->ride_) {
-        const RideTracker* ride = ride_->ride_.get();
+    if (!flags->flag(PoseFlag::kSkitching).on && !flags->flag(PoseFlag::kAcidDrop).on && ride_->ride()) {
+        const RideTracker* ride = ride_->ride().get();
         bool leave = true;
         if (ride->entity_.get_pull()) {
             const int state = flags->cur_phase();
@@ -123,7 +123,7 @@ void RiderPhysicsTweaks::keep_above_ground()
                 leave = false;
             }
             if (leave)
-                object->vel() += ride_->ride_->entity_.get_pull()->vel();
+                object->vel() += ride_->ride()->entity_.get_pull()->vel();
         }
         if (leave)
             ride_->stop_riding();
@@ -141,7 +141,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (state_of(core) != 4)
         get_update_brightness(&core->feeler());
 
-    if (park_editor->cur_phase() != kParkEditorTestPlay) {
+    if (park_editor->editor_state() != kParkEditorTestPlay) {
         // Under the floor: a feeler from far above down to a unit over the skater (faces flagged 0x800 - "under ok" -
         // passed over) hits a floor. Within 6 of it: onto it. Further, moved this frame: back where the frame began
         // at half the speed the other way (a lip: out of it, into the air, 2 up); hardly moved: onto it.

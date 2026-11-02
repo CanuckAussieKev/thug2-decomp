@@ -40,7 +40,7 @@ constexpr float kLerpRate = 0.02f;    // 0x3CA3D70A
 gsl::owner<ObjectModule*> MeshLightingModule::fabricate() { return new MeshLightingModule; }
 
 // (the constructor: inlined in fabricate in the original)
-MeshLightingModule::MeshLightingModule() { kind_tag_ = kType; }
+MeshLightingModule::MeshLightingModule() { set_kind_tag(kType); }
 
 // 0x00422D00 (0x00422D10 the deleting one)
 MeshLightingModule::~MeshLightingModule() = default;
@@ -63,14 +63,14 @@ void MeshLightingModule::configure_from_data(script::Struct* params)
 }
 
 // 0x00422DA0
-void MeshLightingModule::seal() { mesh_instance_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel)); }
+void MeshLightingModule::seal() { mesh_instance_ = core::down_cast<MeshInstanceModule>(entity()->fetch_module(kModel)); }
 
 // 0x00422E40
 void MeshLightingModule::get_sample(bool lerp, float rate)
 {
     // Down from just above the object (nudged along its up vector).
     render::ProbeRay down;
-    const GameEntity* object = entity_;
+    const GameEntity* object = entity();
     maths::Vec4& start = down.line().start;
     maths::Vec4& end = down.line().end;
     start = object->at_point();

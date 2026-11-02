@@ -86,6 +86,13 @@ public:
     void set_vector(uint32_t index, Vector* value) { set_cell(index, Cell::of(value)); }
     void set_text(uint32_t index, char* value) { set_cell(index, Cell::of_text(value)); }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] QbValueKind kind_tag() const { return kind_tag_; }
+    [[nodiscard]] uint32_t extent() const { return extent_; }
+    Cell& storage() { return storage_; }
+    [[nodiscard]] const Cell& storage() const { return storage_; }
+
+private:
     uint8_t unknown0_{0};
     QbValueKind kind_tag_{kQbvalNone};
     uint16_t unknown2_{};
@@ -349,6 +356,12 @@ public:
     bool fetch_vec(uint32_t name, VectorValue* out, int assert);
     bool fetch_vec(const char* name, VectorValue* out, int assert);
 
+    // The fields other code reads and sets.
+    Component*& head() { return head_; }
+    [[nodiscard]] Component* head() const { return head_; }
+    void set_head(Component* value) { head_ = value; }
+
+private:
     uint8_t unknown0_{};
     uint8_t unknown1_{0};
     uint16_t unknown2_{};

@@ -106,7 +106,7 @@ void get_finish(online::Hub* manager)
 // 0x00545880
 void service_task(tasks::Task<online::Hub>* task)
 {
-    auto* manager = static_cast<online::Hub*>(task->content_);
+    auto* manager = static_cast<online::Hub*>(task->content());
     switch (manager->service_state()) {
     case 0: // waiting
         if (manager->service_wake_at() != 0 && frame_clock::get_time() > manager->service_wake_at())

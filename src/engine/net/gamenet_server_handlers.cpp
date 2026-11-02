@@ -342,12 +342,12 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
         return kKeep;
     }
     // Not a player yet: one of the new players waiting to be added - dropped with its connection.
-    auto* node = manager->joiners().next; // (the new players' list, its first node)
-    if (node->data == memory::ListNode::head_marker())
+    auto* node = manager->joiners().next(); // (the new players' list, its first node)
+    if (node->data() == memory::ListNode::head_marker())
         return kHalt;
     for (; node;) {
-        memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
-        auto* info = static_cast<JoinerRecord*>(node->data);
+        memory::ListNode* next = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
+        auto* info = static_cast<JoinerRecord*>(node->data());
         if (info->conn_ == context->sender_conn_) {
             context->receiver_app_->sever_link(info->conn_);
             memory::ListNode::destroy(node); // the node deleted

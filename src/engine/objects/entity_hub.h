@@ -54,6 +54,15 @@ public:
     // progress has a bit of its own in walking_ and in every object's visited_mask_).
     void for_each(ObjectCallback callback, void* data);
 
+    // The fields other code reads and sets.
+    memory::ListNode& entities() { return entities_; }
+    [[nodiscard]] const memory::ListNode& entities() const { return entities_; }
+    uint32_t& walking() { return walking_; }
+    [[nodiscard]] uint32_t walking() const { return walking_; }
+    uint32_t& restart_walks() { return restart_walks_; }
+    [[nodiscard]] uint32_t restart_walks() const { return restart_walks_; }
+
+private:
     memory::ListNode entities_{}; // +0x04 (lists::Foremost<Entity>)
     uint32_t walking_ = 0;       // +0x18 the bits of the walks in progress
     uint32_t restart_walks_ = 0; // +0x1C set to every bit when the list changes: the walks start again
@@ -77,6 +86,7 @@ public:
     // 0x00461AB0: delete the objects of the dead list (front first; each node unlinked first).
     void flush_dead_objects();
 
+private:
     memory::ListNode dead_objects_{};                  // +0x28
     std::unique_ptr<tasks::Task<MiscHub>> flush_task_; // +0x3C running flush_dead_objects_task
 };

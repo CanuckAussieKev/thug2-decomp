@@ -113,10 +113,10 @@ void RiderChaseView::tick_frame()
     const RiderBoardPhysics* control = control_;
     if (control && control->pose()->in_vehicle()) {
         // Driving: the camera object not updated.
-        entity_->composite_flags() |= 1;
+        entity()->composite_flags() |= 1;
         return;
     }
-    auto* camera_component = entity_->fetch_module(kCamera);
+    auto* camera_component = entity()->fetch_module(kCamera);
     bool instant = false;
     if ((rider_ref_->composite_flags() >> 3) & 1) {
         instant = true;
@@ -128,9 +128,9 @@ void RiderChaseView::tick_frame()
     }
     auto seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     update_lerps();
-    gfx::ViewCam* camera = core::down_cast<ViewpointModule>(camera_component)->view_camera_.get();
+    gfx::ViewCam* camera = core::down_cast<ViewpointModule>(camera_component)->view_camera().get();
     camera->remember_prev_pos();
-    maths::Mat4& view = camera_component->entity_->basis_frame();
+    maths::Mat4& view = camera_component->entity()->basis_frame();
     std::memcpy(&view, orientation_.data(), sizeof(orientation_));
     const float last_facing_z = core::at(view.row, 2).z;
     const float last_facing_y = core::at(view.row, 2).y;
@@ -499,7 +499,7 @@ void RiderChaseView::tick_frame()
     bool avoid = true;
     if (rider_ref_->is_local_skater()) {
         auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
-        if (physics->ride()->ride_ && physics_state == 3)
+        if (physics->ride()->ride() && physics_state == 3)
             avoid = false;
     }
     if (avoid) {
@@ -513,9 +513,9 @@ void RiderChaseView::tick_frame()
         avoid_camera_collisions(&target, &view, &focus, &eye, true, true);
     }
     target.w = 1.0f;
-    camera_component->entity_->at_point() = target;
+    camera_component->entity()->at_point() = target;
     if (instant)
-        core::down_cast<ViewpointModule>(camera_component)->view_camera_->remember_prev_pos();
+        core::down_cast<ViewpointModule>(camera_component)->view_camera()->remember_prev_pos();
 }
 
 } // namespace objects

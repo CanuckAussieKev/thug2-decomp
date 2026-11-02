@@ -482,8 +482,8 @@ int handle_start_game(net::InboundMsgCtx* context)
         if (objects::Entity* skater = player_skater(p)) {
             auto* score = core::down_cast<objects::RiderPointKeeper>(
                 core::down_cast<objects::GameEntity>(skater)->fetch_module(kSkaterScore)); // its score component
-            if (score->points_held_)
-                score->points_held_->get_reset();
+            if (score->points_held())
+                score->points_held()->get_reset();
         }
     }
     if (PlayerRecord* king = is_crown_rule_active(manager))
@@ -491,7 +491,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
     uint32_t checksum = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
-    for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
+    for (int i = 0; i < ints::as_signed(types->extent()); ++i) {
         auto* type = types->struct_at(static_cast<uint32_t>(i));
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != start.game_type)
@@ -581,9 +581,9 @@ int handle_send_game_state(net::InboundMsgCtx* context)
                                       false, true);
         }
         // The scripts spawned so far (the list at +0x144): 0x49 each.
-        auto* node = manager->queued_scripts().next; // (the queued scripts' first node)
-        node = node->data == memory::ListNode::head_marker() ? nullptr : node;
-        for (auto* item = node ? static_cast<PendingScriptItem*>(node->data) : nullptr; item;) {
+        auto* node = manager->queued_scripts().next(); // (the queued scripts' first node)
+        node = node->data() == memory::ListNode::head_marker() ? nullptr : node;
+        for (auto* item = node ? static_cast<PendingScriptItem*>(node->data()) : nullptr; item;) {
             desc = net::NetMessageInfo();
             online::SpawnScript queued; // (not permanent: the joiner runs it once)
             queued.name = item->own_script_;
@@ -598,10 +598,10 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
             desc.group_id_ = kGroupGame;
             server->put_on_outbox(player_handle(player), &desc);
-            node = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
+            node = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
             if (!node)
                 break;
-            item = static_cast<PendingScriptItem*>(node->data);
+            item = static_cast<PendingScriptItem*>(node->data());
         }
         if (!is_own_player(player))
             static_cast<modules::Skate*>(skate)->send_cheats(player);
@@ -619,7 +619,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         static std::array<uint8_t, 0x1000> selected;
         core::at(selected, 0) = 0;
         size_t out = 1;
-        const int count = goals->goals().num_; // (its first word, read by the getter folded at 0x00469490)
+        const int count = goals->goals().num(); // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = goals->get_objective_at(i);
             if (goal->is_picked()) {

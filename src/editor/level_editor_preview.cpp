@@ -112,7 +112,7 @@ void draw_meshes(render::PcGeom* geom)
 {
     const std::span<render::MeshRef*> meshes = geom->mesh_run();
     const uint32_t count = geom->mesh_count();
-    if (!geom->meshes_value())
+    if (!geom->meshes())
         return;
     const render::MaterialRef* current = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
@@ -120,10 +120,10 @@ void draw_meshes(render::PcGeom* geom)
             render::MeshRef* mesh = core::at(meshes, i);
             if (!mesh)
                 continue;
-            const uint32_t flags = mesh->flags_value();
+            const uint32_t flags = mesh->flags();
             if (!(flags & 0x40) || (flags & 0x210))
                 continue;
-            render::MaterialRef* material = mesh->material_value();
+            render::MaterialRef* material = mesh->material();
             const bool transparent = material && (core::at(material->pass_flags(), 0) & 0x40);
             if (transparent != (pass == 1))
                 continue;
@@ -139,7 +139,7 @@ void draw_meshes(render::PcGeom* geom)
 // An object's geometry: through its instance when it has one, else its meshes.
 void draw_geometry(render::PcGeom* geom)
 {
-    if (auto* instance = geom->instance_value())
+    if (auto* instance = geom->instance())
         draw_instance(instance);
     else
         draw_meshes(geom);

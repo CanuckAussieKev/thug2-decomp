@@ -39,11 +39,14 @@ public:
     FallingTricksGoal& operator=(const FallingTricksGoal&) = delete;
     static constexpr int kMaxTricks = 30;
 
+private:
     std::array<StackedTrickEntry, kMaxTricks> tricks_{}; // +0x70
     int trick_total_{};                      // +0x430
     int stopwatch_{};                        // +0x434 ms since the last trick was added
     std::array<bool, kMaxTricks> group_used_{};          // +0x438 the combo groups in use
     std::array<uint8_t, 2> pad456{};
+
+public:
 
     // 0x0056F090: the constructor (Objective's, then the vtable). 0x0056F0B0 / 0x0056F290: the destructor body and the
     // scalar deleting destructor.

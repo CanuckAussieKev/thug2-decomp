@@ -225,7 +225,7 @@ FrontEnd::~FrontEnd()
 bool FrontEnd::pads_plugged_in()
 {
     for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
-        if (handler->dev_->is_attached())
+        if (handler->dev()->is_attached())
             return true;
     }
     return false;
@@ -310,10 +310,10 @@ void FrontEnd::start_callback()
     pad_input::Hub* input = input_manager();
     for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         // The controller's place in the input manager (see update_input_mappings).
-        pad_input::HostEnd& server = core::at(input->hosts_, handler->ordinal_);
+        pad_input::HostEnd& server = core::at(input->hosts_, handler->ordinal());
         append_vertex(server.handlers_, handler.get());
-        handler->control_data_ = &server.content_;
-        handler->dev_ = server.dev_;
+        handler->set_control_data(&server.content_);
+        handler->set_dev(server.dev_);
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -339,7 +339,7 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
     script::Array* mappings = nullptr;
     if (!params->fetch_list("xbox", &mappings, 0))
         return;
-    for (uint32_t i = 0; i < mappings->extent_; ++i) {
+    for (uint32_t i = 0; i < mappings->extent(); ++i) {
         auto* pair = mappings->array_at(i);
         const uint32_t pad_button_label = pair->fetch_part(0);
         const uint32_t event = pair->fetch_part(1);
@@ -416,7 +416,7 @@ bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*s
 // 0x0054F200
 void FrontEnd::keyboard_task(FrontEndTask* task)
 {
-    const FrontEnd* front_end = task->content_;
+    const FrontEnd* front_end = task->content();
     std::array<char, 256> keys{};
     const int count = sio::get_keyboard_chars(keys);
     for (int i = 0; i < count; ++i) {
@@ -555,8 +555,8 @@ void FrontEnd::get_pause_game(bool pause)
 
     // The skaters: their list's nodes (the head's data is -1; its data read before the null check, as the original).
     uint32_t count = 0;
-    for (const memory::ListNode* node = skate->riders().list_link_.next;
-         !node->is_head() && node; node = node->next)
+    for (const memory::ListNode* node = skate->riders().list_link_.next();
+         !node->is_head() && node; node = node->next())
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =
@@ -595,11 +595,11 @@ void FrontEnd::get_pause_game(bool pause)
 // 0x0054FB40
 void FrontEnd::input_logic(FrontEndInputHandler* handler)
 {
-    FrontEnd* front_end = handler->content_;
+    FrontEnd* front_end = handler->content();
     // (not original - the mouse_menus feature: once a frame, with the first controller's handler, the mouse's menu
     // events; nothing when it's off - Update checks; the level editor's input logic runs there too, whatever the
     // setting)
-    if (handler->ordinal_ == 0)
+    if (handler->ordinal() == 0)
         mouse_menus::tick_frame(front_end);
     objects::EventWaitBoard* tracker = objects::get_tracker();
     tracker->log_frame();
@@ -615,20 +615,20 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
                 }
                 front_end->check_startup_script_ = false;
             }
-            const uint32_t repeated = front_end->auto_repeat(handler->control_data_->buttons(), handler->ordinal_);
+            const uint32_t repeated = front_end->auto_repeat(handler->control_data()->buttons(), handler->ordinal());
             if (repeated)
                 event = repeated;
         }
-        const uint32_t pressed = front_end->grab_control_event(handler->control_data_->makes(), index, handler->ordinal_,
-                                                               handler->control_data_->buttons());
+        const uint32_t pressed = front_end->grab_control_event(handler->control_data()->makes(), index, handler->ordinal(),
+                                                               handler->control_data()->buttons());
         if (pressed)
             event = pressed;
         if (!event)
             return;
-        if (core::at(front_end->pad_mappings_, handler->ordinal_).mapping_ == 0 || front_end->block_menu_input_)
+        if (core::at(front_end->pad_mappings_, handler->ordinal()).mapping_ == 0 || front_end->block_menu_input_)
             continue;
         script::Struct params;
-        params.put_int(kDeviceNum, handler->dev_->port_no());
+        params.put_int(kDeviceNum, handler->dev()->port_no());
         params.put_int(kController, 0); // (the original loads the mapping, then passes 0)
         tracker->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
                                                                      -1.0f);
@@ -640,7 +640,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
 void FrontEnd::front_end_tick(FrontEndTask* task)
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
-    task->content_->tick_frame(task->content_->is_halted_);
+    task->content()->tick_frame(task->content()->is_halted_);
     frontend::UiTree::sole()->tick_frame();
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -659,8 +659,8 @@ void FrontEnd::update_input_mappings()
         // The controller's place in the input manager: its device, its handler list, its control data.
         pad_input::HostEnd& server = core::at(input.supervisor_->hosts_, core::at(device_server_map_, i));
         append_vertex(server.handlers_, handler);
-        handler->control_data_ = &server.content_;
-        handler->dev_ = server.dev_;
+        handler->set_control_data(&server.content_);
+        handler->set_dev(server.dev_);
     }
 }
 

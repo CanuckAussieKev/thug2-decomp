@@ -115,7 +115,7 @@ bool is_big(const NodeManager* m) { return m == big_node_arrays().big_owner_ && 
 class Slots {
 public:
     explicit Slots(NodeManager* m)
-        : small_(m->slots_), big_(is_big(m) ? std::span<BigSlot>(big_node_arrays().big_slots_) : std::span<BigSlot>()),
+        : small_(m->slots()), big_(is_big(m) ? std::span<BigSlot>(big_node_arrays().big_slots_) : std::span<BigSlot>()),
           skip_bits_(!big_.empty() ? static_cast<uint32_t>(big_node_arrays().big_slots_.size()) - 1 : NodeManager::kSlots - 1)
     {}
     [[nodiscard]] uint32_t get_mask() const { return skip_bits_; }
@@ -145,17 +145,21 @@ private:
 
 // The walk's place, whichever kind (as the slots).
 struct Walk {
-    explicit Walk(NodeManager* m) : big(is_big(m)), small(m->walk_) {}
-    [[nodiscard]] int elem() const { return big ? big_node_arrays().big_walk_.list_link_ : small.list_link_; }
-    [[nodiscard]] uint32_t get_array() const { return big ? big_node_arrays().big_walk_.element_list_ : small.element_list_; }
+    explicit Walk(NodeManager* m) : big_(is_big(m)), small(m->walk()) {}
+    [[nodiscard]] int elem() const { return big_ ? big_node_arrays().big_walk_.list_link_ : small.list_link_; }
+    [[nodiscard]] uint32_t get_array() const { return big_ ? big_node_arrays().big_walk_.element_list_ : small.element_list_; }
     void assign_value(uint32_t array, int node)
     {
-        if (big)
+        if (big_)
             big_node_arrays().big_walk_ = {.element_list_ = array, .list_link_ = node};
         else
             small = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
     }
-    bool big;
+    // The fields other code reads and sets.
+    [[nodiscard]] bool big() const { return big_; }
+
+private:
+    bool big_;
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
     NodeSlot& small;
 };
@@ -287,9 +291,9 @@ Struct* NodeManager::get_next_node()
     Array* nodes = core::at(arrays_, array).node_entries_;
     auto* node = nodes->struct_at(walk.elem());
     int next = walk.elem() + 1;
-    if (!walk.big)
+    if (!walk.big())
         next = static_cast<int16_t>(next); // (the original's 16-bit count)
-    if (next >= ints::as_signed(nodes->extent_)) {
+    if (next >= ints::as_signed(nodes->extent())) {
         ++array;
         next = 0;
         if (array >= num_)
@@ -351,20 +355,20 @@ bool NodeManager::hash_node_in(uint32_t name, uint32_t index, script::Struct* no
 void NodeManager::hash_nodes(uint32_t index)
 {
     Array* nodes = core::at(arrays_, index).node_entries_;
-    for (uint32_t i = 0; i < nodes->extent_; ++i)
+    for (uint32_t i = 0; i < nodes->extent(); ++i)
         hash_node(index, i, nodes->struct_at(i));
 }
 
 // 0x0045D480
 void NodeManager::resolve_links(Array* nodes)
 {
-    const uint32_t count = nodes->extent_;
+    const uint32_t count = nodes->extent();
     for (uint32_t i = 0; i < count; ++i) {
         auto* node = nodes->struct_at(i);
         Array* links = nullptr;
-        if (!node->fetch_list(kLinks, &links, 0) || !links->extent_)
+        if (!node->fetch_list(kLinks, &links, 0) || !links->extent())
             continue;
-        const uint32_t link_count = links->extent_;
+        const uint32_t link_count = links->extent();
         for (uint32_t j = 0; j < link_count; ++j) {
             auto* linked = nodes->struct_at(links->fetch_part(j));
             links->set_element(j, get_node_name(linked));
@@ -385,7 +389,7 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
     ++num_;
     hash_nodes(num_ - 1);
     add_node_array_prefixes(name);
-    const int count = static_cast<int>(nodes->extent_);
+    const int count = static_cast<int>(nodes->extent());
     for (int i = 0; i < count; ++i) {
         auto* node = nodes->struct_at(i);
         script::VectorValue position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};

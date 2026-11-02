@@ -35,20 +35,20 @@ struct Billboard {
 
 struct MeshRef {
     // The fields other code reads and sets.
-    uint32_t& flags_value() { return flags; }
-    [[nodiscard]] uint32_t flags_value() const { return flags; }
-    std::array<float, 3>& centre_value() { return centre; }
-    [[nodiscard]] const std::array<float, 3>& centre_value() const { return centre; }
-    [[nodiscard]] float radius_value() const { return radius; }
-    void set_radius(float value) { radius = value; }
-    [[nodiscard]] MaterialRef* material_value() const { return material; }
-    void set_material(MaterialRef* value) { material = value; }
-    [[nodiscard]] uint8_t stride_value() const { return stride; }
-    void set_stride(uint8_t value) { stride = value; }
+    uint32_t& flags() { return flags_; }
+    [[nodiscard]] uint32_t flags() const { return flags_; }
+    std::array<float, 3>& centre() { return centre_; }
+    [[nodiscard]] const std::array<float, 3>& centre() const { return centre_; }
+    [[nodiscard]] float radius() const { return radius_; }
+    void set_radius(float value) { radius_ = value; }
+    [[nodiscard]] MaterialRef* material() const { return material_; }
+    void set_material(MaterialRef* value) { material_ = value; }
+    [[nodiscard]] uint8_t stride() const { return stride_; }
+    void set_stride(uint8_t value) { stride_ = value; }
     [[nodiscard]] uint8_t vertex_buffer_count() const { return vertex_buffer_count_; }
     void set_vertex_buffer_count(uint8_t value) { vertex_buffer_count_ = value; }
-    [[nodiscard]] uint8_t viewports_value() const { return viewports; }
-    void set_viewports(uint8_t value) { viewports = value; }
+    [[nodiscard]] uint8_t viewports() const { return viewports_; }
+    void set_viewports(uint8_t value) { viewports_ = value; }
     [[nodiscard]] uint8_t color_offset() const { return color_offset_; }
     void set_color_offset(uint8_t value) { color_offset_ = value; }
     [[nodiscard]] uint8_t normal_offset() const { return normal_offset_; }
@@ -64,47 +64,47 @@ struct MeshRef {
     void set_vertex_count(uint16_t value) { vertex_count_ = value; }
     std::array<uint16_t, 8>& index_counts() { return index_counts_; }
     [[nodiscard]] const std::array<uint16_t, 8>& index_counts() const { return index_counts_; }
-    uint32_t& fvf_value() { return fvf; }
-    [[nodiscard]] uint32_t fvf_value() const { return fvf; }
-    void set_fvf(uint32_t value) { fvf = value; }
+    uint32_t& fvf() { return fvf_; }
+    [[nodiscard]] uint32_t fvf() const { return fvf_; }
+    void set_fvf(uint32_t value) { fvf_ = value; }
     void set_second_fvf(uint32_t value) { second_fvf_ = value; }
     void*& pixel_shader() { return pixel_shader_; }
     [[nodiscard]] void* pixel_shader() const { return pixel_shader_; }
-    [[nodiscard]] void* unknown48_value() const { return unknown48; }
-    void set_unknown48(void* value) { unknown48 = value; }
-    [[nodiscard]] Billboard* billboard_value() const { return billboard; }
+    [[nodiscard]] void* unknown48() const { return unknown48_; }
+    void set_unknown48(void* value) { unknown48_ = value; }
+    [[nodiscard]] Billboard* billboard() const { return billboard_; }
     [[nodiscard]] uint32_t primitive_type() const { return primitive_type_; }
     std::array<IdxStore*, 8>& index_buffers() { return index_buffers_; }
     [[nodiscard]] const std::array<IdxStore*, 8>& index_buffers() const { return index_buffers_; }
     void set_buffer_usage(uint32_t value) { buffer_usage_ = value; }
     uint32_t& buffer_flags() { return buffer_flags_; }
     [[nodiscard]] uint32_t buffer_flags() const { return buffer_flags_; }
-    [[nodiscard]] float depth_value() const { return depth; }
-    void set_depth(float value) { depth = value; }
-    std::array<float, 3>& color_value() { return color; }
-    [[nodiscard]] const std::array<float, 3>& color_value() const { return color; }
+    [[nodiscard]] float depth() const { return depth_; }
+    void set_depth(float value) { depth_ = value; }
+    std::array<float, 3>& color() { return color_; }
+    [[nodiscard]] const std::array<float, 3>& color() const { return color_; }
     [[nodiscard]] uint8_t* per_vertex_bytes() const { return per_vertex_bytes_; }
     void set_per_vertex_bytes(uint8_t* value) { per_vertex_bytes_ = value; }
     [[nodiscard]] uint8_t* per_vertex_data() const { return per_vertex_data_; }
     [[nodiscard]] uint32_t unknowna4() const { return unknowna4_; }
     [[nodiscard]] uint32_t position_count() const { return position_count_; }
     void set_position_count(uint32_t value) { position_count_ = value; }
-    [[nodiscard]] float* positions_value() const { return positions; }
+    [[nodiscard]] float* positions() const { return positions_; }
     [[nodiscard]] uint32_t triangle_count() const { return triangle_count_; }
     void set_triangle_count(uint32_t value) { triangle_count_ = value; }
-    [[nodiscard]] uint16_t* triangles_value() const { return triangles; }
+    [[nodiscard]] uint16_t* triangles() const { return triangles_; }
     std::array<VertexBuffer*, 3>& vertex_buffers() { return vertex_buffers_; }
     [[nodiscard]] const std::array<VertexBuffer*, 3>& vertex_buffers() const { return vertex_buffers_; }
 
 private:
-    uint32_t flags{0}; // 1: shares another mesh's buffers; 0x10: a billboard
-    std::array<float, 3> centre{}; // the bounding sphere
-    float radius{};
-    MaterialRef* material{};
-    uint8_t stride;                 // bytes per vertex
+    uint32_t flags_{0}; // 1: shares another mesh's buffers; 0x10: a billboard
+    std::array<float, 3> centre_{}; // the bounding sphere
+    float radius_{};
+    MaterialRef* material_{};
+    uint8_t stride_;                 // bytes per vertex
     uint8_t current_vertex_buffer_{0}; // +0x19
     uint8_t vertex_buffer_count_{1};   // +0x1A
-    uint8_t viewports;              // +0x1B: a bit per viewport it shows in
+    uint8_t viewports_;              // +0x1B: a bit per viewport it shows in
     uint8_t color_offset_{0};       // +0x1C: where in a vertex its colour is (0: none)
     uint8_t normal_offset_{0};      // +0x1D: its normal
     uint8_t uv_offset_{0};          // +0x1E: its first texture coordinates
@@ -113,18 +113,18 @@ private:
     uint16_t vertex_count_{};       // +0x22
     std::array<uint16_t, 8> index_counts_{};    // +0x24
     std::array<uint8_t, 4> unknown34{};
-    uint32_t fvf; // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
+    uint32_t fvf_; // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
     uint32_t second_fvf_{};           // +0x3C: the vertex format of the mesh's second type (written, never read)
     std::array<uint8_t, 4> unknown40_{};
     void* pixel_shader_;              // +0x44
-    void* unknown48;                  // +0x48 (from the heap)
-    Billboard* billboard;             // +0x4C
+    void* unknown48_;                  // +0x48 (from the heap)
+    Billboard* billboard_;             // +0x4C
     uint32_t primitive_type_;         // +0x50 (5 when constructed)
     std::array<IdxStore*, 8> index_buffers_{};    // +0x54
     uint32_t buffer_usage_{};         // +0x74: the vertex buffers' usage and flags
     uint32_t buffer_flags_{};         // +0x78
-    float depth{};                    // +0x7C (the render's)
-    std::array<float, 3> color{};                 // +0x80: its colour (doubled when used: 0.5 leaves the passes as they are)
+    float depth_{};                    // +0x7C (the render's)
+    std::array<float, 3> color_{};                 // +0x80: its colour (doubled when used: 0.5 leaves the passes as they are)
     uint8_t* per_vertex_bytes_;       // +0x8C: a byte per vertex
     float* transform;                 // +0x90: 16 floats, made on first use
     uint8_t* per_vertex_data_;        // +0x94: 0x4C bytes per vertex
@@ -133,9 +133,9 @@ private:
     const Singleton* unknowna0_;      // +0xA0: and for which instance (0x007825B8)
     uint32_t unknowna4_{}, unknowna8_{}; // +0xA4: texture coordinate sets; +0xA8: bones a vertex (1-3)
     uint32_t position_count_;         // +0xAC
-    float* positions;                 // +0xB0: three floats each
+    float* positions_;                 // +0xB0: three floats each
     uint32_t triangle_count_;         // +0xB4
-    uint16_t* triangles;              // +0xB8: three indices each
+    uint16_t* triangles_;              // +0xB8: three indices each
     std::array<VertexBuffer*, 3> extra_buffers_{}; // +0xBC: destroyed with it (each beside its vertex buffer)
     VertexBuffer* last_buffer_;       // +0xC8: destroyed with it
     std::array<VertexBuffer*, 3> vertex_buffers_{}; // +0xCC
@@ -144,7 +144,7 @@ public:
 
     // NOT ORIGINAL - the transform's 16 floats and the positions (three each) as runs.
     [[nodiscard]] std::span<float, 16> transform_floats() const { return std::span<float, 16>(transform, 16); }
-    [[nodiscard]] std::span<float> position_floats() const { return {positions, static_cast<size_t>(position_count_) * 3}; }
+    [[nodiscard]] std::span<float> position_floats() const { return {positions_, static_cast<size_t>(position_count_) * 3}; }
 
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,
     // primitive type 5.
@@ -220,12 +220,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(MeshRef, material) == 0x14 && offsetof(MeshRef, vertex_buffer_count_) == 0x1A &&
-                          offsetof(MeshRef, index_counts_) == 0x24 && offsetof(MeshRef, billboard) == 0x4C &&
-                          offsetof(MeshRef, index_buffers_) == 0x54 && offsetof(MeshRef, depth) == 0x7C &&
+        static_assert(offsetof(MeshRef, material_) == 0x14 && offsetof(MeshRef, vertex_buffer_count_) == 0x1A &&
+                          offsetof(MeshRef, index_counts_) == 0x24 && offsetof(MeshRef, billboard_) == 0x4C &&
+                          offsetof(MeshRef, index_buffers_) == 0x54 && offsetof(MeshRef, depth_) == 0x7C &&
                           offsetof(MeshRef, per_vertex_bytes_) == 0x8C && offsetof(MeshRef, per_vertex_data_) == 0x94 &&
                           offsetof(MeshRef, unknowna4_) == 0xA4 && offsetof(MeshRef, position_count_) == 0xAC &&
-                          offsetof(MeshRef, triangles) == 0xB8 && offsetof(MeshRef, vertex_buffers_) == 0xCC &&
+                          offsetof(MeshRef, triangles_) == 0xB8 && offsetof(MeshRef, vertex_buffers_) == 0xCC &&
                           offsetof(MeshRef, pixel_shader_) == 0x44 && offsetof(MeshRef, buffer_flags_) == 0x78 &&
                           offsetof(MeshRef, extra_buffers_) == 0xBC && sizeof(MeshRef) == 0xD8,
                       "layout must match the original");

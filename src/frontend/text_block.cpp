@@ -373,7 +373,7 @@ void ParagraphWidget::change_traits(Struct* params)
     if (params->fetch_text(kText, &core::at(texts, 0), 0)) {
         change_caption(std::span<const char* const>(texts).first(1));
     } else if (params->fetch_list(kText, &array, 0)) {
-        const int count = static_cast<int>(array->extent_);
+        const int count = static_cast<int>(array->extent());
         for (int i = 0; i < count && i < kMaxTexts; ++i)
             core::at(texts, i) = array->fetch_text(static_cast<uint32_t>(i));
         change_caption(std::span<const char* const>(texts).first(static_cast<std::size_t>(count < kMaxTexts ? count : kMaxTexts)));
@@ -382,7 +382,7 @@ void ParagraphWidget::change_traits(Struct* params)
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap());
         blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
-        std::memcpy(&blur_->rgba_value_, shown().rgba.data(), 4);
+        std::memcpy(&blur_->rgba_value(), shown().rgba.data(), 4);
         memory::Hub::get_pull()->leave_heap_scope();
     } else if (params->has_bare_flag(kNoBlurEffect) && blur_) {
         delete_blur(blur_);
@@ -390,7 +390,7 @@ void ParagraphWidget::change_traits(Struct* params)
     }
     uint32_t rgba = 0;
     if (read_colour_param(params, kHaloColor, &rgba) && blur_)
-        blur_->rgba_value_ = rgba;
+        blur_->rgba_value() = rgba;
     script::Pair offset;
     if (params->fetch_pair(kShadowOffs, &offset, false)) {
         shadow_x_ = offset.x;

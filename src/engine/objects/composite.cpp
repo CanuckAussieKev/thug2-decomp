@@ -239,7 +239,7 @@ GameEntity::~GameEntity()
     composite_flags_ |= kCompositeFlagDestroying;
     while (attached_modules_) {
         gsl::owner<ObjectModule*> component = memory::owned_element(attached_modules_); // (the list's)
-        attached_modules_ = component->following_;
+        attached_modules_ = component->following();
         unregister_component(component);
         delete component;
     }
@@ -259,8 +259,8 @@ void GameEntity::tick_frame()
             return;
         own_update();
     }
-    for (ObjectModule* component = attached_modules_; component; component = component->following_) {
-        if (component->flag_bits_ & kComponentFlagSuspended)
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
+        if (component->flag_bits() & kComponentFlagSuspended)
             continue;
         component->tick_frame();
         if (object_flags() & kObjectFlagDead)
@@ -279,7 +279,7 @@ void GameEntity::conceal(bool hide)
         composite_flags_ |= kCompositeFlagHidden;
     else
         composite_flags_ &= ~kCompositeFlagHidden;
-    for (ObjectModule* component = attached_modules_; component; component = component->following_)
+    for (ObjectModule* component = attached_modules_; component; component = component->following())
         component->conceal(hide);
 }
 
@@ -292,7 +292,7 @@ void GameEntity::hold_off(bool suspend)
         composite_flags_ |= kCompositeFlagSuspended;
     else
         composite_flags_ &= ~kCompositeFlagSuspended;
-    for (ObjectModule* component = attached_modules_; component; component = component->following_)
+    for (ObjectModule* component = attached_modules_; component; component = component->following())
         component->hold_off(suspend);
 }
 
@@ -301,7 +301,7 @@ void GameEntity::mark_jumped_ahead(bool teleport_components)
 {
     composite_flags_ |= kCompositeFlagTeleported;
     if (teleport_components) {
-        for (ObjectModule* component = attached_modules_; component; component = component->following_)
+        for (ObjectModule* component = attached_modules_; component; component = component->following())
             component->jump_to();
     }
 }
@@ -312,7 +312,7 @@ bool GameEntity::should_update_scripts() { return !(composite_flags_ & kComposit
 // 0x0045D7C0
 void GameEntity::flag_as_dead()
 {
-    for (ObjectModule* component = attached_modules_; component; component = component->following_)
+    for (ObjectModule* component = attached_modules_; component; component = component->following())
         component->object_marked_dead();
     Entity::flag_as_dead();
 }
@@ -326,18 +326,18 @@ void GameEntity::attach_module(ObjectModule* component)
         attached_modules_ = component;
     } else {
         ObjectModule* last = attached_modules_;
-        while (last->following_)
-            last = last->following_;
-        last->following_ = component;
+        while (last->following())
+            last = last->following();
+        last->set_following(component);
     }
-    component->entity_ = this;
+    component->set_entity(this);
     enrol_module(component);
 }
 
 // 0x0045DA90
 void GameEntity::build_modules_from_list(Array* components, Struct* extra)
 {
-    const int count = static_cast<int>(components->extent_);
+    const int count = static_cast<int>(components->extent());
     for (int i = 0; i < count; ++i)
         create_component_from_structure(components->struct_at(static_cast<uint32_t>(i)), extra);
 }
@@ -379,19 +379,19 @@ void GameEntity::configure_from_data(Struct* params)
 // 0x0045DB30
 void GameEntity::seal()
 {
-    for (ObjectModule* component = attached_modules_; component; component = component->following_)
+    for (ObjectModule* component = attached_modules_; component; component = component->following())
         component->seal();
     composite_flags_ |= kCompositeFlagFinalized;
     composite_flags_ |= kCompositeFlagFinalized2;
-    for (ObjectModule* component = attached_modules_; component; component = component->following_)
+    for (ObjectModule* component = attached_modules_; component; component = component->following())
         component->jump_to();
 }
 
 // 0x0045DB90
 ObjectModule* GameEntity::fetch_module(uint32_t type)
 {
-    for (ObjectModule* component = attached_modules_; component; component = component->following_) {
-        if (component->kind_tag_ == type)
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
+        if (component->kind_tag() == type)
             return component;
     }
     return nullptr;
@@ -400,7 +400,7 @@ ObjectModule* GameEntity::fetch_module(uint32_t type)
 // 0x0045E450
 bool GameEntity::invoke_method_by_name(uint32_t name, Struct* params, Script* script)
 {
-    for (ObjectModule* component = attached_modules_; component; component = component->following_) {
+    for (ObjectModule* component = attached_modules_; component; component = component->following()) {
         const int result = component->invoke_method_by_name(name, params, script);
         if (result == 0)
             return false;

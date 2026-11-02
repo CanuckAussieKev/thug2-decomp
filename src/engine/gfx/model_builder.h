@@ -79,6 +79,7 @@ public:
     // 0x0048B200 (slot 25): the script `target` held in the part's option run on the appearance until it ends. True.
     bool launch_script(uint32_t part, uint32_t target);
 
+private:
     bool via_asset_store_; // +0x4C
     int dict_shift_;       // +0x50
 };

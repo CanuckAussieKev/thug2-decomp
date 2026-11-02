@@ -37,7 +37,7 @@ void count_up(int& value, int& max, int amount)
 uint32_t round_up16(uint32_t size) { return (size + 15) & ~15u; }
 
 // Where a block of the heap's region ends, in the region (the allocator's top is an offset there).
-uint32_t end_in_region(const Zone& region, ChunkPrefix* header) { return region.offset_of(header->gate_off()) + header->size; }
+uint32_t end_in_region(const Zone& region, ChunkPrefix* header) { return region.offset_of(header->gate_off()) + header->size(); }
 // A block's header made in the memory at `place`.
 gsl::owner<ChunkPrefix*> header_at(uint8_t* place) { return memory::construct_in<ChunkPrefix>(place); }
 
@@ -60,9 +60,9 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     ChunkPrefix* best_previous = nullptr;
     ChunkPrefix* previous = nullptr;
     for (ChunkPrefix* block = context()->free_list_; block; previous = block, block = block->next_free()) {
-        if (block->size < rounded)
+        if (block->size() < rounded)
             continue;
-        const bool take = forced_free_block() ? block == forced_free_block() : !best || block->size < best->size;
+        const bool take = forced_free_block() ? block == forced_free_block() : !best || block->size() < best->size();
         if (take) {
             best = block;
             best_previous = previous;
@@ -73,19 +73,19 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
             best_previous->next_free() = best->next_free();
         else
             context()->free_list_ = best->next_free();
-        best->allocator = this;
+        best->set_allocator(this);
         --free_blocks();
         count_up(used_blocks(), max_used_blocks(), 1);
-        free_size() -= static_cast<int>(best->size);
-        count_up(used_size(), max_used_size(), static_cast<int>(best->size));
+        free_size() -= static_cast<int>(best->size());
+        count_up(used_size(), max_used_size(), static_cast<int>(best->size()));
 
         // Split off what isn't needed, as a free block of its own.
-        const int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
+        const int rest = static_cast<int>(best->size() - kBlockHeaderSize - rounded);
         if (rest > 0) {
             gsl::owner<ChunkPrefix*> tail = ChunkPrefix::make_at(best->block_offset() + rounded);
-            best->size = rounded;
-            tail->allocator = this;
-            tail->size = static_cast<uint32_t>(rest);
+            best->size() = rounded;
+            tail->set_allocator(this);
+            tail->size() = static_cast<uint32_t>(rest);
             count_up(used_blocks(), max_used_blocks(), 1);
             dealloc(tail);
         }
@@ -116,8 +116,8 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         }
         return nullptr;
     }
-    header->allocator = this;
-    header->size = rounded;
+    header->set_allocator(this);
+    header->size() = rounded;
     count_up(used_blocks(), max_used_blocks(), 1);
     count_up(used_size(), max_used_size(), static_cast<int>(kBlockHeaderSize + rounded));
     debug_track_block(header);
@@ -129,8 +129,8 @@ uint32_t Arena::largest_free()
 {
     uint32_t largest = 0;
     for (ChunkPrefix* block = context()->free_list_; block; block = block->next_free()) {
-        if (block->size >= largest)
-            largest = block->size;
+        if (block->size() >= largest)
+            largest = block->size();
     }
     auto available = static_cast<uint32_t>(region()->free_byte_count());
     return available > largest ? available : largest;
@@ -143,11 +143,11 @@ void* Arena::extend_block_downward(uint32_t new_size, void* block)
     ChunkPrefix* header = fetch_chunk_prefix(block);
     const uint32_t rounded = round_up16(new_size);
     // The new space comes just below the block (with its own header, which becomes the block's).
-    ChunkPrefix* extended = fetch_chunk_prefix(carve(rounded - header->size, true));
+    ChunkPrefix* extended = fetch_chunk_prefix(carve(rounded - header->size(), true));
     debug_track_block(header);
     debug_track_block(extended);
     --used_blocks();
-    extended->size = kBlockHeaderSize + rounded;
+    extended->size() = kBlockHeaderSize + rounded;
     debug_track_block(extended);
     heap_busy() = 0;
     return extended->gate_off();
@@ -159,11 +159,11 @@ void* Arena::extend_block_upward(uint32_t new_size, void* block)
     heap_busy() = 1;
     ChunkPrefix* header = fetch_chunk_prefix(block);
     const uint32_t rounded = round_up16(new_size);
-    if (rounded <= header->size) {
+    if (rounded <= header->size()) {
         heap_busy() = 0;
         return block;
     }
-    ChunkPrefix* extra = fetch_chunk_prefix(carve(rounded - header->size, true));
+    ChunkPrefix* extra = fetch_chunk_prefix(carve(rounded - header->size(), true));
     if (!header->is_followed_by(extra)) {
         // Not right after the block: give it back.
         heap_busy() = 0;
@@ -172,9 +172,9 @@ void* Arena::extend_block_upward(uint32_t new_size, void* block)
     }
     debug_track_block(header);
     debug_track_block(extra);
-    const uint32_t extra_size = extra->size;
+    const uint32_t extra_size = extra->size();
     --used_blocks();
-    header->size += kBlockHeaderSize + extra_size;
+    header->size() += kBlockHeaderSize + extra_size;
     debug_track_block(header);
     heap_busy() = 0;
     return block;
@@ -185,19 +185,19 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
 {
     heap_busy() = 1;
     ChunkPrefix* header = fetch_chunk_prefix(block);
-    const uint32_t cut = (header->size - new_size) & ~15u;
+    const uint32_t cut = (header->size() - new_size) & ~15u;
     if (cut <= kBlockHeaderSize) {
         heap_busy() = 0;
         return block;
     }
-    gsl::owner<ChunkPrefix*> tail = ChunkPrefix::make_at(header->block_offset() + (header->size - cut));
-    tail->size = cut - kBlockHeaderSize;
-    tail->allocator = this;
+    gsl::owner<ChunkPrefix*> tail = ChunkPrefix::make_at(header->block_offset() + (header->size() - cut));
+    tail->size() = cut - kBlockHeaderSize;
+    tail->set_allocator(this);
     debug_track_block(tail);
     count_up(used_blocks(), max_used_blocks(), 1);
     dealloc(tail);
     debug_track_block(header);
-    header->size -= cut;
+    header->size() -= cut;
     debug_track_block(header);
     heap_busy() = 0;
     return block;
@@ -208,12 +208,12 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
 void Arena::dealloc(ChunkPrefix* header)
 {
     count_up(free_blocks(), max_free_blocks(), 1);
-    count_up(free_size(), max_free_size(), static_cast<int>(header->size));
+    count_up(free_size(), max_free_size(), static_cast<int>(header->size()));
     --used_blocks();
-    used_size() -= static_cast<int>(header->size);
+    used_size() -= static_cast<int>(header->size());
     if (this == find_heap(0x502D3FD2))
         debug::printf(" *********************************************************************************** FREE %d\n",
-                      header->size);
+                      header->size());
 
     ChunkPrefix* before = nullptr;   // the free block before `previous`
     ChunkPrefix* previous = nullptr; // the last free block below this one
@@ -227,7 +227,7 @@ void Arena::dealloc(ChunkPrefix* header)
     header->next_free() = next;
     if (next && header->is_followed_by(next)) {
         header->next_free() = next->next_free();
-        header->size += next->size + kBlockHeaderSize;
+        header->size() += next->size() + kBlockHeaderSize;
         --free_blocks();
         count_up(free_size(), max_free_size(), kBlockHeaderSize);
         used_size() -= kBlockHeaderSize;
@@ -237,7 +237,7 @@ void Arena::dealloc(ChunkPrefix* header)
         context()->free_list_ = header;
         before = nullptr;
     } else if (previous->is_followed_by(header)) {
-        previous->size += header->size + kBlockHeaderSize;
+        previous->size() += header->size() + kBlockHeaderSize;
         previous->next_free() = header->next_free();
         --free_blocks();
         count_up(free_size(), max_free_size(), kBlockHeaderSize);
@@ -254,15 +254,15 @@ void Arena::dealloc(ChunkPrefix* header)
             before->next_free() = nullptr;
         else
             context()->free_list_ = nullptr;
-        top_side() -= header->size + kBlockHeaderSize; // (growing up: the original's size times the direction)
+        top_side() -= header->size() + kBlockHeaderSize; // (growing up: the original's size times the direction)
     } else if (direction() == kGrowDown && !before && top_side() == region()->offset_of(header)) {
-        top_side() += kBlockHeaderSize + header->size;
+        top_side() += kBlockHeaderSize + header->size();
         context()->free_list_ = header->next_free();
     } else {
         return;
     }
     --free_blocks();
-    free_size() -= static_cast<int>(header->size);
+    free_size() -= static_cast<int>(header->size());
     used_size() -= kBlockHeaderSize;
 }
 

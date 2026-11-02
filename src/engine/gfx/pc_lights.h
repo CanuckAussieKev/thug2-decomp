@@ -48,15 +48,24 @@ public:
     void switch_diffuse_light(int light, bool on) override;
     bool diffuse_light_is_on(int light) override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t* colors() const { return colors_; }
+    [[nodiscard]] maths::Vec4* directions() const { return directions_; }
+
+private:
     uint32_t overrides{0};   // +0x1C: bit 0 the ambient colour, bit 1 + n light n's
     uint32_t first_dynamic_; // +0x20: the renderer light the dynamic lights start at (2)
     uint32_t ambient{};      // +0x24: RGBA
-    uint32_t* colors;        // +0x28: one per light (0x006FAAE4 of them), RGBA
-    maths::Vec4* directions; // +0x2C
+    uint32_t* colors_;        // +0x28: one per light (0x006FAAE4 of them), RGBA
+    maths::Vec4* directions_; // +0x2C
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcModelLights, overrides) == 0x1C && offsetof(PcModelLights, directions_) == 0x2C &&
+                          sizeof(PcModelLights) == 0x30,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcModelLights, overrides) == 0x1C && offsetof(PcModelLights, directions) == 0x2C &&
-                  sizeof(PcModelLights) == 0x30,
-              "layout must match the original");
 
 // 0x004B67E0: the scene's ambient colour sent to the renderer. True.
 bool update_ambient_light();

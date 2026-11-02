@@ -17,10 +17,10 @@ namespace {
 
 void init_node(memory::ListNode& node, void* data)
 {
-    node.data = data;
-    node.priority = 0;
-    node.next = &node;
-    node.prev = &node;
+    node.set_data(data);
+    node.set_priority(0);
+    node.set_next(&node);
+    node.set_prev(&node);
 }
 
 } // namespace

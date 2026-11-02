@@ -35,10 +35,10 @@ void queue_engine_job(tasks::SchedulerTask* task) { assets::get_main_loop_manage
 // The node after `node`, or null at the head.
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == memory::ListNode::head_marker() ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == memory::ListNode::head_marker() ? nullptr : next;
 }
-Entity* object_of(memory::ListNode* node) { return node ? static_cast<Entity*>(node->data) : nullptr; }
+Entity* object_of(memory::ListNode* node) { return node ? static_cast<Entity*>(node->data()) : nullptr; }
 
 } // namespace
 
@@ -65,11 +65,11 @@ void ObjectHubBase::drop_entity_registration(Entity* object)
 {
     get_tracker()->remove_object(object, new_id_, reassigning_);
     memory::ListNode* node = &object->list_link();
-    if (node->prev != node) {
-        node->prev->next = node->next;
-        node->next->prev = node->prev;
-        node->next = node;
-        node->prev = node;
+    if (node->prev() != node) {
+        node->prev()->set_next(node->next());
+        node->next()->set_prev(node->prev());
+        node->set_next(node);
+        node->set_prev(node);
         object->set_park_owner(nullptr);
         restart_walks_ = 0xFFFFFFFF;
     }
@@ -90,7 +90,7 @@ void ObjectHubBase::reassign_object_id(Entity* object, uint32_t id)
 void ObjectHubBase::set_entity_rank(Entity* object, int priority)
 {
     const uint32_t id = object->ident();
-    object->list_link().priority = priority;
+    object->list_link().set_priority(priority);
     reassign_object_id(object, id);
 }
 
@@ -105,8 +105,8 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
     while (walking_ & bit)
         bit <<= 1;
     walking_ |= bit;
-    for (memory::ListNode* node = get_next_node(&entities_); node && node->data; node = get_next_node(node))
-        static_cast<Entity*>(node->data)->visited_mask() &= ~bit;
+    for (memory::ListNode* node = get_next_node(&entities_); node && node->data(); node = get_next_node(node))
+        static_cast<Entity*>(node->data())->visited_mask() &= ~bit;
     for (bool again = true; again; again = restart_walks_ & bit) {
         restart_walks_ &= ~bit;
         memory::ListNode* node = get_next_node(&entities_);
@@ -149,32 +149,32 @@ void MiscHub::remove_entity(Entity* object)
 {
     memory::ListNode* node = &object->list_link();
     memory::ListNode* head = &dead_objects_;
-    node->prev = head;
-    node->next = head->next;
-    head->next->prev = node;
-    head->next = node;
+    node->set_prev(head);
+    node->set_next(head->next());
+    head->next()->set_prev(node);
+    head->set_next(node);
 }
 
 // 0x00461AB0
 void MiscHub::flush_dead_objects()
 {
-    memory::ListNode* node = dead_objects_.next;
-    if (node->data == memory::ListNode::head_marker() || !node)
+    memory::ListNode* node = dead_objects_.next();
+    if (node->data() == memory::ListNode::head_marker() || !node)
         return;
     for (bool again = true; again; again = node) {
         memory::ListNode* next = get_next_node(node);
-        node->prev->next = node->next;
-        node->next->prev = node->prev;
-        node->next = node;
-        node->prev = node;
-        gsl::owner<Entity*> entity = memory::adopt<Entity*>(node->data); // (the list's)
+        node->prev()->set_next(node->next());
+        node->next()->set_prev(node->prev());
+        node->set_next(node);
+        node->set_prev(node);
+        gsl::owner<Entity*> entity = memory::adopt<Entity*>(node->data()); // (the list's)
         delete entity;
         node = next;
     }
 }
 
 // 0x00461BB0
-void flush_dead_objects_task(tasks::Task<MiscHub>* task) { task->content_->flush_dead_objects(); }
+void flush_dead_objects_task(tasks::Task<MiscHub>* task) { task->content()->flush_dead_objects(); }
 
 // 0x00461F30
 Entity* ObjectSearch::first_item_of_type(memory::ListNode* head, uint32_t type)
@@ -231,9 +231,9 @@ void release_tracker()
 // 0x00461FE0
 void EventWaitBoard::subscribe_receiver(SignalReceiver* listener)
 {
-    listener->next_subscriber_ = event_listeners_;
+    listener->set_next_subscriber(event_listeners_);
     event_listeners_ = listener;
-    listener->on_board_ = true;
+    listener->set_on_board(true);
 }
 
 } // namespace objects

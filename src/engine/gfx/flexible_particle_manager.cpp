@@ -40,12 +40,12 @@ void delete_head(memory::ListNode* head) { memory::ListNode::destroy(head); }
 // The list's systems: the first after the head, the one after `system` - null at the head (its data -1) or a null link.
 EmitterInstance* system_of(memory::ListNode* node)
 {
-    if (node->data == memory::ListNode::head_marker() || !node)
+    if (node->data() == memory::ListNode::head_marker() || !node)
         return nullptr;
-    return static_cast<EmitterInstance*>(node->data); // (its node's data: the system - the original took its address)
+    return static_cast<EmitterInstance*>(node->data()); // (its node's data: the system - the original took its address)
 }
-EmitterInstance* first_system(memory::ListNode* head) { return head ? system_of(head->next) : nullptr; }
-EmitterInstance* next_system(EmitterInstance* system) { return system_of(system->list_link().next); }
+EmitterInstance* first_system(memory::ListNode* head) { return head ? system_of(head->next()) : nullptr; }
+EmitterInstance* next_system(EmitterInstance* system) { return system_of(system->list_link().next()); }
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -182,10 +182,10 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
         system->set_colour_scale(colour_scale_);
     }
     memory::ListNode* node = &system->list_link();
-    node->prev = systems_ptr_->prev;
-    node->next = systems_ptr_;
-    systems_ptr_->prev->next = node;
-    systems_ptr_->prev = node;
+    node->set_prev(systems_ptr_->prev());
+    node->set_next(systems_ptr_);
+    systems_ptr_->prev()->set_next(node);
+    systems_ptr_->set_prev(node);
     return system;
 }
 
@@ -195,10 +195,10 @@ void FlexibleParticleManager::remove_system(EmitterInstance* system)
     if (!system)
         return;
     memory::ListNode* node = &system->list_link();
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 // 0x0049AD90

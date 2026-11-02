@@ -141,7 +141,7 @@ BoneVolumes* find_bone_volumes(uint32_t count) { return static_cast<BoneVolumes*
 void release_bone_volumes(uint32_t count)
 {
     BoneVolumes* volumes = find_bone_volumes(count);
-    if (--volumes->users_ == 0)
+    if (--volumes->users() == 0)
         get_table().erase_entry(count);
 }
 
@@ -152,7 +152,7 @@ void BoneVolumes::get_fill(RigData* data)
     for (uint32_t i = 1; i < num_; ++i) {
         if (core::at(volume_run(), i))
             continue;
-        for (uint32_t j = 0; j < descriptions->extent_; ++j) {
+        for (uint32_t j = 0; j < descriptions->extent(); ++j) {
             uint32_t bone = 0;
             descriptions->struct_at(j)->read_hash_value(kBone, &bone, 1);
             if (bone != core::at(data->names(), i))

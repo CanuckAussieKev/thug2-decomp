@@ -14,7 +14,13 @@ namespace render {
 
 // "ribbon" (vtable 0x006494DC): history + 1 positions each (zeroed), two colours.
 struct RibbonParticles : EmitterInstance {
+    // The fields other code reads and sets.
+    [[nodiscard]] int steps() const { return steps_; }
+
+private:
     int steps_; // +0x134: history + 1
+
+public:
 
     // 0x0049B0D0
     RibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -27,7 +33,13 @@ struct RibbonParticles : EmitterInstance {
 
 // "ribbontrail" (vtable 0x006494F0): history + 1 positions each (zeroed), a colour a step.
 struct RibbonTrailParticles : EmitterInstance {
+    // The fields other code reads and sets.
+    [[nodiscard]] int steps() const { return steps_; }
+
+private:
     int steps_; // +0x134: history + 1
+
+public:
 
     // 0x0049B380
     RibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -62,7 +74,10 @@ struct SmoothParticles : EmitterInstance {
 
 // "smoothribbon" (vtable 0x0064952C): history + 1 positions each (zeroed), four colours.
 struct SmoothRibbonParticles : EmitterInstance {
+private:
     int steps_; // +0x134: history + 1 (set once everything is allocated)
+
+public:
 
     // 0x0049BBD0
     SmoothRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -75,8 +90,15 @@ struct SmoothRibbonParticles : EmitterInstance {
 
 // "smoothstar" (vtable 0x00649540): a position each, three colours; the star's points and size.
 struct SmoothStarParticles : EmitterInstance {
+    // The fields other code reads and sets.
+    [[nodiscard]] int segments() const { return segments_; }
+    [[nodiscard]] float star_extent() const { return extent_; }
+
+private:
     int segments_; // +0x134: the star's points
     float extent_; // +0x138
+
+public:
 
     // 0x0049BE80
     SmoothStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -89,8 +111,15 @@ struct SmoothStarParticles : EmitterInstance {
 
 // "star" (vtable 0x00649554): as smoothstar.
 struct StarParticles : EmitterInstance {
+    // The fields other code reads and sets.
+    [[nodiscard]] int segments() const { return segments_; }
+    [[nodiscard]] float star_extent() const { return extent_; }
+
+private:
     int segments_; // +0x134
     float extent_; // +0x138
+
+public:
 
     // 0x0049C140
     StarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,

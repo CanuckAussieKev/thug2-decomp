@@ -42,6 +42,7 @@ public:
     // 0x00434810 (vtable slot 1): each projection updated from the object (from the first to the head).
     void tick_frame() override;
 
+private:
     // +0x18 (a lists::Foremost of the projections; the head's scalar deleting destructor 0x00434670 is
     // memory::ListNode's)
     memory::ListNode projections_{};

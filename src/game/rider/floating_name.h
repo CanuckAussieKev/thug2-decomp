@@ -38,6 +38,7 @@ public:
     // is destroyed.
     void tick_frame() override;
 
+private:
     uint32_t label_id_{}; // +0x18 skater_name_<n>
 };
 

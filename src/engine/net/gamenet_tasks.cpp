@@ -59,7 +59,7 @@ constexpr uint32_t kShowJoinTimeoutNotice = 0x3F7009B4; // ShowJoinTimeoutNotice
 
 constexpr uint32_t kJoinTimeout = 60000; // ms
 
-Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
+Hub* task_manager(tasks::Task<Hub>* task) { return task->content(); }
 
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
 void show_connection_metrics(net::Conn* conn, int index)

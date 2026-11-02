@@ -105,10 +105,22 @@ private:
 
 // A rail (0x10 bytes). Its points are kept newest first: the head is the last point laid.
 struct EditedRail {
+    // The fields other code reads and sets.
+    [[nodiscard]] EditedRail* following() const { return following_; }
+    void set_following(EditedRail* value) { following_ = value; }
+    [[nodiscard]] EditedRail* preceding() const { return preceding_; }
+    void set_preceding(EditedRail* value) { preceding_ = value; }
+    [[nodiscard]] EditedRailPoint* point_chain() const { return point_chain_; }
+    void set_point_chain(EditedRailPoint* value) { point_chain_ = value; }
+    [[nodiscard]] uint32_t ident() const { return ident_; }
+
+private:
     EditedRail* following_{nullptr};        // +0x00
     EditedRail* preceding_{nullptr};        // +0x04
     EditedRailPoint* point_chain_{nullptr}; // +0x08
     uint32_t ident_;               // +0x0C (from the counter 0x0067EFFC: unique)
+
+public:
 
     // 0x004F70C0: the constructor: a new id, unlinked, no points.
     EditedRail();
@@ -158,10 +170,15 @@ struct EditedRail {
     // 0x004F7100: copies of the runs of two or more points inside (x0, z0)-(x1, z1), each a new rail put before
     // `list` (linked by following_ only); returns the new list.
     EditedRail* copy_inside(float x0, float z0, float x1, float z1, EditedRail* list) const;
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail, ident_) == 0x0C &&
+                          sizeof(EditedRail) == 0x10,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail, ident_) == 0x0C &&
-                  sizeof(EditedRail) == 0x10,
-              "layout must match the original");
 
 // The rails packed for the park file and network messages: RailBuffer (formats/rail_buffer_format.h).
 

@@ -67,7 +67,7 @@ gsl::owner<ObjectModule*> RiderPoseState::fabricate() { return new RiderPoseStat
 // (the constructor: inlined in fabricate in the original)
 RiderPoseState::RiderPoseState()
 {
-    kind_tag_ = kSkaterState;
+    set_kind_tag(kSkaterState);
     core::at(boost_items_, 0) = 0;
 }
 
@@ -99,7 +99,7 @@ void RiderPoseState::change_phase(int state)
     if (state == cur_phase_)
         return;
     cur_phase_ = state;
-    entity_->post_own_event(kOnSkaterStateChange, nullptr);
+    entity()->post_own_event(kOnSkaterStateChange, nullptr);
 }
 
 // 0x00519680
@@ -108,7 +108,7 @@ void RiderPoseState::set_physics_mode(int mode)
     if (mode == physics_mode_)
         return;
     physics_mode_ = mode;
-    entity_->post_own_event(kOnSkaterPhysicsStateChange, nullptr);
+    entity()->post_own_event(kOnSkaterPhysicsStateChange, nullptr);
 }
 
 // 0x005196A0
@@ -117,7 +117,7 @@ void RiderPoseState::set_surface_kind(uint8_t terrain)
     if (terrain == surface_type_)
         return;
     surface_type_ = terrain;
-    entity_->post_own_event(kOnSkaterTerrainChange, nullptr);
+    entity()->post_own_event(kOnSkaterTerrainChange, nullptr);
 }
 
 // 0x00519470

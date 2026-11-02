@@ -124,15 +124,15 @@ const char* stats_key() { return net::game_key(); } // (OnlineGameKey or the gam
 
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == memory::ListNode::head_marker() ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == memory::ListNode::head_marker() ? nullptr : next;
 }
 // Delete every item of a list (each one's next fetched first; the item's scalar deleting destructor, flag 1).
 template <typename Item>
@@ -140,16 +140,16 @@ void delete_all(memory::ListNode* head)
 {
     for (memory::ListNode* node = get_next_node(head); node;) {
         memory::ListNode* next = get_next_node(node);
-        if (node->data)
-            static_cast<Item*>(node->data)->teardown(1);
+        if (node->data())
+            static_cast<Item*>(node->data())->teardown(1);
         node = next;
     }
 }
 int total_of(const memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != memory::ListNode::head_marker() && node;
-         node = node->next)
+    for (const memory::ListNode* node = head->next(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next())
         ++count;
     return count;
 }
@@ -175,14 +175,21 @@ SortEntry* new_sort_entry()
 struct SortedList {
     SortedList(const SortedList&) = delete;
     SortedList& operator=(const SortedList&) = delete;
-    memory::ListNode head{};
-    SortedList() { head.make_head(); }
-    void append_one(SortEntry* entry) { lists::append_vertex(head, &entry->list_link_); }
+    // The fields other code reads and sets.
+    memory::ListNode& head() { return head_; }
+    [[nodiscard]] const memory::ListNode& head() const { return head_; }
+
+private:
+    memory::ListNode head_{};
+
+public:
+    SortedList() { head_.make_head(); }
+    void append_one(SortEntry* entry) { lists::append_vertex(head_, &entry->list_link_); }
     ~SortedList()
     {
-        delete_all<SortEntry>(&head);
-        head.prev->next = head.next;
-        head.next->prev = head.prev;
+        delete_all<SortEntry>(&head_);
+        head_.prev()->set_next(head_.next());
+        head_.next()->set_prev(head_.prev());
     }
 };
 
@@ -250,7 +257,7 @@ void TopList::dealloc()
 void TopList::fill_level_scores()
 {
     for (memory::ListNode* node = get_next_node(&levels_); node; node = get_next_node(node)) {
-        auto* level = static_cast<LevelScores*>(node->data);
+        auto* level = static_cast<LevelScores*>(node->data());
         if (!level)
             break;
         if (total_of(&level->entries_) > 0) {
@@ -261,7 +268,7 @@ void TopList::fill_level_scores()
         int shown = 0;
         for (memory::ListNode* line = get_next_node(&level->entries_); line && shown < kLevelBest;
              line = get_next_node(line)) {
-            auto* entry = static_cast<TopEntry*>(line->data);
+            auto* entry = static_cast<TopEntry*>(line->data());
             if (!entry)
                 break;
             script::StructPtr params = script::make_struct();
@@ -287,11 +294,11 @@ void TopList::fill_sorted_scores(bool ratings)
     SortedList sorted;
     if (ratings) {
         for (memory::ListNode* node = get_next_node(&entries_); node; node = get_next_node(node)) {
-            auto* entry = static_cast<TopEntry*>(node->data);
+            auto* entry = static_cast<TopEntry*>(node->data());
             if (!entry)
                 break;
             SortEntry* line = new_sort_entry();
-            line->list_link_.priority = entry->skill_points_;
+            line->list_link_.set_priority(entry->skill_points_);
             line->points_held_ = entry->points_held_;
             line->skill_points_ = entry->skill_points_;
             text_tools::dup_from(line->label_.data(), entry->label_.data());
@@ -299,15 +306,15 @@ void TopList::fill_sorted_scores(bool ratings)
         }
     } else {
         for (memory::ListNode* node = get_next_node(&levels_); node; node = get_next_node(node)) {
-            auto* level = static_cast<LevelScores*>(node->data);
+            auto* level = static_cast<LevelScores*>(node->data());
             if (!level)
                 break;
             for (memory::ListNode* item = get_next_node(&level->entries_); item; item = get_next_node(item)) {
-                auto* entry = static_cast<TopEntry*>(item->data);
+                auto* entry = static_cast<TopEntry*>(item->data());
                 if (!entry)
                     break;
                 SortEntry* line = new_sort_entry();
-                line->list_link_.priority = entry->points_held_;
+                line->list_link_.set_priority(entry->points_held_);
                 line->points_held_ = entry->points_held_;
                 line->level_ = level->level_;
                 line->skill_points_ = entry->skill_points_;
@@ -317,8 +324,8 @@ void TopList::fill_sorted_scores(bool ratings)
         }
     }
     int shown = 0;
-    for (memory::ListNode* node = get_next_node(&sorted.head); node; node = get_next_node(node)) {
-        auto* line = static_cast<SortEntry*>(node->data);
+    for (memory::ListNode* node = get_next_node(&sorted.head()); node; node = get_next_node(node)) {
+        auto* line = static_cast<SortEntry*>(node->data());
         if (!line || line->points_held_ == 0 || shown == kMaxSorted)
             break;
         script::StructPtr params = script::make_struct();
@@ -354,13 +361,13 @@ void PersonalStats::get_fill()
         if (score == 0)
             continue;
         SortEntry* line = new_sort_entry();
-        line->list_link_.priority = score;
+        line->list_link_.set_priority(score);
         line->points_held_ = score;
         line->level_ = core::at(levels, i);
         sorted.append_one(line);
     }
-    for (memory::ListNode* node = get_next_node(&sorted.head); node; node = get_next_node(node)) {
-        auto* line = static_cast<SortEntry*>(node->data);
+    for (memory::ListNode* node = get_next_node(&sorted.head()); node; node = get_next_node(node)) {
+        auto* line = static_cast<SortEntry*>(node->data());
         if (!line)
             break;
         gsl::owner<script::Struct*> params = script::new_struct(); // (never freed - as in the original)
@@ -541,7 +548,7 @@ void RankingsManager::read_skill_ratings(char* text)
     push_top_down();
     for (const char* token = text_tools::get_token(text, ":"); token; token = text_tools::get_token(nullptr, ":")) {
         TopEntry* entry = new_entry();
-        get_append(&core::at(top_lists_, 4).entries_, &entry->list_link_);
+        get_append(&core::at(top_lists_, 4).entries(), &entry->list_link_);
         entry->points_held_ = text::to_int(token);
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, ":")))
@@ -561,7 +568,7 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
     TopList& list = core::at(top_lists_, index);
     push_top_down();
     if (titled) {
-        text_tools::dup_from(list.title_.data(), text_tools::get_token(text, "\n"));
+        text_tools::dup_from(list.title().data(), text_tools::get_token(text, "\n"));
         text = nullptr;
     }
     const char* token = text_tools::get_token(text, ":");
@@ -577,7 +584,7 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
             scores->entries_.make_head();
         }
         scores->level_ = static_cast<uint32_t>(level);
-        get_append(&list.levels_, &scores->list_link_);
+        get_append(&list.levels(), &scores->list_link_);
         token = text_tools::get_token(nullptr, ":");
         while (token && text::compare_caseless(token, "Level") != 0) {
             TopEntry* entry = new_entry();
@@ -601,7 +608,7 @@ void RankingsManager::parse_top_list(int index, char* text, bool titled)
 void RankingsManager::stats_task(tasks::Task<RankingsManager>* task)
 {
     push_top_down();
-    RankingsManager* stats = task->content_;
+    RankingsManager* stats = task->content();
     bool failed = false;
     switch (stats->cur_phase_) {
     case kLoggingIn:
@@ -730,7 +737,7 @@ const char* RankingsManager::get_level_name(uint32_t level)
     // (the found level is read into one variable: an entry without one counts as the last one read - at first
     // the level asked for)
     uint32_t found = level;
-    for (uint32_t i = 0; i < levels->extent_; ++i) {
+    for (uint32_t i = 0; i < levels->extent(); ++i) {
         auto* entry = levels->struct_at(i);
         entry->read_hash_value(0x651533ECu, &found, 0);
         if (found == level) {

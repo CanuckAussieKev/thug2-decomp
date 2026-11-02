@@ -128,10 +128,10 @@ void get_roll(objects::GameEntity* object, float angle)
 
 void add_input_handler(ViewerInputHandler* handler)
 {
-    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal_);
+    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal());
     append_vertex(server.handlers_, handler);
-    handler->control_data_ = &server.content_;
-    handler->dev_ = server.dev_;
+    handler->set_control_data(&server.content_);
+    handler->set_dev(server.dev_);
 }
 
 } // namespace
@@ -200,26 +200,26 @@ Viewer* get_live_viewer() { return sole(); }
 // 0x00576EB0
 void handle_viewer_shift(ViewerInputHandler* handler)
 {
-    Viewer* viewer = handler->content_;
+    Viewer* viewer = handler->content();
     viewer->shift_makes() = 0;
-    const pad_input::Payload* data = handler->control_data_;
+    const pad_input::Payload* data = handler->control_data();
     if (!(data->buttons() & 0x100)) // select
         return;
     viewer->shift_makes() |= data->makes();
     if (script::fetch_int_value(kSelectShift)) {
-        handler->control_data_->block_button_input(1);
-        handler->control_data_->block_stick_input(1);
+        handler->control_data()->block_button_input(1);
+        handler->control_data()->block_stick_input(1);
     }
 }
 
 // 0x00576F00
 void handle_viewer_input(ViewerInputHandler* handler)
 {
-    Viewer* viewer = handler->content_;
+    Viewer* viewer = handler->content();
     if (!objects::view_mode())
         return;
     auto stick = [handler](int event) {
-        return static_cast<float>(static_cast<int>(core::at(handler->control_data_->incident(), event)) - 0x80);
+        return static_cast<float>(static_cast<int>(core::at(handler->control_data()->incident(), event)) - 0x80);
     };
     viewer->pad_rx() = stick(pad_input::Payload::kRawRightX);
     viewer->pad_ry() = stick(pad_input::Payload::kRawRightY);
@@ -230,8 +230,8 @@ void handle_viewer_input(ViewerInputHandler* handler)
                                      &viewer->actions());
     if (!script::fetch_int_value(kViewerButtonsEnabled))
         return;
-    auto held = [handler]() { return handler->control_data_->buttons(); };
-    auto made = [handler]() { return handler->control_data_->makes(); };
+    auto held = [handler]() { return handler->control_data()->buttons(); };
+    auto made = [handler]() { return handler->control_data()->makes(); };
     if (held() & 0x8) {
         if (!(made() & 0x2) && !(held() & 0x2))
             viewer->actions() |= 0x2;
@@ -325,7 +325,7 @@ void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
 // 0x00577380
 void select_combo_task(ViewerTask* task)
 {
-    const Viewer* viewer = task->content_;
+    const Viewer* viewer = task->content();
     if (!script::fetch_int_value(kSelectShift))
         return;
     // The buttons pressed with Select held, and their scripts - the first one in this order.
@@ -432,7 +432,7 @@ bool Viewer::place_camera(script::Struct* params)
 // 0x00577870
 void free_camera_task(ViewerTask* task)
 {
-    Viewer* viewer = task->content_;
+    Viewer* viewer = task->content();
     const uint32_t last = last_time();
     const uint32_t elapsed = frame_clock::get_time() - last;
     last_time() += elapsed;

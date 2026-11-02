@@ -194,12 +194,12 @@ void PathManager::dealloc()
     ObjectGroup* extra = extra_;
     groups_ = nullptr;
     if (extra) {
-        if (extra->slots_) {
+        if (extra->get_slots()) {
             const std::span<SharedRef<Entity>> slots = extra->slots();
             for (auto& slot : std::views::reverse(slots))
                 slot.get_release();
-            delete_array(extra->slots_);
-            extra->slots_ = nullptr;
+            delete_array(extra->get_slots());
+            extra->set_slots(nullptr);
         }
         memory::Hub::get_pull()->dealloc(extra);
     }

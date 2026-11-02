@@ -73,7 +73,7 @@ void RiderTeeterMoves::publish_method_table()
 RiderTeeterMoves::RiderTeeterMoves()
 {
     // (the four balances - manual_, grind_, lip_, skitch_ - are constructed first, as members)
-    kind_tag_ = kType;
+    set_kind_tag(kType);
 }
 
 // 0x004F8CF0 (0x004F9010 the deleting one)
@@ -83,16 +83,16 @@ RiderTeeterMoves::~RiderTeeterMoves() = default;
 // 0x004F9040
 void RiderTeeterMoves::configure_from_data(script::Struct* /*params*/)
 {
-    manual_.prepare_all(entity_);
-    grind_.prepare_all(entity_);
-    lip_.prepare_all(entity_);
-    skitch_.prepare_all(entity_);
+    manual_.prepare_all(entity());
+    grind_.prepare_all(entity());
+    lip_.prepare_all(entity());
+    skitch_.prepare_all(entity());
 }
 
 // 0x004F9080
 void RiderTeeterMoves::seal()
 {
-    anim_blender_ptr_ = core::down_cast<AnimBlenderComponent>(entity_->fetch_module(kAnimBlender));
+    anim_blender_ptr_ = core::down_cast<AnimBlenderComponent>(entity()->fetch_module(kAnimBlender));
 }
 
 // 0x004F8D70
@@ -187,7 +187,7 @@ float RiderTeeterMoves::get_lean() const
 float RiderTeeterMoves::get_physics_value(uint32_t name)
 {
     if (call_args_)
-        return skater_of(entity_)->get_scaled_param(name, call_args_);
+        return skater_of(entity())->get_scaled_param(name, call_args_);
     uint32_t structure = 0;
     switch (trick_) {
     case kGrind:
@@ -207,7 +207,7 @@ float RiderTeeterMoves::get_physics_value(uint32_t name)
     default:
         return 0.0f;
     }
-    Rider* skater = skater_of(entity_);
+    Rider* skater = skater_of(entity());
     return skater->get_scaled_param(name, script::read_sub_struct(structure));
 }
 
@@ -233,15 +233,15 @@ void RiderTeeterMoves::change_args(script::Struct* params)
 // 0x004F9200
 void RiderTeeterMoves::set_wobble(script::Struct* wobble)
 {
-    if (!entity_->own_script()) {
+    if (!entity()->own_script()) {
         void* memory = script::script_pools().carve(0xF4);
-        entity_->set_own_script(memory ? static_cast<script::Script*>(memory)->make_new() : nullptr);
+        entity()->set_own_script(memory ? static_cast<script::Script*>(memory)->make_new() : nullptr);
     }
     std::array<float, 5> values{};
     script::Struct* value = nullptr; // (not cleared again: a missing one leaves the last found)
     for (int i = 0; i < 5; ++i) {
         wobble->read_sub_struct(core::at(kWobbleNames, i), &value, 1);
-        core::at(values, i) = skater_of(entity_)->get_scaled_value(value);
+        core::at(values, i) = skater_of(entity())->get_scaled_value(value);
     }
     anim_blender_ptr_->first_channel_47e_450(values, 1);
 }
@@ -251,8 +251,8 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
 {
     switch (name) {
     case kSwitchOffBalanceMeter: {
-        auto* score = entity_->fetch_module(kSkaterScore);
-        modules::PointTally* display = core::down_cast<RiderPointKeeper>(score)->points_held_;
+        auto* score = entity()->fetch_module(kSkaterScore);
+        modules::PointTally* display = core::down_cast<RiderPointKeeper>(score)->points_held();
         display->set_teeter_gauge(false, 0.0f);
         display->set_wheelie_gauge(false, 0.0f);
         manual_.hide_display();

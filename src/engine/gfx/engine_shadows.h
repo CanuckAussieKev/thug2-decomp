@@ -55,6 +55,10 @@ public:
     // [7]: the model it's the shadow of, and the model's asset data.
     virtual void change_mesh(RenderModel* /*model*/, const SubMesh* /*asset_data*/) {}
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int kind_tag() const { return kind_tag_; }
+
+private:
     int kind_tag_; // +0x04 1 detailed, 2 simple, 3 volume
 };
 
@@ -75,12 +79,17 @@ public:
     // position kept); the caster aimed.
     void set_light_direction(const maths::Vec4* direction) override;
 
+private:
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
     BitmapTexture* bitmap_;                     // +0x0C the render target
     maths::Vec4 direction_{};                   // +0x10 the light's
     float reach_;                               // +0x20
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24, "the original's size");
+    }
 };
-static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24, "the original's size");
 
 // The simple shadow (0x14 bytes, vtable 0x00649EB8).
 class BlobShadow final : public ShadowBase {
@@ -100,6 +109,11 @@ public:
     void hide() override;
     void show() override;
 
+    // The fields other code reads and sets.
+    void set_size_factor(float value) { size_factor_ = value; }
+    void set_shift(float value) { shift_ = value; }
+
+private:
     gsl::owner<RenderModel*> mesh_instance_{nullptr}; // +0x08
     float size_factor_{1.0f};             // +0x0C
     float shift_{1.0f};                   // +0x10

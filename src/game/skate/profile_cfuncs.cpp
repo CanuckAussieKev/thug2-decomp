@@ -95,7 +95,7 @@ void swap_mapping(uint32_t a, uint32_t b)
 void preload_meshes(uint32_t array_name)
 {
     script::Array* list = script::fetch_list(array_name);
-    for (uint32_t i = 0; i < list->extent_; ++i) {
+    for (uint32_t i = 0; i < list->extent(); ++i) {
         auto* entry = list->struct_at(i);
         int allow_random = 0;
         entry->fetch_int_value(0xF1E3CD22u, &allow_random, 0); // allow_random
@@ -148,7 +148,7 @@ bool cfunc_get_next_level_requirements(Struct*, Script* script)
     const int goals = career->count_total_goals();
     const int medals = career->count_levels_with_goals();
     script::Array* steps = script::fetch_list(0x1D8F1A7Eu); // (name unknown) the level steps
-    for (uint32_t i = 0; i < steps->extent_; ++i) {
+    for (uint32_t i = 0; i < steps->extent(); ++i) {
         auto* step = steps->struct_at(i);
         int goals_needed = 0;
         int medals_needed = 0;
@@ -210,9 +210,9 @@ bool cfunc_remember_temporary_appearance(Struct* params, Script*)
     }
     gfx::ModelLook* temporary = profiles->get_extra_profile(name)->appearance();
     if (params->has_bare_flag(0x3AF36E6Du)) { // NoFaceTexture: only the appearance's structure
-        auto* own = &temporary->structure_;
+        auto* own = &temporary->structure();
         own->get_clear();
-        own->append_structure_if_any(&source->structure_);
+        own->append_structure_if_any(&source->structure());
     } else {
         temporary->copy_from(source); // the appearance copied
     }

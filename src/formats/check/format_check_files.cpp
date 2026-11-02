@@ -892,11 +892,11 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
         check(false, name + ": wave");
         return;
     }
-    ++wave_stats().format_sizes[wave.format_size];
-    wave_stats().looping += wave.looping;
-    if (wave.format_size > wave_format::kFormatSize)
+    ++wave_stats().format_sizes[wave.format_size()];
+    wave_stats().looping += wave.looping();
+    if (wave.format_size() > wave_format::kFormatSize)
         ++wave_stats().long_format;
-    if (wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes)
+    if (wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes())
         ++wave_stats().short_data;
     // the original's reading (fread chunk by chunk while 8 header bytes come)
     const std::span<const uint8_t> bytes(data, size);
@@ -924,8 +924,8 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
         }
         at += chunk;
     }
-    check(samples == wave.samples && sample_bytes == wave.sample_bytes && looping == wave.looping &&
-              std::memcmp(format.data(), wave.format.data(), sizeof(format)) == 0,
+    check(samples == wave.samples() && sample_bytes == wave.sample_bytes() && looping == wave.looping() &&
+              std::memcmp(format.data(), wave.format().data(), sizeof(format)) == 0,
           name + ": as read by the original");
     util::ByteReader cut(data, size - 1);
     check(!wave_format::read_wave(cut, &wave), name + ": cut short");

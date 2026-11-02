@@ -67,7 +67,7 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 // A state the history keeps (0x84 bytes, 20 at the history's +0x1C): +0x08 the matrix (+0x28 its at row), +0x48 the
 // position, +0x68 the timed flags as bits, +0x6C the end run flags, +0x70 the state, +0x74 doing a trick, +0x75 the
 // physics mode, +0x76 driving, +0x78 the time, +0x7C the terrain.
-SkaterStateHistoryFrame* history_frame(RiderFrameLog* history, int index) { return &core::at(history->states_, index); }
+SkaterStateHistoryFrame* history_frame(RiderFrameLog* history, int index) { return &core::at(history->states(), index); }
 uint32_t history_frame_stamp(SkaterStateHistoryFrame* frame) { return frame->get_time(); }
 maths::Mat4& snapshot_orientation(SkaterStateHistoryFrame* frame) { return frame->matrix; }
 maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->position; }
@@ -108,12 +108,12 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
 void RiderRemoteSync::interpolate()
 {
     const net::AppHost* app = client_app();
-    if (!app || past_frames_->state_count_ < kHistory)
+    if (!app || past_frames_->state_count() < kHistory)
         return;
-    auto* skater = core::down_cast<Rider>(entity_);
+    auto* skater = core::down_cast<Rider>(entity());
     if (sync_frame_ == 0) {
         // Playback starts at the newest state, a fixed time behind it.
-        const int newest = (past_frames_->state_count_ - 1) % kHistory;
+        const int newest = (past_frames_->state_count() - 1) % kHistory;
         sync_frame_ = app->clock();
         const int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / frame_rate());
         SkaterStateHistoryFrame* frame = history_frame(past_frames_, newest);
@@ -137,7 +137,7 @@ void RiderRemoteSync::interpolate()
     auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
     if (!player->has_finished_joining())
         player->set_finished_joining();
-    const int count = past_frames_->state_count_;
+    const int count = past_frames_->state_count();
     const int oldest = count % kHistory; // (the next to be written)
     uint32_t now = app->clock() - sync_frame_ + sync_time_;
     SkaterStateHistoryFrame* last = history_frame(past_frames_, (count - 1) % kHistory);
@@ -229,7 +229,7 @@ void RiderRemoteSync::interpolate()
     state->set_surface_kind(to->value_7c_);
     state->set_physics_mode(to->flag75 != 0);
     pose_->set_in_vehicle(to->flag76 != 0);
-    core::down_cast<RiderSessionEnd>(run_over_)->flag_bits_ = to->value_6c_; // (0x00407A70)
+    core::down_cast<RiderSessionEnd>(run_over_)->set_flag_bits(to->value_6c_); // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.
     const uint32_t bits = to->value68;
     for (int i = 0; i < kPoseFlagCount; ++i)
@@ -246,7 +246,7 @@ void RiderRemoteSync::get_extrapolate()
     online::Hub* net = net_session_slot();
     net::AppHost* app = client_app();
     const int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
-    const float lag = connection_lag(app, entity_, frame_ms);
+    const float lag = connection_lag(app, entity(), frame_ms);
     const int slot = updates_ % kHistory;
     const float dw = play_pos_.w - last_play_pos_.w;
     const float dz = play_pos_.z - last_play_pos_.z;
@@ -296,13 +296,13 @@ void RiderRemoteSync::get_extrapolate()
     auto move_w = static_cast<float>(static_cast<double>(dw) * speed * scale);
     auto move_z = static_cast<float>(static_cast<double>(dir_z) * speed * scale);
     auto move_x = static_cast<float>(static_cast<double>(dir_x) * speed * scale);
-    maths::Vec4& pos = entity_->at_point();
+    maths::Vec4& pos = entity()->at_point();
     pos.w += move_w;
     pos.z += move_z;
     pos.x += move_x;
 
     // A wall between the played position and the new one (both the collision height up the up row): bounced off.
-    GameEntity* skater = entity_;
+    GameEntity* skater = entity();
     auto height = static_cast<float>(read_tuning_float(kFirstForwardCollisionHeight, 1, skater));
     const maths::Vec4& up = core::at(skater->basis_frame().row, 1);
     const float raise_w = height * up.w;
@@ -331,7 +331,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     GrindPoint* next = node->succ_;
     if (!next)
         return nullptr;
-    GameEntity* skater = entity_;
+    GameEntity* skater = entity();
     maths::Vec4 a{}, b{}, p1{}, p2{};
     rails->get_absolute_pos(&a, node);
     rails->get_absolute_pos(&b, next);
@@ -478,7 +478,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     online::Hub* net = net_session_slot();
     net::AppHost* app = client_app();
     const int frame_ms = static_cast<int>(static_cast<double>(frame_seconds_) * kMsPerSecond);
-    const float lag = connection_lag(app, entity_, frame_ms);
+    const float lag = connection_lag(app, entity(), frame_ms);
     const int slot = updates_ % kHistory;
     const float dx = play_pos_.x - last_play_pos_.x;
     const float dy = play_pos_.y - last_play_pos_.y;
@@ -521,7 +521,7 @@ void RiderRemoteSync::extrapolate_on_rail()
         node = move_along_rail(node, left > frame_seconds_ ? frame_seconds_ : left);
         if (!node) {
             // Off the rail's end: from the played position, as on the ground.
-            entity_->at_point() = play_pos_;
+            entity()->at_point() = play_pos_;
             get_extrapolate();
             return;
         }
@@ -533,11 +533,11 @@ void RiderRemoteSync::extrapolate_on_rail()
 void RiderRemoteSync::play_history_events()
 {
     const net::AppHost* app = client_app();
-    if (!app || past_frames_->state_count_ < kHistory)
+    if (!app || past_frames_->state_count() < kHistory)
         return;
-    const int first = past_frames_->message_count_ % kHistory;
+    const int first = past_frames_->message_count() % kHistory;
     const uint32_t now = app->clock() - sync_frame_ + sync_time_;
-    auto& messages = past_frames_->messages_;
+    auto& messages = past_frames_->messages();
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_);
     int i = first;
     for (bool again = true; again; again = i != first) {
@@ -590,14 +590,14 @@ void RiderRemoteSync::play_history_events()
                 break;
             }
             case 0x77: { // a special item made: its +0x5CB5CB7E component told its name and owner
-                auto* items = core::down_cast<PickupItemHandler>(entity_->fetch_module(PickupItemHandler::kType));
+                auto* items = core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType));
                 script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
                 GameEntity* item = items->create_item(msg->item_slot_, structure);
                 gsl::owner<script::Struct*> params = script::spawn_param_bag();
                 if (params)
                     params = new (params) script::Struct;
                 params->put_name_key(kItemName, msg->bone_);
-                params->put_name_key(kItemOwner, entity_->ident());
+                params->put_name_key(kItemOwner, entity()->ident());
                 item->fetch_module(kItemComponent)->configure_from_data(params);
                 if (params) {
                     params->get_clear();
@@ -606,7 +606,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             }
             case 0x78: // the special item gone
-                core::down_cast<PickupItemHandler>(entity_->fetch_module(PickupItemHandler::kType))
+                core::down_cast<PickupItemHandler>(entity()->fetch_module(PickupItemHandler::kType))
                     ->destroy_item(msg->item_slot_);
                 break;
             case 0x8C:

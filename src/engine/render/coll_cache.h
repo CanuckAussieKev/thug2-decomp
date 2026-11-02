@@ -36,13 +36,29 @@ public:
     // 0x0040A990: `object` out of the movable ones (the last entry moved into its place).
     void remove_movable(HitMesh* object);
 
+    // The fields other code reads and sets.
+    maths::BBox& box() { return box_; }
+    [[nodiscard]] const maths::BBox& box() const { return box_; }
+    std::array<TableRow, 500>& entries() { return entries_; }
+    [[nodiscard]] const std::array<TableRow, 500>& entries() const { return entries_; }
+    void set_num(int value) { num_ = value; }
+    [[nodiscard]] int statics() const { return statics_; }
+    void set_statics(int value) { statics_ = value; }
+    [[nodiscard]] int movables() const { return movables_; }
+    void set_movables(int value) { movables_ = value; }
+
+private:
     maths::BBox box_;       // +0x000
     std::array<TableRow, 500> entries_{}; // +0x020
     int num_{};               // +0xFC0
     int statics_{};           // +0xFC4
     int movables_{};          // +0xFC8
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(HitMeshCache) == 0xFCC && offsetof(HitMeshCache, num_) == 0xFC0, "layout must match the original");
+    }
 };
-static_assert(sizeof(HitMeshCache) == 0xFCC && offsetof(HitMeshCache, num_) == 0xFC0, "layout must match the original");
 
 // The registered caches (0x006918EC, in use: the bits of 0x0069190C). 0x0040AA00 / 0x0040AA40: one registered (no
 // room: ignored) / unregistered. 0x0040AA80: `object` out of every cache's movable ones; 0x0040AAC0: out of both.

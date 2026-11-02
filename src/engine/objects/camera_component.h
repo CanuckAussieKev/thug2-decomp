@@ -44,9 +44,18 @@ public:
     // position and orientation (copies taken first).
     void tick_frame() override;
 
+    // The fields other code reads and sets.
+    std::unique_ptr<gfx::ViewCam>& view_camera() { return view_camera_; }
+    [[nodiscard]] const std::unique_ptr<gfx::ViewCam>& view_camera() const { return view_camera_; }
+
+private:
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x18
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ViewpointModule, view_camera_) == 0x18 && sizeof(ViewpointModule) == 0x1C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ViewpointModule, view_camera_) == 0x18 && sizeof(ViewpointModule) == 0x1C,
-              "layout must match the original");
 
 } // namespace objects

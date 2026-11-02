@@ -69,6 +69,12 @@ public:
     // 0x00433930 (not a Ghidra function) Obj_StopStream: every stream it plays stopped. True.
     bool obj_stop_stream(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    std::array<uint32_t, 3>& streams() { return streams_; }
+    [[nodiscard]] const std::array<uint32_t, 3>& streams() const { return streams_; }
+    void set_proxim(ProximNode* value) { proxim_ = value; }
+
+private:
     std::array<uint32_t, 3> streams_{}; // +0x18 the ids of the streams it plays (0: free)
     EmitterNode* spewer_{nullptr}; // +0x24
     ProximNode* proxim_{nullptr};  // +0x28

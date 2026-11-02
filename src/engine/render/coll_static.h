@@ -94,6 +94,12 @@ public:
     // geometry's rejection scale kept (+0x14). The block's next free byte.
     uint8_t* take_buffer(uint8_t* block, const TriMeshSource* geometry);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint8_t* octets() const { return octets_; }
+    void set_octets(uint8_t* value) { octets_ = value; }
+    void set_unknown14(int value) { unknown14_ = value; }
+
+private:
     uint8_t* octets_{nullptr}; // +0x10
     int unknown14_{0};         // +0x14
 };
@@ -153,11 +159,16 @@ public:
     // 0x00412F50 (slot 19): the geometry drawn with the scaled matrix (0x00414D60).
     void draw_diagnostic(int a, int b) override;
 
+private:
     maths::BBox world_box_; // +0xA0
     uint8_t* octets_{nullptr}; // +0xC0
     int unknownc4_{0};         // +0xC4
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(CollStaticInstance) == 0xC8 && offsetof(CollStaticInstance, world_box_) == 0xA0, "layout");
+    }
 };
-static_assert(sizeof(CollStaticInstance) == 0xC8 && offsetof(CollStaticInstance, world_box_) == 0xA0, "layout");
 
 // A movable triangle object (0xD4 bytes, the original's vtable 0x00645CE0): its bounding sphere's radius and the box
 // around it.
@@ -195,15 +206,24 @@ public:
     // 0x00413130 (slot 19)
     void draw_diagnostic(int a, int b) override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t unknownd0() const { return unknownd0_; }
+    void set_unknownd0(uint32_t value) { unknownd0_ = value; }
+
+private:
     float radius_{}; // +0xA4
     bool box_dirty_; // +0xA8
     std::array<uint8_t, 3> pada9_{};
     maths::BBox box_;    // +0xAC
     uint32_t unknowncc_{}; // +0xCC
     uint32_t unknownd0_; // +0xD0 the geometry's +0x3C
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(HitMovingTriangles) == 0xD4 && offsetof(HitMovingTriangles, box_) == 0xAC,
+                      "layout must match the original");
+    }
 };
-static_assert(sizeof(HitMovingTriangles) == 0xD4 && offsetof(HitMovingTriangles, box_) == 0xAC,
-              "layout must match the original");
 
 // Whether `object` (a sector's collision object, or null) is a sector's own (NOT ORIGINAL: the level editor's check,
 // which compared the vtable).

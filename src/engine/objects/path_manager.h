@@ -44,6 +44,12 @@ public:
         return {slots_, slots_ ? static_cast<std::size_t>(extent_) : 0};
     }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] SharedRef<Entity>* get_slots() const { return slots_; }
+    void set_slots(SharedRef<Entity>* value) { slots_ = value; }
+    [[nodiscard]] int extent() const { return extent_; }
+
+private:
     SharedRef<Entity>* slots_{nullptr};
     int extent_{0}; // the slots' count (the original also kept it in the word before them, as new[] does)
 };
@@ -71,6 +77,7 @@ public:
         return {groups_, groups_ ? static_cast<std::size_t>(group_count_) : 0};
     }
 
+private:
     ObjectGroup* groups_; // +0x00 (the original's new[]: the count also in the word before them)
     ObjectGroup* extra_;  // +0x04
     int path_count_;      // +0x08

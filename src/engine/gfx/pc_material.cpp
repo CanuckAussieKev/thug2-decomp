@@ -112,9 +112,9 @@ void set_common_states(MaterialRef* material)
             return;
         change_phase(kSpecular, 1);
         std::memset(&specular, 0, sizeof(specular));
-        specular.Specular.r = core::at(material->specular_value(), 0);
-        specular.Specular.g = core::at(material->specular_value(), 1);
-        specular.Specular.b = core::at(material->specular_value(), 2);
+        specular.Specular.r = core::at(material->specular(), 0);
+        specular.Specular.g = core::at(material->specular(), 1);
+        specular.Specular.b = core::at(material->specular(), 2);
         specular.Specular.a = 1.0f;
         specular.Power = material->specular_power();
     } else {
@@ -170,7 +170,7 @@ MaterialRef::MaterialRef()
     for (int pass = 0; pass < 4; ++pass) {
         core::at(unknownc0_, pass) = 0x10001;
         core::at(pass_flags_, pass) = 0;
-        core::at(textures, pass) = nullptr;
+        core::at(textures_, pass) = nullptr;
         core::at(uv_wibble_, pass) = nullptr;
         core::at(core::at(reflection_tiling_, pass), 0) = 3.0f;
         core::at(core::at(reflection_tiling_, pass), 1) = 3.0f;
@@ -250,7 +250,7 @@ void MaterialRef::update_texture_anims()
         int key = count - 1;
         while (key >= 0 && t < core::at(keys, key).time)
             --key;
-        core::at(textures, pass) = core::at(keys, key).texture;
+        core::at(textures_, pass) = core::at(keys, key).texture;
     }
 }
 
@@ -284,7 +284,7 @@ void MaterialRef::hand_in()
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
         if (!renderer().pixel_shader_changed() && std::memcmp(core::at(pass_color_, pass).data(), std::span<float>(renderer().ps_constant_bank()).subspan(4 * static_cast<size_t>(pass)).data(), 16) != 0)
             renderer().set_pixel_shader_changed(true);
-        const TextureImage* texture = core::at(textures, pass);
+        const TextureImage* texture = core::at(textures_, pass);
         if (!texture) {
             set_texture(static_cast<int>(pass), nullptr);
             continue;
@@ -350,7 +350,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         return;
     choose_blend_mode(core::at(blend_modes_, pass));
     if (!(renderer().skipped_passes() & (1u << (pass & 31)))) {
-        const TextureImage* texture = core::at(textures, pass);
+        const TextureImage* texture = core::at(textures_, pass);
         if (!texture) {
             set_texture(0, nullptr);
         } else {
@@ -388,12 +388,12 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                     set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
-                        set_texture(1, core::at(textures, pass - 1)->texture);
+                        set_texture(1, core::at(textures_, pass - 1)->texture);
                         change_phase(kAddressMode0 + 1, core::at(address_modes_, pass - 1));
                         change_phase(kMipLodBias0 + 1, core::at(mip_lod_bias_, pass - 1));
                     } else {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass);
-                        set_texture(1, core::at(textures, pass)->texture);
+                        set_texture(1, core::at(textures_, pass)->texture);
                     }
                 }
             }

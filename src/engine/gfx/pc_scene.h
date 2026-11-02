@@ -52,14 +52,23 @@ public:
     // 0x004C64E0 (slot 9, never called): an empty box (a static one, made the first time).
     static const maths::BBox* fetch_empty_bounds();
 
-    uint32_t flags{0};                    // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t flags() const { return flags_; }
+    void set_flags(uint32_t value) { flags_ = value; }
+
+private:
+    uint32_t flags_{0};                    // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
     std::array<float, 3> unknown20{{0.0f, 0.0f, 0.0f}}; // +0x20 (zero)
     float unknown2c_{1.0f};               // +0x2C (1)
     std::array<uint8_t, 4> unknown30_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcSector, unknown20) == 0x20 &&
+                          sizeof(PcSector) == 0x34,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcSector, unknown20) == 0x20 &&
-                  sizeof(PcSector) == 0x34,
-              "layout must match the original");
 
 // The PC scene (0x284 bytes, vtable 0x0064A6B8; the engine's WorldScene - constructor 0x0049D390, destructor body
 // 0x0049DD10 - for its first 0x280 bytes: +0xD0 the sectors' hash table).
@@ -82,10 +91,19 @@ struct PcScene final : public WorldScene {
     // 0x004C6200: the sectors gone through (nothing done with them - stripped).
     void unload_sectors();
 
-    SceneRef* meshes{}; // +0x280: its mesh list
+    // The fields other code reads and sets.
+    [[nodiscard]] SceneRef* meshes() const { return meshes_; }
+    void set_meshes(SceneRef* value) { meshes_ = value; }
+
+private:
+    SceneRef* meshes_{}; // +0x280: its mesh list
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcScene, meshes_) == 0x280 && sizeof(PcScene) == 0x284,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcScene, meshes) == 0x280 && sizeof(PcScene) == 0x284,
-              "layout must match the original");
 
 // The PC screen effects (8 bytes, vtable 0x0064A6E4; the engine's 0x0049E2F0 - destructor body 0x0049E300): its
 // setters write the renderer's settings (screen_fx.cpp: the bloom).

@@ -866,21 +866,21 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
     const render::PcGeom* geom = scenery::sector_geometry(checksum);
     if (!geom)
         return;
-    const std::span<render::MeshRef*> meshes = geom->meshes_value() ? geom->mesh_run() : std::span<render::MeshRef*>();
+    const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out->size() < 600000; ++i) {
         render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
+        if (!mesh || mesh->billboard() || (mesh->flags() & 0x10))
             continue;
         render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data_value() || !indices || !indices->indices || mesh->stride_value() < 12)
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < 12)
             continue;
         auto at = [&](uint16_t k) {
-            const auto f = gpu::VertexView(vertices->data_value(), mesh->stride_value(), mesh->vertex_count()).float3(k);
+            const auto f = gpu::VertexView(vertices->data(), mesh->stride(), mesh->vertex_count()).float3(k);
             return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
         };
-        const std::span<const uint16_t> index(indices->indices, core::at(mesh->index_counts(), 0));
+        const std::span<const uint16_t> index(indices->indices(), core::at(mesh->index_counts(), 0));
         for (uint32_t k = 2; k < index.size(); ++k) {
             const uint16_t a = core::at(index, k - 2);
             const uint16_t b = core::at(index, k - 1);

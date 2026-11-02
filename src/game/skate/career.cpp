@@ -260,7 +260,7 @@ bool RiderStoryProgress::reset_part(uint32_t part)
 bool RiderStoryProgress::all_gaps_got()
 {
     script::Array* levels = script::fetch_list(0xEB1A4BC9);
-    const uint32_t count = levels->extent_;
+    const uint32_t count = levels->extent();
     for (int level = 0; level < kLevels; ++level) {
         uint32_t i = 0;
         for (; i < count; ++i) {
@@ -397,7 +397,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
                 continue;
             script::Array* list = nullptr;
             entry->fetch_list(kGapList, &list, 0);
-            const int count = static_cast<int>(list->extent_);
+            const int count = static_cast<int>(list->extent());
             for (int i = 0; i < count; ++i) {
                 auto* gap = list->struct_at(i);
                 const char* name = nullptr;
@@ -500,7 +500,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                 }
                 entry->append_array_ref(kGapList, list);
             }
-        } else if (!checklist->built_) {
+        } else if (!checklist->built()) {
             entry->put_int(kGapsBuilt, 0);
         } else {
             entry->put_int(kGapsBuilt, 1);

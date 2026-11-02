@@ -32,6 +32,16 @@ public:
     // The initials set (three characters).
     void set_player_tag(const char* initials);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] char* tag() const { return tag_; }
+    [[nodiscard]] int val() const { return val_; }
+    void set_val(int value) { val_ = value; }
+    [[nodiscard]] int slot_no() const { return slot_no_; }
+    void set_slot_no(int value) { slot_no_ = value; }
+    [[nodiscard]] bool is_fresh() const { return is_fresh_; }
+    void set_is_fresh(bool value) { is_fresh_ = value; }
+
+private:
     char* tag_;     // +0x00
     int val_{1000}; // +0x04
     int slot_no_{0};  // +0x08
@@ -58,6 +68,7 @@ public:
     // NOT ORIGINAL - the records as a span of their count.
     [[nodiscard]] std::span<BestEntry> records() const { return {records_, static_cast<size_t>(num_)}; }
 
+private:
     int num_;            // +0x00
     BestEntry* records_; // +0x04
 };
@@ -123,6 +134,10 @@ public:
     // NOT ORIGINAL - the levels' records as a span of their count.
     [[nodiscard]] std::span<StageBests> levels() const { return {levels_, static_cast<size_t>(level_count_)}; }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] char* default_initials() const { return default_initials_; }
+
+private:
     int level_count_{0};     // +0x00
     char* default_initials_; // +0x04
     StageBests* levels_{};   // +0x08

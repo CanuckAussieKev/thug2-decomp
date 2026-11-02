@@ -51,7 +51,7 @@ constexpr float kCastDistance = 72.0f;
 constexpr float kDetailedHeight = 36.0f;
 
 // The renderer's shadow object's kind (engine_shadows.h).
-int shadow_kind_of(const render::ShadowBase* shadow) { return shadow->kind_tag_; }
+int shadow_kind_of(const render::ShadowBase* shadow) { return shadow->kind_tag(); }
 // A simple shadow's scale and offset (the kind checked by the caller - or not, as the original).
 render::BlobShadow* as_blob(render::ShadowBase* shadow) { return core::down_cast<render::BlobShadow>(shadow); }
 
@@ -79,7 +79,7 @@ gsl::owner<ObjectModule*> GroundShadowModule::fabricate() { return new GroundSha
 // 0x00431380
 GroundShadowModule::GroundShadowModule() : shadow_handle_(nullptr)
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     surface_dir_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
@@ -95,7 +95,7 @@ GroundShadowModule::~GroundShadowModule()
 // 0x00431400
 void GroundShadowModule::seal()
 {
-    mesh_instance_ = entity_->fetch_module(kModel);
+    mesh_instance_ = entity()->fetch_module(kModel);
     const uint32_t checksum = model_of(mesh_instance_)->source_path();
     const void* asset = assets::asset_manager()->get_asset_data(checksum, 0);
     if (shadow_handle_)
@@ -117,7 +117,7 @@ void GroundShadowModule::refresh_shadow()
     }
     switch (shadow_kind_of(shadow_handle_.get())) {
     case kShadowDetailed: {
-        const GameEntity* object = entity_;
+        const GameEntity* object = entity();
         const maths::Vec4 above = object->at_point() + core::at(object->basis_frame().row, 1) * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
@@ -130,10 +130,10 @@ void GroundShadowModule::refresh_shadow()
         break;
     }
     case kShadowSimple:
-        as_blob(shadow_handle_.get())->size_factor_ = model->size_factor().x;
+        as_blob(shadow_handle_.get())->set_size_factor(model->size_factor().x);
         [[fallthrough]];
     case kShadowVolume:
-        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame(), surface_dir_);
+        shadow_handle_->tick_frame(&at_point_, &entity()->basis_frame(), surface_dir_);
         break;
     default:
         break;
@@ -157,7 +157,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
 {
     if (shadow_handle_)
         return;
-    ObjectModule* model_component = entity_->fetch_module(kModel);
+    ObjectModule* model_component = entity()->fetch_module(kModel);
     render::RenderModel* model = model_component ? model_of(model_component) : nullptr;
     switch (type) {
     case kShadowDetailed:
@@ -167,7 +167,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     case kShadowSimple: {
         auto shadow = memory::make_owned_value<render::BlobShadow>();
         // (no shadow - out of memory - is written through regardless, as the original)
-        shadow->size_factor_ = model->size_factor().x;
+        shadow->set_size_factor(model->size_factor().x);
         shadow->load_mesh(model_name);
         shadow_handle_.reset(shadow);
         break;
@@ -179,7 +179,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     default:
         return;
     }
-    shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame(), surface_dir_);
+    shadow_handle_->tick_frame(&at_point_, &entity()->basis_frame(), surface_dir_);
 }
 
 // 0x00431780
@@ -225,8 +225,8 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
             build_blob_shadow(kShadowSimple, model);
         float scale = 1.0f;
         params->fetch_float(kBlobSizeFactor, &scale, 0);
-        as_blob(shadow_handle_.get())->size_factor_ = scale;
-        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame(), surface_dir_);
+        as_blob(shadow_handle_.get())->set_size_factor(scale);
+        shadow_handle_->tick_frame(&at_point_, &entity()->basis_frame(), surface_dir_);
         break;
     }
     case kVolume:
@@ -246,10 +246,10 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
 void GroundShadowModule::tick_frame()
 {
     if (follow_object_) {
-        at_point_ = entity_->at_point();
+        at_point_ = entity()->at_point();
         if (shadow_handle_) {
-            maths::Mat4 matrix = entity_->display_matrix();
-            maths::Vec4 pos = entity_->at_point();
+            maths::Mat4 matrix = entity()->display_matrix();
+            maths::Vec4 pos = entity()->at_point();
             render::RenderModel* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
@@ -257,9 +257,9 @@ void GroundShadowModule::tick_frame()
                 pos = {.x = root.x, .y = root.y, .z = root.z, .w = 0.0f};
                 const maths::Mat4 base_mat = hierarchy_of(model)->matrix;
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
-                pos += entity_->at_point();
+                pos += entity()->at_point();
                 matrix = maths::MatrixProduct{.left = &hierarchy_of(model)->matrix,
-                                              .right = &entity_->display_matrix()};
+                                              .right = &entity()->display_matrix()};
             }
             core::at(matrix.row, 3) = pos;
             shadow_handle_->change_mat(&matrix);
@@ -284,7 +284,7 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
     if (shadow_handle_.get() && shadow_kind_of(shadow_handle_.get()) == kShadowSimple) {
         float offset = 0.2f; // (read into the name's argument slot)
         params->fetch_float(kOffset, &offset, 0);
-        as_blob(shadow_handle_.get())->shift_ = offset;
+        as_blob(shadow_handle_.get())->set_shift(offset);
     }
     return 1;
 }

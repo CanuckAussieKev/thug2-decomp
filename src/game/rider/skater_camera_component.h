@@ -179,6 +179,7 @@ public:
     // 0x004FBE00 (slot 1): Rider::update_shadow_light with the object's position and matrix.
     void tick_frame() override;
 
+private:
     ObjectModule* state_ref_{}; // +0x18 the object's SkaterState
 };
 

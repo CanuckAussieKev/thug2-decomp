@@ -65,6 +65,13 @@ public:
     // less the object's, through the object's inverted orientation.
     void update_contact_point();
 
+    // The fields other code reads and sets.
+    memory::HeapUnique<RideTracker>& ride() { return ride_; }
+    [[nodiscard]] const memory::HeapUnique<RideTracker>& ride() const { return ride_; }
+    void set_last_object(GameEntity* value) { last_object_ = value; }
+    void set_stop_time(int value) { stop_time_ = value; }
+
+private:
     memory::HeapUnique<RideTracker> ride_; // +0x18
     maths::Vec4 contact_point_{}; // +0x1C in the object's frame
     std::array<uint8_t, 0x40> unknown2c_{};   // +0x2C

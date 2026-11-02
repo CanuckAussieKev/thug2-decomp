@@ -108,7 +108,7 @@ std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
     const render::HitMesh* coll = sector->hit_body();
     if (!render::is_static_collider(coll))
         return corners;
-    const auto* tri = coll->geometry_;
+    const auto* tri = coll->geometry();
     if (!tri || !tri->vertices())
         return corners;
     const int count = tri->num_vertices() < 20000 ? tri->num_vertices() : 20000;

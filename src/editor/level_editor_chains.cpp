@@ -834,11 +834,11 @@ std::vector<uint32_t> own_links(script::Struct* node)
     std::vector<uint32_t> links;
     if (!node)
         return links;
-    for (const script::Component* c = node->head_; c; c = c->next) {
+    for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kLinks &&
             (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->value.array()) {
             links.clear();
-            for (uint32_t i = 0; i < c->value.array()->extent_; ++i)
+            for (uint32_t i = 0; i < c->value.array()->extent(); ++i)
                 links.push_back(c->value.array()->fetch_part(i));
         }
     }
@@ -849,7 +849,7 @@ std::vector<uint32_t> own_links(script::Struct* node)
 void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
 {
     const script::Component* own = nullptr;
-    for (const script::Component* c = node->head_; c; c = c->next) {
+    for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kLinks &&
             (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->value.array())
             own = c;
@@ -879,7 +879,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
 void write_pos(script::Struct* node, V3 pos)
 {
     const script::Component* own = nullptr;
-    for (const script::Component* c = node->head_; c; c = c->next) {
+    for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kPos && c->kind_tag() == script::kQbvalVector && c->value.vector())
             own = c;
     }
@@ -897,7 +897,7 @@ void write_angles(script::Struct* node, V3 angles)
 {
     constexpr uint32_t kAngles = 0x9D2D0915; // angles
     const script::Component* own = nullptr;
-    for (const script::Component* c = node->head_; c; c = c->next) {
+    for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kAngles && c->kind_tag() == script::kQbvalVector && c->value.vector())
             own = c;
     }
@@ -950,9 +950,9 @@ bool known_terrain(uint32_t terrain)
 {
     static const uint32_t kChecksumKey = name_hash("checksum");
     script::Array* types = script::fetch_list("Terrain_Types");
-    if (!types || types->kind_tag_ != script::kQbvalStruct)
+    if (!types || types->kind_tag() != script::kQbvalStruct)
         return false;
-    for (uint32_t i = 0; i < types->extent_; ++i) {
+    for (uint32_t i = 0; i < types->extent(); ++i) {
         auto* entry = types->struct_at(i);
         uint32_t value = 0;
         if (entry && entry->read_hash_value(kChecksumKey, &value, 0) && value == terrain)
@@ -1269,7 +1269,7 @@ void register_trick_objects()
             rail_node_named(name))
             want[name] = extras->second.cluster;
     }
-    lists::KeyMap* objects = &manager->object_clusters_;
+    lists::KeyMap* objects = &manager->object_clusters();
     for (const auto& entry : trick_state()) {
         auto it = want.find(entry.first);
         if (it == want.end() || it->second != entry.second)

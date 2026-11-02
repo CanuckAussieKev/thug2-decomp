@@ -30,7 +30,7 @@ gsl::owner<ObjectModule*> ViewpointModule::fabricate() { return new ViewpointMod
 // 0x0041B730
 ViewpointModule::ViewpointModule()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     view_camera_ = std::make_unique<gfx::ViewCam>();
 }
 
@@ -41,23 +41,23 @@ ViewpointModule::~ViewpointModule() { view_camera_.reset(); }
 void ViewpointModule::configure_from_data(script::Struct*)
 {
     auto* manager = static_cast<ObjectHubBase*>(object_hub_slot().get());
-    manager->set_entity_rank(entity_, kCameraPriority);
+    manager->set_entity_rank(entity(), kCameraPriority);
 }
 
 // 0x0041B810
 void ViewpointModule::seal()
 {
-    view_camera_->change_location(entity_->at_point());
-    view_camera_->change_mat(entity_->basis_frame());
+    view_camera_->change_location(entity()->at_point());
+    view_camera_->change_mat(entity()->basis_frame());
 }
 
 // 0x0041B8A0
 void ViewpointModule::tick_frame()
 {
-    const maths::Vec4 pos = entity_->at_point();
+    const maths::Vec4 pos = entity()->at_point();
     maths::Mat4 matrix{};
-    matrix = entity_->basis_frame();
-    entity_->display_matrix() = matrix;
+    matrix = entity()->basis_frame();
+    entity()->display_matrix() = matrix;
     view_camera_->change_location(pos);
     view_camera_->change_mat(matrix);
 }

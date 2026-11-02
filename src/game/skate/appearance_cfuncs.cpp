@@ -81,7 +81,7 @@ script::Struct* appearance_part(objects::RiderIdentity* profile, uint32_t part)
 {
     return get_appearance(profile)->get_part(part);
 }
-script::Struct* appearance_structure(objects::RiderIdentity* profile) { return &profile->appearance()->structure_; }
+script::Struct* appearance_structure(objects::RiderIdentity* profile) { return &profile->appearance()->structure(); }
 // RefreshSkaterModel's call between the heap switch and the model's build: compiled out of this build (0x0048C1B0, a
 // jump to the empty 0x005480A0; no arguments).
 inline void model_build_hook() {}
@@ -106,7 +106,7 @@ bool refresh_skater(script::Struct* params, uint32_t build_script)
 // returned), 0x00487570 set; 0x00487380 its texture (a file, maybe with its path), 0x00487590 the overlay's;
 // 0x00487520 marked valid or not; 0x00487510 whether valid. 0x00487000 / 0x004869D0 (cdecl): the points written
 // to / read from a structure (false: something missing).
-gfx::FaceSkin* face_of(objects::RiderIdentity* profile) { return profile->appearance()->face_skin_; }
+gfx::FaceSkin* face_of(objects::RiderIdentity* profile) { return profile->appearance()->face_skin(); }
 
 } // namespace
 

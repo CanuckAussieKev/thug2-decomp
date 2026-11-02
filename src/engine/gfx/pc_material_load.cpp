@@ -59,7 +59,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
     }
     m->set_specular_power(record.specular_power);
     if (m->specular_power() > 0.0f)
-        std::memcpy(m->specular_value().data(), record.specular.data(), sizeof(m->specular_value()));
+        std::memcpy(m->specular().data(), record.specular.data(), sizeof(m->specular()));
     bool all_half = true;
     for (uint32_t pass = 0; pass < m->pass_count(); ++pass) {
         const scene_format::MaterialPass& in = core::at(record.passes, pass);
@@ -121,10 +121,10 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             }
         }
         if (!in.texture) { // (with a texture animation, its first key's)
-            core::at(m->textures_value(), pass) = nullptr;
+            core::at(m->textures(), pass) = nullptr;
             continue;
         }
-        core::at(m->textures_value(), pass) = find_texture(textures, in.texture);
+        core::at(m->textures(), pass) = find_texture(textures, in.texture);
         const double lod = static_cast<double>(in.mip_lod_bias) + 8.0f;
         auto stored = static_cast<float>(lod);
         std::memcpy(&core::at(m->mip_lod_bias(), pass), &stored, 4);
@@ -156,8 +156,8 @@ lists::KeyMap* read_materials(Stream& in, const lists::KeyMap* textures)
             break;
         }
         MaterialRef* m = make_material(record, textures);
-        if (!table->fetch_entry(m->checksum_value()))
-            table->store_entry(m->checksum_value(), m);
+        if (!table->fetch_entry(m->checksum()))
+            table->store_entry(m->checksum(), m);
     }
     return table;
 }

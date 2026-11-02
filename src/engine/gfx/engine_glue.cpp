@@ -203,7 +203,7 @@ gsl::owner<PcScene*> make_empty_scene(const char* /*name*/, TextureSet* /*textur
     scene->set_builds_collision_grid(with_super_sectors);
     scene->set_is_sky(false);
     void* memory = memory::alloc(sizeof(SceneRef));
-    scene->meshes = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
+    scene->set_meshes(memory ? memory::construct_in<SceneRef>(memory) : nullptr);
     return scene;
 }
 
@@ -212,8 +212,8 @@ bool unload_scene(WorldScene* world_scene)
 {
     auto* scene = core::down_cast<PcScene>(world_scene);
     scene->unload_sectors();
-    discard_scene(scene->meshes);
-    scene->meshes = nullptr;
+    discard_scene(scene->meshes());
+    scene->set_meshes(nullptr);
     return true;
 }
 

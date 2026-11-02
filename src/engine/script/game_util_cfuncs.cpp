@@ -101,7 +101,7 @@ bool array_has(Array* array, uint32_t name)
 {
     if (!array)
         return false;
-    for (uint32_t i = 0; i < array->extent_; ++i)
+    for (uint32_t i = 0; i < array->extent(); ++i)
         if (array->fetch_part(i) == name)
             return true;
     return false;
@@ -270,7 +270,7 @@ bool cfunc_get_initials_string(script::Struct*, script::Script* script)
 {
     auto* records = highscores::game_records();
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
-    script->args()->append_word(kString, script::kQbvalString, records->default_initials_);
+    script->args()->append_word(kString, script::kQbvalString, records->default_initials());
     return true;
 }
 
@@ -298,7 +298,7 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
     Array* skaters = script::fetch_list(kMasterSkaterList);
-    const int count = static_cast<int>(skaters->extent_);
+    const int count = static_cast<int>(skaters->extent());
     for (int i = 0; i < count; ++i) {
         auto* skater = skaters->struct_at(i);
         uint32_t entry = 0;

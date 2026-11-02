@@ -40,12 +40,12 @@ constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 // How many skaters there are: the skate module's skater list (memory::ListNode: data the skater, -1 at the head).
 uint32_t skater_count(modules::Skate* skate)
 {
-    const memory::ListNode* node = skate->riders().list_link_.next;
+    const memory::ListNode* node = skate->riders().list_link_.next();
     uint32_t count = 0;
     if (node->is_head() || !node) // (read before the null check, as in the original)
         return 0;
     for (bool again = true; again; again = !node->is_head() && node) {
-        node = node->next;
+        node = node->next();
         ++count;
     }
     return count;
@@ -145,7 +145,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
         }
         return false;
     }
-    const auto count = static_cast<uint32_t>(goals->goals().num_); // (the goals there are - 0x00469490, a folded getter)
+    const auto count = static_cast<uint32_t>(goals->goals().num()); // (the goals there are - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         auto* skater = get_rider_at(skate, i);
         if (count == 0)

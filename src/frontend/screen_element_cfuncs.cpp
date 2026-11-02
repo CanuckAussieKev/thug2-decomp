@@ -523,7 +523,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     int result = 0;
     for (bool again = true; again; again = result != 2) {
         result = text::next_word(word, cursor);
-        if (texts && result == 2 && text_index < texts->extent_ - 1) {
+        if (texts && result == 2 && text_index < texts->extent() - 1) {
             // the next string of the array, a space between
             text = texts->fetch_text(++text_index);
             cursor = core::CStringCursor(text);

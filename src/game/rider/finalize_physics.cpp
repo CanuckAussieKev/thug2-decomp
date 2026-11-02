@@ -58,7 +58,7 @@ void get_note(T& stored, T value, uint8_t& changed)
 gsl::owner<ObjectModule*> RiderPhysicsCommit::fabricate() { return new RiderPhysicsCommit; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderPhysicsCommit::RiderPhysicsCommit() { kind_tag_ = kSkaterFinalizePhysics; }
+RiderPhysicsCommit::RiderPhysicsCommit() { set_kind_tag(kSkaterFinalizePhysics); }
 
 // 0x00511010 (0x00511020 the deleting one)
 RiderPhysicsCommit::~RiderPhysicsCommit() = default;
@@ -66,8 +66,8 @@ RiderPhysicsCommit::~RiderPhysicsCommit() = default;
 // 0x00511050
 void RiderPhysicsCommit::seal()
 {
-    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    pose_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
 }
 
 // 0x00511080
@@ -79,8 +79,8 @@ void RiderPhysicsCommit::tick_frame()
     // across the ground. Kept while in the air.
     if (core->frame_began_in_lip() && state->cur_phase() != kStateLip) {
         state->set_lip_straight_up(0);
-        if (state->cur_phase() == kStateAir && std::fabs(entity_->vel().x) < kStillSpeed &&
-            std::fabs(entity_->vel().z) < kStillSpeed)
+        if (state->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < kStillSpeed &&
+            std::fabs(entity()->vel().z) < kStillSpeed)
             state->set_lip_straight_up(1);
     }
     if (state->cur_phase() != kStateAir)
@@ -89,22 +89,22 @@ void RiderPhysicsCommit::tick_frame()
     state->floor_normal() = core->floor_normal();
 
     // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
-    entity_->basis_frame().square_up_axes(1);
+    entity()->basis_frame().square_up_axes(1);
     maths::Mat4& physics_matrix = core->display_matrix();
     physics_matrix.square_up_axes(1);
-    if (entity_->basis_frame().restore_right_angles())
-        physics_matrix = static_cast<ObjectModule*>(core)->entity_->basis_frame();
-    entity_->display_matrix() = physics_matrix;
+    if (entity()->basis_frame().restore_right_angles())
+        physics_matrix = static_cast<ObjectModule*>(core)->entity()->basis_frame();
+    entity()->display_matrix() = physics_matrix;
 
     // The sounds: terrain and state.
-    auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound));
+    auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound));
     sound->set_sliding(pose_->flag(PoseFlag::kSlide).on);
     sound->set_surface_type(pose_->surface_type());
-    auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound));
-    const double x = entity_->vel().x;
-    const double z = entity_->vel().z;
+    auto* looping = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound));
+    const double x = entity()->vel().x;
+    const double z = entity()->vel().z;
     auto speed = static_cast<float>(std::sqrt(x * x + z * z));
-    auto fraction = static_cast<float>(speed / scaled_physics_value(entity_, kSkaterMaxMaxSpeedStat));
+    auto fraction = static_cast<float>(speed / scaled_physics_value(entity(), kSkaterMaxMaxSpeedStat));
     set_looping_sound_speed(looping, fraction);
     looping->set_no_rail_sound(pose_->flag(PoseFlag::kBailing).on);
     uint8_t& changed = looping->sound_changed();

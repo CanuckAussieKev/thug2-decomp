@@ -189,7 +189,7 @@ FlexibleParticleComponent::FlexibleParticleComponent()
     system_.preceding_ = nullptr;
     system_.following_ = nullptr;
     system_.target_ = nullptr;
-    kind_tag_ = FlexibleParticleComponent::kType;
+    set_kind_tag(FlexibleParticleComponent::kType);
     system_.get_release(); // (the original lets go of the null it was just given)
     system_.target_ = nullptr;
 }
@@ -258,10 +258,10 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     params->read_sub_struct(kParams, &script_params, 0);
     uint32_t emit_script = 0;
     if (params->read_hash_value(kEmitScript, &emit_script, 0))
-        set_emit_script(system_.get_pull(), emit_script, script_params, entity_);
+        set_emit_script(system_.get_pull(), emit_script, script_params, entity());
     uint32_t update_script = 0;
     if (params->read_hash_value(kUpdateScript, &update_script, 0))
-        set_update_script(system_.get_pull(), update_script, script_params, entity_);
+        set_update_script(system_.get_pull(), update_script, script_params, entity());
     if (params->has_bare_flag(kEnableRotate))
         rotate_ = true;
     const bool update_brightness = params->has_bare_flag(kUpdateBrightness);
@@ -295,7 +295,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
 // 0x0041D740
 void FlexibleParticleComponent::seal()
 {
-    suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(kSuspend));
+    suspend_ = core::down_cast<DormancyModule>(entity()->fetch_module(kSuspend));
     if (suspend_)
         suspend_start(suspend_);
 }
@@ -304,7 +304,7 @@ void FlexibleParticleComponent::seal()
 void FlexibleParticleComponent::tick_frame()
 {
     if (!system_.get_pull()) {
-        get_kill(entity_);
+        get_kill(entity());
         return;
     }
     clock_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() + clock_);
@@ -331,14 +331,14 @@ void FlexibleParticleComponent::tick_frame()
         system_.get_pull()->set_unknown12f(true);
         if (update) {
             if (rotate_) {
-                maths::Mat4 orientation = entity_->display_matrix();
+                maths::Mat4 orientation = entity()->display_matrix();
                 core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 maths::Mat4 rotation{};
-                matrix_multiply(&entity_->display_matrix(), system_rotation(system_.get_pull(), &rotation),
+                matrix_multiply(&entity()->display_matrix(), system_rotation(system_.get_pull(), &rotation),
                                 &orientation);
-                system_.get_pull()->set_xform_ref(&entity_->display_matrix());
+                system_.get_pull()->set_xform_ref(&entity()->display_matrix());
             }
-            system_.get_pull()->set_at_point(entity_->at_point());
+            system_.get_pull()->set_at_point(entity()->at_point());
             render::EmitterInstance* system = system_.get_pull();
             if (system->wants_time()) {
                 if (brightness_model_)
@@ -350,7 +350,7 @@ void FlexibleParticleComponent::tick_frame()
             idle_system(system_.get_pull());
         }
     }
-    if (entity_->composite_flags() & kCompositeFlagHidden) {
+    if (entity()->composite_flags() & kCompositeFlagHidden) {
         system_.get_pull()->set_unknown12f(false);
         system_.get_pull()->set_unknown130(false);
     }
@@ -415,10 +415,10 @@ int FlexibleParticleComponent::set_scripts(uint32_t, script::Struct* params, scr
     if (system_.get_pull()) {
         uint32_t emit_script = 0;
         if (params->read_hash_value(kEmitScript, &emit_script, 0))
-            set_emit_script(system_.get_pull(), emit_script, script_params, entity_);
+            set_emit_script(system_.get_pull(), emit_script, script_params, entity());
         uint32_t update_script = 0;
         if (params->read_hash_value(kUpdateScript, &update_script, 0))
-            set_update_script(system_.get_pull(), update_script, script_params, entity_);
+            set_update_script(system_.get_pull(), update_script, script_params, entity());
     }
     return 1;
 }
@@ -468,7 +468,7 @@ int FlexibleParticleComponent::destroy_particles(uint32_t, script::Struct*, scri
         system_.get_release();
         system_.target_ = nullptr;
     }
-    get_kill(entity_);
+    get_kill(entity());
     return 1;
 }
 

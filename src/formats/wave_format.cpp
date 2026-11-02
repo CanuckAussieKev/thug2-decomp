@@ -22,23 +22,23 @@ bool read_wave(util::ByteReader& reader, Wave* out)
         const std::span<const uint8_t> body = reader.rest().first(size);
         reader.skip(size);
         if (id == kFormatId) {
-            out->format_size = size;
+            out->set_format_size(size);
             for (size_t i = 0; i < kFormatSize && i < size; ++i)
-                core::at(out->format, i) = core::at(body, i);
+                core::at(out->format(), i) = core::at(body, i);
         } else if (id == kDataId) {
-            out->samples = body.data();
-            out->sample_bytes = size;
-            out->has_data = true;
+            out->set_samples(body.data());
+            out->set_sample_bytes(size);
+            out->set_has_data(true);
         } else if (id == kSamplerId) {
             uint32_t loops = 0; // (the eighth word; 0 when the chunk is shorter)
             if (size >= 0x20)
                 loops = core::at(body, 0x1C) | core::at(body, 0x1D) << 8 | core::at(body, 0x1E) << 16 |
                         static_cast<uint32_t>(core::at(body, 0x1F)) << 24;
             if (loops > 0)
-                out->looping = true;
+                out->set_looping(true);
         }
     }
-    return reader.ok() && out->format_size && out->has_data;
+    return reader.ok() && out->format_size() && out->has_data();
 }
 
 } // namespace wave_format

@@ -180,7 +180,7 @@ void FootMovement::check_ceiling()
                .z = feeler.contact_pos().z + feeler.surface_dir().z, .w = feeler.contact_pos().w + feeler.surface_dir().w};
     else
         pos = feeler.line().end;
-    entity_->post_own_event(kCeilingEvent, nullptr);
+    entity()->post_own_event(kCeilingEvent, nullptr);
 }
 
 // 0x00526E00
@@ -220,7 +220,7 @@ void FootMovement::check_sticker_slap()
     if (!core_physics_->wall_plant(false, true, false))
         return;
     debug::printf(kSlapMessage);
-    script::launch_script(kWalkingWallplantSwitch, nullptr, entity_, false, nullptr);
+    script::launch_script(kWalkingWallplantSwitch, nullptr, entity(), false, nullptr);
 }
 
 // 0x00527080
@@ -259,7 +259,7 @@ void FootMovement::update_ground_below()
     if (below) {
         // The height above it (the skater state's +0x11C), the shadow on it.
         skater_state_->set_height_above_ground(static_cast<float>(static_cast<double>(pos.y) - down.contact_pos().y));
-        auto* shadow = core::down_cast<GroundShadowModule>(entity_->fetch_module(kShadow));
+        auto* shadow = core::down_cast<GroundShadowModule>(entity()->fetch_module(kShadow));
         shadow->change_place(&down.contact_pos());
         shadow->set_normal(&down.surface_dir());
         return;
@@ -448,7 +448,7 @@ void FootMovement::try_wallplant()
     if (static_cast<bool>(physics_control_->flag26()))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
-    core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))
+    core::down_cast<MoveExecutor>(entity()->fetch_module(kTrick))
         ->pass_to_trick_objects(contact->feeler.hit().object_checksum_);
     core_physics_->set_wallplant_time(frame_clock::game_clock_elapsed() + clock_offset());
     anim_state_ = kWallplant;
@@ -477,7 +477,7 @@ bool FootMovement::try_grind()
             return false;
         // (the original's slot 13: the component's rails)
         auto rails_of = [](ObjectModule* c) { return core::down_cast<GrindPathLinkModule>(c)->get_rail_groups(); };
-        for (; component && !found; component = component->next_of_type_) {
+        for (; component && !found; component = component->next_of_type()) {
             maths::Mat4 world{};
             core::down_cast<GrindPathLinkModule>(component)->update_rail_matrix(&world);
             maths::Mat4 inverse = world;
@@ -490,7 +490,7 @@ bool FootMovement::try_grind()
                 grind_rails_ = rails_of(component);
                 maths::Vec4 world_point{};
                 point = world.xform(world_point, point);
-                grind_object_ = component->entity_;
+                grind_object_ = component->entity();
             }
         }
         if (!found)

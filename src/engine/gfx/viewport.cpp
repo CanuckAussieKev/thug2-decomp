@@ -194,7 +194,7 @@ gfx::ViewCam* obtain_active_lens(int view)
     const int index = map_entry(view_setup().mode_map(), view);
     if (index == -1)
         return nullptr;
-    return get_viewport(index)->viewer_.get_pull();
+    return get_viewport(index)->viewer().get_pull();
 }
 
 // 0x004A0970
@@ -205,14 +205,14 @@ void choose_camera(int view, gfx::ViewCam* camera)
         return;
     ViewRegion* viewport = get_viewport(index);
     viewport->remove_flagged_camera();
-    viewport->viewer_.assign_value(camera);
+    viewport->viewer().assign_value(camera);
 }
 
 // 0x004A09C0
 gfx::ViewCam* fetch_live_camera(int n)
 {
     auto* viewport = fetch_current_view(n);
-    return viewport->viewer_.get_pull();
+    return viewport->viewer().get_pull();
 }
 
 // 0x004A09E0
@@ -223,7 +223,7 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
     float best = -1.0f; // (squared)
     for (int i = 0; i < count; ++i) {
         // (none: read through null, as the original - a mode's count never exceeds its map)
-        gfx::ViewCam* camera = current_view_slot(i)->viewer_.get_pull();
+        gfx::ViewCam* camera = current_view_slot(i)->viewer().get_pull();
         if (!camera)
             continue;
         const maths::Vec4* at = camera->fetch_location();
@@ -251,7 +251,7 @@ void set_screen_mode(int mode)
     table.set_screen_mode(mode);
     modules::set_viewport_count(mode_viewport_count(mode));
     for (int i = 0; i < mode_viewport_count(mode); ++i) {
-        gfx::ViewCam* camera = current_view_slot(i)->viewer_.get_pull(); // (no check, as the original)
+        gfx::ViewCam* camera = current_view_slot(i)->viewer().get_pull(); // (no check, as the original)
         if (!camera)
             continue;
         float angle = 0.0f;
@@ -275,8 +275,8 @@ void set_screen_field_of_view(float degrees)
                                         std::tan(static_cast<double>(view_setup().base_fov_angle()) * kHalfDegreeRadians)));
     for (int i = 0; i < modules::viewport_count(); ++i) {
         const ViewRegion* viewport = current_view_slot(i);
-        if (viewport && viewport->viewer_.get_pull())
-            viewport->viewer_.get_pull()->refresh_effective_h_fov();
+        if (viewport && viewport->viewer().get_pull())
+            viewport->viewer().get_pull()->refresh_effective_h_fov();
     }
 }
 

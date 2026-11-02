@@ -91,10 +91,10 @@ void CinematicTable::check_skip()
     if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0f)
         return;
     const modules::FrontEndInputHandler* handler = core::at(modules::front_end_instance()->pad_listeners(), 0).get();
-    auto* device = handler->dev_;
+    auto* device = handler->dev();
     if (!device->is_attached() || !device->is_usable())
         return;
-    if (handler->control_data_->makes() & (kButtonX | kButtonStart)) {
+    if (handler->control_data()->makes() & (kButtonX | kButtonStart)) {
         clock_ = end_time_;
         skipped_ = true;
     }
@@ -113,7 +113,7 @@ void CinematicTable::update_subtitles()
     subtitle_time_ = next_subtitle_time_;
     ++next_subtitle_;
     next_subtitle_time_ = -1.0f;
-    if (next_subtitle_ < subtitles_->extent_) {
+    if (next_subtitle_ < subtitles_->extent()) {
         auto* next = subtitles_->struct_at(next_subtitle_);
         // (a subtitle without a time leaves the local as it was: the original's holds this object's address)
         float time = 0.0f;

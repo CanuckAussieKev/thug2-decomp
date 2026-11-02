@@ -40,6 +40,11 @@ public:
     // 0x0046C650: the global structure `name`'s components added (asserting it exists); true.
     bool read_in(uint32_t name);
 
+    // The fields other code reads and sets.
+    script::Struct& top_entry() { return top_entry_; }
+    [[nodiscard]] const script::Struct& top_entry() const { return top_entry_; }
+
+private:
     script::Struct top_entry_;
 };
 

@@ -252,7 +252,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     uint32_t part = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
     script::Array* list = script::fetch_list(part);
-    const uint32_t size = list->extent_;
+    const uint32_t size = list->extent();
     const uint32_t level = modules::Skate::sole()->pending_level(); // (the level the parts are chosen for)
     for (uint32_t i = 0; i < size; ++i) {
         script::Struct* option = get_element(list, i);
@@ -353,8 +353,8 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
     std::array<const render::TextureSet*, 32> seen{};
     int seen_count = 0;
     for (objects::ObjectModule* component = objects->find_first_module_of_kind(kModel); component;
-         component = component->next_of_type_) {
-        if (component->entity_->kind_tag() != kCarType)
+         component = component->next_of_type()) {
+        if (component->entity()->kind_tag() != kCarType)
             continue;
         render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
         bool added = false;

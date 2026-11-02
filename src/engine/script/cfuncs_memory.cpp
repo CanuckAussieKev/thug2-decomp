@@ -202,7 +202,7 @@ void dump_pool_usage(bool to_dump_file, bool print)
         emit();
     };
     auto current = [](const memory::PoolPair& pools) {
-        return core::at(pools.pools, pools.current); // (not checked: the pools are set up by then)
+        return core::at(pools.pools(), pools.current()); // (not checked: the pools are set up by then)
     };
     text("\nScript pool usage:\n"); // "\nScript pool usage:\n"
     pool("CStruct:           %5d of %5d, max %5d\n",
@@ -244,7 +244,7 @@ bool cfunc_dump_heaps(Struct* params, Script*)
     }
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region();
-        const int minimum = region->min_available_; // (read before free_byte_count)
+        const int minimum = region->min_available(); // (read before free_byte_count)
         const int blocks = heap->used_blocks();
         const int available = region->free_byte_count();
         if (bytes)

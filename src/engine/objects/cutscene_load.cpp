@@ -75,14 +75,14 @@ uint32_t stand_in_id(ObjectModule* model) { return core::down_cast<MeshInstanceM
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
 void* model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr().get(); }
-gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance) { return appearance->face_skin_; }
+gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance) { return appearance->face_skin(); }
 
 namespace {
 
 void* skeleton_of(ObjectModule* component)
 {
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    return core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
+    return core::down_cast<objects::BoneRigModule>(component)->bone_rig();
 }
 // The level object a cutscene object stands in for.
 GameEntity* level_object_of(GameEntity* object)
@@ -135,7 +135,7 @@ void CinematicTable::add_objects(script::Struct* params)
     params->fetch_list(kObjects, &objects, 1);
     bool wants_skater = false; // (an object of kind 0x6218C3C9: script 0xF37D9F53 runs...)
     bool has_skater = false;   // (...unless a skater object was added)
-    for (uint32_t i = 0; i < objects->extent_; ++i) {
+    for (uint32_t i = 0; i < objects->extent(); ++i) {
         script::Struct* object = objects->struct_at(i);
         gsl::owner<script::Struct*> params2 = make_struct();
         uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
@@ -280,7 +280,7 @@ void CinematicTable::add_objects(script::Struct* params)
         }
         free_struct(params2);
     }
-    if (objects->extent_ != 0 && wants_skater && !has_skater)
+    if (objects->extent() != 0 && wants_skater && !has_skater)
         script::launch_script(kSkaterScript, nullptr, nullptr, false, nullptr);
 
     // the objects that stand in for level objects (and their children) take those's skeletons

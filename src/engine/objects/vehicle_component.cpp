@@ -426,7 +426,7 @@ const maths::Vec4& wheel_place(std::span<const render::HierarchyNode> geometry, 
     return core::at(core::at(geometry, 2 + i).matrix.row, 3);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
-void* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
+void* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig(); }
 // The viewport's camera (0x004A09C0; null if none), its position (0x00485A00) and matrix (0x00485A10).
 void* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
@@ -444,7 +444,7 @@ DrivableModule::DrivableModule()
 {
     clear_to_w1(orientation_);
     // (the colliders' vectors' constructors do nothing: 0x005902E0; contact_memo_ registered by its constructor)
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     clear_to_w1(skater_pos_);
 }
 
@@ -507,7 +507,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     if (params->has_entry_named(0xFC8C4AC6)) {
         script::Array* colliders = nullptr;
         params->fetch_list(0xFC8C4AC6, &colliders, 1);
-        const int count = static_cast<int>(colliders->extent_);
+        const int count = static_cast<int>(colliders->extent());
         float sum = 0.0f;
         for (int k = count - 1; k >= 0; --k) {
             auto* points = colliders->array_at(static_cast<uint32_t>(k));
@@ -567,7 +567,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         if (engine->has_entry_named(0xC023FA75)) {
             script::Array* ratios = nullptr;
             engine->fetch_list(0xC023FA75, &ratios, 1);
-            gear_count_ = static_cast<int>(ratios->extent_);
+            gear_count_ = static_cast<int>(ratios->extent());
             for (int i = 0; i < gear_count_; ++i)
                 core::at(transmission_ratios_, i) = ratios->fetch_float(static_cast<uint32_t>(i));
         }
@@ -578,7 +578,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     if (params->has_entry_named(0xB3F8557E)) {
         script::Array* wheels = nullptr;
         params->fetch_list(0xB3F8557E, &wheels, 1);
-        const int count = static_cast<int>(wheels->extent_);
+        const int count = static_cast<int>(wheels->extent());
         wheel_count_ = count;
         if (wheels_.empty()) {
             // (the original's new[] took them from the memory manager's current heap, default-initialised: only the
@@ -602,7 +602,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     // The orientation from the object's matrix (or Save's Orientation: the object's matrix from it); the position
     // from the object's (or Pos: the object's too).
     maths::Vec4 quat;
-    matrix_to_quat(&quat, &entity_->basis_frame());
+    matrix_to_quat(&quat, &entity()->basis_frame());
     orientation_ = quat;
     quat_normalize(&orientation_, 1.0f);
     if (params->has_entry_named(0xAA99C521)) {
@@ -614,13 +614,13 @@ void DrivableModule::configure_from_data(script::Struct* params)
         quat_normalize(&orientation_, 1.0f);
         quat_to_matrix(&orientation_, &basis_frame_);
         clear_to_w1(core::at(basis_frame_.row, 3));
-        entity_->basis_frame() = basis_frame_;
-        entity_->display_matrix() = basis_frame_;
+        entity()->basis_frame() = basis_frame_;
+        entity()->display_matrix() = basis_frame_;
     }
-    at_point_ = entity_->at_point();
+    at_point_ = entity()->at_point();
     if (params->has_entry_named(0x7F261953)) {
         params->fetch_vec(0x7F261953, &at_point_, 0);
-        entity_->at_point() = at_point_;
+        entity()->at_point() = at_point_;
     }
     rider_shown_ = rider_shown_ || params->has_bare_flag(kSkater);
     if (params->has_bare_flag(kSkater)) {
@@ -652,15 +652,15 @@ void DrivableModule::configure_from_data(script::Struct* params)
     gravity_time_ = 0.0f;
     gravity_scale_ = 1.0f;
     righting_ = false;
-    bone_rig_ = entity_->fetch_module(kSkeleton);
+    bone_rig_ = entity()->fetch_module(kSkeleton);
 }
 
 // 0x0043BA20
 void DrivableModule::seal()
 {
-    input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
-    mesh_instance_ = entity_->fetch_module(kModel);
-    const std::span<const render::HierarchyNode> geometry = model_geometry(entity_->fetch_module(kModel));
+    input_ptr_ = core::down_cast<PadInputModule>(entity()->fetch_module(kInput));
+    mesh_instance_ = entity()->fetch_module(kModel);
+    const std::span<const render::HierarchyNode> geometry = model_geometry(entity()->fetch_module(kModel));
     // The wheels' places from the model (z up there; always four).
     for (int i = 3; i >= 0; --i) {
         const maths::Vec4& place = wheel_place(geometry, i);
@@ -742,10 +742,10 @@ void DrivableModule::seal()
     recentre(skater_bone_);
     recentre(skater_pos_);
     update_dependents();
-    entity_->at_point() = at_point_;
-    entity_->vel() = vel_;
-    entity_->basis_frame() = basis_frame_;
-    entity_->display_matrix() = entity_->basis_frame();
+    entity()->at_point() = at_point_;
+    entity()->vel() = vel_;
+    entity()->basis_frame() = basis_frame_;
+    entity()->display_matrix() = entity()->basis_frame();
     refresh_bone_rig();
 }
 
@@ -764,7 +764,7 @@ void DrivableModule::tick_frame()
     }
     if (awake_ == 0) {
         // Asleep: only the steering, the wheels' roll (stopped by the brake), the model and the skater.
-        entity_->display_matrix() = entity_->basis_frame();
+        entity()->display_matrix() = entity()->basis_frame();
         update_steering();
         if (brake_)
             for (int i = wheel_count_ - 1; i >= 0; --i)
@@ -807,11 +807,11 @@ void DrivableModule::tick_frame()
             core::at(wheels_, i).torque = 0.0f;
         if (!passive_) {
             collide();
-            if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
+            if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                 return;
         }
         update_wheel_contacts();
-        if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
+        if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
             return;
         update_steering();
         apply_damping();
@@ -828,10 +828,10 @@ void DrivableModule::tick_frame()
     if (passive_)
         return;
     debug_draw();
-    entity_->at_point() = at_point_;
-    entity_->vel() = vel_;
-    entity_->basis_frame() = basis_frame_;
-    entity_->display_matrix() = entity_->basis_frame();
+    entity()->at_point() = at_point_;
+    entity()->vel() = vel_;
+    entity()->basis_frame() = basis_frame_;
+    entity()->display_matrix() = entity()->basis_frame();
     check_sleep();
     refresh_bone_rig();
     update_skater();
@@ -1022,13 +1022,13 @@ void DrivableModule::glide_to_node(script::Struct* node)
     clear_to_w1(rotmom_);
     cut_short_ = true;
     awake_ = 0;
-    entity_->at_point() = at_point_;
-    entity_->vel() = vel_;
-    entity_->basis_frame() = basis_frame_;
-    entity_->display_matrix() = entity_->basis_frame();
+    entity()->at_point() = at_point_;
+    entity()->vel() = vel_;
+    entity()->basis_frame() = basis_frame_;
+    entity()->display_matrix() = entity()->basis_frame();
     refresh_bone_rig();
     update_skater();
-    entity_->mark_jumped_ahead(true);
+    entity()->mark_jumped_ahead(true);
     rider_ref_->mark_jumped_ahead(true);
 }
 
@@ -1051,7 +1051,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
             return true;
         }
     }
-    if (park_editing::ParkBuilderMode::sole()->cur_phase() == kParkEditor)
+    if (park_editing::ParkBuilderMode::sole()->editor_state() == kParkEditor)
         return true;
     glide_to_node(level_nodes::fetch_vertex(skate_restart(0), true));
     return true;
@@ -1087,7 +1087,7 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     at_point_.z = static_cast<float>(at_point_.z - static_cast<double>(at_z) * kFeet);
     at_point_.w =
         static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
-    entity_->at_point() = at_point_;
+    entity()->at_point() = at_point_;
     // Facing away from the camera.
     core::at(basis_frame_.row, 0) = {.x = -core::at(view.row, 0).x, .y = -core::at(view.row, 0).y, .z = -core::at(view.row, 0).z, .w = -core::at(view.row, 0).w};
     core::at(basis_frame_.row, 1) = core::at(view.row, 1);
@@ -1098,7 +1098,7 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     quat_normalize(&orientation_, 1.0f);
     quat_to_matrix(&orientation_, &basis_frame_);
     clear_to_w1(core::at(basis_frame_.row, 3));
-    entity_->basis_frame() = basis_frame_;
+    entity()->basis_frame() = basis_frame_;
     update_dependents();
     return true;
 }

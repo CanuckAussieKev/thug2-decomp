@@ -160,7 +160,7 @@ void ObstacleDodgeModule::publish_method_table()
 }
 
 // 0x004E3660
-ObstacleDodgeModule::ObstacleDodgeModule() { kind_tag_ = kAvoid; }
+ObstacleDodgeModule::ObstacleDodgeModule() { set_kind_tag(kAvoid); }
 
 // 0x004E3330 (0x004E36C0 the deleting one)
 ObstacleDodgeModule::~ObstacleDodgeModule() = default;
@@ -187,7 +187,7 @@ float ObstacleDodgeModule::side_away_from_skater()
     auto side_z = static_cast<float>(x - zero_y);
     maths::Vec4 side = {.x = side_x, .y = side_y, .z = side_z, .w = 0.0f};
     // Which of the object's two sides is further from the skater (the first one's x and y unrounded).
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     const double a_x = static_cast<double>(side_x) + pos.x;
     const double a_y = static_cast<double>(side_y) + pos.y;
     const float a_z = side_z + pos.z;
@@ -207,7 +207,7 @@ float ObstacleDodgeModule::side_away_from_skater()
         side.x = -side_x;
         side.z = -side_z;
     }
-    return static_cast<float>(static_cast<double>(angle_in_plane(entity_->display_matrix(), side)) * kToDegrees);
+    return static_cast<float>(static_cast<double>(angle_in_plane(entity()->display_matrix(), side)) * kToDegrees);
 }
 
 // 0x004E3A40
@@ -258,8 +258,8 @@ void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
         const bool flip = !params->read_hash_value(own, &anim, 0);
         if (flip)
             params->read_hash_value(other, &anim, 1);
-        if (ObjectModule* blender = entity_->fetch_module(kAnimBlender))
-            flip_anims(blender, entity_->ident(), flip, 0, 1);
+        if (ObjectModule* blender = entity()->fetch_module(kAnimBlender))
+            flip_anims(blender, entity()->ident(), flip, 0, 1);
         break;
     }
     case 2:
@@ -268,7 +268,7 @@ void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
     default:
         return;
     }
-    if (ObjectModule* blender = entity_->fetch_module(kAnimBlender)) {
+    if (ObjectModule* blender = entity()->fetch_module(kAnimBlender)) {
         play_anim(blender, anim, 0);
         lasts_for_ = clip_length(blender, anim);
     }
@@ -278,8 +278,8 @@ void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
 bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*script*/)
 {
     // From where it stands, as its display matrix shows it.
-    maths::Mat4 start = entity_->display_matrix();
-    core::at(start.row, 3) = entity_->at_point();
+    maths::Mat4 start = entity()->display_matrix();
+    core::at(start.row, 3) = entity()->at_point();
     float max_distance = 100.0f;
     params->fetch_float("maxHerdDistance", &max_distance, 0);
     maths::Mat4 end{};
@@ -298,7 +298,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
         const maths::Vec4& pos = core::at(start.row, 3);
         const maths::Vec4 away = {.x = herd_point_.x - pos.x, .y = herd_point_.y - pos.y, .z = herd_point_.z - pos.z,
                                   .w = herd_point_.w - pos.w};
-        const float angle = angle_in_plane(entity_->basis_frame(), away);
+        const float angle = angle_in_plane(entity()->basis_frame(), away);
         found = try_jump(start, end, angle, avoid_distance(angle, params), max_distance);
     }
     if (!found)
@@ -311,7 +311,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     progress_ = 0.0f;
     const maths::Vec4& pos = core::at(start.row, 3);
     const maths::Vec4 move = {.x = landing.x - pos.x, .y = landing.y - pos.y, .z = landing.z - pos.z, .w = landing.w - pos.w};
-    play_jump(angle_in_plane(entity_->basis_frame(), move), params);
+    play_jump(angle_in_plane(entity()->basis_frame(), move), params);
     return true;
 }
 
@@ -331,9 +331,9 @@ bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* 
                                    progress_);
     maths::Mat4 now{};
     slerp_.fetch_mat(now, progress_);
-    entity_->at_point() = core::at(now.row, 3);
-    entity_->basis_frame() = now;
-    core::at(entity_->basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    entity()->at_point() = core::at(now.row, 3);
+    entity()->basis_frame() = now;
+    core::at(entity()->basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     return true;
 }
 
@@ -342,21 +342,21 @@ bool ObstacleDodgeModule::jump_finished(script::Struct* /*params*/, script::Scri
 {
     if (!(progress_ >= 1.0f))
         return false;
-    return anim_complete(entity_->fetch_module(kAnimBlender));
+    return anim_complete(entity()->fetch_module(kAnimBlender));
 }
 
 // 0x004E3810
 bool ObstacleDodgeModule::store_position(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    herd_point_ = entity_->at_point();
+    herd_point_ = entity()->at_point();
     return true;
 }
 
 // 0x004E3850
 bool ObstacleDodgeModule::store_target(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    const maths::Vec4* point = &entity_->at_point();
-    ObjectModule* motion = entity_->fetch_module(kMotion);
+    const maths::Vec4* point = &entity()->at_point();
+    ObjectModule* motion = entity()->fetch_module(kMotion);
     if (motion && motion_path(motion))
         point = &motion_path(motion)->end_point(); // (the original's +0x74: the node headed for)
     aim_point_ = *point;
@@ -366,7 +366,7 @@ bool ObstacleDodgeModule::store_target(script::Struct* /*params*/, script::Scrip
 // 0x004E38C0
 bool ObstacleDodgeModule::hold_motion(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    uint32_t& flags = motion_flags(entity_->fetch_module(kMotion));
+    uint32_t& flags = motion_flags(entity()->fetch_module(kMotion));
     flags |= 4;
     motion_held_ = flags != 0;
     return true;
@@ -375,7 +375,7 @@ bool ObstacleDodgeModule::hold_motion(script::Struct* /*params*/, script::Script
 // 0x004E38F0
 bool ObstacleDodgeModule::restore_motion(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (ObjectModule* motion = entity_->fetch_module(kMotion)) {
+    if (ObjectModule* motion = entity()->fetch_module(kMotion)) {
         if (motion_held_)
             motion_flags(motion) |= 4;
         else

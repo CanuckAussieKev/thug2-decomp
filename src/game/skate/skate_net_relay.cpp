@@ -168,7 +168,7 @@ objects::RiderFrameLog* get_history(const objects::Entity* object)
 {
     return core::down_cast<const objects::Rider>(object)->state_history();
 }
-int& message_count(objects::RiderFrameLog* history) { return history->message_count_; }
+int& message_count(objects::RiderFrameLog* history) { return history->message_count(); }
 // The newest message slot made a message of `id`, stamped with the newest state's time.
 objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, uint8_t id)
 {
@@ -219,10 +219,10 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
                 continue;
             const objects::Rider* skater = skater_of(other);
             auto* history = get_history(skater);
-            const int states = history->state_count_;
+            const int states = history->state_count();
             if (!states)
                 continue;
-            const uint16_t newest = core::at(history->states_, (states - 1) % objects::RiderFrameLog::kEntries).time;
+            const uint16_t newest = core::at(history->states(), (states - 1) % objects::RiderFrameLog::kEntries).time;
             if (newest == core::at(player->sent().time_, skater->ident()))
                 continue;
             mask |= 1u << id;
@@ -253,7 +253,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
 // 0x0056BE10
 void SkateNet::score_task(tasks::Task<Skate>* task)
 {
-    Skate* skate = task->content_;
+    Skate* skate = task->content();
     online::Hub* net = net_link();
     if (!net->keeps_score())
         return;
@@ -475,7 +475,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
         return 4;
     if (skater_of(collector)) {
         auto* component = skater_of(collector)->fetch_module(kSkaterScore);
-        PointTally* score = core::down_cast<objects::RiderPointKeeper>(component)->points_held_;
+        PointTally* score = core::down_cast<objects::RiderPointKeeper>(component)->points_held();
         if (score)
             score->set_grand_total(score->get_total_score() + 1);
         int total = 0;
@@ -753,7 +753,7 @@ int SkateNet::handle_history_value(net::InboundMsgCtx* context)
     if (!skater)
         return 4;
     auto* history = core::down_cast<objects::RiderFrameLog>(skater->fetch_module(objects::RiderFrameLog::kType));
-    history->vehicle_control_type_ = message.control_type;
+    history->set_vehicle_control_type(message.control_type);
     return 1;
 }
 

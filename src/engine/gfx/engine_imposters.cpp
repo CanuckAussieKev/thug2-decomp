@@ -15,14 +15,14 @@ namespace {
 // The table's iteration, inlined in the original: the first / next value (null at the end).
 ImposterGroup* next_group(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item_)
+    if (!table->step_iterator() || !table->iter_item())
         return nullptr;
-    return static_cast<ImposterGroup*>(table->iter_item_->value);
+    return static_cast<ImposterGroup*>(table->iter_item()->value);
 }
 ImposterGroup* first_group(lists::KeyMap* table)
 {
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
     return next_group(table);
 }
 
@@ -54,15 +54,15 @@ void ImposterManager::tick_frame()
     for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
         group->tick_frame();
         const float distance = group->distance_to_view();
-        if (distance <= group->near_range_) { // (NaN: as beyond it)
+        if (distance <= group->near_range()) { // (NaN: as beyond it)
             group->drop_imposter();
-        } else if (!group->has_imposter_) {
+        } else if (!group->has_imposter()) {
             if (done < max_per_frame_) {
                 group->create_imposter();
                 ++done;
             }
         } else if (done < max_per_frame_) {
-            ++group->frame_count_;
+            ++group->frame_count();
             if (group->update_imposter())
                 ++done;
         }
@@ -74,7 +74,7 @@ void ImposterManager::render()
 {
     set_primitive_states();
     for (ImposterGroup* group = first_group(groups_ptr_); group; group = next_group(groups_ptr_)) {
-        if (group->has_imposter_)
+        if (group->has_imposter())
             group->draw_imposter();
     }
     reset_primitive_states();

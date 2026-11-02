@@ -61,7 +61,7 @@ PositionScale level_position_scale(uint32_t level)
         script::Array* levels = script::fetch_list(list);
         if (!levels)
             continue;
-        for (uint32_t i = 0; i < levels->extent_; ++i) {
+        for (uint32_t i = 0; i < levels->extent(); ++i) {
             auto* entry = levels->struct_at(i);
             uint32_t entry_level = 0;
             if (!entry || !entry->read_hash_value(kLevel, &entry_level, 0) || entry_level != level)

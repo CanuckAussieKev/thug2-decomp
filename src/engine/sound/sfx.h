@@ -51,6 +51,17 @@ struct VolumeRef {
 
     [[nodiscard]] int channel_count() const { return kind_tag_ == kTypeSurround ? 5 : 2; }
 
+    // The fields other code reads and sets.
+    std::array<float, 5>& lanes() { return lanes_; }
+    [[nodiscard]] const std::array<float, 5>& lanes() const { return lanes_; }
+    [[nodiscard]] int kind_tag() const { return kind_tag_; }
+    void set_kind_tag(int value) { kind_tag_ = value; }
+    maths::Vec4& anchor_point() { return anchor_point_; }
+    [[nodiscard]] const maths::Vec4& anchor_point() const { return anchor_point_; }
+    [[nodiscard]] float dropoff() const { return dropoff_; }
+    void set_dropoff(float value) { dropoff_ = value; }
+
+private:
     std::array<float, 5> lanes_{};         // +0x00
     int kind_tag_;             // +0x14
     maths::Vec4 anchor_point_{}; // +0x18: 3D: where the sound is
@@ -243,6 +254,12 @@ public:
     // 0x0047C560: every positional sound updated; those that ended or stop are dropped.
     void tick_positional_sounds();
 
+    // The fields other code reads and sets.
+    void set_mute_override(uint8_t value) { mute_override_ = value; }
+    [[nodiscard]] int fallback_channel_mode() const { return fallback_channel_mode_; }
+    void set_fallback_channel_mode(int value) { fallback_channel_mode_ = value; }
+
+private:
     uint8_t mute_override_{}; // +0x00
     std::array<uint8_t, 3> unknown1_{};
     int fallback_channel_mode_; // +0x04

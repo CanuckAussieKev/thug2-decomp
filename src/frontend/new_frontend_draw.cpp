@@ -472,7 +472,7 @@ float get_header(Ctx& c, float top, float right, const char* left_text, bool bac
         get_arrow(c.dl, x, base, c.f.current_s(12.0f), true, get_col(kMuted), &adv);
         draw_text(c.dl, b, c.f, x + adv, base, text_tools::kBack);
         const float w = adv + get_measure(b, c.f, text_tools::kBack);
-        c.get_hit(Hit::Kind::kBack, 0, 48.0f - 6.0f, top - 6.0f, 48.0f + w / c.f.scale + 6.0f,
+        c.get_hit(Hit::Kind::kBack, 0, 48.0f - 6.0f, top - 6.0f, 48.0f + w / c.f.scale() + 6.0f,
                   top + 12.0f * line_h + 6.0f);
         x += w + c.f.current_s(16.0f);
         s.colour = kPaper;
@@ -759,7 +759,7 @@ float get_tabs(Ctx& c, const std::vector<std::pair<std::string, uint32_t>>& tabs
     float x = 48.0f;
     const float tab_h = 13.0f * 1.3f + 8.0f;
     for (int i = 0; std::cmp_less(i, tabs.size()); ++i) {
-        const float w = get_measure(tab, c.f, core::at(tabs, i).first.c_str()) / c.f.scale;
+        const float w = get_measure(tab, c.f, core::at(tabs, i).first.c_str()) / c.f.scale();
         if (x > 48.0f && x + w > kColumnInner) {
             x = 48.0f;
             y += tab_h + 4.0f;
@@ -787,7 +787,7 @@ void get_button(Ctx& c, float left, float bottom, const char* text, uint32_t col
     s.upper = true;
     s.colour = kGround;
     s.alpha = alpha;
-    const float tw = get_measure(s, c.f, text) / c.f.scale;
+    const float tw = get_measure(s, c.f, text) / c.f.scale();
     const float arrow_w = arrow ? 30.0f * 0.9f + 10.0f : 0.0f;
     const float bh = 30.0f * 1.15f + 12.0f;
     const float bx0 = left;
@@ -881,7 +881,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
         float x = left, y0 = bottom - h;
         const int chosen = menu.option_choice(option);
         for (size_t i = 0; i < spec.choices.size(); ++i) {
-            const float w = get_measure(seg, c.f, core::at(spec.choices, i).label) / c.f.scale + 28.0f;
+            const float w = get_measure(seg, c.f, core::at(spec.choices, i).label) / c.f.scale() + 28.0f;
             const bool on = ints::as_signed(i) == chosen;
             if (on)
                 get_cut(c.dl, c.f.get_x(x), c.f.get_y(y0), c.f.get_x(x + w), c.f.get_y(bottom), c.f.current_s(6.0f),
@@ -937,8 +937,8 @@ void levels_screen(Ctx& c, int* visible_rows)
     const Catalogue* data = menu.payload();
     const SectionView* view = menu.get_view();
     const int section_index = menu.get_section_index();
-    const Section* section = data && section_index >= 0 && std::cmp_less(section_index, data->sections.size())
-                                 ? &core::at(data->sections, section_index)
+    const Section* section = data && section_index >= 0 && std::cmp_less(section_index, data->sections().size())
+                                 ? &core::at(data->sections(), section_index)
                                  : nullptr;
     const uint32_t colour = section ? section->colour : Menu::kHouseYellow;
     const StageMap* level = menu.selected_level();
@@ -962,8 +962,8 @@ void levels_screen(Ctx& c, int* visible_rows)
         const float rule = get_header(c, 36.0f, kColumnInner, title, true, nullptr);
         // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
         std::vector<std::pair<std::string, uint32_t>> tabs;
-        for (int i = 0; data && std::cmp_less(i, data->sections.size()); ++i)
-            tabs.emplace_back(core::at(data->sections, i).tab, core::at(data->sections, i).colour);
+        for (int i = 0; data && std::cmp_less(i, data->sections().size()); ++i)
+            tabs.emplace_back(core::at(data->sections(), i).tab, core::at(data->sections(), i).colour);
         const float tabs_bottom = get_tabs(c, tabs, section_index, rule + 14.0f);
         const float tab_h = 0.0f;
         const float y = tabs_bottom;              // The list.
@@ -1013,7 +1013,7 @@ void levels_screen(Ctx& c, int* visible_rows)
             text::format_to(text, "Q  %d / %d  E", level->variant + 1, static_cast<int>(level->art_variants_.size()));
         Style note = mono12(kMuted);
         note.alpha = 1.0f - grow;
-        const float nw = get_measure(note, c.f, text.data()) / c.f.scale;
+        const float nw = get_measure(note, c.f, text.data()) / c.f.scale();
         draw_text(c.dl, note, c.f, c.f.get_x(1240.0f - nw), datum(note, c.f, c.f.get_y(36.0f), 1.3f), text.data());
     }
 
@@ -1035,7 +1035,7 @@ void levels_screen(Ctx& c, int* visible_rows)
                                  : menu.levels_purpose() == LevelsFor::kEdit ? text_tools::kEdit
                                  : menu.levels_purpose() == LevelsFor::kNet  ? text_tools::kSelect
                                                                              : text_tools::kSkate;
-        const float tw = get_measure(skate, c.f, skate_text) / c.f.scale;
+        const float tw = get_measure(skate, c.f, skate_text) / c.f.scale();
         const float arrow_w = locked ? 0.0f : 30.0f * 0.9f + 10.0f;
         const float bh = 30.0f * 1.15f + 12.0f;
         const float bx0 = left;
@@ -1250,7 +1250,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     std::vector<float> widths;
     float total = 0.0f, selected_centre = 0.0f;
     for (size_t i = 0; i < v.rows.size(); ++i) {
-        widths.push_back(get_measure(name, c.f, core::at(v.rows, i).label.c_str()) / c.f.scale);
+        widths.push_back(get_measure(name, c.f, core::at(v.rows, i).label.c_str()) / c.f.scale());
         if (ints::as_signed(i) == v.selected)
             selected_centre = total + widths.back() * 0.5f;
         total += widths.back() + gap;
@@ -1380,7 +1380,7 @@ void stats_screen(Ctx& c, const mirror::Tracker& t, float window_width, float wi
             c.dl->AddRectFilled(ImVec2(c.f.get_x(48.0f), c.f.get_y(top + 2.0f)),
                                 ImVec2(c.f.get_x(number_right + 12.0f), c.f.get_y(top + row_h - 2.0f)),
                                 get_col(kPaper, 0.06f * e));
-            const float w = get_measure(label, c.f, r.label.c_str()) / c.f.scale;
+            const float w = get_measure(label, c.f, r.label.c_str()) / c.f.scale();
             get_cut(c.dl, c.f.get_x(label_x - 12.0f), c.f.get_y(top + row_h * 0.18f),
                     c.f.get_x(label_x - 12.0f) + c.f.current_s(w + 28.0f) * e, c.f.get_y(top + row_h * 0.82f),
                     c.f.current_s(6.0f), c.f.current_s(6.0f), get_col(Menu::kHouseYellow));
@@ -1803,7 +1803,7 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
         float x = 48.0f;
         for (size_t k = 0; k < core::at(v.keys, r).size(); ++k) {
             const std::string& label = core::at(core::at(v.keys, r), k);
-            const float w = std::max(52.0f, get_measure(key, c.f, label.c_str()) / c.f.scale + 28.0f);
+            const float w = std::max(52.0f, get_measure(key, c.f, label.c_str()) / c.f.scale() + 28.0f);
             const bool sel = ints::as_signed(r) == v.key_row_ && ints::as_signed(k) == v.key_col_;
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), c.f.get_y(top)), ImVec2(c.f.get_x(x + w), c.f.get_y(top + h)),
                                 sel ? get_col(Menu::kHouseYellow) : get_col(kGround, 0.85f));
@@ -1963,13 +1963,13 @@ void get_screen(const Menu& menu, const TickCycle& frame, float window_width, fl
         options_screen(c, window_width, window_height);
     // (the roots - Main, Pause - are never drawn: ours goes aside at them)
     // (a 16:9 frame in a wider or taller window: the bars the ground's colour, over anything that spilled)
-    if (frame.left > 0.5f && !over_game) {
-        dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(frame.left, window_height), get_col(kGround));
+    if (frame.left() > 0.5f && !over_game) {
+        dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(frame.left(), window_height), get_col(kGround));
         dl->AddRectFilled(ImVec2(frame.get_x(kDesignWidth), 0.0f), ImVec2(window_width, window_height),
                           get_col(kGround));
     }
-    if (frame.top > 0.5f && !over_game) {
-        dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, frame.top), get_col(kGround));
+    if (frame.top() > 0.5f && !over_game) {
+        dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, frame.top()), get_col(kGround));
         dl->AddRectFilled(ImVec2(0.0f, frame.get_y(kDesignHeight)), ImVec2(window_width, window_height),
                           get_col(kGround));
     }

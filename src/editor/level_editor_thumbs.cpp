@@ -62,7 +62,7 @@ int CellCache::get_take(uint64_t key, uint64_t frame)
             return -1;
         cell = best;
         core::at(keys, cell) = key;
-        core::at(drawn, cell) = 0;
+        core::at(drawn_, cell) = 0;
     }
     core::at(shown, cell) = frame;
     return cell;
@@ -72,7 +72,7 @@ void CellCache::get_clear()
 {
     std::ranges::fill(keys, 0);
     std::ranges::fill(shown, 0);
-    std::ranges::fill(drawn, 0);
+    std::ranges::fill(drawn_, 0);
 }
 
 void cell_rect(int cell, int* x, int* y)
@@ -247,7 +247,7 @@ void tick_cycle(const ui::ShapeMesh& model)
     }
     if (ui_backend::atlas_generation() != level_editor_thumbs_state().generation_) {
         level_editor_thumbs_state().generation_ = ui_backend::atlas_generation();
-        std::fill(cells_state().drawn.begin(), cells_state().drawn.end(), 0);
+        std::fill(cells_state().drawn().begin(), cells_state().drawn().end(), 0);
     }
     if (!model.browser || !grid_mode()) {
         level_editor_thumbs_state().wanted_.clear();
@@ -259,7 +259,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         if (drawn_now >= kPerFrame)
             break;
         const int cell = cells_state().get_find(key);
-        if (cell < 0 || core::at(cells_state().drawn, cell))
+        if (cell < 0 || core::at(cells_state().drawn(), cell))
             continue;
         auto failed = failed_state().find(key);
         if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < 300)
@@ -273,7 +273,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         const bool drew =
             preview::draw_view(tab == 0 ? preview::Kind::kSector : preview::Kind::kObject, id, preview::Orbit{});
         ui_backend::end_atlas_cell();
-        core::at(cells_state().drawn, cell) = 1;
+        core::at(cells_state().drawn(), cell) = 1;
         if (!drew)
             failed_state()[key] = level_editor_thumbs_state().frame_;
         ++drawn_now;
@@ -542,7 +542,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 const uint64_t key = get_key(tab, core::at(items, i).id);
                 const int c = cells_state().get_take(key, level_editor_thumbs_state().frame_);
                 wanted.push_back(key);
-                if (c >= 0 && texture && core::at(cells_state().drawn, c)) {
+                if (c >= 0 && texture && core::at(cells_state().drawn(), c)) {
                     float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
                     cell_uv(c, &u0, &v0, &u1, &v1);
                     draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));

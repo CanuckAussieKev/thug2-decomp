@@ -97,7 +97,7 @@ void set_vertices(render::Geom* geometry, Vec4* vertices)
 }
 render::TriMeshSource* get_hit_shape(render::Geom* geometry)
 {
-    return static_cast<render::TriMeshSource*>(geometry->hit_triangles_);
+    return static_cast<render::TriMeshSource*>(geometry->hit_triangles());
 }
 uint16_t collision_vertex_count(const render::TriMeshSource* collision)
 {
@@ -639,8 +639,8 @@ bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperS
 void RailAuthoring::restore_heights()
 {
     change_live(false);
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following()) {
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
+        for (EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             if (p->has_post())
                 p->at_point().y = static_cast<float>(static_cast<double>(EditedRailPoint::ground_height(&p->at_point())) +
                                                     p->level_y());
@@ -652,8 +652,8 @@ void RailAuthoring::restore_heights()
 // 0x004F6560
 void RailAuthoring::store_heights()
 {
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
+        for (EditedRailPoint* p = rail->point_chain(); p; p = p->following())
             p->set_level_y(static_cast<float>(static_cast<double>(p->at_point().y) - EditedRailPoint::ground_height(&p->at_point())));
     }
 }
@@ -661,14 +661,14 @@ void RailAuthoring::store_heights()
 // 0x004F65A0
 void RailAuthoring::draw_all_segments()
 {
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
         rail->draw_segments(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
 }
 
 // 0x004F6600
 void RailAuthoring::draw_all_posts()
 {
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
         rail->draw_posts(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
 }
 
@@ -686,7 +686,7 @@ void RailAuthoring::draw_dotted_line(const Vec4* position)
 {
     if (!active_node_)
         return;
-    const EditedRailPoint* head = active_node_->point_chain_;
+    const EditedRailPoint* head = active_node_->point_chain();
     if (!head)
         return;
     uint32_t source = kDottedGreen;

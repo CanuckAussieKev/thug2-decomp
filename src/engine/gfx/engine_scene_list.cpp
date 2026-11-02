@@ -35,15 +35,15 @@ namespace render {
 namespace {
 
 // The list's first node (the head's next; the head itself when the list is empty).
-memory::ListNode* head_of_scene_list() { return engine_parts().scene_list().next; }
-bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
+memory::ListNode* head_of_scene_list() { return engine_parts().scene_list().next(); }
+bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 // The node after `node` (null at the end).
 memory::ListNode* get_next_node(const memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
+    memory::ListNode* next = node->next();
     return is_head(next) ? nullptr : next;
 }
-WorldScene* scene_of(const memory::ListNode* node) { return static_cast<WorldScene*>(node->data); }
+WorldScene* scene_of(const memory::ListNode* node) { return static_cast<WorldScene*>(node->data()); }
 
 // The first scene whose is_sky_ is `sky` (the original's walk: the first node's data checked before the node).
 WorldScene* first_scene(bool sky)
@@ -97,11 +97,11 @@ memory::ListNode* first_scene_node()
 
 memory::ListNode* next_scene_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
+    memory::ListNode* next = node->next();
     return next->is_head() ? nullptr : next;
 }
 
-WorldScene* scene_of_node(const memory::ListNode* node) { return static_cast<WorldScene*>(node->data); }
+WorldScene* scene_of_node(const memory::ListNode* node) { return static_cast<WorldScene*>(node->data()); }
 
 // 0x0048C750
 WorldScene* get_scene_by_name(const char* name) { return look_up_scene(checksums::hash_from_text(name)); }
@@ -203,9 +203,9 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
         WorldScene* scene = scene_of(node);
         CollGrid* grid = scene->coll_grid();
         // (each "past" test as the original: NaN doesn't rule a grid out)
-        if (grid && !(grid->box_.min.x > box.max.x) && !(box.min.x > grid->box_.max.x) &&
-            !(grid->box_.min.z > box.max.z) && !(box.min.z > grid->box_.max.z) && !(grid->box_.min.y > box.max.y) &&
-            !(box.min.y > grid->box_.max.y)) {
+        if (grid && !(grid->box().min.x > box.max.x) && !(box.min.x > grid->box().max.x) &&
+            !(grid->box().min.z > box.max.z) && !(box.min.z > grid->box().max.z) && !(grid->box().min.y > box.max.y) &&
+            !(box.min.y > grid->box().max.y)) {
             core::at(scenes, count) = scene;
             core::at(grids, count) = grid;
             if (++count >= 15)

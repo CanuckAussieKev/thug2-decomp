@@ -99,9 +99,17 @@ struct Sparkle : memory::HeapObject {
     // Slot 7: whether it's emitting (the particle component's IsEmitting); the engine's: true.
     virtual bool is_emitting() { return true; }
 
+    // The fields other code reads and sets.
+    SparkleConfig& args() { return args_; }
+    [[nodiscard]] const SparkleConfig& args() const { return args_; }
+    [[nodiscard]] const maths::Vec4& bound_ball() const { return bound_ball_; }
+
+private:
     SparkleConfig args_;     // +0x004
     maths::BBox extent_box_; // +0x160: of every particle's path
     maths::Vec4 bound_ball_{}; // +0x180: around the box (centre, radius)
+
+public:
 
     // 0x00496380: made from `params` (copied): the bounds worked out, then initialise.
     void prepare_all(const SparkleConfig* params);
@@ -141,10 +149,15 @@ struct Sparkle : memory::HeapObject {
     void change_colour(int which, const Rgba& colour);
     void set_brightness(float value);
     void set_colour_mid_percent(float percent);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Sparkle, args_) == 0x4 && offsetof(Sparkle, extent_box_) == 0x160 &&
+                          offsetof(Sparkle, bound_ball_) == 0x180 && sizeof(Sparkle) == 0x190,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(Sparkle, args_) == 0x4 && offsetof(Sparkle, extent_box_) == 0x160 &&
-                  offsetof(Sparkle, bound_ball_) == 0x180 && sizeof(Sparkle) == 0x190,
-              "layout must match the original");
 
 // The particle component's particle manager (0x1C bytes, vtable 0x006493A0); one, at 0x006FA7C4 - the PC's,
 // PcParticleManager.
@@ -159,8 +172,11 @@ struct EffectsDirector : memory::HeapObject {
     // Vtable slot 1: a new system (the engine's: none).
     virtual Sparkle* create_system() { return nullptr; }
 
+private:
     lists::PointerRing<Sparkle> systems_{}; // +0x04
     std::array<float, 4> shade_{};               // +0x0C: given to the systems that take it
+
+public:
 
     // 0x00496510: a new system (create_system) made from `params`, given the manager's colour if it takes it, onto
     // the end of the list. Null if there's no memory.
@@ -176,9 +192,14 @@ struct EffectsDirector : memory::HeapObject {
     void change_colour(std::span<const float, 4> rgba);
     // 0x00496700: each released and deleted, the list emptied.
     void kill_every_particle();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(EffectsDirector, systems_) == 0x4 && offsetof(EffectsDirector, shade_) == 0xC &&
+                          sizeof(EffectsDirector) == 0x1C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(EffectsDirector, systems_) == 0x4 && offsetof(EffectsDirector, shade_) == 0xC &&
-                  sizeof(EffectsDirector) == 0x1C,
-              "layout must match the original");
 
 } // namespace render

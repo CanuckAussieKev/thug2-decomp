@@ -55,7 +55,7 @@ void probe_tip(int index, float x, float z, float* last_column, float* end_z)
 gsl::owner<ObjectModule*> ProjectileComponent::fabricate() { return new ProjectileComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-ProjectileComponent::ProjectileComponent() { kind_tag_ = kType; }
+ProjectileComponent::ProjectileComponent() { set_kind_tag(kType); }
 
 // 0x004F37B0 (0x004F37D0 the deleting one)
 ProjectileComponent::~ProjectileComponent() { core::at(rider_ref_->projectiles(), seat_).active = false; }
@@ -65,7 +65,7 @@ void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
 {
     auto* skater = core::down_cast<Rider>(skate_calls::get_home_rider());
     rider_ref_ = skater;
-    const uint32_t name = entity_->ident();
+    const uint32_t name = entity()->ident();
     seat_ = -1;
     for (int i = 0; i < kSlotCount; ++i) {
         if (name == core::at(skater->projectiles(), i).name) {
@@ -87,7 +87,7 @@ void ProjectileComponent::seal()
 // 0x004F3A90
 void ProjectileComponent::tick_frame()
 {
-    core::at(rider_ref_->projectiles(), seat_).pos = entity_->at_point();
+    core::at(rider_ref_->projectiles(), seat_).pos = entity()->at_point();
     check_triggers();
 }
 
@@ -99,7 +99,7 @@ void ProjectileComponent::check_triggers()
         return;
     }
     render::ProbeRay feeler;
-    const maths::Vec4 pos = entity_->at_point();
+    const maths::Vec4 pos = entity()->at_point();
     auto end_w = static_cast<float>(static_cast<double>(pos.w) + kReach);
     for (int i = 0; i < kFeelers; ++i) {
         feeler.line().start = pos;

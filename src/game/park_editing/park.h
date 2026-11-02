@@ -164,6 +164,14 @@ public:
     // 0x00590530: its source's size with x and z swapped for an odd `rot`; returns `out`
     maths::Vec4* get_dims_turned(maths::Vec4* out, int rot);
 
+    // The fields other code reads and sets.
+    uint32_t& sector() { return sector_; }
+    [[nodiscard]] uint32_t sector() const { return sector_; }
+    void set_sector(uint32_t value) { sector_ = value; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+
+private:
     uint32_t sector_ = 0;    // +0x04: a placed piece's sector in the "cloned" scene; a source's sector checksum
     uint32_t flag_bits_ = 0; // +0x08
 
@@ -184,11 +192,25 @@ public:
     static constexpr uint32_t kDestroyNow = 0x200; // destroy_piece takes it out at once
     static constexpr uint32_t kDestroy = 0x1000;   // marked: clean_up_out_refs takes it out
 
+    // The fields other code reads and sets.
+    [[nodiscard]] ParkTile* following() const { return following_; }
+    void set_following(ParkTile* value) { following_ = value; }
+    [[nodiscard]] uint32_t ident() const { return ident_; }
+    void set_ident(uint32_t value) { ident_ = value; }
+    [[nodiscard]] TileTemplate* blend_source() const { return blend_source_; }
+    void set_blend_source(TileTemplate* value) { blend_source_ = value; }
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    [[nodiscard]] int quarter_turns() const { return quarter_turns_; }
+
+private:
     ParkTile* following_ = nullptr;        // +0x0C: the generator's list
     uint32_t ident_ = 0;                   // +0x10: the generator's piece counter when made (the cluster of its rails)
     TileTemplate* blend_source_ = nullptr; // +0x14
     maths::Vec4 at_point_{};               // +0x18
     int quarter_turns_{};                  // +0x28: quarter turns
+
+public:
 
     // 0x00590250 (folded with other +0x10 getters)
     uint32_t fetch_serial();
@@ -209,11 +231,16 @@ public:
 
 protected:
     ParkTile() = default;
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ParkTile, ident_) == 0x10 && offsetof(ParkTile, blend_source_) == 0x14 &&
+                          offsetof(ParkTile, at_point_) == 0x18 && offsetof(ParkTile, quarter_turns_) == 0x28 &&
+                          sizeof(ParkTile) == 0x2C,
+                      "layout must match the original (a placed piece: 0x2C bytes)");
+    }
 };
-static_assert(offsetof(ParkTile, ident_) == 0x10 && offsetof(ParkTile, blend_source_) == 0x14 &&
-                  offsetof(ParkTile, at_point_) == 0x18 && offsetof(ParkTile, quarter_turns_) == 0x28 &&
-                  sizeof(ParkTile) == 0x2C,
-              "layout must match the original (a placed piece: 0x2C bytes)");
 
 // A source piece (0x30 bytes; park_scene.h calls it TemplateTile): a piece type, one sector of the "sk5ed" scene
 // (sector_ is its checksum).
@@ -226,25 +253,42 @@ public:
     static constexpr uint32_t kRebuilt = 0x4000;         // rebuilt by rebuild_marked (a trigger the scripts change)
 
     // 0x005905C0: an empty source piece.
-    TileTemplate() { flag_bits_ = kSource; }
+    TileTemplate() { flag_bits() = kSource; }
     // 0x00590600: its size; returns `out`
     maths::Vec4* measure_span(maths::Vec4* out) override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] TileTemplate* following() const { return following_; }
+    void set_following(TileTemplate* value) { following_ = value; }
+    maths::Vec4& extent() { return extent_; }
+    [[nodiscard]] const maths::Vec4& extent() const { return extent_; }
+    [[nodiscard]] uint32_t trigger_script() const { return trigger_script_; }
+    void set_trigger_script(uint32_t value) { trigger_script_ = value; }
+    int& rail_point_total() { return rail_point_total_; }
+    [[nodiscard]] int rail_point_total() const { return rail_point_total_; }
+    int& num_rail_segments() { return num_rail_segments_; }
+    [[nodiscard]] int num_rail_segments() const { return num_rail_segments_; }
+
+private:
     TileTemplate* following_ = nullptr;    // +0x0C
     maths::Vec4 extent_ = {.x = 0, .y = 0, .z = 0, .w = 1.0f}; // +0x10: in world units (x and z whole cells); w = 1
     int field_20_ = 1;                     // +0x20
     uint32_t trigger_script_ = 0;          // +0x24
     int rail_point_total_ = 0;             // +0x28: the points of the rails its node array gives it
     int num_rail_segments_ = 0;            // +0x2C
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(TileTemplate, extent_) == 0x10 && offsetof(TileTemplate, trigger_script_) == 0x24 &&
+                          sizeof(TileTemplate) == 0x30,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(TileTemplate, extent_) == 0x10 && offsetof(TileTemplate, trigger_script_) == 0x24 &&
-                  sizeof(TileTemplate) == 0x30,
-              "layout must match the original");
 
 // A placed piece as made (0x00590620: an empty cloned piece).
 class CopiedPiece final : public ParkTile {
 public:
-    CopiedPiece() { flag_bits_ = kCloned; }
+    CopiedPiece() { flag_bits() = kCloned; }
     // 0x00590710: the source's size, x and z swapped when turned a quarter; returns `out`
     maths::Vec4* measure_span(maths::Vec4* out) override;
 };
@@ -293,12 +337,27 @@ public:
     // 0x00590AD0: room for `count` pieces (the extra ones kept when it grows)
     virtual void commission(int count) = 0;
 
+    // The fields other code reads and sets.
+    CellBox& cell_footprint() { return cell_footprint_; }
+    [[nodiscard]] const CellBox& cell_footprint() const { return cell_footprint_; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] int quarter_turns() const { return quarter_turns_; }
+    void assign_quarter_turns(int value) { quarter_turns_ = value; }
+    uint32_t& filled_slots() { return filled_slots_; }
+    [[nodiscard]] uint32_t filled_slots() const { return filled_slots_; }
+    uint32_t& name_key() { return name_key_; }
+    [[nodiscard]] uint32_t name_key() const { return name_key_; }
+
+private:
     CellBox cell_footprint_ = {.x = 0, .y = 0, .z = 0, .w = 0, .h = 0, .l = 0}; // +0x04 (the offsets are the original's: the vtable at +0x00)
     std::array<uint8_t, 2> pad0a_{};
     uint32_t flag_bits_ = 0;               // +0x0C
     int quarter_turns_{};                  // +0x10: quarter turns
     uint32_t filled_slots_ = 0;            // (+0x34 in the original)
     uint32_t name_key_{};                  // (+0x38): the abstract metapiece's name
+
+public:
 
     // 0x005902E0 (returns this; folded with many empty constructors): a metapiece as a concrete one
     PieceGroup* as_placed_piece() { return this; }
@@ -395,9 +454,20 @@ static_assert(sizeof(void*) != 4 || (sizeof(PlacedPieceGroup) == 0x3C && sizeof(
 
 // A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
 struct MapListNode {
+    // The fields other code reads and sets.
+    [[nodiscard]] int dy() const { return dy_; }
+    void set_dy(int value) { dy_ = value; }
+    [[nodiscard]] PieceGroup* piece_group() const { return piece_group_; }
+    void set_piece_group(PieceGroup* value) { piece_group_ = value; }
+    [[nodiscard]] MapListNode* following() const { return following_; }
+    void set_following(MapListNode* value) { following_ = value; }
+
+private:
     int dy_;                  // in the floor change's list: how far the metapiece moves up (down if negative)
     PieceGroup* piece_group_; // +0x04
     MapListNode* following_;  // +0x08
+
+public:
 
     // 0x005480C0 (one of many getters folded together there)
     [[nodiscard]] PieceGroup* get_piece_group() const { return piece_group_; }
@@ -668,15 +738,23 @@ public:
     // start also with combined_flags), the end placed first first
     void fire_gap(int index, script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] const std::array<bool, kMaxGaps>& started_first() const { return started_first_; }
+
+private:
     uint32_t next_id_{2000};       // +0x00: the next end's GapID
     std::array<Gap*, kMaxGaps> gaps_ptr_{};    // +0x04
     std::array<bool, kMaxGaps> started_first_{}; // +0x84: the gap's first half (StartGap) was placed first
     ParkLayout* park_owner_;       // +0xA4: the park it's in (null in a copy)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(GapRegistry::Gap) == 0xEC && offsetof(GapRegistry::Gap, details_) == 0x98 &&
+                          offsetof(GapRegistry, gaps_ptr_) == 4 && offsetof(GapRegistry, started_first_) == 0x84 &&
+                          offsetof(GapRegistry, park_owner_) == 0xA4 && sizeof(GapRegistry) == 0xA8,
+                      "layout must match the original");
+    }
 };
-static_assert(sizeof(GapRegistry::Gap) == 0xEC && offsetof(GapRegistry::Gap, details_) == 0x98 &&
-                  offsetof(GapRegistry, gaps_ptr_) == 4 && offsetof(GapRegistry, started_first_) == 0x84 &&
-                  offsetof(GapRegistry, park_owner_) == 0xA4 && sizeof(GapRegistry) == 0xA8,
-              "layout must match the original");
 
 // A restart point of the park generator (0x24 bytes).
 struct RestartPoint {
@@ -982,9 +1060,9 @@ public:
     // The abstract metapiece named `checksum` (null if none) - inline in the original.
     PieceGroup* find_piece_template(uint32_t checksum)
     {
-        for (MapListNode* node = abstract_metas_; node; node = node->following_) {
+        for (MapListNode* node = abstract_metas_; node; node = node->following()) {
             PieceGroup* meta = node->get_placed_piece();
-            if (meta->name_key_ == checksum)
+            if (meta->name_key() == checksum)
                 return meta;
         }
         return nullptr;

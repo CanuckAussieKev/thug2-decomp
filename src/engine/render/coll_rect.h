@@ -71,14 +71,29 @@ public:
     // 0x00417860: the rect drawn, then the joined hits (or the hits) - compiled out of this build.
     void debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames);
 
+    // The fields other code reads and sets.
+    CollRect& rect() { return rect_; }
+    [[nodiscard]] const CollRect& rect() const { return rect_; }
+    RectHits& hits() { return hits_; }
+    [[nodiscard]] const RectHits& hits() const { return hits_; }
+    std::array<RectHit, RectHits::kMost>& joined() { return joined_; }
+    [[nodiscard]] const std::array<RectHit, RectHits::kMost>& joined() const { return joined_; }
+    [[nodiscard]] int joined_count() const { return joined_count_; }
+    void set_hit_cache(HitMeshCache* value) { hit_cache_ = value; }
+
+private:
     CollRect rect_{};                   // +0x0000
     RectHits hits_{};                   // +0x0030
     std::array<RectHit, RectHits::kMost> joined_{}; // +0x0C38
     int joined_count_{0};               // +0x1838
     uint32_t unknown183c_{};          // +0x183C
     HitMeshCache* hit_cache_{nullptr}; // +0x1840
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(BoxProbe, joined_) == 0xC38 && offsetof(BoxProbe, hit_cache_) == 0x1840,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(BoxProbe, joined_) == 0xC38 && offsetof(BoxProbe, hit_cache_) == 0x1840,
-              "layout must match the original");
 
 } // namespace render

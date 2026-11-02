@@ -38,7 +38,7 @@ namespace save_cards {
 // overflowing (the original's count, card->get_free_blocks(), is unclamped).
 int32_t free_disk_blocks(SaveCard* card)
 {
-    if (!card->present_)
+    if (!card->present())
         return 0;
     ULARGE_INTEGER free_space;
     ULARGE_INTEGER total_space;
@@ -271,7 +271,7 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
     uint32_t type = 0;
     params->read_hash_value(0u, &type, 0);
     script::Struct* best = nullptr;
-    for (uint32_t i = 0; i < saves->extent_; ++i) {
+    for (uint32_t i = 0; i < saves->extent(); ++i) {
         auto* save = saves->struct_at(i);
         uint32_t file_type = 0;
         save->read_hash_value("file_type", &file_type, 0);
@@ -350,25 +350,25 @@ bool get_max_thps4_files_allowed(script::Struct*, script::Script* script)
 // 0x005A7470
 bool switch_to_temp_pools_if_they_exist(script::Struct*, script::Script*)
 {
-    ++script::component_pools().current;
-    ++script::struct_pools().current;
-    ++script::vector_pools().current;
-    if (core::at(script::component_pools().pools, script::component_pools().current) && core::at(script::struct_pools().pools, script::struct_pools().current) &&
-        core::at(script::vector_pools().pools, script::vector_pools().current))
+    ++script::component_pools().current();
+    ++script::struct_pools().current();
+    ++script::vector_pools().current();
+    if (core::at(script::component_pools().pools(), script::component_pools().current()) && core::at(script::struct_pools().pools(), script::struct_pools().current()) &&
+        core::at(script::vector_pools().pools(), script::vector_pools().current()))
         return true;
-    --script::component_pools().current;
-    --script::struct_pools().current;
-    --script::vector_pools().current;
+    --script::component_pools().current();
+    --script::struct_pools().current();
+    --script::vector_pools().current();
     return false;
 }
 
 // 0x005A74F0
 bool switch_to_regular_pools(script::Struct*, script::Script*)
 {
-    if (script::component_pools().current || script::struct_pools().current || script::vector_pools().current) {
-        --script::component_pools().current;
-        --script::struct_pools().current;
-        --script::vector_pools().current;
+    if (script::component_pools().current() || script::struct_pools().current() || script::vector_pools().current()) {
+        --script::component_pools().current();
+        --script::struct_pools().current();
+        --script::vector_pools().current();
     }
     return true;
 }

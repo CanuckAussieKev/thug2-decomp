@@ -50,6 +50,10 @@ public:
     // manager, an object or a node list; true otherwise - also when there's no such point (`out` untouched).
     bool get_hook_point(maths::Vec4* out, int index);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool allowed() const { return allowed_; }
+
+private:
     bool allowed_{true}; // +0x18
     std::array<uint8_t, 3> pad19{};
     ObjectModule* hooks_{}; // +0x1C the object's hook manager (0x27443708)

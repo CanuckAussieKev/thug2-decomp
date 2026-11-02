@@ -214,7 +214,7 @@ gsl::owner<ObjectModule*> FootMovement::fabricate() { return new FootMovement; }
 FootMovement::FootMovement()
 {
     // (the contacts, the cache and the feeler made first by their constructors)
-    kind_tag_ = 0x726E85AA; // Walk
+    set_kind_tag(0x726E85AA); // Walk
     stick_heading_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     jump_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
@@ -326,7 +326,7 @@ void FootMovement::update_anim_speed()
 void FootMovement::update_ride()
 {
     objects::MovingSurfaceModule* ride = ride_;
-    auto* tracker = ride->ride_.get();
+    auto* tracker = ride->ride().get();
     if (!tracker)
         return;
     maths::Vec4& position = pos_;
@@ -334,16 +334,16 @@ void FootMovement::update_ride()
         static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
         return;
     }
-    tracker = ride->ride_.get();
+    tracker = ride->ride().get();
     position.x = append_one(tracker->carried_.x, position.x);
     position.y = append_one(tracker->carried_.y, position.y);
     position.z = append_one(tracker->carried_.z, position.z);
     position.w = append_one(tracker->carried_.w, position.w);
-    if (!ride->ride_->turned_)
+    if (!ride->ride()->turned_)
         return;
     maths::Vec4& facing = facing_;
     maths::Vec4 turned{};
-    facing = ride->ride_->turn_.rotate_vector(turned, facing);
+    facing = ride->ride()->turn_.rotate_vector(turned, facing);
     if (!(facing.y == 0.0f)) { // kept level
         facing.y = 0.0f;
         facing.make_unit();
@@ -354,7 +354,7 @@ void FootMovement::update_ride()
 void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
 {
     objects::MovingSurfaceModule* ride = ride_;
-    auto* tracker = ride->ride_.get();
+    auto* tracker = ride->ride().get();
     maths::Vec4& carried = jump_base_vel_;
     if (tracker && tracker->entity_.get_pull()) {
         carried = tracker->entity_.get_pull()->vel(); // its velocity
@@ -386,14 +386,14 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
     }
     // The ride let go.
     ride = ride_;
-    tracker = ride->ride_.get();
+    tracker = ride->ride().get();
     if (!tracker)
         return;
-    ride->last_object_ = tracker->entity_.get_pull();
+    ride->set_last_object(tracker->entity_.get_pull());
     tracker->entity_.get_release();
     memory::Hub::get_pull()->dealloc(tracker);
-    ride->ride_ = nullptr;
-    ride->stop_time_ = get_now();
+    ride->ride() = nullptr;
+    ride->set_stop_time(get_now());
 }
 
 // 0x0052B2D0
@@ -401,12 +401,12 @@ void FootMovement::go_to_air()
 {
     change_phase(1); // (the state: in the air)
     maths::Vec4& heading = leap_heading_;
-    heading = entity_->vel();
+    heading = entity()->vel();
     heading.y = 0.0f;
     heading.make_unit();
-    leave_ride(&entity_->vel(), &entity_->vel().y);
+    leave_ride(&entity()->vel(), &entity()->vel().y);
     maths::Vec4& carried = jump_base_vel_;
-    carried = entity_->vel();
+    carried = entity()->vel();
     carried.y = 0.0f;
 }
 
@@ -428,7 +428,7 @@ int FootMovement::release_hang(script::Struct*, script::Script*)
 int FootMovement::force_to_air_from_hang(script::Struct*, script::Script*)
 {
     go_to_air();
-    entity_->post_own_event(kAir, nullptr);
+    entity()->post_own_event(kAir, nullptr);
     return 1;
 }
 
@@ -495,7 +495,7 @@ void FootMovement::tick_frame()
     copy_to_object();
     update_rotate_upright();
     clamp_skater_speed(previous_anim);
-    entity_->post_own_event(anim_state_, nullptr);
+    entity()->post_own_event(anim_state_, nullptr);
     update_anim_speed();
     update_camera_override();
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_focus_button();
@@ -632,9 +632,9 @@ void FootMovement::update_air()
     render::ProbeRay storage;
     render::ProbeRay* feeler = &storage;
     const maths::Vec4 up = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 0.0f};
-    const maths::Vec4 top = entity_->at_point() + up;
+    const maths::Vec4 top = entity()->at_point() + up;
     feeler->change_origin(&top);
-    const maths::Vec4 bottom = entity_->at_point() - up;
+    const maths::Vec4 bottom = entity()->at_point() - up;
     feeler->change_finish(&bottom);
     if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive())
         ride_->ride_on(feeler->get_hit_object());
@@ -648,17 +648,17 @@ void FootMovement::update_anim_wait()
 {
     // Carried by what it rides on: the offset moved, the facing turned (kept level).
     objects::MovingSurfaceModule* ride = ride_;
-    if (auto* tracker = ride->ride_.get()) {
+    if (auto* tracker = ride->ride().get()) {
         if (!tracker->entity_.get_pull() || !tracker->tick_frame(&pos_)) {
             static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
         } else {
-            tracker = ride->ride_.get();
+            tracker = ride->ride().get();
             maths::Vec4& carried = climb_offset_;
             carried.x += tracker->carried_.x;
             carried.y += tracker->carried_.y;
             carried.z += tracker->carried_.z;
             carried.w += tracker->carried_.w;
-            tracker = ride->ride_.get();
+            tracker = ride->ride().get();
             if (tracker->turned_) {
                 maths::Vec4& facing = transition_facing_;
                 maths::Vec4 turned{};
@@ -752,11 +752,11 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         static_cast<MovingSurfaceModule*>(ride)->start_riding(feeler); // (what it landed on)
         maths::Vec4& velocity = vel_;
         ride = ride_;
-        if (auto* tracker = ride->ride_.get()) {
+        if (auto* tracker = ride->ride().get()) {
             if (!tracker->entity_.get_pull()) {
                 static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
             } else {
-                velocity -= ride->ride_->entity_.get_pull()->vel();
+                velocity -= ride->ride()->entity_.get_pull()->vel();
                 velocity.y = 0.0f;
             }
         }
@@ -800,7 +800,7 @@ void FootMovement::settle_onto_floor()
         const float step = feeler->contact_pos().y - position.y;
         const float unnoticed = walk_parameter(kMaxUnnoticedGroundSnap);
         if (std::fabs(step) > unnoticed)
-            entity_->post_own_event(step > 0.0f ? kSteppedUp : kSteppedDown, nullptr);
+            entity()->post_own_event(step > 0.0f ? kSteppedUp : kSteppedDown, nullptr);
         position.y = feeler->contact_pos().y;
         if (step > 0.0f || step < kBigStepDown) {
             const double offset = static_cast<double>(curb_offset_) - step;
@@ -858,7 +858,7 @@ void FootMovement::settle_onto_floor()
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
     anim_state_ = kWalkOffEdge;
-    entity_->announce(kSkaterOffEdge, nullptr, 0.0f);
+    entity()->announce(kSkaterOffEdge, nullptr, 0.0f);
     release_hit(feeler);
 }
 
@@ -870,17 +870,17 @@ void FootMovement::get_begin(bool on_ground)
         change_phase(0);
         floor_normal_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
         feeler_hit_ = false;
-        entity_->vel().y = 0.0f;
+        entity()->vel().y = 0.0f;
         off_vert_ = false;
     } else {
         change_phase(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
         if (core_physics_->state()->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0f)) {
-            maths::Vec4 forward = core::at(entity_->basis_frame().row, 2);
+            maths::Vec4 forward = core::at(entity()->basis_frame().row, 2);
             forward.rotate_about_axis(upright_axis_, upright_angle_);
             const double boost = walk_parameter(kInitialVertVelBoost);
-            maths::Vec4& velocity = entity_->vel();
+            maths::Vec4& velocity = entity()->vel();
             auto z = static_cast<float>(forward.z * boost);
             auto w = static_cast<float>(forward.w * boost);
             velocity.x = static_cast<float>(forward.x * boost + velocity.x); // (x and y's products unrounded)
@@ -893,19 +893,19 @@ void FootMovement::get_begin(bool on_ground)
         // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
         // flattened; made unit length.
         maths::Vec4& heading = leap_heading_;
-        heading = entity_->vel();
+        heading = entity()->vel();
         heading.y = 0.0f;
         double length =
             std::sqrt((static_cast<double>(heading.x) * heading.x + static_cast<double>(heading.y) * heading.y) +
                       static_cast<double>(heading.z) * heading.z);
         if (length < kMinHeadingLength) {
-            heading = core::at(entity_->basis_frame().row, 2);
+            heading = core::at(entity()->basis_frame().row, 2);
             heading.y = 0.0f;
             length =
                 std::sqrt((static_cast<double>(heading.z) * heading.z + static_cast<double>(heading.x) * heading.x) +
                           static_cast<double>(heading.y) * heading.y);
             if (length < kMinHeadingLength) {
-                heading = -core::at(entity_->basis_frame().row, 1);
+                heading = -core::at(entity()->basis_frame().row, 1);
                 heading.y = 0.0f;
                 length = std::sqrt(
                     (static_cast<double>(heading.x) * heading.x + static_cast<double>(heading.y) * heading.y) +
@@ -917,7 +917,7 @@ void FootMovement::get_begin(bool on_ground)
         heading.y = static_cast<float>(inverse * heading.y);
         heading.z = static_cast<float>(inverse * heading.z);
         heading.w = static_cast<float>(inverse * heading.w);
-        leave_ride(&entity_->vel(), &entity_->vel().y);
+        leave_ride(&entity()->vel(), &entity()->vel().y);
         leap_duration_ = 0.0f;
         pushing_ = false;
         off_vert_ =
@@ -963,7 +963,7 @@ void FootMovement::get_jump()
         if (halted(this))
             return;
     }
-    entity_->vel().y = walk_parameter(kJumpVelocity) * factor;
+    entity()->vel().y = walk_parameter(kJumpVelocity) * factor;
 
     maths::Vec4& heading = leap_heading_;
     const maths::Vec4& facing = facing_;
@@ -1016,26 +1016,26 @@ void FootMovement::get_jump()
         push_normal_ = facing;
         push_plane_distance_ = hang_plane(this);
         push_height_ = pos_.y - rail_up_;
-        entity_->vel().x = 0.0f;
-        entity_->vel().z = 0.0f;
+        entity()->vel().x = 0.0f;
+        entity()->vel().z = 0.0f;
         heading = facing;
         break;
     case 3: // on a ladder
-        entity_->vel().x = 0.0f;
-        entity_->vel().z = 0.0f;
+        entity()->vel().x = 0.0f;
+        entity()->vel().z = 0.0f;
         heading = facing;
         break;
     case 4: // moving along a hang: the plane along the facing it had when the hang began
         pushing_ = true;
         push_plane_distance_ = hang_plane(this);
-        entity_->vel().x = 0.0f;
-        entity_->vel().z = 0.0f;
+        entity()->vel().x = 0.0f;
+        entity()->vel().z = 0.0f;
         heading = facing;
         break;
     }
-    leave_ride(&entity_->vel(), &entity_->vel().y);
+    leave_ride(&entity()->vel(), &entity()->vel().y);
     change_phase(1);
-    entity_->announce(kSkaterJump, nullptr, 0.0f);
+    entity()->announce(kSkaterJump, nullptr, 0.0f);
 }
 
 // 0x0052BC70
@@ -1149,8 +1149,8 @@ bool FootMovement::try_barrier_jump()
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
     anim_state_ = kJump;
-    entity_->announce(kSkaterJump, nullptr, 0.0f);
-    entity_->clear_event_handler(kJumpRequested);
+    entity()->announce(kSkaterJump, nullptr, 0.0f);
+    entity()->clear_event_handler(kJumpRequested);
     release_hit(feeler);
     return true;
 }
@@ -1231,7 +1231,7 @@ bool FootMovement::update_contacts()
         if (feeler->hit_object_alive()) {
             objects::MovingSurfaceModule* ride = ride_;
             bool ridden = false;
-            if (auto* tracker = ride->ride_.get()) {
+            if (auto* tracker = ride->ride().get()) {
                 if (!tracker->entity_.get_pull())
                     static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
                 else

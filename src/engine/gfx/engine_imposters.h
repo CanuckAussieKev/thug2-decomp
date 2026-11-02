@@ -25,6 +25,13 @@ public:
     virtual float distance_to_view() = 0; // [5]
     virtual void tick_frame() = 0;        // [6]
 
+    // The fields other code reads and sets.
+    [[nodiscard]] float near_range() const { return near_range_; }
+    int& frame_count() { return frame_count_; }
+    [[nodiscard]] int frame_count() const { return frame_count_; }
+    [[nodiscard]] bool has_imposter() const { return has_imposter_; }
+
+private:
     float near_range_{}; // +0x04: below this distance the group is drawn as itself
     std::array<uint8_t, 0x50> pad08_{};
     int frame_count_{};   // +0x58
@@ -32,8 +39,11 @@ public:
 };
 
 struct ImposterManager {
+private:
     lists::KeyMap* groups_ptr_;
     int max_per_frame_{1};
+
+public:
 
     // 0x0048E3E0: construct - a table of 2^8 buckets, 1 imposter a frame.
     ImposterManager();

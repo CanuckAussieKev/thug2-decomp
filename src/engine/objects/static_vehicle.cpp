@@ -35,7 +35,7 @@ std::span<const render::HierarchyNode> hierarchy_of(ObjectModule* model)
 }
 
 // The skeleton component's skeleton.
-gfx::Rig* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
+gfx::Rig* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig(); }
 
 // A node's place (its matrix's translation) in the game's axes: x and the model's y negated, y and z swapped.
 maths::Vec4 from_model(const render::HierarchyNode& node)
@@ -50,7 +50,7 @@ maths::Vec4 from_model(const render::HierarchyNode& node)
 gsl::owner<ObjectModule*> ParkedVehicleModule::fabricate() { return new ParkedVehicleModule; }
 
 // (the constructor: inlined in fabricate in the original)
-ParkedVehicleModule::ParkedVehicleModule() { kind_tag_ = kType; }
+ParkedVehicleModule::ParkedVehicleModule() { set_kind_tag(kType); }
 
 // 0x00433650 (0x00433660 the deleting one)
 ParkedVehicleModule::~ParkedVehicleModule() = default;
@@ -58,7 +58,7 @@ ParkedVehicleModule::~ParkedVehicleModule() = default;
 // 0x004336F0
 void ParkedVehicleModule::seal()
 {
-    const std::span<const render::HierarchyNode> hierarchy = hierarchy_of(entity_->fetch_module(kModel));
+    const std::span<const render::HierarchyNode> hierarchy = hierarchy_of(entity()->fetch_module(kModel));
     // The wheels: the hierarchy's nodes 2-5 (their matrices' translations).
     std::array<maths::Vec4, 4> wheels{};
     for (int k = 0; k < 4; ++k)
@@ -66,7 +66,7 @@ void ParkedVehicleModule::seal()
     // The body: node 1's translation.
     const maths::Vec4 body = from_model(core::at(hierarchy, 1));
 
-    ObjectModule* skeleton_component = entity_->fetch_module(kSkeleton);
+    ObjectModule* skeleton_component = entity()->fetch_module(kSkeleton);
     const std::span<maths::Mat4> bones = skeleton_of(skeleton_component)->matrices();
     for (int i = 0; i < skeleton_of(skeleton_component)->get_num_bones(); ++i) {
         maths::Mat4& bone = core::at(bones, i);

@@ -164,11 +164,11 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     geometry_.set_vertex_bytes(bytes_.data());
     geometry_.set_unknown3c(0); // (the rejection scale 0.0f: no face rejected by distance)
 
-    entity_.checksum_ = checksum; // (a sector's collision object, no flags)
-    entity_.visit_stamp_ = 0;
-    entity_.geometry_ = &geometry_;
-    entity_.octets_ = rejection_.data();
-    entity_.unknown14_ = 0;
+    entity_.assign_checksum(checksum); // (a sector's collision object, no flags)
+    entity_.set_visit_stamp(0);
+    entity_.set_geometry(&geometry_);
+    entity_.set_octets(rejection_.data());
+    entity_.set_unknown14(0);
     get_place({.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}});
 }
 
@@ -201,10 +201,10 @@ std::vector<FaceCopy> Companion::get_faces() const
 
 void Companion::change_live(bool active)
 {
-    entity_.flag_bits_ = static_cast<uint16_t>(active ? entity_.flag_bits_ & ~4u : entity_.flag_bits_ | 4u);
+    entity_.flag_bits() = static_cast<uint16_t>(active ? entity_.flag_bits() & ~4u : entity_.flag_bits() | 4u);
 }
 
-bool Companion::live_now() const { return !(entity_.flag_bits_ & 4); }
+bool Companion::live_now() const { return !(entity_.flag_bits() & 4); }
 
 void Companion::change_tri_flags(int face, uint16_t flags)
 {
@@ -274,18 +274,18 @@ bool is_switched_on()
 template <typename F>
 void for_each_strip(render::PcGeom* geom, F fn)
 {
-    const std::span<render::MeshRef*> meshes = geom->meshes_value() ? geom->mesh_run() : std::span<render::MeshRef*>();
+    const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
+        if (!mesh || mesh->billboard() || (mesh->flags() & 0x10))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data_value() || !indices || !indices->indices || mesh->stride_value() < 12)
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < 12)
             continue;
-        fn(vertices->data_value(), static_cast<uint32_t>(mesh->stride_value()), static_cast<uint32_t>(mesh->vertex_count()),
-           indices->indices, static_cast<uint32_t>(core::at(mesh->index_counts(), 0)));
+        fn(vertices->data(), static_cast<uint32_t>(mesh->stride()), static_cast<uint32_t>(mesh->vertex_count()),
+           indices->indices(), static_cast<uint32_t>(core::at(mesh->index_counts(), 0)));
     }
 }
 
@@ -339,9 +339,9 @@ render::TriMeshSource* get_collision_only(render::WorldCell* sector)
     if (!sector || geom_of(sector))
         return nullptr;
     const render::StaticCollider* coll = coll_of(sector);
-    if (!coll || (coll->flag_bits_ & 6) || !coll->geometry_ || !coll->geometry_->faces())
+    if (!coll || (coll->flag_bits() & 6) || !coll->geometry() || !coll->geometry()->faces())
         return nullptr;
-    return coll->geometry_;
+    return coll->geometry();
 }
 
 const char* get_name_of(uint32_t checksum)
@@ -497,12 +497,12 @@ struct GridList {
         head.make_head();
         for (size_t i = 0; i < objects.size(); ++i) {
             memory::ListNode& node = core::at(nodes, i);
-            node.data = core::at(objects, i);
-            node.priority = 0;
-            node.prev = head.prev;
-            node.next = &head;
-            head.prev->next = &node;
-            head.prev = &node;
+            node.set_data(core::at(objects, i));
+            node.set_priority(0);
+            node.set_prev(head.prev());
+            node.set_next(&head);
+            head.prev()->set_next(&node);
+            head.set_prev(&node);
         }
     }
     GridList(const GridList&) = delete;
@@ -568,7 +568,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
     entry.grid = grid_of(scene);
     if (!faces.empty()) {
         entry.companion = std::make_unique<Companion>(checksum, faces);
-        entry.companion->get_object()->geometry_->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
+        entry.companion->get_object()->geometry()->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
         for (const Taken& t : taken)
             t.geometry->set_face_flags(t.face, static_cast<uint16_t>(t.flags | 0x10));
         entry.taken = std::move(taken);

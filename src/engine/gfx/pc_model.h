@@ -24,6 +24,7 @@ public:
     // 0x004BADF0 (slot 13): every geom's bounding sphere set to `sphere`.
     void plat_set_bounding_sphere(const maths::Vec4* sphere) override;
 
+private:
     uint32_t unknown4c_ = 0; // +0x4C
 };
 static_assert(sizeof(PcModel) == 0x50,

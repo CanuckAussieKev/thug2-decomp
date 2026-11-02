@@ -61,6 +61,7 @@ public:
     // 0x004ECDF0 [ClearPagerMessages]
     bool clear_pager_messages(script::Struct* params, script::Script* script);
 
+private:
     lists::PointerRing<PagerMessage> messages_{}; // +0x18
 };
 

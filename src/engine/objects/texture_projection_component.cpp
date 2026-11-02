@@ -28,7 +28,7 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 // its structure (0x004A04C0) and updated from an object (0x0049FFE0).
 gsl::owner<render::TextureProjection*> new_projection() { return new render::PcTextureProjection; }
 
-bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
+bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 
 } // namespace
 
@@ -39,7 +39,7 @@ gsl::owner<ObjectModule*> TextureProjectionComponent::fabricate() { return new T
 TextureProjectionComponent::TextureProjectionComponent()
 {
     projections_.make_head();
-    kind_tag_ = kType;
+    set_kind_tag(kType);
 }
 
 // 0x004346B0 (0x00434840 the deleting one)
@@ -60,7 +60,7 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
     script::Array* projections = nullptr;
     params->fetch_list(kTextureProjections, &projections, 1);
     memory::ListNode& head = projections_;
-    for (uint32_t i = 0; i < projections->extent_; ++i) {
+    for (uint32_t i = 0; i < projections->extent(); ++i) {
         auto* settings = projections->struct_at(i);
         uint32_t name = 0; // (read into the parameters' own argument slot)
         settings->read_hash_value(0x1EE8B7B9, &name, 1);
@@ -70,27 +70,27 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
         projection->configure_from_data(settings);
         // At the front.
         memory::ListNode* node = &projection->list_link();
-        node->prev = &head;
-        node->next = head.next;
-        head.next->prev = node;
-        head.next = node;
+        node->set_prev(&head);
+        node->set_next(head.next());
+        head.next()->set_prev(node);
+        head.set_next(node);
     }
 }
 
 // 0x00434630
 void TextureProjectionComponent::seal()
 {
-    suspend_ = entity_->fetch_module(0xCE0CA665);
-    bone_rig_ = entity_->fetch_module(0x222756D5);
-    mesh_instance_ = entity_->fetch_module(0x286A8D26);
+    suspend_ = entity()->fetch_module(0xCE0CA665);
+    bone_rig_ = entity()->fetch_module(0x222756D5);
+    mesh_instance_ = entity()->fetch_module(0x286A8D26);
 }
 
 // 0x00434810
 void TextureProjectionComponent::tick_frame()
 {
     // (the head test before the null test, as the original)
-    for (const memory::ListNode* node = projections_.next; !is_head(node) && node; node = node->next)
-        static_cast<render::TextureProjection*>(node->data)->tick_frame(entity_);
+    for (const memory::ListNode* node = projections_.next(); !is_head(node) && node; node = node->next())
+        static_cast<render::TextureProjection*>(node->data())->tick_frame(entity());
 }
 
 } // namespace objects

@@ -236,14 +236,14 @@ void PedestrianBrainModule::run_waypoint_actions(script::Struct* node)
     if (node->has_bare_flag(kChangePaceFlag) && get_chance(node, kAdjustSpeedWeight)) {
         float percent = 0.0f;
         node->fetch_float(kAdjustSpeedPercent, &percent, 1);
-        KinematicsModule* motion = get_motion(entity_);
+        KinematicsModule* motion = get_motion(entity());
         motion->set_path_max_speed(percent * motion->path_max_speed());
     }
     if (node->has_bare_flag(kLaunchNodeScript) && get_chance(node, kRunScriptWeight)) {
         uint32_t name = 0;
         node->read_hash_value(kNodeScriptKey, &name, 1);
         script::Script* script = script::spawn_script(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-        script->entity().assign_value(entity_);
+        script->entity().assign_value(entity());
     }
 }
 
@@ -268,7 +268,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         jump_time = static_cast<float>(up + up);
     } else {
         // To the next node: up to its height (and a slop above it) and across to it.
-        const GameEntity* object = entity_;
+        const GameEntity* object = entity();
         const float dw = next_node_pos_.w - object->at_point().w;
         const float dz = next_node_pos_.z - object->at_point().z;
         const float dx = next_node_pos_.x - object->at_point().x;
@@ -284,7 +284,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
             static_cast<float>((static_cast<double>(across.y) * across.y + static_cast<double>(across.z) * across.z) +
                                static_cast<double>(across.x) * across.x);
         const double down = std::sqrt(
-            std::fabs(((static_cast<double>(height) + entity_->at_point().y) - next_node_pos_.y) * inverse_gravity) *
+            std::fabs(((static_cast<double>(height) + entity()->at_point().y) - next_node_pos_.y) * inverse_gravity) *
             2.0);
         jump_time = static_cast<float>(down + up);
         const maths::Vec4& direction = across.make_unit();
@@ -323,7 +323,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         uint32_t direction = 0;
         params->read_hash_value(kSpinDirection, &direction, 1);
         const bool flag =
-            core::down_cast<AnimBlenderComponent>(entity_->fetch_module(kAnimBlender))->all_channels_flag29();
+            core::down_cast<AnimBlenderComponent>(entity()->fetch_module(kAnimBlender))->all_channels_flag29();
         if (direction == kBs) {
             if (flag)
                 spin = -spin;
@@ -367,7 +367,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
 // 0x004EFBC0
 void PedestrianBrainModule::lip_trick_update()
 {
-    maths::Mat4 matrix = entity_->display_matrix();
+    maths::Mat4 matrix = entity()->display_matrix();
     core::at(matrix.row, 2) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4& up = up_dir_.make_unit();
     // Across: up x (0, 1, 0), normalised (x and z kept as floats too).
@@ -402,7 +402,7 @@ void PedestrianBrainModule::lip_trick_update()
         up_row_z = static_cast<float>(up_row_z * inverse);
     }
     core::at(matrix.row, 1) = {.x = static_cast<float>(a), .y = static_cast<float>(b), .z = up_row_z, .w = 0.0f};
-    entity_->display_matrix() = matrix;
+    entity()->display_matrix() = matrix;
 }
 
 // --- the states a node's SkateAction starts ---
@@ -490,7 +490,7 @@ void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
         params->put_name_key(0u, kIsVert);
     } else {
         params = get_state_params(node);
-        const bool jumping = (get_motion(entity_)->motion_flags() & 0x100) != 0;
+        const bool jumping = (get_motion(entity())->motion_flags() & 0x100) != 0;
         if (!jumping) {
             const float speed = script::fetch_float(kJumpSpeedGlobal);
             const double gravity = script::fetch_float(kLeapGravity);
@@ -519,7 +519,7 @@ void PedestrianBrainModule::roll_off(script::Struct*) { change_phase(kStateRollO
 void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
 {
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
-    const KinematicsModule* motion = get_motion(entity_);
+    const KinematicsModule* motion = get_motion(entity());
     gsl::owner<script::Struct*> params = get_state_params(node);
     gsl::owner<script::Struct*> jump = leap_node_params(node, vert);
     params->append_structure_if_any(jump);
@@ -672,8 +672,8 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
     level_nodes::fetch_place(next_node_, &next_node_pos_);
     choose_node_after();
     flag_bits_ |= kPedFlagMoving;
-    peds_ = PathManager::sole()->add_to_extra_group(entity_, next_node_);
-    get_motion(entity_)->motion_flags() |= 0x10;
+    peds_ = PathManager::sole()->add_to_extra_group(entity(), next_node_);
+    get_motion(entity())->motion_flags() |= 0x10;
     // Facing along the way to the first waypoint.
     float dx = next_node_pos_.x - node_pos_.x, dy = next_node_pos_.y - node_pos_.y, dz = next_node_pos_.z - node_pos_.z,
           dw = next_node_pos_.w - node_pos_.w;
@@ -685,13 +685,13 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
         dy = static_cast<float>(dy * inverse);
         dz = static_cast<float>(dz * inverse);
     }
-    maths::Mat4 matrix = entity_->display_matrix();
+    maths::Mat4 matrix = entity()->display_matrix();
     core::at(matrix.row, 2) = {.x = dx, .y = dy, .z = dz, .w = dw};
     matrix.square_up_axes(2);
-    entity_->display_matrix() = matrix;
+    entity()->display_matrix() = matrix;
     saved_matrix_ = matrix;
     for (maths::Vec4& position : past_frames_)
-        position = entity_->at_point();
+        position = entity()->at_point();
     return true;
 }
 
@@ -710,7 +710,7 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     // (The gravity is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float gravity = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_float(kGravity, &gravity, 1);
-    const maths::Vec4& at = entity_->at_point();
+    const maths::Vec4& at = entity()->at_point();
     float dx = next_node_pos_.x - at.x, dy = next_node_pos_.y - at.y, dz = next_node_pos_.z - at.z,
           dw = next_node_pos_.w - at.w;
     const double rise = std::sqrt(static_cast<double>(height) / gravity * kMinusTwo);

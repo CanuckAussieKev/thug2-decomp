@@ -103,7 +103,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         direction = {.x = static_cast<float>(inverse * x), .y = static_cast<float>(0.0f * inverse),
                      .z = static_cast<float>(z * inverse), .w = static_cast<float>(velocity->w * inverse)};
     } else {
-        direction = walk_->facing_value();
+        direction = walk_->facing();
     }
     maths::Vec4 base = *last_position;
     if (position->y > last_position->y)
@@ -216,9 +216,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         auto least = static_cast<float>(walk_->run_speed());
         if (horizontal < least) {
             auto* walk = core::down_cast<objects::FootMovement>(object_of(this)->fetch_module(kWalk));
-            velocity->x = static_cast<float>(static_cast<double>(least) * walk->facing_value().x);
+            velocity->x = static_cast<float>(static_cast<double>(least) * walk->facing().x);
             walk = core::down_cast<objects::FootMovement>(object_of(this)->fetch_module(kWalk));
-            velocity->z = static_cast<float>(static_cast<double>(least) * walk->facing_value().z);
+            velocity->z = static_cast<float>(static_cast<double>(least) * walk->facing().z);
             horizontal = least;
         }
     }
@@ -323,8 +323,8 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
                                    .y = static_cast<float>(static_cast<double>(inverse_float) * 0.0f),
                                    .z = static_cast<float>(static_cast<double>(inverse_float) * dz),
                                    .w = static_cast<float>(dw * inverse)};
-    auto rise = static_cast<float>(entity_->at_point().y - static_cast<double>(drop->point.y));
-    auto time = static_cast<float>(fall_time(rise, entity_->vel().y));
+    auto rise = static_cast<float>(entity()->at_point().y - static_cast<double>(drop->point.y));
+    auto time = static_cast<float>(fall_time(rise, entity()->vel().y));
     auto speed = static_cast<float>(static_cast<double>(distance) / time);
     maths::Vec4& flat = state_->drop_velocity();
     flat.y = 0.0f;
@@ -339,9 +339,9 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     set_timed_flag(this, PoseFlag::kVertWall, 0);
     set_timed_flag(this, PoseFlag::kSpin, 0);
     drop_object_hit_ = drop->object_hit_;
-    entity_->vel().x = 0.0f;
-    entity_->vel().z = 0.0f;
-    const maths::Mat4 start = entity_->basis_frame();
+    entity()->vel().x = 0.0f;
+    entity()->vel().z = 0.0f;
+    const maths::Mat4 start = entity()->basis_frame();
 
     // The wall's orientation: along the drop turned into the wall's plane, its normal up, across them.
     const maths::Vec4& normal = drop->normal;
@@ -387,7 +387,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
 
     // SkaterAcidDropTriggered with DropHeight (how far above the hit's height the skater is).
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->push_float(kDropHeight, static_cast<float>(entity_->at_point().y - static_cast<double>(drop->hit_height_)));
+    params->push_float(kDropHeight, static_cast<float>(entity()->at_point().y - static_cast<double>(drop->hit_height_)));
     object_of(this)->start_script_task(kAcidDropTriggered, -1, false, false, params);
     if (params) {
         params->get_clear();

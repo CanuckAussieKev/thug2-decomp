@@ -612,15 +612,15 @@ void DrivableModule::update_wheel_contacts()
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                     return; // (the feeler's destructor lets go of its object)
             } else if (feeler.hit().object != wheel.feeler.hit().object) {
                 // Onto another collision object: off the old, onto the new.
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                     return;
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                     return;
             }
             // Touching: the suspension's extension where the ground is, the feeler kept, its line ending there.
@@ -634,18 +634,18 @@ void DrivableModule::update_wheel_contacts()
         } else {
             if (wheel.state != kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                     return;
             }
             wheel.state = kWheelInAir;
             wheel.y = wheel.rest_y_;
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
-        if (park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorOff) {
+        if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff) {
             feeler.set_excluded(0, 0x50);
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
-                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
+                if (cut_short_ || (entity()->object_flags() & kObjectFlagDead))
                     return;
             }
         }
@@ -757,7 +757,7 @@ void DrivableModule::read_controls()
                 reverse_ = false;
             }
             if (std::fabs(forward) < kStoppedSpeed)
-                entity_->announce(0xCBAA3476, nullptr, 0.0f);
+                entity()->announce(0xCBAA3476, nullptr, 0.0f);
         }
     } else {
         reverse_ = false;
@@ -776,7 +776,7 @@ void DrivableModule::read_controls()
 // 0x004378B0
 void DrivableModule::update_skater()
 {
-    const GameEntity* object = entity_;
+    const GameEntity* object = entity();
     GameEntity* skater = rider_ref_;
     maths::Vec4 place;
     object->basis_frame().rotate_vector(place, skater_pos_);
@@ -787,7 +787,7 @@ void DrivableModule::update_skater()
     skater->basis_frame() = object->basis_frame();
     // The skater's core physics keeps its own copy of its object's matrix (+0x18).
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_core_physics_);
-    core->display_matrix() = core->entity_->basis_frame();
+    core->display_matrix() = core->entity()->basis_frame();
     skater->vel() = object->vel();
     if (!rider_shown_)
         return;

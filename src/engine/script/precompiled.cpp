@@ -65,15 +65,15 @@ void relocate_array_elements(Array* array, uint32_t base)
 // 0x0046C830
 uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
 {
-    const uint32_t size = array->extent_;
+    const uint32_t size = array->extent();
     uint32_t end = end_of(image, array);
     if (size > 1) {
-        if (!array->storage_.empty())
-            relocate(array->storage_, base);
+        if (!array->storage().empty())
+            relocate(array->storage(), base);
         end += size * static_cast<uint32_t>(sizeof(Cell)); // (the element table follows the array)
     }
     const std::span<const Cell> elements = array->cells();
-    switch (array->kind_tag_) {
+    switch (array->kind_tag()) {
     case kQbvalString:
     case kQbvalInlineText: {
         relocate_array_elements(array, base);
@@ -141,11 +141,11 @@ uint32_t relocate_component(std::span<uint8_t> image, Component* component, uint
 // 0x0046C7F0
 uint32_t relocate_struct(std::span<uint8_t> image, Struct* structure, uint32_t base)
 {
-    if (structure->head_)
-        relocate(structure->head_, base);
+    if (structure->head())
+        relocate(structure->head(), base);
     // (the end of the last component's data, or of the structure itself when it has none)
     uint32_t end = end_of(image, structure);
-    for (Component* component = structure->head_; component; component = component->next)
+    for (Component* component = structure->head(); component; component = component->next)
         end = relocate_component(image, component, base);
     return end;
 }

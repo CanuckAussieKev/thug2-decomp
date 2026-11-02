@@ -26,19 +26,36 @@ constexpr size_t kFormatSize = 0x14;        // the format's bytes the game keeps
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct Wave {
-    std::array<uint8_t, kFormatSize> format = {};
-    uint32_t format_size = 0; // as stored (0: none)
-    const uint8_t* samples = nullptr;
-    uint32_t sample_bytes = 0;
-    bool has_data = false;
-    bool looping = false;
+    // The fields other code reads and sets.
+    std::array<uint8_t, kFormatSize>& format() { return format_; }
+    [[nodiscard]] const std::array<uint8_t, kFormatSize>& format() const { return format_; }
+    [[nodiscard]] uint32_t format_size() const { return format_size_; }
+    void set_format_size(uint32_t value) { format_size_ = value; }
+    [[nodiscard]] const uint8_t* samples() const { return samples_; }
+    void set_samples(const uint8_t* value) { samples_ = value; }
+    [[nodiscard]] uint32_t sample_bytes() const { return sample_bytes_; }
+    void set_sample_bytes(uint32_t value) { sample_bytes_ = value; }
+    [[nodiscard]] bool has_data() const { return has_data_; }
+    void set_has_data(bool value) { has_data_ = value; }
+    [[nodiscard]] bool looping() const { return looping_; }
+    void set_looping(bool value) { looping_ = value; }
+
+private:
+    std::array<uint8_t, kFormatSize> format_ = {};
+    uint32_t format_size_ = 0; // as stored (0: none)
+    const uint8_t* samples_ = nullptr;
+    uint32_t sample_bytes_ = 0;
+    bool has_data_ = false;
+    bool looping_ = false;
+
+public:
     // the format's fields
     [[nodiscard]] uint32_t samples_per_second() const { return word(4); }
     [[nodiscard]] uint32_t bytes_per_second() const { return word(8); }
-    [[nodiscard]] uint16_t block_align() const { return static_cast<uint16_t>(core::at(format, 0xC) | core::at(format, 0xD) << 8); }
+    [[nodiscard]] uint16_t block_align() const { return static_cast<uint16_t>(core::at(format_, 0xC) | core::at(format_, 0xD) << 8); }
     [[nodiscard]] uint32_t word(size_t at) const
     {
-        return core::at(format, at) | core::at(format, at + 1) << 8 | core::at(format, at + 2) << 16 | static_cast<uint32_t>(core::at(format, at + 3)) << 24;
+        return core::at(format_, at) | core::at(format_, at + 1) << 8 | core::at(format_, at + 2) << 16 | static_cast<uint32_t>(core::at(format_, at + 3)) << 24;
     }
 };
 // NOLINTEND(readability-identifier-naming)

@@ -69,6 +69,12 @@ public:
     bool get_run_timer_id(script::Struct* params, script::Script* script);       // 0x00518570
     bool chain_began(script::Struct* params, script::Script* script);            // 0x005185A0
 
+    // The fields other code reads and sets.
+    void set_cur_phase(int value) { cur_phase_ = value; }
+    void set_seconds_remaining(float value) { seconds_remaining_ = value; }
+    void set_resumes(int16_t value) { resumes_ = value; }
+
+private:
     int cur_phase_{};           // +0x18 State
     float seconds_remaining_{}; // +0x1C seconds
     int16_t resumes_{};         // +0x20

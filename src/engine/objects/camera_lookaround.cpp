@@ -58,7 +58,7 @@ void get_ease(float& angle, double target, float frame)
 gsl::owner<ObjectModule*> FreeLookModule::fabricate() { return new FreeLookModule; }
 
 // (the constructor: inlined in fabricate in the original)
-FreeLookModule::FreeLookModule() { kind_tag_ = kCameraLookAround; }
+FreeLookModule::FreeLookModule() { set_kind_tag(kCameraLookAround); }
 
 // 0x004E3F60 (0x004E4010 the deleting one)
 FreeLookModule::~FreeLookModule() = default;
@@ -74,7 +74,7 @@ void FreeLookModule::configure_from_data(script::Struct* /*params*/)
 }
 
 // 0x004E4040
-void FreeLookModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput)); }
+void FreeLookModule::seal() { input_ptr_ = core::down_cast<PadInputModule>(entity()->fetch_module(kInput)); }
 
 // 0x004E4000
 void FreeLookModule::set_locked(bool locked) { locked_ = locked; }
@@ -100,7 +100,7 @@ void FreeLookModule::tick_frame()
     PadSnapshot* pad = script::fetch_int_value(kSecondPad) ? &input_ptr_->pad_secondary() : &input_ptr_->pad_primary();
     if (!script::fetch_int_value(kNoButton) && pad->button_choose().fired()) {
         pad->button_choose().reset_activation();
-        script::launch_script(entity_->ident() == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
+        script::launch_script(entity()->ident() == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
                               nullptr);
     }
     if (pad->stick_click_right().fired()) {

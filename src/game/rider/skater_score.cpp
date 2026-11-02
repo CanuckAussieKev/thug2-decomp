@@ -67,7 +67,7 @@ int number_parameter(script::Struct* params)
 gsl::owner<ObjectModule*> RiderPointKeeper::fabricate() { return new RiderPointKeeper; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderPointKeeper::RiderPointKeeper() { kind_tag_ = kSkaterScore; }
+RiderPointKeeper::RiderPointKeeper() { set_kind_tag(kSkaterScore); }
 
 // 0x00518BE0 (0x00518C50 the deleting one)
 RiderPointKeeper::~RiderPointKeeper()
@@ -85,18 +85,18 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
         return;
     void* memory = memory::alloc_zeroed(0x1550);
     points_held_ = memory ? memory::construct_in<modules::PointTally>(memory) : nullptr; // (its constructor)
-    get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity_->ident()));
+    get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity()->ident()));
 }
 
 // 0x005186E0
 void RiderPointKeeper::tick_frame()
 {
-    if (!entity_->is_local_skater()) {
+    if (!entity()->is_local_skater()) {
         hold_off(true);
         return;
     }
     get_score_of(points_held_)->tick_frame();
-    const bool always_special = core::down_cast<Rider>(entity_)->always_special() ||
+    const bool always_special = core::down_cast<Rider>(entity())->always_special() ||
                                 get_career()->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
         get_career()->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));

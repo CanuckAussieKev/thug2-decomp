@@ -78,11 +78,23 @@ public:
     bool set_pixels(const void*) { return false; }                          // [30]
     bool release_pixels() { return false; }                                 // [32]
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t value) { checksum_ = value; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+
+private:
     uint32_t checksum_ = 0;  // +0x04
     uint32_t flag_bits_ = 0; // +0x08 (the platform's low half: PcTexture's)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(BitmapTexture, flag_bits_) == 8, "layout must match the original");
+        static_assert(offsetof(BitmapTexture, checksum_) == 4 && sizeof(BitmapTexture) == 0xC,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(BitmapTexture, checksum_) == 4 && sizeof(BitmapTexture) == 0xC,
-              "layout must match the original");
 
 // A texture's image size.
 inline uint16_t texels_across(void* texture) { return static_cast<BitmapTexture*>(texture)->fetch_breadth(); }

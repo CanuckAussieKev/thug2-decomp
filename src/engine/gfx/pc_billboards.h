@@ -24,9 +24,16 @@ struct BillboardRec {
 
 // A material's batch (0x14 bytes).
 struct BillboardBatch {
+    // The fields other code reads and sets.
+    [[nodiscard]] MaterialRef* material() const { return material_; }
+    [[nodiscard]] const std::array<memory::ListNode*, 3>& lists() const { return lists_; }
+
+private:
     uint32_t vertex_bytes_; // (the material's passes + 2) x 0x20
-    MaterialRef* material;
-    std::array<memory::ListNode*, 3> lists{}; // heads (data -1) of nodes over entries
+    MaterialRef* material_;
+    std::array<memory::ListNode*, 3> lists_{}; // heads (data -1) of nodes over entries
+
+public:
 
     // 0x004CEB30: construct for a material: three empty lists.
     explicit BillboardBatch(MaterialRef* material);
@@ -44,22 +51,22 @@ static_assert(sizeof(BillboardBatch) == 0x14, "layout must match the original");
 // The billboard manager (0x00775B80).
 struct BillboardSet {
     // The fields other code reads and sets.
-    [[nodiscard]] int count_value() const { return count; }
-    std::array<BillboardBatch*, 0x100>& batches_value() { return batches; }
-    [[nodiscard]] const std::array<BillboardBatch*, 0x100>& batches_value() const { return batches; }
-    std::array<float, 4>& view_value() { return view; }
-    [[nodiscard]] const std::array<float, 4>& view_value() const { return view; }
-    [[nodiscard]] const std::array<float, 4>& right_value() const { return right; }
-    [[nodiscard]] const std::array<float, 4>& up_value() const { return up; }
+    [[nodiscard]] int count() const { return count_; }
+    std::array<BillboardBatch*, 0x100>& batches() { return batches_; }
+    [[nodiscard]] const std::array<BillboardBatch*, 0x100>& batches() const { return batches_; }
+    std::array<float, 4>& view() { return view_; }
+    [[nodiscard]] const std::array<float, 4>& view() const { return view_; }
+    [[nodiscard]] const std::array<float, 4>& right() const { return right_; }
+    [[nodiscard]] const std::array<float, 4>& up() const { return up_; }
     [[nodiscard]] const std::array<float, 4>& flat_forward() const { return flat_forward_; }
     [[nodiscard]] const std::array<float, 4>& flat_right() const { return flat_right_; }
 
 private:
-    int count;
-    std::array<BillboardBatch*, 0x100> batches; // sorted by the materials' draw order (+0x1C), nulls last
-    std::array<float, 4> view;                  // +0x404 the view's forward (its third column), w 1
-    std::array<float, 4> right;                 // +0x414 forward x up, normalised
-    std::array<float, 4> up;                    // +0x424 right x forward
+    int count_;
+    std::array<BillboardBatch*, 0x100> batches_; // sorted by the materials' draw order (+0x1C), nulls last
+    std::array<float, 4> view_;                  // +0x404 the view's forward (its third column), w 1
+    std::array<float, 4> right_;                 // +0x414 forward x up, normalised
+    std::array<float, 4> up_;                    // +0x424 right x forward
     std::array<float, 4> flat_forward_;         // +0x434 the forward along the ground, w 1
     std::array<float, 4> flat_right_;           // +0x444 and right
 
@@ -80,7 +87,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(BillboardSet, view) == 0x404 && offsetof(BillboardSet, flat_right_) == 0x444,
+        static_assert(offsetof(BillboardSet, view_) == 0x404 && offsetof(BillboardSet, flat_right_) == 0x444,
                       "layout must match the original");
     }
 };

@@ -152,7 +152,7 @@ constexpr float kStallSlipTimeThaw = 130.0f; // (THAW's stall_slip_time, physics
 
 // --- helpers -----------------------------------------------------------------------------------------------------
 
-objects::GameEntity* object_of(const SkaterPhysicsModule* core) { return core->entity_; }
+objects::GameEntity* object_of(const SkaterPhysicsModule* core) { return core->entity(); }
 int state_of(const SkaterPhysicsModule* core) { return core->state()->cur_phase(); }
 objects::PadSnapshot* pad_state_of(const SkaterPhysicsModule* core) { return &core->input()->pad_primary(); }
 float get_frame_length(const SkaterPhysicsModule* core) { return core->frame_length(); }
@@ -856,7 +856,7 @@ void turn_on_ground(SkaterPhysicsModule* core)
     if (state.manual) {
         float& total = core->trick()->spin_total();
         total = step * kDegreesPerRadian + total;
-        void* display = core->score()->points_held_;
+        void* display = core->score()->points_held();
         static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
         return;
     }
@@ -1080,7 +1080,7 @@ void air_rotation(SkaterPhysicsModule* core)
             show = snap <= std::fabs(static_cast<double>(total));
         }
         if (show) {
-            void* display = core->score()->points_held_;
+            void* display = core->score()->points_held();
             static_cast<modules::PointTally*>(display)->advance_turn(static_cast<int>(static_cast<int64_t>(total)));
         }
     }
@@ -1368,11 +1368,11 @@ script::Array* grind_trick_row(SkaterPhysicsModule* core, bool left_side, bool s
     BikeState& state = *state_of(core, true);
     *column = static_cast<uint32_t>(bike::grind_column(left_side, sideways, backwards, &state.over_grind_));
     script::Array* list = script::fetch_list(kGrindTrickList);
-    if (!list || list->extent_ == 0)
+    if (!list || list->extent() == 0)
         return nullptr;
     // THAW reads the raw stick alone here (no d-pad at full deflection, unlike stick_raw).
     auto row = static_cast<uint32_t>(bike::grind_row(core::at(pad_state_of(core)->stick(), 3)));
-    if (row >= list->extent_)
+    if (row >= list->extent())
         row = 0;
     return list->array_at(row);
 }

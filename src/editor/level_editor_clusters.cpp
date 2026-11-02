@@ -162,17 +162,17 @@ void unregister(uint32_t name, uint32_t cluster)
         return;
     if (const objects::TrickObjectCluster* object = cluster_object(manager, cluster)) {
         const memory::ListNode* head = &object->entities();
-        memory::ListNode* node = head->next;
+        memory::ListNode* node = head->next();
         for (int guard = 0; node && node != head && guard < 100000; ++guard) {
-            memory::ListNode* next = node->next;
-            if (static_cast<objects::TrickSpot*>(node->data)->label_ == name) {
+            memory::ListNode* next = node->next();
+            if (static_cast<objects::TrickSpot*>(node->data())->label() == name) {
                 node->uncouple();
                 level_editor_clusters_state().detached_.push_back(node);
             }
             node = next;
         }
     }
-    manager->object_clusters_.erase_entry(name);
+    manager->object_clusters().erase_entry(name);
 }
 
 // The piece made `to` in the manager, from `from`.

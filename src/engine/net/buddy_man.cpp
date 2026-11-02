@@ -199,17 +199,17 @@ void init_node(memory::ListNode* node) { node->make_node(node); }
 // `node` at the end of the list.
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 // The items of a list (the original's count checks each node's data for the head before checking it for null).
 int total_of(const memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != memory::ListNode::head_marker() && node;
-         node = node->next)
+    for (const memory::ListNode* node = head->next(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next())
         ++count;
     return count;
 }
@@ -566,9 +566,9 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             script::Array* old = prefs->get_setting_list(get_checksums("buddy_array"));
             gsl::owner<script::Array*> memory = script::alloc_script_array();
             script::Array* buddies = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-            buddies->configure_size_kind(old->extent_ + 1, script::kQbvalStruct);
+            buddies->configure_size_kind(old->extent() + 1, script::kQbvalStruct);
             uint32_t i = 0;
-            for (; i < old->extent_; ++i) {
+            for (; i < old->extent(); ++i) {
                 auto* entry = old->struct_at(i);
                 gsl::owner<script::Struct*> copy = script::new_struct();
                 copy->get_assign(entry);
@@ -613,7 +613,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
     // Its nick, if the buddy_array preference knows the profile.
     script::Array* buddies = prefs->get_setting_list(get_checksums("buddy_array"));
     if (buddies) {
-        for (uint32_t i = 0; i < buddies->extent_; ++i) {
+        for (uint32_t i = 0; i < buddies->extent(); ++i) {
             auto* entry = buddies->struct_at(i);
             int profile = 0;
             entry->fetch_int_value("profile", &profile, 1);
@@ -683,7 +683,7 @@ void FriendsManager::on_connect_new_user(void*, const void* argument, FriendsMan
 void FriendsManager::buddy_task(tasks::Task<FriendsManager>* task)
 {
     push_top_down();
-    FriendsManager* man = task->content_;
+    FriendsManager* man = task->content();
     switch (man->cur_phase_) {
     case 1: // creating the profile
     case 2: // logging in

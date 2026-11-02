@@ -194,7 +194,7 @@ void log_hit(const void* feeler, uint32_t caller)
         text::format_to(what, "object %s", get_name_of(object_id, name.data(), sizeof(name)));
     else if (static_hit && coll_object)
         text::format_to(what, "sector %s obj flags %04X", get_name_of(sector, name.data(), sizeof(name)),
-                        coll_object->flag_bits_);
+                        coll_object->flag_bits());
     else
         text::format_to(what, "(nothing recorded)");
 

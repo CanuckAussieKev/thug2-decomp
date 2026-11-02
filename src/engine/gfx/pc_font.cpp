@@ -26,25 +26,25 @@ namespace {
 // 0x004B3E00
 PcFont::~PcFont()
 {
-    if (font) {
-        TypefaceData::offload(font);
-        font = nullptr;
+    if (font_) {
+        TypefaceData::offload(font_);
+        font_ = nullptr;
     }
 }
 
 // 0x004B3BD0
 bool PcFont::read_in(const char* name)
 {
-    font = TypefaceData::read_in(name);
-    return font != nullptr;
+    font_ = TypefaceData::read_in(name);
+    return font_ != nullptr;
 }
 
 // 0x004B3C00
 void PcFont::change_spacings(int glyph_gap, int blank_gap)
 {
-    font->set_glyph_gap(static_cast<int16_t>(glyph_gap));
+    font_->set_glyph_gap(static_cast<int16_t>(glyph_gap));
     if (blank_gap > 0)
-        font->set_blank_gap(static_cast<int16_t>(blank_gap));
+        font_->set_blank_gap(static_cast<int16_t>(blank_gap));
 }
 
 // 0x004B3C30
@@ -52,29 +52,29 @@ void PcFont::change_colors(const uint32_t* colors)
 {
     const std::span<const uint32_t, 16> given(colors, 16);
     for (int i = 0; i < 16; ++i)
-        core::at(font->colors_value(), i) = core::at(given, i);
+        core::at(font_->colors(), i) = core::at(given, i);
 }
 
 // 0x004B3CB0
-void PcFont::flag_button_font(bool buttons) { screen_2d().pad_glyph_typeface() = buttons ? font : nullptr; }
+void PcFont::flag_button_font(bool buttons) { screen_2d().pad_glyph_typeface() = buttons ? font_ : nullptr; }
 
 // 0x004B3CD0
 void PcFont::unload_platform()
 {
-    TypefaceData::offload(font);
-    font = nullptr;
+    TypefaceData::offload(font_);
+    font_ = nullptr;
 }
 
 // 0x004B3CF0
-uint32_t PcFont::fetch_tallness() { return font->height_value(); }
+uint32_t PcFont::fetch_tallness() { return font_->height(); }
 
 // 0x004B3D00
-uint32_t PcFont::get_base() { return font->base_value(); }
+uint32_t PcFont::get_base() { return font_->base(); }
 
 // 0x004B3D10
 void PcFont::read_string_param(const char* string, float* width, float* height)
 {
-    font->read_string_param(string, width, height);
+    font_->read_string_param(string, width, height);
 }
 
 // 0x004B3E70
@@ -106,7 +106,7 @@ void PcText::update_settings()
 {
     text->set_text(text_buffer());
     if (typeface())
-        text->set_font(core::down_cast<PcFont>(typeface())->font);
+        text->set_font(core::down_cast<PcFont>(typeface())->font());
     text->set_pivot_x(pivot_x());
     text->set_pivot_y(pivot_y());
     text->set_effects(effects());

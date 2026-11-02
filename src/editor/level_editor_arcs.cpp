@@ -359,9 +359,9 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
     if (!sector)
         return;
     const render::HitMesh* coll = sector->hit_body();
-    if (!render::is_static_collider(coll) || (coll->flag_bits_ & 4))
+    if (!render::is_static_collider(coll) || (coll->flag_bits() & 4))
         return;
-    const auto* tri = coll->geometry_;
+    const auto* tri = coll->geometry();
     if (!tri || !tri->faces() || !tri->vertices())
         return;
     for (int f = 0; std::cmp_less(f, tri->tri_count()) && out->size() < 20000; ++f) {

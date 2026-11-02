@@ -80,7 +80,7 @@ uint32_t get_link_count(Struct* node)
 {
     Array* links = nullptr;
     node->fetch_list(kLinks, &links, 0);
-    return links ? links->extent_ : 0;
+    return links ? links->extent() : 0;
 }
 
 // 0x0045BE10
@@ -101,7 +101,7 @@ bool has_link_to(Struct* node, Struct* target)
     node->fetch_list(kLinks, &links, 0);
     if (!links)
         return false;
-    const int count = static_cast<int>(links->extent_);
+    const int count = static_cast<int>(links->extent());
     for (int i = 0; i < count; ++i) {
         if (hub()->fetch_vertex(links->fetch_part(i), true) == target)
             return true;

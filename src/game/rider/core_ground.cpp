@@ -87,7 +87,7 @@ void SkaterPhysicsModule::do_ground_physics()
         object->vel().align_to_plane(floor_normal_);
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
     maths::Vec4 gravity = {.x = 0.0f, .y = tuning_float_lookup(kGroundGravity, object_of(this)), .z = 0.0f, .w = 1.0f};
-    if (!(limits_time_ == 0.0f) && entity_->vel().y > 0.0f)
+    if (!(limits_time_ == 0.0f) && entity()->vel().y > 0.0f)
         gravity = {.x = 0.0f, .y = limits_gravity_, .z = 0.0f, .w = 1.0f};
     gravity.flatten_onto_plane(floor_normal_);
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
@@ -95,7 +95,7 @@ void SkaterPhysicsModule::do_ground_physics()
         thaw_bmx::get_on_ground(this);
     if (!bike || thaw_bmx::ground_gravity_applies(this, gravity)) {
         const float t = frame_length_;
-        maths::Vec4& v = entity_->vel();
+        maths::Vec4& v = entity()->vel();
         const float gy = gravity.y * t;
         const float gz = gravity.z * t;
         const float gw = gravity.w * t;
@@ -139,7 +139,7 @@ void SkaterPhysicsModule::do_ground_physics()
     maths::Vec4 step{};
     {
         const float t = frame_length_;
-        const maths::Vec4& v = entity_->vel();
+        const maths::Vec4& v = entity()->vel();
         step = {.x = t * v.x, .y = t * v.y, .z = t * v.z, .w = t * v.w};
     }
     if (bit_mark(this, PoseFlag::kSkitching)) {
@@ -148,23 +148,23 @@ void SkaterPhysicsModule::do_ground_physics()
             void* skitched = tracker->entity_.get_pull();
             const float match = script::fetch_float(kSkitchSpeedMatch);
             const maths::Vec4& theirs = static_cast<objects::GameEntity*>(skitched)->vel();
-            entity_->vel() = {.x = match * theirs.x, .y = match * theirs.y, .z = match * theirs.z, .w = match * theirs.w};
+            entity()->vel() = {.x = match * theirs.x, .y = match * theirs.y, .z = match * theirs.z, .w = match * theirs.w};
         }
         step = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         get_skitch();
     }
     // Carried by what the skater rides on (not while skitching - that's the ride).
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point())) {
+        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
             stop_riding(this);
         } else if (!bit_mark(this, PoseFlag::kSkitching)) {
             objects::GameEntity* o = object_of(this);
             o->at_point() += get_tracker(this)->carried_;
-            entity_->old_pos() = entity_->at_point();
-            safe_pos_ = entity_->at_point();
+            entity()->old_pos() = entity()->at_point();
+            safe_pos_ = entity()->at_point();
             if (get_tracker(this)->turned_) {
                 auto multiply = d3dx::matrix_multiply;
-                maths::Mat4& m = entity_->basis_frame();
+                maths::Mat4& m = entity()->basis_frame();
                 multiply(&m, &m, &get_tracker(this)->turn_);
                 multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
             }
@@ -183,7 +183,7 @@ void SkaterPhysicsModule::do_ground_physics()
         thaw_bmx::manual_pitch(this);             // (not original: THAW 0x005E54BA)
     collision_events::checkpoint(this, "turned"); // (not original)
     if (!lock_velocity_)
-        get_along_facing(&entity_->vel());
+        get_along_facing(&entity()->vel());
     collision_events::checkpoint(this, "along-facing-4FF590"); // (not original)
     if (!bit_mark(this, PoseFlag::kSkitching)) {
         test_lateral_hits();
@@ -212,7 +212,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
 {
     bool again = false;
     for (;;) {
-        maths::Vec4& p = entity_->at_point();
+        maths::Vec4& p = entity()->at_point();
         const maths::Vec4 before = p; // (x, y, z used)
         p.x = step.x + p.x;
         p.y = step.y + p.y;
@@ -252,7 +252,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         }
         collision_events::checkpoint(this, "ground-check"); // (not original)
         // How far it got against the step.
-        const maths::Vec4& now = entity_->at_point();
+        const maths::Vec4& now = entity()->at_point();
         const double dx = static_cast<double>(now.x) - before.x;
         const double dy = static_cast<double>(now.y) - before.y;
         const double dz = static_cast<double>(now.z) - before.z;
@@ -264,7 +264,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             return;
         // The rest: along the velocity (x, y the unrounded unit vector, z rounded), the step's length, scaled by
         // what's left of it.
-        const maths::Vec4& v = entity_->vel();
+        const maths::Vec4& v = entity()->vel();
         double vx = v.x, vy = v.y;
         float vz = v.z;
         const float vw = v.w;

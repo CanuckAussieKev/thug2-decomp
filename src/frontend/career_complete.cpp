@@ -91,7 +91,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
     if (!checklist)
         return 0;
     const maths::Vec4 facing = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    for (uint32_t i = 0; i < gaps->extent_; ++i) {
+    for (uint32_t i = 0; i < gaps->extent(); ++i) {
         auto* gap = gaps->struct_at(i);
         const char* name = nullptr;
         int score = 0;
@@ -145,7 +145,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     if (!career || !saved)
         return false;
     int goal_count = 0, classic_count = 0, gap_levels = 0, gap_count = 0;
-    for (uint32_t i = 0; i < levels->extent_; ++i) {
+    for (uint32_t i = 0; i < levels->extent(); ++i) {
         auto* level = levels->struct_at(i);
         int number = -1;
         if (!level || !level->fetch_int_value(name_hash("level"), &number, 0) || number < 0 ||
@@ -162,7 +162,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         }
         script::Array* goals = nullptr;
         if (level->fetch_list(name_hash("goals"), &goals, 0) && goals) {
-            for (uint32_t g = 0; g < goals->extent_; ++g, ++goal_count)
+            for (uint32_t g = 0; g < goals->extent(); ++g, ++goal_count)
                 store_beaten_goal(saved, goals->fetch_part(g), number, kCareer);
         }
         // Classic mode: its goals beaten, and the level's classic goal counter at their number - what each classic
@@ -170,10 +170,10 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         // GetClassicLevelGoalCount 0x005AEAE0 reads it for the level select and GAME PROGRESS.
         script::Array* classic = nullptr;
         if (level->fetch_list(name_hash("classic_goals"), &classic, 0) && classic) {
-            for (uint32_t g = 0; g < classic->extent_; ++g, ++classic_count)
+            for (uint32_t g = 0; g < classic->extent(); ++g, ++classic_count)
                 store_beaten_goal(saved, classic->fetch_part(g), number, kClassic);
             if (number < ints::as_signed(sizeof(career->counter())))
-                core::at(career->counter(), number) = static_cast<uint8_t>(classic->extent_);
+                core::at(career->counter(), number) = static_cast<uint8_t>(classic->extent());
         }
         script::Array* gaps = nullptr;
         if (level->fetch_list(name_hash("gaps"), &gaps, 0) && gaps) {
@@ -190,7 +190,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     get_log(
         "create 100%% cas: %u levels; %d story goals beaten, story points %u / %u; %d classic goals beaten, classic "
         "goals %u / %u; %d gaps got in %d levels, all gaps got: %d; %d stat challenges done",
-        levels->extent_, goal_count, career->lifetime_funds(), career->total_amount(), classic_count,
+        levels->extent(), goal_count, career->lifetime_funds(), career->total_amount(), classic_count,
         career->total_counter(), career->flag_5e_f(), gap_count, gap_levels, career->all_gaps_got() ? 1 : 0, stat_goals);
     return true;
 }

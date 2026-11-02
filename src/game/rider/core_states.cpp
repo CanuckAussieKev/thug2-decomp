@@ -49,7 +49,7 @@ void SkaterPhysicsModule::step_coping_move()
     flip_spin_started_ = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point())) {
+        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity()->at_point())) {
             stop_riding(this);
         } else {
             // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
@@ -62,7 +62,7 @@ void SkaterPhysicsModule::step_coping_move()
             lip_pos_ = where;
             if (get_tracker(this)->turned_) {
                 auto multiply = d3dx::matrix_multiply;
-                maths::Mat4& matrix = entity_->basis_frame();
+                maths::Mat4& matrix = entity()->basis_frame();
                 multiply(&matrix, &matrix, &get_tracker(this)->turn_);
                 multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
             }
@@ -112,13 +112,13 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
             set_flag(this, PoseFlag::kNoAcidDrop, 1);
     }
     state_changed_at_ = get_now();
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
     // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
-    floor_normal_ = core::at(entity_->basis_frame().row, 1);
+    floor_normal_ = core::at(entity()->basis_frame().row, 1);
     old_normal_ = floor_normal_;
     drawn_normal_ = old_normal_;
-    safe_pos_ = entity_->at_point();
-    entity_->old_pos() = safe_pos_;
+    safe_pos_ = entity()->at_point();
+    entity()->old_pos() = safe_pos_;
     // The jump / trick state cleared.
     floor_feeler_.hit().face_flag40_ = 0;
     side_reach_ = 0.0f;
@@ -139,18 +139,18 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     if (grind_from) {
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
         objects::MovingSurfaceModule* ride = ride_;
-        if (objects::RideTracker* tracker = ride->ride_.get()) {
-            ride->last_object_ = tracker->entity_.get_pull();
+        if (objects::RideTracker* tracker = ride->ride().get()) {
+            ride->set_last_object(tracker->entity_.get_pull());
             tracker->entity_.get_release();
             memory::Hub::get_pull()->dealloc(tracker);
-            ride->ride_ = nullptr;
-            ride->stop_time_ = get_now();
+            ride->ride() = nullptr;
+            ride->set_stop_time(get_now());
         }
         if (objects::GameEntity* object = grind_from->grind_object())
             ride_->ride_on(object);
         start_grind(&grind_from->grind_point(), grind_from->grind_node(), grind_from->grind_rails(), true, true);
-        safe_pos_ = entity_->at_point();
-        entity_->old_pos() = safe_pos_;
+        safe_pos_ = entity()->at_point();
+        entity()->old_pos() = safe_pos_;
     } else if (acid_drop) {
         start_acid_drop(acid_drop);
     }

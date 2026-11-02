@@ -67,41 +67,41 @@ uint32_t& next_rail_id()
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 
 // A pool pair's "made here" flags (one byte each, +0x04).
-uint8_t& get_owned(memory::PoolPair& pair, int which) { return core::at(pair.made_here_, which); }
+uint8_t& get_owned(memory::PoolPair& pair, int which) { return core::at(pair.made_here(), which); }
 
 // A pool made for a pair's current slot (owned).
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
 {
     void* memory = memory::alloc(sizeof(memory::SlabBank));
-    core::at(pair.pools, pair.current) =
+    core::at(pair.pools(), pair.current()) =
         memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
-    get_owned(pair, pair.current) = 1;
+    get_owned(pair, pair.current()) = 1;
 }
 
 // The current pool freed if it was made here; the slot cleared.
 void free_pool(memory::PoolPair& pair)
 {
-    memory::SlabBank* pool = core::at(pair.pools, pair.current);
+    memory::SlabBank* pool = core::at(pair.pools(), pair.current());
     if (!pool)
         return;
-    if (get_owned(pair, pair.current)) {
+    if (get_owned(pair, pair.current())) {
         memory::dealloc(pool->memory().data());
         memory::Hub::get_pull()->dealloc(pool);
     }
-    core::at(pair.pools, pair.current) = nullptr;
+    core::at(pair.pools(), pair.current()) = nullptr;
 }
 
 // A rail taken out of the editor's list (the head and the current rail moved on past it).
 void uncouple(RailAuthoring* editor, EditedRail* rail)
 {
     if (editor->rail_groups() == rail)
-        editor->set_rail_groups(rail->following_);
+        editor->set_rail_groups(rail->following());
     if (editor->active_node() == rail)
-        editor->set_active_node(rail->following_);
-    if (rail->following_)
-        rail->following_->preceding_ = rail->preceding_;
-    if (rail->preceding_)
-        rail->preceding_->following_ = rail->following_;
+        editor->set_active_node(rail->following());
+    if (rail->following())
+        rail->following()->set_preceding(rail->preceding());
+    if (rail->preceding())
+        rail->preceding()->set_following(rail->following());
 }
 
 bool get_inside(const EditedRailPoint* p, float x0, float z0, float x1, float z1)
@@ -291,7 +291,7 @@ bool EditedRail::any_point_outside(float x0, float z0, float x1, float z1) const
 EditedRailPoint* EditedRail::append_rail_vertex()
 {
     memory::PoolPair& pools = point_pools();
-    if (core::at(pools.pools, pools.current)->taken_count() == RailAuthoring::kMaxPoints)
+    if (core::at(pools.pools(), pools.current())->taken_count() == RailAuthoring::kMaxPoints)
         return nullptr;
     auto* point = pools.allocate<EditedRailPoint>();
     if (point) {
@@ -330,7 +330,7 @@ EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
     EditedRailPoint* prev = point->preceding();
     if (prev && point->following()) {
         const memory::PoolPair& rails = park_editing_state().rail_pools();
-        if (core::at(rails.pools, rails.current)->taken_count() == RailAuthoring::kMaxRails)
+        if (core::at(rails.pools(), rails.current())->taken_count() == RailAuthoring::kMaxRails)
             return nullptr;
     }
     if (point == point_chain_) {
@@ -404,7 +404,7 @@ gsl::owner<objects::ObjectModule*> RailAuthoring::fabricate() { return new RailA
 // 0x004F7C90
 RailAuthoring::RailAuthoring()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     make_point_pool(kMaxPoints, "CEditedRailPoint");
     make_rail_pool(kMaxRails, "CEditedRail");
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
@@ -429,8 +429,8 @@ RailAuthoring::~RailAuthoring()
 // 0x004F47E0
 void RailAuthoring::seal()
 {
-    input_ptr_ = entity_->fetch_module(kInput);
-    view_camera_ = entity_->fetch_module(kEditorCamera);
+    input_ptr_ = entity()->fetch_module(kInput);
+    view_camera_ = entity()->fetch_module(kEditorCamera);
 }
 
 // 0x004F4990
@@ -458,7 +458,7 @@ void RailAuthoring::free_point(void* point) { point_pools().dealloc(point); }
 int RailAuthoring::free_points()
 {
     const memory::PoolPair& pools = point_pools();
-    return kMaxPoints - core::at(pools.pools, pools.current)->taken_count();
+    return kMaxPoints - core::at(pools.pools(), pools.current())->taken_count();
 }
 
 // 0x004F7550
@@ -466,7 +466,7 @@ void RailAuthoring::get_clear()
 {
     EditedRail* rail = rail_groups_;
     while (rail) {
-        EditedRail* next = rail->following_;
+        EditedRail* next = rail->following();
         rail->get_clear();
         free_rail(rail);
         rail = next;
@@ -483,10 +483,10 @@ EditedRail* RailAuthoring::get_new_rail()
     void* memory = new_rail_memory(sizeof(EditedRail));
     EditedRail* rail = memory ? memory::construct_in<EditedRail>(memory) : nullptr;
     // (out of rails: a crash here, as in the original)
-    rail->following_ = rail_groups_;
-    rail->preceding_ = nullptr;
+    rail->set_following(rail_groups_);
+    rail->set_preceding(nullptr);
     if (rail_groups_)
-        rail_groups_->preceding_ = rail;
+        rail_groups_->set_preceding(rail);
     rail_groups_ = rail;
     active_node_ = rail;
     return rail;
@@ -505,8 +505,8 @@ void RailAuthoring::delete_short_rails()
 {
     EditedRail* rail = rail_groups_;
     while (rail) {
-        EditedRail* next = rail->following_;
-        if (!rail->point_chain_ || !rail->point_chain_->following()) {
+        EditedRail* next = rail->following();
+        if (!rail->point_chain() || !rail->point_chain()->following()) {
             uncouple(this, rail);
             rail->get_clear();
             free_rail(rail);
@@ -521,21 +521,21 @@ bool RailAuthoring::cut_rail(EditedRail* rail, EditedRailPoint* point)
     EditedRailPoint* rest = rail->cut_at(point);
     if (!rest)
         return false;
-    get_new_rail()->point_chain_ = rest;
+    get_new_rail()->set_point_chain(rest);
     return true;
 }
 
 // 0x004F7410
 bool RailAuthoring::cut_point_in_or_out(EditedRail* rail, float x0, float z0, float x1, float z1, int inside)
 {
-    EditedRailPoint* p = rail->point_chain_;
+    EditedRailPoint* p = rail->point_chain();
     while (p) {
         EditedRailPoint* next = p->following();
         const bool cut = get_inside(p, x0, z0, x1, z1) ? inside == 1 : inside == 0;
         if (cut) {
             EditedRailPoint* rest = rail->cut_at(p);
             if (rest) {
-                get_new_rail()->point_chain_ = rest;
+                get_new_rail()->set_point_chain(rest);
                 return true;
             }
         }
@@ -560,7 +560,7 @@ void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int in
     bool changed = false;
     for (bool again = true; again; again = changed) {
         changed = false;
-        for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+        for (EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
             if (cut_point_in_or_out(rail, x0, z0, x1, z1, inside))
                 changed = true;
         }
@@ -571,8 +571,8 @@ void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int in
 // 0x004F3C50
 EditedRail* RailAuthoring::find_rail(uint32_t id) const
 {
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        if (rail->ident_ == id)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
+        if (rail->ident() == id)
             return rail;
     }
     return nullptr;
@@ -582,7 +582,7 @@ EditedRail* RailAuthoring::find_rail(uint32_t id) const
 EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
 {
     int i = 0;
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++i) {
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following(), ++i) {
         std::array<char, 52> cluster{};
         text::format_to(cluster, "CreatedRailCluster%d", i);
         if (name == checksums::hash_from_text(cluster.data()))
@@ -609,8 +609,8 @@ void RailAuthoring::set_cluster_colour(uint32_t name, int colour_index)
 int RailAuthoring::rail_point_total() const
 {
     int count = 0;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
+        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following())
             ++count;
     }
     return count;
@@ -619,8 +619,8 @@ int RailAuthoring::rail_point_total() const
 // 0x004F3C20
 void RailAuthoring::un_highlight_all()
 {
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
+        for (EditedRailPoint* p = rail->point_chain(); p; p = p->following())
             p->clear_glow();
     }
 }
@@ -628,8 +628,8 @@ void RailAuthoring::un_highlight_all()
 // 0x004F3D30
 void RailAuthoring::change_live(bool active)
 {
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following()) {
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
+        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             if (p->post())
                 enable_sector(p->post(), active);
             if (p->segment())
@@ -641,14 +641,14 @@ void RailAuthoring::change_live(bool active)
 // 0x004F45C0
 void RailAuthoring::delete_all_segments()
 {
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
         rail->delete_segments();
 }
 
 // 0x004F45E0
 void RailAuthoring::delete_all_posts()
 {
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
         rail->delete_posts();
 }
 
@@ -665,7 +665,7 @@ bool RailAuthoring::any_point_outside(float x0, float z0, float x1, float z1) co
         z0 = z1;
         z1 = t;
     }
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         if (rail->any_point_outside(x0, z0, x1, z1))
             return true;
     }
@@ -686,7 +686,7 @@ int RailAuthoring::count_points_inside(float x0, float z0, float x1, float z1) c
         z1 = t;
     }
     int count = 0;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
         count += rail->count_points_inside(x0, z0, x1, z1);
     return count;
 }
@@ -703,14 +703,14 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
     maths::Vec4 nearest = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     float distance = 0.0f;
     std::memcpy(&distance, static_cast<const void*>(&index), sizeof(distance));
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         int i = 0;
-        if (rail->find_nearest_point(position, &nearest, &distance, &i, rail->ident_ == skip_rail ? bypass_idx : -1) &&
+        if (rail->find_nearest_point(position, &nearest, &distance, &i, rail->ident() == skip_rail ? bypass_idx : -1) &&
             distance < best) {
             best = distance;
             *point = nearest;
             *distance_squared = distance;
-            *rail_id = rail->ident_;
+            *rail_id = rail->ident();
             *index = i;
             found = true;
         }
@@ -733,22 +733,22 @@ void RailAuthoring::get_pack()
     // (packed as a record, then written as the buffer's bytes - rail_buffer_format.h)
     RailBuffer packed{};
     uint16_t rails = 0;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
         ++rails;
     packed.rail_count_ = rails;
     const EditedRail* rail = rail_groups_;
     if (rail) {
-        while (rail->following_)
-            rail = rail->following_;
+        while (rail->following())
+            rail = rail->following();
         int count = 0;
         int record = 0;
         // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
-        for (; rail; rail = rail->preceding_) {
+        for (; rail; rail = rail->preceding()) {
             uint16_t points = 0;
-            for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following())
+            for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following())
                 ++points;
             core::at(packed.point_counts_, count++) = points;
-            const EditedRailPoint* p = rail->point_chain_;
+            const EditedRailPoint* p = rail->point_chain();
             if (!p)
                 continue;
             while (p->following())
@@ -812,7 +812,7 @@ void RailAuthoring::unpack()
 EditedRail* RailAuthoring::copy_rails_inside(float x0, float z0, float x1, float z1) const
 {
     EditedRail* list = nullptr;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
         list = rail->copy_inside(x0, z0, x1, z1, list);
     return list;
 }

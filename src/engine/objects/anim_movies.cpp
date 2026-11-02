@@ -281,7 +281,7 @@ void CameraAnimMovie::place_camera()
     const std::span<float, 16> m(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::front_end_instance()->pad_listeners()) {
-        if (handler->control_data_->makes() & 0x40)
+        if (handler->control_data()->makes() & 0x40)
             check_done(true);
     }
     if (anim_) {

@@ -34,15 +34,15 @@ void OverlayDraw::splice()
     OverlayDraw* head = foremost();
     // (a priority that isn't a number goes on past every item)
     if (!head || priority <= head->priority) {
-        next = head;
+        next_ = head;
         foremost() = this;
         return;
     }
     OverlayDraw* at = head;
-    while (at->next && !(priority <= at->next->priority))
-        at = at->next;
-    next = at->next;
-    at->next = this;
+    while (at->next_ && !(priority <= at->next_->priority))
+        at = at->next_;
+    next_ = at->next_;
+    at->next_ = this;
 }
 
 // 0x004DF950
@@ -50,21 +50,21 @@ void OverlayDraw::drop_out()
 {
     OverlayDraw* at = foremost();
     if (at == this) {
-        foremost() = next;
+        foremost() = next_;
         return;
     }
     if (!at)
         return;
-    for (; at->next; at = at->next) {
-        if (at->next == this) {
-            at->next = next;
+    for (; at->next_; at = at->next_) {
+        if (at->next_ == this) {
+            at->next_ = next_;
             return;
         }
     }
 }
 
 // 0x004DFA70
-OverlayDraw::OverlayDraw(float new_priority, bool new_hidden) : hidden(new_hidden), priority(new_priority)
+OverlayDraw::OverlayDraw(float new_priority, bool new_hidden) : hidden_(new_hidden), priority(new_priority)
 {
     if (!new_hidden)
         splice();
@@ -79,7 +79,7 @@ void OverlayDraw::change_rank(float new_priority)
     if (priority == new_priority)
         return;
     priority = new_priority;
-    if (!hidden) {
+    if (!hidden_) {
         drop_out();
         splice();
     }
@@ -88,13 +88,13 @@ void OverlayDraw::change_rank(float new_priority)
 // 0x004DFB20
 void OverlayDraw::set_z(float new_z)
 {
-    z = new_z;
+    z_ = new_z;
     if (!(new_z > 0.0f))
         return;
     if (priority == 0.0f)
         return;
     priority = 0.0f;
-    if (!hidden) {
+    if (!hidden_) {
         drop_out();
         splice();
     }
@@ -103,9 +103,9 @@ void OverlayDraw::set_z(float new_z)
 // 0x004DFB70
 void OverlayDraw::change_concealed(uint8_t new_hidden)
 {
-    if (hidden == new_hidden)
+    if (hidden_ == new_hidden)
         return;
-    hidden = new_hidden;
+    hidden_ = new_hidden;
     if (new_hidden)
         drop_out();
     else
@@ -125,13 +125,13 @@ void draw_2d()
     set_texture(3, nullptr);
     change_phase(kZTest, z_test_next_frame());
     uint32_t z_test = 0;
-    for (OverlayDraw* item = foremost(); item; item = item->next) {
-        if (item->hidden)
+    for (OverlayDraw* item = foremost(); item; item = item->next()) {
+        if (item->hidden())
             continue;
         item->open_sketch();
         item->draw();
         item->close_sketch();
-        if (!z_test && item->z > 0.0f)
+        if (!z_test && item->z() > 0.0f)
             z_test = 1;
     }
     z_test_next_frame() = z_test;

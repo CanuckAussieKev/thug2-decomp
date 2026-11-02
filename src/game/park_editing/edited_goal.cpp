@@ -357,7 +357,7 @@ void EditedGoal::read_key_combo_sets(script::Struct* params)
     script::Array* sets = nullptr;
     if (!params->fetch_list(0x0490F171, &sets, 0))
         return;
-    num_key_combo_sets_ = static_cast<int>(sets->extent_);
+    num_key_combo_sets_ = static_cast<int>(sets->extent());
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         auto* entry = sets->struct_at(static_cast<uint32_t>(i));
         KeyComboSet& set = core::at(key_combo_sets_, i);
@@ -408,7 +408,7 @@ void EditedGoal::read_specific_params(script::Struct* params)
         params->fetch_list(0xD76C173E, &gaps, 0);
         if (!gaps)
             break;
-        num_gaps_ = static_cast<uint8_t>(gaps->extent_);
+        num_gaps_ = static_cast<uint8_t>(gaps->extent());
         for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
             core::at(gaps_, i) = static_cast<uint8_t>(gaps->fetch_part(static_cast<uint32_t>(i)));
         break;

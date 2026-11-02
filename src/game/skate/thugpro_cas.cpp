@@ -159,15 +159,15 @@ void collect_array_paths(script::Array* array, std::vector<const char*>* out, in
 {
     if (!array || depth > 4)
         return;
-    for (uint32_t i = 0; i < array->extent_; ++i) {
+    for (uint32_t i = 0; i < array->extent(); ++i) {
         const script::Cell element = array->cell_at(i);
         if (element.empty())
             continue;
-        if (array->kind_tag_ == script::kQbvalString && is_path(element.text()))
+        if (array->kind_tag() == script::kQbvalString && is_path(element.text()))
             out->push_back(element.text());
-        else if (array->kind_tag_ == script::kQbvalStruct)
+        else if (array->kind_tag() == script::kQbvalStruct)
             collect_paths(element.structure(), out, depth + 1);
-        else if (array->kind_tag_ == script::kQbvalArray)
+        else if (array->kind_tag() == script::kQbvalArray)
             collect_array_paths(element.array(), out, depth + 1);
     }
 }
@@ -196,7 +196,7 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
 // One of our part lists: a global array of structures whose first has a desc_id.
 bool is_part_list(script::Array* array)
 {
-    if (!array || array->kind_tag_ != script::kQbvalStruct || array->extent_ == 0)
+    if (!array || array->kind_tag() != script::kQbvalStruct || array->extent() == 0)
         return false;
     auto* first = array->struct_at(0);
     uint32_t desc = 0;
@@ -376,16 +376,16 @@ std::string path_key(const char* path)
 std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool (*found)(const char* path))
 {
     std::vector<uint32_t> picked;
-    if (!ours || !theirs || theirs->kind_tag_ != script::kQbvalStruct)
+    if (!ours || !theirs || theirs->kind_tag() != script::kQbvalStruct)
         return picked;
     std::set<uint32_t> descs;
-    for (uint32_t i = 0; i < ours->extent_; ++i) {
+    for (uint32_t i = 0; i < ours->extent(); ++i) {
         auto* part = ours->struct_at(i);
         uint32_t desc = 0;
         if (part && part->read_hash_value(kDescId, &desc, 0))
             descs.insert(desc);
     }
-    for (uint32_t i = 0; i < theirs->extent_; ++i) {
+    for (uint32_t i = 0; i < theirs->extent(); ++i) {
         auto* part = theirs->struct_at(i);
         uint32_t desc = 0;
         if (!part || !part->read_hash_value(kDescId, &desc, 0) || descs.count(desc))
@@ -468,7 +468,7 @@ void load_once()
         }
     }
     for (const Target& target : targets) {
-        for (uint32_t i = 0; i < target.ours->extent_; ++i) {
+        for (uint32_t i = 0; i < target.ours->extent(); ++i) {
             std::vector<const char*> paths;
             collect_paths(target.ours->struct_at(i), &paths);
             for (const char* path : paths)
@@ -486,15 +486,15 @@ void load_once()
         script::parse_array(theirs, target.theirs, nullptr);
         std::vector<uint32_t> picked = pick_new(target.ours, theirs, get_found);
         int their_new = 0;
-        if (theirs->kind_tag_ == script::kQbvalStruct) {
+        if (theirs->kind_tag() == script::kQbvalStruct) {
             std::set<uint32_t> descs;
-            for (uint32_t i = 0; i < target.ours->extent_; ++i) {
+            for (uint32_t i = 0; i < target.ours->extent(); ++i) {
                 uint32_t desc = 0;
                 auto* part = target.ours->struct_at(i);
                 if (part && part->read_hash_value(kDescId, &desc, 0))
                     descs.insert(desc);
             }
-            for (uint32_t i = 0; i < theirs->extent_; ++i) {
+            for (uint32_t i = 0; i < theirs->extent(); ++i) {
                 uint32_t desc = 0;
                 auto* part = theirs->struct_at(i);
                 if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.count(desc))
@@ -502,7 +502,7 @@ void load_once()
             }
         }
         if (!picked.empty()) {
-            const uint32_t old = target.ours->extent_;
+            const uint32_t old = target.ours->extent();
             target.ours->rescale(old + static_cast<uint32_t>(picked.size()));
             for (size_t k = 0; k < picked.size(); ++k) {
                 script::Struct* part = theirs->struct_at(core::at(picked, k));

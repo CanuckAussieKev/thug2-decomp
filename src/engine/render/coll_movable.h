@@ -40,6 +40,13 @@ public:
     [[nodiscard]] objects::GameEntity* get_owner() const override { return owner_; }
     void set_owner(objects::GameEntity* owner) override { owner_ = owner; }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] const maths::Vec4& anchor_point() const { return anchor_point_; }
+    void set_anchor_point(const maths::Vec4& value) { anchor_point_ = value; }
+    maths::Mat4& orientation() { return orientation_; }
+    [[nodiscard]] const maths::Mat4& orientation() const { return orientation_; }
+
+private:
     maths::Vec4 anchor_point_; // +0x10
     maths::Mat4 orientation_{}; // +0x20
     maths::Mat4 inverse_{};     // +0x60 the orientation's transpose
@@ -53,8 +60,13 @@ protected:
 
 public:
     HitMovingMesh& operator=(const HitMovingMesh&) = delete;
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(HitMovingMesh) == 0xA4 && offsetof(HitMovingMesh, inverse_) == 0x60, "layout must match");
+    }
 };
-static_assert(sizeof(HitMovingMesh) == 0xA4 && offsetof(HitMovingMesh, inverse_) == 0x60, "layout must match");
 
 // 0x004120D0: this = `source` transposed (in place when they're the same: 0x00412150). Returns this.
 struct MatrixTranspose : maths::Mat4 {
@@ -90,13 +102,24 @@ public:
     // 0x004126E0 (slot 19): the box drawn where the object is (0x0048D090; the arguments unused).
     void draw_diagnostic(int a, int b) override;
 
+    // The fields other code reads and sets.
+    maths::BBox& box() { return box_; }
+    [[nodiscard]] const maths::BBox& box() const { return box_; }
+    void set_poly_attr_bits(uint32_t value) { poly_attr_bits_ = value; }
+    void set_surface_type(uint16_t value) { surface_type_ = value; }
+
+private:
     maths::BBox box_;         // +0xA4
     uint32_t poly_attr_bits_{0}; // +0xC4
     uint16_t surface_type_{0};   // +0xC8
     std::array<uint8_t, 4> unknownca_{};     // +0xCA (copied, not otherwise used here)
     std::array<uint8_t, 2> padce_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(HitMovingBox) == 0xD0 && offsetof(HitMovingBox, poly_attr_bits_) == 0xC4, "layout must match");
+    }
 };
-static_assert(sizeof(HitMovingBox) == 0xD0 && offsetof(HitMovingBox, poly_attr_bits_) == 0xC4, "layout must match");
 
 // A scaled, rotated and placed collision object (0xA0 bytes, the original's vtable 0x00645B58), with the inverse
 // transform. (Its slot 25, 0x00412050 - the scale's address, folded with HitMovingMesh::get_absolute_point - was never
@@ -125,6 +148,13 @@ public:
     // 0x004109D0 (slot 9): vertex `index` scaled (w the scale's w), through the matrix.
     [[nodiscard]] maths::Vec4 read_vertex_point(int index) const override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] const maths::Vec4& size_factor() const { return size_factor_; }
+    void set_size_factor(const maths::Vec4& value) { size_factor_ = value; }
+    maths::Mat4& basis_frame() { return basis_frame_; }
+    [[nodiscard]] const maths::Mat4& basis_frame() const { return basis_frame_; }
+
+private:
     maths::Vec4 size_factor_; // +0x10
     maths::Mat4 basis_frame_{}; // +0x20 (row 3, +0x50, the position)
     maths::Mat4 inverse_{};     // +0x60 (row 3, +0x90, the position turned back)
@@ -137,7 +167,12 @@ protected:
 
 public:
     CollScaled& operator=(const CollScaled&) = delete;
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(CollScaled) == 0xA0 && offsetof(CollScaled, inverse_) == 0x60, "layout must match");
+    }
 };
-static_assert(sizeof(CollScaled) == 0xA0 && offsetof(CollScaled, inverse_) == 0x60, "layout must match");
 
 } // namespace render

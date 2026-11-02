@@ -31,7 +31,7 @@ namespace render {
 namespace {
 
 // A mesh's material and what the list looks at.
-MaterialRef* material_of(const MeshRef* mesh) { return mesh->material_value(); }
+MaterialRef* material_of(const MeshRef* mesh) { return mesh->material(); }
 bool get_transparent(const MaterialRef* material) { return material && (core::at(material->pass_flags(), 0) & 0x40); }
 uint16_t& load_index(MeshRef* mesh) { return mesh->load_index(); }
 uint16_t& get_index_count(MeshRef* mesh) { return core::at(mesh->index_counts(), 0); }
@@ -81,14 +81,14 @@ void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const v
 // Iterate a hash table's values: the first (or next), null at the end.
 void* next_value(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item_)
+    if (!table->step_iterator() || !table->iter_item())
         return nullptr;
-    return table->iter_item_->value;
+    return table->iter_item()->value;
 }
 void* get_first_value(lists::KeyMap* table)
 {
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
     return next_value(table);
 }
 
@@ -126,11 +126,11 @@ SceneRef::SceneRef() = default;
 // 0x004DE490
 void SceneRef::destroy_body()
 {
-    if (lists::KeyMap* table = materials) {
-        if (table->buckets_) {
+    if (lists::KeyMap* table = materials_) {
+        if (table->buckets()) {
             table->empty_table();
-            memory::Hub::sole()->dealloc(table->buckets_);
-            table->buckets_ = nullptr;
+            memory::Hub::sole()->dealloc(table->buckets());
+            table->set_buckets(nullptr);
         }
         memory::Hub::sole()->dealloc(table);
     }
@@ -142,9 +142,9 @@ void SceneRef::destroy_body()
             set_vertex_buffer(mesh, 0, nullptr);
         }
     }
-    if (meshes)
-        memory::Hub::sole()->dealloc(static_cast<void*>(meshes));
-    free_hierarchy(hierarchy);
+    if (meshes_)
+        memory::Hub::sole()->dealloc(static_cast<void*>(meshes_));
+    free_hierarchy(hierarchy_);
     if (arena_buffer_)
         arena_buffer_->Release();
 }
@@ -152,15 +152,15 @@ void SceneRef::destroy_body()
 // 0x004DE340
 void SceneRef::update_sphere()
 {
-    const double half_x = (static_cast<double>(bounds.max.x) - bounds.min.x) * 0.5;
-    const double half_y = (static_cast<double>(bounds.max.y) - bounds.min.y) * 0.5; // (kept in double precision)
-    auto size_z = static_cast<float>(static_cast<double>(bounds.max.z) - bounds.min.z);
+    const double half_x = (static_cast<double>(bounds_.max.x) - bounds_.min.x) * 0.5;
+    const double half_y = (static_cast<double>(bounds_.max.y) - bounds_.min.y) * 0.5; // (kept in double precision)
+    auto size_z = static_cast<float>(static_cast<double>(bounds_.max.z) - bounds_.min.z);
     auto half_x_float = static_cast<float>(half_x);
     const double half_z = static_cast<double>(size_z) * 0.5;
-    core::at(centre, 0) = static_cast<float>(static_cast<double>(half_x_float) + bounds.min.x);
-    core::at(centre, 1) = static_cast<float>(half_y + bounds.min.y);
-    core::at(centre, 2) = static_cast<float>(half_z + bounds.min.z);
-    radius = static_cast<float>(
+    core::at(centre_, 0) = static_cast<float>(static_cast<double>(half_x_float) + bounds_.min.x);
+    core::at(centre_, 1) = static_cast<float>(half_y + bounds_.min.y);
+    core::at(centre_, 2) = static_cast<float>(half_z + bounds_.min.z);
+    radius_ = static_cast<float>(
         std::sqrt((half_z * half_z + half_y * half_y) + static_cast<double>(half_x_float) * half_x_float));
 }
 
@@ -168,7 +168,7 @@ void SceneRef::update_sphere()
 void SceneRef::allocate_mesh_list()
 {
     if (mesh_count_ > 0)
-        meshes = static_cast<MeshRef**>(memory::alloc(mesh_count_ * 4));
+        meshes_ = static_cast<MeshRef**>(memory::alloc(mesh_count_ * 4));
 }
 
 // 0x004DDDF0
@@ -244,7 +244,7 @@ void SceneRef::detach_meshes(std::span<MeshRef* const> list)
 // 0x004DDFA0
 void SceneRef::order_meshes()
 {
-    get_qsort(static_cast<void*>(meshes), mesh_count_, sizeof(MeshRef*), &compare_meshes);
+    get_qsort(static_cast<void*>(meshes_), mesh_count_, sizeof(MeshRef*), &compare_meshes);
     recount();
 }
 
@@ -261,9 +261,9 @@ MeshRef* SceneRef::find_mesh(uint32_t index) const
 // 0x004DE420
 void* SceneRef::find_material(uint32_t checksum) const
 {
-    if (!materials)
+    if (!materials_)
         return nullptr;
-    for (void* material = get_first_value(materials); material; material = next_value(materials)) {
+    for (void* material = get_first_value(materials_); material; material = next_value(materials_)) {
         if (*static_cast<uint32_t*>(material) == checksum)
             return material;
     }
@@ -330,8 +330,8 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
 // 0x004DE560
 void discard_scene(SceneRef* scene)
 {
-    if (lists::KeyMap* table = scene->materials_value()) {
-        for (void* material = get_first_value(table); material; material = next_value(scene->materials_value())) {
+    if (lists::KeyMap* table = scene->materials()) {
+        for (void* material = get_first_value(table); material; material = next_value(scene->materials())) {
             destroy_material(material);
             memory::Hub::sole()->dealloc(material);
         }

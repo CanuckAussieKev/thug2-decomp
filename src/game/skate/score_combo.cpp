@@ -136,10 +136,10 @@ void PointTally::reset_robot(bool run)
 // The log's tricks freed and the combo emptied (Land and Bail; the pot itself is the caller's).
 void PointTally::clear_combo()
 {
-    const int count = log_.num_;
+    const int count = log_.num();
     for (int i = 0; i < count; ++i)
         memory::dealloc(core::at(log_.item_run(), i));
-    log_.num_ = 0;
+    log_.num() = 0;
     last_no_spin_ = -1;
     spin_trick_ = -1;
     tricks_ = 0;
@@ -268,9 +268,9 @@ void PointTally::set_wheelie_gauge(bool on, float lean) { place_balance_gauge(on
 // 0x00563440
 PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original, after the table's fields)
 {
-    seen_.num_ = 0;
-    seen_.first_ = nullptr;
-    seen_.cursor_ = nullptr;
+    seen_.set_num(0);
+    seen_.set_first(nullptr);
+    seen_.set_cursor(nullptr);
     // (arrows_, meter_offset_, bars_tricks_(0)ormultiplier_(0.0f)ialast_no_spin_(-1)alspin_trick_(-1)there; special_active_ isn't set before: as the original)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     special_phase_ = 0.0f;
@@ -288,7 +288,7 @@ PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original
 PointTally::~PointTally()
 {
     get_reset();
-    memory::free_malloc(static_cast<void*>(log_.items_));
+    memory::free_malloc(static_cast<void*>(log_.items()));
     seen_.free_nodes(); // (the lookup table's shared destructor)
 }
 
@@ -361,7 +361,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     if (*text)
         trick_component->set_get_bailed(true);
     auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
-    auto* physics_skater = core::down_cast<objects::Rider>(physics->entity_);
+    auto* physics_skater = core::down_cast<objects::Rider>(physics->entity());
     const uint8_t flipped = physics->state()->flag(objects::PoseFlag::kFlipped).on;
     const int stance = physics_skater->goofy() ? flipped : !flipped;
     stats->set10(text, score, stance);
@@ -381,7 +381,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     const uint32_t name = checksums::hash_from_text(text);
     const int kind = static_cast<int>((flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6);
-    if (log_.num_ < 250) {
+    if (log_.num() < 250) {
         log_.append_one(memory::alloc(sizeof(TrickLog)));
         newest_logged_trick()->points_held_ = 0;
     }
@@ -400,7 +400,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         const char* colour = (flags & kTrickColour3) ? "\\c3" : (flags & kTrickSpecial) ? "\\c2" : "";
         text::format_to(trick->shown_, "%s%s%s ", colour, trick->text_.data(), *colour ? "\\c0" : "");
         // The trick before it (the last one named, not "...") gets the " + " joining them.
-        for (int i = log_.num_ - 2; i >= 0; --i) {
+        for (int i = log_.num() - 2; i >= 0; --i) {
             auto& shown = get_trick(i)->shown_;
             const size_t length = std::strlen(shown.data());
             if (core::at(shown, 0) == '.' || !length)
@@ -456,10 +456,9 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
             multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
         if (multiplier_ == 1.0f) {
             auto* timer = core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer));
-            timer->seconds_remaining_ =
-                core::down_cast<objects::Rider>(timer->entity_)->get_scaled_physics(kPhysicsRunTimerDuration);
-            timer->resumes_ = 0;
-            timer->cur_phase_ = 2;
+            timer->set_seconds_remaining(core::down_cast<objects::Rider>(timer->entity())->get_scaled_physics(kPhysicsRunTimerDuration));
+            timer->set_resumes(0);
+            timer->set_cur_phase(2);
             focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
             focus_max_times_ = script::fetch_int_value(kFocusMaxTimesInCombo);
             skater->announce(kSkaterEnterCombo, nullptr, 0.0f);
@@ -533,7 +532,7 @@ void PointTally::change_spin_degrees(int degrees)
             side = "FS Cab";
     }
     const int shown_degrees = half_turns * 180;
-    const bool joined = log_.num_ - 1 > spin_trick_;
+    const bool joined = log_.num() - 1 > spin_trick_;
     auto flags = static_cast<uint8_t>(trick->flag_bits_);
     // The original's formats: "\c3%s\_%d\_%s\c0[\_+ ]", "\c2%s\_%d\_%s\c0[\_+ ]", "%s\_%d\_%s[\_+ ]" (renamed: without
     // the "%d\_") - the colour around the text, then the join to the next trick.
@@ -612,7 +611,7 @@ void PointTally::land()
         best_combo_sent_ = pot_score_;
     }
     if (!mode->repeats_lose_points()) {
-        for (int i = 0; i < seen_.num_; ++i) {
+        for (int i = 0; i < seen_.num(); ++i) {
             auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
             for (int k = 0; k < 4; ++k) {
                 core::at(seen->landed_, k) = 0;
@@ -621,7 +620,7 @@ void PointTally::land()
         }
         reset_robot(true);
     } else {
-        for (int i = 0; i < seen_.num_; ++i) {
+        for (int i = 0; i < seen_.num(); ++i) {
             auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr));
             for (int k = 0; k < 4; ++k) {
                 core::at(seen->landed_, k) += core::at(seen->ongoing_, k);
@@ -658,7 +657,7 @@ void PointTally::land()
 // 0x00564860
 void PointTally::get_bail(bool clear)
 {
-    for (int i = 0; i < seen_.num_; ++i) {
+    for (int i = 0; i < seen_.num(); ++i) {
         auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
         for (int& k : seen->ongoing_)
             k = 0;
@@ -726,7 +725,7 @@ namespace lists {
 // 0x005633E0
 void TableItemEraser::free_table_contents()
 {
-    int count = lookup_table_->num_;
+    int count = lookup_table_->num();
     const int index = 0;
     for (; count > 0; --count) {
         uint32_t key = 0;

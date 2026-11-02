@@ -78,7 +78,7 @@ void lights_lerp_brightness(void* lights, float brightness, float rate)
 void set_global_brightness(float brightness) { render::set_world_brightness(brightness); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
+gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig(); }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -191,7 +191,7 @@ float ModelSpinAxis::bearing()
 // 0x004215F0
 void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
 {
-    *out = entity_->display_matrix();
+    *out = entity()->display_matrix();
     core::at(out->row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (flip_) {
         core::at(out->row, 2) = {.x = -core::at(out->row, 2).x, .y = -core::at(out->row, 2).y, .z = -core::at(out->row, 2).z, .w = -core::at(out->row, 2).w};
@@ -227,7 +227,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
         matrix_multiply(out, &rotation, out);
     }
     maths::Vec4& pos = core::at(out->row, 3);
-    pos = entity_->at_point();
+    pos = entity()->at_point();
     pos.x = shift.x + pos.x;
     pos.y = shift.y + pos.y;
     pos.z = shift.z + pos.z;
@@ -247,7 +247,7 @@ int MeshInstanceModule::test_collision(const maths::Seg* line, const render::Bon
     if (!bone_rig_)
         return 0;
     if (!volumes) {
-        debug::printf("No collision data for %s model\n", script::find_checksum_name_or_unknown(entity_->ident()));
+        debug::printf("No collision data for %s model\n", script::find_checksum_name_or_unknown(entity()->ident()));
         return 0;
     }
     maths::Mat4 matrix;
@@ -292,11 +292,11 @@ bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
         online::HideGeomMessage sent;
         sent.hide = hide;
         sent.name = name;
-        sent.object_id = static_cast<uint8_t>(entity_->ident());
+        sent.object_id = static_cast<uint8_t>(entity()->ident());
         std::array<uint8_t, online::kHideGeomSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_hide_geom(writer, sent);
-        send_to_server(entity_, online::kMsgHideGeom, sizeof(data), data.data());
+        send_to_server(entity(), online::kMsgHideGeom, sizeof(data), data.data());
     }
     if (mesh_instance_.get())
         model_hide_geom(mesh_instance_.get(), name, hide);
@@ -348,7 +348,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     }
     online::SpinModelMessage sent;
     void* manager = net_session_slot();
-    void* player = find_player_slot_by_obj(entity_->ident());
+    void* player = find_player_slot_by_obj(entity()->ident());
     if (!player || !is_own_player(player))
         return;
     net::NetMessageInfo message;
@@ -357,7 +357,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     sent.start = static_cast<int16_t>(get_truncated(start));
     sent.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
     sent.power = power;
-    sent.object_id = static_cast<uint8_t>(entity_->ident());
+    sent.object_id = static_cast<uint8_t>(entity()->ident());
     sent.hold = hold;
     sent.axes = axes;
     std::array<uint8_t, online::kSpinModelSize> data{};
@@ -377,8 +377,8 @@ void MeshInstanceModule::cancel_rotate_display()
             spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
         axis.active_ = false;
     }
-    auto object = static_cast<uint8_t>(entity_->ident());
-    send_to_server(entity_, online::kMsgCancelSpins, 1, &object);
+    auto object = static_cast<uint8_t>(entity()->ident());
+    send_to_server(entity(), online::kMsgCancelSpins, 1, &object);
 }
 
 } // namespace objects

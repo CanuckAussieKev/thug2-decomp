@@ -163,7 +163,7 @@ void FootMovement::refresh_hit_cache()
     const float height = walk_parameter(kWalkerHeight);
     float below = walk_parameter(kSnapDownHeight);
     auto above = static_cast<float>(static_cast<double>(height) + kOne);
-    const maths::Vec4& pos = static_cast<GameEntity*>(entity_)->at_point();
+    const maths::Vec4& pos = static_cast<GameEntity*>(entity())->at_point();
     maths::BBox box;
     box.max = {.x = pos.x + reach, .y = pos.y + above, .z = pos.z + reach, .w = pos.w};
     below = static_cast<float>(static_cast<double>(below) + kOne);
@@ -223,7 +223,7 @@ void FootMovement::update_push()
 // 0x00527DB0
 void FootMovement::copy_from_object()
 {
-    auto* object = static_cast<GameEntity*>(entity_);
+    auto* object = static_cast<GameEntity*>(entity());
     pos_ = object->at_point();
     maths::Vec4& vel = vel_;
     vel = object->vel();
@@ -535,7 +535,7 @@ void FootMovement::update_rotate_upright()
     auto angle = static_cast<float>(get_frame_length(this) / duration * upright_angle_);
     maths::Mat4 rotation{};
     maths::build_axis_angle_matrix(rotation, upright_axis_, angle);
-    auto* object = static_cast<GameEntity*>(entity_);
+    auto* object = static_cast<GameEntity*>(entity());
     // D3DXMatrixMultiply (0x005BFA8C)
     d3dx::matrix_multiply(&object->basis_frame(), &object->basis_frame(), &rotation);
     object->display_matrix() = object->basis_frame();
@@ -546,7 +546,7 @@ void FootMovement::update_rotate_upright()
 // 0x005298D0
 void FootMovement::apply_transition()
 {
-    auto* object = static_cast<GameEntity*>(entity_);
+    auto* object = static_cast<GameEntity*>(entity());
     const maths::Vec4& at = transition_pos_;
     const maths::Vec4& offset = climb_offset_;
     object->at_point() = {.x = at.x + offset.x, .y = at.y + offset.y, .z = at.z + offset.z, .w = at.w + offset.w};
@@ -590,7 +590,7 @@ void FootMovement::copy_to_object()
                      .z = static_cast<float>(static_cast<double>(up.y) * right.x - static_cast<double>(up.x) * right.y),
                      .w = 0.0f};
     core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    auto* object = static_cast<GameEntity*>(entity_);
+    auto* object = static_cast<GameEntity*>(entity());
     object->at_point() = pos_;
     object->basis_frame() = matrix;
     object->display_matrix() = matrix;

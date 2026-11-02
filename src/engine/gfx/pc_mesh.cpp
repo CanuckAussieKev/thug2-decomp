@@ -43,18 +43,18 @@ bool read_breaks(PcMesh* mesh, Stream& in)
     }
     if (skin.version >= 2)
         mesh->set_bone_count(skin.bone_count);
-    mesh->break_count_ = skin.break_count;
-    if (mesh->break_count_) {
-        mesh->breaks = new_breaks(mesh->break_count_);
-        for (uint32_t i = 0; i < mesh->break_count_; ++i) {
-            StripBreak& strip_break = core::at(std::span<StripBreak>(mesh->breaks, mesh->break_count_), i);
+    mesh->set_break_count(skin.break_count);
+    if (mesh->break_count()) {
+        mesh->set_breaks(new_breaks(mesh->break_count()));
+        for (uint32_t i = 0; i < mesh->break_count(); ++i) {
+            StripBreak& strip_break = core::at(std::span<StripBreak>(mesh->breaks(), mesh->break_count()), i);
             std::memcpy(&strip_break, std::span<const uint8_t>(skin.breaks).subspan(i * scene_format::kStripBreakSize).data(),
                         scene_format::kStripBreakSize);
             strip_break.strip_index_ = 0;
         }
-        sort_breaks(mesh->breaks, mesh->break_count_);
+        sort_breaks(mesh->breaks(), mesh->break_count());
     }
-    return mesh->break_count_ != 0;
+    return mesh->break_count() != 0;
 }
 
 } // namespace
@@ -88,10 +88,10 @@ PcMesh::PcMesh(const char* name)
 // 0x004B7E30
 PcMesh::~PcMesh()
 {
-    if (breaks)
-        memory::Hub::get_pull()->dealloc(breaks);
-    if (scene)
-        engine::unload_scene(scene, 1); // (the engine's UnloadScene)
+    if (breaks_)
+        memory::Hub::get_pull()->dealloc(breaks_);
+    if (scene_)
+        engine::unload_scene(scene_, 1); // (the engine's UnloadScene)
 }
 
 // 0x004B7B50
@@ -123,10 +123,10 @@ void PcMesh::load_skin(const uint8_t* data, size_t size)
 // 0x004B7ED0
 void PcMesh::choose_scene(PcScene* new_scene)
 {
-    scene = new_scene;
-    const SceneRef* list = new_scene->meshes;
-    set_hierarchy(list->hierarchy_value());
-    set_hierarchy_count(list->unknown78_value());
+    scene_ = new_scene;
+    const SceneRef* list = new_scene->meshes();
+    set_hierarchy(list->hierarchy());
+    set_hierarchy_count(list->unknown78());
 }
 
 } // namespace render

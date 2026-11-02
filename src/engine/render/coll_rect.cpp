@@ -76,12 +76,12 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     core::at(hit.ends, 1).point = core::at(points, 1);
     if (placed) {
         for (RectHitEnd& end : hit.ends) {
-            const maths::Vec4 scaled{.x = end.point.x * placed->size_factor_.x, .y = placed->size_factor_.y * end.point.y,
-                                     .z = placed->size_factor_.z * end.point.z, .w = placed->size_factor_.w * end.point.w};
-            placed->basis_frame_.carry_point_through(end.point, scaled);
+            const maths::Vec4 scaled{.x = end.point.x * placed->size_factor().x, .y = placed->size_factor().y * end.point.y,
+                                     .z = placed->size_factor().z * end.point.z, .w = placed->size_factor().w * end.point.w};
+            placed->basis_frame().carry_point_through(end.point, scaled);
         }
         maths::Vec4 turned{};
-        placed->basis_frame_.rotate_vector(turned, hit.normal);
+        placed->basis_frame().rotate_vector(turned, hit.normal);
         hit.normal = turned;
     }
     for (int e = 1; e >= 0; --e) {
@@ -106,7 +106,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         end.edge = edge.make_unit();
         if (placed) {
             maths::Vec4 turned{};
-            placed->basis_frame_.rotate_vector(turned, end.edge);
+            placed->basis_frame().rotate_vector(turned, end.edge);
             end.edge = turned;
         }
     }
@@ -119,10 +119,10 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
                         const CollScaled* placed)
 {
     std::array<uint16_t, 0x800> buffer{};
-    const std::span<const uint16_t> faces = object->geometry_->get_faces_in_box(box, buffer);
+    const std::span<const uint16_t> faces = object->geometry()->get_faces_in_box(box, buffer);
     const int count = static_cast<int>(faces.size());
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
-        const TriMeshSource* geometry = object->geometry_;
+        const TriMeshSource* geometry = object->geometry();
         const uint32_t face = core::at(faces, i);
         const uint16_t flags =
             geometry->face_flags(static_cast<int>(face));
@@ -138,7 +138,7 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
             continue;
         if (hits->count == RectHits::kMost)
             return true;
-        add_rect_hit(hits, v0, v1, v2, points, kinds, flags, object->checksum_, placed);
+        add_rect_hit(hits, v0, v1, v2, points, kinds, flags, object->checksum(), placed);
     }
     return hits->count > 0;
 }
@@ -195,7 +195,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     box.append_spot({.x = o.x + b.x, .y = b.y + o.y, .z = b.z + o.z, .w = b.w + o.w});
     box.append_spot({.x = static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
                      .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), .z = (a.z + o.z) + b.z, .w = (a.w + o.w) + b.w});
-    const bool use_cache = cache && cache->box_.get_holds(box);
+    const bool use_cache = cache && cache->box().get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(rect);
         if (!grid)
@@ -207,8 +207,8 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     grown.max = {.x = box.max.x + 0.5f, .y = box.max.y + 0.5f, .z = box.max.z + 0.5f, .w = box.max.w + 1.0f};
     hits->count = 0;
     if (use_cache) {
-        for (int i = 0; i < cache->statics_; ++i) {
-            const HitMeshCache::TableRow& entry = core::at(cache->entries_, i);
+        for (int i = 0; i < cache->statics(); ++i) {
+            const HitMeshCache::TableRow& entry = core::at(cache->entries(), i);
             if (grown.intersects(*entry.bounds))
                 collide_with_rect(entry.object, rect, &grown, hits);
         }

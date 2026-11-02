@@ -147,7 +147,7 @@ int get_bone_count(render::RenderModel* model)
 {
     return static_cast<int>(model->get_asset_bone_count());
 }
-gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
+gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig(); }
 
 // NOT ORIGINAL grouping - the viewer object's wheels and its repeat count. Made on first use, never destroyed
 // (viewer_object_state()).
@@ -453,7 +453,7 @@ void PreviewEntity::own_update()
 // 0x0058A060
 void handle_viewer_object_input(ViewerObjectInputHandler* handler)
 {
-    PreviewEntity* object = handler->content_;
+    PreviewEntity* object = handler->content();
     const int delay = script::fetch_int_value(kViewerAutoRepeatTime);
     const int rate = script::fetch_int_value(kViewerAutoRepeatSpeed);
     int count = 0; // (the static starts as the first call's delay)
@@ -463,10 +463,10 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         count = repeat_count();
     }
-    if (handler->control_data_->makes() & 0x10)
+    if (handler->control_data()->makes() & 0x10)
         object->actions() |= PreviewEntity::kCommandTogglePanel;
     // A frame back / on when Left / Right is pressed, and while it's held: after `delay` frames, then every `rate`.
-    const pad_input::Payload* data = handler->control_data_;
+    const pad_input::Payload* data = handler->control_data();
     if (data->makes() & pad_input::Payload::kButtonLeft) {
         object->actions() |= PreviewEntity::kCommandStepBack;
         repeat_count() = delay;
@@ -488,22 +488,22 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         repeat_count() = delay;
     }
-    if (handler->control_data_->makes() & 0x200)
+    if (handler->control_data()->makes() & 0x200)
         object->actions() |= PreviewEntity::kCommandToggleMode;
-    const uint32_t buttons = handler->control_data_->buttons();
+    const uint32_t buttons = handler->control_data()->buttons();
     if (buttons & 0x8) {
         if (!(buttons & 0x2))
             object->actions() |= PreviewEntity::kCommandCameraUp;
     } else if (buttons & 0x2) {
         object->actions() |= PreviewEntity::kCommandCameraDown;
     }
-    const uint32_t makes = handler->control_data_->makes();
+    const uint32_t makes = handler->control_data()->makes();
     if (makes & 0x4)
         object->actions() |= PreviewEntity::kCommandFaster;
     else if (makes & 0x1)
         object->actions() |= PreviewEntity::kCommandSlower;
     if (!object->fetch_module(AnimBlenderComponent::kType)) {
-        const uint32_t held = handler->control_data_->buttons();
+        const uint32_t held = handler->control_data()->buttons();
         if (held & 0x20)
             object->actions() |= PreviewEntity::kCommandRollLeft;
         else if (held & 0x80)
@@ -574,10 +574,10 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     auto handler = memory::make_owned<ViewerObjectInputHandler>(&handle_viewer_object_input, this, 0, 0);
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
-    pad_input::HostEnd& controller = core::at(input->hosts_, handler->ordinal_);
+    pad_input::HostEnd& controller = core::at(input->hosts_, handler->ordinal());
     controller.handlers_.queue_job(handler);
-    handler->control_data_ = &controller.content_;
-    handler->dev_ = controller.dev_;
+    handler->set_control_data(&controller.content_);
+    handler->set_dev(controller.dev_);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     saved_speed_ = 0.0f;
     panel_shown_ = true;

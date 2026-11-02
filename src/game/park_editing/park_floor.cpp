@@ -88,7 +88,7 @@ void ParkLayout::generate_node_array()
         {
             MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, 0));
             if (metas.list)
-                pos.y = static_cast<int8_t>(metas.list->get_placed_piece()->cell_footprint_.h + pos.y);
+                pos.y = static_cast<int8_t>(metas.list->get_placed_piece()->cell_footprint().h + pos.y);
         }
         maths::Vec4 point;
         point.x = static_cast<float>((pos.x - 29) * static_cast<double>(kGridPitch) + kGridPitch * 0.5);
@@ -121,8 +121,8 @@ bool ParkLayout::can_change_floor_here(CellBox area, bool uneven)
     if (!park_is_full()) {
         const MapListHolder metas(collect_pieces_in_region(area));
         bool clear = true;
-        for (MapListNode* node = metas.list; node; node = node->following_) {
-            if (!(node->get_placed_piece()->flag_bits_ & PieceGroup::kBuiltShell)) {
+        for (MapListNode* node = metas.list; node; node = node->following()) {
+            if (!(node->get_placed_piece()->flag_bits() & PieceGroup::kBuiltShell)) {
                 clear = false;
                 break;
             }
@@ -157,18 +157,18 @@ void ParkLayout::destroy_metas_below(CellBox area)
 void ParkLayout::undo_floor_change()
 {
     restore_floor_heights();
-    for (MapListNode* node = riser_list_; node; node = node->following_)
-        node->piece_group_ = shift_placed_piece(node->get_placed_piece(), 0, -node->dy_, 0);
+    for (MapListNode* node = riser_list_; node; node = node->following())
+        node->set_piece_group(shift_placed_piece(node->get_placed_piece(), 0, -node->dy(), 0));
 }
 
 // 0x0059B2C0
 void ParkLayout::move_riser_list(MapListNode* list)
 {
-    for (MapListNode* node = list; node; node = node->following_) {
+    for (MapListNode* node = list; node; node = node->following()) {
         PieceGroup* meta = node->get_placed_piece();
-        if (node->dy_ < 0)
-            destroy_metas_below(meta->cell_footprint_);
-        node->piece_group_ = shift_placed_piece(meta, 0, node->dy_, 0);
+        if (node->dy() < 0)
+            destroy_metas_below(meta->cell_footprint());
+        node->set_piece_group(shift_placed_piece(meta, 0, node->dy(), 0));
     }
 }
 
@@ -259,14 +259,14 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     const MapListHolder metas(collect_pieces_in_region(cell));
     for (MapListNode* node = metas.list; node;) {
         PieceGroup* meta = node->get_placed_piece();
-        node = node->following_;
-        if (!(meta->flag_bits_ & PieceGroup::kBuiltShell))
+        node = node->following();
+        if (!(meta->flag_bits() & PieceGroup::kBuiltShell))
             continue;
-        if (top && meta->name_key_ == top && meta->cell_footprint_.y == request->y) {
+        if (top && meta->name_key() == top && meta->cell_footprint().y == request->y) {
             top = 0;
-        } else if (below && meta->name_key_ == below &&
-                   (static_cast<uint8_t>(meta->cell_footprint_.y) == static_cast<uint8_t>(request->y) ||
-                    meta->cell_footprint_.y == static_cast<int8_t>(below_y))) {
+        } else if (below && meta->name_key() == below &&
+                   (static_cast<uint8_t>(meta->cell_footprint().y) == static_cast<uint8_t>(request->y) ||
+                    meta->cell_footprint().y == static_cast<int8_t>(below_y))) {
             below = 0;
         } else {
             free_placed_piece(meta, 0);
@@ -283,7 +283,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
         PieceGroup* meta = make_placed_piece(find_piece_template(below), 0);
         if (std::cmp_less(request->x, build_area_.x) || request->x >= build_area_.x + build_area_.w ||
             std::cmp_less(request->z, build_area_.z) || request->z >= build_area_.z + build_area_.l)
-            meta->flag_bits_ |= PieceGroup::kRiserBelow | PieceGroup::kFlag400;
+            meta->flag_bits() |= PieceGroup::kRiserBelow | PieceGroup::kFlag400;
         place_meta_piece_in_park(CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(below_y),
                                                    static_cast<uint8_t>(request->z), 0, 0, 0),
                                  meta);
@@ -315,9 +315,9 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
 
     // Out go the fences and the player's metapieces no longer (wholly) in the park.
     for (MapListNode* node = concrete_metas_; node;) {
-        MapListNode* next = node->following_;
-        const CellBox area = node->get_placed_piece()->cell_footprint_;
-        const uint32_t flags = node->get_placed_piece()->flag_bits_;
+        MapListNode* next = node->following();
+        const CellBox area = node->get_placed_piece()->cell_footprint();
+        const uint32_t flags = node->get_placed_piece()->flag_bits();
         bool destroy = false;
         if (flags & PieceGroup::kFence)
             destroy = true;
@@ -340,7 +340,7 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
             return;
         PieceGroup* meta = make_placed_piece(fence, 0);
         meta->set_quarter_turns(rot);
-        meta->flag_bits_ |= PieceGroup::kFence;
+        meta->flag_bits() |= PieceGroup::kFence;
         place_meta_piece_in_park(at, meta);
     };
     for (int x = park.x; x < park.w + park.x; x += 2) {
@@ -401,11 +401,11 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
 {
     if (!area) {
         // The inner shell's pieces outside the park go first.
-        for (MapListNode* node = concrete_metas_; node; node = node->following_) {
+        for (MapListNode* node = concrete_metas_; node; node = node->following()) {
             const PieceGroup* meta = node->get_piece_group();
-            if (!(meta->flag_bits_ & PieceGroup::kBuiltShell))
+            if (!(meta->flag_bits() & PieceGroup::kBuiltShell))
                 continue;
-            const CellBox d = meta->cell_footprint_;
+            const CellBox d = meta->cell_footprint();
             if (d.x >= build_area_.x && d.z >= build_area_.z && d.w + d.x <= build_area_.w + build_area_.x &&
                 d.l + d.z <= build_area_.l + build_area_.z)
                 continue;

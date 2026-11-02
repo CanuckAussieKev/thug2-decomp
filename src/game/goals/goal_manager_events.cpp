@@ -88,7 +88,7 @@ void lose_next_frame(Objective* goal)
 void GoalManager::land()
 {
     test_tagged_props();
-    const int count = goals_.num_; // (read once)
+    const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (!goal->is_operative())
@@ -148,7 +148,7 @@ void GoalManager::land()
 // 0x0055CBB0
 void GoalManager::get_bail()
 {
-    const int count = goals_.num_; // (read once)
+    const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (!goal->is_operative())
@@ -170,7 +170,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 {
     gsl::owner<script::Struct*> by_pro = script::new_struct(); // each pro: its goals' info by id, and their number
     gsl::owner<script::Struct*> info = script::new_struct();
-    const int count = goals_.num_; // (read once)
+    const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
         uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
@@ -317,8 +317,8 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     script::ArrayPtr list = script::make_array();
-    list->configure_size_kind(static_cast<uint32_t>(manager->goals().num_), script::kQbvalStruct);
-    for (int i = 0; i < manager->goals().num_; ++i) {
+    list->configure_size_kind(static_cast<uint32_t>(manager->goals().num()), script::kQbvalStruct);
+    for (int i = 0; i < manager->goals().num(); ++i) {
         Objective* goal = manager->goals().get_by_index(i);
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_name_key(kGoalIdKey, goal->get_objective_key());

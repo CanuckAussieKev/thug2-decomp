@@ -125,6 +125,15 @@ public:
     // 0x00481770: the object's skeleton component (0x222756D5)'s skeleton (0x005480F0: its +0x18), or null.
     Rig* fetch_rig();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] AnimTimeline* timeline_ptr() const { return timeline_ptr_; }
+    [[nodiscard]] objects::GameEntity* owner_object() const { return owner_object_; }
+    void set_owner_object(objects::GameEntity* value) { owner_object_ = value; }
+    [[nodiscard]] int rank() const { return rank_; }
+    void set_rank(int value) { rank_ = value; }
+    [[nodiscard]] uint32_t ident() const { return ident_; }
+
+private:
     AnimTimeline* timeline_ptr_;        // +0x04 (the timeline of the blender channel it belongs to)
     objects::GameEntity* owner_object_{nullptr}; // +0x08 (set by some controllers only; fetch_subject asks the channel)
     int rank_{0};                                // +0x0C
@@ -156,6 +165,7 @@ public:
     static void operator delete(void* item);
     static void operator delete(void* item, int) { operator delete(item); }
 
+private:
     void* cur_frame_data_{}; // +0x14 (unused)
     void* frame_source_;   // +0x18 the current frame (0x0048CFA0 / 0x0048CFD0)
     gsl::owner<void*> blend_source_; // +0x1C its frame source
@@ -179,6 +189,7 @@ public:
     // 0xC6AE16AC), 0xC68365EB, stale_cache.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
+private:
     void* frame_source_; // +0x14
     gsl::owner<void*> blend_source_; // +0x18
     uint32_t anim_set_;  // +0x1C
@@ -229,6 +240,7 @@ public:
     // 0x004A4D30 (slot 1): its pose copied out.
     bool fetch_pose(Stance* pose) override;
 
+private:
     Stance stance_{}; // +0x14
 };
 
@@ -252,6 +264,7 @@ public:
     // 0x004A4EF0 (slot 5)
     void tick_frame() override;
 
+private:
     AnimTimeline* partial_; // +0x14 its own timeline
     gsl::owner<void*> blend_source_; // +0x18
     void* frame_source_;    // +0x1C

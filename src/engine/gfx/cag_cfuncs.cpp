@@ -94,7 +94,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     gsl::owner<render::BitmapTexture*> workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
     workspace->begin_edit(false, false);
 
-    const uint32_t count = layers->extent_;
+    const uint32_t count = layers->extent();
     bool translucent = false;
     int last_layer = -1;
     for (uint32_t i = 0; i < count; ++i) {
@@ -162,7 +162,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     if (player == 0) {
         auto* tagging = core::down_cast<objects::TaggingComponent>(
             get_skate()->get_rider_at(0)->fetch_module(objects::TaggingComponent::kType));
-        tagging->custom_tag_ = true; // (0x004E4000, a setter folded with others)
+        tagging->set_custom_tag(true); // (0x004E4000, a setter folded with others)
         tagging->apply_custom_tag_texture();
     }
     int test = 0;
@@ -183,7 +183,7 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
     objects::GameEntity* skater = get_skate()->get_rider_at(index);
     get_skate()->fetch_account(static_cast<Struct*>(nullptr));
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
-    void* graffiti = tagging->graffiti_; // (0x00553E90, a getter folded with others)
+    void* graffiti = tagging->graffiti(); // (0x00553E90, a getter folded with others)
     if (graffiti)
         find_texture(render::engine_parts().particle_texture_dict(), kCustomTag)->copy_from(static_cast<render::BitmapTexture*>(graffiti));
     return true;
@@ -263,7 +263,7 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
     std::array<void*, 4> has{};
     for (int i = 0; i < 4; ++i)
         core::at(has, i) = profile->appearance()->get_part(core::at(kHeadBoneGroups, i));
-    Struct* appearance = &profile->appearance()->structure_;
+    Struct* appearance = &profile->appearance()->structure();
     for (int i = 0; i < 4; ++i) {
         if (core::at(has, i))
             continue;

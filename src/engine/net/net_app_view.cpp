@@ -94,10 +94,10 @@ uint16_t name_hash(const uint8_t* data, int length)
 // `node` out of its list (and linked to itself; its vtable stays).
 void drop_out(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 } // namespace
@@ -301,9 +301,9 @@ void AppHost::sever_link(Conn* conn)
 // 0x004573D0
 Conn* AppHost::step_conn_walk(ConnSearch* search)
 {
-    memory::ListNode* next = search->list_link_->next;
-    search->list_link_ = next->data == memory::ListNode::head_marker() ? nullptr : next;
-    return search->list_link_ ? static_cast<Conn*>(search->list_link_->data) : nullptr;
+    memory::ListNode* next = search->list_link_->next();
+    search->list_link_ = next->data() == memory::ListNode::head_marker() ? nullptr : next;
+    return search->list_link_ ? static_cast<Conn*>(search->list_link_->data()) : nullptr;
 }
 
 // 0x00457400
@@ -314,10 +314,10 @@ void AppHost::block_connection(Conn* conn)
         banned->make_node(banned);
     banned->remote_ip_ = conn->remote_ip(); // (an allocation failure crashes here, as in the original)
     // at the end of the list
-    banned->prev = banned_.prev;
-    banned->next = &banned_;
-    banned_.prev->next = banned;
-    banned_.prev = banned;
+    banned->set_prev(banned_.prev());
+    banned->set_next(&banned_);
+    banned_.prev()->set_next(banned);
+    banned_.set_prev(banned);
 }
 
 // 0x00457490
@@ -471,10 +471,10 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
     // The link's message (each queue's link type keeps it at its own place).
     auto message_of = [queue](const TimedMsgNode* link) -> void* {
         if (queue == 0)
-            return static_cast<MsgNormalLink*>(link->data)->shared_msg_;
+            return static_cast<MsgNormalLink*>(link->data())->shared_msg_;
         if (queue == 1)
-            return static_cast<ReliableMsgNode*>(link->data)->shared_msg_;
-        return static_cast<OrderedMsgNode*>(link->data)->shared_msg_;
+            return static_cast<ReliableMsgNode*>(link->data())->shared_msg_;
+        return static_cast<OrderedMsgNode*>(link->data())->shared_msg_;
     };
     lists::Hunt<TimedMsgNode> search;
     for (TimedMsgNode *link = search.head_element(list), *next = nullptr; link; link = next) {

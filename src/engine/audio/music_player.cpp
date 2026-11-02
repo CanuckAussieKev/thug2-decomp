@@ -538,7 +538,7 @@ void tick_frame()
     for (int i = 0; i < kStreams; ++i) {
         objects::AudioStreamModule*& owner = core::at(stream_owners(), i);
         if (owner && !update_stream_volume(i)) { // (false: the stream is over)
-            core::at(owner->streams_, i) = 0;
+            core::at(owner->streams(), i) = 0;
             owner = nullptr;
         }
     }

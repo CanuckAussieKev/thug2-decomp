@@ -39,11 +39,23 @@ struct PrefixTable {
     // 0x0045C240: every PrefixNodes' block cut down to its size.
     void compact();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] lists::KeyMap* slot_table() const { return slot_table_; }
+    [[nodiscard]] uint32_t node_array() const { return node_array_; }
+    void set_node_array(uint32_t value) { node_array_ = value; }
+    [[nodiscard]] PrefixTable* following() const { return following_; }
+    void set_following(PrefixTable* value) { following_ = value; }
+
+private:
     lists::KeyMap* slot_table_;
     uint32_t node_array_{0}; // the node array's name
     PrefixTable* following_{nullptr};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PrefixTable, following_) == 8 && sizeof(PrefixTable) == 0xC, "allocated as 0xC bytes");
+    }
 };
-static_assert(offsetof(PrefixTable, following_) == 8 && sizeof(PrefixTable) == 0xC, "allocated as 0xC bytes");
 
 // The tables of all node arrays (the instance at 0x006F0D80, made by the first add_node_array_prefixes).
 struct PrefixTables {

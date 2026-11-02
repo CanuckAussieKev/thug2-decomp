@@ -13,12 +13,12 @@ namespace {} // namespace
 gsl::owner<ObjectModule*> FaceHeadingModule::fabricate() { return new FaceHeadingModule; }
 
 // (the constructor: inlined in fabricate in the original)
-FaceHeadingModule::FaceHeadingModule() { kind_tag_ = kType; }
+FaceHeadingModule::FaceHeadingModule() { set_kind_tag(kType); }
 
 // 0x00431240 (0x00431250 the deleting one)
 FaceHeadingModule::~FaceHeadingModule() = default;
 
 // 0x00431280
-void FaceHeadingModule::tick_frame() { entity_->display_matrix() = entity_->basis_frame(); }
+void FaceHeadingModule::tick_frame() { entity()->display_matrix() = entity()->basis_frame(); }
 
 } // namespace objects

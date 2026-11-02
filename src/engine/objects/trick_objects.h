@@ -38,8 +38,15 @@ ClusterCount* count_object_in_cluster(const TrickObjectCluster* cluster, Cluster
 // a ring of 0x200: past that the oldest are written over.
 struct HitClusterLog {
     static constexpr uint32_t kCapacity = 0x200;
+    // The fields other code reads and sets.
+    [[nodiscard]] const std::array<uint32_t, kCapacity>& items() const { return items_; }
+    [[nodiscard]] int num() const { return num_; }
+
+private:
     std::array<uint32_t, kCapacity> items_{};
     int num_{0}; // +0x800
+
+public:
     HitClusterLog();
     bool get_clear();
     // 0x00588A20: the cluster of trick object `objectName` listed, unless it has none (or no name) or is listed
@@ -53,8 +60,17 @@ struct HitClusterLog {
 // A trick object (0x18 bytes): a node in its cluster's list (data itself; the node keeps the original's size) with the
 // name of its level sector, which graffiti colours.
 struct TrickSpot {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    void set_label(uint32_t value) { label_ = value; }
+
+private:
     memory::ListNode list_link_; // +0x00
     uint32_t label_;             // +0x14 (its sector's)
+
+public:
 
     // 0x00588BB0: the destructor's body - out of its list.
     void destroy_body();
@@ -127,10 +143,19 @@ struct TrickSpotHub : memory::HeapObject {
     // over the trick object code's globals after it - THUGPRO's "256 graff tag crash"; ours is THUGPRO's 2048).
     static constexpr uint32_t kMaxLoggedClusters = 2048;
 
+    // The fields other code reads and sets.
+    lists::KeyMap& clusters() { return clusters_; }
+    [[nodiscard]] const lists::KeyMap& clusters() const { return clusters_; }
+    lists::KeyMap& object_clusters() { return object_clusters_; }
+    [[nodiscard]] const lists::KeyMap& object_clusters() const { return object_clusters_; }
+
+private:
     int cluster_count_{};           // (not set by the constructor)
     lists::KeyMap clusters_;        // CTrickObjectClusters by name
     lists::KeyMap object_clusters_; // each trick object's cluster, by the object's name (a cluster's own too)
     script::Struct* args_;          // the graffiti colours' (change_args)
+
+public:
 
     // 0x00588DC0: both tables of 256 buckets, the parameters' structure made on the script heap.
     TrickSpotHub();

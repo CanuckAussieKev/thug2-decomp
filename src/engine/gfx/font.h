@@ -45,6 +45,7 @@ public:
     // 0x0048D040: the platform's unload, +4 cleared.
     void offload();
 
+private:
     uint32_t unknown4_{0};
 };
 

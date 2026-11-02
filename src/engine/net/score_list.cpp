@@ -75,7 +75,7 @@ uint32_t& score_sync_stamp_slot()
 void* get_score_of(PlayerRecord* player)
 {
     auto* skater = player->skater();
-    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
+    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held();
 }
 int points_of(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 
@@ -88,7 +88,7 @@ bool has_score_line(PlayerRecord* p)
     if (get_game_type() != kNetFirefight || !p->skater())
         return true;
     objects::ObjectModule* score = p->skater()->fetch_module(kSkaterScore);
-    return !score || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held_) != 0;
+    return !score || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held()) != 0;
 }
 
 // A new line (null if out of memory: then used anyway, as the original).
@@ -106,10 +106,10 @@ uint32_t flag_bit(PlayerRecord* p) { return 1u << (static_cast<uint32_t>(p->get_
 // At the end of the list.
 void get_append(lists::Foremost* head, ScoreEntry* entry)
 {
-    entry->prev = head->list_link_.prev;
-    entry->next = &head->list_link_;
-    head->list_link_.prev->next = entry;
-    head->list_link_.prev = entry;
+    entry->set_prev(head->list_link_.prev());
+    entry->set_next(&head->list_link_);
+    head->list_link_.prev()->set_next(entry);
+    head->list_link_.set_prev(entry);
 }
 
 } // namespace
@@ -146,7 +146,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
 {
     const void* elements = frontend::UiTree::sole(); // (the screen element manager: unused by the lookup)
     (void)elements;
-    Hub* manager = task->content_;
+    Hub* manager = task->content();
     lists::Foremost list{};
     list.list_link_.make_head();
     PlayerSearch search;
@@ -160,8 +160,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     }
     const uint32_t now = frame_clock::get_time();
     if (now - score_sync_stamp_slot() < kUpdateInterval) {
-        list.list_link_.prev->next = list.list_link_.next; // (the head's destructor)
-        list.list_link_.next->prev = list.list_link_.prev;
+        list.list_link_.prev()->set_next(list.list_link_.next()); // (the head's destructor)
+        list.list_link_.next()->set_prev(list.list_link_.prev());
         return;
     }
     score_sync_stamp_slot() = now;
@@ -205,7 +205,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (manager->count_team_players(team) <= 0)
                 continue;
             ScoreEntry* entry = core::at(teams, team);
-            entry->priority = entry->team_score_;
+            entry->set_priority(entry->team_score_);
             list.append_vertex(entry); // (inlined in the original)
         }
     } else {
@@ -231,8 +231,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (!not_lobby) {
                 get_append(&list, entry);
             } else {
-                entry->priority =
-                    scavenger_hunt ? 5 - p->num_placed() : manager->get_entrant_points(get_skater_id(p->skater()));
+                entry->set_priority(scavenger_hunt ? 5 - p->num_placed() : manager->get_entrant_points(get_skater_id(p->skater())));
                 list.append_vertex(entry);
             }
         }
@@ -240,8 +239,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
 
     // The lines, best first.
     const memory::ListNode* cursor =
-        list.list_link_.next->data == memory::ListNode::head_marker() ? nullptr : list.list_link_.next;
-    auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
+        list.list_link_.next()->data() == memory::ListNode::head_marker() ? nullptr : list.list_link_.next();
+    auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data()) : nullptr;
     for (int line = 0; entry; ++line) {
         std::array<char, 64> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
         core::at(prefix, 0) = '\0';
@@ -260,14 +259,14 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         } else {
             core::at(prefix, 0) = '\0';
         }
-        cursor = cursor->next->data == memory::ListNode::head_marker() ? nullptr : cursor->next;
-        auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
+        cursor = cursor->next()->data() == memory::ListNode::head_marker() ? nullptr : cursor->next();
+        auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data()) : nullptr;
 
         std::array<char, 128> text{}; // (64 in the original: the longest king of the hill lines overran it)
         if (!not_lobby) {
             text::format_to(text, "\\c%d%s", entry->shade_, entry->text_.data());
         } else if (hill_mode) {
-            const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
+            const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority()) / 1000);
             if (seconds < 3600)
                 text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade_, entry->text_.data(),
                                 entry->shade_, seconds / 60, seconds % 60);
@@ -278,7 +277,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade_, entry->text_.data());
         } else {
             text::format_to(text, "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade_, entry->text_.data(),
-                            entry->shade_, entry->priority);
+                            entry->shade_, entry->priority());
         }
         const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
         script::StructPtr params = script::make_struct();
@@ -297,8 +296,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         entry->teardown(1); // (deleted: out of the list)
         entry = following;
     }
-    list.list_link_.prev->next = list.list_link_.next; // (the head's destructor)
-    list.list_link_.next->prev = list.list_link_.prev;
+    list.list_link_.prev()->set_next(list.list_link_.next()); // (the head's destructor)
+    list.list_link_.next()->set_prev(list.list_link_.prev());
 }
 
 } // namespace online

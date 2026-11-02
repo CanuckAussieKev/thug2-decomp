@@ -495,7 +495,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
             {.x = static_cast<float>(moved_x + low), .y = static_cast<float>(moved_y + low), .z = moved_z + low, .w = moved_w + r});
         box.append_spot({.x = static_cast<float>(moved_x + r), .y = static_cast<float>(moved_y) + r, .z = moved_z + r, .w = moved_w + r});
     }
-    const bool use_cache = cache && cache->box_.get_holds(box);
+    const bool use_cache = cache && cache->box().get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(sphere);
         if (!grid)
@@ -507,8 +507,8 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
     grown.max = {.x = box.max.x + 0.5f, .y = box.max.y + 0.5f, .z = box.max.z + 0.5f, .w = box.max.w + 1.0f};
     hits->count = 0;
     if (use_cache) {
-        for (int i = 0; i < cache->statics_; ++i) {
-            const HitMeshCache::TableRow& entry = core::at(cache->entries_, i);
+        for (int i = 0; i < cache->statics(); ++i) {
+            const HitMeshCache::TableRow& entry = core::at(cache->entries(), i);
             if (grown.intersects(*entry.bounds))
                 collide_with_sphere(entry.object, sphere, &grown, hits);
         }

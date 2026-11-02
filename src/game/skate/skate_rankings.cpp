@@ -61,18 +61,25 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 struct RankingList {
     RankingList(const RankingList&) = delete;
     RankingList& operator=(const RankingList&) = delete;
+    // The fields other code reads and sets.
+    memory::ListNode& head() { return head_; }
+    [[nodiscard]] const memory::ListNode& head() const { return head_; }
+
+private:
     memory::ListNode head_{};
+
+public:
     RankingList() { head_.make_head(); }
     ~RankingList()
     {
-        head_.prev->next = head_.next; // (the head out of the list: as its destructor)
-        head_.next->prev = head_.prev;
+        head_.prev()->set_next(head_.next()); // (the head out of the list: as its destructor)
+        head_.next()->set_prev(head_.prev());
     }
     // The entry after `node` (null at the head).
     static online::ScoreEntry* get_after(memory::ListNode* node)
     {
-        const memory::ListNode* next = node->next;
-        return next->data == memory::ListNode::head_marker() ? nullptr : static_cast<online::ScoreEntry*>(next->data);
+        const memory::ListNode* next = node->next();
+        return next->data() == memory::ListNode::head_marker() ? nullptr : static_cast<online::ScoreEntry*>(next->data());
     }
 };
 
@@ -152,11 +159,11 @@ void fill_elimination_ranking()
         entry->team_score_ =
             reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident());
         entry->shade_ = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team() + 2 : 0;
-        entry->priority = info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : 100000;
-        lists::append_vertex(list.head_, entry); // (inlined there)
+        entry->set_priority(info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : 100000);
+        lists::append_vertex(list.head(), entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
-    for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
+    for (online::ScoreEntry* entry = RankingList::get_after(&list.head()); entry; ++id) {
         online::ScoreEntry* next = RankingList::get_after(entry);
         std::array<char, 0x40> text{};
         text::format_to(text, "\\c%d%s", entry->shade_, entry->text_.data()); // "\c%d%s"
@@ -207,11 +214,11 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             const char* team_name = script::fetch_text(name.data());
             // (unbounded in the original: a text past the name's 32 bytes ran on into the entry's other fields)
             text::format_to(entry->text_, "\\c%d%s %s", entry->shade_, team_name, total); // "\c%d%s %s"
-            entry->priority = net->get_squad_points(team);
-            lists::append_vertex(list.head_, entry);
+            entry->set_priority(net->get_squad_points(team));
+            lists::append_vertex(list.head(), entry);
         }
         uint32_t line = 0;
-        for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry;) {
+        for (online::ScoreEntry* entry = RankingList::get_after(&list.head()); entry;) {
             online::ScoreEntry* next = RankingList::get_after(entry);
             for (void* player = net->begin_player_walk(&search, false); player;
                  player = net->step_player_walk(&search, false)) {
@@ -231,7 +238,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             add_player_line(entry->text_.data(), true);
             add_score_line(
                 [&](std::span<char> total) {
-                    format_score(total, static_cast<uint32_t>(entry->priority), entry->shade_, true);
+                    format_score(total, static_cast<uint32_t>(entry->priority()), entry->shade_, true);
                 },
                 kFirstLine + line, true);
             delete_entry(entry);
@@ -245,15 +252,15 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             const uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();
             text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
-            entry->priority = static_cast<int>(score);
-            lists::append_vertex(list.head_, entry);
+            entry->set_priority(static_cast<int>(score));
+            lists::append_vertex(list.head(), entry);
         }
         uint32_t id = kFirstLine;
-        for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
+        for (online::ScoreEntry* entry = RankingList::get_after(&list.head()); entry; ++id) {
             online::ScoreEntry* next = RankingList::get_after(entry);
             add_player_line(entry->text_.data(), false);
             add_score_line(
-                [&](std::span<char> shown) { format_score(shown, static_cast<uint32_t>(entry->priority), 0, false); },
+                [&](std::span<char> shown) { format_score(shown, static_cast<uint32_t>(entry->priority()), 0, false); },
                 id, false);
             delete_entry(entry);
             entry = next;

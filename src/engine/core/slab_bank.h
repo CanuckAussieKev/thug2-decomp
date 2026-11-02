@@ -69,9 +69,20 @@ namespace memory {
 // A class's pair of item pools (the engine's CPoolable): new items come from the current pool, or from the
 // default heap when it doesn't exist; freed items go back to whichever pool holds them.
 struct PoolPair {
-    int current;
+    // The fields other code reads and sets.
+    int& current() { return current_; }
+    [[nodiscard]] int current() const { return current_; }
+    std::array<uint8_t, 4>& made_here() { return made_here_; }
+    [[nodiscard]] const std::array<uint8_t, 4>& made_here() const { return made_here_; }
+    std::array<SlabBank*, 2>& pools() { return pools_; }
+    [[nodiscard]] const std::array<SlabBank*, 2>& pools() const { return pools_; }
+
+private:
+    int current_;
     std::array<uint8_t, 4> made_here_; // per pool: made by its owner here (and deleted by it), not handed in
-    std::array<SlabBank*, 2> pools;
+    std::array<SlabBank*, 2> pools_;
+
+public:
 
     void* carve(unsigned int size);
     void dealloc(void* item);

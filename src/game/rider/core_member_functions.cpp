@@ -461,7 +461,7 @@ int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*)
 int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
 {
     const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
-    if (core::down_cast<objects::Rider>(entity_)->goofy())
+    if (core::down_cast<objects::Rider>(entity())->goofy())
         return flipped ? 1 : 0;
     return flipped ? 0 : 1;
 }
@@ -602,7 +602,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 // 0x004FC9C0
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
-    const int profile = core::down_cast<objects::Rider>(entity_)->view_slot();
+    const int profile = core::down_cast<objects::Rider>(entity())->view_slot();
     auto_kick_ = core::at(modules::Skate::sole()->participants(), profile).auto_kick_;
     return 1;
 }
@@ -639,7 +639,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     auto y = static_cast<float>(direction.y * boost);
     auto z = static_cast<float>(direction.z * boost);
     auto w = static_cast<float>(direction.w * boost);
-    maths::Vec4& v = entity_->vel();
+    maths::Vec4& v = entity()->vel();
     v.x = static_cast<float>(v.x + direction.x * boost);
     v.y += y;
     v.z += z;
@@ -719,7 +719,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);
     up.make_unit();
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
     return 1;
 }
 
@@ -764,7 +764,7 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
     script::Array* frictions = nullptr;
     params->fetch_list(0u, &frictions, 0);
     int& index = special_friction_index_;
-    const int count = static_cast<int>(frictions->extent_); // (no array: the original reads through null too)
+    const int count = static_cast<int>(frictions->extent()); // (no array: the original reads through null too)
     if (index >= count)
         index = count - 1;
     rolling_friction_ = frictions->fetch_float(static_cast<uint32_t>(index));
@@ -780,9 +780,9 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 // 0x004FD580
 int SkaterPhysicsModule::get_matrix_normal(script::Struct*, script::Script* script)
 {
-    script->args().get()->push_float(kX, core::at(entity_->basis_frame().row, 1).x);
-    script->args().get()->push_float(kY, core::at(entity_->basis_frame().row, 1).y);
-    script->args().get()->push_float(kZ, core::at(entity_->basis_frame().row, 1).z);
+    script->args().get()->push_float(kX, core::at(entity()->basis_frame().row, 1).x);
+    script->args().get()->push_float(kY, core::at(entity()->basis_frame().row, 1).y);
+    script->args().get()->push_float(kZ, core::at(entity()->basis_frame().row, 1).z);
     return 1;
 }
 // 0x004FD5E0
@@ -834,12 +834,12 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
     render::ProbeRay feeler;
     if (!feel_ahead(params, feeler, false) || !hit_wall(feeler))
         return 0;
-    entity_->vel().change_heading(feeler.surface_dir());
-    core::at(entity_->basis_frame().row, 2).change_heading(feeler.surface_dir());
+    entity()->vel().change_heading(feeler.surface_dir());
+    core::at(entity()->basis_frame().row, 2).change_heading(feeler.surface_dir());
     core::down_cast<objects::RiderSpinAndFlip>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate))
         ->get_flip();
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
     return 1;
 }
 

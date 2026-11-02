@@ -368,7 +368,7 @@ void LabelWidget::set_text_rotation(float degrees, int now)
 void LabelWidget::set_char_properties(script::Array* chars)
 {
     change_glyph_text(object_at(texts_, num_, 0), chars_);
-    for (uint32_t i = 0; i < chars->extent_; ++i) {
+    for (uint32_t i = 0; i < chars->extent(); ++i) {
         auto* c = chars->struct_at(i);
         int index = 0;
         c->fetch_int_value(kIndex, &index, 1);
@@ -469,7 +469,7 @@ void LabelWidget::enable_blur()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap());
     blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
-    std::memcpy(&blur_->rgba_value_, shown().rgba.data(), 4);
+    std::memcpy(&blur_->rgba_value(), shown().rgba.data(), 4);
     memory::Hub::get_pull()->leave_heap_scope();
     make_text_objects(17, false);
 }
@@ -509,7 +509,7 @@ void LabelWidget::change_traits(Struct* params)
         disable_blur();
     uint32_t rgba = 0;
     if (read_colour_param(params, kHaloColor, &rgba) && blur_)
-        blur_->rgba_value_ = rgba;
+        blur_->rgba_value() = rgba;
     script::Pair offset;
     if (params->fetch_pair(kShadowOffs, &offset, false)) {
         shadow_x_ = offset.x;
@@ -630,7 +630,7 @@ void LabelWidget::tick_frame()
     auto centre_y = static_cast<float>(static_cast<double>(summed().scale_y_) * level_y() * get_half() + summed().top);
     for (int i = 1; i < num_; ++i) {
         const SmearEffect::DupFrom* copy = blur_->get_copy(i - 1);
-        const uint32_t blur = blur_->rgba_value_;
+        const uint32_t blur = blur_->rgba_value();
         const uint32_t rgba = with_alpha(
             blur, static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(blur >> 24)) * copy->alpha)));
         void* t = object_at(texts_, num_, i);

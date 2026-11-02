@@ -210,7 +210,7 @@ void Skate::start_callback()
     frame_loop::Hub* main_loop = assets::get_main_loop_manager();
     objects::nearby_zone_startup();
     objects::emitter_init();
-    update_job_->skip_bits_ = 2;
+    update_job_->skip_bits() = 2;
     main_loop->logic_tasks_.queue_job(update_job_.get());
     goals::game_mode()->get_reset();
     script::launch_script(kNetworkDriverStartup, nullptr, nullptr, false, nullptr);

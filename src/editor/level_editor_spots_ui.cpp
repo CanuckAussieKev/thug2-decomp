@@ -33,7 +33,7 @@ void spawn_section(int node_index, std::vector<Request>* requests)
     if (script::Struct* s = nodes::struct_of(node)) {
         script::Array* list = nullptr;
         if (s->fetch_list(fields::key_restart_types(), &list, 0) && list) {
-            for (uint32_t i = 0; i < list->extent_; ++i)
+            for (uint32_t i = 0; i < list->extent(); ++i)
                 types.push_back(list->fetch_part(i));
         }
     }

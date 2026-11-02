@@ -78,7 +78,7 @@ void BuildPointer::glow_overlapping_pieces(int on)
     }
     const MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
     if (metas.list) {
-        for (MapListNode* node = metas.list; node; node = node->following_)
+        for (MapListNode* node = metas.list; node; node = node->following())
             node->get_placed_piece()->spotlight(on, 0);
     }
 }
@@ -119,7 +119,7 @@ void BuildPointer::shift_by(int dx, int dz)
     int mode = kModeGap;
     MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
     if (metas.list) {
-        CellBox pos = metas.list->get_placed_piece()->cell_footprint_;
+        CellBox pos = metas.list->get_placed_piece()->cell_footprint();
         int half = 0;
         if (const GapDetails* gap = park_owner_->get_gap_info(&pos, &half)) {
             if (gap_.halves_placed_ != 1)
@@ -135,8 +135,8 @@ void BuildPointer::shift_by(int dx, int dz)
         park_owner_->highlight_gap_pieces(true, &gap_);
     } else {
         const ParkLayout* manager = park_owner_;
-        for (MapListNode* node = manager->concrete_metas(); node; node = node->following_) {
-            if (node->get_placed_piece()->flag_bits_ & PieceGroup::kHighlightable)
+        for (MapListNode* node = manager->concrete_metas(); node; node = node->following()) {
+            if (node->get_placed_piece()->flag_bits() & PieceGroup::kHighlightable)
                 node->get_placed_piece()->spotlight(1, 1);
         }
         manager->builder()->set_pieces_highlighted(0);
@@ -338,7 +338,7 @@ void BuildPointer::destroy_cursor_meta()
 {
     if (!piece_group_)
         return;
-    piece_group_->flag_bits_ &= ~PieceGroup::kCursor;
+    piece_group_->flag_bits() &= ~PieceGroup::kCursor;
     park_owner_->free_placed_piece(piece_group_, 0);
     park_owner_->builder()->clean_up_out_refs();
     piece_group_ = nullptr;
@@ -389,22 +389,22 @@ void BuildPointer::change_piece(uint32_t checksum)
     destroy_cursor_meta();
     // (an unknown checksum is read through a null metapiece, as in the original)
     PieceGroup* source = park_owner_->find_piece_template(checksum);
-    if (source->flag_bits_ & PieceGroup::kRailPlacement) {
+    if (source->flag_bits() & PieceGroup::kRailPlacement) {
         cell_footprint_.w = 1;
         cell_footprint_.h = 1;
         cell_footprint_.l = 1;
     } else {
         piece_group_ = park_owner_->make_placed_piece(source, PieceGroup::kCursor | PieceGroup::kInPark);
-        piece_group_->flag_bits_ |= PieceGroup::kCursor;
-        cell_footprint_.w = piece_group_->cell_footprint_.w;
-        cell_footprint_.h = piece_group_->cell_footprint_.h;
-        cell_footprint_.l = piece_group_->cell_footprint_.l;
+        piece_group_->flag_bits() |= PieceGroup::kCursor;
+        cell_footprint_.w = piece_group_->cell_footprint().w;
+        cell_footprint_.h = piece_group_->cell_footprint().h;
+        cell_footprint_.l = piece_group_->cell_footprint().l;
         if (quarter_turns_ & 1)
             swap_width_and_length(cell_footprint_);
     }
     drop_area_marquee();
 
-    const uint32_t flags = source->flag_bits_;
+    const uint32_t flags = source->flag_bits();
     if (flags & PieceGroup::kGap) {
         if (mode_sel_ != kModeGap) {
             mode_sel_ = kModeGap;

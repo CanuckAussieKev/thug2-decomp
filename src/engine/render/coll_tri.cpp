@@ -210,7 +210,7 @@ HitTreeNode* new_tree_nodes(int count)
     const std::span<HitTreeNode> block(raw, static_cast<size_t>(count) + 1);
     for (HitTreeNode& node : block)
         memory::construct_in<HitTreeNode>(&node);
-    core::at(block, 0).axis_tag_ = count;
+    core::at(block, 0).set_axis_tag(count);
     return &core::at(block, 1);
 }
 

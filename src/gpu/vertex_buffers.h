@@ -18,10 +18,10 @@ namespace render {
 // after the device is reset.
 struct VertexBuffer {
     // The fields other code reads and sets.
-    [[nodiscard]] uint32_t size_value() const { return size; }
-    [[nodiscard]] IDirect3DVertexBuffer9* buffer_value() const { return buffer; }
-    void set_buffer(IDirect3DVertexBuffer9* value) { buffer = value; }
-    [[nodiscard]] uint8_t* data_value() const { return data; }
+    [[nodiscard]] uint32_t size() const { return size_; }
+    [[nodiscard]] IDirect3DVertexBuffer9* buffer() const { return buffer_; }
+    void set_buffer(IDirect3DVertexBuffer9* value) { buffer_ = value; }
+    [[nodiscard]] uint8_t* data() const { return data_; }
     void set_lock_offset(uint32_t value) { lock_offset_ = value; }
     void set_lock_size(uint32_t value) { lock_size_ = value; }
     void set_lock_flags(uint32_t value) { lock_flags_ = value; }
@@ -29,10 +29,10 @@ struct VertexBuffer {
     void set_arena_offset(uint32_t value) { arena_offset_ = value; }
 
 private:
-    uint32_t size;
+    uint32_t size_;
     uint32_t usage;
-    IDirect3DVertexBuffer9* buffer{nullptr};        // +0x08
-    uint8_t* data;                                  // +0x0C
+    IDirect3DVertexBuffer9* buffer_{nullptr};        // +0x08
+    uint8_t* data_;                                  // +0x0C
     uint32_t lock_offset_{}, lock_size_{}, lock_flags_; // +0x10 (lockFlags -1: not locked)
     uint32_t flags;                                 // +0x1C: 1 no copy in memory; 4 a share of an arena's buffer
     uint32_t arena_offset_;                         // +0x20: where in the arena's buffer
@@ -61,7 +61,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(VertexBuffer, data) == 0xC && offsetof(VertexBuffer, lock_flags_) == 0x18 &&
+        static_assert(offsetof(VertexBuffer, data_) == 0xC && offsetof(VertexBuffer, lock_flags_) == 0x18 &&
                           sizeof(VertexBuffer) == 0x24,
                       "layout must match the original");
     }
@@ -70,15 +70,26 @@ private:
 // An index buffer (0x18 bytes, constructor 0x004D4270): the size, the Direct3D buffer and a copy of the indices in
 // memory, written to the card when unlocked; on a list (0x007865E8) as the vertex buffers are.
 struct IdxStore {
-    uint32_t size;
-    uint32_t usage;
-    uint32_t format;
-    IDirect3DIndexBuffer9* buffer{nullptr};
-    uint16_t* indices;
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t size() const { return size_; }
+    [[nodiscard]] uint32_t usage() const { return usage_; }
+    [[nodiscard]] uint32_t format() const { return format_; }
+    IDirect3DIndexBuffer9*& buffer() { return buffer_; }
+    [[nodiscard]] IDirect3DIndexBuffer9* buffer() const { return buffer_; }
+    [[nodiscard]] uint16_t* indices() const { return indices_; }
+
+private:
+    uint32_t size_;
+    uint32_t usage_;
+    uint32_t format_;
+    IDirect3DIndexBuffer9* buffer_{nullptr};
+    uint16_t* indices_;
     uint32_t unknown14{}; // (cleared when destroyed)
 
+public:
+
     // NOT ORIGINAL - the copy kept in memory as a run of its indices (size is in bytes).
-    [[nodiscard]] std::span<uint16_t> index_run() const { return {indices, size / 2}; }
+    [[nodiscard]] std::span<uint16_t> index_run() const { return {indices_, size_ / 2}; }
     // 0x004D4270: construct - CreateIndexBuffer (write-only, default pool), the copy, on the list.
     IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format);
     // 0x004D3C40: taken off the list (its node freed).
@@ -89,8 +100,13 @@ struct IdxStore {
     long get_unlock();
     // 0x004D6790: destroyed, as the vertex buffers are. The reference count after the release.
     uint32_t teardown();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(IdxStore, indices_) == 0x10 && sizeof(IdxStore) == 0x18, "layout must match the original");
+    }
 };
-static_assert(offsetof(IdxStore, indices) == 0x10 && sizeof(IdxStore) == 0x18, "layout must match the original");
 
 // Every buffer made and not torn down, in no particular order (for the device reset: engine/gfx's release_buffers /
 // recreate_buffers walk them).

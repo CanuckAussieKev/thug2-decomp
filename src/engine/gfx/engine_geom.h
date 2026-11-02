@@ -117,13 +117,22 @@ public:
     void start_texture_anims(bool) {}                   // [49] (ignores its argument)
     void stop_texture_anims() {}                        // [50] (do_nothing)
 
+    // The fields other code reads and sets.
+    [[nodiscard]] void* hit_triangles() const { return hit_triangles_; }
+    [[nodiscard]] uint8_t multicolour() const { return multicolour_; }
+
+private:
     int clone_kind_ = 0;                 // +0x04: 1 an instance / a copy made with `instance`, 2 a copy without
     void* hit_triangles_ = nullptr;      // +0x08: the collision faces
     uint32_t* render_colours_ = nullptr; // +0x0C: the vertex colours' copy (fetch_tints)
     uint8_t multicolour_ = 0;            // +0x10 (init_instance's third argument's low byte)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Geom, render_colours_) == 0xC && offsetof(Geom, multicolour_) == 0x10,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(Geom, render_colours_) == 0xC && offsetof(Geom, multicolour_) == 0x10,
-              "layout must match the original");
 
 // Whether `geom` (a sector's or a model's, or null) is a PC geom (NOT ORIGINAL: the level editor's check, which
 // compared the vtable).

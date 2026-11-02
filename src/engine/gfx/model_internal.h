@@ -48,7 +48,7 @@ inline void clean_geom_instance_strips(Geom* geom) { geom->clean_instance_strips
 inline void set_geom_shadow(Geom* geom, uint8_t on) { geom->set_shadow(on != 0); }
 inline void set_geom_color(Geom* geom, uint32_t rgba) { geom->change_tint(rgba); }
 // The geom's multicolour flag (+0x10, the folded getter 0x005480B0).
-inline bool is_geom_multicolor(Geom* geom) { return geom->multicolour_ != 0; }
+inline bool is_geom_multicolor(Geom* geom) { return geom->multicolour() != 0; }
 
 // An engine object deleted (0x0048C3C0) / a scene or the model's lights deleted (0x0048C080, cdecl, the generic
 // delete through slot 0: typed here); a texture dictionary unloaded (0x0049EFD0).
@@ -62,7 +62,7 @@ inline maths::Mat4* skeleton_bones(gfx::Rig* skeleton) { return skeleton->matrix
 inline int skeleton_bone_count(gfx::Rig* skeleton) { return skeleton->get_num_bones(); }
 
 // The list's first node (none without a head - which the original then reads through anyway).
-inline ModelGeomNode* get_first(const RenderModel* model) { return model->geom_ring().head ? model->geom_ring().head->next : nullptr; }
+inline ModelGeomNode* get_first(const RenderModel* model) { return model->geom_ring().head() ? model->geom_ring().head()->next : nullptr; }
 inline ModelGeom* table_row(const ModelGeomNode* node) { return node->value; }
 inline Geom* get_geom(ModelGeomNode* node) { return table_row(node)->geom; }
 

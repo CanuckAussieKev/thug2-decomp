@@ -125,7 +125,7 @@ void AttributeTracker::publish_method_table()
 // 0x0051C5A0
 AttributeTracker::AttributeTracker()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     air_start_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     air_end_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     jump_start_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
@@ -163,7 +163,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
     count_a84_ = 0;
     air_score_ = 0;
     first_update_ = true;
-    skater_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity_->ident()));
+    skater_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity()->ident()));
     if (!skater_) {
         skater_state_ = nullptr;
         physics_control_ = nullptr;
@@ -178,7 +178,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
         raise_stats_ = true;
 
     script::Array* goals = script::fetch_list(0x4E46CC28u);
-    const int count = static_cast<int>(goals->extent_);
+    const int count = static_cast<int>(goals->extent());
     for (int i = 0; i < count; ++i) {
         auto* source = goals->struct_at(static_cast<uint32_t>(i));
         Goal& goal = core::at(goals_, i);
@@ -395,7 +395,7 @@ void AttributeTracker::tick_frame()
     const int physics_state = skater_state_->cur_phase();
     cur_phase_ = kStateOther;
     const RiderPoseState* control_state = physics_control_->pose();
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     if (!control_state->in_vehicle() && control_state->physics_mode() == 0) {
         if (skater_state_->flag(PoseFlag::kVertAir).on) {
             cur_phase_ = kStateLaunched;

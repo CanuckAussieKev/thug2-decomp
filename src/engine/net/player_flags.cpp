@@ -100,14 +100,14 @@ bool PlayerRecord::is_invulnerable()
 {
     if (!(conn_->cur_standing() & net::Conn::kConnReady) || !rider()->get_flag_2c_4())
         return true;
-    if (rider()->state_history()->state_count_ < 10) // (its state history's frames)
+    if (rider()->state_history()->state_count() < 10) // (its state history's frames)
         return true;
     if (frame_clock::get_time() - join_time_ < kJoinSettleTime)
         return true;
     if (get_game_type() == kNetFirefight) {
         auto* skater = skater_;
         if (static_cast<modules::PointTally*>(
-                core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_)
+                core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held())
                 ->get_total_score() <= 0)
             return true;
     }

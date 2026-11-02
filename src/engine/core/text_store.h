@@ -15,6 +15,7 @@ public:
 
     [[nodiscard]] const char* c_str() const { return octets_; }
 
+private:
     // Number of live String objects when this one was created; the destructor decrements the same global
     // counter. Probably a leak-tracking aid.
     int serial_;

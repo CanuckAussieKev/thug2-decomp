@@ -48,7 +48,7 @@ bool game_mode_exists(uint32_t mode)
     script::Array* modes = script::fetch_list(kModeInfo);
     if (!modes)
         return false;
-    for (uint32_t i = 0; i < modes->extent_; ++i) {
+    for (uint32_t i = 0; i < modes->extent(); ++i) {
         auto* entry = modes->struct_at(i);
         uint32_t checksum = 0;
         if (entry && entry->read_hash_value(kChecksum, &checksum, 0) && checksum == mode)

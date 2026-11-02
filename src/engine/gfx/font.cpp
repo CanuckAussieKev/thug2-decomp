@@ -107,7 +107,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
     if (!map)
         return;
     for (uint32_t i = 0; i < 32; ++i) {
-        const int digit = i < map->extent_ ? static_cast<int>(map->fetch_part(i)) : 0;
+        const int digit = i < map->extent() ? static_cast<int>(map->fetch_part(i)) : 0;
         core::at(screen_2d().glyph_escape_table(), i) = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
     }
     meta_button_map_loaded() = true;
@@ -133,12 +133,12 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
     std::array<uint32_t, 16> colors = {};
     script::Array* table = nullptr;
     if (params->fetch_list("color_tab", &table, false)) {
-        for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->extent_); ++i) {
+        for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->extent()); ++i) {
             if (i >= 16)
                 break;
             auto* color = table->array_at(i);
             uint32_t packed = 0;
-            for (int j = 0; j < ints::as_signed(color->extent_); ++j)
+            for (int j = 0; j < ints::as_signed(color->extent()); ++j)
                 packed |= (color->fetch_part(j) & 0xFF) << ((8 * j) & 31); // (a 5th byte wraps round, as SHL does)
             core::at(colors, i) = packed;
         }

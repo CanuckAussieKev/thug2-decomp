@@ -94,7 +94,7 @@ void ResolveMap::erase_entry(const uint32_t* key)
 // 0x0055B990
 void TableItemEraser::empty_table_items(void (*destroy)(void* item))
 {
-    for (int count = lookup_table_->num_; count > 0; --count) {
+    for (int count = lookup_table_->num(); count > 0; --count) {
         const int index = 0;
         uint32_t key = 0;
         void* item = lookup_table_->fetch_entry_at(&index, &key);

@@ -64,7 +64,7 @@ modules::PointTally* get_score_of(objects::GameEntity* skater)
 // (a player's skater's score through its SkaterScore component)
 modules::PointTally* component_score_of(objects::GameEntity* skater)
 {
-    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
+    return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held();
 }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
 int last_score_landed(modules::PointTally* score) { return score->pot_score(); }

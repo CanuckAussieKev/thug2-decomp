@@ -24,7 +24,7 @@ namespace render {
 // 0x0041CB90
 void DynamicLightBase::set_reach(float reach)
 {
-    radius = reach;
+    radius_ = reach;
     inverse_radius_ = reach == 0.0f ? 1e10f : 1.0f / reach;
 }
 
@@ -76,7 +76,7 @@ render::DynamicLightBase* new_dynamic_light(int kind) { return render::new_dynam
 gsl::owner<ObjectModule*> DynamicLightComponent::fabricate() { return new DynamicLightComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-DynamicLightComponent::DynamicLightComponent() { kind_tag_ = kType; }
+DynamicLightComponent::DynamicLightComponent() { set_kind_tag(kType); }
 
 // 0x0041CBD0 (0x0041D0C0 the deleting one)
 DynamicLightComponent::~DynamicLightComponent()
@@ -116,18 +116,18 @@ void DynamicLightComponent::configure_from_data(script::Struct* params)
 }
 
 // 0x0041CDA0
-void DynamicLightComponent::seal() { wait_and_die_ = core::down_cast<WaitAndDieComponent>(entity_->fetch_module(kWaitAndDie)); }
+void DynamicLightComponent::seal() { wait_and_die_ = core::down_cast<WaitAndDieComponent>(entity()->fetch_module(kWaitAndDie)); }
 
 // 0x0041CDC0
 void DynamicLightComponent::tick_frame()
 {
     if (!light_) {
         light_ = new_dynamic_light(1);
-        light_->set_owner(entity_->ident());
+        light_->set_owner(entity()->ident());
     }
     // The life's fraction.
     const auto* life = wait_and_die_;
-    double t = as_unsigned(life->elapsed_) / as_unsigned(life->lifespan_);
+    double t = as_unsigned(life->elapsed()) / as_unsigned(life->lifespan());
     uint32_t from_color = start_color_, to_color = end_color_;
     float from_radius = start_radius_, to_radius = end_radius_;
     float from_intensity = start_intensity_, to_intensity = end_intensity_;
@@ -154,10 +154,10 @@ void DynamicLightComponent::tick_frame()
                  << (8 * i);
     }
     render::DynamicLightBase* light = light_;
-    core::at(light->pos_value(), 0) = entity_->at_point().x;
-    core::at(light->pos_value(), 1) = entity_->at_point().y;
-    core::at(light->pos_value(), 2) = entity_->at_point().z;
-    core::at(light->pos_value(), 3) = entity_->at_point().w;
+    core::at(light->pos(), 0) = entity()->at_point().x;
+    core::at(light->pos(), 1) = entity()->at_point().y;
+    core::at(light->pos(), 2) = entity()->at_point().z;
+    core::at(light->pos(), 3) = entity()->at_point().w;
     light->set_colour(color);
     light->set_intensity(static_cast<float>((static_cast<double>(to_intensity) - from_intensity) * t + from_intensity));
     light->set_reach(radius);

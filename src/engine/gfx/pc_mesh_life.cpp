@@ -47,8 +47,8 @@ BufferNode* index_buffer_list() { return buffer_lists::index_buffers(); }
 memory::ListNode* first_scene_node_bytes() { return render::first_scene_node(); }
 SceneRef* scene_meshes(memory::ListNode* node)
 {
-    const auto* scene = static_cast<const PcScene*>(node->data);
-    return scene ? scene->meshes : nullptr;
+    const auto* scene = static_cast<const PcScene*>(node->data());
+    return scene ? scene->meshes() : nullptr;
 }
 
 IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes) { return meshes->arena_buffer(); }
@@ -68,26 +68,26 @@ MeshRef::MeshRef()
     }
     last_buffer_ = nullptr;
     per_vertex_bytes_ = nullptr;
-    unknown48 = nullptr;
-    billboard = nullptr;
+    unknown48_ = nullptr;
+    billboard_ = nullptr;
     transform = nullptr;
     color_offset_ = 0;
     uv_offset_ = 0;
     normal_offset_ = 0;
-    stride = 0;
-    fvf = 0;
+    stride_ = 0;
+    fvf_ = 0;
     pixel_shader_ = nullptr;
     position_count_ = 0;
-    positions = nullptr;
+    positions_ = nullptr;
     triangle_count_ = 0;
-    triangles = nullptr;
+    triangles_ = nullptr;
     per_vertex_data_ = nullptr;
     unknowna0_ = nullptr;
     bone_ = 0xFF;
     unknown9c_ = -1;
     unknown98 = -1;
-    flags |= 0x40;
-    viewports = 0xFF;
+    flags_ |= 0x40;
+    viewports_ = 0xFF;
     primitive_type_ = 5;
 }
 
@@ -97,11 +97,11 @@ long MeshRef::apply_vertex_colors()
     if (!per_vertex_bytes_)
         return 0;
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
-    vb->set_lock_size(vb->size_value());
+    vb->set_lock_size(vb->size());
     vb->set_lock_offset(0);
     vb->set_lock_flags(0);
-    const gpu::VertexWriter vertices(vb->data_value(), stride, vertex_count_); // (locked whole, inline)
-    const std::span<const uint32_t> colors = material->anim_colour_run();
+    const gpu::VertexWriter vertices(vb->data(), stride_, vertex_count_); // (locked whole, inline)
+    const std::span<const uint32_t> colors = material_->anim_colour_run();
     const std::span<const uint8_t> per_vertex(per_vertex_bytes_, vertex_count_);
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         const int index = int{static_cast<int8_t>(core::at(per_vertex, i))};
@@ -171,10 +171,10 @@ void MeshRef::clean_strip()
 // 0x004D5900
 void MeshRef::change_bound_sphere(std::span<const float, 3> centre_in, float radius_in)
 {
-    core::at(centre, 0) = core::at(centre_in, 0);
-    core::at(centre, 1) = core::at(centre_in, 1);
-    core::at(centre, 2) = core::at(centre_in, 2);
-    radius = radius_in;
+    core::at(centre_, 0) = core::at(centre_in, 0);
+    core::at(centre_, 1) = core::at(centre_in, 1);
+    core::at(centre_, 2) = core::at(centre_in, 2);
+    radius_ = radius_in;
 }
 
 // 0x004D5C30
@@ -187,9 +187,9 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
     if (arena)
         arena->size += (bytes + 0x1F) & ~0x1Fu;
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
-    uint8_t* data = vb->data_value(); // (locked whole, inline)
+    uint8_t* data = vb->data(); // (locked whole, inline)
     vb->set_lock_offset(0);
-    vb->set_lock_size(vb->size_value());
+    vb->set_lock_size(vb->size());
     vb->set_lock_flags(0);
     std::memcpy(data, vertices, bytes);
     core::at(vertex_buffers_, 0)->get_unlock();
@@ -204,7 +204,7 @@ void release_buffers()
         auto* vb = static_cast<VertexBuffer*>(node->buffer);
         if (!vb)
             continue;
-        IDirect3DVertexBuffer9* buffer = vb->buffer_value();
+        IDirect3DVertexBuffer9* buffer = vb->buffer();
         if (buffer) {
             static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
             vb->set_buffer(nullptr);
@@ -222,9 +222,9 @@ void release_buffers()
         auto* ib = static_cast<IdxStore*>(node->buffer);
         if (!ib)
             continue;
-        if (ib->buffer)
-            static_cast<IDirect3DIndexBuffer9*>(ib->buffer)->Release();
-        ib->buffer = nullptr;
+        if (ib->buffer())
+            static_cast<IDirect3DIndexBuffer9*>(ib->buffer())->Release();
+        ib->buffer() = nullptr;
     }
 }
 
@@ -236,11 +236,11 @@ void recreate_buffers()
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
             const IDirect3DVertexBuffer9* old = arena_buffer(meshes);
-            renderer().d3d_device()->CreateVertexBuffer(meshes->unknown80_value(), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+            renderer().d3d_device()->CreateVertexBuffer(meshes->unknown80(), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                              &arena_buffer(meshes), nullptr);
             for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
-                if (vb && vb->buffer_value() == old)
+                if (vb && vb->buffer() == old)
                     vb->set_buffer(arena_buffer(meshes)); // (the shares moved to the new arena buffer)
             }
         }
@@ -253,13 +253,13 @@ void recreate_buffers()
         auto* ib = static_cast<IdxStore*>(node->buffer);
         if (!ib)
             continue;
-        renderer().d3d_device()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
-                                        D3DPOOL_DEFAULT, &ib->buffer,
+        renderer().d3d_device()->CreateIndexBuffer(ib->size(), ib->usage() | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format()),
+                                        D3DPOOL_DEFAULT, &ib->buffer(),
                                         nullptr);
         void* card = nullptr;
-        if (static_cast<IDirect3DIndexBuffer9*>(ib->buffer)->Lock(0, 0, &card, 0) >= 0) {
-            std::memcpy(card, ib->indices, ib->size);
-            static_cast<IDirect3DIndexBuffer9*>(ib->buffer)->Unlock();
+        if (static_cast<IDirect3DIndexBuffer9*>(ib->buffer())->Lock(0, 0, &card, 0) >= 0) {
+            std::memcpy(card, ib->indices(), ib->size());
+            static_cast<IDirect3DIndexBuffer9*>(ib->buffer())->Unlock();
         }
     }
 }
@@ -267,12 +267,12 @@ void recreate_buffers()
 // 0x004D69E0
 MeshRef::~MeshRef()
 {
-    if (flags & 0x10)
+    if (flags_ & 0x10)
         billboard_pool().remove_mesh(this);
     memory::Hub* heap = memory::Hub::get_pull();
     if (transform)
         heap->dealloc(transform);
-    if (!(flags & 1)) { // (its own buffers, not another mesh's)
+    if (!(flags_ & 1)) { // (its own buffers, not another mesh's)
         for (IdxStore*& ib : index_buffers_) {
             if (ib)
                 ib->teardown();
@@ -282,13 +282,13 @@ MeshRef::~MeshRef()
             heap->dealloc(per_vertex_bytes_);
             per_vertex_bytes_ = nullptr;
         }
-        if (unknown48) {
-            heap->dealloc(unknown48);
-            unknown48 = nullptr;
+        if (unknown48_) {
+            heap->dealloc(unknown48_);
+            unknown48_ = nullptr;
         }
-        if (billboard) {
-            heap->dealloc(billboard);
-            billboard = nullptr;
+        if (billboard_) {
+            heap->dealloc(billboard_);
+            billboard_ = nullptr;
         }
         dealloc(memory::owned_element(per_vertex_data_));
         IDirect3DVertexBuffer9* stream = nullptr;
@@ -298,13 +298,13 @@ MeshRef::~MeshRef()
             stream->Release(); // (only compared with below)
         for (uint32_t i = 0; i < vertex_buffer_count_; ++i) {
             if (core::at(vertex_buffers_, i)) {
-                if (stream == core::at(vertex_buffers_, i)->buffer_value())
+                if (stream == core::at(vertex_buffers_, i)->buffer())
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 core::at(vertex_buffers_, i)->teardown();
                 core::at(vertex_buffers_, i) = nullptr;
             }
             if (core::at(extra_buffers_, i)) {
-                if (stream == core::at(extra_buffers_, i)->buffer_value())
+                if (stream == core::at(extra_buffers_, i)->buffer())
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 core::at(extra_buffers_, i)->teardown(); // (left pointing at it: cleared with the rest below)
             }
@@ -314,10 +314,10 @@ MeshRef::~MeshRef()
             last_buffer_ = nullptr;
         }
     }
-    if (triangles)
-        dealloc(memory::owned_element(triangles));
-    if (positions)
-        dealloc(memory::owned_element(positions));
+    if (triangles_)
+        dealloc(memory::owned_element(triangles_));
+    if (positions_)
+        dealloc(memory::owned_element(positions_));
     // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(this, 0, sizeof(*this));
 }

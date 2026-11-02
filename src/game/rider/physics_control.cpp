@@ -91,7 +91,7 @@ void walk_camera_restore(ObjectModule* camera, void* state)
 gsl::owner<ObjectModule*> RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderBoardPhysics::RiderBoardPhysics() { kind_tag_ = kSkaterPhysicsControl; }
+RiderBoardPhysics::RiderBoardPhysics() { set_kind_tag(kSkaterPhysicsControl); }
 
 // 0x005176A0
 void RiderBoardPhysics::publish_method_table()
@@ -108,8 +108,8 @@ void RiderBoardPhysics::configure_from_data(script::Struct* /*params*/) { is_hal
 // 0x00517770
 void RiderBoardPhysics::seal()
 {
-    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    pose_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
     pose_->assign_physics_mode(-1);
 }
 
@@ -117,17 +117,17 @@ void RiderBoardPhysics::seal()
 void RiderBoardPhysics::set_frozen(bool paused)
 {
     is_halted_ = paused;
-    if (!paused && (entity_->composite_flags() & kCompositeFlagSuspended))
+    if (!paused && (entity()->composite_flags() & kCompositeFlagSuspended))
         return;
     switch (pose_->physics_mode()) {
     case kSkating:
         freeze_module(static_cast<ObjectModule*>(core_physics_), paused);
-        freeze_module(entity_->fetch_module(kSkaterRotate), paused);
-        freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), paused);
-        freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), paused);
+        freeze_module(entity()->fetch_module(kSkaterRotate), paused);
+        freeze_module(entity()->fetch_module(kSkaterAdjustPhysics), paused);
+        freeze_module(entity()->fetch_module(kSkaterFinalizePhysics), paused);
         break;
     case kWalking:
-        freeze_module(entity_->fetch_module(kWalk), paused);
+        freeze_module(entity()->fetch_module(kWalk), paused);
         break;
     default:
         break;
@@ -141,16 +141,16 @@ void RiderBoardPhysics::dismount_to_walk()
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
-    auto* walk = core::down_cast<FootMovement>(entity_->fetch_module(kWalk));
-    auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity_)->get_skater_camera());
+    auto* walk = core::down_cast<FootMovement>(entity()->fetch_module(kWalk));
+    auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity())->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
     const int skater_state = core_physics_->state()->cur_phase();
     core_leaving(core_physics_);
     freeze_module(static_cast<ObjectModule*>(core_physics_), true);
-    freeze_module(entity_->fetch_module(kSkaterRotate), true);
-    freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), true);
-    freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), true);
+    freeze_module(entity()->fetch_module(kSkaterRotate), true);
+    freeze_module(entity()->fetch_module(kSkaterAdjustPhysics), true);
+    freeze_module(entity()->fetch_module(kSkaterFinalizePhysics), true);
     freeze_module(skater_camera, true);
     set_walking(pose_, true);
     freeze_module(walk, false);
@@ -170,8 +170,8 @@ void RiderBoardPhysics::remount_board()
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
-    auto* walk = core::down_cast<FootMovement>(entity_->fetch_module(kWalk));
-    auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity_)->get_skater_camera());
+    auto* walk = core::down_cast<FootMovement>(entity()->fetch_module(kWalk));
+    auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity())->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
     walk_leaving(walk);
@@ -184,9 +184,9 @@ void RiderBoardPhysics::remount_board()
     const skater::AcidDrop* acid_drop = hold == 2 ? &walk->acid_drop() : nullptr;
     const FootMovement* grind_from = hold == 1 ? walk : nullptr;
     core_returning(core_physics_, walk->get_state() == 0, grind_from, acid_drop);
-    freeze_module(entity_->fetch_module(kSkaterRotate), false);
-    freeze_module(entity_->fetch_module(kSkaterAdjustPhysics), false);
-    freeze_module(entity_->fetch_module(kSkaterFinalizePhysics), false);
+    freeze_module(entity()->fetch_module(kSkaterRotate), false);
+    freeze_module(entity()->fetch_module(kSkaterAdjustPhysics), false);
+    freeze_module(entity()->fetch_module(kSkaterFinalizePhysics), false);
     freeze_module(skater_camera, false);
     alignas(16) std::array<uint8_t, 0x60> camera_state{};
     walk_camera_save(walk_camera, camera_state.data());
@@ -203,15 +203,15 @@ void RiderBoardPhysics::tick_frame()
         return;
     switch (pose_->physics_mode()) {
     case kSkating:
-        entity_->display_matrix() = core_physics_->display_matrix();
+        entity()->display_matrix() = core_physics_->display_matrix();
         break;
     case kWalking:
-        entity_->display_matrix() = entity_->basis_frame();
+        entity()->display_matrix() = entity()->basis_frame();
         break;
     default:
         break;
     }
-    if (!(static_cast<ObjectModule*>(core_physics_)->flag_bits_ & kComponentFlagSuspended))
+    if (!(static_cast<ObjectModule*>(core_physics_)->flag_bits() & kComponentFlagSuspended))
         set_frozen(true);
 }
 

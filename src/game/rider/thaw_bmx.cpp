@@ -307,7 +307,7 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
     BikeState& state = *state_of(core, true);
     if (name == kOn) { // 0x005C98E0
         state.on = true;
-        const objects::GameEntity* skater = core->entity_;
+        const objects::GameEntity* skater = core->entity();
         set_wheel_points(state, skater->at_point(), core::at(skater->basis_frame().row, 2));
         return 1;
     }

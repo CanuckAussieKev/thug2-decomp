@@ -239,16 +239,16 @@ std::vector<ArraySignature> get_signature()
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager)
         return signature;
-    for (uint32_t i = 0; i < manager->num_ && i < level_nodes::NodeManager::kMaxArrays; ++i) {
-        const level_nodes::NodeArrayEntry& entry = core::at(manager->arrays_, i);
-        signature.push_back({.label = entry.label_, .extent = entry.node_entries_ ? entry.node_entries_->extent_ : 0, .nodes = entry.node_entries_});
+    for (uint32_t i = 0; i < manager->num() && i < level_nodes::NodeManager::kMaxArrays; ++i) {
+        const level_nodes::NodeArrayEntry& entry = core::at(manager->arrays(), i);
+        signature.push_back({.label = entry.label_, .extent = entry.node_entries_ ? entry.node_entries_->extent() : 0, .nodes = entry.node_entries_});
     }
     return signature;
 }
 
 script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 {
-    if (!nodes || index >= nodes->extent_ || nodes->kind_tag_ != script::kQbvalStruct)
+    if (!nodes || index >= nodes->extent() || nodes->kind_tag() != script::kQbvalStruct)
         return nullptr;
     return nodes->struct_at(index);
 }
@@ -283,11 +283,11 @@ void get_scan()
                           kTrickObject = name_hash("TrickObject"), kTriggerScript = name_hash("TriggerScript");
     int crowns = 0, restarts = 0;
     ++node_walk().generation_;
-    for (uint32_t a = 0; a < manager->num_ && a < level_nodes::NodeManager::kMaxArrays; ++a) {
-        script::Array* nodes = core::at(manager->arrays_, a).node_entries_;
-        if (!nodes || nodes->kind_tag_ != script::kQbvalStruct)
+    for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
+        script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
+        if (!nodes || nodes->kind_tag() != script::kQbvalStruct)
             continue;
-        for (uint32_t i = 0; i < nodes->extent_; ++i) {
+        for (uint32_t i = 0; i < nodes->extent(); ++i) {
             script::Struct* s = get_node_at(nodes, i);
             if (!s)
                 continue;
@@ -297,7 +297,7 @@ void get_scan()
             s->read_hash_value(kName, &node.name, 0);
             s->read_hash_value(kClass, &node.cls, 0);
             s->read_hash_value(kType, &node.type, 0);
-            node.added = core::at(manager->arrays_, a).label_ == overlay_array();
+            node.added = core::at(manager->arrays(), a).label_ == overlay_array();
             if (node.cls == hidden_marker()) {
                 // (hidden by the editor: its own class and type kept beside the marker)
                 node.hidden = true;
@@ -323,7 +323,7 @@ void get_scan()
                 node.order = node.hidden ? -1 : restarts++; // (the game's walks skip a hidden one)
                 script::Array* types = nullptr;
                 if (s->fetch_list(kRestartTypes, &types, 0) && types) {
-                    for (uint32_t t = 0; t < types->extent_; ++t)
+                    for (uint32_t t = 0; t < types->extent(); ++t)
                         node.restart_types_ |= restart_type_bit(types->fetch_part(t));
                 }
                 node.colour = spawn_colour(node.restart_types_, team_colour(name));
@@ -358,9 +358,9 @@ void get_scan()
                 break;
             case Family::kLight: {
                 script::Array* colour = nullptr;
-                if (s->fetch_list(kColor, &colour, 0) && colour && colour->extent_ >= 3) {
+                if (s->fetch_list(kColor, &colour, 0) && colour && colour->extent() >= 3) {
                     auto c = [&](uint32_t k) {
-                        const int value = colour->kind_tag_ == script::kQbvalFloat
+                        const int value = colour->kind_tag() == script::kQbvalFloat
                                               ? static_cast<int>(colour->fetch_float(k))
                                               : static_cast<int>(colour->fetch_part(k));
                         return static_cast<uint32_t>(std::max(0, std::min(255, value)));
@@ -401,11 +401,11 @@ void get_scan()
     node_walk().walked_spawns_ = restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - resolve_links).
     for (Elem& node : level_editor_nodes_state().nodes_) {
-        script::Struct* s = get_node_at(core::at(manager->arrays_, node.array).node_entries_, static_cast<uint32_t>(node.index));
+        script::Struct* s = get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
         script::Array* links = nullptr;
         if (!s || !s->fetch_list(kLinks, &links, 0) || !links)
             continue;
-        for (uint32_t l = 0; l < links->extent_; ++l) {
+        for (uint32_t l = 0; l < links->extent(); ++l) {
             auto it = by_name().find(links->fetch_part(l));
             if (it != by_name().end())
                 node.links.push_back(it->second);
@@ -519,9 +519,9 @@ int get_find(uint32_t name)
 script::Struct* struct_of(const Elem& node)
 {
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
-    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
+    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num())
         return nullptr;
-    return get_node_at(core::at(manager->arrays_, node.array).node_entries_, static_cast<uint32_t>(node.index));
+    return get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
 }
 
 void reread(int index)
@@ -552,9 +552,9 @@ void reread(int index)
 uint32_t get_array_name(const Elem& node)
 {
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
-    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
+    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num())
         return 0;
-    return core::at(manager->arrays_, node.array).label_;
+    return core::at(manager->arrays(), node.array).label_;
 }
 
 std::string caption(uint32_t checksum) { return object_edit::caption(checksum); }
@@ -577,12 +577,12 @@ std::string array_text(script::Array* array, int depth)
     if (!array)
         return "[]";
     std::string text = "[";
-    const uint32_t shown = std::min<uint32_t>(array->extent_, 12);
+    const uint32_t shown = std::min<uint32_t>(array->extent(), 12);
     for (uint32_t i = 0; i < shown; ++i) {
         if (i)
             text += " ";
         std::array<char, 48> buffer{};
-        switch (array->kind_tag_) {
+        switch (array->kind_tag()) {
         case script::kQbvalInteger:
             text::format_to(buffer, "%d", static_cast<int>(array->fetch_part(i)));
             text += buffer.data();
@@ -605,8 +605,8 @@ std::string array_text(script::Array* array, int depth)
             break;
         }
     }
-    if (array->extent_ > shown)
-        text += " ... (" + std::to_string(array->extent_) + ")";
+    if (array->extent() > shown)
+        text += " ... (" + std::to_string(array->extent()) + ")";
     return text + "]";
 }
 
@@ -651,7 +651,7 @@ void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* 
 {
     if (!s || depth > 3)
         return;
-    for (script::Component* c = s->head_; c; c = c->next) {
+    for (script::Component* c = s->head(); c; c = c->next) {
         if (c->name == 0 && c->kind_tag() == script::kQbvalName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
             const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
@@ -695,9 +695,9 @@ bool level_is_shared(const char** game)
     static const uint32_t kLevel = name_hash("level"), kGameTag = name_hash("game_tag");
     for (const auto& entry : kLists) {
         script::Array* levels = script::fetch_list(entry.list);
-        if (!levels || levels->kind_tag_ != script::kQbvalStruct)
+        if (!levels || levels->kind_tag() != script::kQbvalStruct)
             continue;
-        for (uint32_t i = 0; i < levels->extent_; ++i) {
+        for (uint32_t i = 0; i < levels->extent(); ++i) {
             auto* info = levels->struct_at(i);
             uint32_t load = 0;
             if (info && info->read_hash_value(kLevel, &load, 0) && load == level) {

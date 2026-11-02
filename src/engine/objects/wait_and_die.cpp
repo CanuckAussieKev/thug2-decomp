@@ -52,9 +52,9 @@ void WaitAndDieComponent::tick_frame()
     elapsed_ = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(clock_offset()) - static_cast<uint32_t>(start));
     if (wait_for_) {
         if (!find_object(wait_for_))
-            die(entity_);
+            die(entity());
     } else if (elapsed_ > lifespan_) {
-        die(entity_);
+        die(entity());
     }
 }
 

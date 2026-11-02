@@ -37,10 +37,10 @@ FriendsManager* get_buddies() { return net_game_state().the_manager()->presence_
 
 void unlink_node(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 } // namespace

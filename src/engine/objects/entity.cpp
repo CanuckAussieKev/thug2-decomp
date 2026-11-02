@@ -261,7 +261,7 @@ void Entity::get_remove_tags(Array* names)
     if (!tag_table_)
         return;
     if (names) {
-        for (uint32_t i = 0; i < names->extent_; ++i) {
+        for (uint32_t i = 0; i < names->extent(); ++i) {
             const uint32_t name = names->fetch_part(i);
             tag_table_->erase_module(name);
             tag_table_->remove_flag(name);
@@ -294,7 +294,7 @@ bool Entity::fetch_labels(Array* names, Struct* dest)
 {
     if (!tag_table_)
         return true;
-    for (uint32_t i = names->extent_; i != 0;) {
+    for (uint32_t i = names->extent(); i != 0;) {
         --i;
         if (Component* tag = tag_table_->find_component(names->fetch_part(i)))
             add_copy(dest, tag);
@@ -346,7 +346,7 @@ uint32_t Entity::get_flag_mask(Struct* params, Script* /*script*/)
     int bit = 0;
     params->fetch_list(kUnnamed, &names, 0);
     if (names) {
-        for (uint32_t i = 0; i < names->extent_; ++i)
+        for (uint32_t i = 0; i < names->extent(); ++i)
             mask |= 1u << (script::fetch_int_value(names->fetch_part(i)) & 31);
         return mask;
     }

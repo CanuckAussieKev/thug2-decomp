@@ -214,8 +214,8 @@ void halt_stream(uint32_t id_or_name)
         if (!owner)
             continue;
         for (int i = 0; i < kStreams; ++i) {
-            if (core::at(owner->streams_, i) == id) {
-                core::at(owner->streams_, i) = 0;
+            if (core::at(owner->streams(), i) == id) {
+                core::at(owner->streams(), i) = 0;
                 core::at(get_owners(), slot) = nullptr;
                 return;
             }
@@ -315,7 +315,7 @@ bool update_stream_volume(int slot)
     if (!streams_on())
         return false;
     objects::AudioStreamModule* owner = core::at(get_owners(), slot);
-    const uint32_t id = core::at(owner->streams_, slot);
+    const uint32_t id = core::at(owner->streams(), slot);
     int index = 0;
     while (index < kStreams && stream_at(index)->id != id)
         ++index;
@@ -330,7 +330,7 @@ bool update_stream_volume(int slot)
     if (stream->use_pos_info_) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = render::fetch_nearest_camera(
-            &owner->entity_->at_point(), nullptr);
+            &owner->entity()->at_point(), nullptr);
         if (object) {
             auto* component = owner;
             maths::Vec4 extent{};
@@ -345,8 +345,8 @@ bool update_stream_volume(int slot)
             volume.change_muted();
         }
     } else {
-        std::memcpy(&core::at(volume.lanes_, 0), &stream->volume, 4);
-        std::memcpy(&core::at(volume.lanes_, 1), &stream->volume, 4);
+        std::memcpy(&core::at(volume.lanes(), 0), &stream->volume, 4);
+        std::memcpy(&core::at(volume.lanes(), 1), &stream->volume, 4);
     }
     if (std::bit_cast<uint32_t>(stream->volume) != kHundredPercent) // (the bits compared, as the original)
         volume.percent_tweak(stream->volume);

@@ -93,7 +93,7 @@ constexpr uint32_t kOff = 0xD443A2BC;              // off
 constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;    // NoFaceTexture
 
 // The profile manager's templates (its table, 0x00557FB0 by index) and each one's info structure.
-uint32_t template_count() { return objects::profile_roster()->templates().num_; }
+uint32_t template_count() { return objects::profile_roster()->templates().num(); }
 objects::RiderIdentity* template_at(uint32_t index)
 {
     // (0x00557FB0: the lookup table's by-index code, shared with the goal manager's)
@@ -133,9 +133,9 @@ bool cfunc_restore_temporary_appearance(script::Struct* params, script::Script*)
     objects::RiderIdentity* profile = manager->fetch_account(player);
     objects::RiderIdentity* remembered = manager->get_extra_profile(name);
     if (params->has_bare_flag(kNoFaceTexture)) {
-        auto* appearance = &profile->appearance()->structure_;
+        auto* appearance = &profile->appearance()->structure();
         appearance->get_clear();
-        appearance->append_structure_if_any(&remembered->appearance()->structure_);
+        appearance->append_structure_if_any(&remembered->appearance()->structure());
         return true;
     }
     profile->appearance()->copy_from(
@@ -155,13 +155,13 @@ bool cfunc_sync_player2_profile(script::Struct*, script::Script*)
 bool cfunc_reset_all_to_default_stats(script::Struct*, script::Script*)
 {
     script::Array* list = script::fetch_list(kMasterSkaterList);
-    for (uint32_t i = 0; i < list->extent_; ++i) {
+    for (uint32_t i = 0; i < list->extent(); ++i) {
         gsl::owner<script::Struct*> stats = script::new_struct();
         script::Struct* entry = table_row(list, i);
         uint32_t skater_name = 0; // (uninitialised in the original when missing, as the values below)
         entry->read_hash_value(kName, &skater_name, 1);
         script::Array* stat_names = script::fetch_list(kStatNames);
-        for (uint32_t j = 0; j < stat_names->extent_; ++j) {
+        for (uint32_t j = 0; j < stat_names->extent(); ++j) {
             uint32_t stat_name = 0;
             table_row(stat_names, j)->read_hash_value(kName, &stat_name, 1);
             int value = 0;
@@ -193,7 +193,7 @@ bool cfunc_reset_to_default_profile(script::Struct* params, script::Script*)
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kName, &name, 1);
     script::Array* list = script::fetch_list(kMasterSkaterList);
-    for (uint32_t i = 0; i < list->extent_; ++i) {
+    for (uint32_t i = 0; i < list->extent(); ++i) {
         script::Struct* entry = table_row(list, i);
         uint32_t entry_name = 0;
         entry->read_hash_value(kName, &entry_name, 1);
@@ -217,7 +217,7 @@ bool cfunc_reset_to_default_profile(script::Struct* params, script::Script*)
 bool cfunc_reset_all_to_default_profile(script::Struct*, script::Script*)
 {
     script::Array* list = script::fetch_list(kMasterSkaterList);
-    for (uint32_t i = 0; i < list->extent_; ++i) {
+    for (uint32_t i = 0; i < list->extent(); ++i) {
         script::Struct* entry = table_row(list, i);
         uint32_t name = 0;
         entry->read_hash_value(kName, &name, 1);
@@ -298,7 +298,7 @@ bool cfunc_set_skater_profile_info_by_name(script::Struct* params, script::Scrip
 bool cfunc_print_current_appearance(script::Struct* params, script::Script*)
 {
     objects::RiderIdentity* profile = get_profile_from_params(params);
-    script::dump_to_log(&profile->appearance()->structure_);
+    script::dump_to_log(&profile->appearance()->structure());
     return true;
 }
 
@@ -457,7 +457,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
 {
     objects::ProfileRoster* manager = objects::profile_roster();
     if (params->has_bare_flag(kAll)) {
-        const int count = static_cast<int>(manager->templates().num_);
+        const int count = static_cast<int>(manager->templates().num());
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
             manager->get_template_at(i)
                 ->add_max_specials(1);

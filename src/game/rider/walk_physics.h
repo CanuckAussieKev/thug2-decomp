@@ -417,8 +417,8 @@ public:
     [[nodiscard]] const maths::Vec4& vel() const { return vel_; }
     [[nodiscard]] float up_speed() const { return up_speed_; }
     void set_up_speed(float value) { up_speed_ = value; }
-    maths::Vec4& facing_value() { return facing_; }
-    [[nodiscard]] const maths::Vec4& facing_value() const { return facing_; }
+    maths::Vec4& facing() { return facing_; }
+    [[nodiscard]] const maths::Vec4& facing() const { return facing_; }
     maths::Vec4& old_pos() { return old_pos_; }
     [[nodiscard]] const maths::Vec4& old_pos() const { return old_pos_; }
     void set_anim_state(uint32_t value) { anim_state_ = value; }

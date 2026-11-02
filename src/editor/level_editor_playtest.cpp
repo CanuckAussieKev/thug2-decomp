@@ -493,7 +493,7 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     out->bailing = bailing;
     out->pending = 0;
     if (const objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
-        if (const modules::PointTally* s = core::down_cast<const objects::RiderPointKeeper>(score)->points_held_) {
+        if (const modules::PointTally* s = core::down_cast<const objects::RiderPointKeeper>(score)->points_held()) {
             const double points = static_cast<double>(s->pot()) * s->multiplier();
             if (points > 0.0 && points < 2.0e9)
                 out->pending = static_cast<int>(points);
@@ -615,10 +615,10 @@ std::vector<GapRead> read_gaps()
         return out;
     // (the list's nodes: the head's data is -1 - gap_checklist.cpp)
     int guard = 0;
-    for (const memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096; node = node->next) {
-        if (node->data == memory::ListNode::head_marker())
+    for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < 4096; node = node->next()) {
+        if (node->data() == memory::ListNode::head_marker())
             break;
-        auto* gap = static_cast<goals::GapEntry*>(node->data);
+        auto* gap = static_cast<goals::GapEntry*>(node->data());
         out.push_back({.name = gap->label().c_str() ? gap->label().c_str() : "", .pending = gap->pending(), .count = gap->num(), .score = gap->points_held()});
     }
     return out;
@@ -777,7 +777,7 @@ void pause_skaters()
     if (!skate)
         return;
     uint32_t count = 0;
-    for (const memory::ListNode* node = skate->riders().list_link_.next; node && !node->is_head(); node = node->next)
+    for (const memory::ListNode* node = skate->riders().list_link_.next(); node && !node->is_head(); node = node->next())
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));

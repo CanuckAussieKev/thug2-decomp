@@ -63,7 +63,7 @@ void d3dx_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 gsl::owner<ObjectModule*> ContactShapeModule::fabricate() { return new ContactShapeModule; }
 
 // (the constructor: inlined in fabricate in the original)
-ContactShapeModule::ContactShapeModule() { kind_tag_ = kType; }
+ContactShapeModule::ContactShapeModule() { set_kind_tag(kType); }
 
 // 0x0041C710 (0x0041C780 the deleting one)
 ContactShapeModule::~ContactShapeModule()
@@ -93,7 +93,7 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kName, &name, 1);
     const render::WorldCell* sector = look_up_sector(name); // (no such sector: a crash, as in the original)
     if (sector_collision(sector))
-        set_up_hit_shape(type, sector_collision(sector)->geometry_);
+        set_up_hit_shape(type, sector_collision(sector)->geometry());
     else
         set_up_hit_shape(type, nullptr);
 }
@@ -102,16 +102,16 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
 void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geometry)
 {
     if (geometry) {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, entity_);
+        hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, entity());
         return;
     }
-    const render::RenderModel* model = model_of(entity_->fetch_module(kModelModuleName));
+    const render::RenderModel* model = model_of(entity()->fetch_module(kModelModuleName));
     const auto* data =
         static_cast<const render::SubMesh*>(assets::asset_manager()->get_asset_data(model->source_path(), 0));
     if (data) {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, data->hit_shape(), data->collision_count(), entity_);
+        hit_shape_ = render::build_dynamic_hit_mesh(type, data->hit_shape(), data->collision_count(), entity());
     } else {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, entity_);
+        hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, entity());
     }
 }
 
@@ -121,19 +121,19 @@ void ContactShapeModule::tick_frame()
     render::HitMesh* collision = hit_shape_;
     if (!collision)
         return;
-    ObjectModule* model = entity_->fetch_module(kModelModuleName);
+    ObjectModule* model = entity()->fetch_module(kModelModuleName);
     const render::HierarchyNode* bone = model ? bone_of(model_of(model)) : nullptr;
     if (!bone) {
-        collision->place_at_absolute_point(&entity_->at_point());
-        collision->change_facing(&entity_->display_matrix());
+        collision->place_at_absolute_point(&entity()->at_point());
+        collision->change_facing(&entity()->display_matrix());
         return;
     }
     const maths::Vec4& translation = core::at(bone->matrix.row, 3);
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     const maths::Vec4 position = {.x = translation.x + pos.x, .y = translation.y + pos.y, .z = translation.z + pos.z, .w = pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
-    d3dx_multiply(&orientation, &bone->matrix, &entity_->display_matrix());
+    d3dx_multiply(&orientation, &bone->matrix, &entity()->display_matrix());
     collision->change_facing(&orientation);
 }
 

@@ -48,13 +48,26 @@ public:
     // 0x004A0D70: a camera marked for deletion is deleted (its virtual [0]) and let go.
     void remove_flagged_camera();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] float pos_x() const { return pos_x_; }
+    [[nodiscard]] float y() const { return y_; }
+    [[nodiscard]] float span() const { return span_; }
+    [[nodiscard]] float level_y() const { return level_y_; }
+    objects::SharedRef<gfx::ViewCam>& viewer() { return viewer_; }
+    [[nodiscard]] const objects::SharedRef<gfx::ViewCam>& viewer() const { return viewer_; }
+
+private:
     float pos_x_{0.0f}, y_{0.0f}, span_{1.0f}, level_y_{1.0f}; // +0x04 fractions of the screen
     uint32_t flag_bits_{0};                                    // +0x14 1: the camera is to be deleted
     objects::SharedRef<gfx::ViewCam> viewer_; // +0x18
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ViewRegion, flag_bits_) == 0x14 && offsetof(ViewRegion, viewer_) == 0x18 &&
+                          sizeof(ViewRegion) == 0x24,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ViewRegion, flag_bits_) == 0x14 && offsetof(ViewRegion, viewer_) == 0x18 &&
-                  sizeof(ViewRegion) == 0x24,
-              "layout must match the original");
 
 // An occlusion query asked for (0x10 bytes; four kept at 0x00701390): the query's slot (filled in by
 // request_occlusion_query), what's called once it's drawn (data, slot) and whether that's been done.

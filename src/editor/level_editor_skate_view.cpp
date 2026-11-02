@@ -240,9 +240,9 @@ void add_overlay(const overlays::Painter& painter)
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
             const render::HitMesh* coll = sector->hit_body();
-            if (!render::is_static_collider(coll) || (coll->flag_bits_ & 4))
+            if (!render::is_static_collider(coll) || (coll->flag_bits() & 4))
                 return; // (no collision, or switched off)
-            const auto* tri = coll->geometry_;
+            const auto* tri = coll->geometry();
             if (!tri || !tri->tri_count() || view::hidden_sector(checksum))
                 return;
             const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds().min), to_v3(tri->bounds().max));

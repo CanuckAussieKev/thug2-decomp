@@ -122,7 +122,7 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
     const int b = get_rand();
     material->set_checksum(a * b);                                  // a random checksum
     material->set_pass_count(1);                                   // one pass
-    core::at(material->textures_value(), 0) = texture;
+    core::at(material->textures(), 0) = texture;
     material->set_two_sided(1);
     material->set_depth_bias(4);
     core::at(material->blend_modes(), 0) = blend_mode_from_name(blend_name);
@@ -167,11 +167,11 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
         if (!geom)
             continue;
         for (MeshRef* const mesh : geom->mesh_run()) {
-            if (mesh->flags_value() & 2)
+            if (mesh->flags() & 2)
                 continue;
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, 0x10);
-            const gpu::VertexView mesh_vertices(vertices, mesh->stride_value(), mesh->vertex_count());
+            const gpu::VertexView mesh_vertices(vertices, mesh->stride(), mesh->vertex_count());
             uint16_t* locked_indices = nullptr;
             core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, 0x10);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));

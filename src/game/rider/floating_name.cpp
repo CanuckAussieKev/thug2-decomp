@@ -73,7 +73,7 @@ void run_with_label_id(uint32_t name, uint32_t label_id)
 gsl::owner<ObjectModule*> RiderOverheadTag::fabricate() { return new RiderOverheadTag; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderOverheadTag::RiderOverheadTag() { kind_tag_ = kSkaterFloatingName; }
+RiderOverheadTag::RiderOverheadTag() { set_kind_tag(kSkaterFloatingName); }
 
 // 0x00511AA0 (0x00511B80 the deleting one)
 RiderOverheadTag::~RiderOverheadTag() { run_with_label_id(kDestroyObjectLabel, label_id_); }
@@ -81,7 +81,7 @@ RiderOverheadTag::~RiderOverheadTag() { run_with_label_id(kDestroyObjectLabel, l
 // 0x00511780
 void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 {
-    const uint32_t id = entity_->ident();
+    const uint32_t id = entity()->ident();
     if (id < 8)
         label_id_ = core::at(kLabelIds, id);
 }
@@ -99,9 +99,9 @@ void RiderOverheadTag::tick_frame()
         frontend::UiTree::sole()->fetch_part(&found, label_id_, 0);
         label = found.get_pull();
     }
-    const online::PlayerRecord* player = find_player_slot_by_obj(entity_->ident());
-    auto* skater = core::down_cast<Rider>(entity_);
-    if (!skater->get_flag_2c_4() || (entity_->composite_flags() & kCompositeFlagHidden)) {
+    const online::PlayerRecord* player = find_player_slot_by_obj(entity()->ident());
+    auto* skater = core::down_cast<Rider>(entity());
+    if (!skater->get_flag_2c_4() || (entity()->composite_flags() & kCompositeFlagHidden)) {
         if (label)
             run_with_label_id(kDestroyObjectLabel, label_id_);
         return;
@@ -112,11 +112,11 @@ void RiderOverheadTag::tick_frame()
         new (params) script::Struct;
     params->put_name_key(kId, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
-    const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team()) : entity_->ident();
+    const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team()) : entity()->ident();
     std::array<char, 64> text{};
     text::format_to(text, "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
     params->append_word(kText, text.data());
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     params->put_vec3(kPos3d, pos.x, height + pos.y, pos.z);
     if (label) // (Entity's virtual change_traits: whatever object has the id)
         label->change_traits(params);

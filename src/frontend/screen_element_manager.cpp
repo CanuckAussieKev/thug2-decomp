@@ -116,10 +116,10 @@ void UiTree::drop_entity_registration(objects::Entity* object)
     element.assign_value(as_element(object));
     if (element && tree_root_.get_pull() == element.get_pull()) {
         tree_root_.get_release();
-        for (const memory::ListNode* node = entities_.next; node->data != memory::ListNode::head_marker();
-             node = node->next) {
+        for (const memory::ListNode* node = entities().next(); node->data() != memory::ListNode::head_marker();
+             node = node->next()) {
             ElementPtr candidate;
-            candidate.assign_value(static_cast<UiWidget*>(node->data));
+            candidate.assign_value(static_cast<UiWidget*>(node->data()));
             if (!candidate->container() && candidate.get_pull() != element.get_pull()) {
                 tree_root_.get_assign(&candidate);
                 break;
@@ -343,15 +343,15 @@ void UiTree::lock_tree(int lock)
 // 0x004AAEE0
 void UiTree::set_paused_all(bool pause)
 {
-    const memory::ListNode* node = entities_.next;
-    if (node->data == memory::ListNode::head_marker())
+    const memory::ListNode* node = entities().next();
+    if (node->data() == memory::ListNode::head_marker())
         return;
     while (node) {
         ElementPtr element;
-        element.assign_value(static_cast<UiWidget*>(node->data));
+        element.assign_value(static_cast<UiWidget*>(node->data()));
         element->set_frozen(pause);
-        node = node->next;
-        if (node->data == memory::ListNode::head_marker())
+        node = node->next();
+        if (node->data() == memory::ListNode::head_marker())
             node = nullptr;
     }
 }
@@ -458,53 +458,53 @@ void UiTree::listener_receive(objects::Signal* event)
     UiTree* manager = this;
     if (manager->pad_event_kind_count_ == 0) {
         script::Array* types = script::fetch_list(pad_event_types_name()); // (the original passes 1 as well: unused)
-        manager->pad_event_kind_count_ = static_cast<int>(types->extent_);
+        manager->pad_event_kind_count_ = static_cast<int>(types->extent());
         for (int i = 0; i < manager->pad_event_kind_count_; ++i)
             core::at(manager->pad_event_types_, i) = types->fetch_part(i);
     }
     bool pad_event = false;
     if (manager->num_priorities_ > 0) {
         for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
-            if (event->kind_tag_ == core::at(manager->pad_event_types_, i)) {
+            if (event->kind_tag() == core::at(manager->pad_event_types_, i)) {
                 pad_event = true;
                 break;
             }
         }
     }
-    if (manager->check_device_ && event->payload_) {
+    if (manager->check_device_ && event->payload()) {
         int device = 0;
-        if (event->payload_->fetch_int_value(kDeviceNum, &device, 0)) {
+        if (event->payload()->fetch_int_value(kDeviceNum, &device, 0)) {
             auto* input = pad_input::get_input_manager(); // (the input manager)
             if (input->get_player_controller(0) != device)
                 return;
         }
     }
     objects::EventWaitBoard* tracker = objects::get_tracker();
-    if (event->kind_tag_ == kFocus && event->aim_point_ != kSystem) {
+    if (event->kind_tag() == kFocus && event->aim_point() != kSystem) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point_, 0);
+        manager->fetch_part(&element, event->aim_point(), 0);
         if (element && !element->input_suppressed()) {
             manager->add_focus_entry(&element, objects::event_controller(event));
             set_event_consumed(event, 1, 0);
         }
     }
-    if (event->kind_tag_ == kUnfocus && event->aim_point_ != kSystem) {
+    if (event->kind_tag() == kUnfocus && event->aim_point() != kSystem) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point_, 0);
+        manager->fetch_part(&element, event->aim_point(), 0);
         if (element && !element->input_suppressed()) {
             manager->remove_focus_entries(&element, false, false);
             set_event_consumed(event, 1, 0);
         }
     }
-    if (event->kind_tag_ == kFocusClearedEvent) {
+    if (event->kind_tag() == kFocusClearedEvent) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point_, 0);
+        manager->fetch_part(&element, event->aim_point(), 0);
         manager->remove_focus_entries(&element, true, true);
         set_event_consumed(event, 1, 0);
     }
-    if (event->kind_tag_ == kFocusSentEvent) {
+    if (event->kind_tag() == kFocusSentEvent) {
         ElementPtr element;
-        manager->fetch_part(&element, event->aim_point_, 0);
+        manager->fetch_part(&element, event->aim_point(), 0);
         manager->clear_marks(&element);
         set_event_consumed(event, 1, 0);
         element.get_release();
@@ -513,12 +513,12 @@ void UiTree::listener_receive(objects::Signal* event)
     // change of the list starts the round again with the elements not offered it yet)
     bool is_pad_type = false;
     for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
-        if (event->kind_tag_ == core::at(manager->pad_event_types_, i)) {
+        if (event->kind_tag() == core::at(manager->pad_event_types_, i)) {
             is_pad_type = true;
             break;
         }
     }
-    if (!is_pad_type || event->aim_point_ != kSystem)
+    if (!is_pad_type || event->aim_point() != kSystem)
         return;
     const int controller = objects::event_controller(event);
     for (FocusEntry* entry = core::at(manager->focus_lists_, controller); entry; entry = entry->next)
@@ -530,7 +530,7 @@ void UiTree::listener_receive(objects::Signal* event)
             if (!entry->tried && !entry->marked && !entry->element->input_suppressed()) {
                 if (pad_event && (!entry->element->has_priority() || !manager->has_top_precedence(entry->id)))
                     continue;
-                if (tracker->launch_event(event->kind_tag_, entry->element->ident(), event->from_where_, event->payload_,
+                if (tracker->launch_event(event->kind_tag(), entry->element->ident(), event->from_where(), event->payload(),
                                           false, -1.0f)) {
                     event->set_event_handled(1, 0);
                     return;

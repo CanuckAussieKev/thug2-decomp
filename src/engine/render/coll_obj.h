@@ -113,6 +113,18 @@ public:
     // 0x0040AEB0: the geometry's occlusion polygons (TriMeshSource::add_occlusion_polys).
     void add_occlusion_polys();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void assign_checksum(uint32_t value) { checksum_ = value; }
+    uint16_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint16_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] uint8_t visit_stamp() const { return visit_stamp_; }
+    void set_visit_stamp(uint8_t value) { visit_stamp_ = value; }
+    TriMeshSource*& geometry() { return geometry_; }
+    [[nodiscard]] TriMeshSource* geometry() const { return geometry_; }
+    void set_geometry(TriMeshSource* value) { geometry_ = value; }
+
+private:
     uint32_t checksum_{};   // +0x04
     uint16_t flag_bits_{0}; // +0x08
     uint8_t visit_stamp_{}; // +0x0A the grid queries' mark (0x00693998): already listed this query
@@ -136,8 +148,13 @@ protected:
     // see StaticCollider::collide_with_sphere / collide_with_capsule.
     bool collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits);
     bool collide_faces_with_capsule(const maths::Capsule* capsule, const maths::BBox* box, CapsuleHits* hits);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(HitMesh) == 0x10 && offsetof(HitMesh, checksum_) == 4, "layout must match the original");
+    }
 };
-static_assert(sizeof(HitMesh) == 0x10 && offsetof(HitMesh, checksum_) == 4, "layout must match the original");
 
 // (The lists of collision objects: lists::Elem<HitMesh>'s destructors 0x004131D0 / 0x00411880, the heads' constructor
 // 0x00413180 and scalar deleting destructor 0x004131A0 - memory::ListNode's make_head / uncouple / destroy.)
@@ -191,13 +208,22 @@ public:
     // 0x00411DD0: the box made from the children's.
     void recompute_b_box();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] memory::ListNode* sub_nodes() const { return sub_nodes_; }
+    void set_dirty(bool value) { dirty_ = value; }
+
+private:
     memory::ListNode* sub_nodes_; // +0x10 the head (lists::Foremost<HitMesh>)
     maths::BBox box_;             // +0x14
     bool dirty_{true};            // +0x34
     bool box_valid_{};            // +0x35
     std::array<uint8_t, 2> pad36{};
     objects::GameEntity* owner_{}; // +0x38
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(HitMeshGroup) == 0x3C && offsetof(HitMeshGroup, box_) == 0x14, "layout must match the original");
+    }
 };
-static_assert(sizeof(HitMeshGroup) == 0x3C && offsetof(HitMeshGroup, box_) == 0x14, "layout must match the original");
 
 } // namespace render

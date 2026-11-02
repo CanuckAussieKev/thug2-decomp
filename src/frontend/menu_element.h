@@ -85,6 +85,7 @@ public:
     // unfocus then go on to the focusable child (with the event's controller).
     bool pass_event_to_script(objects::Signal* event) override;
 
+private:
     uint32_t focusable_child_{0}; // +0x178
 };
 

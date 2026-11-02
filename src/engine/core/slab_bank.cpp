@@ -140,7 +140,7 @@ void return_entry(int index, void* item)
 
 void* PoolPair::carve(unsigned int size)
 {
-    if (SlabBank* pool = core::at(pools, current)) {
+    if (SlabBank* pool = core::at(pools_, current_)) {
         // Not original - an object bigger than the pool's items (its class grew, the pool's size didn't) ends the
         // game with a report instead of running into the next item.
         Expects(std::cmp_less_equal(size, pool->slot_bytes()));
@@ -151,8 +151,8 @@ void* PoolPair::carve(unsigned int size)
 
 void PoolPair::dealloc(void* item)
 {
-    for (const int which : {current, current ^ 1}) {
-        SlabBank* pool = core::at(pools, which);
+    for (const int which : {current_, current_ ^ 1}) {
+        SlabBank* pool = core::at(pools_, which);
         if (pool && pool->get_holds(item)) {
             pool->dealloc(item);
             return;

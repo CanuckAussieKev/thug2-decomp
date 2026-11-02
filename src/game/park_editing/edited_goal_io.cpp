@@ -157,7 +157,7 @@ void EditedGoal::decode_from_struct(script::Struct* params)
     std::strcpy(ped_name_.data(), text);
     script::Array* points = nullptr;
     if (params->fetch_list(0x32DF12E0, &points, 0)) {
-        vertex_total_ = static_cast<uint8_t>(points->extent_);
+        vertex_total_ = static_cast<uint8_t>(points->extent());
         for (uint32_t i = 0; i < vertex_total_; ++i) {
             script::Struct* point = structure_element(points, i);
             point->fetch_vec(0x7F261953, (&core::at(path_vertices_, i).pos), 0);
@@ -201,7 +201,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         script::Array* combos = nullptr;
         structure_element(all_sets, core::at(key_combo_sets_, i).set)->fetch_list(0x79704516, &combos, 0);
-        total += combos->extent_;
+        total += combos->extent();
     }
     gsl::owner<script::Array*> result = new_array_of(total, kStructureArray);
     uint32_t index = 0;
@@ -209,9 +209,9 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
         const KeyComboSet& set = core::at(key_combo_sets_, i);
         script::Array* combos = nullptr;
         structure_element(all_sets, set.set)->fetch_list(0x79704516, &combos, 0);
-        for (uint32_t j = 0; j < combos->extent_; ++j) {
+        for (uint32_t j = 0; j < combos->extent(); ++j) {
             gsl::owner<script::Struct*> entry = script::new_struct();
-            if (combos->kind_tag_ == kChecksumArray)
+            if (combos->kind_tag() == kChecksumArray)
                 entry->put_name_key(0xACFDB27A, combos->fetch_part(j));
             else
                 entry->append_structure_if_any(structure_element(combos, j));

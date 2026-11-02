@@ -710,10 +710,10 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, float
     script::Array* array = nullptr;
     if (!params->fetch_list(name, &array, 0))
         return false;
-    if (array->kind_tag_ == script::kQbvalFloat) {
+    if (array->kind_tag() == script::kQbvalFloat) {
         *x = array->fetch_float(0);
         *y = array->fetch_float(1);
-    } else if (array->kind_tag_ == script::kQbvalName) {
+    } else if (array->kind_tag() == script::kQbvalName) {
         std::array<float, 2> just{};
         for (int i = 0; i < 2; ++i) {
             const uint32_t side = array->fetch_part(i);
@@ -736,7 +736,7 @@ bool UiWidget::read_colour_param(script::Struct* params, uint32_t name, uint32_t
     script::Array* array = nullptr;
     if (!params->fetch_list(name, &array, 0))
         return false;
-    const uint32_t count = array->extent_;
+    const uint32_t count = array->extent();
     uint32_t value = 0;
     for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(count); ++i)
         value |= (array->fetch_part(i) & 0xFF) << ((8 * i) & 31);

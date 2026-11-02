@@ -246,7 +246,7 @@ void MatchRules::build_victory_conditions()
         return;
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap());
-    for (uint32_t i = 0; i < conditions->extent_; ++i) {
+    for (uint32_t i = 0; i < conditions->extent(); ++i) {
         gsl::owner<WinRule*> condition = create_victory_condition(conditions->struct_at(i));
         auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));
         if (node) {
@@ -315,7 +315,7 @@ bool MatchRules::apply_match_style(uint32_t type)
         args_.fetch_int_value(kMaxPlayers, &max_players, true);
     args_.get_clear();
     script::Array* modes = script::fetch_list(kModeInfo);
-    for (uint32_t i = 0; i < modes->extent_; ++i) {
+    for (uint32_t i = 0; i < modes->extent(); ++i) {
         auto* mode = modes->struct_at(i);
         uint32_t name = 0;
         mode->read_hash_value(kChecksum, &name, true);

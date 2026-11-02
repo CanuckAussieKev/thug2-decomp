@@ -82,7 +82,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 int SkaterPhysicsModule::is_sides_swapped()
 {
     const uint8_t flipped = state_->flag(PoseFlag::kFlipped).on;
-    if (core::down_cast<objects::Rider>(entity_)->goofy())
+    if (core::down_cast<objects::Rider>(entity())->goofy())
         return flipped;
     return flipped ? 0 : 1;
 }
@@ -105,12 +105,12 @@ void SkaterPhysicsModule::configure_from_data(script::Struct*)
     rolling_friction_ = tuning_float_lookup(kCoastDrag, object_of(this));
     objects::GameEntity* object = object_of(this);
     object->at_point() = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    maths::Mat4& matrix = entity_->basis_frame();
+    maths::Mat4& matrix = entity()->basis_frame();
     core::at(matrix.row, 0) = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
     core::at(matrix.row, 1) = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
     core::at(matrix.row, 2) = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
     core::at(matrix.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
     drawn_normal_ = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
     floor_normal_ = drawn_normal_;
     old_normal_ = drawn_normal_;
@@ -121,18 +121,18 @@ void SkaterPhysicsModule::configure_from_data(script::Struct*)
 // 0x004FC690
 void SkaterPhysicsModule::seal()
 {
-    find_module(entity_, input_, 0x27D7CD28);             // Input
-    find_module(entity_, sound_, 0x187574FA);             // SkaterSound
-    find_module(entity_, trigger_, 0xE594F0A2);           // Trigger
-    find_module(entity_, trick_, 0x270F56E1);             // Trick
-    find_module(entity_, rotate_, 0x52D61A0D);            // SkaterRotate
-    find_module(entity_, score_, 0xD262802F);             // SkaterScore
-    find_module(entity_, balance_, 0x589E5FB3);           // SkaterBalanceTrick
-    find_module(entity_, state_, 0x43686585);             // SkaterState
-    find_module(entity_, ride_, 0x408D2AA9);              // MovableContact
-    find_module(entity_, physics_control_, 0xD9151D4D);   // SkaterPhysicsControl
-    find_module(entity_, walk_, 0x726E85AA);              // Walk
-    find_module(entity_, tagging_component_, 0x380D909A); // (the projectiles')
+    find_module(entity(), input_, 0x27D7CD28);             // Input
+    find_module(entity(), sound_, 0x187574FA);             // SkaterSound
+    find_module(entity(), trigger_, 0xE594F0A2);           // Trigger
+    find_module(entity(), trick_, 0x270F56E1);             // Trick
+    find_module(entity(), rotate_, 0x52D61A0D);            // SkaterRotate
+    find_module(entity(), score_, 0xD262802F);             // SkaterScore
+    find_module(entity(), balance_, 0x589E5FB3);           // SkaterBalanceTrick
+    find_module(entity(), state_, 0x43686585);             // SkaterState
+    find_module(entity(), ride_, 0x408D2AA9);              // MovableContact
+    find_module(entity(), physics_control_, 0xD9151D4D);   // SkaterPhysicsControl
+    find_module(entity(), walk_, 0x726E85AA);              // Walk
+    find_module(entity(), tagging_component_, 0x380D909A); // (the projectiles')
 }
 
 // 0x004FDD50
@@ -219,9 +219,9 @@ void SkaterPhysicsModule::turn_around()
     objects::GameEntity* object = object_of(this);
     maths::Vec4& facing = core::at(object->basis_frame().row, 2);
     facing = maths::Vec4(-facing.x, -facing.y, -facing.z, -facing.w);
-    maths::Vec4& right = core::at(entity_->basis_frame().row, 0);
+    maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     right = maths::Vec4(-right.x, -right.y, -right.z, -right.w);
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
     rail_backwards_ = rail_backwards_ ? 0 : 1;
 }
 

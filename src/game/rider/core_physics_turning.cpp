@@ -109,7 +109,7 @@ void SkaterPhysicsModule::turn_for_rail_jump()
         angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
     else
         return;
-    turn_velocity(entity_->vel(), angle);
+    turn_velocity(entity()->vel(), angle);
     turn_matrices(angle);
 }
 
@@ -121,7 +121,7 @@ void SkaterPhysicsModule::turn_on_ground()
         return;
     }
     objects::PadSnapshot* pad = &input_->pad_primary();
-    auto speed = static_cast<float>(length_unrounded(entity_->vel()));
+    auto speed = static_cast<float>(length_unrounded(entity()->vel()));
     objects::GameEntity* object = object_of(this);
     // Left / right (&pad->left_side_ / +0x60); with the sharp turn button (+0x20) harder - and, slower than 10, the turn
     // ramps up over the first 600 ms the button is held.
@@ -152,7 +152,7 @@ void SkaterPhysicsModule::turn_on_ground()
     auto angle = static_cast<float>(step);
     last_spin_backside_ = step > 0.0 ? 1 : 0;
     if (!lock_velocity_)
-        turn_velocity(entity_->vel(), angle);
+        turn_velocity(entity()->vel(), angle);
     turn_matrices(angle);
 }
 
@@ -162,10 +162,10 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
     // Not original: THAW 0x005CCBF0 (the on-bike flag tested first, 0x005CCBF6) - on the bike rolling backwards into a
     // wall: stopped, no bounce (`turn` left as it is).
     if (thaw_bmx::live_now(this) && thaw_bmx::rolling_backwards(this)) {
-        entity_->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return 0.0f;
     }
-    const maths::Vec4& side = core::at(entity_->basis_frame().row, 0);
+    const maths::Vec4& side = core::at(entity()->basis_frame().row, 0);
     auto cosine = static_cast<float>(static_cast<double>(side.z) * normal->z + static_cast<double>(side.y) * normal->y +
                                      static_cast<double>(normal->x) * side.x);
     if (cosine > 1.0f)
@@ -178,7 +178,7 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
         angle = angle - kPi;
     const double amount = static_cast<double>(script::fetch_float(kWallBounceMultiplier)) * angle * scale;
     *turn = static_cast<float>(amount);
-    turn_velocity(entity_->vel(), amount); // (by the unrounded turn)
+    turn_velocity(entity()->vel(), amount); // (by the unrounded turn)
     turn_matrices(*turn);
     return angle;
 }
@@ -240,7 +240,7 @@ void SkaterPhysicsModule::natas_spin()
     }
     if (show) {
         const int shown = static_cast<int>(ftol(trick_->spin_total()));
-        void* display = score_->points_held_;
+        void* display = score_->points_held();
         static_cast<modules::PointTally*>(display)->advance_turn(shown);
     }
     natas_spin_time_ = get_now();
@@ -274,7 +274,7 @@ void SkaterPhysicsModule::lean_in_air()
         return;
     if (time < end)
         lean = static_cast<float>((static_cast<double>(time) - start) * lean / (static_cast<double>(end) - start));
-    entity_->basis_frame().pitch_locally(lean * frame_length_);
+    entity()->basis_frame().pitch_locally(lean * frame_length_);
     display_matrix_.pitch_locally(lean * frame_length_);
 }
 
@@ -297,9 +297,9 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
     last.invert_orthonormal();
     maths::Mat4 change{};
     maths::get_multiply(change, last, slerped);
-    maths::Mat4& matrix = entity_->basis_frame();
+    maths::Mat4& matrix = entity()->basis_frame();
     maths::get_multiply(matrix, matrix, change);
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
     drop_last_matrix_ = slerped;
 }
 
@@ -308,12 +308,12 @@ void SkaterPhysicsModule::recover_in_air()
 {
     if (state_->flag(PoseFlag::kAcidDrop).on)
         return;
-    if (entity_->vel().y > 0.0f && ride_->ride_)
+    if (entity()->vel().y > 0.0f && ride_->ride())
         return;
     // Ground (not vert, not too steep) within 500 below.
     render::ProbeRay feeler;
-    feeler.line().start = entity_->at_point();
-    feeler.line().end = entity_->at_point();
+    feeler.line().start = entity()->at_point();
+    feeler.line().end = entity()->at_point();
     feeler.line().end.y = feeler.line().end.y - kRecoverFeelerLength;
     if (!feeler.get_hit_shape(true, false))
         return;
@@ -337,7 +337,7 @@ void SkaterPhysicsModule::recover_in_air()
     flat.make_unit();
     const maths::Vec4 axis = {.x = -flat.z, .y = 0.0f, .z = flat.x, .w = 0.0f};
     object->basis_frame().spin_by(axis, rate * frame_length_);
-    display_matrix_ = entity_->basis_frame();
+    display_matrix_ = entity()->basis_frame();
 }
 
 // 0x00504DF0
@@ -359,8 +359,8 @@ void SkaterPhysicsModule::keep_upright()
     } else {
         return;
     }
-    entity_->basis_frame().roll_in_own_frame(static_cast<float>(angle));
-    display_matrix_ = entity_->basis_frame();
+    entity()->basis_frame().roll_in_own_frame(static_cast<float>(angle));
+    display_matrix_ = entity()->basis_frame();
 }
 
 } // namespace skater

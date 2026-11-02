@@ -87,8 +87,8 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(sizeof(memory::SlabBank), 1, nullptr);
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
-    core::at(pools.pools, pools.current) = pool;
-    core::at(pools.made_here_, pools.current) = 1;
+    core::at(pools.pools(), pools.current()) = pool;
+    core::at(pools.made_here(), pools.current()) = 1;
 }
 
 // 0x0046F690
@@ -492,7 +492,7 @@ void log_script_pool_use(const char* when)
     std::string line;
     for (const Named& p : pools) {
         int used = 0, peak = 0, count = 0;
-        for (const memory::SlabBank* pool : p.pair->pools) {
+        for (const memory::SlabBank* pool : p.pair->pools()) {
             if (!pool)
                 continue;
             used += pool->taken_count();

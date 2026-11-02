@@ -56,7 +56,7 @@ void log_memory_use(const char* when)
     std::string line;
     std::array<char, 160> part{};
     text::format_to(part, "main block %d KB, free %d KB (least %d KB); heaps:", kb(sizes::main_block_size()),
-                    kb(main->free_byte_count()), kb(main->min_available_));
+                    kb(main->free_byte_count()), kb(main->min_available()));
     line += part.data();
     for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         if (heap->max_used_size() < 64 * 1024)

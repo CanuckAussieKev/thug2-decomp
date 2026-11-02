@@ -136,6 +136,7 @@ public:
     // (the original's slot is the skate module's stop, 0x00564C50 - folded: the task at +0x14 out of its list)
     void stop_callback() override { task_->drop_out(); }
 
+private:
     std::unique_ptr<tasks::Task<AsyncLoaderModule>> task_; // +0x14 running async_loader_task
 };
 static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");

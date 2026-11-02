@@ -85,13 +85,13 @@ bool BodyDynamicsModule::find_contacts()
             .x = get_narrow(get_wide(centre.x) + at_point_.x), .y = get_narrow(get_wide(centre.y) + at_point_.y),
             .z = get_narrow(get_wide(at_point_.z) + centre.z), .w = get_narrow(get_wide(centre.w) + at_point_.w)};
         render::SphereFeeler feeler(&at, sphere.radius);
-        feeler.hit_cache_ = body_cache();
+        feeler.set_hit_cache(body_cache());
         if (!feeler.get_query(0))
             continue;
-        for (int k = feeler.hits_.count - 1; k >= 0; --k) {
-            const render::SphereHit& hit = core::at(feeler.hits_.hits, k);
+        for (int k = feeler.hits().count - 1; k >= 0; --k) {
+            const render::SphereHit& hit = core::at(feeler.hits().hits, k);
             Contact& contact = core::at(get_contacts(), contacts_hit_);
-            const maths::Vec4& c = feeler.bound_ball_.centre;
+            const maths::Vec4& c = feeler.bound_ball().centre;
             const double ox = get_wide(hit.point.x) - at_point_.x;
             const double oy = get_wide(hit.point.y) - at_point_.y;
             contact.offset.z = get_narrow(get_wide(hit.point.z) - at_point_.z);

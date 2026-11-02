@@ -357,7 +357,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
                 script::Array* array = nullptr;
                 goals->fetch_list(kGoals, &array, 0);
                 if (array)
-                    count = static_cast<int>(array->extent_);
+                    count = static_cast<int>(array->extent());
             }
             summary->put_int(kNumEditedGoals, count);
             int max_players = 1;
@@ -376,7 +376,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         case kSaveCreatedGoals: {
             script::Array* goals = nullptr;
             saved->fetch_list(kGoals, &goals, 0);
-            summary->put_int(kNumEditedGoals, goals ? static_cast<int>(goals->extent_) : 0);
+            summary->put_int(kNumEditedGoals, goals ? static_cast<int>(goals->extent()) : 0);
             break;
         }
         case kSaveOptionsAndPros: {
@@ -428,7 +428,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     switch (type) {
     case kSaveCat: {
         auto* skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(0));
-        Struct* trick_record = core::at(skater->trick_slots(), 0)->other_params_;
+        Struct* trick_record = core::at(skater->trick_slots(), 0)->other_params();
         const char* name = empty;
         trick_record->fetch_text(kName, &name, 1);
         summary->append_word(kName, name);
@@ -451,7 +451,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveNetworkSettings: {
-        Struct* settings = &online::net_game_state().online_hub()->get_online_settings()->top_entry_;
+        Struct* settings = &online::net_game_state().online_hub()->get_online_settings()->top_entry();
         Struct* network_id = nullptr;
         settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
         const char* text = empty;

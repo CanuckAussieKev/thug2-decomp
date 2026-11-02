@@ -40,7 +40,7 @@ Array* find_array(script::Script* script, uint32_t name)
 // with no case - scripts, functions... - add nothing).
 void add_element(Struct* results, Array* array, uint32_t index)
 {
-    switch (array->kind_tag_) {
+    switch (array->kind_tag()) {
     case script::kQbvalInteger:
         results->put_int(kVal, static_cast<int>(array->fetch_part(index)));
         break;
@@ -83,8 +83,8 @@ bool cfunc_array_contains(Struct* params, script::Script*)
 {
     Array* array = nullptr;
     params->fetch_list(kArray, &array, 1);
-    const script::QbValueKind type = array->kind_tag_;
-    for (uint32_t i = 0; i < array->extent_; ++i) {
+    const script::QbValueKind type = array->kind_tag();
+    for (uint32_t i = 0; i < array->extent(); ++i) {
         switch (type) {
         case script::kQbvalInteger: {
             int value = 0;
@@ -134,7 +134,7 @@ bool cfunc_get_array_size(Struct* params, script::Script* script)
     if (!array)
         get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
                 script::find_checksum_name_or_unknown(script->script_title()));
-    script->args()->put_int(kArraySize, static_cast<int>(array->extent_));
+    script->args()->put_int(kArraySize, static_cast<int>(array->extent()));
     return true;
 }
 
@@ -181,7 +181,7 @@ bool cfunc_get_nd_array_data(Struct* params, script::Script* script)
     Array* indices = nullptr;
     script->args()->fetch_list(kIndices, &indices, 1);
     uint32_t i = 0;
-    for (; i < indices->extent_ - 1; ++i)
+    for (; i < indices->extent() - 1; ++i)
         array = element_array(array, indices->fetch_part(i));
     add_element(script->args().get(), array, indices->fetch_part(i));
     return true;

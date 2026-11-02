@@ -138,7 +138,7 @@ const char* skater_model_name(script::Struct* params)
     uint32_t profile = 0;
     if (params->read_hash_value(kProfile, &profile, 0)) {
         script::Array* profiles = script::fetch_list(kProfiles);
-        for (int i = 0; i < ints::as_signed(profiles->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(profiles->extent()); ++i) {
             auto* entry = profiles->struct_at(static_cast<uint32_t>(i));
             uint32_t name = 0; // (asserted: the original's is uninitialised)
             entry->read_hash_value(kProfileName, &name, 1);
@@ -184,7 +184,7 @@ void add_cutscene_lights()
     script::Array* lights = script::fetch_list(kLights);
     if (!lights)
         return;
-    const int count = static_cast<int>(lights->extent_);
+    const int count = static_cast<int>(lights->extent());
     for (int i = 0; i < count; ++i) {
         script::Struct* node = script::read_sub_struct(lights->fetch_part(static_cast<uint32_t>(i)));
         render::create_light_from_node(node);
@@ -197,7 +197,7 @@ void remove_cutscene_lights()
     script::Array* lights = script::fetch_list(kLights);
     if (!lights)
         return;
-    const int count = static_cast<int>(lights->extent_);
+    const int count = static_cast<int>(lights->extent());
     for (int i = 0; i < count; ++i) {
         script::Struct* node = script::read_sub_struct(lights->fetch_part(static_cast<uint32_t>(i)));
         render::delete_scene_light(level_nodes::get_node_name(node));
@@ -287,7 +287,7 @@ void CinematicTable::show_hidden_objects()
     script::Array* hidden = script::fetch_list(kCutsceneHideList);
     if (!hidden)
         return;
-    for (uint32_t i = 0; i < hidden->extent_; ++i) {
+    for (uint32_t i = 0; i < hidden->extent(); ++i) {
         auto* object = core::down_cast<GameEntity>(find_object(hidden->fetch_part(i)));
         if (!object)
             continue;
@@ -336,7 +336,7 @@ void CinematicTable::update_object_poses()
         if (!component)
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-        gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
+        gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig();
         render::FrameSource* source = entry.animation->source;
         void* animation = entry.animation->data;
         skeleton->set_lod(0.0f);

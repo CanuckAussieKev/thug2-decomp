@@ -494,7 +494,7 @@ void FallingTricksGoal::add_tricks(int count)
             script::Array* tricks = nullptr;
             args()->fetch_list(kStackTrickList, &tricks, 1);
             auto* trick =
-                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent_)));
+                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent())));
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
@@ -513,7 +513,7 @@ void FallingTricksGoal::add_tricks(int count)
             const int index = pick_key_combo(key_combos);
             if (index == -1)
                 return;
-            if (key_combos->kind_tag_ == script::kQbvalName) {
+            if (key_combos->kind_tag() == script::kQbvalName) {
                 key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
             } else {
                 auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
@@ -542,7 +542,7 @@ void FallingTricksGoal::add_tricks(int count)
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
                 const objects::Rider* skater = local_skater();
                 if (skater) {
-                    core::at(skater->trick_slots(), special_slot)->other_params_->fetch_text(
+                    core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }
@@ -1007,7 +1007,7 @@ void TrickBeatGoal::update_beat()
         auto* step = pattern_->struct_at(static_cast<uint32_t>(beat_));
         script::Array* sounds = nullptr;
         if (step->fetch_list(kSounds, &sounds, 0)) {
-            const int count = static_cast<int>(sounds->extent_);
+            const int count = static_cast<int>(sounds->extent());
             for (int i = 0; i < count; ++i) {
                 auto* sound = sounds->struct_at(static_cast<uint32_t>(i));
                 uint32_t name = 0;
@@ -1019,8 +1019,8 @@ void TrickBeatGoal::update_beat()
                 pitch = static_cast<float>(static_cast<double>(pitch) * slomo);
                 sound::VolumeRef level;
                 level.change_muted();
-                core::at(level.lanes_, 0) = volume;
-                core::at(level.lanes_, 1) = volume;
+                core::at(level.lanes(), 0) = volume;
+                core::at(level.lanes(), 1) = volume;
                 sound::get_audio_mixer()->emit_sound(name, &level, pitch, 0, nullptr, 0);
             }
         }
@@ -1081,7 +1081,7 @@ void TrickBeatGoal::add_tricks(int count)
             script::Array* tricks = nullptr;
             args()->fetch_list(kBeatTricks, &tricks, 1);
             auto* trick =
-                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent_)));
+                tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent())));
             const char* name = nullptr;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
@@ -1099,7 +1099,7 @@ void TrickBeatGoal::add_tricks(int count)
             const int index = pick_key_combo(key_combos);
             if (index == -1)
                 return;
-            if (key_combos->kind_tag_ == script::kQbvalName) {
+            if (key_combos->kind_tag() == script::kQbvalName) {
                 key_combo = key_combos->fetch_part(static_cast<uint32_t>(index));
             } else {
                 auto* entry = key_combos->struct_at(static_cast<uint32_t>(index));
@@ -1127,7 +1127,7 @@ void TrickBeatGoal::add_tricks(int count)
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
                 const objects::Rider* skater = local_skater();
                 if (skater) {
-                    core::at(skater->trick_slots(), special_slot)->other_params_->fetch_text(
+                    core::at(skater->trick_slots(), special_slot)->other_params()->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }
@@ -1294,7 +1294,7 @@ script::Struct* TrickObjectsGoal::get_object_by_cluster(uint32_t cluster)
 {
     script::Array* objects = nullptr;
     args()->fetch_list(kGoalObjects, &objects, 1);
-    const int count = static_cast<int>(objects->extent_);
+    const int count = static_cast<int>(objects->extent());
     uint32_t found = cluster; // (kept from the last entry with a cluster_id: an entry without one matches that)
     for (int i = 0; i < count; ++i) {
         auto* object = objects->struct_at(static_cast<uint32_t>(i));
@@ -1316,7 +1316,7 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
         return;
     auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kSkaterState));
     auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
-    modules::PointTally* score = score_component->points_held_;
+    modules::PointTally* score = score_component->points_held();
     // Only while the skater is in the air (+0xE0) or has points pending.
     if (!state->in_trick_move() && pending_points(score) <= 0)
         return;

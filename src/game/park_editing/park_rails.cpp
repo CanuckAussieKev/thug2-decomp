@@ -38,7 +38,7 @@ memory::PoolPair& string_pools() { return park_rails_state().park_string_pools_;
 memory::PoolPair& point_pools() { return park_rails_state().park_point_pools_; }
 
 // Whether the pair's current pool was made by it (and so is deleted when it's taken away): a byte per pool at +4.
-uint8_t& pool_owned(memory::PoolPair& pair) { return core::at(pair.made_here_, pair.current); }
+uint8_t& pool_owned(memory::PoolPair& pair) { return core::at(pair.made_here(), pair.current()); }
 
 // A pool deleted: its block (0x005BA4E0, ~Pool), then the pool.
 void delete_pool(memory::SlabBank* pool)
@@ -50,16 +50,16 @@ void delete_pool(memory::SlabBank* pool)
 // `pool` lent to `pair` as its current pool (not owned).
 void lend_pool(memory::PoolPair& pair, memory::SlabBank* pool)
 {
-    core::at(pair.pools, pair.current) = pool;
+    core::at(pair.pools(), pair.current()) = pool;
     pool_owned(pair) = 0;
 }
 // The current pool taken away again (deleted if the pair made it).
 void take_back_pool(memory::PoolPair& pair)
 {
-    if (memory::SlabBank* pool = core::at(pair.pools, pair.current)) {
+    if (memory::SlabBank* pool = core::at(pair.pools(), pair.current())) {
         if (pool_owned(pair))
             delete_pool(pool);
-        core::at(pair.pools, pair.current) = nullptr;
+        core::at(pair.pools(), pair.current()) = nullptr;
     }
 }
 

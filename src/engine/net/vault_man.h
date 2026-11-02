@@ -61,10 +61,23 @@ struct VaultItem {
 
 // A category of the vault (0x44 bytes): lists::Elem<VaultCategory> with its items.
 struct VaultCategory {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] bool skip() const { return skip_; }
+    void set_skip(bool value) { skip_ = value; }
+    std::array<char, 0x1B>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x1B>& label() const { return label_; }
+    memory::ListNode& items() { return items_; }
+    [[nodiscard]] const memory::ListNode& items() const { return items_; }
+
+private:
     memory::ListNode list_link_{}; // +0x00 data = this
     bool skip_{false};             // +0x14 not chosen when moving through the categories at the start ("Uploads")
     std::array<char, 0x1B> label_{};         // +0x15
     memory::ListNode items_{};   // +0x30 lists::Foremost<VaultItem>
+
+public:
 
     // 0x0054B670: unlinked, no items, not skipped.
     VaultCategory();

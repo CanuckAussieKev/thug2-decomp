@@ -52,12 +52,12 @@ online::Hub* net_session_slot() { return online::net_game_state().online_hub(); 
 // The active list's nodes, counted (as get_engaged_objective walks them).
 int count_active(memory::ListNode* head)
 {
-    const memory::ListNode* node = head->next;
-    if (node->data == memory::ListNode::head_marker() || !node)
+    const memory::ListNode* node = head->next();
+    if (node->data() == memory::ListNode::head_marker() || !node)
         return 0;
     int count = 0;
-    for (bool again = true; again; again = node->data != memory::ListNode::head_marker() && node) {
-        node = node->next;
+    for (bool again = true; again; again = node->data() != memory::ListNode::head_marker() && node) {
+        node = node->next();
         ++count;
     }
     return count;
@@ -109,7 +109,7 @@ bool GoalManager::has_active_gap_goal()
 void GoalManager::revoke_every_clear()
 {
     online::Hub* net = net_session_slot();
-    for (int i = 0; i < goals_.num_; ++i) {
+    for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->un_beat() && !net->in_net_game()) {
             --goals_beaten_;
@@ -126,7 +126,7 @@ void GoalManager::revoke_every_clear()
 // 0x0055E050
 void GoalManager::append_objective_list_entries()
 {
-    const int count = goals_.num_; // (read once)
+    const int count = goals_.num(); // (read once)
     gsl::owner<script::Array*> ordered = script::new_array();
     gsl::owner<script::Array*> unordered = script::new_array();
     ordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
@@ -250,7 +250,7 @@ Objective* GoalManager::get_active_net_goal()
 // 0x0055EA40
 void GoalManager::tick_frame()
 {
-    for (int i = 0; i < goals_.num_; ++i) {
+    for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
         if (goal->is_operative())
             goal->tick_frame();

@@ -27,17 +27,33 @@ struct CollGridCell {
     CollGridCell(const CollGridCell&) = delete;
     CollGridCell& operator=(const CollGridCell&) = delete;
 
-    maths::BBox box;    // +0x00
+    // The fields other code reads and sets.
+    maths::BBox& box() { return box_; }
+    [[nodiscard]] const maths::BBox& box() const { return box_; }
+    int& count() { return count_; }
+    [[nodiscard]] int count() const { return count_; }
+    [[nodiscard]] HitMesh** objects() const { return objects_; }
+    void set_objects(HitMesh** value) { objects_ = value; }
+
+private:
+    maths::BBox box_;    // +0x00
     uint32_t unknown20{0};      // +0x20
-    int count{0};               // +0x24
+    int count_{0};               // +0x24
     void* unknown28{nullptr};   // +0x28 (freed through the memory manager)
-    HitMesh** objects{nullptr}; // +0x2C a Malloc block of `count`
+    HitMesh** objects_{nullptr}; // +0x2C a Malloc block of `count`
+
+public:
 
     // The listed objects as a run of `count`.
-    [[nodiscard]] std::span<HitMesh*> object_run() const { return {objects, static_cast<std::size_t>(count)}; }
+    [[nodiscard]] std::span<HitMesh*> object_run() const { return {objects_, static_cast<std::size_t>(count_)}; }
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects_) == 0x2C,
+                      "layout must match the original");
+    }
 };
-static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects) == 0x2C,
-              "layout must match the original");
 
 class CollGrid {
 public:
@@ -65,14 +81,23 @@ public:
 
     CollGridCell* get_cell(int x, int z) { return &core::at(core::at(cells_, x), z); }
 
+    // The fields other code reads and sets.
+    maths::BBox& box() { return box_; }
+    [[nodiscard]] const maths::BBox& box() const { return box_; }
+
+private:
     maths::BBox box_;                  // +0x00
     float cell_span_x_{};              // +0x20 on x
     float cell_depth_{};               // +0x24 on z
     int columns_{};                    // +0x28 on x (20)
     int rows_{};                       // +0x2C on z (20)
     std::array<std::array<CollGridCell, kSize>, kSize> cells_; // +0x30 [x][z]
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(CollGrid, cells_) == 0x30 && sizeof(CollGrid) == 0x4B30, "layout must match the original");
+    }
 };
-static_assert(offsetof(CollGrid, cells_) == 0x30 && sizeof(CollGrid) == 0x4B30, "layout must match the original");
 
 // (The list Update keeps the objects waiting to be put in a cell on: its node's and head's destructors 0x00418ED0 /
 // 0x00418EF0 / 0x00418F30 are memory::ListNode's uncouple / destroy.)

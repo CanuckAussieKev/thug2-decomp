@@ -85,7 +85,7 @@ gsl::owner<ObjectModule*> RiderRemoteSync::fabricate() { return new RiderRemoteS
 // 0x005144E0
 RiderRemoteSync::RiderRemoteSync()
 {
-    kind_tag_ = kSkaterNonLocalNetLogic;
+    set_kind_tag(kSkaterNonLocalNetLogic);
     play_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     last_play_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
@@ -96,13 +96,13 @@ RiderRemoteSync::~RiderRemoteSync() = default;
 // 0x00514580
 void RiderRemoteSync::seal()
 {
-    past_frames_ = core::down_cast<RiderFrameLog>(entity_->fetch_module(kSkaterStateHistory));
-    pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
-    run_over_ = entity_->fetch_module(kSkaterEndRun);
-    anim_blender_ = entity_->fetch_module(kAnimBlender);
-    flip_and_rotate_ = entity_->fetch_module(kSkaterFlipAndRotate);
-    mesh_set_ = core::down_cast<MeshInstanceModule>(entity_->fetch_module(kModel));
-    shadow_ = entity_->fetch_module(kShadow);
+    past_frames_ = core::down_cast<RiderFrameLog>(entity()->fetch_module(kSkaterStateHistory));
+    pose_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
+    run_over_ = entity()->fetch_module(kSkaterEndRun);
+    anim_blender_ = entity()->fetch_module(kAnimBlender);
+    flip_and_rotate_ = entity()->fetch_module(kSkaterFlipAndRotate);
+    mesh_set_ = core::down_cast<MeshInstanceModule>(entity()->fetch_module(kModel));
+    shadow_ = entity()->fetch_module(kShadow);
 }
 
 // 0x005144D0
@@ -116,8 +116,8 @@ void RiderRemoteSync::reset_playback()
 void RiderRemoteSync::update_ground_lighting()
 {
     render::ProbeRay feeler;
-    const maths::Vec4& pos = entity_->at_point();
-    const maths::Vec4& up = core::at(entity_->basis_frame().row, 1);
+    const maths::Vec4& pos = entity()->at_point();
+    const maths::Vec4& up = core::at(entity()->basis_frame().row, 1);
     maths::Vec4& start = feeler.line().start;
     maths::Vec4& end = feeler.line().end;
     start = pos;
@@ -151,7 +151,7 @@ void RiderRemoteSync::update_ground_lighting()
 void RiderRemoteSync::settle_onto_floor()
 {
     render::ProbeRay feeler;
-    GameEntity* skater = entity_;
+    GameEntity* skater = entity();
     const maths::Vec4& up = core::at(skater->basis_frame().row, 1);
     const maths::Vec4& pos = skater->at_point();
     // From Physics_Ground_Snap_Up above (the product unrounded) to 200 below (rounded first).
@@ -240,7 +240,7 @@ void RiderRemoteSync::settle_onto_floor()
 // 0x00514D10
 double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
 {
-    const maths::Vec4& right = core::at(entity_->basis_frame().row, 0);
+    const maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     auto cosine = static_cast<float>((static_cast<double>(dir.z) * right.z + static_cast<double>(dir.y) * right.y) +
                                      static_cast<double>(dir.x) * right.x);
     if (cosine > 1.0f)
@@ -256,21 +256,21 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
     // The velocity turned about y (sine / cosine unrounded), then the matrix by the rounded turn.
     const double s = std::sin(rotation);
     const double c = std::cos(rotation);
-    maths::Vec4& vel = entity_->vel();
+    maths::Vec4& vel = entity()->vel();
     const double vx = vel.x;
     const double vz = vel.z;
     vel.x = static_cast<float>(s * vz + c * vx);
     vel.z = static_cast<float>(-(vx * s) + c * vz);
     maths::Mat4 rotate{};
     maths::make_yaw_matrix(rotate, *turn);
-    turn_by(entity_->basis_frame(), rotate);
+    turn_by(entity()->basis_frame(), rotate);
     return angle;
 }
 
 // 0x00514E20
 void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::Vec4* point)
 {
-    GameEntity* skater = entity_;
+    GameEntity* skater = entity();
     auto away_z = static_cast<float>(static_cast<double>(skater->at_point().z) - last_pos_.z);
     auto away_y = static_cast<float>(static_cast<double>(skater->at_point().y) - last_pos_.y);
     auto away_x = static_cast<float>(static_cast<double>(skater->at_point().x) - last_pos_.x);
@@ -384,12 +384,12 @@ void RiderRemoteSync::tick_frame()
     const bool was_lip = state == kStateLip;
     if (state != kStateAir) {
         // (on the ground the state's two vectors follow the up row)
-        pose_->set_drawn_normal(core::at(entity_->basis_frame().row, 1));
-        pose_->floor_normal() = core::at(entity_->basis_frame().row, 1);
+        pose_->set_drawn_normal(core::at(entity()->basis_frame().row, 1));
+        pose_->floor_normal() = core::at(entity()->basis_frame().row, 1);
     }
     update_ground_lighting();
-    last_pos_ = entity_->at_point();
-    entity_->old_pos() = entity_->at_point();
+    last_pos_ = entity()->at_point();
+    entity()->old_pos() = entity()->at_point();
     interpolate();
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
     auto* player = static_cast<online::PlayerRecord*>(net_manager->get_own_player());
@@ -398,7 +398,7 @@ void RiderRemoteSync::tick_frame()
         const bool extrapolate = online::net_game_state().online_hub()->players_can_collide() ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;
-        if (extrapolate && past_frames_->state_count_ >= kHistory) {
+        if (extrapolate && past_frames_->state_count() >= kHistory) {
             if (pose_->cur_phase() == kStateRail) {
                 extrapolate_on_rail();
             } else {
@@ -412,7 +412,7 @@ void RiderRemoteSync::tick_frame()
     // Out of a lip straight up (as the finalize physics component's).
     if (was_lip && pose_->cur_phase() != kStateLip) {
         pose_->set_lip_straight_up(0);
-        if (pose_->cur_phase() == kStateAir && std::fabs(entity_->vel().x) < 1.0f && std::fabs(entity_->vel().z) < 1.0f)
+        if (pose_->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < 1.0f && std::fabs(entity()->vel().z) < 1.0f)
             pose_->set_lip_straight_up(1);
     }
     if (pose_->cur_phase() != kStateAir)
@@ -420,12 +420,12 @@ void RiderRemoteSync::tick_frame()
 
     // Driving in or out: the scripts told (with the vehicle's control type when it starts).
     const uint8_t driving = pose_->in_vehicle();
-    const uint32_t steer_kind = past_frames_->vehicle_control_type_;
+    const uint32_t steer_kind = past_frames_->vehicle_control_type();
     if ((driving && steer_kind) || (!driving && was_driving_)) {
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
-        params->put_name_key(kSkaterId, entity_->ident());
+        params->put_name_key(kSkaterId, entity()->ident());
         uint32_t script = kStopDrivingScript;
         if (driving) {
             params->put_name_key(kControlType, steer_kind);
@@ -440,7 +440,7 @@ void RiderRemoteSync::tick_frame()
     was_driving_ = pose_->in_vehicle();
 
     // The looping sound: on while skating, its speed and state.
-    auto* sound = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound));
+    auto* sound = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound));
     if (pose_->physics_mode() != 0) {
         if (sound->on()) {
             sound->hold_off(true);
@@ -452,8 +452,8 @@ void RiderRemoteSync::tick_frame()
         sound->hold_off(false);
         sound->set_on(1);
     }
-    const double vz = entity_->vel().z;
-    const double vx = entity_->vel().x;
+    const double vz = entity()->vel().z;
+    const double vx = entity()->vel().x;
     sound->set_pace_ratio(static_cast<float>(std::sqrt(vx * vx + vz * vz) * kSpeedToSoundFraction));
     uint8_t changed = sound->sound_changed();
     changed |= sound->cur_phase() != pose_->cur_phase() ? 1 : 0;

@@ -128,7 +128,7 @@ void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 // 0x0042BD90
 void BodyDynamicsModule::seal()
 {
-    audio_module_ = core::down_cast<AudioEmitterModule>(entity_->fetch_module(kSound));
+    audio_module_ = core::down_cast<AudioEmitterModule>(entity()->fetch_module(kSound));
     const maths::Mat4& m = basis_frame_;
     for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
         Spring& spring = core::at(spring_run(), i);
@@ -150,7 +150,7 @@ void BodyDynamicsModule::seal()
 void BodyDynamicsModule::sleep()
 {
     if (settle_script_)
-        entity_->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
+        entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
     vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     cur_phase_ = kStateAsleep;
@@ -394,8 +394,8 @@ void BodyDynamicsModule::feel_pushers()
         wake();
         push_cooldown_ = push_cooldown_time_;
         if (collide_script_)
-            entity_->spawn_script(collide_script_, callback_params_ptr_, 0, false)->tick_frame();
-        hide_sector(checksums::fold_text_into_checksum(entity_->ident(), "_Shadow"));
+            entity()->spawn_script(collide_script_, callback_params_ptr_, 0, false)->tick_frame();
+        hide_sector(checksums::fold_text_into_checksum(entity()->ident(), "_Shadow"));
         const int now = static_cast<int>(frame_clock::get_time());
         if (now - static_cast<int>(unknownf0_) > 0 && now - next_collide_sound_time() > 0 && audio_module_ &&
             collide_sound_ptr_) {

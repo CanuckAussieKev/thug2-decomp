@@ -136,7 +136,7 @@ uint32_t preference_checksum(prefs::Preferences* prefs, uint32_t name, uint32_t 
     prefs->fetch_setting(name)->read_hash_value(field, &value, 1);
     return value;
 }
-Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
+Hub* task_manager(tasks::Task<Hub>* task) { return task->content(); }
 
 } // namespace
 
@@ -279,7 +279,7 @@ void Hub::observer_task(tasks::Task<PlayerRecord>*)
 // 0x00536890
 void Hub::observer_input(pad_input::Responder<Hub>* input)
 {
-    Hub* manager = input->content_;
+    Hub* manager = input->content();
     objects::Entity* root = find_root_window();
     if (root) {
         // Not while a menu is up: the root window's menu_state tag on.
@@ -291,7 +291,7 @@ void Hub::observer_input(pad_input::Responder<Hub>* input)
         if (menu_state == kOn)
             return;
     }
-    if (input->control_data_->makes() & 0x40) // (the controller's button pressed: the next player)
+    if (input->control_data()->makes() & 0x40) // (the controller's button pressed: the next player)
         manager->spectate_request_ = 1;
 }
 

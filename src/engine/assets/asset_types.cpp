@@ -427,7 +427,7 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
 int NodeTableResource::offload()
 {
     auto* nodes = nodes_;
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         uint32_t id = 0;
         nodes->struct_at(i)->read_hash_value(0xA1DC81F9u, &id, 0); // name
         if (objects::Entity* object = objects::find_object(id))

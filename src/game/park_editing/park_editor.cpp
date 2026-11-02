@@ -170,10 +170,10 @@ void ParkBuilderMode::start_callback()
     frame_loop::Hub* main_loop = get_main_loop();
     main_loop->logic_tasks_.queue_job(editor_update_job_.get());
     ParkEditorInputHandler* handler = editor_pad_listener_.get();
-    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal_);
+    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal());
     server.handlers_.queue_job(handler);
-    handler->control_data_ = &core::at(input_manager()->hosts_, handler->ordinal_).content_;
-    handler->dev_ = core::at(input_manager()->hosts_, handler->ordinal_).dev_;
+    handler->set_control_data(&core::at(input_manager()->hosts_, handler->ordinal()).content_);
+    handler->set_dev(core::at(input_manager()->hosts_, handler->ordinal()).dev_);
     main_loop->display_tasks_.queue_job(draw_job_.get());
 }
 
@@ -319,10 +319,10 @@ void ParkBuilderMode::Listener::receive(objects::Signal* event)
 {
     ParkBuilderMode* editor = get_editor();
     if (editor->cur_phase_ != kStateEdit || !have_cursor() || (editor->flag_bits_ & kFlagPaused) ||
-        event->aim_point_ != kRootWindow)
+        event->aim_point() != kRootWindow)
         return;
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-    switch (event->kind_tag_) {
+    switch (event->kind_tag()) {
     case kPadUp:
         editor->actions_ |= kCommandPreviousSet;
         break;
@@ -364,17 +364,17 @@ int ParkBuilderMode::get_player_limit() { return hub()->builder()->get_player_li
 // 0x0058DB70
 void process_pad_input(ParkEditorInputHandler* handler)
 {
-    ParkBuilderMode* editor = handler->content_;
+    ParkBuilderMode* editor = handler->content();
     editor->actions() = 0;
-    const pad_input::Payload* data = handler->control_data_;
+    const pad_input::Payload* data = handler->control_data();
     auto stick = [data](int event) { return static_cast<float>(static_cast<int>(core::at(data->incident(), event)) - 0x80); };
     editor->set_pad_rx(stick(pad_input::Payload::kRightX));
     editor->set_pad_ry(stick(pad_input::Payload::kRightY));
     editor->set_pad_lx(stick(pad_input::Payload::kLeftX));
     editor->set_pad_ly(stick(pad_input::Payload::kLeftY));
     uint32_t& commands = editor->actions();
-    auto made = [handler]() { return handler->control_data_->makes(); };
-    auto held = [handler]() { return handler->control_data_->buttons(); };
+    auto made = [handler]() { return handler->control_data()->makes(); };
+    auto held = [handler]() { return handler->control_data()->buttons(); };
     if (made() & 0x80) // Square
         commands |= ParkBuilderMode::kCommandTurnRight;
     if (made() & 0x20) // Circle
@@ -626,8 +626,8 @@ void ParkBuilderMode::link_to_pad(int controller)
     handler->drop_out();
     pad_input::HostEnd& server = core::at(input->hosts_, controller);
     server.handlers_.queue_job(handler);
-    handler->control_data_ = &server.content_;
-    handler->dev_ = server.dev_;
+    handler->set_control_data(&server.content_);
+    handler->set_dev(server.dev_);
     pad_input::release_manager();
 }
 
@@ -651,7 +651,7 @@ void ParkBuilderMode::logic_update()
     if (flag_bits_ & kFlagPaused)
         return;
     // The rail editor's flags (+0x08): bit 0.
-    auto rail_bit = []() { return (get_rail_editor()->flag_bits_ & 1) != 0; };
+    auto rail_bit = []() { return (get_rail_editor()->flag_bits() & 1) != 0; };
     if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement) {
         if (rail_bit())
             launch_script(kSwitchOnRailEditor);

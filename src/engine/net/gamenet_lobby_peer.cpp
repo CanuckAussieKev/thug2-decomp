@@ -91,7 +91,7 @@ constexpr uint32_t kNewPlayerObserver = 0x04;
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
-RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }
+RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content(); }
 
 // The heaps the lobby's SDK work allocates from.
 void push_internet_heap()

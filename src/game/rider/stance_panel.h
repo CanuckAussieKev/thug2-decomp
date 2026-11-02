@@ -47,6 +47,10 @@ public:
     // - flipped being the state component's +0x28 (the other way round when the skater's +0x110 is set).
     int get_stance();
 
+    // The fields other code reads and sets.
+    void set_shown(int value) { shown_ = value; }
+
+private:
     int shown_{}; // +0x18 the stance shown (-1: none yet)
     uint8_t pad1c_{};
     uint8_t nollie_{};       // +0x1D

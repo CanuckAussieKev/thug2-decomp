@@ -409,7 +409,7 @@ void show_disc_error()
     text->set_xscale(std::bit_cast<float>(0x3F4CCCCDu)); // 0.8
     text->set_yscale(1.0f);
     text->set_color(0x80808080);
-    text->next = nullptr;
+    text->set_next(nullptr);
     set_texture(1, nullptr);
     set_texture(2, nullptr);
     set_texture(3, nullptr);
@@ -425,12 +425,12 @@ void show_disc_error()
         change_phase(kZWrite, 0);
         gfx.d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
         gfx.d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-        text->set_y(text->y_value() - kOffsetLines);
+        text->set_y(text->y() - kOffsetLines);
         text->set_text(first);
         text->open_sketch();
         text->draw();
         text->close_sketch();
-        text->set_y(text->y_value() + kOffsetLines);
+        text->set_y(text->y() + kOffsetLines);
         text->set_text(second);
         text->open_sketch();
         text->draw();

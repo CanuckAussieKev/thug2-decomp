@@ -94,7 +94,7 @@ void LetterGameObjective::land()
 {
     script::Array* spots = nullptr;
     args()->fetch_list(kLetterSpots, &spots, 1);
-    const int count = static_cast<int>(spots->extent_);
+    const int count = static_cast<int>(spots->extent());
     int i = 0;
     int score = 0; // (both set before they're read)
     uint32_t flag = 0;
@@ -272,12 +272,12 @@ bool RaceObjective::advance_race_gate(uint32_t id)
     }
     script::Array* waypoints = nullptr;
     args()->fetch_list(kRaceWaypoints, &waypoints, 1);
-    for (uint32_t i = 0; i < waypoints->extent_; ++i) {
+    for (uint32_t i = 0; i < waypoints->extent(); ++i) {
         auto* waypoint = waypoints->struct_at(i);
         uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
         if (bit_matches(flag, 1, 0)) {
-            if (i != waypoints->extent_ - 1)
+            if (i != waypoints->extent() - 1)
                 continue;
             if (lap_++ >= laps_)
                 return true;
@@ -288,7 +288,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         params->put_name_key(kGoalIdChecksum, id);
         if (i == 0 && laps_ > 1)
             params->put_int(kStartLap, lap_);
-        if (i == waypoints->extent_ - 1 && lap_ == laps_)
+        if (i == waypoints->extent() - 1 && lap_ == laps_)
             params->put_name_key(kLastWaypoint, 1);
         if (args()->has_bare_flag(kQuickStart))
             params->put_name_key(0u, kQuickStart);

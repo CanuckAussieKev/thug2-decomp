@@ -76,6 +76,12 @@ public:
     // (shared with other classes: always true)
     bool always_true(int unused);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int fault() const { return fault_; }
+    [[nodiscard]] uint8_t present() const { return present_; }
+    void set_present(uint8_t value) { present_ = value; }
+
+private:
     uint32_t unknown0_;
     uint32_t unknown4_;
     int fault_;

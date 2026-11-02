@@ -458,7 +458,7 @@ void PcWeather::tick_grid()
     const CollGrid* grid_of_scene = get_first_coll_grid(); // (the scene's collision's box)
     if (!grid_of_scene)
         return;
-    const maths::BBox& box = grid_of_scene->box_;
+    const maths::BBox& box = grid_of_scene->box();
     auto cell = [](float value) {
         const int v = ftol(value);
         return v / 128; // (towards zero, as the original's shift with its correction)

@@ -30,8 +30,8 @@ public:
     void set_hot_x(float value) { hot_x_ = value; }
     void set_hot_y(float value) { hot_y_ = value; }
     void set_rotation(float value) { rotation = value; }
-    uint32_t& color_value() { return color; }
-    [[nodiscard]] uint32_t color_value() const { return color; }
+    uint32_t& color() { return color_; }
+    [[nodiscard]] uint32_t color() const { return color_; }
     bool& flip_v() { return flip_v_; }
     [[nodiscard]] bool flip_v() const { return flip_v_; }
 
@@ -42,7 +42,7 @@ private:
     float xscale{}, yscale{};   // negative: mirrored
     float hot_x_{}, hot_y_{};   // the point drawn at (x, y), in pixels from the top left
     float rotation{};           // radians, about the hot spot; 0 = upright
-    uint32_t color{};           // RGBA as bytes (alpha 0: not drawn)
+    uint32_t color_{};           // RGBA as bytes (alpha 0: not drawn)
     bool flip_v_{};             // swap the texture's top and bottom (see Draw)
     bool flip_u_{};             // swap its left and right
 

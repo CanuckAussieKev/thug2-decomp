@@ -198,7 +198,7 @@ void CrownObject::own_update()
     if (!worn_)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    void* skeleton = core::down_cast<objects::BoneRigModule>(skater_->fetch_module(kSkeleton))->bone_rig_;
+    void* skeleton = core::down_cast<objects::BoneRigModule>(skater_->fetch_module(kSkeleton))->bone_rig();
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame());
     maths::Mat4 turn;
     maths::get_multiply(basis_frame(), maths::make_pitch_matrix(turn, 90.0f), basis_frame());

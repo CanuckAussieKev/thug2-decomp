@@ -25,12 +25,25 @@ public:
     void change_location(int x, int y);
     void change_extent(int width, int height);
 
+    // The fields other code reads and sets.
+    void set_pos_x(int value) { pos_x_ = value; }
+    void set_y(int value) { y_ = value; }
+    void set_span(int value) { span_ = value; }
+    void set_level_y(int value) { level_y_ = value; }
+    [[nodiscard]] ScreenWindow* following() const { return following_; }
+    void set_following(ScreenWindow* value) { following_ = value; }
+
+private:
     int pos_x_, y_;           // +0x04
     int span_, level_y_;      // +0x0C
     ScreenWindow* following_{nullptr}; // +0x14 on the free list
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ScreenWindow, following_) == 0x14 && sizeof(ScreenWindow) == 0x18,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ScreenWindow, following_) == 0x14 && sizeof(ScreenWindow) == 0x18,
-              "layout must match the original");
 
 // 0x004A1620: a window from the free list (none: written through null, as the original), placed and sized - each
 // with tick_engine.

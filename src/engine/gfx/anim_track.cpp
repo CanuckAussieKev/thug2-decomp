@@ -101,7 +101,7 @@ void AnimTrack::insert_controller(AnimDriver* controller, int priority)
     const int count = controller_count_;
     int at = 0;
     if (count > 0) {
-        while (at < controller_count_ && priority <= core::at(controller_list_, at)->rank_)
+        while (at < controller_count_ && priority <= core::at(controller_list_, at)->rank())
             ++at;
         if (at < controller_count_) {
             for (int i = count; i > at; --i)
@@ -116,7 +116,7 @@ void AnimTrack::insert_controller(AnimDriver* controller, int priority)
 AnimDriver* AnimTrack::find_controller(uint32_t id)
 {
     for (int i = 0; i < controller_count_; ++i) {
-        if (core::at(controller_list_, i)->ident_ == id)
+        if (core::at(controller_list_, i)->ident() == id)
             return core::at(controller_list_, i);
     }
     return nullptr;
@@ -188,7 +188,7 @@ void AnimTrack::load_events(uint32_t anim)
     script::Array* list = nullptr;
     if (!table->fetch_list(anim, &list, 0))
         return;
-    const uint32_t count = list->extent_;
+    const uint32_t count = list->extent();
     events_ = std::vector<TimedClipEvent>(count);
     for (uint32_t i = 0; i < count; ++i) {
         auto* entry = list->struct_at(i);
@@ -265,7 +265,7 @@ AnimDriver* AnimTrack::attach_controller(Struct* params)
     params->fetch_int_value(kPriority, &priority, 0);
     // (a failed allocation goes on with null: the call below crashes, as in the original)
     controller->configure_from_data(params);
-    controller->rank_ = priority;
+    controller->set_rank(priority);
     insert_controller(controller, priority);
     AnimDriver* const inserted = controller; // (the track's now)
     return inserted;

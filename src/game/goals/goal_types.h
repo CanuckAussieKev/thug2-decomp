@@ -21,11 +21,14 @@ class ContestObjective final : public Objective {
 public:
     ContestObjective(const ContestObjective&) = delete;
     ContestObjective& operator=(const ContestObjective&) = delete;
+private:
     bool is_halted_{false};        // +0x70: paused by the competition (freeze_contest)
     bool has_top_prize_{false};    // +0x71
     bool has_second_place_{false}; // +0x72
     bool has_third_place_{false};  // +0x73
     int prize_paid_{0};            // +0x74 (reward_given)
+
+public:
 
     // 0x005517C0: the constructor (Objective's; no medals, the record 0x7FFFFFFF, the normal end of run).
     explicit ContestObjective(script::Struct* params);
@@ -97,7 +100,10 @@ class HuntGapsObjective final : public Objective {
 public:
     HuntGapsObjective(const HuntGapsObjective&) = delete;
     HuntGapsObjective& operator=(const HuntGapsObjective&) = delete;
+private:
     uint32_t unused70_{}; // +0x70
+
+public:
     // 0x00552B30: the constructor. 0x00552B50 / 0x00552B60 (vtable +0x00): the destructor body /
     // the scalar deleting destructor.
     explicit HuntGapsObjective(script::Struct* params);

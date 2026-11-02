@@ -136,10 +136,10 @@ uint8_t* ArchiveFile::read_entry_from_archive(const char* name, int* size, uint8
 // 0x005B8310
 uint8_t* ArchiveFile::find_entry_by_key(FileInfo* handle)
 {
-    files_->iter_bucket_ = -1;
-    files_->iter_item_ = nullptr;
-    while (files_->step_iterator() && files_->iter_item_) {
-        auto* info = static_cast<FileInfo*>(files_->iter_item_->value);
+    files_->set_iter_bucket(-1);
+    files_->set_iter_item(nullptr);
+    while (files_->step_iterator() && files_->iter_item()) {
+        auto* info = static_cast<FileInfo*>(files_->iter_item()->value);
         if (!info)
             break;
         if (info->data && info == handle) {
@@ -225,10 +225,10 @@ void normalise_name(std::array<char, 128>& out, const char* name)
 template <typename Visit>
 auto for_each_pre(lists::KeyMap* pres, Visit visit) -> decltype(visit(static_cast<ArchiveFile*>(nullptr)))
 {
-    pres->iter_bucket_ = -1;
-    pres->iter_item_ = nullptr;
-    while (pres->step_iterator() && pres->iter_item_ && pres->iter_item_->value) {
-        if (auto result = visit(static_cast<ArchiveFile*>(pres->iter_item_->value)))
+    pres->set_iter_bucket(-1);
+    pres->set_iter_item(nullptr);
+    while (pres->step_iterator() && pres->iter_item() && pres->iter_item()->value) {
+        if (auto result = visit(static_cast<ArchiveFile*>(pres->iter_item()->value)))
             return result;
     }
     return {};

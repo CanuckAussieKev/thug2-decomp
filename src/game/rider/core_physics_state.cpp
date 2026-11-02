@@ -89,7 +89,7 @@ SkaterPhysicsModule::SkaterPhysicsModule()
     skitch_target_.following_ = nullptr;
     skitch_target_.target_ = nullptr;
     // (+0x3F0: its constructor 0x005902E0 only returns it.)
-    kind_tag_ = kSkaterCorePhysics;
+    set_kind_tag(kSkaterCorePhysics);
     // Not original - a component made where an old one was starts off THAW's bike (game/rider/thaw_bmx.h).
     if (thaw_bmx::is_switched_on())
         thaw_bmx::get_forget(this);
@@ -101,12 +101,12 @@ void SkaterPhysicsModule::get_reset()
     auto* game_net = online::net_game_state().online_hub();
     if (!game_net->in_net_game()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
-        entity_->old_pos() = entity_->at_point();
-        safe_pos_ = entity_->at_point();
+        entity()->old_pos() = entity()->at_point();
+        safe_pos_ = entity()->at_point();
     }
     lip_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     state_changed_at_ = get_now();
-    entity_->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     physics::change_phase(this, 0);
     old_state_ = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
@@ -118,15 +118,15 @@ void SkaterPhysicsModule::get_reset()
         if (flag == 7)
             sound_->set_sliding(0);
     }
-    set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy());
+    set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity())->goofy());
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
-    if (objects::RideTracker* rider = ride->ride_.get()) {
-        ride->last_object_ = rider->entity_.get_pull();
+    if (objects::RideTracker* rider = ride->ride().get()) {
+        ride->set_last_object(rider->entity_.get_pull());
         rider->entity_.get_release();
         memory::Hub::get_pull()->dealloc(rider);
-        ride->ride_ = nullptr;
-        ride->stop_time_ = get_now();
+        ride->ride() = nullptr;
+        ride->set_stop_time(get_now());
     }
     floor_feeler_.hit().face_flag40_ = 0;
     side_reach_ = 0.0f;
@@ -165,7 +165,7 @@ int SkaterPhysicsModule::cancel_rotate_displayand_update_matrix(script::Struct*,
 // 0x00500670
 void SkaterPhysicsModule::refresh_hit_cache()
 {
-    const maths::Vec4& position = entity_->at_point();
+    const maths::Vec4& position = entity()->at_point();
     maths::BBox box;
     box.min = {.x = position.x - kCacheReach, .y = position.y - kCacheBelow, .z = position.z - kCacheReach, .w = position.w};
     box.max = {.x = position.x + kCacheReach, .y = position.y + kCacheAbove, .z = position.z + kCacheReach, .w = position.w};
@@ -309,8 +309,8 @@ int SkaterPhysicsModule::can_kick(script::Struct*, script::Script*) { return can
 // 0x00500E90
 int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
 {
-    drawn_normal_ = core::at(entity_->basis_frame().row, 1);
-    floor_normal_ = core::at(entity_->basis_frame().row, 1);
+    drawn_normal_ = core::at(entity()->basis_frame().row, 1);
+    floor_normal_ = core::at(entity()->basis_frame().row, 1);
     turn_to_normal(feeler_.surface_dir());
     return 1;
 }

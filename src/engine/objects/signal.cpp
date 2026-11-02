@@ -87,8 +87,8 @@ void Signal::set_event_handled(uint32_t how, uint32_t script)
 int event_controller(Signal* event)
 {
     int controller = 0;
-    if (event->payload_)
-        event->payload_->fetch_int_value(0xB30D9965, &controller, 0); // "controller"
+    if (event->payload())
+        event->payload()->fetch_int_value(0xB30D9965, &controller, 0); // "controller"
     return controller;
 }
 
@@ -331,7 +331,7 @@ void SignalRouteTable::compact()
 // 0x004601A0
 void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
 {
-    const int count = static_cast<int>(handlers->extent_);
+    const int count = static_cast<int>(handlers->extent());
     if (replace && count == 0) {
         // An empty array: every handler goes at once (the tracker isn't told; the caller has unregistered).
         if (!entries_)
@@ -388,15 +388,15 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
     const std::span<const TableRow> rows = entries();
     for (int i = 0; i < num_; ++i) {
         const TableRow* entry = &core::at(rows, i);
-        if (entry->type == event->kind_tag_ && entry->script != kNullScript) {
+        if (entry->type == event->kind_tag() && entry->script != kNullScript) {
             // The event's data is added over the handler's own parameters, in a structure of its own.
             gsl::owner<Struct*> merged = nullptr;
             Struct* params = nullptr;
-            if (event->payload_) {
+            if (event->payload()) {
                 merged = script::new_struct();
                 if (entry->params)
                     merged->merge_structure(entry->params);
-                merged->merge_structure(event->payload_);
+                merged->merge_structure(event->payload());
                 params = merged;
             } else {
                 params = entry->params;

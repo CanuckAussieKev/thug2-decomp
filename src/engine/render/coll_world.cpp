@@ -50,7 +50,7 @@ struct LineQuery {
     {
         box.append_spot(line->end);
         // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): after calls that may see it - the original's order
-        use_cache_ = cache && cache->box_.get_holds(box);
+        use_cache_ = cache && cache->box().get_holds(box);
         // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
         maths::Vec4 grown = box.max;
         grown.x += 0.5f;
@@ -95,22 +95,22 @@ objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQ
 void register_movable(HitMesh* object)
 {
     memory::ListNode* node = memory::ListNode::create(object);
-    node->prev = collision_state().movables_.prev;
-    node->next = &collision_state().movables_;
-    collision_state().movables_.prev->next = node;
-    collision_state().movables_.prev = node;
+    node->set_prev(collision_state().movables_.prev());
+    node->set_next(&collision_state().movables_);
+    collision_state().movables_.prev()->set_next(node);
+    collision_state().movables_.set_prev(node);
 }
 
 // 0x00417800 (the list's end is its head, whose data is -1)
 void unregister_movable(HitMesh* object)
 {
-    memory::ListNode* node = collision_state().movables_.next;
-    if (node->data == memory::ListNode::head_marker())
+    memory::ListNode* node = collision_state().movables_.next();
+    if (node->data() == memory::ListNode::head_marker())
         return;
     while (node) {
-        memory::ListNode* next = node->next;
-        memory::ListNode* following = next->data == memory::ListNode::head_marker() ? nullptr : next;
-        if (node->data == object)
+        memory::ListNode* next = node->next();
+        memory::ListNode* following = next->data() == memory::ListNode::head_marker() ? nullptr : next;
+        if (node->data() == object)
             memory::ListNode::destroy(node);
         node = following;
     }
@@ -124,8 +124,8 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
     hit->distance = collision_state().want_farthest_ ? kFarthestStart : kNearestStart;
     bool any = false;
     if (query.use_cache_) {
-        for (int i = 0; i < cache->statics_; ++i) {
-            const HitMeshCache::TableRow& entry = core::at(cache->entries_, i);
+        for (int i = 0; i < cache->statics(); ++i) {
+            const HitMeshCache::TableRow& entry = core::at(cache->entries(), i);
             if (query.box.intersects(*entry_box(entry)) &&
                 collide_with_line(entry.object, line, &query.direction, hit, &query.box))
                 any = true;
@@ -171,17 +171,17 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
     LineQuery query(line, cache);
     if (query.use_cache_) {
         const std::span<const HitMeshCache::TableRow> entries =
-            std::span<const HitMeshCache::TableRow>(cache->entries_).subspan(static_cast<size_t>(cache->statics_));
-        for (int i = 0; i < cache->movables_; ++i) {
+            std::span<const HitMeshCache::TableRow>(cache->entries()).subspan(static_cast<size_t>(cache->statics()));
+        for (int i = 0; i < cache->movables(); ++i) {
             if (entry_box(core::at(entries, i)) && query.box.intersects(*entry_box(core::at(entries, i))))
                 owner = test_movable(core::at(entries, i).object, line, query, hit, owner);
         }
         return owner;
     }
-    for (const memory::ListNode* node = collision_state().movables_.next; node->data != memory::ListNode::head_marker() && node;
-         node = node->next) {
-        auto* object = static_cast<HitMesh*>(node->data);
-        if (object && !(object->flag_bits_ & 6) && may_touch(object, &query.box))
+    for (const memory::ListNode* node = collision_state().movables_.next(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next()) {
+        auto* object = static_cast<HitMesh*>(node->data());
+        if (object && !(object->flag_bits() & 6) && may_touch(object, &query.box))
             owner = test_movable(object, line, query, hit, owner);
     }
     return owner;

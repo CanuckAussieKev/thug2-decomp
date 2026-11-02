@@ -102,7 +102,7 @@ void bone_position(ObjectModule* skeleton, uint32_t bone, maths::Vec4* out)
 // The skeleton component's skeleton (its +0x18, the shared getter 0x005480F0) and that skeleton's bone matrix.
 void skin_matrix_ptr(ObjectModule* skeleton, uint32_t bone, maths::Mat4* out)
 {
-    core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_->read_joint_matrix(bone, out);
+    core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig()->read_joint_matrix(bone, out);
 }
 
 // std::list<Chain*>::erase(first, last) (0x004ECC30, the game's).
@@ -159,14 +159,14 @@ gsl::owner<ObjectModule*> ChainComponent::fabricate() { return new ChainComponen
 // 0x004296E0
 ChainComponent::ChainComponent()
 {
-    chains_.size = 0;
+    chains_.size() = 0;
     auto* head = static_cast<Elem*>(carve(sizeof(Elem)));
     if (head) {
         head->next = head;
         head->prev = head;
     }
-    chains_.head = head;
-    kind_tag_ = kType;
+    chains_.set_head(head);
+    set_kind_tag(kType);
     suspend_ = nullptr;
     bone_rig_ = nullptr;
     mesh_instance_ = nullptr;
@@ -182,8 +182,8 @@ ChainComponent::ChainComponent()
 // 0x00429790 (0x00429910 the deleting one)
 ChainComponent::~ChainComponent()
 {
-    if (chains_.size) {
-        for (Elem* node = get_first(chains_.head); node != chains_.head;) {
+    if (chains_.size()) {
+        for (Elem* node = get_first(chains_.head()); node != chains_.head();) {
             if (Chain* chain = node->value) {
                 for (int i = Chain::kMaxLinks - 1; i >= 0; --i)
                     core::at(chain->chain_link_, i).destroy_body();
@@ -191,33 +191,33 @@ ChainComponent::~ChainComponent()
                 node->value = nullptr;
             }
             Elem* next = node->next;
-            if (node != chains_.head) {
+            if (node != chains_.head()) {
                 node->prev->next = next;
                 node->next->prev = node->prev;
                 memory::Hub::get_pull()->dealloc(node);
-                --chains_.size;
+                --chains_.size();
             }
             node = next;
         }
-        erase_nodes(&chains_, get_first(chains_.head), chains_.head);
+        erase_nodes(&chains_, get_first(chains_.head()), chains_.head());
     }
-    erase_nodes(&chains_, get_first(chains_.head), chains_.head);
-    memory::Hub::get_pull()->dealloc(chains_.head);
+    erase_nodes(&chains_, get_first(chains_.head()), chains_.head());
+    memory::Hub::get_pull()->dealloc(chains_.head());
 }
 
 // 0x004296B0
 void ChainComponent::ChainList::teardown()
 {
-    erase_nodes(this, get_first(head), head);
-    memory::Hub::get_pull()->dealloc(head);
+    erase_nodes(this, get_first(head()), head());
+    memory::Hub::get_pull()->dealloc(head());
 }
 
 // 0x00428370
 void ChainComponent::seal()
 {
-    suspend_ = entity_->fetch_module(kSuspend);
-    bone_rig_ = entity_->fetch_module(kSkeleton);
-    mesh_instance_ = entity_->fetch_module(kModel);
+    suspend_ = entity()->fetch_module(kSuspend);
+    bone_rig_ = entity()->fetch_module(kSkeleton);
+    mesh_instance_ = entity()->fetch_module(kModel);
 }
 
 // 0x004283B0
@@ -231,7 +231,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         info->read_hash_value(kPlanePoint, &plane_bone_, 0);
     }
     params->fetch_list(kChains, &chains, 1);
-    for (uint32_t i = 0; i < chains->extent_; ++i) {
+    for (uint32_t i = 0; i < chains->extent(); ++i) {
         auto* description = chains->struct_at(i);
         int segments = 0;
         description->fetch_int_value(kSegments, &segments, 1);
@@ -281,14 +281,14 @@ void ChainComponent::configure_from_data(script::Struct* params)
             line->get_ready();
         }
         // (onto the end of the list)
-        Elem* head = chains_.head;
+        Elem* head = chains_.head();
         auto* node = static_cast<Elem*>(carve(sizeof(Elem)));
         if (node) {
             node->value = chain;
             node->next = head;
             node->prev = head->prev;
         }
-        ++chains_.size;
+        ++chains_.size();
         head->prev = node;
         node->prev->next = node;
     }
@@ -300,7 +300,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
     if (name == kSetCollision) {
         uint32_t id = 0;
         params->read_hash_value(kChainId, &id, 1);
-        for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
+        for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
             Chain* chain = node->value;
             if (chain->ident_ != id)
                 continue;
@@ -318,7 +318,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
         params->read_hash_value(kChainId, &id, 1);
         maths::Vec4 pos{};
         params->fetch_vec(kLinkPos, &pos, 1);
-        for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
+        for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
             Chain* chain = node->value;
             if (chain->ident_ != id)
                 continue;
@@ -354,7 +354,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
 void ChainComponent::tick_frame()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    const maths::Vec4 velocity = entity_->vel();
+    const maths::Vec4 velocity = entity()->vel();
     maths::Vec4 plane_point{}, axis_from{}, axis_to{};
     joint_world_point(bone_rig_, plane_bone_, &plane_point);
     joint_world_point(bone_rig_, axis_from_bone_, &axis_from);
@@ -373,7 +373,7 @@ void ChainComponent::tick_frame()
         core::at(axis, 2) = get_rounded(az * inverse);
     }
 
-    for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
+    for (const Elem* node = get_first(chains_.head()); node != chains_.head(); node = node->next) {
         Chain* chain = node->value;
         // The steps.
         for (int i = chain->links_ - 1; i >= 0; --i) {
@@ -434,8 +434,8 @@ void ChainComponent::tick_frame()
             .x = get_rounded(static_cast<double>(start.x) + turned.x), .y = get_rounded(static_cast<double>(start.y) + turned.y),
             .z = get_rounded(static_cast<double>(start.z) + turned.z), .w = get_rounded(static_cast<double>(start.w) + turned.w)};
         {
-            const maths::Mat4& m = entity_->display_matrix();
-            const maths::Vec4& at = entity_->at_point();
+            const maths::Mat4& m = entity()->display_matrix();
+            const maths::Vec4& at = entity()->at_point();
             const double x = (static_cast<double>(start.z) * core::at(m.row, 2).x + static_cast<double>(start.y) * core::at(m.row, 1).x) +
                              static_cast<double>(start.x) * core::at(m.row, 0).x;
             const double y = (static_cast<double>(start.z) * core::at(m.row, 2).y + static_cast<double>(start.y) * core::at(m.row, 1).y) +
@@ -599,7 +599,7 @@ void ChainComponent::tick_frame()
             link.last_pos_ = link.at_point_;
             link.at_point_ = link.next_pos_;
         }
-        if (!(entity_->composite_flags() & kCompositeFlagHidden) && !invisible_) {
+        if (!(entity()->composite_flags() & kCompositeFlagHidden) && !invisible_) {
             chain->update_lines();
         } else {
             for (uint32_t i = 1; i < ints::as_unsigned(chain->links_); ++i)

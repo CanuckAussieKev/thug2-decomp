@@ -49,6 +49,7 @@ public:
     // it as a slot, so a plain method here): the node array.
     [[nodiscard]] script::Array* get_node_array() const { return nodes_; }
 
+private:
     script::Array* nodes_{nullptr}; // +0x18
 };
 static_assert(sizeof(WaypointListModule) == 0x1C, "layout must match the original (0x00428010 allocates 0x1C bytes)");
@@ -75,6 +76,7 @@ public:
     // 0x005480F0 (slot 13, the shared getter of +0x18): the hook list.
     [[nodiscard]] ClassNodeList* get_hooks() const { return hooks_ptr_; }
 
+private:
     ClassNodeList* hooks_ptr_{nullptr}; // +0x18 (0x4C bytes)
 };
 static_assert(sizeof(HookPointRegistryModule) == 0x1C,
@@ -105,6 +107,7 @@ public:
     // 0x005480F0 (slot 13, the shared getter of +0x18): the rail manager.
     [[nodiscard]] GrindRailHub* get_rail_groups() const { return rail_groups_.get(); }
 
+private:
     memory::HeapUnique<GrindRailHub> rail_groups_; // +0x18 (0x54 bytes)
 };
 static_assert(sizeof(GrindPathLinkModule) == 0x1C, "layout must match the original (0x0042B920 allocates 0x1C bytes)");

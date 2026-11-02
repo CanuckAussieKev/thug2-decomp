@@ -138,7 +138,7 @@ void set_viewport_camera(int viewport, gfx::ViewCam* camera) { render::choose_ca
 // A camera component's camera.
 gfx::ViewCam* viewpoint_camera(objects::ObjectModule* camera)
 {
-    return core::down_cast<objects::ViewpointModule>(camera)->view_camera_.get();
+    return core::down_cast<objects::ViewpointModule>(camera)->view_camera().get();
 }
 
 // The preferences of a type (0x00565680: the network's, the taunts', the skate module's; null for others). The
@@ -349,8 +349,8 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     params->fetch_int_value(kController, &controller, 0);
     const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners(), controller).get();
     objects::PadSnapshot pad;
-    pad.tick_frame(handler->control_data_);
-    auto* device = handler->dev_;
+    pad.tick_frame(handler->control_data());
+    auto* device = handler->dev();
     if (!device->is_attached() || !device->is_usable())
         return false;
     script->args()->push_float(kLeftX, core::at(pad.scaled_stick(), 2));
@@ -556,13 +556,13 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
     params->fetch_int_value(0x1A4E0EF9u, &release, 0);
     auto* objects = objects::object_hub_slot().get();
     for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input;
-         input = input->next_of_type_)
+         input = input->next_of_type())
         core::down_cast<objects::PadInputModule>(input)->lock_button(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     auto until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
                                     static_cast<double>(time) * static_cast<double>(gfx::kThousand));
     for (objects::ObjectModule* trick = objects->find_first_module_of_kind(0x270F56E1); trick;
-         trick = trick->next_of_type_)
+         trick = trick->next_of_type())
         core::down_cast<objects::MoveExecutor>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);
     return true;
 }
@@ -798,7 +798,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
 bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
 {
     // (the profile's face texture - the original read the word at +0x54 through a getter folded with the viewer's)
-    gfx::FaceSkin* face = current_account()->appearance()->face_skin_;
+    gfx::FaceSkin* face = current_account()->appearance()->face_skin();
     const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &name, 1); // "string"
     std::array<char, 0x80> path{};
@@ -825,7 +825,7 @@ bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0x67E6859Au, &index, 1);
-    return modules::Skate::sole()->fetch_account(index)->appearance()->face_skin_ != nullptr; // (its face texture: +0x54)
+    return modules::Skate::sole()->fetch_account(index)->appearance()->face_skin() != nullptr; // (its face texture: +0x54)
 }
 
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.
@@ -899,7 +899,7 @@ bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
 {
     script::Array* nodes = nullptr;
     params->fetch_list(0xE2C2FA03u, &nodes, 0);
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         const script::StructPtr item = script::make_struct();
         script::Struct* node = level_nodes::fetch_vertex(nodes->fetch_part(i), true);
         const char* name = nullptr;

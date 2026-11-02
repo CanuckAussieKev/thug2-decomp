@@ -1252,7 +1252,7 @@ bool export_goal(const std::string& id, std::string* message)
     // (as NewEditorGoal 0x004EA6C0: the first level_goal_index no goal of this level has, then a free slot; at most 10
     // a level - MaxEditedGoalsReached)
     constexpr int kSlots = 50;
-    auto& slots = component->goals_;
+    auto& slots = component->goals();
     auto used = [&](int s) { return core::at(slots, s).taken_count(); };
     auto level_of = [&](int s) { return core::at(slots, s).level(); };
     auto index_of = [&](int s) { return core::at(slots, s).level_goal_number(); };

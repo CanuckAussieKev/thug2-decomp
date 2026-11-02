@@ -107,7 +107,7 @@ void AutomobileDynamicsModule::publish_method_table()
 }
 
 // 0x0041BAD0
-AutomobileDynamicsModule::AutomobileDynamicsModule() { kind_tag_ = kType; }
+AutomobileDynamicsModule::AutomobileDynamicsModule() { set_kind_tag(kType); }
 
 // 0x0041B930 (0x0041BB00 the deleting one)
 AutomobileDynamicsModule::~AutomobileDynamicsModule() = default;
@@ -128,13 +128,13 @@ void AutomobileDynamicsModule::configure_from_data(script::Struct* params)
 // 0x0041BE10
 void AutomobileDynamicsModule::seal()
 {
-    motion_ = core::down_cast<KinematicsModule>(entity_->fetch_module(kMotion));
-    suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(kSuspend));
-    ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
+    motion_ = core::down_cast<KinematicsModule>(entity()->fetch_module(kMotion));
+    suspend_ = core::down_cast<DormancyModule>(entity()->fetch_module(kSuspend));
+    ObjectModule* skeleton = entity()->fetch_module(kSkeleton);
     if (!skeleton)
         return;
-    mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance().get();
-    bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_;
+    mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity()->fetch_module(kModel))->mesh_instance().get();
+    bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig();
     const std::span<const render::HierarchyNode> bones = model_bones(mesh_instance_);
     maths::Mat4 a = core::at(bones, 2).matrix;
     matrix_multiply(&a, &a, &core::at(bones, 0).matrix);
@@ -273,7 +273,7 @@ void AutomobileDynamicsModule::tick_frame()
 {
     if (suspend_suspended(suspend_))
         return;
-    if (entity_->object_flags() & 1)
+    if (entity()->object_flags() & 1)
         return;
     if (!suspend_should_update(suspend_, nullptr))
         return;

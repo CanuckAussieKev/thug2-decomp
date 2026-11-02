@@ -60,7 +60,7 @@ double speed_of(const maths::Vec4& v) { return length_unrounded(v); }
 // 0x004FE1F0
 void SkaterPhysicsModule::apply_friction(float friction)
 {
-    maths::Vec4& velocity = entity_->vel();
+    maths::Vec4& velocity = entity()->vel();
     auto length_squared = static_cast<float>(length_sqr_unrounded(velocity));
     if (length_squared < kBarelyMovingSquared)
         return;
@@ -85,11 +85,11 @@ void SkaterPhysicsModule::apply_friction(float friction)
 bool SkaterPhysicsModule::should_brake()
 {
     const objects::PadInputModule* input = input_;
-    if (!auto_kick_ && !input->pad_primary().button_box().held_down() && speed_of(entity_->vel()) < kSlow)
+    if (!auto_kick_ && !input->pad_primary().button_box().held_down() && speed_of(entity()->vel()) < kSlow)
         return true;
     if (!input->pad_primary().btn_down().held_down() || !can_brake_)
         return false;
-    if (speed_of(entity_->vel()) < kSlow)
+    if (speed_of(entity()->vel()) < kSlow)
         return true;
     if (!input->pad_primary().right_side().held_down() && !input->pad_primary().left_side().held_down())
         return true;
@@ -104,7 +104,7 @@ bool SkaterPhysicsModule::should_brake()
 // 0x004FE420
 bool SkaterPhysicsModule::may_turn_on_slope()
 {
-    auto speed = static_cast<float>(speed_of(entity_->vel()));
+    auto speed = static_cast<float>(speed_of(entity()->vel()));
     if (!(script::fetch_float(kSlopeTurnSpeed) > speed))
         return false;
     return script::fetch_float(kSlopeTurnNormal) > floor_normal_.y;
@@ -120,7 +120,7 @@ bool SkaterPhysicsModule::can_push_off()
         return false;
     if (input->pad_primary().btn_down().held_down())
         return false;
-    auto speed = static_cast<float>(speed_of(entity_->vel()));
+    auto speed = static_cast<float>(speed_of(entity()->vel()));
     const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || crouch_stats_;
     auto limit = static_cast<float>(stat_value(object_of(this), crouched ? kPushSpeedCrouched : kKickoffSpeed));
     return !(limit < speed);
@@ -151,7 +151,7 @@ void SkaterPhysicsModule::push_off()
     const double z = static_cast<double>(static_cast<float>(static_cast<double>(direction.z) * push)) * frame;
     auto w =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(direction.w) * push)) * frame);
-    maths::Vec4& velocity = entity_->vel();
+    maths::Vec4& velocity = entity()->vel();
     velocity.x += x;
     velocity.y = static_cast<float>(velocity.y + y);
     velocity.z = static_cast<float>(velocity.z + z);
@@ -174,7 +174,7 @@ void SkaterPhysicsModule::apply_stance_friction()
 // 0x004FE730
 void SkaterPhysicsModule::apply_wheel_drag()
 {
-    maths::Vec4& velocity = entity_->vel();
+    maths::Vec4& velocity = entity()->vel();
     const double x = velocity.x;
     const double w = velocity.w;
     const float vy = velocity.y;
@@ -205,8 +205,8 @@ void SkaterPhysicsModule::apply_wheel_drag()
 // 0x004FE860
 void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
 {
-    if (park_editing::ParkBuilderMode::sole()->cur_phase() != kOff && normal.y > 0.0f) {
-        const maths::Vec4& position = entity_->at_point();
+    if (park_editing::ParkBuilderMode::sole()->editor_state() != kOff && normal.y > 0.0f) {
+        const maths::Vec4& position = entity()->at_point();
         maths::Vec4 end;
         end.x = static_cast<float>(static_cast<float>(normal.x * static_cast<double>(kNormalFeeler)) + position.x);
         end.y = static_cast<float>(static_cast<float>(normal.y * static_cast<double>(kNormalFeeler)) + position.y);
@@ -220,8 +220,8 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
         floor_normal_ = normal;
         old_normal_ = drawn_normal_;
         normal_blend_ = 1.0f;
-        core::at(entity_->basis_frame().row, 1) = normal;
-        entity_->basis_frame().square_up_axes(1);
+        core::at(entity()->basis_frame().row, 1) = normal;
+        entity()->basis_frame().square_up_axes(1);
     }
 }
 
@@ -252,8 +252,8 @@ void SkaterPhysicsModule::update_ground_normal()
         core::at(display_matrix_.row, 1) = drawn_normal_;
         maths::Mat4& display = display_matrix_;
         display.square_up_axes(1);
-        core::at(display.row, 0) = core::at(entity_->basis_frame().row, 0);
-        core::at(display_matrix_.row, 2) = core::at(entity_->basis_frame().row, 2);
+        core::at(display.row, 0) = core::at(entity()->basis_frame().row, 0);
+        core::at(display_matrix_.row, 2) = core::at(entity()->basis_frame().row, 2);
     }
 }
 
@@ -268,7 +268,7 @@ void SkaterPhysicsModule::start_vert_air()
     tracking_print(3, &object->old_pos(), &object->at_point());
     maths::Vec4 across = floor_normal_;
     vert_wall_normal_ = floor_normal_;
-    vert_takeoff_ = entity_->old_pos();
+    vert_takeoff_ = entity()->old_pos();
     vert_takeoff_.y = static_cast<float>(vert_takeoff_.y - 1.0);
     across.y = 0.0f;
     if (!(std::sqrt(static_cast<double>(across.z) * across.z + static_cast<double>(across.x) * across.x) > kFlat)) {
@@ -276,12 +276,12 @@ void SkaterPhysicsModule::start_vert_air()
         return;
     }
     across.make_unit();
-    entity_->vel().align_to_plane(across);
+    entity()->vel().align_to_plane(across);
     turn_to_normal(across);
-    vert_facing_ = core::at(entity_->basis_frame().row, 2);
+    vert_facing_ = core::at(entity()->basis_frame().row, 2);
     vert_facing_.y = -vert_facing_.y;
     const double out = script::fetch_float(kVertPushOut);
-    maths::Vec4& position = entity_->at_point();
+    maths::Vec4& position = entity()->at_point();
     auto y = static_cast<float>(across.y * out);
     auto z = static_cast<float>(across.z * out);
     auto w = static_cast<float>(across.w * out);

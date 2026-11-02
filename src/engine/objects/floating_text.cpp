@@ -86,7 +86,7 @@ gsl::owner<ObjectModule*> FloatingTextComponent::fabricate() { return new Floati
 FloatingTextComponent::FloatingTextComponent()
 {
     core::at(text_, 0) = 0;
-    kind_tag_ = kType;
+    set_kind_tag(kType);
 }
 
 // 0x0041E5E0 (0x0041E6C0 the deleting one)
@@ -102,7 +102,7 @@ FloatingTextComponent::~FloatingTextComponent()
 void FloatingTextComponent::configure_from_data(script::Struct* params)
 {
     if (!ident_)
-        ident_ = entity_->ident() - kIdBase;
+        ident_ = entity()->ident() - kIdBase;
     const char* text = nullptr;
     if (params->fetch_text(kString, &text, 0)) {
         if (!*text) {
@@ -125,7 +125,7 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
 }
 
 // 0x0041E3A0
-void FloatingTextComponent::seal() { mesh_instance_ = entity_->fetch_module(kModel); }
+void FloatingTextComponent::seal() { mesh_instance_ = entity()->fetch_module(kModel); }
 
 // 0x0041E450
 void FloatingTextComponent::tick_frame()
@@ -147,7 +147,7 @@ void FloatingTextComponent::tick_frame()
     std::array<char, 0x40> text{};
     text::format_to(text, "\\c%d%s", tint_, text_.data());
     params->append_word(kText, text.data());
-    const maths::Vec4& pos = entity_->at_point();
+    const maths::Vec4& pos = entity()->at_point();
     params->put_vec3(kPos3d, pos.x, pos.y + y_offset_, pos.z);
     frontend::ElementPtr found;
     frontend::UiTree::sole()->fetch_part(&found, ident_, 0);

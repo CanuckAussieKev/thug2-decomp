@@ -187,9 +187,9 @@ int ParkLayout::get_restart_index(uint32_t name)
 PieceGroup* ParkLayout::fetch_meta_template(uint32_t name, int* index)
 {
     int position = num_abstract_metas_ - 1;
-    for (const MapListNode* node = abstract_metas_; node; node = node->following_, --position) {
+    for (const MapListNode* node = abstract_metas_; node; node = node->following(), --position) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
-        if (meta->name_key_ == name) {
+        if (meta->name_key() == name) {
             if (index)
                 *index = position;
             return meta;
@@ -279,8 +279,8 @@ void ParkLayout::destroy_gap_manager_copy()
 
 void ParkLayout::highlight_gap_pieces(bool on, GapDetails* gap)
 {
-    for (const MapListNode* node = concrete_metas_; node; node = node->following_) {
-        if (node->get_piece_group()->get_cast()->flag_bits_ & PieceGroup::kHighlightable)
+    for (const MapListNode* node = concrete_metas_; node; node = node->following()) {
+        if (node->get_piece_group()->get_cast()->flag_bits() & PieceGroup::kHighlightable)
             node->get_piece_group()->get_cast()->spotlight(on, 1);
     }
     builder_->set_pieces_highlighted(0);
@@ -300,8 +300,8 @@ void ParkLayout::clear_floor_change_marks()
             core::at(core::at(floor_, x), z).delta_ = 0;
         }
     }
-    for (const MapListNode* node = concrete_metas_; node; node = node->following_)
-        node->get_piece_group()->get_cast()->flag_bits_ &= ~PieceGroup::kFlag20;
+    for (const MapListNode* node = concrete_metas_; node; node = node->following())
+        node->get_piece_group()->get_cast()->flag_bits() &= ~PieceGroup::kFlag20;
 }
 
 } // namespace park_editing

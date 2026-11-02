@@ -71,17 +71,17 @@ PcGeom* geometry_of(void* sector)
 // The first sector of a fresh iteration of the table (null if none).
 void* first_sector(lists::KeyMap* table)
 {
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
-    if (!table->step_iterator() || !table->iter_item_)
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
+    if (!table->step_iterator() || !table->iter_item())
         return nullptr;
-    return table->iter_item_->value;
+    return table->iter_item()->value;
 }
 void* next_sector(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item_)
+    if (!table->step_iterator() || !table->iter_item())
         return nullptr;
-    return table->iter_item_->value;
+    return table->iter_item()->value;
 }
 
 } // namespace
@@ -134,8 +134,8 @@ void PcScene::post_load(void* arena_word)
                                          &arena->buffer, nullptr);
         arena->buffer->Lock(0, 0, &arena->data, 0);
         arena->used = 0;
-        meshes->set_arena_buffer(arena->buffer);
-        meshes->set_unknown80(arena->size);
+        meshes_->set_arena_buffer(arena->buffer);
+        meshes_->set_unknown80(arena->size);
     }
     for (; sector; sector = next_sector(table)) {
         PcGeom* geom = geometry_of(sector);
@@ -146,10 +146,10 @@ void PcScene::post_load(void* arena_word)
         arena->buffer->Unlock();
         arena->data = nullptr;
     }
-    meshes->allocate_mesh_list();
+    meshes_->allocate_mesh_list();
     for (sector = first_sector(table); sector; sector = next_sector(table))
         geometry_of(sector)->add_to_mesh_list(false);
-    meshes->order_meshes();
+    meshes_->order_meshes();
 }
 
 // --- the screen effects ---
@@ -198,15 +198,15 @@ void set_mesh_sphere_and_box(MeshRef* mesh, std::span<const float, 3> centre, fl
 void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
                  const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
 {
-    maths::BBox* bounds = &geom->scene_value()->meshes->bounds_value();
+    maths::BBox* bounds = &geom->scene()->meshes()->bounds();
     bounds->append_spot(*min);
     bounds->append_spot(*max);
-    if (sector->flags & 0x800000) {
+    if (sector->flags() & 0x800000) {
         mesh->make_billboard(static_cast<int>(billboard_type), pivot, axis);
         billboard_pool().append_mesh(mesh);
     }
-    if (sector->flags & 0x200000)
-        mesh->flags_value() |= 0x200;
+    if (sector->flags() & 0x200000)
+        mesh->flags() |= 0x200;
     geom->append_mesh(mesh);
     mesh->set_bone(light_group); // (the bone slot)
     make_grass(geom, mesh);
@@ -215,8 +215,8 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
 uint32_t count_loaded_meshes(const PcGeom* geom)
 {
     uint32_t count = 0;
-    for (const memory::ListNode* node = geom->load_list()->next; node->data != memory::ListNode::head_marker() && node;
-         node = node->next)
+    for (const memory::ListNode* node = geom->load_list()->next(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next())
         ++count;
     return count;
 }
@@ -233,13 +233,13 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     // past what is there) ends the scene (the original read on past its end).
     const bool read = scene_format::read_sector(in, &record);
     change_sector_key(sector, record.checksum);
-    sector->flags = record.flags;
+    sector->set_flags(record.flags);
     geometry->set_mesh_count(read ? record.mesh_count : 0);
     // (the box's corners kept: the meshes' are read over them, their w still 1)
     maths::Vec4 min = {.x = core::at(record.box, 0), .y = core::at(record.box, 1), .z = core::at(record.box, 2), .w = 1.0f};
     maths::Vec4 max = {.x = core::at(record.box, 3), .y = core::at(record.box, 4), .z = core::at(record.box, 5), .w = 1.0f};
-    geometry->bounds_value().min = min;
-    geometry->bounds_value().max = max;
+    geometry->bounds().min = min;
+    geometry->bounds().max = max;
     const uint32_t billboard_type = record.billboard_type;
     const maths::Vec4 pivot = {.x = core::at(record.pivot, 0), .y = core::at(record.pivot, 1), .z = -core::at(record.pivot, 2), .w = 0.0f};
     const maths::Vec4 axis = {.x = core::at(record.axis, 0), .y = core::at(record.axis, 1), .z = core::at(record.axis, 2), .w = 0.0f};
@@ -262,12 +262,12 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         std::memcpy(&min, fields.min.data(), sizeof(fields.min));
         std::memcpy(&max, fields.max.data(), sizeof(fields.max));
         if (fields.flags & 0x400)
-            mesh->flags_value() |= 2;
+            mesh->flags() |= 2;
         if (fields.flags & 0x20000)
-            mesh->flags_value() |= 0x20000;
+            mesh->flags() |= 0x20000;
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->set_load_index(static_cast<uint16_t>(i));
-        if (!load_body(mesh, fields.material, geometry->scene_value()->meshes)) {
+        if (!load_body(mesh, fields.material, geometry->scene()->meshes())) {
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;
         }
@@ -294,7 +294,7 @@ bool PcSector::ingest_from_file(scene_format::FileStream& in, VertexArena* arena
 {
     return read_sector(this, in, [this, &in, arena](MeshRef* mesh, uint32_t material, SceneRef* list) {
         // (the vertices into the arena unless a billboard; dynamic with the billboard bit, read as a byte: bit 23)
-        return mesh->ingest_from_file(in, material, list, (flags & 0x800000) ? nullptr : arena, ((flags >> 23) & 1) != 0);
+        return mesh->ingest_from_file(in, material, list, (flags_ & 0x800000) ? nullptr : arena, ((flags_ >> 23) & 1) != 0);
     });
 }
 

@@ -81,7 +81,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
     const int first = get_rand();
     m->set_checksum(static_cast<uint32_t>(first * get_rand())); // the sort key
     m->set_pass_count(1);                                      // one pass
-    core::at(m->textures_value(), 0) = texture;
+    core::at(m->textures(), 0) = texture;
     core::at(m->blend_modes(), 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
     core::at(core::at(m->pass_color(), 0), 0) = 0.5f; // the colour
     core::at(core::at(m->pass_color(), 0), 1) = 0.5f;

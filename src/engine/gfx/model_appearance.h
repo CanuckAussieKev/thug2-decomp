@@ -61,6 +61,12 @@ public:
     // (Not original: `size` - the buffer's bytes; nothing is read past them.)
     uint8_t* decode_from_bytes(uint8_t* buffer, size_t size);
 
+    // The fields other code reads and sets.
+    script::Struct& structure() { return structure_; }
+    [[nodiscard]] const script::Struct& structure() const { return structure_; }
+    [[nodiscard]] FaceSkin* face_skin() const { return face_skin_; }
+
+private:
     script::Struct structure_; // +0x4C the slots
     FaceSkin* face_skin_{nullptr}; // +0x54
     bool has_face_texture_{false}; // +0x58 (read from the network)

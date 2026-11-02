@@ -130,10 +130,10 @@ uint32_t get_table_action(uint8_t table)
 uint32_t fetch_surface_key(uint8_t terrain)
 {
     lists::KeyMap& types = terrain_types();
-    types.iter_bucket_ = -1;
-    types.iter_item_ = nullptr;
-    while (types.step_iterator() && types.iter_item_ && types.iter_item_->value) {
-        auto* item = static_cast<TypeItem*>(types.iter_item_->value);
+    types.set_iter_bucket(-1);
+    types.set_iter_item(nullptr);
+    while (types.step_iterator() && types.iter_item() && types.iter_item()->value) {
+        auto* item = static_cast<TypeItem*>(types.iter_item()->value);
         if (item->index == terrain)
             return item->checksum;
     }
@@ -144,10 +144,10 @@ uint32_t fetch_surface_key(uint8_t terrain)
 uint8_t get_table_index(uint32_t type)
 {
     lists::KeyMap& actions = get_terrain_actions();
-    actions.iter_bucket_ = -1;
-    actions.iter_item_ = nullptr;
-    while (actions.step_iterator() && actions.iter_item_ && actions.iter_item_->value) {
-        auto* item = static_cast<ActionItem*>(actions.iter_item_->value);
+    actions.set_iter_bucket(-1);
+    actions.set_iter_item(nullptr);
+    while (actions.step_iterator() && actions.iter_item() && actions.iter_item()->value) {
+        auto* item = static_cast<ActionItem*>(actions.iter_item()->value);
         if (item->type == type)
             return item->index;
     }
@@ -181,14 +181,14 @@ bool get_terrain_structure_into(Struct** out, uint8_t terrain, uint32_t name)
 void load_terrain_types()
 {
     Array* types = script::fetch_list(kTerrainTypes);
-    for (uint32_t i = 0; i < types->extent_; ++i) {
+    for (uint32_t i = 0; i < types->extent(); ++i) {
         auto* item = static_cast<TypeItem*>(memory::alloc(sizeof(TypeItem)));
         item->index = static_cast<uint8_t>(i);
         types->struct_at(i)->read_hash_value(kChecksum, &item->checksum, 0);
         terrain_types().store_entry(item->checksum, item);
     }
     Array* actions = script::fetch_list(kTerrainActions);
-    for (uint32_t i = 0; i < actions->extent_; ++i) {
+    for (uint32_t i = 0; i < actions->extent(); ++i) {
         auto* item = static_cast<ActionItem*>(memory::alloc(sizeof(ActionItem)));
         item->index = static_cast<uint8_t>(i);
         actions->struct_at(i)->read_hash_value(kType, &item->type, 1);
@@ -261,14 +261,14 @@ Struct* pick_sound_action(Struct* entry)
     int chance =
         0; // (kept from one element to the next when one has none; uninitialised for the first in the original)
     int total = 0;
-    for (uint32_t i = choices->extent_; i != 0;) {
+    for (uint32_t i = choices->extent(); i != 0;) {
         --i;
         sound_action = choices->struct_at(i);
         sound_action->fetch_int_value(kChance, &chance, 1);
         total += chance;
     }
     int pick = maths::rnd(total);
-    for (uint32_t i = choices->extent_; i != 0;) {
+    for (uint32_t i = choices->extent(); i != 0;) {
         --i;
         sound_action = choices->struct_at(i);
         sound_action->fetch_int_value(kChance, &chance, 1);
@@ -288,7 +288,7 @@ Struct* find_sound_action(Struct* sound_actions, uint8_t table, float value)
         return entry;
     Array* entries = nullptr;
     sound_actions->fetch_list(action, &entries, 1);
-    for (uint32_t i = 0; i < entries->extent_; ++i) {
+    for (uint32_t i = 0; i < entries->extent(); ++i) {
         entry = entries->struct_at(i);
         float use_up_to = 0.0f;
         // (a NaN value never fits)
@@ -325,7 +325,7 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
     Array* entries = nullptr;
     if (!sound_actions->fetch_list(action, &entries, 0))
         default_actions->fetch_list(action, &entries, 1);
-    for (uint32_t i = 0; i < entries->extent_; ++i) {
+    for (uint32_t i = 0; i < entries->extent(); ++i) {
         auto* element = entries->struct_at(i);
         Struct* sound_action = nullptr;
         if (element->read_sub_struct(kSoundAction, &sound_action, 0)) {
@@ -334,7 +334,7 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
         }
         Array* choices = nullptr;
         element->fetch_list(kSoundAction, &choices, 1);
-        for (uint32_t j = 0; j < choices->extent_; ++j) {
+        for (uint32_t j = 0; j < choices->extent(); ++j) {
             SoundInfo info{};
             get_sound_info(choices->struct_at(j), &info);
             ingest_sound(info);
@@ -435,7 +435,7 @@ bool load_terrain_sounds(uint32_t checksum)
             new (merged) script::Struct;
         merged->append_structure_if_any(default_actions);
         merged->append_structure_if_any(terrain_actions);
-        for (uint32_t table = 0; table < ints::as_unsigned(get_terrain_actions().extent_); ++table)
+        for (uint32_t table = 0; table < ints::as_unsigned(get_terrain_actions().extent()); ++table)
             load_table_sounds(merged, static_cast<uint8_t>(table));
         if (merged) {
             merged->get_clear();

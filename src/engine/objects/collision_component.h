@@ -54,6 +54,10 @@ public:
     // matrix times the object's display matrix; else at the object's position, turned by its display matrix.
     void tick_frame() override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] render::HitMesh* hit_shape() const { return static_cast<render::HitMesh*>(hit_shape_); } // (a view: it stays the owner's)
+
+private:
     gsl::owner<render::HitMesh*> hit_shape_{}; // +0x18
 };
 

@@ -87,14 +87,25 @@ public:
     // argument isn't used.)
     bool get_query(int unused);
 
+    // The fields other code reads and sets.
+    CollSphere& bound_ball() { return bound_ball_; }
+    [[nodiscard]] const CollSphere& bound_ball() const { return bound_ball_; }
+    [[nodiscard]] const SphereHits& hits() const { return hits_; }
+    void set_hit_cache(HitMeshCache* value) { hit_cache_ = value; }
+
+private:
     CollSphere bound_ball_{};     // +0x000
     SphereHits hits_{};           // +0x014
     std::array<uint8_t, 0x598> unknown5b8_{}; // +0x5B8
     uint32_t unknownb50_{0};      // +0xB50
     std::array<uint32_t, 2> unknownb54_{};  // +0xB54
     HitMeshCache* hit_cache_{nullptr}; // +0xB5C
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(SphereFeeler, hits_) == 0x14 && offsetof(SphereFeeler, hit_cache_) == 0xB5C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(SphereFeeler, hits_) == 0x14 && offsetof(SphereFeeler, hit_cache_) == 0xB5C,
-              "layout must match the original");
 
 } // namespace render

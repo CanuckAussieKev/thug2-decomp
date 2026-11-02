@@ -97,8 +97,8 @@ render::HitMesh* coll_of(render::WorldCell* sector)
     render::HitMesh* coll = sector->hit_body();
     return render::is_static_collider(coll) ? coll : nullptr;
 }
-render::TriMeshSource* tri_of(render::HitMesh* coll) { return coll->geometry_; }
-bool flag_off(render::HitMesh* coll) { return (coll->flag_bits_ & 4) != 0; }
+render::TriMeshSource* tri_of(render::HitMesh* coll) { return coll->geometry(); }
+bool flag_off(render::HitMesh* coll) { return (coll->flag_bits() & 4) != 0; }
 
 // WorldCell::change_live (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
 void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
@@ -178,9 +178,9 @@ void put_switch(Track* t)
     if (!geom || !geom_active(geom))
         return; // (hidden: off with the piece - shown again, Tick puts the switch back)
     if (t->off)
-        t->coll->flag_bits_ |= 4;
+        t->coll->flag_bits() |= 4;
     else if (t->off != t->off0 || flag_off(t->coll))
-        t->coll->flag_bits_ &= static_cast<uint16_t>(~4);
+        t->coll->flag_bits() &= static_cast<uint16_t>(~4);
 }
 
 void get_place(uint32_t checksum, Track* t, const Placement& to)
@@ -346,7 +346,7 @@ void tick()
             continue;
         render::PcGeom* geom = geom_of(t.sector);
         if (geom && geom_active(geom) && !flag_off(t.coll))
-            t.coll->flag_bits_ |= 4;
+            t.coll->flag_bits() |= 4;
     }
 }
 

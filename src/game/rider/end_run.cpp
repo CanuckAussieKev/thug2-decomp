@@ -48,7 +48,7 @@ bool is_local_skater(GameEntity* object) { return object->is_local_skater() != 0
 gsl::owner<ObjectModule*> RiderSessionEnd::fabricate() { return new RiderSessionEnd; }
 
 // (the constructor: inlined in fabricate in the original)
-RiderSessionEnd::RiderSessionEnd() { kind_tag_ = kSkaterEndRun; }
+RiderSessionEnd::RiderSessionEnd() { set_kind_tag(kSkaterEndRun); }
 
 // 0x00510D20 (0x00510D40 the deleting one)
 RiderSessionEnd::~RiderSessionEnd() = default;
@@ -60,7 +60,7 @@ void RiderSessionEnd::tick_frame()
         hold_off(true);
         return;
     }
-    if (is_local_skater(entity_) && (flag_bits_ & kEndRunDone) && !server_told_run_ended())
+    if (is_local_skater(entity()) && (flag_bits_ & kEndRunDone) && !server_told_run_ended())
         tell_server_run_ended();
 }
 
@@ -107,14 +107,14 @@ uint32_t* RiderSessionEnd::fetch_bits(uint32_t* out)
 void RiderSessionEnd::end_run(bool force)
 {
     if (!force && !game_mode_ends_runs()) {
-        entity_->post_own_event(kRunHasEnded, nullptr);
+        entity()->post_own_event(kRunHasEnded, nullptr);
         flag_bits_ &= ~kEndRunDone;
         return;
     }
     if (!(flag_bits_ & kEndRunForced) && !(flag_bits_ & kEndRunDone)) {
         flag_bits_ |= kEndRunForced;
-        if (is_local_skater(entity_))
-            script::launch_script(kForceEndOfRun, nullptr, entity_, false, nullptr);
+        if (is_local_skater(entity()))
+            script::launch_script(kForceEndOfRun, nullptr, entity(), false, nullptr);
     }
 }
 
@@ -122,7 +122,7 @@ void RiderSessionEnd::end_run(bool force)
 void RiderSessionEnd::finish_objective_run()
 {
     flag_bits_ &= ~kEndRunGoalDone;
-    entity_->post_own_event(kGoalHasEnded, nullptr);
+    entity()->post_own_event(kGoalHasEnded, nullptr);
 }
 
 // 0x00510F30

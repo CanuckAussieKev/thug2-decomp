@@ -60,7 +60,7 @@ render::BitmapTexture* find_texture(uint32_t name)
 void* get_face_texture()
 {
     auto* profile = modules::Skate::sole()->fetch_account(static_cast<Struct*>(nullptr));
-    return profile->appearance()->face_skin_;
+    return profile->appearance()->face_skin();
 }
 
 // A colour as the textures take it: four bytes (the first in the low byte).
@@ -92,7 +92,7 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 gsl::owner<Array*> new_colour_array(Array* source)
 {
     gsl::owner<Array*> colour = script::new_array();
-    if (source->extent_ == 4) {
+    if (source->extent() == 4) {
         colour->configure_size_kind(4, script::kQbvalInteger);
         colour->set_element(3, source->fetch_part(3));
     } else {

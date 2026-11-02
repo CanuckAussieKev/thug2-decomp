@@ -49,8 +49,8 @@ void set_stereo(sound::VolumeRef& volume, float left, float right)
 {
     new (&volume) sound::VolumeRef;
     volume.change_muted();
-    core::at(volume.lanes_, 0) = left;
-    core::at(volume.lanes_, 1) = right;
+    core::at(volume.lanes(), 0) = left;
+    core::at(volume.lanes(), 1) = right;
 }
 
 } // namespace
@@ -169,7 +169,7 @@ bool cfunc_add_sound_banks(Struct* params, Script*)
     Array* banks = nullptr; // (uninitialised in the original: only read when found)
     if (params->fetch_list(0u, &banks, 0)) {
         sound::AudioMixer* manager = audio_mixer_handle();
-        for (uint32_t i = 0; i < banks->extent_; ++i)
+        for (uint32_t i = 0; i < banks->extent(); ++i)
             manager->stop_group(static_cast<int>(banks->fetch_part(i) << 10));
     }
     return true;
@@ -269,7 +269,7 @@ bool cfunc_set_positional_sound_silence_override_mode(Struct* params, Script*)
 {
     int mode = 1;
     params->fetch_int_value(0u, &mode, 1);
-    audio_mixer_handle()->mute_override_ = mode != 0;
+    audio_mixer_handle()->set_mute_override(mode != 0);
     return true;
 }
 

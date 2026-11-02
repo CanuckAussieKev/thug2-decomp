@@ -72,7 +72,7 @@ void CinematicTable::mark_loaded_models()
     call_args_->fetch_int_value(kVersion, &version, 1);
     script::Array* objects = nullptr;
     call_args_->fetch_list(kObjects, &objects, 1);
-    for (uint32_t i = 0; i < objects->extent_; ++i) {
+    for (uint32_t i = 0; i < objects->extent(); ++i) {
         auto* object = objects->struct_at(i);
         uint32_t model = 0;
         if (object->read_hash_value(version >= 2 ? kName : kModel, &model, 0) &&

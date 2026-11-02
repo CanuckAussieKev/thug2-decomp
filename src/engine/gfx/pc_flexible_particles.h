@@ -34,9 +34,12 @@ gsl::owner<EmitterInstance*> create_flexible_particles(uint32_t name, uint32_t t
 struct PcNewFlatParticles final : NewFlatParticles {
     PcNewFlatParticles(const PcNewFlatParticles&) = delete;
     PcNewFlatParticles& operator=(const PcNewFlatParticles&) = delete;
+private:
     std::array<uint8_t, 0xC> unknown134_{};
     SimpleMaterial* material; // +0x140
     float emitted{};          // +0x144: particles owed, a fraction
+
+public:
 
     // 0x004BD3A0
     PcNewFlatParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -55,9 +58,12 @@ struct PcNewFlatParticles final : NewFlatParticles {
 struct PcFlatRibbonParticles final : FlatRibbonParticles {
     PcFlatRibbonParticles(const PcFlatRibbonParticles&) = delete;
     PcFlatRibbonParticles& operator=(const PcFlatRibbonParticles&) = delete;
+private:
     std::array<uint8_t, 4> unknown138_{};
     float width;              // +0x13C
     SimpleMaterial* material; // +0x140
+
+public:
 
     // 0x004BDC80
     PcFlatRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -76,9 +82,12 @@ struct PcFlatRibbonParticles final : FlatRibbonParticles {
 struct PcGlowParticles final : GlowParticles {
     PcGlowParticles(const PcGlowParticles&) = delete;
     PcGlowParticles& operator=(const PcGlowParticles&) = delete;
+private:
     std::array<uint8_t, 0xC> unknown13c_{};
     SimpleMaterial* material; // +0x148
     std::array<uint8_t, 4> unknown14c_{};
+
+public:
 
     // 0x004BED10
     PcGlowParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -98,9 +107,12 @@ struct PcGlowParticles final : GlowParticles {
 struct PcGlowRibbonTrailParticles final : GlowRibbonTrailParticles {
     PcGlowRibbonTrailParticles(const PcGlowRibbonTrailParticles&) = delete;
     PcGlowRibbonTrailParticles& operator=(const PcGlowRibbonTrailParticles&) = delete;
+private:
     std::array<uint8_t, 0xC> unknown13c_{};
     SimpleMaterial* material; // +0x148
     float glow_step_{};       // +0x14C: degrees between the glow's points
+
+public:
 
     // 0x004BF720
     PcGlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -118,9 +130,12 @@ struct PcGlowRibbonTrailParticles final : GlowRibbonTrailParticles {
 struct PcLineParticles final : LineParticles {
     PcLineParticles(const PcLineParticles&) = delete;
     PcLineParticles& operator=(const PcLineParticles&) = delete;
+private:
     std::array<uint8_t, 8> unknown138_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
+
+public:
 
     // 0x004C09F0
     PcLineParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -138,9 +153,12 @@ struct PcLineParticles final : LineParticles {
 struct PcRibbonParticles final : RibbonParticles {
     PcRibbonParticles(const PcRibbonParticles&) = delete;
     PcRibbonParticles& operator=(const PcRibbonParticles&) = delete;
+private:
     std::array<uint8_t, 8> unknown138_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
+
+public:
 
     // 0x004C0EB0
     PcRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -157,9 +175,12 @@ struct PcRibbonParticles final : RibbonParticles {
 struct PcRibbonTrailParticles final : RibbonTrailParticles {
     PcRibbonTrailParticles(const PcRibbonTrailParticles&) = delete;
     PcRibbonTrailParticles& operator=(const PcRibbonTrailParticles&) = delete;
+private:
     std::array<uint8_t, 8> unknown138_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
+
+public:
 
     // 0x004C1720
     PcRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -178,7 +199,10 @@ struct PcRibbonTrailParticles final : RibbonTrailParticles {
 struct PcShadedParticles final : ShadedParticles {
     PcShadedParticles(const PcShadedParticles&) = delete;
     PcShadedParticles& operator=(const PcShadedParticles&) = delete;
+private:
     SimpleMaterial* material; // +0x134
+
+public:
 
     // 0x004C21A0
     PcShadedParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha);
@@ -193,9 +217,12 @@ struct PcShadedParticles final : ShadedParticles {
 struct PcSmoothParticles final : SmoothParticles {
     PcSmoothParticles(const PcSmoothParticles&) = delete;
     PcSmoothParticles& operator=(const PcSmoothParticles&) = delete;
+private:
     std::array<uint8_t, 0xC> unknown134_{};
     SimpleMaterial* material; // +0x140
     std::array<uint8_t, 4> unknown144_{};
+
+public:
 
     // 0x004C2B30
     PcSmoothParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -213,8 +240,11 @@ struct PcSmoothParticles final : SmoothParticles {
 struct PcSmoothRibbonParticles final : SmoothRibbonParticles {
     PcSmoothRibbonParticles(const PcSmoothRibbonParticles&) = delete;
     PcSmoothRibbonParticles& operator=(const PcSmoothRibbonParticles&) = delete;
+private:
     int segments{};           // +0x138: history steps
     SimpleMaterial* material; // +0x13C
+
+public:
 
     // 0x004C3550
     PcSmoothRibbonParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -233,9 +263,12 @@ struct PcSmoothRibbonParticles final : SmoothRibbonParticles {
 struct PcSmoothStarParticles final : SmoothStarParticles {
     PcSmoothStarParticles(const PcSmoothStarParticles&) = delete;
     PcSmoothStarParticles& operator=(const PcSmoothStarParticles&) = delete;
+private:
     std::array<uint8_t, 0xC> unknown13c_{};
     SimpleMaterial* material; // +0x148
     std::array<uint8_t, 4> unknown14c_{};
+
+public:
 
     // 0x004C3D80
     PcSmoothStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
@@ -251,9 +284,12 @@ struct PcSmoothStarParticles final : SmoothStarParticles {
 struct PcStarParticles final : StarParticles {
     PcStarParticles(const PcStarParticles&) = delete;
     PcStarParticles& operator=(const PcStarParticles&) = delete;
+private:
     std::array<uint8_t, 0xC> unknown13c_{};
     SimpleMaterial* material; // +0x148
     std::array<uint8_t, 4> unknown14c_{};
+
+public:
 
     // 0x004C48C0
     PcStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,

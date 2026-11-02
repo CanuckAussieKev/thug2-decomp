@@ -55,7 +55,7 @@ void record_swap(uint32_t a, uint32_t b) { commands::swap_mapping(a, b); }
 // 0x004A2E20 copies one into another, 0x004A2CB0 is its destructor body.
 gfx::Rig* skeleton_of(objects::ObjectModule* component)
 {
-    return core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
+    return core::down_cast<objects::BoneRigModule>(component)->bone_rig();
 }
 void copy_skeleton(gfx::Rig* to, gfx::Rig* from) { to->copy_bone_scales(from, true); }
 

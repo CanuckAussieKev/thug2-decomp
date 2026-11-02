@@ -57,7 +57,7 @@ std::array<Stream, 3>& get_streams() { return music_state().streams_; }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id.
 std::array<objects::AudioStreamModule*, 3>& get_owners() { return music_state().stream_owners_; }
-uint32_t& owner_id(objects::AudioStreamModule* owner, int stream) { return core::at(owner->streams_, stream); }
+uint32_t& owner_id(objects::AudioStreamModule* owner, int stream) { return core::at(owner->streams(), stream); }
 // The stream PlayStream started last.
 int& last_stream() { return stream_command_state().last_stream_; }
 
@@ -314,7 +314,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t c
     construct_volume(&stream_volume);
     change_muted(&stream_volume);
     if (use_pos_info) {
-        const objects::GameEntity* object = component->entity_;
+        const objects::GameEntity* object = component->entity();
         void* emitter = nearest_emitter(&object->at_point());
         bool audible = true;
         if (emitter) {
@@ -334,8 +334,8 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t c
             }
         }
     } else {
-        std::memcpy(&core::at(stream_volume.lanes_, 0), &volume, 4);
-        std::memcpy(&core::at(stream_volume.lanes_, 1), &volume, 4);
+        std::memcpy(&core::at(stream_volume.lanes(), 0), &volume, 4);
+        std::memcpy(&core::at(stream_volume.lanes(), 1), &volume, 4);
     }
     const uint32_t playing = play_stream(checksum, &stream_volume, pitch, option, priority, id);
     if (playing) {

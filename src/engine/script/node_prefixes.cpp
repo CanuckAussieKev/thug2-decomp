@@ -83,16 +83,16 @@ PrefixTable::PrefixTable()
 // 0x0045CD30
 PrefixTable::~PrefixTable()
 {
-    slot_table_->iter_bucket_ = -1;
-    slot_table_->iter_item_ = nullptr;
+    slot_table_->set_iter_bucket(-1);
+    slot_table_->set_iter_item(nullptr);
     PrefixNodes* nodes = nullptr;
-    if (slot_table_->step_iterator() && slot_table_->iter_item_)
-        nodes = static_cast<PrefixNodes*>(slot_table_->iter_item_->value);
+    if (slot_table_->step_iterator() && slot_table_->iter_item())
+        nodes = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
     while (nodes) {
         // (the next one is found before this one is taken out of the table)
         PrefixNodes* next = nullptr;
-        if (slot_table_->step_iterator() && slot_table_->iter_item_)
-            next = static_cast<PrefixNodes*>(slot_table_->iter_item_->value);
+        if (slot_table_->step_iterator() && slot_table_->iter_item())
+            next = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
         const uint32_t prefix = nodes->name_prefix_;
         if (nodes->indices_)
             memory::free_malloc(nodes->indices_);
@@ -127,10 +127,10 @@ void PrefixTable::append_one(uint32_t prefix, uint16_t index)
 // 0x0045C240
 void PrefixTable::compact()
 {
-    slot_table_->iter_bucket_ = -1;
-    slot_table_->iter_item_ = nullptr;
-    while (slot_table_->step_iterator() && slot_table_->iter_item_) {
-        auto* nodes = static_cast<PrefixNodes*>(slot_table_->iter_item_->value);
+    slot_table_->set_iter_bucket(-1);
+    slot_table_->set_iter_item(nullptr);
+    while (slot_table_->step_iterator() && slot_table_->iter_item()) {
+        auto* nodes = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
         if (!nodes)
             break;
         uint16_t* old = nodes->indices_;
@@ -146,11 +146,11 @@ void PrefixTables::add_node_array(uint32_t name)
     // (The original first walks to the end of the list, and does nothing with it.)
     void* memory = memory::alloc_zeroed(sizeof(PrefixTable));
     PrefixTable* table = memory ? memory::construct_in<PrefixTable>(memory) : nullptr;
-    table->following_ = first_ptr_;
+    table->set_following(first_ptr_);
     first_ptr_ = table;
-    table->node_array_ = name;
+    table->set_node_array(name);
     Array* nodes = script::fetch_list(name);
-    const uint32_t count = nodes->extent_;
+    const uint32_t count = nodes->extent();
     for (uint32_t i = 0; i < count; ++i) {
         auto* node = nodes->struct_at(i);
         uint32_t node_name = 0;
@@ -197,10 +197,10 @@ void PrefixTables::remove_node_array(uint32_t name)
 {
     PrefixTable* previous = nullptr;
     for (PrefixTable* table = first_ptr_; table;) {
-        PrefixTable* next = table->following_;
-        if (table->node_array_ == name) {
+        PrefixTable* next = table->following();
+        if (table->node_array() == name) {
             if (previous)
-                previous->following_ = next;
+                previous->set_following(next);
             else
                 first_ptr_ = next;
             table->~PrefixTable();
@@ -217,15 +217,15 @@ std::span<const uint32_t> PrefixTables::get_nodes(uint32_t prefix)
 {
     auto& names = node_names();
     int found = 0;
-    for (const PrefixTable* table = first_ptr_; table; table = table->following_) {
-        const PrefixNodes* nodes = get_find(table->slot_table_, prefix);
+    for (const PrefixTable* table = first_ptr_; table; table = table->following()) {
+        const PrefixNodes* nodes = get_find(table->slot_table(), prefix);
         if (!nodes)
             continue;
         auto n = static_cast<uint16_t>(nodes->num_);
         const std::span<uint16_t> indices = nodes->index_run();
         if (!n)
             continue;
-        Array* array = script::fetch_list(table->node_array_);
+        Array* array = script::fetch_list(table->node_array());
         for (int i = 0; std::cmp_less(i, n); ++i) // (the buffer's size is checked)
             core::at(names, found++) = get_node_name(array->struct_at(core::at(indices, i)));
     }

@@ -76,7 +76,7 @@ void ParkPiece::get_footprint_size(CellBox* dims)
 
 maths::Vec4* ParkPiece::get_dims_turned(maths::Vec4* out, int rot)
 {
-    ParkPiece* source = (flag_bits_ & kSource) ? this : core::down_cast<ParkTile>(this)->blend_source_;
+    ParkPiece* source = (flag_bits_ & kSource) ? this : core::down_cast<ParkTile>(this)->blend_source();
     // (The original asks the source three times, once per component; it's a plain getter. Its w: the source's when
     // the turn is odd, a stack leftover when it's even - the source's here.)
     maths::Vec4 size;
@@ -97,12 +97,12 @@ void ParkTile::set_quarter_turns(int rot, int update)
 {
     quarter_turns_ = rot;
     if (update == 1)
-        scene::spin_around_up(scene::look_up_sector(sector_), rot);
+        scene::spin_around_up(scene::look_up_sector(sector()), rot);
 }
 
-void ParkTile::change_live(bool active) { scene::change_live(scene::look_up_sector(sector_), active); }
+void ParkTile::change_live(bool active) { scene::change_live(scene::look_up_sector(sector()), active); }
 
-void ParkTile::set_visible(bool visible) { scene::toggle_shown(scene::look_up_sector(sector_), visible ? 0xFF : 0); }
+void ParkTile::set_visible(bool visible) { scene::toggle_shown(scene::look_up_sector(sector()), visible ? 0xFF : 0); }
 
 void ParkTile::change_place(maths::Vec4* position, int update)
 {
@@ -111,12 +111,12 @@ void ParkTile::change_place(maths::Vec4* position, int update)
     at_point_.z = position->z;
     at_point_.w = position->w;
     if (update == 1)
-        scene::place_at_absolute_point(scene::look_up_sector(sector_), position);
+        scene::place_at_absolute_point(scene::look_up_sector(sector()), position);
 }
 
 void ParkTile::set_length(float length)
 {
-    render::WorldCell* sector = scene::look_up_sector(sector_);
+    render::WorldCell* sector = scene::look_up_sector(this->sector());
     const bool across = (quarter_turns_ & 1) != 0;
     // (w is a stack leftover in the original)
     const maths::Vec4 scale = {.x = across ? 1.0f : length, .y = 1.0f, .z = across ? length : 1.0f, .w = 1.0f};
@@ -125,7 +125,7 @@ void ParkTile::set_length(float length)
 
 void ParkTile::set_angle(float degrees)
 {
-    render::Geom* geometry = scene::fetch_shape(scene::look_up_sector(sector_));
+    render::Geom* geometry = scene::fetch_shape(scene::look_up_sector(sector()));
     if (!geometry)
         return;
     maths::Mat4 orientation{};
@@ -138,7 +138,7 @@ void ParkTile::set_angle(float degrees)
 
 void ParkTile::set_highlight(bool on, bool gap)
 {
-    render::WorldCell* sector = scene::look_up_sector(sector_);
+    render::WorldCell* sector = scene::look_up_sector(this->sector());
     if (!sector)
         return;
     render::Geom* geometry = scene::fetch_shape(sector);
@@ -165,8 +165,8 @@ maths::Vec4* TileTemplate::measure_span(maths::Vec4* out)
 
 maths::Vec4* CopiedPiece::measure_span(maths::Vec4* out)
 {
-    const maths::Vec4& size = blend_source_->extent_;
-    const bool across = (quarter_turns_ & 1) != 0;
+    const maths::Vec4& size = blend_source()->extent();
+    const bool across = (quarter_turns() & 1) != 0;
     out->x = across ? size.z : size.x;
     out->y = size.y;
     out->z = across ? size.x : size.z;

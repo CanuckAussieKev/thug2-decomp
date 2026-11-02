@@ -40,7 +40,7 @@ UiTree* manager_of(const UiWidget* e) { return core::down_cast<UiTree>(e->park_o
 bool may_have(UiWidget* e, objects::Signal* event)
 {
     UiTree* manager = manager_of(e);
-    if (e->manager_uses_priorities() && manager->is_pad_event(event->kind_tag_))
+    if (e->manager_uses_priorities() && manager->is_pad_event(event->kind_tag()))
         return e->has_priority() && manager->has_top_precedence(e->ident());
     return true;
 }
@@ -141,22 +141,22 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
     if (!may_have(this, event) || !objects::Entity::pass_event_to_script(event))
         return false;
     objects::EventWaitBoard* tracker = objects::get_tracker();
-    if (event->kind_tag_ == kFocusSentEvent) {
+    if (event->kind_tag() == kFocusSentEvent) {
         find_menu();
         rearrange_ = true;
         tick_frame();
         event->set_event_handled(ident(), 0);
     }
-    if (event->kind_tag_ == kFocus) {
+    if (event->kind_tag() == kFocus) {
         if (!menu_)
             find_menu();
         if (!focused_) {
             focused_ = true;
-            tracker->launch_event(kFocus, menu_->ident(), kSystem, event->payload_, false, -1.0f);
+            tracker->launch_event(kFocus, menu_->ident(), kSystem, event->payload(), false, -1.0f);
             event->set_event_handled(ident(), 0);
         }
     }
-    if (event->kind_tag_ == kUnfocus && focused_) {
+    if (event->kind_tag() == kUnfocus && focused_) {
         find_menu();
         focused_ = false;
         tracker->launch_event(kUnfocus, menu_->ident(), kSystem, nullptr, false, -1.0f);
@@ -177,20 +177,20 @@ void WindowedList::listener_receive(objects::Signal* event)
     WindowedList* self = this;
     if (!may_have(self, event))
         return;
-    if (event->kind_tag_ == kFocusSentEvent && self->menu_) {
-        if (event->aim_point_ == self->menu_->ident()) {
+    if (event->kind_tag() == kFocusSentEvent && self->menu_) {
+        if (event->aim_point() == self->menu_->ident()) {
             self->rearrange_ = true;
             self->tick_frame();
         }
         set_event_consumed(event, self->ident(), 0);
     }
-    if (event->kind_tag_ == kFocus) {
+    if (event->kind_tag() == kFocus) {
         if (!self->menu_)
             self->find_menu();
         ElementPtr item;
         item.assign_value(self->menu_->eldest().get_pull());
         while (item) {
-            if (item->ident() == event->aim_point_) {
+            if (item->ident() == event->aim_point()) {
                 self->chosen_item_id_ = item->ident();
                 self->rearrange_ = true;
                 set_event_consumed(event, self->ident(), 0);

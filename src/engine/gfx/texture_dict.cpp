@@ -69,8 +69,8 @@ BitmapTexture* insert_texture(TextureSet* dict, BitmapTexture* texture, bool per
 {
     if (texture) {
         texture->pin_resident(permanent);
-        const uint32_t key = texture->checksum_;
-        dict->textures_->store_entry(key, texture);
+        const uint32_t key = texture->checksum();
+        dict->textures()->store_entry(key, texture);
     }
     return texture;
 }
@@ -101,10 +101,10 @@ TextureSet::~TextureSet()
 {
     drop_textures(true);
     if (lists::KeyMap* table = textures_) {
-        if (table->buckets_) {
+        if (table->buckets()) {
             table->empty_table();
-            memory::dealloc(table->buckets_);
-            table->buckets_ = nullptr;
+            memory::dealloc(table->buckets());
+            table->set_buckets(nullptr);
         }
         memory::dealloc(table);
     }
@@ -186,7 +186,7 @@ BitmapTexture* TextureSet::create_texture(uint32_t checksum, uint32_t width, uin
 // 0x0049F500
 bool TextureSet::unload_texture(BitmapTexture* texture)
 {
-    const uint32_t key = texture->checksum_;
+    const uint32_t key = texture->checksum();
     debug_before_unload();
     if (!destroy_texture(texture))
         return false;
@@ -200,17 +200,17 @@ void TextureSet::drop_textures(bool all)
     lists::KeyMap* table = textures_;
     if (!table)
         return;
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
-    if (!table->step_iterator() || !table->iter_item_)
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
+    if (!table->step_iterator() || !table->iter_item())
         return;
-    auto* texture = static_cast<BitmapTexture*>(table->iter_item_->value);
+    auto* texture = static_cast<BitmapTexture*>(table->iter_item()->value);
     while (texture) {
         BitmapTexture* next = nullptr;
-        if (textures_->step_iterator() && textures_->iter_item_)
-            next = static_cast<BitmapTexture*>(textures_->iter_item_->value);
-        if (all || !(texture->flag_bits_ & kTexturePermanent)) {
-            const uint32_t key = texture->checksum_;
+        if (textures_->step_iterator() && textures_->iter_item())
+            next = static_cast<BitmapTexture*>(textures_->iter_item()->value);
+        if (all || !(texture->flag_bits() & kTexturePermanent)) {
+            const uint32_t key = texture->checksum();
             gsl::owner<BitmapTexture*> owned = memory::owned_element(texture); // (the dictionary's)
             delete owned;
             textures_->erase_entry(key);
@@ -241,7 +241,7 @@ bool TextureSet::replace_texture_from_file(const char* name, const char* file)
     insert_texture(this, loaded, true);
     memory::pop_mem_profile();
     const bool replaced = texture->copy_from(loaded);
-    const uint32_t key = loaded->checksum_;
+    const uint32_t key = loaded->checksum();
     debug_before_unload();
     if (destroy_texture(loaded))
         textures_->erase_entry(key);
@@ -254,7 +254,7 @@ BitmapTexture* TextureSet::copy_texture(uint32_t checksum, BitmapTexture* source
 {
     auto* texture = duplicate_texture(checksum, source);
     if (texture) {
-        texture->checksum_ = checksum;
+        texture->set_checksum(checksum);
         textures_->store_entry(checksum, texture);
     }
     return texture;
@@ -266,7 +266,7 @@ BitmapTexture* TextureSet::copy_texture_with_overlay(uint32_t checksum, BitmapTe
 {
     auto* texture = duplicate_texture(checksum, source);
     if (texture) {
-        texture->checksum_ = checksum;
+        texture->set_checksum(checksum);
         textures_->store_entry(checksum, texture);
         texture->get_overlay(overlay, static_cast<int>(argument));
     }
@@ -290,12 +290,12 @@ TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint
     const uint32_t key = checksums::hash_from_text(path) + offset;
     TextureSet* dict = find_tex_dict(key);
     if (dict) {
-        ++dict->share_count_;
+        ++dict->share_count();
     } else {
         // (the original passes level, offset, a3 and a4 too: the PC's reads the name alone)
         gsl::owner<TextureSet*> loaded = load_tex_dict_file(file.data()); // (the loaded table's)
         dict = loaded;
-        dict->checksum_ = key;
+        dict->set_checksum(key);
         loaded_tex_dicts().store_entry(key, dict);
     }
     memory::pop_mem_profile();
@@ -314,7 +314,7 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
         // not original, the size as its reader's bound)
         gsl::owner<TextureSet*> loaded = load_tex_dict_memory(key, data, size); // (the loaded table's)
         dict = loaded;
-        dict->checksum_ = key;
+        dict->set_checksum(key);
         loaded_tex_dicts().store_entry(key, dict);
     }
     memory::pop_mem_profile();
@@ -334,9 +334,9 @@ TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
 // 0x0049EFD0
 bool unload_tex_dict(TextureSet* dict)
 {
-    if (--dict->share_count_ != 0)
+    if (--dict->share_count() != 0)
         return false;
-    const uint32_t key = dict->checksum_;
+    const uint32_t key = dict->checksum();
     loaded_tex_dicts().erase_entry(key);
     gsl::owner<TextureSet*> owned = memory::owned_element(dict); // (the loaded table's)
     delete owned; // (through its vtable)
@@ -370,7 +370,7 @@ TextureSet* shared_tex_dict(const char* name)
 {
     const uint32_t checksum = checksums::hash_from_text(name);
     if (TextureSet* dict = find_tex_dict(checksum)) {
-        ++dict->share_count_;
+        ++dict->share_count();
         return dict;
     }
     gsl::owner<PcTexDict*> dict = create_tex_dict(checksum);

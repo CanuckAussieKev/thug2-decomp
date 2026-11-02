@@ -14,11 +14,20 @@ struct ResolveMap {
         void* item;
         Elem* next;
     };
+    // The fields other code reads and sets.
+    [[nodiscard]] int num() const { return num_; }
+    void set_num(int value) { num_ = value; }
+    void set_first(Elem* value) { first_ = value; }
+    void set_cursor(Elem* value) { cursor_ = value; }
+
+private:
     int num_;          // +0x00
     Elem* first_;      // +0x04
     Elem* last_;       // +0x08
     Elem* cursor_;     // +0x0C: the node at cursor_index_ (null: start again from the first)
     int cursor_index_; // +0x10
+
+public:
 
     // 0x00557F10: the item at `*index`, walking on from the cursor (or from the first node when the cursor is past
     // it or unset); its key into `key` if given. (No bounds check: an index past the end walks off the list, as the

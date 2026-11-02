@@ -81,7 +81,7 @@ void get_kill(GameEntity* object) { object->flag_as_dead(); }
 
 modules::PointTally* get_score_of(GameEntity* skater)
 {
-    return (core::down_cast<RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_);
+    return (core::down_cast<RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held());
 }
 
 } // namespace
@@ -92,7 +92,7 @@ modules::PointTally* get_score_of(GameEntity* skater)
 gsl::owner<ObjectModule*> ShotImpactModule::fabricate() { return new ShotImpactModule; }
 
 // (the constructor: inlined in fabricate in the original)
-ShotImpactModule::ShotImpactModule() { kind_tag_ = kType; }
+ShotImpactModule::ShotImpactModule() { set_kind_tag(kType); }
 
 // 0x004F2F10 (0x004F2F50 the deleting one)
 ShotImpactModule::~ShotImpactModule() = default;
@@ -110,7 +110,7 @@ void ShotImpactModule::configure_from_data(script::Struct* params)
 }
 
 // 0x004F2F40
-void ShotImpactModule::seal() { suspend_ = core::down_cast<DormancyModule>(entity_->fetch_module(DormancyModule::kType)); }
+void ShotImpactModule::seal() { suspend_ = core::down_cast<DormancyModule>(entity()->fetch_module(DormancyModule::kType)); }
 
 void ShotImpactModule::mark_hit() { hit_ = true; }
 
@@ -149,7 +149,7 @@ void ShotImpactModule::tick_frame()
         if (team_game && owner->team() == victim->team() &&
             net->get_online_settings()->get_preference_checksum(kFriendlyFire, kChecksum) != kBooleanTrue)
             continue;
-        const GameEntity* object = entity_;
+        const GameEntity* object = entity();
         const double dz = static_cast<double>(skater->at_point().z) - object->at_point().z;
         const double dy = static_cast<double>(skater->at_point().y) - object->at_point().y;
         const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;
@@ -159,9 +159,9 @@ void ShotImpactModule::tick_frame()
         // Hit.
         net::NetMessageInfo msg;
         net::AppHost* server = static_cast<online::Hub*>(net)->host();
-        get_kill(entity_);
+        get_kill(entity());
         if (on_collide_script_) {
-            const maths::Vec4 pos = entity_->at_point();
+            const maths::Vec4 pos = entity()->at_point();
             const script::StructPtr params = script::make_struct();
             params->put_vec3(kPos, script::VectorValue{.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w});
             params->put_vec3(kVel, script::VectorValue{.x = vel_.x, .y = vel_.y, .z = vel_.z, .w = vel_.w});
@@ -214,7 +214,7 @@ void ShotImpactModule::tick_frame()
 gsl::owner<ObjectModule*> ProjectileProximityComponent::fabricate() { return new ProjectileProximityComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-ProjectileProximityComponent::ProjectileProximityComponent() { kind_tag_ = kType; }
+ProjectileProximityComponent::ProjectileProximityComponent() { set_kind_tag(kType); }
 
 // 0x004F34E0 (0x004F34F0 the deleting one)
 ProjectileProximityComponent::~ProjectileProximityComponent() = default;
@@ -223,7 +223,7 @@ ProjectileProximityComponent::~ProjectileProximityComponent() = default;
 void ProjectileProximityComponent::configure_from_data(script::Struct*)
 {
     rider_ref_ = local_skater();
-    ped_logic_ = core::down_cast<PedestrianBrainModule>(entity_->fetch_module(kPedLogic));
+    ped_logic_ = core::down_cast<PedestrianBrainModule>(entity()->fetch_module(kPedLogic));
     reach_squared_ = kReach * kReach;
 }
 
@@ -234,10 +234,10 @@ void ProjectileProximityComponent::tick_frame()
         rider_ref_ = local_skater();
         return;
     }
-    if (!entity_->ident())
+    if (!entity()->ident())
         return;
     if (!ped_logic_) {
-        ped_logic_ = core::down_cast<PedestrianBrainModule>(entity_->fetch_module(kPedLogic));
+        ped_logic_ = core::down_cast<PedestrianBrainModule>(entity()->fetch_module(kPedLogic));
         return;
     }
     if (ped_logic_->get_logic_state() == kShot)
@@ -246,7 +246,7 @@ void ProjectileProximityComponent::tick_frame()
         if (!projectile.active)
             continue;
         const auto& pos = projectile.pos;
-        const maths::Vec4& at = entity_->at_point();
+        const maths::Vec4& at = entity()->at_point();
         const double middle = static_cast<double>(at.y) + kAbovePed;
         auto dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
         const double dy = pos[1] - middle;
@@ -254,15 +254,15 @@ void ProjectileProximityComponent::tick_frame()
         if (!(dx * dx + dy * dy + static_cast<double>(dz) * dz <= reach_squared_))
             continue;
         // In reach: the ped is hit.
-        entity_->post_own_event(kProjectileInAvoidRadius, nullptr);
+        entity()->post_own_event(kProjectileInAvoidRadius, nullptr);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kPedId, entity_->ident());
+        params->put_name_key(kPedId, entity()->ident());
         params->put_name_key(kProjectileId, projectile.name);
         script::launch_script(kProjectileHitPed, params.get(), find_object(rider_ref_->ident()), false, nullptr);
         params->put_name_key(
             kAmmoType,
             core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type());
-        script::launch_script(kHitPedScript, params.get(), entity_, false, nullptr);
+        script::launch_script(kHitPedScript, params.get(), entity(), false, nullptr);
         params.reset();
         projectile.active = false;
         return;

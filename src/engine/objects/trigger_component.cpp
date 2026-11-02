@@ -88,18 +88,18 @@ script::Array* node_array_of(GameEntity* object)
 gsl::owner<ObjectModule*> ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
 
 // (the constructor: inlined in fabricate in the original)
-ActivationZoneModule::ActivationZoneModule() { kind_tag_ = kType; }
+ActivationZoneModule::ActivationZoneModule() { set_kind_tag(kType); }
 
 // 0x00434900 (0x00434910 the deleting one)
 ActivationZoneModule::~ActivationZoneModule() = default;
 
 // 0x00434940
-void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { last_pos_ = entity_->at_point(); }
+void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { last_pos_ = entity()->at_point(); }
 
 // 0x00434D90
 void ActivationZoneModule::tick_frame()
 {
-    const GameEntity* object = entity_;
+    const GameEntity* object = entity();
     const maths::Vec4& pos = object->at_point();
     // (not a number counts as moved, as the original's FUCOMPP)
     if (last_pos_.x == pos.x && last_pos_.y == pos.y && last_pos_.z == pos.z && last_pos_.w == pos.w)
@@ -110,12 +110,12 @@ void ActivationZoneModule::tick_frame()
     }
     render::ProbeRay feeler;
     feeler.line().start = last_pos_;
-    feeler.line().end = entity_->at_point();
+    feeler.line().end = entity()->at_point();
     feeler.set_excluded(0, kTriggerFaces);
     feeler.set_callback([](render::ProbeRay* hit) { (void)feeler_hit(hit); });
     feeler.set_user_data(this);
     feeler.get_hit_shape(true, false);
-    last_pos_ = entity_->at_point();
+    last_pos_ = entity()->at_point();
 }
 
 // 0x00434970
@@ -129,17 +129,17 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
     // One integer array, or an array of them - any one of which may match.
     script::Array* arrays = nullptr;
     uint32_t count = 1;
-    if (array->kind_tag_ == script::kQbvalArray) {
-        count = array->extent_;
+    if (array->kind_tag() == script::kQbvalArray) {
+        count = array->extent();
         arrays = array;
     }
     for (uint32_t i = 0; i < count; ++i) {
         if (arrays)
             array = arrays->array_at(i);
-        if (array->kind_tag_ != script::kQbvalInteger)
+        if (array->kind_tag() != script::kQbvalInteger)
             return 0;
         uint32_t wanted = 0;
-        for (int k = 0; k < ints::as_signed(array->extent_); ++k) {
+        for (int k = 0; k < ints::as_signed(array->extent()); ++k) {
             if (static_cast<int>(array->fetch_part(static_cast<uint32_t>(k))) >= 0)
                 wanted += 1u << (array->fetch_part(static_cast<uint32_t>(k)) & 31);
         }
@@ -157,7 +157,7 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
         node = level_nodes::fetch_vertex(name, false);
     } else {
         // (from the last; none named so leaves the first one checked - element 0 -, as the original)
-        for (uint32_t i = nodes->extent_; i > 0;) {
+        for (uint32_t i = nodes->extent(); i > 0;) {
             node = nodes->struct_at(--i);
             if (level_nodes::get_node_name(node) == name)
                 break;
@@ -193,7 +193,7 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
         if (event)
             recorded += 1u << (event & 31);
     }
-    Entity* object = entity_;
+    Entity* object = entity();
     const bool permanent = node->has_bare_flag(kPermanent);
     const bool replicate_flag = node->has_bare_flag(kOnlineFlag);
     object->start_script_task(script, static_cast<int>(name), replicate_flag, permanent, params);
@@ -224,7 +224,7 @@ bool ActivationZoneModule::probe_touches_zone(const std::array<int, 3>& events, 
 // 0x00434CE0
 void ActivationZoneModule::trigger_hits(const std::array<int, 3>& events, const render::BoxProbe* feeler)
 {
-    const render::RectHits& hits = feeler->hits_;
+    const render::RectHits& hits = feeler->hits();
     const int count = hits.count;
     for (int i = count - 1; i >= 0; --i) {
         if (!core::at(hits.hits, i).face_flag40_)

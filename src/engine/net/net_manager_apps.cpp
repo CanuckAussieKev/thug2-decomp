@@ -56,10 +56,10 @@ void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
 // `node` at the end of the list.
 void append_last(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 
 void copy_string(char* out, const char* text) { std::memcpy(out, text, std::strlen(text) + 1); }
@@ -162,10 +162,10 @@ gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port,
 void Hub::release_app(AppHost* app)
 {
     memory::ListNode& node = app->list1414();
-    node.prev->next = node.next;
-    node.next->prev = node.prev;
-    node.next = &node;
-    node.prev = &node;
+    node.prev()->set_next(node.next());
+    node.next()->set_prev(node.prev());
+    node.set_next(&node);
+    node.set_prev(&node);
     app->tear_down_state(); // (through 0x00456B30)
     gsl::owner<decltype(app)> owned = memory::owned_element(app); // (the manager's list's)
     delete owned; // (checked for null only now)

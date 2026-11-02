@@ -80,7 +80,7 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
         return true;
     case ParkBuilderMode::kStateOff: {
         editor->change_phase(ParkBuilderMode::kStateOff);
-        editor->set_cur_phase(ParkBuilderMode::kStateOff);
+        editor->set_editor_state(ParkBuilderMode::kStateOff);
         BuildPointer::teardown();
         TopBarMenus::discard_occurrence();
         ParkLayout* manager = ParkLayout::singleton();
@@ -171,7 +171,7 @@ bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*
 
 void ParkBuilderMode::front_end_tick(ParkEditorTask* task)
 {
-    ParkBuilderMode* editor = task->content_;
+    ParkBuilderMode* editor = task->content();
     const uint32_t before = editor_clock();
     const uint32_t now = frame_clock::get_time();
     editor_clock() += now - before; // (the clock re-read after the call, as the original)

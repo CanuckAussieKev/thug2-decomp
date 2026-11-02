@@ -45,6 +45,11 @@ struct SmearEffect {
     // (its milliseconds into `out_ms` when given). Returns the target.
     Settings* set_from_params(script::Struct* params, int* out_ms);
 
+    // The fields other code reads and sets.
+    uint32_t& rgba_value() { return rgba_value_; }
+    [[nodiscard]] uint32_t rgba_value() const { return rgba_value_; }
+
+private:
     std::array<DupFrom, 16> copies_;  // +0x000
     Settings aim_point_;  // +0x440
     Settings ongoing_;    // +0x458

@@ -36,10 +36,17 @@ constexpr size_t kRecent = 20;
 // key's cell or gives it one - a free cell, else the one shown longest ago (never one shown in `frame`: those are on
 // screen now); -1 when every cell is on screen.
 struct CellCache {
+    // The fields other code reads and sets.
+    std::vector<uint8_t>& drawn() { return drawn_; }
+    [[nodiscard]] const std::vector<uint8_t>& drawn() const { return drawn_; }
+
+private:
     std::vector<uint64_t> keys;
     std::vector<uint64_t> shown;
-    std::vector<uint8_t> drawn; // (its picture is in the atlas)
-    explicit CellCache(int cells = kCells) : keys(cells, 0), shown(cells, 0), drawn(cells, 0) {}
+    std::vector<uint8_t> drawn_; // (its picture is in the atlas)
+
+public:
+    explicit CellCache(int cells = kCells) : keys(cells, 0), shown(cells, 0), drawn_(cells, 0) {}
     [[nodiscard]] int get_find(uint64_t key) const;
     int get_take(uint64_t key, uint64_t frame);
     void get_clear();

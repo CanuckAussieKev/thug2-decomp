@@ -100,6 +100,10 @@ public:
     // rotvel= (all but offset asserted) and object_vel_factor= (1) to spawn_composite_object_at_bone. True.
     bool skeleton_spawn_composite_object(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] gfx::Rig* bone_rig() const { return bone_rig_; }
+
+private:
     gfx::Rig* bone_rig_{nullptr}; // +0x18 the renderer's skeleton
 };
 

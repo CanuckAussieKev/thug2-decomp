@@ -68,12 +68,12 @@ void SkaterPhysicsModule::clamp_skater_speed()
     }
     if (speed > max_max) {
         speed = max_max;
-        set_length(entity_->vel(), max_max);
+        set_length(entity()->vel(), max_max);
     }
     object = object_of(this);
     if (speed > max && heavy_friction)
         apply_friction((script::fetch_float(kHeavyAirFriction)));
-    entity_->vel().y = upward;
+    entity()->vel().y = upward;
 
     float& rolling = special_friction_time_;
     if (rolling != 0.0f) {
@@ -103,13 +103,13 @@ void SkaterPhysicsModule::get_brake()
     const double slowing = static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * frame_length_;
     if (slowing + slowing > speed) {
         // Less than two frames' worth left: stopped.
-        entity_->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return;
     }
-    maths::Vec4 slow = entity_->vel();
+    maths::Vec4 slow = entity()->vel();
     set_length(slow, static_cast<float>(
                          -(static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * frame_length_)));
-    maths::Vec4& velocity = entity_->vel();
+    maths::Vec4& velocity = entity()->vel();
     velocity.x = slow.x + velocity.x;
     velocity.y = slow.y + velocity.y;
     velocity.z = slow.z + velocity.z;
@@ -138,9 +138,9 @@ void SkaterPhysicsModule::start_riding_hit_object()
     objects::MovingSurfaceModule* ride = ride_;
     if (!static_cast<objects::MovingSurfaceModule*>(ride)->start_riding(&feeler_))
         return;
-    const objects::GameEntity* ride_object = ride_->ride_->entity_.get_pull();
+    const objects::GameEntity* ride_object = ride_->ride()->entity_.get_pull();
     const maths::Vec4& ride_velocity = ride_object->vel();
-    maths::Vec4& velocity = entity_->vel();
+    maths::Vec4& velocity = entity()->vel();
     velocity.x -= ride_velocity.x;
     velocity.y -= ride_velocity.y;
     velocity.z -= ride_velocity.z;

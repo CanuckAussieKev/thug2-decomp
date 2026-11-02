@@ -86,14 +86,14 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
 
     // push_back
     CutsceneDestroyList& list = free_node_chain();
-    Elem* head = list.head;
+    Elem* head = list.head();
     auto* node = static_cast<Elem*>(memory::alloc(sizeof(Elem))); // (operator new inlined)
     if (node) {
         node->value = entry;
         node->next = head;
         node->prev = head->prev;
     }
-    ++list.size;
+    ++list.size();
     head->prev = node;
     node->prev->next = node;
     return true;
@@ -108,7 +108,7 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
     CutsceneDestroyList& list = free_node_chain();
-    const Elem* head = list.head;
+    const Elem* head = list.head();
     Elem* node = head ? head->next : nullptr;
     for (; node != head; node = node->next)
         if (entry_of(node)->label_ == name)
@@ -116,11 +116,11 @@ bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Scr
     if (node == head)
         return false;
     delete_entry(entry_of(node));
-    if (node != list.head) {
+    if (node != list.head()) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
         memory::Hub::get_pull()->dealloc(node);
-        --list.size;
+        --list.size();
     }
     return true;
 }
@@ -169,13 +169,13 @@ bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
 {
     CutsceneDestroyList& list = free_node_chain();
     flushing() = true;
-    const Elem* head = list.head;
+    const Elem* head = list.head();
     for (const Elem* node = head ? head->next : nullptr; node != head; node = node->next) {
         const CutsceneDestroyEntry* entry = entry_of(node);
         script::launch_script(entry->destroy_script_, entry->args_, nullptr, false, nullptr);
         delete_entry(entry_of(node));
     }
-    list.erase(list.first(), list.head);
+    list.erase(list.first(), list.head());
     flushing() = false;
     return true;
 }

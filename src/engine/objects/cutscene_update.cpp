@@ -211,7 +211,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
             matrix[3] = object->at_point(); // (its position row)
             static_cast<render::RenderModel*>(level_model)
                 ->render(&matrix, false,
-                         core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_);
+                         core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig());
             std::memcpy(&level->at_point(), &object->at_point(), 16);
         } else {
             if (fader_of(model)) {
@@ -257,7 +257,7 @@ void CinematicTable::update_object_transforms()
         GameEntity* object = entry.object;
         if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
-            void* skeleton = core::down_cast<objects::BoneRigModule>(parent->fetch_module(kSkeletonModuleName))->bone_rig_;
+            void* skeleton = core::down_cast<objects::BoneRigModule>(parent->fetch_module(kSkeletonModuleName))->bone_rig();
             maths::Vec4 bone{};
             maths::Vec4 turned{};
             static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, &bone);

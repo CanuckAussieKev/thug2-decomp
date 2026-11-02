@@ -108,13 +108,22 @@ public:
     uint8_t get_unknown_c() override;
     uint8_t get_unknown_d() override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] void* image() const { return image_; }
+    void set_image(void* value) { image_ = value; }
+
+private:
     uint8_t unknownc_ = 0; // +0x0C
     uint8_t unknownd_ = 0; // +0x0D
     std::array<uint8_t, 2> pade_{};
     void* image_ = nullptr; // +0x10: the TextureRef, or the edit holding it (flag_bits_ & 1: a TextureEdit)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcTexture, image_) == 0x10 && sizeof(PcTexture) == 0x14,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcTexture, flag_bits_) == 8 && offsetof(PcTexture, image_) == 0x10 && sizeof(PcTexture) == 0x14,
-              "layout must match the original");
 
 // The PC texture dictionary (0x14 bytes, vtable 0x0064A824).
 class PcTexDict final : public TextureSet {
@@ -145,6 +154,10 @@ public:
     // original leaves it in EAX, and the engine's CopyTexture hands it on - the skater's graffiti texture is one).
     gsl::owner<BitmapTexture*> duplicate_texture(uint32_t checksum, BitmapTexture* source) override;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t unknown10() const { return unknown10_; }
+
+private:
     uint32_t unknown10_{}; // +0x10
 };
 static_assert(sizeof(PcTexDict) == 0x14, "layout must match the original");

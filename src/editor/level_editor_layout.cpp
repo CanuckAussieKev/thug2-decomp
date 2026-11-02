@@ -1708,9 +1708,9 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     std::vector<uint32_t> done;
     for (const char* list : kLists) {
         script::Array* array = script::fetch_list(list);
-        if (!array || array->kind_tag_ != script::kQbvalStruct)
+        if (!array || array->kind_tag() != script::kQbvalStruct)
             continue;
-        for (uint32_t i = 0; i < array->extent_; ++i) {
+        for (uint32_t i = 0; i < array->extent(); ++i) {
             auto* entry = array->struct_at(i);
             uint32_t load = 0;
             if (!entry || !entry->read_hash_value(kLevel, &load, 0))

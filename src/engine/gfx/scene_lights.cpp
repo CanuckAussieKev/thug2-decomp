@@ -66,14 +66,14 @@ script::Struct*& queue_params() { return scene_lights_state().queue_params_; }
 // The table's iteration, inlined in the original: the first / next value (null at the end).
 void* next_value(lists::KeyMap* table)
 {
-    if (!table->step_iterator() || !table->iter_item_)
+    if (!table->step_iterator() || !table->iter_item())
         return nullptr;
-    return table->iter_item_->value;
+    return table->iter_item()->value;
 }
 void* get_first_value(lists::KeyMap* table)
 {
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
     return next_value(table);
 }
 
@@ -207,7 +207,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         const double half = std::sqrt(hz * hz + hy * hy + hx * hx);
         if (!(half + radius_ > distance))
             continue;
-        const uint32_t count = excluded ? excluded->extent_ : 0;
+        const uint32_t count = excluded ? excluded->extent() : 0;
         bool skip = false;
         for (uint32_t i = 0; i < count; ++i) {
             if (excluded->fetch_part(i) == sector->checksum()) {
@@ -330,7 +330,7 @@ void delete_scene_light(uint32_t name)
     std::array<DynamicLightBase*, 256>& dynamic = light_sets().dynamic_lights();
     int& dynamic_count = light_sets().dynamic_light_count();
     for (int i = 0; i < dynamic_count; ++i) {
-        if (core::at(dynamic, i)->owner_value() == name) { // (no null check, as the original)
+        if (core::at(dynamic, i)->owner() == name) { // (no null check, as the original)
             memory::Hub::get_pull()->dealloc(core::at(dynamic, i));
             core::at(dynamic, i) = core::at(dynamic, dynamic_count - 1);
             --dynamic_count;
@@ -516,7 +516,7 @@ void create_light_from_node(script::Struct* node)
     if (dynamic) {
         if (DynamicLightBase* light = new_dynamic_light(type == 0x485A0CDB ? 1 : 0)) {
             light->set_owner(name);
-            std::memcpy(light->pos_value().data(), &pos, sizeof(light->pos_value()));
+            std::memcpy(light->pos().data(), &pos, sizeof(light->pos()));
             light->set_intensity(static_cast<float>(brightness * static_cast<double>(kPercent)));
             light->set_colour(colour);
             light->set_radius(radius);

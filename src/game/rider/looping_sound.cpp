@@ -93,7 +93,7 @@ void RiderRollingAudio::publish_method_table()
 }
 
 // 0x005138E0
-RiderRollingAudio::RiderRollingAudio() { kind_tag_ = kSkaterLoopingSound; }
+RiderRollingAudio::RiderRollingAudio() { set_kind_tag(kSkaterLoopingSound); }
 
 // 0x00513AB0
 void RiderRollingAudio::stop_sound()
@@ -130,7 +130,7 @@ void RiderRollingAudio::set_pace_ratio(float fraction)
 // 0x00513970
 void RiderRollingAudio::seal()
 {
-    physics_control_ = core::down_cast<RiderBoardPhysics>(entity_->fetch_module(kSkaterPhysicsControl));
+    physics_control_ = core::down_cast<RiderBoardPhysics>(entity()->fetch_module(kSkaterPhysicsControl));
 }
 
 // 0x00513F60
@@ -161,7 +161,7 @@ int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*pa
         return 1;
     case kPlayAnim: {
         // Turned on again by the walk-to-skate animation (its animTags in the skater's tags).
-        script::Struct* tags = entity_->tag_table();
+        script::Struct* tags = entity()->tag_table();
         const RiderPoseState* state = physics_control_->pose();
         script::Struct* anim_tags = nullptr;
         if (tags && !state->in_vehicle() && !state->physics_mode() && tags->read_sub_struct(kAnimTags, &anim_tags, 0) &&
@@ -193,7 +193,7 @@ void RiderRollingAudio::tick_frame()
         BikeSound kind = cur_phase_ == kStateGround                                 ? BikeSound::kRoll
                          : cur_phase_ == kStateRail && !sliding_ && !no_rail_sound_ ? BikeSound::kGrind
                                                                                     : BikeSound::kAir;
-        bike = skater::thaw_bmx::bike_sound_of(entity_, kind, &sound_);
+        bike = skater::thaw_bmx::bike_sound_of(entity(), kind, &sound_);
         if (bike >= 0) {
             have_sound_ = static_cast<uint8_t>(bike);
             sound_changed_ = 1;
@@ -237,14 +237,14 @@ void RiderRollingAudio::tick_frame()
 
     // Its volume from where the skater is - stopped while the skater hasn't moved.
     sound::AudioMixer* sfx = audio_mixer_handle();
-    if (entity_->at_point() != last_pos_) {
+    if (entity()->at_point() != last_pos_) {
         const float dropoff = sfx->get_dropoff_distance(sound_name_key(&sound_));
-        sfx->fetch_loudness(&volume, &entity_->at_point(), dropoff, 0, nullptr, nullptr);
+        sfx->fetch_loudness(&volume, &entity()->at_point(), dropoff, 0, nullptr, nullptr);
     } else {
         sfx->stop_sound(sound_id_);
         sound_id_ = 0;
     }
-    last_pos_ = entity_->at_point();
+    last_pos_ = entity()->at_point();
 
     float pitch = 0.0f;
     if (cur_phase_ == kStateAir && sound_id_) {
@@ -259,7 +259,7 @@ void RiderRollingAudio::tick_frame()
         }
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
-        auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+        auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
         if (core && core->point_rail_spin())
             speed_ratio_ = kCapsizedFraction;
         if (speed_ratio_ > 0.0f) {
@@ -290,7 +290,7 @@ void RiderRollingAudio::tick_frame()
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.
     if (!force_update_ &&
-        !(std::fabs(static_cast<double>(core::at(volume.lanes_, 0)) - core::at(prev_levels_.lanes_, 0)) > kChangeThreshold) &&
+        !(std::fabs(static_cast<double>(core::at(volume.lanes(), 0)) - core::at(prev_levels_.lanes(), 0)) > kChangeThreshold) &&
         !(std::fabs(static_cast<double>(pitch) - prev_pitch_value_) > kChangeThreshold))
         return;
     core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);

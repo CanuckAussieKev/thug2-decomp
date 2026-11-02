@@ -60,9 +60,9 @@ GapTally*& building()
 // The list's nodes: the head's data is -1.
 GapEntry* gap_of(memory::ListNode* node)
 {
-    return node->data == memory::ListNode::head_marker() ? nullptr : static_cast<GapEntry*>(node->data);
+    return node->data() == memory::ListNode::head_marker() ? nullptr : static_cast<GapEntry*>(node->data());
 }
-GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link().next); }
+GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link().next()); }
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
@@ -99,7 +99,7 @@ GapTally::GapTally() { gaps_.make_head(); }
 // 0x00578840
 void GapTally::get_clear()
 {
-    while (GapEntry* gap = gap_of(gaps_.next))
+    while (GapEntry* gap = gap_of(gaps_.next()))
         gap->teardown(1);
     built_ = false;
 }
@@ -109,7 +109,7 @@ void GapTally::register_gap_entry(const char* name, int count, int score)
 {
     built_ = true;
     GapEntry* after = nullptr;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         if (std::strcmp(gap->label().c_str(), name) == 0 && gap->points_held() == score) {
             gap->set_in_level(true);
             return;
@@ -127,10 +127,10 @@ void GapTally::register_gap_entry(const char* name, int count, int score)
     gap->num() = count;
     gap->set_points_held(score);
     memory::ListNode* before = after ? &after->list_link() : &gaps_;
-    gap->list_link().prev = before;
-    gap->list_link().next = before->next;
-    before->next->prev = &gap->list_link();
-    before->next = &gap->list_link();
+    gap->list_link().set_prev(before);
+    gap->list_link().set_next(before->next());
+    before->next()->set_prev(&gap->list_link());
+    before->set_next(&gap->list_link());
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -172,7 +172,7 @@ void GapTally::get_build()
 int GapTally::find_gap(const char* name)
 {
     int index = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
         if (std::strcmp(gap->label().c_str(), name) == 0)
             return index;
     }
@@ -182,7 +182,7 @@ int GapTally::find_gap(const char* name)
 // 0x00578BC0
 void GapTally::set_gap_positions(const char* name, maths::Vec4 pos, maths::Vec4 dir)
 {
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         if (std::strcmp(gap->label().c_str(), name) == 0) {
             gap->set_skater_start_pos(pos);
             gap->set_skater_start_dir(dir);
@@ -194,7 +194,7 @@ void GapTally::set_gap_positions(const char* name, maths::Vec4 pos, maths::Vec4 
 // 0x00578C70
 void GapTally::register_gap_hit(const char* name)
 {
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         if (std::strcmp(gap->label().c_str(), name) == 0) {
             ++gap->pending();
             return;
@@ -205,7 +205,7 @@ void GapTally::register_gap_hit(const char* name)
 // 0x00578CF0
 void GapTally::clear_pending()
 {
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap))
         gap->pending() = 0;
 }
 
@@ -213,7 +213,7 @@ void GapTally::clear_pending()
 int GapTally::total_of()
 {
     int count = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap))
         ++count;
     return count;
 }
@@ -221,7 +221,7 @@ int GapTally::total_of()
 // 0x00578D50
 bool GapTally::all_got()
 {
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         if (!gap->num())
             return false;
     }
@@ -231,7 +231,7 @@ bool GapTally::all_got()
 // 0x00578D90
 void GapTally::get_reset()
 {
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         gap->num() = 0;
         gap->pending() = 0;
         gap->set_in_level(true);
@@ -242,7 +242,7 @@ void GapTally::get_reset()
 bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script)
 {
     int total = 0, collected = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         ++total;
         if (gap->num())
             ++collected;
@@ -258,7 +258,7 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
     uint32_t choose_script = kNullScript;
     params->read_hash_value(kChooseScript, &choose_script, 0);
     int index = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap;) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap;) {
         script::StructPtr item = script::make_struct();
         GapEntry* next = get_next(gap);
         if (index == 0)
@@ -284,7 +284,7 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
 bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* script)
 {
     int count = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap))
         ++count;
     script->args()->put_int(kArraySize, count);
     if (count == 0) {
@@ -296,7 +296,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     list->configure_size_kind(count, script::kQbvalStruct);
     int got = 0;
     int index = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
         if (gap->num())
             ++got;
         gsl::owner<script::Struct*> item = script::new_struct();
@@ -317,7 +317,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
 GapEntry* GapTally::get_gap(int index)
 {
     int i = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++i) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++i) {
         if (i == index)
             return gap;
     }
@@ -344,7 +344,7 @@ void GapTally::pay_out_queued_gaps()
 {
     int8_t new_gaps = 0;
     int index = 0;
-    for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
         if (gap->pending()) {
             GoalManager* goals = get_objective_board(); // the goal manager
             if (goals->has_active_gap_goal())
@@ -392,7 +392,7 @@ bool cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
     if (!params->fetch_int_value(kLevel, &level, 0))
         level = current_level(career);
     const GapTally* checklist = level_checklist(career, level);
-    for (GapEntry* gap = gap_of(checklist->gaps_.next); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(checklist->gaps().next()); gap; gap = get_next(gap))
         ++gap->num();
     return true;
 }

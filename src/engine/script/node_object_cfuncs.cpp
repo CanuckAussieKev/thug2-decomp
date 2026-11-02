@@ -140,10 +140,10 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
     maths::BBox box;
     lists::KeyMap* sectors = scene->sectors();
     if (sectors) {
-        sectors->iter_bucket_ = -1;
-        sectors->iter_item_ = nullptr;
-        for (const bool more = sectors->step_iterator(); more && sectors->iter_item_;) {
-            auto* sector = static_cast<render::WorldCell*>(sectors->iter_item_->value);
+        sectors->set_iter_bucket(-1);
+        sectors->set_iter_item(nullptr);
+        for (const bool more = sectors->step_iterator(); more && sectors->iter_item();) {
+            auto* sector = static_cast<render::WorldCell*>(sectors->iter_item()->value);
             if (!sector)
                 break;
             // (the sector's name: the getter folded at 0x005480C0, its +4)
@@ -165,7 +165,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
                     mem_manager()->dealloc(vertices);
                 }
             }
-            if (!sectors->step_iterator() || !sectors->iter_item_)
+            if (!sectors->step_iterator() || !sectors->iter_item())
                 break;
         }
     }
@@ -438,7 +438,7 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 
 // The sector named `name` in any scene (0x0048C510; null if none).
 render::WorldCell* find_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-bool park_editor_off() { return park_editing::ParkBuilderMode::sole()->cur_phase() == kParkEditorOff; }
+bool park_editor_off() { return park_editing::ParkBuilderMode::sole()->editor_state() == kParkEditorOff; }
 
 } // namespace
 
@@ -470,7 +470,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
     // (a trick object's name: an asserted parameter, so the original's local - kept from one node to the next -
     // holds the last one read when a node has none)
     uint32_t object_name = 0;
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
@@ -570,7 +570,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
         render::scene_of_node(at)->update_super_sectors_if_marked(nullptr);
         at = next;
     }
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);

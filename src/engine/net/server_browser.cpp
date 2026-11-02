@@ -95,10 +95,10 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 
 // A line of the server's description: "<title>:" as name and the value `value` makes (if any - after the name, as
@@ -155,10 +155,10 @@ HostListing* find_by_sb(Hub* manager, void* sb)
     VaultSearch search;
     auto* server = static_cast<HostListing*>(search.head_element(&manager->servers())); // (the first)
     while (server) {
-        memory::ListNode* next = search.list_link_->next;
-        memory::ListNode* node = next->data == memory::ListNode::head_marker() ? nullptr : next;
+        memory::ListNode* next = search.list_link_->next();
+        memory::ListNode* node = next->data() == memory::ListNode::head_marker() ? nullptr : next;
         search.list_link_ = node;
-        auto* following = node ? static_cast<HostListing*>(node->data) : nullptr;
+        auto* following = node ? static_cast<HostListing*>(node->data()) : nullptr;
         if (server->sb_server() == sb)
             return server;
         server = following;

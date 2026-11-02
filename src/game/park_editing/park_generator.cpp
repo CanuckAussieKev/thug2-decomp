@@ -53,9 +53,9 @@ constexpr int kMemoryPerPlayer = 585500;
 void CellChainScratch::dump_to_log()
 {
     debug::printf("contents of map list:\n"); // "contents of map list:\n"
-    for (const MapListNode* node = list; node; node = node->following_) {
-        debug::printf("   address=%p area=", node->piece_group_); // "   address=%p area="
-        node->piece_group_->cell_footprint_.dump_to_log();
+    for (const MapListNode* node = list; node; node = node->following()) {
+        debug::printf("   address=%p area=", node->piece_group()); // "   address=%p area="
+        node->piece_group()->cell_footprint().dump_to_log();
     }
 }
 
@@ -81,7 +81,7 @@ ParkAssembler::~ParkAssembler()
 void ParkAssembler::glow_every_piece(bool on)
 {
     for (ParkTile* piece = pieces_; piece;) {
-        ParkTile* next = piece->following_;
+        ParkTile* next = piece->following();
         piece->set_highlight(on, false);
         piece = next;
     }
@@ -102,8 +102,8 @@ int ParkAssembler::get_player_cap_limit()
 
 TileTemplate* ParkAssembler::get_piece_source(uint32_t name)
 {
-    for (TileTemplate* source = sources_; source; source = source->following_) {
-        if (source->sector_ == name)
+    for (TileTemplate* source = sources_; source; source = source->following()) {
+        if (source->sector() == name)
             return source;
     }
     return nullptr;
@@ -244,8 +244,8 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
 void ParkAssembler::set_pieces_highlighted(int on)
 {
     for (ParkTile* piece = pieces_; piece;) {
-        ParkTile* next = piece->following_;
-        if (piece->flag_bits_ & ParkTile::kGap)
+        ParkTile* next = piece->following();
+        if (piece->flag_bits() & ParkTile::kGap)
             piece->set_visible(on != 0);
         piece = next;
     }
@@ -254,8 +254,8 @@ void ParkAssembler::set_pieces_highlighted(int on)
 void ParkAssembler::set_restart_pieces_active(bool active)
 {
     for (ParkTile* piece = pieces_; piece;) {
-        ParkTile* next = piece->following_;
-        if (ParkLayout::singleton()->get_restart_index(piece->blend_source_->sector_))
+        ParkTile* next = piece->following();
+        if (ParkLayout::singleton()->get_restart_index(piece->blend_source()->sector()))
             piece->change_live(active);
         piece = next;
     }
@@ -281,11 +281,11 @@ bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
 gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
 {
     flags &= ParkTile::kCursor | ParkTile::kNoNode20 | ParkTile::kNoRails | ParkTile::kDestroyNow;
-    TileTemplate* from = (source->flag_bits_ & ParkPiece::kSource) ? core::down_cast<TileTemplate>(source)
-                                                                   : core::down_cast<ParkTile>(source)->blend_source_;
+    TileTemplate* from = (source->flag_bits() & ParkPiece::kSource) ? core::down_cast<TileTemplate>(source)
+                                                                   : core::down_cast<ParkTile>(source)->blend_source();
     // The source's sector copied into the park's scene (on the bottom-up heap).
     cloning_piece() = 1;
-    const uint32_t name = from->sector_;
+    const uint32_t name = from->sector();
     flag_bits_ |= ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
     const uint32_t clone =
@@ -298,11 +298,11 @@ gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t fl
     memory::enter_heap_scope(get_park_heap());
     auto piece = memory::make_owned<CopiedPiece>();
     memory::leave_heap_scope();
-    piece->sector_ = clone; // (out of memory crashes, as in the original)
-    piece->ident_ = next_piece_id_++;
-    piece->blend_source_ = from;
+    piece->set_sector(clone); // (out of memory crashes, as in the original)
+    piece->set_ident(next_piece_id_++);
+    piece->set_blend_source(from);
     piece->set_quarter_turns(0, 0);
-    piece->flag_bits_ |= flags;
+    piece->flag_bits() |= flags;
     uint32_t rgba = 0;
     if (get_piece_color(piece, &rgba)) { // (never)
         if (render::WorldCell* sector = scene::look_up_sector(clone)) {
@@ -317,28 +317,28 @@ gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t fl
 
 void ParkAssembler::insert_tile(ParkTile* piece)
 {
-    piece->flag_bits_ |= ParkTile::kInList;
-    piece->following_ = pieces_;
+    piece->flag_bits() |= ParkTile::kInList;
+    piece->set_following(pieces_);
     pieces_ = piece;
     flag_bits_ |= ParkAssembler::kHasPieces;
 }
 
 void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
 {
-    if (!(piece->flag_bits_ & ParkTile::kCursor)) {
+    if (!(piece->flag_bits() & ParkTile::kCursor)) {
         ParkTile* previous = nullptr;
-        for (ParkTile* p = pieces_; p; previous = p, p = p->following_) {
+        for (ParkTile* p = pieces_; p; previous = p, p = p->following()) {
             if (p != piece)
                 continue;
             if (previous)
-                previous->following_ = p->following_;
+                previous->set_following(p->following());
             else
-                pieces_ = p->following_;
+                pieces_ = p->following();
             break;
         }
     }
     if (!keep_sector)
-        destroy_sector(piece->sector_, static_cast<int>(piece->flag_bits_));
+        destroy_sector(piece->sector(), static_cast<int>(piece->flag_bits()));
     set_counts_dirty();
     gsl::owner<decltype(piece)> owned = memory::owned_element(piece); // (the generator's list's)
     delete owned;
@@ -348,7 +348,7 @@ void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
 
 void ParkAssembler::read_piece_flags(script::Array* nodes)
 {
-    for (uint32_t i = 0; i < nodes->extent_; ++i) {
+    for (uint32_t i = 0; i < nodes->extent(); ++i) {
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(0x12B4E660u, &node_class, 0);         // Class
@@ -362,21 +362,21 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
         if (!source)
             continue;
         if (node_class == 0xEF59C100u) {
-            source->flag_bits_ |= TileTemplate::kGameObject;
+            source->flag_bits() |= TileTemplate::kGameObject;
             if (node->has_bare_flag(0x68910AC6u))
-                source->flag_bits_ |= TileTemplate::kAbsentInNetGames;
+                source->flag_bits() |= TileTemplate::kAbsentInNetGames;
         }
         uint32_t script = 0;
         node->read_hash_value(0x2CA8A299u, &script, 0); // TriggerScript
         if (!script)
             continue;
-        source->trigger_script_ = script;
+        source->set_trigger_script(script);
         switch (script) { // (four scripts that change their pieces: rebuilt by rebuild_marked)
         case 0x3DEDAFE9u:
         case 0x22C20ED8u:
         case 0x28673697u:
         case 0xF6187E48u:
-            source->flag_bits_ |= TileTemplate::kRebuilt;
+            source->flag_bits() |= TileTemplate::kRebuilt;
             break;
         default:
             break;

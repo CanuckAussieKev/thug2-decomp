@@ -79,8 +79,8 @@ void unlist(BufferNode*& head, const void* buffer)
     dealloc(memory::owned_element(node)); // (the list's)
 }
 
-IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer_value()); }
-IDirect3DIndexBuffer9* d_3d(const IdxStore* ib) { return static_cast<IDirect3DIndexBuffer9*>(ib->buffer); }
+IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer()); }
+IDirect3DIndexBuffer9* d_3d(const IdxStore* ib) { return static_cast<IDirect3DIndexBuffer9*>(ib->buffer()); }
 
 constexpr uint32_t kNoCopy = 1;
 constexpr uint32_t kShared = 4;
@@ -95,10 +95,10 @@ VertexBuffer::VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer
 {
     if (!(buffer_flags & kShared))
         renderer().d3d_device()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
-                                         raw::as<IDirect3DVertexBuffer9*>(&buffer), nullptr);
-    size = bytes;
+                                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
+    size_ = bytes;
     usage = usage_flags;
-    data = (buffer_flags & kNoCopy) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
+    data_ = (buffer_flags & kNoCopy) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
     flags = buffer_flags;
     arena_offset_ = 0;
     lock_flags_ = 0xFFFFFFFF;
@@ -111,9 +111,9 @@ void VertexBuffer::unlist() { render::unlist(vertex_buffers(), this); }
 // 0x004D4090
 long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint32_t flags_for_lock)
 {
-    *out = data ? std::span<uint8_t>(data, size).subspan(offset).data() : data;
+    *out = data_ ? std::span<uint8_t>(data_, size_).subspan(offset).data() : data_;
     lock_offset_ = offset;
-    lock_size_ = bytes ? bytes : size;
+    lock_size_ = bytes ? bytes : size_;
     lock_flags_ = flags_for_lock;
     if (flags_for_lock & D3DLOCK_DISCARD)
         return d_3d(this)->Lock(offset, bytes, raw::as<void*>(out), flags_for_lock);
@@ -123,7 +123,7 @@ long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint
 // 0x004D40E0
 long VertexBuffer::get_unlock()
 {
-    if ((flags & kShared) && !buffer) {
+    if ((flags & kShared) && !buffer_) {
         lock_flags_ = 0xFFFFFFFF;
         return 0;
     }
@@ -136,7 +136,7 @@ long VertexBuffer::get_unlock()
             lock_offset_ += arena_offset_;
         void* card = nullptr;
         if (d_3d(this)->Lock(lock_offset_, lock_size_, &card, lock_flags_) >= 0) {
-            std::memcpy(card, data, lock_size_); // (from the copy's start, whatever the offset)
+            std::memcpy(card, data_, lock_size_); // (from the copy's start, whatever the offset)
             d_3d(this)->Unlock();
         }
     }
@@ -150,13 +150,13 @@ void VertexBuffer::recreate()
     if (flags & kShared)
         d_3d(this)->AddRef();
     else
-        renderer().d3d_device()->CreateVertexBuffer(size, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                         raw::as<IDirect3DVertexBuffer9*>(&buffer), nullptr);
+        renderer().d3d_device()->CreateVertexBuffer(size_, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+                                         raw::as<IDirect3DVertexBuffer9*>(&buffer_), nullptr);
     if (flags & kNoCopy)
         return;
     void* card = nullptr;
-    if (d_3d(this)->Lock((flags & kShared) ? arena_offset_ : 0, size, &card, 0) >= 0) {
-        std::memcpy(card, data, size);
+    if (d_3d(this)->Lock((flags & kShared) ? arena_offset_ : 0, size_, &card, 0) >= 0) {
+        std::memcpy(card, data_, size_);
         d_3d(this)->Unlock();
     }
 }
@@ -165,12 +165,12 @@ void VertexBuffer::recreate()
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
 {
     renderer().d3d_device()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
-                                    D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer), nullptr);
+                                    D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer_), nullptr);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    size = bytes;
-    usage = usage_flags;
-    format = index_format;
-    indices = static_cast<uint16_t*>(alloc_block(bytes));
+    size_ = bytes;
+    usage_ = usage_flags;
+    format_ = index_format;
+    indices_ = static_cast<uint16_t*>(alloc_block(bytes));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     enlist(index_buffers(), this);
 }
@@ -181,7 +181,7 @@ void IdxStore::unlist() { render::unlist(index_buffers(), this); }
 // 0x004D42F0
 long IdxStore::get_lock(uint32_t /*offset*/, uint32_t /*bytes*/, uint16_t** out, uint32_t /*lockFlags*/)
 {
-    *out = indices;
+    *out = indices_;
     return 0;
 }
 
@@ -190,7 +190,7 @@ long IdxStore::get_unlock()
 {
     void* card = nullptr;
     if (d_3d(this)->Lock(0, 0, &card, 0) >= 0) {
-        std::memcpy(card, indices, size);
+        std::memcpy(card, indices_, size_);
         d_3d(this)->Unlock();
     }
     return 0;
@@ -199,11 +199,11 @@ long IdxStore::get_unlock()
 // 0x004D6720
 uint32_t VertexBuffer::teardown()
 {
-    const uint32_t references = static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
-    buffer = nullptr;
+    const uint32_t references = static_cast<IDirect3DVertexBuffer9*>(buffer_)->Release();
+    buffer_ = nullptr;
     unlist();
-    if (data)
-        dealloc(memory::owned_element(data));
+    if (data_)
+        dealloc(memory::owned_element(data_));
     std::memset(this, 0, sizeof(*this));
     dealloc(memory::owned_element(this)); // (its own block)
     return references;
@@ -212,11 +212,11 @@ uint32_t VertexBuffer::teardown()
 // 0x004D6790
 uint32_t IdxStore::teardown()
 {
-    const uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer)->Release();
-    buffer = nullptr;
+    const uint32_t references = static_cast<IDirect3DIndexBuffer9*>(buffer_)->Release();
+    buffer_ = nullptr;
     unlist();
-    if (indices)
-        dealloc(memory::owned_element(indices));
+    if (indices_)
+        dealloc(memory::owned_element(indices_));
     std::memset(this, 0, sizeof(*this));
     dealloc(memory::owned_element(this)); // (its own block)
     return references;

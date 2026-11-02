@@ -54,15 +54,15 @@ int confine(int value, int size)
 // An object's box as the grid sees it.
 const maths::BBox* cuboid(HitMesh* object) { return object->get_world_bounds(); }
 
-bool listable(HitMesh* object) { return !(object->flag_bits_ & 6); }
+bool listable(HitMesh* object) { return !(object->flag_bits() & 6); }
 
-bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
+bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 memory::ListNode* masked(memory::ListNode* node) { return is_head(node) ? nullptr : node; }
 
 int len_of(memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; !is_head(node) && node; node = node->next)
+    for (const memory::ListNode* node = head->next(); !is_head(node) && node; node = node->next())
         ++count;
     return count;
 }
@@ -80,9 +80,9 @@ struct CellUpdate {
     void take_out(HitMesh* object)
     {
         if (delta > 0) {
-            memory::ListNode* first = masked(pending->next);
-            auto* waiting = static_cast<HitMesh*>(first->data);
-            for (int i = 0; i < cell->count; ++i) {
+            memory::ListNode* first = masked(pending->next());
+            auto* waiting = static_cast<HitMesh*>(first->data());
+            for (int i = 0; i < cell->count(); ++i) {
                 if (core::at(cell->object_run(), i) == object) {
                     core::at(cell->object_run(), i) = waiting;
                     break;
@@ -90,11 +90,11 @@ struct CellUpdate {
             }
             unlink_list_node(first);
         } else {
-            for (int i = 0; i < cell->count; ++i) {
+            for (int i = 0; i < cell->count(); ++i) {
                 if (core::at(cell->object_run(), i) == object) {
-                    for (int j = i + 1; j < cell->count; ++j)
+                    for (int j = i + 1; j < cell->count(); ++j)
                         core::at(cell->object_run(), j - 1) = core::at(cell->object_run(), j);
-                    core::at(cell->object_run(), cell->count - 1) = nullptr;
+                    core::at(cell->object_run(), cell->count() - 1) = nullptr;
                     break;
                 }
             }
@@ -105,20 +105,20 @@ struct CellUpdate {
     void put_in(HitMesh* object)
     {
         if (delta < 0) {
-            core::at(cell->object_run(), cell->count + delta) = object;
+            core::at(cell->object_run(), cell->count() + delta) = object;
         } else {
             memory::ListNode* node = memory::ListNode::create(object);
-            node->prev = pending->prev;
-            node->next = pending;
-            pending->prev->next = node;
-            pending->prev = node;
+            node->set_prev(pending->prev());
+            node->set_next(pending);
+            pending->prev()->set_next(node);
+            pending->set_prev(node);
         }
         ++delta;
     }
 
     bool get_lists(HitMesh* object) const
     {
-        for (int i = 0; i < cell->count; ++i) {
+        for (int i = 0; i < cell->count(); ++i) {
             if (core::at(cell->object_run(), i) == object)
                 return true;
         }
@@ -128,28 +128,28 @@ struct CellUpdate {
     // The list's block resized for the new count; the waiting objects added at the end.
     void get_finish()
     {
-        const int count = cell->count + delta;
+        const int count = cell->count() + delta;
         const uint32_t size = static_cast<uint32_t>(count) * 4;
         if (delta < 0) {
-            if (!cell->objects ||
-                !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell->objects), nullptr))
-                cell->objects = static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects), size));
+            if (!cell->objects() ||
+                !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell->objects()), nullptr))
+                cell->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects()), size)));
         } else if (delta > 0) {
-            if (!cell->objects ||
-                !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell->objects), nullptr))
-                cell->objects = static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects), size));
-            int at = cell->count;
-            const std::span<HitMesh*> block(cell->objects, static_cast<size_t>(count));
-            if (!is_head(pending->next)) {
-                for (memory::ListNode* node = pending->next; node;) {
-                    memory::ListNode* next = masked(node->next);
-                    core::at(block, at++) = static_cast<HitMesh*>(node->data);
+            if (!cell->objects() ||
+                !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell->objects()), nullptr))
+                cell->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects()), size)));
+            int at = cell->count();
+            const std::span<HitMesh*> block(cell->objects(), static_cast<size_t>(count));
+            if (!is_head(pending->next())) {
+                for (memory::ListNode* node = pending->next(); node;) {
+                    memory::ListNode* next = masked(node->next());
+                    core::at(block, at++) = static_cast<HitMesh*>(node->data());
                     unlink_list_node(node);
                     node = next;
                 }
             }
         }
-        cell->count = count;
+        cell->count() = count;
     }
 };
 
@@ -163,8 +163,8 @@ CollGridCell::~CollGridCell()
 {
     if (unknown28)
         memory::Hub::get_pull()->dealloc(unknown28);
-    if (objects)
-        memory::free_malloc(static_cast<void*>(objects));
+    if (objects_)
+        memory::free_malloc(static_cast<void*>(objects_));
 }
 
 // 0x00418440 (the corners are kept in double precision from one cell to the next and rounded where stored)
@@ -177,7 +177,7 @@ void CollGrid::prepare_all(const maths::BBox* bounds)
     for (auto& column : cells_) {
         double z = bounds->min.z;
         for (auto& cell : column) {
-            maths::BBox& box = cell.box;
+            maths::BBox& box = cell.box();
             box.min = {.x = static_cast<float>(x), .y = -1e12f, .z = static_cast<float>(z), .w = 0.0f};
             box.max = {.x = static_cast<float>(x + cell_span_x_), .y = 1e12f, .z = static_cast<float>(z + cell_depth_), .w = 0.0f};
             z += cell_depth_;
@@ -193,11 +193,11 @@ void CollGrid::get_clear()
 {
     for (auto& column : cells_) {
         for (CollGridCell& cell : column) {
-            if (cell.objects) {
-                memory::free_malloc(static_cast<void*>(cell.objects));
-                cell.objects = nullptr;
+            if (cell.objects()) {
+                memory::free_malloc(static_cast<void*>(cell.objects()));
+                cell.set_objects(nullptr);
             }
-            cell.count = 0;
+            cell.count() = 0;
         }
     }
 }
@@ -220,19 +220,19 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     };
     // how many each cell gets
     for (StaticCollider& object : statics) {
-        if (object.geometry_->tri_count() == 0)
+        if (object.geometry()->tri_count() == 0)
             continue;
         int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
         cells_of(&object, x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
-                ++core::at(core::at(cells_, x), z).count;
+                ++core::at(core::at(cells_, x), z).count();
         }
     }
     for (auto& column : cells_) {
         for (CollGridCell& cell : column) {
-            if (cell.count > 0)
-                cell.objects = static_cast<HitMesh**>(memory::alloc_block(static_cast<uint32_t>(cell.count) * 4));
+            if (cell.count() > 0)
+                cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(static_cast<uint32_t>(cell.count()) * 4)));
         }
     }
     // how many each cell has so far (a scratch block on the top-down heap)
@@ -242,7 +242,7 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     memory::leave_heap_scope();
     const std::span<int> filled(filled_block, static_cast<size_t>(kSize) * kSize);
     for (StaticCollider& object : statics) {
-        if (object.geometry_->tri_count() == 0)
+        if (object.geometry()->tri_count() == 0)
             continue;
         int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
         cells_of(&object, x0, x1, z0, z1);
@@ -267,23 +267,23 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
             CellUpdate update{.cell = &grid_cell, .pending = &pending};
             const CollGridCell* cell = update.cell;
             memory::enter_heap_scope(memory::top_down_heap());
-            const memory::ListNode* node = masked(removed->next);
-            for (int i = 0; i < removed_count; ++i, node = masked(node->next)) {
-                auto* object = static_cast<HitMesh*>(node->data);
-                if (cell->box.intersects(*cuboid(object)))
+            const memory::ListNode* node = masked(removed->next());
+            for (int i = 0; i < removed_count; ++i, node = masked(node->next())) {
+                auto* object = static_cast<HitMesh*>(node->data());
+                if (cell->box().intersects(*cuboid(object)))
                     update.take_out(object);
             }
-            node = masked(added->next);
-            for (int i = 0; i < added_count; ++i, node = masked(node->next)) {
-                auto* object = static_cast<HitMesh*>(node->data);
-                if (cell->box.intersects(*cuboid(object)))
+            node = masked(added->next());
+            for (int i = 0; i < added_count; ++i, node = masked(node->next())) {
+                auto* object = static_cast<HitMesh*>(node->data());
+                if (cell->box().intersects(*cuboid(object)))
                     update.put_in(object);
             }
-            node = masked(moved->next);
-            for (int i = 0; i < moved_count; ++i, node = masked(node->next)) {
-                auto* object = static_cast<HitMesh*>(node->data);
+            node = masked(moved->next());
+            for (int i = 0; i < moved_count; ++i, node = masked(node->next())) {
+                auto* object = static_cast<HitMesh*>(node->data());
                 const bool listed = update.get_lists(object);
-                if (cell->box.intersects(*cuboid(object)) != listed) {
+                if (cell->box().intersects(*cuboid(object)) != listed) {
                     if (listed)
                         update.take_out(object);
                     else
@@ -297,22 +297,22 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
     // every list moved to a fresh block
     for (auto& column : cells_) {
         for (CollGridCell& cell : column) {
-            HitMesh** old = cell.objects;
+            HitMesh** old = cell.objects();
             if (!old)
                 continue;
-            if (cell.count != 0) {
-                const uint32_t size = static_cast<uint32_t>(cell.count) * 4;
-                cell.objects = static_cast<HitMesh**>(memory::alloc_block(size));
+            if (cell.count() != 0) {
+                const uint32_t size = static_cast<uint32_t>(cell.count()) * 4;
+                cell.set_objects(static_cast<HitMesh**>(memory::alloc_block(size)));
                 // NOLINTNEXTLINE(bugprone-bitwise-pointer-cast): a code address taken as an integer, on purpose
-                std::memcpy(static_cast<void*>(cell.objects), static_cast<const void*>(old), size);
+                std::memcpy(static_cast<void*>(cell.objects()), static_cast<const void*>(old), size);
             } else {
-                cell.objects = nullptr;
+                cell.set_objects(nullptr);
             }
             memory::free_malloc(static_cast<void*>(old));
         }
     }
-    pending.prev->next = pending.next;
-    pending.next->prev = pending.prev;
+    pending.prev()->set_next(pending.next());
+    pending.next()->set_prev(pending.prev());
 }
 
 // 0x00418710
@@ -333,11 +333,11 @@ std::span<HitMesh* const> CollGrid::objects_in_box(const maths::BBox* box)
     for (int x = x0; x <= x1; ++x) {
         for (int z = z0; z <= z1; ++z) {
             const CollGridCell& cell = core::at(core::at(cells_, x), z);
-            for (int i = 0; i < cell.count; ++i) {
+            for (int i = 0; i < cell.count(); ++i) {
                 HitMesh* object = core::at(cell.object_run(), i);
-                if (listable(object) && object->visit_stamp_ != stamp) {
+                if (listable(object) && object->visit_stamp() != stamp) {
                     core::at(grid_query().found_, found++) = object;
-                    object->visit_stamp_ = stamp;
+                    object->set_visit_stamp(stamp);
                 }
             }
         }
@@ -394,7 +394,7 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
     int found = 0;
     if (x0 == x1 && z0 == z1) {
         const CollGridCell& cell = core::at(core::at(cells_, x0), z0);
-        for (int i = 0; i < cell.count; ++i) {
+        for (int i = 0; i < cell.count(); ++i) {
             if (listable(core::at(cell.object_run(), i)))
                 core::at(grid_query().found_, found++) = core::at(cell.object_run(), i);
         }
@@ -403,11 +403,11 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z) {
                 const CollGridCell& cell = core::at(core::at(cells_, x), z);
-                for (int i = 0; i < cell.count; ++i) {
+                for (int i = 0; i < cell.count(); ++i) {
                     HitMesh* object = core::at(cell.object_run(), i);
-                    if (listable(object) && object->visit_stamp_ != stamp && found < kMostFound) {
+                    if (listable(object) && object->visit_stamp() != stamp && found < kMostFound) {
                         core::at(grid_query().found_, found++) = object;
-                        object->visit_stamp_ = stamp;
+                        object->set_visit_stamp(stamp);
                     }
                 }
             }

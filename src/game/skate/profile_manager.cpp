@@ -75,7 +75,7 @@ gsl::owner<RiderIdentity*> new_profile()
 
 // The face texture object of a model appearance (its +0x54; 0x00576E60, folded with modules::Viewer's getter), told a
 // face texture (0x004875F0) and whether there is one (0x00487520).
-void* face_of(RiderIdentity* profile) { return profile->appearance()->face_skin_; }
+void* face_of(RiderIdentity* profile) { return profile->appearance()->face_skin(); }
 
 } // namespace
 
@@ -94,9 +94,9 @@ void RiderIdentity::erase_one()
 // 0x0057BC00
 ProfileRoster::ProfileRoster()
 {
-    templates_.num_ = 0;
-    templates_.first_ = nullptr;
-    templates_.cursor_ = nullptr;
+    templates_.set_num(0);
+    templates_.set_first(nullptr);
+    templates_.set_cursor(nullptr);
     core::at(profiles_, 0) = nullptr;
     core::at(profiles_, 1) = nullptr;
 }
@@ -105,7 +105,7 @@ ProfileRoster::ProfileRoster()
 ProfileRoster::~ProfileRoster()
 {
     // Every template (the first each time: dropped from the table as it goes; a null one dropped too).
-    for (uint32_t left = templates_.num_; left != 0; --left) {
+    for (uint32_t left = templates_.num(); left != 0; --left) {
         uint32_t key = 0;
         if (RiderIdentity* profile = templates_.get_by_index(0, &key))
             profile->erase_one();
@@ -179,7 +179,7 @@ RiderIdentity* ProfileRoster::get_template(uint32_t name) { return templates_.ge
 // 0x0057B800
 void ProfileRoster::reset_templates()
 {
-    const uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         templates_.get_by_index(static_cast<int>(i), &key)->get_reset(nullptr);
@@ -189,7 +189,7 @@ void ProfileRoster::reset_templates()
 // 0x0057B840
 void ProfileRoster::write_pros(script::Struct* save)
 {
-    const uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
@@ -204,7 +204,7 @@ void ProfileRoster::write_pros(script::Struct* save)
 // 0x0057B920
 void ProfileRoster::write_custom_skaters(script::Struct* save)
 {
-    const uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
@@ -238,7 +238,7 @@ void ProfileRoster::set_current_skater(uint32_t name)
 void ProfileRoster::read_pros(script::Struct* save)
 {
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
-    const uint32_t count = templates_.num_;
+    const uint32_t count = templates_.num();
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);

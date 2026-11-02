@@ -23,9 +23,6 @@ namespace script {
 
 static_assert(offsetof(ScriptCacheEntry, older) == 0xC && offsetof(ScriptCacheEntry, newer) == 0x10,
               "layout must match the original");
-static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, newest_unused_) == 0x18 &&
-                  offsetof(ScriptStore, oldest_unused_) == 0x1C && offsetof(ScriptStore, delete_unused_) == 0x20,
-              "layout must match the original");
 
 script::ScriptStore* script_store() { return script_state().script_store().get(); }
 
@@ -67,10 +64,10 @@ ScriptStore::ScriptStore()
 ScriptStore::~ScriptStore()
 {
     // Every entry, by iterating the table (the iteration carries on from where it was after each removal).
-    entries_->iter_bucket_ = -1;
-    entries_->iter_item_ = nullptr;
-    while (entries_->step_iterator() && entries_->iter_item_) {
-        gsl::owner<ScriptCacheEntry*> entry = memory::adopt<ScriptCacheEntry*>(entries_->iter_item_->value);
+    entries_->set_iter_bucket(-1);
+    entries_->set_iter_item(nullptr);
+    while (entries_->step_iterator() && entries_->iter_item()) {
+        gsl::owner<ScriptCacheEntry*> entry = memory::adopt<ScriptCacheEntry*>(entries_->iter_item()->value);
         if (!entry)
             break;
         entries_->erase_entry(entry->name);
@@ -134,7 +131,7 @@ void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
     while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - 0x80)
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
-    while (core::at(script_state().entry_pools().pools, script_state().entry_pools().current)->taken_count() >= 100 && oldest_unused_)
+    while (core::at(script_state().entry_pools().pools(), script_state().entry_pools().current())->taken_count() >= 100 && oldest_unused_)
         delete_entry(oldest_unused_);
 }
 

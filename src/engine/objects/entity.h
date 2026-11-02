@@ -45,6 +45,11 @@ public:
     // 0x00460920 (0x00460AF0 the deleting one): SharedBase's (a jump to 0x00463870).
     ~ObjectRef() override = default;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] Entity* owner_object() const { return owner_object_; }
+    void set_owner_object(Entity* value) { owner_object_ = value; }
+
+private:
     Entity* owner_object_; // +0x08
 };
 
@@ -297,16 +302,33 @@ public:
     int dispatch_named_script_method(const script::MemberFunctionEntry* entry, script::Struct* params,
                                      script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t kind_tag() const { return kind_tag_; }
+    void set_kind_tag(uint32_t value) { kind_tag_ = value; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] GameEntity* entity() const { return entity_; }
+    void set_entity(GameEntity* value) { entity_ = value; }
+    [[nodiscard]] ObjectModule* following() const { return following_; }
+    void set_following(ObjectModule* value) { following_ = value; }
+    ObjectModule*& next_of_type() { return next_of_type_; }
+    [[nodiscard]] ObjectModule* next_of_type() const { return next_of_type_; }
+
+private:
     uint32_t kind_tag_{};        // +0x04 its component type (a checksum)
     uint32_t flag_bits_{0};      // +0x08 COMPONENT_FLAG_*
     GameEntity* entity_{};       // +0x0C
     ObjectModule* following_{};  // +0x10 the next of its object's components
     ObjectModule* next_of_type_{}; // +0x14 the next of the manager's components of its type
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == 0x08 &&
+                          offsetof(ObjectModule, entity_) == 0x0C && offsetof(ObjectModule, following_) == 0x10 &&
+                          offsetof(ObjectModule, next_of_type_) == 0x14 && sizeof(ObjectModule) == 0x18,
+                      "layout must match the original (the components' fields start at 0x18)");
+    }
 };
-static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == 0x08 &&
-                  offsetof(ObjectModule, entity_) == 0x0C && offsetof(ObjectModule, following_) == 0x10 &&
-                  offsetof(ObjectModule, next_of_type_) == 0x14 && sizeof(ObjectModule) == 0x18,
-              "layout must match the original (the components' fields start at 0x18)");
 
 // ObjectModule::flag_bits_ (+0x08)
 constexpr uint32_t kComponentFlagSuspended = 0x1;

@@ -173,7 +173,7 @@ void Script::set_wait_on_component(BlockReason type, objects::ObjectModule* comp
     blocking_module_ = component;
     suspend_arg_ = arg;
     // (the component's flags: a script waits on it)
-    component->flag_bits_ |= 2;
+    component->flag_bits() |= 2;
 }
 
 // 0x00472D20
@@ -199,13 +199,13 @@ void component_destroyed_all_scripts(objects::ObjectModule* component)
 // 0x00473800
 bool Script::receive_event(objects::Signal* event)
 {
-    if (suspend_reason_ == kSuspendOnBlock && suspend_arg_ && event->kind_tag_ == suspend_arg_)
+    if (suspend_reason_ == kSuspendOnBlock && suspend_arg_ && event->kind_tag() == suspend_arg_)
         suspend_reason_ = kSuspendOnNothing;
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < call_depth_; ++i) {
         CallFrame& frame = core::at(call_stack(), i);
         if ((frame.suspend_kind_ & kReturnWaitTypeMask) == kSuspendOnBlock && frame.suspend_arg_ref_ &&
-            event->kind_tag_ == frame.suspend_arg_ref_)
+            event->kind_tag() == frame.suspend_arg_ref_)
             frame.suspend_kind_ &= ~kReturnWaitTypeMask;
     }
     if (signal_routes_)
@@ -377,7 +377,7 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     if (signal_routes_)
         signal_routes_->mark_group(group);
-    const int count = static_cast<int>(table->extent_);
+    const int count = static_cast<int>(table->extent());
     if (!signal_routes_ && count) {
         gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
         signal_routes_ = made;

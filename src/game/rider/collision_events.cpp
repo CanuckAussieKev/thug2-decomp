@@ -338,7 +338,7 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     if (!face.hit || face.object || !face.coll_obj_)
         return;
     auto* object = static_cast<render::HitMesh*>(face.coll_obj_);
-    const render::TriMeshSource* geometry = object->geometry_;
+    const render::TriMeshSource* geometry = object->geometry();
     if (!geometry || face.index < 0 || std::cmp_greater_equal(face.index, geometry->tri_count()))
         return;
     std::array<uint32_t, 3> index{};
@@ -745,7 +745,7 @@ void checkpoint(SkaterPhysicsModule* component, const char* label)
         ++mark_ring().marker_total_;
     mark.frame = frame_loop::frames_run();
     mark.label = label;
-    copy3(mark.vel, component->entity_->vel());
+    copy3(mark.vel, component->entity()->vel());
     mark.ray = line_of(component->feeler());
 }
 

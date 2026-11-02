@@ -32,6 +32,16 @@ public:
     // 0x00406850: whether it's in a list (its node isn't linked to itself).
     [[nodiscard]] bool is_on_task_list() const;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int disabled() const { return disabled_; }
+    [[nodiscard]] memory::ListNode* list_link() const { return list_link_; }
+    void set_sequence(LinkChain* value) { sequence_ = value; }
+    [[nodiscard]] int pass_count() const { return pass_count_; }
+    void set_pass_count(int value) { pass_count_ = value; }
+    uint32_t& skip_bits() { return skip_bits_; }
+    [[nodiscard]] uint32_t skip_bits() const { return skip_bits_; }
+
+private:
     int disabled_{0};             // +0x04 not run while nonzero
     memory::ListNode* list_link_; // +0x08 data = this
     LinkChain* sequence_{nullptr}; // +0x0C the list it's in
@@ -51,6 +61,10 @@ public:
     // 0x00564DB0 (slot 0 of every Task<T>): the code, given the task.
     void run() override { code_value_(this); }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] Owner* content() const { return content_; }
+
+private:
     Code code_value_; // +0x18
     Owner* content_;  // +0x1C the object it works for
 };
@@ -75,6 +89,11 @@ public:
     // 0x004069B0
     void mark_changed();
 
+    // The fields other code reads and sets.
+    int& lock() { return lock_; }
+    [[nodiscard]] int lock() const { return lock_; }
+
+private:
     int lock_{0};             // +0x00 nonzero while being changed or run
     memory::ListNode head_{}; // +0x04 (lists::Foremost<SchedulerTask>)
     int pass_count_{0};       // +0x14 counts the passes
@@ -91,6 +110,10 @@ public:
     // 0x00406C30: the node deleted, then the list's own destructor.
     ~StackList();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] memory::ListNode* list_link() const { return list_link_; }
+
+private:
     memory::ListNode* list_link_; // +0x1C
 };
 

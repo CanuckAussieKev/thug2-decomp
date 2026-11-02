@@ -64,6 +64,10 @@ public:
     void clear_goal_end_of_run_started();
     void clear_forced();
 
+    // The fields other code reads and sets.
+    void set_flag_bits(uint32_t value) { flag_bits_ = value; }
+
+private:
     uint32_t flag_bits_{0}; // +0x18 END_RUN_*
 };
 

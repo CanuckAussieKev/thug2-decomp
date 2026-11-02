@@ -51,8 +51,8 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // The node after `node` in a manager's object list (null at the end: the head's data is -1).
 memory::ListNode* next_object_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == memory::ListNode::head_marker() ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == memory::ListNode::head_marker() ? nullptr : next;
 }
 
 } // namespace
@@ -165,7 +165,7 @@ bool KinematicsModule::obj_rot_z(script::Struct* params, script::Script*)
 void KinematicsModule::rotate_about_axis(int axis, float angle)
 {
     maths::Mat4 rotation;
-    maths::Mat4& matrix = entity_->basis_frame();
+    maths::Mat4& matrix = entity()->basis_frame();
     switch (axis) {
     case 0:
         matrix_multiply(&matrix, &maths::make_pitch_matrix(rotation, angle), &matrix);
@@ -247,7 +247,7 @@ void KinematicsModule::start_rotation(script::Struct* params, const maths::Mat4*
     }
     maths::Mat4 end;
     end = *target;
-    turn_ptr_->set_matrices(entity_->basis_frame(), end);
+    turn_ptr_->set_matrices(entity()->basis_frame(), end);
     turn_elapsed_ = 0.0f;
     turn_time_ = 0.0f;
     params->fetch_float(kTime, &turn_time_, 0);
@@ -266,7 +266,7 @@ void KinematicsModule::update_turn()
         t = 1.0f;
         motion_flags_ &= ~kMotionTurning;
     }
-    turn_ptr_->fetch_mat(entity_->basis_frame(), t);
+    turn_ptr_->fetch_mat(entity()->basis_frame(), t);
 }
 
 // --- looking at things ---
@@ -280,7 +280,7 @@ bool KinematicsModule::setup_look_axis(const maths::Vec4* target, const maths::V
                                 .z = static_cast<float>(static_cast<double>(target->z) - from->z),
                                 .w = static_cast<float>(static_cast<double>(target->w) - from->w)};
     get_axis(rot_done_, axis) = 0.0f;
-    const float angle = maths::get_angle_in_plane(entity_->basis_frame(), offset, reference_axis, axis);
+    const float angle = maths::get_angle_in_plane(entity()->basis_frame(), offset, reference_axis, axis);
     get_axis(rot_target_, axis) = angle;
     if (std::fabs(angle) > threshold) {
         motion_flags_ |= 1u << axis;
@@ -296,16 +296,16 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     params->fetch_float(kAngleThreshold, &threshold, 0);
     threshold = static_cast<float>(static_cast<double>(threshold) * kDegrees);
     if (params->has_bare_flag(kInstant)) {
-        const maths::Vec4& pos = entity_->at_point();
+        const maths::Vec4& pos = entity()->at_point();
         const maths::Vec4 offset = {.x = static_cast<float>(static_cast<double>(target->x) - pos.x),
                                     .y = static_cast<float>(static_cast<double>(target->y) - pos.y),
                                     .z = static_cast<float>(static_cast<double>(target->z) - pos.z),
                                     .w = static_cast<float>(static_cast<double>(target->w) - pos.w)};
-        const float angle = maths::get_angle_in_plane(entity_->basis_frame(), offset, 2, 1);
+        const float angle = maths::get_angle_in_plane(entity()->basis_frame(), offset, 2, 1);
         if (!(std::fabs(angle) > threshold))
             return false;
         maths::Mat4 rotation;
-        maths::Mat4& matrix = entity_->basis_frame();
+        maths::Mat4& matrix = entity()->basis_frame();
         matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
         return true;
     }
@@ -327,7 +327,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
     for (int axis = 0; axis < 3; ++axis) {
         if (!(axes & (1 << axis)))
             continue;
-        if (!setup_look_axis(target, &entity_->at_point(), (axis != 2) + 1, axis, threshold))
+        if (!setup_look_axis(target, &entity()->at_point(), (axis != 2) + 1, axis, threshold))
             continue;
         if (!(time == 0.0f)) {
             get_axis(rot_acceleration_, axis) = 0.0f;
@@ -384,7 +384,7 @@ void KinematicsModule::look_at_position(script::Struct* params, bool absolute)
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();
     if (!absolute) {
-        const maths::Vec4& at = entity_->at_point();
+        const maths::Vec4& at = entity()->at_point();
         pos = {.x = pos.x + at.x, .y = pos.y + at.y, .z = pos.z + at.z, .w = pos.w + at.w};
     }
     get_look_at(params, &pos);
@@ -412,7 +412,7 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
         default:
             return false;
         }
-        const GameEntity* other = entity_->find_nearest_object_of_type(object_type);
+        const GameEntity* other = entity()->find_nearest_object_of_type(object_type);
         if (!other)
             return false;
         return get_look_at(params, &other->at_point());
@@ -421,14 +421,14 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
     if (!params->read_hash_value(kName, &name, 0))
         return false;
     // (the object of that id in its manager's list, not itself)
-    memory::ListNode* list = entity_->park_owner()->fetch_object_set();
+    memory::ListNode* list = entity()->park_owner()->fetch_object_set();
     memory::ListNode* node = next_object_node(list);
-    auto* object = node ? static_cast<Entity*>(node->data) : nullptr;
+    auto* object = node ? static_cast<Entity*>(node->data()) : nullptr;
     while (object) {
         Entity* current = object;
         node = next_object_node(node);
-        object = node ? static_cast<Entity*>(node->data) : nullptr;
-        if (current != entity_ && current->ident() == name)
+        object = node ? static_cast<Entity*>(node->data()) : nullptr;
+        if (current != entity() && current->ident() == name)
             return get_look_at(params, &core::down_cast<GameEntity>(current)->at_point());
     }
     return false;
@@ -437,7 +437,7 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
 // 0x00425970
 void KinematicsModule::face_node(script::Struct* node)
 {
-    maths::Mat4& matrix = entity_->basis_frame();
+    maths::Mat4& matrix = entity()->basis_frame();
     core::at(matrix.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
     core::at(matrix.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
@@ -450,7 +450,7 @@ void KinematicsModule::face_node(script::Struct* node)
         matrix_multiply(&matrix, &matrix, &maths::make_yaw_matrix(rotation, angles.y));
         matrix_multiply(&matrix, &matrix, &maths::make_roll_matrix(rotation, angles.z));
     }
-    entity_->display_matrix() = matrix;
+    entity()->display_matrix() = matrix;
 }
 
 // --- script member functions ---

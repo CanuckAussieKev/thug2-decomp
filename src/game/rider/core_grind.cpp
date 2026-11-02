@@ -122,7 +122,7 @@ void SkaterPhysicsModule::trigger_rail_node(const std::array<int, 3>& events)
 {
     const objects::Entity* ride_object = nullptr;
     objects::MovingSurfaceModule* ride = ride_;
-    if (auto* tracker = ride->ride_.get()) {
+    if (auto* tracker = ride->ride().get()) {
         if (tracker->entity_.get_pull())
             ride_object = tracker->entity_.get_pull();
         else
@@ -427,7 +427,7 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
     // A bad ledge: feelers down beside the rail, either side.
     maths::Vec4& start = probe_start_;
     maths::Vec4& stop = probe_end_;
-    start.y = tuning_float_lookup(kGroundSnapUp, entity_);
+    start.y = tuning_float_lookup(kGroundSnapUp, entity());
     start.x = 0.0f, start.z = 0.0f, start.w = 0.0f;
     stop.y = -script::fetch_float(kBadLedgeDropDown);
     stop.x = 0.0f, stop.z = 0.0f, stop.w = 0.0f;
@@ -505,7 +505,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
         const auto index =
             static_cast<uint32_t>(node - manager->nodes());
-        static_cast<modules::PointTally*>(score_->points_held_)->refresh_bot_check(static_cast<int>(index));
+        static_cast<modules::PointTally*>(score_->points_held())->refresh_bot_check(static_cast<int>(index));
     }
     rail_manager_ = manager;
     rail_node_ = node;
@@ -567,7 +567,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     maths::Vec4 now = object->at_point();
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float min_alignment = 1.0f;
-    if (park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorLevel &&
+    if (park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorLevel &&
         static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_time_)) < static_cast<uint32_t>(rail_wait_))
         min_alignment =
             static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));
@@ -584,7 +584,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     }
     // The rails on moving objects: the move in the object's space.
     for (auto* rails = objects::object_hub_slot()->find_first_module_of_kind(kRailManagerType); rails;
-         rails = rails->next_of_type_) {
+         rails = rails->next_of_type()) {
         auto* object_rails = core::down_cast<objects::GrindPathLinkModule>(rails)->get_rail_groups();
         maths::Mat4 world;
         core::down_cast<objects::GrindPathLinkModule>(rails)->update_rail_matrix(&world);
@@ -603,9 +603,9 @@ void SkaterPhysicsModule::try_grind(bool always)
             if (!can_grind(node, object_rails))
                 return;
             start_grind(&point, node, object_rails, false, false);
-            ride_->ride_on(rails->entity_);
+            ride_->ride_on(rails->entity());
             ride_->update_contact_point();
-            entity_->vel() -= get_tracker(this)->entity_.get_pull()->vel();
+            entity()->vel() -= get_tracker(this)->entity_.get_pull()->vel();
             return;
         }
     }

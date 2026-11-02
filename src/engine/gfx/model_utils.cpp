@@ -81,7 +81,7 @@ void number_time(Struct* params, uint32_t name, float* time)
 // A model component's object's id and its model.
 uint32_t current_object_id(objects::MeshInstanceModule* component)
 {
-    return static_cast<objects::Entity*>(component->entity_)->ident();
+    return static_cast<objects::Entity*>(component->entity())->ident();
 }
 bool hideable(objects::MeshInstanceModule* component)
 {
@@ -181,7 +181,7 @@ void HiddenModels::conceal()
     };
     int count = 0;
     for (auto* component = first(); component;
-         component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type_)) {
+         component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type())) {
         if (hideable(component))
             ++count;
     }
@@ -193,7 +193,7 @@ void HiddenModels::conceal()
     num_ = 0;
     const std::span<uint32_t> ids(ids_ptr_, static_cast<size_t>(count));
     for (auto* component = first(); component;
-         component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type_)) {
+         component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type())) {
         if (hideable(component)) {
             core::at(ids, num_) = current_object_id(component);
             component->mesh_instance()->conceal(1);

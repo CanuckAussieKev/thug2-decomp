@@ -38,7 +38,7 @@ std::array<HitMeshCache*, 8>& caches() { return cache_slots().caches_; }
 uint32_t& caches_in_use() { return cache_slots().caches_in_use_; }
 
 // The movable collision objects (the first node of their list: 0x00691984).
-memory::ListNode* first_movable() { return collision_state().movables_.next; }
+memory::ListNode* first_movable() { return collision_state().movables_.next(); }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
@@ -50,11 +50,11 @@ std::span<HitMesh* const> objects_along(CollGrid* list, maths::Seg* line)
 
 void get_clear(HitMeshCache* cache)
 {
-    cache->box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
-    cache->box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
-    cache->num_ = 0;
-    cache->statics_ = 0;
-    cache->movables_ = 0;
+    cache->box().min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
+    cache->box().max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
+    cache->set_num(0);
+    cache->set_statics(0);
+    cache->set_movables(0);
 }
 
 } // namespace
@@ -92,10 +92,10 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
             ++statics_;
         }
     }
-    for (const memory::ListNode* node = first_movable(); node->data != memory::ListNode::head_marker() && node;
-         node = node->next) {
-        auto* object = static_cast<HitMesh*>(node->data);
-        if (!object || (object->flag_bits_ & 6) || !object->inside_bounds(&grown))
+    for (const memory::ListNode* node = first_movable(); node->data() != memory::ListNode::head_marker() && node;
+         node = node->next()) {
+        auto* object = static_cast<HitMesh*>(node->data());
+        if (!object || (object->flag_bits() & 6) || !object->inside_bounds(&grown))
             continue;
         core::at(entries_, num_).bounds = object->get_local_bounds();
         core::at(entries_, num_).object = object;

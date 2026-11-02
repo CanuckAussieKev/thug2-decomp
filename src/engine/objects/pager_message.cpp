@@ -50,7 +50,7 @@ void PagerMessageComponent::publish_method_table()
 PagerMessageComponent::PagerMessageComponent()
 {
     messages_.make();
-    kind_tag_ = kPagerMessage;
+    set_kind_tag(kPagerMessage);
 }
 
 // 0x004ECE90 (0x004ECF80 the deleting one)
@@ -67,25 +67,25 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
     if (params)
         params->fetch_int_value(0x340FB7F4, &keep, 0);
     auto* node = messages_.first();
-    while (messages_.size > keep) {
+    while (messages_.size() > keep) {
         if (PagerMessage* message = node->value) {
             script::free_struct(memory::owned_element(message->params)); // (the message's)
             dealloc(message);
             node->value = nullptr;
         }
         auto* next = node->next;
-        if (node != messages_.head) {
+        if (node != messages_.head()) {
             node->prev->next = next;
             next->prev = node->prev;
             dealloc(node);
-            --messages_.size;
+            --messages_.size();
         }
         node = next;
     }
     const script::StructPtr data = script::make_struct();
     data->put_name_key(0x14C4B1CC, 1u);
-    script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
-    entity_->spawn_script(kPagerScript, data.get(), 0, false);
+    script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
+    entity()->spawn_script(kPagerScript, data.get(), 0, false);
 }
 
 // 0x004EC9A0
@@ -103,8 +103,8 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     data->put_name_key(0x34406F14, 1u);
     if (message->params->has_bare_flag(0x8E6DFA5D))
         data->put_name_key(0u, 0x8E6DFA5Du);
-    script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
-    entity_->spawn_script(kPagerScript, data.get(), 0, false);
+    script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
+    entity()->spawn_script(kPagerScript, data.get(), 0, false);
     data.reset();
     return true;
 }
@@ -116,7 +116,7 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
     params->fetch_int_value(0x0A89DA7D, &number, 0);
     const int index = number - 1;
     const auto* node = messages_.first();
-    for (int i = 0; i < index && i < messages_.size; ++i)
+    for (int i = 0; i < index && i < messages_.size(); ++i)
         node = node->next;
     PagerMessage* message = node->value;
     script->args()->put_sub_struct(kPagerMessage, message->params);
@@ -127,7 +127,7 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
 // 0x004EC980
 bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, script::Script* script)
 {
-    script->args()->put_int(0xC4D8D79A, messages_.size);
+    script->args()->put_int(0xC4D8D79A, messages_.size());
     return true;
 }
 
@@ -135,7 +135,7 @@ bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, 
 bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*params*/, script::Script* script)
 {
     const auto* node = messages_.first();
-    const int count = messages_.size;
+    const int count = messages_.size();
     int index = 0;
     if (count != 0) {
         for (; index < count; ++index) {

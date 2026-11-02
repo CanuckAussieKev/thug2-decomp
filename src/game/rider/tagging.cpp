@@ -94,7 +94,7 @@ void free_texture(render::BitmapTexture*& texture)
 {
     if (!texture)
         return;
-    render::engine::kill_texture_splats_of_texture(texture->checksum_);
+    render::engine::kill_texture_splats_of_texture(texture->checksum());
     texture->pin_resident(false);
     release_texture(texture);
     unload_texture(texture);
@@ -127,7 +127,7 @@ float tag_setting(uint32_t name) { return FootMovement::get_param(name); }
 gsl::owner<ObjectModule*> TaggingComponent::fabricate() { return new TaggingComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-TaggingComponent::TaggingComponent() { kind_tag_ = kType; }
+TaggingComponent::TaggingComponent() { set_kind_tag(kType); }
 
 // 0x0051D760 (0x0051D860 the deleting one)
 TaggingComponent::~TaggingComponent()
@@ -220,7 +220,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     if (!manager->in_net_game())
         return;
     online::PlaceTag tag;
-    tag.object_id = static_cast<int8_t>(entity_->ident());
+    tag.object_id = static_cast<int8_t>(entity()->ident());
     tag.sticker = sticker != 0;
     for (int i = 0; i < 4; ++i) {
         core::at(tag.start, i) = start[i];
@@ -244,7 +244,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
 gsl::owner<ObjectModule*> TaggingControlComponent::fabricate() { return new TaggingControlComponent; }
 
 // (the constructor: inlined in fabricate in the original)
-TaggingControlComponent::TaggingControlComponent() { kind_tag_ = kType; }
+TaggingControlComponent::TaggingControlComponent() { set_kind_tag(kType); }
 
 // 0x0051DD50 (0x0051DD60 the deleting one)
 TaggingControlComponent::~TaggingControlComponent() = default;
@@ -252,11 +252,11 @@ TaggingControlComponent::~TaggingControlComponent() = default;
 // 0x0051DD90
 void TaggingControlComponent::seal()
 {
-    walk_ = core::down_cast<FootMovement>(entity_->fetch_module(kWalk));
-    input_ = entity_->fetch_module(kInput);
-    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    trigger_ = entity_->fetch_module(kTrigger);
-    tagging_ = core::down_cast<TaggingComponent>(entity_->fetch_module(TaggingComponent::kType));
+    walk_ = core::down_cast<FootMovement>(entity()->fetch_module(kWalk));
+    input_ = entity()->fetch_module(kInput);
+    core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    trigger_ = entity()->fetch_module(kTrigger);
+    tagging_ = core::down_cast<TaggingComponent>(entity()->fetch_module(TaggingComponent::kType));
 }
 
 // 0x0051E300
@@ -300,7 +300,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     script::Struct* settings = script::read_sub_struct(0x6775E538u);
     float reach = 0.0f;
     maths::Vec4 facing;
-    const GameEntity* skater = core_physics_->entity_;
+    const GameEntity* skater = core_physics_->entity();
     if (!sticker) {
         settings->fetch_float(0xE7AB5365u, &reach, 1);
         if (!walking) {
@@ -324,7 +324,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     facing.y = 0.0f;
     facing.make_unit();
 
-    maths::Vec4 from = entity_->at_point();
+    maths::Vec4 from = entity()->at_point();
     const double height = sticker ? 30.0 : (low ? 20.0 : 50.0); // 0x00646240 / 0x006486AC / 0x006463CC
     from.y = static_cast<float>(from.y + height);
     feeler.set_excluded(0x3000, 0);
@@ -378,7 +378,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 // 0x0051E390
 bool TaggingControlComponent::try_tagging()
 {
-    const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity_->fetch_module(kSkaterPhysicsControl))->pose();
+    const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity()->fetch_module(kSkaterPhysicsControl))->pose();
     if (state->in_vehicle() || state->physics_mode() != 1 || blocked_)
         return false;
     if (cooldown_ > 0.0f) {
@@ -390,10 +390,10 @@ bool TaggingControlComponent::try_tagging()
     const int walk_state = walk_->get_state();
     if (walk_state != 2 && walk_state != 0)
         return false;
-    auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-    ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
+    auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
+    ObjectModule* skeleton = entity()->fetch_module(kSkeleton);
     uint32_t bone = core->state()->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
-    if (core::down_cast<Rider>(entity_)->label() == 0xFC3A8D7F)
+    if (core::down_cast<Rider>(entity())->label() == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
     auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary().button_wedge();
     const bool tapped = button->held_down() && static_cast<uint32_t>(button->get_held_millis()) < 100u;
@@ -410,7 +410,7 @@ bool TaggingControlComponent::try_tagging()
     std::array<float, 6> distances{};
     auto rise = static_cast<float>(reach * 0.0);
     bool found = false;
-    const maths::Vec4& heading = walk_->facing_value();
+    const maths::Vec4& heading = walk_->facing();
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
     auto direction = [&](int index, float& dx, float& dz) {
         const double angle = index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au)) -
@@ -478,12 +478,12 @@ bool TaggingControlComponent::try_tagging()
 
     if (!pending_) {
         pending_ = true;
-        script::launch_script(walk_->get_state() == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity_, false, nullptr);
+        script::launch_script(walk_->get_state() == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity(), false, nullptr);
         countdown_ = 30;
         return true;
     }
     const modules::PointTally* score =
-        core::down_cast<RiderPointKeeper>(entity_->fetch_module(kSkaterScore))->points_held_;
+        core::down_cast<RiderPointKeeper>(entity()->fetch_module(kSkaterScore))->points_held();
     const int combo_score = get_truncated(score->pot() * static_cast<double>(score->multiplier()));
     const int size = combo_score > 5000 ? 100 : (combo_score > 1000 ? 75 : 50);
     tagging_->place_tag(false, start, end, size, true);
@@ -491,7 +491,7 @@ bool TaggingControlComponent::try_tagging()
     if (combo_score > 0) {
         const script::StructPtr params = script::make_struct();
         params->push_float(0xE6306423u, static_cast<float>(size));
-        script::launch_script(0x2B8E0B2B, params.get(), entity_, false, nullptr);
+        script::launch_script(0x2B8E0B2B, params.get(), entity(), false, nullptr);
     }
     pending_ = false;
     return true;

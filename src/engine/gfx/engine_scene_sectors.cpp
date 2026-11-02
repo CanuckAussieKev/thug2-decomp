@@ -62,13 +62,13 @@ StaticCollider* coll_static_at(StaticCollider* statics, int count, int index)
 }
 
 // The lists (lists::Foremost / Node): a head ends its list (its data is -1).
-bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
+bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 // The node after `node`, or null at the head.
-memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
+memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next()) ? nullptr : node->next(); }
 // The first node, or null when the list's empty (the original checks the head's next is no head and not null).
 memory::ListNode* head_of_scene_list(const memory::ListNode* head)
 {
-    return is_head(head->next) ? nullptr : head->next;
+    return is_head(head->next()) ? nullptr : head->next();
 }
 // A head (on the stack or new).
 void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
@@ -79,10 +79,10 @@ memory::ListNode* new_node(void* data) { return memory::ListNode::create(data); 
 // `node` put at the end of the list (no memory: written through null, as the original).
 void append_last(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 // Every node of a list deleted (out of the list, freed).
 void delete_nodes(memory::ListNode* head)
@@ -98,13 +98,13 @@ void delete_nodes(memory::ListNode* head)
 template <typename Body>
 void for_each_sector(WorldScene* scene, Body body)
 {
-    scene->sectors()->iter_bucket_ = -1;
-    scene->sectors()->iter_item_ = nullptr;
+    scene->sectors()->set_iter_bucket(-1);
+    scene->sectors()->set_iter_item(nullptr);
     for (;;) {
         lists::KeyMap* table = scene->sectors();
-        if (!table->step_iterator() || !table->iter_item_ || !table->iter_item_->value)
+        if (!table->step_iterator() || !table->iter_item() || !table->iter_item()->value)
             break;
-        body(static_cast<WorldCell*>(table->iter_item_->value));
+        body(static_cast<WorldCell*>(table->iter_item()->value));
     }
 }
 
@@ -153,10 +153,10 @@ WorldScene::~WorldScene()
             delete owned;
         });
         if (lists::KeyMap* table = sectors_) {
-            if (table->buckets_) {
+            if (table->buckets()) {
                 table->empty_table();
-                memory::dealloc(table->buckets_);
-                table->buckets_ = nullptr;
+                memory::dealloc(table->buckets());
+                table->set_buckets(nullptr);
             }
             memory::dealloc(table);
         }
@@ -191,7 +191,7 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
     info->put_int(0x1E3061EE, slot33_again);
     info->put_int(0x1E3061EE, slot33_again);
     info->put_int(0x78CAD2E8, count_c_6f_0);
-    info->put_int(0x5714C480, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10_));
+    info->put_int(0x5714C480, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10()));
 }
 
 // 0x0049D4E0
@@ -239,7 +239,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
         }
         for (int i = 0; i < coll_static_count_; ++i) {
             const StaticCollider* coll = coll_static_at(coll_statics_, coll_static_count_, i);
-            const uint32_t name = coll->checksum_;
+            const uint32_t name = coll->checksum();
             gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(name));
             if (!sector) {
                 sector = alloc_sector(this);
@@ -298,14 +298,14 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
             sector->clear_flags(kSectorMoved);
         }
     });
-    if (added && !is_head(added->next) && added->next) {
-        for (const memory::ListNode* node = added->next; node;) {
+    if (added && !is_head(added->next()) && added->next()) {
+        for (const memory::ListNode* node = added->next(); node;) {
             const memory::ListNode* next = get_next_node(node);
-            auto* sector = static_cast<WorldCell*>(node->data);
+            auto* sector = static_cast<WorldCell*>(node->data());
             bool listed = false;
             for (const memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed;
                  removing = get_next_node(removing))
-                listed = removing->data == sector->hit_body();
+                listed = removing->data() == sector->hit_body();
             if (!listed) {
                 append_last(&to_remove, new_node(sector->hit_body()));
                 sector->clear_flags(kSectorRemoveFromGrid);
@@ -320,7 +320,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
     delete_nodes(&moved);
     for (memory::ListNode* node = head_of_scene_list(&to_delete); node;) {
         memory::ListNode* next = get_next_node(node);
-        gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(node->data);
+        gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(node->data());
         const uint32_t key = sector->checksum();
         sectors_->erase_entry(key);
         sector->clear_flags(kSectorInGrid);
@@ -353,7 +353,7 @@ bool WorldScene::load_add_scene(const char* name)
                                   &add_coll_static_count_, &add_coll_statics_, &add_coll_objects_, &box, 0);
     if (add_coll_static_count_ > 0) {
         for (int i = 0; i < add_coll_static_count_; ++i) {
-            const uint32_t section_id = coll_static_at(add_coll_statics_, add_coll_static_count_, i)->checksum_;
+            const uint32_t section_id = coll_static_at(add_coll_statics_, add_coll_static_count_, i)->checksum();
             gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(section_id));
             if (!sector) {
                 sector = alloc_sector(this);
@@ -381,7 +381,7 @@ bool WorldScene::flip_extra_scene()
     const memory::ListNode* show = added_ ? add_scene_sectors_ : hidden_sectors_;
     for (const memory::ListNode* node = head_of_scene_list(hide); node;) {
         const memory::ListNode* next = get_next_node(node);
-        auto* sector = static_cast<WorldCell*>(node->data);
+        auto* sector = static_cast<WorldCell*>(node->data());
         sector->change_bits(kSectorRemoveFromGrid);
         sector_kept_ = true;
         const uint32_t key = sector->checksum();
@@ -391,7 +391,7 @@ bool WorldScene::flip_extra_scene()
     }
     for (const memory::ListNode* node = head_of_scene_list(show); node;) {
         const memory::ListNode* next = get_next_node(node);
-        auto* sector = static_cast<WorldCell*>(node->data);
+        auto* sector = static_cast<WorldCell*>(node->data());
         sector->change_bits(kSectorAddToGrid);
         sector_kept_ = true;
         put_sector(this, sector);
@@ -417,7 +417,7 @@ bool WorldScene::unload_added_scene()
     if (add_scene_sectors_) {
         for (memory::ListNode* node = head_of_scene_list(add_scene_sectors_); node;) {
             memory::ListNode* next = get_next_node(node);
-            delete_scene_sector(this, static_cast<WorldCell*>(node->data));
+            delete_scene_sector(this, static_cast<WorldCell*>(node->data()));
             memory::ListNode::destroy(node);
             node = next;
         }

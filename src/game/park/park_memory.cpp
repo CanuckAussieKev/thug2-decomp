@@ -59,8 +59,8 @@ constexpr int kFloorPieceMem = 40000;
 // The park editor's: CClipboard, CClipboardEntry, CMapListNode. The second word's bytes say whether each pool
 // was made here (and is deleted by power_down).
 
-uint8_t& pool_made_here(memory::PoolPair& pair) { return core::at(pair.made_here_, pair.current); }
-memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return core::at(pair.pools, pair.current); }
+uint8_t& pool_made_here(memory::PoolPair& pair) { return core::at(pair.made_here(), pair.current()); }
+memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return core::at(pair.pools(), pair.current()); }
 
 int& unknown_7c_e_68c() { return park_memory_state().park_memory_unknown_7c_e_68c_; }
 
@@ -75,7 +75,7 @@ void make_pool(memory::PoolPair& pair, int item_size, int count, const char* nam
 {
     void* memory = memory::alloc(sizeof(memory::SlabBank));
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
-    core::at(pair.pools, pair.current) = pool;
+    core::at(pair.pools(), pair.current()) = pool;
     pool_made_here(pair) = 1;
 }
 
@@ -88,7 +88,7 @@ void delete_pool(memory::PoolPair& pair)
         memory::dealloc(pool->memory().data()); // ~Pool (0x005BA4E0)
         memory::Hub::get_pull()->dealloc(pool);
     }
-    core::at(pair.pools, pair.current) = nullptr;
+    core::at(pair.pools(), pair.current()) = nullptr;
 }
 
 // 1 - used fraction style figures: the x87 code rounds the free amount to a float, divides in double.
@@ -159,9 +159,9 @@ void remove_dma(uint32_t segment_kind)
 void add_piece_dma(const PieceGroup* meta)
 {
     // (the original read the metapiece's +0x0C flags and +0x38 name through a view of its own)
-    if (meta->flag_bits_ & PieceGroup::kFence)
+    if (meta->flag_bits() & PieceGroup::kFence)
         return;
-    const uint32_t type = meta->name_key_;
+    const uint32_t type = meta->name_key();
     script::Struct* table = script::read_sub_struct(kPieceDmaTable);
     int pieces = 1;
     table->fetch_int_value(type, &pieces, 0);
@@ -171,8 +171,8 @@ void add_piece_dma(const PieceGroup* meta)
 // 0x0059E1E0
 void remove_piece_dma(const PieceGroup* meta)
 {
-    if (!(meta->flag_bits_ & PieceGroup::kFence) && (meta->flag_bits_ & PieceGroup::kInPark))
-        remove_dma(meta->name_key_);
+    if (!(meta->flag_bits() & PieceGroup::kFence) && (meta->flag_bits() & PieceGroup::kInPark))
+        remove_dma(meta->name_key());
 }
 
 // 0x0059E210

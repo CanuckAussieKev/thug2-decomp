@@ -57,7 +57,7 @@ Struct* find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
     if (!descriptor_id)
         return nullptr;
     uint32_t found = descriptor_id; // (the argument's own word: kept from option to option)
-    for (uint32_t i = 0; i < list->extent_; ++i) {
+    for (uint32_t i = 0; i < list->extent(); ++i) {
         Struct* option = current_option(list, i);
         option->read_hash_value(kDescId, &found, 1);
         if (found == descriptor_id)
@@ -71,7 +71,7 @@ void get_matching_cas_options(uint32_t part, uint32_t filter, std::span<Struct*>
 {
     Array* list = script::fetch_list(part);
     *count = 0;
-    const int size = static_cast<int>(list->extent_);
+    const int size = static_cast<int>(list->extent());
     for (int i = 0; i < size; ++i) {
         Struct* option = current_option(list, static_cast<uint32_t>(i));
         int allowed = 0;
@@ -93,7 +93,7 @@ Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
     std::array<Struct*, 32> options{};
     std::array<bool, 32> selected{};
     Array* list = script::fetch_list(part);
-    const int size = static_cast<int>(list->extent_);
+    const int size = static_cast<int>(list->extent());
     int count = 0;
     int already_picked = 0; // (uninitialised in the original: an option without it takes the one before's)
     for (int i = 0; i < size; ++i) {
@@ -138,7 +138,7 @@ Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
 Struct* get_cas_option_by_index(uint32_t part, int index, uint32_t filter)
 {
     Array* list = script::fetch_list(part);
-    const int size = static_cast<int>(list->extent_);
+    const int size = static_cast<int>(list->extent());
     if (!filter) {
         for (int i = 0; i < size; ++i) {
             Struct* option = current_option(list, static_cast<uint32_t>(i));

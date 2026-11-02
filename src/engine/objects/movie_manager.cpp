@@ -57,7 +57,7 @@ constexpr uint32_t kObjectCameraAsset = 0x12743EDB;
 constexpr uint32_t kCutscene = 0x66B7DD11;
 constexpr uint32_t kSkaterCamera = 0xF5012F52;
 
-bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
+bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 
 void delete_movie(gsl::owner<Movie*> movie) { delete movie; }
 bool has_camera(Movie* movie) { return movie->has_camera(); }
@@ -70,16 +70,16 @@ uint32_t get_name_of(Movie* movie) { return movie_key_from_params(movie); }
 Movie* movie_at(memory::ListNode* head, int index)
 {
     const memory::ListNode* node = lists::node_at(*head, index);
-    return node ? static_cast<Movie*>(node->data) : nullptr;
+    return node ? static_cast<Movie*>(node->data()) : nullptr;
 }
 void set_game_camera(gfx::ViewCam* camera) { render::choose_camera(0, camera); }
 
 void uncouple(memory::ListNode* node)
 {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
+    node->prev()->set_next(node->next());
+    node->next()->set_prev(node->prev());
+    node->set_next(node);
+    node->set_prev(node);
 }
 
 } // namespace
@@ -89,7 +89,7 @@ void Entity::assign_fields_from(const Entity& other)
 {
     // Every field but the tables (the vptr, the original's list node table word and ref_'s vptr), the smart pointer
     // lists and the list node's links copied as they are.
-    smart_pointers_ = other.smart_pointers_;
+    set_smart_pointers(other.smart_pointers());
     object_flags_ = other.object_flags_;
     park_owner_ = other.park_owner_;
     own_script_ = other.own_script_;
@@ -100,8 +100,8 @@ void Entity::assign_fields_from(const Entity& other)
     flag_bits_ = other.flag_bits_;
     list_link_ = other.list_link_;
     alias_count_ = other.alias_count_;
-    ref_.smart_pointers_ = other.ref_.smart_pointers_;
-    ref_.owner_object_ = other.ref_.owner_object_;
+    ref_.set_smart_pointers(other.ref_.smart_pointers());
+    ref_.set_owner_object(other.ref_.owner_object());
 }
 
 Entity* assign_object_fields(Entity* to, const Entity* other)
@@ -130,7 +130,7 @@ gfx::ViewCam* assign_camera_fields(gfx::ViewCam* camera, const gfx::ViewCam* oth
 int VideoHub::total_of()
 {
     int count = 0;
-    for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next)
+    for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next())
         ++count;
     return count;
 }
@@ -154,9 +154,9 @@ Movie* VideoHub::find_movie(uint32_t name)
         Movie* movie = nullptr;
         if (total_of()) {
             int left = i;
-            for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+            for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
                 if (left-- == 0) {
-                    movie = static_cast<Movie*>(node->data);
+                    movie = static_cast<Movie*>(node->data());
                     break;
                 }
             }
@@ -205,9 +205,9 @@ void VideoHub::stop_all()
         Movie* movie = nullptr;
         if (total_of()) {
             int left = i;
-            for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+            for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
                 if (left-- == 0) {
-                    movie = static_cast<Movie*>(node->data);
+                    movie = static_cast<Movie*>(node->data());
                     break;
                 }
             }
@@ -219,7 +219,7 @@ void VideoHub::stop_all()
 // 0x0057A640
 void VideoHub::clear_movies()
 {
-    if (movies_.prev != &movies_)
+    if (movies_.prev() != &movies_)
         keep_camera(total_of() ? movie_at(&movies_, 0) : nullptr);
     lists::delete_each<Movie>(&movies_, [](Movie* movie) { // (0x0057A2F0)
         gsl::owner<Movie*> owned = memory::owned_element(movie); // (the list's)
@@ -265,8 +265,8 @@ bool VideoHub::end_movies(bool skippable)
             end_movie(movie);
             // (the first one now, walked to inline)
             movie = nullptr;
-            if (total_of() && !is_head(movies_.next) && movies_.next)
-                movie = static_cast<Movie*>(movies_.next->data);
+            if (total_of() && !is_head(movies_.next()) && movies_.next())
+                movie = static_cast<Movie*>(movies_.next()->data());
             ended = true;
         }
     }
@@ -274,7 +274,7 @@ bool VideoHub::end_movies(bool skippable)
         next->kickoff(); // started
     if (!ended) {
         // (a walk over the queue that does nothing: compiled-out code)
-        for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+        for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
         }
     }
     return true;
@@ -396,10 +396,10 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
         keep_camera_ = kept_camera;
         return false;
     }
-    movie->list_link().prev = movies_.prev;
-    movie->list_link().next = &movies_;
-    movies_.prev->next = &movie->list_link();
-    movies_.prev = &movie->list_link();
+    movie->list_link().set_prev(movies_.prev());
+    movie->list_link().set_next(&movies_);
+    movies_.prev()->set_next(&movie->list_link());
+    movies_.set_prev(&movie->list_link());
     if (total_of() == 1 && has_camera(movie))
         set_game_camera(obtain_active_lens());
     return true;
@@ -411,7 +411,7 @@ bool VideoHub::tick_frame()
     if (keep_camera_ && frame_clock::get_draw_frame() >= keep_until_) {
         keep_camera_ = false;
         // (a walk over the queue that does nothing: compiled-out code)
-        for (const memory::ListNode* node = movies_.next; !is_head(node) && node; node = node->next) {
+        for (const memory::ListNode* node = movies_.next(); !is_head(node) && node; node = node->next()) {
         }
     }
     if (!total_of())

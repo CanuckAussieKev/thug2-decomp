@@ -257,7 +257,7 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
     lens_flare_state().flare_sun_texture_ = find_texture(texture);
     get_corona_texture() = find_texture(corona_texture);
     Array* data = script::fetch_list(lens_flare_data);
-    element_count() = data->extent_;
+    element_count() = data->extent();
     get_elements() = static_cast<FlareElement*>(memory::alloc(element_count() * sizeof(FlareElement)));
     for (uint32_t i = 0; i < element_count(); ++i) {
         auto* item = data->struct_at(i);

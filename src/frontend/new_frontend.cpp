@@ -387,7 +387,7 @@ void update_session(float dt)
     if (objects::ObjectModule* state = skater->fetch_module(kSkaterState))
         bailing = core::down_cast<objects::RiderPoseState>(state)->is_on(objects::PoseFlag::kBailing) != 0;
     if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore))
-        if (const modules::PointTally* s = core::down_cast<objects::RiderPointKeeper>(score)->points_held_) {
+        if (const modules::PointTally* s = core::down_cast<objects::RiderPointKeeper>(score)->points_held()) {
             const double points = static_cast<double>(s->pot()) * s->multiplier();
             if (points > 0.0 && points < 2.0e9)
                 pending = static_cast<int>(points);
@@ -402,11 +402,11 @@ void update_session(float dt)
             skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list())
                   : nullptr) {
         int guard = 0;
-        for (const memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096;
-             node = node->next) {
-            if (node->data == memory::ListNode::head_marker())
+        for (const memory::ListNode* node = list->gaps().next(); node && node != &list->gaps() && ++guard < 4096;
+             node = node->next()) {
+            if (node->data() == memory::ListNode::head_marker())
                 break;
-            auto* gap = static_cast<goals::GapEntry*>(node->data);
+            auto* gap = static_cast<goals::GapEntry*>(node->data());
             read.push_back(
                 {.name = gap->label().c_str() ? gap->label().c_str() : "", .pending = gap->pending(), .count = gap->num(), .score = gap->points_held()});
         }
@@ -597,7 +597,7 @@ bool get_unlocked(const StageMap& level, bool game_rules)
 std::vector<SectionView> get_views(bool game_rules = false)
 {
     std::vector<SectionView> views;
-    for (const Section& section : new_frontend_state().catalogue_.sections) {
+    for (const Section& section : new_frontend_state().catalogue_.sections()) {
         SectionView view;
         for (size_t i = 0; i < section.levels.size(); ++i) {
             const StageMap& level = core::at(section.levels, i);
@@ -630,9 +630,9 @@ void load_catalogue()
     } else {
         new_frontend_state().catalogue_ok_ = true;
         size_t levels = 0;
-        for (const Section& s : new_frontend_state().catalogue_.sections)
+        for (const Section& s : new_frontend_state().catalogue_.sections())
             levels += s.levels.size();
-        get_log("new front end: %zu sections, %zu levels from %s", new_frontend_state().catalogue_.sections.size(), levels, path.c_str());
+        get_log("new front end: %zu sections, %zu levels from %s", new_frontend_state().catalogue_.sections().size(), levels, path.c_str());
     }
     new_frontend_state().saved_ = parse_state(read_text(state_path()));
     new_frontend_state().catalogue_.apply_art_choices(parse_art_choices(read_text(art_choices_path())));
@@ -659,7 +659,7 @@ void note_level_loaded()
     new_frontend_state().last_load_ = load;
     if (!load || load == kLoadMainMenu || !new_frontend_state().catalogue_ok_)
         return;
-    for (const Section& section : new_frontend_state().catalogue_.sections)
+    for (const Section& section : new_frontend_state().catalogue_.sections())
         for (const StageMap& level : section.levels)
             if (name_hash(level.load.c_str()) == load) {
                 if (new_frontend_state().saved_.last_level_ != level.load) {
@@ -758,7 +758,7 @@ void apply_option(int option, int choice)
 const StageMap* level_played(const Section** section)
 {
     const uint32_t load = current_load_state();
-    for (const Section& s : new_frontend_state().catalogue_.sections)
+    for (const Section& s : new_frontend_state().catalogue_.sections())
         for (const StageMap& level : s.levels)
             if (name_hash(level.load.c_str()) == load) {
                 if (section)
@@ -977,7 +977,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                                              name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
     for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
         if (type_of(e) == sprite_type()) {
-            const uint32_t texture = core::down_cast<const ImageWidget>(e)->texture_;
+            const uint32_t texture = core::down_cast<const ImageWidget>(e)->texture();
             if (texture == kLeft || texture == kRight)
                 item->adjustable = true;
             if (texture == kUp) {
@@ -1015,7 +1015,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 item->checkbox = 0;
                 for (const UiWidget* mark = first_child(e); mark; mark = get_next(mark))
                     if (type_of(mark) == sprite_type() && get_visible(mark) &&
-                        core::down_cast<const ImageWidget>(mark)->texture_ == kCheckmark)
+                        core::down_cast<const ImageWidget>(mark)->texture() == kCheckmark)
                         item->checkbox = 1;
             }
         }
@@ -1031,9 +1031,9 @@ std::vector<std::pair<std::string, int>> skater_stats(uint32_t name)
     objects::ProfileRoster* manager = objects::profile_roster();
     objects::RiderIdentity* profile = manager ? manager->get_template(name) : nullptr;
     script::Array* names = script::fetch_list(name_hash("stat_names"));
-    if (!profile || !names || names->kind_tag_ != script::kQbvalStruct)
+    if (!profile || !names || names->kind_tag() != script::kQbvalStruct)
         return stats;
-    for (uint32_t i = 0; i < names->extent_ && i < 16; ++i) {
+    for (uint32_t i = 0; i < names->extent() && i < 16; ++i) {
         auto* entry = names->struct_at(i);
         uint32_t stat = 0;
         const char* label = nullptr;
@@ -1305,7 +1305,7 @@ void dump_tree(const UiWidget* element, int depth, int* budget)
             text::format_to(rest, " \"%.80s\"", text ? text : "");
         } else if (type_of(element) == sprite_type()) {
             text::format_to(std::span<char>(line).subspan(at), " texture %08X",
-                            core::down_cast<const ImageWidget>(element)->texture_);
+                            core::down_cast<const ImageWidget>(element)->texture());
         }
         get_log("new front end: debug_restyle %s", line.data());
         if (depth < 8)
@@ -1503,7 +1503,7 @@ bool dialog_up()
 // it down.
 bool net_level_select_up()
 {
-    if (!new_frontend_state().catalogue_ok_ || new_frontend_state().catalogue_.sections.empty() || !current_load_state() || loading_screen_up())
+    if (!new_frontend_state().catalogue_ok_ || new_frontend_state().catalogue_.sections().empty() || !current_load_state() || loading_screen_up())
         return false;
     if (!game_screens::get_find(name_hash("level_select_anchor")) || !game_screens::get_find(name_hash("level_menu")))
         return false;
@@ -1901,7 +1901,7 @@ void choose_net_level(const std::string& load)
 {
     int section = -1, index = -1;
     const StageMap* level = new_frontend_state().catalogue_.get_find(load, &section, &index)
-                                ? &core::at(core::at(new_frontend_state().catalogue_.sections, section).levels, index)
+                                ? &core::at(core::at(new_frontend_state().catalogue_.sections(), section).levels, index)
                                 : nullptr;
     change_phase(State::kAway);
     new_frontend_state().shown_back_ = 0;
@@ -2739,7 +2739,7 @@ std::string continue_level_name()
     int section = -1, level = -1;
     if (new_frontend_state().saved_.last_level_.empty() || !new_frontend_state().catalogue_ok_ || !new_frontend_state().catalogue_.get_find(new_frontend_state().saved_.last_level_, &section, &level))
         return {};
-    return core::at(core::at(new_frontend_state().catalogue_.sections, section).levels, level).name;
+    return core::at(core::at(new_frontend_state().catalogue_.sections(), section).levels, level).name;
 }
 
 // Continue (the restyled main menu's X / R, or its hint clicked): the last level played, in free skate.
@@ -2783,7 +2783,7 @@ bool cfunc_item(script::Struct* params, script::Script*)
         params->read_hash_value(name_hash("item"), &item, 0);
     const std::string mode = game_screens::active_ruleset_label();
     const bool free_skate = mode == "freeskate" || mode == "singlesession";
-    const bool levels = new_frontend_state().catalogue_ok_ && !new_frontend_state().catalogue_.sections.empty();
+    const bool levels = new_frontend_state().catalogue_ok_ && !new_frontend_state().catalogue_.sections().empty();
     if (item == name_hash("on"))
         return true;
     if (item == name_hash("restart"))
@@ -2806,7 +2806,7 @@ bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
     if (!is_switched_on() || !params || !params->read_hash_value(name_hash("screen"), &screen, 0))
         return false;
     params->read_hash_value(name_hash("back"), &back, 0);
-    const bool levels = new_frontend_state().catalogue_ok_ && !new_frontend_state().catalogue_.sections.empty();
+    const bool levels = new_frontend_state().catalogue_ok_ && !new_frontend_state().catalogue_.sections().empty();
     if (screen == name_hash("levels") && levels) {
         new_frontend_state().open_screen_ = Screen::kLevels;
         new_frontend_state().open_levels_ = in_front_end() ? LevelsFor::kFreeSkate : LevelsFor::kFreeze;
@@ -2846,7 +2846,7 @@ void blit()
     ui_backend::window_size(&w, &h);
     if (w > 0 && h > 0) {
         const TickCycle frame = fit_frame(static_cast<float>(w), static_cast<float>(h));
-        const float scale = std::round(frame.scale * 100.0f) / 100.0f;
+        const float scale = std::round(frame.scale() * 100.0f) / 100.0f;
         if (!draw_context().fonts_resolved_) {
             draw_context().fonts_ = resolve_fonts();
             draw_context().fonts_resolved_ = true;

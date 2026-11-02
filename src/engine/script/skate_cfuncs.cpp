@@ -84,7 +84,7 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
 {
     if (!controller)
         return false;
-    const pad_input::Payload* data = controller->control_data_;
+    const pad_input::Payload* data = controller->control_data();
     if (!data)
         return false;
     // (the pressures of the d-pad and the buttons, by their places in the controller's data)

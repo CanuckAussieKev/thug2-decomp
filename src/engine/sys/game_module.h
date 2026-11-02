@@ -39,14 +39,27 @@ public:
     virtual void start_callback() = 0;
     virtual void stop_callback() = 0;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int cur_phase() const { return cur_phase_; }
+    void set_cur_phase(int value) { cur_phase_ = value; }
+    [[nodiscard]] int queued_op() const { return queued_op_; }
+    void set_queued_op(int value) { queued_op_ = value; }
+    [[nodiscard]] bool locked() const { return locked_; }
+    [[nodiscard]] memory::ListNode* list_link() const { return list_link_; }
+
+private:
     int cur_phase_{kStopped}; // +0x04
     int queued_op_{}; // +0x08 (not set by the constructor)
     bool locked_{false}; // +0x0C: the manager neither starts nor stops it
     std::array<uint8_t, 3> pad0d_{};
     memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
+                      offsetof(PartUnit, list_link_) == 0x10);
+    }
 };
-static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
-              offsetof(PartUnit, list_link_) == 0x10);
 
 struct Hub {
     std::unique_ptr<tasks::Task<Hub>> task_; // priority -1000, running tick_modules

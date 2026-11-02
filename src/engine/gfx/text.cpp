@@ -143,7 +143,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
                     glyph = &font->glyph(core::at(font->special_map_, button));
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
-                    const auto& name_map = map;
+                    const auto& name_map = map_;
                     for (const char name : std::string_view(button_key_name(button)))
                         total += this->glyph(core::at(name_map, static_cast<signed char>(name))).w + glyph_gap_;
                     counted = false; // not the digit
@@ -173,13 +173,13 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
             else if (*p == ' ')
                 w = blank_gap_;
             else
-                w = font->glyph(core::at(font->map, static_cast<uint8_t>(*p))).w;
+                w = font->glyph(core::at(font->map_, static_cast<uint8_t>(*p))).w;
             total += w + glyph_gap_;
         }
         ++p;
     }
     *out_width = static_cast<float>(total);
-    *out_height = static_cast<float>(static_cast<double>(height));
+    *out_height = static_cast<float>(static_cast<double>(height_));
 }
 
 // 0x004CFB20
@@ -192,18 +192,18 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
         *pen_x = static_cast<float>((font->blank_gap() * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
         return;
     }
-    const Char* glyph = &font->glyph(core::at(font->map_value(), static_cast<uint8_t>(c)));
+    const Char* glyph = &font->glyph(core::at(font->map(), static_cast<uint8_t>(c)));
     // (x87: top and bottom stay at double precision until stored)
-    const double top = static_cast<double>(font->base_value() - glyph->baseline) * yscale * scale_y + pen_y;
+    const double top = static_cast<double>(font->base() - glyph->baseline) * yscale * scale_y + pen_y;
     const float left = *pen_x;
     auto right = static_cast<float>(glyph->w * scale_x * xscale + left);
     const double bottom = glyph->h * scale_y * yscale + top;
     const uint32_t vertex_color = get_vertex_color(color);
     const core::Cursor<TextVertex> v = next_quad();
-    v[0] = {.x = left, .y = static_cast<float>(top), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
-    v[1] = {.x = left, .y = static_cast<float>(bottom), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v1};
-    v[2] = {.x = right, .y = static_cast<float>(bottom), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v1};
-    v[3] = {.x = right, .y = static_cast<float>(top), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v0};
+    v[0] = {.x = left, .y = static_cast<float>(top), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
+    v[1] = {.x = left, .y = static_cast<float>(bottom), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v1};
+    v[2] = {.x = right, .y = static_cast<float>(bottom), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v1};
+    v[3] = {.x = right, .y = static_cast<float>(top), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v0};
     get_vertex_count() += 4;
     if (get_vertex_count() >= kVertexLimit) {
         close_sketch();
@@ -221,9 +221,9 @@ void GlyphRun::draw()
     const double offset_y = renderer().screen_offset_y();
     // Screen positions (x87: each sum rounded to float once, when stored).
     auto pos_x = static_cast<float>(scale_x * x + offset_x);
-    auto pos_y = static_cast<float>(scale_y * y + offset_y);
+    auto pos_y = static_cast<float>(scale_y * y_ + offset_y);
     auto pivot_screen_x = static_cast<float>((static_cast<double>(pivot_x_) + x) * scale_x + offset_x);
-    auto pivot_screen_y = static_cast<float>((static_cast<double>(pivot_y_) + y) * scale_y + offset_y);
+    auto pivot_screen_y = static_cast<float>((static_cast<double>(pivot_y_) + y_) * scale_y + offset_y);
     auto glyph_gap = static_cast<float>(font->glyph_gap() * static_cast<double>(xscale));
     auto blank_gap = static_cast<float>(font->blank_gap() * static_cast<double>(xscale));
     if (xscale == 0.0f || yscale == 0.0f) // (0x0066D520)
@@ -310,9 +310,9 @@ void GlyphRun::draw()
                 continue;
             }
             if (!glyph)
-                glyph = &char_font->glyph(core::at(char_font->map_value(), static_cast<uint8_t>(*p)));
+                glyph = &char_font->glyph(core::at(char_font->map(), static_cast<uint8_t>(*p)));
             auto top =
-                static_cast<float>(static_cast<double>(char_font->base_value() - glyph->baseline) * yscale * scale_y + pos_y);
+                static_cast<float>(static_cast<double>(char_font->base() - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
                 effects ? &core::at(effect_records, effect / static_cast<int>(sizeof(TextEffect))) : nullptr;
             float right = 0.0f, bottom = 0.0f;
@@ -373,10 +373,10 @@ void GlyphRun::draw()
             }
 
             auto at = [](int i) { return static_cast<float>(i); };
-            v[0] = {.x = at(x0), .y = at(y0), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
-            v[1] = {.x = at(x2), .y = at(y2), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v1};
-            v[2] = {.x = at(x3), .y = at(y3), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v1};
-            v[3] = {.x = at(x1), .y = at(y1), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v0};
+            v[0] = {.x = at(x0), .y = at(y0), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
+            v[1] = {.x = at(x2), .y = at(y2), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v1};
+            v[2] = {.x = at(x3), .y = at(y3), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v1};
+            v[3] = {.x = at(x1), .y = at(y1), .z = z(), .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v0};
             get_vertex_count() += 4;
             if (get_vertex_count() >= kVertexLimit) {
                 close_sketch();
@@ -461,7 +461,7 @@ void GlyphRun::close_sketch()
     set_texture_stage_state(0, 6, 1);
     set_texture_stage_state(1, 1, 1);      // stage 1 off
     set_vertex_format(0x144);              // position (pre-transformed), colour, one texture coordinate
-    set_texture(0, texture_font->texture_value()); // (the original also passes unknown17c_, which SetTexture doesn't take)
+    set_texture(0, texture_font->texture()); // (the original also passes unknown17c_, which SetTexture doesn't take)
     renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
     if (!engine_parts().suppress_draw()) {                                                      // (rendering not skipped)
         renderer().count_draw(count / 2); // the frame's draw calls and triangles
@@ -526,9 +526,9 @@ TypefaceData* TypefaceData::read_in(const char* name)
     if (font)
         std::memset(font, 0, sizeof(TypefaceData));
     font->format = header.format;
-    font->height = header.height;
-    font->base = header.base;
-    std::memset(font->map.data(), 0, sizeof(font->map));
+    font->height_ = header.height;
+    font->base_ = header.base;
+    std::memset(font->map_.data(), 0, sizeof(font->map_));
     std::memset(font->special_map_.data(), 0, sizeof(font->special_map_));
     font->chars = static_cast<Char*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Char)));
     font->glyph_count_ = static_cast<uint16_t>(count);
@@ -540,7 +540,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
             font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
             const int16_t code = core::at(entries, i).code();
             if (code >= 0) {
-                core::at(font->map, code & 0xFF) = static_cast<uint8_t>(i);
+                core::at(font->map_, code & 0xFF) = static_cast<uint8_t>(i);
             } else {
                 const int special = 0xFF - (code & 0xFF);
                 if (special < font_format::kSpecialGlyphs)
@@ -552,16 +552,16 @@ TypefaceData* TypefaceData::read_in(const char* name)
         for (int i = 0; i < count; ++i) {
             font->glyph(static_cast<std::size_t>(i)).baseline = core::at(entries, i).baseline;
             const auto& codes = core::at(entries, i).codes;
-            core::at(font->map, core::at(codes, 0)) = static_cast<uint8_t>(i);
+            core::at(font->map_, core::at(codes, 0)) = static_cast<uint8_t>(i);
             for (int c = 1; c < 4 && core::at(codes, c) != 0xFF; ++c)
-                core::at(font->map, core::at(codes, c)) = static_cast<uint8_t>(i);
+                core::at(font->map_, core::at(codes, c)) = static_cast<uint8_t>(i);
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
     if (core::at(font->special_map_, 0x1F)) {
         for (int c = 0; c < 256; ++c) {
-            if (!core::at(font->map, c) && c != 'A' && c != 'a')
-                core::at(font->map, c) = core::at(font->special_map_, 0x1F);
+            if (!core::at(font->map_, c) && c != 'A' && c != 'a')
+                core::at(font->map_, c) = core::at(font->special_map_, 0x1F);
             if (c < 0x1F && !core::at(font->special_map_, c))
                 core::at(font->special_map_, c) = core::at(font->special_map_, 0x1F);
         }
@@ -576,7 +576,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     IDirect3DTexture9* texture = nullptr;
     const HRESULT created =
         renderer().d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
-    font->texture = texture;
+    font->texture_ = texture;
     if (created != D3D_OK)
         return nullptr;
     // (not original - both buffers owned: the original left them allocated when the texture couldn't be locked)
@@ -633,7 +633,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
 
     font->next = typeface_chain();
     typeface_chain() = font;
-    font->blank_gap_ = static_cast<int16_t>(font->glyph(core::at(font->map, 'I')).w);
+    font->blank_gap_ = static_cast<int16_t>(font->glyph(core::at(font->map_, 'I')).w);
     return font;
 }
 

@@ -43,7 +43,7 @@ void SkaterPhysicsModule::tick_frame()
 
     switch (state_of(this)) {
     case kGround:
-        last_ground_pos_ = entity_->at_point();
+        last_ground_pos_ = entity()->at_point();
         do_ground_physics();
         try_start_skitch();
         break;

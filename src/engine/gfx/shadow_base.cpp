@@ -229,10 +229,10 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
         renderer().d3d_device()->SetRenderState(D3DRS_ZFUNC, D3DCMP_GREATEREQUAL);
     const auto* list = static_cast<const SceneRef*>(scene);
     for (MeshRef* const mesh : list->mesh_run()) {
-        const uint32_t flags = mesh->flags_value();
+        const uint32_t flags = mesh->flags();
         if (!(flags & 0x40) || !(flags & 0x200))
             continue;
-        if (const maths::Vec4 sphere = sphere_of(mesh->centre_value(), mesh->radius_value()); !sphere_in_view(&sphere, mesh->radius_value()))
+        if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius()); !sphere_in_view(&sphere, mesh->radius()))
             continue;
         if (!two_sided_stencil()) {
             // One side's faces, then the other's.
@@ -289,13 +289,13 @@ void render_shadow_textures()
             const int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
                 // (the geom's instance: drawn when active, its mesh list flagged as a shadow meanwhile)
-                Singleton* instance = static_cast<PcGeom*>(get_mesh(model, i))->instance_value();
-                if (!instance->active_value())
+                Singleton* instance = static_cast<PcGeom*>(get_mesh(model, i))->instance();
+                if (!instance->active())
                     continue;
-                instance->scene_value()->flags_value() |= 0x80; // (drawn as a shadow)
+                instance->scene()->flags() |= 0x80; // (drawn as a shadow)
                 draw_mesh(instance, 8);
-                instance->scene_value()->flags_value() &= ~0x80u;
-                instance->scene_value()->flags_value() |= 0x200;
+                instance->scene()->flags() &= ~0x80u;
+                instance->scene()->flags() |= 0x200;
             }
         };
         draw_model(caster->model);
@@ -384,13 +384,13 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
             renderer().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, 0xB7DA1A93);
         }
         for (const MeshRef* const mesh : meshes) {
-            if (mesh->flags_value() & 2)
+            if (mesh->flags() & 2)
                 continue;
-            if (const maths::Vec4 sphere = sphere_of(mesh->centre_value(), mesh->radius_value()); !sphere_in_view(&sphere, mesh->radius_value()))
+            if (const maths::Vec4 sphere = sphere_of(mesh->centre(), mesh->radius()); !sphere_in_view(&sphere, mesh->radius()))
                 continue;
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
-            project_shadow_vertices(std::span<const float>(mesh->positions_value(), 3 * static_cast<size_t>(mesh->position_count())), to_texture.data());
-            const int triangles = clip_shadow_triangles(std::span<const uint16_t>(mesh->triangles_value(), 3 * static_cast<size_t>(mesh->triangle_count())));
+            project_shadow_vertices(std::span<const float>(mesh->positions(), 3 * static_cast<size_t>(mesh->position_count())), to_texture.data());
+            const int triangles = clip_shadow_triangles(std::span<const uint16_t>(mesh->triangles(), 3 * static_cast<size_t>(mesh->triangle_count())));
             if (triangles) {
                 renderer().d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles().data(),
                                               sizeof(ShadowCornerPoint));

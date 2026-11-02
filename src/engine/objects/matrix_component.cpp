@@ -16,7 +16,7 @@ gsl::owner<ObjectModule*> MatrixComponent::fabricate() { return new MatrixCompon
 // 0x0041CAD0
 MatrixComponent::MatrixComponent()
 {
-    kind_tag_ = kType;
+    set_kind_tag(kType);
     for (int r = 0; r < 4; ++r)
         core::at(basis_frame_.row, r) = {.x = r == 0 ? 1.0f : 0.0f, .y = r == 1 ? 1.0f : 0.0f, .z = r == 2 ? 1.0f : 0.0f, .w = r == 3 ? 1.0f : 0.0f};
 }
@@ -25,7 +25,7 @@ MatrixComponent::MatrixComponent()
 MatrixComponent::~MatrixComponent() = default;
 
 // 0x0041CAA0
-void MatrixComponent::tick_frame() { entity_->display_matrix() = basis_frame_; }
+void MatrixComponent::tick_frame() { entity()->display_matrix() = basis_frame_; }
 
 // 0x0041CAC0
 void MatrixComponent::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matrix; }

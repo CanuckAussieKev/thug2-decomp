@@ -265,7 +265,7 @@ public:
 
     // (the trick log's entry `index`; the last one)
     TrickLog* get_trick(int index) { return static_cast<TrickLog*>(core::at(log_.item_run(), index)); }
-    TrickLog* newest_logged_trick() { return get_trick(log_.num_ - 1); }
+    TrickLog* newest_logged_trick() { return get_trick(log_.num() - 1); }
 
 private:
     // (score_combo.cpp)

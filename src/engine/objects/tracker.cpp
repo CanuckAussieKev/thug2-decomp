@@ -133,42 +133,42 @@ void ScriptNode::uncouple()
 // 0x00462620
 void ScriptList::append_one(script::Script* script)
 {
-    for (const ScriptNode* node = following_->is_head() ? nullptr : following_; node;) {
-        if (node->payload_ == script)
+    for (const ScriptNode* node = following()->is_head() ? nullptr : following(); node;) {
+        if (node->payload() == script)
             return;
-        node = node->following_;
+        node = node->following();
         if (node->is_head())
             break;
     }
     push_script_heap();
     auto* node = static_cast<ScriptNode*>(memory::alloc_zeroed(sizeof(ScriptNode)));
     if (node) {
-        node->payload_ = script;
-        node->rank_ = 0;
-        node->following_ = node;
-        node->preceding_ = node;
+        node->set_payload(script);
+        node->set_rank(0);
+        node->set_following(node);
+        node->set_preceding(node);
     }
     memory::leave_heap_scope();
     // At the end (no null check).
-    node->preceding_ = preceding_;
-    node->following_ = this;
-    preceding_->following_ = node;
-    preceding_ = node;
+    node->set_preceding(preceding());
+    node->set_following(this);
+    preceding()->set_following(node);
+    set_preceding(node);
 }
 
 // 0x004626B0
 void ScriptList::drop_out(script::Script* script)
 {
-    for (ScriptNode* node = following_->is_head() ? nullptr : following_; node;) {
-        if (node->payload_ == script) {
-            node->preceding_->following_ = node->following_;
-            node->following_->preceding_ = node->preceding_;
-            node->following_ = node;
-            node->preceding_ = node;
+    for (ScriptNode* node = following()->is_head() ? nullptr : following(); node;) {
+        if (node->payload() == script) {
+            node->preceding()->set_following(node->following());
+            node->following()->set_preceding(node->preceding());
+            node->set_following(node);
+            node->set_preceding(node);
             memory::dealloc(node); // (its destructor only unlinks it again)
             return;
         }
-        node = node->following_;
+        node = node->following();
         if (node->is_head())
             return;
     }
@@ -188,7 +188,7 @@ void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint3
         auto table = new_hash_table(8);
         names_ptr_ = table;
         script::Array* names = script::fetch_list(kEventNames);
-        for (int i = 0; i < ints::as_signed(names->extent_); ++i) {
+        for (int i = 0; i < ints::as_signed(names->extent()); ++i) {
             char* name = core::at(names_, i).data();
             const char* string = names->find_inline_text(i);
             std::memcpy(name, string, std::strlen(string) + 1);
@@ -337,21 +337,21 @@ void EventWaitBoard::remove_aliases_of(Entity* object)
 {
     lists::KeyMap* table = aliases_;
     for (;;) {
-        table->iter_bucket_ = -1;
-        table->iter_item_ = nullptr;
-        if (!table->step_iterator() || !table->iter_item_)
+        table->set_iter_bucket(-1);
+        table->set_iter_item(nullptr);
+        if (!table->step_iterator() || !table->iter_item())
             return;
-        uint32_t alias = table->iter_item_->key;
-        auto* aliased = static_cast<Entity*>(table->iter_item_->value);
+        uint32_t alias = table->iter_item()->key;
+        auto* aliased = static_cast<Entity*>(table->iter_item()->value);
         for (;;) {
             if (!aliased)
                 return;
             if (current_object_id(aliased) == current_object_id(object))
                 break;
-            if (!table->step_iterator() || !table->iter_item_)
+            if (!table->step_iterator() || !table->iter_item())
                 return;
-            alias = table->iter_item_->key;
-            aliased = static_cast<Entity*>(table->iter_item_->value);
+            alias = table->iter_item()->key;
+            aliased = static_cast<Entity*>(table->iter_item()->value);
         }
         if (has_aliases(aliased))
             --aliased->alias_count();
@@ -375,17 +375,17 @@ void EventWaitBoard::register_nickname(uint32_t alias, Entity* object)
 void EventWaitBoard::remove_event_listener(SignalReceiver* listener)
 {
     SignalReceiver* previous = nullptr;
-    for (SignalReceiver* other = event_listeners_; other; other = other->next_subscriber_) {
+    for (SignalReceiver* other = event_listeners_; other; other = other->next_subscriber()) {
         if (other == listener) {
             if (previous)
-                previous->next_subscriber_ = listener->next_subscriber_;
+                previous->set_next_subscriber(listener->next_subscriber());
             else
-                event_listeners_ = listener->next_subscriber_;
+                event_listeners_ = listener->next_subscriber();
             break;
         }
         previous = other;
     }
-    listener->on_board_ = false;
+    listener->set_on_board(false);
 }
 
 // 0x00463370
@@ -396,10 +396,10 @@ void EventWaitBoard::add_listener(uint32_t type, script::Script* script)
     if (!list) {
         list = static_cast<ScriptList*>(ScriptList::operator new(sizeof(ScriptList)));
         if (list) {
-            list->payload_ = platform::all_ones_pointer<script::Script>();
-            list->rank_ = 0;
-            list->following_ = list;
-            list->preceding_ = list;
+            list->set_payload(platform::all_ones_pointer<script::Script>());
+            list->set_rank(0);
+            list->set_following(list);
+            list->set_preceding(list);
         }
         listeners_->store_entry(type, list); // (null too, if there was no memory - then Add crashes)
     }
@@ -424,18 +424,18 @@ void EventWaitBoard::remove_listener(uint32_t type, script::Script* script)
 void EventWaitBoard::forget_script(script::Script* script)
 {
     lists::KeyMap* table = listeners_;
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
-    if (!table->step_iterator() || !table->iter_item_)
+    table->set_iter_bucket(-1);
+    table->set_iter_item(nullptr);
+    if (!table->step_iterator() || !table->iter_item())
         return;
-    uint32_t type = table->iter_item_->key;
-    auto* list = static_cast<ScriptList*>(table->iter_item_->value);
+    uint32_t type = table->iter_item()->key;
+    auto* list = static_cast<ScriptList*>(table->iter_item()->value);
     uint32_t next_type = type;
     while (list) {
         ScriptList* next = nullptr;
-        if (table->step_iterator() && table->iter_item_) {
-            next_type = table->iter_item_->key;
-            next = static_cast<ScriptList*>(table->iter_item_->value);
+        if (table->step_iterator() && table->iter_item()) {
+            next_type = table->iter_item()->key;
+            next = static_cast<ScriptList*>(table->iter_item()->value);
         }
         list->drop_out(script);
         if (list->is_vacant()) {
@@ -486,13 +486,13 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
 
     if (!broadcast) {
         // Every event listener, then the target: an object, or else the spawned script with that id.
-        for (SignalReceiver* listener = event_listeners_; listener; listener = listener->next_subscriber_) {
-            ++listener->busy_;
+        for (SignalReceiver* listener = event_listeners_; listener; listener = listener->next_subscriber()) {
+            ++listener->busy();
             listener_receive(listener, &event);
-            --listener->busy_;
+            --listener->busy();
         }
-        const uint32_t event_target = event.aim_point_;
-        if (event_target != kNoObjectId && !(event.flag_bits_ & Signal::kFlagHandled)) {
+        const uint32_t event_target = event.aim_point();
+        if (event_target != kNoObjectId && !(event.flag_bits() & Signal::kFlagHandled)) {
             if (Entity* object = look_up_object(event_target)) {
                 forward_trigger(object, &event);
             } else {
@@ -520,17 +520,17 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             return static_cast<double>(radius) * radius > distance;
         };
         int count = 0;
-        const ScriptNode* first = list->following_;
+        const ScriptNode* first = list->following();
         if (!first->is_head()) {
             for (const ScriptNode* node = first; node;) {
-                node = node->following_;
+                node = node->following();
                 ++count;
                 if (node->is_head())
                     break;
             }
         }
         if (count == 1) {
-            script::Script* script = first->payload_;
+            script::Script* script = first->payload();
             if (in_range(script))
                 script->receive_event(&event);
         } else {
@@ -544,11 +544,11 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             const std::span<Pointer> pointers(pointers_block, pointers_block ? static_cast<std::size_t>(count) : 0);
             for (Pointer& pointer : pointers)
                 memory::construct_in<Pointer>(&pointer);
-            const ScriptNode* node = list->following_->is_head() ? nullptr : list->following_;
+            const ScriptNode* node = list->following()->is_head() ? nullptr : list->following();
             for (int i = 0; node; ++i) {
-                core::at(scripts, i) = node->payload_;
-                core::at(pointers, i).assign_value(&node->payload_->shared_base());
-                node = node->following_;
+                core::at(scripts, i) = node->payload();
+                core::at(pointers, i).assign_value(&node->payload()->shared_base());
+                node = node->following();
                 if (node->is_head())
                     break;
             }
@@ -578,10 +578,10 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             }
         }
     }
-    if (!(event.flag_bits_ & Signal::kFlagHandled))
-        log_.add_row(event.kind_tag_, event.aim_point_, event.from_where_, 0, 3, SignalTrace::kHandled);
+    if (!(event.flag_bits() & Signal::kFlagHandled))
+        log_.add_row(event.kind_tag(), event.aim_point(), event.from_where(), 0, 3, SignalTrace::kHandled);
     --launch_depth_;
-    const bool handled = (event.flag_bits_ & Signal::kFlagHandled) != 0;
+    const bool handled = (event.flag_bits() & Signal::kFlagHandled) != 0;
     event.teardown();
     return handled;
 }
@@ -589,13 +589,13 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
 // 0x00462B10
 void EventWaitBoard::log_handled(Signal* event, uint32_t how, uint32_t script)
 {
-    log_.add_row(event->kind_tag_, event->aim_point_, event->from_where_, script, how, SignalTrace::kHandled);
+    log_.add_row(event->kind_tag(), event->aim_point(), event->from_where(), script, how, SignalTrace::kHandled);
 }
 
 // 0x00462B40
 void EventWaitBoard::log_read(Signal* event, uint32_t how, uint32_t script)
 {
-    log_.add_row(event->kind_tag_, event->aim_point_, event->from_where_, script, how, SignalTrace::kRead);
+    log_.add_row(event->kind_tag(), event->aim_point(), event->from_where(), script, how, SignalTrace::kRead);
 }
 
 // 0x00462B70
@@ -640,7 +640,7 @@ bool cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*s
     Entity* object = get_tracker()->look_up_object(id);
     script::Array* scripts = nullptr;
     if (params->fetch_list(kScripts, &scripts, 0)) {
-        for (uint32_t i = 0; i < scripts->extent_; ++i)
+        for (uint32_t i = 0; i < scripts->extent(); ++i)
             script::stop_scripts_using_object_that_refer_to(object, scripts->fetch_part(i));
     } else {
         uint32_t name = 0;
@@ -715,7 +715,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     }
     script::Array* types = nullptr;
     if (params->fetch_list(kType, &types, 0)) {
-        const uint32_t size = types->extent_;
+        const uint32_t size = types->extent();
         for (uint32_t i = 0; i < size; ++i) {
             tracker->set_launched_from_script(from_script());
             tracker->launch_event(types->fetch_part(i), target, source, data, broadcast, radius);

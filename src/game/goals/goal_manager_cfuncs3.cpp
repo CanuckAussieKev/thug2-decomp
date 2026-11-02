@@ -593,7 +593,7 @@ bool cfunc_goal_manager_get_active_reward_points(script::Struct*, script::Script
     GoalManager* manager = get_objective_board();
     int won = 0;
     int total = 0;
-    for (int i = 0; i < manager->goals().num_; ++i) {
+    for (int i = 0; i < manager->goals().num(); ++i) {
         Objective* goal = manager->goals().get_by_index(i);
         const int points = goal->get_reward_points();
         if (goal->has_won())

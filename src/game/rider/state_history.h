@@ -109,6 +109,19 @@ public:
     // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kResultPassOn.
     static int handle_collision_messages(net::InboundMsgCtx* context);
 
+    // The fields other code reads and sets.
+    int& state_count() { return state_count_; }
+    [[nodiscard]] int state_count() const { return state_count_; }
+    std::array<SkaterStateHistoryFrame, kEntries>& states() { return states_; }
+    [[nodiscard]] const std::array<SkaterStateHistoryFrame, kEntries>& states() const { return states_; }
+    int& message_count() { return message_count_; }
+    [[nodiscard]] int message_count() const { return message_count_; }
+    std::array<StateHistoryMessage, kEntries>& messages() { return messages_; }
+    [[nodiscard]] const std::array<StateHistoryMessage, kEntries>& messages() const { return messages_; }
+    [[nodiscard]] uint32_t vehicle_control_type() const { return vehicle_control_type_; }
+    void set_vehicle_control_type(uint32_t value) { vehicle_control_type_ = value; }
+
+private:
     int state_count_{0};                         // +0x18 the states received
     std::array<SkaterStateHistoryFrame, kEntries> states_{}; // +0x1C (the newest at (state_count_ - 1) % 20)
     int message_count_{0};                       // +0xA6C the messages received

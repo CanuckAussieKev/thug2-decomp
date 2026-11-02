@@ -7,10 +7,10 @@ namespace modules {
 // 0x0041AD90
 int Skate::count_riders()
 {
-    const memory::ListNode* node = riders_.list_link_.next;
+    const memory::ListNode* node = riders_.list_link_.next();
     int count = 0;
-    while (node->data != memory::ListNode::head_marker() && node) {
-        node = node->next;
+    while (node->data() != memory::ListNode::head_marker() && node) {
+        node = node->next();
         ++count;
     }
     return count;

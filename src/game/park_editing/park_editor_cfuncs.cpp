@@ -299,11 +299,11 @@ bool cfunc_custom_park_mode(script::Struct* params, script::Script*)
 {
     const ParkBuilderMode* editor = get_editor();
     if (params->has_bare_flag("editing"))
-        return editor->cur_phase() == ParkBuilderMode::kStateEdit;
+        return editor->editor_state() == ParkBuilderMode::kStateEdit;
     if (params->has_bare_flag("testing"))
-        return editor->cur_phase() == ParkBuilderMode::kStateTestPlay;
+        return editor->editor_state() == ParkBuilderMode::kStateTestPlay;
     if (params->has_bare_flag("just_using"))
-        return editor->cur_phase() != ParkBuilderMode::kStateOff;
+        return editor->editor_state() != ParkBuilderMode::kStateOff;
     return false;
 }
 
@@ -511,7 +511,7 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
 // 0x0058EB90
 bool cfunc_is_custom_park(script::Struct*, script::Script*)
 {
-    return get_editor()->cur_phase() != ParkBuilderMode::kStateOff;
+    return get_editor()->editor_state() != ParkBuilderMode::kStateOff;
 }
 
 // 0x0058EBB0

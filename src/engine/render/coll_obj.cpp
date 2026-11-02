@@ -27,15 +27,15 @@ memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 // The first child's node (null at the end of the list - the head's data is -1).
 memory::ListNode* get_first(memory::ListNode* head)
 {
-    memory::ListNode* node = head->next;
-    return node->data == kHeadData ? nullptr : node;
+    memory::ListNode* node = head->next();
+    return node->data() == kHeadData ? nullptr : node;
 }
 // The children in turn: the head-data test first, then the null one (the original's order).
 template <typename F>
 void for_each_child(memory::ListNode* head, F f)
 {
-    for (const memory::ListNode* node = head->next; node->data != kHeadData && node; node = node->next)
-        f(static_cast<HitMesh*>(node->data));
+    for (const memory::ListNode* node = head->next(); node->data() != kHeadData && node; node = node->next())
+        f(static_cast<HitMesh*>(node->data()));
 }
 
 } // namespace
@@ -71,11 +71,11 @@ HitMeshGroup::HitMeshGroup(const HitMeshGroup& other)
 HitMeshGroup::~HitMeshGroup()
 {
     if (sub_nodes_) {
-        memory::ListNode* node = sub_nodes_->next;
-        if (node->data != kHeadData && node) {
+        memory::ListNode* node = sub_nodes_->next();
+        if (node->data() != kHeadData && node) {
             while (node) {
-                memory::ListNode* next = node->next->data == kHeadData ? nullptr : node->next;
-                gsl::owner<HitMesh*> mesh = memory::adopt<HitMesh*>(node->data); // (the list's)
+                memory::ListNode* next = node->next()->data() == kHeadData ? nullptr : node->next();
+                gsl::owner<HitMesh*> mesh = memory::adopt<HitMesh*>(node->data()); // (the list's)
                 delete mesh;
                 memory::ListNode::destroy(node); // (0x00411880)
                 node = next;
@@ -90,17 +90,17 @@ HitMeshGroup::~HitMeshGroup()
 gsl::owner<HitMeshGroup*> HitMeshGroup::replicate(int argument)
 {
     auto copy = memory::make_owned<HitMeshGroup>(*this);
-    copy->flag_bits_ |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
+    copy->flag_bits() |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->sub_nodes_ = new_head();
     for_each_child(sub_nodes_, [&](HitMesh* child) {
         auto* node = static_cast<memory::ListNode*>(memory::alloc_zeroed(sizeof(memory::ListNode)));
         if (node)
             node->make_node(child->replicate(argument));
         memory::ListNode* head = copy->sub_nodes_;
-        node->prev = head->prev;
-        node->next = head;
-        head->prev->next = node;
-        head->prev = node;
+        node->set_prev(head->prev());
+        node->set_next(head);
+        head->prev()->set_next(node);
+        head->set_prev(node);
     });
     return copy;
 }
@@ -110,10 +110,10 @@ void HitMeshGroup::attach_child(gsl::owner<HitMesh*> child)
 {
     memory::ListNode* node = memory::ListNode::create(child);
     memory::ListNode* head = sub_nodes_;
-    node->prev = head->prev;
-    node->next = head;
-    head->prev->next = node;
-    head->prev = node;
+    node->set_prev(head->prev());
+    node->set_next(head);
+    head->prev()->set_next(node);
+    head->set_prev(node);
 }
 
 // 0x00411D90
@@ -147,13 +147,13 @@ void HitMeshGroup::change_facing(const maths::Mat4* orientation)
 // 0x00411F60
 const maths::Vec4* HitMeshGroup::get_absolute_point()
 {
-    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_absolute_point();
+    return static_cast<HitMesh*>(get_first(sub_nodes_)->data())->get_absolute_point();
 }
 
 // 0x00411F80
 const maths::Mat4* HitMeshGroup::fetch_facing()
 {
-    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->fetch_facing();
+    return static_cast<HitMesh*>(get_first(sub_nodes_)->data())->fetch_facing();
 }
 
 // 0x00410960
@@ -203,8 +203,8 @@ void HitMeshGroup::recompute_b_box()
     box_valid_ = true;
     box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
     box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
-    for (const memory::ListNode* node = sub_nodes_->next; node->data != kHeadData && node; node = node->next) {
-        const maths::BBox* box = static_cast<HitMesh*>(node->data)->get_local_bounds();
+    for (const memory::ListNode* node = sub_nodes_->next(); node->data() != kHeadData && node; node = node->next()) {
+        const maths::BBox* box = static_cast<HitMesh*>(node->data())->get_local_bounds();
         if (!box) {
             box_valid_ = false;
             return;

@@ -44,15 +44,15 @@ NoteHandler* NoteHandler::teardown(unsigned int flags)
 void Router::prepare_all()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
-        const memory::ListNode* node = link_chain(id).next;
+        const memory::ListNode* node = link_chain(id).next();
         // (the head check comes before the null check)
-        if (node->data == memory::ListNode::head_marker() || !node)
+        if (node->data() == memory::ListNode::head_marker() || !node)
             continue;
         for (bool again = true; again; again = node) {
-            const memory::ListNode* next = node->next;
-            if (next->data == memory::ListNode::head_marker())
+            const memory::ListNode* next = node->next();
+            if (next->data() == memory::ListNode::head_marker())
                 next = nullptr;
-            static_cast<NoteHandler*>(node->data)->teardown(1); // (the handler is its node)
+            static_cast<NoteHandler*>(node->data())->teardown(1); // (the handler is its node)
             node = next;
         }
     }

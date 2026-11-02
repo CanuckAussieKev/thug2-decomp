@@ -87,7 +87,7 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 // (shared by both: the original repeats it in each)
 void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
 {
-    self->entity_->display_matrix().get_euler_angles(out.angles);
+    self->entity()->display_matrix().get_euler_angles(out.angles);
     const objects::RiderPoseState* core = self->pose();
     out.state = static_cast<uint8_t>(core->cur_phase());
     out.value_7c_ = core->surface_type();
@@ -114,15 +114,15 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
 uint32_t RiderHostSync::fetch_sync_field_mask()
 {
     uint32_t flags = 0;
-    const net::AppHost* app = client_app(core::down_cast<Rider>(entity_)->view_slot());
-    ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
+    const net::AppHost* app = client_app(core::down_cast<Rider>(entity())->view_slot());
+    ObjectModule* component_6c = entity()->fetch_module(kComponent6c);
     const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count()) % 15 == 0;
     UpdateState now{};
     read_update_state(this, component_6c, now);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height(entity_->at_point().y) : thugpro::pack_horizontal(entity_->at_point()[k]);
+            k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
         if (value != core::at(sent_pos_, k) || force)
             flags |= 1u << k;
     }
@@ -148,8 +148,8 @@ void RiderHostSync::send_update()
 {
     net::NetMessageInfo desc;
     util::PackedBitBuffer stream;
-    auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity_)->view_slot()));
-    ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
+    auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity())->view_slot()));
+    ObjectModule* component_6c = entity()->fetch_module(kComponent6c);
     const bool on_server = get_on_server();
     if (!on_server && static_cast<uint32_t>(app->frame_count()) % 15 != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
@@ -171,12 +171,12 @@ void RiderHostSync::send_update()
         uint32_t& guard = local_net_logic_state().local_net_guard_;
         if (!(guard & 1))
             guard |= 1;
-        local_net_logic_state().local_net_position_ = entity_->at_point();
+        local_net_logic_state().local_net_position_ = entity()->at_point();
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height(entity_->at_point().y) : thugpro::pack_horizontal(entity_->at_point()[k]);
+            k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         core::at(sent_pos_, k) = value;
@@ -230,7 +230,7 @@ RiderHostSync::RiderHostSync()
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     sent_controls_ = 0;
-    kind_tag_ = kSkaterLocalNetLogic;
+    set_kind_tag(kSkaterLocalNetLogic);
     sent_controls_ = 0;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
@@ -241,8 +241,8 @@ RiderHostSync::~RiderHostSync() = default;
 // 0x00512E70
 void RiderHostSync::seal()
 {
-    pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
-    board_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
+    pose_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
+    board_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x005136C0

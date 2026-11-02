@@ -706,7 +706,7 @@ void InputPort::pull_data(int)
     second ^= core::at(p, 2) >= 0x20 ? 0x80 : 0;
     const uint8_t buttons_so_far = second;
     const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
-    if (editor && editor->cur_phase() == park_editing::ParkBuilderMode::kStateEdit) {
+    if (editor && editor->editor_state() == park_editing::ParkBuilderMode::kStateEdit) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;
         if (frontend::UiTree::sole()) {
@@ -781,10 +781,10 @@ Hub::Hub()
         if (!device)
             continue;
         memory::ListNode* node = device->list_link(); // onto the end of the list
-        node->prev = devs_.prev;
-        node->next = &devs_;
-        devs_.prev->next = node;
-        devs_.prev = node;
+        node->set_prev(devs_.prev());
+        node->set_next(&devs_);
+        devs_.prev()->set_next(node);
+        devs_.set_prev(node);
         device->acquire();
         ++index;
     }
@@ -822,7 +822,7 @@ void process_all(memory::ListNode* devices)
 } // namespace
 
 // 0x005BE140
-void process_task(tasks::Task<memory::ListNode>* task) { process_all(task->content_); }
+void process_task(tasks::Task<memory::ListNode>* task) { process_all(task->content()); }
 
 // 0x005BE3F0
 void Hub::poll_pads() { process_all(&devs_); }

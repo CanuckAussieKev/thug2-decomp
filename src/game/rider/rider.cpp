@@ -231,16 +231,16 @@ void Rider::load_cat_info(script::Struct* params)
     params->fetch_list(kTricks, &tricks, 0);
     for (int i = 0; i < 11; ++i) {
         auto* trick = tricks->struct_at(i);
-        goals::CreateATrick* info = core::at(trick_slots_, i).get();
+        const goals::CreateATrick* info = core::at(trick_slots_, i).get();
         script::Struct* other = nullptr;
         trick->read_sub_struct(kOther, &other, 1);
-        info->other_params_->append_structure_if_any(other);
+        info->other_params()->append_structure_if_any(other);
         script::Array* animations = nullptr;
         trick->fetch_list(kAnimations, &animations, 1);
-        script::duplicate_array(info->animations_, animations);
+        script::duplicate_array(info->animations(), animations);
         script::Array* rotations = nullptr;
         trick->fetch_list(kRotations, &rotations, 1);
-        script::duplicate_array(info->spin_list_, rotations);
+        script::duplicate_array(info->spin_list(), rotations);
     }
     script::launch_script(kKillLoadPremadeCats, nullptr, nullptr, false, nullptr);
 }
@@ -339,7 +339,7 @@ int read_tuning_int(uint32_t name, int assert, GameEntity* skater)
 }
 
 // 0x00580480
-modules::PointTally* Rider::get_points_total() { return score_holder_->points_held_; }
+modules::PointTally* Rider::get_points_total() { return score_holder_->points_held(); }
 
 // 0x00580490
 float Rider::fetch_tally(int index)
@@ -371,7 +371,7 @@ float Rider::fetch_tally(int index)
     }
     RiderStoryProgress* cheats = modules::Skate::sole()->career().get();
     float result = cheats->is_code_on(static_cast<uint32_t>(script::fetch_int_value(kCheatStats13))) ? 15.0f : stat;
-    if (score_holder_->points_held_->special_active())
+    if (score_holder_->points_held()->special_active())
         result = static_cast<float>(result + 3.0);
     return result;
 }
@@ -386,7 +386,7 @@ float Rider::get_scaled_value(script::Struct* params)
     const float low = range.x, high = range.y;
     auto result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
-    const bool goofy = core::down_cast<Rider>(core_physics_->entity_)->goofy_;
+    const bool goofy = core::down_cast<Rider>(core_physics_->entity())->goofy_;
     const uint8_t flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on;
     const bool riding = goofy ? flipped != 0 : flipped == 0;
     if (riding && params->fetch_pair(kSwitch, &switch_range, false)) {
@@ -658,12 +658,12 @@ void Rider::reset_state()
     tricks->reset_trick_objects();
     core::down_cast<RiderPoseState>(fetch_module(0x43686585))->clear_doing_trick();
     model_component_->set_flip(false);
-    balance_displays_off(score_holder_->points_held_);
+    balance_displays_off(score_holder_->points_held());
     if (vibration_)
         vibration_->stop_all();
     shadow_->change_place(&at_point());
     shadow_->set_normal(&core::at(basis_frame().row, 1));
-    core::down_cast<RiderStanceDisplay>(fetch_module(0x21FC3301))->shown_ = -1;
+    core::down_cast<RiderStanceDisplay>(fetch_module(0x21FC3301))->set_shown(-1);
 }
 
 // 0x005811E0
@@ -718,7 +718,7 @@ void Rider::show_board_element(uint32_t type)
     render::BitmapTexture* element = new_element(texture);
     reset(element);
     render::BitmapTexture* parent =
-        core::down_cast<objects::TaggingComponent>(fetch_module(0x5B512EDC))->graffiti_;
+        core::down_cast<objects::TaggingComponent>(fetch_module(0x5B512EDC))->graffiti();
     reset(parent);
     element->resize_from(parent, 1);
     element->get_border(0); // (black)
@@ -754,7 +754,7 @@ void Rider::reset_27c()
 {
     if (!is_local_skater())
         core::down_cast<RiderRemoteSync>(fetch_module(0x850EEF66))->reset_playback();
-    state_history_->state_count_ = 0;
+    state_history_->state_count() = 0;
 }
 
 // 0x00581510
@@ -802,7 +802,7 @@ void Rider::glide_to_node(uint32_t name)
     maths::Vec4 angles;
     level_nodes::read_turn_angles(node, &angles);
     basis_frame().init_from_angles(angles);
-    auto* object = core_physics_->entity_;
+    auto* object = core_physics_->entity();
     core_physics_->display_matrix() = object->basis_frame();
     core_physics_->set_floor_normal(core::at(basis_frame().row, 1));
     core_physics_->old_normal() = core_physics_->floor_normal();
@@ -819,10 +819,10 @@ void Rider::get_freeze()
         return;
     is_halted_ = true;
     composite_flags() |= 1;
-    balance_displays_off(score_holder_->points_held_);
+    balance_displays_off(score_holder_->points_held());
     script::launch_script(0x1277E3FD, nullptr, nullptr, false, nullptr);
     if (const PadInputModule* input = pad_input_)
-        input->handler()->dev_->pause_actuators();
+        input->handler()->dev()->pause_actuators();
     sound::get_audio_mixer()->update_voice_volumes();
 }
 
@@ -834,7 +834,7 @@ void Rider::unpause()
     is_halted_ = false;
     composite_flags() &= ~1u;
     if (const PadInputModule* input = pad_input_)
-        input->handler()->dev_->unpause_actuators();
+        input->handler()->dev()->unpause_actuators();
     if (auto* component = core::down_cast<RiderRollingAudio>(fetch_module(0xB5F1E9D2)))
         component->set_force_update(1);
 }
@@ -972,14 +972,14 @@ void Rider::prepare_all(RiderIdentity* profile)
         tricks->clear_queue();
         tricks->clear_block1238();
         tricks->clear_block1280();
-        trick_->set_get_score(score_holder_->points_held_);
+        trick_->set_get_score(score_holder_->points_held());
     }
     if (RiderGapTracker* other = gap_tracker_)
-        other->set_points_held(score_holder_->points_held_);
+        other->set_points_held(score_holder_->points_held());
     if (ObjectModule* collision = fetch_module(0xA432DC41)) {
         // (its +0x18, read through the folded getter 0x005480F0)
-        if (render::HitMesh* shape = core::down_cast<ContactShapeModule>(collision)->hit_shape_)
-            shape->flag_bits_ |= 2;
+        if (render::HitMesh* shape = core::down_cast<ContactShapeModule>(collision)->hit_shape())
+            shape->flag_bits() |= 2;
     }
     model_component_->jump_to(); // the model's update
     script::launch_script(0xAE5438AF, nullptr, this, false, nullptr);
@@ -1092,9 +1092,9 @@ void Rider::write_cat_info(script::Struct* save)
         gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
         const goals::CreateATrick* info = core::at(trick_slots_, i).get();
-        trick->put_sub_struct(kOther, info->other_params_);
-        trick->append_array_value(kAnimations, info->animations_);
-        trick->append_array_value(kRotations, info->spin_list_);
+        trick->put_sub_struct(kOther, info->other_params());
+        trick->append_array_value(kAnimations, info->animations());
+        trick->append_array_value(kRotations, info->spin_list());
         tricks->set_cell(i, script::Cell::of(trick));
     }
     save->append_array_ref(kTricks, tricks);
@@ -1143,8 +1143,8 @@ void Rider::launch_projectile()
     float to_target_x = 0.0f, to_target_z = 0.0f;
     maths::Vec4 aim = {};
     for (const ObjectModule* component = object_hub_slot()->find_first_module_of_kind(0x3618B878); component;
-         component = component->next_of_type_) {
-        GameEntity* object = component->entity_;
+         component = component->next_of_type()) {
+        GameEntity* object = component->entity();
         if (!object)
             continue;
         bool ped = false;
@@ -1233,7 +1233,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
         get_tracker()->register_nickname(0x5B8AB877, this);
     else if (skater_number == 1)
         get_tracker()->register_nickname(0x06ED3FA7, this);
-    list_link().priority = -500;
+    list_link().set_priority(-500);
     manager->enrol_subject(this);
     view_slot_ = viewport;
     unknown31c_ = 0;
@@ -1377,7 +1377,7 @@ void Rider::skip_to_custom_restart()
     core_physics_->safe_pos() = at_point();
     old_pos() = at_point();
     mark_jumped_ahead(true);
-    core_physics_->display_matrix() = core_physics_->entity_->basis_frame();
+    core_physics_->display_matrix() = core_physics_->entity()->basis_frame();
     core_physics_->set_floor_normal(core::at(basis_frame().row, 1));
     core_physics_->old_normal() = core_physics_->floor_normal();
     core_physics_->drawn_normal() = core_physics_->old_normal();
@@ -1418,7 +1418,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
                 break;
             }
         }
-        if (i == count && park_editing::ParkBuilderMode::sole()->cur_phase() != 0xD443A2BC)
+        if (i == count && park_editing::ParkBuilderMode::sole()->editor_state() != 0xD443A2BC)
             modules::Skate::sole()->teleport_to_spawn(this, 0, walking);
         return true;
     }
@@ -1509,7 +1509,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         basis_frame() = *camera_matrix;
         core::at(basis_frame().row, 2) = -core::at(basis_frame().row, 2);
         core::at(basis_frame().row, 0) = -core::at(basis_frame().row, 0);
-        core_physics_->display_matrix() = core_physics_->entity_->basis_frame();
+        core_physics_->display_matrix() = core_physics_->entity()->basis_frame();
         core_physics_->set_floor_normal(core::at(basis_frame().row, 1));
         core_physics_->old_normal() = core_physics_->floor_normal();
         core_physics_->drawn_normal() = core_physics_->old_normal();
@@ -1588,8 +1588,8 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
 Rider::~Rider()
 {
     if (is_halted_ && is_local_skater() && pad_input_) {
-        pad_input_->handler()->dev_->unpause_actuators();
-        pad_input_->handler()->dev_->stop_actuators();
+        pad_input_->handler()->dev()->unpause_actuators();
+        pad_input_->handler()->dev()->stop_actuators();
     }
     reset_components();
     script::launch_script(0xF429E0AC, nullptr, this, false, nullptr);

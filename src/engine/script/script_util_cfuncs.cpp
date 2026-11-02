@@ -156,7 +156,7 @@ bool cfunc_size_of(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
-    const uint32_t size = array ? array->extent_ : 0;
+    const uint32_t size = array ? array->extent() : 0;
     script->args()->add_component_of_type(kArraySize, script::kQbvalInteger, size);
     return true;
 }
@@ -175,7 +175,7 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
     script->args()->erase_module(kElement);
     if (!array)
         return false;
-    const uint32_t size = array->extent_;
+    const uint32_t size = array->extent();
     if (index < 0) {
         index = 0;
         if (size == 0)
@@ -187,7 +187,7 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
     }
     script->args()->put_int(kIndex, index);
     Struct* own = script->args().get();
-    switch (array->kind_tag_) {
+    switch (array->kind_tag()) {
     case script::kQbvalInteger:
         own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
         break;
@@ -211,7 +211,7 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
         break;
     default:
         debug::printf("GetNextArrayElement does not support arrays of type '%s'\n",
-                      current_type_name(array->kind_tag_)); // "... does not support ..."
+                      current_type_name(array->kind_tag())); // "... does not support ..."
         break;
     }
     return true;
@@ -226,12 +226,12 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
     script->args()->erase_module(kIndex);
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
-    if (!array || array->extent_ == 0)
+    if (!array || array->extent() == 0)
         return false;
-    const int index = maths::rnd(static_cast<int>(array->extent_));
+    const int index = maths::rnd(static_cast<int>(array->extent()));
     script->args()->put_int(kIndex, index);
     Struct* own = script->args().get();
-    switch (array->kind_tag_) {
+    switch (array->kind_tag()) {
     case script::kQbvalInteger:
         own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
         break;
@@ -249,7 +249,7 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
         break;
     default:
         debug::printf("GetRandomArrayElement does not support arrays of type '%s'\n",
-                      current_type_name(array->kind_tag_)); // "... does not support ..."
+                      current_type_name(array->kind_tag())); // "... does not support ..."
         break;
     }
     return true;
@@ -281,9 +281,9 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
-    if (array && array->extent_ && array->kind_tag_ == script::kQbvalName) {
+    if (array && array->extent() && array->kind_tag() == script::kQbvalName) {
         objects::Entity* object = script->entity().get_pull();
-        const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent_)));
+        const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent())));
         script->bind_script(name, nullptr, object);
     }
     return true;
@@ -396,7 +396,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
         gsl::owner<Struct*> element_params = script::spawn_param_bag();
         if (element_params)
             element_params = new (element_params) script::Struct;
-        for (uint32_t i = 0; i < array->extent_; ++i) {
+        for (uint32_t i = 0; i < array->extent(); ++i) {
             element_params->get_clear();
             if (auto* element = array->struct_at(i))
                 element_params->merge_structure(element);
@@ -410,7 +410,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
         }
         return true;
     }
-    for (uint32_t i = 0; i < array->extent_; ++i) {
+    for (uint32_t i = 0; i < array->extent(); ++i) {
         objects::Entity* object = script->entity().get_pull();
         script::launch_script(each, array->struct_at(i), object, false, nullptr);
     }
@@ -429,9 +429,9 @@ bool cfunc_get_element(Struct* params, Script* script)
     script->args()->erase_module(kElement);
     if (!array)
         return true;
-    if (index < 0 || index >= ints::as_signed(array->extent_))
+    if (index < 0 || index >= ints::as_signed(array->extent()))
         return false;
-    switch (array->kind_tag_) {
+    switch (array->kind_tag()) {
     case script::kQbvalInteger:
         script->args()->add_component_of_type(kElement, script::kQbvalInteger, array->fetch_part(index));
         break;
@@ -449,7 +449,7 @@ bool cfunc_get_element(Struct* params, Script* script)
     default:
         debug::printf(
             "GetElement currently only supports arrays of structures, arrays or integers ... \n(Requested type=%d)\n",
-            array->kind_tag_); // "... only supports ..."
+            array->kind_tag()); // "... only supports ..."
         break;
     }
     return true;
@@ -478,7 +478,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
         copy = made;
         script::duplicate_array(array, source);
     }
-    const int size = static_cast<int>(array->extent_);
+    const int size = static_cast<int>(array->extent());
     if (size) {
         const std::span<Cell> elements = array->cells();
         const uint32_t old_last = core::at(elements, size - 1).word();
@@ -664,7 +664,7 @@ bool cfunc_set_array_element(Struct* params, Script* script)
     gsl::owner<Component*> value = script::new_component();
     script::duplicate_component(value, new_value, 0);
     bool store = true; // the element becomes the value (whose own copy is handed over)
-    switch (array->kind_tag_) {
+    switch (array->kind_tag()) {
     case script::kQbvalInteger:
     case script::kQbvalName:
         array->set_element(index, value->value.word());

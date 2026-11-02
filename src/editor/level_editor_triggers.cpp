@@ -1202,7 +1202,7 @@ V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 bool read_faces(render::WorldCell* sector, LevelTrigger* t)
 {
     const render::HitMesh* coll = coll_of(sector);
-    auto* tri = coll ? coll->geometry_ : nullptr;
+    auto* tri = coll ? coll->geometry() : nullptr;
     if (!tri || !tri->faces() || !tri->vertices() || tri->tri_count() == 0)
         return false;
     t->faces.clear();
@@ -1310,9 +1310,9 @@ gsl::owner<render::HitMovingBox*> make_box(uint32_t name)
     auto box = memory::make_owned_value<render::HitMovingBox>();
     if (!box)
         return nullptr;
-    box->checksum_ = name;
-    box->poly_attr_bits_ = kVolumeFlags;
-    box->surface_type_ = 0;
+    box->assign_checksum(name);
+    box->set_poly_attr_bits(kVolumeFlags);
+    box->set_surface_type(0);
     render::register_movable(box);
     return box;
 }
@@ -1327,9 +1327,9 @@ void free_box(render::HitMovingBox* box)
 void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
 {
     const OrientedBox placed = box_of(pos, yaw, size);
-    b->coll->box_.min = {.x = placed.min.x, .y = placed.min.y, .z = placed.min.z, .w = 1.0f};
-    b->coll->box_.max = {.x = placed.max.x, .y = placed.max.y, .z = placed.max.z, .w = 1.0f};
-    b->coll->anchor_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+    b->coll->box().min = {.x = placed.min.x, .y = placed.min.y, .z = placed.min.z, .w = 1.0f};
+    b->coll->box().max = {.x = placed.max.x, .y = placed.max.y, .z = placed.max.z, .w = 1.0f};
+    b->coll->set_anchor_point({.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f});
     maths::Mat4 m;
     for (int r = 0; r < 3; ++r)
         core::at(m.row, r) = {.x = core::at(placed.axes, r).x, .y = core::at(placed.axes, r).y, .z = core::at(placed.axes, r).z, .w = 0.0f};
@@ -1398,10 +1398,10 @@ void refresh_level()
     for (LevelTrigger& t : level_editor_triggers_state().level_) {
         render::WorldCell* sector = scenery::sector_of(t.sector);
         const render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
-        auto* tri = coll ? coll->geometry_ : nullptr;
+        auto* tri = coll ? coll->geometry() : nullptr;
         if (!tri)
             continue;
-        t.off = walls::disengaged(t.sector) || (coll->flag_bits_ & 4) != 0;
+        t.off = walls::disengaged(t.sector) || (coll->flag_bits() & 4) != 0;
         if (tri->bounds().min.x != t.bounds_low_.x || tri->bounds().min.y != t.bounds_low_.y ||
             tri->bounds().min.z != t.bounds_low_.z || tri->bounds().max.x != t.bounds_high_.x ||
             tri->bounds().max.y != t.bounds_high_.y || tri->bounds().max.z != t.bounds_high_.z) {
@@ -1748,8 +1748,8 @@ void on_array_removed(uint32_t name)
 
 bool array_loaded(level_nodes::NodeManager* manager, uint32_t name)
 {
-    for (uint32_t i = 0; i < manager->num_ && i < static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays); ++i) {
-        if (core::at(manager->arrays_, i).label_ == name)
+    for (uint32_t i = 0; i < manager->num() && i < static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays); ++i) {
+        if (core::at(manager->arrays(), i).label_ == name)
             return true;
     }
     return false;

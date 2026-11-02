@@ -157,16 +157,16 @@ void init_node(memory::ListNode* node) { node->make_node(node); }
 // `node` at the front of the list (the lists of the vault are built that way: the last line first).
 void prepend(memory::ListNode* head, memory::ListNode* node)
 {
-    node->prev = head;
-    node->next = head->next;
-    head->next->prev = node;
-    head->next = node;
+    node->set_prev(head);
+    node->set_next(head->next());
+    head->next()->set_prev(node);
+    head->set_next(node);
 }
 // The list walk's step: `node`'s successor, or null at the head.
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
-    memory::ListNode* next = node->next;
-    return next->data == memory::ListNode::head_marker() ? nullptr : next;
+    memory::ListNode* next = node->next();
+    return next->data() == memory::ListNode::head_marker() ? nullptr : next;
 }
 
 // The next field of a list line: the text up to the next ':' (which is cut there), and `*rest` moved past it.
@@ -223,7 +223,7 @@ VaultCategory::~VaultCategory()
 {
     for (memory::ListNode* node = get_next_node(&items_); node;) {
         memory::ListNode* next = get_next_node(node);
-        static_cast<VaultItem*>(node->data)->teardown(1);
+        static_cast<VaultItem*>(node->data())->teardown(1);
         node = next;
     }
     items_.uncouple();
@@ -250,7 +250,7 @@ void* VaultSearch::head_element(memory::ListNode* head)
 void* VaultSearch::following_item()
 {
     list_link_ = get_next_node(list_link_);
-    return list_link_ ? list_link_->data : nullptr;
+    return list_link_ ? list_link_->data() : nullptr;
 }
 
 // --- the vault ---
@@ -317,7 +317,7 @@ void VaultMan::start_list(const char* url)
 void VaultMan::list_items(VaultCategory* category)
 {
     std::array<char, 128> url{};
-    text::format_to(url, "http://www.thugonline.com/%s/%s/dir_list.txt", folder_.data(), category->label_.data());
+    text::format_to(url, "http://www.thugonline.com/%s/%s/dir_list.txt", folder_.data(), category->label().data());
     transfer_ = kItems;
     outcome_val_ = 0;
     start_list(url.data());
@@ -339,7 +339,7 @@ void VaultMan::free_directory_listing()
 {
     for (memory::ListNode* node = get_next_node(&categories_); node;) {
         memory::ListNode* next = get_next_node(node);
-        static_cast<VaultCategory*>(node->data)->teardown(1);
+        static_cast<VaultCategory*>(node->data())->teardown(1);
         node = next;
     }
     ghttp_cleanup();
@@ -348,7 +348,7 @@ void VaultMan::free_directory_listing()
 // 0x0054B6E0
 void VaultMan::vault_task(tasks::Task<VaultMan>* task)
 {
-    VaultMan* vault = task->content_;
+    VaultMan* vault = task->content();
     if (frame_clock::get_time() - vault->start_time_ > kTimeout) {
         if (vault->transfer_ != kNone)
             ram_stats()->dealloc(vault->octets_);
@@ -411,12 +411,12 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             for (bool again = true; again; again = line) {
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
                 VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
-                prepend(&vault->categories_, &category->list_link_);
-                text_tools::dup_from(category->label_.data(), line);
+                prepend(&vault->categories_, &category->list_link());
+                text_tools::dup_from(category->label().data(), line);
                 line = text_tools::get_token(nullptr, "\r\n");
             }
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
-            if (vault->category_->skip_)
+            if (vault->category_->skip())
                 vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
             vault->transfer_ = kNone;
             memory::dealloc(vault->octets_);
@@ -440,13 +440,13 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
-            prepend(&vault->category_->items_, &item->list_link_);
+            prepend(&vault->category_->items(), &item->list_link_);
             char* rest = line;
             std::array<char, 1024> file{};
             text_tools::dup_from(file.data(), prop(&rest));
             // (the original makes the URL with sprintf: no limit - a longer one ran on into the label, written next)
             text::format_to(item->url_, "http://www.thugonline.com/%s/%s/%s", vault->folder_.data(),
-                            vault->category_->label_.data(), file.data());
+                            vault->category_->label().data(), file.data());
             text_tools::dup_from(item->label_.data(), prop(&rest));
             text_tools::dup_from(item->creator_.data(), prop(&rest));
             if (vault->kind_tag_ == kVaultParks) {
@@ -469,14 +469,14 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
         vault->transfer_ = kNone;
         memory::dealloc(vault->octets_);
         vault->category_ = static_cast<VaultCategory*>(vault->search_.following_item());
-        if (vault->category_ && !vault->category_->skip_) {
+        if (vault->category_ && !vault->category_->skip()) {
             vault->list_items(vault->category_); // the next category's
         } else {
             // All in: the menu.
             vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
             vault->task_->drop_out();
             const script::StructPtr params = script::make_struct();
-            params->append_word("category", vault->category_->label_.data());
+            params->append_word("category", vault->category_->label().data());
             params->put_name_key("type", vault->kind_tag_);
             get_run("net_vault_menu_create", params.get());
         }
@@ -490,7 +490,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
-            prepend(&vault->category_->items_, &item->list_link_);
+            prepend(&vault->category_->items(), &item->list_link_);
             text::format_to(item->url_, "http://www.thugonline.com/%s/%s", vault->folder_.data(), line);
             char* rest = line;
             text_tools::dup_from(item->label_.data(), prop(&rest));
@@ -769,9 +769,9 @@ bool download_directory_list(script::Struct* params, script::Script*)
     push_bottom_up();
     void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
     VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
-    category->skip_ = true;
-    prepend(&vault->categories(), &category->list_link_);
-    std::memcpy(category->label_.data(), "Uploads", 8);
+    category->set_skip(true);
+    prepend(&vault->categories(), &category->list_link());
+    std::memcpy(category->label().data(), "Uploads", 8);
     vault->set_category(static_cast<VaultCategory*>(vault->search().head_element(&vault->categories())));
     vault->set_transfer(VaultMan::kUploads);
     vault->set_outcome_val(0);
@@ -796,8 +796,8 @@ bool fill_vault_menu(script::Struct*, script::Script*)
 {
     const VaultMan* vault = get_vault();
     push_top_down();
-    for (memory::ListNode* node = get_next_node(&vault->category()->items_); node; node = get_next_node(node)) {
-        auto* item = static_cast<VaultItem*>(node->data);
+    for (memory::ListNode* node = get_next_node(&vault->category()->items()); node; node = get_next_node(node)) {
+        auto* item = static_cast<VaultItem*>(node->data());
         if (!item)
             break;
         gsl::owner<script::Struct*> params = script::new_struct();
@@ -849,16 +849,16 @@ void move_category(script::Script* script, bool forward)
 {
     VaultMan* vault = get_vault();
     memory::ListNode*& node = vault->search().list_link_;
-    memory::ListNode* step = forward ? node->next : node->prev;
-    node = step->data == memory::ListNode::head_marker() ? nullptr : step;
-    vault->set_category(node ? static_cast<VaultCategory*>(node->data) : nullptr);
+    memory::ListNode* step = forward ? node->next() : node->prev();
+    node = step->data() == memory::ListNode::head_marker() ? nullptr : step;
+    vault->set_category(node ? static_cast<VaultCategory*>(node->data()) : nullptr);
     if (!vault->category()) {
         node = &vault->categories();
-        step = forward ? node->next : node->prev;
-        node = step->data == memory::ListNode::head_marker() ? nullptr : step;
-        vault->set_category(node ? static_cast<VaultCategory*>(node->data) : nullptr);
+        step = forward ? node->next() : node->prev();
+        node = step->data() == memory::ListNode::head_marker() ? nullptr : step;
+        vault->set_category(node ? static_cast<VaultCategory*>(node->data()) : nullptr);
     }
-    script->args()->append_word("category", vault->category()->label_.data());
+    script->args()->append_word("category", vault->category()->label().data());
 }
 } // namespace
 

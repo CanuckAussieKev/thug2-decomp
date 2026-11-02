@@ -192,10 +192,10 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
         file->set_extent(found.nFileSizeLow);
         file->set_unknown48(0);
         // At the end of the list.
-        file->list_link().prev = list->prev;
-        file->list_link().next = list;
-        list->prev->next = &file->list_link();
-        list->prev = &file->list_link();
+        file->list_link().set_prev(list->prev());
+        file->list_link().set_next(list);
+        list->prev()->set_next(&file->list_link());
+        list->set_prev(&file->list_link());
     }
     FindClose(search);
     return true;
@@ -213,7 +213,7 @@ Hub::Hub()
             core::at(core::at(slots_, port), slot).port = port;
         }
     }
-    save_device_.present_ = 0x75;
+    save_device_.set_present(0x75);
 }
 
 // 0x005BC730 (one card, whichever port and slot)

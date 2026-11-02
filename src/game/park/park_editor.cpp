@@ -23,8 +23,8 @@ constexpr uint32_t kMetaFloor = 0x8;      // a meta piece's flag: part of the fl
 constexpr uint32_t kMetaLocked = 0x100;   // (not destroyed by an area's deletion when asked)
 constexpr uint32_t kMetaInCursor = 0x200; // held by the cursor
 
-uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits_; }
-CellBox& meta_footprint(PieceGroup* meta) { return meta->cell_footprint_; }
+uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits(); }
+CellBox& meta_footprint(PieceGroup* meta) { return meta->cell_footprint(); }
 
 // The scene is rebuilt while this is set (0x0067F398; cleared around the floor's rebuild).
 
@@ -116,7 +116,7 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
     bool destroyed = false;
     CellChainScratch metas = {get_metas_within(this, area)};
     if (metas.list) {
-        for (MapListNode* node = metas.list; node; node = node->following_) {
+        for (MapListNode* node = metas.list; node; node = node->following()) {
             PieceGroup* meta = node_meta(node);
             if (get_meta_flags(meta) & kMetaFloor)
                 continue;
@@ -152,7 +152,7 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
 void ParkLayout::clear_area(CellBox area)
 {
     CellChainScratch metas = {get_metas_within(this, area)};
-    for (MapListNode* node = metas.list; node; node = node->following_) {
+    for (MapListNode* node = metas.list; node; node = node->following()) {
         PieceGroup* meta = node_meta(node);
         if (get_meta_flags(meta) & kMetaFloor)
             continue;

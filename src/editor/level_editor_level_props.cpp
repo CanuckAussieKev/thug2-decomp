@@ -228,8 +228,8 @@ void read_override_keys(script::Struct* level, Props* out)
                           kFog = checksums::hash_from_text("ed_fog");
     auto read = [&](uint32_t key, std::span<int> values, uint32_t count) {
         script::Array* array = nullptr;
-        if (!level || !level->fetch_list(key, &array, 0) || !array || array->kind_tag_ != script::kQbvalInteger ||
-            array->extent_ != count)
+        if (!level || !level->fetch_list(key, &array, 0) || !array || array->kind_tag() != script::kQbvalInteger ||
+            array->extent() != count)
             return false;
         for (uint32_t i = 0; i < count; ++i)
             core::at(values, i) = static_cast<int32_t>(array->fetch_part(i));

@@ -110,7 +110,7 @@ void QuadSprite::draw()
     auto right = static_cast<float>(static_cast<double>(width) * scale_x + left);
     auto bottom = static_cast<float>(static_cast<double>(height) * scale_y + top);
 
-    const uint32_t argb = (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);
+    const uint32_t argb = (color_ & 0xFF00FF00) | ((color_ & 0xFF) << 16) | ((color_ >> 16) & 0xFF);
     if (!(argb & 0xFF000000))
         return;
 
