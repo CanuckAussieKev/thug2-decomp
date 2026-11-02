@@ -41,11 +41,11 @@ static_assert(offsetof(HierarchyNode, bone_slot_) == 0xA && offsetof(HierarchyNo
 // nodes). The scene's hash table has 2^n entries for twice the sectors (n 1-12). `with_super_sectors` / `flag_8d` go
 // to the scene's +0x8C / +0x8D, `mesh_flag` to its mesh list's +0x40.
 // The scene's `size` bytes are read through scene_format::MemoryStream (scene_format.h): a damaged record ends it.
-PcScene* load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures, bool with_super_sectors,
+gsl::owner<PcScene*> load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures, bool with_super_sectors,
                                 bool flag_8d, bool mesh_flag);
 // 0x004B36D0: the same from a file (opened "rb"; null if there's none) - the header's three words read and not
 // used; the sectors' vertices packed into `arena` when there is one (not for billboards).
-PcScene* load_scene_from_file(const char* name, const TextureSet* textures, bool with_super_sectors, bool flag_8d,
+gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* textures, bool with_super_sectors, bool flag_8d,
                               bool mesh_flag, VertexArena* arena);
 // 0x004B3990: a new animation frame source (0x214 bytes from the frame sources' pools 0x006FA7F4; 0x0048CF70).
 gsl::owner<void*> create_frame_source();

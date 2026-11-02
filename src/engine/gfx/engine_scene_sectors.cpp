@@ -41,7 +41,7 @@ WorldCell* scene_sector(WorldScene* scene, uint32_t name)
 }
 bool delete_scene_sector(WorldScene* scene, WorldCell* sector) { return scene->remove_scene_sector(sector); }
 bool scene_load_collision_data(WorldScene* scene, uint8_t* data, size_t size, int* count,
-                               StaticCollider** statics, uint8_t** objects, maths::BBox* box, int flag)
+                               gsl::owner<StaticCollider*>* statics, uint8_t** objects, maths::BBox* box, int flag)
 {
     return scene->load_collision_data(data, size, count, statics, objects, box, flag);
 }
@@ -147,7 +147,8 @@ WorldScene::~WorldScene()
     if (sectors_) {
         for_each_sector(this, [](WorldCell* sector) {
             sector->clear_flags(kSectorInGrid);
-            delete sector;
+            gsl::owner<WorldCell*> owned = memory::owned_element(sector); // (the table's)
+            delete owned;
         });
         if (lists::KeyMap* table = sectors_) {
             if (table->buckets_) {

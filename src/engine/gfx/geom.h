@@ -191,7 +191,7 @@ public:
     bool active{true};               // +0x48
     std::array<uint8_t, 3> pad49{};
     Singleton* instance{nullptr}; // +0x4C: an instance's (null for a sector's geometry)
-    gsl::owner<PcMesh*> source{};    // +0x50: the mesh it's an instance of (its strip breaks)
+    PcMesh* source{};                // +0x50: the mesh it's an instance of (its strip breaks)
     maths::Vec4 scale{}; // +0x54
 };
 static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 && offsetof(PcGeom, meshes) == 0x3C &&

@@ -81,14 +81,17 @@ bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(path.data(), name, length);
     std::memcpy(path.data() + length, ".img.xbx", 9);
-    image_ = read_texture_file(path.data());
+    gsl::owner<TextureRef*> image = read_texture_file(path.data()); // (the texture's)
+    image_ = image;
     return image_ != nullptr;
 }
 
 // 0x004C7F80
 bool PcTexture::load_memory(const uint8_t* data, uint32_t size, uint32_t, uint32_t, uint32_t)
 {
-    image_ = load_texture_memory(data, size); // (not original: the size passed on as the reader's bound)
+    // (not original: the size passed on as the reader's bound)
+    gsl::owner<TextureRef*> image = load_texture_memory(data, size); // (the texture's)
+    image_ = image;
     return image_ != nullptr;
 }
 
@@ -954,9 +957,11 @@ BitmapTexture* PcTexDict::load_texture_data(const uint8_t* data, uint32_t size, 
 BitmapTexture* PcTexDict::make_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel,
                                        uint32_t a4, uint32_t a5)
 {
-    gsl::owner<BitmapTexture*> texture = memory::adopt<BitmapTexture*>(textures_->fetch_entry(checksum));
-    if (!texture)
-        texture = alloc_pc_texture();
+    auto* texture = static_cast<BitmapTexture*>(textures_->fetch_entry(checksum));
+    if (!texture) {
+        gsl::owner<PcTexture*> made = alloc_pc_texture(); // (the caller adds it to the dictionary)
+        texture = made;
+    }
     texture->BitmapTexture::fabricate(checksum, width, height, bits_per_pixel, a4, a5);
     return texture;
 }
@@ -964,7 +969,8 @@ BitmapTexture* PcTexDict::make_texture(uint32_t checksum, uint32_t width, uint32
 // 0x004C8090
 bool PcTexDict::destroy_texture(BitmapTexture* texture)
 {
-    delete texture; // (through its vtable)
+    gsl::owner<BitmapTexture*> owned = memory::owned_element(texture); // (the dictionary's)
+    delete owned; // (through its vtable)
     return true;
 }
 

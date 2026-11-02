@@ -64,7 +64,7 @@ float g_flare_sun_burst_out_time;
 uint8_t g_flare_query;
 bool g_flare_shown;
 bool g_flare_hidden;
-render::BitmapTexture* g_flare_sun_texture;
+gsl::owner<render::BitmapTexture*> g_flare_sun_texture; // (taken from the particle dictionary: deleted as the flare's own, as the original does)
 render::BitmapTexture* g_flare_corona_texture;
 FlareElement* g_flare_elements;
 uint32_t g_flare_element_count;
@@ -84,7 +84,6 @@ float& sun_burst_out_time() { return g_flare_sun_burst_out_time; }
 uint8_t& get_query() { return g_flare_query; } // the occlusion query's result number (0: none)
 bool& get_shown() { return g_flare_shown; }
 bool& flare_hidden() { return g_flare_hidden; }
-render::BitmapTexture*& sun_texture() { return g_flare_sun_texture; }
 render::BitmapTexture*& get_corona_texture() { return g_flare_corona_texture; }
 FlareElement*& get_elements() { return g_flare_elements; }
 uint32_t& element_count() { return g_flare_element_count; }
@@ -95,7 +94,7 @@ maths::Vec4& get_position() { return g_flare_position; } // in the world, this f
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted.
 render::BitmapTexture* find_texture(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
-void delete_texture(render::BitmapTexture* texture) { delete texture; }
+void delete_texture(gsl::owner<render::BitmapTexture*> texture) { delete texture; }
 
 // The game's clock with its offset, and the milliseconds since `time`.
 uint32_t get_now() { return static_cast<uint32_t>(frame_clock::game_clock_time()); }
@@ -151,13 +150,7 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
     return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x;
 }
 script::VectorValue get_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
-script::Struct* new_params()
-{
-    gsl::owner<Struct*> structure = script::spawn_param_bag();
-    if (structure)
-        new (structure) script::Struct;
-    return structure;
-}
+gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
 // The screen centre lens flares are placed from.
 maths::Vec4 screen_centre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
 
@@ -199,15 +192,15 @@ void set_sun(const Settings* settings, uint32_t mask)
     if (mask & kShown)
         get_shown() = settings->shown;
     if (mask & kTexture) {
-        if (sun_texture())
-            delete_texture(sun_texture());
-        sun_texture() = nullptr;
-        sun_texture() = find_texture(settings->texture);
+        if (g_flare_sun_texture)
+            delete_texture(g_flare_sun_texture);
+        g_flare_sun_texture = nullptr;
+        g_flare_sun_texture = memory::owned_element(find_texture(settings->texture));
     }
     if (mask & kCoronaTexture) {
         // (the sun's texture is the one deleted, as the original)
-        if (get_corona_texture() && sun_texture())
-            delete_texture(sun_texture());
+        if (get_corona_texture() && g_flare_sun_texture)
+            delete_texture(g_flare_sun_texture);
         get_corona_texture() = find_texture(settings->corona_texture_);
     }
 }
@@ -246,8 +239,8 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
     get_radius() = radius;
     get_size() = size;
     get_shown() = true;
-    sun_texture() = nullptr;
-    sun_texture() = find_texture(texture);
+    g_flare_sun_texture = nullptr;
+    g_flare_sun_texture = memory::owned_element(find_texture(texture));
     get_corona_texture() = find_texture(corona_texture);
     Array* data = script::fetch_list(lens_flare_data);
     element_count() = data->extent_;
@@ -262,11 +255,13 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
         element.rgba =
             rgba->fetch_part(3) << 24 | rgba->fetch_part(2) << 16 | rgba->fetch_part(1) << 8 | rgba->fetch_part(0);
         item->read_hash_value(kId, &element.id, 1);
-        element.create = new_params();
+        gsl::owner<Struct*> create = new_params(); // (the element's for the flare's life: never freed, as the original)
+        element.create = create;
         element.create->put_name_key(kId, element.id);
         element.create->push_float(kScale, element.scale);
         element.create->append_array_value(kRgba, rgba);
-        element.morph = new_params();
+        gsl::owner<Struct*> morph = new_params(); // (the same)
+        element.morph = morph;
         element.morph->put_name_key(kId, element.id);
         element.morph->put_vec3(kPos, script::VectorValue{0.0f, 0.0f, 0.0f, 1.0f});
         element.morph->push_float(kTime, 0.0f);
@@ -306,7 +301,7 @@ void hide_flare(Struct* params, script::Script* script)
         params->fetch_vec(kCenter, &centre, 0);
         params->fetch_float(kMorphTime, &time, 0);
     }
-    Struct* morph = new_params();
+    gsl::owner<Struct*> morph = new_params();
     morph->put_name_key(kId, kContainer);
     morph->push_float(kAlpha, 0.0f);
     morph->push_float(kTime, time);
@@ -337,7 +332,7 @@ void unhide_flare(Struct*, script::Script* script)
         return;
     }
     const float time = 0.2f;
-    Struct* morph = new_params();
+    gsl::owner<Struct*> morph = new_params();
     morph->put_name_key(kId, kContainer);
     morph->push_float(kAlpha, 1.0f);
     morph->push_float(kTime, time);
@@ -356,8 +351,8 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     facing[0] = -(*camera->fetch_mat())[0];
     facing[2] = maths::cross_vec((*camera->fetch_mat())[1], facing[0]);
     facing[1] = maths::cross_vec(facing[2], facing[0]);
-    if (sun_texture())
-        quad->set_texture(sun_texture(), 0, 0);
+    if (g_flare_sun_texture)
+        quad->set_texture(g_flare_sun_texture, 0, 0);
     const float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
     float half = size / 2.0f;
     std::array<maths::Vec4, 4> quad_corners = {{
@@ -478,7 +473,7 @@ void render(gfx::ViewCam* camera)
             blit_quad(&corona, corona_corners.data(), colors, corona_uvs.data());
         }
         if (!flare_hidden()) {
-            Struct* params = new_params();
+            gsl::owner<Struct*> params = new_params();
             params->put_vec3(kSunPos, get_value(screen));
             if (!(static_cast<double>(morph_out_time()) * 1000.0f < static_cast<double>(unseen)))
                 params->push_float(kMorphTime, morph_out_time());

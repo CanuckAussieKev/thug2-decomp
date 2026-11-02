@@ -34,7 +34,7 @@ void add_shadow_caster(const BitmapTexture* texture, RenderModel* model)
 {
     render::add_shadow_caster(texture, model, nullptr); // (the original's 0: the main scene)
 }
-void delete_model(RenderModel* model) { delete model; }
+void delete_model(gsl::owner<RenderModel*> model) { delete model; }
 void add_extension(const char* name, const char* extension, char* out)
 {
     gfx::make_model_file_name(name, extension, out);
@@ -79,7 +79,7 @@ FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance
     direction_ = direction;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     direction_.make_unit();
-    view_camera_.reset(new_shadow_camera());
+    view_camera_ = memory::take_unique<gfx::ViewCam>(new_shadow_camera());
     maths::Vec4 v = direction_;
     v.make_unit();
     look_along(view_camera_.get(), v);
@@ -183,7 +183,7 @@ ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance)
     : ShadowBase(3), direction_(direction), reach_(distance)
 {
     direction_.make_unit();
-    view_camera_.reset(new_shadow_camera());
+    view_camera_ = memory::take_unique<gfx::ViewCam>(new_shadow_camera());
     maths::Vec4 v = direction_;
     v.make_unit();
     look_along(view_camera_.get(), v);

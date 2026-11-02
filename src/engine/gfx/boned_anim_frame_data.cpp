@@ -433,7 +433,8 @@ JointClipFrames::JointClipFrames() { bits_ &= 0xFE00; }
 JointClipFrames::~JointClipFrames()
 {
     for (int i = 0; i < event_count_; ++i) {
-        delete events_ptr_[i];
+        gsl::owner<UserClipKey*> key = memory::owned_element(events_ptr_[i]); // (each the frames' own)
+        delete key;
     }
     if (events_ptr_)
         memory::free_malloc(static_cast<void*>(events_ptr_));
@@ -777,7 +778,7 @@ bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const a
         event_count_ = static_cast<int16_t>(header.custom_key_count);
         return true;
     }
-    events_ptr_ = static_cast<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
+    events_ptr_ = memory::adopt<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
     util::ByteReader reader = anim_format::custom_key_reader(layout);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
         gsl::owner<UserClipKey*> event = create_custom_anim_key(reader);

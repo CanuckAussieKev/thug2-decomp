@@ -69,7 +69,8 @@ namespace engine {
 // 0x00492450
 void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
 {
-    poly->primitive = new PcPrimitive(1);
+    auto made = memory::make_owned<PcPrimitive>(1); // (the polygon's: deleted with it)
+    poly->primitive = made;
     maths::Mat4& m = poly->matrix;
     std::memset(&m, 0, sizeof(m));
     core::at(m.row, 0).x = core::at(m.row, 1).y = core::at(m.row, 2).z = core::at(m.row, 3).w = 1.0f;
@@ -142,7 +143,8 @@ void update_spawned_polys()
             // Done: its primitive destroyed, the polygon taken out and freed.
             poly->flags |= 1;
             poly->age = 0.0f;
-            delete poly->primitive;
+            gsl::owner<PcPrimitive*> primitive = memory::owned_element(poly->primitive);
+            delete primitive;
             poly->primitive = nullptr;
             spawned_polys().erase(poly);
             commands::free_spawned_poly_details(poly);
@@ -188,7 +190,8 @@ void update_spawned_polys()
 void kill_all_spawned_polys()
 {
     spawned_polys().for_each([](SpawnedPoly* poly) {
-        delete poly->primitive;
+        gsl::owner<PcPrimitive*> primitive = memory::owned_element(poly->primitive);
+        delete primitive;
         poly->primitive = nullptr;
         spawned_polys().erase(poly);
         g_spawned_poly_pools.dealloc(poly);

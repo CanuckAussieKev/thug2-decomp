@@ -833,8 +833,10 @@ CtodManager::CtodManager() : unknown4_(script::new_struct())
 {
     void* table = memory::alloc(sizeof(lists::KeyMap));
     dead_objects_ = table ? memory::construct_in<lists::KeyMap>(table, 8) : nullptr;
-    for (TodSystem& system : systems_)
-        system.params = script::new_struct();
+    for (TodSystem& system : systems_) {
+        gsl::owner<script::Struct*> params = script::new_struct(); // (the system's: the destructor frees it)
+        system.params = params;
+    }
     get_reset();
 }
 
@@ -842,7 +844,7 @@ CtodManager::CtodManager() : unknown4_(script::new_struct())
 CtodManager::~CtodManager()
 {
     for (TodSystem& system : systems_) {
-        script::free_struct(system.params);
+        script::free_struct(memory::owned_element(system.params));
         system.params = nullptr;
     }
     script::free_struct(unknown4_);

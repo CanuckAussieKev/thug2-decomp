@@ -58,13 +58,13 @@ IdleFunction get_idle_function();
 bool split_skin_name(const char* name, char* base);
 // 0x0048C030: a model from geometry in memory (load_mesh_from_memory, under the "model_data_buffer" profile). The last
 // three arguments aren't used. `skin_size`: the skin's bytes (not the original's).
-PcMesh* load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
+gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
                                TextureSet* textures, int unused5, uint32_t unused6, uint32_t unused7);
 // 0x0048C390: a level's scene file name, "levels\<name>\<name>.scn.<platform>". The third argument isn't used.
 void build_scene_file_path(char* out, const char* name, uint32_t unused);
 // 0x0048C3D0: a model's mesh loaded from "<name>.skin.<platform>" (a name with ".skin") or "<name>.mdl.<platform>"
 // (lower case). The last three arguments are passed on (the mesh load reads only the name and textures).
-PcMesh* load_model_file(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume);
+gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume);
 // 0x0048C490: sphere_visible - always 0 with more than one viewport (0x00701378).
 int sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius);
 

@@ -41,6 +41,7 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
+#include "platform/crt.h"
 
 namespace render {
 
@@ -139,8 +140,8 @@ void screen_shot(const char* name, int /*unused*/)
         // the first numbered name with no file yet
         int number = 0;
         std::snprintf(file.data(), sizeof(file), "%s%03d.jpg", name, number);
-        while (FILE* existing = _fsopen(file.data(), "rb", _SH_DENYNO)) { // (fopen)
-            std::fclose(existing);
+        while (gsl::owner<FILE*> existing = memory::adopt<FILE*>(_fsopen(file.data(), "rb", _SH_DENYNO))) { // (fopen)
+            crt::get_fclose(existing);
             ++number;
             std::snprintf(file.data(), sizeof(file), "%s%03d.jpg", name, number);
         }

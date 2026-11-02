@@ -261,7 +261,7 @@ void update_all_lights()
 }
 
 // 0x004B6920
-bool delete_model_lights(PcModelLights* lights)
+bool delete_model_lights(gsl::owner<PcModelLights*> lights)
 {
     delete lights;
     return true;

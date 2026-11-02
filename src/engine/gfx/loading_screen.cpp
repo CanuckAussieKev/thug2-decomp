@@ -49,12 +49,11 @@ void get_unlock() { ReleaseMutex(screen_mutex()); }
 UINT start_timer(UINT delay, LPTIMECALLBACK callback) { return timeSetEvent(delay, 0, callback, 0, TIME_PERIODIC); }
 void stop_timer(UINT timer) { timeKillEvent(timer); }
 
-render::BillboardQuad* g_loading_screen_sprite;     // (nothing in this build sets it)
+gsl::owner<render::BillboardQuad*> g_loading_screen_sprite; // (nothing in this build sets it)
 std::string g_picture_name; // the picture loaded
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
-render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 
 // The picture's name (a std::string in the original too: its assign at 0x004B7880 / 0x004B7750).
 const char* picture_name() { return g_picture_name.c_str(); }
@@ -181,9 +180,9 @@ void free_loading_screen_sprite()
 {
     get_lock();
     input_port()->SetRenderState(D3DRS_FOGENABLE, fog_render_flag());
-    if (get_sprite()) {
-        delete get_sprite(); // (the engine's delete through slot 0)
-        get_sprite() = nullptr;
+    if (g_loading_screen_sprite) {
+        delete g_loading_screen_sprite; // (the engine's delete through slot 0)
+        g_loading_screen_sprite = nullptr;
     }
     get_unlock();
 }

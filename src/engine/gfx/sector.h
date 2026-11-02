@@ -114,7 +114,7 @@ public:
     uint32_t light_group_{kOutdoorLightGroup};  // +0x0C: its light group (the time of day's; outdoor by default)
     int rot_y_{0};                              // +0x10: quarter turns about y
     void* geom_handle_{nullptr};                // +0x14: CGeom (on PC a PcGeom), or null
-    gsl::owner<HitMesh*> hit_body_{nullptr}; // +0x18: or null (the sector's layout; deleted by its destructor)
+    HitMesh* hit_body_{nullptr}; // +0x18: or null (a clone's own copy, deleted by its destructor; else the scene's)
 };
 static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
                   sizeof(WorldCell) == 0x1C,

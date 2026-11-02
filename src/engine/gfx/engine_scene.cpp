@@ -142,7 +142,8 @@ bool WorldScene::remove_scene_sector(void* sector)
         const uint32_t name = sector_key_from_spec(sector);
         sectors_->erase_entry(name);
     }
-    delete static_cast<WorldCell*>(sector);
+    gsl::owner<WorldCell*> cell = memory::adopt<WorldCell*>(sector); // (the table's)
+    delete cell;
     return true;
 }
 
@@ -154,7 +155,7 @@ bool WorldScene::delete_sector_named(uint32_t name)
 }
 
 // 0x0049CBB0
-bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, StaticCollider** statics,
+bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl::owner<StaticCollider*>* statics,
                                      uint8_t** objects, maths::BBox* box, int)
 {
     // The header read and the sections laid out through collision_format.h (+4 objects, +8 vertex bytes, +0xC / +0x10
@@ -238,7 +239,8 @@ void WorldScene::delete_marked_sectors()
     for_each_sector(sectors_, [](void* sector) {
         if (sector_attribute_bits(sector) & 8) {
             reset_sector_bits(sector, 0x40);
-            delete static_cast<WorldCell*>(sector);
+            gsl::owner<WorldCell*> cell = memory::adopt<WorldCell*>(sector); // (the table's)
+            delete cell;
         }
     });
     coll_grid_->get_clear();

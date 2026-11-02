@@ -20,6 +20,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 
 namespace render {
 
@@ -90,7 +91,8 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         ++index;
     if (index < kFontSlots) {
         FontSlot& slot = slots[index];
-        slot.font = load_font_file(name);
+        gsl::owner<Typeface*> font = load_font_file(name); // (the slot's)
+        slot.font = font;
         change_spacings(slot.font, glyph_gap, blank_gap);
         if (colors)
             set_color_table(slot.font, colors);

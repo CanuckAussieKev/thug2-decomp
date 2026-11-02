@@ -69,7 +69,7 @@ uint32_t* fetch_light_tint(uint32_t* out, int light);
 // 0x004B6900: the ambient colour and the colours of lights 0-30 sent.
 void update_all_lights();
 // 0x004B6920: model lights deleted (virtually; none: nothing). True.
-bool delete_model_lights(PcModelLights* lights);
+bool delete_model_lights(gsl::owner<PcModelLights*> lights);
 // 0x004B6940: the renderer's lights back to the scene's - ambient, lights 0 and 1 - and light 2's colour cleared.
 void reset_lights();
 // 0x004B6A70: a scene light's direction (negated) sent to the renderer. True.

@@ -66,7 +66,8 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
     if (memory::malloc_available() < model_count_ * kMemoryPerModel)
         return;
     for (unsigned int i = 0; i < model_count_; ++i) {
-        model_list_[i] = spawn_render_model(assert_flag());
+        gsl::owner<RenderModel*> made = spawn_render_model(assert_flag()); // (the system's list owns them)
+        model_list_[i] = made;
         RenderModel* each = model_list_[i];
         if (!each)
             return;

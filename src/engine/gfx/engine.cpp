@@ -195,7 +195,7 @@ bool split_skin_name(const char* name, char* base)
 }
 
 // 0x0048C030
-PcMesh* load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
+gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
                                TextureSet* textures, int, uint32_t, uint32_t)
 {
     memory::push_mem_profile("model_data_buffer");
@@ -283,7 +283,8 @@ bool unload_scene(WorldScene* scene, int /*flags*/)
     scene->unload_added_scene();
     if (!render::unload_scene(scene)) // (the platform's: the original passes `flags` on too - unused)
         return false;
-    delete scene;
+    gsl::owner<WorldScene*> owned = memory::owned_element(scene); // (the engine's scene list's)
+    delete owned;
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
         if (scene_of(node) == scene) {

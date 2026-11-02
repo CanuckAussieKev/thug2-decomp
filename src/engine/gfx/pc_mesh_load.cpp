@@ -139,7 +139,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         const uint16_t count = core::at(body.index_counts, i);
         if (!count)
             continue;
-        void* memory = alloc_block(sizeof(IdxStore));
+        gsl::owner<void*> memory = alloc_block(sizeof(IdxStore));
         IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2u, 0, D3DFMT_INDEX16) : nullptr;
         core::at(mesh->index_buffers_, i) = ib;
         std::memcpy(ib->indices, core::at(body.indices, i).data(), count * 2u);
@@ -259,7 +259,8 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
     fvf = core::at(g_fvf_by_set_count, sets) | 0x52;
     stride = static_cast<uint8_t>(sets * 8 + 0x1C);
     buffer_flags_ |= 1;
-    core::at(vertex_buffers_, 0) = new_vertex_buffer(stride * vertex_count_, buffer_usage_, buffer_flags_);
+    gsl::owner<VertexBuffer*> made = new_vertex_buffer(stride * vertex_count_, buffer_usage_, buffer_flags_); // (the mesh's)
+    core::at(vertex_buffers_, 0) = made;
     if (arena)
         arena->size += (stride * vertex_count_ + 0x1Fu) & ~0x1Fu;
 }

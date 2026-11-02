@@ -47,7 +47,7 @@ struct BoneLineTest {
 
 // One of a model's geoms (0x18 bytes; what a node of the model's geom list holds).
 struct ModelGeom {
-    gsl::owner<Geom*> geom; // +0x00: the engine's geom (CGeom; on PC a PcGeom)
+    Geom* geom;             // +0x00: the engine's geom (CGeom; on PC a PcGeom; the model's list frees it)
     TextureSet* textures;   // +0x04: the mesh's texture dictionary (null for a geom added as it is)
     uint32_t name;          // +0x08: the geom's name (a checksum; 0: none)
     PcMesh* scene;          // +0x0C: the mesh loaded from a model file (the model's own; null otherwise)

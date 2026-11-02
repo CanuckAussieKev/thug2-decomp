@@ -89,7 +89,7 @@ const lists::KeyMap* texture_table(const TextureSet* textures) { return textures
 // count past what is there reads none, a hierarchy past the end isn't read (the original read on past the scene's
 // end).
 template <typename Stream, typename LoadSector>
-PcScene* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool flag_8d, LoadSector load_sector)
+gsl::owner<PcScene*> read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool flag_8d, LoadSector load_sector)
 {
     int sectors = scene_format::take<int>(in);
     if (sectors < 0 || !in.fits(static_cast<uint64_t>(sectors) * 0x38)) // (each sector at least its fields)
@@ -144,7 +144,7 @@ HierarchyNode::HierarchyNode()
 }
 
 // 0x004B3490
-PcScene* load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures, bool with_super_sectors,
+gsl::owner<PcScene*> load_scene_from_memory(const uint8_t* data, size_t size, const TextureSet* textures, bool with_super_sectors,
                                 bool flag_8d, bool mesh_flag)
 {
     SceneRef* list = new_mesh_list(mesh_flag);
@@ -156,7 +156,7 @@ PcScene* load_scene_from_memory(const uint8_t* data, size_t size, const TextureS
 }
 
 // 0x004B36D0
-PcScene* load_scene_from_file(const char* name, const TextureSet* textures, bool with_super_sectors, bool flag_8d,
+gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* textures, bool with_super_sectors, bool flag_8d,
                               bool mesh_flag, VertexArena* arena)
 {
     SceneRef* list = new_mesh_list(mesh_flag);
@@ -166,7 +166,7 @@ PcScene* load_scene_from_file(const char* name, const TextureSet* textures, bool
     scene_format::FileStream in(file);
     in.skip(scene_format::kHeaderSize); // (the header's three words: not used)
     list->materials = load_materials_from_file(in, texture_table(textures));
-    PcScene* scene = read_sectors(in, list, with_super_sectors, flag_8d, [&in, arena](PcSector* sector) {
+    gsl::owner<PcScene*> scene = read_sectors(in, list, with_super_sectors, flag_8d, [&in, arena](PcSector* sector) {
         return sector->ingest_from_file(in, arena);
     });
     file::shut(file);
@@ -179,7 +179,7 @@ gsl::owner<void*> create_frame_source() { return new FrameSource; }
 // 0x004B3A20
 gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
 {
-    PcScene* scene = load_scene_from_file(name, textures, false, false, false, nullptr);
+    gsl::owner<PcScene*> scene = load_scene_from_file(name, textures, false, false, false, nullptr); // (the mesh's, below)
     scene->checksum_ = checksums::hash_from_text(name);
     scene->texture_set_ = textures;
     scene->finish_load(name, nullptr);
@@ -196,7 +196,7 @@ gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data
 {
     std::array<char, 16> name{};
     std::snprintf(name.data(), sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
-    PcScene* scene = load_scene_from_memory(data, size, textures, false, false, false);
+    gsl::owner<PcScene*> scene = load_scene_from_memory(data, size, textures, false, false, false); // (the mesh's, below)
     scene->checksum_ = checksums::hash_from_text(name.data());
     scene->texture_set_ = textures;
     scene->finish_load(name.data(), nullptr);

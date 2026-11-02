@@ -32,7 +32,7 @@ struct SpawnedPoly {
     float age{};                    // +0x9C: seconds
     float lifetime{};               // +0xA0
     BitmapTexture* texture{};       // +0xA4 (null: untextured)
-    gsl::owner<PcPrimitive*> primitive{};       // +0xA8
+    PcPrimitive* primitive{};       // +0xA8 (the polygon's own: deleted with it)
     uint32_t blend_mode_;         // +0xAC
     float align_h_;               // +0xB0 (-1 left, 0 centre, 1 right)
     float align_v_;               // +0xB4 (-1 top, 0 centre, 1 bottom)

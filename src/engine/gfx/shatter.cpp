@@ -90,7 +90,8 @@ void kill_all_shatters()
 {
     g_shatters.for_each([](PcShatter* shatter) {
         g_shatters.erase(shatter);
-        delete shatter;
+        gsl::owner<PcShatter*> owned = memory::owned_element(shatter); // (the set's)
+        delete owned;
     });
 }
 

@@ -21,6 +21,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/mem.h"
 
 namespace render {
 
@@ -30,7 +31,7 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The game's C runtime heap (what the buffers' copies and nodes come from).
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
-void dealloc(void* memory) { crt::dealloc(memory); }
+void dealloc(gsl::owner<void*> memory) { crt::dealloc(memory); }
 
 using BufferNode = buffer_lists::Node;
 BufferNode* vertex_buffer_list() { return buffer_lists::vertex_buffers(); }
@@ -120,7 +121,7 @@ void MeshRef::fetch_place(float* out) const
 // 0x004D5760
 gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
-    void* memory = alloc_block(sizeof(VertexBuffer));
+    gsl::owner<void*> memory = alloc_block(sizeof(VertexBuffer));
     return memory ? memory::construct_in<VertexBuffer>(memory, bytes, usage, flags) : nullptr;
 }
 
@@ -175,7 +176,8 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
 {
     if (arena)
         buffer_flags_ |= 4; // (a share of the arena's buffer)
-    core::at(vertex_buffers_, 0) = new_vertex_buffer(bytes, buffer_usage_, buffer_flags_);
+    gsl::owner<VertexBuffer*> made = new_vertex_buffer(bytes, buffer_usage_, buffer_flags_); // (the mesh's)
+    core::at(vertex_buffers_, 0) = made;
     if (arena)
         arena->size += (bytes + 0x1F) & ~0x1Fu;
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
@@ -284,7 +286,7 @@ MeshRef::~MeshRef()
             heap->dealloc(billboard);
             billboard = nullptr;
         }
-        dealloc(per_vertex_data_);
+        dealloc(memory::owned_element(per_vertex_data_));
         IDirect3DVertexBuffer9* stream = nullptr;
         UINT offset = 0, stream_stride = 0;
         input_port()->GetStreamSource(0, &stream, &offset, &stream_stride);
@@ -309,9 +311,9 @@ MeshRef::~MeshRef()
         }
     }
     if (triangles)
-        dealloc(triangles);
+        dealloc(memory::owned_element(triangles));
     if (positions)
-        dealloc(positions);
+        dealloc(memory::owned_element(positions));
     // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(this, 0, sizeof(*this));
 }

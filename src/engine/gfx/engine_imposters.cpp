@@ -41,7 +41,8 @@ void ImposterManager::delete_all()
 {
     for (const ImposterGroup* group = first_group(groups_ptr_); group;) {
         const ImposterGroup* next = next_group(groups_ptr_);
-        delete group;
+        gsl::owner<const ImposterGroup*> owned = memory::owned_element(group); // (the list's)
+        delete owned;
         group = next;
     }
     groups_ptr_->empty_table();

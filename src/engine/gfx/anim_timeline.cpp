@@ -184,7 +184,8 @@ void AnimTrack::get_reset()
 void AnimTrack::delete_controllers()
 {
     for (int i = 0; i < controller_count_; ++i) {
-        delete core::at(controller_list_, i);
+        gsl::owner<AnimDriver*> controller = memory::owned_element(core::at(controller_list_, i)); // (the track's)
+        delete controller;
         core::at(controller_list_, i) = nullptr;
     }
     controller_count_ = 0;
@@ -200,7 +201,8 @@ void AnimTrack::detach_anim_driver(AnimDriver* controller)
         if (core::at(controller_list_, i) == controller)
             break;
     }
-    delete core::at(controller_list_, i);
+    gsl::owner<AnimDriver*> owned = memory::owned_element(core::at(controller_list_, i)); // (the track's)
+    delete owned;
     core::at(controller_list_, i) = nullptr;
     for (; i < controller_count_ - 1; ++i)
         core::at(controller_list_, i) = core::at(controller_list_, i + 1);

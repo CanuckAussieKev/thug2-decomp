@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 
 namespace render {
 
@@ -175,7 +176,8 @@ void create_viewports()
     for (int i = 0; i < kViewports; ++i) {
         const float* table = g_split_layouts.data() + 4 * i;
         std::array<float, 4> rect = {{table[0], table[1], table[2], table[3]}};
-        get_viewport(i) = create_viewport(rect.data(), nullptr);
+        auto viewport = create_viewport(rect.data(), nullptr); // (the table's)
+        get_viewport(i) = viewport;
     }
 }
 

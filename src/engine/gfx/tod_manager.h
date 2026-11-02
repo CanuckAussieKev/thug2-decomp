@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <gsl/pointers>
 
 // The time-of-day manager (the TODManager_* script commands): a career level's day passing through four states -
 // morning, afternoon, evening, night - each a set of lighting parameters (the level's light colour, sky, fog,
@@ -210,7 +211,7 @@ public:
     [[nodiscard]] bool can_set_tod_instant(uint32_t state) const;
 
     lists::KeyMap* dead_objects_; // +0x000 nodes marked permanently dead (value: the manager)
-    script::Struct* unknown4_;    // +0x004 made, emptied and freed, never filled
+    gsl::owner<script::Struct*> unknown4_; // +0x004 made, emptied and freed, never filled
     std::array<TodSystem, kSystems> systems_{}; // +0x008
     BloomParams temp_bloom_{};      // +0x318 TODManager_SetTempBloomParams'
     int full_length_{};             // +0x32C milliseconds the manager has run

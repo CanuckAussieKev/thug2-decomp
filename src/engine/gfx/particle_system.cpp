@@ -515,8 +515,10 @@ ModelParticles::~ModelParticles()
         unknown_13c_ptr_ = nullptr;
     }
     if (model_list_) {
-        for (unsigned int i = 0; i < model_count_; ++i)
-            delete model_list_[i]; // (through 0x0048C3C0)
+        for (unsigned int i = 0; i < model_count_; ++i) {
+            gsl::owner<RenderModel*> model = memory::owned_element(model_list_[i]); // (the list's)
+            delete model; // (through 0x0048C3C0)
+        }
         memory::dealloc(static_cast<void*>(model_list_));
         model_list_ = nullptr;
     }

@@ -53,8 +53,8 @@ inline bool is_geom_multicolor(Geom* geom) { return geom->multicolour_ != 0; }
 // An engine object deleted (0x0048C3C0) / a scene or the model's lights deleted (0x0048C080, cdecl, the generic
 // delete through slot 0: typed here); a texture dictionary unloaded (0x0049EFD0).
 inline void delete_geom_object(gsl::owner<Geom*> object) { delete object; }
-inline void discard_lights(ModelLights* lights) { delete lights; }
-inline void discard_mesh(PcMesh* mesh) { delete mesh; }
+inline void discard_lights(gsl::owner<ModelLights*> lights) { delete lights; }
+inline void discard_mesh(gsl::owner<PcMesh*> mesh) { delete mesh; }
 inline void unload_textures(TextureSet* textures) { unload_tex_dict(textures); }
 
 // A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).

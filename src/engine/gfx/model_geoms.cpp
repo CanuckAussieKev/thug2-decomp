@@ -69,7 +69,7 @@ ModelGeom* new_entry(bool default_heap)
 }
 
 // A geom's own mesh deleted with its textures.
-void delete_own_scene(PcMesh* mesh)
+void delete_own_scene(gsl::owner<PcMesh*> mesh)
 {
     TextureSet* textures = mesh->textures_;
     discard_mesh(mesh);
@@ -83,7 +83,7 @@ TextureSet* load_textures(const char* file_name, int tex_dict_offset, bool force
 {
     return load_model_textures(file_name, tex_dict_offset, force_tex_dict);
 }
-PcMesh* load_scene(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume)
+gsl::owner<PcMesh*> load_scene(const char* file_name, TextureSet* textures, int tex_dict_offset, bool shadow_volume)
 {
     return engine::load_model_file(file_name, textures, tex_dict_offset, shadow_volume);
 }
@@ -169,9 +169,9 @@ void RenderModel::drop_geoms()
     const ModelGeomNode* head = geom_ring_.head;
     for (const ModelGeomNode* node = get_first(this); node != head; node = node->next) {
         ModelGeom* entry = table_row(node);
-        delete_geom_object(entry->geom);
+        delete_geom_object(memory::owned_element(entry->geom));
         if (entry->scene)
-            delete_own_scene(entry->scene);
+            delete_own_scene(memory::owned_element(entry->scene));
         memory::Hub::get_pull()->dealloc(entry);
     }
     erase_geoms(this, get_first(this), geom_ring_.head);
@@ -190,9 +190,9 @@ void RenderModel::detach_geom(uint32_t name)
         return;
     debug::printf("Uninitializing geometry named %s\n", script::find_checksum_name_or_unknown(name));
     ModelGeom* entry = table_row(node);
-    delete_geom_object(entry->geom);
+    delete_geom_object(memory::owned_element(entry->geom));
     if (entry->scene)
-        delete_own_scene(entry->scene);
+        delete_own_scene(memory::owned_element(entry->scene));
     if (entry->scene)
         --num_file_geoms_;
     else
@@ -218,7 +218,8 @@ bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multic
     entry->asset_name_ = asset_name;
     ++num_asset_geoms_;
     entry->scene = nullptr;
-    entry->geom = create_geom();
+    gsl::owner<Geom*> geom = create_geom(); // (the model's list frees it)
+    entry->geom = geom;
     if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
     load_geom(entry->geom, scene, this, multicolor);
@@ -287,13 +288,15 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     } else {
         memory::push_mem_profile(file_name);
         TextureSet* textures = load_textures(file_name, tex_dict_offset, force_tex_dict);
-        scene = load_scene(file_name, textures, tex_dict_offset, (flag_bits_ >> 5) & 1);
+        gsl::owner<PcMesh*> own_scene = load_scene(file_name, textures, tex_dict_offset, (flag_bits_ >> 5) & 1);
+        scene = own_scene; // (the geom's own: delete_own_scene frees it)
         memory::pop_mem_profile();
         entry->scene = scene;
         ++num_file_geoms_;
         entry->asset_name_ = 0;
     }
-    entry->geom = create_geom();
+    gsl::owner<Geom*> geom = create_geom(); // (the model's list frees it)
+    entry->geom = geom;
     if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
     load_geom(entry->geom, scene, this, multicolor);

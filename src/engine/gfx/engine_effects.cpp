@@ -467,7 +467,8 @@ void update_shatters()
         shatter->lifetime = static_cast<float>(left);
         if (left <= 0.0) {
             shatters().erase(shatter);
-            delete shatter;
+            gsl::owner<Shatter*> owned = memory::owned_element(shatter); // (the set's)
+            delete owned;
         } else {
             update_shatter(shatter, elapsed);
         }

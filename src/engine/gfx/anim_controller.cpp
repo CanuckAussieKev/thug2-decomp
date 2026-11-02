@@ -88,7 +88,11 @@ bool is_accomplished(AnimTimeline* t) { return t->is_accomplished(); }
 
 // Frame sources (0x0048BFC0 makes one, 0x0048BFD0 frees it) and their frames.
 gsl::owner<void*> new_source() { return render::create_frame_source(); }
-void free_source(void* source) { delete static_cast<render::FrameSource*>(source); }
+void free_source(gsl::owner<void*> source)
+{
+    gsl::owner<render::FrameSource*> frames = memory::adopt<render::FrameSource*>(source);
+    delete frames;
+}
 void* source_frame(void* source, bool done) { return static_cast<render::FrameSource*>(source)->set_done(done); }
 void* source_frame_of(void* source, uint32_t anim)
 {

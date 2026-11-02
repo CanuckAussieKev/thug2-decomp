@@ -6,6 +6,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/anim_blend.h"
+#include <gsl/pointers>
 
 namespace objects {
 class GameEntity;
@@ -136,7 +137,7 @@ public:
 
     void* cur_frame_data_{}; // +0x14 (unused)
     void* frame_source_;   // +0x18 the current frame (0x0048CFA0 / 0x0048CFD0)
-    void* blend_source_;   // +0x1C its frame source
+    gsl::owner<void*> blend_source_; // +0x1C its frame source
     uint32_t anim_set_;    // +0x20 added to an animation's name
     int frame_index_;      // +0x24 (-1 none)
 };
@@ -158,7 +159,7 @@ public:
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
     void* frame_source_; // +0x14
-    void* blend_source_; // +0x18
+    gsl::owner<void*> blend_source_; // +0x18
     uint32_t anim_set_;  // +0x1C
     float weight_;       // +0x20
 };
@@ -189,7 +190,7 @@ public:
     float k2_;           // +0x20 wobbleK2
     float spaz_factor_;  // +0x24 spazFactor
     float aim_point_{0.0f}; // +0x28 the time it wobbles around
-    void* blend_source_; // +0x2C
+    gsl::owner<void*> blend_source_; // +0x2C
     void* frame_source_; // +0x30
     uint32_t anim_set_;  // +0x34
 };
@@ -230,7 +231,7 @@ public:
     void tick_frame() override;
 
     AnimTimeline* partial_; // +0x14 its own timeline
-    void* blend_source_;    // +0x18
+    gsl::owner<void*> blend_source_; // +0x18
     void* frame_source_;    // +0x1C
     uint32_t anim_set_;     // +0x20
 };

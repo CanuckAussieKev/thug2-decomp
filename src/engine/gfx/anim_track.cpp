@@ -266,7 +266,8 @@ AnimDriver* AnimTrack::attach_controller(Struct* params)
     controller->configure_from_data(params);
     controller->rank_ = priority;
     insert_controller(controller, priority);
-    return controller;
+    AnimDriver* const inserted = controller; // (the track's now)
+    return inserted;
 }
 
 // 0x00482200

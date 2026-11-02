@@ -81,7 +81,7 @@ void MeshRef::add_vertex_buffers(int count)
     VertexBuffer* first = core::at(vertex_buffers_, 0);
     const uint8_t* source = get_lock(first, 0x10);
     for (int i = 0; i < count; ++i) {
-        VertexBuffer* buffer = new_vertex_buffer(vertex_count_ * stride);
+        gsl::owner<VertexBuffer*> buffer = new_vertex_buffer(vertex_count_ * stride); // (the mesh's)
         core::at(vertex_buffers_, 1 + i) = buffer;
         uint8_t* data = get_lock(buffer, 0);
         std::memcpy(data, source, vertex_count_ * stride);
@@ -205,7 +205,8 @@ MeshRef* MeshRef::replicate(bool share)
     if (share) {
         copy->flags |= 1;
     } else {
-        core::at(copy->vertex_buffers_, 0) = new_vertex_buffer(copy->vertex_count_ * copy->stride);
+        gsl::owner<VertexBuffer*> made = new_vertex_buffer(copy->vertex_count_ * copy->stride); // (the copy's)
+        core::at(copy->vertex_buffers_, 0) = made;
         const uint8_t* source = get_lock(core::at(vertex_buffers_, 0), 0x10);
         uint8_t* data = get_lock(core::at(copy->vertex_buffers_, 0), 0);
         std::memcpy(data, source, copy->vertex_count_ * copy->stride);

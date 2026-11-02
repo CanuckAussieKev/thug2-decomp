@@ -782,7 +782,8 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count_)
             continue;
         if (!core::at(material->uv_wibble_, index)) {
-            core::at(material->uv_wibble_, index) = new_uv_wibble();
+            auto wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
+            core::at(material->uv_wibble_, index) = wibble;
             material->has_uv_wibble_ = true;
             core::at(material->pass_flags_, index) |= 0x4001;
         }
@@ -816,7 +817,8 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
         const int index = pass_from_checksum(material, checksum, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count_ || core::at(material->uv_wibble_, index))
             continue;
-        core::at(material->uv_wibble_, index) = new_uv_wibble();
+        auto wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
+        core::at(material->uv_wibble_, index) = wibble;
         material->has_uv_wibble_ = true;
         core::at(material->pass_flags_, index) |= 0x4001;
         made = true;

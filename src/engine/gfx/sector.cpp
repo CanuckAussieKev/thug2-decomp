@@ -41,9 +41,12 @@ WorldCell::WorldCell() = default;
 // 0x0049E630
 WorldCell::~WorldCell()
 {
-    if (hit_body_ && (flag_bits_ & kSectorClone))
-        delete hit_body_;
-    delete geom_of(geom_handle_);
+    if (hit_body_ && (flag_bits_ & kSectorClone)) {
+        gsl::owner<HitMesh*> copy = memory::owned_element(hit_body_); // (a clone's own)
+        delete copy;
+    }
+    gsl::owner<Geom*> geom = memory::owned_element(geom_of(geom_handle_)); // (the sector's)
+    delete geom;
 }
 
 // 0x0049E8C0

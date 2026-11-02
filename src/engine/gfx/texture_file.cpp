@@ -23,6 +23,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/raw_view.h"
+#include "platform/crt.h"
 
 namespace render {
 
@@ -86,8 +87,7 @@ gsl::owner<void*> new_texel_buffer(uint32_t size, [[maybe_unused]] const ImageHe
 void free_texel_buffer(void* buffer, [[maybe_unused]] const ImageHeader& header)
 {
     if (hd_ui::image_scale(header.unknown14) != 1)
-        // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
-        return std::free(buffer);
+        return crt::dealloc(memory::owned_element(buffer)); // (the C runtime's block: the image's)
     memory::Hub::sole()->dealloc(buffer);
 }
 

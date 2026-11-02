@@ -190,14 +190,15 @@ void TextureSet::drop_textures(bool all)
     table->iter_item_ = nullptr;
     if (!table->step_iterator() || !table->iter_item_)
         return;
-    gsl::owner<BitmapTexture*> texture = memory::adopt<BitmapTexture*>(table->iter_item_->value);
+    auto* texture = static_cast<BitmapTexture*>(table->iter_item_->value);
     while (texture) {
         BitmapTexture* next = nullptr;
         if (textures_->step_iterator() && textures_->iter_item_)
             next = static_cast<BitmapTexture*>(textures_->iter_item_->value);
         if (all || !(texture->flag_bits_ & kTexturePermanent)) {
             const uint32_t key = texture->checksum_;
-            delete texture;
+            gsl::owner<BitmapTexture*> owned = memory::owned_element(texture); // (the dictionary's)
+            delete owned;
             textures_->erase_entry(key);
         }
         texture = next;
@@ -273,12 +274,13 @@ TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint
     std::snprintf(file.data(), sizeof(file), "%s.%s", path, platform_suffix());
     memory::push_mem_profile(path);
     const uint32_t key = checksums::hash_from_text(path) + offset;
-    gsl::owner<TextureSet*> dict = find_tex_dict(key);
+    TextureSet* dict = find_tex_dict(key);
     if (dict) {
         ++dict->share_count_;
     } else {
         // (the original passes level, offset, a3 and a4 too: the PC's reads the name alone)
-        dict = load_tex_dict_file(file.data());
+        gsl::owner<TextureSet*> loaded = load_tex_dict_file(file.data()); // (the loaded table's)
+        dict = loaded;
         dict->checksum_ = key;
         loaded_tex_dicts().store_entry(key, dict);
     }
@@ -292,11 +294,12 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
 {
     memory::push_mem_profile("TEX_data_buffer"); // "TEX_data_buffer"
     const uint32_t key = checksum + offset;
-    gsl::owner<TextureSet*> dict = find_tex_dict(key);
+    TextureSet* dict = find_tex_dict(key);
     if (!dict) {
         // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone - and,
         // not original, the size as its reader's bound)
-        dict = load_tex_dict_memory(key, data, size);
+        gsl::owner<TextureSet*> loaded = load_tex_dict_memory(key, data, size); // (the loaded table's)
+        dict = loaded;
         dict->checksum_ = key;
         loaded_tex_dicts().store_entry(key, dict);
     }
@@ -321,7 +324,8 @@ bool unload_tex_dict(TextureSet* dict)
         return false;
     const uint32_t key = dict->checksum_;
     loaded_tex_dicts().erase_entry(key);
-    delete dict; // (through its vtable)
+    gsl::owner<TextureSet*> owned = memory::owned_element(dict); // (the loaded table's)
+    delete owned; // (through its vtable)
     return true;
 }
 
@@ -341,7 +345,7 @@ namespace {
 lists::KeyMap g_spare_tex_dict_table{lists::KeyMap::Unconstructed{}};
 
 // The loaded dictionary named `name` (one more use of it), or a new one, made and listed.
-gsl::owner<TextureSet*> shared_tex_dict(const char* name)
+TextureSet* shared_tex_dict(const char* name)
 {
     const uint32_t checksum = checksums::hash_from_text(name);
     if (TextureSet* dict = find_tex_dict(checksum)) {
@@ -350,7 +354,8 @@ gsl::owner<TextureSet*> shared_tex_dict(const char* name)
     }
     gsl::owner<PcTexDict*> dict = create_tex_dict(checksum);
     loaded_tex_dicts().store_entry(checksum, dict);
-    return dict;
+    TextureSet* const listed = dict; // (the loaded table's)
+    return listed;
 }
 
 } // namespace

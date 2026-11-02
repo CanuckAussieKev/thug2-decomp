@@ -108,7 +108,7 @@ struct WorldScene : public memory::HeapObject {
     // vertices - (-100, -100, -100) - (100, 100, 100) when none has. True.
     // (Not original: `size` - the file's bytes, util::ByteReader::kUnknownSize if not known - bounds its reader;
     // a damaged file is refused: no objects.)
-    bool load_collision_data(uint8_t* data, size_t size, int* count, StaticCollider** statics, uint8_t** objects,
+    bool load_collision_data(uint8_t* data, size_t size, int* count, gsl::owner<StaticCollider*>* statics, uint8_t** objects,
                              maths::BBox* box, int unused);
     // 0x0049CE60: with collision, `box` kept and the collision grid made over it. Whether there's collision.
     bool init_collision_grid(const maths::BBox* box);
