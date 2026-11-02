@@ -56,7 +56,7 @@ constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
 uint8_t color_offset(const MeshRef* mesh) { return mesh->color_offset_; }
-void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(out->data()); }
+void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(out); }
 MaterialRef* material_of(MeshRef* mesh) { return mesh->material; }
 // A mesh's colour (flag 4) and its vertex shader (its vertex format's place).
 std::array<float, 3>& mesh_tint(MeshRef* mesh) { return mesh->color; }

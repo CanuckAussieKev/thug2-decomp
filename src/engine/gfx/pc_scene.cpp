@@ -32,6 +32,7 @@
 #include "engine/gfx/device.h"
 #include <gsl/pointers>
 #include <array>
+#include <span>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
@@ -189,7 +190,10 @@ gsl::owner<MeshRef*> new_mesh()
     return memory ? memory::construct_in<MeshRef>(memory) : nullptr; // (its constructor)
 }
 // (the original passed the box too: unused)
-void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius) { mesh->change_bound_sphere(centre, radius); }
+void set_mesh_sphere_and_box(MeshRef* mesh, std::span<const float, 3> centre, float radius)
+{
+    mesh->change_bound_sphere(centre, radius);
+}
 // The rest of a mesh's set-up, the same for both loaders: the scene's box grown, a billboard made, the mesh added.
 void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
                  const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
@@ -267,7 +271,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;
         }
-        set_mesh_sphere_and_box(mesh, centre.data(), fields.radius);
+        set_mesh_sphere_and_box(mesh, std::span<const float>(centre).first<3>(), fields.radius);
         finish_mesh(sector, geometry, mesh, billboard_type, &pivot, &axis, &min, &max,
                     static_cast<uint8_t>(record.light_group));
     }

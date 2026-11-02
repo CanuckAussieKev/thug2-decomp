@@ -8,6 +8,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
+#include <iterator>
 #include <cstring>
 #include <span>
 
@@ -109,14 +111,15 @@ long MeshRef::apply_vertex_colors()
 }
 
 // 0x004D4D30
-void MeshRef::fetch_place(float* out) const
+void MeshRef::fetch_place(maths::Vec4* out) const
 {
     if (!transform) {
-        out[0] = out[1] = out[2] = 0;
-        out[3] = 1.0f;
+        out->x = out->y = out->z = 0;
+        out->w = 1.0f;
         return;
     }
-    std::memcpy(out, transform + 12, 16);
+    const std::span<float, 16> t = transform_floats();
+    *out = {core::at(t, 12), core::at(t, 13), core::at(t, 14), core::at(t, 15)}; // (the last row)
 }
 
 // 0x004D5760
@@ -129,27 +132,28 @@ gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t bytes, uint32_t usage, uint
 // 0x004D57D0
 void MeshRef::clean_strip()
 {
-    uint16_t* strip = core::at(index_buffers_, 0)->indices;
-    uint32_t a = strip[0], b = strip[1];
+    const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
+    uint32_t a = core::at(strip, 0), b = core::at(strip, 1);
     uint32_t run = 0; // degenerate triangles in a row
     for (uint32_t i = 2; i < core::at(index_counts_, 0); ++i) {
-        const uint32_t c = strip[i];
+        const uint32_t c = core::at(strip, i);
         if (a == b || a == c || b == c) {
             ++run;
         } else {
             if (run > 5) { // (a long run of degenerates: cut to the four or five a strip join needs)
                 const uint32_t start = i - run;
-                uint16_t* from = &strip[i - 3];
-                *from = strip[i - 2];
-                const uint16_t last = strip[start - 1];
-                strip[start] = last;
+                const size_t from = i - 3;
+                core::at(strip, from) = core::at(strip, i - 2);
+                const uint16_t last = core::at(strip, start - 1);
+                core::at(strip, start) = last;
                 uint32_t kept = 0;
+                const size_t moved = static_cast<size_t>(core::at(index_counts_, 0) - i) + 3; // (indices: bytes / 2)
                 if (!(run & 1)) {
-                    std::memmove(&strip[start + 1], from, (core::at(index_counts_, 0) - i) * 2 + 6);
+                    std::ranges::copy(strip.subspan(from, moved), std::next(strip.begin(), static_cast<std::ptrdiff_t>(start) + 1));
                     kept = 4;
                 } else {
-                    strip[start + 1] = last;
-                    std::memmove(&strip[start + 2], from, (core::at(index_counts_, 0) - i) * 2 + 6);
+                    core::at(strip, start + 1) = last;
+                    std::ranges::copy(strip.subspan(from, moved), std::next(strip.begin(), static_cast<std::ptrdiff_t>(start) + 2));
                     kept = 5;
                 }
                 i = start + kept;
@@ -164,11 +168,11 @@ void MeshRef::clean_strip()
 }
 
 // 0x004D5900
-void MeshRef::change_bound_sphere(const float* centre_in, float radius_in)
+void MeshRef::change_bound_sphere(std::span<const float, 3> centre_in, float radius_in)
 {
-    core::at(centre, 0) = centre_in[0];
-    core::at(centre, 1) = centre_in[1];
-    core::at(centre, 2) = centre_in[2];
+    core::at(centre, 0) = core::at(centre_in, 0);
+    core::at(centre, 1) = core::at(centre_in, 1);
+    core::at(centre, 2) = core::at(centre_in, 2);
     radius = radius_in;
 }
 

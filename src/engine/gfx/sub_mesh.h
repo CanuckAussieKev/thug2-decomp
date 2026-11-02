@@ -94,12 +94,12 @@ struct MeshRef {
     // written into the current vertex buffer, unlocked after. Unlock's result (0 without per-vertex bytes).
     long apply_vertex_colors();
     // 0x004D4D30: its position (its transform's last row; 0, 0, 0, 1 without one).
-    void fetch_place(float* out) const;
+    void fetch_place(maths::Vec4* out) const;
     // 0x004D57D0: its first strip's long runs of degenerate triangles (more than 5) cut to the four or five a join
     // needs, and the strip written to the card.
     void clean_strip();
     // 0x004D5900: the bounding sphere (the two stack arguments after are unused).
-    void change_bound_sphere(const float* centre, float radius);
+    void change_bound_sphere(std::span<const float, 3> centre, float radius);
     // 0x004D5C30: its first vertex buffer made (a share of `arena`'s, whose size grows by it, 32-byte aligned) and
     // filled with `bytes` of `vertices`.
     void create_vertex_buffer(const void* vertices, uint32_t bytes, VertexArena* arena);
