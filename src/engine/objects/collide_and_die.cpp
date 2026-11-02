@@ -92,7 +92,7 @@ void ImpactDestructModule::tick_frame()
 {
     if (!stored_online_hub()->in_net_game() && suspend_->far_)
         return;
-    const int& offset = clock_offset();
+    const int offset = clock_offset();
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
         kLifetime) {
         get_kill(entity_);
