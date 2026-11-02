@@ -388,7 +388,10 @@ void prepare_all()
 bool disc_mode_active()
 {
     if (game_config::g_from_cd && initialised()) {
-        stop_music();
+        // NOT ORIGINAL - continue_music: the song plays on through the load (on the PC it streams from its own file,
+        // read by Bink's thread - nothing for the level's reads to wait for, unlike a console's disc)
+        if (!continue_music::is_switched_on())
+            stop_music();
         if (streams_on())
             platform_stop_streams();
     }
