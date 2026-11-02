@@ -467,7 +467,7 @@ void AnimBlenderComponent::first_channel_47e_280(float a, uint32_t b)
 }
 
 // 0x00419BF0
-void AnimBlenderComponent::first_channel_47e_450(float* a, uint32_t b)
+void AnimBlenderComponent::first_channel_47e_450(std::span<const float, 5> a, uint32_t b)
 {
     if (Channel* channel = masked(lanes_.next))
         channel->set_wobble_details(a, bool_arg(b));

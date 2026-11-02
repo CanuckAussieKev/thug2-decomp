@@ -12,6 +12,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include <span>
 #include "engine/lists/pointer_ring.h"
 
 namespace gfx {
@@ -115,7 +116,7 @@ public:
     void first_channel_47e_850(float a, float b, float c, float d);
     void first_channel_47e_810(uint32_t a);
     void first_channel_47e_280(float a, uint32_t b);
-    void first_channel_47e_450(float* a, uint32_t b);
+    void first_channel_47e_450(std::span<const float, 5> a, uint32_t b);
     void set_flag_4c(bool value);
     // 0x00419AB0 / 0x00419AD0 (not a Ghidra function): its +0x50 (the anim set) / +0x58; 0 without one.
     uint32_t get_anim_set();

@@ -561,7 +561,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             case 0x3C: // (the five details passed by address)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
-                    channel->set_wobble_details(msg->wobble_details_.data(), false);
+                    channel->set_wobble_details(msg->wobble_details_, false);
                 break;
             case 0x3D:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))

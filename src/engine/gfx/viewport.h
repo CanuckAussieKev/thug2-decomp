@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
@@ -26,7 +27,7 @@ namespace render {
 class ViewRegion : public memory::HeapObject {
 public:
     // 0x004A0DB0: the rectangle given (x, y, width, height - none: the whole screen) and the camera.
-    ViewRegion(const float* rect, gfx::ViewCam* camera);
+    ViewRegion(const std::array<float, 4>* rect, gfx::ViewCam* camera);
     // 0x004A0E60 (0x004A0E80 the scalar deleting destructor, vtable slot 0): the camera let go.
     virtual ~ViewRegion();
     ViewRegion(const ViewRegion&) = delete;
@@ -104,6 +105,6 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script);
 extern std::array<OcclusionRequest, 4> g_occlusion_requests;
 extern int g_screen_mode;
 extern std::array<ViewRegion*, 10> g_viewports;
-extern const int* g_mode_map;
+extern std::span<const int> g_mode_map;
 
 } // namespace render

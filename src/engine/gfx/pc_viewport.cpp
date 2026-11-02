@@ -74,7 +74,7 @@ void end_query_draw(uint8_t query)
 } // namespace
 
 // 0x004CB860
-gsl::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera)
+gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::ViewCam* camera)
 {
     return new PcViewport(rect, camera);
 }

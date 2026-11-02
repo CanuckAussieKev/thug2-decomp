@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -40,7 +41,7 @@ std::array<float, 40> g_split_layouts{{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
 std::array<int, 6> g_mode_viewport_counts{{1, 2, 2, 4, 1, 1}};
 std::array<int, 24> g_mode_maps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};
 } // namespace
-const int* g_mode_map{g_mode_maps.data()};
+std::span<const int> g_mode_map{g_mode_maps};
 
 namespace {
 
@@ -64,23 +65,26 @@ constexpr uint32_t kMinScale = 0x774B6931; // min_scale
 
 ViewRegion*& get_viewport(int index) { return core::at(g_viewports, index); }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
-const int*& mode_map() { return g_mode_map; }
+std::span<const int>& mode_map() { return g_mode_map; }
 int& screen_mode() { return g_screen_mode; }
 int& active_viewport_count() { return modules::g_viewport_count; }
 int mode_viewport_count(int mode) { return core::at(g_mode_viewport_counts, mode); }
-const int* mode_map_of(int mode) { return g_mode_maps.data() + 4 * mode; }
+std::span<const int> mode_map_of(int mode) { return std::span<const int>(g_mode_maps).subspan(4 * static_cast<size_t>(mode)); }
+// The map's entry for view `i` (a mode's map is read ten entries on, past the table's end for the last modes: the
+// original read the words after the table there; here those views are not shown).
+int map_entry(std::span<const int> map, int i) { return static_cast<size_t>(i) < map.size() ? core::at(map, i) : -1; }
 
 // The n-th mapped entry's viewport - the map's ten words are scanned (past the mode's four: the next modes'),
 // null when there's none.
 ViewRegion* current_view_slot(int n)
 {
-    const int* map = mode_map();
+    const std::span<const int> map = mode_map();
     int found = 0;
     for (int i = 0; i < kViewports; ++i) {
-        if (map[i] < 0)
+        if (map_entry(map, i) < 0)
             continue;
         if (found == n)
-            return get_viewport(map[i]);
+            return get_viewport(map_entry(map, i));
         ++found;
     }
     return nullptr;
@@ -93,13 +97,13 @@ uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
 } // namespace
 
 // 0x004A0DB0
-ViewRegion::ViewRegion(const float* rect, gfx::ViewCam* camera)
+ViewRegion::ViewRegion(const std::array<float, 4>* rect, gfx::ViewCam* camera)
 {
     if (rect) {
-        pos_x_ = rect[0];
-        y_ = rect[1];
-        span_ = rect[2];
-        level_y_ = rect[3];
+        pos_x_ = core::at(*rect, 0);
+        y_ = core::at(*rect, 1);
+        span_ = core::at(*rect, 2);
+        level_y_ = core::at(*rect, 3);
     } else {
         pos_x_ = 0.0f;
         y_ = 0.0f;
@@ -174,9 +178,9 @@ void purge_doomed_cameras()
 void create_viewports()
 {
     for (int i = 0; i < kViewports; ++i) {
-        const float* table = g_split_layouts.data() + 4 * i;
-        std::array<float, 4> rect = {{table[0], table[1], table[2], table[3]}};
-        auto viewport = create_viewport(rect.data(), nullptr); // (the table's)
+        const std::span<const float> table = std::span<const float>(g_split_layouts).subspan(4 * static_cast<size_t>(i), 4);
+        const std::array<float, 4> rect = {{core::at(table, 0), core::at(table, 1), core::at(table, 2), core::at(table, 3)}};
+        auto viewport = create_viewport(&rect, nullptr); // (the table's)
         get_viewport(i) = viewport;
     }
 }
@@ -184,7 +188,7 @@ void create_viewports()
 // 0x004A0950
 gfx::ViewCam* obtain_active_lens(int view)
 {
-    const int index = mode_map()[view];
+    const int index = map_entry(mode_map(), view);
     if (index == -1)
         return nullptr;
     return get_viewport(index)->viewer_.get_pull();
@@ -193,7 +197,7 @@ gfx::ViewCam* obtain_active_lens(int view)
 // 0x004A0970
 void choose_camera(int view, gfx::ViewCam* camera)
 {
-    const int index = mode_map()[view];
+    const int index = map_entry(mode_map(), view);
     if (index == -1)
         return;
     ViewRegion* viewport = get_viewport(index);

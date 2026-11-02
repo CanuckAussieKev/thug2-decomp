@@ -128,7 +128,7 @@ public:
     void choose_wobble_goal(float target, bool send);
     // 0x0047E450: the five wobble details (message 0x3C: which of two known values each is, when it changed) to the
     // playing timeline's controllers (SetWobbleDetails 0xEA6D0EFD).
-    void set_wobble_details(const float* details, bool send);
+    void set_wobble_details(std::span<const float, 5> details, bool send);
     // 0x0047E740: the playing timeline's loop type (message 0x3D when it changed).
     void change_repeat_mode(int loop_type, bool send);
     // 0x0047E810: the playing timeline turned round. (`unused` isn't.)

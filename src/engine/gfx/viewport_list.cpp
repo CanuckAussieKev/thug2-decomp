@@ -16,13 +16,15 @@ ViewRegion* get_viewport(int index) { return core::at(g_viewports, index); }
 // 0x004A06D0
 ViewRegion* fetch_current_view(int n)
 {
-    const int* map = g_mode_map;
+    const std::span<const int> map = g_mode_map;
     int shown = 0;
     for (int view = 0; view < 10; ++view) {
-        if (map[view] < 0)
+        // (past the table's end the original read the words after it: those views are not shown)
+        const int entry = static_cast<size_t>(view) < map.size() ? core::at(map, view) : -1;
+        if (entry < 0)
             continue;
         if (shown == n)
-            return get_viewport(map[view]);
+            return get_viewport(entry);
         ++shown;
     }
     return nullptr;

@@ -562,23 +562,23 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
 }
 
 // 0x0047E450
-void BlendChannel::set_wobble_details(const float* details, bool send)
+void BlendChannel::set_wobble_details(std::span<const float, 5> details, bool send)
 {
     if (send && ident_ == 0) {
         if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
             net::Guest* app = client_of(player);
             // Which of its known values each detail has (0x00645D6C... - the server sends those).
             uint8_t bits = 0;
-            if (details[0] == 0.05f)
+            if (core::at(details, 0) == 0.05f)
                 bits = 0;
-            else if (details[0] == 0.1f)
+            else if (core::at(details, 0) == 0.1f)
                 bits = 1;
-            else if (details[0] == 10.1f)
+            else if (core::at(details, 0) == 10.1f)
                 bits = 2;
-            const uint8_t b1 = details[1] == 0.04f ? 0 : details[1] == 10.1f ? 1 : 0;
-            const uint8_t b2 = details[2] == 0.0022f ? 0 : details[2] == 20.0f ? 1 : 0;
-            const uint8_t b3 = details[3] == 0.0017f ? 0 : details[3] == 10.0f ? 1 : 0;
-            const uint8_t b4 = details[4] == 1.5f ? 0 : details[4] == 1.0f ? 1 : 0;
+            const uint8_t b1 = core::at(details, 1) == 0.04f ? 0 : core::at(details, 1) == 10.1f ? 1 : 0;
+            const uint8_t b2 = core::at(details, 2) == 0.0022f ? 0 : core::at(details, 2) == 20.0f ? 1 : 0;
+            const uint8_t b3 = core::at(details, 3) == 0.0017f ? 0 : core::at(details, 3) == 10.0f ? 1 : 0;
+            const uint8_t b4 = core::at(details, 4) == 1.5f ? 0 : core::at(details, 4) == 1.0f ? 1 : 0;
             std::array<uint8_t, 2> data{};
             core::at(data, 0) = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
             core::at(data, 1) = static_cast<uint8_t>(get_owner(this)->ident_);
@@ -592,11 +592,11 @@ void BlendChannel::set_wobble_details(const float* details, bool send)
     if (!get_first(this))
         return;
     gsl::owner<Struct*> params = spawn_param_bag();
-    params->push_float(0xFD266A26, details[0]); // wobbleAmpA
-    params->push_float(0x642F3B9C, details[1]); // wobbleAmpB
-    params->push_float(0x0F43FD49, details[2]); // wobbleK1
-    params->push_float(0x964AACF3, details[3]); // wobbleK2
-    params->push_float(0xF90B0824, details[4]); // spazFactor
+    params->push_float(0xFD266A26, core::at(details, 0)); // wobbleAmpA
+    params->push_float(0x642F3B9C, core::at(details, 1)); // wobbleAmpB
+    params->push_float(0x0F43FD49, core::at(details, 2)); // wobbleK1
+    params->push_float(0x964AACF3, core::at(details, 3)); // wobbleK2
+    params->push_float(0xF90B0824, core::at(details, 4)); // spazFactor
     pass_to_first(this, 0xEA6D0EFD, params);    // SetWobbleDetails
     script::free_struct(params);
 }

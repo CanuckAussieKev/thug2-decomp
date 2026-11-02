@@ -241,7 +241,7 @@ void RiderTeeterMoves::set_wobble(script::Struct* wobble)
         wobble->read_sub_struct(core::at(kWobbleNames, i), &value, 1);
         core::at(values, i) = skater_of(entity_)->get_scaled_value(value);
     }
-    anim_blender_ptr_->first_channel_47e_450(values.data(), 1);
+    anim_blender_ptr_->first_channel_47e_450(values, 1);
 }
 
 // 0x004F9420
