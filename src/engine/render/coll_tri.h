@@ -6,6 +6,8 @@
 #include <cstring>
 #include <span>
 
+#include "engine/core/checked_index.h"
+
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
 #include "formats/collision_format.h"
@@ -30,15 +32,19 @@ struct HitTreeNode {
     void set_split(int value) { axis_tag_ = (value << 2) | (axis_tag_ & 3); }
     [[nodiscard]] uint16_t leaf_face_count() const { return static_cast<uint16_t>(static_cast<uint32_t>(axis_tag_) >> 16); }
     [[nodiscard]] uint16_t* get_leaf_faces() const { return collision_format::tree_leaf_faces(chain_link_); }
+    // The leaf's face indices as a run of its face count.
+    [[nodiscard]] std::span<uint16_t> leaf_face_run() const { return {get_leaf_faces(), leaf_face_count()}; }
     [[nodiscard]] HitTreeNode* get_children() const { return collision_format::tree_children<HitTreeNode>(chain_link_); }
+    // The two children of a split node.
+    [[nodiscard]] std::span<HitTreeNode, 2> child_pair() const { return std::span<HitTreeNode, 2>(get_children(), 2); }
     // A leaf of `count` faces listed at `faces`.
     void make_leaf(uint16_t count, uint16_t* faces)
     {
         axis_tag_ = 3 | static_cast<int32_t>(static_cast<uint32_t>(count) << 16);
         chain_link_ = collision_format::tree_link_to(faces);
     }
-    [[nodiscard]] HitTreeNode* less_child() const { return get_children() + ((chain_link_ & 1) ? 1 : 0); }
-    [[nodiscard]] HitTreeNode* greater_child() const { return get_children() + ((chain_link_ & 1) ? 0 : 1); }
+    [[nodiscard]] HitTreeNode* less_child() const { return &core::at(child_pair(), (chain_link_ & 1) ? 1 : 0); }
+    [[nodiscard]] HitTreeNode* greater_child() const { return &core::at(child_pair(), (chain_link_ & 1) ? 0 : 1); }
 
     // 0x00415C90 / 0x00415CE0: the nodes in this subtree / the faces in its leaves.
     [[nodiscard]] int tally_nodes() const;
@@ -76,6 +82,8 @@ struct TriMeshSource {
     void* vertices_{};        // +0x30 float[3] each, or uint16_t[3] when compressed
     HitTreeNode* bsp_{};      // +0x34
     uint8_t* vertex_bytes_{}; // +0x38 one byte per vertex (copied and freed with the geometry), or null
+    // NOT ORIGINAL - those bytes as a run of num_vertices_.
+    [[nodiscard]] std::span<const uint8_t> vertex_byte_run() const { return {vertex_bytes_, num_vertices_}; }
     uint32_t unknown3c_{};    // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
                             // triangle object keeps a copy)
 
@@ -126,7 +134,7 @@ struct TriMeshSource {
     void add_occlusion_polys();
     // 0x00416320: the faces in leaves `box` reaches, gathered into `buffer` (`count` set). Without a tree, or
     // more faces than the geometry has, every face: the shared index table 0x0067C6B8.
-    uint16_t* get_faces_in_box(const maths::BBox* box, int* count, uint16_t* buffer, int buffer_size);
+    std::span<const uint16_t> get_faces_in_box(const maths::BBox* box, std::span<uint16_t> buffer);
     // 0x004160E0: get_faces_in_box's walk.
     void gather_faces(const HitTreeNode* node, const maths::BBox* box);
     // 0x004163B0: whether `point` is behind every face of the leaf it falls in, counted against all faces (the

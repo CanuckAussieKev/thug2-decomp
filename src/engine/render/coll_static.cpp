@@ -337,27 +337,28 @@ bool HitMesh::is_point_behind_faces(const maths::Vec4* point, int unused)
 }
 
 // 0x00414990 (a failed allocation of the box crashes when there are geometries, as in the original)
-gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, objects::GameEntity* owner)
+gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_array, int count, objects::GameEntity* owner)
 {
+    const std::span<TriMeshSource> geometries(geometry_array, geometry_array ? static_cast<size_t>(count) : 0);
     gsl::owner<HitMesh*> made = nullptr;
     if (type == 1) {
         auto box = memory::make_owned_value<HitMovingBox>();
         if (count >= 1) {
             maths::BBox bounds;
             for (int i = 0; i < count; ++i) {
-                bounds.append_spot(geometries[i].bounds_.min);
-                bounds.append_spot(geometries[i].bounds_.max);
+                bounds.append_spot(core::at(geometries, i).bounds_.min);
+                bounds.append_spot(core::at(geometries, i).bounds_.max);
             }
             box->box_ = bounds;
         }
         made = box;
     } else if (type == 4) {
         if (count == 1) {
-            made = new HitMovingTriangles(geometries);
+            made = new HitMovingTriangles(geometry_array);
         } else if (count > 1) {
             auto multi = memory::make_owned_value<HitMeshGroup>();
             for (int i = 0; i < count; ++i)
-                multi->attach_child(new HitMovingTriangles(&geometries[i]));
+                multi->attach_child(new HitMovingTriangles(&core::at(geometries, i)));
             made = multi;
         } else {
             return nullptr;

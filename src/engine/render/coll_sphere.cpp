@@ -37,7 +37,7 @@ maths::Vec4 get_minus(const maths::Vec4& a, const maths::Vec4& b)
 
 // The scene grid holding the sphere (0x0048C940) and the grids along a line (0x0048C980).
 CollGrid* grid_of(const CollSphere*) { return get_first_coll_grid(); }
-CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
+std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 
 bool collide_with_sphere(HitMesh* object, const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
 {
@@ -59,7 +59,7 @@ maths::Seg get_segment(const maths::Vec4& start, const maths::Vec4& end)
 } // namespace
 
 // 0x0040E280
-bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count, maths::Vec4* points, int)
+bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count, std::span<maths::Vec4, 2> points, int)
 {
     const maths::Vec4& start = segment->start;
     const double mx = static_cast<double>(start.x) - sphere->centre.x;
@@ -87,14 +87,14 @@ bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere,
         }
         if (!(t0 >= 0.0f)) {
             *count = 1;
-            points[0] = start + t1 * d;
+            core::at(points, 0) = start + t1 * d;
         } else if (t1 > 1.0f) {
             *count = 1;
-            points[0] = start + t0 * d;
+            core::at(points, 0) = start + t0 * d;
         } else {
             *count = 2;
-            points[0] = start + t0 * d;
-            points[1] = start + t1 * d;
+            core::at(points, 0) = start + t0 * d;
+            core::at(points, 1) = start + t1 * d;
         }
         return true;
     }
@@ -105,13 +105,13 @@ bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere,
         return false;
     }
     *count = 1;
-    points[0] = start + t * d;
+    core::at(points, 0) = start + t * d;
     return true;
 }
 
 // 0x0040E560
 bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_motion, const CollSphere* sphere,
-                            const maths::Vec4* motion, float* t, float /*limit*/, int* count, maths::Vec4* point)
+                            const maths::Vec4* motion, float* t, float /*limit*/, int* count, std::span<maths::Vec4, 2> point)
 {
     if (segment_crosses_sphere(edge, sphere, count, point, 0))
         return true;
@@ -153,13 +153,13 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
                                   k);
     auto m = static_cast<float>((along.z * az + along.y * ay) + along.x * ax);
     if (m < k) {
-        *point = moved;
+        core::at(point, 0) = moved;
     } else if (m > far) {
-        *point = {along.x + moved.x, along.y + moved.y, along.z + moved.z, along.w + moved.w};
+        core::at(point, 0) = {along.x + moved.x, along.y + moved.y, along.z + moved.z, along.w + moved.w};
     } else {
         auto fraction = static_cast<float>((static_cast<double>(m) - k) / (static_cast<double>(far) - k));
         const maths::Vec4 part = fraction * along;
-        *point = {moved.x + part.x, moved.y + part.y, moved.z + part.z, moved.w + part.w};
+        core::at(point, 0) = {moved.x + part.x, moved.y + part.y, moved.z + part.z, moved.w + part.w};
     }
     *count = 1;
     return true;
@@ -230,7 +230,7 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
             line.end = *corner; // (the original leaves it unset)
     }
     std::array<maths::Vec4, 2> touched{};
-    if (!swept_sphere_hits_edge(&line, edge_motion, sphere, motion, t, limit, count, touched.data()))
+    if (!swept_sphere_hits_edge(&line, edge_motion, sphere, motion, t, limit, count, touched))
         return false;
     *point = core::at(touched, 0);
     return true;
@@ -292,7 +292,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
         const maths::Seg line = get_segment(a, b);
         int touched = 0;
         std::array<maths::Vec4, 2> hit{};
-        if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit.data()))
+        if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit))
             return false;
         *point = core::at(hit, 0);
         return true;
@@ -435,12 +435,12 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
 // 0x004110B0 (slot 16 of a sector and of an instance - the instance's faces taken as they are, unplaced)
 bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
 {
-    int count = 0;
     std::array<uint16_t, 0x800> buffer{};
-    const uint16_t* faces = geometry_->get_faces_in_box(box, &count, buffer.data(), 0x800);
+    const std::span<const uint16_t> faces = geometry_->get_faces_in_box(box, buffer);
+    const int count = static_cast<int>(faces.size());
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
-        const uint32_t face = faces[i];
+        const uint32_t face = core::at(faces, i);
         const uint16_t flags =
             geometry->face_flags(static_cast<int>(face));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
@@ -511,14 +511,14 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
         return hits->count > 0;
     }
     const maths::Seg diagonal = get_segment(grown.min, grown.max);
-    CollGrid** grids = grids_along(&diagonal);
-    if (!grids)
+    const std::span<CollGrid* const> grids = grids_along(&diagonal);
+    if (grids.empty())
         return false;
-    for (; *grids; ++grids) {
+    for (CollGrid* const grid : grids) {
         int count = 0;
-        for (HitMesh** objects = (*grids)->objects_along_line(&diagonal, &count); *objects; ++objects) {
-            if ((*objects)->inside_bounds(&grown))
-                collide_with_sphere(*objects, sphere, &grown, hits);
+        for (HitMesh* const object : grid->objects_along_line(&diagonal, &count)) {
+            if (object->inside_bounds(&grown))
+                collide_with_sphere(object, sphere, &grown, hits);
         }
     }
     return hits->count > 0;

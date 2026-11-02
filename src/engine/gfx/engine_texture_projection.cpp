@@ -41,7 +41,7 @@ bool sphere_out_of_view(const maths::Vec4* centre, float radius)
 }
 // The collision grids a line reaches (0x0048C980: null-terminated), and the sector of a name in any scene
 // (0x0048C510).
-CollGrid** grids_along_line(const maths::Seg* line) { return get_coll_grids_on_line(line); }
+std::span<CollGrid* const> grids_along_line(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 void* find_sector(uint32_t name) { return engine::look_up_sector(name); }
 
 std::array<void*, 128> g_projected_sectors;
@@ -199,20 +199,17 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     reach.min = {get_f(box.min.x - grow), get_f(box.min.y - grow), get_f(box.min.z - grow), 1.0f};
     grow = static_cast<double>(extent_) * 2.5f;
     reach.max = {get_f(box.max.x + grow), get_f(box.max.y + grow), get_f(box.max.z + grow), 1.0f};
-    CollGrid** grids = grids_along_line(&line);
+    const std::span<CollGrid* const> grids = grids_along_line(&line);
     int count = 0;
-    for (CollGrid** grid = grids; *grid; ++grid) {
-        HitMesh** objects = (*grid)->objects_in_box(&reach);
-        if (!objects)
-            return; // (nothing projected - even what earlier grids found)
-        for (HitMesh** found = objects; *found; ++found) {
-            const maths::BBox* bounds = (*found)->get_world_bounds();
+    for (CollGrid* const grid : grids) {
+        for (HitMesh* const found : grid->objects_in_box(&reach)) {
+            const maths::BBox* bounds = found->get_world_bounds();
             // (touching: no comparison says apart - NaNs count as touching)
             if (bounds->min.x > reach.max.x || reach.min.x > bounds->max.x || bounds->min.z > reach.max.z ||
                 reach.min.z > bounds->max.z || bounds->min.y > reach.max.y || reach.min.y > bounds->max.y)
                 continue;
-            void* sector = find_sector((*found)->checksum_);
-            core::at(projected_collision(), count) = *found;
+            void* sector = find_sector(found->checksum_);
+            core::at(projected_collision(), count) = found;
             core::at(projected_sectors(), count) = sector;
             ++count;
         }

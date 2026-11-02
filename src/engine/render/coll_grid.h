@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/shape_tests.h"
@@ -31,6 +32,9 @@ struct CollGridCell {
     int count{0};               // +0x24
     void* unknown28{nullptr};   // +0x28 (freed through the memory manager)
     HitMesh** objects{nullptr}; // +0x2C a Malloc block of `count`
+
+    // The listed objects as a run of `count`.
+    [[nodiscard]] std::span<HitMesh*> object_run() const { return {objects, static_cast<std::size_t>(count)}; }
 };
 static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects) == 0x2C,
               "layout must match the original");
@@ -45,7 +49,7 @@ public:
     void get_clear();
     // 0x00418BD0: the cells filled from `count` static objects (those whose geometry has faces), each listed in
     // the cells its box (slot 21) covers. A cell index below 0 isn't clamped (as in the original).
-    void get_fill(StaticCollider* statics, int count);
+    void get_fill(std::span<StaticCollider> statics);
     // 0x00418F60: the lists brought up to date, cell by cell: the objects of `removed` taken out where their boxes
     // touch the cell, those of `added` put in where they touch it, those of `moved` taken out or put in as they
     // now do or don't; each list's block resized once and, at the end, every list moved to a fresh block. (Lists
@@ -54,10 +58,10 @@ public:
 
     // 0x00418710: the objects (neither flag 2 nor 4) of the cells `box` (grown by 0.5 on x and z) covers, each
     // once; null-terminated, in the shared list 0x00691998.
-    HitMesh** objects_in_box(const maths::BBox* box);
+    std::span<HitMesh* const> objects_in_box(const maths::BBox* box);
     // 0x004188C0: the same for the cells the line (made half a unit longer at each end) spans; one cell: its
     // objects as they are; more: each once, 2047 at most. The number found goes to `count` if it's given.
-    HitMesh** objects_along_line(const maths::Seg* line, int* count);
+    std::span<HitMesh* const> objects_along_line(const maths::Seg* line, int* count);
 
     CollGridCell* get_cell(int x, int z) { return &core::at(core::at(cells_, x), z); }
 

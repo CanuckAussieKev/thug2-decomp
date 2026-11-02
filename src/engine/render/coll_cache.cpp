@@ -30,8 +30,8 @@ memory::ListNode* first_movable() { return g_movables.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
-CollGrid** grid_lists_along(maths::Seg* line) { return get_coll_grids_on_line(line); }
-HitMesh** objects_along(CollGrid* list, maths::Seg* line)
+std::span<CollGrid* const> grid_lists_along(maths::Seg* line) { return get_coll_grids_on_line(line); }
+std::span<HitMesh* const> objects_along(CollGrid* list, maths::Seg* line)
 {
     return list->objects_along_line(line, nullptr);
 }
@@ -62,20 +62,20 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
 {
     get_clear(this);
     maths::Seg line(box.min, box.max);
-    CollGrid* const* lists = grid_lists_along(&line);
-    if (!lists)
+    const std::span<CollGrid* const> lists = grid_lists_along(&line);
+    if (lists.empty())
         return;
     box_ = box;
     // The box the objects are tested against: grown by half a unit each way.
     maths::BBox grown;
     grown.append_spot({box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w});
     grown.append_spot({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
-    for (; *lists; ++lists) {
-        for (HitMesh** object = objects_along(*lists, &line); *object; ++object) {
-            if (!(*object)->inside_bounds(&grown))
+    for (CollGrid* const list : lists) {
+        for (HitMesh* const object : objects_along(list, &line)) {
+            if (!object->inside_bounds(&grown))
                 continue;
-            core::at(entries_, num_).bounds = (*object)->get_world_bounds();
-            core::at(entries_, num_).object = *object;
+            core::at(entries_, num_).bounds = object->get_world_bounds();
+            core::at(entries_, num_).object = object;
             ++num_;
             ++statics_;
         }

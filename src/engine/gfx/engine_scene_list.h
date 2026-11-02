@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 
@@ -53,8 +54,8 @@ void print_coll_statics();
 // 0x0048C940: the first scene's collision grid that there is (null if none has one).
 CollGrid* get_first_coll_grid();
 // 0x0048C980: the collision grids whose boxes the line's box touches (NaN doesn't rule one out), at most 15, their
-// scenes alongside (0x006FA738): a null-terminated list (0x006FA778), or null if none.
-CollGrid** get_coll_grids_on_line(const maths::Seg* line);
+// scenes alongside (0x006FA738): the list (0x006FA778, null-terminated in the original), empty if none.
+std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line);
 // 0x0048CA80: a sector name (0x0067DC84, counted on) that no scene has a sector of.
 uint32_t new_sector_name();
 // 0x0048CAF0: the ToggleAddScenes script command - every scene's added scene shown or hidden (0x0048C650). True.

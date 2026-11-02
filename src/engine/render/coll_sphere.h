@@ -44,14 +44,15 @@ static_assert(sizeof(SphereHits) == 0x5A4 && offsetof(SphereHits, count) == 0x59
 
 // 0x0040E280 (cdecl): where the segment crosses the sphere's surface: 0, 1 or 2 points (*count) in order along
 // it; whether any. (The fifth argument isn't used.)
-bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count, maths::Vec4* points,
-                            int unused);
+bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count,
+                            std::span<maths::Vec4, 2> points, int unused);
 // 0x0040E560 (cdecl): a sphere moving by `motion` against a segment moving by `edge_motion` (in practice (0, 0, 0,
 // 1): the edge stands, the point's w counts the time): already touching (segment_crosses_sphere) - those points; else
 // where the capsule round the segment meets the centre's path - *t the first time within 0..1, the point the
 // segment's nearest to the centre then (*count 1). Whether it touches.
 bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_motion, const CollSphere* sphere,
-                            const maths::Vec4* motion, float* t, float limit, int* count, maths::Vec4* point);
+                            const maths::Vec4* motion, float* t, float limit, int* count,
+                            std::span<maths::Vec4, 2> point);
 // 0x0040E940 (cdecl): the moving sphere against the triangle's corner `corner` and the edge leaving it towards the
 // sphere's path (chosen by where the path crosses the plane through the edge `edge_cross` stands on): the corner
 // inside the sphere already - *t 0 and no hit; moving away from it - no hit; else swept_sphere_hits_edge on that edge.

@@ -4,6 +4,7 @@
 
 #include <cmath>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 
 namespace render {
@@ -544,7 +545,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
 // 0x0040D370 (P's side tests use its line values unrounded, Q's rounded to floats; each pair of sides' direction
 // test the first time unrounded, the second time rounded - as the original's x87 code keeps them)
 bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                        maths::Vec4* points, int* kinds)
+                        std::span<maths::Vec4, 2> points, std::span<int, 2> kinds)
 {
     const maths::Vec4& o = rect.origin;
     const maths::Vec4& a = rect.side_a_;
@@ -660,25 +661,25 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     const bool p_inside = p_in0 && p_in1 && p_in2 && p_in3;
     const bool q_inside = q_in0 && quat_src_a && quat_src_b && q_in3;
     if (p_inside) {
-        points[0] = p;
-        kinds[0] = p_kind;
+        core::at(points, 0) = p;
+        core::at(kinds, 0) = p_kind;
         if (q_inside) {
-            points[1] = q;
-            kinds[1] = q_kind;
+            core::at(points, 1) = q;
+            core::at(kinds, 1) = q_kind;
             return true;
         }
         found = 1;
     } else if (q_inside) {
-        points[0] = q;
-        kinds[0] = q_kind;
+        core::at(points, 0) = q;
+        core::at(kinds, 0) = q_kind;
         found = 1;
     }
     const float dq1 = q1 - p1;
     const float dq2 = q2 - p2;
     float s = 0.0f;
     auto take = [&](const maths::Vec4& point) { // (true: that was the second)
-        points[found] = point;
-        kinds[found] = 0;
+        core::at(points, found) = point;
+        core::at(kinds, found) = 0;
         const bool second = found == 1;
         found = 1;
         return second;
@@ -710,8 +711,8 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     point *= s;
     point += o;
     point += a;
-    points[1] = point;
-    kinds[1] = 0;
+    core::at(points, 1) = point;
+    core::at(kinds, 1) = 0;
     return true;
 }
 

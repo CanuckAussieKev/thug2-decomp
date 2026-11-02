@@ -398,18 +398,14 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     box.max = {static_cast<float>(static_cast<double>(line_box.max.x) + size),
                static_cast<float>(static_cast<double>(line_box.max.y) + size),
                static_cast<float>(static_cast<double>(line_box.max.z) + size), 1.0f};
-    auto** grids = get_coll_grids_on_line(&line);
-    if (!grids || !*grids)
+    const auto grids = get_coll_grids_on_line(&line);
+    if (grids.empty())
         return false;
     auto& sectors = g_line_sectors;
     auto& objects = g_line_objects;
     int count = 0;
-    for (CollGrid** grid = grids; *grid; ++grid) {
-        HitMesh* const* in_box = (*grid)->objects_in_box(&box);
-        if (!in_box)
-            continue;
-        for (; *in_box; ++in_box) {
-            HitMesh* object = *in_box;
+    for (CollGrid* const grid : grids) {
+        for (HitMesh* const object : grid->objects_in_box(&box)) {
             // (its box in the world first; NaN doesn't rule it out)
             const maths::BBox* bounds = object->get_world_bounds();
             if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) && !(bounds->min.z > box.max.z) &&

@@ -172,7 +172,7 @@ double ProbeRay::get_hit_vertex_value() const
         const maths::Vec4 position = object->read_vertex_point(static_cast<int>(vertex));
         core::at(corner, k) = {get_difference(position.x, at.x), get_difference(position.y, at.y),
                      get_difference(position.z, at.z), 1.0f};
-        core::at(value, k) = static_cast<float>(geometry->vertex_bytes_[vertex]) * kByteScale;
+        core::at(value, k) = static_cast<float>(core::at(geometry->vertex_byte_run(), vertex)) * kByteScale;
     }
     // The line from the first corner through the hit point, where it meets the opposite edge's line.
     const maths::Vec4 hit_point{0.0f, 0.0f, 0.0f, 1.0f};

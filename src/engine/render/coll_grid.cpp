@@ -23,7 +23,7 @@ namespace {
 // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
 // last one that listed them, so each is listed once).
 std::array<HitMesh*, 2048> g_found;
-HitMesh** const kFound = g_found.data();
+
 
 uint8_t g_stamp;
 
@@ -72,18 +72,18 @@ struct CellUpdate {
             memory::ListNode* first = masked(pending->next);
             auto* waiting = static_cast<HitMesh*>(first->data);
             for (int i = 0; i < cell->count; ++i) {
-                if (cell->objects[i] == object) {
-                    cell->objects[i] = waiting;
+                if (core::at(cell->object_run(), i) == object) {
+                    core::at(cell->object_run(), i) = waiting;
                     break;
                 }
             }
             unlink_list_node(first);
         } else {
             for (int i = 0; i < cell->count; ++i) {
-                if (cell->objects[i] == object) {
+                if (core::at(cell->object_run(), i) == object) {
                     for (int j = i + 1; j < cell->count; ++j)
-                        cell->objects[j - 1] = cell->objects[j];
-                    cell->objects[cell->count - 1] = nullptr;
+                        core::at(cell->object_run(), j - 1) = core::at(cell->object_run(), j);
+                    core::at(cell->object_run(), cell->count - 1) = nullptr;
                     break;
                 }
             }
@@ -94,7 +94,7 @@ struct CellUpdate {
     void put_in(HitMesh* object)
     {
         if (delta < 0) {
-            cell->objects[cell->count + delta] = object;
+            core::at(cell->object_run(), cell->count + delta) = object;
         } else {
             memory::ListNode* node = memory::ListNode::create(object);
             node->prev = pending->prev;
@@ -108,7 +108,7 @@ struct CellUpdate {
     bool get_lists(HitMesh* object) const
     {
         for (int i = 0; i < cell->count; ++i) {
-            if (cell->objects[i] == object)
+            if (core::at(cell->object_run(), i) == object)
                 return true;
         }
         return false;
@@ -128,10 +128,11 @@ struct CellUpdate {
                 !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell->objects), nullptr))
                 cell->objects = static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects), size));
             int at = cell->count;
+            const std::span<HitMesh*> block(cell->objects, static_cast<size_t>(count));
             if (!is_head(pending->next)) {
                 for (memory::ListNode* node = pending->next; node;) {
                     memory::ListNode* next = masked(node->next);
-                    cell->objects[at++] = static_cast<HitMesh*>(node->data);
+                    core::at(block, at++) = static_cast<HitMesh*>(node->data);
                     unlink_list_node(node);
                     node = next;
                 }
@@ -191,7 +192,7 @@ void CollGrid::get_clear()
 }
 
 // 0x00418BD0 (a cell index is limited to 19, not below 0)
-void CollGrid::get_fill(StaticCollider* statics, int count)
+void CollGrid::get_fill(std::span<StaticCollider> statics)
 {
     auto cells_of = [this](StaticCollider* object, int& x0, int& x1, int& z0, int& z1) {
         const maths::BBox* box = cuboid(object);
@@ -207,13 +208,11 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
             z1 = kSize - 1;
     };
     // how many each cell gets
-    for (int i = 0; i < count; ++i) {
-        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
-        if (statics[i].geometry_->tri_count_ == 0)
+    for (StaticCollider& object : statics) {
+        if (object.geometry_->tri_count_ == 0)
             continue;
         int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
-        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
-        cells_of(&statics[i], x0, x1, z0, z1);
+        cells_of(&object, x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
                 ++core::at(core::at(cells_, x), z).count;
@@ -227,23 +226,21 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
     }
     // how many each cell has so far (a scratch block on the top-down heap)
     memory::enter_heap_scope(memory::top_down_heap());
-    auto* filled = static_cast<int*>(memory::alloc(kSize * kSize * sizeof(int)));
-    std::memset(filled, 0, kSize * kSize * sizeof(int));
+    auto* filled_block = static_cast<int*>(memory::alloc(kSize * kSize * sizeof(int)));
+    std::memset(filled_block, 0, kSize * kSize * sizeof(int));
     memory::leave_heap_scope();
-    for (int i = 0; i < count; ++i) {
-        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
-        if (statics[i].geometry_->tri_count_ == 0)
+    const std::span<int> filled(filled_block, static_cast<size_t>(kSize) * kSize);
+    for (StaticCollider& object : statics) {
+        if (object.geometry_->tri_count_ == 0)
             continue;
         int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
-        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
-        cells_of(&statics[i], x0, x1, z0, z1);
+        cells_of(&object, x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
-                // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
-                core::at(core::at(cells_, x), z).objects[filled[x * kSize + z]++] = &statics[i];
+                core::at(core::at(core::at(cells_, x), z).object_run(), core::at(filled, x * kSize + z)++) = &object;
         }
     }
-    memory::Hub::get_pull()->dealloc(filled);
+    memory::Hub::get_pull()->dealloc(filled_block);
 }
 
 // 0x00418F60
@@ -308,7 +305,7 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
 }
 
 // 0x00418710
-HitMesh** CollGrid::objects_in_box(const maths::BBox* box)
+std::span<HitMesh* const> CollGrid::objects_in_box(const maths::BBox* box)
 {
     const uint8_t stamp = ++s_stamp;
     const double inverse_width = 1.0 / cell_span_x_;
@@ -326,21 +323,21 @@ HitMesh** CollGrid::objects_in_box(const maths::BBox* box)
         for (int z = z0; z <= z1; ++z) {
             const CollGridCell& cell = core::at(core::at(cells_, x), z);
             for (int i = 0; i < cell.count; ++i) {
-                HitMesh* object = cell.objects[i];
+                HitMesh* object = core::at(cell.object_run(), i);
                 if (listable(object) && object->visit_stamp_ != stamp) {
-                    kFound[found++] = object;
+                    core::at(g_found, found++) = object;
                     object->visit_stamp_ = stamp;
                 }
             }
         }
     }
-    kFound[found] = nullptr;
-    return kFound;
+    core::at(g_found, found) = nullptr;
+    return std::span<HitMesh* const>(g_found).first(static_cast<size_t>(found));
 }
 
 // 0x004188C0 (the line's direction: its float parts, the x part unrounded; made a unit vector when it has a
 // length, its x part again unrounded; the longer line's w left unset by the original)
-HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
+std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, int* count)
 {
     double dx = static_cast<double>(line->end.x) - line->start.x;
     float dy = line->end.y - line->start.y;
@@ -387,8 +384,8 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     if (x0 == x1 && z0 == z1) {
         const CollGridCell& cell = core::at(core::at(cells_, x0), z0);
         for (int i = 0; i < cell.count; ++i) {
-            if (listable(cell.objects[i]))
-                kFound[found++] = cell.objects[i];
+            if (listable(core::at(cell.object_run(), i)))
+                core::at(g_found, found++) = core::at(cell.object_run(), i);
         }
     } else {
         const uint8_t stamp = ++s_stamp;
@@ -396,19 +393,19 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
             for (int z = z0; z <= z1; ++z) {
                 const CollGridCell& cell = core::at(core::at(cells_, x), z);
                 for (int i = 0; i < cell.count; ++i) {
-                    HitMesh* object = cell.objects[i];
+                    HitMesh* object = core::at(cell.object_run(), i);
                     if (listable(object) && object->visit_stamp_ != stamp && found < kMostFound) {
-                        kFound[found++] = object;
+                        core::at(g_found, found++) = object;
                         object->visit_stamp_ = stamp;
                     }
                 }
             }
         }
     }
-    kFound[found] = nullptr;
+    core::at(g_found, found) = nullptr;
     if (count)
         *count = found;
-    return kFound;
+    return std::span<HitMesh* const>(g_found).first(static_cast<size_t>(found));
 }
 
 } // namespace render

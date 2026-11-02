@@ -175,14 +175,14 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
     if (threshold > 0xFF)
         return false;
 
-    int count = 0;
     std::array<uint16_t, 0x800> buffer{};
-    const uint16_t* faces = geometry->get_faces_in_box(line_box, &count, buffer.data(), 0x800);
+    const std::span<const uint16_t> faces = geometry->get_faces_in_box(line_box, buffer);
+    const int count = static_cast<int>(faces.size());
     bool any = false;
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
-        const uint32_t face = faces[i];
-        const uint8_t rejection = geometry->small_faces_ ? geometry->face_table().small_rejection(static_cast<int>(face)) : octets_[face];
+        const uint32_t face = core::at(faces, i);
+        const uint8_t rejection = geometry->small_faces_ ? geometry->face_table().small_rejection(static_cast<int>(face)) : core::at(std::span<const uint8_t>(octets_, geometry->tri_count_), face);
         if (threshold > rejection)
             continue;
         maths::Vec4 v0{}, v1{}, v2{};
@@ -221,13 +221,13 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
                           get_difference(local.end.z, local.start.z), get_difference(local.end.w, local.start.w)};
     maths::BBox around(local.start);
     around.append_spot(local.end);
-    int count = 0;
     std::array<uint16_t, 0x800> buffer{};
-    const uint16_t* faces = geometry_->get_faces_in_box(&around, &count, buffer.data(), 0x800);
+    const std::span<const uint16_t> faces = geometry_->get_faces_in_box(&around, buffer);
+    const int count = static_cast<int>(faces.size());
     bool any = false;
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = geometry_;
-        const uint32_t face = faces[i];
+        const uint32_t face = core::at(faces, i);
         maths::Vec4 v0{}, v1{}, v2{};
         get_corners(geometry, face, &v0, &v1, &v2);
         float t = 0.0f;
@@ -302,13 +302,13 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         if (threshold > 0xFF)
             return false;
     }
-    int count = 0;
     std::array<uint16_t, 0x800> buffer{};
-    const uint16_t* faces = geometry->get_faces_in_box(&around, &count, buffer.data(), 0x800);
+    const std::span<const uint16_t> faces = geometry->get_faces_in_box(&around, buffer);
+    const int count = static_cast<int>(faces.size());
     bool any = false;
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
-        const uint32_t face = faces[i];
+        const uint32_t face = core::at(faces, i);
         if (geometry->small_faces_ && threshold > geometry->face_table().small_rejection(static_cast<int>(face)))
             continue;
         maths::Vec4 v0{}, v1{}, v2{};

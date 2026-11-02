@@ -233,7 +233,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
                 memory ? memory::construct_in<CollGrid>(memory) : nullptr; // (its box and cells constructed)
             coll_grid_ = grid;
             grid->prepare_all(&collision_box_);
-            coll_grid_->get_fill(coll_statics_, coll_static_count_);
+            coll_grid_->get_fill(std::span<StaticCollider>(coll_statics_, static_cast<size_t>(coll_static_count_)));
         }
         for (int i = 0; i < coll_static_count_; ++i) {
             const StaticCollider* coll = coll_static_at(coll_statics_, i);

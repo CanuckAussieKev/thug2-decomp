@@ -38,7 +38,7 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 
 // The scene grid holding the rect (0x0048C940; null: none) and the grids along a line (0x0048C980).
 CollGrid* grid_of(const CollRect*) { return get_first_coll_grid(); }
-CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
+std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 
 bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits)
 {
@@ -49,7 +49,7 @@ bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox*
 // (v2 - v0) normalised (an entry is only counted when it has one), its flag 0x40 and the object's checksum, and each
 // end's triangle edge. For an instance (`placed`) the points are scaled and placed, the normals turned back.
 void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                  const maths::Vec4* points, const int* kinds, uint16_t face_flags, uint32_t checksum,
+                  std::span<const maths::Vec4, 2> points, std::span<const int, 2> kinds, uint16_t face_flags, uint32_t checksum,
                   const CollScaled* placed)
 {
     RectHit& hit = core::at(hits->hits, hits->count);
@@ -69,8 +69,8 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         return;
     hit.face_flag40_ = static_cast<uint8_t>(face_flags & 0x40);
     hit.checksum = checksum;
-    core::at(hit.ends, 0).point = points[0];
-    core::at(hit.ends, 1).point = points[1];
+    core::at(hit.ends, 0).point = core::at(points, 0);
+    core::at(hit.ends, 1).point = core::at(points, 1);
     if (placed) {
         for (RectHitEnd& end : hit.ends) {
             const maths::Vec4 scaled{end.point.x * placed->size_factor_.x, placed->size_factor_.y * end.point.y,
@@ -83,9 +83,9 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     }
     for (int e = 1; e >= 0; --e) {
         RectHitEnd& end = core::at(hit.ends, e);
-        end.on_triangle_edge_ = kinds[e] != 0;
+        end.on_triangle_edge_ = core::at(kinds, e) != 0;
         maths::Vec4 edge{};
-        switch (kinds[e]) {
+        switch (core::at(kinds, e)) {
         case 1:
             edge = {e1x, e1y, static_cast<float>(e1z), get_difference(v1.w, v0.w)};
             break;
@@ -115,12 +115,12 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
 bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits,
                         const CollScaled* placed)
 {
-    int count = 0;
     std::array<uint16_t, 0x800> buffer{};
-    const uint16_t* faces = object->geometry_->get_faces_in_box(box, &count, buffer.data(), 0x800);
+    const std::span<const uint16_t> faces = object->geometry_->get_faces_in_box(box, buffer);
+    const int count = static_cast<int>(faces.size());
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         const TriMeshSource* geometry = object->geometry_;
-        const uint32_t face = faces[i];
+        const uint32_t face = core::at(faces, i);
         const uint16_t flags =
             geometry->face_flags(static_cast<int>(face));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
@@ -131,11 +131,11 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
         std::array<maths::Vec4, 2> points{};
         std::array<int, 2> kinds{};
-        if (!rect_hits_triangle(*rect, v0, v1, v2, points.data(), kinds.data()))
+        if (!rect_hits_triangle(*rect, v0, v1, v2, points, kinds))
             continue;
         if (hits->count == RectHits::kMost)
             return true;
-        add_rect_hit(hits, v0, v1, v2, points.data(), kinds.data(), flags, object->checksum_, placed);
+        add_rect_hit(hits, v0, v1, v2, points, kinds, flags, object->checksum_, placed);
     }
     return hits->count > 0;
 }
@@ -216,14 +216,14 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     diagonal.start = o;
     diagonal.end = {static_cast<float>((static_cast<double>(a.x) + o.x) + b.x), (a.y + o.y) + b.y, (a.z + o.z) + b.z,
                     (a.w + o.w) + b.w};
-    CollGrid** grids = grids_along(&diagonal);
-    if (!grids)
+    const std::span<CollGrid* const> grids = grids_along(&diagonal);
+    if (grids.empty())
         return false;
-    for (; *grids; ++grids) {
+    for (CollGrid* const grid : grids) {
         int count = 0;
-        for (HitMesh** objects = (*grids)->objects_along_line(&diagonal, &count); *objects; ++objects) {
-            if ((*objects)->inside_bounds(&grown))
-                collide_with_rect(*objects, rect, &grown, hits);
+        for (HitMesh* const object : grid->objects_along_line(&diagonal, &count)) {
+            if (object->inside_bounds(&grown))
+                collide_with_rect(object, rect, &grown, hits);
         }
     }
     return hits->count > 0;
@@ -391,14 +391,14 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
     gfx::push_diag_line(&oa, &oab, colour, colour, frames);
     gfx::push_diag_line(&oab, &ob, colour, colour, frames);
     gfx::push_diag_line(&ob, &o, colour, colour, frames);
-    const RectHit* hits = (joined_count_ > 0 ? joined_ : hits_.hits).data();
+    const std::span<const RectHit> hits = joined_count_ > 0 ? std::span<const RectHit>(joined_) : std::span<const RectHit>(hits_.hits);
     const int count = joined_count_ > 0 ? joined_count_ : hits_.count;
     for (int i = count - 1; i >= 0; --i) {
         b += 0x1F;
         g += 0x63;
         r += 0xC9;
         const uint32_t hit_colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
-        gfx::push_diag_line(&core::at(hits[i].ends, 0).point, &core::at(hits[i].ends, 1).point, hit_colour, hit_colour, 1);
+        gfx::push_diag_line(&core::at(core::at(hits, i).ends, 0).point, &core::at(core::at(hits, i).ends, 1).point, hit_colour, hit_colour, 1);
     }
 }
 

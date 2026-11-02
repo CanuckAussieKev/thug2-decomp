@@ -29,7 +29,7 @@ constexpr float kFarthestStart = -0.01f;
 
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).
-CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
+std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 const std::array<WorldScene*, 16>& grid_scenes() { return render::engine::get_collision_scenes(); }
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
@@ -125,17 +125,16 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
         }
         return any;
     }
-    CollGrid** grids = grids_along(line);
-    if (!grids)
+    const std::span<CollGrid* const> grids = grids_along(line);
+    if (grids.empty())
         return false;
     const auto& scenes = grid_scenes();
-    size_t scene = 0; // (the scene of the grid walked)
     hit->scene = nullptr;
-    for (; *grids; ++grids, ++scene) {
+    for (size_t scene = 0; scene < grids.size(); ++scene) { // (the scene of the grid walked)
         int count = 0;
-        for (HitMesh* const* objects = (*grids)->objects_along_line(line, &count); *objects; ++objects) {
-            if (may_touch(*objects, &query.box) &&
-                collide_with_line(*objects, line, &query.direction, hit, &query.box)) {
+        for (HitMesh* const object : core::at(grids, scene)->objects_along_line(line, &count)) {
+            if (may_touch(object, &query.box) &&
+                collide_with_line(object, line, &query.direction, hit, &query.box)) {
                 any = true;
                 hit->scene = core::at(scenes, scene);
             }
@@ -164,10 +163,11 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
         hit->distance = g_want_farthest ? kFarthestStart : kNearestStart;
     LineQuery query(line, cache);
     if (query.use_cache_) {
-        const HitMeshCache::TableRow* entries = &core::at(cache->entries_, cache->statics_);
+        const std::span<const HitMeshCache::TableRow> entries =
+            std::span<const HitMeshCache::TableRow>(cache->entries_).subspan(static_cast<size_t>(cache->statics_));
         for (int i = 0; i < cache->movables_; ++i) {
-            if (entry_box(entries[i]) && query.box.intersects(*entry_box(entries[i])))
-                owner = test_movable(entries[i].object, line, query, hit, owner);
+            if (entry_box(core::at(entries, i)) && query.box.intersects(*entry_box(core::at(entries, i))))
+                owner = test_movable(core::at(entries, i).object, line, query, hit, owner);
         }
         return owner;
     }

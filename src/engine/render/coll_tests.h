@@ -1,5 +1,7 @@
 #pragma once
 
+#include <span>
+
 #include "engine/maths/vec4.h"
 
 namespace render {
@@ -59,6 +61,6 @@ struct CollRect {
 // go to points[0], points[1] and their kinds to kinds[0], kinds[1]; false unless two were found (one may still have
 // been written).
 bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                        maths::Vec4* points, int* kinds);
+                        std::span<maths::Vec4, 2> points, std::span<int, 2> kinds);
 
 } // namespace render

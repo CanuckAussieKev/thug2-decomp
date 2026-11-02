@@ -13,6 +13,8 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include <algorithm>
+#include <iterator>
+#include <span>
 
 namespace render {
 
@@ -25,14 +27,12 @@ constexpr float kSixteen = 16.0f;
 std::array<uint16_t, 2048> g_all_faces{{0xFFFF}};
 std::array<uint16_t, 2048>& all_faces() { return g_all_faces; }
 
-uint16_t* g_face_buffer;
+std::span<uint16_t> g_face_buffer;
 int g_face_count;
-int g_face_buffer_size;
 
 // get_faces_in_box's / is_point_behind_faces' state while walking the tree.
-uint16_t*& s_face_buffer = g_face_buffer;
+std::span<uint16_t>& s_face_buffer = g_face_buffer;
 int& s_face_count = g_face_count;
-int& s_face_buffer_size = g_face_buffer_size;
 
 // The compiler's float-to-integer conversion (_ftol: toward zero, the low 32 bits of the 64-bit result).
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -194,16 +194,18 @@ bool TriMeshSource::delete_bsp()
 HitTreeNode* new_tree_nodes(int count)
 {
     // (the count's block is a node: one node more than asked for)
-    auto* block = static_cast<HitTreeNode*>(memory::alloc(sizeof(HitTreeNode) * (count + 1)));
-    if (!block)
+    auto* raw = static_cast<HitTreeNode*>(memory::alloc(sizeof(HitTreeNode) * (count + 1)));
+    if (!raw)
         return nullptr;
-    for (int i = 0; i <= count; ++i)
-        memory::construct_in<HitTreeNode>(&block[i]);
-    block[0].axis_tag_ = count;
-    return &block[1];
+    const std::span<HitTreeNode> block(raw, static_cast<size_t>(count) + 1);
+    for (HitTreeNode& node : block)
+        memory::construct_in<HitTreeNode>(&node);
+    core::at(block, 0).axis_tag_ = count;
+    return &core::at(block, 1);
 }
 
-void free_tree_nodes(HitTreeNode* first) { memory::Hub::get_pull()->dealloc(first - 1); }
+// (the block starts one node before the first: the count's node)
+void free_tree_nodes(HitTreeNode* first) { memory::Hub::get_pull()->dealloc(std::prev(first)); }
 
 // 0x00416400
 void TriMeshSource::get_slide(const maths::Vec4* delta)
@@ -441,26 +443,19 @@ void TriMeshSource::add_occlusion_polys()
 }
 
 // 0x00416320
-uint16_t* TriMeshSource::get_faces_in_box(const maths::BBox* box, int* count, uint16_t* buffer, int buffer_size)
+std::span<const uint16_t> TriMeshSource::get_faces_in_box(const maths::BBox* box, std::span<uint16_t> buffer)
 {
-    if (!bsp_) {
-        *count = tri_count_;
-        return all_faces().data();
-    }
+    if (!bsp_)
+        return std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
     s_face_buffer = buffer;
-    s_face_buffer_size = buffer_size;
     s_face_count = 0;
     gather_faces(bsp_, box);
-    uint16_t* result = nullptr;
-    if (s_face_count < 0) {
-        *count = tri_count_;
-        result = all_faces().data();
-    } else {
-        *count = s_face_count;
-        result = s_face_buffer;
-    }
-    s_face_buffer = nullptr;
-    s_face_buffer_size = 0;
+    std::span<const uint16_t> result;
+    if (s_face_count < 0)
+        result = std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
+    else
+        result = std::span<const uint16_t>(s_face_buffer).first(static_cast<size_t>(s_face_count));
+    s_face_buffer = {};
     return result;
 }
 
@@ -478,15 +473,14 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
         node = node->greater_child();
     }
     const uint32_t n = node->leaf_face_count();
-    uint16_t* out = s_face_buffer + s_face_count;
+    const auto first = static_cast<size_t>(s_face_count);
     s_face_count += static_cast<int>(n);
     if (std::cmp_greater(s_face_count, tri_count_)) {
         s_face_count = -1;
         return;
     }
-    const uint16_t* faces = node->get_leaf_faces();
-    for (uint32_t i = 0; i < n; ++i)
-        out[i] = faces[i];
+    const std::span<uint16_t> out = s_face_buffer.subspan(first, n);
+    std::ranges::copy(node->leaf_face_run(), out.begin());
 }
 
 // 0x004163B0
@@ -511,9 +505,9 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
     }
     const uint32_t n = node->leaf_face_count();
     for (uint32_t i = 0; i < n; ++i) {
-        const int face = node->get_leaf_faces()[i];
+        const int face = core::at(node->leaf_face_run(), i);
         const maths::Vec4 normal = get_triangle_normal(face);
-        const maths::Vec4 corner = read_stored_vertex(static_cast<int>(face_vertex(node->get_leaf_faces()[i], 0)));
+        const maths::Vec4 corner = read_stored_vertex(static_cast<int>(face_vertex(core::at(node->leaf_face_run(), i), 0)));
         auto dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
         const double dy = static_cast<double>(point->y) - corner.y;
         const double dz = static_cast<double>(point->z) - corner.z;
@@ -636,10 +630,10 @@ HitTreeNode* HitTreeNode::replicate(int) const
     // new HitTreeNode[nodes]
     HitTreeNode* copy = new_tree_nodes(nodes);
     auto* new_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
+    const std::span<HitTreeNode> copied(copy, static_cast<size_t>(nodes));
     std::copy_n(this, nodes, copy); // (the tree's nodes are one array, this the first)
     std::memcpy(new_faces, old_faces, faces * 2);
-    for (int i = 0; i < nodes; ++i) {
-        HitTreeNode& node = copy[i];
+    for (HitTreeNode& node : copied) {
         node.chain_link_ = node.is_end_node() ? collision_format::tree_link_moved(node.chain_link_, old_faces, new_faces)
                                               : collision_format::tree_link_moved(node.chain_link_, this, copy);
     }

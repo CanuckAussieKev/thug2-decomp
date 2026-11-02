@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -175,7 +176,7 @@ std::array<CollGrid*, 16> g_collision_grids;
 std::array<WorldScene*, 16> g_collision_scenes;
 
 // 0x0048C980
-CollGrid** get_coll_grids_on_line(const maths::Seg* line)
+std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
 {
     auto& scenes = g_collision_scenes;
     auto& grids = g_collision_grids;
@@ -184,7 +185,7 @@ CollGrid** get_coll_grids_on_line(const maths::Seg* line)
     uint32_t count = 0;
     const memory::ListNode* node = head_of_scene_list();
     if (is_head(node) || !node)
-        return nullptr;
+        return {};
     do {
         const memory::ListNode* next = get_next_node(node);
         WorldScene* scene = scene_of(node);
@@ -201,10 +202,10 @@ CollGrid** get_coll_grids_on_line(const maths::Seg* line)
         node = next;
     } while (node);
     if (count == 0)
-        return nullptr;
+        return {};
     core::at(grids, count) = nullptr;
     core::at(scenes, count) = nullptr;
-    return grids.data();
+    return std::span<CollGrid* const>(grids).first(count);
 }
 
 // 0x0048CA80
