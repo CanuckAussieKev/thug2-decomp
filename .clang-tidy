@@ -19,7 +19,7 @@ Checks:
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
   # The engine still walks its script token streams, vertex streams, animation key streams, pools and packed records
-  # by pointer: 3,658 places over src/ (round 3i of stage 9, down from 5,043; the check alone). They go to std::span,
+  # by pointer: 2,599 places over src/ (round 3j of stage 9, down from 3,658 and 5,043 before; the check alone). They go to std::span,
   # core::Cursor (a span and a position, checked) and indices subsystem by subsystem; the check is switched on at 0.
   - '-cppcoreguidelines-pro-bounds-pointer-arithmetic'
   # The tables mirror the original's data positionally (script commands, member tables, key maps).
