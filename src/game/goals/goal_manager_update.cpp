@@ -309,7 +309,7 @@ bool cfunc_goal_manager_update_all_goals(script::Struct*, script::Script*)
 bool cfunc_goal_manager_get_time_left_in_net_game(script::Struct*, script::Script* script)
 {
     if (Objective* goal = get_objective_board()->get_active_net_goal())
-        script->args_->put_int("time_left", goal->get_seconds_remaining()); // "time_left"
+        script->args()->put_int("time_left", goal->get_seconds_remaining()); // "time_left"
     return true;
 }
 

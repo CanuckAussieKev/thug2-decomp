@@ -104,7 +104,7 @@ bool cfunc_get_terrain_type_param(Struct* params, Script* script)
     Struct* value = nullptr; // (uninitialised in the original: the callee sets it)
     if (!surface_kind::get_terrain_structure_into(&value, terrain, param))
         return false;
-    script->args_->put_sub_struct(param, value);
+    script->args()->put_sub_struct(param, value);
     return true;
 }
 

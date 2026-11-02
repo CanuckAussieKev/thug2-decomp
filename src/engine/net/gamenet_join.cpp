@@ -169,13 +169,13 @@ int32_t get_rating(Hub* m)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
     // single::PointerMember::get_pull)
-    return m->rating_service_->get_personal_stats()->skill_points_;
+    return m->rating_service()->get_personal_stats()->skill_points_;
 }
 
 const char* preference_text(Hub* m, uint32_t name)
 {
     const char* text = nullptr;
-    m->net_options_.fetch_setting(name)->fetch_text(kUiString, &text, 1);
+    m->net_options().fetch_setting(name)->fetch_text(kUiString, &text, 1);
     return text;
 }
 

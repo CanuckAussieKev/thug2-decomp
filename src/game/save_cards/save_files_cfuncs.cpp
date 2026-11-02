@@ -212,7 +212,7 @@ bool get_mem_card_space_required(Struct* params, Script* script)
     uint32_t type = 0;
     params->read_hash_value(0u, &type, 0);
     const int size = type_file_size(type);
-    script->args_.get()->put_int(0xEB3860C3u, save_blocks(type, size)); // SpaceRequired
+    script->args().get()->put_int(0xEB3860C3u, save_blocks(type, size)); // SpaceRequired
     return true;
 }
 
@@ -262,7 +262,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
         return false;
     }
     const int size = static_cast<int>(file->seek_to(0, 2));
-    script->args_.get()->put_int("total_file_size", save_blocks(type, size));
+    script->args().get()->put_int("total_file_size", save_blocks(type, size));
     file->drain();
     file->shut();
     DeleteFile(file);
@@ -326,7 +326,7 @@ bool get_save_info(Struct* params, Script* script)
         summary = new (summary) script::Struct;
     write_summary(contents, summary, type);
     const int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
-    Struct* results = script->args_.get();
+    Struct* results = script->args().get();
     results->put_int(0x172C1344u, main_size);                       // MainStructureSize
     results->put_int(0x96635475u, summary_size);                    // SummaryInfoSize
     results->put_int(0x6AFD2F7Fu, 100);                             // MaxSummaryInfoSize
@@ -413,9 +413,9 @@ void mark_corrupt(Struct* entry, uint32_t text)
 bool get_mem_card_directory_listing(Struct* params, Script* script)
 {
     constexpr uint32_t kDirectoryListing = 0xD8580FB5, kFilesLimitReached = 0x4EEC27B5, kTotalFiles = 0x56B7A7F6;
-    script->args_.get()->erase_module(kDirectoryListing);
-    script->args_.get()->erase_module(kFilesLimitReached);
-    script->args_.get()->erase_module(kTotalFiles);
+    script->args().get()->erase_module(kDirectoryListing);
+    script->args().get()->erase_module(kFilesLimitReached);
+    script->args().get()->erase_module(kTotalFiles);
     uint32_t wanted_type = 0;
     params->read_hash_value(0x11093FB5u, &wanted_type, 0); // FileType
     SaveCard* card = the_card();
@@ -520,9 +520,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         if (!node)
             break;
     }
-    script->args_.get()->put_int(kTotalFiles, game_files);
+    script->args().get()->put_int(kTotalFiles, game_files);
     if (game_files >= kMaxFiles)
-        script->args_.get()->put_name_key(0u, kFilesLimitReached);
+        script->args().get()->put_name_key(0u, kFilesLimitReached);
     if (listed) {
         // newest first (a bubble sort by the dates)
         bool swapped = false;
@@ -543,7 +543,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         listing->configure_size_kind(static_cast<uint32_t>(listed), script::kQbvalStruct);
         for (int j = 0; j < listed; ++j)
             listing->set_cell(static_cast<uint32_t>(j), script::Cell::of(core::at(entries, j)));
-        script->args_.get()->append_array_ref(kDirectoryListing, listing);
+        script->args().get()->append_array_ref(kDirectoryListing, listing);
     }
     // the head unlinked (its destructor's body)
     head.prev->next = head.next;

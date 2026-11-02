@@ -417,16 +417,16 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 }
                 // (The entry may have been removed by the OnExceptionRun script - or its array freed [bug].)
                 if (entry->script != kNullScript) {
-                    script->bind_script(entry->script, params, script->entity_.get_pull());
+                    script->bind_script(entry->script, params, script->entity().get_pull());
                     script->tick_frame();
                 }
-            } else if (const Entity* object = script->entity_.get_pull();
+            } else if (const Entity* object = script->entity().get_pull();
                        object && (object->object_flags_ & objects::kObjectFlagSpawnHandlers)) {
                 // A new spawned script on the object, run at once (a C function as handler returns no script:
                 // null is used [bug: crash]).
                 Script* spawned =
                     script::spawn_script(entry->script, params, 0, nullptr, 0, 0, false, false, false, false);
-                spawned->entity_.assign_value(script->entity_.get_pull());
+                spawned->entity().assign_value(script->entity().get_pull());
                 spawned->tick_frame();
             } else {
                 script->preempt(entry->script, params);

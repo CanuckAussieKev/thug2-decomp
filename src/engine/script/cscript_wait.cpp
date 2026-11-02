@@ -192,7 +192,7 @@ void Script::component_destroyed(objects::ObjectModule* component)
 // 0x00472E70
 void component_destroyed_all_scripts(objects::ObjectModule* component)
 {
-    for (Script* script = script_list_head(); script; script = script->following_)
+    for (Script* script = script_list_head(); script; script = script->following())
         script->component_destroyed(component);
 }
 

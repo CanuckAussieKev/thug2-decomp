@@ -393,12 +393,12 @@ int PadInputModule::down_pressed(script::Struct*, script::Script*)
 // 0x0041EA60
 int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 {
-    script->args_->push_float(0x737F15CF, core::at(pad_primary_.polar_, 1).angle * kDegreesPerRadian);
-    script->args_->push_float(
+    script->args()->push_float(0x737F15CF, core::at(pad_primary_.polar_, 1).angle * kDegreesPerRadian);
+    script->args()->push_float(
         0x686AD1C2,
         static_cast<float>(stick_length(core::at(pad_primary_.stick_, 2), core::at(pad_primary_.stick_, 3), core::at(pad_primary_.polar_, 1).angle)));
-    script->args_->push_float(0xD6030CEA, core::at(pad_primary_.polar_, 0).angle * kDegreesPerRadian);
-    script->args_->push_float(
+    script->args()->push_float(0xD6030CEA, core::at(pad_primary_.polar_, 0).angle * kDegreesPerRadian);
+    script->args()->push_float(
         0xC94777AC,
         static_cast<float>(stick_length(core::at(pad_primary_.stick_, 0), core::at(pad_primary_.stick_, 1), core::at(pad_primary_.polar_, 0).angle)));
     return 1;

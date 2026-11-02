@@ -113,7 +113,7 @@ Kickoff find_start_spot(Point pos, float heading)
 
 script::Struct* level_params_ref()
 {
-    const uint32_t name = modules::Skate::sole()->level_params_;
+    const uint32_t name = modules::Skate::sole()->level_params();
     return name ? script::read_sub_struct(name) : nullptr;
 }
 
@@ -180,8 +180,8 @@ bool cfunc_home_spot(script::Struct*, script::Script* script)
         heading = stage_map().start.heading;
         from = "near the start";
     }
-    script->args_->put_vec3("pos", pos.x, pos.y, pos.z);
-    script->args_->push_float("heading", heading);
+    script->args()->put_vec3("pos", pos.x, pos.y, pos.z);
+    script->args()->push_float("heading", heading);
     get_log("thaw_bmx: the level's bike at (%.0f, %.0f, %.0f) heading %.0f (%s)", pos.x, pos.y, pos.z, heading, from);
     return true;
 }
@@ -291,7 +291,7 @@ void update_parked(modules::FrontEnd* front_end)
     if ((front_end && front_end->is_halted_) || frontend::level_editor::live_now())
         return;
     const objects::Rider* skater = local_skater();
-    const uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params_ : 0;
+    const uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params() : 0;
     if (!skater || !structure || render::current_level() == 0) {
         stage_map().frames = 0;
         return;

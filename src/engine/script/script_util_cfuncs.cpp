@@ -101,7 +101,7 @@ bool cfunc_remove_parameter(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
-    Struct* own = script->args_.get();
+    Struct* own = script->args().get();
     own->erase_module(name);
     own->remove_flag(name);
     return true;
@@ -112,7 +112,7 @@ bool cfunc_remove_flag(Struct* params, Script* script)
 {
     uint32_t flag = 0;
     params->read_hash_value(0u, &flag, 0);
-    script->args_->remove_flag(flag);
+    script->args()->remove_flag(flag);
     return true;
 }
 
@@ -133,7 +133,7 @@ bool cfunc_get_random_value(Struct* params, Script* script)
             a = b;
             b = swap;
         }
-        script->args_->put_int(name, maths::rnd(b - a + 1) + a);
+        script->args()->put_int(name, maths::rnd(b - a + 1) + a);
         return true;
     }
     int resolution = 1000;
@@ -147,7 +147,7 @@ bool cfunc_get_random_value(Struct* params, Script* script)
     double value = static_cast<double>(step) * (static_cast<double>(b) - static_cast<double>(a));
     value /= static_cast<double>(resolution - 1);
     value += static_cast<double>(a);
-    script->args_->push_float(name, static_cast<float>(value));
+    script->args()->push_float(name, static_cast<float>(value));
     return true;
 }
 
@@ -157,7 +157,7 @@ bool cfunc_size_of(Struct* params, Script* script)
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
     const uint32_t size = array ? array->extent_ : 0;
-    script->args_->add_component_of_type(kArraySize, script::kQbvalInteger, size);
+    script->args()->add_component_of_type(kArraySize, script::kQbvalInteger, size);
     return true;
 }
 
@@ -170,9 +170,9 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
     int index = -1;
-    script->args_->fetch_int_value(kIndex, &index, 0);
-    script->args_->erase_module(kIndex);
-    script->args_->erase_module(kElement);
+    script->args()->fetch_int_value(kIndex, &index, 0);
+    script->args()->erase_module(kIndex);
+    script->args()->erase_module(kElement);
     if (!array)
         return false;
     const uint32_t size = array->extent_;
@@ -185,8 +185,8 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
         if (index >= ints::as_signed(size))
             return false;
     }
-    script->args_->put_int(kIndex, index);
-    Struct* own = script->args_.get();
+    script->args()->put_int(kIndex, index);
+    Struct* own = script->args().get();
     switch (array->kind_tag_) {
     case script::kQbvalInteger:
         own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
@@ -222,15 +222,15 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
 // structures, arrays and names; another type (strings too) prints an error (still true, only the index set).
 bool cfunc_get_random_array_element(Struct* params, Script* script)
 {
-    script->args_->erase_module(kElement);
-    script->args_->erase_module(kIndex);
+    script->args()->erase_module(kElement);
+    script->args()->erase_module(kIndex);
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
     if (!array || array->extent_ == 0)
         return false;
     const int index = maths::rnd(static_cast<int>(array->extent_));
-    script->args_->put_int(kIndex, index);
-    Struct* own = script->args_.get();
+    script->args()->put_int(kIndex, index);
+    Struct* own = script->args().get();
     switch (array->kind_tag_) {
     case script::kQbvalInteger:
         own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
@@ -260,7 +260,7 @@ bool cfunc_got_param(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
-    return script->args_->has_entry_named(name);
+    return script->args()->has_entry_named(name);
 }
 
 // 0x0044BD60: Goto <script> [params={...}]: the script continues as that script (on the same object). Always
@@ -271,7 +271,7 @@ bool cfunc_goto(Struct* params, Script* script)
     params->read_hash_value(0u, &name, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    script->bind_script(name, script_params, script->entity_.get_pull());
+    script->bind_script(name, script_params, script->entity().get_pull());
     return true;
 }
 
@@ -282,7 +282,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
     if (array && array->extent_ && array->kind_tag_ == script::kQbvalName) {
-        objects::Entity* object = script->entity_.get_pull();
+        objects::Entity* object = script->entity().get_pull();
         const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent_)));
         script->bind_script(name, nullptr, object);
     }
@@ -292,7 +292,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
 // 0x0044BE20: FormatText: the text put together into the script's parameters (0x0044A480). Always true.
 bool cfunc_format_text(Struct* params, Script* script)
 {
-    format_text_into(script->args_.get(), params);
+    format_text_into(script->args().get(), params);
     return true;
 }
 
@@ -306,7 +306,7 @@ bool cfunc_mangle_checksums(Struct* params, Script* script)
         params->fetch_int_value(kA, &a, 1);
     if (!params->read_hash_value(kB, &b, 0))
         params->fetch_int_value(kB, &b, 1);
-    script->args_->put_name_key(kMangledId, a + b);
+    script->args()->put_name_key(kMangledId, a + b);
     return true;
 }
 
@@ -319,7 +319,7 @@ bool cfunc_append_suffix_to_checksum(Struct* params, Script* script)
     const char* suffix = nullptr;
     params->read_hash_value(kBase, &base, 1);
     params->fetch_text(kSuffixString, &suffix, 1);
-    script->args_->put_name_key(kAppendedId, checksums::fold_text_into_checksum(base, suffix));
+    script->args()->put_name_key(kAppendedId, checksums::fold_text_into_checksum(base, suffix));
     return true;
 }
 
@@ -333,7 +333,7 @@ bool cfunc_get_upper_case_string(Struct* params, Script* script)
     std::array<char, 0x80> upper{};
     copy_text(upper, text);
     text::to_capitals(upper.data());
-    script->args_->append_word(kUpperCaseString, upper.data());
+    script->args()->append_word(kUpperCaseString, upper.data());
     return true;
 }
 
@@ -343,7 +343,7 @@ bool cfunc_add_flag(Struct* params, Script* script)
 {
     uint32_t flag = 0;
     params->read_hash_value(0u, &flag, 0);
-    script->args_->put_name_key(0u, flag);
+    script->args()->put_name_key(0u, flag);
     return true;
 }
 
@@ -374,12 +374,12 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     copy_text(result.subspan(std::strlen(result.data())), number.data());
     uint32_t name = 0;
     params->read_hash_value(kResultName, &name, 0);
-    script->args_->append_word(name, result.data());
+    script->args()->append_word(name, result.data());
     return true;
 }
 
 // 0x0044C120: IsObjectScript: whether the script runs on an object.
-bool cfunc_is_object_script(Struct*, Script* script) { return script->entity_.get_pull() != nullptr; }
+bool cfunc_is_object_script(Struct*, Script* script) { return script->entity().get_pull() != nullptr; }
 
 // 0x0044C290: ForEachIn <array> do=<script> [params={...}]: the script run (now, on this script's object) for each
 // element of the array - with params, on a structure made of the element (a structure; none for null) and those
@@ -402,7 +402,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
                 element_params->merge_structure(element);
             if (extra)
                 element_params->merge_structure(extra);
-            script::launch_script(each, element_params, script->entity_.get_pull(), false, nullptr);
+            script::launch_script(each, element_params, script->entity().get_pull(), false, nullptr);
         }
         if (element_params) {
             element_params->get_clear();
@@ -411,7 +411,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
         return true;
     }
     for (uint32_t i = 0; i < array->extent_; ++i) {
-        objects::Entity* object = script->entity_.get_pull();
+        objects::Entity* object = script->entity().get_pull();
         script::launch_script(each, array->struct_at(i), object, false, nullptr);
     }
     return true;
@@ -426,25 +426,25 @@ bool cfunc_get_element(Struct* params, Script* script)
     params->fetch_list(0u, &array, 0);
     int index = 0;
     params->fetch_int_value("Index", &index, 0); // "Index"
-    script->args_->erase_module(kElement);
+    script->args()->erase_module(kElement);
     if (!array)
         return true;
     if (index < 0 || index >= ints::as_signed(array->extent_))
         return false;
     switch (array->kind_tag_) {
     case script::kQbvalInteger:
-        script->args_->add_component_of_type(kElement, script::kQbvalInteger, array->fetch_part(index));
+        script->args()->add_component_of_type(kElement, script::kQbvalInteger, array->fetch_part(index));
         break;
     case script::kQbvalStruct: {
         gsl::owner<Struct*> copy = script::spawn_param_bag();
         if (copy)
             copy = new (copy) script::Struct;
         copy->append_structure_if_any(array->struct_at(index));
-        script->args_->append_struct_ref(kElement, copy);
+        script->args()->append_struct_ref(kElement, copy);
         break;
     }
     case script::kQbvalArray:
-        script->args_->append_array_value(kElement, array->array_at(index));
+        script->args()->append_array_value(kElement, array->array_at(index));
         break;
     default:
         debug::printf(
@@ -494,7 +494,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
         }
     }
     if (make_copy)
-        script->args_->append_array_ref(new_name, copy);
+        script->args()->append_array_ref(new_name, copy);
     return true;
 }
 
@@ -507,11 +507,11 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
     gsl::owner<Struct*> script_params = script::spawn_param_bag();
     if (script_params)
         script_params = new (script_params) script::Struct;
-    script_params->append_structure_if_any(script->args_.get());
+    script_params->append_structure_if_any(script->args().get());
     Struct* extra = nullptr;
     params->read_sub_struct(kParams, &extra, 0);
     script_params->append_structure_if_any(extra);
-    script->bind_script(name, script_params, script->entity_.get_pull());
+    script->bind_script(name, script_params, script->entity().get_pull());
     if (script_params) {
         script_params->get_clear();
         script::delete_struct(script_params);
@@ -557,7 +557,7 @@ bool cfunc_dump(Struct* params, Script* script)
     if (dump)
         dump = new (dump) script::Struct;
     std::array<char, 0x400> text{};
-    Component* component = script->args_->find_component(name);
+    Component* component = script->args()->find_component(name);
     if (!component) {
         get_sprintf(text.data(), "%s=[!! DOES NOT EXIST !!]", script::find_checksum_name_or_unknown(name));
     } else {
@@ -596,7 +596,7 @@ bool cfunc_create_index_array(Struct* params, Script* script)
     indexes->configure_size_kind(static_cast<uint32_t>(size), script::kQbvalInteger);
     for (int i = 0; i < size; ++i)
         indexes->set_element(i, static_cast<uint32_t>(i));
-    script->args_->append_array_value(kIndexArray, indexes);
+    script->args()->append_array_value(kIndexArray, indexes);
     script::release_array_storage(indexes);
     if (indexes) {
         indexes->get_clear();
@@ -642,7 +642,7 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
         core::at(one, 0) = core::at(letters, i);
         characters->set_text(i, script::spawn_text(one.data()));
     }
-    script->args_->append_array_ref(kCharArray, characters);
+    script->args()->append_array_ref(kCharArray, characters);
     return true;
 }
 
@@ -656,7 +656,7 @@ bool cfunc_set_array_element(Struct* params, Script* script)
     uint32_t array_name = 0;
     params->read_hash_value(kArrayName, &array_name, 1);
     Array* array = nullptr;
-    script->args_->fetch_list(array_name, &array, 1);
+    script->args()->fetch_list(array_name, &array, 1);
     int index = 0;
     params->fetch_int_value(kIndex, &index, 1);
     Component* new_value = params->find_last_component(kNewValue);

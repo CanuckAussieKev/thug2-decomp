@@ -358,9 +358,9 @@ bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::
     float range = 100.0f;
     params->fetch_float(kRange, &range, 0);
     range = static_cast<float>(static_cast<double>(range) * 12.0f); // (feet)
-    script->args_->erase_module(kOb);
+    script->args()->erase_module(kOb);
     if (const GameEntity* next = get_next_obj_on_path(range))
-        script->args_->put_name_key(kOb, next->ident_);
+        script->args()->put_name_key(kOb, next->ident_);
     return true;
 }
 

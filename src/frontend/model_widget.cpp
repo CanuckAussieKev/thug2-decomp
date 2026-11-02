@@ -511,7 +511,7 @@ void ModelWidget::tick_frame()
         } else {
             script::Script* script =
                 script::spawn_script(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-            script->entity_.assign_value(static_cast<objects::Entity*>(this));
+            script->entity().assign_value(static_cast<objects::Entity*>(this));
             is_dead_ = true;
         }
     } else if (attach_to_name_) {

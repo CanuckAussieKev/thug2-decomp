@@ -75,7 +75,7 @@ constexpr int kControllers = 8;
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 
 online::Hub* online_hub_handle() { return online::net_game_state().online_hub(); }
-objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
+objects::RiderStoryProgress* get_career() { return get_skate()->career().get(); }
 int os_layer() { return game_config::hardware(); }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
@@ -93,7 +93,7 @@ objects::ObjectModule* goal_editor_component()
 // The skate module's controller settings: each controller's three flags (vibration, autokick, spin taps).
 const modules::Skate::PlayerSettings& controller_flags(int controller)
 {
-    return core::at(get_skate()->participants_, controller);
+    return core::at(get_skate()->participants(), controller);
 }
 
 } // namespace
@@ -221,7 +221,7 @@ void read_save_header(Struct* global, Script* script)
         career->read_hash_value(kLastLevelLoadScript, &last_level, 0);
         career->read_hash_value(kLastGameMode, &last_mode, 0);
     }
-    Struct* results = script->args_.get();
+    Struct* results = script->args().get();
     if (last_level)
         results->put_name_key(kLastLevelLoadScript, last_level);
     if (last_mode)

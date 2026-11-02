@@ -90,7 +90,7 @@ const std::array<uint32_t, 5> kWalkStateNames{{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46
 uint32_t get_state_name(int state) { return core::at(kWalkStateNames, state); }
 
 // The skate module's career (0x007CE478's +0x20).
-RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
+RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
 // asin of `value` in degrees (x 57.29578), negated when `negate`, rounded to float once.
 float asin_degrees(double value, bool negate)
@@ -347,7 +347,7 @@ bool FootMovement::walk_release_hang(script::Struct* /*params*/, script::Script*
 // 0x00528580
 bool FootMovement::walk_get_state_time(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_int(kStateTimeName, clock_since(state_time_));
+    script->args()->put_int(kStateTimeName, clock_since(state_time_));
     return true;
 }
 
@@ -364,14 +364,14 @@ bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Scri
         scale = kRunSlow;
     else
         scale = kRunFast;
-    script->args_->put_name_key(kSpeedScale, scale);
+    script->args()->put_name_key(kSpeedScale, scale);
     return true;
 }
 
 // 0x005286A0
 bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_name_key(kHangInitAnimTypeName, hang_init_anim_type_);
+    script->args()->put_name_key(kHangInitAnimTypeName, hang_init_anim_type_);
     return true;
 }
 
@@ -379,21 +379,21 @@ bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, scri
 bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::Script* script)
 {
     auto elapsed = static_cast<uint32_t>(clock_since(state_time_));
-    script->args_->push_float(kStateDuration, static_cast<float>(static_cast<double>(elapsed) * kMs));
+    script->args()->push_float(kStateDuration, static_cast<float>(static_cast<double>(elapsed) * kMs));
     return true;
 }
 
 // 0x00528710
 bool FootMovement::walk_get_previous_state(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_name_key(kPreviousStateName, get_state_name(previous_state_));
+    script->args()->put_name_key(kPreviousStateName, get_state_name(previous_state_));
     return true;
 }
 
 // 0x00528740
 bool FootMovement::walk_get_state(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_name_key(kStateName, get_state_name(state_));
+    script->args()->put_name_key(kStateName, get_state_name(state_));
     return true;
 }
 
@@ -420,7 +420,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
     }
     const maths::Vec4& facing = facing_;
     const bool negate = static_cast<double>(dz) * facing.x - static_cast<double>(dx) * facing.z < 0.0;
-    script->args_->push_float(kHangAngle, asin_degrees(dy, negate));
+    script->args()->push_float(kHangAngle, asin_degrees(dy, negate));
     return true;
 }
 

@@ -1042,7 +1042,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
         glide_to_node(level_nodes::fetch_vertex(name, true));
         return true;
     }
-    const uint32_t from = script->list_link_;
+    const uint32_t from = script->list_link();
     const int links = static_cast<int>(level_nodes::get_link_count(from));
     for (int i = 0; i < links; ++i) {
         const uint32_t link = level_nodes::fetch_link(from, i);

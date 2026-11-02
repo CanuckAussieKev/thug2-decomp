@@ -126,7 +126,7 @@ void add_to_front(memory::ListNode& head, memory::ListNode* node)
 // The skate module (0x007CE478): the current level's gap checklist (0x005656C0) and the career (+0x20). Not
 // rewritten yet.
 goals::GapTally* gap_tally_ref() { return static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
-RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
+RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
 // The score (modules::PointTally; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
 // 0x00562510 with perfect) or by name (0x005625A0 / 0x005624C0) - with a spin and taps; 0x0049F4C0 (a shared "0"
@@ -316,7 +316,7 @@ void RiderGapTracker::start_gap_trick(script::Struct* params, script::Script* sc
     void* memory = memory::alloc_zeroed(sizeof(TrickNameEntry));
     auto* trick = memory ? memory::construct_in<TrickNameEntry>(memory) : nullptr;
     add_to_front(gap_move_chain_, &trick->list_link_);
-    trick_node(trick) = script->list_link_;
+    trick_node(trick) = script->list_link();
     trick_done(trick) = 0;
     trick_frame(trick) = tick_;
     uint32_t gap_id = 0;
@@ -362,7 +362,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     // A gap of the same GapID and node is started again.
     for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
-        if (get_gap_id(gap) == gap_id && gap_node(gap) == script->list_link_)
+        if (get_gap_id(gap) == gap_id && gap_node(gap) == script->list_link())
             erase_one(gap);
         gap = next;
     }
@@ -370,7 +370,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     auto* gap = memory ? memory::construct_in<TrickListEntry>(memory) : nullptr;
     add_to_front(gaps_, &gap->list_link_);
     get_gap_id(gap) = gap_id;
-    gap_node(gap) = script->list_link_;
+    gap_node(gap) = script->list_link();
     gap_trick_text(gap) = 0;
     // Where the skater starts: its camera's position, and facing back along the camera's at row.
     auto* skater = core::down_cast<Rider>(entity_);
@@ -452,7 +452,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         TrickListEntry* next = get_next(gap);
         // Its GapID - without one, a gap started at a node that links to this script's.
         if (get_gap_id(gap) != gap_id ||
-            (gap_id == 0 && !level_nodes::has_link_to(gap_node(gap), script->list_link_))) {
+            (gap_id == 0 && !level_nodes::has_link_to(gap_node(gap), script->list_link()))) {
             gap = next;
             continue;
         }
@@ -526,7 +526,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         if (params->read_hash_value(kGapScript, &gap_script, 0)) {
             const bool permanent = params->has_bare_flag(kPermanent);
             const bool replicate_flag = params->has_bare_flag(kOnlineFlag);
-            entity_->start_script_task(gap_script, script->list_link_, replicate_flag, permanent, nullptr);
+            entity_->start_script_task(gap_script, script->list_link(), replicate_flag, permanent, nullptr);
         }
         script::Struct* continuation = nullptr;
         if (params->read_sub_struct(kContinue, &continuation, 0))
@@ -549,7 +549,7 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
 {
     switch (name) {
     case kDuplicateTrigger: {
-        const int node = script->list_link_;
+        const int node = script->list_link();
         if (!node)
             return 1;
         const int links = static_cast<int>(level_nodes::get_link_count(static_cast<uint32_t>(node)));
@@ -557,7 +557,7 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
             script::Struct* linked = level_nodes::fetch_neighbour_node(static_cast<uint32_t>(node), i);
             uint32_t trigger_script = 0;
             if (linked->read_hash_value(kTriggerScript, &trigger_script, 0)) {
-                entity_->start_script_task(trigger_script, script->list_link_, false, false, nullptr);
+                entity_->start_script_task(trigger_script, script->list_link(), false, false, nullptr);
                 return 1;
             }
         }

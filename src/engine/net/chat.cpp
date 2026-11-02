@@ -137,7 +137,7 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
         desc.content_ = thugpro_bytes.data();
         core::at(packet.text, thugpro::kChatMessageTextSize - 1) = '\0'; // (what was sent, shown below)
     }
-    core::down_cast<net::Guest>(manager->client_app_)->send_to_host(&desc);
+    core::down_cast<net::Guest>(manager->client_app())->send_to_host(&desc);
 
     // The server doesn't send our own line back to us, so show it here.
     std::array<char, 256> line{};

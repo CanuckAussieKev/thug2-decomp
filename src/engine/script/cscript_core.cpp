@@ -368,8 +368,8 @@ void Script::clear_on_exit_scripts()
 // 0x004734B0
 Script* find_script_with_unique_id(uint32_t id)
 {
-    for (Script* script = script_list_head(); script; script = script->following_) {
-        if (script->unique_id_ == id)
+    for (Script* script = script_list_head(); script; script = script->following()) {
+        if (script->unique_id() == id)
             return script;
     }
     return nullptr;

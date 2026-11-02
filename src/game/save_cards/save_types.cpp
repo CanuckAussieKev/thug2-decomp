@@ -463,7 +463,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         Struct* own = objective_board()->goal_data_; // (the shared getter of +0x14)
         Struct* goal_manager_params = nullptr;       // (read, not used)
         own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
-        const objects::RiderStoryProgress* career = modules::Skate::sole()->career_.get();
+        const objects::RiderStoryProgress* career = modules::Skate::sole()->career().get();
         summary->put_int(kTotalScore, career->lifetime_funds_);
         summary->put_int(kTotalScorePotential, career->total_amount_);
         summary->put_int(kTotalGoalsComplete, career->total_counter_);

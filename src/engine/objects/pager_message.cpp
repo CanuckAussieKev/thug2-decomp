@@ -119,7 +119,7 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
     for (int i = 0; i < index && i < messages_.size; ++i)
         node = node->next;
     PagerMessage* message = node->value;
-    script->args_->put_sub_struct(kPagerMessage, message->params);
+    script->args()->put_sub_struct(kPagerMessage, message->params);
     message->read = true;
     return true;
 }
@@ -127,7 +127,7 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
 // 0x004EC980
 bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_int(0xC4D8D79A, messages_.size);
+    script->args()->put_int(0xC4D8D79A, messages_.size);
     return true;
 }
 
@@ -146,7 +146,7 @@ bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*param
         if (index == count)
             --index;
     }
-    script->args_->put_int(0x8FD8B4C3, index + 1);
+    script->args()->put_int(0x8FD8B4C3, index + 1);
     return true;
 }
 

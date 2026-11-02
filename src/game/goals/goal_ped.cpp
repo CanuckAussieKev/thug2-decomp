@@ -431,7 +431,7 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     }
     script::Script* script =
         script::spawn_script(kGoalPlayStream, play_params.get(), 0, nullptr, 0, 0, false, false, false, false);
-    script->entity_.assign_object(object);
+    script->entity().assign_object(object);
 }
 
 // 0x0055F960

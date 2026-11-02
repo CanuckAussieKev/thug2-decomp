@@ -404,7 +404,7 @@ bool update_records(bool edited_copy)
     modules::Skate* skate = modules::Skate::sole();
     if (edited_copy) {
         if (skate)
-            skate->new_record_ = false; // (no record new: as 0x00566F40 sets it before comparing)
+            skate->set_new_record(false); // (no record new: as 0x00566F40 sets it before comparing)
         get_log("records: not updated - the level is the level editor's edited copy (nothing done in it reaches the "
                 "records or the save)");
         return true;
@@ -439,6 +439,6 @@ bool cfunc_update_initials(script::Struct*, script::Script*)
 }
 
 // 0x005AFB30
-bool cfunc_new_record(script::Struct*, script::Script*) { return modules::Skate::sole()->new_record_; }
+bool cfunc_new_record(script::Struct*, script::Script*) { return modules::Skate::sole()->new_record(); }
 
 } // namespace highscores

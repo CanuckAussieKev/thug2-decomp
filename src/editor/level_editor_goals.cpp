@@ -824,7 +824,7 @@ uint32_t current_level()
     const modules::Skate* skate = modules::Skate::sole();
     if (!skate)
         return 0;
-    const uint32_t level = skate->level_;
+    const uint32_t level = skate->level();
     return level == 0xB664035D ? 0xE8B4B836 : level;
 }
 

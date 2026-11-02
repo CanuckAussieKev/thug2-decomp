@@ -464,7 +464,7 @@ bool is_intro_movie(const char* name)
 bool from_start_up_script(void* script)
 {
     static const uint32_t kStartUp = checksums::hash_from_text("startup_loading_screen");
-    return script && static_cast<script::Script*>(script)->script_title_ == kStartUp;
+    return script && static_cast<script::Script*>(script)->script_title() == kStartUp;
 }
 } // namespace
 

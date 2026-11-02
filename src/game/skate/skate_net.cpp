@@ -183,14 +183,14 @@ void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint
 // 0x0056E2B0
 void SkateNet::create_network_tasks(Skate* skate)
 {
-    core::at(skate->server_tasks_, 0) = std::make_unique<tasks::Task<Skate>>(&SkateNet::server_task, skate, -1000);
-    core::at(skate->server_tasks_, 1) = std::make_unique<tasks::Task<Skate>>(&SkateNet::score_task, skate, -1000);
+    core::at(skate->server_tasks(), 0) = std::make_unique<tasks::Task<Skate>>(&SkateNet::server_task, skate, -1000);
+    core::at(skate->server_tasks(), 1) = std::make_unique<tasks::Task<Skate>>(&SkateNet::score_task, skate, -1000);
 }
 
 // 0x00569530
 void SkateNet::delete_network_tasks(Skate* skate)
 {
-    for (std::unique_ptr<tasks::Task<Skate>>& task : skate->server_tasks_)
+    for (std::unique_ptr<tasks::Task<Skate>>& task : skate->server_tasks())
         memory::destroy_then_clear(task); // (the original left the pointers as they were)
 }
 
@@ -207,8 +207,8 @@ void SkateNet::launch_host(Skate* skate)
     auto* server = net->start_host_session(!auto_serving, true);
     if (!server)
         return;
-    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 0).get());
-    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 1).get());
+    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks(), 0).get());
+    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks(), 1).get());
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
     append_listener(server, 0x52, handle_combo_score, 0, skate);
     append_listener(server, 0x86, handle_game_stats, 0, skate);
@@ -320,7 +320,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     else if (context->type_code_ == 'V')
         get_run(kServerMovedOnDialog);
     params.reset();
-    if (skate->pending_level_ == kLoadMainMenu) {
+    if (skate->pending_level() == kLoadMainMenu) {
         net->cancel_join();
         net->set_entry_phase(10);
         return 2;
@@ -572,7 +572,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             params->append_word(kString0, kSymbolString, script::fetch_text(text.data()));
             get_run(kLeaderOtherTeam, params.get(), player_skater(local));
         }
-        net->last_leading_team_ = best;
+        net->set_last_leading_team(best);
         return 1;
     }
     // The leading player (none on a tie).
@@ -864,7 +864,7 @@ uint32_t entry_time(const StateEntry& entry) { return static_cast<uint32_t>(entr
 // The server's frame count (its app: the network manager's +4, read through 0x005480C0 - a folded getter).
 uint32_t server_frame()
 {
-    const net::AppHost* server = net_session_slot()->host_;
+    const net::AppHost* server = net_session_slot()->host();
     return static_cast<uint32_t>(server->frame_count_);
 }
 

@@ -36,7 +36,7 @@ constexpr uint32_t kMenuEvent = 0x36B2EE74;    // the pad events' target and sou
 constexpr uint32_t kDeviceNum = 0xC9428A08;    // "device_num"
 constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
-uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level() : 0; }
 
 uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident_; }
 

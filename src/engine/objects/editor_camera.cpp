@@ -103,7 +103,7 @@ private:
 
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
 void rail_editor_moving(int moved) { park_editing::RailAuthoring::sole()->change_live(moved != 0); }
-bool in_park_editor() { return modules::Skate::sole()->level_ == 0xE8B4B836; }
+bool in_park_editor() { return modules::Skate::sole()->level() == 0xE8B4B836; }
 
 } // namespace
 
@@ -544,7 +544,7 @@ void EditorViewModule::tick_frame()
     cursor_.w = static_cast<float>((static_cast<double>(d1) + b1) + cursor_.w);
     if (!place_cursor(previous, get_global(0xC7210318)))
         cursor_ = previous;
-    if (skate->level_ == 0xE8B4B836)
+    if (skate->level() == 0xE8B4B836)
         rail_editor_moving(1);
 
     // The camera: the focus follows the cursor (its height eased), the camera at the zoom along the tilt.

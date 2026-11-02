@@ -167,7 +167,7 @@ void d_3d_x_matrix_multiply(void* out, const void* a, const void* b) { d3dx::mat
 // The first player (observers too) for whom the PlayerRecord member `test` is true (0 / 1 in EAX: tested as AL).
 PlayerRecord* find_player(Hub* manager, int (PlayerRecord::*test)())
 {
-    for (const memory::ListNode* node = get_next_node(&manager->players_); auto* player = data_of<PlayerRecord>(node);
+    for (const memory::ListNode* node = get_next_node(&manager->players()); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
         if ((player->*test)() != 0)
             return player;
@@ -288,7 +288,7 @@ void Hub::set_ready_state(bool ready)
         return;
     cleared_to_start_ = ready;
     modules::Skate* skate = modules::Skate::sole();
-    const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
+    const unsigned int count = tally_nodes(skate->riders().list_link_.next);
     for (unsigned int i = 0; i < count; ++i) {
         auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (skater) { // (the original's skater slots 12 / 11)
@@ -448,7 +448,7 @@ void Hub::launch_queued_scripts()
                                                       false, false, false, false);
         objects::Entity* object = objects::object_hub_slot()
                                       ->look_up_entity(queued->entity_key_);
-        script->entity_.assign_value(object);
+        script->entity().assign_value(object);
         while (script->tick_frame() != script::kScriptOutcomeFinished) {
         }
         script::kill_spawned_script(script);
@@ -559,10 +559,8 @@ void Hub::disconnect_clients()
         net->release_app(client_slot(i));
         client_slot(i) = nullptr;
     }
-    if (spectator_pad_listener_) {
-        delete spectator_pad_listener_;
-        spectator_pad_listener_ = nullptr;
-    }
+    if (spectator_pad_listener_)
+        delete_spectator_pad_listener();
     net_game_state().set_text_entry(false);
     if (net_game_state().query_reporting()) {
         game_spy::get_qr2_shutdown(nullptr);
@@ -576,7 +574,7 @@ void Hub::disconnect_clients()
     if (cleared_to_start_) {
         cleared_to_start_ = false;
         modules::Skate* skate = modules::Skate::sole();
-        const unsigned int count = tally_nodes(skate->riders_.list_link_.next);
+        const unsigned int count = tally_nodes(skate->riders().list_link_.next);
         for (unsigned int i = 0; i < count; ++i) {
             auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
             if (skater)
@@ -831,6 +829,12 @@ void release_manager()
     }
     net_game_state().set_online_hub(nullptr);
     references = 0;
+}
+
+void Hub::delete_spectator_pad_listener()
+{
+    delete spectator_pad_listener_;
+    spectator_pad_listener_ = nullptr;
 }
 
 } // namespace online

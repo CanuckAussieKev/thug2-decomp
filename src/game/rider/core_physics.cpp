@@ -177,16 +177,16 @@ void log_rail_boost(script::Script* script, float before, float after, float hei
         return;
     static const auto kLoops = std::to_array<uint32_t>({checksums::hash_from_text("RailAccelerate2"),
                                       checksums::hash_from_text("ed_RailSpeedLoop")});
-    if (script->script_title_ != core::at(kLoops, 0) && script->script_title_ != core::at(kLoops, 1))
+    if (script->script_title() != core::at(kLoops, 0) && script->script_title() != core::at(kLoops, 1))
         return;
     static RailBoostLog log;
     auto now = std::chrono::steady_clock::now();
     auto seconds = [](std::chrono::steady_clock::duration d) { return std::chrono::duration<double>(d).count(); };
     if (script != log.script || seconds(now - log.last) > 0.5) {
         float rate = 0.0f;
-        script->args_->fetch_float(checksums::hash_from_text("rate"), &rate, 0);
+        script->args()->fetch_float(checksums::hash_from_text("rate"), &rate, 0);
         get_log("rail speed-up: %s boosting (rate %.3f): speed %.0f -> %.0f, height %.0f",
-                script->script_title_ == core::at(kLoops, 0) ? "RailAccelerate2" : "ed_RailSpeedLoop", rate, before, after,
+                script->script_title() == core::at(kLoops, 0) ? "RailAccelerate2" : "ed_RailSpeedLoop", rate, before, after,
                 height);
         log.script = script;
         log.window_start_ = now;

@@ -139,8 +139,8 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     script::Array* levels = nullptr;
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;
-    objects::RiderStoryProgress* career = skate->career_.get();
-    const goals::GoalManager* goal_manager = skate->goal_manager_.get();
+    objects::RiderStoryProgress* career = skate->career().get();
+    const goals::GoalManager* goal_manager = skate->goal_manager().get();
     script::Struct* saved = goal_manager ? goal_manager->goal_data_ : nullptr;
     if (!career || !saved)
         return false;

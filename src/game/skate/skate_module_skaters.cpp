@@ -638,7 +638,7 @@ void Skate::test_rider_contacts()
         if (static_cast<uint8_t>(as_player(player)->is_own_player()))
             continue;
         net::NetMessageInfo desc;
-        net::AppHost* server = net->host_; // (0x005480C0)
+        net::AppHost* server = net->host(); // (0x005480C0)
         auto id = static_cast<uint8_t>(king->ident_);
         desc.content_ = &id;
         desc.byte_count_ = 1;
@@ -674,14 +674,14 @@ bool Skate::cfunc_reset_level(script::Struct*, script::Script* script)
     uint8_t spawned = 0;
     Skate* skate = sole();
     if (script) {
-        spawned = script->spawn_flags_ & script::kScriptFlagSpawned;
-        script->spawn_flags_ &= ~script::kScriptFlagSpawned;
+        spawned = script->spawn_flags() & script::kScriptFlagSpawned;
+        script->spawn_flags() &= ~script::kScriptFlagSpawned;
     }
     memory::enter_heap_scope(memory::bottom_up_heap());
     skate->reset_level();
     memory::leave_heap_scope();
     if (script)
-        script->spawn_flags_ = static_cast<uint8_t>((script->spawn_flags_ & ~script::kScriptFlagSpawned) | spawned);
+        script->spawn_flags() = static_cast<uint8_t>((script->spawn_flags() & ~script::kScriptFlagSpawned) | spawned);
     return true;
 }
 

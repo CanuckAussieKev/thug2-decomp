@@ -231,7 +231,7 @@ bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
     params->read_hash_value(kId, &id, 0);
     ElementPtr element;
     hub()->spawn_part(&element, type, id, params);
-    script->args_->put_name_key(kId, element->ident_);
+    script->args()->put_name_key(kId, element->ident_);
     return true;
 }
 
@@ -268,7 +268,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
         element.get_pull()->invoke_method_by_name(name, script_params, script);
     } else if (Script* spawned = script::spawn_script(name, script_params, callback, callback_params, 0, 0, false,
                                                       false, false, false)) {
-        spawned->entity_.assign_value(element.get_pull());
+        spawned->entity().assign_value(element.get_pull());
         spawned->tick_frame();
     }
     return true;
@@ -311,8 +311,8 @@ bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* scrip
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown_.scale_x_) * element->span_));
     const int height =
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown_.scale_y_) * element->level_y_));
-    script->args_->put_int(kWidth, width);
-    script->args_->put_int(kHeight, height);
+    script->args()->put_int(kWidth, width);
+    script->args()->put_int(kHeight, height);
     return true;
 }
 
@@ -331,12 +331,12 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
         params->has_bare_flag(kDontAssert);
         return false;
     }
-    element.get_pull()->get_properties(script->args_.get());
+    element.get_pull()->get_properties(script->args().get());
     if (element->kind_tag_ == kElement3d) {
         auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
-        script->args_->push_float(kAngleX, core::at(e3d->angle(), 0));
-        script->args_->push_float(kAngleY, core::at(e3d->angle(), 1));
-        script->args_->push_float(kAngleZ, core::at(e3d->angle(), 2));
+        script->args()->push_float(kAngleX, core::at(e3d->angle(), 0));
+        script->args()->push_float(kAngleY, core::at(e3d->angle(), 1));
+        script->args()->push_float(kAngleZ, core::at(e3d->angle(), 2));
     }
     return true;
 }
@@ -371,7 +371,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
     array->configure_size_kind(count, script::kQbvalName);
     for (int i = 0; i < count; ++i)
         array->set_element(i, element->find_child_at_slot(i)->ident_);
-    script->args_->append_array_ref(kChildren, array);
+    script->args()->append_array_ref(kChildren, array);
     return true;
 }
 
@@ -412,10 +412,10 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
     hub()->resolve_element(&element, params, kId, 1);
     if (element->kind_tag_ == kTextBlockElement) {
         if (text_block_string(element.get_pull(), text.data(), sizeof(text)))
-            script->args_->append_word(kString, text.data());
+            script->args()->append_word(kString, text.data());
     } else if (element->kind_tag_ == kTextElement) {
         if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars_)
-            script->args_->append_word(kString, string);
+            script->args()->append_word(kString, string);
     }
     return false;
 }
@@ -432,7 +432,7 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
         length = get_text_length(element.get_pull());
     else
         return false;
-    script->args_->put_int(kLength, length);
+    script->args()->put_int(kLength, length);
     return true;
 }
 
@@ -443,7 +443,7 @@ bool cfunc_get_screen_element_position(script::Struct* params, script::Script* s
     hub()->resolve_element(&element, params, kId, 1);
     float x = 0.0f, y = 0.0f;
     element->get_top_left(&x, &y);
-    script->args_->insert_pair(kScreenElementPos, x, y);
+    script->args()->insert_pair(kScreenElementPos, x, y);
     return true;
 }
 

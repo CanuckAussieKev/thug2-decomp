@@ -290,12 +290,12 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
             --component->frames_before_check_;
             continue;
         }
-        if (!camera->no_camera_ && !component->never_suspend_) {
+        if (!camera->no_camera() && !component->never_suspend_) {
             if (component->frames_before_lod_) {
                 --component->frames_before_lod_;
             } else {
                 const maths::Vec4& pos = component->entity_->at_point_;
-                const maths::Vec4& at = camera->viewer_pos_;
+                const maths::Vec4& at = camera->viewer_pos();
                 const double dx = static_cast<double>(pos.x) - at.x;
                 const double dy = static_cast<double>(pos.y) - at.y;
                 const double dz = static_cast<double>(pos.z) - at.z;

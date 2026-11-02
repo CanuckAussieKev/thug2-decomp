@@ -79,7 +79,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
     void* skate = skate_calls::get_skate();
     PlayerSearch search;
     if (send) {
-        net::AppHost* server = net->host_; // (0x005480C0)
+        net::AppHost* server = net->host(); // (0x005480C0)
         net::Conn* conn = nullptr;
         if (const objects::Rider* skater = rider_for_slot(rider_no_)) {
             if (auto* info = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_))))

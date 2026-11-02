@@ -287,7 +287,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return 0;
     }
     case kGetEditingMode:
-        script->args_.get()->put_name_key(kMode, mode_sel_);
+        script->args().get()->put_name_key(kMode, mode_sel_);
         return 1;
     case kDeleteRailPoint: {
         uint32_t id = 0;
@@ -334,7 +334,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     case kGetCursorPosition: {
         const Vec4& target = viewer_location(view_camera_);
         auto y = static_cast<float>(static_cast<double>(target.y) + camera_height(view_camera_));
-        script::Struct* results = script->args_.get();
+        script::Struct* results = script->args().get();
         results->put_vec3(kPos, target.x, y, target.z);
         results->push_float(kAngle,
                             static_cast<float>(static_cast<double>(camera_heading(view_camera_)) * kAngleScaleToDeg));
@@ -376,8 +376,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
             rail = active_node_;
         if (!rail)
             return 0;
-        script->args_.get()->put_name_key(kRailId, rail->ident_);
-        script->args_.get()->put_int(kNumPoints, rail->rail_point_total());
+        script->args().get()->put_name_key(kRailId, rail->ident_);
+        script->args().get()->put_int(kNumPoints, rail->rail_point_total());
         return 1;
     }
     default:

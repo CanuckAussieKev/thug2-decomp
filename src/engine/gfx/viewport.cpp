@@ -337,7 +337,7 @@ bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 // 0x004A08A0
 bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
-    script::Struct* results = script->args_.get();
+    script::Struct* results = script->args().get();
     auto mode = static_cast<uint32_t>(view_setup().screen_mode_setting());
     results->put_name_key(kScreenMode, mode <= 5 ? core::at(kModeNames, mode) : 0u);
     return true;

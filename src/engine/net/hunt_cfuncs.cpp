@@ -64,7 +64,7 @@ auto& placed_positions(online::PlayerRecord* player) { return player->placed_; }
 // The player whose skater the script runs on (null without an object or a player).
 online::PlayerRecord* script_player(script::Script* script)
 {
-    const objects::Entity* object = script->entity_.get_pull();
+    const objects::Entity* object = script->entity().get_pull();
     if (!object)
         return nullptr;
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident_));
@@ -75,7 +75,7 @@ void announce_to_players(uint8_t id, bool remote_only)
 {
     Hub* manager = net_session_slot();
     net::NetMessageInfo desc;
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     online::detail::PlayerSearch search;
     for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &search, true); player;
          player = online::detail::step_roster_sweep(manager, &search, true)) {
@@ -97,7 +97,7 @@ bool cfunc_place_object(script::Struct* params, script::Script* script)
     online::PlayerRecord* player = script_player(script);
     if (!player)
         return false;
-    script->args_->put_int(kIndex, placed_count(player));
+    script->args()->put_int(kIndex, placed_count(player));
     script::VectorValue pos = {}; // (uninitialised in the original without pos)
     params->fetch_vec(kPos, &pos, 0);
     core::at(placed_positions(player), placed_count(player)++) = pos;
@@ -218,7 +218,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     online::detail::PlayerSearch others;
     online::detail::PlayerSearch receivers;
     net::NetMessageInfo desc;
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     online::HuntPlacements msg;
     std::array<uint8_t, online::kHuntPlacementsSize> data{};
     desc.ident_ = kMsgObjectPlacements;

@@ -694,7 +694,7 @@ using mouse_menus::is_menu;
 using mouse_menus::selected_index;
 
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level() : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 
 UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
@@ -783,9 +783,9 @@ bool struct_denied(script::Struct* params, int depth)
 bool handlers_denied(const UiWidget* element, bool choose_only)
 {
     const script::Script* script = element->own_script_;
-    if (!script || !script->signal_routes_)
+    if (!script || !script->signal_routes())
         return false;
-    const objects::SignalRouteTable* table = script->signal_routes_;
+    const objects::SignalRouteTable* table = script->signal_routes();
     for (const objects::SignalRouteTable::TableRow& entry : table->entries()) {
         if (entry.script == objects::kNullScript)
             continue;

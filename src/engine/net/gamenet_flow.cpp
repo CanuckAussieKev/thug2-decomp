@@ -124,7 +124,7 @@ constexpr uint32_t kNewPlayerLocal = 1;
 constexpr uint32_t kNewPlayerObserver = 4;
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
-prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
+prefs::Preferences* net_game_options(Hub* m) { return &m->net_options(); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 prefs::Preferences* game_preferences(Hub* m)
 {
@@ -449,7 +449,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     if (!conn || !(manager->join_phase_ == 8 || manager->join_phase_ == 7 || manager->join_phase_ == 6) ||
         conn->get_silence_duration() <= kSilentTimeout)
         return;
-    if (skate->level_ == kLoadMainMenu) {
+    if (skate->level() == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
         manager->join_phase_job_->drop_out();
         manager->join_phase_ = 10;

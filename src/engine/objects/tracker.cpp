@@ -469,8 +469,8 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
             return;
     }
     Waiter& waiter = core::at(waiters_, slot);
-    waiter.script_id_ = script->unique_id_;
-    waiter.object_id_ = script->entity_ ? current_object_id(script->entity_.get_pull()) : 0;
+    waiter.script_id_ = script->unique_id();
+    waiter.object_id_ = script->entity() ? current_object_id(script->entity().get_pull()) : 0;
     waiter.type = type;
     script->gate_off(0);
 }
@@ -513,7 +513,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
         auto in_range = [&](script::Script* script) {
             if (!(radius >= 0.0f))
                 return true;
-            Entity* object = script->entity_.get_pull();
+            Entity* object = script->entity().get_pull();
             if (!object || !has_position(object))
                 return true;
             const double distance = maths::get_distance_squared(source_position, get_position(object));
@@ -547,7 +547,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             const ScriptNode* node = list->following_->is_head() ? nullptr : list->following_;
             for (int i = 0; node; ++i) {
                 core::at(scripts, i) = node->payload_;
-                core::at(pointers, i).assign_value(&node->payload_->shared_base_);
+                core::at(pointers, i).assign_value(&node->payload_->shared_base());
                 node = node->following_;
                 if (node->is_head())
                     break;
@@ -573,7 +573,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             waiter.type = 0;
             if (script::Script* script = script::find_script_with_unique_id(waiter.script_id_)) {
                 script->stop_waiting();
-                event.set_event_handled(2, script->script_title_);
+                event.set_event_handled(2, script->script_title());
                 break;
             }
         }
@@ -690,7 +690,7 @@ bool cfunc_assign_alias(script::Struct* params, script::Script* /*script*/)
 bool cfunc_launch_event(script::Struct* params, script::Script* script)
 {
     auto own_object = [&]() {
-        return script && script->entity_ ? current_object_id(script->entity_.get_pull()) : kNoObjectId;
+        return script && script->entity() ? current_object_id(script->entity().get_pull()) : kNoObjectId;
     };
     uint32_t target = 0;
     if (!get_object_id(params, kTarget, &target))
@@ -705,7 +705,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     params->fetch_float(kRadius, &radius, 0);
     EventWaitBoard* tracker = get_tracker();
     // Whether this launch comes from a script with a name (only for the log).
-    auto from_script = [&]() { return script && script->script_title_ ? 1 : 0; };
+    auto from_script = [&]() { return script && script->script_title() ? 1 : 0; };
 
     uint32_t type = 0;
     if (params->read_hash_value(kType, &type, 0)) {

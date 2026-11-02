@@ -611,6 +611,99 @@ public:
     // Client `index` (0 or 1): the game's own, or the second.
     net::AppHost*& client_slot(int index) { return index == 0 ? client_app_ : client1_; }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint8_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] net::AppHost* host() const { return host_; }
+    [[nodiscard]] net::AppHost* client_app() const { return client_app_; }
+    memory::HeapUnique<RoomManager>& lobby_service() { return lobby_service_; }
+    [[nodiscard]] const memory::HeapUnique<RoomManager>& lobby_service() const { return lobby_service_; }
+    memory::HeapUnique<VaultMan>& vault_man() { return vault_man_; }
+    [[nodiscard]] const memory::HeapUnique<VaultMan>& vault_man() const { return vault_man_; }
+    memory::HeapUnique<FriendsManager>& presence_service() { return presence_service_; }
+    [[nodiscard]] const memory::HeapUnique<FriendsManager>& presence_service() const { return presence_service_; }
+    memory::HeapUnique<RankingsManager>& rating_service() { return rating_service_; }
+    [[nodiscard]] const memory::HeapUnique<RankingsManager>& rating_service() const { return rating_service_; }
+    [[nodiscard]] uint32_t level() const { return level_; }
+    void set_level(uint32_t value) { level_ = value; }
+    void set_match_ended(bool value) { match_ended_ = value; }
+    void set_cheating_noted(bool value) { cheating_noted_ = value; }
+    [[nodiscard]] int host_mode() const { return host_mode_; }
+    void set_show_scores(bool value) { show_scores_ = value; }
+    std::array<int, 8>& start_points() { return start_points_; }
+    [[nodiscard]] const std::array<int, 8>& start_points() const { return start_points_; }
+    [[nodiscard]] int crown_start() const { return crown_start_; }
+    void set_crown_start(int value) { crown_start_ = value; }
+    [[nodiscard]] objects::CrownObject* crown() const { return crown_; }
+    void set_crown(objects::CrownObject* value) { crown_ = value; }
+    std::array<std::array<uint32_t, 5>, 4>& team_objects() { return team_objects_; }
+    [[nodiscard]] const std::array<std::array<uint32_t, 5>, 4>& team_objects() const { return team_objects_; }
+    std::unique_ptr<tasks::SchedulerTask>& score_broadcast_job() { return score_broadcast_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& score_broadcast_job() const { return score_broadcast_job_; }
+    std::unique_ptr<tasks::SchedulerTask>& guest_admit_job() { return guest_admit_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& guest_admit_job() const { return guest_admit_job_; }
+    std::unique_ptr<tasks::SchedulerTask>& keyboard_job() { return keyboard_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& keyboard_job() const { return keyboard_job_; }
+    std::unique_ptr<tasks::SchedulerTask>& service_job() { return service_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& service_job() const { return service_job_; }
+    std::unique_ptr<tasks::SchedulerTask>& join_phase_job() { return join_phase_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& join_phase_job() const { return join_phase_job_; }
+    std::unique_ptr<tasks::SchedulerTask>& start_game_job() { return start_game_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& start_game_job() const { return start_game_job_; }
+    std::unique_ptr<tasks::SchedulerTask>& level_change_job() { return level_change_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& level_change_job() const { return level_change_job_; }
+    std::unique_ptr<tasks::SchedulerTask>& flag_carry_job() { return flag_carry_job_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& flag_carry_job() const { return flag_carry_job_; }
+    void set_spectator_pad_listener(gsl::owner<pad_input::InputHandler*> value) { spectator_pad_listener_ = value; }
+    // The observer's pad listener deleted (where observing ends; gamenet_player_lists.cpp).
+    void delete_spectator_pad_listener();
+    prefs::Preferences& net_options() { return net_options_; }
+    [[nodiscard]] const prefs::Preferences& net_options() const { return net_options_; }
+    memory::ListNode& players() { return players_; }
+    [[nodiscard]] const memory::ListNode& players() const { return players_; }
+    [[nodiscard]] const memory::ListNode& joiners() const { return joiners_; }
+    [[nodiscard]] const memory::ListNode& queued_scripts() const { return queued_scripts_; }
+    memory::ListNode& servers() { return servers_; }
+    [[nodiscard]] const memory::ListNode& servers() const { return servers_; }
+    memory::ListNode& waiting_servers() { return waiting_servers_; }
+    [[nodiscard]] const memory::ListNode& waiting_servers() const { return waiting_servers_; }
+    void set_last_ready_probe_id(uint32_t value) { last_ready_probe_id_ = value; }
+    [[nodiscard]] bool cleared_to_start() const { return cleared_to_start_; }
+    [[nodiscard]] uint32_t script_flag_bits() const { return script_flag_bits_; }
+    [[nodiscard]] int join_phase() const { return join_phase_; }
+    void set_join_phase(int value) { join_phase_ = value; }
+    int& modem_state_shown() { return modem_state_shown_; }
+    [[nodiscard]] int modem_state_shown() const { return modem_state_shown_; }
+    [[nodiscard]] int join_began_at() const { return join_began_at_; }
+    [[nodiscard]] bool match_being_set_up() const { return match_being_set_up_; }
+    void set_match_being_set_up(bool value) { match_being_set_up_ = value; }
+    void set_awaiting_start(bool value) { awaiting_start_ = value; }
+    [[nodiscard]] int service_state() const { return service_state_; }
+    void assign_service_state(int value) { service_state_ = value; }
+    [[nodiscard]] int next_service_state() const { return next_service_state_; }
+    void assign_next_service_state(int value) { next_service_state_ = value; }
+    [[nodiscard]] uint32_t service_wake_at() const { return service_wake_at_; }
+    void set_service_wake_at(uint32_t value) { service_wake_at_ = value; }
+    [[nodiscard]] PlayerRecord* viewed_player() const { return viewed_player_; }
+    void set_viewed_player(PlayerRecord* value) { viewed_player_ = value; }
+    void set_last_leading_team(int value) { last_leading_team_ = value; }
+    std::array<uint8_t, 0x6400>& news_buffer() { return news_buffer_; }
+    [[nodiscard]] const std::array<uint8_t, 0x6400>& news_buffer() const { return news_buffer_; }
+    [[nodiscard]] const char* motd_text() const { return motd_text_; }
+    void set_motd_text(const char* value) { motd_text_ = value; }
+    void set_pending_data(uint8_t* value) { pending_data_ = value; }
+    void set_pending_data_size(uint32_t value) { pending_data_size_ = value; }
+    [[nodiscard]] int request() const { return request_; }
+    void set_request(int value) { request_ = value; }
+    [[nodiscard]] uint32_t request_started_at() const { return request_started_at_; }
+    void set_request_started_at(uint32_t value) { request_started_at_ = value; }
+    [[nodiscard]] bool download_done() const { return download_done_; }
+    void set_download_done(bool value) { download_done_ = value; }
+    [[nodiscard]] bool motd_received() const { return motd_received_; }
+    void set_motd_received(bool value) { motd_received_ = value; }
+    [[nodiscard]] bool services_available() const { return services_available_; }
+    void set_services_available(bool value) { services_available_ = value; }
+
+private:
     uint8_t flag_bits_{0}; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     std::array<uint8_t, 3> unknown1_{};
     net::AppHost* host_;                                  // +0x04

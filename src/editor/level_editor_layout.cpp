@@ -723,7 +723,7 @@ bool in_net_game()
 uint32_t current_load()
 {
     const modules::Skate* skate = modules::Skate::sole();
-    return skate ? skate->level_ : 0;
+    return skate ? skate->level() : 0;
 }
 
 std::string get_folder() { return game_folder_path("thug2-decomp-layouts"); }
@@ -1691,7 +1691,7 @@ bool cfunc_pick_level(script::Struct* params, script::Script*)
 
 bool cfunc_edited_levels(script::Struct*, script::Script* script)
 {
-    if (!script || !script->args_ || get_refused())
+    if (!script || !script->args() || get_refused())
         return false;
     std::vector<uint32_t> saved = saved_scenes();
     if (saved.empty())
@@ -1744,8 +1744,8 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     array->configure_size_kind(static_cast<uint32_t>(entries.size()), script::kQbvalStruct);
     for (size_t i = 0; i < entries.size(); ++i)
         array->set_cell(static_cast<uint32_t>(i), script::Cell::of(core::at(entries, i)));
-    script->args_->append_array_ref("edited_list", array);
-    script->args_->put_int("edited_count", static_cast<int>(entries.size()));
+    script->args()->append_array_ref("edited_list", array);
+    script->args()->put_int("edited_count", static_cast<int>(entries.size()));
     return true;
 }
 

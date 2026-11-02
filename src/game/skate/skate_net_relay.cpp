@@ -159,7 +159,7 @@ void enqueue(net::AppHost* app, PlayerRecord* player, net::NetMessageInfo* desc)
     const int handle = player->get_link_handle();
     app->put_on_outbox(handle, desc);
 }
-net::AppHost* server_app() { return net_link()->host_; }
+net::AppHost* server_app() { return net_link()->host(); }
 
 objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 
@@ -1104,14 +1104,14 @@ int SkateNet::handle_run_script_now(net::InboundMsgCtx* context)
     online::SpawnScript message;
     if (!online::read_spawn_script(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
-    if (!net->cleared_to_start_) {
+    if (!net->cleared_to_start()) {
         net->queue_script(message.node, message.object_id, message.name);
         return 1;
     }
     objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
     script::Script* script =
         script::spawn_script(message.name, nullptr, 0, nullptr, message.node, 0, false, false, false, false);
-    script->entity_.assign_value(object);
+    script->entity().assign_value(object);
     script->tick_frame();
     return 1;
 }
@@ -1270,7 +1270,7 @@ void Skate::send_cheats(online::PlayerRecord* player)
     desc.byte_count_ = static_cast<uint16_t>(writer.position());
     get_sequence(desc, 8);
     const int handle = player->get_link_handle();
-    net->host_->put_on_outbox(handle, &desc);
+    net->host()->put_on_outbox(handle, &desc);
 }
 
 // 0x0056BB70

@@ -858,7 +858,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
         return true;
     }
     if (name == kGetProps) {
-        get_properties(script->args_.get());
+        get_properties(script->args().get());
         return true;
     }
     return objects::Entity::invoke_method_by_name(name, params, script);

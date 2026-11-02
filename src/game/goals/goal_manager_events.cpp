@@ -297,7 +297,7 @@ bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script
     params->fetch_int_value(0u, &level, 1);
     GoalManager* manager = get_objective_board();
     const int flag = params->has_bare_flag(kBeatenInLevelFlag);
-    script->args_->put_int(kClearedCount, manager->count_cleared_in_stage(level, flag));
+    script->args()->put_int(kClearedCount, manager->count_cleared_in_stage(level, flag));
     return true;
 }
 
@@ -325,7 +325,7 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
         entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
         list->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
-    script->args_->append_array_value(kGoalList, list.get());
+    script->args()->append_array_value(kGoalList, list.get());
     list.reset();
     return true;
 }
@@ -347,8 +347,8 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
         return manager->goals_.get_pull(name)->swap_move_caption();
     std::array<char, 0x200> replaced{};
     if (manager->swap_move_caption(name, text, replaced.data(), sizeof(replaced))) {
-        script->args_->erase_module(kTrickText);
-        script->args_->append_word(kTrickText, replaced.data());
+        script->args()->erase_module(kTrickText);
+        script->args()->append_word(kTrickText, replaced.data());
     }
     return true;
 }
@@ -357,7 +357,7 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
 bool cfunc_goal_manager_get_goal_attempt_info(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
-    script::Struct* results = script->args_.get();
+    script::Struct* results = script->args().get();
     results->append_struct_ref(kTryDetails, manager->get_objective_try_details());
     return true;
 }
@@ -368,7 +368,7 @@ bool cfunc_goal_manager_get_view_goals_info(script::Struct* params, script::Scri
     GoalManager* manager = get_objective_board();
     uint32_t skater = 0;
     params->read_hash_value(kSkater, &skater, 0);
-    manager->get_view_goals_info(script->args_.get(), skater);
+    manager->get_view_goals_info(script->args().get(), skater);
     return true;
 }
 

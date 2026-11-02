@@ -238,7 +238,7 @@ void Balance::tick_frame()
     if (!left_button_ || !right_press_)
         return;
     auto* net = online::net_game_state().online_hub();
-    if (net->host_)                                                           // (the folded getter 0x005480C0)
+    if (net->host())                                                           // (the folded getter 0x005480C0)
         net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident_)); // (its result unused)
     // The cheese wears off.
     if (cheese_ > 0.01f) {

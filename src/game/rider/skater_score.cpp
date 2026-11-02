@@ -50,7 +50,7 @@ int score_pot(modules::PointTally* score)
 int last_score_landed(modules::PointTally* score) { return score->pot_score(); }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
-RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
+RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
 // The unnamed integer (asserted). Without one the original's variable keeps what was in its stack slot - the
 // `params` argument it reuses - so that's the value then.
@@ -142,7 +142,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         return score_pot(points_held_) > value ? 1 : 0;
     }
     case kGetSpecialValue:
-        script->args_->put_int(kValue, points_held_->special());
+        script->args()->put_int(kValue, points_held_->special());
         return 1;
     case kSetSpecialValue: {
         // (no value: the params pointer, as number_parameter's)
@@ -157,10 +157,10 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         get_score_of(points_held_)->fill_special();
         return 1;
     case kGetTotalScore:
-        script->args_->put_int(kTotalScore, total_score(points_held_));
+        script->args()->put_int(kTotalScore, total_score(points_held_));
         return 1;
     case kGetNumberOfNonGapTricks:
-        script->args_->put_int(kNumberOfNonGapTricks, get_score_of(points_held_)->count_non_gap_tricks());
+        script->args()->put_int(kNumberOfNonGapTricks, get_score_of(points_held_)->count_non_gap_tricks());
         return 1;
     case kTweakTrick: {
         int tweak = 0;

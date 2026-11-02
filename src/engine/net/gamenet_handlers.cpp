@@ -103,7 +103,7 @@ void get_cd_key(char* key)
 // 0x0052D7B0
 int on_ready_ask_msg(net::InboundMsgCtx* context)
 {
-    manager_of(context)->last_ready_probe_id_ = message_word(context, 0);
+    manager_of(context)->set_last_ready_probe_id(message_word(context, 0));
     return kContinue;
 }
 
@@ -270,7 +270,7 @@ int handle_ready_to_play(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
     if (!context->receiver_app_->is_host_local())
-        logic_tasks->queue_job(manager->guest_admit_job_.get());
+        logic_tasks->queue_job(manager->guest_admit_job().get());
     return kContinue;
 }
 
@@ -351,7 +351,7 @@ int handle_team_object(net::InboundMsgCtx* context)
     if (!player)
         return kDone;
     const uint32_t object = message_word(context, 0);
-    auto& objects = core::at(manager->team_objects_, player->team_); // five per team
+    auto& objects = core::at(manager->team_objects(), player->team_); // five per team
     for (uint32_t& slot : objects) {
         if (!slot) {
             slot = object;
@@ -369,7 +369,7 @@ int handle_cd_key_answer(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     const uint32_t id = player->skater_->ident_; // its skater's id
-    manager->rating_service_->set_player_auth(static_cast<int>(id), net::wire::text_of(context->body_));
+    manager->rating_service()->set_player_auth(static_cast<int>(id), net::wire::text_of(context->body_));
     return kContinue;
 }
 

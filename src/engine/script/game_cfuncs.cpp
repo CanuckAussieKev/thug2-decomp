@@ -308,7 +308,7 @@ bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
 bool cfunc_get_custom_skater_filename(script::Struct*, script::Script* script)
 {
     objects::RiderIdentity* profile = current_account();
-    script->args_->append_word(kCustomSkaterFile, profile->get_string_f_36c_1878());
+    script->args()->append_word(kCustomSkaterFile, profile->get_string_f_36c_1878());
     return true;
 }
 
@@ -353,10 +353,10 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return false;
-    script->args_->push_float(kLeftX, core::at(pad.scaled_stick_, 2));
-    script->args_->push_float(kLeftY, core::at(pad.scaled_stick_, 3));
-    script->args_->push_float(kRightX, core::at(pad.scaled_stick_, 0));
-    script->args_->push_float(kRightY, core::at(pad.scaled_stick_, 1));
+    script->args()->push_float(kLeftX, core::at(pad.scaled_stick_, 2));
+    script->args()->push_float(kLeftY, core::at(pad.scaled_stick_, 3));
+    script->args()->push_float(kRightX, core::at(pad.scaled_stick_, 0));
+    script->args()->push_float(kRightY, core::at(pad.scaled_stick_, 1));
     return true;
 }
 
@@ -394,7 +394,7 @@ bool cfunc_node_array_man_unload(script::Struct* params, script::Script*)
 // preference).
 bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
 {
-    script::Struct* results = script->args_.get();
+    script::Struct* results = script->args().get();
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -410,7 +410,7 @@ bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
 // characters (in a static buffer, 0x007CEBD0, unchecked), as the script's password_string.
 bool cfunc_get_preference_password(script::Struct* params, script::Script* script)
 {
-    script::Struct* results = script->args_.get();
+    script::Struct* results = script->args().get();
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -430,7 +430,7 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
 // 0x0059FD00: GetPreferenceChecksum <field> pref_type=<type>: the preference's checksum, as the script's checksum.
 bool cfunc_get_preference_checksum(script::Struct* params, script::Script* script)
 {
-    script::Struct* results = script->args_.get();
+    script::Struct* results = script->args().get();
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -505,8 +505,8 @@ bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         const objects::PreviewEntity* object = viewer_target(viewer);
-        script->args_->put_name_key(0x0830ECAF, object->ident_);
-        script->args_->put_name_key(0x52280066, object->ident_);
+        script->args()->put_name_key(0x0830ECAF, object->ident_);
+        script->args()->put_name_key(0x52280066, object->ident_);
     }
     return true;
 }
@@ -667,7 +667,7 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
     switch (node_class) {
     case kClassClimbingNode:
     case kClassRailNode:
-        modules::Skate::sole()->rail_manager_->move_node(name, &position);
+        modules::Skate::sole()->rail_manager()->move_node(name, &position);
         return true;
     case 0xA0DFAC98: // Pedestrian
     case 0x061A741E: // (name unknown)

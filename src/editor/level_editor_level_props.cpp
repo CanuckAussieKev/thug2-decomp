@@ -299,7 +299,7 @@ PropsWritten& props_written()
 script::Struct* current_level_structure()
 {
     const modules::Skate* skate = modules::Skate::sole();
-    const uint32_t load = skate ? skate->level_ : 0;
+    const uint32_t load = skate ? skate->level() : 0;
     if (!load)
         return nullptr;
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");

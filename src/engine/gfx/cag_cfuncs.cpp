@@ -236,8 +236,8 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
         x = x * -1.0f;
     if (negate_y)
         y = y * -1.0f;
-    script->args_->push_float(kX, x);
-    script->args_->push_float(kY, y);
+    script->args()->push_float(kX, x);
+    script->args()->push_float(kY, y);
     return true;
 }
 

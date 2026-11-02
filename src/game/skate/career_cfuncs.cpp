@@ -72,11 +72,11 @@ bool cfunc_get_career_level_score(script::Struct* params, script::Script* script
     objects::RiderStoryProgress* career = get_career();
     int level = career->fetch_stage();
     params->fetch_int_value(kLevel, &level, 0);
-    script->args_->put_int(kLevelScore, core::at(career->funds_, level));
-    script->args_->put_int(kLevelScoreTotal, core::at(career->amount_, level));
+    script->args()->put_int(kLevelScore, core::at(career->funds_, level));
+    script->args()->put_int(kLevelScoreTotal, core::at(career->amount_, level));
     if (params->has_bare_flag(kGetTotal)) {
-        script->args_->put_int(kTotalScore, career->lifetime_funds_);
-        script->args_->put_int(kTotalScorePotential, career->total_amount_);
+        script->args()->put_int(kTotalScore, career->lifetime_funds_);
+        script->args()->put_int(kTotalScorePotential, career->total_amount_);
     }
     return true;
 }
@@ -98,10 +98,10 @@ bool cfunc_get_classic_level_goal_count(script::Struct* params, script::Script* 
     objects::RiderStoryProgress* career = get_career();
     int level = career->fetch_stage();
     params->fetch_int_value(kLevel, &level, 0);
-    script->args_->put_int(kClassicGoalCount, career->get_counter(level));
+    script->args()->put_int(kClassicGoalCount, career->get_counter(level));
     if (params->has_bare_flag(kGetTotal)) {
-        script->args_->put_int(kTotalGoalsComplete, career->total_counter_);
-        script->args_->put_int(kTotalGoalsPossible, career->flag_5e_f_);
+        script->args()->put_int(kTotalGoalsComplete, career->total_counter_);
+        script->args()->put_int(kTotalGoalsPossible, career->flag_5e_f_);
     }
     return true;
 }
@@ -119,7 +119,7 @@ bool cfunc_set_classic_total_goals(script::Struct* params, script::Script*)
 // 0x005AEC20: GetCurrentChapter - the career's chapter as chapter.
 bool cfunc_get_current_chapter(script::Struct*, script::Script* script)
 {
-    script->args_->put_int(kChapter, get_career()->value634_);
+    script->args()->put_int(kChapter, get_career()->value634_);
     return true;
 }
 
@@ -251,7 +251,7 @@ bool cfunc_get_global_flag(script::Struct* params, script::Script*)
 bool cfunc_profile_equals(script::Struct* params, script::Script* script)
 {
     if (script) {
-        objects::Entity* object = script->entity_.get_pull();
+        objects::Entity* object = script->entity().get_pull();
         if (object && object->kind_tag_ == kSkaterType)
             return core::down_cast<objects::Rider>(object)->matches_params(params);
     }

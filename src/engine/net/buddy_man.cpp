@@ -756,7 +756,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     std::array<char, 1024> status{};
     text::format_to(status, "10thug211:%d:%d:%d:%s", ip, private_ip, port, location);
     bool same_address = false;
-    if (static_cast<uint32_t>(ip) == peer_public_ip(lobby_peer(manager->lobby_service_.get()))) {
+    if (static_cast<uint32_t>(ip) == peer_public_ip(lobby_peer(manager->lobby_service().get()))) {
         ip = private_ip;
         port = kJoinPort;
         same_address = true;
@@ -769,7 +769,7 @@ bool join_buddy(script::Struct* params, script::Script*)
         manager->set_join_mode(0);
         text = script::fetch_text("homie_status_playing");
     }
-    FriendsManager* man = manager->presence_service_.get();
+    FriendsManager* man = manager->presence_service().get();
     push_top_down();
     gp_set_status(man, kStatusPlaying, text, status.data());
     pop_heap();
@@ -788,7 +788,7 @@ bool join_buddy(script::Struct* params, script::Script*)
 }
 
 namespace {
-FriendsManager* get_buddies() { return net_game_state().net_session_slot()->presence_service_.get(); }
+FriendsManager* get_buddies() { return net_game_state().net_session_slot()->presence_service().get(); }
 } // namespace
 
 // 0x00548E40: AddBuddy profile nick
@@ -850,10 +850,10 @@ bool show_next_buddy_message(script::Struct*, script::Script* script)
 {
     lists::Hunt<FriendNote> search;
     FriendNote* message = search.head_element(&get_buddies()->messages_);
-    script->args_->append_word(0xD6F4D0C8, message->nick_.data());
-    script->args_->append_word(0xD3A5478A, message->nick_.data());
-    script->args_->append_word(0x59EDEC1C, message->text_.data());
-    script->args_->put_int(0x7EA855F0, message->account_);
+    script->args()->append_word(0xD6F4D0C8, message->nick_.data());
+    script->args()->append_word(0xD3A5478A, message->nick_.data());
+    script->args()->append_word(0x59EDEC1C, message->text_.data());
+    script->args()->put_int(0x7EA855F0, message->account_);
     unlink_list_node(message);
     // (the original then counts the messages left and ignores the count)
     return true;

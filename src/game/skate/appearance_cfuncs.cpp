@@ -129,7 +129,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
     gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     script::Struct* points = nullptr;
     bool made = false;
-    if (!script->args_->read_sub_struct(kCurrentFacePoints, &points, 0)) {
+    if (!script->args()->read_sub_struct(kCurrentFacePoints, &points, 0)) {
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         points = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         made = true;
@@ -139,7 +139,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
     if (!gfx::write_face_points(&copy, points))
         script::dump_to_log(params);
     if (made) {
-        script->args_->put_sub_struct(kCurrentFacePoints, points);
+        script->args()->put_sub_struct(kCurrentFacePoints, points);
         if (points) {
             points->get_clear();
             script::delete_struct(points);
@@ -284,7 +284,7 @@ bool cfunc_get_actual_cas_option_struct(script::Struct* params, script::Script* 
     params->read_hash_value(kPart, &part, 1);
     params->read_hash_value(kDescId, &descriptor_id, 1);
     script::Struct* option = objects::find_cas_option(part, descriptor_id, true);
-    script->args_->append_structure_if_any(option);
+    script->args()->append_structure_if_any(option);
     return false;
 }
 
@@ -300,7 +300,7 @@ bool cfunc_get_actual_player_appearance_part(script::Struct* params, script::Scr
     script::Struct* structure = actual_part(profile, part);
     if (!structure)
         return false;
-    script->args_->append_structure_if_any(structure);
+    script->args()->append_structure_if_any(structure);
     return true;
 }
 
@@ -313,7 +313,7 @@ bool cfunc_get_player_appearance_part(script::Struct* params, script::Script* sc
     script::Struct* structure = appearance_part(profile, part);
     if (!structure)
         return false;
-    script->args_->append_structure_if_any(structure);
+    script->args()->append_structure_if_any(structure);
     return true;
 }
 
@@ -325,7 +325,7 @@ bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     gsl::owner<script::Struct*> copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     copy->append_structure_if_any(appearance_structure(profile));
-    script->args_->append_struct_ref("profile", copy);
+    script->args()->append_struct_ref("profile", copy);
     return true;
 }
 

@@ -103,7 +103,7 @@ void cancel_join(Hub* manager, bool notify_first)
         params = script::new_struct();
         params->put_name_key(0u, kShowTimeout);
     }
-    manager->join_phase_job_->drop_out();
+    manager->join_phase_job()->drop_out();
     manager->set_entry_phase(2);
     if (!notify_first) {
         params = script::new_struct();
@@ -147,7 +147,7 @@ int on_player_added_msg(net::InboundMsgCtx* context)
         info->account_->decode_from_bytes(appearance.data(), sizeof(appearance)); // the appearance into its profile
     }
     int delay = 0;
-    if (manager->cleared_to_start_) {
+    if (manager->cleared_to_start()) {
         manager->build_net_notice(false, kNetMessageNewPlayer, info->label_.data(), nullptr, nullptr, nullptr, false,
                                   kPanelTime);
         delay = 10;
@@ -267,7 +267,7 @@ int handle_rails_data(net::InboundMsgCtx* context)
         return kContinue;
     }
     net::NetMessageInfo desc;
-    if (skate->level_ == kLoadMainMenu) {
+    if (skate->level() == kLoadMainMenu) {
         cancel_join(manager, true);
         return kKeep;
     }
@@ -298,7 +298,7 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         params.reset();
         return kContinue;
     }
-    if (modules::Skate::sole()->level_ == kLoadMainMenu) {
+    if (modules::Skate::sole()->level() == kLoadMainMenu) {
         cancel_join(manager, false);
         return kKeep;
     }

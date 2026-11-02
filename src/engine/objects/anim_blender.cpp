@@ -292,7 +292,7 @@ int AnimBlenderComponent::channel_exists(uint32_t, script::Struct* params, scrip
     params->read_hash_value(kId, &id, 0);
     for (memory::ListNode* node = lanes_.next; !is_over(node); node = node->next) {
         if (ident_no(as_channel(node)) == id) {
-            script->args_->put_name_key(0u, 0xC7C6228C); // (an unnamed flag)
+            script->args()->put_name_key(0u, 0xC7C6228C); // (an unnamed flag)
             return 1;
         }
     }

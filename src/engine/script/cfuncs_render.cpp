@@ -285,7 +285,7 @@ bool cfunc_debug_line(Struct* params, Script*)
 bool cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
 {
     const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
-    script->args_->insert_pair(checksums::hash_from_text("pos"), x, 240.0f);
+    script->args()->insert_pair(checksums::hash_from_text("pos"), x, 240.0f);
     return true;
 }
 
@@ -340,7 +340,7 @@ bool cfunc_get_gamma_values(Struct*, Script* script)
 {
     float red = 0.0f, green = 0.0f, blue = 0.0f;
     render::get_gamma(&red, &green, &blue);
-    Struct* out = script->args_.get();
+    Struct* out = script->args().get();
     out->erase_module(kRed);
     out->erase_module(kGreen);
     out->erase_module(kBlue);
@@ -366,8 +366,8 @@ bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
         low = render::fetch_diffuse_scale(directional, true);
         high = render::fetch_diffuse_scale(directional, false);
     }
-    script->args_->push_float(kModValueLo, low);
-    script->args_->push_float(kModValueHi, high);
+    script->args()->push_float(kModValueLo, low);
+    script->args()->push_float(kModValueHi, high);
     return true;
 }
 
@@ -456,8 +456,8 @@ bool cfunc_get_light_direction(Struct* params, Script* script)
     params->fetch_int_value(kIndex, &index, 0);
     maths::Vec4 direction = *render::get_light_direction(index);
     direction.convert_to_degrees();
-    script->args_->push_float(kHeading, direction.y);
-    script->args_->push_float(kPitch, direction.x);
+    script->args()->push_float(kHeading, direction.y);
+    script->args()->push_float(kPitch, direction.x);
     return true;
 }
 
@@ -476,7 +476,7 @@ bool cfunc_set_light_diffuse_color(Struct* params, Script*)
 // (0x0048E950) into the script's params as ambient_red .. blue_1. Always true.
 bool cfunc_get_light_current_color(Struct*, Script* script)
 {
-    Struct* out = script->args_.get();
+    Struct* out = script->args().get();
     uint32_t colour = 0;
     auto add = [&](uint32_t red, uint32_t green, uint32_t blue) {
         out->put_int(red, static_cast<int>(colour & 0xFF));
@@ -509,9 +509,9 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
         objects::ObjectModule* skeleton = core::down_cast<objects::GameEntity>(object)->fetch_module(kSkeleton);
         found = core::down_cast<objects::BoneRigModule>(skeleton)->get_bone_position(bone, &position);
     }
-    script->args_->push_float(kX, position.x);
-    script->args_->push_float(kY, position.y);
-    script->args_->push_float(kZ, position.z);
+    script->args()->push_float(kX, position.x);
+    script->args()->push_float(kY, position.y);
+    script->args()->push_float(kZ, position.z);
     return found;
 }
 

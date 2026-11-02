@@ -63,14 +63,14 @@ constexpr uint32_t kFilesLeft = 0x0855B2FC;      // "FilesLeft"
 // (always 1000000). False without a card.
 bool get_mem_card_space_available(script::Struct*, script::Script* script)
 {
-    script->args_.get()->put_int(kSpaceAvailable, 0);
-    script->args_.get()->put_int(kFilesLeft, 1000000);
+    script->args().get()->put_int(kSpaceAvailable, 0);
+    script->args().get()->put_int(kFilesLeft, 1000000);
     SaveCard* card = save_cards_state().sole()->get_storage_slot(0, 0);
     if (!card)
         return false;
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
     // card->get_free_blocks().
-    script->args_.get()->put_int(kSpaceAvailable, free_disk_blocks(card));
+    script->args().get()->put_int(kSpaceAvailable, free_disk_blocks(card));
     return true;
 }
 
@@ -200,7 +200,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                 }
             }
             if (bad)
-                script->args_.get()->put_name_key(0u, kLoadFailed);
+                script->args().get()->put_name_key(0u, kLoadFailed);
             file->shut();
             file->teardown(1); // delete
             if (data)
@@ -263,7 +263,7 @@ SaveCard* the_card() { return save_cards_state().sole()->get_storage_slot(0, 0);
 // 0x005A6D30
 bool get_most_recent_save(script::Struct* params, script::Script* script)
 {
-    script->args_.get()->erase_module("MostRecentSave");
+    script->args().get()->erase_module("MostRecentSave");
     script::Array* saves = nullptr;
     params->fetch_list(0u, &saves, 0);
     if (!saves)
@@ -285,7 +285,7 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
     }
     if (!best)
         return false;
-    script->args_.get()->put_sub_struct("MostRecentSave", best);
+    script->args().get()->put_sub_struct("MostRecentSave", best);
     return true;
 }
 
@@ -322,28 +322,28 @@ bool get_summary_info(script::Struct* params, script::Script* script)
     int vault_data = 0;
     params->fetch_int_value(kVaultData, &vault_data, 0);
     if (vault_data) {
-        write_summary(save_cards_state().kept_contents(), script->args_.get(), save_cards_state().kept_type());
+        write_summary(save_cards_state().kept_contents(), script->args().get(), save_cards_state().kept_type());
         return true;
     }
     if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
         goals::get_objective_board()->level_unload();
     }
-    write_summary(nullptr, script->args_.get(), type);
+    write_summary(nullptr, script->args().get(), type);
     return true;
 }
 
 // 0x005A7430
 bool get_mem_card_data_for_upload(script::Struct*, script::Script* script)
 {
-    script->args_.get()->put_name_key(0x7321A8D6u, save_cards_state().kept_type()); // type
+    script->args().get()->put_name_key(0x7321A8D6u, save_cards_state().kept_type()); // type
     return true;
 }
 
 // 0x005A7450
 bool get_max_thps4_files_allowed(script::Struct*, script::Script* script)
 {
-    script->args_.get()->put_int(0x7CC9E431u, 75); // MaxTHPS4FilesAllowed
+    script->args().get()->put_int(0x7CC9E431u, 75); // MaxTHPS4FilesAllowed
     return true;
 }
 

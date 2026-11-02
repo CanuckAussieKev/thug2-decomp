@@ -57,7 +57,7 @@ const char* const kRewardParams = "reward_params"; // "reward_params"
 
 int truncate(double value) { return static_cast<int>(value); }
 
-modules::Contest* the_competition() { return modules::Skate::sole()->competition_.get(); }
+modules::Contest* the_competition() { return modules::Skate::sole()->competition().get(); }
 
 } // namespace
 

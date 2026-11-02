@@ -438,7 +438,7 @@ bool GameEntity::obj_set_position(Struct* params, Script* /*script*/)
 // 0x0045DBC0: pos = the position, in the calling script's parameters.
 bool GameEntity::obj_get_position(Struct* /*params*/, Script* script)
 {
-    script->args_->put_vec3(kPos, at_point_.x, at_point_.y, at_point_.z);
+    script->args()->put_vec3(kPos, at_point_.x, at_point_.y, at_point_.z);
     return true;
 }
 
@@ -460,14 +460,14 @@ bool GameEntity::obj_force_update(Struct* /*params*/, Script* /*script*/)
 // 0x0045DC50: vel = the velocity.
 bool GameEntity::obj_get_velocity(Struct* /*params*/, Script* script)
 {
-    script->args_->put_vec3(kVel, vel_.x, vel_.y, vel_.z);
+    script->args()->put_vec3(kVel, vel_.x, vel_.y, vel_.z);
     return true;
 }
 
 // 0x0045DC80: speed = the velocity's length.
 bool GameEntity::get_speed(Struct* /*params*/, Script* script)
 {
-    script->args_->push_float(kSpeed, static_cast<float>(len_of(vel_.x, vel_.y, vel_.z)));
+    script->args()->push_float(kSpeed, static_cast<float>(len_of(vel_.x, vel_.y, vel_.z)));
     return true;
 }
 
@@ -527,7 +527,7 @@ bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script)
         const double dz = static_cast<double>(at_point_.z) - other->at_point_.z;
         distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx) * kInchesToFeet);
     }
-    script->args_->push_float(kDistanceResult, distance);
+    script->args()->push_float(kDistanceResult, distance);
     return true;
 }
 
@@ -565,7 +565,7 @@ bool GameEntity::obj_speed_below(Struct* params, Script* /*script*/)
 // 0x0045E3F0: its type, in the calling script's parameters.
 bool GameEntity::obj_get_type(Struct* /*params*/, Script* script)
 {
-    script->args_->put_name_key(kTypeResult, kind_tag_);
+    script->args()->put_name_key(kTypeResult, kind_tag_);
     return true;
 }
 
@@ -662,9 +662,9 @@ bool GameEntity::obj_get_orientation(Struct* /*params*/, Script* script)
         y = static_cast<float>(y * scale);
         z = static_cast<float>(z * scale);
     }
-    script->args_->push_float(kX, x);
-    script->args_->push_float(kY, y);
-    script->args_->push_float(kZ, z);
+    script->args()->push_float(kX, x);
+    script->args()->push_float(kY, y);
+    script->args()->push_float(kZ, z);
     return true;
 }
 
@@ -678,7 +678,7 @@ bool GameEntity::obj_get_dist_to_node(Struct* params, Script* script)
     const double dx = static_cast<double>(at_point_.x) - node_pos.x;
     const double dy = static_cast<double>(at_point_.y) - node_pos.y;
     const double dz = static_cast<double>(at_point_.z) - node_pos.z;
-    script->args_->push_float(kDist, static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx)));
+    script->args()->push_float(kDist, static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx)));
     return true;
 }
 
@@ -701,8 +701,8 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
         dot = static_cast<float>(sum + static_cast<double>(to_other.x) * right.x);
         angle = static_cast<float>(fast_a_cos_unrounded(dot) * kDegreesPerRadian - kQuarterTurnDeg);
     }
-    script->args_->push_float(kDotProd, dot);
-    script->args_->push_float(kAngleResult, angle);
+    script->args()->push_float(kDotProd, dot);
+    script->args()->push_float(kAngleResult, angle);
     return true;
 }
 
@@ -763,7 +763,7 @@ bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
         core::at(quat, 1) = -core::at(quat, 1);
         core::at(quat, 2) = -core::at(quat, 2);
     }
-    script->args_->put_vec3(kQuat, core::at(quat, 0), core::at(quat, 1), core::at(quat, 2));
+    script->args()->put_vec3(kQuat, core::at(quat, 0), core::at(quat, 1), core::at(quat, 2));
     return true;
 }
 

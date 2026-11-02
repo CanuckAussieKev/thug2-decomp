@@ -517,7 +517,7 @@ using RailNode = objects::GrindPoint;
 std::span<RailNode> rail_nodes()
 {
     const modules::Skate* skate = modules::Skate::sole();
-    const objects::GrindRailHub* manager = skate ? skate->rail_manager_.get() : nullptr;
+    const objects::GrindRailHub* manager = skate ? skate->rail_manager().get() : nullptr;
     if (!manager || manager->on_object_)
         return {};
     if (!manager->nodes_ || manager->num_ <= 0 || manager->num_ >= 100000)

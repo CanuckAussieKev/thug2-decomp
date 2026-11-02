@@ -40,7 +40,7 @@ constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
 // How many skaters there are: the skate module's skater list (memory::ListNode: data the skater, -1 at the head).
 uint32_t skater_count(modules::Skate* skate)
 {
-    const memory::ListNode* node = skate->riders_.list_link_.next;
+    const memory::ListNode* node = skate->riders().list_link_.next;
     uint32_t count = 0;
     if (node->is_head() || !node) // (read before the null check, as in the original)
         return 0;

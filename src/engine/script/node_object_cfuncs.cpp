@@ -95,7 +95,7 @@ constexpr uint32_t kClassTrigger = 0xE594F0A2;        // "Trigger"
 constexpr uint32_t kClassSkater = 0x5B8AB877;         // "skater"
 constexpr uint32_t kClassA0e52802 = 0xA0E52802;       // (name unknown) killed through 0x0048FCA0
 
-objects::GrindRailHub* rail_manager() { return modules::Skate::sole()->rail_manager_.get(); }
+objects::GrindRailHub* rail_manager() { return modules::Skate::sole()->rail_manager().get(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
@@ -379,7 +379,7 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
         struct {
             uint32_t id;
             objects::Entity* object;
-        } data = {.id = name, .object = script->entity_.get_pull()};
+        } data = {.id = name, .object = script->entity().get_pull()};
         static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get())
             ->for_each(&destroy_object_with_id, &data);
         return true;
@@ -744,7 +744,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
 // classes.
 bool shatter_node(uint32_t name)
 {
-    if (modules::Skate::sole()->running_queued_scripts_)
+    if (modules::Skate::sole()->running_queued_scripts())
         return true;
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     if (skips_node(node))
@@ -787,8 +787,8 @@ bool node_command(uint32_t name, int action, script::Script* script, script::Str
     if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true)))
         return false;
     int second_viewport = 0;
-    if (script && script->entity_.get_pull() && !game_net->in_net_game() && modules::viewport_count() == 2 &&
-        script->entity_.get_pull() ==
+    if (script && script->entity().get_pull() && !game_net->in_net_game() && modules::viewport_count() == 2 &&
+        script->entity().get_pull() ==
             modules::Skate::sole()->get_rider_at(1))
         second_viewport = 1;
     switch (action) {
@@ -866,7 +866,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     maths::Vec4 velocity;
     if (params->has_bare_flag(0x9F98989Eu)) {
         params->fetch_float(0x13B9DA7Bu, &scale, 0); // "scale"
-        const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity_.get_pull())->vel_;
+        const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity().get_pull())->vel_;
         velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
         velocity.y = static_cast<float>(static_cast<double>(scale) * v.y);
         velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);

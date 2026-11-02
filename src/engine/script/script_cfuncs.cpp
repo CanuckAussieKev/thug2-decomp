@@ -618,10 +618,10 @@ bool cfunc_cast_to_integer(script::Struct* params, script::Script* script)
     if (!params->read_hash_value(0u, &name, 0))
         return false;
     float value = 0.0f;
-    if (!script->args_->fetch_float(name, &value, 0))
+    if (!script->args()->fetch_float(name, &value, 0))
         return false;
-    script->args_->erase_module(name);
-    script->args_->put_int(name, truncate(value));
+    script->args()->erase_module(name);
+    script->args()->put_int(name, truncate(value));
     return true;
 }
 
@@ -634,20 +634,20 @@ bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
     if (!params->read_hash_value(0u, &name, 0))
         return false;
     const char* string = "";
-    if (!script->args_->fetch_text(name, &string, 0))
+    if (!script->args()->fetch_text(name, &string, 0))
         return false;
-    script->args_->erase_module(name);
+    script->args()->erase_module(name);
     int value = 0;
     for (const char digit : std::string_view(string))
         value = value * 10 + (digit - '0');
-    script->args_->put_int(name, value);
+    script->args()->put_int(name, value);
     return true;
 }
 
 // 0x0044B720: AddParams {...}: the command's parameters added to the calling script's.
 bool cfunc_add_params(script::Struct* params, script::Script* script)
 {
-    script->args_->append_structure_if_any(params);
+    script->args()->append_structure_if_any(params);
     return true;
 }
 
@@ -657,7 +657,7 @@ bool cfunc_remove_component(script::Struct* params, script::Script* script)
     uint32_t name = 0;
     if (!params->read_hash_value(kName, &name, 0))
         params->read_hash_value(0u, &name, 1);
-    script->args_->erase_module(name);
+    script->args()->erase_module(name);
     return true;
 }
 
@@ -666,7 +666,7 @@ bool cfunc_get_script_string(script::Struct* params, script::Script* script)
 {
     int index = 0;
     params->fetch_int_value(kIndex, &index, 0);
-    script->args_->append_word(kString, script::get_script_string(index));
+    script->args()->append_word(kString, script::get_script_string(index));
     return true;
 }
 

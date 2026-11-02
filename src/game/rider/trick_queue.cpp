@@ -258,7 +258,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t endpose = bail_endpose_;
-    script->args_->put_name_key(kCurrentBailEndpose, endpose ? endpose : kNone);
+    script->args()->put_name_key(kCurrentBailEndpose, endpose ? endpose : kNone);
     return 1;
 }
 
@@ -335,8 +335,8 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     Entity* object = entity_;
     object->replace_script(script, trick_params);
     if (flag)
-        object->own_script_->args_->put_name_key(0u, flag);
-    object->own_script_->args_->append_structure_if_any(extra_params);
+        object->own_script_->args()->put_name_key(0u, flag);
+    object->own_script_->args()->append_structure_if_any(extra_params);
     object->own_script_->tick_frame();
     trick_started(this);
     count_trick();
@@ -748,7 +748,7 @@ void MoveExecutor::tick_frame()
 bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
 {
     auto* trick =
-        core::down_cast<MoveExecutor>(core::down_cast<GameEntity>(script->entity_.get_pull())->fetch_module(kTrick));
+        core::down_cast<MoveExecutor>(core::down_cast<GameEntity>(script->entity().get_pull())->fetch_module(kTrick));
     uint32_t first = 0;
     script::Struct* first_params = nullptr;
     params->read_hash_value(kScriptToRunFirst, &first, 0);

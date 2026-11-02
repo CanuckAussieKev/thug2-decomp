@@ -196,7 +196,7 @@ std::string get_name_of(uint32_t checksum)
 }
 
 // The level loaded: its load script's name (the skate module's +0x378) without "Load_".
-uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level() : 0; }
 std::string get_level_name()
 {
     const uint32_t load = current_load_state();

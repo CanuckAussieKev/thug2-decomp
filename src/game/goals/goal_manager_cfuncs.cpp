@@ -249,7 +249,7 @@ bool cfunc_goal_manager_get_goal_params(script::Struct* params, script::Script* 
 {
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals_.get_pull(get_goal_name(params));
-    script->args_->append_structure_if_any(goal->fetch_args());
+    script->args()->append_structure_if_any(goal->fetch_args());
     return true;
 }
 

@@ -18,7 +18,7 @@ bool return_theme_colour(script::Struct* params, script::Script* script, uint32_
 {
     uint32_t name = 0;
     params->read_hash_value(kReturnValue, &name, 1);
-    script->args_->put_name_key(name, colour);
+    script->args()->put_name_key(name, colour);
     return true;
 }
 

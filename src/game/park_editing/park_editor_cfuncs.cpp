@@ -275,7 +275,7 @@ bool cfunc_get_park_editor_time_of_day_script(script::Struct*, script::Script* s
     const uint32_t tod = get_editor()->lighting_script_;
     if (!tod)
         return false;
-    script->args_->put_name_key(kTodScript, tod);
+    script->args()->put_name_key(kTodScript, tod);
     return true;
 }
 
@@ -290,7 +290,7 @@ bool cfunc_rebuild_park_node_array(script::Struct*, script::Script*)
 bool cfunc_get_park_editor_cursor_pos(script::Struct*, script::Script* script)
 {
     const maths::Vec4 pos = get_cursor()->at_point_;
-    script->args_->put_vec3(kPos, pos.x, pos.y, pos.z);
+    script->args()->put_vec3(kPos, pos.x, pos.y, pos.z);
     return true;
 }
 
@@ -415,10 +415,10 @@ bool cfunc_resize_park(script::Struct* params, script::Script*)
 bool cfunc_get_current_park_bounds(script::Struct*, script::Script* script)
 {
     const CellBox bounds = hub()->build_area_;
-    script->args_->put_int(kX, bounds.x);
-    script->args_->put_int(kZ, bounds.z);
-    script->args_->put_int(kW, bounds.w);
-    script->args_->put_int(kL, bounds.l);
+    script->args()->put_int(kX, bounds.x);
+    script->args()->put_int(kZ, bounds.z);
+    script->args()->put_int(kW, bounds.w);
+    script->args()->put_int(kL, bounds.l);
     return true;
 }
 
@@ -471,21 +471,21 @@ bool cfunc_fire_custom_park_gap(script::Struct* params, script::Script* script)
 // 0x0058EA70
 bool cfunc_get_edited_park_gap_name(script::Struct*, script::Script* script)
 {
-    script->args_->append_word("name", get_cursor()->get_gap_title());
+    script->args()->append_word("name", get_cursor()->get_gap_title());
     return true;
 }
 
 // 0x0058EAA0
 bool cfunc_get_editor_theme(script::Struct*, script::Script* script)
 {
-    script->args_->put_int(kTheme, hub()->get_shell_size());
+    script->args()->put_int(kTheme, hub()->get_shell_size());
     return true;
 }
 
 // 0x0058EAD0
 bool cfunc_get_editor_max_themes(script::Struct*, script::Script* script)
 {
-    script->args_->put_int(kMaxThemes, 5);
+    script->args()->put_int(kMaxThemes, 5);
     return true;
 }
 
@@ -496,7 +496,7 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
     params->fetch_int_value(0u, &length, 0);
     const char* name = hub()->get_park_name();
     if (length == -1) {
-        script->args_->append_word("name", name ? name : "unnamed park");
+        script->args()->append_word("name", name ? name : "unnamed park");
         return true;
     }
     // The first `length` characters (no more than the buffer holds - as the original, which doesn't check).
@@ -504,7 +504,7 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
     if (length > 0)
         std::memcpy(shortened.data(), name, static_cast<size_t>(length));
     core::at(shortened, length) = 0;
-    script->args_->append_word("name", shortened.data());
+    script->args()->append_word("name", shortened.data());
     return true;
 }
 

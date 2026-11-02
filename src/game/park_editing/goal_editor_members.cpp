@@ -108,10 +108,10 @@ bool ObjectiveAuthoring::get_key_combo_set(script::Struct* params, script::Scrip
     const KeyComboSet* entry = goal->find_key_combo_set(set);
     if (!entry)
         return false;
-    script->args_->put_int(0xEDF5DB70, entry->spin * 180);
-    script->args_->put_int(0xA4BEE6A1, entry->tap_total_);
+    script->args()->put_int(0xEDF5DB70, entry->spin * 180);
+    script->args()->put_int(0xA4BEE6A1, entry->tap_total_);
     if (entry->must_be_flawless_)
-        script->args_->put_name_key(0u, 0x687E2C25u);
+        script->args()->put_name_key(0u, 0x687E2C25u);
     return true;
 }
 
@@ -224,18 +224,18 @@ bool ObjectiveAuthoring::get_num_edited_goals(script::Struct* params, script::Sc
     int count = count_complete_goals(level);
     if (!level && params->has_bare_flag(0xB99F6330))
         count -= count_complete_goals(kParkEditorLevel);
-    script->args_->put_int("NumGoals", count);
+    script->args()->put_int("NumGoals", count);
     return true;
 }
 
 // 0x004E8B30
 bool ObjectiveAuthoring::get_current_edited_goal_id(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->erase_module("goal_id");
+    script->args()->erase_module("goal_id");
     if (active_node_) {
         char* name = park_editing_state().created_goal_name().data();
         get_sprintf(name, "CreatedGoal%d", active_node_->level_goal_number_);
-        script->args_->put_name_key("goal_id", checksums::hash_from_text(name));
+        script->args()->put_name_key("goal_id", checksums::hash_from_text(name));
     }
     return true;
 }
@@ -295,7 +295,7 @@ bool ObjectiveAuthoring::nuke_all_goals(script::Struct* params, script::Script* 
 // 0x004E8D30
 bool ObjectiveAuthoring::get_max_goals_per_level(script::Struct* /*params*/, script::Script* script)
 {
-    script->args_->put_int(0x8BC2E0DB, 10);
+    script->args()->put_int(0x8BC2E0DB, 10);
     return true;
 }
 
@@ -367,7 +367,7 @@ bool ObjectiveAuthoring::edit_goal(script::Struct* params, script::Script* /*scr
 bool ObjectiveAuthoring::get_current_edited_goal_info(script::Struct* /*params*/, script::Script* script)
 {
     if (active_node_)
-        active_node_->export_to_struct(script->args_.get());
+        active_node_->export_to_struct(script->args().get());
     return true;
 }
 
@@ -382,7 +382,7 @@ bool ObjectiveAuthoring::add_edited_goal_to_goal_manager(script::Struct* params,
 // 0x004EC200
 bool ObjectiveAuthoring::get_created_goals(script::Struct* /*params*/, script::Script* script)
 {
-    write_goals(script->args_.get());
+    write_goals(script->args().get());
     return true;
 }
 

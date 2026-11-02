@@ -653,9 +653,9 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 bool handles_event(const UiWidget* item, uint32_t type)
 {
     const script::Script* script = as_object(item)->own_script_;
-    if (!script || !script->signal_routes_)
+    if (!script || !script->signal_routes())
         return false;
-    const objects::SignalRouteTable* table = script->signal_routes_;
+    const objects::SignalRouteTable* table = script->signal_routes();
     for (const objects::SignalRouteTable::TableRow& entry : table->entries())
         if (entry.type == type && entry.script != objects::kNullScript)
             return true;

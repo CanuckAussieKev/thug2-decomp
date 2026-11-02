@@ -146,7 +146,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     ServerInfo info;
     std::array<char, kNameSize> name{};
     copy_name(name.data(), server_name);
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     info.skill_level = static_cast<uint8_t>(manager->get_difficulty_tier());
     info.num_players = static_cast<int8_t>(manager->count_players());
     info.max_players = static_cast<int8_t>(manager->get_player_limit());
@@ -159,7 +159,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     info.password = *manager->fetch_secret() != '\0';
     info.in_game = get_game_type() != kNetLobby;
     info.host_mode = static_cast<uint8_t>(manager->get_hosting_role());
-    info.logged_in = manager->in_internet_mode() && manager->presence_service_->authenticated_;
+    info.logged_in = manager->in_internet_mode() && manager->presence_service()->authenticated_;
     copy_name(info.name.data(), name.data());
     // (NOT ORIGINAL: cut to their fields, terminated - the original's sprintf ran on into the next field)
     text::format_to(std::span(info.level).first(kServerInfoTextSize), "%s", manager->get_map_name(true));
@@ -323,7 +323,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         // End the game: everyone else told.
         PlayerSearch search;
         net::NetMessageInfo desc;
-        net::AppHost* server = manager->host_;
+        net::AppHost* server = manager->host();
         get_run(kEndGameSelected);
         desc.ident_ = kMsgGameEnded;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -373,28 +373,28 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     if (!read_level_switch(reader, &message))
         return kDone;
     manager->clear_queued_scripts();
-    manager->match_ended_ = false;
+    manager->set_match_ended(false);
     if (!message.flag)
         return kContinue;
     auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks_);
-    auto* change_task = manager->level_change_job_.get();
+    auto* change_task = manager->level_change_job().get();
     if (change_task->is_on_task_list()) {
         if (!manager->get_on_server())
-            manager->level_ = message.level;
+            manager->set_level(message.level);
         return kDone;
     }
-    const uint32_t old_level = manager->level_;
-    manager->level_ = message.level;
+    const uint32_t old_level = manager->level();
+    manager->set_level(message.level);
     net_game_state().level_change_time() = frame_clock::get_time() + 3000; // when to change
     if (manager->get_on_server()) {
         script::StructPtr params = script::make_struct();
         params->append_word(kUiString, script::kQbvalString, manager->get_map_name(false));
-        params->add_component_of_type(kChecksum, script::kQbvalName, manager->level_);
+        params->add_component_of_type(kChecksum, script::kQbvalName, manager->level());
         manager->get_online_settings()->change_setting(kLevel, params.get());
         params.reset();
-        if (manager->level_ == kLoadSk5edGameplay)
+        if (manager->level() == kLoadSk5edGameplay)
             net_game_state().level_change_time() += 1000;
-    } else if (old_level == kLoadSk5edGameplay && manager->level_ != old_level) {
+    } else if (old_level == kLoadSk5edGameplay && manager->level() != old_level) {
         park_editing::RailAuthoring::sole()->get_clear(); // the created park's rails gone
     }
     logic_tasks->queue_job(change_task);
@@ -418,8 +418,8 @@ int handle_start_game(net::InboundMsgCtx* context)
     StartGame start;
     read_start_game(reader, &start);
     manager->set_start_info_words(start.start_points.data());
-    manager->crown_start_ = int{start.crown_start_slot}; // the crown's spawn point
-    manager->awaiting_start_ = false;
+    manager->set_crown_start(int{start.crown_start_slot}); // the crown's spawn point
+    manager->set_awaiting_start(false);
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
          p = step_roster_sweep(manager, &search, false)) {
         if (!is_own_player(p)) {
@@ -463,17 +463,17 @@ int handle_start_game(net::InboundMsgCtx* context)
     get_run(kStartingNewNetGame);
     static_cast<modules::Skate*>(skate)->launch_game();
     manager->clear_roster();
-    manager->match_being_set_up_ = false;
-    manager->cheating_noted_ = false;
+    manager->set_match_being_set_up(false);
+    manager->set_cheating_noted(false);
     manager->set_final_scores_received(false);
     manager->set_last_leader(nullptr);
     // The last leading team (+0x1D4) none: the original calls the setter folded at 0x005430D0 (PlayerRecord's
     // set_ready_query_owed, the same offset) on the manager.
-    manager->last_leading_team_ = -1;
+    manager->set_last_leading_team(-1);
     manager->set_game_id(start.game_id);
     if (start.game_type == kNetGoalAttack)
         get_run(kInitSelectedGoals);
-    manager->match_ended_ = false;
+    manager->set_match_ended(false);
     // Every player's flags and score reset.
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
          p = step_roster_sweep(manager, &search, true)) {
@@ -528,7 +528,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     info.max_players = static_cast<uint8_t>(manager->get_player_limit());
     info.round = get_game_mode()->get_round();
     info.variant = 0;
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     if (is_own_player(player)) {
         manager->set_ready_state(true); // (ready to play)
     } else {
@@ -559,10 +559,10 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         info.teams = get_game_mode()->current_num_teams();
         info.goals = manager->get_goals_preference();
         info.team_graffiti_mode = manager->get_team_graffiti_mode();
-        info.pro_option_bits = static_cast<uint8_t>(manager->script_flag_bits_);
-        info.crown_start_slot = static_cast<uint8_t>(manager->crown_start_);
-        static_assert(sizeof(info.start_points) == sizeof(manager->start_points_));
-        std::memcpy(info.start_points.data(), manager->start_points_.data(), sizeof(info.start_points));
+        info.pro_option_bits = static_cast<uint8_t>(manager->script_flag_bits());
+        info.crown_start_slot = static_cast<uint8_t>(manager->crown_start());
+        static_assert(sizeof(info.start_points) == sizeof(manager->start_points()));
+        std::memcpy(info.start_points.data(), manager->start_points().data(), sizeof(info.start_points));
         info.not_lan = net->get_net_link_kind() != 1;
         std::array<uint8_t, kSessionBriefSize> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
@@ -581,7 +581,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
                                       false, true);
         }
         // The scripts spawned so far (the list at +0x144): 0x49 each.
-        auto* node = manager->queued_scripts_.next; // (the queued scripts' first node)
+        auto* node = manager->queued_scripts().next; // (the queued scripts' first node)
         node = node->data == memory::ListNode::head_marker() ? nullptr : node;
         for (auto* item = node ? static_cast<PendingScriptItem*>(node->data) : nullptr; item;) {
             desc = net::NetMessageInfo();

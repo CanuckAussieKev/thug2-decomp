@@ -132,7 +132,7 @@ void KinematicsModule::configure_from_data(script::Struct* params)
 // 0x004236C0
 void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
 {
-    switch (script->suspend_reason_) {
+    switch (script->suspend_reason()) {
     case kWaitMove:
         if (!(motion_flags_ & kMotionMoveMask))
             script->stop_waiting();
@@ -215,7 +215,7 @@ bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* scri
 {
     const uint32_t links = level_nodes::get_link_count(list_link_);
     if (links)
-        script->args_->put_int(kLink, maths::rnd(static_cast<int>(links)) + 1);
+        script->args()->put_int(kLink, maths::rnd(static_cast<int>(links)) + 1);
     return true;
 }
 
@@ -273,7 +273,7 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
             params->has_bare_flag(kFps) ? get_bits(0x3DAAAAAB) : get_bits(0x3D68BA2E); // 1 / 12, 1 / 17.6
         speed = static_cast<float>(static_cast<double>(speed) * scale);
     }
-    script->args_->push_float("Speed", speed);
+    script->args()->push_float("Speed", speed);
     return true;
 }
 

@@ -329,7 +329,7 @@ void PointTally::test_record_score(int before, int after)
     Skate* skate = skate_calls::get_skate();
     if (!get_game_mode()->is_true(kIsCareer))
         return;
-    auto& goals = skate->score_goals_;
+    auto& goals = skate->score_goals();
     for (int i = 0; i < 64; ++i) {
         const int score = core::at(goals, i).score;
         const int goal = core::at(goals, i).goal;

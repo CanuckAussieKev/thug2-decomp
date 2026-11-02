@@ -296,9 +296,9 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     const bool found = get_bone_position(bone, &pos);
-    script->args_->push_float(0x7323E97C, pos.x); // x
-    script->args_->push_float(0x0424D9EA, pos.y); // y
-    script->args_->push_float(0x9D2D8850, pos.z); // z
+    script->args()->push_float(0x7323E97C, pos.x); // x
+    script->args()->push_float(0x0424D9EA, pos.y); // y
+    script->args()->push_float(0x9D2D8850, pos.z); // z
     return found;
 }
 

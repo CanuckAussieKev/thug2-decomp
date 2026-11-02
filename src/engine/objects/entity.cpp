@@ -173,7 +173,7 @@ int Entity::run_sub_script(uint32_t name, Struct* params)
     if (!own_script_) {
         Script* script = Script::create();
         own_script_ = script;
-        script->entity_.assign_value(this);
+        script->entity().assign_value(this);
     }
     return own_script_->preempt(name, params);
 }
@@ -182,7 +182,7 @@ int Entity::run_sub_script(uint32_t name, Struct* params)
 Script* Entity::spawn_script(uint32_t name, Struct* params, uint32_t id, bool pause_with_object)
 {
     Script* script = script::spawn_script(name, params, 0, nullptr, -1, id, false, false, false, pause_with_object);
-    script->entity_.assign_value(this);
+    script->entity().assign_value(this);
     return script;
 }
 
@@ -192,7 +192,7 @@ Script* Entity::start_script_task(uint32_t name, int node, bool replicate_flag, 
     if (replicate_flag)
         script::send_spawn_script_message(name, nullptr, node, permanent);
     Script* script = script::spawn_script(name, params, 0, nullptr, node, 0, false, false, false, false);
-    script->entity_.assign_value(this);
+    script->entity().assign_value(this);
     script->tick_frame();
     return script;
 }
@@ -394,7 +394,7 @@ bool Entity::obj_invisible(Struct* /*params*/, Script* /*script*/)
 // 0x00460940: ObjId = the object's id, in the calling script's parameters.
 bool Entity::obj_get_id(Struct* /*params*/, Script* script)
 {
-    script->args_->put_name_key(kObjId, ident_);
+    script->args()->put_name_key(kObjId, ident_);
     return true;
 }
 
@@ -407,16 +407,16 @@ bool Entity::obj_get_tags(Struct* params, Script* script)
         gsl::owner<Struct*> copy = script::new_struct();
         if (tag_table_)
             copy->append_structure_if_any(tag_table_);
-        script->args_->append_struct_ref(name, copy);
+        script->args()->append_struct_ref(name, copy);
         return true;
     }
     if (tag_table_)
-        script->args_->append_structure_if_any(tag_table_);
+        script->args()->append_structure_if_any(tag_table_);
     return true;
 }
 
 // 0x00460FB0: the tag named by the unnamed checksum, into the calling script's parameters.
-bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag(params, script->args_.get()); }
+bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag(params, script->args().get()); }
 
 // 0x00460FC0: the tags named in the unnamed array, into the calling script's parameters. With no array, the
 // pointer `params` is taken for one [bug].
@@ -424,7 +424,7 @@ bool Entity::obj_get_named_tags(Struct* params, Script* script)
 {
     Array* names = nullptr; // (the original: the structure's own pointer read as the array [bug])
     params->fetch_list(kUnnamed, &names, 1);
-    return fetch_labels(names, script->args_.get());
+    return fetch_labels(names, script->args().get());
 }
 
 // 0x00460FF0: remove the tags named in tags= (else the unnamed array); with neither, every tag goes. True.

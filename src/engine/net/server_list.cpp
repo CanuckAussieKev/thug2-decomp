@@ -190,13 +190,13 @@ uint32_t next_server_id()
 void move_waiting_servers(Hub* manager)
 {
     manager->show_no_servers_found(true);
-    memory::ListNode* node = head_of_scene_list(&manager->waiting_servers_);
+    memory::ListNode* node = head_of_scene_list(&manager->waiting_servers());
     auto* server = data_of<HostListing>(node);
     while (server) {
         node = get_next_node(node);
         auto* following = data_of<HostListing>(node);
         unlink_node(server);
-        memory::ListNode* list = &manager->servers_;
+        memory::ListNode* list = &manager->servers();
         manager->show_server_in_menu(server, total_of(list));
         get_append(list, server);
         server = following;
@@ -522,17 +522,16 @@ unsigned long __stdcall news_thread(void* argument)
     auto* manager = static_cast<Hub*>(argument);
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     game_spy::get_msleep(100);
-    manager->service_state_ = kStateNews;
-    manager->request_started_at_ = frame_clock::get_time();
-    auto& buffer = manager->news_buffer_;
+    manager->assign_service_state(kStateNews);
+    manager->set_request_started_at(frame_clock::get_time());
+    auto& buffer = manager->news_buffer();
     std::memset(buffer.data(), 0, 0x1900 * 4);
     std::array<char, 256> url{};
     text::format_to(url, "%s",
                     commands::texture_flag_ce441() ? "http://www.thug2online.com/testmotd.dat"
                                                    : "http://www.thug2online.com/motd.dat");
-    manager->request_ =
-        game_spy::http_get_ex(url.data(), nullptr, buffer.data(), static_cast<int>(kNewsBufferSize), nullptr,
-                              0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
+    manager->set_request(game_spy::http_get_ex(url.data(), nullptr, buffer.data(), static_cast<int>(kNewsBufferSize), nullptr,
+                              0, 0, code_address(stubs::do_nothing), &news_callback, manager)); // (the download started)
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -544,9 +543,9 @@ unsigned long __stdcall motd_thread(void* argument)
     const char* unique_id = "123456789";
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
-    manager->request_started_at_ = frame_clock::get_time();
-    manager->request_ = game_spy::track_usage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
-    manager->service_state_ = kStateMotd;
+    manager->set_request_started_at(frame_clock::get_time());
+    manager->set_request(game_spy::track_usage(0, 10368, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
+    manager->assign_service_state(kStateMotd);
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -558,7 +557,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     (void)param;
     Hub* manager = net_game_state().the_manager();
     if (result != 0) {
-        manager->service_state_ = kStateNewsFailed;
+        manager->assign_service_state(kStateNewsFailed);
         return 1;
     }
     int64_t size = (static_cast<int64_t>(size_high) << 32) | size_low;
@@ -574,15 +573,15 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     News news;
     if (!read_news(reader, &news) ||
         news.checksum != checksums::generate_crc_caseless(news.motd, news.size)) { // (motd: the data's start)
-        manager->service_state_ = kStateNewsFailed;
+        manager->assign_service_state(kStateNewsFailed);
         return 1;
     }
     const auto text_at = static_cast<size_t>(news.data - buffer);
-    manager->motd_text_ = news.motd;
-    manager->pending_data_size_ = news.size - news.motd_size;
-    manager->pending_data_ = downloaded.subspan(text_at + news.motd_size).data();
-    manager->motd_received_ = true;
-    manager->service_state_ = kStateNewsDone;
+    manager->set_motd_text(news.motd);
+    manager->set_pending_data_size(news.size - news.motd_size);
+    manager->set_pending_data(downloaded.subspan(text_at + news.motd_size).data());
+    manager->set_motd_received(true);
+    manager->assign_service_state(kStateNewsDone);
     return 1;
 }
 
@@ -602,7 +601,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = net_game_state().the_manager();
-    if (!manager->lobby_service_.get()->hosting_)
+    if (!manager->lobby_service().get()->hosting_)
         manager->update_hosting_status();
     return true;
 }
@@ -611,7 +610,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
 bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
-    script->args_->put_int(kNumServers, total_of(&net_game_state().the_manager()->servers_));
+    script->args()->put_int(kNumServers, total_of(&net_game_state().the_manager()->servers()));
     return true;
 }
 

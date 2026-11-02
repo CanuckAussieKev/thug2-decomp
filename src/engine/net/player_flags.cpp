@@ -130,7 +130,7 @@ void PlayerRecord::set_finished_joining()
     switch (manager->get_hosting_role()) {
     case 1: {
         net::NetMessageInfo desc;
-        net::AppHost* server = manager->host_; // (0x005480C0, a getter folded there)
+        net::AppHost* server = manager->host(); // (0x005480C0, a getter folded there)
         desc.ident_ = kMsgPlayerFullyIn;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;

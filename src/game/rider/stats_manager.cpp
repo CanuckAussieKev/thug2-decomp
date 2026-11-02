@@ -234,7 +234,7 @@ bool AttributeTracker::is_operative()
     void* skate = skate_module();
     if (!goals::game_mode()->is_true(0x1DED1EA4))
         return false;
-    if (!activated_ || static_cast<modules::Skate*>(skate)->level_ == 0xE92ECAFE)
+    if (!activated_ || static_cast<modules::Skate*>(skate)->level() == 0xE92ECAFE)
         return false;
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -609,7 +609,7 @@ bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Sc
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 1);
-    script->args_->put_int(0x84FF9AE3u, core::at(goals_, index).cur_standing_);
+    script->args()->put_int(0x84FF9AE3u, core::at(goals_, index).cur_standing_);
     return true;
 }
 
@@ -634,7 +634,7 @@ bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 // 0x0051CB70
 bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script)
 {
-    script->args_->put_int(0x2D3B766Bu, last_air_combo_score_);
+    script->args()->put_int(0x2D3B766Bu, last_air_combo_score_);
     return true;
 }
 

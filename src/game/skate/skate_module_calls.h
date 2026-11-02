@@ -20,10 +20,10 @@ namespace skate_calls {
 
 // The skate module: its career, the run is to end (EndRun), the competition, the horse game.
 inline modules::Skate* get_skate() { return modules::Skate::sole(); }
-inline objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
-inline bool& end_run_flag() { return get_skate()->run_over_; }
-inline modules::Contest* get_competition() { return get_skate()->competition_.get(); }
-inline modules::LetterMatch* get_horse() { return get_skate()->horse_.get(); }
+inline objects::RiderStoryProgress* get_career() { return get_skate()->career().get(); }
+inline bool& end_run_flag() { return get_skate()->run_over(); }
+inline modules::Contest* get_competition() { return get_skate()->competition().get(); }
+inline modules::LetterMatch* get_horse() { return get_skate()->horse().get(); }
 
 // 0x005665C0: skater `index` of the list (null past the end). 0x00566520: the first local skater (null: none).
 // 0x00566600: the skater whose object id is `id` (null: none).

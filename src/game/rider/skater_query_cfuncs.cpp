@@ -103,7 +103,7 @@ void send_to_players(online::Hub* manager, net::NetMessageInfo* desc, bool obser
     PlayerSearch search;
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, observers)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, observers)))
-        manager->host_->put_on_outbox(player->get_link_handle(), desc);
+        manager->host()->put_on_outbox(player->get_link_handle(), desc);
 }
 
 } // namespace
@@ -159,7 +159,7 @@ bool cfunc_skater_get_last_score_landed(script::Struct*, script::Script* script)
     modules::PointTally* score = get_score_of(skater);
     if (!score)
         return false;
-    script->args_->put_int(kLastScoreLanded, last_score_landed(score));
+    script->args()->put_int(kLastScoreLanded, last_score_landed(score));
     return true;
 }
 
@@ -248,7 +248,7 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
     }
     if (players > 1)
         return false;
-    script->args_->put_int("num_players", players);
+    script->args()->put_int("num_players", players);
     return true;
 }
 
@@ -371,9 +371,9 @@ bool cfunc_skater_get_score_info(script::Struct*, script::Script* script)
 {
     objects::GameEntity* skater = get_home_rider();
     modules::PointTally* score = skater ? get_score_of(skater) : nullptr;
-    script->args_->put_int(kScorePot, score_pot(score));
-    script->args_->put_int(kTotalScore, total_score(score));
-    script->args_->put_int(kLastScoreLandedInfo, last_score_landed(score));
+    script->args()->put_int(kScorePot, score_pot(score));
+    script->args()->put_int(kTotalScore, total_score(score));
+    script->args()->put_int(kLastScoreLandedInfo, last_score_landed(score));
     return true;
 }
 
@@ -404,7 +404,7 @@ bool cfunc_in_first_place(script::Struct*, script::Script* script)
     }
     if (in_game < 2)
         return false;
-    script->args_->put_int("points", best);
+    script->args()->put_int("points", best);
     return better == 0;
 }
 
@@ -439,7 +439,7 @@ bool cfunc_in_last_place(script::Struct*, script::Script* script)
     }
     if (in_game < 2 || worse != 0)
         return false;
-    script->args_->put_int("points", lowest);
+    script->args()->put_int("points", lowest);
     return true;
 }
 
@@ -472,7 +472,7 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
     }
     if (in_game < 2 || worse != 1)
         return false;
-    script->args_->put_int("points", mine - lowest);
+    script->args()->put_int("points", mine - lowest);
     return true;
 }
 
@@ -523,7 +523,7 @@ bool cfunc_get_skater_id(script::Struct* params, script::Script* script)
         params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
     if (!skater || !skater->is_local_skater_)
         return false;
-    script->args_->put_name_key(kObjId, skater->ident_);
+    script->args()->put_name_key(kObjId, skater->ident_);
     return true;
 }
 
@@ -536,7 +536,7 @@ bool cfunc_skater_exists(script::Struct* params, script::Script* script)
     const objects::GameEntity* skater = get_rider_at(index);
     if (!skater)
         return false;
-    script->args_->put_name_key(kObjId, skater->ident_);
+    script->args()->put_name_key(kObjId, skater->ident_);
     return true;
 }
 
@@ -548,7 +548,7 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
     objects::RiderIdentity* profile = objects::profile_roster()->fetch_account(player);
     int male = 0;
     profile->details_params()->fetch_int_value(kIsMale, &male, 1);
-    script->args_->put_int(kIsMale, male);
+    script->args()->put_int(kIsMale, male);
     return true;
 }
 
@@ -556,12 +556,12 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
 // with the composite object's +0xBC set).
 bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
 {
-    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
+    auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object || !object->is_local_skater_)
         return false;
     const uint32_t id = object->ident_;
-    script->args_->put_name_key(kObjId, id);
-    script->args_->put_int(kIntId, static_cast<int>(id));
+    script->args()->put_name_key(kObjId, id);
+    script->args()->put_int(kIntId, static_cast<int>(id));
     return true;
 }
 
@@ -569,14 +569,14 @@ bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
 // object.
 bool cfunc_get_skater_position(script::Struct*, script::Script* script)
 {
-    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
+    auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object)
         return false;
     const float y = object->at_point_.y;
     const float z = object->at_point_.z;
-    script->args_->put_int("x", static_cast<int>(static_cast<int64_t>(object->at_point_.x))); // (the original's _ftol)
-    script->args_->put_int("y", static_cast<int>(static_cast<int64_t>(y)));
-    script->args_->put_int("z", static_cast<int>(static_cast<int64_t>(z)));
+    script->args()->put_int("x", static_cast<int>(static_cast<int64_t>(object->at_point_.x))); // (the original's _ftol)
+    script->args()->put_int("y", static_cast<int>(static_cast<int64_t>(y)));
+    script->args()->put_int("z", static_cast<int>(static_cast<int64_t>(z)));
     return true;
 }
 
@@ -585,7 +585,7 @@ bool cfunc_get_skater_position(script::Struct*, script::Script* script)
 // original's new maths::Vec4). False without an object.
 bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
 {
-    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
+    auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object)
         return false;
     float speed = 0.0f;

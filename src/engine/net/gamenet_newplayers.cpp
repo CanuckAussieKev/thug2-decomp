@@ -66,7 +66,7 @@ Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 int skater_count(modules::Skate* skate)
 {
     int count = 0;
-    for (auto* node = skate->riders_.list_link_.next; node->data != memory::ListNode::head_marker() && node;
+    for (auto* node = skate->riders().list_link_.next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++count;
     return count;

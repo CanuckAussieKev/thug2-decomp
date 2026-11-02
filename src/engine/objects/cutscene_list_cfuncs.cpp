@@ -136,7 +136,7 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     params->read_hash_value(0u, &name, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    uint32_t id = script::find_symbol(script->script_title_)->unknown8;
+    uint32_t id = script::find_symbol(script->script_title())->unknown8;
     params->read_hash_value(kId, &id, 0);
     uint32_t callback = 0;
     params->read_hash_value(kCallback, &callback, 0);
@@ -147,9 +147,9 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
     const script::Script* spawned =
-        script::spawn_script(name, script_params, callback, callback_params, script->list_link_, id, replicate_flag,
+        script::spawn_script(name, script_params, callback, callback_params, script->list_link(), id, replicate_flag,
                              permanent, not_session_specific != 0, false);
-    const uint32_t unique_id = spawned->unique_id_;
+    const uint32_t unique_id = spawned->unique_id();
 
     script::StructPtr entry = script::make_struct();
     entry->put_name_key(kName, unique_id);

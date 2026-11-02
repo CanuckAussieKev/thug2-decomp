@@ -93,7 +93,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
         manager->count_observers() >= manager->get_spectator_limit()) { // the observers so far
         desc = net::NetMessageInfo();
         desc.ident_ = kMsgObserversFull;
-        manager->host_->put_on_outbox(context->sender_conn_->hdl_, &desc);
+        manager->host()->put_on_outbox(context->sender_conn_->hdl_, &desc);
         return kContinue;
     }
     desc = net::NetMessageInfo();
@@ -108,15 +108,15 @@ int handle_observe_request(net::InboundMsgCtx* context)
             player->clear_server_player();
             manager->assign_first_come_first_served();
         }
-        if (player == manager->viewed_player_) { // the camera onto the next player (none if that's this one again)
-            manager->viewed_player_ = manager->next_cam_player();
-            if (player == manager->viewed_player_)
-                manager->viewed_player_ = nullptr;
-            manager->spectate_player(manager->viewed_player_);
+        if (player == manager->viewed_player()) { // the camera onto the next player (none if that's this one again)
+            manager->set_viewed_player(manager->next_cam_player());
+            if (player == manager->viewed_player())
+                manager->set_viewed_player(nullptr);
+            manager->spectate_player(manager->viewed_player());
         }
     }
     desc.ident_ = kMsgObserve;
-    manager->host_->put_on_outbox(context->sender_conn_->hdl_, &desc);
+    manager->host()->put_on_outbox(context->sender_conn_->hdl_, &desc);
     return kContinue;
 }
 
@@ -195,7 +195,7 @@ int handle_game_ended_report(net::InboundMsgCtx* context)
     }
     // Everyone's game has ended: game over, to all (observers too).
     net::NetMessageInfo desc;
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     desc.ident_ = kMsgGameOver;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
@@ -222,7 +222,7 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
     if (get_game_type() != kNetLobby && !manager->has_match_ended())
         return kDone;
     std::array<uint8_t, 2> change = {{core::at(msg, 0), core::at(msg, 1)}};
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     desc.content_ = change.data();
     desc.byte_count_ = 2;
     desc.ident_ = kMsgJoinedTeam;
@@ -342,7 +342,7 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
         return kKeep;
     }
     // Not a player yet: one of the new players waiting to be added - dropped with its connection.
-    auto* node = manager->joiners_.next; // (the new players' list, its first node)
+    auto* node = manager->joiners().next; // (the new players' list, its first node)
     if (node->data == memory::ListNode::head_marker())
         return kHalt;
     for (; node;) {
@@ -409,7 +409,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     desc = net::NetMessageInfo();
     player->give_crown(false);
     const int spot = maths::rnd(10);
-    manager->crown_start_ = spot;
+    manager->set_crown_start(spot);
     auto message = static_cast<uint8_t>(spot);
     desc.content_ = &message;
     desc.byte_count_ = 1;

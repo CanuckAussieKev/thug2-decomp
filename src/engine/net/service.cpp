@@ -97,8 +97,8 @@ void show_no_servers()
 // Done: state 2, and this task stops.
 void get_finish(online::Hub* manager)
 {
-    manager->service_state_ = 2;
-    manager->service_job_->drop_out();
+    manager->assign_service_state(2);
+    manager->service_job()->drop_out();
 }
 
 } // namespace
@@ -107,39 +107,39 @@ void get_finish(online::Hub* manager)
 void service_task(tasks::Task<online::Hub>* task)
 {
     auto* manager = static_cast<online::Hub*>(task->content_);
-    switch (manager->service_state_) {
+    switch (manager->service_state()) {
     case 0: // waiting
-        if (manager->service_wake_at_ != 0 && frame_clock::get_time() > manager->service_wake_at_)
-            manager->set_service_state((manager->next_service_state_));
+        if (manager->service_wake_at() != 0 && frame_clock::get_time() > manager->service_wake_at())
+            manager->set_service_state((manager->next_service_state()));
         break;
     case 3: // start: a script, then the availability check a moment later
         push_internet_heap();
         launch_script(0x15EC44CF);
-        manager->service_state_ = 0;
-        manager->next_service_state_ = 4;
-        manager->service_wake_at_ = 100;
+        manager->assign_service_state(0);
+        manager->assign_next_service_state(4);
+        manager->set_service_wake_at(100);
         pop_heap();
         break;
     case 4:
-        manager->service_state_ = 5;
+        manager->assign_service_state(5);
         gsi_start_available_check("mototrax");
         break;
     case 5: // the availability check's answer
         push_internet_heap();
         switch (gsi_available_check_think()) {
         case 1: // available
-            manager->services_available_ = true;
+            manager->set_services_available(true);
             launch_script(0xA8D71FCC);
             break;
         case 2: // unavailable
             launch_script(0xAA290EB3);
             get_finish(manager);
-            manager->service_wake_at_ = 0;
+            manager->set_service_wake_at(0);
             break;
         case 3: // temporarily unavailable
             launch_script(0xCB856AF7);
             get_finish(manager);
-            manager->service_wake_at_ = 0;
+            manager->set_service_wake_at(0);
             break;
         default: // still waiting
             break;
@@ -159,18 +159,18 @@ void service_task(tasks::Task<online::Hub>* task)
             params->append_word(kText, script::kQbvalString, text.data());
             spawn_script(0xC072AC4E, params.get());
         }
-        manager->service_state_ = 0;
-        manager->service_wake_at_ = 0;
-        manager->download_done_ = false;
+        manager->assign_service_state(0);
+        manager->set_service_wake_at(0);
+        manager->set_download_done(false);
         start_thread(manager, kNewsThread); // (it sets state 7)
         break;
     }
     case 7: // the news download
         push_internet_heap();
         // (PartyMod's time limit; the original's was 15000 ms)
-        if (frame_clock::get_time() - manager->request_started_at_ > kNewsTimeout || manager->download_done_) {
-            ghttp_cancel_request(manager->request_);
-            manager->service_state_ = 0xB;
+        if (frame_clock::get_time() - manager->request_started_at() > kNewsTimeout || manager->download_done()) {
+            ghttp_cancel_request(manager->request());
+            manager->assign_service_state(0xB);
         } else {
             ghttp_think();
         }
@@ -183,9 +183,9 @@ void service_task(tasks::Task<online::Hub>* task)
         break;
     case 0xC: // the message of the day's download
         push_internet_heap();
-        if (frame_clock::get_time() - manager->request_started_at_ > kMotdTimeout) {
-            ghttp_cancel_request(manager->request_);
-            manager->service_state_ = 9;
+        if (frame_clock::get_time() - manager->request_started_at() > kMotdTimeout) {
+            ghttp_cancel_request(manager->request());
+            manager->assign_service_state(9);
         } else {
             ghttp_think();
         }
@@ -194,46 +194,46 @@ void service_task(tasks::Task<online::Hub>* task)
     case 9: { // show the message of the day
         ghttp_cleanup();
         script::StructPtr params = script::make_struct();
-        params->append_word(kText, manager->motd_text_);
+        params->append_word(kText, manager->motd_text());
         launch_script(0xF17B894C, params.get());
         params.reset();
-        manager->service_state_ = 0;
-        manager->service_wake_at_ = 0;
+        manager->assign_service_state(0);
+        manager->set_service_wake_at(0);
         break;
     }
     case 0xB: // the news download has ended
         ghttp_cleanup();
         // Originally from PartyMod Fixes: the flag set and script 0x588ED87C (original: flag cleared, script 0xD4E84C8D)
-        manager->motd_received_ = kNewsOkValue;
+        manager->set_motd_received(kNewsOkValue);
         launch_script(kNewsDoneScript);
         get_finish(manager);
-        manager->service_wake_at_ = 0;
+        manager->set_service_wake_at(0);
         break;
     case 0xD:
         launch_script(0xF68F8A86);
-        manager->lobby_service_.get()->clear_lobbies();
-        manager->lobby_service_.get()->start_listing_games();
+        manager->lobby_service().get()->clear_lobbies();
+        manager->lobby_service().get()->start_listing_games();
         break;
     case 0xE:
-        manager->service_state_ = 0;
-        manager->service_wake_at_ = 0;
+        manager->assign_service_state(0);
+        manager->set_service_wake_at(0);
         break;
     case 0xF: // the lobby list: empty or not
-        if (!manager->lobby_service_.get()->get_lobby(0)) {
+        if (!manager->lobby_service().get()->get_lobby(0)) {
             show_no_servers();
             get_finish(manager);
         } else {
-            manager->service_state_ = 0x11;
+            manager->assign_service_state(0x11);
         }
         freeze_stream(0);
         break;
     case 0x10:
-        manager->lobby_service_.get()->clear_lobbies();
+        manager->lobby_service().get()->clear_lobbies();
         show_no_servers();
         get_finish(manager);
         break;
     case 0x11:
-        manager->lobby_service_.get()->populate_room_list();
+        manager->lobby_service().get()->populate_room_list();
         get_finish(manager);
         break;
     default: // 1, 2: nothing to do

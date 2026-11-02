@@ -126,7 +126,7 @@ ScreenshotJob& screenshot_job()
 // --- the game's state ---
 
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
-uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
+uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level() : 0; }
 bool loading_screen_up()
 {
     return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||

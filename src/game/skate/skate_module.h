@@ -232,6 +232,48 @@ public:
     memory::ListNode* skater_node(uint32_t index);
     objects::Rider* get_skater_at(uint32_t index);
 
+    // The fields other code reads and sets.
+    std::array<std::unique_ptr<tasks::Task<Skate>>, 2>& server_tasks() { return server_tasks_; }
+    [[nodiscard]] const std::array<std::unique_ptr<tasks::Task<Skate>>, 2>& server_tasks() const { return server_tasks_; }
+    std::unique_ptr<objects::RiderStoryProgress>& career() { return career_; }
+    [[nodiscard]] const std::unique_ptr<objects::RiderStoryProgress>& career() const { return career_; }
+    memory::HeapUnique<objects::GrindRailHub>& rail_manager() { return rail_manager_; }
+    [[nodiscard]] const memory::HeapUnique<objects::GrindRailHub>& rail_manager() const { return rail_manager_; }
+    [[nodiscard]] const lists::Foremost& riders() const { return riders_; }
+    [[nodiscard]] bool running_queued_scripts() const { return running_queued_scripts_; }
+    bool& run_over() { return run_over_; }
+    [[nodiscard]] bool run_over() const { return run_over_; }
+    std::array<ScoreGoal, 64>& score_goals() { return score_goals_; }
+    [[nodiscard]] const std::array<ScoreGoal, 64>& score_goals() const { return score_goals_; }
+    memory::HeapUnique<modules::Contest>& competition() { return competition_; }
+    [[nodiscard]] const memory::HeapUnique<modules::Contest>& competition() const { return competition_; }
+    memory::HeapUnique<modules::LetterMatch>& horse() { return horse_; }
+    [[nodiscard]] const memory::HeapUnique<modules::LetterMatch>& horse() const { return horse_; }
+    std::unique_ptr<objects::VideoHub>& movies() { return movies_; }
+    [[nodiscard]] const std::unique_ptr<objects::VideoHub>& movies() const { return movies_; }
+    std::unique_ptr<objects::VideoHub>& object_movies() { return object_movies_; }
+    [[nodiscard]] const std::unique_ptr<objects::VideoHub>& object_movies() const { return object_movies_; }
+    [[nodiscard]] uint32_t pending_level() const { return pending_level_; }
+    [[nodiscard]] uint32_t level() const { return level_; }
+    [[nodiscard]] uint32_t previous_level() const { return previous_level_; }
+    [[nodiscard]] uint32_t level_params() const { return level_params_; }
+    void set_level_params(uint32_t value) { level_params_ = value; }
+    [[nodiscard]] bool new_record() const { return new_record_; }
+    void set_new_record(bool value) { new_record_ = value; }
+    std::unique_ptr<goals::MatchFlow>& game_flow() { return game_flow_; }
+    [[nodiscard]] const std::unique_ptr<goals::MatchFlow>& game_flow() const { return game_flow_; }
+    memory::HeapUnique<goals::GoalManager>& goal_manager() { return goal_manager_; }
+    [[nodiscard]] const memory::HeapUnique<goals::GoalManager>& goal_manager() const { return goal_manager_; }
+    [[nodiscard]] const std::array<PlayerSettings, 8>& participants() const { return participants_; }
+    [[nodiscard]] float forced_stat() const { return forced_stat_; }
+    void set_forced_stat(float value) { forced_stat_ = value; }
+    bool& get_debug_rails() { return debug_rails_; }
+    [[nodiscard]] bool get_debug_rails() const { return debug_rails_; }
+    [[nodiscard]] bool no_camera() const { return no_camera_; }
+    maths::Vec4& viewer_pos() { return viewer_pos_; }
+    [[nodiscard]] const maths::Vec4& viewer_pos() const { return viewer_pos_; }
+
+private:
     std::unique_ptr<tasks::Task<Skate>> update_job_;         // +0x14 (front_end_tick)
     std::array<std::unique_ptr<tasks::Task<Skate>>, 2> server_tasks_;                  // +0x18 (SkateNet::create_network_tasks)
     std::unique_ptr<objects::RiderStoryProgress> career_;    // +0x20

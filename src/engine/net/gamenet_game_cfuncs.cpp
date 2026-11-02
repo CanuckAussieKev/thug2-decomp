@@ -82,7 +82,7 @@ void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local loc
     desc.ident_ = id;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     PlayerSearch search;
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
          other = step_roster_sweep(manager, &search, true)) {
@@ -124,7 +124,7 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
     desc.ident_ = kMsgKickRequest;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    send_to_server(manager->client_app_, &desc);
+    send_to_server(manager->client_app(), &desc);
 }
 
 } // namespace
@@ -194,7 +194,7 @@ bool cfunc_get_num_players_on_team(script::Struct* params, script::Script* scrip
     Hub* manager = net_game_state().net_session_slot();
     int team = 0;
     params->fetch_int_value("team", &team, 1);
-    script->args_->put_int("num_members", manager->count_team_players(team));
+    script->args()->put_int("num_members", manager->count_team_players(team));
     return true;
 }
 
@@ -205,7 +205,7 @@ bool cfunc_get_players_team(script::Struct* params, script::Script* script)
     params->fetch_int_value(kObjId, &id, 0);
     const PlayerRecord* player = net_game_state().net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player)
-        script->args_->put_int("team", player_team(player));
+        script->args()->put_int("team", player_team(player));
     return true;
 }
 
@@ -221,9 +221,7 @@ bool cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
         gsl::owner<decltype(local->observer_task_)> observer = memory::owned_element(local->observer_task_);
         delete observer; // the observer task (the player's)
         local->observer_task_ = nullptr;
-        gsl::owner<decltype(manager->spectator_pad_listener_)> listener = memory::owned_element(manager->spectator_pad_listener_);
-        delete listener; // (the manager's)
-        manager->spectator_pad_listener_ = nullptr;
+        manager->delete_spectator_pad_listener();
         local->flag_bits_ &= ~kPlayerSurveying;
     }
     return true;
@@ -245,10 +243,10 @@ bool cfunc_entered_network_game(script::Struct*, script::Script*)
     if (net_game_state().online_active()) // (on the internet: the server's GameSpy reporting)
         start_query_reporting(false);
     tasks::PileUp* tasks = get_logic_tasks();
-    tasks->queue_job(manager->keyboard_job_.get());
+    tasks->queue_job(manager->keyboard_job().get());
     net_game_state().set_text_entry(true);
-    tasks->queue_job(manager->score_broadcast_job_.get());
-    manager->show_scores_ = true;
+    tasks->queue_job(manager->score_broadcast_job().get());
+    manager->set_show_scores(true);
     return true;
 }
 
@@ -274,7 +272,7 @@ bool cfunc_cancel_join_server(script::Struct*, script::Script*)
 {
     Hub* manager = net_game_state().net_session_slot();
     manager->cancel_join();
-    manager->join_phase_ = 10;
+    manager->set_join_phase(10);
     return true;
 }
 

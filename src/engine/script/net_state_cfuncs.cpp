@@ -261,7 +261,7 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script*)
     params->fetch_int_value(0u, &enable, 0);
     auto* input = pad_input::get_input_manager();
     for (int i = 0; i < 2; ++i) {
-        if (core::at(modules::Skate::sole()->participants_, i).vibration_) {
+        if (core::at(modules::Skate::sole()->participants(), i).vibration_) {
             if (enable)
                 input->enable_actuators(i);
             else
@@ -332,7 +332,7 @@ bool cfunc_dump_net_message_stats(script::Struct*, script::Script*)
 {
     net::ConnSearch search;
     online::Hub* game_net = online_hub_handle();
-    net::AppHost* app = game_net->host_;
+    net::AppHost* app = game_net->host();
     if (!app) {
         app = game_net->fetch_patron(0);
         if (!app)
@@ -363,7 +363,7 @@ bool cfunc_set_server_mode(script::Struct* params, script::Script*)
 bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
 {
     online::Hub* game_net = online_hub_handle();
-    objects::Entity* object = script ? script->entity_.get_pull() : nullptr;
+    objects::Entity* object = script ? script->entity().get_pull() : nullptr;
     if (!object || object->kind_tag_ != kSkaterType)
         return true;
     auto* skater = core::down_cast<objects::Rider>(object);
@@ -526,7 +526,7 @@ bool cfunc_in_internet_mode(script::Struct*, script::Script*) { return online_hu
 bool cfunc_entering_net_game(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online_hub_handle();
-    return game_net->in_net_game() && modules::Skate::sole()->previous_level_ == 0xE92ECAFE;
+    return game_net->in_net_game() && modules::Skate::sole()->previous_level() == 0xE92ECAFE;
 }
 
 // 0x005A1C30: DeviceChosen: the network preference 0xFA187DEC isn't 0x09562A0A.

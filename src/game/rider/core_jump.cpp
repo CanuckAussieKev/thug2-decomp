@@ -86,7 +86,7 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
     if (!node)
         return;
     if (!rail_manager_)
-        rail_manager_ = modules::Skate::sole()->rail_manager_.get(); // (the skate module's)
+        rail_manager_ = modules::Skate::sole()->rail_manager().get(); // (the skate module's)
     script::Struct* script = level_nodes::fetch_vertex(node->label_, false);
     if (!script)
         return;

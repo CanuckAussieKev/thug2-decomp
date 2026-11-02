@@ -31,7 +31,7 @@ Array* element_array(Array* array, uint32_t index) { return array->array_at(inde
 Array* find_array(script::Script* script, uint32_t name)
 {
     Array* array = nullptr;
-    if (!script->args_->fetch_list(name, &array, 0))
+    if (!script->args()->fetch_list(name, &array, 0))
         array = script::fetch_list(name);
     return array;
 }
@@ -133,8 +133,8 @@ bool cfunc_get_array_size(Struct* params, script::Script* script)
     // crash on it, with the script's name: e.g. a converted level's script naming an array THUG2 hasn't)
     if (!array)
         get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
-                script::find_checksum_name_or_unknown(script->script_title_));
-    script->args_->put_int(kArraySize, static_cast<int>(array->extent_));
+                script::find_checksum_name_or_unknown(script->script_title()));
+    script->args()->put_int(kArraySize, static_cast<int>(array->extent_));
     return true;
 }
 
@@ -149,7 +149,7 @@ bool cfunc_get_2d_array_data(Struct* params, script::Script* script)
     params->fetch_int_value(kIndex1, &i, 1);
     int j = 0;
     params->fetch_int_value(kIndex2, &j, 1);
-    add_element(script->args_.get(), element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
+    add_element(script->args().get(), element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
     return true;
 }
 
@@ -166,7 +166,7 @@ bool cfunc_get_3d_array_data(Struct* params, script::Script* script)
     int k = 0;
     params->fetch_int_value(kIndex3, &k, 1);
     Array* plane = element_array(element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
-    add_element(script->args_.get(), plane, static_cast<uint32_t>(k));
+    add_element(script->args().get(), plane, static_cast<uint32_t>(k));
     return true;
 }
 
@@ -179,11 +179,11 @@ bool cfunc_get_nd_array_data(Struct* params, script::Script* script)
     params->read_hash_value(kArrayName, &name, 1);
     Array* array = find_array(script, name);
     Array* indices = nullptr;
-    script->args_->fetch_list(kIndices, &indices, 1);
+    script->args()->fetch_list(kIndices, &indices, 1);
     uint32_t i = 0;
     for (; i < indices->extent_ - 1; ++i)
         array = element_array(array, indices->fetch_part(i));
-    add_element(script->args_.get(), array, indices->fetch_part(i));
+    add_element(script->args().get(), array, indices->fetch_part(i));
     return true;
 }
 

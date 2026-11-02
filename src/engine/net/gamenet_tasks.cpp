@@ -97,12 +97,12 @@ void level_change_task(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     if (frame_clock::get_time() < net_game_state().level_change_time())
         return;
-    get_skate()->change_level(manager->level_); // the level changed
+    get_skate()->change_level(manager->level()); // the level changed
     if (PlayerRecord* king = is_crown_rule_active(manager))
         king->give_crown(false);
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
         p->clear_flags(); // carries no flag
-    manager->level_change_job_->drop_out();
+    manager->level_change_job()->drop_out();
 }
 
 namespace {
@@ -119,7 +119,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
     Hub* manager = task_manager(task);
     net::Hub* net = net::Hub::sole();
     const int state = net->get_dialup_status();
-    int& shown = manager->modem_state_shown_; // the state shown last
+    int& shown = manager->modem_state_shown(); // the state shown last
     if (state == shown && state != 8) {
         shown = state;
         return;
@@ -183,9 +183,9 @@ void net_metrics_task(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
     for (int pass = 0; pass < 2; ++pass) {
-        if (net::AppHost* client = manager->client_app_; client && !client->is_host_local())
+        if (net::AppHost* client = manager->client_app(); client && !client->is_host_local())
             show_app_metrics(client);
-        if (net::AppHost* server = manager->host_)
+        if (net::AppHost* server = manager->host())
             show_app_metrics(server);
     }
 }
@@ -194,10 +194,10 @@ void net_metrics_task(tasks::Task<Hub>* task)
 void join_deadline_tick(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
-    if (manager->join_phase_ == 8 ||
-        frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at_) <= kJoinTimeout)
+    if (manager->join_phase() == 8 ||
+        frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout)
         return;
-    manager->join_phase_job_->drop_out();
+    manager->join_phase_job()->drop_out();
     get_run(kShowJoinTimeoutNotice);
 }
 

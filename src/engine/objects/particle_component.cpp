@@ -552,7 +552,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     add_vector(0x9656F775u, core::at(get()->box_, 0));
     add_vector(0xC3CD20A2u, core::at(get()->box_, 1));
     add_vector(0x829FE7DDu, core::at(get()->box_, 2));
-    script->args_->put_sub_struct(0xB91EE381u, result);
+    script->args()->put_sub_struct(0xB91EE381u, result);
     for (script::Array* array : colours) {
         if (array) {
             array->get_clear();

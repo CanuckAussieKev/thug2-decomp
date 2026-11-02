@@ -66,7 +66,7 @@ GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
-void* get_career() { return modules::Skate::sole()->career_.get(); }
+void* get_career() { return modules::Skate::sole()->career().get(); }
 GapTally* level_checklist(void* career, int level)
 {
     return static_cast<objects::RiderStoryProgress*>(career)->fetch_gap_list(level);
@@ -247,8 +247,8 @@ bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script
         if (gap->num_)
             ++collected;
     }
-    script->args_->put_int(kNumGaps, total);
-    script->args_->put_int(kNumCollectedGaps, collected);
+    script->args()->put_int(kNumGaps, total);
+    script->args()->put_int(kNumCollectedGaps, collected);
     return true;
 }
 
@@ -286,9 +286,9 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     int count = 0;
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
         ++count;
-    script->args_->put_int(kArraySize, count);
+    script->args()->put_int(kArraySize, count);
     if (count == 0) {
-        script->args_->put_int(kGapsFoundCount, count);
+        script->args()->put_int(kGapsFoundCount, count);
         return false;
     }
     gsl::owner<script::Array*> memory = script::alloc_script_array();
@@ -308,8 +308,8 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
         item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
         list->set_cell(index, script::Cell::of(item));
     }
-    script->args_->append_array_ref(kGapList, list);
-    script->args_->put_int(kGapsFoundCount, got);
+    script->args()->append_array_ref(kGapList, list);
+    script->args()->put_int(kGapsFoundCount, got);
     return true;
 }
 

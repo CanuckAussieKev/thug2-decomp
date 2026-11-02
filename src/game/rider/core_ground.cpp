@@ -45,7 +45,7 @@ constexpr float kMoving = 0.001f;                // 0x006461D8
 constexpr float kSkitchFeelUp = 36.0f;           // 0x0064B9CC
 constexpr float kSkitchFeelDown = 200.0f;        // 0x0064BDB0
 
-objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
 // A cheat that keeps a balance trick perfect: its global flag set, the balance's lean and its speed zeroed.
 void perfect_cheat(uint32_t cheat, objects::Balance& balance)

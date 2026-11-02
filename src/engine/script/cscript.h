@@ -287,6 +287,33 @@ public:
         return loop - (loops_ == &inline_loop_ ? &inline_loop_ : loops_);
     }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] Script* following() const { return following_; }
+    [[nodiscard]] const uint8_t* pc() const { return pc_; }
+    StructPtr& args() { return args_; }
+    [[nodiscard]] const StructPtr& args() const { return args_; }
+    [[nodiscard]] int call_depth() const { return call_depth_; }
+    [[nodiscard]] uint32_t suspend_reason() const { return suspend_reason_; }
+    [[nodiscard]] uint32_t unique_id() const { return unique_id_; }
+    [[nodiscard]] int list_link() const { return list_link_; }
+    void set_list_link(int value) { list_link_ = value; }
+    objects::SharedRef<objects::Entity>& entity() { return entity_; }
+    [[nodiscard]] const objects::SharedRef<objects::Entity>& entity() const { return entity_; }
+    [[nodiscard]] uint32_t script_title() const { return script_title_; }
+    uint8_t& spawn_flags() { return spawn_flags_; }
+    [[nodiscard]] uint8_t spawn_flags() const { return spawn_flags_; }
+    [[nodiscard]] uint32_t spawner_file() const { return spawner_file_; }
+    [[nodiscard]] uint32_t spawn_id() const { return spawn_id_; }
+    void set_spawn_id(uint32_t value) { spawn_id_ = value; }
+    [[nodiscard]] uint32_t on_finish_script() const { return on_finish_script_; }
+    void set_on_finish_script(uint32_t value) { on_finish_script_ = value; }
+    StructPtr& callback_params() { return callback_params_; }
+    [[nodiscard]] const StructPtr& callback_params() const { return callback_params_; }
+    [[nodiscard]] objects::SignalRouteTable* signal_routes() const { return signal_routes_; }
+    objects::SharedBase& shared_base() { return shared_base_; }
+    [[nodiscard]] const objects::SharedBase& shared_base() const { return shared_base_; }
+
+private:
     // --- the fields ---
     Script* following_;             // +0x00 the list (older)
     Script* prior_entry_;           // +0x04 (newer; null for the head)
@@ -323,26 +350,30 @@ public:
     uint32_t on_exception_script_;             // +0xE4 OnExceptionRun
     uint32_t on_exit_script_;                  // +0xE8 OnExitRun (this level's)
     objects::SharedBase shared_base_;          // +0xEC lets smart pointers point at the script (vtable 0x006478E4)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Script, prior_entry_) == 0x04 && offsetof(Script, code_copy_) == 0x08 &&
+                          offsetof(Script, pc_) == 0x0C && offsetof(Script, stmt_args_) == 0x10 &&
+                          offsetof(Script, args_) == 0x14 && offsetof(Script, innermost_repeat_) == 0x18 &&
+                          offsetof(Script, inline_loop_) == 0x1C && offsetof(Script, loops_) == 0x2C &&
+                          offsetof(Script, call_depth_) == 0x30 && offsetof(Script, inline_return_addresses_) == 0x34 &&
+                          offsetof(Script, frame_records_) == 0x94,
+                      "layout must match the original");
+        static_assert(offsetof(Script, suspend_frames_left_) == 0x98 && offsetof(Script, suspend_clock_started_) == 0x9C &&
+                          offsetof(Script, suspend_clock_) == 0xA0 && offsetof(Script, suspend_reason_) == 0xA4 &&
+                          offsetof(Script, suspend_arg_) == 0xA8 && offsetof(Script, blocking_module_) == 0xAC &&
+                          offsetof(Script, unique_id_) == 0xB0 && offsetof(Script, flag_bits_) == 0xB4 &&
+                          offsetof(Script, list_link_) == 0xB8 && offsetof(Script, entity_) == 0xBC,
+                      "layout must match the original");
+        static_assert(offsetof(Script, script_title_) == 0xC8 && offsetof(Script, spawn_flags_) == 0xCC &&
+                          offsetof(Script, spawner_file_) == 0xD0 && offsetof(Script, spawn_id_) == 0xD4 &&
+                          offsetof(Script, on_finish_script_) == 0xD8 && offsetof(Script, callback_params_) == 0xDC &&
+                          offsetof(Script, signal_routes_) == 0xE0 && offsetof(Script, on_exception_script_) == 0xE4 &&
+                          offsetof(Script, on_exit_script_) == 0xE8 && offsetof(Script, shared_base_) == 0xEC,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(Script, prior_entry_) == 0x04 && offsetof(Script, code_copy_) == 0x08 &&
-                  offsetof(Script, pc_) == 0x0C && offsetof(Script, stmt_args_) == 0x10 &&
-                  offsetof(Script, args_) == 0x14 && offsetof(Script, innermost_repeat_) == 0x18 &&
-                  offsetof(Script, inline_loop_) == 0x1C && offsetof(Script, loops_) == 0x2C &&
-                  offsetof(Script, call_depth_) == 0x30 && offsetof(Script, inline_return_addresses_) == 0x34 &&
-                  offsetof(Script, frame_records_) == 0x94,
-              "layout must match the original");
-static_assert(offsetof(Script, suspend_frames_left_) == 0x98 && offsetof(Script, suspend_clock_started_) == 0x9C &&
-                  offsetof(Script, suspend_clock_) == 0xA0 && offsetof(Script, suspend_reason_) == 0xA4 &&
-                  offsetof(Script, suspend_arg_) == 0xA8 && offsetof(Script, blocking_module_) == 0xAC &&
-                  offsetof(Script, unique_id_) == 0xB0 && offsetof(Script, flag_bits_) == 0xB4 &&
-                  offsetof(Script, list_link_) == 0xB8 && offsetof(Script, entity_) == 0xBC,
-              "layout must match the original");
-static_assert(offsetof(Script, script_title_) == 0xC8 && offsetof(Script, spawn_flags_) == 0xCC &&
-                  offsetof(Script, spawner_file_) == 0xD0 && offsetof(Script, spawn_id_) == 0xD4 &&
-                  offsetof(Script, on_finish_script_) == 0xD8 && offsetof(Script, callback_params_) == 0xDC &&
-                  offsetof(Script, signal_routes_) == 0xE0 && offsetof(Script, on_exception_script_) == 0xE4 &&
-                  offsetof(Script, on_exit_script_) == 0xE8 && offsetof(Script, shared_base_) == 0xEC,
-              "layout must match the original");
 static_assert(sizeof(Script) == 0xF4, "allocated as 0xF4 bytes by the original");
 
 // flag_bits_ (+0xB4)

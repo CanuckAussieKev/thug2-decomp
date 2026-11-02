@@ -1196,7 +1196,7 @@ bool cfunc_tod_manager_get_number_of_days_passed(script::Struct* params, script:
     CtodManager* manager = tod_manager();
     int index = 0;
     params->fetch_int_value(kSystemIndex, &index, 0);
-    script->args_->put_int(kNumDaysPassed, system_at(manager, index).days_passed_);
+    script->args()->put_int(kNumDaysPassed, system_at(manager, index).days_passed_);
     return true;
 }
 
@@ -1216,7 +1216,7 @@ bool cfunc_tod_manager_get_time_multiplier(script::Struct* /*params*/, script::S
 {
     if (!tod_manager())
         return false;
-    script->args_->push_float(kTimeMultiplierName, tod_manager()->time_multiplier_);
+    script->args()->push_float(kTimeMultiplierName, tod_manager()->time_multiplier_);
     return true;
 }
 
@@ -1307,7 +1307,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
         array->get_clear();
         script::delete_array(array);
     }
-    script->args_->append_struct_ref(kTodParams, out);
+    script->args()->append_struct_ref(kTodParams, out);
     return true;
 }
 

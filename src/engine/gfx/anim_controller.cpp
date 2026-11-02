@@ -573,9 +573,9 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
         frame_source_ = source_frame(blend_source_, false);
         return kNotMine;
     case kGetPartialAnimParams: {
-        script->args_->push_float(kPartialAnimTime, partial_->ongoing_);
-        script->args_->put_name_key(kPartialAnim, partial_->anim_);
-        Struct* out = script->args_.get();
+        script->args()->push_float(kPartialAnimTime, partial_->ongoing_);
+        script->args()->put_name_key(kPartialAnim, partial_->anim_);
+        Struct* out = script->args().get();
         out->put_int(kPartialAnimComplete, is_accomplished(partial_));
         return 1;
     }

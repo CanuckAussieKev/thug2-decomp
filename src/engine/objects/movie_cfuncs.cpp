@@ -48,8 +48,8 @@ constexpr uint32_t kRestoreSkaterCamera = 0x15674315;  // Restore_skater_camera
 constexpr uint32_t kToggle = 0xDA155274;               // toggle
 
 // The skate module's movie managers: +0x368 skater camera animations and cutscenes, +0x36C object animations.
-objects::VideoHub* camera_movies() { return modules::Skate::sole()->movies_.get(); }
-objects::VideoHub* object_movies() { return modules::Skate::sole()->object_movies_.get(); }
+objects::VideoHub* camera_movies() { return modules::Skate::sole()->movies().get(); }
+objects::VideoHub* object_movies() { return modules::Skate::sole()->object_movies().get(); }
 
 // The skater a camera command names: SkaterId=<object id>, else skater=<n> (0) of the skate module.
 objects::Entity* named_skater(script::Struct* params)
@@ -139,10 +139,10 @@ bool cfunc_get_current_skater_cam_anim_name(script::Struct*, script::Script* scr
 {
     const uint32_t name = camera_movies()->get_playing_name();
     if (name) {
-        script->args_->put_name_key(kCurrentAnimName, name);
+        script->args()->put_name_key(kCurrentAnimName, name);
         return true;
     }
-    script->args_->put_name_key(kCurrentAnimName, kNone);
+    script->args()->put_name_key(kCurrentAnimName, kNone);
     return false;
 }
 
@@ -157,7 +157,7 @@ bool cfunc_get_skater_cam_anim_params(script::Struct* params, script::Script* sc
     gsl::owner<script::Struct*> anim_params = camera_movies()->movie_value(name);
     if (!anim_params)
         return false;
-    script->args_->append_structure_if_any(anim_params);
+    script->args()->append_structure_if_any(anim_params);
     return true;
 }
 

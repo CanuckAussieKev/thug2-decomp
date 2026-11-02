@@ -443,7 +443,7 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
 // 0x0054F380
 void FrontEnd::tick_frame(bool game_paused)
 {
-    bool in_skateshop = modules::Skate::sole()->pending_level_ == 0xE92ECAFE; // (the level / game mode)
+    bool in_skateshop = modules::Skate::sole()->pending_level() == 0xE92ECAFE; // (the level / game mode)
     if (skateshop_override())
         in_skateshop = false;
     bool keyboard_up = false;
@@ -555,7 +555,7 @@ void FrontEnd::get_pause_game(bool pause)
 
     // The skaters: their list's nodes (the head's data is -1; its data read before the null check, as the original).
     uint32_t count = 0;
-    for (const memory::ListNode* node = skate->riders_.list_link_.next;
+    for (const memory::ListNode* node = skate->riders().list_link_.next;
          !node->is_head() && node; node = node->next)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
@@ -611,7 +611,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
                 if (front_end->startup_script_on_) {
                     const script::Script* script =
                         script::spawn_script(0xDCE60A74u, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-                    front_end->startup_script_id_ = script->unique_id_;
+                    front_end->startup_script_id_ = script->unique_id();
                 }
                 front_end->check_startup_script_ = false;
             }

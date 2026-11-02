@@ -309,7 +309,7 @@ bool BlendChannel::tick_frame(int index, bool blend)
 // 0x0047EF60
 void BlendChannel::release_waiting_script(script::Script* script)
 {
-    if (script->suspend_reason_ != 6)
+    if (script->suspend_reason() != 6)
         return;
     if (AnimTrack* first = get_first(this)) {
         if (first->is_accomplished())
@@ -961,12 +961,12 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             const memory::ListNode* node = timelines_.next;
             if (!is_head(node) && node)
-                add_timeline_info(static_cast<AnimTimeline*>(node->data), script->args_.get());
+                add_timeline_info(static_cast<AnimTimeline*>(node->data), script->args().get());
             return 1;
         }
         for (AnimTrack* timeline = masked(timelines_.next); timeline; timeline = masked(elem(timeline)->next)) {
             if (index == 0) {
-                add_timeline_info(timeline, script->args_.get());
+                add_timeline_info(timeline, script->args().get());
                 break;
             }
             --index;
@@ -1009,7 +1009,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         uint32_t anim = 0;
         params->read_hash_value(kAnim, &anim, 0);
         if (has_value(anim))
-            script->args_->push_float(0xFE82614D, std::fabs(fetch_value(anim))); // length
+            script->args()->push_float(0xFE82614D, std::fabs(fetch_value(anim))); // length
         return 1;
     }
     case 0x4FAF61A9: { // every timeline's speed so its range takes 0x23272E4D seconds
@@ -1028,7 +1028,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         change_repeat_mode(params->has_bare_flag(0xD443A2BC) ? AnimTimeline::kOnce : AnimTimeline::kCycle, true);
         return 1;
     case 0x5195BCBB: // the speed to the script's Speed
-        script->args_->push_float(kSpeed, static_cast<float>(get_speed(params, script)));
+        script->args()->push_float(kSpeed, static_cast<float>(get_speed(params, script)));
         return 1;
     case 0x68C86AEC: // the next play's blend period
         params->fetch_float(0u, &next_blend_, 0);

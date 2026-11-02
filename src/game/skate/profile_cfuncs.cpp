@@ -35,7 +35,7 @@ using script::Struct;
 
 constexpr int kSwapSlots = 5;
 
-objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 
 // The skate module's profile `params`' skater names (0x00564F80).
 objects::RiderIdentity* skate_profile(Struct* params) { return modules::Skate::sole()->fetch_account(params); }
@@ -134,8 +134,8 @@ bool cfunc_get_goals_completed(Struct* params, Script* script)
     const int goals = get_career()->count_goals(level);
     std::array<char, 100> text{};
     text::format_to(text, "%d/9", goals);
-    script->args_.get()->append_word(0xC661FE79u, script::kQbvalString, text.data());    // (name unknown)
-    script->args_.get()->append_word(0xA43DC969u, script::kQbvalString, kNoText); // (name unknown)
+    script->args().get()->append_word(0xC661FE79u, script::kQbvalString, text.data());    // (name unknown)
+    script->args().get()->append_word(0xA43DC969u, script::kQbvalString, kNoText); // (name unknown)
     return true;
 }
 
@@ -167,7 +167,7 @@ bool cfunc_get_next_level_requirements(Struct*, Script* script)
             break;
         }
     }
-    script->args_.get()->append_word(0xAF2305A6u, script::kQbvalString, text.data()); // (name unknown)
+    script->args().get()->append_word(0xAF2305A6u, script::kQbvalString, text.data()); // (name unknown)
     return true;
 }
 

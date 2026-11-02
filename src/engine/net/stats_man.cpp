@@ -69,7 +69,7 @@ uint32_t& login_start()
     return stats_login_start;
 }
 
-RankingsManager* get_attributes() { return net_game_state().net_session_slot()->rating_service_.get(); }
+RankingsManager* get_attributes() { return net_game_state().net_session_slot()->rating_service().get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
@@ -446,7 +446,7 @@ void RankingsManager::start_game()
     push_bottom_up();
     game_ = new_game(1);
     const char* challenge = get_challenge(game_);
-    auto* server = static_cast<net::AppHost*>(manager->host_);
+    auto* server = static_cast<net::AppHost*>(manager->host());
     prefs::Preferences* prefs = manager->get_online_settings();
     const char* host_name = nullptr;
     prefs->fetch_setting(0x2A5CF019)->fetch_text(0x96875C0Fu, &host_name, 1);
@@ -773,13 +773,13 @@ bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
     const Hub* manager = net_game_state().net_session_slot();
     const void* callback = code_address(&RankingsManager::on_personal_stats);
-    int profile = manager->presence_service_->account_;
+    int profile = manager->presence_service()->account_;
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)
-        profile = manager->presence_service_->account_;
+        profile = manager->presence_service()->account_;
         get_persist_data_values(0, profile, 2, index, "\\THUG2HighScore\\THUG2HighCombo", callback, nullptr);
     }
-    manager->rating_service_->cur_phase_ = RankingsManager::kGettingStats;
+    manager->rating_service()->cur_phase_ = RankingsManager::kGettingStats;
     return true;
 }
 
@@ -797,7 +797,7 @@ bool raise_tallies(script::Struct* params, script::Script*)
 // 0x0054D6A0: the rank (0..10) into the script's parameters (0x7786171A).
 bool get_rank(script::Struct*, script::Script* script)
 {
-    script->args_->put_int(0x7786171A, current_rank(static_cast<double>(get_attributes()->personal_.skill_points_)));
+    script->args()->put_int(0x7786171A, current_rank(static_cast<double>(get_attributes()->personal_.skill_points_)));
     return true;
 }
 

@@ -561,7 +561,7 @@ int handle_run_anim_view_script(net::InboundMsgCtx* context)
     text::format_to(path, "scripts\\animview\\%s.qb", message);
     script::load_qb(path.data(), 0, 0);
     script::Script* script = script::spawn_script(message, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-    script->entity_.assign_value(object); // (not null-checked: as the original)
+    script->entity().assign_value(object); // (not null-checked: as the original)
     return 1;
 }
 

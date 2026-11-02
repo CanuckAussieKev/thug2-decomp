@@ -151,7 +151,7 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
         return true;
     }
     push_internet_heap();
-    game_spy::peer_message_room(manager->lobby_service_->remote_, kRoomGroupKind, message,
+    game_spy::peer_message_room(manager->lobby_service()->remote_, kRoomGroupKind, message,
                                 0); // to the group room
     pop_heap();
     return true;
@@ -198,7 +198,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     script::StructPtr unfocus = script::make_struct();
     params->append_word(kText, player->nick_.data());
     rgba->configure_size_kind(4, script::kQbvalInteger);
-    FriendsManager* buddy = manager->presence_service_.get();
+    FriendsManager* buddy = manager->presence_service().get();
     uint32_t script = 0;
     if (player->account_ && mark_friend_online(buddy)) {
         if (player->account_ != own_profile(buddy) &&
@@ -285,7 +285,7 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
     auto rating = [manager] {
         // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
         // single::PointerMember::get_pull)
-        return manager->rating_service_->get_personal_stats()->skill_points_;
+        return manager->rating_service()->get_personal_stats()->skill_points_;
     };
     if (rating() > room->max_rating_)
         room->out_of_range_ = true;

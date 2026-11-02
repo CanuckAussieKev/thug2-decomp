@@ -354,7 +354,7 @@ bool cfunc_get_metrics(Struct*, Script* script)
     if (metrics)
         metrics = new (metrics) script::Struct;
     render::get_scene_debug_info(metrics);
-    script->args_->put_sub_struct(kMetrics, metrics);
+    script->args()->put_sub_struct(kMetrics, metrics);
     if (metrics) {
         metrics->get_clear();
         script::delete_struct(metrics);

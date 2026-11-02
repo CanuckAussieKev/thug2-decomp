@@ -35,7 +35,7 @@ constexpr uint32_t kCombinedFlags = 0x2760DE9E; // combined_flags
 constexpr uint32_t kCancelGround = 0x9A27E74D;  // CANCEL_GROUND (the global integer: the default cancel flags)
 
 // The skate module's career (+0x20).
-objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
+objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career().get(); }
 // 0x005656C0: the skate module's (the current level's) gap checklist.
 goals::GapTally* skate_checklist()
 {
@@ -198,7 +198,7 @@ void GapRegistry::fire_gap(int index, script::Script* script)
             params->put_name_key(kCombinedFlags, flags);
             name = kStartGap;
         }
-        invoke_method_by_name(script->entity_.get_pull(), name, params, script);
+        invoke_method_by_name(script->entity().get_pull(), name, params, script);
         if (params) {
             params->get_clear();
             script::delete_struct(params);

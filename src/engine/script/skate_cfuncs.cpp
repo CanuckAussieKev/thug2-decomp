@@ -268,7 +268,7 @@ bool cfunc_spawn_script(script::Struct* params, script::Script* script)
     const bool permanent = params->has_bare_flag(kPermanent);
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
-    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_,
+    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link(),
                                                    id, replicate_flag, permanent, not_session_specific != 0, false);
     // (as in the original, not checked for null - a C function spawns no script)
     if (!params->has_bare_flag(kKeepSpawnerFile))

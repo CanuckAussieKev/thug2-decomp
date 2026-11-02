@@ -244,7 +244,7 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
 void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
 {
     Hub* manager = net_game_state().net_session_slot();
-    FriendsManager* buddy = manager->presence_service_.get();
+    FriendsManager* buddy = manager->presence_service().get();
     if (!manager->get_on_server())
         return;
     auto* lobby = static_cast<RoomManager*>(param);
@@ -356,7 +356,7 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
 void RoomManager::start_hosting()
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    net::AppHost* server = net_game_state().net_session_slot()->host_;
+    net::AppHost* server = net_game_state().net_session_slot()->host();
     server->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     clear_queue();
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
@@ -386,7 +386,7 @@ void RoomManager::nat_negotiation_completed(int result, int, const void* address
         auto port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
         manager->join_server(ip, port, 0);
     }
-    auto* lobby = manager->lobby_service_.get();
+    auto* lobby = manager->lobby_service().get();
     if (manager->get_on_server()) {
         if (--lobby->negotiations_ == 0)
             lobby->nat_task_->drop_out();
@@ -428,7 +428,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     auto nick_error = &RoomManager::get_nick_error_callback;
     auto connected = &RoomManager::get_connect_callback;
     game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick.data()),
-                           manager->presence_service_->account_ /* its profile */, nick_error, connected, lobby_data,
+                           manager->presence_service()->account_ /* its profile */, nick_error, connected, lobby_data,
                            0); // peer connect (not blocking)
     memory::Hub::get_pull()->leave_heap_scope();
     return 0;
@@ -439,9 +439,9 @@ void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     const Hub* manager = net_game_state().net_session_slot();
-    if (manager->lobby_service_->negotiations_ != 0)
+    if (manager->lobby_service()->negotiations_ != 0)
         return; // (one at a time)
-    net::AppHost* server = manager->host_;
+    net::AppHost* server = manager->host();
     push_internet_heap();
     if (nat_begin(server->get_socket(), cookie, 0, no_progress(), &RoomManager::nat_negotiation_completed, cookie)) {
         nat_cancel(cookie);
@@ -449,7 +449,7 @@ void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
         pop_heap();
         return;
     }
-    auto* lobby = manager->lobby_service_.get();
+    auto* lobby = manager->lobby_service().get();
     if (lobby->negotiations_ == 0)
         tasks->queue_job(lobby->nat_task_.get());
     ++lobby->negotiations_;

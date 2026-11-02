@@ -243,7 +243,7 @@ void PedestrianBrainModule::run_waypoint_actions(script::Struct* node)
         uint32_t name = 0;
         node->read_hash_value(kNodeScriptKey, &name, 1);
         script::Script* script = script::spawn_script(name, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-        script->entity_.assign_value(entity_);
+        script->entity().assign_value(entity_);
     }
 }
 
@@ -745,9 +745,9 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
         hy = sy * inverse;
         hz = static_cast<float>(sz * inverse);
     }
-    script->args_->put_vec3(kHeading, script::VectorValue{.x = static_cast<float>(hx), .y = static_cast<float>(hy), .z = hz, .w = sw});
-    script->args_->push_float(kJumpSpeed, speed);
-    script->args_->push_float(kLeapDuration, time);
+    script->args()->put_vec3(kHeading, script::VectorValue{.x = static_cast<float>(hx), .y = static_cast<float>(hy), .z = hz, .w = sw});
+    script->args()->push_float(kJumpSpeed, speed);
+    script->args()->push_float(kLeapDuration, time);
     return true;
 }
 

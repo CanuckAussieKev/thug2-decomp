@@ -680,7 +680,7 @@ bool level_is_shared(const char** game)
     const modules::Skate* skate = modules::Skate::sole(); // the skate module
     if (!skate)
         return false;
-    const uint32_t level = skate->level_; // its level's load script
+    const uint32_t level = skate->level(); // its level's load script
     if (!level)
         return false;
     struct LevelList {

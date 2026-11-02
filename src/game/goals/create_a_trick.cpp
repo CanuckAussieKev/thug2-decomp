@@ -88,9 +88,9 @@ bool cfunc_get_create_a_trick_params(script::Struct* params, script::Script* scr
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
     const CreateATrick* trick = core::at(skater->trick_slots_, index).get();
-    script->args_.get()->put_sub_struct(kOtherParams, trick->other_params_);
-    script->args_.get()->append_array_value(kRotationInfo, trick->spin_list_);
-    script->args_.get()->append_array_value(kAnimationInfo, trick->animations_);
+    script->args().get()->put_sub_struct(kOtherParams, trick->other_params_);
+    script->args().get()->append_array_value(kRotationInfo, trick->spin_list_);
+    script->args().get()->append_array_value(kAnimationInfo, trick->animations_);
     return true;
 }
 
@@ -102,7 +102,7 @@ bool cfunc_get_create_a_trick_other_params(script::Struct* params, script::Scrip
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args_.get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots_, index).get()->other_params_);
+    script->args().get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots_, index).get()->other_params_);
     return true;
 }
 
@@ -114,7 +114,7 @@ bool cfunc_get_create_a_trick_rotations(script::Struct* params, script::Script* 
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args_.get()->append_array_value(kRotationInfo, core::at(skater->trick_slots_, index).get()->spin_list_);
+    script->args().get()->append_array_value(kRotationInfo, core::at(skater->trick_slots_, index).get()->spin_list_);
     return true;
 }
 
@@ -126,7 +126,7 @@ bool cfunc_get_create_a_trick_animations(script::Struct* params, script::Script*
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args_.get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots_, index).get()->animations_);
+    script->args().get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots_, index).get()->animations_);
     return true;
 }
 
@@ -227,7 +227,7 @@ bool fetch_int_value(script::Script* script, int objects::Rider::* field, const 
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args_.get()->put_int(name, skater->*field);
+    script->args().get()->put_int(name, skater->*field);
     return true;
 }
 bool set_flag(script::Struct* params, bool objects::Rider::* field)
@@ -245,7 +245,7 @@ bool fetch_marker(script::Script* script, bool objects::Rider::* field, const ch
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args_.get()->put_int(name, skater->*field ? 1 : 0);
+    script->args().get()->put_int(name, skater->*field ? 1 : 0);
     return true;
 }
 
@@ -302,7 +302,7 @@ bool cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args_.get()->put_int(kFlipSkater180, skater->cat_flip_180_ ? 1 : 0);
+    script->args().get()->put_int(kFlipSkater180, skater->cat_flip_180_ ? 1 : 0);
     return true;
 }
 // 0x005523A0
@@ -322,7 +322,7 @@ bool cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args_.get()->push_float(kHoldTime, skater->cat_hold_time_);
+    script->args().get()->push_float(kHoldTime, skater->cat_hold_time_);
     return true;
 }
 // 0x00552410

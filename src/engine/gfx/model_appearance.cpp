@@ -230,7 +230,7 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         script::Struct* slot = get_part(part);
         if (!slot)
             return false;
-        script->args_->append_structure_if_any(slot);
+        script->args()->append_structure_if_any(slot);
         return true;
     }
     case kClearPart: {

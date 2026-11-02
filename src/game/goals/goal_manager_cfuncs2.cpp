@@ -47,7 +47,7 @@ void dup_from(char* dest, const char* text) { text::copy_unbounded(dest, text); 
 void get_append(char* dest, const char* text) { text::append_unbounded(dest, text); }
 
 // The level structure being played (the skate module's +0x380 names it).
-script::Struct* level_params_ref() { return script::read_sub_struct(modules::Skate::sole()->level_params_); }
+script::Struct* level_params_ref() { return script::read_sub_struct(modules::Skate::sole()->level_params()); }
 
 uint32_t get_goal_name(script::Struct* params)
 {
@@ -84,8 +84,8 @@ bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script*
         get_append(name.data(), "_classic"); // "_classic"
     get_append(name.data(), "_goal_");       // "_goal_"
     get_append(name.data(), type);
-    script->args_->put_name_key(kGoalIdChecksum, checksums::hash_from_text(name.data()));
-    script->args_->append_word(kGoalName, name.data());
+    script->args()->put_name_key(kGoalIdChecksum, checksums::hash_from_text(name.data()));
+    script->args()->append_word(kGoalName, name.data());
     return true;
 }
 
@@ -94,7 +94,7 @@ bool cfunc_goal_manager_get_level_prefix(script::Struct*, script::Script* script
 {
     const char* level = nullptr;
     level_params_ref()->fetch_text(kLevel, &level, 1);
-    script->args_->append_word(kLevelPrefix, level);
+    script->args()->append_word(kLevelPrefix, level);
     return true;
 }
 
@@ -206,7 +206,7 @@ bool cfunc_goal_manager_get_number_of_goal_points(script::Struct* params, script
 {
     const GoalManager* manager = get_objective_board();
     const int points = params->has_bare_flag(kTotal) ? manager->total_goal_points_ : manager->objective_score_;
-    script->args_->put_int(kGoalScoreValue, points);
+    script->args()->put_int(kGoalScoreValue, points);
     return true;
 }
 
@@ -236,7 +236,7 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
     }
     core::at(text, length) = 0;
     get_append(text.data(), "NOT_"); // "NOT_"
-    script->args_->append_word(kProsetNotPrefix, text.data());
+    script->args()->append_word(kProsetNotPrefix, text.data());
     return true;
 }
 
@@ -371,7 +371,7 @@ bool cfunc_goal_manager_is_in_competition(script::Struct*, script::Script* scrip
     Objective* competition = get_objective_board()->get_active_competition();
     if (!competition)
         return false;
-    script->args_->put_name_key(kGoalIdChecksum, competition->get_objective_key());
+    script->args()->put_name_key(kGoalIdChecksum, competition->get_objective_key());
     return true;
 }
 
@@ -383,9 +383,9 @@ bool cfunc_goal_manager_get_goal_animations(script::Struct* params, script::Scri
     params->fetch_text(kType, &type, 0);
     Objective* goal = get_objective_board()->goals_.get_pull(name);
     const uint32_t animations = goal->ped_->get_objective_anim_sets(type);
-    script->args_->erase_module(kProStuff);
+    script->args()->erase_module(kProStuff);
     if (animations)
-        script->args_->put_name_key(kProStuff, animations);
+        script->args()->put_name_key(kProStuff, animations);
     return true;
 }
 

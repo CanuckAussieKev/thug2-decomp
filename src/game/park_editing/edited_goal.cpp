@@ -40,7 +40,7 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).
 
-uint32_t current_level() { return modules::Skate::sole()->level_; }
+uint32_t current_level() { return modules::Skate::sole()->level(); }
 
 } // namespace
 

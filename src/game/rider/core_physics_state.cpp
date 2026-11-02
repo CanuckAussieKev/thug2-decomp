@@ -299,7 +299,7 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* scri
     } else {
         left = kNeverLands;
     }
-    script->args_->push_float(kAirTimeLeft, left);
+    script->args()->push_float(kAirTimeLeft, left);
     return 1;
 }
 

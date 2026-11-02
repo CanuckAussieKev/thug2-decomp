@@ -175,7 +175,7 @@ bool cfunc_get_unique_composite_object_id(script::Struct* params, script::Script
     params->read_hash_value(kPreferredId, &id, 0);
     while (entity_for_id(id))
         ++id;
-    script->args_->put_name_key(kUniqueId, id);
+    script->args()->put_name_key(kUniqueId, id);
     return true;
 }
 
@@ -191,8 +191,8 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
         return false;
     float x = 0.0f, y = 0.0f, depth = 0.0f;
     project_to_screen(camera, &object->at_point_, &x, &y, &depth);
-    script->args_->push_float(kScreenX, x);
-    script->args_->push_float(kScreenY, y);
+    script->args()->push_float(kScreenX, x);
+    script->args()->push_float(kScreenY, y);
     return true;
 }
 
@@ -224,7 +224,7 @@ bool cfunc_transform_local_to_world(script::Struct* params, script::Script* scri
     const maths::Vec4 local = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     maths::Vec4 world;
     object->display_matrix_.xform(world, local);
-    script->args_->put_vec3(kWorldOffset, world.x, world.y, world.z);
+    script->args()->put_vec3(kWorldOffset, world.x, world.y, world.z);
     return true;
 }
 
@@ -253,26 +253,26 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
     script::Struct* node = level_nodes::fetch_vertex(name, false);
     if (!node)
         return false;
-    script->args_->put_sub_struct(kNode, node);
+    script->args()->put_sub_struct(kNode, node);
     return true;
 }
 
 // 0x00449890: GetNodeName: nodename = the id of the object the script runs on. False with no object or id 0.
 bool cfunc_get_node_name(script::Struct*, script::Script* script)
 {
-    const objects::Entity* object = script->entity_.get_pull();
+    const objects::Entity* object = script->entity().get_pull();
     if (!object || !object->ident_)
         return false;
-    script->args_->put_name_key(kNodeName, object->ident_);
+    script->args()->put_name_key(kNodeName, object->ident_);
     return true;
 }
 
 // 0x004498C0: GetTriggerNodeName: nodename = the node the script was spawned for. False if none.
 bool cfunc_get_trigger_node_name(script::Struct*, script::Script* script)
 {
-    if (!script->list_link_)
+    if (!script->list_link())
         return false;
-    script->args_->put_name_key(kNodeName, static_cast<uint32_t>(script->list_link_));
+    script->args()->put_name_key(kNodeName, static_cast<uint32_t>(script->list_link()));
     return true;
 }
 
@@ -286,13 +286,13 @@ bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
     params->read_hash_value(0u, &name, 1);
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    script->args_->erase_module(kUniqueId);
+    script->args()->erase_module(kUniqueId);
     objects::Entity* object = objects::find_object(id);
     if (!object)
         return false;
     script::Script* own = object->own_script_;
-    if (own && !own->entity_.get_pull())
-        own->entity_.assign_value(object);
+    if (own && !own->entity().get_pull())
+        own->entity().assign_value(object);
     object->run_sub_script(name, script_params);
     return true;
 }

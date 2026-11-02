@@ -171,7 +171,7 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
         else
             result->push_float(name, value);
     }
-    script->args_->append_struct_ref(kInterpolated, result);
+    script->args()->append_struct_ref(kInterpolated, result);
     return true;
 }
 
@@ -187,7 +187,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
     const std::string_view base = slash == std::string_view::npos ? full : full.substr(slash + 1);
     core::copy_into(std::span<const char>(base.data(), base.size()), std::span<char>(name).first(base.size()));
     core::at(name, base.size()) = '\0';
-    script->args_->append_word(kTexture, name.data());
+    script->args()->append_word(kTexture, name.data());
     return true;
 }
 
@@ -238,19 +238,19 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
     maths::Vec4 nearest;
     if (rail_distance_squared < geometry_distance_squared) {
         nearest = rail_point;
-        script->args_->put_name_key(kRailId, rail);
-        script->args_->put_int(kRailPointIndex, rail_index);
+        script->args()->put_name_key(kRailId, rail);
+        script->args()->put_int(kRailPointIndex, rail_index);
     } else {
         nearest = geometry_point;
     }
-    script->args_->put_vec3(kNearestPos, nearest.x, nearest.y, nearest.z);
+    script->args()->put_vec3(kNearestPos, nearest.x, nearest.y, nearest.z);
     return true;
 }
 
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
 bool cfunc_get_park_name(script::Struct*, script::Script* script)
 {
-    script->args_->append_word(kParkName, commands::park_name().data());
+    script->args()->append_word(kParkName, commands::park_name().data());
     return false;
 }
 
@@ -270,7 +270,7 @@ bool cfunc_get_initials_string(script::Struct*, script::Script* script)
 {
     auto* records = highscores::game_records();
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
-    script->args_->append_word(kString, script::kQbvalString, records->default_initials_);
+    script->args()->append_word(kString, script::kQbvalString, records->default_initials_);
     return true;
 }
 
@@ -287,7 +287,7 @@ bool cfunc_set_initials_string(script::Struct* params, script::Script*)
 // 0x005B3230: GetFireballLevel: level, the game mode's fireball level. Always true.
 bool cfunc_get_fireball_level(script::Struct*, script::Script* script)
 {
-    script->args_->put_int(kLevel, static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
+    script->args()->put_int(kLevel, static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
     return true;
 }
 
@@ -308,7 +308,7 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
         const char* last_name = nullptr;
         if (!skater->fetch_text(kLastName, &last_name, 0))
             return false;
-        script->args_->append_word(kLastName, last_name);
+        script->args()->append_word(kLastName, last_name);
         return true;
     }
     return false;

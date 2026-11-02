@@ -230,10 +230,10 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
 // 0x00472C50
 bool script_refers_to(const Script* script, uint32_t name)
 {
-    if (script->script_title_ == name)
+    if (script->script_title() == name)
         return true;
     // The calls it's in the middle of.
-    for (int i = 0; i < script->call_depth_; ++i) {
+    for (int i = 0; i < script->call_depth(); ++i) {
         if (core::at(script->call_stack(), i).script_id_ == name)
             return true;
     }

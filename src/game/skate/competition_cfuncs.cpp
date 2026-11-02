@@ -254,7 +254,7 @@ bool cfunc_get_horse_string(script::Struct* params, script::Script* script)
     params->read_hash_value(kWhichString, &which, 1);
     alignas(4) std::array<uint8_t, sizeof(text::Chars)> storage{};
     gsl::owner<text::Chars*> text = get_horse_string(storage.data(), which);
-    script->args_->append_word(kText, text->c_str());
+    script->args()->append_word(kText, text->c_str());
     text->~Chars();
     return true;
 }
@@ -333,7 +333,7 @@ bool cfunc_get_bonus_value(script::Struct* params, script::Script* script)
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
     if (skater->is_local_skater_)
-        script->args_->put_int(kBonus, get_bonus(get_score_of(skater)));
+        script->args()->put_int(kBonus, get_bonus(get_score_of(skater)));
     return true;
 }
 

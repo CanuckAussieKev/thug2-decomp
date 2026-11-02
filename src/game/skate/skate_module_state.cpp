@@ -294,7 +294,7 @@ void Skate::enter_stage(uint32_t level)
         }
         if (net->get_on_server()) {
             net::ConnSearch search;
-            if (net::AppHost* server = net->host_) { // (0x005480C0)
+            if (net::AppHost* server = net->host()) { // (0x005480C0)
                 for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search))
                     conn->stamp_last_heard(8000);
             }
@@ -353,7 +353,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
     if (!audio::continue_music::is_switched_on()) // NOT ORIGINAL - continue_music: the song goes on into the level
         audio::stop_music();
     PlayerSearch search;
-    net::AppHost* server = net->host_; // (0x005480C0)
+    net::AppHost* server = net->host(); // (0x005480C0)
     struct ChangeLevelMessage {
         uint32_t level;
         bool show_warning_;

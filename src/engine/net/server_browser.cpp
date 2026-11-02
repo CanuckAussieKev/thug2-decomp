@@ -153,7 +153,7 @@ void read_server_players(HostListing* server, void* sb)
 HostListing* find_by_sb(Hub* manager, void* sb)
 {
     VaultSearch search;
-    auto* server = static_cast<HostListing*>(search.head_element(&manager->servers_)); // (the first)
+    auto* server = static_cast<HostListing*>(search.head_element(&manager->servers())); // (the first)
     while (server) {
         memory::ListNode* next = search.list_link_->next;
         memory::ListNode* node = next->data == memory::ListNode::head_marker() ? nullptr : next;
@@ -257,11 +257,11 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
     if (refused) {
         reply->put_name_key(kReason, refused);
         reply->put_name_key(kJustDialog, 0);
-        manager->join_phase_job_->drop_out();
+        manager->join_phase_job()->drop_out();
         get_run(kJoinRefusedDialog, reply.get());
     } else {
-        if (manager->presence_service_->authenticated_) // (0x005480B0: logged in to presence)
-            manager->lobby_service_->change_host_name(server->label_.data());
+        if (manager->presence_service()->authenticated_) // (0x005480B0: logged in to presence)
+            manager->lobby_service()->change_host_name(server->label_.data());
         const char* ip = crt::get_inet_ntoa(server->remote_ip_);
         if (!server->can_reach_)
             reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(0x7FFF) * maths::rnd(0x7FFF));
@@ -280,7 +280,7 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = net_game_state().the_manager();
-    if ((manager->flag_bits_ >> 3) & 1) // (0x00533F70: LAN mode)
+    if ((manager->flag_bits() >> 3) & 1) // (0x00533F70: LAN mode)
         return true;
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
@@ -290,7 +290,7 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
     if (server->detailed_)
         return true;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
-    game_spy::peer_update_game(manager->lobby_service_.get()->remote_, server->sb_server_, 1); // (the game's details updated)
+    game_spy::peer_update_game(manager->lobby_service().get()->remote_, server->sb_server_, 1); // (the game's details updated)
     ram_stats()->leave_heap_scope();
     return false;
 }
@@ -335,7 +335,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     server->port_no_ = kPort;
     for (int i = 0; i < server->num_players_ && i < kServerInfoPlayers; ++i)
         server->enroll_player(core::at(reply->players, i).data(), 0);
-    get_append(&manager->waiting_servers_, server);
+    get_append(&manager->waiting_servers(), server);
     ram_stats()->leave_heap_scope();
     return kContinue;
 }
@@ -353,7 +353,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     (void)staging;
     (void)progress;
     if (!success) {
-        net_game_state().the_manager()->lobby_service_->set_lost_connection(); // (the lobby told the listing failed)
+        net_game_state().the_manager()->lobby_service()->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {
@@ -386,7 +386,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         }
         read_server_keys(server, sb);
         read_server_players(server, sb);
-        memory::ListNode* list = &manager->servers_;
+        memory::ListNode* list = &manager->servers();
         get_append(list, server);
         if (game_spy::server_has_basic_keys(sb)) {                                       // (it has its basic keys)
             const int index = gfx::count_list_items(list) - 1; // (the list's count)

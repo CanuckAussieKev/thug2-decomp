@@ -305,7 +305,7 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     rgb->set_element(0, static_cast<uint32_t>(ftol(static_cast<double>(r) * 128.0f)));
     rgb->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(g) * 128.0f)));
     rgb->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(b) * 128.0f)));
-    script->args_->append_array_ref(kRgb, rgb);
+    script->args()->append_array_ref(kRgb, rgb);
     return true;
 }
 
@@ -361,7 +361,7 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
     hsv->set_element(0, static_cast<uint32_t>(ftol(h)));
     hsv->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(s) * 90.0f)));
     hsv->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(max) * 60.0f)));
-    script->args_->append_array_ref(kHsv, hsv);
+    script->args()->append_array_ref(kHsv, hsv);
     return true;
 }
 

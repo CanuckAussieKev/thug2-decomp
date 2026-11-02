@@ -344,7 +344,7 @@ modules::PointTally* Rider::get_points_total() { return score_holder_->points_he
 // 0x00580490
 float Rider::fetch_tally(int index)
 {
-    float stat = modules::Skate::sole()->forced_stat_; // (forced by the skate module unless 0)
+    float stat = modules::Skate::sole()->forced_stat(); // (forced by the skate module unless 0)
     if (stat == 0.0f) {
         uint32_t bits = 0;
         std::memcpy(&bits, &core::at(stat_overrides_, index), 4);
@@ -369,7 +369,7 @@ float Rider::fetch_tally(int index)
         if (player && player->holds_crown())
             stat = 1.0f;
     }
-    RiderStoryProgress* cheats = modules::Skate::sole()->career_.get();
+    RiderStoryProgress* cheats = modules::Skate::sole()->career().get();
     float result = cheats->is_code_on(static_cast<uint32_t>(script::fetch_int_value(kCheatStats13))) ? 15.0f : stat;
     if (score_holder_->points_held_->special_active())
         result = static_cast<float>(result + 3.0);
@@ -584,7 +584,7 @@ void balance_displays_off(void* score)
 // 0x00580BE0
 void Rider::set_stats_from_profile(RiderIdentity* profile)
 {
-    RiderStoryProgress* classic_stats = modules::Skate::sole()->career_.get();
+    RiderStoryProgress* classic_stats = modules::Skate::sole()->career().get();
     if (goals::game_mode()->is_true(kIsClassic)) {
         for (int i = 0; i < 10; ++i)
             set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(core::at(kStatNames, i))));
@@ -953,9 +953,9 @@ void Rider::prepare_all(RiderIdentity* profile)
     seal(); // (Finalize)
     if (is_local_skater_) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
-        core_physics_->auto_kick() = core::at(skate->participants_, view_slot_).auto_kick_;
-        core_physics_->tap_spin() = core::at(skate->participants_, view_slot_).spin_taps_;
-        vibration_->change_live(core::at(skate->participants_, view_slot_).vibration_ != 0);
+        core_physics_->auto_kick() = core::at(skate->participants(), view_slot_).auto_kick_;
+        core_physics_->tap_spin() = core::at(skate->participants(), view_slot_).spin_taps_;
+        vibration_->change_live(core::at(skate->participants(), view_slot_).vibration_ != 0);
         if (is_local_skater_)
             own_script_->bind_script("SkaterInit", nullptr, this);
     }
@@ -1408,7 +1408,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
             return true;
         }
         // The first restart linked from the script's node; none: the skate module's (unless in the park editor).
-        auto from = static_cast<uint32_t>(script->list_link_);
+        auto from = static_cast<uint32_t>(script->list_link());
         const int count = static_cast<int>(level_nodes::get_link_count(from));
         int i = 0;
         for (; i < count; ++i) {
@@ -1475,19 +1475,19 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         set_rigid_body_pusher_reach(this, 0.0f);
         return true;
     case 0x97C8285A: // GetCameraId
-        script->args_.get()->put_name_key(0x7A039889, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
+        script->args().get()->put_name_key(0x7A039889, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
         return true;
     case 0x7915AA31: { // fetch_tally
         int stat = 0;
         params->fetch_int_value(0xDF4700DE, &stat, 1);
-        script::Struct* results = script->args_.get();
+        script::Struct* results = script->args().get();
         results->push_float(0x8EAF7ADD, fetch_tally(stat)); // stat_value
         return true;
     }
     case 0x9ABE8A21: { // GetScriptedStat
         script::Struct* stat = nullptr;
         params->read_sub_struct(0u, &stat, 1);
-        script::Struct* results = script->args_.get();
+        script::Struct* results = script->args().get();
         results->push_float(0x8EAF7ADD, get_scaled_value(stat));
         return true;
     }
@@ -1524,7 +1524,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case 0xC6870028: // die
         return true;
     case 0xF4C52F72:                                             // GetSkaterNumber
-        script->args_.get()->put_int(0xF3CF5755, view_slot_); // skaternumber
+        script->args().get()->put_int(0xF3CF5755, view_slot_); // skaternumber
         return true;
     default:
         return GameEntity::invoke_method_by_name(name, params, script);

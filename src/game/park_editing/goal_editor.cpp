@@ -73,7 +73,7 @@ uint32_t created_goal_id(int index)
 // The current level, the park editor's gameplay level counting as the park editor's.
 uint32_t current_level()
 {
-    const uint32_t level = modules::Skate::sole()->level_;
+    const uint32_t level = modules::Skate::sole()->level();
     return level == kParkEditorGameplayLevel ? kParkEditorLevel : level;
 }
 
@@ -301,7 +301,7 @@ void ObjectiveAuthoring::update_camera_collision()
         view_cam(view_camera_)->simple_collision_ = true;
         return;
     }
-    view_cam(view_camera_)->simple_collision_ = modules::Skate::sole()->level_ == kParkEditorLevel;
+    view_cam(view_camera_)->simple_collision_ = modules::Skate::sole()->level() == kParkEditorLevel;
 }
 
 // 0x004E7F30
@@ -511,7 +511,7 @@ bool ObjectiveAuthoring::new_editor_goal(script::Struct* /*params*/, script::Scr
 {
     begin_fresh_objective();
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", active_node_->level_goal_number_);
-    script->args_->put_name_key("goal_id", checksums::hash_from_text(park_editing_state().created_goal_name().data()));
+    script->args()->put_name_key("goal_id", checksums::hash_from_text(park_editing_state().created_goal_name().data()));
     return true;
 }
 
@@ -621,7 +621,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
     }
-    script->args_->append_array_ref("EditedGoalsInfo", goals);
+    script->args()->append_array_ref("EditedGoalsInfo", goals);
     return true;
 }
 

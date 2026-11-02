@@ -157,20 +157,20 @@ bool RiderRunClock::unpause(script::Struct*, script::Script*)
 // 0x00518500
 bool RiderRunClock::get_factor_complete(script::Struct*, script::Script* script)
 {
-    script->args_->push_float(kFactorComplete,
+    script->args()->push_float(kFactorComplete,
                               static_cast<float>(seconds_remaining_ / physics_value(entity_, kDuration)));
     return true;
 }
 // 0x00518540
 bool RiderRunClock::fetch_run_clock_pad_id(script::Struct*, script::Script* script)
 {
-    script->args_->put_name_key(kClockCtlKey, timer_script_id(entity_));
+    script->args()->put_name_key(kClockCtlKey, timer_script_id(entity_));
     return true;
 }
 // 0x00518570
 bool RiderRunClock::get_run_timer_id(script::Struct*, script::Script* script)
 {
-    script->args_->put_name_key(kRunTimerId, get_skater_index(entity_) + kRunTimerIdBase);
+    script->args()->put_name_key(kRunTimerId, get_skater_index(entity_) + kRunTimerIdBase);
     return true;
 }
 // 0x005185A0

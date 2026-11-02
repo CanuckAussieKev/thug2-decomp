@@ -218,7 +218,7 @@ uint32_t skater_script(const objects::Rider* skater, uint32_t name, const script
         return name;
     static const uint32_t kBikeKnockDown = name_hash("bike_PedKnockDown");
     const uint32_t chosen =
-        bike_skater_script(name, caller ? caller->script_title_ : 0, script::script_exists(kBikeKnockDown));
+        bike_skater_script(name, caller ? caller->script_title() : 0, script::script_exists(kBikeKnockDown));
     if (chosen == 0)
         get_log("thaw_bmx: a ped's knock-down on the bike - not knocked over (THAW's STATESCRIPT_knockdown)");
     else if (chosen != name)
@@ -283,8 +283,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
                           kEnterWheelie = name_hash("EnterWheelieFromAir"), kManualAngle = name_hash("manual_angle"),
                           kNose = name_hash("nose");
     auto nose = [&](bool set) {
-        if (set && script && script->args_)
-            script->args_->put_int(kNose, 1);
+        if (set && script && script->args())
+            script->args()->put_int(kNose, 1);
     };
     if (name == kIsOn)
         return on_bike(core) ? 1 : 0;
@@ -323,8 +323,8 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
     if (name == kOverGrind) // 0x005C74E0
         return state.over_grind_ ? 1 : 0;
     if (name == kGetAngle) { // 0x005C74F0: manual_angle into the script's parameters
-        if (script && script->args_)
-            script->args_->push_float(kManualAngle, state.manual_angle_);
+        if (script && script->args())
+            script->args()->push_float(kManualAngle, state.manual_angle_);
         return 1;
     }
     if (name == kResetAngle) { // 0x005C7510

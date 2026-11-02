@@ -415,7 +415,7 @@ const char* current_level_prefix()
     auto* skate = modules::Skate::sole();
     if (!skate)
         return nullptr;
-    script::Struct* structure = script::read_sub_struct(modules::Skate::sole()->level_params_);
+    script::Struct* structure = script::read_sub_struct(modules::Skate::sole()->level_params());
     const char* prefix = nullptr;
     if (!structure || !structure->fetch_text(kLevel, &prefix, 0))
         return nullptr;
@@ -463,7 +463,7 @@ void apply_session()
     get_log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
             prefix ? prefix : "(no level structure)", info.time_of_day_, info.weather, get_level_options(info),
             get_pro_sets(info));
-    apply_server_info(info, prefix, net_session_slot()->level_, effects);
+    apply_server_info(info, prefix, net_session_slot()->level(), effects);
     session().applied = true;
 }
 
@@ -495,7 +495,7 @@ void send_server_info(net::AppHost* app, int handle)
 void get_broadcast(uint8_t id, uint32_t value)
 {
     Hub* manager = net_session_slot();
-    if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host_)
+    if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host())
         return;
     net::NetMessageInfo desc;
     desc.ident_ = id;
@@ -506,7 +506,7 @@ void get_broadcast(uint8_t id, uint32_t value)
     desc.content_ = bytes.data();
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupPlayerMessages;
-    manager->host_->put_on_outbox(kHandleBroadcast, &desc);
+    manager->host()->put_on_outbox(kHandleBroadcast, &desc);
 }
 
 // NOT ORIGINAL - AppHost::put_on_outbox's filter (net_app.h): what THUGPRO's put_on_outbox hook adds when we host.
@@ -515,7 +515,7 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
     if (!peer_mode())
         return false;
     Hub* manager = net_session_slot();
-    if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host_)
+    if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host())
         return false;
     if (desc->ident_ == kMsgLobbyDetails) {
         send_server_info(app, handle);
@@ -648,14 +648,14 @@ void tick_frame()
     const bool loaded = session().last_time_ != 0 && now - session().last_time_ > kLoadGapMs;
     session().last_time_ = now;
     void* skater = objects::find_object(kSkater);
-    if (loaded || !skater || manager->level_ == kLoadMainMenu || manager->level_ != session().level ||
+    if (loaded || !skater || manager->level() == kLoadMainMenu || manager->level() != session().level ||
         skater != session().skater) {
-        if (loaded || manager->level_ != session().level || skater != session().skater)
+        if (loaded || manager->level() != session().level || skater != session().skater)
             session().applied = false;
-        session().level = manager->level_;
+        session().level = manager->level();
         session().skater = skater;
         session().settle = 0;
-        if (!skater || manager->level_ == kLoadMainMenu)
+        if (!skater || manager->level() == kLoadMainMenu)
             return;
     }
     if (session().settle < kSettleFrames) {
@@ -774,7 +774,7 @@ bool handle_chat_command(const char* text)
         return true;
     }
     auto bit = static_cast<uint8_t>(1 << (n - 1));
-    const uint32_t load = manager ? manager->level_ : 0;
+    const uint32_t load = manager ? manager->level() : 0;
     if (option) {
         host().level_options_ = static_cast<uint8_t>(on ? host().level_options_ | bit : host().level_options_ & ~bit);
         const char* prefix = current_level_prefix();

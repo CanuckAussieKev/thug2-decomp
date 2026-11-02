@@ -208,7 +208,7 @@ void get_run(uint32_t name, script::Struct* params) { script::launch_script(name
 // A spawned script run at once on `object`.
 void run_on(script::Script* script, void* object)
 {
-    script->entity_.assign_value(static_cast<objects::Entity*>(object));
+    script->entity().assign_value(static_cast<objects::Entity*>(object));
     script->tick_frame();
 }
 
