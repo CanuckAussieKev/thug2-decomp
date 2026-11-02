@@ -5,14 +5,18 @@
 // items. TableReleaser frees a table's items (they're plain blocks) and empties it.
 
 #include <cstdint>
+#include <span>
 
 namespace lists {
 
 struct GrowableMap {
     void** items_; // +0x00
     int capacity_; // +0x04
-    int num_;      // +0x08
+    int num_{0};   // +0x08
     int grow_;     // +0x0C
+
+    // NOT ORIGINAL: the slots as a run of capacity_.
+    [[nodiscard]] std::span<void*> item_run() const { return {items_, static_cast<std::size_t>(capacity_)}; }
 
     // 0x00561470: `capacity` slots, all null; none used.
     GrowableMap(int capacity, int grow);

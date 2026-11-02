@@ -72,6 +72,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
 #include <gsl/pointers>
+#include <span>
 
 namespace modules {
 
@@ -791,7 +792,7 @@ void Skate::debug_rails()
         core::at(matrix, 3) = 0.0f;
         core::at(matrix, 7) = 0.0f;
         core::at(matrix, 11) = 0.0f;
-        std::memcpy(matrix.data() + 12, &object->at_point_, 12);
+        std::memcpy(std::span(matrix).subspan(12, 3).data(), &object->at_point_, 12);
         core::at(matrix, 15) = 1.0f;
         const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)

@@ -7,6 +7,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <span>
 
 // The skater's career (0x00584110-0x00584CF3; the rest of its code is later in the range): for each of 21 levels its
 // goals (256 bits) and flags (256 bits), the goals and flags as they were when the level started (to tell which were
@@ -93,8 +94,8 @@ public:
     void write_to_structure(script::Struct* save);
 
     // The goal / flag words of every level, in one run (level * 8 + word).
-    uint32_t* goal_words() { return &core::at(core::at(goals_, 0), 0); }
-    uint32_t* flag_words() { return &core::at(core::at(flag_bits_, 0), 0); }
+    std::span<uint32_t> goal_words() { return {core::at(goals_, 0).data(), kLevels * 8}; }
+    std::span<uint32_t> flag_words() { return {core::at(flag_bits_, 0).data(), kLevels * 8}; }
 
     // (The offsets are the original's, which has a vtable at +0x000 - 0x0064EFD4 - holding only the destructor.)
     std::array<std::array<uint32_t, 8>, kLevels> goals_{};     // +0x004

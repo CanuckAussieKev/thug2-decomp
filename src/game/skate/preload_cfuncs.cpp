@@ -162,7 +162,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
             text::to_lower_text(name.data());
             if (std::strstr(name.data(), ".mdl")) {
                 get_base_name(file, name.data());
-                std::memcpy(name.data() + std::strlen(name.data()), ".col", 5);
+                text::append_unbounded(name.data(), ".col");
                 assets::ResourceRegistry* assets = assets::asset_manager();
                 const bool permanent = assets->get_permanent_by_default();
                 assets->fetch_or_load_resource(name.data(), 8, 0, checksums::hash_from_text(file), false, false, permanent,
@@ -172,7 +172,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
         if (node_class == kVehicle) {
             std::array<char, 0x100> script{};
             get_base_name(path.c_str(), script.data());
-            std::memcpy(script.data() + std::strlen(script.data()), ".qb", 4);
+            text::append_unbounded(script.data(), ".qb");
             assets::ResourceRegistry* assets = assets::asset_manager();
             const bool permanent = assets->get_permanent_by_default();
             assets->fetch_or_load_resource(script.data(), 0xA, 0, 0, false, false, permanent, nullptr, nullptr);

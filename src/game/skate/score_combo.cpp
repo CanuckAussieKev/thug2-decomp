@@ -33,6 +33,7 @@
 #include "engine/core/down_cast.h"
 #include "game/rider/adjust_physics.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/str.h"
 
 namespace modules {
 
@@ -126,7 +127,7 @@ void clear_combo(PointTally* score)
 {
     const int count = score->log_.num_;
     for (int i = 0; i < count; ++i)
-        memory::dealloc(score->log_.items_[i]);
+        memory::dealloc(core::at(score->log_.item_run(), i));
     score->log_.num_ = 0;
     score->last_no_spin_ = -1;
     score->spin_trick_ = -1;
@@ -342,13 +343,13 @@ void PointTally::tick_frame()
 // 0x00563990
 void PointTally::fire_off(const char* text, int score, uint32_t flags)
 {
-    const bool unnamed = !text[0];
+    const bool unnamed = !*text;
     objects::Rider* skater = rider_for_slot(rider_no_);
     if (!skater)
         return;
     auto* trick_component = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
     auto* stats = core::down_cast<objects::AttributeTracker>(skater->fetch_module(kStatsManager));
-    if (text[0])
+    if (*text)
         trick_component->bailed_ = true;
     auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = core::down_cast<objects::Rider>(physics->entity_);
@@ -402,7 +403,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
                 continue;
             if (core::at(shown, length - 1) == ' ')
                 core::at(shown, length - 1) = 0;
-            std::memcpy(shown.data() + std::strlen(shown.data()), "\\_+ ", 5); // "\_+ "
+            text::append_unbounded(shown.data(), "\\_+ "); // "\_+ "
             break;
         }
     }

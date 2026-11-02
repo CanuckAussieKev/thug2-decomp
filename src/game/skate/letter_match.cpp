@@ -67,8 +67,7 @@ char get_upper(char c) { return c >= 'a' && c <= 'z' ? static_cast<char>(c - 0x2
 // strcpy (no bounds, as the original).
 void dup_from(char* dest, const char* text)
 {
-    while ((*dest++ = *text++) != 0) {
-    }
+    text::copy_unbounded(dest, text);
 }
 
 } // namespace
@@ -94,9 +93,12 @@ void LetterMatch::begin_timed_session() { cur_standing_ = core::at(statuses(), k
 // 0x00560190
 bool LetterMatch::state_matches(script::Struct* params)
 {
-    for (const uint32_t* status = statuses().data(); *status; ++status)
-        if (params->has_bare_flag(*status))
-            return cur_standing_ == *status;
+    for (const uint32_t status : statuses()) {
+        if (!status)
+            break;
+        if (params->has_bare_flag(status))
+            return cur_standing_ == status;
+    }
     return false;
 }
 

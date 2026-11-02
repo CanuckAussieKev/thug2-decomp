@@ -2,6 +2,7 @@
 
 #include "game/skate/point_tally.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -33,9 +34,7 @@ GrowableMap::GrowableMap(int capacity, int grow)
     : items_(static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * 4))), capacity_(capacity),
       grow_(grow)
 {
-    for (int i = 0; i < capacity_; ++i)
-        items_[i] = nullptr;
-    num_ = 0;
+    std::ranges::fill(item_run(), nullptr);
 }
 
 // 0x005614C0
@@ -47,15 +46,14 @@ void GrowableMap::append_one(void* item)
     if (capacity_ <= num_) {
         const int capacity = capacity_ + grow_;
         auto** items = static_cast<void**>(memory::alloc_block(static_cast<unsigned int>(capacity) * 4));
-        for (int i = 0; i < capacity_; ++i)
-            items[i] = items_[i];
-        for (int i = capacity_; i < capacity; ++i)
-            items[i] = nullptr;
+        const std::span<void*> grown(items, static_cast<std::size_t>(capacity));
+        std::ranges::copy(item_run(), grown.begin());
+        std::ranges::fill(grown.subspan(static_cast<std::size_t>(capacity_)), nullptr);
         memory::free_malloc(static_cast<void*>(items_));
         items_ = items;
         capacity_ = capacity;
     }
-    items_[num_++] = item;
+    core::at(item_run(), num_++) = item;
 }
 
 // 0x00562920
@@ -63,7 +61,7 @@ void TableReleaser::empty_table_items()
 {
     const int count = lookup_table_->num_;
     for (int i = 0; i < count; ++i)
-        memory::dealloc(lookup_table_->items_[i]);
+        memory::dealloc(core::at(lookup_table_->item_run(), i));
     lookup_table_->num_ = 0;
 }
 
@@ -635,10 +633,11 @@ void PointTally::trim_log()
     merged.points_held_ = get_score_of_range(0, end);
     // (entries 1 to `end` taken out - one more than the points summed, as the original)
     for (int left = end; left > 0; --left) {
-        memory::dealloc(log_.items_[1]);
+        const std::span<void*> logged = log_.item_run();
+        memory::dealloc(core::at(logged, 1));
         for (int i = 1; i < log_.num_ - 1; ++i)
-            log_.items_[i] = log_.items_[i + 1];
-        log_.items_[log_.num_ - 1] = nullptr;
+            core::at(logged, i) = core::at(logged, i + 1);
+        core::at(logged, log_.num_ - 1) = nullptr;
         --log_.num_;
         --tricks_;
         --spin_trick_;

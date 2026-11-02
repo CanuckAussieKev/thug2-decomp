@@ -50,7 +50,7 @@ void RiderStoryProgress::set_goal(int goal, int level)
 {
     if (level == -1)
         level = level_;
-    goal_words()[level * 8 + get_word(goal)] |= get_bit(goal);
+    core::at(goal_words(), level * 8 + get_word(goal)) |= get_bit(goal);
 }
 
 // 0x00584180
@@ -59,7 +59,7 @@ void RiderStoryProgress::un_set_goal(int goal, int level)
     if (level == -1)
         level = level_;
     const uint32_t mask = ~get_bit(goal);
-    goal_words()[level * 8 + get_word(goal)] &= mask;
+    core::at(goal_words(), level * 8 + get_word(goal)) &= mask;
     core::at(start_goals_, get_word(goal)) &= mask;
 }
 
@@ -68,13 +68,13 @@ bool RiderStoryProgress::get_goal(int goal, int level)
 {
     if (level == -1)
         level = level_;
-    return (goal_words()[level * 8 + get_word(goal)] & get_bit(goal)) != 0;
+    return (core::at(goal_words(), level * 8 + get_word(goal)) & get_bit(goal)) != 0;
 }
 
 // 0x00584210
 bool RiderStoryProgress::just_got_goal(int goal)
 {
-    return ((core::at(start_goals_, get_word(goal)) ^ goal_words()[level_ * 8 + get_word(goal)]) & get_bit(goal)) != 0;
+    return ((core::at(start_goals_, get_word(goal)) ^ core::at(goal_words(), level_ * 8 + get_word(goal))) & get_bit(goal)) != 0;
 }
 
 // 0x00584250
@@ -117,7 +117,7 @@ void RiderStoryProgress::set_flag(int flag, int level)
 {
     if (level == -1)
         level = level_;
-    flag_words()[level * 8 + get_word(flag)] |= get_bit(flag);
+    core::at(flag_words(), level * 8 + get_word(flag)) |= get_bit(flag);
 }
 
 // 0x00584470
@@ -126,7 +126,7 @@ void RiderStoryProgress::un_set_flag(int flag, int level)
     if (level == -1)
         level = level_;
     const uint32_t mask = ~get_bit(flag);
-    flag_words()[level * 8 + get_word(flag)] &= mask;
+    core::at(flag_words(), level * 8 + get_word(flag)) &= mask;
     core::at(start_flags_, get_word(flag)) &= mask;
 }
 
@@ -135,13 +135,13 @@ bool RiderStoryProgress::fetch_marker(int flag, int level)
 {
     if (level == -1)
         level = level_;
-    return (flag_words()[level * 8 + get_word(flag)] & get_bit(flag)) != 0;
+    return (core::at(flag_words(), level * 8 + get_word(flag)) & get_bit(flag)) != 0;
 }
 
 // 0x00584500
 bool RiderStoryProgress::just_got_flag(int flag)
 {
-    return ((core::at(start_flags_, get_word(flag)) ^ flag_words()[level_ * 8 + get_word(flag)]) & get_bit(flag)) != 0;
+    return ((core::at(start_flags_, get_word(flag)) ^ core::at(flag_words(), level_ * 8 + get_word(flag))) & get_bit(flag)) != 0;
 }
 
 // 0x00584540 / 0x00584560
@@ -213,7 +213,7 @@ bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
     auto clear = [this](int bit, int level) {
         un_set_flag(bit, level);
         const uint32_t mask = ~get_bit(bit);
-        goal_words()[level * 8 + get_word(bit)] &= mask;
+        core::at(goal_words(), level * 8 + get_word(bit)) &= mask;
         core::at(start_goals_, get_word(bit)) &= mask;
     };
     if (part == 0 || part == 0x4DA4937B) {
@@ -371,9 +371,9 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
     career->fetch_list(kFlagsArray, &flags, 0);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
-            goal_words()[first + i] = goals->fetch_part(first + i);
+            core::at(goal_words(), first + i) = goals->fetch_part(first + i);
         for (uint32_t i = 0; i < 8; ++i)
-            flag_words()[first + i] = flags->fetch_part(first + i);
+            core::at(flag_words(), first + i) = flags->fetch_part(first + i);
     }
     script::Array* globals = nullptr;
     career->fetch_list(kGlobalFlagsArray, &globals, 0);
@@ -463,12 +463,12 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     gsl::owner<script::Array*> goals = alloc_script_array(kLevels * 8, script::kQbvalInteger);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
-            goals->set_element(first + i, goal_words()[first + i]);
+            goals->set_element(first + i, core::at(goal_words(), first + i));
     }
     gsl::owner<script::Array*> flags = alloc_script_array(kLevels * 8, script::kQbvalInteger);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
-            flags->set_element(first + i, flag_words()[first + i]);
+            flags->set_element(first + i, core::at(flag_words(), first + i));
     }
     gsl::owner<script::Array*> globals = alloc_script_array(16, script::kQbvalInteger);
     for (uint32_t i = 0; i < 16; ++i)

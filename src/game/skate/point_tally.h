@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include "engine/core/checked_index.h"
 #include <span>
 
 #include "engine/lists/dynamic_table.h"
@@ -243,7 +244,7 @@ public:
     static int on_score_msg(net::InboundMsgCtx* context);
 
     // (the trick log's entry `index`; the last one)
-    TrickLog* get_trick(int index) { return static_cast<TrickLog*>(log_.items_[index]); }
+    TrickLog* get_trick(int index) { return static_cast<TrickLog*>(core::at(log_.item_run(), index)); }
     TrickLog* newest_logged_trick() { return get_trick(log_.num_ - 1); }
 };
 
