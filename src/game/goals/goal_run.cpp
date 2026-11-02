@@ -30,6 +30,7 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/format.h"
 
 namespace goals {
 
@@ -259,7 +260,7 @@ bool Objective::register_gap_hit(uint32_t gap)
     for (uint32_t i = 0; i < gaps->extent_; ++i) {
         if (gaps->fetch_part(i) == gap) {
             std::array<char, 32> flag{};
-            std::snprintf(flag.data(), sizeof(flag), kGotFormat, static_cast<int>(i + 1));
+            text::format_to(flag, kGotFormat, static_cast<int>(i + 1));
             set_flag(checksums::hash_from_text(flag.data()), 1, 0u);
             return true;
         }
@@ -343,10 +344,10 @@ bool Objective::did_trick_string()
     if (type == kGrind) {
         // (the original copies into its 128 bytes unbounded)
         std::array<char, 128> name{};
-        std::snprintf(name.data(), sizeof(name), "FS %s", trick);
+        text::format_to(name, "FS %s", trick);
         if (get_trick_count(score, checksums::hash_from_text(name.data())))
             return true;
-        std::snprintf(name.data(), sizeof(name), "BS %s", trick);
+        text::format_to(name, "BS %s", trick);
         if (get_trick_count(score, checksums::hash_from_text(name.data())))
             return true;
     }

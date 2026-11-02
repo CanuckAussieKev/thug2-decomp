@@ -23,6 +23,7 @@
 #include "engine/net/player_info.h"
 #include "game/skate/point_tally.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/format.h"
 
 namespace goals {
 
@@ -309,8 +310,8 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         const char* goal_name = nullptr;
         args_->fetch_text(kGoalName, &goal_name, 1);
         std::array<char, 0x100> script_name{};
-        std::snprintf(script_name.data(), sizeof(script_name), "%s_next_waypoint_script_id",
-                      goal_name); // "%s_next_waypoint_script_id"
+        text::format_to(script_name, "%s_next_waypoint_script_id",
+                        goal_name); // "%s_next_waypoint_script_id"
         script::spawn_script(kRaceNextWaypoint, params.get(), 0, nullptr, 0, checksums::hash_from_text(script_name.data()), false,
                              false, false, false);
         params.reset();

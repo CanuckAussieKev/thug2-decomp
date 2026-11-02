@@ -32,6 +32,7 @@
 #include <gsl/pointers>
 #include <span>
 #include <string_view>
+#include "engine/core/format.h"
 
 namespace goals {
 
@@ -72,12 +73,12 @@ constexpr uint32_t kVo = 0x1A4E4FB9;                     // VO
 constexpr uint32_t kMidgoal = 0x1623B689;                // (the midgoal type)
 constexpr uint32_t kWait = 0x82117C1A;                   // wait
 
-const char* const kFormatTwo = "%s_%s";                 // "%s_%s"
-const char* const kSuccess = "%s_success";              // "%s_success"
-const char* const kFemale = "%s_f";                     // "%s_f"
-const char* const kCamAnim = "%s_camAnim%02i";          // "%s_camAnim%02i"
-const char* const kCamAnimSuffix = "%s_camAnim%02i_%s"; // "%s_camAnim%02i_%s"
-const char* const kLip = "%s_lip";                      // "%s_lip"
+constexpr const char* kFormatTwo = "%s_%s";                 // "%s_%s"
+constexpr const char* kSuccess = "%s_success";              // "%s_success"
+constexpr const char* kFemale = "%s_f";                     // "%s_f"
+constexpr const char* kCamAnim = "%s_camAnim%02i";          // "%s_camAnim%02i"
+constexpr const char* kCamAnimSuffix = "%s_camAnim%02i_%s"; // "%s_camAnim%02i_%s"
+constexpr const char* kLip = "%s_lip";                      // "%s_lip"
 const char* const kFar = "Far";                         // "Far"
 
 GoalManager* hub() { return get_objective_board(); }
@@ -85,11 +86,12 @@ script::Struct* get_goal_params(uint32_t id) { return hub()->get_objective_args(
 objects::RiderIdentity* current_profile() { return skate_calls::get_profile_from_params(nullptr); }
 
 // `text` with `format` applied to itself (sprintf onto its own buffer: _f, _success).
-void append_format(char* text, size_t size, const char* format)
+void append_format(std::span<char> text, text::FormatFor<const char*> format)
 {
     std::array<char, 0x100> copy{};
-    std::snprintf(copy.data(), sizeof(copy), "%s", text);
-    std::snprintf(text, size, format, copy.data());
+    text::format_to(copy, "%s", text.data());
+    const char* const copied = copy.data();
+    text::format_to(text, format, copied);
 }
 
 // The object `id` names: the skater, or the composite object with that id.
@@ -145,7 +147,7 @@ void ObjectiveNpc::read_leading_name(std::span<char> out, const char* name)
 void ObjectiveNpc::add_success_suffix(bool add, char* text, int)
 {
     if (add)
-        append_format(text, 0x100, kSuccess);
+        append_format(std::span(text, 0x100), kSuccess);
 }
 
 // 0x0055EBF0
@@ -178,7 +180,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     const char* goal_name = nullptr;
     params->fetch_text(kGoalName, &goal_name, true);
     std::array<char, 0x200> base{};
-    std::snprintf(base.data(), sizeof(base), kFormatTwo, pro, goal_name);
+    text::format_to(base, kFormatTwo, pro, goal_name);
     const char* difficulty = nullptr;
     switch (hub()->get_skill_tier(false)) {
     case 0:
@@ -207,43 +209,42 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     std::array<char, 0x100> cam_base{};
     std::array<char, 0x100> cam_suffix{};
     std::array<char, 0x100> cam_difficulty_suffix{};
-    std::snprintf(base_difficulty.data(), sizeof(base_difficulty), kFormatTwo, base.data(), difficulty);
+    text::format_to(base_difficulty, kFormatTwo, base.data(), difficulty);
     core::at(cam_difficulty, 0) = core::at(cam_base, 0) = core::at(cam_suffix, 0) = core::at(cam_difficulty_suffix, 0) = 0;
     if (index >= 0 && !no_cam_anim) {
-        std::snprintf(cam_difficulty.data(), sizeof(cam_difficulty), kCamAnim, base_difficulty.data(), index);
+        text::format_to(cam_difficulty, kCamAnim, base_difficulty.data(), index);
         if (success)
-            append_format(cam_difficulty.data(), sizeof(cam_difficulty), kSuccess);
-        std::snprintf(cam_base.data(), sizeof(cam_base), kCamAnim, base.data(), index);
+            append_format(cam_difficulty, kSuccess);
+        text::format_to(cam_base, kCamAnim, base.data(), index);
         if (success)
-            append_format(cam_base.data(), sizeof(cam_base), kSuccess);
+            append_format(cam_base, kSuccess);
         if (suffix) {
-            std::snprintf(cam_suffix.data(), sizeof(cam_suffix), kCamAnimSuffix, base.data(), index, suffix);
+            text::format_to(cam_suffix, kCamAnimSuffix, base.data(), index, suffix);
             if (female)
-                append_format(cam_suffix.data(), sizeof(cam_suffix), kFemale);
+                append_format(cam_suffix, kFemale);
             add_success_suffix(success, cam_suffix.data(), 0x100);
-            std::snprintf(cam_difficulty_suffix.data(), sizeof(cam_difficulty_suffix), kCamAnimSuffix, base_difficulty.data(), index,
-                          suffix);
+            text::format_to(cam_difficulty_suffix, kCamAnimSuffix, base_difficulty.data(), index, suffix);
             if (female)
-                append_format(cam_difficulty_suffix.data(), sizeof(cam_difficulty_suffix), kFemale);
+                append_format(cam_difficulty_suffix, kFemale);
             add_success_suffix(success, cam_difficulty_suffix.data(), 0x100);
         }
     }
     core::at(base_difficulty_suffix, 0) = core::at(base_suffix, 0) = 0;
     if (suffix) {
-        std::snprintf(base_difficulty_suffix.data(), sizeof(base_difficulty_suffix), kFormatTwo, base_difficulty.data(), suffix);
+        text::format_to(base_difficulty_suffix, kFormatTwo, base_difficulty.data(), suffix);
         if (female)
-            append_format(base_difficulty_suffix.data(), sizeof(base_difficulty_suffix), kFemale);
+            append_format(base_difficulty_suffix, kFemale);
         if (success)
-            append_format(base_difficulty_suffix.data(), sizeof(base_difficulty_suffix), kSuccess);
-        std::snprintf(base_suffix.data(), sizeof(base_suffix), kFormatTwo, base.data(), suffix);
+            append_format(base_difficulty_suffix, kSuccess);
+        text::format_to(base_suffix, kFormatTwo, base.data(), suffix);
         if (female)
-            append_format(base_suffix.data(), sizeof(base_suffix), kFemale);
+            append_format(base_suffix, kFemale);
         if (success)
-            append_format(base_suffix.data(), sizeof(base_suffix), kSuccess);
+            append_format(base_suffix, kSuccess);
     }
     if (success) {
-        append_format(base_difficulty.data(), sizeof(base_difficulty), kSuccess);
-        append_format(base.data(), sizeof(base), kSuccess);
+        append_format(base_difficulty, kSuccess);
+        append_format(base, kSuccess);
     }
     // The candidates in order (the camera animation's first when there's one); for each its _lip version first.
     const std::array<const char*, 8> candidates = {{base.data(),           base_difficulty.data(), base_suffix.data(), base_difficulty_suffix.data(),
@@ -255,7 +256,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
         if (!std::strlen(name))
             continue;
         std::array<char, 0x100> lip_name{};
-        std::snprintf(lip_name.data(), sizeof(lip_name), kLip, name);
+        text::format_to(lip_name, kLip, name);
         const uint32_t lip_stream = checksums::hash_from_text(lip_name.data());
         if (audio::stream_exists(lip_stream)) {
             found = lip_stream;
@@ -309,17 +310,17 @@ uint32_t ObjectiveNpc::get_objective_anim_sets(const char* type)
     const char* goal_name = nullptr;
     get_goal_params(objective_key_)->fetch_text(kGoalName, &goal_name, 1);
     std::array<char, 0x80> name{};
-    std::snprintf(name.data(), sizeof(name), kFormatTwo, goal_name, type);
+    text::format_to(name, kFormatTwo, goal_name, type);
     if (script::fetch_list(name.data()))
         return checksums::hash_from_text(name.data());
     if (!type)
         return 0;
     std::array<char, 0x80> pro_name{};
-    std::snprintf(pro_name.data(), sizeof(pro_name), "%s_goal_%s", get_pro_given_name(), type); // "%s_goal_%s"
+    text::format_to(pro_name, "%s_goal_%s", get_pro_given_name(), type); // "%s_goal_%s"
     if (script::fetch_list(pro_name.data()))
         return checksums::hash_from_text(pro_name.data());
     std::array<char, 0x80> generic{};
-    std::snprintf(generic.data(), sizeof(generic), "generic_pro_anims_%s", type); // "generic_pro_anims_%s"
+    text::format_to(generic, "generic_pro_anims_%s", type); // "generic_pro_anims_%s"
     script::fetch_list(generic.data());
     return checksums::hash_from_text(generic.data());
 }
@@ -395,7 +396,7 @@ void ObjectiveNpc::load_anim_bank(uint32_t stream, uint32_t anim_set)
 {
     unload_anim_bank();
     std::array<char, 0x20> path{};
-    std::snprintf(path.data(), sizeof(path), "fam\\%08x.fam", stream); // "fam\%08x.fam"
+    text::format_to(path, "fam\\%08x.fam", stream); // "fam\%08x.fam"
     assets::ResourceRegistry* assets = assets::asset_manager();
     const int previous = assets->unknown18_;
     if (assets->load_anim(path.data(), stream, anim_set, false, false))
@@ -493,9 +494,9 @@ void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by
         if (n > count) {
             if (!profile->is_pro())
                 continue;
-            std::snprintf(name.data(), sizeof(name), "%s_%s%s%02i", pro, kind, player.data(), n - count); // "%s_%s%s%02i"
+            text::format_to(name, "%s_%s%s%02i", pro, kind, player.data(), n - count); // "%s_%s%s%02i"
         } else {
-            std::snprintf(name.data(), sizeof(name), "%s_%s%02i", pro, kind, n); // "%s_%s%02i"
+            text::format_to(name, "%s_%s%02i", pro, kind, n); // "%s_%s%02i"
         }
         if (audio::stream_exists(checksums::hash_from_text(name.data()))) {
             play_stream(checksums::hash_from_text(name.data()), no_anim, 0, false);
@@ -534,7 +535,7 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
         bool played = false;
         for (int n = 1; n <= 5; ++n) {
             std::array<char, 0x80> name{};
-            std::snprintf(name.data(), sizeof(name), "%s_Far%s%02i", pro, player.data(), n); // "%s_Far%s%02i"
+            text::format_to(name, "%s_Far%s%02i", pro, player.data(), n); // "%s_Far%s%02i"
             if (audio::stream_exists(checksums::hash_from_text(name.data()))) {
                 played = true;
                 play_stream(checksums::hash_from_text(name.data()), true, 0, false);

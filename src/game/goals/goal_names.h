@@ -92,6 +92,6 @@ inline const char* const kGoalIdName = "goal_id";                // "goal_id"
 inline const char* const kViewGoalsTextName = "view_goals_text"; // "view_goals_text"
 inline const char* const kIdName = "id";                         // "id"
 inline const char* const kEmptyString = "";                      // ""
-inline const char* const kGotFormat = "got_%d";                  // "got_%d"
+inline constexpr const char* kGotFormat = "got_%d";              // "got_%d"
 
 } // namespace goals::goal_names

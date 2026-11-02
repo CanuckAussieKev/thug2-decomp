@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/mem.h"
+#include "engine/core/format.h"
 
 namespace goals {
 
@@ -79,7 +80,7 @@ void GoalManager::update_time_display()
             minutes = time / 60000;
             seconds = (time - minutes * 60000) / 1000;
         }
-        std::snprintf(text.data(), sizeof(text), "%2i:%.2i", minutes, seconds); // "%2i:%.2i"
+        text::format_to(text, "%2i:%.2i", minutes, seconds); // "%2i:%.2i"
         break;
     }
     frontend::ElementPtr element;
@@ -181,28 +182,28 @@ void GoalManager::append_objective_list_entries()
             int value = 0;
             if (goal->is_contest_objective()) {
                 params->fetch_int_value(kWinRecord, &value, 0);
-                std::snprintf(record.data(), sizeof(record), "%i", value); // "%i"
+                text::format_to(record, "%i", value);               // "%i"
                 const char* suffix = value == 1   ? "st place"      // "st place"
                                      : value == 2 ? "nd place"      // "nd place"
                                      : value == 3 ? "rd place"      // "rd place"
                                                   : "";
                 std::size_t length = std::strlen(record.data());
-                std::snprintf(std::span<char>(record).subspan(length).data(), sizeof(record) - length, "%s", suffix);
+                text::format_to(std::span<char>(record).subspan(length), "%s", suffix);
                 item->append_word(kRecordText, record.data());
             } else {
                 uint32_t type = 0;
                 if (params->read_hash_value(kRecordType, &type, 0)) {
                     if (type == kScore) {
                         params->fetch_int_value(kWinRecord, &value, 0);
-                        std::snprintf(record.data(), sizeof(record), "%s", text::format_with_separators(value)); // "%s"
+                        text::format_to(record, "%s", text::format_with_separators(value)); // "%s"
                         item->append_word(kRecordText, record.data());
                     } else if (type == kTime) {
                         int ms = 0;
                         params->fetch_int_value(kWinRecord, &ms, 0);
                         const int total_seconds = ms / 1000;
                         const int minutes = total_seconds / 60;
-                        std::snprintf(record.data(), sizeof(record), "%i:%02i.%02i", minutes, total_seconds - minutes * 60,
-                                      (ms % 1000) / 10); // "%i:%02i.%02i"
+                        text::format_to(record, "%i:%02i.%02i", minutes, total_seconds - minutes * 60,
+                                        (ms % 1000) / 10); // "%i:%02i.%02i"
                         item->append_word(kRecordText, record.data());
                     }
                 } else {

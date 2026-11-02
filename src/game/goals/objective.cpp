@@ -13,6 +13,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/tod_manager.h"
+#include "engine/core/format.h"
 
 namespace goals {
 
@@ -446,7 +447,7 @@ void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, 
         }
         const char* replacement = source->find_inline_text(static_cast<uint32_t>(number - 1));
         const std::span<char> room = out.rest();
-        std::snprintf(room.data(), room.size(), replacement); // (the original: sprintf, unbounded, the text as the format)
+        text::format_data_to(room, replacement); // (the original: sprintf, unbounded, the text as the format)
         const int length = static_cast<int>(std::strlen(replacement));
         if (length > 0)
             out += length;
