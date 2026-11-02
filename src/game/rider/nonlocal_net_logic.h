@@ -93,6 +93,7 @@ public:
     // primary channel), the board's rotation, the model's parts, special items made and destroyed.
     void play_history_events();
 
+private:
     uint32_t sync_frame_{};       // +0x18 the client app's frame when playback started (0: not yet)
     int sync_time_{};             // +0x1C the history's time then, less the app's frames since
     uint32_t last_event_time_{0}; // +0x20 the history's events played up to here

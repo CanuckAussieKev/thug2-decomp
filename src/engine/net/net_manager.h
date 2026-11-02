@@ -110,6 +110,7 @@ public:
     // 0x00454DE0: the dial-up number in use ("" for connection type 3).
     const char* get_dialup_number();
 
+private:
     memory::ListNode hosts_{};       // +0x000 lists::Foremost<App>
     memory::ListNode clients_{};     // +0x014
     std::array<uint8_t, 0x100> message_flags_{}; // +0x028 per message id (bit 0: sent without its length; the

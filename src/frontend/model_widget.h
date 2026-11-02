@@ -64,6 +64,10 @@ public:
     // the element's size at its CameraZ.
     void scale_to_screen_dims();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] const std::array<float, 3>& angle() const { return angle_; }
+
+private:
     std::array<ShapeMesh, kMaxModels> models_; // +0x178
     int model_total_{0};           // +0x434
     float camera_z_{-400.0f};      // +0x438 (CameraZ: the distance in front of the camera, negative)
