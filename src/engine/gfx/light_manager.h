@@ -102,6 +102,4 @@ struct DynamicLightBase {
     void set_reach(float reach);
 };
 
-int& dynamic_light_count();
-std::array<DynamicLightBase*, 256>& dynamic_lights();
 } // namespace render

@@ -16,7 +16,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/light_sets.h"
 
 namespace render {
 
@@ -35,11 +35,6 @@ PcLightsState& pc_lights_state()
 }
 
 } // namespace
-PcLightsShared& pc_lights_shared()
-{
-    static core::NoDestroy<PcLightsShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -47,24 +42,21 @@ constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
-std::array<float, 4 + 8 * (2 + 32)>& ambient_constant() { return pc_lights_shared().light_constants_; }
+std::array<float, 4 + 8 * (2 + 32)>& ambient_constant() { return light_sets().light_constants(); }
 std::span<float, 3> light_direction_constant(uint32_t light)
 {
-    return std::span<float>(pc_lights_shared().light_constants_).subspan(4 + 8 * light).first<3>();
+    return std::span<float>(light_sets().light_constants()).subspan(4 + 8 * light).first<3>();
 }
 std::span<float, 3> light_color_constant(uint32_t light)
 {
-    return std::span<float>(pc_lights_shared().light_constants_).subspan(8 + 8 * light).first<3>();
+    return std::span<float>(light_sets().light_constants()).subspan(8 + 8 * light).first<3>();
 }
 
 // The scene's lights.
-uint32_t& scene_ambient() { return light_manager_shared().active_lighting_.ambient; }
-float scene_scale() { return light_manager_shared().ambient_intensity_; }
-std::span<maths::Vec4> scene_directions() { return light_manager_shared().active_lighting_.directions; } // (0x0067DC9C)
-std::span<uint32_t> scene_colors() { return light_manager_shared().active_lighting_.colours; }           // (0x0067DCA0)
-std::span<float> scene_intensities() { return light_manager_shared().intensities_; }
-uint32_t light_count() { return engine_model_lights_shared().light_count_; }
-uint32_t model_light_count() { return light_manager_shared().model_light_count_; }
+uint32_t& scene_ambient() { return light_sets().get_world().ambient; }
+
+std::span<maths::Vec4> scene_directions() { return light_sets().get_world().directions; } // (0x0067DC9C)
+std::span<uint32_t> scene_colors() { return light_sets().get_world().colours; }           // (0x0067DCA0)
 
 // A colour's r, g, b bytes times `factor` and 1/128 into three floats.
 void send_color(std::span<float, 3> out, uint32_t rgba, float factor)
@@ -80,8 +72,8 @@ void send_negated(std::span<float, 3> out, const maths::Vec4& v)
 }
 
 // NOT ORIGINAL - a model's colours and directions as runs of the model light count they were made for.
-std::span<uint32_t> colors_of(const PcModelLights& lights) { return {lights.colors, model_light_count()}; }
-std::span<maths::Vec4> directions_of(const PcModelLights& lights) { return {lights.directions, model_light_count()}; }
+std::span<uint32_t> colors_of(const PcModelLights& lights) { return {lights.colors, light_sets().model_light_count()}; }
+std::span<maths::Vec4> directions_of(const PcModelLights& lights) { return {lights.directions, light_sets().model_light_count()}; }
 
 // A dynamic light's falloff at `distance` (its vtable's slot 2).
 double get_falloff(DynamicLightBase* light, float distance) { return light->get_falloff(distance); }
@@ -98,11 +90,11 @@ uint32_t find_dynamic_lights(const maths::Vec4* position, uint32_t radius, std::
 PcModelLights::PcModelLights()
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    colors = static_cast<uint32_t*>(memory::alloc(4 * model_light_count()));
-    directions = static_cast<maths::Vec4*>(memory::alloc(16 * model_light_count()));
+    colors = static_cast<uint32_t*>(memory::alloc(4 * light_sets().model_light_count()));
+    directions = static_cast<maths::Vec4*>(memory::alloc(16 * light_sets().model_light_count()));
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     switch_ambient_light(false);
-    for (uint32_t i = 0; i < model_light_count(); ++i) {
+    for (uint32_t i = 0; i < light_sets().model_light_count(); ++i) {
         switch_diffuse_light(static_cast<int>(i), false);
         core::at(directions_of(*this), i) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     }
@@ -174,7 +166,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     else
         fetch_ambient_hue(&color);
     send_color(std::span<float>(ambient_constant()).first<3>(), color, size_factor_);
-    for (uint32_t i = 0; i < light_count(); ++i) {
+    for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         if (overrides & (2u << (i & 31))) {
             send_color(light_color_constant(i), core::at(colors_of(*this), i), core::at(intensities(), i));
             send_negated(light_direction_constant(i), core::at(directions_of(*this), i));
@@ -254,7 +246,7 @@ bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << 
 // 0x004B67E0
 bool update_ambient_light()
 {
-    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), scene_scale());
+    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().scene_scale());
     return true;
 }
 
@@ -268,7 +260,7 @@ uint32_t* fetch_ambient_hue(uint32_t* out)
 // 0x004B6860
 bool update_light_color(int light)
 {
-    send_color(light_color_constant(light), core::at(scene_colors(), light), core::at(scene_intensities(), light));
+    send_color(light_color_constant(light), core::at(scene_colors(), light), core::at(light_sets().scene_intensities(), light));
     return true;
 }
 
@@ -285,7 +277,7 @@ void update_all_lights()
     update_ambient_light();
     // (lights 0-30 in the original, past the arrays' end for any world with fewer: the constants of lights nobody
     // has are never read, so only the world's own are sent)
-    for (int i = 0; std::cmp_less(i, 31) && std::cmp_less(i, light_count()); ++i)
+    for (int i = 0; std::cmp_less(i, 31) && std::cmp_less(i, light_sets().light_count()); ++i)
         update_light_color(i);
 }
 
@@ -299,11 +291,11 @@ bool delete_model_lights(gsl::owner<PcModelLights*> lights)
 // 0x004B6940
 void reset_lights()
 {
-    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), scene_scale());
+    send_color(std::span<float>(ambient_constant()).first<3>(), scene_ambient(), light_sets().scene_scale());
     for (int i = 0; i < 2; ++i) {
         uint32_t color = 0;
         fetch_light_tint(&color, i);
-        send_color(light_color_constant(i), color, core::at(scene_intensities(), i));
+        send_color(light_color_constant(i), color, core::at(light_sets().scene_intensities(), i));
         send_negated(light_direction_constant(i), *get_light_direction(i));
     }
     const std::span<float, 3> third = light_color_constant(2);

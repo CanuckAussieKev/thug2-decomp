@@ -36,6 +36,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/light_sets.h"
 
 namespace render {
 
@@ -144,24 +145,24 @@ void refresh_instance_lighting(Singleton* instance)
 void send_lights()
 {
     D3DLIGHT9& lamp_a = pc_instance_state().device_light0_;
-    lamp_a.Diffuse.r = core::at(pc_lights_shared().light_constants_, 8);
-    lamp_a.Diffuse.g = core::at(pc_lights_shared().light_constants_, 9);
-    lamp_a.Diffuse.b = core::at(pc_lights_shared().light_constants_, 10);
-    lamp_a.Direction.x = core::at(pc_lights_shared().light_constants_, 4);
-    lamp_a.Direction.y = core::at(pc_lights_shared().light_constants_, 5);
-    lamp_a.Direction.z = core::at(pc_lights_shared().light_constants_, 6);
+    lamp_a.Diffuse.r = core::at(light_sets().light_constants(), 8);
+    lamp_a.Diffuse.g = core::at(light_sets().light_constants(), 9);
+    lamp_a.Diffuse.b = core::at(light_sets().light_constants(), 10);
+    lamp_a.Direction.x = core::at(light_sets().light_constants(), 4);
+    lamp_a.Direction.y = core::at(light_sets().light_constants(), 5);
+    lamp_a.Direction.z = core::at(light_sets().light_constants(), 6);
     renderer().d3d_device()->SetLight(0, &lamp_a);
     D3DLIGHT9& lamp_b = pc_instance_state().device_light1_;
-    lamp_b.Diffuse.r = core::at(pc_lights_shared().light_constants_, 16);
-    lamp_b.Diffuse.g = core::at(pc_lights_shared().light_constants_, 17);
-    lamp_b.Diffuse.b = core::at(pc_lights_shared().light_constants_, 18);
-    lamp_b.Direction.x = core::at(pc_lights_shared().light_constants_, 12);
-    lamp_b.Direction.y = core::at(pc_lights_shared().light_constants_, 13);
-    lamp_b.Direction.z = core::at(pc_lights_shared().light_constants_, 14);
+    lamp_b.Diffuse.r = core::at(light_sets().light_constants(), 16);
+    lamp_b.Diffuse.g = core::at(light_sets().light_constants(), 17);
+    lamp_b.Diffuse.b = core::at(light_sets().light_constants(), 18);
+    lamp_b.Direction.x = core::at(light_sets().light_constants(), 12);
+    lamp_b.Direction.y = core::at(light_sets().light_constants(), 13);
+    lamp_b.Direction.z = core::at(light_sets().light_constants(), 14);
     renderer().d3d_device()->SetLight(1, &lamp_b);
-    const uint32_t r = get_channel(core::at(pc_lights_shared().light_constants_, 0));
-    const uint32_t g = get_channel(core::at(pc_lights_shared().light_constants_, 1));
-    const uint32_t b = get_channel(core::at(pc_lights_shared().light_constants_, 2));
+    const uint32_t r = get_channel(core::at(light_sets().light_constants(), 0));
+    const uint32_t g = get_channel(core::at(light_sets().light_constants(), 1));
+    const uint32_t b = get_channel(core::at(light_sets().light_constants(), 2));
     renderer().d3d_device()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 

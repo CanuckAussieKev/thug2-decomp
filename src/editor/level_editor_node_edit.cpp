@@ -26,6 +26,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/light_sets.h"
 
 namespace frontend::level_editor::node_edit {
 
@@ -163,18 +164,18 @@ void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 // lights (up to 256, by their owner) and the level lights (up to 150, by their label).
 void move_lights(uint32_t name, V3 pos)
 {
-    const int dynamic_count = render::dynamic_light_count();
+    const int dynamic_count = render::light_sets().dynamic_light_count();
     for (int i = 0; i < dynamic_count && i < 256; ++i) {
-        render::DynamicLightBase* light = core::at(render::dynamic_lights(), i);
+        render::DynamicLightBase* light = core::at(render::light_sets().dynamic_lights(), i);
         if (light && light->owner == name) {
             core::at(light->pos, 0) = pos.x;
             core::at(light->pos, 1) = pos.y;
             core::at(light->pos, 2) = pos.z;
         }
     }
-    const int level_count = render::scene_light_count();
+    const int level_count = render::light_sets().scene_light_count();
     for (int i = 0; i < level_count && i < 150; ++i) {
-        render::LevelLamp& lamp = core::at(render::level_lamps(), i);
+        render::LevelLamp& lamp = core::at(render::light_sets().level_lamps(), i);
         if (lamp.label_ == name) {
             lamp.at_point_.x = pos.x;
             lamp.at_point_.y = pos.y;

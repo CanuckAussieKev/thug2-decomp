@@ -26,6 +26,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/light_sets.h"
 
 namespace render {
 
@@ -634,12 +635,12 @@ void reset_render_state()
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     });
     for (int i = 0; i < 24; ++i)
-        core::at(pc_lights_shared().light_constants_, 4 + i) = std::bit_cast<float>(core::at(kLight, i));
+        core::at(light_sets().light_constants(), 4 + i) = std::bit_cast<float>(core::at(kLight, i));
     constexpr auto kAmbient = std::bit_cast<float>(0x3F1624DDu); // the ambient colour (0.586)
-    core::at(pc_lights_shared().light_constants_, 0) = kAmbient;
-    core::at(pc_lights_shared().light_constants_, 1) = kAmbient;
-    core::at(pc_lights_shared().light_constants_, 2) = kAmbient;
-    core::at(pc_lights_shared().light_constants_, 3) = 1.0f;
+    core::at(light_sets().light_constants(), 0) = kAmbient;
+    core::at(light_sets().light_constants(), 1) = kAmbient;
+    core::at(light_sets().light_constants(), 2) = kAmbient;
+    core::at(light_sets().light_constants(), 3) = 1.0f;
     gfx.set_fog_active(0);
     set_fog_colour(0);
     renderer().set_fog_begin_distance(-240.0f); // fog start and end (the original stored their bit patterns)

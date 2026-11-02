@@ -73,17 +73,6 @@ EngineGlueShared& engine_glue_shared();
 
 namespace render {
 
-// NOT ORIGINAL grouping - engine_model_lights.cpp's state shared with the folder's other files (the original's
-// globals). Made on first use, never destroyed (engine_model_lights_shared()).
-struct EngineModelLightsShared {
-    uint32_t light_count_{};
-};
-EngineModelLightsShared& engine_model_lights_shared();
-
-} // namespace render
-
-namespace render {
-
 // NOT ORIGINAL grouping - engine_scene_list.cpp's state shared with the folder's other files (the original's globals).
 // Made on first use, never destroyed (engine_scene_list_shared()).
 struct EngineSceneListShared {
@@ -124,20 +113,6 @@ struct FontShared {
     lists::KeyMap font_table_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)
 };
 FontShared& font_shared();
-
-} // namespace render
-
-namespace render {
-
-// NOT ORIGINAL grouping - light_manager.cpp's state shared with the folder's other files (the original's globals). Made
-// on first use, never destroyed (light_manager_shared()).
-struct LightManagerShared {
-    std::span<float> intensities_{};
-    uint32_t model_light_count_{};
-    float ambient_intensity_{1.0f};
-    LightingState active_lighting_{.ambient = 0, .directions = {}, .colours = {}, .ambient_low_ = 0.5f, .ambient_high_ = 0.0f, .light_low_ = {}, .light_high_ = {}};
-};
-LightManagerShared& light_manager_shared();
 
 } // namespace render
 
@@ -216,17 +191,6 @@ struct PcInstanceShared {
     Singleton* current_instance_{};
 };
 PcInstanceShared& pc_instance_shared();
-
-} // namespace render
-
-namespace render {
-
-// NOT ORIGINAL grouping - pc_lights.cpp's state shared with the folder's other files (the original's globals). Made on
-// first use, never destroyed (pc_lights_shared()).
-struct PcLightsShared {
-    std::array<float, 4 + 8 * (2 + 32)> light_constants_{};
-};
-PcLightsShared& pc_lights_shared();
 
 } // namespace render
 

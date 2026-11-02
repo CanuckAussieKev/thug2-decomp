@@ -36,6 +36,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/light_sets.h"
 
 namespace frontend::level_editor::node_create {
 
@@ -844,8 +845,8 @@ Counts counts_now()
         if (node.cls == kRestart)
             ++counts.restarts;
     }
-    counts.dynamic_lights_ = render::dynamic_light_count();
-    counts.level_lights_ = render::scene_light_count();
+    counts.dynamic_lights_ = render::light_sets().dynamic_light_count();
+    counts.level_lights_ = render::light_sets().scene_light_count();
     return counts;
 }
 

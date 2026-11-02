@@ -19,42 +19,15 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/light_sets.h"
 
 namespace render {
-
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
-// (dynamic_light_set()).
-struct DynamicLightSet {
-    int dynamic_light_count_{};
-    std::array<DynamicLightBase*, 256> dynamic_lights_{};
-};
-
-DynamicLightSet& dynamic_light_set()
-{
-    static core::NoDestroy<DynamicLightSet> state;
-    return state.get();
-}
-
-} // namespace
-
-int& dynamic_light_count() { return dynamic_light_set().dynamic_light_count_; }
-std::array<DynamicLightBase*, 256>& dynamic_lights() { return dynamic_light_set().dynamic_lights_; }
-
-LightManagerShared& light_manager_shared()
-{
-    static core::NoDestroy<LightManagerShared> state;
-    return state.get();
-}
 
 namespace {
 
 constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
-LightingState& get_world() { return light_manager_shared().active_lighting_; }
 std::array<LightingState, 4>& pile_up()
 {
     static core::NoDestroy<std::array<LightingState, 4>> world_light_stack; // (the saved ones: PushLights / PopLights)
@@ -79,13 +52,11 @@ LightManagerState& light_manager_state()
 constexpr float kMinIntensity{0.0f};
 
 int& stack_top() { return light_manager_state().light_stack_top_; }
-uint32_t& light_count() { return engine_model_lights_shared().light_count_; }
+
 float& get_brightness() { return light_manager_state().light_brightness_; }
 float& light_gain_goal() { return light_manager_state().light_brightness_target_; }
-float& ambient_intensity() { return light_manager_shared().ambient_intensity_; }
-float min_intensity() { return kMinIntensity; }
-std::span<float>& get_intensities() { return light_manager_shared().intensities_; }
 
+float min_intensity() { return kMinIntensity; }
 
 // get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
 std::array<float, 31>& near_falloffs() { return light_manager_state().near_light_falloffs_; }
@@ -143,9 +114,9 @@ void LightingState::free_arrays()
 void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
 {
     debug::printf("Initializing Light Manager...");
-    light_manager_shared().model_light_count_ = max_model_lights;
-    light_count() = max_lights;
-    LightingState& world = get_world();
+    light_sets().set_model_light_count(max_model_lights);
+    light_sets().set_light_count(max_lights);
+    LightingState& world = light_sets().get_world();
     world.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * 16)), max_lights};
     world.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
     world.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
@@ -161,8 +132,8 @@ void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
         std::ranges::fill(saved.light_low_, 0.0f);
         std::ranges::fill(saved.light_high_, 0.0f);
     }
-    get_intensities() = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
-    std::ranges::fill(get_intensities(), 1.0f);
+    light_sets().get_intensities() = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
+    std::ranges::fill(light_sets().get_intensities(), 1.0f);
 }
 
 // 0x0048FB60
@@ -175,7 +146,7 @@ void uninit_light_manager()
 // 0x0048E8F0
 bool set_light_ambient_color(uint32_t rgba)
 {
-    get_world().ambient = rgba;
+    light_sets().get_world().ambient = rgba;
     return update_ambient_light();
 }
 
@@ -189,7 +160,7 @@ uint32_t* get_light_ambient_color(uint32_t* out)
 // 0x0048E930
 bool set_light_diffuse_color(int light, uint32_t rgba)
 {
-    core::at(get_world().colours, light) = rgba;
+    core::at(light_sets().get_world().colours, light) = rgba;
     return update_light_color(light);
 }
 
@@ -203,40 +174,40 @@ uint32_t* get_light_diffuse_color(uint32_t* out, int light)
 // 0x0048ED70
 bool set_light_direction(int light, const maths::Vec4* direction)
 {
-    core::at(get_world().directions, light) = *direction;
+    core::at(light_sets().get_world().directions, light) = *direction;
     return update_light_direction(light);
 }
 
 // 0x0048E970
 void change_ambient_scale(float low, float high)
 {
-    get_world().ambient_low_ = low;
-    get_world().ambient_high_ = high;
+    light_sets().get_world().ambient_low_ = low;
+    light_sets().get_world().ambient_high_ = high;
 }
 
 // 0x0048E990
 void change_diffuse_scale(int light, float low, float high)
 {
-    core::at(get_world().light_low_, light) = low;
-    core::at(get_world().light_high_, light) = high;
+    core::at(light_sets().get_world().light_low_, light) = low;
+    core::at(light_sets().get_world().light_high_, light) = high;
 }
 
 // 0x0048E9B0
-float fetch_ambient_scale(bool low) { return low ? get_world().ambient_low_ : get_world().ambient_high_; }
+float fetch_ambient_scale(bool low) { return low ? light_sets().get_world().ambient_low_ : light_sets().get_world().ambient_high_; }
 
 // 0x0048E9D0 (both branches read the low ranges, as the original)
 float fetch_diffuse_scale(int light, bool low)
 {
     if (low)
-        return core::at(get_world().light_low_, light);
-    return core::at(get_world().light_low_, light);
+        return core::at(light_sets().get_world().light_low_, light);
+    return core::at(light_sets().get_world().light_low_, light);
 }
 
 // 0x0048EA00
 void push_world_lights()
 {
     if (++stack_top() < kSavedLightLevels)
-        core::at(pile_up(), stack_top()) = get_world();
+        core::at(pile_up(), stack_top()) = light_sets().get_world();
     else
         --stack_top();
 }
@@ -246,7 +217,7 @@ bool pop_world_lights()
 {
     if (stack_top() < 0)
         return false;
-    get_world() = core::at(pile_up(), stack_top());
+    light_sets().get_world() = core::at(pile_up(), stack_top());
     --stack_top();
     compiled_out();
     return true;
@@ -269,12 +240,12 @@ bool set_world_brightness(float target)
         if (moved < target)
             brightness = target;
     }
-    ambient_intensity() = get_scaled(brightness, get_world().ambient_low_, get_world().ambient_high_);
-    if (ambient_intensity() < min_intensity())
-        ambient_intensity() = min_intensity();
-    for (uint32_t i = 0; i < light_count(); ++i) {
-        float& intensity = core::at(get_intensities(), i);
-        intensity = get_scaled(brightness, core::at(get_world().light_low_, i), core::at(get_world().light_high_, i));
+    light_sets().ambient_intensity() = get_scaled(brightness, light_sets().get_world().ambient_low_, light_sets().get_world().ambient_high_);
+    if (light_sets().ambient_intensity() < min_intensity())
+        light_sets().ambient_intensity() = min_intensity();
+    for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
+        float& intensity = core::at(light_sets().get_intensities(), i);
+        intensity = get_scaled(brightness, core::at(light_sets().get_world().light_low_, i), core::at(light_sets().get_world().light_high_, i));
         if (intensity < min_intensity())
             intensity = min_intensity();
     }
@@ -285,22 +256,22 @@ bool set_world_brightness(float target)
 // 0x0048EF00
 void delete_dynamic_lights()
 {
-    for (int i = 0; i < dynamic_light_count(); ++i) {
-        if (core::at(dynamic_lights(), i)) {
-            memory::Hub::get_pull()->dealloc(core::at(dynamic_lights(), i));
-            core::at(dynamic_lights(), i) = nullptr;
+    for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
+        if (core::at(light_sets().dynamic_lights(), i)) {
+            memory::Hub::get_pull()->dealloc(core::at(light_sets().dynamic_lights(), i));
+            core::at(light_sets().dynamic_lights(), i) = nullptr;
         }
     }
-    dynamic_light_set().dynamic_light_count_ = 0;
+    light_sets().dynamic_light_count() = 0;
 }
 
 // 0x0048EF50
 DynamicLightBase** find_dynamic_light(uint32_t owner)
 {
-    for (int i = 0; i < dynamic_light_count(); ++i) {
-        const DynamicLightBase* light = core::at(dynamic_lights(), i);
+    for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
+        const DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i);
         if (light && light->owner == owner)
-            return &core::at(dynamic_lights(), i);
+            return &core::at(light_sets().dynamic_lights(), i);
     }
     return nullptr;
 }
@@ -311,8 +282,8 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
     auto& falloffs = near_falloffs();
     auto& indexes = near_indexes();
     uint32_t count = 0;
-    for (int i = 0; i < dynamic_light_count(); ++i) {
-        DynamicLightBase* light = core::at(dynamic_lights(), i); // (not checked for null, as the original)
+    for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
+        DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i); // (not checked for null, as the original)
         if (!(light->intensity > 0.0f) || !light->owner)
             continue;
         const double dx = static_cast<double>(position->x) - core::at(light->pos, 0);
@@ -383,21 +354,21 @@ DynamicLightBase* create_dynamic_light(int type)
 // 0x0048FB80
 DynamicLightBase* new_dynamic_light(int type)
 {
-    const int count = dynamic_light_count();
+    const int count = light_sets().dynamic_light_count();
     for (int i = 0; i < count; ++i) {
-        const DynamicLightBase* light = core::at(dynamic_lights(), i);
+        const DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i);
         if (!light) {
-            core::at(dynamic_lights(), i) = create_dynamic_light(type);
-            return core::at(dynamic_lights(), i);
+            core::at(light_sets().dynamic_lights(), i) = create_dynamic_light(type);
+            return core::at(light_sets().dynamic_lights(), i);
         }
         if (!light->owner)
-            return core::at(dynamic_lights(), i);
+            return core::at(light_sets().dynamic_lights(), i);
     }
-    if (count >= kMaxDynamicLights || core::at(dynamic_lights(), count))
+    if (count >= kMaxDynamicLights || core::at(light_sets().dynamic_lights(), count))
         return nullptr;
-    dynamic_light_set().dynamic_light_count_ = count + 1;
-    core::at(dynamic_lights(), count) = create_dynamic_light(type);
-    return core::at(dynamic_lights(), count);
+    light_sets().dynamic_light_count() = count + 1;
+    core::at(light_sets().dynamic_lights(), count) = create_dynamic_light(type);
+    return core::at(light_sets().dynamic_lights(), count);
 }
 
 // 0x0048E8C0
@@ -414,7 +385,7 @@ double DynamicLightBase::get_falloff(float distance) { return static_cast<double
 namespace render {
 
 // 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
-void set_world_lights_ambient() { light_manager_shared().active_lighting_.ambient = 0x80484848; }
+void set_world_lights_ambient() { light_sets().get_world().ambient = 0x80484848; }
 
 // 0x00640B90 (a static initialiser): the four saved light sets.
 void construct_world_light_stack()

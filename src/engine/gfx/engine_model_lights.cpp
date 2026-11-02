@@ -15,15 +15,9 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
+#include "engine/gfx/light_sets.h"
 
 namespace render {
-
-EngineModelLightsShared& engine_model_lights_shared()
-{
-    static core::NoDestroy<EngineModelLightsShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -41,12 +35,12 @@ EngineModelLightsState& engine_model_lights_state()
 }
 
 // The light manager's: how many lights, the ambient ranges below / above the middle brightness, each light's.
-uint32_t light_count() { return engine_model_lights_shared().light_count_; }
+
 // (the world lights' fields: ambient_low_ 0x0067DCA4, ambient_high_, light_low_, light_high_)
-float dark_range() { return light_manager_shared().active_lighting_.ambient_low_; }
-float bright_range() { return light_manager_shared().active_lighting_.ambient_high_; }
-std::span<float> dark_ranges() { return light_manager_shared().active_lighting_.light_low_; }
-std::span<float> bright_ranges() { return light_manager_shared().active_lighting_.light_high_; }
+float dark_range() { return light_sets().get_world().ambient_low_; }
+float bright_range() { return light_sets().get_world().ambient_high_; }
+std::span<float> dark_ranges() { return light_sets().get_world().light_low_; }
+std::span<float> bright_ranges() { return light_sets().get_world().light_high_; }
 
 void get_stub(const char* message) { debug::printf_text(message); }
 
@@ -61,12 +55,12 @@ float get_scaled(float brightness, float dark, float bright)
 
 // 0x0048E5B0
 ModelLights::ModelLights()
-    : intensities_(static_cast<float*>(memory::alloc(light_count() * 4)))
+    : intensities_(static_cast<float*>(memory::alloc(light_sets().light_count() * 4)))
 {
     std::ranges::fill(intensities(), 1.0f);
 }
 
-std::span<float> ModelLights::intensities() const { return {intensities_, light_count()}; }
+std::span<float> ModelLights::intensities() const { return {intensities_, light_sets().light_count()}; }
 
 // 0x0048E630
 ModelLights::~ModelLights()
@@ -106,7 +100,7 @@ void ModelLights::get_update_brightness()
     size_factor_ = get_scaled(brightness_, dark_range(), bright_range());
     if (size_factor_ < 0.0f)
         size_factor_ = 0.0f;
-    for (uint32_t i = 0; i < light_count(); ++i) {
+    for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         float& intensity = core::at(intensities(), i);
         intensity = get_scaled(brightness_, core::at(dark_ranges(), i), core::at(bright_ranges(), i));
         if (intensity < 0.0f)

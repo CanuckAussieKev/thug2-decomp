@@ -497,6 +497,7 @@ add_executable(thug2 WIN32
     src/engine/gfx/engine_imposters.cpp
     src/engine/gfx/engine_model_lights.cpp
     src/engine/gfx/light_manager.cpp
+    src/engine/gfx/light_sets.cpp
     src/engine/gfx/scene_lights.cpp
     src/engine/gfx/engine_mesh.cpp
     src/engine/gfx/loading_bar_cfuncs.cpp
