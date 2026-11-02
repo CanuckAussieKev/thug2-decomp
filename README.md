@@ -217,6 +217,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `collision_events` | 0 | Logs a `collision-event:` line each time the skater's velocity turns round on the ground (the physics path that did it, the face, probes) and shows it on screen for 2 s - for finding broken collision in converted levels; `node tools/game/collision_events.ts <log> [--col <level>]` groups them by spot |
 | `collision_event_screenshots` | 1 | With `collision_events`: a screenshot of each event's frame too |
 | `thaw_bmx_steer` / `thaw_bmx_wheels` | 0 | A log line each frame for the BMX's steering / its wheels |
+| `soft_bounds` | 0 | A play-test aid: an index outside an array is logged once per place (`OUT OF RANGE (soft_bounds: carried on)`, with the calls that led there) and the game carries on with a zeroed element, instead of ending with a report |
 
 **`[Graphics]`** - from PartyMod, plus ours
 

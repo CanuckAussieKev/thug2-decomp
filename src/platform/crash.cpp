@@ -19,6 +19,8 @@
 #include <crtdbg.h>
 #include <rtcapi.h>
 #include <array>
+#include <mutex>
+#include <source_location>
 #include <span>
 #include <string_view>
 #endif
@@ -335,9 +337,54 @@ bool is_fatal_exception(uint32_t code, bool* any_module)
     }
 }
 
+namespace {
+// [debug] soft_bounds=1 (engine/core/checked_index.h): an index outside an array is logged once per place, with the
+// calls that led there, and the game carries on.
+struct SeenPlaces {
+    static constexpr size_t kPlaces = 256;
+    std::mutex lock;
+    std::array<std::source_location, kPlaces> places{};
+    size_t count = 0;
+};
+
+SeenPlaces& seen_places()
+{
+    static SeenPlaces seen;
+    return seen;
+}
+
+// True the first time a place is reported.
+bool note_place(const std::source_location& where)
+{
+    SeenPlaces& seen = seen_places();
+    const std::scoped_lock guard(seen.lock);
+    for (size_t i = 0; i < seen.count; ++i) {
+        const std::source_location& place = core::at(seen.places, i);
+        if (place.line() == where.line() && std::string_view(place.file_name()) == where.file_name())
+            return false;
+    }
+    if (seen.count < SeenPlaces::kPlaces)
+        core::at(seen.places, seen.count++) = where;
+    return true;
+}
+
+void report_out_of_range(const std::source_location& where, std::ptrdiff_t index, std::ptrdiff_t extent)
+{
+    if (!note_place(where))
+        return;
+    get_log("OUT OF RANGE (soft_bounds: carried on): index %td of %td at %s:%u (%s)", index, extent, where.file_name(),
+            static_cast<unsigned>(where.line()), where.function_name());
+    log_backtrace();
+}
+} // namespace
+
 void install_crash_handling(bool console)
 {
     g_console = console;
+    if (config_int("debug", "soft_bounds", 0) != 0) {
+        core::set_out_of_range_handler(report_out_of_range);
+        get_log("soft_bounds: an index outside an array is logged and the game carries on ([debug] soft_bounds=1)");
+    }
     // No error boxes: not Windows' "stopped working" (nor "insert a disk", "can't open")...
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
     // ...nor Windows Error Reporting's UI (its reports queued, not shown).
