@@ -406,7 +406,7 @@ void SkaterPhysicsModule::check_flip_spin()
         spin->read_hash_value(kSpinButton1, &core::at(sequence, 0), 0);
         spin->read_hash_value(kSpinButton2, &core::at(sequence, 1), 0);
         core::at(sequence, 2) = input->pad_primary_.button_round_.held_down_ ? 0x2B489A86u : 0x321C9756u;
-        if (trick->check_spin_sequence(sequence.data(), flip_spin_started_ != 0)) {
+        if (trick->check_spin_sequence(sequence, flip_spin_started_ != 0)) {
             found = true;
             break;
         }

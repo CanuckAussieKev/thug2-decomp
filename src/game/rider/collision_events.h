@@ -45,6 +45,7 @@
 //   way the skater was going - it follows his turn only over the next frames), named in the log.
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <array>
 
@@ -96,7 +97,7 @@ struct Motion {
     std::array<float, 3> vel = {};
 };
 // The reversal's earlier frame (an index into `frames`, oldest first, the newest last), or -1 for none.
-int find_reversal(const Motion* frames, int count);
+int find_reversal(std::span<const Motion> frames);
 // The ground counts as a slope below this normal y (cos 5 degrees).
 constexpr float kSlopeNormalY = 0.9962f;
 // The reason, or null when the event isn't logged (no path, the ground never steeper than 5 degrees: the player

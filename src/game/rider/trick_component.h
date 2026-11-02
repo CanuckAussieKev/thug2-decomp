@@ -138,16 +138,16 @@ public:
     void hold_off_button(int index, float until);
     // 0x0051F9B0: the spin sequence of `buttons` (the second pressed, then within two events the first, then the
     // third - or with `any` anything): within a second; marks the events (0x100), sets the button map.
-    bool check_spin_sequence(const uint32_t* buttons, bool any);
+    bool check_spin_sequence(const std::array<uint32_t, 3>& buttons, bool any);
     // 0x0051FB90: `button` released then pressed (with `twice`: Triangle, Circle or Square released, pressed, then
     // `button` pressed) within a second; with `set_map`, all events marked and the button map set from the
     // arguments themselves (as the original does).
     bool check_release_press(uint32_t button, bool twice, bool set_map);
     // 0x0051EC40: `count` buttons of a trigger (its components from `node`) into `out` (the three generic names
     // mapped through the button map), then the trigger's time: its number, or the global integer it names.
-    uint32_t read_trigger(const script::Component* node, int count, uint32_t* out);
+    uint32_t read_trigger(const script::Component* node, int count, std::array<uint32_t, 3>& out);
     // 0x0051ECC0: the button map (+0x99C) set.
-    void set_button_map(const uint32_t* buttons);
+    void set_button_map(const std::array<uint32_t, 3>& buttons);
     // 0x0051ECF0: whether `button` is down.
     bool is_key_held(uint32_t button);
     // 0x0051ED10: the trick queue emptied. 0x0051ED20: a trick queued (dropped when the queue is full).

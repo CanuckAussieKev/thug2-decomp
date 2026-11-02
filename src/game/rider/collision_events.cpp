@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <array>
@@ -583,7 +584,7 @@ void detect()
         core::at(frames, i).state = s.state;
         core::at(frames, i).vel = s.vel;
     }
-    const int index = find_reversal(frames.data(), g_sample_total);
+    const int index = find_reversal(std::span<const Motion>(frames).first(static_cast<std::size_t>(g_sample_total)));
     if (index < 0)
         return;
     get_emit(g_sample_total - 1 - index);
@@ -626,18 +627,19 @@ const char* path_name(RouteWay path)
     }
 }
 
-int find_reversal(const Motion* frames, int count)
+int find_reversal(std::span<const Motion> frames)
 {
+    const auto count = static_cast<int>(frames.size());
     if (count < 2)
         return -1;
-    const Motion& now = frames[count - 1];
+    const Motion& now = core::at(frames, count - 1);
     if (now.state != 0)
         return -1;
     std::array<float, 2> dir_now{};
     if (get_horizontal(now.vel, dir_now) < kMinSpeedNow)
         return -1;
     for (int i = 0; i < count - 1; ++i) { // (the oldest first: the speed the skater had before)
-        const Motion& old = frames[i];
+        const Motion& old = core::at(frames, i);
         if (now.frame - old.frame > static_cast<uint32_t>(kWindow) || old.state != 0)
             continue;
         std::array<float, 2> dir_old{};
@@ -648,8 +650,8 @@ int find_reversal(const Motion* frames, int count)
         bool sudden = false, refused = false;
         int air = 0;
         for (int j = i + 1; j < count; ++j) {
-            const Motion& s = frames[j];
-            const Motion& p = frames[j - 1];
+            const Motion& s = core::at(frames, j);
+            const Motion& p = core::at(frames, j - 1);
             if (s.state == 1)
                 ++air;
             else if (s.state != 0)
@@ -741,11 +743,11 @@ void end_frame(SkaterPhysicsModule* component)
     s.trick = component->state_->in_trick_move_ != 0;
     const objects::RiderTeeterMoves* balance = component->balance_;
     s.balance = balance ? balance->trick_ : 0;
-    if (const objects::PadInputModule* input = component->input_) {
+    if (objects::PadInputModule* input = component->input_) {
         // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
-        const objects::ControlButton* buttons = &input->pad_primary_.up_dir_;
         for (int i = 0; i < 16; ++i)
-            if (buttons[i].held_down_)
+            if (const objects::ControlButton* button = input->pad_primary_.button_at_offset(static_cast<uint32_t>(i) * 0x20u);
+                button && button->held_down_)
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
         core::at(s.stick, 0) = core::at(input->pad_primary_.scaled_stick_, 0);
         core::at(s.stick, 1) = core::at(input->pad_primary_.scaled_stick_, 1);
@@ -823,10 +825,10 @@ std::string face_text(const Face& face, std::string (*name)(uint32_t))
 
 namespace {
 
-std::string v3(const float* v, const char* format = "%.1f,%.1f,%.1f")
+std::string v3(std::span<const float> v, const char* format = "%.1f,%.1f,%.1f")
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), format, v[0], v[1], v[2]);
+    std::snprintf(text.data(), sizeof(text), format, core::at(v, 0), core::at(v, 1), core::at(v, 2));
     return text.data();
 }
 
@@ -840,21 +842,21 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
     std::snprintf(head.data(), sizeof(head), "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
                   e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
     std::string line = head.data();
-    line += " spot=" + v3(e.spot.data());
-    line += " pos_before=" + v3(e.pos_before_.data());
-    line += " pos=" + v3(e.pos.data());
-    line += " vel_before=" + v3(e.vel_before_.data());
-    line += " vel_after=" + v3(e.vel_after_.data());
+    line += " spot=" + v3(e.spot);
+    line += " pos_before=" + v3(e.pos_before_);
+    line += " pos=" + v3(e.pos);
+    line += " vel_before=" + v3(e.vel_before_);
+    line += " vel_after=" + v3(e.vel_after_);
     std::array<char, 96> text{};
     std::snprintf(text.data(), sizeof(text), " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
     line += text.data();
-    line += " ground_n=" + v3(e.ground_normal_.data(), "%.2f,%.2f,%.2f");
+    line += " ground_n=" + v3(e.ground_normal_, "%.2f,%.2f,%.2f");
     std::snprintf(text.data(), sizeof(text), " ground_min_y=%.2f", e.ground_min_y_);
     line += text.data();
     line += " face=" + face_text(e.face, name);
     for (int i = 0; i < 6; ++i)
         line += std::string(" ") + core::at(kProbes, i) + "=" + face_text(core::at(e.probes, i), name);
-    line += " probe_dir=" + v3(e.probe_dir_.data(), "%.2f,%.2f,%.2f");
+    line += " probe_dir=" + v3(e.probe_dir_, "%.2f,%.2f,%.2f");
     line += " flipped=" + (e.flipped.empty() ? std::string("-") : e.flipped);
     line += " repeats=" + std::to_string(e.repeats);
     line += " screenshot=" + (e.screenshot.empty() ? std::string("-") : e.screenshot);
@@ -870,10 +872,10 @@ std::string format_detail(const Detail& d)
                   d.number, d.state, d.physics, d.speed, d.trick ? 1 : 0, d.balance, d.input.c_str(),
                   d.input_window_.c_str(), core::at(d.stick, 0), core::at(d.stick, 1));
     std::string line = text.data();
-    line += " ray=" + (d.ray ? v3(d.probe_origin_.data()) + ">" + v3(d.ray_end_.data()) : std::string("-"));
+    line += " ray=" + (d.ray ? v3(d.probe_origin_) + ">" + v3(d.ray_end_) : std::string("-"));
     if (d.geometry) {
-        line += " corners=" + v3(core::at(d.corners, 0).data()) + ";" + v3(core::at(d.corners, 1).data()) + ";" + v3(core::at(d.corners, 2).data());
-        line += " col_box=" + v3(d.bounds_low_.data()) + ">" + v3(d.bounds_high_.data());
+        line += " corners=" + v3(core::at(d.corners, 0)) + ";" + v3(core::at(d.corners, 1)) + ";" + v3(core::at(d.corners, 2));
+        line += " col_box=" + v3(d.bounds_low_) + ">" + v3(d.bounds_high_);
     } else {
         line += " corners=- col_box=-";
     }
@@ -888,7 +890,7 @@ std::string format_detail(const Detail& d)
     }
     line += " col_file=" + d.col_file_ + " scn_file=" + d.scn_file_;
     line += " approach=" + (d.approach.empty() ? std::string("-") : d.approach);
-    line += " camera=" + (d.camera ? v3(d.camera_pos_.data()) + ">" + v3(d.camera_dir_.data(), "%.3f,%.3f,%.3f") : std::string("-"));
+    line += " camera=" + (d.camera ? v3(d.camera_pos_) + ">" + v3(d.camera_dir_, "%.3f,%.3f,%.3f") : std::string("-"));
     return line;
 }
 
