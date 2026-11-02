@@ -37,11 +37,6 @@ float speed_of(const maths::Vec4& v)
     return static_cast<float>(std::sqrt(x * x + y * y + z * z));
 }
 
-// 0x004FE1F0 (not rewritten yet): the air friction `friction` applied to the velocity.
-void apply_air_friction(SkaterPhysicsModule* component, float friction)
-{
-    static_cast<SkaterPhysicsModule*>(component)->apply_friction(friction);
-}
 
 } // namespace
 
@@ -77,7 +72,7 @@ void SkaterPhysicsModule::clamp_skater_speed()
     }
     object = object_of(this);
     if (speed > max && heavy_friction)
-        apply_air_friction(this, script::fetch_float(kHeavyAirFriction));
+        apply_friction((script::fetch_float(kHeavyAirFriction)));
     entity_->vel_.y = upward;
 
     float& rolling = special_friction_time_;

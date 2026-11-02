@@ -53,7 +53,6 @@ constexpr float kFlat = 0.001f;                  // 0x006461D8
 
 // The pad's buttons (offsets into the input component).
 
-bool is_crouched(SkaterPhysicsModule* component) { return component->state_->flag(PoseFlag::kCrouched).on != 0; }
 double speed_of(const maths::Vec4& v) { return length_unrounded(v); }
 
 } // namespace
@@ -122,7 +121,7 @@ bool SkaterPhysicsModule::can_push_off()
     if (input->pad_primary_.btn_down_.held_down_)
         return false;
     auto speed = static_cast<float>(speed_of(entity_->vel_));
-    const bool crouched = is_crouched(this) || crouch_stats_;
+    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || crouch_stats_;
     auto limit = static_cast<float>(stat_value(object_of(this), crouched ? kPushSpeedCrouched : kKickoffSpeed));
     return !(limit < speed);
 }
@@ -144,7 +143,7 @@ void SkaterPhysicsModule::push_off()
     } else {
         direction = core::at(object->basis_frame_.row, 2);
     }
-    const bool crouched = is_crouched(this) || crouch_stats_;
+    const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || crouch_stats_;
     auto push = static_cast<float>(stat_value(object, crouched ? kPushCrouched : kPush));
     const double frame = frame_length_;
     auto x = static_cast<float>(static_cast<double>(direction.x) * push * frame);
@@ -169,7 +168,7 @@ void SkaterPhysicsModule::apply_stance_friction()
         crouched = limits_friction_;
         standing = crouched;
     }
-    apply_friction(is_crouched(this) ? crouched : standing);
+    apply_friction(state_->flag(PoseFlag::kCrouched).on != 0 ? crouched : standing);
 }
 
 // 0x004FE730

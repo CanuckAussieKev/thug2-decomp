@@ -894,6 +894,38 @@ public:
     objects::RiderBoardPhysics* physics_control_{nullptr};         // +0x1530
     objects::FootMovement* walk_{nullptr};                         // +0x1534
     objects::TaggingControlComponent* tagging_component_{nullptr}; // +0x1538 the projectiles'
+
+private:
+    // (core_grind.cpp)
+    void set_rail_terrain();
+    void play_land_sound();
+    void trigger_rail_node(const std::array<int, 3>& events);
+    bool clear_to_point(const maths::Vec4* point, bool from_vector);
+    void onto_rail(const maths::Vec4* point, bool always);
+    void prepare_velocity(bool exactly_still, bool from_object);
+    void clear_rail_flags();
+    void kick_off_point_rail(const maths::Vec4* point, bool from_object);
+    void spin_on_point_rail(const maths::Vec4* point);
+    void start_lip_trick(const maths::Vec4* point);
+    void grind_along_rail(const maths::Vec4* point, bool from_object);
+    bool can_grind(objects::GrindPoint* node, objects::GrindRailHub* manager);
+    // (core_jump.cpp)
+    void play_jump_sound(uint8_t terrain);
+    // (core_member_functions.cpp)
+    uint32_t time_aloft();
+    bool feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise);
+    // (core_physics_acid_drop.cpp)
+    bool walking_state(int state);
+    double fall_time(float height, float upward);
+    bool find_transfer_target(maths::Vec4* look, maths::Vec4* normal, bool* hip,
+                          maths::Vec4* target, maths::Vec4* target_normal, bool* object_hit);
+    // (core_physics_turning.cpp)
+    void turn_matrices(float angle);
+    // (core_rail.cpp)
+    maths::Vec4 grind_point_in_world(const objects::GrindPoint* node);
+    // (core_physics_wallplant.cpp)
+    bool button_pressed(uint32_t button);
+    bool wall_above_hit();
 };
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).

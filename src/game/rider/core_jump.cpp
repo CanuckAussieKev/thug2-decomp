@@ -66,18 +66,18 @@ float scaled_physics(objects::GameEntity* object, uint32_t name)
     return core::down_cast<objects::Rider>(object)->get_scaled_physics(name);
 }
 
+} // namespace
+
 // 0x00518EE0: the jump sound, by how fast the skater goes (a fraction of the max max speed) and a terrain.
-void play_jump_sound(SkaterPhysicsModule* component, uint8_t terrain)
+void SkaterPhysicsModule::play_jump_sound(uint8_t terrain)
 {
-    objects::GameEntity* object = object_of(component);
+    objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel_;
     auto speed = static_cast<float>(
         std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z));
     const float fraction = speed / scaled_physics(object, kSpeedCapStat);
-    static_cast<objects::RiderSfxPlayer*>(component->sound_)->play_jump_in_state(fraction, terrain);
+    static_cast<objects::RiderSfxPlayer*>(sound_)->play_jump_in_state(fraction, terrain);
 }
-
-} // namespace
 
 // 0x005092E0
 void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
@@ -135,17 +135,17 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
             return;
         std::memcpy(&last_ground_pos_, &entity_->at_point_, 16); // (where it jumped)
         if (sound)
-            play_jump_sound(this, floor_feeler_.hit_.terrain);
+            play_jump_sound(floor_feeler_.hit_.terrain);
         start_vert_air();
         set_flag(this, PoseFlag::kLeftVert, 1);
         break;
     case kAir:
         if (sound)
-            play_jump_sound(this, floor_feeler_.hit_.terrain);
+            play_jump_sound(floor_feeler_.hit_.terrain);
         break;
     case kRail:
         if (sound)
-            play_jump_sound(this, state_->surface_type_);
+            play_jump_sound(state_->surface_type_);
         break;
     default:
         break;

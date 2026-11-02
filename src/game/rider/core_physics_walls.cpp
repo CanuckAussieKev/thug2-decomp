@@ -4,7 +4,6 @@
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles, rounded
 // to float only where the original stores them.
 
-#include <array>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -75,19 +74,7 @@ constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kHalfPi = 1.57079637f;             // 0x00645484
 constexpr float kPi = 3.14159274f;                 // 0x0064BB7C
 
-objects::GameEntity* skater_object(SkaterPhysicsModule* component)
-{
-    return static_cast<objects::GameEntity*>(object_of(component));
-}
 
-// 0x00434BF0 (GameObjects::ActivationZoneModule::probe_touches_zone): the triggers of what the feeler hit, for `kind`.
-void check_triggers(SkaterPhysicsModule* component, const std::array<int, 3>& kind)
-{
-    static_cast<objects::ActivationZoneModule*>(component->trigger_)->probe_touches_zone(kind, &component->feeler_);
-}
-
-// Whether a trigger's script took over (+0x1530's +0x26).
-bool trigger_took_over(SkaterPhysicsModule* component) { return component->physics_control_->flag26_ != 0; }
 
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
@@ -141,14 +128,14 @@ bool SkaterPhysicsModule::vert_wallplant()
         return false;
     if (!static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(true, false, false))
         return false;
-    check_triggers(this, kJumpTriggerEvents);
-    if (trigger_took_over(this))
+    static_cast<objects::ActivationZoneModule*>(trigger_)->probe_touches_zone(kJumpTriggerEvents, &feeler_);
+    if (physics_control_->flag26_ != 0)
         return true;
     object = object_of(this);
     if (object->vel_.y >= 0.0f)
         object->vel_.y =
             static_cast<float>(script::fetch_int_value(kWallplantBoost) + static_cast<double>(object->vel_.y));
-    skater_object(this)->post_own_event(kVertWallPlant, nullptr);
+    object_of(this)->post_own_event(kVertWallPlant, nullptr);
     static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(feeler_.hit_.object_checksum_);
     set_timed_flag(this, PoseFlag::kNoSecondSpin, 0);
     set_timed_flag(this, PoseFlag::kNoAcidDrop, 0);
@@ -369,8 +356,8 @@ void SkaterPhysicsModule::check_wall_ahead()
             return;
         }
     }
-    check_triggers(this, kBonkEvents);
-    if (!trigger_took_over(this))
+    static_cast<objects::ActivationZoneModule*>(trigger_)->probe_touches_zone(kBonkEvents, &feeler_);
+    if (!physics_control_->flag26_ != 0)
         bounce_off_wall_ahead(&normal);
 }
 
@@ -413,7 +400,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
             const uint32_t left_turn = angle < 0.0f ? 1 : 0;
             const bool same =
                 (state_->flag(PoseFlag::kFlipped).on ^ left_turn) == 0; // (flag +0x28 against the turn's side)
-            skater_object(this)->post_own_event(same ? kFlailRight : kFlailLeft, nullptr);
+            object_of(this)->post_own_event(same ? kFlailRight : kFlailLeft, nullptr);
             if (!on_vehicle_) {
                 // (The original passes the surface byte in a word whose upper bytes are the angle's.)
                 auto angle_bits = std::bit_cast<uint32_t>(angle);
@@ -421,7 +408,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
                 auto impact = static_cast<float>(speed / stat_value(object_of(this), kMaxMaxSpeedStat));
                 static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk(impact, static_cast<int>(surface));
             } else {
-                script::launch_script(kVehicleLandSound, nullptr, skater_object(this), false, nullptr);
+                script::launch_script(kVehicleLandSound, nullptr, object_of(this), false, nullptr);
             }
         }
     }
@@ -490,7 +477,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     entity_->vel_ *= 0.5f;
     collision_events::note_path(this, collision_events::RouteWay::kWallAheadCorner, entry_velocity); // (not original)
     if (script::fetch_float(kDontFlailSpeed) < moved)
-        skater_object(this)->post_own_event(kFlailLeft, nullptr);
+        object_of(this)->post_own_event(kFlailLeft, nullptr);
 }
 
 } // namespace skater

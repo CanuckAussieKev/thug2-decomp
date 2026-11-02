@@ -78,15 +78,15 @@ void turn_velocity(maths::Vec4& velocity, double angle)
     velocity.z = static_cast<float>(c * z + -(x * s));
 }
 
+} // namespace
+
 // The skater's matrix and its display matrix turned by `angle` about their own y axes (each a make_yaw_matrix and
 // a D3DXMatrixMultiply in the original).
-void turn_matrices(SkaterPhysicsModule* component, float angle)
+void SkaterPhysicsModule::turn_matrices(float angle)
 {
-    object_of(component)->basis_frame_.yaw_locally(angle);
-    component->display_matrix_.yaw_locally(angle);
+    object_of(this)->basis_frame_.yaw_locally(angle);
+    display_matrix_.yaw_locally(angle);
 }
-
-} // namespace
 
 // 0x005002D0
 void SkaterPhysicsModule::turn_for_rail_jump()
@@ -110,7 +110,7 @@ void SkaterPhysicsModule::turn_for_rail_jump()
     else
         return;
     turn_velocity(entity_->vel_, angle);
-    turn_matrices(this, angle);
+    turn_matrices(angle);
 }
 
 // 0x00503560
@@ -153,7 +153,7 @@ void SkaterPhysicsModule::turn_on_ground()
     last_spin_backside_ = step > 0.0 ? 1 : 0;
     if (!lock_velocity_)
         turn_velocity(entity_->vel_, angle);
-    turn_matrices(this, angle);
+    turn_matrices(angle);
 }
 
 // 0x005039F0
@@ -179,7 +179,7 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
     const double amount = static_cast<double>(script::fetch_float(kWallBounceMultiplier)) * angle * scale;
     *turn = static_cast<float>(amount);
     turn_velocity(entity_->vel_, amount); // (by the unrounded turn)
-    turn_matrices(this, *turn);
+    turn_matrices(*turn);
     return angle;
 }
 
@@ -202,7 +202,7 @@ bool SkaterPhysicsModule::turn_down_slope()
     auto step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
         step = angle;
-    turn_matrices(this, step);
+    turn_matrices(step);
     return true;
 }
 
@@ -227,7 +227,7 @@ void SkaterPhysicsModule::natas_spin()
         rate = -rate;
     last_spin_backside_ = rate > 0.0 ? 1 : 0;
     auto step = static_cast<float>(rate * frame_length_);
-    turn_matrices(this, step);
+    turn_matrices(step);
     float& total = trick_->spin_total();
     total = static_cast<float>(static_cast<double>(step) * kDegreesPerRadian + total);
     // Shown as an integer - but (as Spin) not while short of a whole turn by more than the slop.

@@ -43,14 +43,6 @@ constexpr float kPushAway = 100.0f; // 0x006463D4
 
 const maths::Vec4 kUpAxis = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
 
-void change_state(SkaterPhysicsModule* component, int state)
-{
-    static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
-}
-void set_up(SkaterPhysicsModule* component, const maths::Vec4& up)
-{
-    static_cast<SkaterPhysicsModule*>(component)->turn_to_normal(up);
-}
 // velocity or position += normal * scale, x and y from the unrounded products (as the original).
 void add_scaled(maths::Vec4& to, const maths::Vec4& normal, float scale)
 {
@@ -67,11 +59,11 @@ void add_scaled(maths::Vec4& to, const maths::Vec4& normal, float scale)
 // (Part of 0x0050F830) Off the wall's edge: the up straight, pushed out 18 from the wall, into the air.
 void SkaterPhysicsModule::off_wall_edge(bool reset_display)
 {
-    set_up(this, kUpAxis);
+    turn_to_normal(kUpAxis);
     if (reset_display)
         display_matrix_ = entity_->basis_frame_;
     add_scaled(entity_->at_point_, wall_normal_, kPushOff);
-    change_state(this, kAir);
+    set_physics_state(kAir);
     static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0f);
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
 }
@@ -234,7 +226,7 @@ void SkaterPhysicsModule::step_wall_ride()
         if (hit_wall_ && !(std::fabs(along_wall) < 0.01f)) {
             // Round a corner: the new wall.
             wall_normal_ = hit;
-            set_up(this, wall_normal_);
+            turn_to_normal(wall_normal_);
             display_matrix_ = entity_->basis_frame_;
             entity_->vel_.align_to_plane(wall_normal_);
         } else if (hit.y > kTopFacesUp) {
@@ -258,7 +250,7 @@ void SkaterPhysicsModule::step_wall_ride()
             try_grind(true);
             if (state_of(this) == kRail)
                 return;
-            change_state(this, kGround);
+            set_physics_state(kGround);
             static_cast<objects::Entity*>(object_of(this))->post_own_event(kLanded, nullptr);
             return;
         } else {
@@ -293,14 +285,14 @@ void SkaterPhysicsModule::step_wall_ride()
         const maths::Vec4& w = wall_normal_;
         p.x = p.x + w.x, p.y = w.y + p.y, p.z = w.z + p.z, p.w = w.w + p.w;
         entity_->vel_.align_to_plane(wall_normal_);
-        set_up(this, wall_normal_);
+        turn_to_normal(wall_normal_);
         display_matrix_ = entity_->basis_frame_;
         if (!hit_wall_) {
             // Not a wall to ride: pushed away from it into the air.
             add_scaled(entity_->vel_, wall_normal_, kPushAway);
-            set_up(this, kUpAxis);
+            turn_to_normal(kUpAxis);
             display_matrix_ = entity_->basis_frame_;
-            change_state(this, kAir);
+            set_physics_state(kAir);
             static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0f);
             static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
             trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);

@@ -131,15 +131,6 @@ constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e
 int get_is(uint8_t value) { return value ? 1 : 0; }
 script::Struct* results_of(script::Script* script) { return script->args_.get(); }
 
-// The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
-uint32_t time_aloft(SkaterPhysicsModule* component)
-{
-    const int state = component->state_->cur_phase_;
-    if (state == 1 || state == 2)
-        return get_since(component->air_start_);
-    return component->air_end_ - component->air_start_;
-}
-
 // The skater's facing, made unit (the x and y products left unrounded as the original keeps them on the x87 stack),
 // as the end of a feeler from `start` `distance` long.
 void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, float distance)
@@ -162,23 +153,6 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
     end.z = static_cast<float>(static_cast<double>(z) * distance + start.z);
 }
 
-// The feeler of IsFacingWall and its relatives: the unnamed distance (200), from the skater's position (raised by
-// `raise` when set).
-bool feel_ahead(SkaterPhysicsModule* component, script::Struct* params, render::ProbeRay& feeler, bool raise)
-{
-    float distance = kFacingDistance;
-    params->fetch_float(0u, &distance, 0);
-    // (the feeler made by the caller - 0x00417760 here in the original)
-    objects::GameEntity* object = object_of(component);
-    const maths::Vec4& position = object->at_point_;
-    feeler.line_.start = position;
-    if (raise)
-        feeler.line_.start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
-    feeler.line_.end = feeler.line_.start;
-    feel_along_facing(feeler, object, distance);
-    return feeler.get_hit_shape(true, false) != 0;
-}
-
 // A wall the feeler hit: not vert, its normal's y within 0.1 of 0 (or not a number).
 bool hit_wall(const render::ProbeRay& feeler)
 {
@@ -188,6 +162,32 @@ bool hit_wall(const render::ProbeRay& feeler)
 }
 
 } // namespace
+
+// The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
+uint32_t SkaterPhysicsModule::time_aloft()
+{
+    const int state = state_->cur_phase_;
+    if (state == 1 || state == 2)
+        return get_since(air_start_);
+    return air_end_ - air_start_;
+}
+
+// The feeler of IsFacingWall and its relatives: the unnamed distance (200), from the skater's position (raised by
+// `raise` when set).
+bool SkaterPhysicsModule::feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise)
+{
+    float distance = kFacingDistance;
+    params->fetch_float(0u, &distance, 0);
+    // (the feeler made by the caller - 0x00417760 here in the original)
+    objects::GameEntity* object = object_of(this);
+    const maths::Vec4& position = object->at_point_;
+    feeler.line_.start = position;
+    if (raise)
+        feeler.line_.start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
+    feeler.line_.end = feeler.line_.start;
+    feel_along_facing(feeler, object, distance);
+    return feeler.get_hit_shape(true, false) != 0;
+}
 
 // 0x004FBE80
 void SkaterPhysicsModule::publish_method_table()
@@ -582,19 +582,19 @@ int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*)
 // 0x004FC880
 int SkaterPhysicsModule::air_time_less_than(script::Struct* params, script::Script*)
 {
-    const uint32_t time = time_aloft(this);
+    const uint32_t time = time_aloft();
     return time < ints::as_unsigned(air_time_threshold(params)) ? 1 : 0;
 }
 // 0x004FC8E0
 int SkaterPhysicsModule::air_time_greater_than(script::Struct* params, script::Script*)
 {
-    const uint32_t time = time_aloft(this);
+    const uint32_t time = time_aloft();
     return ints::as_unsigned(air_time_threshold(params)) < time ? 1 : 0;
 }
 // 0x004FC940
 int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 {
-    const uint32_t time = time_aloft(this);
+    const uint32_t time = time_aloft();
     auto seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
     results_of(script)->push_float(kAirtime, seconds);
     return 1;
@@ -824,7 +824,7 @@ int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct*, script::Script* scr
 int SkaterPhysicsModule::is_facing_wall(script::Struct* params, script::Script*)
 {
     render::ProbeRay feeler;
-    if (feel_ahead(this, params, feeler, false) && hit_wall(feeler))
+    if (feel_ahead(params, feeler, false) && hit_wall(feeler))
         return 1;
     return 0;
 }
@@ -833,7 +833,7 @@ int SkaterPhysicsModule::is_facing_wall(script::Struct* params, script::Script*)
 int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
 {
     render::ProbeRay feeler;
-    if (!feel_ahead(this, params, feeler, false) || !hit_wall(feeler))
+    if (!feel_ahead(params, feeler, false) || !hit_wall(feeler))
         return 0;
     entity_->vel_.change_heading(feeler.surface_dir_);
     core::at(entity_->basis_frame_.row, 2).change_heading(feeler.surface_dir_);
@@ -848,7 +848,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
 int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
 {
     render::ProbeRay feeler;
-    if (feel_ahead(this, params, feeler, true) && (feeler.hit_.face_flags_ & 8))
+    if (feel_ahead(params, feeler, true) && (feeler.hit_.face_flags_ & 8))
         return 1;
     return 0;
 }

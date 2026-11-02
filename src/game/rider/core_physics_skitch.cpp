@@ -44,11 +44,6 @@ constexpr float kSkitchStep = 6.0f;                // 0x00646284
 constexpr float kSkitchReach = 120.0f;             // 0x0064BD2C
 constexpr float kSkitchLostDistanceSqr = 32400.0f; // 0x0064BD28 (180 squared)
 
-objects::GameEntity* skater_object(SkaterPhysicsModule* component)
-{
-    return static_cast<objects::GameEntity*>(object_of(component));
-}
-
 // 0x0051BA70 (GameObjects::TowRideHandler::get_nearest_hook_point): the index of its skitch point nearest `from` (-1 if none),
 // its position in `point`.
 int closest_tow_point(void* skitch, maths::Vec4* point, maths::Vec4* from)
@@ -99,7 +94,7 @@ void SkaterPhysicsModule::try_start_skitch()
     // (0x0041D1D0: the smart pointer set)
     skitch_target_.assign_object(found);
     found->post_own_event(kSkitched, nullptr);
-    skater_object(this)->post_own_event(kSkitched, nullptr);
+    object_of(this)->post_own_event(kSkitched, nullptr);
 }
 
 // 0x00501DB0
@@ -109,7 +104,7 @@ void SkaterPhysicsModule::get_skitch()
     objects::PadSnapshot* pad = &input_->pad_primary_;
     objects::GameEntity* car = rider ? rider->entity_.get_pull() : nullptr;
     if (!car) {
-        skater_object(this)->post_own_event(kOffMeterBottom, nullptr);
+        object_of(this)->post_own_event(kOffMeterBottom, nullptr);
         return;
     }
     void* skitch = car->fetch_module(kSkitch);
@@ -159,7 +154,7 @@ void SkaterPhysicsModule::get_skitch()
                 skitch_point_ = index;
                 skitch_moving_ = 1;
                 skitch_direction_ = direction;
-                skater_object(this)->post_own_event(direction == 1.0f ? kSkitchLeft : kSkitchRight, nullptr);
+                object_of(this)->post_own_event(direction == 1.0f ? kSkitchLeft : kSkitchRight, nullptr);
                 break;
             }
             next = static_cast<double>(reach) + kSkitchStep;
@@ -187,7 +182,7 @@ void SkaterPhysicsModule::get_skitch()
         auto suck =
             static_cast<float>(static_cast<double>(tuning_float_lookup(kSkitchSuckSpeed, object)) * frame_length_);
         if (length_sqr > kSkitchLostDistanceSqr) {
-            skater_object(this)->post_own_event(kOffMeterBottom, nullptr);
+            object_of(this)->post_own_event(kOffMeterBottom, nullptr);
             return;
         }
         if (static_cast<double>(suck) * suck >= length_sqr) {

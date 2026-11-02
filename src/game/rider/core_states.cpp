@@ -37,10 +37,6 @@ constexpr uint32_t kLipKind = 0xA549B57B;     // Lip (the balance trick's kind)
 constexpr uint32_t kPerfectRail = 0xCD09E062; // CHEAT_PERFECT_RAIL
 constexpr uint32_t kName = 0xA1DC81F9;
 
-void change_state(SkaterPhysicsModule* component, int state)
-{
-    static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
-}
 
 } // namespace
 
@@ -106,10 +102,10 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
 {
     clear_flags();
     if (on_ground) {
-        change_state(this, kGround);
+        set_physics_state(kGround);
         old_state_ = kGround;
     } else {
-        change_state(this, kAir);
+        set_physics_state(kAir);
         old_state_ = kAir;
         set_flag(this, PoseFlag::kNoSecondSpin, 1);
         if (static_cast<uint8_t>(walk_->off_vert()))

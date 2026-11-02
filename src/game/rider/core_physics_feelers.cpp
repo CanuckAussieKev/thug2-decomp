@@ -87,11 +87,6 @@ constexpr float kQuarterTurn = 1.57079637f;     // 0x3FC90FDB
 constexpr float kThreeEighthsTurn = 2.3561945f; // 0x4016CBE4
 constexpr float kHalfTurn = 3.14159274f;        // 0x40490FDB
 
-objects::GameEntity* skater_object(SkaterPhysicsModule* component)
-{
-    return static_cast<objects::GameEntity*>(object_of(component));
-}
-
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
@@ -308,8 +303,8 @@ int SkaterPhysicsModule::set_ammo(script::Struct* params, script::Script*)
     const int change = ammo - before;
     gsl::owner<script::Struct*> changed = script::new_struct();
     changed->put_int(kCount, change); // (on a null structure if out of memory, as the original)
-    script::end_child_scripts_of_entity_by_name(skater_object(this), kAmmoMeterChange, nullptr);
-    skater_object(this)->spawn_script(kAmmoMeterChange, changed, 0, false);
+    script::end_child_scripts_of_entity_by_name(object_of(this), kAmmoMeterChange, nullptr);
+    object_of(this)->spawn_script(kAmmoMeterChange, changed, 0, false);
     if (changed) {
         changed->get_clear();
         script::delete_struct(changed);
@@ -324,7 +319,7 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
     uint32_t dir = 0; // (left as it was on the stack without one, in the original)
     params->read_hash_value(kDir, &dir, 1);
     maths::Mat4 m;
-    m = core::down_cast<objects::GameEntity>(core::down_cast<objects::Rider>(skater_object(this))->get_skater_camera())
+    m = core::down_cast<objects::GameEntity>(core::down_cast<objects::Rider>(object_of(this))->get_skater_camera())
             ->basis_frame_;
     switch (dir) {
     case kDownRight:
@@ -367,16 +362,16 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         return 2;
     }
     // Obj_MoveToNode: the motion component moves the skater; then everything that follows the position is put there.
-    objects::GameEntity* object = skater_object(this);
+    objects::GameEntity* object = object_of(this);
     objects::ObjectModule* motion = object->fetch_module(kMotion);
     const bool moved = motion->invoke_method_by_name(kObjMoveToNode, params, script) != 0;
     display_matrix_ = entity_->basis_frame_;
-    auto* shadow = core::down_cast<objects::GroundShadowModule>(skater_object(this)->fetch_module(kShadow));
+    auto* shadow = core::down_cast<objects::GroundShadowModule>(object_of(this)->fetch_module(kShadow));
     shadow->change_place(&entity_->at_point_);
     shadow->set_normal(&core::at(entity_->basis_frame_.row, 1));
     safe_pos_ = entity_->at_point_;
     entity_->old_pos_ = entity_->at_point_;
-    skater_object(this)->mark_jumped_ahead(true);
+    object_of(this)->mark_jumped_ahead(true);
     if (entity_->is_local_skater_) {
         // (the skater's camera follows at once)
         void* camera = core::down_cast<objects::Rider>(object_of(this))->get_skater_camera();
@@ -388,7 +383,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         physics::change_phase(this, 0);
         set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy_);
-        core::down_cast<objects::RiderSpinAndFlip>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
+        core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
             ->apply_flip_to_anims();
     } else if (params->has_bare_flag(kOrient)) {
         // The horizontal speed kept, along the new facing.
@@ -528,7 +523,7 @@ void SkaterPhysicsModule::check_side_feelers()
 // 0x005054A0
 bool SkaterPhysicsModule::apply_model_rotations()
 {
-    auto* model = core::down_cast<objects::MeshInstanceModule>(skater_object(this)->fetch_module(0x286A8D26)); // (Model)
+    auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(0x286A8D26)); // (Model)
     if (!core::at(model->twist_rate_, 0).active_ && !core::at(model->twist_rate_, 1).active_ && !core::at(model->twist_rate_, 2).active_)
         return false;
     objects::GameEntity* object = object_of(this);

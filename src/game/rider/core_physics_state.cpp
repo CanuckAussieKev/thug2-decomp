@@ -76,11 +76,6 @@ constexpr float kCacheReach = 180.0f;             // 0x0064B278: the collision c
 constexpr float kCacheBelow = 204.0f;             // 0x0064BCD0
 constexpr float kCacheAbove = 96.0f;              // 0x0064B808
 
-objects::GameEntity* skater_object(SkaterPhysicsModule* component)
-{
-    return static_cast<objects::GameEntity*>(object_of(component));
-}
-
 } // namespace
 
 // 0x00505440
@@ -233,7 +228,7 @@ void SkaterPhysicsModule::update_projectiles()
     wait = 30;
     // (0x004FC420: walking.)
     const bool walking = static_cast<objects::RiderBoardPhysics*>(physics_control_)->is_on_foot();
-    script::launch_script(walking ? kWalkThrow : kSkateThrow, nullptr, skater_object(this), false, nullptr);
+    script::launch_script(walking ? kWalkThrow : kSkateThrow, nullptr, object_of(this), false, nullptr);
 }
 
 // 0x00500900
@@ -241,7 +236,7 @@ void SkaterPhysicsModule::update_model_rotation()
 {
     if (!model_rotating_)
         return;
-    auto* model = core::down_cast<objects::MeshInstanceModule>(skater_object(this)->fetch_module(kModel));
+    auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel));
     const double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
@@ -259,7 +254,7 @@ void SkaterPhysicsModule::update_model_rotation()
         model_rotating_ = 0;
         model_rotation_left_ = 0.0f;
         if (model_flipped_) {
-            core::down_cast<objects::RiderSpinAndFlip>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
+            core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
                 ->get_flip();
         }
         reset_rotations();
@@ -280,7 +275,7 @@ void SkaterPhysicsModule::update_special_time()
     }
     gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(kTimeLimit, 1);
-    script::launch_script(kKillSpecial, params, skater_object(this), false, nullptr);
+    script::launch_script(kKillSpecial, params, object_of(this), false, nullptr);
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -323,12 +318,12 @@ int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
 // 0x005004B0
 void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, bool trick2, bool trick3, bool trick4)
 {
-    objects::GameEntity* object = skater_object(this);
+    objects::GameEntity* object = object_of(this);
     if (!object->own_script_) {
-        skater_object(this)->own_script_ = script::Script::create();
+        object_of(this)->own_script_ = script::Script::create();
     }
     if (motoskateboard_) {
-        object = skater_object(this);
+        object = object_of(this);
         object->own_script_->bind_script(kMotoskateboardGrind, nullptr, object);
     } else {
         // GrindTrickList[the rail's type (0-8; anything else 0)][the four trick buttons as bits 0-3].
@@ -351,12 +346,12 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
             }
         }
         rail_adjust_ = 0;
-        core::down_cast<objects::RiderSpinAndFlip>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
+        core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
             ->do_after_anim();
-        object = skater_object(this);
+        object = object_of(this);
         object->own_script_->bind_script(tricks->fetch_part(buttons), nullptr, object);
     }
-    skater_object(this)->own_script_->tick_frame();
+    object_of(this)->own_script_->tick_frame();
     state_->in_trick_move_ = 1;
 }
 
