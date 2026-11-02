@@ -91,16 +91,17 @@ void vacant(AnimCacheEntry* entry)
 
 // The original's REP MOVSD / MOVSB copy: dwords forwards, then the odd bytes - kept for overlapping blocks (an entry
 // whose Allocate failed keeps its old, smaller block with the new size: its copy runs into what follows).
-void copy_forwards(uint8_t* to, const uint8_t* from, uint32_t size)
+void copy_forwards(std::span<uint8_t> to, std::span<const uint8_t> from)
 {
-    const uint32_t words = size & ~3u;
-    for (uint32_t i = 0; i < words; i += 4) { // (each word read before it is written, as MOVSD)
+    const size_t size = from.size();
+    const size_t words = size & ~size_t{3};
+    for (size_t i = 0; i < words; i += 4) { // (each word read before it is written, as MOVSD)
         uint32_t word = 0;
-        std::memcpy(&word, from + i, sizeof(word));
-        std::memcpy(to + i, &word, sizeof(word));
+        std::memcpy(&word, from.subspan(i, sizeof(word)).data(), sizeof(word));
+        std::memcpy(to.subspan(i, sizeof(word)).data(), &word, sizeof(word));
     }
-    for (uint32_t i = words; i < size; ++i)
-        to[i] = from[i];
+    for (size_t i = words; i < size; ++i)
+        core::at(to, i) = core::at(from, i);
 }
 
 void free_data(AnimCacheEntry* entry)
@@ -151,7 +152,7 @@ uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, int rotation_keys
     payload_ = static_cast<uint8_t*>(memory::alloc(allocated_));
     std::memset(payload_, 0, allocated_);
     rotation_keys_ptr_ = payload_;
-    translation_keys_ptr_ = payload_ + rotation_key_size_ * rotation_keys;
+    translation_keys_ptr_ = std::span<uint8_t>(payload_, allocated_).subspan(static_cast<size_t>(rotation_key_size_ * rotation_keys)).data();
     pop_heap();
     flag_bits_ &= ~(kBusy | kReleasing);
     last_used_ = 0;
@@ -475,13 +476,15 @@ int ClipStore::defragment()
         return 0;
     }
     // The keys copied out, in order...
-    uint8_t* to = copy;
-    uint8_t** old = old_data;
+    const std::span<uint8_t> copied(copy, total);
+    const std::span<uint8_t*> old_blocks(old_data, static_cast<size_t>(with_data));
+    size_t to = 0;
+    size_t old = 0;
     for (const AnimCacheEntry* entry : slot_array_) {
         if (entry->payload_) {
-            copy_forwards(to, entry->payload_, entry->allocated_);
+            copy_forwards(copied.subspan(to, entry->allocated_), std::span<const uint8_t>(entry->payload_, entry->allocated_));
             to += entry->allocated_;
-            *old = entry->payload_;
+            core::at(old_blocks, old) = entry->payload_;
             ++old;
         }
     }
@@ -504,14 +507,16 @@ int ClipStore::defragment()
     }
     pop_heap();
     // ...and the keys copied back, the pointers into them moved with them.
-    old = old_data;
+    old = 0;
     for (AnimCacheEntry* entry : slot_array_) {
         if (entry->kind_tag_) {
-            copy_forwards(entry->payload_, copy + offset, entry->allocated_);
+            const std::span<uint8_t> block(entry->payload_, entry->allocated_);
+            copy_forwards(block, copied.subspan(offset, entry->allocated_));
             offset += entry->allocated_;
-            const int moved = static_cast<int>(entry->payload_ - *old++);
-            entry->rotation_keys_ptr_ += moved;
-            entry->translation_keys_ptr_ += moved;
+            // (the keys' places in the block kept)
+            const uint8_t* was = core::at(old_blocks, old++);
+            entry->rotation_keys_ptr_ = block.subspan(static_cast<size_t>(entry->rotation_keys_ptr_ - was)).data();
+            entry->translation_keys_ptr_ = block.subspan(static_cast<size_t>(entry->translation_keys_ptr_ - was)).data();
         }
     }
     memory::dealloc(copy);

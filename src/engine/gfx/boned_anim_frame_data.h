@@ -16,6 +16,7 @@
 #include <span>
 #include "formats/anim_format.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 #include "engine/gfx/frame_source.h"
@@ -49,7 +50,12 @@ using FloatKey = anim_format::FloatKey;
 
 // 0x00482970 (cdecl): 256 entries of four shorts read from `file` into `table`; false at the first short short of
 // a read.
-bool read_key_table(void* file, int16_t* table);
+bool read_key_table(void* file, std::span<int16_t, 1024> table);
+
+// A position in a run of key bytes (the clip's rotation or translation keys).
+using KeyCursor = core::Cursor<const uint8_t>;
+// An animation's own quaternion table (flag 0x2000): 256 entries of three shorts.
+constexpr size_t kOwnKeyTableSize = 256 * 6;
 // 0x004829F0 / 0x00482A30 (cdecl): the quaternion / translation table loaded from the file `name`.
 bool load_quat_table(const char* name);
 bool load_trans_table(const char* name);
@@ -57,10 +63,10 @@ bool load_trans_table(const char* name);
 // 0x00482C20 (cdecl): a compressed quaternion key at `data` into `out` (`flags`: the animation's - 0x100 a time
 // word of its own, 0x2000 its own table `table` (6-byte entries), 0x8000 bytes for shorts, 0x10000 a byte names a
 // table entry's w for a single value); returns the next key.
-const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t flags, const uint8_t* table);
+KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std::span<const uint8_t> table);
 // 0x00482E70 (cdecl): a compressed translation key (a flag byte: 0x80 from the shared table, 0x40 the time in its
 // low six bits); returns the next key.
-const uint8_t* decompress_trans_key(const uint8_t* data, ShortKey* out);
+KeyCursor decompress_trans_key(KeyCursor data, ShortKey* out);
 
 // 0x00482A70 (cdecl): a short key's time word and x, y, z as floats (no w).
 void expand_quat_key(FloatKey* out, const ShortKey* in);
@@ -136,11 +142,11 @@ public:
     // at its level of detail) or by the frames' own bit array (flag 0x80000) - gets its first rotation key added
     // (pose rotation * key, then slerped there by `weight`) and its first translation key (a weight of the way to
     // the translation plus the key - with flags 0x4000 and 0x20000, twice the translation). True. (`unused` isn't.)
-    bool apply_additive(maths::QuatRotation* rotations, maths::Vec4* translations, void* unused, float weight,
-                        const FrameSource* mask);
+    bool apply_additive(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations, void* unused,
+                        float weight, const FrameSource* mask);
     // 0x00485250: the same for compressed frames (flag 0x800000; a tail jump), else false.
-    bool apply_additive_if_compressed(maths::QuatRotation* rotations, maths::Vec4* translations, void* unused,
-                                      float weight, const FrameSource* mask);
+    bool apply_additive_if_compressed(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations,
+                                      void* unused, float weight, const FrameSource* mask);
     // 0x00485270: the compressed keys decoded into an animation cache entry in `format` (3 and 4: rotations as
     // quaternions - two decoders -, translations as floats; others as they come) - at most 10 a frame (the vblank
     // count 0x006FA2E0 and the count 0x006FA2D8). Older entries are freed first when the cache is short of room.
@@ -155,6 +161,18 @@ public:
     // 0x00484760 (a tail jump with all the arguments). True.
     bool get_frames(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations, std::span<uint8_t> arg2, float time, int arg4,
                     void* arg5);
+
+    // NOT ORIGINAL - the runs the pointers below point into, derived from the layout (formats/anim_format.h): the
+    // translation keys follow the rotation keys; compressed, each bone's keys take its size's bytes, float keys
+    // 8 or 16 bytes each (flags 0x8000000 / 0x1000000). Nothing stored: the frame data keeps its 0x3C bytes.
+    [[nodiscard]] std::span<const uint16_t> rotation_sizes() const;
+    [[nodiscard]] std::span<const uint16_t> translation_sizes() const;
+    [[nodiscard]] std::span<const uint8_t> rotation_key_run() const;
+    [[nodiscard]] std::span<const uint8_t> translation_key_run() const;
+    [[nodiscard]] std::span<const uint8_t> own_key_table() const;
+    [[nodiscard]] std::span<const uint32_t> partial_bone_run() const;
+    [[nodiscard]] std::span<UserClipKey*> events() const;
+    [[nodiscard]] std::span<const uint32_t> bone_label_run() const;
 
     float duration_{0.0f}; // +0x00: seconds (the file's third word)
     uint32_t flag_bits_{};                    // +0x04

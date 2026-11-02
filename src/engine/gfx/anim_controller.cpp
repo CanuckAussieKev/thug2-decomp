@@ -296,7 +296,7 @@ bool WeightedAnimController::fetch_pose(Stance* pose)
     set_bones(blend_source_, skeleton());
     set_bone_count(blend_source_, skeleton());
     static_cast<JointClipFrames*>(frame_source_)
-        ->apply_additive_if_compressed(pose->rotations.data(), pose->translations.data(), pose->valid.data(), weight_,
+        ->apply_additive_if_compressed(pose->rotations, pose->translations, pose->valid.data(), weight_,
                                        static_cast<const render::FrameSource*>(blend_source_));
     source_frame(blend_source_, true);
     return true;

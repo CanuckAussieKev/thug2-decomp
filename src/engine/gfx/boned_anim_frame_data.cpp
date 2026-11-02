@@ -23,6 +23,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/assert>
 #include <gsl/pointers>
 
 namespace gfx {
@@ -37,7 +38,20 @@ constexpr double kTransUnit = 1.0 / 32.0;   // (0x006487CC)
 
 float get_scaled(int16_t value, double unit) { return static_cast<float>(value * unit); }
 
-uint16_t get_word(const uint8_t* p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
+uint16_t get_word(KeyCursor p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
+uint16_t get_word(std::span<const uint8_t> bytes, size_t at)
+{
+    return static_cast<uint16_t>(core::at(bytes, at) | (core::at(bytes, at + 1) << 8));
+}
+
+// The summed sizes of every bone's keys.
+size_t total_size(std::span<const uint16_t> sizes)
+{
+    size_t total = 0;
+    for (const uint16_t size : sizes)
+        total += size;
+    return total;
+}
 
 // The time word of a key at the head of `in`, as the original merges it (the sign bit, then the rest).
 uint16_t time_word(uint16_t out, uint16_t in)
@@ -89,13 +103,11 @@ uint16_t reference_bits(uint16_t bits, int change)
 // --- the shared tables --------------------------------------------------------------------------------------
 
 // 0x00482970
-bool read_key_table(void* file, int16_t* table)
+bool read_key_table(void* file, std::span<int16_t, 1024> table)
 {
-    for (int i = 0; i < 256; ++i, table += 4) {
-        for (int k = 0; k < 4; ++k) {
-            if (!file::get_take_in(table + k, 2, 1, static_cast<file::Hdl>(file)))
-                return false;
-        }
+    for (int16_t& value : table) {
+        if (!file::get_take_in(&value, 2, 1, static_cast<file::Hdl>(file)))
+            return false;
     }
     return true;
 }
@@ -106,7 +118,7 @@ bool load_quat_table(const char* name)
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
     if (file)
-        loaded = read_key_table(file, g_quat_table.data());
+        loaded = read_key_table(file, g_quat_table);
     file::shut(file); // (even when it didn't open)
     return loaded;
 }
@@ -117,7 +129,7 @@ bool load_trans_table(const char* name)
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
     if (file)
-        loaded = read_key_table(file, g_trans_table.data());
+        loaded = read_key_table(file, g_trans_table);
     file::shut(file);
     return loaded;
 }
@@ -125,7 +137,7 @@ bool load_trans_table(const char* name)
 // --- decompressing keys -------------------------------------------------------------------------------------
 
 // 0x00482C20
-const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t flags, const uint8_t* table)
+KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std::span<const uint8_t> table)
 {
     const auto& shared = g_quat_table;
     const uint16_t first = get_word(data);
@@ -168,7 +180,7 @@ const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t 
             const uint8_t b = *data++;
             if (flags & 0x2000) {
                 for (int i = 0; i < 3; ++i)
-                    core::at(out->value, i) = static_cast<int16_t>(get_word(table + b * 6 + 2 * i));
+                    core::at(out->value, i) = static_cast<int16_t>(get_word(table, (b * 6) + (2 * i)));
             } else {
                 for (int i = 0; i < 3; ++i)
                     core::at(out->value, i) = core::at(shared, b * 4 + i);
@@ -187,7 +199,7 @@ const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t 
 }
 
 // 0x00482E70
-const uint8_t* decompress_trans_key(const uint8_t* data, ShortKey* out)
+KeyCursor decompress_trans_key(KeyCursor data, ShortKey* out)
 {
     const uint8_t head = *data++;
     if (head & 0x40) {
@@ -197,9 +209,9 @@ const uint8_t* decompress_trans_key(const uint8_t* data, ShortKey* out)
         data += 2;
     }
     if (head & 0x80) {
-        const int16_t* entry = g_trans_table.data() + *data++ * 4;
+        const int entry = *data++ * 4;
         for (int i = 0; i < 3; ++i)
-            core::at(out->value, i) = entry[i];
+            core::at(out->value, i) = core::at(g_trans_table, entry + i);
     } else {
         for (int i = 0; i < 3; ++i)
             core::at(out->value, i) = static_cast<int16_t>(get_word(data + 2 * i));
@@ -426,6 +438,44 @@ void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const F
 
 // --- the frame data -----------------------------------------------------------------------------------------
 
+std::span<const uint16_t> JointClipFrames::rotation_sizes() const
+{
+    return {quat_sizes_, quat_sizes_ ? static_cast<size_t>(bone_count_) : 0};
+}
+std::span<const uint16_t> JointClipFrames::translation_sizes() const
+{
+    return {trans_sizes_, trans_sizes_ ? static_cast<size_t>(bone_count_) : 0};
+}
+std::span<const uint8_t> JointClipFrames::rotation_key_run() const
+{
+    return {quat_keys_, quat_keys_ ? static_cast<size_t>(trans_keys_ - quat_keys_) : 0};
+}
+std::span<const uint8_t> JointClipFrames::translation_key_run() const
+{
+    if (!trans_keys_)
+        return {};
+    if (flag_bits_ & anim_format::kCompressed)
+        return {trans_keys_, total_size(translation_sizes())};
+    const size_t key_size = (flag_bits_ & (anim_format::kWideKeys | anim_format::kBoneNames)) ? 16 : 8;
+    return {trans_keys_, static_cast<size_t>(static_cast<uint16_t>(trans_key_count_)) * key_size};
+}
+std::span<const uint8_t> JointClipFrames::own_key_table() const
+{
+    return {key_table_, key_table_ ? kOwnKeyTableSize : 0};
+}
+std::span<const uint32_t> JointClipFrames::partial_bone_run() const
+{
+    return {partial_bones_, partial_bones_ ? 1 + ((static_cast<size_t>(bone_count_) + 31) / 32) : 0};
+}
+std::span<UserClipKey*> JointClipFrames::events() const
+{
+    return {events_ptr_, events_ptr_ ? static_cast<size_t>(event_count_) : 0};
+}
+std::span<const uint32_t> JointClipFrames::bone_label_run() const
+{
+    return {bone_labels_, bone_labels_ ? static_cast<size_t>(bone_count_) : 0};
+}
+
 // 0x00482AF0
 JointClipFrames::JointClipFrames() { bits_ &= 0xFE00; }
 
@@ -433,7 +483,7 @@ JointClipFrames::JointClipFrames() { bits_ &= 0xFE00; }
 JointClipFrames::~JointClipFrames()
 {
     for (int i = 0; i < event_count_; ++i) {
-        gsl::owner<UserClipKey*> key = memory::owned_element(events_ptr_[i]); // (each the frames' own)
+        gsl::owner<UserClipKey*> key = memory::owned_element(core::at(events(), i)); // (each the frames' own)
         delete key;
     }
     if (events_ptr_)
@@ -469,14 +519,14 @@ void JointClipFrames::release_cache_index(int index)
 }
 
 // 0x00482F00
-uint32_t JointClipFrames::fetch_joint_name(int index) { return bone_labels_[index]; }
+uint32_t JointClipFrames::fetch_joint_name(int index) { return core::at(bone_label_run(), index); }
 
 // 0x00482F10
 bool JointClipFrames::arm_events()
 {
     const int count = event_count_;
     for (int i = 0; i < count; ++i)
-        arm_event(events_ptr_[i], true);
+        arm_event(core::at(events(), i), true);
     return true;
 }
 
@@ -487,7 +537,7 @@ bool JointClipFrames::fire_events(float from, float to, void* target, int flag)
     auto to_frame = static_cast<float>(static_cast<double>(to) * 60.0);
     const int count = event_count_;
     for (int i = 0; i < count; ++i) {
-        UserClipKey* event = events_ptr_[i];
+        UserClipKey* event = core::at(events(), i);
         if (event->inside_range(from_frame, to_frame, flag != 0))
             fire_event(event, target);
     }
@@ -504,6 +554,50 @@ int trans_key_time(uint16_t word) { return static_cast<int16_t>(word); }
 int quat_key_time(const uint8_t* key) { return quat_key_time(anim_format::key_time_word(key)); }
 int trans_key_time(const uint8_t* key) { return trans_key_time(anim_format::key_time_word(key)); }
 
+// A cached animation's keys: the entry's block (allocated_ bytes - the keys' extent_ and the rounding after them, which
+// the searches' look at the key after a bone's last one reads into), keys found by their offset in it.
+class CachedKeys {
+public:
+    explicit CachedKeys(const AnimCacheEntry& entry)
+        : bytes_(entry.payload_, entry.payload_ ? entry.allocated_ : 0),
+          rotations_(offset_of(entry.rotation_keys_ptr_)), translations_(offset_of(entry.translation_keys_ptr_))
+    {
+    }
+    // Where the rotation / translation keys start.
+    [[nodiscard]] std::ptrdiff_t rotations() const { return rotations_; }
+    [[nodiscard]] std::ptrdiff_t translations() const { return translations_; }
+    // A key's place, and the key at a place (the end included).
+    [[nodiscard]] std::ptrdiff_t offset_of(const uint8_t* key) const { return key - bytes_.data(); }
+    [[nodiscard]] uint8_t* key(std::ptrdiff_t offset) const
+    {
+        Expects(offset >= 0 && static_cast<size_t>(offset) <= bytes_.size());
+        return bytes_.subspan(static_cast<size_t>(offset)).data();
+    }
+    // The times of the keys at a place (the time word: its first two bytes).
+    [[nodiscard]] int quat_time(std::ptrdiff_t offset) const { return quat_key_time(word(offset)); }
+    [[nodiscard]] int trans_time(std::ptrdiff_t offset) const { return trans_key_time(word(offset)); }
+
+private:
+    [[nodiscard]] uint16_t word(std::ptrdiff_t offset) const
+    {
+        return static_cast<uint16_t>(core::at(bytes_, offset) | (core::at(bytes_, offset + 1) << 8));
+    }
+
+    std::span<uint8_t> bytes_;
+    std::ptrdiff_t rotations_;
+    std::ptrdiff_t translations_;
+};
+
+// A slot's stored key for `bone` (null: none) as a place.
+uint8_t*& slot_rotation(AnimCacheEntry& entry, int slot, int bone)
+{
+    return core::at(core::at(entry.slots_ptr_, slot)->rotation_keys_, bone);
+}
+uint8_t*& slot_translation(AnimCacheEntry& entry, int slot, int bone)
+{
+    return core::at(core::at(entry.slots_ptr_, slot)->translation_keys_, bone);
+}
+
 } // namespace
 
 // 0x00482FB0
@@ -512,49 +606,50 @@ int AnimCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint8
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
+    const CachedKeys keys(*this);
     const int stride = rotation_key_size_;
-    uint8_t* start = rotation_keys_ptr_ + core::at(rotation_offsets_, bone);
-    const uint8_t* end = nullptr;
+    const std::ptrdiff_t start = keys.rotations() + core::at(rotation_offsets_, bone);
+    std::ptrdiff_t end = 0;
     if (bone == bones_ - 1) {
-        if (!(start + stride < translation_keys_ptr_)) {
-            *second = *first = start;
+        if (!(start + stride < keys.translations())) {
+            *second = *first = keys.key(start);
             flag_bits_ &= ~0x4000;
             return slot;
         }
-        end = translation_keys_ptr_;
+        end = keys.translations();
     } else {
         if (!(core::at(rotation_offsets_, bone) + stride < core::at(rotation_offsets_, bone + 1))) {
-            *second = *first = start;
+            *second = *first = keys.key(start);
             flag_bits_ &= ~0x4000;
             return slot;
         }
-        end = rotation_keys_ptr_ + core::at(rotation_offsets_, bone + 1);
+        end = keys.rotations() + core::at(rotation_offsets_, bone + 1);
     }
     // From where the slot's search stopped: its pair still around the frame, or the next one.
-    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone)) {
-        uint8_t* key = core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone);
-        uint8_t* next = key + stride;
-        if (static_cast<float>(quat_key_time(key)) <= frame) {
-            if (static_cast<float>(quat_key_time(next)) >= frame) {
-                *first = key;
-                *second = next;
+    if (slot != -1 && core::at(slots_ptr_, slot) && slot_rotation(*this, slot, bone)) {
+        const std::ptrdiff_t key = keys.offset_of(slot_rotation(*this, slot, bone));
+        const std::ptrdiff_t next = key + stride;
+        if (static_cast<float>(keys.quat_time(key)) <= frame) {
+            if (static_cast<float>(keys.quat_time(next)) >= frame) {
+                *first = keys.key(key);
+                *second = keys.key(next);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
-            uint8_t* after = next + stride;
-            if (after < end && static_cast<float>(quat_key_time(after)) >= frame) {
-                core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = next;
-                *first = next;
-                *second = after;
+            const std::ptrdiff_t after = next + stride;
+            if (after < end && static_cast<float>(keys.quat_time(after)) >= frame) {
+                slot_rotation(*this, slot, bone) = keys.key(next);
+                *first = keys.key(next);
+                *second = keys.key(after);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
         }
     }
     // From the bone's first key.
-    uint8_t* key = start;
-    uint8_t* next = start + stride;
-    if (static_cast<float>(quat_key_time(next)) <= frame) {
+    std::ptrdiff_t key = start;
+    std::ptrdiff_t next = start + stride;
+    if (static_cast<float>(keys.quat_time(next)) <= frame) {
         for (;;) {
             key = next;
             next += stride;
@@ -562,14 +657,14 @@ int AnimCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint8
                 next = key; // (past the last: the last alone)
                 break;
             }
-            if (!(static_cast<float>(quat_key_time(next)) <= frame))
+            if (!(static_cast<float>(keys.quat_time(next)) <= frame))
                 break;
         }
     }
-    *first = key;
-    *second = next;
+    *first = keys.key(key);
+    *second = keys.key(next);
     if (slot != -1 && core::at(slots_ptr_, slot))
-        core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = key;
+        slot_rotation(*this, slot, bone) = keys.key(key);
     flag_bits_ &= ~0x4000;
     return slot;
 }
@@ -580,65 +675,66 @@ int AnimCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uint
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
+    const CachedKeys keys(*this);
     const int stride = translation_key_size_;
-    uint8_t* start = translation_keys_ptr_ + core::at(translation_offsets_, bone);
-    const uint8_t* end = nullptr;
+    const std::ptrdiff_t start = keys.translations() + core::at(translation_offsets_, bone);
+    std::ptrdiff_t end = 0;
     if (bone == bones_ - 1) {
-        end = rotation_keys_ptr_ + extent_;
+        end = keys.rotations() + static_cast<std::ptrdiff_t>(extent_);
         if (!(start + stride < end)) {
-            *second = *first = start;
+            *second = *first = keys.key(start);
             flag_bits_ &= ~0x4000;
             return slot;
         }
     } else {
         if (!(core::at(translation_offsets_, bone) + stride < core::at(translation_offsets_, bone + 1))) {
-            *second = *first = start;
+            *second = *first = keys.key(start);
             flag_bits_ &= ~0x4000;
             return slot;
         }
-        end = translation_keys_ptr_ + core::at(translation_offsets_, bone + 1);
+        end = keys.translations() + core::at(translation_offsets_, bone + 1);
     }
-    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->translation_keys_, bone)) {
-        uint8_t* key = core::at(core::at(slots_ptr_, slot)->translation_keys_, bone);
-        uint8_t* next = key + stride;
-        if (static_cast<float>(trans_key_time(key)) <= frame) {
-            if (static_cast<float>(trans_key_time(next)) >= frame) {
-                *first = key;
-                *second = next;
+    if (slot != -1 && core::at(slots_ptr_, slot) && slot_translation(*this, slot, bone)) {
+        const std::ptrdiff_t key = keys.offset_of(slot_translation(*this, slot, bone));
+        const std::ptrdiff_t next = key + stride;
+        if (static_cast<float>(keys.trans_time(key)) <= frame) {
+            if (static_cast<float>(keys.trans_time(next)) >= frame) {
+                *first = keys.key(key);
+                *second = keys.key(next);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
-            uint8_t* after = next + stride;
-            if (after < end && static_cast<float>(trans_key_time(after)) >= frame) {
-                core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = next;
-                *first = next;
-                *second = after;
+            const std::ptrdiff_t after = next + stride;
+            if (after < end && static_cast<float>(keys.trans_time(after)) >= frame) {
+                slot_translation(*this, slot, bone) = keys.key(next);
+                *first = keys.key(next);
+                *second = keys.key(after);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
         }
     }
-    uint8_t* key = start;
-    uint8_t* next = start + stride;
-    if (static_cast<float>(trans_key_time(next)) <= frame) {
+    std::ptrdiff_t key = start;
+    std::ptrdiff_t next = start + stride;
+    if (static_cast<float>(keys.trans_time(next)) <= frame) {
         for (;;) {
             key = next;
             next += stride;
             if (next >= end) {
                 // Past the last: the last alone, and (unlike the rotations') the slot's place left as it was.
-                *first = key;
-                *second = key;
+                *first = keys.key(key);
+                *second = keys.key(key);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
-            if (!(static_cast<float>(trans_key_time(next)) <= frame))
+            if (!(static_cast<float>(keys.trans_time(next)) <= frame))
                 break;
         }
     }
-    *first = key;
-    *second = next;
+    *first = keys.key(key);
+    *second = keys.key(next);
     if (slot != -1 && core::at(slots_ptr_, slot))
-        core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = key;
+        slot_translation(*this, slot, bone) = keys.key(key);
     flag_bits_ &= ~0x4000;
     return slot;
 }
@@ -649,60 +745,61 @@ int AnimCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** fi
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
+    const CachedKeys keys(*this);
     // (the last bone's keys end where they start here: always one key)
     const int offset = core::at(rotation_offsets_, bone);
     const int end_offset = core::at(rotation_offsets_, bone == bones_ - 1 ? bone : bone + 1);
     const int stride = rotation_key_size_;
     if (!(offset + stride < end_offset)) {
-        *second = *first = rotation_keys_ptr_ + offset;
+        *second = *first = keys.key(keys.rotations() + offset);
         flag_bits_ &= ~0x4000;
         return slot;
     }
     // From where the slot's search stopped: its pair still around the frame, or the one before.
-    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone)) {
-        uint8_t* key = core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone);
-        uint8_t* next = key + stride;
-        if (static_cast<float>(quat_key_time(next)) >= frame) {
-            if (static_cast<float>(quat_key_time(key)) <= frame) {
-                *first = key;
-                *second = next;
+    if (slot != -1 && core::at(slots_ptr_, slot) && slot_rotation(*this, slot, bone)) {
+        const std::ptrdiff_t key = keys.offset_of(slot_rotation(*this, slot, bone));
+        const std::ptrdiff_t next = key + stride;
+        if (static_cast<float>(keys.quat_time(next)) >= frame) {
+            if (static_cast<float>(keys.quat_time(key)) <= frame) {
+                *first = keys.key(key);
+                *second = keys.key(next);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
-            uint8_t* before = key - stride;
-            if (!(before < rotation_keys_ptr_ + offset) && static_cast<float>(quat_key_time(before)) <= frame &&
-                static_cast<float>(quat_key_time(key)) >= frame) {
-                core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = before;
-                *first = before;
-                *second = key;
+            const std::ptrdiff_t before = key - stride;
+            if (!(before < keys.rotations() + offset) && static_cast<float>(keys.quat_time(before)) <= frame &&
+                static_cast<float>(keys.quat_time(key)) >= frame) {
+                slot_rotation(*this, slot, bone) = keys.key(before);
+                *first = keys.key(before);
+                *second = keys.key(key);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
         }
     }
-    uint8_t* key = rotation_keys_ptr_ + core::at(rotation_offsets_, bone);
-    uint8_t* next = key + stride;
-    if (static_cast<float>(quat_key_time(next)) <= frame) {
-        const uint8_t* end = rotation_keys_ptr_ + end_offset;
+    std::ptrdiff_t key = keys.rotations() + core::at(rotation_offsets_, bone);
+    std::ptrdiff_t next = key + stride;
+    if (static_cast<float>(keys.quat_time(next)) <= frame) {
+        const std::ptrdiff_t end = keys.rotations() + end_offset;
         for (;;) {
             key = next;
             next += stride;
             if (next >= end) {
-                *first = key;
-                *second = key;
+                *first = keys.key(key);
+                *second = keys.key(key);
                 if (slot != -1)
-                    core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = key; // (no check for a slot here, as the original)
+                    slot_rotation(*this, slot, bone) = keys.key(key); // (no check for a slot here, as the original)
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
-            if (!(static_cast<float>(quat_key_time(next)) <= frame))
+            if (!(static_cast<float>(keys.quat_time(next)) <= frame))
                 break;
         }
     }
-    *first = key;
-    *second = next;
+    *first = keys.key(key);
+    *second = keys.key(next);
     if (slot != -1 && core::at(slots_ptr_, slot))
-        core::at(core::at(slots_ptr_, slot)->rotation_keys_, bone) = key;
+        slot_rotation(*this, slot, bone) = keys.key(key);
     flag_bits_ &= ~0x4000;
     return slot;
 }
@@ -713,56 +810,57 @@ int AnimCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** f
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
+    const CachedKeys keys(*this);
     const int offset = core::at(translation_offsets_, bone);
     const int end_offset = core::at(translation_offsets_, bone == bones_ - 1 ? bone : bone + 1);
     const int stride = translation_key_size_;
     if (!(offset + stride < end_offset)) {
-        *second = *first = translation_keys_ptr_ + offset;
+        *second = *first = keys.key(keys.translations() + offset);
         flag_bits_ &= ~0x4000;
         return slot;
     }
-    if (slot != -1 && core::at(slots_ptr_, slot) && core::at(core::at(slots_ptr_, slot)->translation_keys_, bone)) {
-        uint8_t* key = core::at(core::at(slots_ptr_, slot)->translation_keys_, bone);
-        uint8_t* next = key + stride;
-        if (static_cast<float>(trans_key_time(next)) >= frame) {
-            if (static_cast<float>(trans_key_time(key)) <= frame) {
-                *first = key;
-                *second = next;
+    if (slot != -1 && core::at(slots_ptr_, slot) && slot_translation(*this, slot, bone)) {
+        const std::ptrdiff_t key = keys.offset_of(slot_translation(*this, slot, bone));
+        const std::ptrdiff_t next = key + stride;
+        if (static_cast<float>(keys.trans_time(next)) >= frame) {
+            if (static_cast<float>(keys.trans_time(key)) <= frame) {
+                *first = keys.key(key);
+                *second = keys.key(next);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
-            uint8_t* before = key - stride;
-            if (!(before < translation_keys_ptr_ + core::at(translation_offsets_, bone)) && static_cast<float>(trans_key_time(before)) <= frame &&
-                static_cast<float>(trans_key_time(key)) >= frame) {
-                core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = before;
-                *first = before;
-                *second = key;
+            const std::ptrdiff_t before = key - stride;
+            if (!(before < keys.translations() + core::at(translation_offsets_, bone)) &&
+                static_cast<float>(keys.trans_time(before)) <= frame && static_cast<float>(keys.trans_time(key)) >= frame) {
+                slot_translation(*this, slot, bone) = keys.key(before);
+                *first = keys.key(before);
+                *second = keys.key(key);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
         }
     }
-    uint8_t* key = translation_keys_ptr_ + core::at(translation_offsets_, bone);
-    uint8_t* next = key + stride;
-    if (static_cast<float>(trans_key_time(next)) <= frame) {
-        const uint8_t* end = translation_keys_ptr_ + end_offset;
+    std::ptrdiff_t key = keys.translations() + core::at(translation_offsets_, bone);
+    std::ptrdiff_t next = key + stride;
+    if (static_cast<float>(keys.trans_time(next)) <= frame) {
+        const std::ptrdiff_t end = keys.translations() + end_offset;
         for (;;) {
             key = next;
             next += stride;
             if (next >= end) {
-                *first = key;
-                *second = key;
+                *first = keys.key(key);
+                *second = keys.key(key);
                 flag_bits_ &= ~0x4000;
                 return slot;
             }
-            if (!(static_cast<float>(trans_key_time(next)) <= frame))
+            if (!(static_cast<float>(keys.trans_time(next)) <= frame))
                 break;
         }
     }
-    *first = key;
-    *second = next;
+    *first = keys.key(key);
+    *second = keys.key(next);
     if (slot != -1 && core::at(slots_ptr_, slot))
-        core::at(core::at(slots_ptr_, slot)->translation_keys_, bone) = key;
+        slot_translation(*this, slot, bone) = keys.key(key);
     flag_bits_ &= ~0x4000;
     return slot;
 }
@@ -779,12 +877,13 @@ bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const a
         return true;
     }
     events_ptr_ = memory::adopt<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
+    const std::span<UserClipKey*> made(events_ptr_, header.custom_key_count);
     util::ByteReader reader = anim_format::custom_key_reader(layout);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
         gsl::owner<UserClipKey*> event = create_custom_anim_key(reader);
         if (!event)
             return false;
-        events_ptr_[i] = event;
+        core::at(made, i) = event;
     }
     event_count_ = static_cast<int16_t>(header.custom_key_count);
     return true;
@@ -838,8 +937,11 @@ bool JointClipFrames::get_float_key_pose(std::span<float> rotations, std::span<f
     const uint8_t* trans_from = trans_keys_;
     const uint8_t* trans_to = trans_keys_;
     float trans_t = 0.0f;
-    const uint8_t* quat_keys = quat_keys_;
-    const uint8_t* trans_keys = trans_keys_;
+    // (each bone's keys from where the bone before's end in the runs)
+    const std::span<const uint8_t> quat_run = rotation_key_run();
+    const std::span<const uint8_t> trans_run = translation_key_run();
+    size_t quat_keys = 0;
+    size_t trans_keys = 0;
     for (int bone = 0; bone < bone_count_; ++bone) {
         int quat_count = 0, trans_count = 0;
         if (flag_bits_ & 0x400000) {
@@ -850,17 +952,19 @@ bool JointClipFrames::get_float_key_pose(std::span<float> rotations, std::span<f
             trans_count = core::at(key_count_run(), 2 * bone + 1);
         }
         for (int k = 0; k < quat_count; ++k) {
-            const uint8_t* key = quat_keys + 16 * k;
+            const size_t at = quat_keys + (16 * static_cast<size_t>(k));
+            const uint8_t* key = &core::at(quat_run, at);
             if (k == quat_count - 1) {
                 quat_from = quat_to = key;
                 quat_t = 0.0f;
                 break;
             }
+            const uint8_t* after = &core::at(quat_run, at + 16);
             const int from = quat_key_time(key);
-            const int to = quat_key_time(key + 16);
+            const int to = quat_key_time(after);
             if (static_cast<float>(from) <= quat_frame && static_cast<float>(to) >= quat_frame) {
                 quat_from = key;
-                quat_to = key + 16;
+                quat_to = after;
                 quat_t =
                     static_cast<float>((static_cast<double>(quat_frame) - from) / (static_cast<double>(to) - from));
                 break;
@@ -868,25 +972,27 @@ bool JointClipFrames::get_float_key_pose(std::span<float> rotations, std::span<f
         }
         interpolate_quat(quad_at(rotations, bone), quat_from, quat_to, quat_t, (flag_bits_ & 0x9000000) != 0);
         for (int k = 0; k < trans_count; ++k) {
-            const uint8_t* key = trans_keys + 16 * k;
+            const size_t at = trans_keys + (16 * static_cast<size_t>(k));
+            const uint8_t* key = &core::at(trans_run, at);
             if (k == trans_count - 1) {
                 trans_from = trans_to = key;
                 trans_t = 0.0f;
                 break;
             }
+            const uint8_t* after = &core::at(trans_run, at + 16);
             const int from = trans_key_time(key);
-            const int to = trans_key_time(key + 16);
+            const int to = trans_key_time(after);
             if (static_cast<float>(from) <= trans_frame && static_cast<float>(to) >= trans_frame) {
                 trans_from = key;
-                trans_to = key + 16;
+                trans_to = after;
                 trans_t =
                     static_cast<float>((static_cast<double>(trans_frame) - from) / (static_cast<double>(to) - from));
                 break;
             }
         }
         interpolate_trans(quad_at(translations, bone), trans_from, trans_to, trans_t, (flag_bits_ & 0x9000000) != 0);
-        quat_keys += 16 * quat_count;
-        trans_keys += 16 * trans_count;
+        quat_keys += 16 * static_cast<size_t>(quat_count);
+        trans_keys += 16 * static_cast<size_t>(trans_count);
     }
     return true;
 }
@@ -903,10 +1009,13 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
 {
     auto quat_frame = static_cast<float>(static_cast<double>(time) * 60.0);
     float trans_frame = quat_frame; // (each clamped in turn by the cache's keys - kept for the later bones)
-    const uint8_t* quat_data = quat_keys_;
-    const uint8_t* trans_data = trans_keys_;
-    const uint16_t* quat_size = quat_sizes_;
-    const uint16_t* trans_size = trans_sizes_;
+    // (each bone's keys from where the bone before's end in the runs, its size's bytes)
+    const std::span<const uint8_t> quat_run = rotation_key_run();
+    const std::span<const uint8_t> trans_run = translation_key_run();
+    const std::span<const uint16_t> quat_sizes = rotation_sizes();
+    const std::span<const uint16_t> trans_sizes = translation_sizes();
+    size_t quat_data = 0;
+    size_t trans_data = 0;
     bool forwards = true;
     const uint32_t mask = source && source->resume_ ? 1u << (source->mask_bit_ & 31) : 0u;
     if (cache_slot_) {
@@ -920,15 +1029,17 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
     for (int bone = 0; bone < bone_count_; ++bone) {
         const std::span<float, 4> rotation(core::at(rotations, bone).data(), 4);
         const std::span<float, 4> translation(core::at(translations, bone).data(), 4);
+        const uint16_t quat_size = core::at(quat_sizes, bone);
+        const uint16_t trans_size = core::at(trans_sizes, bone);
         bool skip = mask ? (source->bone_masks_[bone] & mask) != 0 : false;
         if (flag_bits_ & 0x80000)
-            skip = !(partial_bones_[1 + bone / 32] & (1u << (bone % 32)));
+            skip = !(core::at(partial_bone_run(), 1 + (bone / 32)) & (1u << (bone % 32)));
         if (skip) {
             core::at(valid, bone) = 0;
         } else {
             core::at(valid, bone) = 1;
             // The rotation.
-            if (*quat_size == 0) {
+            if (quat_size == 0) {
                 core::at(rotation, 0) = core::at(rotation, 1) = core::at(rotation, 2) = 0.0f;
                 core::at(rotation, 3) = 1.0f;
             } else {
@@ -961,22 +1072,22 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                 }
                 if (!done) {
                     // Decompressing: from the bone's start (or where the source left it) to the pair around the frame.
-                    const uint8_t* end = quat_data + *quat_size;
-                    const uint8_t* at = quat_data;
+                    const KeyCursor end(quat_run, static_cast<std::ptrdiff_t>(quat_data + quat_size));
+                    KeyCursor at(quat_run, static_cast<std::ptrdiff_t>(quat_data));
                     if (source && source->resume_ && core::at(source->quat_at_, bone))
-                        at = core::at(source->quat_at_, bone);
+                        at = KeyCursor(quat_run, core::at(source->quat_at_, bone) - quat_run.data());
                     ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
-                            core::at(source->quat_at_, bone) = at;
-                        at = decompress_quat_key(at, &a, flag_bits_, key_table_);
+                            core::at(source->quat_at_, bone) = at.rest().data();
+                        at = decompress_quat_key(at, &a, flag_bits_, own_key_table());
                         if (at >= end) {
                             b = a;
                             t = 0.0f;
                             break;
                         }
-                        decompress_quat_key(at, &b, flag_bits_, key_table_);
+                        decompress_quat_key(at, &b, flag_bits_, own_key_table());
                         auto from = static_cast<float>(quat_key_time(a.time));
                         auto to = static_cast<float>(quat_key_time(b.time));
                         if (quat_frame >= from && quat_frame <= to) {
@@ -989,7 +1100,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                 }
             }
             // The translation (none for a bone without keys when flag 0x20000 says so).
-            if (!((flag_bits_ & 0x20000) && *trans_size == 0)) {
+            if (!((flag_bits_ & 0x20000) && trans_size == 0)) {
                 bool done = false;
                 if (cache_slot_) {
                     uint8_t* first = nullptr;
@@ -1025,15 +1136,15 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     }
                 }
                 if (!done) {
-                    const uint8_t* end = trans_data + *trans_size;
-                    const uint8_t* at = trans_data;
+                    const KeyCursor end(trans_run, static_cast<std::ptrdiff_t>(trans_data + trans_size));
+                    KeyCursor at(trans_run, static_cast<std::ptrdiff_t>(trans_data));
                     if (source && source->resume_ && core::at(source->trans_at_, bone))
-                        at = core::at(source->trans_at_, bone);
+                        at = KeyCursor(trans_run, core::at(source->trans_at_, bone) - trans_run.data());
                     ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
-                            core::at(source->trans_at_, bone) = at;
+                            core::at(source->trans_at_, bone) = at.rest().data();
                         at = decompress_trans_key(at, &a);
                         if (at >= end) {
                             b = a;
@@ -1062,8 +1173,8 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                 }
             }
         }
-        quat_data += *quat_size++;
-        trans_data += *trans_size++;
+        quat_data += quat_size;
+        trans_data += trans_size;
     }
     return true;
 }

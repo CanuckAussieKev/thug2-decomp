@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_cache.h"
@@ -15,6 +16,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 
 namespace gfx {
 
@@ -40,11 +42,11 @@ int cache_format(void* manager) { return static_cast<ClipStore*>(manager)->fetch
 // The compressed keys' decoders: the next rotation key (0x00482C20) / translation key (0x00482E70) into `key`,
 // returning where the next one starts; a rotation key as a quaternion (0x00482A70, 0x00483D00 - the quaternion at +4
 // of its output).
-const uint8_t* decode_rotation(const uint8_t* cursor, void* key, uint32_t flags, const uint8_t* table)
+KeyCursor decode_rotation(KeyCursor cursor, void* key, uint32_t flags, std::span<const uint8_t> table)
 {
     return decompress_quat_key(cursor, static_cast<ShortKey*>(key), flags, table);
 }
-const uint8_t* decode_translation(const uint8_t* cursor, void* key, uint32_t)
+KeyCursor decode_translation(KeyCursor cursor, void* key, uint32_t)
 {
     return decompress_trans_key(cursor, static_cast<ShortKey*>(key));
 }
@@ -73,11 +75,12 @@ int translation_key_time(const uint8_t* key) { return static_cast<int16_t>(anim_
 
 // The pair of keys of `count` around `time` (each key 8 bytes) and how far between: the last key - itself twice, 0.
 // Without one, `from` / `to` / `fraction` stay as they were.
-void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const uint8_t*), uint8_t*& from, uint8_t*& to,
-               float& fraction)
+void find_keys(std::span<const uint8_t> run, size_t keys, int count, float time, int (*keyframe_time)(const uint8_t*),
+               const uint8_t*& from, const uint8_t*& to, float& fraction)
 {
     for (int i = 0; i < count; ++i) {
-        uint8_t* key = keys + i * 8;
+        const size_t at = keys + (static_cast<size_t>(i) * 8);
+        const uint8_t* key = &core::at(run, at);
         if (i == count - 1) {
             from = key;
             to = key;
@@ -87,11 +90,12 @@ void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const 
         const double t0 = keyframe_time(key);
         if (!(t0 <= time))
             continue;
-        const double t1 = keyframe_time(key + 8);
+        const uint8_t* after = &core::at(run, at + 8);
+        const double t1 = keyframe_time(after);
         if (!(t1 >= time))
             continue;
         from = key;
-        to = key + 8;
+        to = after;
         fraction = static_cast<float>((time - t0) / (t1 - t0));
         return;
     }
@@ -100,24 +104,26 @@ void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const 
 } // namespace
 
 // 0x00484EB0
-bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4* translations, void*, float weight,
-                                     const FrameSource* mask)
+bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations,
+                                     void*, float weight, const FrameSource* mask)
 {
-    const uint8_t* rot_keys = quat_keys_;
-    const uint8_t* trans_keys = trans_keys_;
-    const uint16_t* rot_sizes = quat_sizes_;
-    const uint16_t* trans_sizes = trans_sizes_;
+    const std::span<const uint8_t> rot_run = rotation_key_run();
+    const std::span<const uint8_t> trans_run = translation_key_run();
+    const std::span<const uint16_t> rot_sizes = rotation_sizes();
+    const std::span<const uint16_t> trans_sizes = translation_sizes();
+    size_t rot_keys = 0;
+    size_t trans_keys = 0;
     const uint32_t mask_bit = mask && mask->resume_ ? 1u << (mask->mask_bit_ & 31) : 0u;
     for (int i = 0; i < bone_count_; ++i) {
         bool skip = mask_bit ? (mask->bone_masks_[i] & mask_bit) != 0 : false;
         if (flag_bits_ & kBoneBits)
-            skip = !(partial_bones_[1 + i / 32] & (1u << (i % 32)));
+            skip = !(core::at(partial_bone_run(), 1 + (i / 32)) & (1u << (i % 32)));
         if (!skip) {
-            maths::QuatRotation& rotation = rotations[i];
-            if (*rot_sizes) {
+            maths::QuatRotation& rotation = core::at(rotations, i);
+            if (core::at(rot_sizes, i)) {
                 std::array<uint8_t, 8> key{};
                 std::array<uint8_t, 20> decoded{};
-                decode_rotation(rot_keys, key.data(), flag_bits_, key_table_);
+                decode_rotation(KeyCursor(rot_run, static_cast<std::ptrdiff_t>(rot_keys)), key.data(), flag_bits_, own_key_table());
                 rotation_to_quat_b(decoded.data(), key.data());
                 maths::QuatRotation added = rotation;
                 const FloatKey decoded_key = anim_format::float_key_at(decoded.data());
@@ -131,10 +137,10 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 rotation = {std::get<0>(blended), std::get<1>(blended), std::get<2>(blended), std::get<3>(blended)};
             }
             const uint32_t flags = flag_bits_;
-            if (!(flags & kTranslationKeys) || *trans_sizes) {
-                maths::Vec4& translation = translations[i];
+            if (!(flags & kTranslationKeys) || core::at(trans_sizes, i)) {
+                maths::Vec4& translation = core::at(translations, i);
                 std::array<uint8_t, 8> key{};
-                decode_translation(trans_keys, key.data(), flags);
+                decode_translation(KeyCursor(trans_run, static_cast<std::ptrdiff_t>(trans_keys)), key.data(), flags);
                 ShortKey decoded_key{};
                 std::memcpy(&decoded_key, key.data(), sizeof(decoded_key));
                 const std::array<int16_t, 3>& values = decoded_key.value;
@@ -159,15 +165,16 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 translation = *walk::get_lerp(&moved, &translation, &target, weight);
             }
         }
-        rot_keys += *rot_sizes++;
-        trans_keys += *trans_sizes++;
+        rot_keys += core::at(rot_sizes, i);
+        trans_keys += core::at(trans_sizes, i);
     }
     return true;
 }
 
 // 0x00485250
-bool JointClipFrames::apply_additive_if_compressed(maths::QuatRotation* rotations, maths::Vec4* translations,
-                                                   void* unused, float weight, const FrameSource* mask)
+bool JointClipFrames::apply_additive_if_compressed(std::span<maths::QuatRotation> rotations,
+                                                   std::span<maths::Vec4> translations, void* unused, float weight,
+                                                   const FrameSource* mask)
 {
     if (!(flag_bits_ & kCompressed))
         return false;
@@ -199,78 +206,81 @@ void JointClipFrames::build_cache(int format)
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
     if (!entry)
         return;
-    auto* rot_offsets = entry->get_rotation_offsets();
-    auto* trans_offsets = entry->get_translation_offsets();
+    std::array<uint16_t, 60>& rot_offsets = entry->rotation_offsets_;
+    std::array<uint16_t, 60>& trans_offsets = entry->translation_offsets_;
     const uint32_t rot_size = entry->get_rotation_key_size();
     const uint32_t trans_size = entry->get_translation_key_size();
     const int bones = bone_count_;
-    uint8_t* rot_data = entry->get_rotation_keys(0);
-    uint8_t* trans_data = entry->get_translation_keys(0);
+    // (the entry's block: the rotation keys at its start, the translation keys after them)
+    const std::span<uint8_t> payload(entry->payload_, entry->allocated_);
+    const std::span<uint8_t> rot_data = payload.subspan(static_cast<size_t>(entry->get_rotation_keys(0) - entry->payload_));
+    const std::span<uint8_t> trans_data = payload.subspan(static_cast<size_t>(entry->get_translation_keys(0) - entry->payload_));
     // (one buffer for a rotation key and a converted translation: the latter's bytes 2-3 are the former's)
     alignas(4) std::array<uint8_t, 16> key{};
     alignas(4) std::array<uint8_t, 16> quat_a{};
     alignas(4) std::array<uint8_t, 20> quat_b{};
     alignas(4) std::array<uint8_t, 8> translation{};
+    // A bone's keys' size (the original read the word after the last bone's too, at the end: never used).
+    auto size_after = [bones](std::span<const uint16_t> sizes, uint32_t bone) -> uint16_t {
+        return bone + 1 < ints::as_unsigned(bones) ? core::at(sizes, bone + 1) : 0;
+    };
 
     // The rotations: each bone's keys one after another, the bones' starts in rot_offsets
-    const uint16_t* sizes = quat_sizes_;
-    const uint8_t* cursor = quat_keys_;
-    const uint8_t* end = cursor + *sizes;
+    std::span<const uint16_t> sizes = rotation_sizes();
+    KeyCursor cursor(rotation_key_run());
+    KeyCursor end = cursor + core::at(sizes, 0);
     uint32_t offset = 0;
     uint32_t bone = 0;
-    rot_offsets[0] = 0;
-    trans_offsets[0] = 0;
+    core::at(rot_offsets, 0) = 0;
+    core::at(trans_offsets, 0) = 0;
     for (;;) {
-        if (*sizes == 0) {
+        if (core::at(sizes, bone) == 0) {
             do {
-                end = cursor + sizes[1];
-                ++sizes;
+                end = cursor + size_after(sizes, bone);
                 ++bone;
-                rot_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
-            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && *sizes == 0);
+                core::at(rot_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
+            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && core::at(sizes, bone) == 0);
             if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }
-        cursor = decode_rotation(cursor, key.data(), flag_bits_, key_table_);
-        const uint8_t* source = key.data();
+        cursor = decode_rotation(cursor, key.data(), flag_bits_, own_key_table());
+        std::span<const uint8_t> source = key;
         if (format == 3) {
             rotation_to_quat_a(quat_a.data(), key.data());
-            source = quat_a.data();
+            source = quat_a;
         } else if (format == 4) {
             rotation_to_quat_b(quat_b.data(), key.data());
-            source = quat_b.data();
+            source = quat_b;
         }
-        std::memcpy(rot_data + static_cast<uint16_t>(offset), source, rot_size);
+        core::copy_into(source.first(rot_size), rot_data.subspan(static_cast<uint16_t>(offset), rot_size));
         offset += rot_size;
         if (cursor != end)
             continue;
-        end = cursor + sizes[1];
-        ++sizes;
+        end = cursor + size_after(sizes, bone);
         ++bone;
-        rot_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
+        core::at(rot_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
         if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
             break;
     }
 
     // The translations
-    sizes = trans_sizes_;
-    cursor = trans_keys_;
-    end = cursor + *sizes;
+    sizes = translation_sizes();
+    cursor = KeyCursor(translation_key_run());
+    end = cursor + core::at(sizes, 0);
     offset = 0;
     bone = 0;
     for (;;) {
-        if (*sizes == 0) {
+        if (core::at(sizes, bone) == 0) {
             do {
-                end = cursor + sizes[1];
-                ++sizes;
+                end = cursor + size_after(sizes, bone);
                 ++bone;
-                trans_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
-            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && *sizes == 0);
+                core::at(trans_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
+            } while (static_cast<uint16_t>(bone) != ints::as_unsigned(bones) && core::at(sizes, bone) == 0);
             if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
                 break;
         }
         cursor = decode_translation(cursor, translation.data(), flag_bits_);
-        const uint8_t* source = translation.data();
+        std::span<const uint8_t> source = translation;
         if (format >= 3 && format <= 4) {
             ShortKey decoded_key{};
             std::memcpy(&decoded_key, translation.data(), sizeof(decoded_key));
@@ -278,18 +288,17 @@ void JointClipFrames::build_cache(int format)
             std::memcpy(key.data(), translation.data(), 2);
             for (int i = 0; i < 3; ++i) {
                 auto value = static_cast<float>(core::at(values, i) * static_cast<double>(kKeyScale));
-                std::memcpy(key.data() + 4 + i * 4, &value, 4);
+                std::memcpy(&core::at(key, 4 + (i * 4)), &value, 4);
             }
-            source = key.data();
+            source = key;
         }
-        std::memcpy(trans_data + static_cast<uint16_t>(offset), source, trans_size);
+        core::copy_into(source.first(trans_size), trans_data.subspan(static_cast<uint16_t>(offset), trans_size));
         offset += trans_size;
         if (cursor != end)
             continue;
-        end = cursor + sizes[1];
-        ++sizes;
+        end = cursor + size_after(sizes, bone);
         ++bone;
-        trans_offsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
+        core::at(trans_offsets, static_cast<uint16_t>(bone)) = static_cast<uint16_t>(offset);
         if (static_cast<uint16_t>(bone) == ints::as_unsigned(bones))
             break;
     }
@@ -341,12 +350,14 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
                           static_cast<FrameSource*>(arg5));
     }
     const float frame = time * kFramesPerSecond;
-    uint8_t* rot_keys = quat_keys_;
-    uint8_t* trans_keys = trans_keys_;
-    uint8_t* rot_from = rot_keys;
-    uint8_t* rot_to = rot_keys;
-    uint8_t* trans_from = trans_keys;
-    uint8_t* trans_to = trans_keys;
+    const std::span<const uint8_t> rot_run = rotation_key_run();
+    const std::span<const uint8_t> trans_run = translation_key_run();
+    size_t rot_keys = 0;
+    size_t trans_keys = 0;
+    const uint8_t* rot_from = quat_keys_;
+    const uint8_t* rot_to = quat_keys_;
+    const uint8_t* trans_from = trans_keys_;
+    const uint8_t* trans_to = trans_keys_;
     float rot_fraction = 0.0f;
     float trans_fraction = 0.0f;
     for (int i = 0; i < bone_count_; ++i) {
@@ -359,14 +370,14 @@ bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::
             rot_count = core::at(key_count_run(), i * 2);
             trans_count = core::at(key_count_run(), i * 2 + 1);
         }
-        find_keys(rot_keys, rot_count, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
+        find_keys(rot_run, rot_keys, rot_count, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
         interpolate_quat(std::span<float, 4>(core::at(rotations, i).data(), 4), rot_from, rot_to, rot_fraction,
                          (flag_bits_ & kOtherInterpolation) != 0);
-        find_keys(trans_keys, trans_count, frame, translation_key_time, trans_from, trans_to, trans_fraction);
+        find_keys(trans_run, trans_keys, trans_count, frame, translation_key_time, trans_from, trans_to, trans_fraction);
         interpolate_trans(std::span<float, 4>(core::at(translations, i).data(), 4), trans_from, trans_to, trans_fraction,
                           (flag_bits_ & kOtherInterpolation) != 0);
-        rot_keys += rot_count * 8;
-        trans_keys += trans_count * 8;
+        rot_keys += static_cast<size_t>(rot_count) * 8;
+        trans_keys += static_cast<size_t>(trans_count) * 8;
     }
     return true;
 }
