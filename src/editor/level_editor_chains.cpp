@@ -12,6 +12,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <span>
+#include <string_view>
 #include <initializer_list>
 #include <set>
 #include <type_traits>
@@ -61,8 +63,9 @@ bool same_text(const std::string& a, const char* b)
 {
     if (a.size() != std::strlen(b))
         return false;
+    const std::string_view wanted(b);
     for (size_t i = 0; i < a.size(); ++i) {
-        char x = core::at(a, i), y = b[i];
+        char x = core::at(a, i), y = core::at(wanted, i);
         if (x >= 'A' && x <= 'Z')
             x = static_cast<char>(x - 'A' + 'a');
         if (y >= 'A' && y <= 'Z')
@@ -142,20 +145,21 @@ bool valid_word(const std::string& name)
 bool read_triple(const std::string& text, V3* out)
 {
     std::array<float, 3> v{};
-    const char* at = text.c_str();
+    // (the text from the place read to: strtof's end pointer says how far it got)
+    std::string at(text);
     for (int i = 0; i < 3; ++i) {
         char* end = nullptr;
-        core::at(v, i) = std::strtof(at, &end);
-        if (end == at || !std::isfinite(core::at(v, i)))
+        core::at(v, i) = std::strtof(at.c_str(), &end);
+        if (end == at.c_str() || !std::isfinite(core::at(v, i)))
             return false;
-        at = end;
+        at.erase(0, static_cast<size_t>(end - at.c_str()));
         if (i < 2) {
-            if (*at != ',')
+            if (at.empty() || at.front() != ',')
                 return false;
-            ++at;
+            at.erase(0, 1);
         }
     }
-    if (*at != '\0')
+    if (!at.empty())
         return false;
     *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
     return true;
@@ -165,7 +169,7 @@ bool read_float(const std::string& text, float* out)
 {
     char* end = nullptr;
     const float v = std::strtof(text.c_str(), &end);
-    if (text.empty() || end != text.c_str() + text.size() || !std::isfinite(v))
+    if (text.empty() || static_cast<size_t>(end - text.c_str()) != text.size() || !std::isfinite(v))
         return false;
     *out = v;
     return true;
@@ -1248,13 +1252,13 @@ void rebuild_rails()
     objects::GrindRailHub* rails = get_rails();
     if (!rails)
         return;
-    objects::GrindPoint* old = rails->nodes_;
-    const int old_count = old ? rails->num_ : 0;
+    const std::span<objects::GrindPoint> old(rails->nodes_, rails->nodes_ ? static_cast<size_t>(rails->num_) : 0);
+    const int old_count = static_cast<int>(old.size());
     // The nodes: the ones it has whose node is still there (a dropped one too - kept switched off, so the editor's
     // moves of it stay), then the overlay's new rail points.
     std::vector<int> kept;
     for (int i = 0; i < old_count; ++i) {
-        if (look_up_node_params(old[i].label_))
+        if (look_up_node_params(core::at(old, i).label_))
             kept.push_back(i);
     }
     std::vector<std::pair<uint32_t, script::Struct*>> added;
@@ -1266,25 +1270,26 @@ void rebuild_rails()
             continue;
         bool there = false;
         for (const int i : kept)
-            there = there || old[i].label_ == name;
+            there = there || core::at(old, i).label_ == name;
         if (!there)
             added.emplace_back(name, node);
     }
     const int count = static_cast<int>(kept.size() + added.size());
-    objects::GrindPoint* nodes = nullptr;
+    objects::GrindPoint* nodes_block = nullptr;
     if (count) {
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->bottom_up_heap_);
-        nodes = static_cast<objects::GrindPoint*>(memory::alloc_block(count * sizeof(objects::GrindPoint)));
+        nodes_block = static_cast<objects::GrindPoint*>(memory::alloc_block(count * sizeof(objects::GrindPoint)));
         memory::Hub::get_pull()->leave_heap_scope();
-        if (!nodes) {
+        if (!nodes_block) {
             get_log("level editor: no memory for the rail manager's nodes - rails not rebuilt");
             return;
         }
     }
+    const std::span<objects::GrindPoint> nodes(nodes_block, static_cast<size_t>(count));
     for (size_t i = 0; i < kept.size(); ++i)
-        nodes[i] = old[core::at(kept, i)];
-    rails->nodes_ = nodes;
+        core::at(nodes, i) = core::at(old, core::at(kept, i));
+    rails->nodes_ = nodes_block;
     rails->num_ = count;
     for (size_t i = 0; i < added.size(); ++i) {
         rails->adding_ = static_cast<int>(kept.size() + i);
@@ -1294,7 +1299,7 @@ void rebuild_rails()
     // On / off: dropped points off (their state noted first), shown ones back as they were.
     std::unordered_map<uint32_t, int> index;
     for (int i = 0; i < count; ++i) {
-        objects::GrindPoint* node = &nodes[i];
+        objects::GrindPoint* node = &core::at(nodes, i);
         index.emplace(node->label_, i);
         node->succ_ = node->last_value_ = nullptr;
         const bool dropped = std::ranges::find(g_dropped, node->label_) != g_dropped.end();
@@ -1313,14 +1318,14 @@ void rebuild_rails()
     // node's previous likewise. Dropped points take no part.
     auto is_dropped = [&](uint32_t name) { return std::ranges::find(g_dropped, name) != g_dropped.end(); };
     for (int i = 0; i < count; ++i) {
-        objects::GrindPoint* node = &nodes[i];
+        objects::GrindPoint* node = &core::at(nodes, i);
         if (is_dropped(node->label_))
             continue;
         for (const uint32_t link : own_links(look_up_node_params(node->label_))) {
             auto it = index.find(link);
             if (it == index.end() || is_dropped(link))
                 continue;
-            objects::GrindPoint* other = &nodes[it->second];
+            objects::GrindPoint* other = &core::at(nodes, it->second);
             if (!node->succ_ || (other->flag_bits_ & objects::kRailFlagDefaultLine))
                 node->succ_ = other;
             if (!other->last_value_ || (node->flag_bits_ & objects::kRailFlagDefaultLine))
@@ -1328,11 +1333,11 @@ void rebuild_rails()
         }
     }
     for (int i = 0; i < count; ++i)
-        cuboid(&nodes[i]);
+        cuboid(&core::at(nodes, i));
     // An added point's terrain from its node (it is made again when its terrain changes, but its rail manager node was
     // kept); terrains the editor set on the level's points (copied nodes keep theirs).
     for (size_t i = 0; i < kept.size(); ++i) {
-        objects::GrindPoint* node = &nodes[i];
+        objects::GrindPoint* node = &core::at(nodes, i);
         uint32_t terrain = 0;
         script::Struct* params = node_create::is_added(node->label_) ? look_up_node_params(node->label_) : nullptr;
         if (params && !(node->flag_bits_ & objects::kRailFlagClimbing) &&
@@ -1343,12 +1348,12 @@ void rebuild_rails()
         auto it = index.find(entry.first);
         uint8_t value = 0;
         if (it != index.end() && terrain_byte(entry.second.terrain, &value))
-            nodes[it->second].surface_type_ = value;
+            core::at(nodes, it->second).surface_type_ = value;
     }
     // Ladders: an added point's orientation from its node's Angles (turned since it was made), a level point's as the
     // editor turned it.
     for (int i = 0; i < count; ++i) {
-        objects::GrindPoint* node = &nodes[i];
+        objects::GrindPoint* node = &core::at(nodes, i);
         if (!(node->flag_bits_ & objects::kRailFlagClimbing))
             continue;
         if (node_create::is_added(node->label_)) {
@@ -1359,9 +1364,9 @@ void rebuild_rails()
             node->climb_ = climb_of(facings_state()[node->label_].facing);
         }
     }
-    if (old)
-        g_retired.push_back(old); // (a skater's grind may point into it: freed with the level)
-    g_built = nodes;
+    if (!old.empty())
+        g_retired.push_back(old.data()); // (a skater's grind may point into it: freed with the level)
+    g_built = nodes_block;
     register_trick_objects();
     ++g_flat_generation;
     scenery::rails_rebuilt();

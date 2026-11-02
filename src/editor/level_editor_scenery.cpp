@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -274,7 +275,7 @@ const char* meshes_movable(render::PcGeom* geom)
     if (count > 4096)
         return "odd mesh count";
     for (uint32_t i = 0; i < count; ++i) {
-        const render::MeshRef* mesh = meshes[i];
+        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         if (!mesh)
             return "no mesh";
         const uint32_t buffers = mesh->vertex_buffer_count_;
@@ -492,15 +493,16 @@ uint32_t cluster_of(uint32_t checksum)
 // and the one before.
 using RailNode = objects::GrindPoint;
 
-bool rail_nodes(RailNode** nodes, int* count)
+// The level's rail nodes (empty when there are none, or the manager is on an object).
+std::span<RailNode> rail_nodes()
 {
     const modules::Skate* skate = modules::g_skate_module.get();
     const objects::GrindRailHub* manager = skate ? skate->rail_manager_.get() : nullptr;
     if (!manager || manager->on_object_)
-        return false;
-    *nodes = manager->nodes_;
-    *count = manager->num_;
-    return *nodes && *count > 0 && *count < 100000;
+        return {};
+    if (!manager->nodes_ || manager->num_ <= 0 || manager->num_ >= 100000)
+        return {};
+    return {manager->nodes_, static_cast<size_t>(manager->num_)};
 }
 
 V3 rail_pos(const RailNode* node) { return {node->at_point_.x, node->at_point_.y, node->at_point_.z}; }
@@ -523,14 +525,14 @@ std::vector<uint32_t> g_dropped_rails; // (Ctrl+click / the Inspector's x: not c
 
 RailNode* find_rail(uint32_t name)
 {
-    RailNode* nodes = nullptr;
-    int count = 0;
-    if (!rail_nodes(&nodes, &count))
+    const std::span<RailNode> nodes = rail_nodes();
+    const int count = static_cast<int>(nodes.size());
+    if (nodes.empty())
         return nullptr;
     // (a ladder's point too - its moves are tracked as a rail's: level_editor_chains.h)
     for (int i = 0; i < count; ++i) {
-        if (nodes[i].label_ == name)
-            return &nodes[i];
+        if (core::at(nodes, i).label_ == name)
+            return &core::at(nodes, i);
     }
     return nullptr;
 }
@@ -557,9 +559,9 @@ uint32_t g_rail_generation = 1;
 // them.
 void apply_rails(const std::vector<uint32_t>& names)
 {
-    RailNode* nodes = nullptr;
-    int count = 0;
-    if (!rail_nodes(&nodes, &count))
+    const std::span<RailNode> nodes = rail_nodes();
+    const int count = static_cast<int>(nodes.size());
+    if (nodes.empty())
         return;
     ++g_rail_generation; // (the node layer reads the places again)
     std::vector<RailNode*> moved;
@@ -577,7 +579,7 @@ void apply_rails(const std::vector<uint32_t>& names)
     }
     auto is_moved = [&](const RailNode* node) { return node && std::ranges::find(moved, node) != moved.end(); };
     for (int i = 0; i < count; ++i) {
-        RailNode* node = &nodes[i];
+        RailNode* node = &core::at(nodes, i);
         if (!is_moved(node) && !is_moved(node->succ_))
             continue;
         V3 min{}, max{};
@@ -614,9 +616,9 @@ void compute_pivot()
 void select_rails()
 {
     g_rails.clear();
-    RailNode* nodes = nullptr;
-    int count = 0;
-    if (g_selection.empty() || !rail_nodes(&nodes, &count))
+    const std::span<RailNode> nodes = rail_nodes();
+    const int count = static_cast<int>(nodes.size());
+    if (g_selection.empty() || nodes.empty())
         return;
     std::vector<uint32_t> clusters;
     std::vector<std::pair<V3, V3>> boxes;
@@ -643,7 +645,7 @@ void select_rails()
     };
     auto listed = [&](uint32_t c) { return c && std::ranges::find(clusters, c) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
-        const RailNode& node = nodes[i];
+        const RailNode& node = core::at(nodes, i);
         if (node.flag_bits_ & 0x10)
             continue;
         bool in = listed(node.label_) || listed(cluster_of(node.label_)) ||
@@ -872,7 +874,7 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
     bool found = false;
     float best = max_t;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        const render::MeshRef* mesh = meshes[i];
+        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         if (!mesh)
             continue;
         float hit = 0.0f;
@@ -908,7 +910,7 @@ bool geom_see_through(render::PcGeom* geom)
     if (!meshes || count == 0 || count > 4096)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
-        const render::MaterialRef* material = meshes[i] ? meshes[i]->material : nullptr;
+        const render::MaterialRef* material = core::at(std::span<render::MeshRef* const>(meshes, count), i) ? core::at(std::span<render::MeshRef* const>(meshes, count), i)->material : nullptr;
         if (!material || !picking::material_see_through(core::at(material->pass_flags_, 0), core::at(material->blend_modes_, 0)))
             return false;
     }
@@ -932,7 +934,7 @@ float geom_level_share(uint32_t checksum, render::PcGeom* geom)
     auto* const* meshes = geom->meshes;
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        const render::MeshRef* mesh = meshes[i];
+        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
@@ -1199,7 +1201,7 @@ void log_meshes()
     render::MeshRef* const* meshes = geom ? geom->meshes : nullptr;
     const uint32_t count = geom ? geom->mesh_count_ : 0;
     for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
-        const render::MeshRef* mesh = meshes[i];
+        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         const render::MaterialRef* material = mesh->material;
         const auto& colour = mesh->color;
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
@@ -1404,9 +1406,9 @@ std::vector<uint32_t> rail_of(uint32_t name)
 {
     std::vector<uint32_t> names;
     const RailNode* node = find_rail(name);
-    RailNode* nodes = nullptr;
-    int count = 0;
-    if (!node || !rail_nodes(&nodes, &count))
+    const std::span<RailNode> nodes = rail_nodes();
+    const int count = static_cast<int>(nodes.size());
+    if (!node || nodes.empty())
         return names;
     names.push_back(name);
     // (back to its first point, then along to its last - a closed rail stops where it started)
@@ -1443,12 +1445,12 @@ void rails_rebuilt()
 
 void for_each_rail_point(void (*each)(void* context, uint32_t name, V3 pos), void* context)
 {
-    RailNode* nodes = nullptr;
-    int count = 0;
-    if (!rail_nodes(&nodes, &count))
+    const std::span<RailNode> nodes = rail_nodes();
+    const int count = static_cast<int>(nodes.size());
+    if (nodes.empty())
         return;
     for (int i = 0; i < count; ++i)
-        each(context, nodes[i].label_, rail_pos(&nodes[i]));
+        each(context, core::at(nodes, i).label_, rail_pos(&core::at(nodes, i)));
 }
 
 // --- the selection's state (undo / redo, reset, hiding) ---
@@ -1770,7 +1772,7 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
     render::MeshRef* const* meshes = geom->meshes;
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        const render::MeshRef* mesh = meshes[i];
+        const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         saved.meshes.push_back({mesh->flags & 4, {core::at(mesh->color, 0), core::at(mesh->color, 1), core::at(mesh->color, 2)}});
     }
     return saved;
@@ -1790,7 +1792,7 @@ void restore_colour(const Saved& saved)
     if (!meshes || count != saved.meshes.size())
         return;
     for (uint32_t i = 0; i < count; ++i) {
-        render::MeshRef* mesh = meshes[i];
+        render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         mesh->flags = (mesh->flags & ~4u) | core::at(saved.meshes, i).flag;
         std::memcpy(mesh->color.data(), core::at(saved.meshes, i).color.data(), sizeof(mesh->color));
     }
