@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include "platform/d3d_forward.h"
 
 // The GPU's vertex and index buffers (the boundary layer's gpu part: docs/architecture.md "Layers"): each a Direct3D
@@ -57,6 +58,8 @@ struct IdxStore {
     uint16_t* indices;
     uint32_t unknown14{}; // (cleared when destroyed)
 
+    // NOT ORIGINAL - the copy kept in memory as a run of its indices (size is in bytes).
+    [[nodiscard]] std::span<uint16_t> index_run() const { return {indices, size / 2}; }
     // 0x004D4270: construct - CreateIndexBuffer (write-only, default pool), the copy, on the list.
     IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format);
     // 0x004D3C40: taken off the list (its node freed).

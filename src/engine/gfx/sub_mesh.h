@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/maths/vec4.h"
 #include "gpu/vertex_buffers.h"
@@ -75,6 +76,10 @@ struct MeshRef {
     std::array<VertexBuffer*, 3> extra_buffers_{}; // +0xBC: destroyed with it (each beside its vertex buffer)
     VertexBuffer* last_buffer_;       // +0xC8: destroyed with it
     std::array<VertexBuffer*, 3> vertex_buffers_{}; // +0xCC
+
+    // NOT ORIGINAL - the transform's 16 floats and the positions (three each) as runs.
+    [[nodiscard]] std::span<float, 16> transform_floats() const { return std::span<float, 16>(transform, 16); }
+    [[nodiscard]] std::span<float> position_floats() const { return {positions, static_cast<size_t>(position_count_) * 3}; }
 
     // 0x004D4BE0: construct - no buffers, one vertex buffer to come, shown (0x40) in every viewport, no bone,
     // primitive type 5.

@@ -67,10 +67,10 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
     return out;
 }
 
-void get_identity(float* m)
+void get_identity(std::span<float, 16> m)
 {
     for (int i = 0; i < 16; ++i)
-        m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
+        core::at(m, i) = (i % 5 == 0) ? 1.0f : 0.0f;
 }
 
 } // namespace
@@ -96,15 +96,15 @@ void MeshRef::move_to(const maths::Vec4* position)
 {
     if (!transform) {
         transform = static_cast<float*>(memory::alloc(0x40));
-        get_identity(transform);
+        get_identity(transform_floats());
     }
-    auto dx = static_cast<float>(static_cast<double>(position->x) - transform[12]);
-    auto dy = static_cast<float>(static_cast<double>(position->y) - transform[13]);
-    auto dz = static_cast<float>(static_cast<double>(position->z) - transform[14]);
-    transform[12] = position->x;
-    transform[13] = position->y;
-    transform[14] = position->z;
-    transform[15] = position->w;
+    auto dx = static_cast<float>(static_cast<double>(position->x) - core::at(transform_floats(), 12));
+    auto dy = static_cast<float>(static_cast<double>(position->y) - core::at(transform_floats(), 13));
+    auto dz = static_cast<float>(static_cast<double>(position->z) - core::at(transform_floats(), 14));
+    core::at(transform_floats(), 12) = position->x;
+    core::at(transform_floats(), 13) = position->y;
+    core::at(transform_floats(), 14) = position->z;
+    core::at(transform_floats(), 15) = position->w;
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
         const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride, vertex_count_);
         for (uint32_t v = 0; v < vertex_count_; ++v) {
@@ -117,9 +117,9 @@ void MeshRef::move_to(const maths::Vec4* position)
         get_unlock(core::at(vertex_buffers_, b));
     }
     for (uint32_t k = 0; k < position_count_; ++k) {
-        positions[3 * k + 0] = dx + positions[3 * k + 0];
-        positions[3 * k + 1] = dy + positions[3 * k + 1];
-        positions[3 * k + 2] = dz + positions[3 * k + 2];
+        core::at(position_floats(), 3 * k + 0) = dx + core::at(position_floats(), 3 * k + 0);
+        core::at(position_floats(), 3 * k + 1) = dy + core::at(position_floats(), 3 * k + 1);
+        core::at(position_floats(), 3 * k + 2) = dz + core::at(position_floats(), 3 * k + 2);
     }
     core::at(centre, 0) = dx + core::at(centre, 0);
     core::at(centre, 1) = dy + core::at(centre, 1);
@@ -133,7 +133,7 @@ void MeshRef::turn_y(int turns)
         return;
     if (!transform) {
         transform = static_cast<float*>(memory::alloc(0x40));
-        get_identity(transform);
+        get_identity(transform_floats());
     }
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
         const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride, vertex_count_);
@@ -142,50 +142,50 @@ void MeshRef::turn_y(int turns)
         case 1:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
                 auto p = vertices.view().point<maths::Vec4>(v);
-                const double x = static_cast<double>(p.x) - transform[12];
-                const double z = static_cast<double>(p.z) - transform[14];
-                p.x = static_cast<float>(z + transform[12]);
-                p.z = static_cast<float>(transform[14] - x);
+                const double x = static_cast<double>(p.x) - core::at(transform_floats(), 12);
+                const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
+                p.x = static_cast<float>(z + core::at(transform_floats(), 12));
+                p.z = static_cast<float>(core::at(transform_floats(), 14) - x);
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - transform[12]);
-                const double z = static_cast<double>(core::at(centre, 2)) - transform[14];
+                core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - core::at(transform_floats(), 12));
+                const double z = static_cast<double>(core::at(centre, 2)) - core::at(transform_floats(), 14);
                 core::at(centre, 2) = static_cast<float>(z);
                 const float x = core::at(centre, 0);
-                core::at(centre, 0) = static_cast<float>(z + transform[12]);
-                core::at(centre, 2) = static_cast<float>(transform[14] - static_cast<double>(x));
+                core::at(centre, 0) = static_cast<float>(z + core::at(transform_floats(), 12));
+                core::at(centre, 2) = static_cast<float>(core::at(transform_floats(), 14) - static_cast<double>(x));
             }
             break;
         case 2:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
                 auto p = vertices.view().point<maths::Vec4>(v);
-                const double z = static_cast<double>(p.z) - transform[14];
-                p.x = static_cast<float>(transform[12] - (static_cast<double>(p.x) - transform[12]));
-                p.z = static_cast<float>(transform[14] - z);
+                const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
+                p.x = static_cast<float>(core::at(transform_floats(), 12) - (static_cast<double>(p.x) - core::at(transform_floats(), 12)));
+                p.z = static_cast<float>(core::at(transform_floats(), 14) - z);
                 vertices.set_point(v, 0, p);
             }
-            core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - transform[12]);
-            core::at(centre, 2) = static_cast<float>(static_cast<double>(core::at(centre, 2)) - transform[14]);
-            core::at(centre, 0) = static_cast<float>(static_cast<double>(transform[12]) - core::at(centre, 0));
-            core::at(centre, 2) = static_cast<float>(static_cast<double>(transform[14]) - core::at(centre, 2));
+            core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - core::at(transform_floats(), 12));
+            core::at(centre, 2) = static_cast<float>(static_cast<double>(core::at(centre, 2)) - core::at(transform_floats(), 14));
+            core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 12)) - core::at(centre, 0));
+            core::at(centre, 2) = static_cast<float>(static_cast<double>(core::at(transform_floats(), 14)) - core::at(centre, 2));
             break;
         case 3:
             for (uint32_t v = 0; v < vertex_count_; ++v) {
                 auto p = vertices.view().point<maths::Vec4>(v);
-                const double x = static_cast<double>(p.x) - transform[12];
-                const double z = static_cast<double>(p.z) - transform[14];
-                p.x = static_cast<float>(transform[12] - z);
-                p.z = static_cast<float>(x + transform[14]);
+                const double x = static_cast<double>(p.x) - core::at(transform_floats(), 12);
+                const double z = static_cast<double>(p.z) - core::at(transform_floats(), 14);
+                p.x = static_cast<float>(core::at(transform_floats(), 12) - z);
+                p.z = static_cast<float>(x + core::at(transform_floats(), 14));
                 vertices.set_point(v, 0, p);
             }
             {
-                core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - transform[12]);
-                const double z = static_cast<double>(core::at(centre, 2)) - transform[14];
+                core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - core::at(transform_floats(), 12));
+                const double z = static_cast<double>(core::at(centre, 2)) - core::at(transform_floats(), 14);
                 core::at(centre, 2) = static_cast<float>(z);
                 const float x = core::at(centre, 0);
-                core::at(centre, 0) = static_cast<float>(transform[12] - z);
-                core::at(centre, 2) = static_cast<float>(static_cast<double>(x) + transform[14]);
+                core::at(centre, 0) = static_cast<float>(core::at(transform_floats(), 12) - z);
+                core::at(centre, 2) = static_cast<float>(static_cast<double>(x) + core::at(transform_floats(), 14));
             }
             break;
         default:
@@ -269,9 +269,9 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     uint8_t* data = get_lock(buffer, 0x10);
     const gpu::VertexWriter vertices(data, stride, vertex_count_);
     IdxStore* indices = core::at(index_buffers_, 0);
-    const auto p0 = vertices.view().point<maths::Vec4>(indices->indices[0]);
-    const auto p1 = vertices.view().point<maths::Vec4>(indices->indices[1]);
-    const auto p2 = vertices.view().point<maths::Vec4>(indices->indices[2]);
+    const auto p0 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 0));
+    const auto p1 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 1));
+    const auto p2 = vertices.view().point<maths::Vec4>(core::at(indices->index_run(), 2));
     auto e2x = static_cast<float>(static_cast<double>(p2.x) - p0.x);
     auto e2y = static_cast<float>(static_cast<double>(p2.y) - p0.y);
     auto e2z = static_cast<float>(static_cast<double>(p2.z) - p0.z);
