@@ -153,19 +153,19 @@ float fast_cos(float angle)
 // 0x00403F70
 void fill_sine_table()
 {
-    SinCosEntry* table = sin_table().data();
+    auto& table = sin_table();
     for (int i = 0; i < kSinTableSize; ++i) {
         const double angle = static_cast<double>(i) * kSinTableStep; // (the FPU's product, not rounded to float)
-        table[i].sin = static_cast<float>(std::sin(angle));
-        table[i].cos = static_cast<float>(std::cos(angle));
+        core::at(table, i).sin = static_cast<float>(std::sin(angle));
+        core::at(table, i).cos = static_cast<float>(std::cos(angle));
     }
     for (int i = 0; i < kSinTableSize - 1; ++i) {
-        table[i].sin_delta_ = table[i + 1].sin - table[i].sin;
-        table[i].cos_delta_ = table[i + 1].cos - table[i].cos;
+        core::at(table, i).sin_delta_ = core::at(table, i + 1).sin - core::at(table, i).sin;
+        core::at(table, i).cos_delta_ = core::at(table, i + 1).cos - core::at(table, i).cos;
     }
     // The original wraps the last entry's delta around to the first.
-    table[kSinTableSize - 1].sin_delta_ = table[0].sin - table[kSinTableSize - 1].sin;
-    table[kSinTableSize - 1].cos_delta_ = table[0].cos - table[kSinTableSize - 1].cos;
+    core::at(table, kSinTableSize - 1).sin_delta_ = core::at(table, 0).sin - core::at(table, kSinTableSize - 1).sin;
+    core::at(table, kSinTableSize - 1).cos_delta_ = core::at(table, 0).cos - core::at(table, kSinTableSize - 1).cos;
 }
 
 } // namespace maths

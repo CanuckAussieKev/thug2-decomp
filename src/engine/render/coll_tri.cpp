@@ -304,10 +304,10 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
 // 0x00414D30
 bool TriMeshSource::set_up_all_faces()
 {
-    uint16_t* table = all_faces().data();
-    if (table[0] != 0) {
+    auto& table = all_faces();
+    if (core::at(table, 0) != 0) {
         for (int i = 0; i < 0x800; ++i)
-            table[i] = static_cast<uint16_t>(i);
+            core::at(table, i) = static_cast<uint16_t>(i);
     }
     return bsp_ != nullptr;
 }

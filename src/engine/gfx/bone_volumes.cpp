@@ -182,15 +182,15 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
     float nearest = 0.0f;
     float nearest_t = 0.0f;
     uint32_t hit = 0;
-    maths::Vec4* positions = joint_point_array().data();
+    auto& positions = joint_point_array();
     for (int i = 0; i < skeleton->get_num_bones(); ++i) {
         const Joint* bone_state = skeleton->get_bone(i);
         maths::Mat4 at{};
         world_matrix(&at, core::at(inverse_binds, i), core::at(skeleton->matrices(), i), world);
-        positions[i] = core::at(at.row, 3);
+        core::at(positions, i) = core::at(at.row, 3);
         if (i == 0)
             continue;
-        const maths::Vec4 parent = positions[data->fetch_parent_slot(i)];
+        const maths::Vec4 parent = core::at(positions, data->fetch_parent_slot(i));
         const BoneVolume* volume = volumes_[i];
         if (!volume)
             continue;

@@ -390,44 +390,44 @@ void Contest::end_run(int score)
         path_vertices_ = 0.0f;
 
     // The judges: two near the points, the third making the average.
-    float* judges = judge_scores_.data();
+    auto& judges = judge_scores_;
     for (int i = 0; i < 2; ++i) {
-        judges[i] = static_cast<float>(maths::plus_or_minus_exact(spread) + path_vertices_);
-        if (!(judges[i] <= max_judge()))
-            judges[i] = max;
-        if (judges[i] < get_zero())
-            judges[i] = 0.0f;
+        core::at(judges, i) = static_cast<float>(maths::plus_or_minus_exact(spread) + path_vertices_);
+        if (!(core::at(judges, i) <= max_judge()))
+            core::at(judges, i) = max;
+        if (core::at(judges, i) < get_zero())
+            core::at(judges, i) = 0.0f;
     }
-    judges[2] = static_cast<float>(static_cast<double>(path_vertices_) * three() -
-                                   (static_cast<double>(judges[1]) + judges[0]));
-    if (judges[2] < get_zero())
-        judges[2] = 0.0f;
-    if (!(judges[2] <= max_judge()))
-        judges[2] = max;
+    core::at(judges, 2) = static_cast<float>(static_cast<double>(path_vertices_) * three() -
+                                   (static_cast<double>(core::at(judges, 1)) + core::at(judges, 0)));
+    if (core::at(judges, 2) < get_zero())
+        core::at(judges, 2) = 0.0f;
+    if (!(core::at(judges, 2) <= max_judge()))
+        core::at(judges, 2) = max;
     // Each to a tenth (the third with a nudge up), then to a whole score.
-    judges[2] =
-        static_cast<float>(truncate(static_cast<double>(judges[2]) * ten()) * static_cast<double>(tenth()) + tiny());
-    judges[0] = static_cast<float>(
-        truncate(truncate(static_cast<double>(judges[0]) * ten()) * static_cast<double>(tenth()) + over_half()));
-    const float first = judges[0];
+    core::at(judges, 2) =
+        static_cast<float>(truncate(static_cast<double>(core::at(judges, 2)) * ten()) * static_cast<double>(tenth()) + tiny());
+    core::at(judges, 0) = static_cast<float>(
+        truncate(truncate(static_cast<double>(core::at(judges, 0)) * ten()) * static_cast<double>(tenth()) + over_half()));
+    const float first = core::at(judges, 0);
     const double second =
-        truncate(truncate(static_cast<double>(judges[1]) * ten()) * static_cast<double>(tenth()) + over_half());
-    judges[1] = static_cast<float>(second);
-    judges[2] = static_cast<float>(truncate(static_cast<double>(judges[2]) + nearly_half()));
+        truncate(truncate(static_cast<double>(core::at(judges, 1)) * ten()) * static_cast<double>(tenth()) + over_half());
+    core::at(judges, 1) = static_cast<float>(second);
+    core::at(judges, 2) = static_cast<float>(truncate(static_cast<double>(core::at(judges, 2)) + nearly_half()));
     const float limit = ninety_nine();
     if (!(first <= limit))
-        judges[0] = limit;
+        core::at(judges, 0) = limit;
     if (!(second <= limit))
-        judges[1] = limit;
-    if (!(judges[2] <= limit))
-        judges[2] = limit;
+        core::at(judges, 1) = limit;
+    if (!(core::at(judges, 2) <= limit))
+        core::at(judges, 2) = limit;
     path_vertices_ = static_cast<float>(
-        truncate((static_cast<double>(judges[1]) + judges[2] + judges[0]) * get_third() + nearly_half()));
+        truncate((static_cast<double>(core::at(judges, 1)) + core::at(judges, 2) + core::at(judges, 0)) * get_third() + nearly_half()));
     if (!(path_vertices_ <= limit))
         path_vertices_ = limit;
     core::at(run_totals_, runs_) = truncate(path_vertices_);
-    debug::printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(judges[0]),
-                  static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(path_vertices_));
+    debug::printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(core::at(judges, 0)),
+                  static_cast<double>(core::at(judges, 1)), static_cast<double>(core::at(judges, 2)), static_cast<double>(path_vertices_));
 
     // The player's score of the run, the standings, the place.
     for (Leader& leader : leaders_) {
@@ -441,28 +441,28 @@ void Contest::end_run(int score)
     }
 
     // The two other judges near the lowest of the three.
-    float lowest = judges[0];
-    if (judges[1] < lowest)
-        lowest = judges[1];
-    if (judges[2] < lowest)
-        lowest = judges[2];
+    float lowest = core::at(judges, 0);
+    if (core::at(judges, 1) < lowest)
+        lowest = core::at(judges, 1);
+    if (core::at(judges, 2) < lowest)
+        lowest = core::at(judges, 2);
     debug::printf("Lowest = %f\n", static_cast<double>(lowest));
     const float base = lowest - spread;
     for (int i = 3; i < kJudges; ++i) {
         const double judge = maths::plus_or_minus_exact(spread) + base;
-        judges[i] = static_cast<float>(judge);
+        core::at(judges, i) = static_cast<float>(judge);
         debug::printf("Score %d is %f\n", i, judge); // (the unrounded value)
     }
     for (int i = 0; i < kJudges; ++i) {
-        if (judges[i] < get_zero())
-            judges[i] = 0.0f;
+        if (core::at(judges, i) < get_zero())
+            core::at(judges, i) = 0.0f;
     }
     // The first four shuffled.
     for (int i = 0; i < kJudges - 1; ++i) {
         const int other = maths::roll_side_stream(kJudges);
-        const float swap = judges[i];
-        judges[i] = judges[other];
-        judges[other] = swap;
+        const float swap = core::at(judges, i);
+        core::at(judges, i) = core::at(judges, other);
+        core::at(judges, other) = swap;
     }
 
     if (!competition_goal_active())
@@ -473,11 +473,11 @@ void Contest::end_run(int score)
     debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
         gsl::owner<script::Struct*> entry = script::new_struct();
-        entry->put_int("score", current_round(judges[i])); // "score"
+        entry->put_int("score", current_round(core::at(judges, i))); // "score"
         if (is_leading_scorer(i))
             entry->put_name_key(kNoName, kTopJudge);
         scores->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
-        debug::printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]), static_cast<int>(is_leading_scorer(i)));
+        debug::printf("%d: %f Top=%d\n", i, static_cast<double>(core::at(judges, i)), static_cast<int>(is_leading_scorer(i)));
     }
     params->append_array_value("scores", scores.get());                  // "scores"
     params->put_int("total_score", current_round(path_vertices_)); // "total_score"

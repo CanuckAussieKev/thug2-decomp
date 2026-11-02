@@ -126,9 +126,9 @@ void set_preference_text(prefs::Preferences* preferences, uint32_t name, const c
 void Hub::use_network_preferences()
 {
     net::Hub* net = net::Hub::sole();
-    auto* servers = master_servers_.data();
+    auto& servers = master_servers_;
     for (int i = 0; i < kMasterServerCount; ++i)
-        core::at(servers[i], 0) = 0;
+        core::at(core::at(servers, i), 0) = 0;
     prefs::Preferences* preferences = get_online_settings();
 
     // (the original's locals, each reused as it reuses its stack slots: a missing value leaves the last one read -
@@ -143,16 +143,16 @@ void Hub::use_network_preferences()
     if (check != kBooleanTrue) {
         preferences->fetch_setting(kMasterServer1)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
-            std::strcpy(servers[next++].data(), text);
+            std::strcpy(core::at(servers, next++).data(), text);
         preferences->fetch_setting(kMasterServer2)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
-            std::strcpy(servers[next++].data(), text);
+            std::strcpy(core::at(servers, next++).data(), text);
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
     for (int i = 0; i < ints::as_signed(defaults->extent_); ++i) {
         auto* entry = defaults->struct_at(i);
         entry->fetch_text(kName, &text, 1);
-        std::strcpy(servers[next + i].data(), text);
+        std::strcpy(core::at(servers, next + i).data(), text);
     }
 
     uint32_t broadband_type = 0;

@@ -85,12 +85,12 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
         return;
     }
 
-    FontSlot* slots = get_slots().data();
+    auto& slots = get_slots();
     int index = 0;
-    while (index < kFontSlots && slots[index].font)
+    while (index < kFontSlots && core::at(slots, index).font)
         ++index;
     if (index < kFontSlots) {
-        FontSlot& slot = slots[index];
+        FontSlot& slot = core::at(slots, index);
         gsl::owner<Typeface*> font = load_font_file(name); // (the slot's)
         slot.font = font;
         change_spacings(slot.font, glyph_gap, blank_gap);

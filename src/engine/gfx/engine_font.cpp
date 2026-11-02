@@ -48,16 +48,16 @@ char button_glyph(const char* digit) { return core::at(glyph_escape_table(), tex
 // 0x0048D6C0
 void unload_font(const char* name)
 {
-    FontSlot* slots = get_slots().data();
+    auto& slots = get_slots();
     int index = 0;
-    while (std::strcmp(slots[index].name.data(), name) != 0) {
+    while (std::strcmp(core::at(slots, index).name.data(), name) != 0) {
         if (++index >= kFontSlots)
             return;
     }
     const uint32_t key = checksums::hash_from_text(name);
     font_table().erase_entry(key);
-    unload_pc_font(core::down_cast<PcFont>(slots[index].font));
-    slots[index].font = nullptr;
+    unload_pc_font(core::down_cast<PcFont>(core::at(slots, index).font));
+    core::at(slots, index).font = nullptr;
 }
 
 // 0x0048D760

@@ -306,10 +306,10 @@ void issue_occlusion_queries()
 // 0x004A0F80
 void pop_occlusion_request()
 {
-    OcclusionRequest* requests = occlusion_requests().data();
+    auto& requests = occlusion_requests();
     for (int i = 0; i < kOcclusionRequests - 1; ++i)
-        requests[i] = requests[i + 1];
-    requests[kOcclusionRequests - 1].slot = 0;
+        core::at(requests, i) = core::at(requests, i + 1);
+    core::at(requests, kOcclusionRequests - 1).slot = 0;
     --occlusion_request_count();
 }
 

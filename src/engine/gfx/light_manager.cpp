@@ -272,8 +272,8 @@ DynamicLightBase** find_dynamic_light(uint32_t owner)
 // 0x0048EF90
 uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out)
 {
-    float* falloffs = near_falloffs().data();
-    int* indexes = near_indexes().data();
+    auto& falloffs = near_falloffs();
+    auto& indexes = near_indexes();
     uint32_t count = 0;
     for (int i = 0; i < dynamic_light_count(); ++i) {
         DynamicLightBase* light = core::at(dynamic_lights(), i); // (not checked for null, as the original)
@@ -289,40 +289,40 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
         auto distance = static_cast<float>(std::sqrt(static_cast<double>(static_cast<float>(distance_squared))));
         const double falloff = call_falloff(light, distance);
         if (count == 0) {
-            falloffs[0] = static_cast<float>(falloff);
-            indexes[0] = i;
+            core::at(falloffs, 0) = static_cast<float>(falloff);
+            core::at(indexes, 0) = i;
             out[0] = light;
             count = 1;
             continue;
         }
-        if (count >= max && !(falloff < falloffs[count - 1])) // (full: only below the last; NaN: not)
+        if (count >= max && !(falloff < core::at(falloffs, count - 1))) // (full: only below the last; NaN: not)
             continue;
         // The original's walk: inserted before the first it's greater than; each one it isn't greater than appends it
         // at the end (while there's room) - the end moving on with it.
         for (uint32_t j = 0; j < count; ++j) {
-            if (falloff > falloffs[j]) {
+            if (falloff > core::at(falloffs, j)) {
                 // the entries from j on moved up one by swaps (the one past the end - out[count] too - written)
                 for (uint32_t k = count; k > j; --k) {
                     DynamicLightBase* l = out[k];
                     out[k] = out[k - 1];
                     out[k - 1] = l;
-                    const float f = falloffs[k];
-                    falloffs[k] = falloffs[k - 1];
-                    falloffs[k - 1] = f;
-                    const int n = indexes[k];
-                    indexes[k] = indexes[k - 1];
-                    indexes[k - 1] = n;
+                    const float f = core::at(falloffs, k);
+                    core::at(falloffs, k) = core::at(falloffs, k - 1);
+                    core::at(falloffs, k - 1) = f;
+                    const int n = core::at(indexes, k);
+                    core::at(indexes, k) = core::at(indexes, k - 1);
+                    core::at(indexes, k - 1) = n;
                 }
-                falloffs[j] = static_cast<float>(falloff);
-                indexes[j] = i;
+                core::at(falloffs, j) = static_cast<float>(falloff);
+                core::at(indexes, j) = i;
                 out[j] = light;
                 if (count < max)
                     ++count;
                 break;
             }
             if (count < max) {
-                falloffs[count] = static_cast<float>(falloff);
-                indexes[count] = i;
+                core::at(falloffs, count) = static_cast<float>(falloff);
+                core::at(indexes, count) = i;
                 out[count] = light;
                 ++count;
             }

@@ -47,38 +47,38 @@ const char* const kNoText = "---"; // "---"
 // 0x005AA930
 void swap_mapping(uint32_t a, uint32_t b)
 {
-    SwapSlot* table = swap_table().data();
+    auto& table = swap_table();
     int slot_a = -1;
     int slot_b = -1;
     for (int i = 0; i < kSwapSlots; ++i) {
-        if (!table[i].used)
+        if (!core::at(table, i).used)
             continue;
-        if (table[i].key == a)
+        if (core::at(table, i).key == a)
             slot_a = i;
-        else if (table[i].key == b)
+        else if (core::at(table, i).key == b)
             slot_b = i;
     }
     if (slot_a == -1 || slot_b == -1) {
         for (int i = 0; i < kSwapSlots; ++i) {
-            if (table[i].used)
+            if (core::at(table, i).used)
                 continue;
             if (slot_a == -1) {
                 slot_a = i;
-                table[i].key = a;
-                table[i].value = a;
+                core::at(table, i).key = a;
+                core::at(table, i).value = a;
             } else if (slot_b == -1) {
                 slot_b = i;
-                table[i].key = b;
-                table[i].value = b;
+                core::at(table, i).key = b;
+                core::at(table, i).value = b;
             } else {
                 continue;
             }
-            table[i].used = true;
+            core::at(table, i).used = true;
         }
     }
     // (with the table full, a slot of -1: the entry before the table, as in the original)
-    SwapSlot& first = table[slot_a];
-    SwapSlot& second = table[slot_b];
+    SwapSlot& first = core::at(table, slot_a);
+    SwapSlot& second = core::at(table, slot_b);
     const uint32_t first_value = first.value;
     const uint32_t second_value = second.value;
     if (first.key == second_value)

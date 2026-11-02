@@ -130,9 +130,9 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
                     glyph = &font->chars[core::at(font->special_map_, button)];
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
-                    const uint8_t* name_map = map.data();
+                    const auto& name_map = map;
                     for (const char* name = button_key_name(button); *name; ++name)
-                        total += chars[name_map[static_cast<signed char>(*name)]].w + glyph_gap_;
+                        total += chars[core::at(name_map, static_cast<signed char>(*name))].w + glyph_gap_;
                     counted = false; // not the digit
                 }
                 done = true;

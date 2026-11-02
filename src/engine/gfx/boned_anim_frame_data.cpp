@@ -127,7 +127,7 @@ bool load_trans_table(const char* name)
 // 0x00482C20
 const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t flags, const uint8_t* table)
 {
-    const int16_t* shared = g_quat_table.data();
+    const auto& shared = g_quat_table;
     const uint16_t first = get_word(data);
     uint16_t header = 0;
     if (flags & 0x100) {
@@ -143,7 +143,7 @@ const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t 
     auto value = [&](uint16_t bit) -> int16_t {
         if (header & bit) {
             const uint8_t b = *data++;
-            return (flags & 0x10000) ? shared[b * 4 + 3] : static_cast<int16_t>(b);
+            return (flags & 0x10000) ? core::at(shared, b * 4 + 3) : static_cast<int16_t>(b);
         }
         if (flags & 0x8000)
             return static_cast<int16_t>(*data++ << 8);
@@ -171,7 +171,7 @@ const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t 
                     core::at(out->value, i) = static_cast<int16_t>(get_word(table + b * 6 + 2 * i));
             } else {
                 for (int i = 0; i < 3; ++i)
-                    core::at(out->value, i) = shared[b * 4 + i];
+                    core::at(out->value, i) = core::at(shared, b * 4 + i);
             }
         } else {
             core::at(out->value, 0) = value(0x2000);

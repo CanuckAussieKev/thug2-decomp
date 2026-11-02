@@ -356,7 +356,7 @@ std::array<uint32_t, 15> g_level_checksums{{0x55894059, 0x2A179957, 0xCDAFB450, 
 // 0x0054DDB0
 void PersonalStats::get_fill()
 {
-    const uint32_t* levels = g_level_checksums.data();
+    const auto& levels = g_level_checksums;
     SortedList sorted;
     for (int i = 0; i < 15; ++i) {
         const int score = core::at(high_scores_, i);
@@ -365,7 +365,7 @@ void PersonalStats::get_fill()
         SortEntry* line = new_sort_entry();
         line->list_link_.priority = score;
         line->points_held_ = score;
-        line->level_ = levels[i];
+        line->level_ = core::at(levels, i);
         sorted.append_one(line);
     }
     for (memory::ListNode* node = get_next_node(&sorted.head); node; node = get_next_node(node)) {

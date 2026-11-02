@@ -363,7 +363,7 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
 // 0x005359F0
 void Hub::choose_start_points()
 {
-    int* points = start_points_.data();
+    auto& points = start_points_;
     int offset = maths::rnd(256);
     int count = 0;
     if (in_net_game()) {
@@ -377,19 +377,19 @@ void Hub::choose_start_points()
     }
     // (no bounds check: a mode with more than 8 players writes past the eight words, as in the original)
     for (int i = 0; i < count; ++i)
-        points[i] = -1;
+        core::at(points, i) = -1;
     for (int i = 0; i < count; ++i) {
         // Drawn again until it's one no other slot has.
         bool taken = false;
         do {
-            points[i] = maths::rnd(count);
+            core::at(points, i) = maths::rnd(count);
             taken = false;
             for (int j = 0; j < count && !taken; ++j)
-                taken = i != j && points[i] == points[j];
+                taken = i != j && core::at(points, i) == core::at(points, j);
         } while (taken);
     }
     for (int i = 0; i < count; ++i)
-        points[i] += offset;
+        core::at(points, i) += offset;
     crown_start_ = maths::rnd(10);
 }
 

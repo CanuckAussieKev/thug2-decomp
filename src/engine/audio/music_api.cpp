@@ -365,9 +365,9 @@ void prepare_all()
         base_music_gain() = static_cast<float>(script::fetch_int_value(0x73F8E03Bu));
         if (base_music_gain() == get_zero())
             base_music_gain() = 100.0f;
-        auto* playlists = g_playlists.data();
+        auto& playlists = g_playlists;
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
-            Playlist& list = playlists[i];
+            Playlist& list = core::at(playlists, i);
             list.count = 0;
             core::at(list.off, 0) = core::at(list.off, 1) = 0;
             core::at(list.played, 0) = core::at(list.played, 1) = 0;
