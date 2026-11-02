@@ -37,7 +37,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
-#include "game/save_cards/shared_state.h"
+#include "game/save_cards/save_cards_state.h"
 
 namespace save_cards {
 
@@ -47,7 +47,7 @@ using script::Script;
 using script::Struct;
 
 int os_layer() { return game_config::hardware(); }
-SaveCard* the_card() { return memcard_shared().the_card_->get_storage_slot(0, 0); }
+SaveCard* the_card() { return save_cards_state().sole()->get_storage_slot(0, 0); }
 
 // The calling script's own parameters (Scripts::CScript +0x14): where commands leave results for it.
 Struct* result_params(Script* script) { return script->args_.get(); }
@@ -63,8 +63,6 @@ bool delete_card_file(SaveCard* card, const char* /*name*/) { return card->alway
 void DeleteFile(FileLoad* file) { file->teardown(1); }
 
 // The pool pairs the temporary pools belong to: components, structures, vectors.
-
-
 
 // A pair's second pool made (as the pair's own creator, 0x0046F110 / 0x0046F190 / 0x0046F210, does).
 void create_reserve_pool(memory::PoolPair& pools, int item_size, int count, const char* name)
@@ -276,13 +274,13 @@ bool mem_card_file_exists(Struct* params, Script* script)
 // 0x005A8BB0
 bool clear_mem_card_data_for_upload(Struct*, Script*)
 {
-    Struct*& kept = memcard_cfuncs_shared().kept_params_;
+    Struct*& kept = save_cards_state().kept_contents();
     if (kept) {
         kept->get_clear();
         script::delete_struct(kept);
         kept = nullptr;
     }
-    memcard_cfuncs_shared().kept_type_ = 0;
+    save_cards_state().kept_type() = 0;
     return true;
 }
 
@@ -571,7 +569,7 @@ bool save_to_memory_card(Struct* params, Script*)
         audio::pause_music(1);
         audio::freeze_stream(1);
     }
-    bool& out_of_space = memcard_cfuncs_shared().out_of_space_;
+    bool& out_of_space = save_cards_state().out_of_space();
     out_of_space = false;
     const char* name = ""; // ""
     params->fetch_text("Name", &name, 0);
@@ -580,7 +578,7 @@ bool save_to_memory_card(Struct* params, Script*)
     int vault_data = 0;
     params->fetch_int_value(0xBB609E73u, &vault_data, 0); // savevaultdata
     if (vault_data) {
-        type = memcard_cfuncs_shared().kept_type_;
+        type = save_cards_state().kept_type();
     } else if (type == kSaveOptionsAndPros) {
         // the goal manager's totals brought up to date (0x0055C090, no source yet)
         goals::get_objective_board()->level_unload();
@@ -597,7 +595,7 @@ bool save_to_memory_card(Struct* params, Script*)
     if (contents)
         contents = new (contents) script::Struct;
     if (vault_data)
-        contents->append_structure_if_any(memcard_cfuncs_shared().kept_params_);
+        contents->append_structure_if_any(save_cards_state().kept_contents());
     else
         write_save_contents(contents, type);
     gsl::owner<Struct*> summary = script::spawn_param_bag();

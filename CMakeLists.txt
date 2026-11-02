@@ -837,6 +837,7 @@ add_executable(thug2 WIN32
     src/platform/winmain.cpp
     src/engine/sys/startup_init.cpp
     src/game/save_cards/memcard.cpp
+    src/game/save_cards/save_cards_state.cpp
     src/game/save_cards/memcard_cfuncs.cpp
     src/game/save_cards/save_types.cpp
     src/game/save_cards/save_files_cfuncs.cpp

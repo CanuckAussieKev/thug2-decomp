@@ -33,8 +33,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
-#include "game/save_cards/shared_state.h"
 #include "engine/net/net_game_state.h"
+#include "game/save_cards/save_cards_state.h"
 
 namespace save_cards {
 
@@ -69,8 +69,6 @@ int card_block()
 goals::GoalManager* objective_board() { return goals::get_objective_board(); }
 
 // The loaded contents kept for later (0x007CECD4) and their type (0x007CECD8).
-Struct*& kept_contents() { return memcard_cfuncs_shared().kept_params_; }
-uint32_t& kept_type() { return memcard_cfuncs_shared().kept_type_; }
 
 // A summary's date: year, month, day, hour, minutes, seconds (missing ones 0).
 struct SaveDate {
@@ -508,17 +506,17 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
 // 0x005A8EB0
 const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t type)
 {
-    if (Struct* kept = kept_contents()) {
+    if (Struct* kept = save_cards_state().kept_contents()) {
         kept->get_clear();
         script::delete_struct(kept);
-        kept_contents() = nullptr;
+        save_cards_state().kept_contents() = nullptr;
     }
     gsl::owner<Struct*> contents = script::spawn_param_bag();
     if (contents)
         contents = new (contents) script::Struct;
-    kept_contents() = contents;
+    save_cards_state().kept_contents() = contents;
     const uint8_t* end = script::decode_from_bytes(contents, data, size);
-    kept_type() = type;
+    save_cards_state().kept_type() = type;
     return end;
 }
 

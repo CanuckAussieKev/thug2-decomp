@@ -14,15 +14,9 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "game/save_cards/shared_state.h"
+#include "game/save_cards/save_cards_state.h"
 
 namespace save_cards {
-
-MemcardShared& memcard_shared()
-{
-    static core::NoDestroy<MemcardShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -44,7 +38,6 @@ MemcardState& memcard_state()
 std::array<char, 128>& path_buffer() { return memcard_state().path_buffer_; }
 std::array<char, 320>& filename_buffer() { return memcard_state().filename_buffer_; }
 
-Hub*& sole() { return memcard_shared().the_card_; }
 int& ref_tally() { return memcard_state().memcard_references_; }
 
 // A new (zeroed) file object: its own one-item list, no handle yet.
@@ -229,17 +222,17 @@ SaveCard* Hub::get_storage_slot(int, int) { return &save_device_; }
 // 0x005BC900
 Hub* create_manager(bool create)
 {
-    if (!sole() && create) {
+    if (!save_cards_state().sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
             auto made = memory::construct_in<Hub>(memory); // (its block's: release_manager frees it)
-            sole() = made;
+            save_cards_state().sole() = made;
             ++ref_tally();
-            return sole();
+            return save_cards_state().sole();
         }
-        sole() = nullptr;
+        save_cards_state().sole() = nullptr;
     }
     ++ref_tally();
-    return sole();
+    return save_cards_state().sole();
 }
 
 // 0x005BC950
@@ -249,9 +242,9 @@ void release_manager()
         --ref_tally();
         return;
     }
-    if (sole())
-        memory::Hub::get_pull()->dealloc(sole());
-    sole() = nullptr;
+    if (save_cards_state().sole())
+        memory::Hub::get_pull()->dealloc(save_cards_state().sole());
+    save_cards_state().sole() = nullptr;
     ref_tally() = 0;
 }
 

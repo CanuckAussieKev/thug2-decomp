@@ -29,8 +29,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "game/save_cards/shared_state.h"
-#include "engine/core/no_destroy.h"
+#include "game/save_cards/save_cards_state.h"
 
 namespace save_cards {
 
@@ -68,7 +67,7 @@ bool get_mem_card_space_available(script::Struct*, script::Script* script)
 {
     result_params(script)->put_int(kSpaceAvailable, 0);
     result_params(script)->put_int(kFilesLeft, 1000000);
-    SaveCard* card = memcard_shared().the_card_->get_storage_slot(0, 0);
+    SaveCard* card = save_cards_state().sole()->get_storage_slot(0, 0);
     if (!card)
         return false;
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
@@ -101,12 +100,6 @@ constexpr uint32_t kAlsoApplyType = 0x61A1BC57;  // applied even when kept
 
 } // namespace
 
-MemcardCfuncsShared& memcard_cfuncs_shared()
-{
-    static core::NoDestroy<MemcardCfuncsShared> state;
-    return state.get();
-}
-
 // 0x005A8730. LoadFromMemoryCard Name=<string> Type=<checksum> [<kNoApply>=<integer>]: reads the save file and
 // applies it (or keeps its contents in 0x007CECD4 and its type in 0x007CECD8 when kNoApply is non-zero). True if
 // the file was read. A file of the wrong size, too big, of another version or (originally) with a bad checksum
@@ -125,7 +118,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
     bool loaded = false;
     int no_apply = 0;
     params->fetch_int_value(kNoApply, &no_apply, 0);
-    SaveCard* card = memcard_shared().the_card_->get_storage_slot(0, 0);
+    SaveCard* card = save_cards_state().sole()->get_storage_slot(0, 0);
     // (the second test is a card method that's the shared always-true stub, 0x005B9760: always true)
     if (card && stubs::return_true()) {
         params->fetch_text("Name", &name, 0);
@@ -196,9 +189,9 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                         } else {
                             // (a null structure here would crash, as in the original; the previous one leaks)
                             gsl::owner<script::Struct*> kept = script::new_struct();
-                            memcard_cfuncs_shared().kept_params_ = kept;
+                            save_cards_state().kept_contents() = kept;
                             kept->append_structure_if_any(contents);
-                            memcard_cfuncs_shared().kept_type_ = type;
+                            save_cards_state().kept_type() = type;
                             if (type == kAlsoApplyType)
                                 apply_loaded_contents(type, contents, script, nullptr);
                         }
@@ -228,7 +221,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
 // --- the save state flags -----------------------------------------------------------------------------------
 
 // 0x005A6550
-bool save_failed_due_to_insufficient_space(script::Struct*, script::Script*) { return memcard_cfuncs_shared().out_of_space_; }
+bool save_failed_due_to_insufficient_space(script::Struct*, script::Script*) { return save_cards_state().out_of_space(); }
 
 // 0x005A6560
 bool set_sections_to_apply_when_loading(script::Struct* params, script::Script*)
@@ -251,7 +244,7 @@ bool set_sections_to_apply_when_loading(script::Struct* params, script::Script*)
 }
 
 // 0x005A6600
-bool get_loaded_custom_skater(script::Struct*, script::Script*) { return memcard_cfuncs_shared().loaded_custom_skater_; }
+bool get_loaded_custom_skater(script::Struct*, script::Script*) { return save_cards_state().loaded_custom_skater(); }
 
 uint32_t& sections_to_apply_when_loading()
 {
@@ -263,11 +256,9 @@ uint32_t& sections_to_apply_when_loading()
 
 namespace {
 
-SaveCard* the_card() { return memcard_shared().the_card_->get_storage_slot(0, 0); }
+SaveCard* the_card() { return save_cards_state().sole()->get_storage_slot(0, 0); }
 
 // The script pools' pairs whose current pool the temporary pools switch: components, structures, vectors.
-
-
 
 } // namespace
 
@@ -333,7 +324,7 @@ bool get_summary_info(script::Struct* params, script::Script* script)
     int vault_data = 0;
     params->fetch_int_value(kVaultData, &vault_data, 0);
     if (vault_data) {
-        write_summary(memcard_cfuncs_shared().kept_params_, result_params(script), memcard_cfuncs_shared().kept_type_);
+        write_summary(save_cards_state().kept_contents(), result_params(script), save_cards_state().kept_type());
         return true;
     }
     if (type == kSaveOptionsAndPros) {
@@ -347,7 +338,7 @@ bool get_summary_info(script::Struct* params, script::Script* script)
 // 0x005A7430
 bool get_mem_card_data_for_upload(script::Struct*, script::Script* script)
 {
-    result_params(script)->put_name_key(0x7321A8D6u, memcard_cfuncs_shared().kept_type_); // type
+    result_params(script)->put_name_key(0x7321A8D6u, save_cards_state().kept_type()); // type
     return true;
 }
 
