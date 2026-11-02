@@ -24,6 +24,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -114,7 +115,7 @@ void RiderOverheadTag::tick_frame()
     // The text's colour: the player's team's in a team game, else the skater's own.
     const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team_) : entity_->ident_;
     std::array<char, 64> text{};
-    std::snprintf(text.data(), sizeof(text), "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
+    text::format_to(text, "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
     params->append_word(kText, text.data());
     const maths::Vec4& pos = entity_->at_point_;
     params->put_vec3(kPos3d, pos.x, height + pos.y, pos.z);

@@ -32,6 +32,7 @@
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace skater::collision_events {
 
@@ -149,7 +150,7 @@ std::string get_name_of(uint32_t checksum)
         name = script::look_up_hash_name(checksum);
     std::array<char, 16> text{};
     if (!name) {
-        std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+        text::format_to(text, "0x%08X", checksum);
         return text.data();
     }
     std::string out = name;
@@ -183,9 +184,9 @@ std::string file_stamp(const std::string& path)
     if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t))
         return {};
     std::array<char, 64> text{};
-    std::snprintf(text.data(), sizeof(text), "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
-                  (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow, t.wYear, t.wMonth,
-                  t.wDay, t.wHour, t.wMinute, t.wSecond);
+    text::format_to(text, "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
+                    (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow, t.wYear, t.wMonth,
+                    t.wDay, t.wHour, t.wMinute, t.wSecond);
     return text.data();
 }
 
@@ -449,7 +450,7 @@ void get_emit(int before)
         const bool against = core::at(mark.vel, 0) * core::at(dir_old, 0) + core::at(mark.vel, 2) * core::at(dir_old, 1) < 0.0f;
         if (against && previous) {
             std::array<char, 160> text{};
-            std::snprintf(text.data(), sizeof(text), "%s>%s@%u", previous->label, mark.label, mark.frame);
+            text::format_to(text, "%s>%s@%u", previous->label, mark.label, mark.frame);
             event.flipped = text.data();
             flip = &mark;
             // Between one frame's physics and the next, the velocity exactly negated: the skater's adjust-physics
@@ -531,7 +532,7 @@ void get_emit(int before)
     event.screenshot = "-";
     if (kShots) {
         std::array<char, 64> note{};
-        std::snprintf(note.data(), sizeof(note), "collision event %d", event.number);
+        text::format_to(note, "collision event %d", event.number);
         event.screenshot = sys::screenshot::request_event_shot(note.data()) ? "requested" : "busy";
     }
 
@@ -560,8 +561,8 @@ void get_emit(int before)
             continue;
         const Sample& s = sample_at(age);
         std::array<char, 64> text{};
-        std::snprintf(text.data(), sizeof(text), "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", core::at(s.pos, 0), core::at(s.pos, 1),
-                      core::at(s.pos, 2), state_letter(s.state));
+        text::format_to(text, "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", core::at(s.pos, 0),
+                        core::at(s.pos, 1), core::at(s.pos, 2), state_letter(s.state));
         detail.approach += text.data();
     }
     detail.camera = sys::screenshot::last_view(detail.camera_pos_, detail.camera_dir_);
@@ -570,8 +571,8 @@ void get_emit(int before)
     get_log("%s", format_detail(detail).c_str());
     // (on screen too, for 2 s: a newer one replaces it)
     std::array<char, 96> notice{};
-    std::snprintf(notice.data(), sizeof(notice), "collision event %d: %s%s", event.number, event.reason,
-                  event.screenshot == "requested" ? " (screenshot)" : "");
+    text::format_to(notice, "collision event %d: %s%s", event.number, event.reason,
+                    event.screenshot == "requested" ? " (screenshot)" : "");
     sys::screenshot::show_notice(notice.data());
 }
 
@@ -815,20 +816,20 @@ std::string face_text(const Face& face, std::string (*name)(uint32_t))
     if (!face.hit)
         return "none";
     std::array<char, 256> text{};
-    std::snprintf(text.data(), sizeof(text),
-                  "%s:%s;face:%d;flags:0x%04X;decoded:%s;terrain:%u;n:%.2f,%.2f,%.2f;at:%.1f,%.1f,%.1f",
-                  face.object ? "object" : "sector", name(face.checksum).c_str(), face.index, face.flags,
-                  flag_names(face.flags).c_str(), face.terrain, core::at(face.normal, 0), core::at(face.normal, 1), core::at(face.normal, 2),
-                  core::at(face.point, 0), core::at(face.point, 1), core::at(face.point, 2));
+    text::format_to(text, "%s:%s;face:%d;flags:0x%04X;decoded:%s;terrain:%u;n:%.2f,%.2f,%.2f;at:%.1f,%.1f,%.1f",
+                    face.object ? "object" : "sector", name(face.checksum).c_str(), face.index, face.flags,
+                    flag_names(face.flags).c_str(), face.terrain, core::at(face.normal, 0), core::at(face.normal, 1),
+                    core::at(face.normal, 2), core::at(face.point, 0), core::at(face.point, 1),
+                    core::at(face.point, 2));
     return text.data();
 }
 
 namespace {
 
-std::string v3(std::span<const float> v, const char* format = "%.1f,%.1f,%.1f")
+std::string v3(std::span<const float> v, int places = 1)
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), format, core::at(v, 0), core::at(v, 1), core::at(v, 2));
+    text::format_to(text, "%.*f,%.*f,%.*f", places, core::at(v, 0), places, core::at(v, 1), places, core::at(v, 2));
     return text.data();
 }
 
@@ -839,8 +840,8 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
     static const std::array<const char*, 6> kProbes = {{"probe_down_hit",        "probe_down_hit_all", "probe_down_beyond",
                                            "probe_down_beyond_all", "probe_ahead",        "probe_ahead_all"}};
     std::array<char, 160> head{};
-    std::snprintf(head.data(), sizeof(head), "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
-                  e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
+    text::format_to(head, "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
+                    e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
     std::string line = head.data();
     line += " spot=" + v3(e.spot);
     line += " pos_before=" + v3(e.pos_before_);
@@ -848,15 +849,15 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
     line += " vel_before=" + v3(e.vel_before_);
     line += " vel_after=" + v3(e.vel_after_);
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
+    text::format_to(text, " heading_before=%.1f heading=%.1f", e.heading_before_, e.heading);
     line += text.data();
-    line += " ground_n=" + v3(e.ground_normal_, "%.2f,%.2f,%.2f");
-    std::snprintf(text.data(), sizeof(text), " ground_min_y=%.2f", e.ground_min_y_);
+    line += " ground_n=" + v3(e.ground_normal_, 2);
+    text::format_to(text, " ground_min_y=%.2f", e.ground_min_y_);
     line += text.data();
     line += " face=" + face_text(e.face, name);
     for (int i = 0; i < 6; ++i)
         line += std::string(" ") + core::at(kProbes, i) + "=" + face_text(core::at(e.probes, i), name);
-    line += " probe_dir=" + v3(e.probe_dir_, "%.2f,%.2f,%.2f");
+    line += " probe_dir=" + v3(e.probe_dir_, 2);
     line += " flipped=" + (e.flipped.empty() ? std::string("-") : e.flipped);
     line += " repeats=" + std::to_string(e.repeats);
     line += " screenshot=" + (e.screenshot.empty() ? std::string("-") : e.screenshot);
@@ -866,11 +867,11 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
 std::string format_detail(const Detail& d)
 {
     std::array<char, 256> text{};
-    std::snprintf(text.data(), sizeof(text),
-                  "collision-event-detail: n=%d state=%s physics=%s speed=%.1f trick=%d balance=%s input=%s "
-                  "input_window=%s stick=%.2f,%.2f",
-                  d.number, d.state, d.physics, d.speed, d.trick ? 1 : 0, d.balance, d.input.c_str(),
-                  d.input_window_.c_str(), core::at(d.stick, 0), core::at(d.stick, 1));
+    text::format_to(text,
+                    "collision-event-detail: n=%d state=%s physics=%s speed=%.1f trick=%d balance=%s input=%s "
+                    "input_window=%s stick=%.2f,%.2f",
+                    d.number, d.state, d.physics, d.speed, d.trick ? 1 : 0, d.balance, d.input.c_str(),
+                    d.input_window_.c_str(), core::at(d.stick, 0), core::at(d.stick, 1));
     std::string line = text.data();
     line += " ray=" + (d.ray ? v3(d.probe_origin_) + ">" + v3(d.ray_end_) : std::string("-"));
     if (d.geometry) {
@@ -880,17 +881,17 @@ std::string format_detail(const Detail& d)
         line += " corners=- col_box=-";
     }
     if (d.edge >= 0) {
-        std::snprintf(text.data(), sizeof(text), " edge=%d edge_dist=%.1f open_edge=%s", d.edge, d.edge_distance_,
-                      d.edge_open_ < 0 ? std::string_view("-").data()
-                      : d.edge_open_   ? std::string_view("1").data()
-                                       : std::string_view("0").data());
+        text::format_to(text, " edge=%d edge_dist=%.1f open_edge=%s", d.edge, d.edge_distance_,
+                        d.edge_open_ < 0 ? std::string_view("-").data()
+                        : d.edge_open_   ? std::string_view("1").data()
+                                         : std::string_view("0").data());
         line += text.data();
     } else {
         line += " edge=- edge_dist=- open_edge=-";
     }
     line += " col_file=" + d.col_file_ + " scn_file=" + d.scn_file_;
     line += " approach=" + (d.approach.empty() ? std::string("-") : d.approach);
-    line += " camera=" + (d.camera ? v3(d.camera_pos_) + ">" + v3(d.camera_dir_, "%.3f,%.3f,%.3f") : std::string("-"));
+    line += " camera=" + (d.camera ? v3(d.camera_pos_) + ">" + v3(d.camera_dir_, 3) : std::string("-"));
     return line;
 }
 

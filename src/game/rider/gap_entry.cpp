@@ -42,6 +42,7 @@
 #include "engine/objects/vehicle_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -485,7 +486,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         if (!params->fetch_text(kText, &text, 0))
             text = "Unnamed Gap";
         std::array<char, 256> coloured{};
-        std::snprintf(coloured.data(), sizeof(coloured), "\\c1%s\\c0", text);
+        text::format_to(coloured, "\\c1%s\\c0", text);
 
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
         if (gap_trick_script(gap)) {

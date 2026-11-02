@@ -25,6 +25,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace commands {
 
@@ -210,7 +211,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
 
     for (int i = 0; i < count; ++i) {
         // "%s_%s%02i" (the original's sprintf is unbounded)
-        std::snprintf(stream.data(), sizeof(stream), "%s_%s%02i", voice.data(), type, static_cast<int>(order->fetch_part(i)));
+        text::format_to(stream, "%s_%s%02i", voice.data(), type, static_cast<int>(order->fetch_part(i)));
         if (!audio::stream_exists(checksums::hash_from_text(stream.data())))
             continue;
         gsl::owner<Struct*> stream_params = script::new_struct();

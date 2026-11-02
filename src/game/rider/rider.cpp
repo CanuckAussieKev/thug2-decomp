@@ -94,6 +94,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -978,7 +979,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         GameEntity::invoke_method_by_name(0x5C038F9B, nullptr, nullptr);  // SkaterPhysicsControl_SwitchWalkingToSkating
         for (int i = 0; i < 5; ++i) {
             std::array<char, 32> name{};
-            std::snprintf(name.data(), sizeof(name), "projectile_%i", i);
+            text::format_to(name, "projectile_%i", i);
             core::at(projectiles_, i).name = checksums::hash_from_text(name.data());
             core::at(projectiles_, i).active = false;
         }

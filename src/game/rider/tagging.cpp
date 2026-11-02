@@ -45,6 +45,7 @@
 #include "wire/play_messages.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace objects {
 
@@ -143,7 +144,7 @@ void TaggingComponent::configure_from_data(script::Struct* params)
     int skater = 0; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_int_value(0xA2B033FDu, &skater, 0);
     std::array<char, 32> key{};
-    std::snprintf(key.data(), sizeof(key), "_%d", skater);             // "_%d"
+    text::format_to(key, "_%d", skater);                        // "_%d"
     void* texture = load_on_texture_heap("tags\\cas_01", true); // "tags\cas_01"
     graffiti_ = copy_texture(checksums::fold_text_into_checksum(0xF4FD2D63, key.data()), texture);
     release_texture(texture);

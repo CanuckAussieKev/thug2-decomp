@@ -65,6 +65,7 @@
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace collision_overlay {
 
@@ -82,9 +83,9 @@ const char* get_name_of(uint32_t checksum, char* buffer, size_t size)
     if (!name)
         name = script::look_up_hash_name(checksum);
     if (name)
-        std::snprintf(buffer, size, "%s (%08X)", name, checksum);
+        text::format_to(std::span(buffer, size), "%s (%08X)", name, checksum);
     else
-        std::snprintf(buffer, size, "%08X", checksum);
+        text::format_to(std::span(buffer, size), "%08X", checksum);
     return buffer;
 }
 
@@ -175,17 +176,18 @@ void log_hit(const void* feeler, uint32_t caller)
     std::array<char, 160> what{};
     std::array<char, 96> name{};
     if (object)
-        std::snprintf(what.data(), sizeof(what), "object %s", get_name_of(object_id, name.data(), sizeof(name)));
+        text::format_to(what, "object %s", get_name_of(object_id, name.data(), sizeof(name)));
     else if (static_hit && coll_object)
-        std::snprintf(what.data(), sizeof(what), "sector %s obj flags %04X", get_name_of(sector, name.data(), sizeof(name)),
-                      coll_object->flag_bits_);
+        text::format_to(what, "sector %s obj flags %04X", get_name_of(sector, name.data(), sizeof(name)),
+                        coll_object->flag_bits_);
     else
-        std::snprintf(what.data(), sizeof(what), "(nothing recorded)");
+        text::format_to(what, "(nothing recorded)");
 
     std::array<char, 64> skater = {""};
     std::array<float, 3> position{};
     if (get_skater_position(skater_feeler, position))
-        std::snprintf(skater.data(), sizeof(skater), " skater (%.1f %.1f %.1f)", core::at(position, 0), core::at(position, 1), core::at(position, 2));
+        text::format_to(skater, " skater (%.1f %.1f %.1f)", core::at(position, 0), core::at(position, 1),
+                        core::at(position, 2));
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
             "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",
