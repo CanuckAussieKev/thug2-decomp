@@ -165,15 +165,16 @@ gsl::owner<PcTexDict*> load_tex_dict_file(const char* name);
 PcTexDict* load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
 gsl::owner<PcTexDict*> create_tex_dict(uint32_t checksum);
 
-// 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it (`bits_per_pixel` 4 copies half bytes).
-void copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
-                    const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel);
-// 0x004C9200: an image resized - 8 bits a pixel by nearest (the bytes cleared first: as many as the source has),
-// else 32 bits bilinear in 1024ths.
-void resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into, uint16_t into_width,
-                  uint16_t into_height, uint16_t bits_per_pixel);
-// 0x004C9520: a 32-bit image zoomed about its centre (bilinear, clamped to the edges).
-void zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom, float y_zoom);
+// The texture editing's image helpers, on 32-bit pixels (every caller's; the original took the bits a pixel and also
+// copied 8- and 4-bit images and resized 8-bit ones by nearest - nothing asked for those).
+// 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it.
+void copy_sub_image(uint32_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
+                    const uint32_t* from, uint16_t from_width, uint16_t from_height);
+// 0x004C9200: an image resized, bilinear in 1024ths.
+void resize_image(const uint32_t* from, uint16_t from_width, uint16_t from_height, uint32_t* into, uint16_t into_width,
+                  uint16_t into_height);
+// 0x004C9520: an image zoomed about its centre (bilinear, clamped to the edges).
+void zoom_image(const uint32_t* from, uint16_t width, uint16_t height, uint32_t* into, float x_zoom, float y_zoom);
 // 0x004C8180: RGB (0-1) to hue (degrees; -1 when black), saturation and value.
 void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v);
 // 0x004C82D0: and back.

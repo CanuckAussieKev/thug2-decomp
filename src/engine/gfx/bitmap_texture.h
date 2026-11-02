@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include "platform/d3d_forward.h"
 
 // A texture (Nx engine, PC): its Direct3D texture and, for render targets, the surface. Every texture is on a list
@@ -45,6 +46,10 @@ struct TextureRef : TextureImage {
     void get_unlock();
     // 0x004E03E0: this if it has the second texture (+0x14), else null.
     TextureRef* palette_owner();
+    // The palette's entries (ARGB) the texture editing reads and changes for an image of 8 bits or less: none - no
+    // PC texture keeps its palette (the second texture is never set: palette_owner is always null, and the original
+    // read the entries through it, from null). An empty span: a read of one stops the game with a report.
+    [[nodiscard]] std::span<uint32_t> palette_entries() const { return {}; }
     // 0x004E0700: make it a width x height A8R8G8B8 render target (`depth` kept). Returns whether it was made.
     bool create_render_target(int width, int height, uint8_t depth, int unused);
 };

@@ -66,7 +66,6 @@
     "src/engine/gfx/pc_particles.cpp": 1,
     "src/engine/gfx/pc_primitive.cpp": 2,
     "src/engine/gfx/pc_sprite.cpp": 3,
-    "src/engine/gfx/pc_texture.cpp": 24,
     "src/engine/gfx/pc_viewport.cpp": 4,
     "src/engine/gfx/pc_weather.cpp": 8,
     "src/engine/gfx/render_state.cpp": 1,
