@@ -175,7 +175,7 @@ void SkaterPhysicsModule::refresh_hit_cache()
     box.max = {.x = position.x + kCacheReach, .y = position.y + kCacheAbove, .z = position.z + kCacheReach, .w = position.w};
     render::HitMeshCache& cache = hit_cache_;
     cache.tick_frame(box);
-    render::g_current_cache = &cache; // the feelers' current cache
+    render::set_current_cache(&cache); // the feelers' current cache
 }
 
 // 0x00500710

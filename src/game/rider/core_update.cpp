@@ -95,7 +95,7 @@ void SkaterPhysicsModule::tick_frame()
         late_wallplant_frames_ = 0;
     if (bike && thaw_bmx::live_now(this))
         thaw_bmx::end_frame(this); // (not original: THAW 0x005C9210, the x-up let go)
-    render::g_current_cache = nullptr;
+    render::set_current_cache(nullptr);
     collision_events::end_frame(this); // (not original: [debug] collision_events)
 }
 

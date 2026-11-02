@@ -42,6 +42,5 @@ objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, Coll
                                                     CollisionHitCallback callback, HitMeshCache* cache);
 
 // The movable objects' list (its head; the first movable is its next, 0x00691984).
-extern memory::ListNode g_movables;
 
 } // namespace render

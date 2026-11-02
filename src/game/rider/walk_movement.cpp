@@ -170,7 +170,7 @@ void FootMovement::refresh_hit_cache()
     box.min = {.x = pos.x - reach, .y = pos.y - below, .z = pos.z - reach, .w = pos.w};
     render::HitMeshCache& cache = hit_cache_;
     cache.tick_frame(box);
-    render::g_current_cache = &cache; // the feelers' current cache
+    render::set_current_cache(&cache); // the feelers' current cache
 }
 
 // 0x00527BE0

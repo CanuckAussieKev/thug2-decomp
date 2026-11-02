@@ -95,5 +95,6 @@ static_assert(offsetof(ProbeRay, hit_) == 0x24 && offsetof(ProbeRay, reach_) == 
                   sizeof(ProbeRay) == 0xB0,
               "layout must match the original");
 
-extern HitMeshCache* g_current_cache;
+// NOT ORIGINAL - the cache queries use when the feeler has none; the rider sets it around its feelers.
+void set_current_cache(HitMeshCache* cache);
 } // namespace render

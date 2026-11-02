@@ -18,19 +18,27 @@
 #include "engine/render/coll_tri.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
 
-// The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
-// last one that listed them, so each is listed once).
-std::array<HitMesh*, 2048> g_found;
+// NOT ORIGINAL grouping - the grid queries' shared answer and the current query's mark. Made on first use, never
+// destroyed (grid_query()).
+struct GridQuery {
+    // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
+    // last one that listed them, so each is listed once).
+    std::array<HitMesh*, 2048> found_{};
+    uint8_t stamp_{};
+};
 
+GridQuery& grid_query()
+{
+    static core::NoDestroy<GridQuery> state;
+    return state.get();
+}
 
-uint8_t g_stamp;
-
-uint8_t& s_stamp = g_stamp;
 constexpr int kMostFound = 0x7FF;
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
@@ -310,7 +318,7 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
 // 0x00418710
 std::span<HitMesh* const> CollGrid::objects_in_box(const maths::BBox* box)
 {
-    const uint8_t stamp = ++s_stamp;
+    const uint8_t stamp = ++grid_query().stamp_;
     const double inverse_width = 1.0 / cell_span_x_;
     int x0 = truncate((static_cast<double>(box->min.x) - box_.min.x - 0.5f) * inverse_width);
     auto inverse_depth = static_cast<float>(1.0 / cell_depth_);
@@ -328,14 +336,14 @@ std::span<HitMesh* const> CollGrid::objects_in_box(const maths::BBox* box)
             for (int i = 0; i < cell.count; ++i) {
                 HitMesh* object = core::at(cell.object_run(), i);
                 if (listable(object) && object->visit_stamp_ != stamp) {
-                    core::at(g_found, found++) = object;
+                    core::at(grid_query().found_, found++) = object;
                     object->visit_stamp_ = stamp;
                 }
             }
         }
     }
-    core::at(g_found, found) = nullptr;
-    return std::span<HitMesh* const>(g_found).first(static_cast<size_t>(found));
+    core::at(grid_query().found_, found) = nullptr;
+    return std::span<HitMesh* const>(grid_query().found_).first(static_cast<size_t>(found));
 }
 
 // 0x004188C0 (the line's direction: its float parts, the x part unrounded; made a unit vector when it has a
@@ -388,27 +396,27 @@ std::span<HitMesh* const> CollGrid::objects_along_line(const maths::Seg* line, i
         const CollGridCell& cell = core::at(core::at(cells_, x0), z0);
         for (int i = 0; i < cell.count; ++i) {
             if (listable(core::at(cell.object_run(), i)))
-                core::at(g_found, found++) = core::at(cell.object_run(), i);
+                core::at(grid_query().found_, found++) = core::at(cell.object_run(), i);
         }
     } else {
-        const uint8_t stamp = ++s_stamp;
+        const uint8_t stamp = ++grid_query().stamp_;
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z) {
                 const CollGridCell& cell = core::at(core::at(cells_, x), z);
                 for (int i = 0; i < cell.count; ++i) {
                     HitMesh* object = core::at(cell.object_run(), i);
                     if (listable(object) && object->visit_stamp_ != stamp && found < kMostFound) {
-                        core::at(g_found, found++) = object;
+                        core::at(grid_query().found_, found++) = object;
                         object->visit_stamp_ = stamp;
                     }
                 }
             }
         }
     }
-    core::at(g_found, found) = nullptr;
+    core::at(grid_query().found_, found) = nullptr;
     if (count)
         *count = found;
-    return std::span<HitMesh* const>(g_found).first(static_cast<size_t>(found));
+    return std::span<HitMesh* const>(grid_query().found_).first(static_cast<size_t>(found));
 }
 
 } // namespace render

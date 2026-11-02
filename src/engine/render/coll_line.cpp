@@ -17,14 +17,12 @@
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
 #include "engine/core/ints.h"
+#include "engine/render/collision_state.h"
 namespace render {
-
-bool g_want_farthest;
 
 namespace {
 
 // Set while a caller (0x00410930) wants the farthest hit rather than the nearest.
-bool& s_want_farthest = g_want_farthest;
 
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
@@ -73,7 +71,7 @@ CollisionHit* CollisionHit::copy_from(const CollisionHit& other)
 // 0x004131F0
 bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, float distance, CollisionHit* hit)
 {
-    const bool better = s_want_farthest ? !(distance < hit->distance) : distance <= hit->distance;
+    const bool better = collision_state().want_farthest_ ? !(distance < hit->distance) : distance <= hit->distance;
     CollisionHit saved;
     if (!better)
         saved.copy_from(*hit);

@@ -17,14 +17,15 @@
 #include "platform/compiler.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
+#include "engine/render/collision_state.h"
 
 namespace render {
 
-HitMeshCache* g_current_cache;
+void set_current_cache(HitMeshCache* cache) { collision_state().current_cache_ = cache; }
+
 namespace {
 
 // The cache queries use when the feeler has none.
-HitMeshCache*& s_current_cache = g_current_cache;
 
 void reset_hit(CollisionHit& hit)
 {
@@ -100,7 +101,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     hit_.unknown38 = 0;
     hit_.owner = nullptr;
     CollisionHitCallback callback = callback_ ? &callback_relay : nullptr;
-    HitMeshCache* cache = hit_cache_ ? hit_cache_ : s_current_cache;
+    HitMeshCache* cache = hit_cache_ ? hit_cache_ : collision_state().current_cache_;
     entity_.get_release();
     entity_key_ = 0;
     const bool hit_static = farthest ? collide_with_statics_farthest(&line, &hit_, callback, cache)

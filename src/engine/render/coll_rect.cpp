@@ -26,10 +26,12 @@ namespace render {
 
 namespace {
 
-HitMeshCache* g_rect_cache;
-
 // The cache the rect feelers use when they have none (0x0069198C).
-HitMeshCache*& s_rect_cache = g_rect_cache;
+HitMeshCache*& rect_cache()
+{
+    static HitMeshCache* rect_cache{};
+    return rect_cache;
+}
 
 // Hit ends this close on every axis are the same point; normals and directions this close are parallel.
 constexpr float kSamePoint = 0.1f; // 0x00645D74
@@ -297,7 +299,7 @@ BoxProbe::BoxProbe()
 // 0x00417840
 bool BoxProbe::get_query(int)
 {
-    return collide_rect_with_statics(&rect_, &hits_, hit_cache_ ? hit_cache_ : s_rect_cache);
+    return collide_rect_with_statics(&rect_, &hits_, hit_cache_ ? hit_cache_ : rect_cache());
 }
 
 // 0x00417C00

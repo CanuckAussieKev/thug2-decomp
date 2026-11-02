@@ -13,21 +13,32 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_world.h"
 #include "engine/core/checked_index.h"
+#include "engine/render/collision_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
 
-std::array<HitMeshCache*, 8> g_caches;
+// NOT ORIGINAL grouping - the collision caches and how many are in use. Made on first use, never destroyed
+// (cache_slots()).
+struct CacheSlots {
+    std::array<HitMeshCache*, 8> caches_{};
+    uint32_t caches_in_use_{};
+};
 
-std::array<HitMeshCache*, 8>& caches() { return g_caches; }
+CacheSlots& cache_slots()
+{
+    static core::NoDestroy<CacheSlots> state;
+    return state.get();
+}
 
-uint32_t g_caches_in_use;
+std::array<HitMeshCache*, 8>& caches() { return cache_slots().caches_; }
 
-uint32_t& caches_in_use() { return g_caches_in_use; }
+uint32_t& caches_in_use() { return cache_slots().caches_in_use_; }
 
 // The movable collision objects (the first node of their list: 0x00691984).
-memory::ListNode* first_movable() { return g_movables.next; }
+memory::ListNode* first_movable() { return collision_state().movables_.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.

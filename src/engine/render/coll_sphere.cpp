@@ -24,10 +24,12 @@ namespace render {
 
 namespace {
 
-HitMeshCache* g_sphere_cache;
-
 // The cache the sphere feelers use when they have none (0x00691990).
-HitMeshCache*& s_sphere_cache = g_sphere_cache;
+HitMeshCache*& sphere_cache()
+{
+    static HitMeshCache* sphere_cache{};
+    return sphere_cache;
+}
 
 constexpr float kTiny = 0.01f; // 0x0064544C: a zero divisor replaced
 
@@ -543,7 +545,7 @@ SphereFeeler::SphereFeeler(const maths::Vec4* centre, float radius)
 bool SphereFeeler::get_query(int)
 {
     hits_.mode = 1;
-    return collide_sphere_with_statics(&bound_ball_, &hits_, hit_cache_ ? hit_cache_ : s_sphere_cache);
+    return collide_sphere_with_statics(&bound_ball_, &hits_, hit_cache_ ? hit_cache_ : sphere_cache());
 }
 
 } // namespace render

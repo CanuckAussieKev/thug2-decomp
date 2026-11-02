@@ -61,6 +61,4 @@ static_assert(sizeof(FaceHit) == 0x24, "layout must match the original");
 // returned - the callback has still run.
 bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, float distance, CollisionHit* hit);
 
-extern bool g_want_farthest;
-
 } // namespace render

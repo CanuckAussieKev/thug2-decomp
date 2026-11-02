@@ -19,13 +19,24 @@
 #include "engine/render/coll_movable.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace render {
 
 namespace {
-maths::Vec4 g_shared_origin; // the origin and orientation every static object reports
-maths::Mat4 g_shared_orientation;
+// NOT ORIGINAL grouping - the origin and orientation every static object reports (made by the start-up initialisers).
+// Made on first use, never destroyed (shared_placement()).
+struct SharedPlacement {
+    maths::Vec4 shared_origin_{}; // the origin and orientation every static object reports
+    maths::Mat4 shared_orientation_{};
+};
+
+SharedPlacement& shared_placement()
+{
+    static core::NoDestroy<SharedPlacement> state;
+    return state.get();
+}
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
 TriMeshSource* clone_geometry(TriMeshSource* geometry, int a, int b) { return geometry->replicate(a, b != 0); }
@@ -111,10 +122,10 @@ void StaticCollider::place_at_absolute_point(const maths::Vec4* position)
 }
 
 // 0x004123A0
-const maths::Vec4* StaticCollider::get_absolute_point() { return &g_shared_origin; }
+const maths::Vec4* StaticCollider::get_absolute_point() { return &shared_placement().shared_origin_; }
 
 // 0x004123B0
-const maths::Mat4* StaticCollider::fetch_facing() { return &g_shared_orientation; }
+const maths::Mat4* StaticCollider::fetch_facing() { return &shared_placement().shared_orientation_; }
 
 // 0x00410980
 maths::Vec4 StaticCollider::read_vertex_point(int index) const
@@ -381,6 +392,6 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
 namespace render {
 
 // 0x00640860 (a static initialiser): the shared orientation starts as the rotation of no angles.
-void construct_shared_orientation() { g_shared_orientation.set_from_euler_angles(0.0f, 0.0f, 0.0f); }
+void construct_shared_orientation() { shared_placement().shared_orientation_.set_from_euler_angles(0.0f, 0.0f, 0.0f); }
 
 } // namespace render

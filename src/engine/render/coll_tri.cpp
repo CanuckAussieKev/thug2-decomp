@@ -13,6 +13,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "formats/collision_format.h"
+#include "engine/core/no_destroy.h"
 #include <algorithm>
 #include <iterator>
 #include <span>
@@ -24,16 +25,24 @@ namespace {
 constexpr float kSixteenth = 0.0625f;
 constexpr float kSixteen = 16.0f;
 
-// The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
-std::array<uint16_t, 2048> g_all_faces{{0xFFFF}};
-std::array<uint16_t, 2048>& all_faces() { return g_all_faces; }
+// NOT ORIGINAL grouping - the shared face index table and get_faces_in_box's / is_point_behind_faces' state while
+// walking the tree. Made on first use, never destroyed (face_walk()).
+struct FaceWalk {
+    // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
+    std::array<uint16_t, 2048> all_faces_{{0xFFFF}};
+    std::span<uint16_t> face_buffer_{};
+    int face_count_{};
+};
 
-std::span<uint16_t> g_face_buffer;
-int g_face_count;
+FaceWalk& face_walk()
+{
+    static core::NoDestroy<FaceWalk> state;
+    return state.get();
+}
+
+std::array<uint16_t, 2048>& all_faces() { return face_walk().all_faces_; }
 
 // get_faces_in_box's / is_point_behind_faces' state while walking the tree.
-std::span<uint16_t>& s_face_buffer = g_face_buffer;
-int& s_face_count = g_face_count;
 
 // The compiler's float-to-integer conversion (_ftol: toward zero, the low 32 bits of the 64-bit result).
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -448,15 +457,15 @@ std::span<const uint16_t> TriMeshSource::get_faces_in_box(const maths::BBox* box
 {
     if (!bsp_)
         return std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
-    s_face_buffer = buffer;
-    s_face_count = 0;
+    face_walk().face_buffer_ = buffer;
+    face_walk().face_count_ = 0;
     gather_faces(bsp_, box);
     std::span<const uint16_t> result;
-    if (s_face_count < 0)
+    if (face_walk().face_count_ < 0)
         result = std::span<const uint16_t>(all_faces()).first(static_cast<size_t>(tri_count_));
     else
-        result = std::span<const uint16_t>(s_face_buffer).first(static_cast<size_t>(s_face_count));
-    s_face_buffer = {};
+        result = std::span<const uint16_t>(face_walk().face_buffer_).first(static_cast<size_t>(face_walk().face_count_));
+    face_walk().face_buffer_ = {};
     return result;
 }
 
@@ -469,18 +478,18 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
         auto split = static_cast<float>(node->get_split() * static_cast<double>(kSixteenth));
         if (get_component(&box->min, axis) < split)
             gather_faces(node->less_child(), box);
-        if (!(get_component(&box->max, axis) >= split) || s_face_count < 0)
+        if (!(get_component(&box->max, axis) >= split) || face_walk().face_count_ < 0)
             return;
         node = node->greater_child();
     }
     const uint32_t n = node->leaf_face_count();
-    const auto first = static_cast<size_t>(s_face_count);
-    s_face_count += static_cast<int>(n);
-    if (std::cmp_greater(s_face_count, tri_count_)) {
-        s_face_count = -1;
+    const auto first = static_cast<size_t>(face_walk().face_count_);
+    face_walk().face_count_ += static_cast<int>(n);
+    if (std::cmp_greater(face_walk().face_count_, tri_count_)) {
+        face_walk().face_count_ = -1;
         return;
     }
-    const std::span<uint16_t> out = s_face_buffer.subspan(first, n);
+    const std::span<uint16_t> out = face_walk().face_buffer_.subspan(first, n);
     std::ranges::copy(node->leaf_face_run(), out.begin());
 }
 
@@ -489,10 +498,10 @@ bool TriMeshSource::is_point_behind_faces(const maths::Vec4* point, int unused)
 {
     if (!bsp_)
         return false;
-    s_face_count = 0;
+    face_walk().face_count_ = 0;
     if (!count_faces_behind(bsp_, point, unused))
         return false;
-    return std::cmp_equal(s_face_count, tri_count_);
+    return std::cmp_equal(face_walk().face_count_, tri_count_);
 }
 
 // 0x004161D0 (a point at or above a split ends the walk; in a leaf, the count stops at the first face the point
@@ -515,7 +524,7 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
         const double distance = (normal.z * dz + dy * normal.y) + static_cast<double>(dx) * normal.x;
         if (distance > 0.0)
             break;
-        ++s_face_count;
+        ++face_walk().face_count_;
     }
     return true;
 }

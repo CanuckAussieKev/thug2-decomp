@@ -135,7 +135,7 @@ int get_now() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 bool halted(const FootMovement* walk) { return static_cast<bool>(walk->physics_control_->flag26_); }
 
 // Nx's current collision cache (0x00691974), cleared after each state's update.
-void clear_current_cache() { render::g_current_cache = nullptr; }
+void clear_current_cache() { render::set_current_cache(nullptr); }
 
 // The ride component's moving object containing the segment from `from` to `to` (0x00427B30), or null.
 GameEntity* moving_object_around(void* ride, maths::Vec4* to, maths::Vec4* from)

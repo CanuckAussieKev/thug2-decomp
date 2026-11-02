@@ -16,11 +16,16 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "engine/render/collision_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
-// The movable objects' list (its head).
-memory::ListNode g_movables;
+CollisionState& collision_state()
+{
+    static core::NoDestroy<CollisionState> state;
+    return state.get();
+}
 
 namespace {
 
@@ -89,16 +94,16 @@ objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQ
 void register_movable(HitMesh* object)
 {
     memory::ListNode* node = memory::ListNode::create(object);
-    node->prev = g_movables.prev;
-    node->next = &g_movables;
-    g_movables.prev->next = node;
-    g_movables.prev = node;
+    node->prev = collision_state().movables_.prev;
+    node->next = &collision_state().movables_;
+    collision_state().movables_.prev->next = node;
+    collision_state().movables_.prev = node;
 }
 
 // 0x00417800 (the list's end is its head, whose data is -1)
 void unregister_movable(HitMesh* object)
 {
-    memory::ListNode* node = g_movables.next;
+    memory::ListNode* node = collision_state().movables_.next;
     if (node->data == memory::ListNode::head_marker())
         return;
     while (node) {
@@ -115,7 +120,7 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
 {
     hit->callback = callback;
     LineQuery query(line, cache);
-    hit->distance = g_want_farthest ? kFarthestStart : kNearestStart;
+    hit->distance = collision_state().want_farthest_ ? kFarthestStart : kNearestStart;
     bool any = false;
     if (query.use_cache_) {
         for (int i = 0; i < cache->statics_; ++i) {
@@ -148,9 +153,9 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
 bool collide_with_statics_farthest(const maths::Seg* line, CollisionHit* hit, CollisionHitCallback callback,
                                    HitMeshCache* cache)
 {
-    g_want_farthest = true;
+    collision_state().want_farthest_ = true;
     const bool any = collide_with_statics(line, hit, callback, cache);
-    g_want_farthest = false;
+    collision_state().want_farthest_ = false;
     return any;
 }
 
@@ -161,7 +166,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
     hit->callback = callback;
     objects::GameEntity* owner = nullptr;
     if (!hit->hit)
-        hit->distance = g_want_farthest ? kFarthestStart : kNearestStart;
+        hit->distance = collision_state().want_farthest_ ? kFarthestStart : kNearestStart;
     LineQuery query(line, cache);
     if (query.use_cache_) {
         const std::span<const HitMeshCache::TableRow> entries =
@@ -172,7 +177,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
         }
         return owner;
     }
-    for (const memory::ListNode* node = g_movables.next; node->data != memory::ListNode::head_marker() && node;
+    for (const memory::ListNode* node = collision_state().movables_.next; node->data != memory::ListNode::head_marker() && node;
          node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
         if (object && !(object->flag_bits_ & 6) && may_touch(object, &query.box))
@@ -185,9 +190,9 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
 objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, CollisionHit* hit,
                                                     CollisionHitCallback callback, HitMeshCache* cache)
 {
-    g_want_farthest = true;
+    collision_state().want_farthest_ = true;
     objects::GameEntity* owner = collide_with_movables(line, hit, callback, cache);
-    g_want_farthest = false;
+    collision_state().want_farthest_ = false;
     return owner;
 }
 
@@ -196,6 +201,6 @@ objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, Coll
 namespace render {
 
 // 0x00640880 (a static initialiser): the movables' list, an empty head.
-void construct_movables() { g_movables.make_head(); }
+void construct_movables() { collision_state().movables_.make_head(); }
 
 } // namespace render

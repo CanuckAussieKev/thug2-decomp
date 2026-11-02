@@ -18,7 +18,7 @@ namespace render {
 
 namespace {
 
-void* const kHeadData = memory::ListNode::head_marker();
+const void* const kHeadData = memory::ListNode::head_marker();
 
 // 0x00416970: the geometry's destructor.
 void free_shape_data(TriMeshSource* geometry) { geometry->destruct(); }

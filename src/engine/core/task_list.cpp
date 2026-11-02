@@ -13,7 +13,7 @@ namespace tasks {
 
 namespace {
 
-void* const kHeadData = memory::ListNode::head_marker();
+const void* const kHeadData = memory::ListNode::head_marker();
 
 // A node's links taken out of its list and pointed at itself.
 void uncouple(memory::ListNode* node)
