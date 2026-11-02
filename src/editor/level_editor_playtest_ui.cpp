@@ -1,9 +1,7 @@
 // NOT ORIGINAL - play testing's UI (ours; level_editor_playtest.h): the Trail window, the toolbar's Trail and Simulate,
 // a restart's Play from here. Only ImGui's API here.
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <vector>
 #include <utility>

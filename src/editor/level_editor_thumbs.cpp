@@ -18,7 +18,6 @@
 #include <array>
 #include <vector>
 
-#include "editor/level_editor_objects.h"
 #include "editor/level_editor_preview.h"
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ui_backend.h"

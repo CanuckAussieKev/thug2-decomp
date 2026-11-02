@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cfloat>
-#include <cstdarg>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -37,7 +36,6 @@
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_overlays.h"
-#include "editor/level_editor_picking.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_prefs.h"
 #include "editor/level_editor_triggers.h"
@@ -46,7 +44,6 @@
 #include "editor/level_editor_thumbs.h"
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_ui_backend.h"
-#include "editor/level_editor_ui_fonts.h"
 #include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ui_strip.h"
 #include "editor/level_editor_ui_theme.h"

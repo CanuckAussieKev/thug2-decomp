@@ -51,8 +51,6 @@
 #include "engine/lists/key_map.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/render/coll_obj.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"

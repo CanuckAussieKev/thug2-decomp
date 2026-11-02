@@ -18,7 +18,6 @@
 #include <span>
 #include <sstream>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -37,10 +36,8 @@
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_layout.h"
 #include "editor/level_editor_modules.h"
-#include "editor/level_editor_node_create.h"
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_nodes.h"
-#include "editor/level_editor_objects.h"
 #include "editor/level_editor_scenery.h"
 #include "editor/level_editor_shared_coll.h"
 #include "editor/level_editor_triggers.h"

@@ -20,7 +20,6 @@
 #include <string_view>
 #include <initializer_list>
 #include <set>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 #include <utility>
@@ -53,7 +52,6 @@
 #include "engine/sound/surface_kind.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

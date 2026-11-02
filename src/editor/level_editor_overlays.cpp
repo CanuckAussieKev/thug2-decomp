@@ -3,10 +3,8 @@
 
 #include "editor/level_editor_overlays.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <vector>
 #include <array>

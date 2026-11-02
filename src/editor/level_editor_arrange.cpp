@@ -18,7 +18,6 @@
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <type_traits>
 #include <vector>
 #include <utility>
 #include <array>
@@ -40,14 +39,12 @@
 #include "editor/level_editor_snap.h"
 #include "editor/level_editor_ui.h"
 #include "engine/gfx/sub_mesh.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/run_log.h"
 #include "engine/gfx/geom.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"

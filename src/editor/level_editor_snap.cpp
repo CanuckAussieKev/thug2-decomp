@@ -17,7 +17,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/geom.h"
-#include "engine/core/raw_view.h"
 #include "gpu/vertex_buffers.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"

@@ -2,9 +2,7 @@
 
 #include "editor/level_editor_ui_theme.h"
 
-#include <cstdio>
 #include <array>
-#include <iterator>
 #include <span>
 
 #include "editor/level_editor_ui_fonts.h"

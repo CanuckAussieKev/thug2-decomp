@@ -17,12 +17,10 @@
 
 #include "editor/level_editor_nodes.h"
 #include "engine/core/checksums.h"
-#include "editor/level_editor_entities.h"
 #include "editor/level_editor_node_edit.h"
 #include "editor/level_editor_objects.h"
 #include "engine/gfx/scene_lights.h"
 #include "engine/gfx/screen.h"
-#include "engine/maths/mat4.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/proximity.h"
@@ -33,7 +31,6 @@
 #include "platform/run_log.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

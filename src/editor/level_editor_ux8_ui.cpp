@@ -3,14 +3,12 @@
 #include "editor/level_editor_ux8.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdio>
 #include <string>
 #include <utility>
 #include <array>
 #include <vector>
 
-#include "editor/level_editor_actions.h"
 #include "editor/level_editor_hints.h"
 #include "editor/level_editor_nav.h"
 #include "editor/level_editor_organize.h"

@@ -2,11 +2,9 @@
 // ImGui's own API here.
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 #include <vector>
 
-#include "editor/level_editor_faces.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_triggers.h"

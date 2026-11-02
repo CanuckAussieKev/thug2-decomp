@@ -12,7 +12,6 @@
 #include <map>
 #include <memory>
 #include <span>
-#include <string>
 #include <utility>
 #include <array>
 #include <vector>
@@ -34,7 +33,6 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"

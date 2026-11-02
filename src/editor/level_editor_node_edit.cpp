@@ -21,7 +21,6 @@
 #include "engine/script/node_manager.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "platform/run_log.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/scene_lights.h"
 #include "engine/core/down_cast.h"

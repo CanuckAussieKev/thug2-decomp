@@ -36,7 +36,6 @@
 #include "engine/gfx/screen.h"
 #include "engine/gfx/viewport.h"
 #include "engine/maths/mat4.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"

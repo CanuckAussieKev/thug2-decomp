@@ -24,7 +24,6 @@
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_ui.h"
-#include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

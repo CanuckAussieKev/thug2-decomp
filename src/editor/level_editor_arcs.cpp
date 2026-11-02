@@ -28,7 +28,6 @@
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

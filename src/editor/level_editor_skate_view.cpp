@@ -27,7 +27,6 @@
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 

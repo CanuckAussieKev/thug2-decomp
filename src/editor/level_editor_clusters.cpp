@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <functional>
 #include <map>
 #include <memory>
@@ -30,7 +28,6 @@
 #include "engine/sys/game_config.h"
 #include "platform/run_log.h"
 #include "imgui.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"

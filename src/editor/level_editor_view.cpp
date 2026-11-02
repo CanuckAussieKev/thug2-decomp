@@ -30,7 +30,6 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

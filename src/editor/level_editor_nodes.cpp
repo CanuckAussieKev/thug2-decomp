@@ -20,7 +20,6 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scenery.h"
 #include "engine/maths/mat4.h"
-#include "engine/script/names.h"
 #include "engine/script/node_manager.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"

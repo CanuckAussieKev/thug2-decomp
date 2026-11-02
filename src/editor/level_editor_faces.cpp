@@ -32,7 +32,6 @@
 #include "imgui.h"
 #include "engine/gfx/sector.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"

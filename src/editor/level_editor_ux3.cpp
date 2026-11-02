@@ -5,7 +5,6 @@
 
 #include <SDL2/SDL.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -25,7 +24,6 @@
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_ui.h"
-#include "platform/run_log.h"
 #include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ux3 {

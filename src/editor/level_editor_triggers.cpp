@@ -36,7 +36,6 @@
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scenery.h"
-#include "editor/level_editor_view.h"
 #include "editor/level_editor_walls.h"
 #include "engine/gfx/sector.h"
 #include "engine/maths/mat4.h"
@@ -59,7 +58,6 @@
 #include <array>
 #include "engine/core/ints.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"

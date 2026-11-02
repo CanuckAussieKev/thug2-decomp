@@ -12,9 +12,6 @@
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_transform.h"
-#include "editor/level_editor_ui.h"
-#include "platform/run_log.h"
-
 namespace frontend::level_editor::adjust {
 
 namespace {

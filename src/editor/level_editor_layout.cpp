@@ -18,7 +18,6 @@
 #include <span>
 #include <sstream>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 #include <array>
@@ -58,8 +57,6 @@
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
 #include "engine/util/unique_handle.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

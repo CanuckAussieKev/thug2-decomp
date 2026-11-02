@@ -19,7 +19,6 @@
 #include <span>
 #include <sstream>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -53,7 +52,6 @@
 #include "platform/sdl_events.h"
 #include "platform/run_log.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

@@ -2,7 +2,6 @@
 // level_editor_adjust.h). Dear ImGui only (the renderer-independence rules: level_editor_ui_backend.h); what the
 // buttons ask for is queued and done in the editor's next Update (Arrange::tick_frame runs the queue).
 
-#include <cstdio>
 #include <functional>
 #include <string>
 #include <utility>
@@ -12,8 +11,6 @@
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
 #include "editor/level_editor_links.h"
-#include "editor/level_editor_modules.h"
-#include "editor/level_editor_transform.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

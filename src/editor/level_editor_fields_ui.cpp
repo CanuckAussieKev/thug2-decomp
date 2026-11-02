@@ -6,7 +6,6 @@
 #include <array>
 #include <cfloat>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <string>
 #include <unordered_map>

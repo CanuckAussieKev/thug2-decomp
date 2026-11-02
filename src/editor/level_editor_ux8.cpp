@@ -23,7 +23,6 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_nav.h"
 #include "editor/level_editor_organize.h"
-#include "editor/level_editor_overlays.h"
 #include "editor/level_editor_playtest.h"
 #include "editor/level_editor_transform.h"
 #include "editor/level_editor_ui.h"

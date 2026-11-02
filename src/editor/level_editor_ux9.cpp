@@ -7,8 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <functional>
 #include <string>
 #include <vector>
@@ -26,7 +24,6 @@
 #include "editor/level_editor_skate_view.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
-#include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"

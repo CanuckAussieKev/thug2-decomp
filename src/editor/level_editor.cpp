@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdarg>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -17,7 +16,6 @@
 #include <memory>
 #include <span>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <vector>
 #include <utility>
@@ -26,7 +24,6 @@
 #include "editor/level_editor_fields.h"
 #include "editor/level_editor_level_props.h"
 #include "editor/level_editor_nav.h"
-#include "engine/core/checksums.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
@@ -82,7 +79,6 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/screen.h"
 #include "engine/render/probe_ray.h"
-#include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"

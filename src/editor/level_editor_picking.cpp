@@ -1,6 +1,5 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor.h"
-#include "engine/core/raw_view.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 

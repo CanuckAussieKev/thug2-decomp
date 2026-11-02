@@ -12,7 +12,6 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::career {
