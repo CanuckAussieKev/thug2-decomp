@@ -25,7 +25,7 @@ namespace render {
 
 namespace {
 
-ShadowVolume** shadow_volumes() { return g_shadow_volumes.data(); }
+std::array<ShadowVolume*, 16>& shadow_volumes() { return g_shadow_volumes; }
 lists::ObjectSet<ShadowEdges>& edge_table() { return g_shadow_edge_table; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
@@ -230,8 +230,8 @@ void ShadowVolume::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matri
 void remove_shadow_volume(ShadowVolume* volume)
 {
     for (int i = 0; i < 16; ++i) {
-        if (shadow_volumes()[i] == volume) {
-            shadow_volumes()[i] = nullptr;
+        if (core::at(shadow_volumes(), i) == volume) {
+            core::at(shadow_volumes(), i) = nullptr;
             return;
         }
     }

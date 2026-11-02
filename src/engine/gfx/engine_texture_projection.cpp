@@ -48,8 +48,8 @@ std::array<void*, 128> g_projected_sectors;
 std::array<void*, 128> g_projected_collision;
 
 // The sectors and collision objects a projection reaches (0x00700F40 / 0x00701140, null-terminated).
-void** projected_sectors() { return g_projected_sectors.data(); }
-void** projected_collision() { return g_projected_collision.data(); }
+std::array<void*, 128>& projected_sectors() { return g_projected_sectors; }
+std::array<void*, 128>& projected_collision() { return g_projected_collision; }
 
 } // namespace
 
@@ -212,15 +212,15 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
                 reach.min.z > bounds->max.z || bounds->min.y > reach.max.y || reach.min.y > bounds->max.y)
                 continue;
             void* sector = find_sector((*found)->checksum_);
-            projected_collision()[count] = *found;
-            projected_sectors()[count] = sector;
+            core::at(projected_collision(), count) = *found;
+            core::at(projected_sectors(), count) = sector;
             ++count;
         }
     }
     if (count > 0) {
-        projected_sectors()[count] = nullptr;
-        projected_collision()[count] = nullptr;
-        plat_project(projected_sectors(), projected_collision());
+        core::at(projected_sectors(), count) = nullptr;
+        core::at(projected_collision(), count) = nullptr;
+        plat_project(projected_sectors().data(), projected_collision().data());
     }
 }
 

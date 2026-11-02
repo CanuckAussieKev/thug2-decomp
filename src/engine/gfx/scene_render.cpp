@@ -31,7 +31,7 @@ float sphere_depth() { return g_last_sphere_distance; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
-MeshRef** get_drawn() { return g_drawn_meshes.data(); }
+std::array<MeshRef*, 4096>& get_drawn() { return g_drawn_meshes; }
 struct DepthOrderedMesh {
     MeshRef* mesh;
     float depth;
@@ -93,7 +93,7 @@ struct Lap {
     }
     void remember(MeshRef* mesh)
     {
-        get_drawn()[drawn] = mesh;
+        core::at(get_drawn(), drawn) = mesh;
         if (drawn < 0xFFF)
             ++drawn;
     }
@@ -150,7 +150,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         if (flags & kRenderNearFirst) {
             const int count = pass.drawn;
             for (int j = 0; j < count; ++j) {
-                MeshRef* mesh = get_drawn()[j];
+                MeshRef* mesh = core::at(get_drawn(), j);
                 if (mesh->depth > kNear)
                     pass.blit(mesh);
             }
@@ -164,7 +164,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-            draw_shadows(scene, get_drawn(), pass.drawn);
+            draw_shadows(scene, get_drawn().data(), pass.drawn);
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             if (!get_z_write()) {
@@ -216,7 +216,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         }
     }
     if (scene->flags & 0x100)
-        draw_shadows(scene, get_drawn(), pass.drawn);
+        draw_shadows(scene, get_drawn().data(), pass.drawn);
     if (flags & kRenderStats)
         count_pass(2);
 }

@@ -30,7 +30,7 @@ constexpr float kFarthestStart = -0.01f;
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).
 CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
-WorldScene* const* grid_scenes() { return render::engine::get_collision_scenes(); }
+const std::array<WorldScene*, 16>& grid_scenes() { return render::engine::get_collision_scenes(); }
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
 // and the line's direction.
@@ -128,15 +128,16 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
     CollGrid** grids = grids_along(line);
     if (!grids)
         return false;
-    WorldScene* const* scenes = grid_scenes();
+    const auto& scenes = grid_scenes();
+    size_t scene = 0; // (the scene of the grid walked)
     hit->scene = nullptr;
-    for (; *grids; ++grids, ++scenes) {
+    for (; *grids; ++grids, ++scene) {
         int count = 0;
         for (HitMesh* const* objects = (*grids)->objects_along_line(line, &count); *objects; ++objects) {
             if (may_touch(*objects, &query.box) &&
                 collide_with_line(*objects, line, &query.direction, hit, &query.box)) {
                 any = true;
-                hit->scene = *scenes;
+                hit->scene = core::at(scenes, scene);
             }
         }
     }

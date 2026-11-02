@@ -43,7 +43,7 @@ uint32_t g_loader_module_refs;
 bool g_use_overlapped_io;
 
 // Shared with the platform I/O thread: plain (volatile) accesses, as in the original.
-AsyncFileHandle** slab_bank() { return g_pool.data(); }
+std::array<AsyncFileHandle*, kMaxHandles>& slab_bank() { return g_pool; }
 int& handles_in_use() { return g_handles_in_use; }
 volatile int& pending_io_counter() { return g_pending_reads; }
 volatile bool& io_completed() { return g_io_completed; }
@@ -226,11 +226,11 @@ bool async_busy() { return pending_io_counter() > 0; }
 bool async_free_handle(AsyncFileHandle* file)
 {
     for (int i = 0; i < kMaxHandles; ++i) {
-        if (slab_bank()[i] == file) {
+        if (core::at(slab_bank(), i) == file) {
             // Swap it with the last handle in use.
             const int last = --handles_in_use();
-            slab_bank()[i] = slab_bank()[last];
-            slab_bank()[last] = file;
+            core::at(slab_bank(), i) = core::at(slab_bank(), last);
+            core::at(slab_bank(), last) = file;
             return true;
         }
     }
@@ -284,7 +284,7 @@ void async_wait_for_io(bool all)
         if (!all)
             return;
         int busy = 0;
-        while (busy < kMaxHandles && slab_bank()[busy]->in_flight_ops_ <= 0)
+        while (busy < kMaxHandles && core::at(slab_bank(), busy)->in_flight_ops_ <= 0)
             ++busy;
         if (busy == kMaxHandles)
             return;
@@ -299,26 +299,26 @@ AsyncFileHandle* async_get_handle()
     if (first_free >= kMaxHandles)
         return nullptr;
     // The next handle may still be finishing an operation: use a later idle one instead, or wait.
-    if (slab_bank()[first_free]->in_flight_ops_ > 0) {
+    if (core::at(slab_bank(), first_free)->in_flight_ops_ > 0) {
         int idle = first_free + 1;
-        while (idle < kMaxHandles && slab_bank()[idle]->in_flight_ops_ > 0)
+        while (idle < kMaxHandles && core::at(slab_bank(), idle)->in_flight_ops_ > 0)
             ++idle;
         if (idle < kMaxHandles) {
-            AsyncFileHandle* swap = slab_bank()[idle];
-            slab_bank()[idle] = slab_bank()[first_free];
-            slab_bank()[first_free] = swap;
+            AsyncFileHandle* swap = core::at(slab_bank(), idle);
+            core::at(slab_bank(), idle) = core::at(slab_bank(), first_free);
+            core::at(slab_bank(), first_free) = swap;
         } else {
-            const AsyncFileHandle* busy = slab_bank()[first_free];
+            const AsyncFileHandle* busy = core::at(slab_bank(), first_free);
             do {
                 async_execute_callbacks();
                 first_free = handles_in_use();
             } while (busy->in_flight_ops_ > 0);
         }
     }
-    AsyncFileHandle* file = slab_bank()[first_free];
+    AsyncFileHandle* file = core::at(slab_bank(), first_free);
     reset_fields(file);
     file->os_open_setup();
-    return slab_bank()[handles_in_use()++];
+    return core::at(slab_bank(), handles_in_use()++);
 }
 
 // 0x005B6C60
@@ -567,7 +567,7 @@ DWORD WINAPI async_io_thread(void*)
     for (;;) {
         Sleep(66);
         for (int i = 0; i < kMaxHandles; ++i) {
-            AsyncFileHandle* file = slab_bank()[i];
+            AsyncFileHandle* file = core::at(slab_bank(), i);
             if (file && file->is_occupied())
                 file->os_read_finished();
         }
@@ -578,12 +578,12 @@ DWORD WINAPI async_io_thread(void*)
 void platform_init()
 {
     for (int i = 0; i < kMaxHandles; ++i) {
-        if (slab_bank()[i]) {
-            slab_bank()[i]->prepare_all();
+        if (core::at(slab_bank(), i)) {
+            core::at(slab_bank(), i)->prepare_all();
             continue;
         }
         auto handle = memory::make_owned<PcAsyncFileHandle>(); // (the pool's, for the game's life)
-        slab_bank()[i] = handle;
+        core::at(slab_bank(), i) = handle;
     }
     CreateThread(nullptr, 0x4000, async_io_thread, nullptr, 0, nullptr);
 
@@ -622,7 +622,7 @@ void register_logic_task(tasks::SchedulerTask* task)
 void async_poll_handles()
 {
     for (int i = 0; i < kMaxHandles; ++i) {
-        AsyncFileHandle* file = slab_bank()[i];
+        AsyncFileHandle* file = core::at(slab_bank(), i);
         if (file && file->is_occupied())
             file->os_read_finished();
     }

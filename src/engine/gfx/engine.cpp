@@ -154,7 +154,7 @@ void render_frame()
 void change_entity_hub(void* manager) { g_scene_objects = manager; }
 
 // 0x0048C0B0
-WorldScene** get_collision_scenes() { return g_collision_scenes.data(); }
+std::array<WorldScene*, 16>& get_collision_scenes() { return g_collision_scenes; }
 
 // 0x0048C0D0
 void toggle_render_mode()

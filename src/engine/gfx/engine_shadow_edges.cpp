@@ -24,15 +24,15 @@ lists::ObjectSet<ShadowEdges> g_shadow_edge_table;
 namespace {
 
 
-ShadowVolume** shadow_volumes() { return g_shadow_volumes.data(); }
+std::array<ShadowVolume*, 16>& shadow_volumes() { return g_shadow_volumes; }
 lists::ObjectSet<ShadowEdges>& edge_table() { return g_shadow_edge_table; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void add_shadow_volume(ShadowVolume* volume)
 {
     for (int i = 0; i < 16; ++i) {
-        if (!shadow_volumes()[i]) {
-            shadow_volumes()[i] = volume;
+        if (!core::at(shadow_volumes(), i)) {
+            core::at(shadow_volumes(), i) = volume;
             return;
         }
     }

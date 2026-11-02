@@ -43,7 +43,7 @@ void render_frame();
 // 0x0048C0A0: the object manager the engine's code uses (0x006FA720).
 void change_entity_hub(void* manager);
 // 0x0048C0B0: the scenes the last collision query's grids belong to (0x006FA738).
-WorldScene** get_collision_scenes();
+std::array<WorldScene*, 16>& get_collision_scenes();
 // 0x0048C0D0: the next render mode (0x006FA734: 0-3 in turn).
 void toggle_render_mode();
 // 0x0048C0F0: the metrics display (0x006FA7D6) switched on / off.

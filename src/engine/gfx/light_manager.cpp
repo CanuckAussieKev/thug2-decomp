@@ -49,7 +49,7 @@ float& ambient_intensity() { return g_ambient_intensity; }
 float min_intensity() { return g_min_intensity; }
 float*& get_intensities() { return g_intensities; }
 
-DynamicLightBase** dynamic_lights() { return g_dynamic_lights.data(); }
+std::array<DynamicLightBase*, 256>& dynamic_lights() { return g_dynamic_lights; }
 int& dynamic_light_count() { return g_dynamic_light_count; }
 // get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
 std::array<float, 31>& near_falloffs() { return g_near_light_falloffs; }
@@ -250,9 +250,9 @@ bool set_world_brightness(float target)
 void delete_dynamic_lights()
 {
     for (int i = 0; i < dynamic_light_count(); ++i) {
-        if (dynamic_lights()[i]) {
-            memory::Hub::get_pull()->dealloc(dynamic_lights()[i]);
-            dynamic_lights()[i] = nullptr;
+        if (core::at(dynamic_lights(), i)) {
+            memory::Hub::get_pull()->dealloc(core::at(dynamic_lights(), i));
+            core::at(dynamic_lights(), i) = nullptr;
         }
     }
     dynamic_light_count() = 0;
@@ -262,9 +262,9 @@ void delete_dynamic_lights()
 DynamicLightBase** find_dynamic_light(uint32_t owner)
 {
     for (int i = 0; i < dynamic_light_count(); ++i) {
-        const DynamicLightBase* light = dynamic_lights()[i];
+        const DynamicLightBase* light = core::at(dynamic_lights(), i);
         if (light && light->owner == owner)
-            return &dynamic_lights()[i];
+            return &core::at(dynamic_lights(), i);
     }
     return nullptr;
 }
@@ -276,7 +276,7 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
     int* indexes = near_indexes().data();
     uint32_t count = 0;
     for (int i = 0; i < dynamic_light_count(); ++i) {
-        DynamicLightBase* light = dynamic_lights()[i]; // (not checked for null, as the original)
+        DynamicLightBase* light = core::at(dynamic_lights(), i); // (not checked for null, as the original)
         if (!(light->intensity > 0.0f) || !light->owner)
             continue;
         const double dx = static_cast<double>(position->x) - core::at(light->pos, 0);
@@ -351,19 +351,19 @@ DynamicLightBase* new_dynamic_light(int type)
 {
     const int count = dynamic_light_count();
     for (int i = 0; i < count; ++i) {
-        const DynamicLightBase* light = dynamic_lights()[i];
+        const DynamicLightBase* light = core::at(dynamic_lights(), i);
         if (!light) {
-            dynamic_lights()[i] = create_dynamic_light(type);
-            return dynamic_lights()[i];
+            core::at(dynamic_lights(), i) = create_dynamic_light(type);
+            return core::at(dynamic_lights(), i);
         }
         if (!light->owner)
-            return dynamic_lights()[i];
+            return core::at(dynamic_lights(), i);
     }
-    if (count >= kMaxDynamicLights || dynamic_lights()[count])
+    if (count >= kMaxDynamicLights || core::at(dynamic_lights(), count))
         return nullptr;
     dynamic_light_count() = count + 1;
-    dynamic_lights()[count] = create_dynamic_light(type);
-    return dynamic_lights()[count];
+    core::at(dynamic_lights(), count) = create_dynamic_light(type);
+    return core::at(dynamic_lights(), count);
 }
 
 // 0x0048E8C0

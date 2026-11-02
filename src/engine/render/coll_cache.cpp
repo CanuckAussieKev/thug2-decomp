@@ -19,7 +19,7 @@ namespace {
 
 std::array<HitMeshCache*, 8> g_caches;
 
-HitMeshCache** caches() { return g_caches.data(); }
+std::array<HitMeshCache*, 8>& caches() { return g_caches; }
 
 uint32_t g_caches_in_use;
 
@@ -124,7 +124,7 @@ void register_coll_cache(HitMeshCache* cache)
 {
     for (int i = 0; i < 8; ++i) {
         if (!(caches_in_use() & (1u << i))) {
-            caches()[i] = cache;
+            core::at(caches(), i) = cache;
             caches_in_use() |= 1u << i;
             return;
         }
@@ -135,7 +135,7 @@ void register_coll_cache(HitMeshCache* cache)
 void unregister_coll_cache(HitMeshCache* cache)
 {
     for (int i = 0; i < 8; ++i) {
-        if ((caches_in_use() & (1u << i)) && caches()[i] == cache) {
+        if ((caches_in_use() & (1u << i)) && core::at(caches(), i) == cache) {
             caches_in_use() &= ~(1u << i);
             return;
         }
@@ -147,7 +147,7 @@ void remove_movable_from_caches(HitMesh* object)
 {
     for (int i = 0; i < 8; ++i) {
         if (caches_in_use() & (1u << i))
-            caches()[i]->remove_movable(object);
+            core::at(caches(), i)->remove_movable(object);
     }
 }
 
@@ -156,8 +156,8 @@ void remove_from_caches(HitMesh* object)
 {
     for (int i = 0; i < 8; ++i) {
         if (caches_in_use() & (1u << i)) {
-            caches()[i]->remove_static(object);
-            caches()[i]->remove_movable(object);
+            core::at(caches(), i)->remove_static(object);
+            core::at(caches(), i)->remove_movable(object);
         }
     }
 }

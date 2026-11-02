@@ -49,7 +49,7 @@ Singleton* g_instances;
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 Singleton*& instances() { return g_instances; }
 std::array<Singleton*, 4096> g_visible_instances; // draw_instance_batch' list
-Singleton** get_visible() { return g_visible_instances.data(); }
+std::array<Singleton*, 4096>& get_visible() { return g_visible_instances; }
 const maths::Mat4* last_bones() { return g_last_bones; }
 void set_last_bones(const maths::Mat4* bones) { g_last_bones = bones; }
 const D3DMATRIX* get_view_world()
@@ -286,10 +286,10 @@ void draw_instance_batch(uint32_t flags, int viewport)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
             const maths::Vec4 sphere = sphere_of(instance->scene->centre, instance->scene->radius);
             if (!sphere_occluded(&sphere, radius, 1))
-                get_visible()[count++] = instance;
+                core::at(get_visible(), count++) = instance;
         }
         if (count > 0) {
-            crt::get_qsort(static_cast<void*>(get_visible()), static_cast<uint32_t>(count), 4,
+            crt::get_qsort(static_cast<void*>(get_visible().data()), static_cast<uint32_t>(count), 4,
                            compare_instances); // (the C runtime's qsort)
             change_phase(kStateLighting, 1);
             input_port()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
@@ -298,7 +298,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
             set_flag_786e_b4();
             int i = 0;
             for (; i < count; ++i) {
-                Singleton* instance = get_visible()[i];
+                Singleton* instance = core::at(get_visible(), i);
                 if (!skinned_by_shader(instance))
                     break;
                 if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x80)))
@@ -309,7 +309,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
             const double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
             auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
-                Singleton* instance = get_visible()[i];
+                Singleton* instance = core::at(get_visible(), i);
                 const auto* position = (get_position(instance))->data();
                 const double dx = static_cast<double>(position[0]) - core::at(camera, 0);
                 const double dy = static_cast<double>(position[1]) - core::at(camera, 1);

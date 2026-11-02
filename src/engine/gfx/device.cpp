@@ -205,8 +205,8 @@ void init_direct_3d()
 namespace {
 
 // The default-pool objects (released before a device reset, made again after).
-IDirect3DTexture9** screen_textures() { return g_screen_textures.data(); } // [9]
-IDirect3DSurface9** screen_surfaces() { return g_screen_surfaces.data(); } // [9], their level 0
+std::array<IDirect3DTexture9*, 9>& screen_textures() { return g_screen_textures; } // [9]
+std::array<IDirect3DSurface9*, 9>& screen_surfaces() { return g_screen_surfaces; } // [9], their level 0
 IDirect3DSurface9*& z_buffer_surface() { return g_z_buffer_surface; }
 IDirect3DSurface9*& back_buffer() { return g_back_buffer; }
 IDirect3DSurface9*& back_depth() { return g_back_depth; }
@@ -278,9 +278,9 @@ void release_render_targets()
     back_buffer() = nullptr;
     back_depth() = nullptr;
     for (int i = 0; i < 9; ++i) {
-        screen_surfaces()[i]->Release(); // (the surface pointers are left as they were)
-        screen_textures()[i]->Release();
-        screen_textures()[i] = nullptr;
+        core::at(screen_surfaces(), i)->Release(); // (the surface pointers are left as they were)
+        core::at(screen_textures(), i)->Release();
+        core::at(screen_textures(), i) = nullptr;
     }
     z_buffer_surface()->Release();
     z_buffer_surface() = nullptr;
@@ -304,9 +304,9 @@ void create_render_targets()
     const D3DPRESENT_PARAMETERS& pp = present_parameters();
     for (int i = 0; i < 9; ++i) {
         input_port()->CreateTexture(pp.BackBufferWidth / core::at(kDivisors, i), pp.BackBufferHeight / core::at(kDivisors, i), 1,
-                                    D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &screen_textures()[i],
+                                    D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &core::at(screen_textures(), i),
                                     nullptr);
-        screen_textures()[i]->GetSurfaceLevel(0, &screen_surfaces()[i]);
+        core::at(screen_textures(), i)->GetSurfaceLevel(0, &core::at(screen_surfaces(), i));
     }
     input_port()->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
                                             D3DMULTISAMPLE_NONE, 0, TRUE, &z_buffer_surface(), nullptr);
@@ -338,9 +338,9 @@ void create_render_targets()
     g_back_buffer_height = static_cast<int>(pp.BackBufferHeight);
     g_back_buffer_format = pp.BackBufferFormat;
     g_depth_bits = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
-    if (screen_surfaces()[0]) {
+    if (core::at(screen_surfaces(), 0)) {
         D3DSURFACE_DESC desc;
-        screen_surfaces()[0]->GetDesc(&desc);
+        core::at(screen_surfaces(), 0)->GetDesc(&desc);
         g_screen_surface_format = desc.Format;
     }
     apply_render_state();

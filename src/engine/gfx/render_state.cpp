@@ -101,7 +101,7 @@ uint32_t& cull_mode() { return g_cull_mode; }
 std::array<uint32_t, 4>& address_modes() { return g_address_modes; }   // [4]: U low 16 bits, V high
 std::array<uint32_t, 4>& mip_lod_biases() { return g_mip_lod_biases; } // [4]: float bits
 std::array<uint32_t, 4>& filters() { return g_filters; }               // [4]: min low 16 bits, mag high
-void** get_textures() { return g_textures.data(); }            // [4]
+std::array<void*, 4>& get_textures() { return g_textures; }            // [4]
 uint32_t& vertex_format() { return g_vertex_format; }
 const void*& pixel_shader_locked() { return g_pixel_shader_locked; }
 void*& current_pixel_shader() { return g_current_pixel_shader; }
@@ -320,9 +320,9 @@ void set_vertex_format(uint32_t fvf)
 // 0x004DA730
 void set_texture(int stage, void* texture)
 {
-    if (get_textures()[stage] != texture) {
+    if (core::at(get_textures(), stage) != texture) {
         input_port()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
-        get_textures()[stage] = texture;
+        core::at(get_textures(), stage) = texture;
     }
 }
 
@@ -610,7 +610,7 @@ void reset_render_state()
     for (int i = 0; i < 4; ++i) {
         core::at(address_modes(), i) = 0;
         core::at(mip_lod_biases(), i) = 0;
-        get_textures()[i] = nullptr;
+        core::at(get_textures(), i) = nullptr;
         core::at(filters(), i) = 0x10000;
         core::at(g_border_colours, i) = 0;
     }
@@ -675,7 +675,7 @@ void apply_render_state()
     for (int sampler = 0; sampler < 4; ++sampler) {
         core::at(address_modes(), sampler) = 0;
         core::at(mip_lod_biases(), sampler) = 0;
-        get_textures()[sampler] = nullptr;
+        core::at(get_textures(), sampler) = nullptr;
         core::at(filters(), sampler) = 0x10000;
         core::at(g_border_colours, sampler) = 0;
         input_port()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
