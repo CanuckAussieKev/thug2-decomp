@@ -532,24 +532,25 @@ bool respect_locks() { return GetPrivateProfileIntA("frontend", "respect_locks",
 // Whether a level is unlocked, as the game's level select decides it outside a career (level_select_menu_add_item,
 // gamemenu_levelselect.qb): every level when all_levels_unlocked is 1 (the cheat); else its seen_flag when it has one
 // (level_select_should_use_seen_flags - free skate and single session use the seen flags), else its flag; no flag:
-// open. Every level when respect_locks is off.
-bool get_unlocked(const StageMap& level)
+// open. Every level when respect_locks is off - except for a network game (`game_rules`): its level select keeps the
+// game's rules always, as the game's own does.
+bool get_unlocked(const StageMap& level, bool game_rules)
 {
-    if (!respect_locks() || script_integer("all_levels_unlocked") == 1)
+    if ((!game_rules && !respect_locks()) || script_integer("all_levels_unlocked") == 1)
         return true;
     const int flag = script_integer(level.seen_flag_.empty() ? level.flag : level.seen_flag_);
     objects::RiderStoryProgress* career = get_career();
     return flag < 0 || !career || career->get_global_flag(flag);
 }
 
-std::vector<SectionView> get_views()
+std::vector<SectionView> get_views(bool game_rules = false)
 {
     std::vector<SectionView> views;
     for (const Section& section : s_catalogue.sections) {
         SectionView view;
         for (size_t i = 0; i < section.levels.size(); ++i) {
             const StageMap& level = core::at(section.levels, i);
-            const bool unlocked = get_unlocked(level);
+            const bool unlocked = get_unlocked(level, game_rules);
             // (the game's select drops hide_when_locked outside a career when it uses the seen flags: listed, locked)
             if (!unlocked && level.hide_when_locked_ && level.seen_flag_.empty())
                 continue;
@@ -694,7 +695,7 @@ void apply_option(int option, int choice)
         else if (std::strcmp(spec.key, "level_editor") == 0)
             level_editor::is_switched_on() = on;
         else if (std::strcmp(spec.key, "respect_locks") == 0)
-            menu_state().set_views(get_views());
+            menu_state().set_views(get_views(menu_state().levels_purpose() == LevelsFor::kNet));
     } else if (std::cmp_less(option, s_restart_pending.size())) {
         core::at(s_restart_pending, option) = core::at(s_start_values, option) != value;
     }
@@ -1300,6 +1301,31 @@ bool dialog_up()
     return in_dialog;
 }
 
+// --- a network game's level select ---
+// The game's own level select made for a network game (gamemenu_levelselect.qb's create_level_select_menu): from the
+// host options' Level item in the front end (create_network_host_options_menu sets in_server_options to 1; a choice
+// is level_select_menu_exit, which sets the network preference "level" - select_host_option - and makes the host
+// options again; Back is network_level_select_pad_back), or from a network lobby's CHANGE LEVEL (the host's pause menu,
+// in_server_options 0: a choice is level_select_change_level - in a network game ChangeLevel for everyone, with
+// show_warning; Back is level_select_menu_exit, the pause menu again). Its levels are the same lists as free skate's
+// (level_select_get_section_list: only the edited levels' section left out - never in our data), its locks the
+// seen flags (level_select_should_use_seen_flags: not a career). Ours takes it while it is up with nothing over it:
+// level_select_anchor and its level_menu there, neither the created park's menu nor the pre-made parks' list (the
+// game's own, for CREATED PARK), no dialog. The original select stays under ours, hidden, until its own scripts take
+// it down.
+bool net_level_select_up()
+{
+    if (!s_catalogue_ok || s_catalogue.sections.empty() || !current_load_state() || loading_screen_up())
+        return false;
+    if (!game_screens::get_find(name_hash("level_select_anchor")) || !game_screens::get_find(name_hash("level_menu")))
+        return false;
+    if (game_screens::get_find(name_hash("created_park_menu")) || game_screens::get_find(name_hash("premade_park_menu")))
+        return false;
+    if (script_integer("in_server_options") != 1 && !game_screens::net_session())
+        return false;
+    return !dialog_up();
+}
+
 mirror::Policy mirror_policy()
 {
     mirror::Policy policy;
@@ -1327,6 +1353,9 @@ mirror::View mirror_now()
     // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
     if (!current_load_state() || loading_screen_up() || (game_screens::net_session() && !policy.online) ||
         level_editor::live_now())
+        return {};
+    // (a network game's level select: ours, never restyled as a list)
+    if (net_level_select_up())
         return {};
     bool in_dialog = false;
     UiWidget* menu = active_menu(&in_dialog);
@@ -1564,6 +1593,64 @@ void start_cover(Cover::Over over, const char* why)
     hide_root(true);
 }
 
+// Each frame (tick_frame and before_screen_layout): the game's level select made for a network game asks for ours -
+// once each time it comes up (again after the created park's menu over it went); hidden from that frame on.
+void watch_net_level_select()
+{
+    static bool s_was_up = false;
+    const bool up = net_level_select_up();
+    const bool came_up = up && !s_was_up;
+    s_was_up = up;
+    if (!up && s_open_screen == Screen::kLevels && s_open_levels == LevelsFor::kNet) {
+        s_open_screen = Screen::kMain; // (it went before ours could come up)
+        s_open_back = 0;
+    }
+    if (!came_up || s_state == State::kShown || s_state == State::kLaunching || s_open_screen != Screen::kMain)
+        return;
+    const bool server_options = script_integer("in_server_options") == 1;
+    s_open_screen = Screen::kLevels;
+    s_open_levels = LevelsFor::kNet;
+    s_open_back = name_hash(server_options ? "network_level_select_pad_back" : "level_select_menu_exit");
+    get_log("new front end: the game's level select for a network game (%s) - ours over it",
+            server_options ? "the host options" : "a network game's change of level");
+    hide_root(true);
+}
+
+// A level chosen on ours over a network game's level select: what that select's item does with it
+// (level_select_valid_choice's level_callback_script, given the item's level_info - its level and text). CREATED
+// PARK opens the game's own created park menu over the select (Play Park / Load Park / Pre-Made Parks, the player
+// count checked there), ours back once it goes.
+void choose_net_level(const std::string& load)
+{
+    int section = -1, index = -1;
+    const StageMap* level = s_catalogue.get_find(load, &section, &index)
+                                ? &core::at(core::at(s_catalogue.sections, section).levels, index)
+                                : nullptr;
+    change_phase(State::kAway);
+    s_shown_back = 0;
+    if (!level || !net_level_select_up()) {
+        get_log("new front end: %s - the game's level select for it is gone; nothing chosen", load.c_str());
+        return;
+    }
+    if (_stricmp(level->level_num_name_.c_str(), "LevelNum_Sk5ed") == 0) {
+        get_log("new front end: the network game's level - the created park: the game's own menu for it");
+        start_cover(Cover::Over::kOurs, "the created park's menu");
+        script::spawn_script(name_hash("level_select_created_park_menu"), nullptr, 0, nullptr, 0, 0, false, false,
+                             false, false);
+        return;
+    }
+    const bool server_options = script_integer("in_server_options") == 1;
+    const char* script = server_options ? "level_select_menu_exit" : "level_select_change_level";
+    get_log("new front end: the network game's level - %s (%s)", load.c_str(), script);
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->put_name_key(name_hash("level"), name_hash(load.c_str()));
+    params->append_word(name_hash("text"), level->name.c_str());
+    script::spawn_script(name_hash(script), params, 0, nullptr, 0, 0, false, false, false, false);
+    params->get_clear();
+    script::delete_struct(params);
+    start_cover(Cover::Over::kOurs, "a level chosen for the network game");
+}
+
 // Once a frame while ours isn't drawn (before_screen_layout): the restyled screen up or down, the original's elements
 // hidden under it.
 void update_mirror(float dt, bool allowed)
@@ -1648,7 +1735,7 @@ void get_show(Anchor anchor)
         get_log("new front end: the restyled screen gone (ours up)");
     s_mirror.get_reset();
     s_mirror_hits.clear();
-    menu_state().get_reset(&s_catalogue, get_views(), s_saved.last_level_, stack, levels);
+    menu_state().get_reset(&s_catalogue, get_views(levels == LevelsFor::kNet), s_saved.last_level_, stack, levels);
     load_option_values();
     s_skater_name = root == Screen::kFreeze ? std::string() : get_skater_name();
     s_hits.clear();
@@ -1689,6 +1776,10 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
         return;
     case ActionKind::kSkate: {
         std::string why;
+        if (action.levels == LevelsFor::kNet) {
+            choose_net_level(action.load);
+            return;
+        }
         if (action.levels == LevelsFor::kFreeze) {
             // (the pause menu's change of level, as its level select does it)
             get_log("new front end: change level to %s", action.load.c_str());
@@ -2154,6 +2245,7 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     }
 
+    watch_net_level_select();
     Anchor anchor = game_screens::at_hand(front_end);
     // The menu the pad reaches now: a dialog box over an anchor, or another menu over the pause menu (a sub-screen that
     // keeps pause_vmenu - VIEW GOALS, the level select...), and ours isn't over it (the dialog / screen is restyled, or
@@ -2210,6 +2302,8 @@ void tick_frame(modules::FrontEnd* front_end)
         // gave for Back when its menu went - the skate shop's)
         get_log("new front end: back from our screen%s", s_shown_back ? " - its back script" : "");
         change_phase(State::kAway);
+        if (menu_state().levels_purpose() == LevelsFor::kNet) // (the game's select under ours until its script goes)
+            start_cover(Cover::Over::kOurs, "back from a network game's level select");
         if (s_shown_back)
             script::spawn_script(s_shown_back, nullptr, 0, nullptr, 0, 0, false, false, false, false);
         s_shown_back = 0;
@@ -2283,6 +2377,7 @@ void before_screen_layout()
     s_front_end_was = front_end;
     if (s_state == State::kLaunching)
         return; // (a level starting: the original's elements as the launch left them)
+    watch_net_level_select();
     if (s_state == State::kIdle || s_state == State::kAway) {
         update_mirror(dt, true);
         update_cover(dt);
@@ -2300,8 +2395,9 @@ void before_screen_layout()
     }
     // Decided here, before the screen elements are laid out for this frame's drawing: whatever the scripts made since
     // the last frame (the pause menu, a dialog, the main menu) is hidden before it is ever drawn.
+    const bool net_levels_asked = s_open_screen == Screen::kLevels && s_open_levels == LevelsFor::kNet;
     if (s_state == State::kShown || s_mirror.get_up() || s_cover.get_on() || s_hold_frames > 0 ||
-        s_awaiting_front_end) {
+        s_awaiting_front_end || net_levels_asked) {
         hide_root(true);
         keep_root_hidden(); // (a script that scaled root_window back since - create_pause_menu's unhide_root_window)
     } else if (s_root_hidden) {

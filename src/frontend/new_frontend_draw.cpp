@@ -932,6 +932,7 @@ void levels_screen(Ctx& c, int* visible_rows)
                            ImVec2(c.f.get_x(kColumn + kScrimFeather), c.f.get_y(720.0f)), true);
         const char* title = menu.levels_purpose() == LevelsFor::kEdit     ? text_tools::kTitleEditLevel
                             : menu.levels_purpose() == LevelsFor::kFreeze ? text_tools::kTitleChangeLevel
+                            : menu.levels_purpose() == LevelsFor::kNet    ? text_tools::kTitleNetLevel
                                                                           : text_tools::kTitleFreeSkate;
         const float rule = get_header(c, 36.0f, kColumnInner, title, true, nullptr);
         // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
@@ -1008,6 +1009,7 @@ void levels_screen(Ctx& c, int* visible_rows)
         const bool locked = menu.selected_locked();
         const char* skate_text = locked                                      ? text_tools::kLocked
                                  : menu.levels_purpose() == LevelsFor::kEdit ? text_tools::kEdit
+                                 : menu.levels_purpose() == LevelsFor::kNet  ? text_tools::kSelect
                                                                              : text_tools::kSkate;
         const float tw = get_measure(skate, c.f, skate_text) / c.f.scale;
         const float arrow_w = locked ? 0.0f : 30.0f * 0.9f + 10.0f;

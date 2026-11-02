@@ -28,7 +28,11 @@ struct FrontEnd;
 // (Main / Pause) it leaves at once on Back. The level select's Skate starts the level in free skate
 // (MenuSystem::begin_level::ReadIn) or changes level from the pause menu; Free Skate shows every level ([frontend]
 // respect_locks=1: the game's own level select rules - seen flags outside a career, all_levels_unlocked); Career keeps
-// the game's own rules. The automation channel's `fe` commands (frontend/automation.h) drive ours.
+// the game's own rules. A network game's level select is ours too: when the game makes its own for one (the host
+// options' Level in the front end, a network lobby's CHANGE LEVEL), ours comes up over it from its first frame - the
+// same levels, the game's locks always - and a choice does what that select's item does (the network game's level
+// preference set and the host options made again, or the lobby's change of level; CREATED PARK: the game's own park
+// menu); Back is that select's Back. The automation channel's `fe` commands (frontend/automation.h) drive ours.
 // The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
 // make_menu_level.ts from the overlay's sectioned level select - the same sections, lists and load scripts). Without
 // it Free Skate goes on to the original's level select. The last level played: thug2-decomp-frontend.txt next to the ini (the level the game last

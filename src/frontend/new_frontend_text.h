@@ -18,6 +18,7 @@ inline constexpr const char* kTitleOptions = "Options";
 inline constexpr const char* kTitleFreeSkate = "Free skate";
 inline constexpr const char* kTitleChangeLevel = "Change level";
 inline constexpr const char* kTitleEditLevel = "Level editor";
+inline constexpr const char* kTitleNetLevel = "Net game level";
 inline constexpr const char* kTitlePaused = "Paused";
 inline constexpr const char* kTitleMenu = "Menu"; // (a restyled list without a title)
 inline constexpr const char* kTitleSkaters = "Select skater";
@@ -118,6 +119,7 @@ inline constexpr const char* kPleaseWait = "Please wait";
 // --- the level select ---------------------------------------------------------------------------------------------
 inline constexpr const char* kSkate = "Skate";
 inline constexpr const char* kEdit = "Edit";
+inline constexpr const char* kSelect = "Select"; // (a network game's level: chosen, not skated yet)
 inline constexpr const char* kLocked = "Locked";
 inline constexpr const char* kNoLevels = "No levels here.";
 
