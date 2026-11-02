@@ -16,7 +16,6 @@
 #include "platform/mute_audio.h"
 #include "platform/winmain.h"
 #include "engine/audio/stream_files.h"
-#include "platform/crt.h"
 #include "platform/bink.h"
 
 namespace audio {

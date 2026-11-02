@@ -15,7 +15,6 @@
 #include "engine/gfx/movie.h"
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
-#include "platform/crt.h"
 #include "platform/bink.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
