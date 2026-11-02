@@ -27,6 +27,7 @@
 #include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
 
 namespace render {
 
@@ -960,9 +961,11 @@ void PcRibbonParticles::render()
 // scaled by the brightness alone, not clamped (each the low byte).
 uint32_t PcRibbonTrailParticles::head_colour(uint32_t from, uint32_t to, float t)
 {
-    const auto* f = raw::bytes(&from);
-    const auto* g = raw::bytes(&to);
-    auto lerp = [&](int k) { return static_cast<uint8_t>(f[k] + truncate(static_cast<double>(g[k] - f[k]) * t)); };
+    const colour::Bytes f = colour::bytes_of(from);
+    const colour::Bytes g = colour::bytes_of(to);
+    auto lerp = [&](int k) {
+        return static_cast<uint8_t>(core::at(f, k) + truncate(static_cast<double>(core::at(g, k) - core::at(f, k)) * t));
+    };
     std::array<uint8_t, 4> bytes = {{lerp(2), lerp(1), lerp(0), lerp(3)}};
     for (int k = 0; k < 3; ++k)
         core::at(bytes, k) = static_cast<uint8_t>(truncate(static_cast<double>(core::at(bytes, k)) * brightness_));
@@ -1798,10 +1801,11 @@ void PcStarParticles::render()
 // The colour `t` of the way from `from` to `to` in 4096ths (RGBA bytes in, BGRA out), not scaled.
 uint32_t PcGlowRibbonTrailParticles::fine_colour(uint32_t from, uint32_t to, double t)
 {
-    const auto* f = raw::bytes(&from);
-    const auto* g = raw::bytes(&to);
+    const colour::Bytes f = colour::bytes_of(from);
+    const colour::Bytes g = colour::bytes_of(to);
     auto lerp = [&](int k) {
-        return static_cast<uint8_t>(truncate((static_cast<double>(g[k] - f[k]) * t + (f[k] << 12)) * (1.0f / 4096.0f)));
+        return static_cast<uint8_t>(truncate((static_cast<double>(core::at(g, k) - core::at(f, k)) * t +
+                                              (core::at(f, k) << 12)) * (1.0f / 4096.0f)));
     };
     std::array<uint8_t, 4> bytes = {{lerp(2), lerp(1), lerp(0), lerp(3)}};
     uint32_t colour = 0;

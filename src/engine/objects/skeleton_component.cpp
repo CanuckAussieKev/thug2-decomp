@@ -27,7 +27,6 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <utility>
@@ -225,8 +224,9 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     d3dx::matrix_multiply(&joint_mat, &joint_mat, &placed);
 
     params->put_vec3(0x7F261953, to_value(core::at(joint_mat.row, 3))); // pos
-    maths::Vec4 quat;
-    raw::as<maths::QuatRotation>(&quat)->from_matrix(joint_mat);
+    maths::QuatRotation rotation{};
+    rotation.from_matrix(joint_mat);
+    const maths::Vec4 quat = {rotation.x, rotation.y, rotation.z, rotation.w};
     if (quat.w > 0.0f)
         params->put_vec3(0xC97F3AA9, to_value(quat)); // Orientation (w kept positive)
     else

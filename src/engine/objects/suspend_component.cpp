@@ -27,10 +27,9 @@
 #include "engine/objects/model_component.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <bit>
 
 namespace objects {
 
@@ -64,7 +63,7 @@ int& interleave4_count() { return g_suspend_interleave4_count; }
 void set_no_lod(float* distances)
 {
     for (int i = 0; i < 4; ++i)
-        raw::as<uint32_t>(distances)[i] = core::at(kNoLodBits, i);
+        distances[i] = std::bit_cast<float>(core::at(kNoLodBits, i)); // (the bit patterns, as the original stored them)
 }
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
@@ -124,8 +123,8 @@ void DormancyModule::configure_from_data(script::Struct* params)
     }
     float* lod = lod_distances_.data();
     lod[0] = 50.0f;
-    raw::as<uint32_t>(lod)[2] = core::at(kNoLodBits, 1);
-    raw::as<uint32_t>(lod)[3] = core::at(kNoLodBits, 2);
+    lod[2] = std::bit_cast<float>(core::at(kNoLodBits, 1));
+    lod[3] = std::bit_cast<float>(core::at(kNoLodBits, 2));
     params->fetch_float(core::at(kLodDist, 0), &lod[0], 0);
     lod[1] = lod[0] + kLod2Beyond1;
     params->fetch_float(core::at(kLodDist, 1), &lod[1], 0);
@@ -199,7 +198,7 @@ void DormancyModule::refresh_shown_state()
     if (!(entity_->object_flags_ & kEntityHiddenBit)) {
         render::RenderModel* model = model_of(mesh_instance_);
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        if (raw::as<const uint32_t>(lod_distances_.data())[2] == core::at(kNoLodBits, 2)) {
+        if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2)) {
             visible = true;
         } else if (modules::g_viewport_count > 1) {
             visible = true;

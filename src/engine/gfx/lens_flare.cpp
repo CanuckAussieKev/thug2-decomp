@@ -24,6 +24,7 @@
 #include "platform/game_clock.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <bit>
 
 namespace sun {
 
@@ -109,7 +110,9 @@ render::ViewRegion* viewport_camera() { return render::fetch_current_view(0); }
 // (the depth is written as an integer into the float, as the original)
 void cast_onto(render::ViewRegion* camera, const maths::Vec4* point, float* x, float* y, float* z)
 {
-    camera->project_to_screen(point, x, y, raw::as<int>(z));
+    int whole = 0;
+    camera->project_to_screen(point, x, y, &whole);
+    *z = std::bit_cast<float>(whole);
 }
 uint8_t issue_query(render::ViewRegion* camera, float left, float top, float right, float bottom, int unknown,
                     uint8_t query)

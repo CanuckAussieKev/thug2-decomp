@@ -24,6 +24,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <cstring>
 
 namespace objects {
 
@@ -121,12 +122,16 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // (0x0048E480), on (0x0048E4C0) and direction (0x004E3F90).
 void change_ambient_tint(void* lights, const uint8_t* rgba)
 {
-    static_cast<render::ModelLights*>(lights)->change_ambient_tint(raw::as<const uint32_t>(rgba));
+    uint32_t packed = 0;
+    std::memcpy(&packed, rgba, sizeof(packed)); // (four bytes: R, G, B, A)
+    static_cast<render::ModelLights*>(lights)->change_ambient_tint(&packed);
 }
 void enable_ambient(void* lights, bool on) { static_cast<render::ModelLights*>(lights)->switch_ambient_light(on); }
 void change_diffuse_hue(void* lights, int index, const uint8_t* rgba)
 {
-    static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, raw::as<const uint32_t>(rgba));
+    uint32_t packed = 0;
+    std::memcpy(&packed, rgba, sizeof(packed)); // (four bytes: R, G, B, A)
+    static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, &packed);
 }
 void enable_diffuse(void* lights, int index, bool on)
 {

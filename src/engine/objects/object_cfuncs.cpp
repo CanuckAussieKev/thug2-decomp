@@ -24,9 +24,9 @@
 #include "engine/objects/particle_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/particle_sets.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <bit>
 
 namespace commands {
 
@@ -76,7 +76,10 @@ render::ViewRegion* viewport_camera(int index) { return render::fetch_current_vi
 // (the depth is written as an integer into the float, as the original)
 float project_to_screen(render::ViewRegion* camera, const maths::Vec4* position, float* x, float* y, float* depth)
 {
-    return camera->project_to_screen(position, x, y, raw::as<int>(depth));
+    int whole = 0;
+    const float result = camera->project_to_screen(position, x, y, &whole);
+    *depth = std::bit_cast<float>(whole);
+    return result;
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
