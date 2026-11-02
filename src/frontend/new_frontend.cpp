@@ -1772,6 +1772,9 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             change_phase(State::kAway);
             s_shown_back = 0;
             script::spawn_script(name_hash(script), nullptr, 0, nullptr, 0, 0, false, false, false, false);
+            // (ours stays drawn until the game's options screen is up: no frame of the root menu behind - the user's
+            // report, 2026-11-02)
+            start_cover(Cover::Over::kOurs, "the game options");
             return;
         }
     }
