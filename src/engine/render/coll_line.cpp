@@ -5,9 +5,12 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <span>
 
+#include "engine/core/checked_index.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
 #include "engine/render/coll_movable.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"

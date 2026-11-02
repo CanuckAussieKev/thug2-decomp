@@ -3,9 +3,12 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/render/coll_capsule.h"
 
+#include "engine/maths/shape_tests.h"
+#include "engine/maths/vec4.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tests.h"

@@ -7,6 +7,9 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/shape_tests.h"
+#include "engine/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
 #include "engine/core/stubs.h"

@@ -1,6 +1,9 @@
 // The world's collision: the movable objects' list and the line queries over the scenes' grids and the movables.
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/render/coll_world.h"
 

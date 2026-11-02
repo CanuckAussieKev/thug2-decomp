@@ -12,6 +12,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
+#include "formats/collision_format.h"
 #include <algorithm>
 #include <iterator>
 #include <span>

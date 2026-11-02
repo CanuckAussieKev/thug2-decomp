@@ -3,9 +3,11 @@
 #include "engine/render/coll_tests.h"
 
 #include <cmath>
+#include <span>
 
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
+#include "engine/maths/vec4.h"
 
 namespace render {
 
