@@ -20,8 +20,6 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/walk_physics.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
@@ -80,14 +78,6 @@ double span4(float a, float b, float c, float d)
 
 // 0x0057C200
 bool GrindPoint::is_named(uint32_t name) { return label_ == name; }
-
-// 0x0057C210
-void BoxPair::get_exchange()
-{
-    const maths::Vec4 held = second;
-    second = first;
-    first = held;
-}
 
 // 0x0057C260
 void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max)
@@ -176,18 +166,16 @@ maths::Mat4& GrindRailHub::change_body_transform(const maths::Mat4& matrix)
 }
 
 // 0x0057C500
-Record24* Record24::get_assign(const Record24* other)
+LadderHit* LadderHit::get_assign(const LadderHit* other)
 {
-    for (int i = 0; i < 9; ++i)
-        core::at(words, i) = core::at(other->words, i);
+    *this = *other;
     return this;
 }
 
 // 0x0057C540
-Record34* Record34::get_assign(const Record34* other)
+RailHit* RailHit::get_assign(const RailHit* other)
 {
-    for (int i = 0; i < 13; ++i)
-        core::at(words, i) = core::at(other->words, i);
+    *this = *other;
     return this;
 }
 
@@ -253,7 +241,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
         feeler.entity_.get_release();
         return false;
     }
-    raw::as<BoxPair>(&feeler)->get_exchange();
+    std::swap(feeler.line_.start, feeler.line_.end); // (0x0057C210: the two halves swapped)
     if (feeler.get_hit_shape(true, false)) {
         feeler.entity_.get_release();
         return false;
@@ -602,7 +590,7 @@ bool GrindRailHub::is_operative(uint32_t name)
 
 // 0x0057D880
 bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker,
-                               uint32_t extra, GrindPoint** found)
+                               LadderHit* result, GrindPoint** found)
 {
     auto radius_squared = static_cast<float>(static_cast<double>(radius) * radius);
     for (int index = num_; index != 0;) {
@@ -622,14 +610,14 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
         if (up) {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, node);
             if (static_cast<FootMovement*>(checker)->check_ladder_bottom(
-                    &node->at_point_, &other->at_point_, orientation, cell::pointer<Record24>(extra))) {
+                    &node->at_point_, &other->at_point_, orientation, result)) {
                 *found = node;
                 return true;
             }
         } else {
             const maths::Mat4* orientation = get_climb_matrix(&matrix, other);
             if (static_cast<FootMovement*>(checker)->check_ladder_top(&other->at_point_, &node->at_point_, orientation,
-                                                                      cell::pointer<Record24>(extra))) {
+                                                                      result)) {
                 *found = other;
                 return true;
             }
@@ -640,7 +628,7 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
 
 // 0x0057DA20
 bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Vec4* end, void* checker,
-                                       Record24* result, GrindPoint** found)
+                                       LadderHit* result, GrindPoint** found)
 {
     *found = nullptr;
     maths::Seg line{};
@@ -679,7 +667,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
             distance_squared = static_cast<float>(distance_squared * 4.0);
         if (distance_squared > snap_squared || distance_squared > best)
             continue;
-        Record24 record;
+        LadderHit record;
         maths::Mat4 matrix;
         if (node->at_point_.y < next->at_point_.y) {
             // Climbing up from this node.
@@ -703,7 +691,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
 
 // 0x0057DDA0
 bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* direction,
-                             void* checker, Record34* result, float margin)
+                             void* checker, RailHit* result, float margin)
 {
     bool found = false;
     maths::Seg line{};
@@ -720,7 +708,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
     max.z = static_cast<float>(static_cast<double>(max.z) + margin);
     auto margin_squared = static_cast<float>(static_cast<double>(margin) * margin);
     for (int index = 0; index < num_; ++index) {
-        const GrindPoint* node = &nodes_[index];
+        GrindPoint* node = &nodes_[index];
         if ((node->flag_bits_ & kRailFlagLadder) || (node->flag_bits_ & kRailFlagNoClimbing) ||
             !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
             continue;
@@ -752,8 +740,8 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         get_absolute_pos(&node_world, node);
         if (!rail_clear(node_world, next_world))
             continue;
-        Record34 record;
-        core::at(record.words, 12) = cell::of(node);
+        RailHit record{};
+        record.node = node;
         maths::Vec4 line_world, rail_world, next_at, node_at;
         const maths::Vec4* line_at = to_world(&line_world, &on_line);
         const maths::Vec4* rail_at = to_world(&rail_world, &on_rail);

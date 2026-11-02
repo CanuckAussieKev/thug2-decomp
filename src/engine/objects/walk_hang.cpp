@@ -38,8 +38,6 @@
 #include "engine/objects/model_component.h"
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -123,16 +121,7 @@ skater::SkaterPhysicsModule* physics_of(objects::FootMovement* walk) { return wa
 
 // What find_rail finds (its 0x34-byte record, filled by check_rail): the hang point, the direction to face (out from
 // the wall), how far along, out and up from the rail, the animation, and the rail's node.
-struct RailHit {
-    maths::Vec4 point;         // +0x00
-    maths::Vec4 facing;        // +0x10
-    float along;               // +0x20
-    float out;                 // +0x24
-    float up;                  // +0x28
-    uint32_t anim;             // +0x2C the hang's animation (SWING, or WALL)
-    objects::GrindPoint* node; // +0x30
-};
-static_assert(sizeof(RailHit) == sizeof(objects::Record34), "the rail manager's record");
+using objects::RailHit;
 
 // A feeler copied (its assignment 0x0043A930).
 void assign_feeler(render::ProbeRay* to, const render::ProbeRay* from) { to->get_assign(*from); }
@@ -171,8 +160,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
     get_rails_of(walk) = get_level_rails();
     const maths::Vec4* towards = direction(walk, &buffer);
     float snap = script::fetch_float(margin);
-    auto* record = raw::as<objects::Record34>(found);
-    if (get_rails_of(walk)->find_rail(start, end, towards, walk, record, snap)) {
+    if (get_rails_of(walk)->find_rail(start, end, towards, walk, found, snap)) {
         stop_riding(walk);
         return true;
     }
@@ -187,7 +175,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
         get_rails_of(walk) = rail_manager_of(component);
         towards = direction(walk, &buffer);
         snap = script::fetch_float(margin);
-        if (get_rails_of(walk)->find_rail(&local_start, &local_end, towards, walk, record, snap)) {
+        if (get_rails_of(walk)->find_rail(&local_start, &local_end, towards, walk, found, snap)) {
             walk->ride_->ride_on(component->entity_);
             return true;
         }
@@ -278,12 +266,6 @@ void set_physics_flag_a0(objects::FootMovement* walk)
 
 // What find_ladder / find_ladder_on_line find (their 0x24-byte record, filled by the ladder checkers): the point to climb
 // from, the direction to face (the ladder's orientation's third row), how far along.
-struct FoundLadder {
-    maths::Vec4 point;  // +0x00
-    maths::Vec4 facing; // +0x10
-    float along;        // +0x20
-};
-static_assert(sizeof(FoundLadder) == sizeof(objects::Record24), "the rail manager's record");
 
 // A ladder's other end: the node's next, else its previous.
 objects::GrindPoint* ladder_other_end(objects::GrindPoint* node)
@@ -856,9 +838,9 @@ void objects::FootMovement::place_on_hang()
 }
 
 // 0x0043FE30
-bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Vec4* point, Record34* record)
+bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Vec4* point, RailHit* record)
 {
-    auto* rail = raw::as<RailHit>(record);
+    RailHit* rail = record;
     rail->point = *point;
     const GrindPoint* node = rail->node;
     const maths::Vec4 side = {-rail->facing.z, 0.0f, rail->facing.x, 1.0f};
@@ -997,9 +979,9 @@ void objects::FootMovement::shimmy(float move)
 
 // 0x00440690
 bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* on_rail,
-                                       const maths::Vec4* on_line, float along, Record34* record, bool away)
+                                       const maths::Vec4* on_line, float along, RailHit* record, bool away)
 {
-    auto* rail = raw::as<RailHit>(record);
+    RailHit* rail = record;
     const float origin = get_param(kHangVertOriginOffset);
     // in the air: only rails at or below the line, and close to it
     if (state_ == 1) {
@@ -1225,7 +1207,7 @@ void objects::FootMovement::end_onto_ladder_top()
 
 // 0x00441260
 bool objects::FootMovement::check_ladder_top(const maths::Vec4* bottom, const maths::Vec4* top,
-                                             const maths::Mat4* orientation, Record24* record)
+                                             const maths::Mat4* orientation, LadderHit* record)
 {
     if (bottom->y > top->y)
         return false;
@@ -1235,7 +1217,7 @@ bool objects::FootMovement::check_ladder_top(const maths::Vec4* bottom, const ma
         return false;
     // ladder_top_offset_up below the top, ladder_climb_offset out of the ladder (x and y's products unrounded, as the
     // x87 code subtracts them)
-    auto* ladder = raw::as<FoundLadder>(record);
+    objects::LadderHit* ladder = record;
     const float offset = get_param(kLadderTopOffsetUp);
     const float oy = offset * up.y;
     const float oz = offset * up.z;
@@ -1257,7 +1239,7 @@ bool objects::FootMovement::check_ladder_top(const maths::Vec4* bottom, const ma
 // 0x004413E0
 bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const maths::Vec4* top,
                                               const maths::Mat4* orientation, const maths::Vec4* on_ladder, float along,
-                                              Record24* record)
+                                              LadderHit* record)
 {
     // upright enough (its height as part of its length; no length: the height itself)
     const float dy = top->y - bottom->y;
@@ -1275,7 +1257,7 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     if (top->y - static_cast<double>(up_y) * get_param(kLadderTopOffsetUp) < on_ladder->y)
         return false;
     // the point ladder_climb_offset out of it there, if nothing is in the way
-    auto* ladder = raw::as<FoundLadder>(record);
+    objects::LadderHit* ladder = record;
     const float climb = get_param(kLadderClimbOffset);
     const maths::Vec4& at = core::at(orientation->row, 2);
     const float cx = climb * at.x;
@@ -1327,7 +1309,7 @@ void objects::FootMovement::climb_off_bottom()
 
 // 0x004418B0
 bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const maths::Vec4* top,
-                                                const maths::Mat4* orientation, Record24* record)
+                                                const maths::Mat4* orientation, LadderHit* record)
 {
     if (bottom->y > top->y)
         return false;
@@ -1344,7 +1326,7 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
     if (dot < std::cos(static_cast<double>(max_angle) * 0.017453292384743690))
         return false;
     // ladder_bottom_offset_up above the bottom, ladder_climb_offset out of the ladder
-    auto* ladder = raw::as<FoundLadder>(record);
+    objects::LadderHit* ladder = record;
     const float offset = get_param(kLadderBottomOffsetUp);
     const float ox = offset * up.x;
     const float oy = offset * up.y;
@@ -1412,8 +1394,8 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
         return false;
     const float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
     const float height = get_param(kMaxVertSnapDistance);
-    FoundLadder ladder{};
-    if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, cell::of(&ladder),
+    objects::LadderHit ladder{};
+    if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, &ladder,
                                         &hang_node_))
         return false;
     grabbed_ladder(this);
@@ -1438,8 +1420,8 @@ bool objects::FootMovement::climb_onto_top()
         return false;
     const float height = get_param(kMaxVertSnapDistance);
     const float radius = get_param(kMaxHorizSnapDistance);
-    FoundLadder ladder{};
-    if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, cell::of(&ladder),
+    objects::LadderHit ladder{};
+    if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, &ladder,
                                         &hang_node_))
         return false;
     grabbed_ladder(this);
@@ -1460,8 +1442,8 @@ bool objects::FootMovement::climb_onto_top()
 // 0x00442170
 bool objects::FootMovement::grab_ladder(const maths::Vec4* start, const maths::Vec4* end)
 {
-    FoundLadder ladder{};
-    if (!get_level_rails()->find_ladder_on_line(start, end, this, raw::as<Record24>(&ladder), &hang_node_))
+    objects::LadderHit ladder{};
+    if (!get_level_rails()->find_ladder_on_line(start, end, this, &ladder, &hang_node_))
         return false;
     get_rails_of(this) = get_level_rails();
     let_go_of_ride(ride_);

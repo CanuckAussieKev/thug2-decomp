@@ -21,8 +21,8 @@ class SkaterPhysicsModule;
 } // namespace skater
 namespace objects {
 struct GrindPoint;
-struct Record24;
-struct Record34;
+struct LadderHit;
+struct RailHit;
 class GrindRailHub;
 class FootView;
 class PadInputModule;
@@ -344,7 +344,7 @@ public:
     // blocked (from the hang point: lowered by hang_vert_origin_offset, out by hang_horiz_origin_offset), and a
     // feeler from the position to the critical point clear - or, on the ground, up by hop_obstruction_feeler_up
     // and over from there.
-    bool hang_clear(render::ProbeRay* feeler, const maths::Vec4* point, Record34* rail);
+    bool hang_clear(render::ProbeRay* feeler, const maths::Vec4* point, RailHit* rail);
     // 0x00440130: shimmying `move` along the hang (left for more than 0): unless blocked (shimmy_blocked; the Hang
     // animation), on along the rail - past an end onto the next rail (next_hang_rail; face_hang_rail the rest of the
     // way) or stopped there; HangMoveLeft / HangMoveRight. A feeler from the old critical point to the new one: if
@@ -357,7 +357,7 @@ public:
     // facing, how far along, out and up from the rail, and the animation (SWING, or WALL when a feeler out from the
     // hang point hits).
     bool check_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* on_rail,
-                    const maths::Vec4* on_line, float along, Record34* result, bool away);
+                    const maths::Vec4* on_line, float along, RailHit* result, bool away);
     // 0x00440BF0 (state 2): hanging, each frame: carried by what it rides on (else the ride let go); with the control
     // pushed forward a pull-up (twice: pull_up_offset_forward ahead, then half that); turned round: let go (in the
     // air, SkaterExitHang); else shimmied by the control's sideways part (hang_move_speed, eased by
@@ -382,11 +382,11 @@ public:
     // 0x004413E0 (find_ladder_on_line's): grabbed where the line meets it (`on_ladder`, `along` it), between the two
     // offsets, nothing in the way from the skater; the skater core's flag +0xA0 of +0x1528 set.
     bool check_ladder_top(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
-                          Record24* record);
+                          LadderHit* record);
     bool check_ladder_bottom(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
-                             Record24* record);
+                             LadderHit* record);
     bool check_ladder_line(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
-                           const maths::Vec4* on_ladder, float along, Record24* record);
+                           const maths::Vec4* on_ladder, float along, LadderHit* record);
     // 0x00441680 / 0x00441B80: off the ladder's bottom (ladder_bottom_offset_forward back, down) / top
     // (ladder_top_offset_forward ahead, up): the ground there (find_stand_position), the animated move
     // (LadderOffBottom / LadderOffTop) - off the top with no ground, into the air at its end.

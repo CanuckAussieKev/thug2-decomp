@@ -18,6 +18,9 @@ class Struct;
 
 namespace objects {
 
+struct LadderHit;
+struct RailHit;
+
 // GrindPoint::flag_bits_
 constexpr uint32_t kRailFlagLipOverride = 0x1;
 constexpr uint32_t kRailFlagDefaultLine = 0x2;
@@ -86,19 +89,19 @@ public:
     // `checker` accepts (`up`: 0x004418B0 with the node, the one it leads to and the node's orientation; else
     // 0x00441260 with the other node first and its orientation; both with `extra`) - into `found` (the node climbed
     // from: the node, or the other one).
-    bool find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker, uint32_t extra,
+    bool find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker, LadderHit* result,
                      GrindPoint** found);
     // 0x0057DA20: the ladder nearest the line `start`-`end` (within Climb_Max_Snap of it; TRG_Ladder03's counted 4
     // times as far) that `checker` accepts (0x004413E0: climbing up from the lower node, with the closest point on
     // the ladder and how far along it); its record into `result`, the node climbed from into `found`. Whether one was.
-    bool find_ladder_on_line(const maths::Vec4* start, const maths::Vec4* end, void* checker, struct Record24* result,
+    bool find_ladder_on_line(const maths::Vec4* start, const maths::Vec4* end, void* checker, struct LadderHit* result,
                              GrindPoint** found);
     // 0x0057DDA0: the rail nearest the line `start`-`end` (within `margin`; the part along `direction` counting a
     // third) that's clear (RailClear) and that `checker` accepts (0x00440690: the segment's ends, the closest points
     // on the rail and the line, in the world, how far along); its record (with the node) into `result`. Whether one
     // was.
     bool find_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* direction, void* checker,
-                   struct Record34* result, float margin);
+                   struct RailHit* result, float margin);
     // 0x0057E170: a rail starting (or ending) within 1 of `from` on every axis, other than `from`, switched on, without
     // any of `exclude_flags`, and clear (RailClear): its node going on from there, or the node before it - into `found`.
     bool find_joining_rail(const GrindPoint* from, uint32_t exclude_flags, GrindPoint** found);
@@ -152,19 +155,28 @@ void set_rail_clear_override(RailClearOverride override);
 // 0x0057C5A0 (stdcall): whether two nodes are within 1 of each other on every axis.
 bool nodes_together(const GrindPoint* a, const GrindPoint* b);
 
-// 0x0057C210: a box's min and max swapped (the two halves of 0x20 bytes).
-struct BoxPair {
-    maths::Vec4 first, second;
-    void get_exchange();
+// What a ladder test finds (the walk's checks fill it): where on the ladder, the way the skater faces, how far along.
+struct LadderHit {
+    maths::Vec4 point;  // +0x00
+    maths::Vec4 facing; // +0x10
+    float along;        // +0x20
+
+    // 0x0057C500: a copy (the compiler-made assignment). Returns this.
+    LadderHit* get_assign(const LadderHit* other);
 };
-// 0x0057C500 / 0x0057C540: copies of 0x24- and 0x34-byte records (compiler-made assignments). Return this.
-struct Record24 {
-    std::array<uint32_t, 9> words;
-    Record24* get_assign(const Record24* other);
-};
-struct Record34 {
-    std::array<uint32_t, 13> words;
-    Record34* get_assign(const Record34* other);
+// What a hang test finds: where on the rail, the way the skater faces, how far along, out and up, the hang's
+// animation (SWING, or WALL) and the node.
+struct RailHit {
+    maths::Vec4 point;  // +0x00
+    maths::Vec4 facing; // +0x10
+    float along;        // +0x20
+    float out;          // +0x24
+    float up;           // +0x28
+    uint32_t anim;      // +0x2C
+    GrindPoint* node;   // +0x30
+
+    // 0x0057C540: a copy (the compiler-made assignment). Returns this.
+    RailHit* get_assign(const RailHit* other);
 };
 
 } // namespace objects
