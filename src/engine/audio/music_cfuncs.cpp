@@ -196,10 +196,12 @@ bool cfunc_stop_music(Struct*, Script* script)
 }
 
 // 0x0044D4D0: PauseMusic [n (1)]: 1 pauses, 0 unpauses, -1 unpauses unless paused before. Always true.
-bool cfunc_pause_music(Struct* params, Script*)
+bool cfunc_pause_music(Struct* params, Script* script)
 {
     int pause = 1;
     params->fetch_int_value(0u, &pause, 0);
+    if (pause == 1 && audio::continue_music::skips_script_pause(script)) // NOT ORIGINAL - continue_music: not in menus
+        return true;
     audio::pause_music(pause);
     return true;
 }

@@ -32,6 +32,14 @@ bool skips_script_stop(const script::Script* script)
     return script->script_title_ == kCleanupBeforeLoading || script->script_title_ == kStartRun;
 }
 
+bool skips_script_pause(const script::Script* script)
+{
+    if (!is_switched_on() || !script)
+        return false;
+    static const uint32_t kPauseMusicAndStreams = checksums::hash_from_text("PauseMusicAndStreams");
+    return script->script_title_ == kPauseMusicAndStreams;
+}
+
 Hold::Hold() : held_(is_switched_on())
 {
     if (held_)

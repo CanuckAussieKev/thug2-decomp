@@ -21,7 +21,8 @@ class Script;
 //  - every run start (GameFlow_StartRun: each level start, each new run of a timed mode) runs SkipMusicTrack.
 // Left as they are: the player's own Skip (the SkipTrack script and the sound options), the music volume at 0 (the
 // level then plays its ambient playlist: SetMusicMode stops the song), movies and cutscenes (their own stops, in
-// code), the sound options' track preview and user soundtracks, pausing, and quitting.
+// code), the sound options' track preview and user soundtracks, and quitting. Pausing (the pause menu and the screens
+// that pause the game through PauseMusicAndStreams) leaves the song playing too.
 namespace audio::continue_music {
 
 // The switch ([features] continue_music, read once; the Options screen sets it as it writes the ini).
@@ -30,6 +31,11 @@ bool& is_switched_on();
 // Whether the StopMusic / SkipMusicTrack that `script` runs is a level change's or a run start's (the script is
 // cleanup_before_loading_level or GameFlow_StartRun) and is to be skipped: false when switched off.
 bool skips_script_stop(const script::Script* script);
+
+// Whether the PauseMusic 1 that `script` runs is a menu's (the script PauseMusicAndStreams - the pause menu, its
+// screens, the stats and goal messages, a controller pulled out) and is to be skipped: the song plays on under the
+// paused game (the user's request, 2026-11-02; the other streams still pause). False when switched off.
+bool skips_script_pause(const script::Script* script);
 
 // While one lives and the switch is on, stop_music leaves the music playing (a level change's own stops: ChangeLevel
 // and the level's Cleanup). Nested holds count.
