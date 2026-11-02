@@ -27,7 +27,7 @@ std::array<CachedStreamFile, 12> g_stream_files;
 
 namespace {
 
-CachedStreamFile* stream_files() { return g_stream_files.data(); }
+std::array<CachedStreamFile, 12>& stream_files() { return g_stream_files; }
 constexpr int kStreamFiles = 12;
 
 bool g_stream_files_ready;
@@ -60,7 +60,7 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!stream_files_ready()) {
         for (int i = 0; i < kStreamFiles; ++i)
-            stream_files()[i] = {0xFFFFFFFFu, nullptr, 0, 0};
+            core::at(stream_files(), i) = {0xFFFFFFFFu, nullptr, 0, 0};
         stream_files_ready() = true;
     }
     const uint32_t now = ++stream_file_uses();
@@ -68,7 +68,7 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
     bool found_free = false;
     uint32_t longest = 0;
     for (int i = 0; i < kStreamFiles; ++i) {
-        CachedStreamFile& file = stream_files()[i];
+        CachedStreamFile& file = core::at(stream_files(), i);
         if (file.key == key) {
             file.last_use_ = now;
             ++file.users;
@@ -87,7 +87,7 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
     gsl::owner<FILE*> in = crt_fopen(path, "rb"); // "rb"
     if (!in)
         return -1;
-    CachedStreamFile& file = stream_files()[slot];
+    CachedStreamFile& file = core::at(stream_files(), slot);
     if (file.data)
         get_crt_free(memory::owned_element(file.data)); // (each slot's own)
     ++file.users;
@@ -122,14 +122,14 @@ long BinkStream::unseal(uint32_t key, const char* path, long offset, size_t size
     const int slot = load_stream_file(key, path, offset, size);
     if (slot < 0)
         return kInvalidArg;
-    const void* data = stream_files()[slot].data;
+    const void* data = core::at(stream_files(), slot).data;
     render::Bink* bink = bink::open(data, kBinkFromMemory);
     bink_ = bink;
     if (!bink)
         return kInvalidArg;
     bink::set_video_on_off(bink, 0);
     // (the file's first four bytes, "BIKi")
-    std::memcpy(from_where_.data(), stream_files()[slot].data, sizeof(uint32_t));
+    std::memcpy(from_where_.data(), core::at(stream_files(), slot).data, sizeof(uint32_t));
     wad_entry_ = slot;
     from_handle_ = true;
     return 0;

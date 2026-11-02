@@ -48,7 +48,7 @@ uint32_t& owner_id(objects::AudioStreamModule* owner, int stream) { return core:
 int& last_stream() { return g_last_stream; }
 
 std::array<StreamAmpCurve, 1> g_frame_amps; // (one slot; a checksum of 0 marks it free)
-StreamAmpCurve* frame_amps() { return g_frame_amps.data(); }
+std::array<StreamAmpCurve, 1>& frame_amps() { return g_frame_amps; }
 constexpr int kFrameAmps = 1;
 
 // The platform's streams (stream.h): whether a channel is free (stream_status: 1), pause (streams: 0), stop a
@@ -151,8 +151,8 @@ bool is_stream_playing(uint32_t id) { return streams_on() && find_playing_stream
 StreamAmpCurve* load_stream_frame_amp(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
-        if (frame_amps()[i].name == 0)
-            return read_amp_curve(&frame_amps()[i], checksum) ? &frame_amps()[i] : nullptr;
+        if (core::at(frame_amps(), i).name == 0)
+            return read_amp_curve(&core::at(frame_amps(), i), checksum) ? &core::at(frame_amps(), i) : nullptr;
     return nullptr;
 }
 
@@ -160,8 +160,8 @@ StreamAmpCurve* load_stream_frame_amp(uint32_t checksum)
 StreamAmpCurve* fetch_stream_amp_curve(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
-        if (frame_amps()[i].name == checksum)
-            return &frame_amps()[i];
+        if (core::at(frame_amps(), i).name == checksum)
+            return &core::at(frame_amps(), i);
     return nullptr;
 }
 

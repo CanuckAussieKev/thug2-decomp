@@ -44,7 +44,7 @@ script::Struct* g_queue_params;
 constexpr int kMaxSceneLights = 150;
 constexpr float kPercent = 0.01f; // 0x0064544C
 
-LevelLamp* scene_light_array() { return g_level_lamps.data(); }
+std::array<LevelLamp, 150>& scene_light_array() { return g_level_lamps; }
 int& scene_light_count() { return g_scene_light_count; }
 
 // The queue.
@@ -72,8 +72,8 @@ void* get_first_value(lists::KeyMap* table)
 LevelLamp* find_scene_light(uint32_t name)
 {
     for (int i = 0; i < scene_light_count(); ++i) {
-        if (scene_light_array()[i].label_ == name)
-            return &scene_light_array()[i];
+        if (core::at(scene_light_array(), i).label_ == name)
+            return &core::at(scene_light_array(), i);
     }
     return nullptr;
 }
@@ -221,7 +221,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     std::array<int, 8> lights{};
     int found = 0;
     for (int i = 0; i < scene_light_count(); ++i) {
-        LevelLamp& light = scene_light_array()[i];
+        LevelLamp& light = core::at(scene_light_array(), i);
         if (light.strength_ > 0.0f && light.touches_sector(sector)) {
             core::at(lights, found) = i;
             if (++found >= 8)
@@ -245,7 +245,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     for (int v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = scene_light_array()[core::at(lights, l)];
+            const LevelLamp& light = core::at(scene_light_array(), core::at(lights, l));
             sums.append_one(light, offset_squared_zxy(&vertices[v].x, light.at_point_));
         }
         if (sums.lit)
@@ -263,7 +263,7 @@ void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* 
     std::array<int, 3> lights{};
     int found = 0;
     for (int i = 0; i < scene_light_count() && found < 3; ++i) {
-        const LevelLamp& light = scene_light_array()[i];
+        const LevelLamp& light = core::at(scene_light_array(), i);
         bool facing = true;
         if (normal) {
             const double dx = static_cast<double>(positions->x) - light.at_point_.x;
@@ -286,7 +286,7 @@ void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* 
     for (uint32_t v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = scene_light_array()[core::at(lights, l)];
+            const LevelLamp& light = core::at(scene_light_array(), core::at(lights, l));
             sums.append_one(light, offset_squared_zyx(&positions[v].x, light.at_point_));
         }
         if (sums.lit)
@@ -323,10 +323,10 @@ void delete_scene_light(uint32_t name)
         }
     }
     for (int i = 0; i < scene_light_count(); ++i) {
-        if (scene_light_array()[i].label_ == name) {
-            scene_light_array()[i].clear_sectors(); // (its table isn't freed: the last light's is copied over it)
+        if (core::at(scene_light_array(), i).label_ == name) {
+            core::at(scene_light_array(), i).clear_sectors(); // (its table isn't freed: the last light's is copied over it)
             --scene_light_count();
-            scene_light_array()[i] = scene_light_array()[scene_light_count()];
+            core::at(scene_light_array(), i) = core::at(scene_light_array(), scene_light_count());
             return;
         }
     }
@@ -336,7 +336,7 @@ void delete_scene_light(uint32_t name)
 void delete_all_scene_lights()
 {
     for (int i = 0; i < scene_light_count(); ++i)
-        scene_light_array()[i].clear_sectors();
+        core::at(scene_light_array(), i).clear_sectors();
     scene_light_count() = 0;
 }
 
@@ -449,7 +449,7 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float bri
     if (scene_light_count() >= kMaxSceneLights)
         return nullptr;
     const double intensity = brightness * static_cast<double>(kPercent);
-    LevelLamp* light = &scene_light_array()[scene_light_count()++];
+    LevelLamp* light = &core::at(scene_light_array(), scene_light_count()++);
     light->label_ = name;
     light->at_point_ = *pos;
     if (light->strength_ != intensity) { // (the slot's old value; NaN: set)

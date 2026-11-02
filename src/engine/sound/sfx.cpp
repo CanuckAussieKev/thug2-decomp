@@ -45,18 +45,18 @@ constexpr int kMaxWaves = 256;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-PlayingSound* get_playing() { return g_playing_sounds.data(); }
+std::array<PlayingSound, 48>& get_playing() { return g_playing_sounds; }
 
 float g_master_gain{100.0f};
 float g_pitch{1.0f};
 std::array<PositionalSound, 128> g_spatial_voices;
 
-PositionalSound* positional_pool() { return g_spatial_voices.data(); }
+std::array<PositionalSound, 128>& positional_pool() { return g_spatial_voices; }
 PositionalSound*& positional_head() { return g_positional_head; }
 int& positional_count() { return g_positional_count; }
-SoundWaveSlot* permanent_waves() { return g_permanent_waves.data(); }
+std::array<SoundWaveSlot, 256>& permanent_waves() { return g_permanent_waves; }
 int& permanent_count() { return g_permanent_count; }
-SoundWaveSlot* level_waves() { return g_level_waves.data(); }
+std::array<SoundWaveSlot, 256>& level_waves() { return g_level_waves; }
 int& get_level_count() { return g_level_count; }
 float& default_dropoff() { return g_default_dropoff; }
 float& master_loudness() { return g_master_gain; }
@@ -173,8 +173,8 @@ AudioMixer::AudioMixer()
         fallback_channel_mode_ = VolumeRef::kTypeStereo;
         init_voices(this);
         for (int i = 0; i < kMaxPlaying; ++i) {
-            get_playing()[i].unique_id_ = 0;
-            get_playing()[i].checksum = 0;
+            core::at(get_playing(), i).unique_id_ = 0;
+            core::at(get_playing(), i).checksum = 0;
         }
     }
 }
@@ -183,11 +183,11 @@ AudioMixer::AudioMixer()
 int AudioMixer::get_playing_index(uint32_t id)
 {
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (get_playing()[i].unique_id_ == id && is_voice_playing(i))
+        if (core::at(get_playing(), i).unique_id_ == id && is_voice_playing(i))
             return i;
     }
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (get_playing()[i].checksum == id && is_voice_playing(i)) {
+        if (core::at(get_playing(), i).checksum == id && is_voice_playing(i)) {
             // (a debug report, compiled out)
             if (script::fetch_int_value(kDebugA) == 0)
                 script::fetch_int_value(kDebugB);
@@ -205,8 +205,8 @@ void AudioMixer::add_positional_sound(uint32_t unique_id, uint32_t checksum, obj
     ++positional_count(); // (counted even when no entry is free, as the original)
     PositionalSound* entry = nullptr;
     for (int i = 0; i < kMaxPositional; ++i) {
-        if (!(positional_pool()[i].in_use_ & 1)) {
-            entry = &positional_pool()[i];
+        if (!(core::at(positional_pool(), i).in_use_ & 1)) {
+            entry = &core::at(positional_pool(), i);
             break;
         }
     }
@@ -235,10 +235,10 @@ void AudioMixer::unload_group(int group)
 {
     int count = permanent_count();
     for (int i = 0; i < count;) {
-        SoundWaveSlot& entry = permanent_waves()[i];
+        SoundWaveSlot& entry = core::at(permanent_waves(), i);
         if (entry.load_type_ == 2 && entry.group == ints::as_unsigned(group)) {
             --count;
-            entry = permanent_waves()[count]; // (the last moves into its place)
+            entry = core::at(permanent_waves(), count); // (the last moves into its place)
         } else {
             ++i;
         }
@@ -286,7 +286,7 @@ void AudioMixer::sweep_up()
     positional_head() = nullptr;
     positional_count() = 0;
     for (int i = 0; i < kMaxPositional; ++i)
-        positional_pool()[i].in_use_ = 0;
+        core::at(positional_pool(), i).in_use_ = 0;
     free_permanent_waves();
     permanent_count() = 0;
     default_dropoff() = 1020.0f;
@@ -308,7 +308,7 @@ void AudioMixer::stop_all_sounds()
     positional_head() = nullptr;
     positional_count() = 0;
     for (int i = 0; i < kMaxPositional; ++i)
-        positional_pool()[i].in_use_ = 0;
+        core::at(positional_pool(), i).in_use_ = 0;
 }
 
 // 0x0047B2A0
@@ -324,12 +324,12 @@ SoundWaveSlot* AudioMixer::fetch_wave_slot(uint32_t checksum)
     if (no_sound())
         return nullptr;
     for (int i = 0; i < get_level_count(); ++i) {
-        if (level_waves()[i].checksum == checksum)
-            return &level_waves()[i];
+        if (core::at(level_waves(), i).checksum == checksum)
+            return &core::at(level_waves(), i);
     }
     for (int i = 0; i < permanent_count(); ++i) {
-        if (permanent_waves()[i].checksum == checksum)
-            return &permanent_waves()[i];
+        if (core::at(permanent_waves(), i).checksum == checksum)
+            return &core::at(permanent_waves(), i);
     }
     return nullptr;
 }
@@ -362,14 +362,14 @@ bool AudioMixer::ingest_sound(const char* path, uint16_t flags, int load_type, i
     if (load_type == 0) {
         if (get_level_count() >= kMaxWaves)
             return false;
-        entry = &level_waves()[get_level_count()];
+        entry = &core::at(level_waves(), get_level_count());
         if (!load_wave(path, checksum, entry, load_type, group))
             return false;
         ++get_level_count();
     } else {
         if (permanent_count() >= kMaxWaves)
             return false;
-        entry = &permanent_waves()[permanent_count()];
+        entry = &core::at(permanent_waves(), permanent_count());
         if (!load_wave(path, checksum, entry, load_type, group))
             return false;
         ++permanent_count();
@@ -418,7 +418,7 @@ bool AudioMixer::set_sound_params(uint32_t id, VolumeRef* volume, float pitch)
         get_report_missing();
         return false;
     }
-    SoundWaveSlot* entry = get_playing()[index].entry;
+    SoundWaveSlot* entry = core::at(get_playing(), index).entry;
     if (!entry)
         return false;
     if (!volume->is_audio_off())
@@ -467,7 +467,7 @@ bool AudioMixer::is_sound_playing(uint32_t unique_id, int* index)
     if (no_sound() || unique_id == 0)
         return false;
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (get_playing()[i].unique_id_ == unique_id) {
+        if (core::at(get_playing(), i).unique_id_ == unique_id) {
             if (!is_voice_playing(i))
                 return false;
             if (index)
@@ -496,14 +496,14 @@ bool AudioMixer::set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, 
         return true;
     int index = 0;
     for (; index < kMaxPlaying; ++index) {
-        if (get_playing()[index].unique_id_ == unique_id)
+        if (core::at(get_playing(), index).unique_id_ == unique_id)
             break;
     }
     if (index == kMaxPlaying || !is_voice_playing(index)) {
         get_report_missing();
         return false;
     }
-    const PlayingSound& sound = get_playing()[index];
+    const PlayingSound& sound = core::at(get_playing(), index);
     if (!volume->is_audio_off()) {
         if (sound.props.volume != 100.0f)
             volume->percent_tweak(sound.props.volume);

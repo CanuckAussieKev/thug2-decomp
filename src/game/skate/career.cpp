@@ -26,7 +26,7 @@ namespace {
 // Levels left out of the totals (a byte each, up to the cheat flag at 0x007CE4FD).
 std::array<bool, RiderStoryProgress::kLevels> g_career_left_out;
 
-bool* left_out() { return g_career_left_out.data(); }
+std::array<bool, RiderStoryProgress::kLevels>& left_out() { return g_career_left_out; }
 
 uint32_t get_bit(int index) { return 1u << (index & 0x1F); }
 int get_word(int index) { return index >> 5; }
@@ -90,7 +90,7 @@ int RiderStoryProgress::count_total_goals()
 {
     int total = 0;
     for (int level = 0; level < kLevels; ++level) {
-        if (!left_out()[level])
+        if (!core::at(left_out(), level))
             total += pop_count(core::at(core::at(goals_, level), 1)) + pop_count(core::at(core::at(goals_, level), 0));
     }
     return total;
@@ -101,7 +101,7 @@ int RiderStoryProgress::count_levels_with_goals()
 {
     int count = 0;
     for (int level = 0; level < kLevels; ++level) {
-        if (left_out()[level])
+        if (core::at(left_out(), level))
             count += pop_count(core::at(core::at(goals_, level), 1)) + pop_count(core::at(core::at(goals_, level), 0)) > 0 ? 1 : 0;
     }
     return count;
@@ -220,7 +220,7 @@ bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
         for (int level = 0; level < kLevels; ++level) {
             for (int bit = 0; bit < 200; ++bit)
                 clear(bit, level);
-            left_out()[level] = false;
+            core::at(left_out(), level) = false;
             core::at(funds_, level) = 0;
             core::at(amount_, level) = 1000;
         }

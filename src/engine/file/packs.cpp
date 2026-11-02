@@ -36,7 +36,7 @@ constexpr int kPreloadCapacity = 100;
 
 std::array<LoadedFile, kMaxLoadedFiles> g_loaded_files;
 
-LoadedFile* loaded_files() { return g_loaded_files.data(); }
+std::array<LoadedFile, kMaxLoadedFiles>& loaded_files() { return g_loaded_files; }
 
 void* allocate_file_memory(unsigned int size) { return memory::alloc_block(size); }
 void shrink_file_memory(unsigned int size, void* memory) { memory::trim_block_end(size, memory); }
@@ -96,7 +96,7 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
         return entry->data;
     }
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        LoadedFile& file = loaded_files()[i];
+        LoadedFile& file = core::at(loaded_files(), i);
         if (file.data && file.checksum == checksum) {
             ++file.ref_count_;
             return file.data;
@@ -106,8 +106,8 @@ void* read_in(const char* name, bool async, file::IoCompletionHook callback, voi
     // The original assumes a free slot exists.
     LoadedFile* slot = nullptr;
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        if (!loaded_files()[i].data) {
-            slot = &loaded_files()[i];
+        if (!core::at(loaded_files(), i).data) {
+            slot = &core::at(loaded_files(), i);
             break;
         }
     }
@@ -416,7 +416,7 @@ bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*
     if (show_loose_files) {
         debug::printf("Currently loaded un-preed files:\n");
         for (int i = 0; i < kMaxLoadedFiles; ++i) {
-            const LoadedFile& file = loaded_files()[i];
+            const LoadedFile& file = core::at(loaded_files(), i);
             if (file.data)
                 debug::printf("Usage:%d  File: %s\n", file.ref_count_,
                               script::find_checksum_name_or_unknown(file.checksum));
@@ -429,7 +429,7 @@ bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*
 void offload(uint32_t checksum)
 {
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        LoadedFile& file = loaded_files()[i];
+        LoadedFile& file = core::at(loaded_files(), i);
         if (!file.data || file.checksum != checksum)
             continue;
         if (file.ref_count_ != 0)
@@ -452,7 +452,7 @@ void offload(const char* name) { offload(checksums::hash_from_text(name)); }
 int get_file_size(uint32_t checksum)
 {
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
-        const LoadedFile& file = loaded_files()[i];
+        const LoadedFile& file = core::at(loaded_files(), i);
         if (file.data && file.checksum == checksum)
             return file.size;
     }
@@ -469,7 +469,7 @@ FileTables::FileTables()
     for (std::unique_ptr<LoadedArchive>& archive : archives())
         archive.reset();
     for (int i = 0; i < kMaxLoadedFiles; ++i)
-        loaded_files()[i] = {};
+        core::at(loaded_files(), i) = {};
 }
 
 // 0x005B7130

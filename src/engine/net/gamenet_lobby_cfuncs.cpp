@@ -72,7 +72,7 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }
 void nat_think() { game_spy::nat_think(); }
 void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
-QueuedPacket* get_queue() { return g_queued_packets.data(); }
+std::array<QueuedPacket, 200>& get_queue() { return g_queued_packets; }
 int& queued_count() { return g_queued_count; }
 
 } // namespace
@@ -107,7 +107,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
     client->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     tasks->queue_job(lobby->hosting_task_.get());
     for (int i = 0; i < queued_count(); ++i)
-        crt::dealloc(memory::owned_element(get_queue()[i].data)); // (the game's C runtime free; the queue's copy)
+        crt::dealloc(memory::owned_element(core::at(get_queue(), i).data)); // (the game's C runtime free; the queue's copy)
     queued_count() = 0;
     pop_heap();
     return true;

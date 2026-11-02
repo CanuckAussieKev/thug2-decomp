@@ -46,7 +46,7 @@ constexpr uint32_t kTerrain = 0x3789AC4E, kSparksPos = 0xFF5318DA;
 
 // The powerups' names (0x0067F09C): one.
 constexpr int kPowerups = 1;
-const uint32_t* powerup_names() { return g_powerup_names.data(); }
+const std::array<uint32_t, 1>& powerup_names() { return g_powerup_names; }
 
 // The powerup the unnamed checksum names (asserted), or -1.
 int find_powerup(script::Struct* params)
@@ -55,7 +55,7 @@ int find_powerup(script::Struct* params)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(uint32_t{0}, &name, 1);
     for (int i = 0; i < kPowerups; ++i) {
-        if (powerup_names()[i] == name)
+        if (core::at(powerup_names(), i) == name)
             return i;
     }
     return -1;

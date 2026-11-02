@@ -514,12 +514,12 @@ struct PendingSymbol {
     bool owned;
 };
 std::array<PendingSymbol, 500> g_pending_symbols;
-PendingSymbol* pending_symbols() { return g_pending_symbols.data(); }
+std::array<PendingSymbol, 500>& pending_symbols() { return g_pending_symbols; }
 int& pending_symbol_count() { return g_pending_symbol_count; }
 
 void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
 {
-    PendingSymbol& pending = pending_symbols()[pending_symbol_count()];
+    PendingSymbol& pending = core::at(pending_symbols(), pending_symbol_count());
     pending.symbol = symbol;
     pending.owned = owned;
     ++pending_symbol_count();
@@ -600,7 +600,7 @@ void replace_symbol_later(SymbolTableEntry* symbol) { add_pending_symbol(symbol,
 void process_pending_symbols()
 {
     for (int i = 0; i < pending_symbol_count(); ++i) {
-        const PendingSymbol& pending = pending_symbols()[i];
+        const PendingSymbol& pending = core::at(pending_symbols(), i);
         if (pending.owned) {
             clean_up_and_remove_symbol(pending.symbol);
         } else {

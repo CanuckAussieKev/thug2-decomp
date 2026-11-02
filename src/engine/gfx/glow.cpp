@@ -37,7 +37,7 @@ struct GlowVertex {
 std::array<GlowVertex, 4> g_glow_quad;
 
 // The occlusion queries in use (a byte each).
-uint8_t* queries_in_use() { return g_glow_queries_in_use.data(); }
+std::array<uint8_t, 0x400>& queries_in_use() { return g_glow_queries_in_use; }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
 std::array<GlowVertex, 4>& glow_quad() { return g_glow_quad; }
 
@@ -125,8 +125,8 @@ void update_glows(bool queries)
                 continue;
             uint32_t query = 0;
             for (; query < 0x400; ++query) {
-                if (!queries_in_use()[query]) {
-                    queries_in_use()[query] = 1;
+                if (!core::at(queries_in_use(), query)) {
+                    core::at(queries_in_use(), query) = 1;
                     break;
                 }
             }
@@ -151,7 +151,7 @@ void update_glows(bool queries)
             uint32_t pixels = 0;
             const int result = query_result(core::at(glow->queries, 0), &pixels);
             if (result == 0) {
-                queries_in_use()[core::at(glow->queries, 0)] = 0;
+                core::at(queries_in_use(), core::at(glow->queries, 0)) = 0;
                 core::at(glow->queries, 0) = core::at(glow->queries, 1);
                 core::at(glow->queries, 1) = core::at(glow->queries, 2);
                 core::at(glow->queries, 2) = core::at(glow->queries, 3);

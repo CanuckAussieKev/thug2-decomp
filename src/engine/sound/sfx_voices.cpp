@@ -76,7 +76,7 @@ int g_last_voice;
 uint32_t& ref_tally() { return g_sfx_references; }
 
 // The driver's state.
-Voice* get_voices() { return g_voices.data(); }
+std::array<Voice, 48>& get_voices() { return g_voices; }
 int& playing_voices() { return g_playing_voices; }
 bool& has_3d() { return g_has_3d; }
 int& voice_count() { return g_voice_count; }
@@ -523,9 +523,9 @@ int fetch_idle_voice(PcWave* wave)
     int chosen = static_cast<int>((last + 1) % count);
     for (int i = 0; i < ints::as_signed(count); ++i) {
         const int voice = static_cast<int>((last + i) % count);
-        if (get_voices()[voice].playing)
+        if (core::at(get_voices(), voice).playing)
             continue;
-        if (get_voices()[voice].wave == wave) {
+        if (core::at(get_voices(), voice).wave == wave) {
             last_voice() = voice;
             return voice;
         }
@@ -542,7 +542,7 @@ int group_count() { return -1; }
 // 0x0047C7A0
 void stop_voice(int voice)
 {
-    if (void* buffer = get_voices()[voice].buffer)
+    if (void* buffer = core::at(get_voices(), voice).buffer)
         buffer_of(buffer)->Stop();
 }
 
@@ -558,13 +558,13 @@ std::array<char, 256> g_wave_file_name{{"data\\sounds\\"}};
 void set_voice_pitch(float pitch) { g_voice_pitch = pitch; }
 
 // 0x0047C7E0
-int is_voice_playing(int voice) { return get_voices()[voice].playing && get_voices()[voice].buffer ? 1 : 0; }
+int is_voice_playing(int voice) { return core::at(get_voices(), voice).playing && core::at(get_voices(), voice).buffer ? 1 : 0; }
 
 // 0x0047C810
 void update_voice_states()
 {
     for (int i = 0; i < voice_count(); ++i) {
-        Voice& voice = get_voices()[i];
+        Voice& voice = core::at(get_voices(), i);
         if (!voice.playing || !voice.buffer)
             continue;
         DWORD status = 0;
@@ -581,10 +581,10 @@ void init_voices(AudioMixer* manager)
     if (manager)
         manager->fallback_channel_mode_ = VolumeRef::kTypeStereo;
     for (int i = 0; i < kMaxPlaying; ++i) {
-        get_voices()[i].buffer = nullptr;
-        get_voices()[i].buffer_3d_ = nullptr;
-        get_voices()[i].wave = nullptr;
-        get_voices()[i].playing = false;
+        core::at(get_voices(), i).buffer = nullptr;
+        core::at(get_voices(), i).buffer_3d_ = nullptr;
+        core::at(get_voices(), i).wave = nullptr;
+        core::at(get_voices(), i).playing = false;
     }
     static_assert(sizeof(DSCAPS) == 0x60);
     DSCAPS caps{};
@@ -624,7 +624,7 @@ void stop_all_voices()
     audio::stop_music();
     audio::halt_streams(-1);
     for (int i = 0; i < voice_count(); ++i) {
-        if (void* buffer = get_voices()[i].buffer)
+        if (void* buffer = core::at(get_voices(), i).buffer)
             buffer_of(buffer)->Stop();
     }
 }
@@ -736,7 +736,7 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
 // 0x0047CD70
 void apply_voice_settings(int index, VolumeRef* volume, float pitch)
 {
-    Voice& voice = get_voices()[index];
+    Voice& voice = core::at(get_voices(), index);
     if (!voice.buffer)
         return;
     if (has_3d() && volume->kind_tag_ == VolumeRef::kType3d && voice.buffer_3d_) {
@@ -831,7 +831,7 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
     const int index = fetch_idle_voice(wave);
     if (index < 0)
         return -1;
-    Voice& voice = get_voices()[index];
+    Voice& voice = core::at(get_voices(), index);
     if (voice.playing && voice.buffer)
         buffer_of(voice.buffer)->Stop();
     if (wave != voice.wave) {
@@ -899,7 +899,7 @@ void silence_voices()
     VolumeRef volume;
     volume.change_muted();
     for (int i = 0; i < voice_count(); ++i) {
-        if (get_voices()[i].playing && get_voices()[i].buffer)
+        if (core::at(get_voices(), i).playing && core::at(get_voices(), i).buffer)
             apply_voice_settings(i, &volume, 0.0f);
     }
     // (then the volume's destructor: empty)

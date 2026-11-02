@@ -34,7 +34,7 @@ constexpr uint32_t kPanelIdOffset = 0x69751A23; // the panel's element id: below
 constexpr int kHidden = 5;
 
 // The stances' textures (0x0064C12C).
-const uint32_t* stance_textures() { return g_stance_textures.data(); }
+const std::array<uint32_t, 5>& stance_textures() { return g_stance_textures; }
 
 } // namespace
 
@@ -88,7 +88,7 @@ void RiderStanceDisplay::tick_frame()
         panel->change_opacity(0.0f, 1);
         return;
     }
-    core::down_cast<frontend::ImageWidget>(panel)->set_texture(stance_textures()[stance]);
+    core::down_cast<frontend::ImageWidget>(panel)->set_texture(core::at(stance_textures(), stance));
     panel->change_opacity(1.0f, 1);
 }
 

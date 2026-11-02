@@ -60,7 +60,7 @@ float get_global(uint32_t name) { return script::fetch_float(name); }
 
 uint8_t& get_flagged() { return g_editor_camera_flagged; }
 int& get_seen_count() { return g_editor_camera_seen_count; }
-uint32_t* get_seen() { return g_editor_camera_seen.data(); }
+std::array<uint32_t, 20>& get_seen() { return g_editor_camera_seen; }
 
 // The collision feeler (render::ProbeRay): its line, a hit callback, the hit's point and normal; what it hit held by
 // a smart pointer (let go of by its destructor).
@@ -98,10 +98,10 @@ bool in_park_editor() { return modules::g_skate_module->level_ == 0xE8B4B836; }
 bool script_flagged(uint32_t name)
 {
     for (int i = 0; i < get_seen_count(); ++i) {
-        if (get_seen()[i] == name)
+        if (core::at(get_seen(), i) == name)
             return false;
     }
-    get_seen()[get_seen_count()++] = name;
+    core::at(get_seen(), get_seen_count()++) = name;
     if (name == g_editor_camera_name)
         return false;
     for (const uint32_t skip_name : g_editor_camera_skip_names) {
