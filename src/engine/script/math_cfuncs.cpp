@@ -179,7 +179,7 @@ bool cfunc_clamp(script::Struct* params, script::Script* script)
 // the X axis, then Y, then Z (each rotation applied in front: identity, then Rx * m, Ry * m, Rz * m).
 bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
 {
-    maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_float(kX, &point.x, 1);
     params->fetch_float(kY, &point.y, 1);
     params->fetch_float(kZ, &point.z, 1);

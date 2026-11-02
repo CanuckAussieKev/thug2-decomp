@@ -486,7 +486,7 @@ char* create_permanent_string(const char* string)
                         static_cast<size_t>(length) + 1);
     std::memcpy(copy.data(), string, copy.size());
     permanent_strings_next() = strings.subspan(static_cast<size_t>(copy.data() - strings.data()) + copy.size()).data();
-    core::at(table, permanent_string_count()) = {checksum, copy.data()};
+    core::at(table, permanent_string_count()) = {.checksum = checksum, .string = copy.data()};
     ++permanent_string_count();
     return copy.data();
 }

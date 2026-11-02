@@ -335,16 +335,16 @@ bool create_from_node(script::Struct* node)
     }
     sector->flag_bits_ |= 0x80;
     copy->flag_bits_ &= ~0x80u;
-    script::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
+    script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (node->fetch_vec(kAngles, &angles, 0)) {
         maths::Mat4 orientation;
         orientation.init_from_angles(*&angles);
         change_facing(copy, &orientation);
     }
-    script::VectorValue scale = {1.0f, 1.0f, 1.0f, 1.0f};
+    script::VectorValue scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
     if (node->fetch_vec(kScale, &scale, 0))
         change_scale(copy, &scale);
-    script::VectorValue pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    script::VectorValue pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     node->fetch_vec(kPos, &pos, 0);
     change_place(copy, &pos);
     change_live(copy, true);
@@ -378,7 +378,7 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
         struct {
             uint32_t id;
             objects::Entity* object;
-        } data = {name, script->entity_.get_pull()};
+        } data = {.id = name, .object = script->entity_.get_pull()};
         static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get())
             ->for_each(&destroy_object_with_id, &data);
         return true;
@@ -895,7 +895,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     params->read_hash_value(0xAF1A25F2u, &checksum_af_1a, 0);
     float value_2e_1c = 1.0f;
     params->fetch_float(0x2E1C4A64u, &value_2e_1c, 0);
-    script::VectorValue vector = {0.0f, 0.0f, 0.0f, 1.0f};
+    script::VectorValue vector = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0x210EA9E1u, &vector, 0);
     float value_c483 = 0.0f;
     params->fetch_float(0xC48391A5u, &value_c483, 0);

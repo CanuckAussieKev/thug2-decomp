@@ -477,10 +477,10 @@ void log_script_pool_use(const char* when)
         const char* name;
         memory::PoolPair* pair;
     };
-    const auto pools = std::to_array<Named>({{"CComponent", &g_component_pools}, {"CStruct", &g_struct_pools},
-                           {"CVector", &g_vector_pools},       {"CPair", &g_pair_pools},
-                           {"CArray", &g_array_pools},         {"CSymbolTableEntry", &g_symbol_pools},
-                           {"CScript", &g_script_pools}});
+    const auto pools = std::to_array<Named>({{.name = "CComponent", .pair = &g_component_pools}, {.name = "CStruct", .pair = &g_struct_pools},
+                           {.name = "CVector", .pair = &g_vector_pools},       {.name = "CPair", .pair = &g_pair_pools},
+                           {.name = "CArray", .pair = &g_array_pools},         {.name = "CSymbolTableEntry", .pair = &g_symbol_pools},
+                           {.name = "CScript", .pair = &g_script_pools}});
     std::string line;
     for (const Named& p : pools) {
         int used = 0, peak = 0, count = 0;

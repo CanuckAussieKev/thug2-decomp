@@ -61,7 +61,7 @@ std::vector<ScriptPatch> s_patches;
 
 void register_patch(const char* filename, const uint8_t* patch, size_t size)
 {
-    s_patches.push_back({filename, patch, size});
+    s_patches.push_back({.filename = filename, .patch = patch, .patch_size_ = size});
     debug_log::printf(StageMap::kInfo, "Registered patch for %s\n", filename);
 }
 

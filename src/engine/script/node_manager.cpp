@@ -80,7 +80,7 @@ struct BigSlot {
     int32_t list_link_; // -1: empty
 };
 std::vector<BigSlot> g_big_slots;
-BigSlot g_big_walk = {0, -1};
+BigSlot g_big_walk = {.element_list_ = 0, .list_link_ = -1};
 const NodeManager* g_big_owner;
 
 bool is_big(const NodeManager* m) { return m == g_big_owner && !g_big_slots.empty(); }
@@ -105,9 +105,9 @@ public:
     void assign_value(uint32_t i, uint32_t array, int node)
     {
         if (!big_.empty())
-            core::at(big_, i) = {array, node};
+            core::at(big_, i) = {.element_list_ = array, .list_link_ = node};
         else
-            core::at(small_, i) = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
+            core::at(small_, i) = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
     }
     void get_clear(uint32_t i) { assign_value(i, get_array(i), -1); }
 
@@ -125,9 +125,9 @@ struct Walk {
     void assign_value(uint32_t array, int node)
     {
         if (big)
-            g_big_walk = {array, node};
+            g_big_walk = {.element_list_ = array, .list_link_ = node};
         else
-            small = {static_cast<uint16_t>(array), static_cast<int16_t>(node)};
+            small = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
     }
     bool big;
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
@@ -219,7 +219,7 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
 NodeManager::NodeManager()
 {
     for (NodeSlot& slot : slots_)
-        slot = {0, -1};
+        slot = {.element_list_ = 0, .list_link_ = -1};
     walk_.list_link_ = -1;
 }
 
@@ -362,7 +362,7 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
     const int count = static_cast<int>(nodes->extent_);
     for (int i = 0; i < count; ++i) {
         auto* node = nodes->struct_at(i);
-        script::VectorValue position = {0.0f, 0.0f, 0.0f, 1.0f};
+        script::VectorValue position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         if (node->fetch_vec(kPosition, &position, 0)) {
             node->erase_module(kPosition);
             node->put_vec3(kPos, position.x, position.y, -position.z);
@@ -437,8 +437,8 @@ void use_big_name_hash(NodeManager* manager, uint32_t slots)
     g_big_owner = manager;
     std::vector<BigSlot>().swap(g_big_slots);
     if (manager && slots)
-        g_big_slots.assign(slots, BigSlot{0, -1});
-    g_big_walk = {0, -1};
+        g_big_slots.assign(slots, BigSlot{.element_list_ = 0, .list_link_ = -1});
+    g_big_walk = {.element_list_ = 0, .list_link_ = -1};
 }
 
 // 0x0045D690

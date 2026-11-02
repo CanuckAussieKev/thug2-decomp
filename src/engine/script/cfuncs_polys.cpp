@@ -146,8 +146,8 @@ bool cfunc_spawn_poly(Struct* params, Script*)
         details = memory::construct_in<render::SpawnedPoly>(details);
     // (a failed allocation writes through null below, as in the original)
     params->fetch_vec(kPos, &details->pos, 1);
-    script::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};
-    script::VectorValue vector2 = {0.0f, 1.0f, 0.0f, 1.0f};
+    script::VectorValue vector1 = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
+    script::VectorValue vector2 = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(kSpawnVector1, &vector1, 0);
     params->fetch_vec(kSpawnVector2, &vector2, 0);
     params->fetch_pair(kStartDims, &core::at(details->start_dims_, 0), &core::at(details->start_dims_, 1), 1);
@@ -327,7 +327,7 @@ bool cfunc_set_light_direction(Struct* params, Script*)
     constexpr float kRadiansPerDegree = 0.0174532924f; // (0x00645464)
     int index = 0;                                     // (uninitialised in the original)
     params->fetch_int_value(kIndex, &index, 0);
-    script::VectorValue direction = {0.0f, 0.0f, 1.0f, 0.0f};
+    script::VectorValue direction = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
     float heading = 0.0f;
     float pitch = 0.0f;
     if (params->fetch_vec(kDirection, &direction, 0)) {

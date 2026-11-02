@@ -739,8 +739,8 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
                 ++at;
             ++at;
         }
-        maths::Vec4 from = {core::at(values, 0), core::at(values, 1), core::at(values, 2), 1.0f};
-        const maths::Vec4 to = {core::at(values, 3), core::at(values, 4), core::at(values, 5), 1.0f};
+        maths::Vec4 from = {.x = core::at(values, 0), .y = core::at(values, 1), .z = core::at(values, 2), .w = 1.0f};
+        const maths::Vec4 to = {.x = core::at(values, 3), .y = core::at(values, 4), .z = core::at(values, 5), .w = 1.0f};
         --at;
         uint32_t colour = 0;
         switch (type) {

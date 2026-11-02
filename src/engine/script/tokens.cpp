@@ -83,7 +83,7 @@ Tokens tokens_at(const uint8_t* place)
                     static_cast<const void*>(place), static_cast<unsigned>(blocks.size()));
         Expects(found);
         --it;
-        g_last_block = {it->first, it->second};
+        g_last_block = {.begin = it->first, .size = it->second};
     }
     return Tokens(std::span<const uint8_t>(g_last_block.begin, g_last_block.size)).moved_to(place);
 }

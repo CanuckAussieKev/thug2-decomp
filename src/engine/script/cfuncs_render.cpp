@@ -305,9 +305,9 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
     float height = 0.0f;
     float dist = 0.0f;
     float width = 0.0f;
-    maths::Vec4 low = {0.0f, 0.0f, 0.0f, 0.0f}; // the box's corners around the offset (w unused)
-    maths::Vec4 high = {0.0f, 0.0f, 0.0f, 0.0f};
-    maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 0.0f}; // (x, y, z uninitialised in the original when not given)
+    maths::Vec4 low = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f}; // the box's corners around the offset (w unused)
+    maths::Vec4 high = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    maths::Vec4 offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f}; // (x, y, z uninitialised in the original when not given)
     // Each size in feet to inches; the corners at minus / plus half of it (the low one not above 0, the high one not
     // below 0 - NaN goes through). x87: the low half from the unrounded product, the high one from it rounded to a
     // float.
@@ -326,8 +326,8 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
         extent(width, low.x, high.x);
     if (box_params->fetch_vec(kOffset, &offset, 1))
         offset.feet_as_inches();
-    box.min = {offset.x + low.x, offset.y + low.y, offset.z + low.z, offset.w + 1.0f};
-    box.max = {offset.x + high.x, offset.y + high.y, offset.z + high.z, offset.w + 1.0f};
+    box.min = {.x = offset.x + low.x, .y = offset.y + low.y, .z = offset.z + low.z, .w = offset.w + 1.0f};
+    box.max = {.x = offset.x + high.x, .y = offset.y + high.y, .z = offset.z + high.z, .w = offset.w + 1.0f};
     render::engine::kill_texture_splats_in_box(&box);
     return true;
 }
@@ -499,7 +499,7 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 1);
     bool found = false;
-    maths::Vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
+    maths::Vec4 position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
     if (objects::Entity* object = manager->look_up_entity(id)) {
         uint32_t bone = 0;

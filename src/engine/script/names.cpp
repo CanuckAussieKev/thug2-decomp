@@ -74,7 +74,7 @@ void allocate_checksum_name_lookup_tables()
     names_start() = static_cast<char*>(memory::alloc_block(kNamesBytes));
     g_names_used = 0;
     for (HashedLabel& label : name_table())
-        label = {0, nullptr};
+        label = {.checksum = 0, .name = nullptr};
     core::at(names_block(), 0) = 0;
 }
 
