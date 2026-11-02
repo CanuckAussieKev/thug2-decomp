@@ -3,6 +3,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/no_destroy.h"
 
 #include <cmath>
 #include <cstddef>
@@ -11,7 +12,6 @@
 #include <array>
 #include <gsl/pointers>
 #include <span>
-
 
 namespace script {
 
@@ -25,7 +25,6 @@ static_assert(offsetof(ValueResolver, unknown1f4_) == 0x1F4, "layout must match 
 
 namespace {
 constexpr float kEvalDivisorMinimum{0.000001f};
-Component g_eval_result;
 
 // The operators' precedences, by operator.
 std::array<int, 74> g_operator_precedence{{-1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98, 99, 100, -1, -1, -1, -1, 80,
@@ -35,7 +34,11 @@ std::array<int, 74> g_operator_precedence{{-1, -1, -1, -1, -1, 100, -1, 76, 100,
 int precedence(int op) { return core::at(g_operator_precedence, op); }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
-Component& get_result() { return g_eval_result; }
+Component& get_result()
+{
+    static core::NoDestroy<Component> eval_result;
+    return eval_result.get();
+}
 
 // The error messages are the game's own strings.
 

@@ -24,8 +24,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
-
 
 namespace script {
 
@@ -34,12 +34,23 @@ constexpr float kParseRandomScale{0.000030525032f};
 } // namespace
 StoredRandom* g_stored_randoms_newest;
 namespace {
-StoredRandom* g_stored_randoms_oldest;
-int g_stored_random_count;
+// NOT ORIGINAL grouping - token_reader.cpp's state (the original's globals). Made on first use, never destroyed
+// (token_reader_state()).
+struct TokenReaderState {
+    StoredRandom* stored_randoms_oldest_{};
+    int stored_random_count_{};
+    Component parse_scratch_{};
+};
+
+TokenReaderState& token_reader_state()
+{
+    static core::NoDestroy<TokenReaderState> state;
+    return state.get();
+}
+
 } // namespace
 ValueResolver g_evaluator;
 namespace {
-Component g_parse_scratch;
 
 float get_as_float(uint32_t bits)
 {
@@ -64,15 +75,14 @@ Tokens skip_end_of_lines_in(Tokens p)
     }
 }
 
-
 // The evaluator expressions are parsed with, and the component values go through on the way.
 ValueResolver& get_evaluator() { return g_evaluator; }
-Component& get_scratch() { return g_parse_scratch; }
+Component& get_scratch() { return token_reader_state().parse_scratch_; }
 
 // The stored randoms: newest first (next = older), at most 100.
 StoredRandom*& stored_randoms_newest() { return g_stored_randoms_newest; }
-StoredRandom*& stored_randoms_oldest() { return g_stored_randoms_oldest; }
-int& stored_random_count() { return g_stored_random_count; }
+StoredRandom*& stored_randoms_oldest() { return token_reader_state().stored_randoms_oldest_; }
+int& stored_random_count() { return token_reader_state().stored_random_count_; }
 
 // An expression parameter of a structure / call: merged if it gives a structure, added (unnamed) otherwise.
 Tokens add_expression(Tokens token, Struct* dest, Struct* args)

@@ -23,19 +23,30 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"
 #include "engine/core/cursor.h"
+#include "engine/core/no_destroy.h"
 
 namespace level_nodes {
 
 using script::Array;
 
 namespace {
-std::array<uint32_t, 1000> g_node_names;
-PrefixTables* g_node_prefixes;
+// NOT ORIGINAL grouping - node_prefixes.cpp's state (the original's globals). Made on first use, never destroyed
+// (node_prefixes_state()).
+struct NodePrefixesState {
+    std::array<uint32_t, 1000> node_names_{};
+    PrefixTables* node_prefixes_{};
+};
+
+NodePrefixesState& node_prefixes_state()
+{
+    static core::NoDestroy<NodePrefixesState> state;
+    return state.get();
+}
 
 constexpr uint32_t kName = 0xA1DC81F9; // name
 constexpr int kGrowBy = 100;           // indices
 
-std::array<uint32_t, 1000>& node_names() { return g_node_names; } // (room for 1000)
+std::array<uint32_t, 1000>& node_names() { return node_prefixes_state().node_names_; } // (room for 1000)
 
 // The PrefixNodes stored under `prefix` (lists::KeyMap's lookup, inlined in the original).
 PrefixNodes* get_find(lists::KeyMap* table, uint32_t prefix)
@@ -45,7 +56,7 @@ PrefixNodes* get_find(lists::KeyMap* table, uint32_t prefix)
 
 } // namespace
 
-PrefixTables*& node_prefixes() { return g_node_prefixes; }
+PrefixTables*& node_prefixes() { return node_prefixes_state().node_prefixes_; }
 
 // 0x0045BDA0
 void PrefixNodes::append_one(uint16_t index)

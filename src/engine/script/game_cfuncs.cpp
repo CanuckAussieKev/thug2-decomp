@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <cstdio>
 #include <cstring>
 #include <array>
@@ -69,15 +70,27 @@
 #include <gsl/pointers>
 #include <span>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace commands {
 
 bool g_trying_to_join;
 std::array<char, 128> g_node_list_name;
 namespace {
-gsl::owner<tasks::Task<void>*> g_second_controller_check;
-int g_view_mode_cfunc;
-std::array<char, 32> g_password_stars;
+// NOT ORIGINAL grouping - game_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
+// (game_cfuncs_state()).
+struct GameCfuncsState {
+    std::unique_ptr<tasks::Task<void>> second_controller_check_{};
+    int view_mode_cfunc_{};
+    std::array<char, 32> password_stars_{};
+};
+
+GameCfuncsState& game_cfuncs_state()
+{
+    static core::NoDestroy<GameCfuncsState> state;
+    return state.get();
+}
+
 } // namespace
 bool g_got_extra_memory;
 
@@ -139,10 +152,10 @@ bool& online_mode_flag() { return online::g_online_active; }
 bool& join_server_ip_succeeded() { return online::g_join_server_ip_succeeded; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
-int& view_mode() { return g_view_mode_cfunc; }
+int& view_mode() { return game_cfuncs_state().view_mode_cfunc_; }
 
 // GetPreferencePassword's row of stars (0x007CEBD0).
-std::array<char, 32>& password_stars() { return g_password_stars; }
+std::array<char, 32>& password_stars() { return game_cfuncs_state().password_stars_; }
 
 objects::PreviewEntity* viewer_target(modules::Viewer* viewer)
 {
@@ -207,8 +220,7 @@ bool cfunc_check_for_holes(script::Struct*, script::Script*)
 // 0x0059F740: StopSecondControllerCheck: the check's task (if any) deleted.
 bool cfunc_stop_second_controller_check(script::Struct*, script::Script*)
 {
-    delete g_second_controller_check;
-    g_second_controller_check = nullptr;
+    memory::destroy_then_clear(game_cfuncs_state().second_controller_check_);
     return true;
 }
 
@@ -582,12 +594,12 @@ bool cfunc_stop_keyboard_handler(script::Struct*, script::Script*)
 bool cfunc_spawn_second_controller_check(script::Struct*, script::Script*)
 {
     auto* main_loop = assets::get_main_loop_manager();
-    if (g_second_controller_check)
+    if (game_cfuncs_state().second_controller_check_)
         return true;
     const tasks::Task<void>::Code code = &second_pad_watch_tick;
     auto task = memory::make_owned<tasks::Task<void>>(code, nullptr, 0);
-    g_second_controller_check = task;
-    main_loop->logic_tasks_.queue_job(task);
+    game_cfuncs_state().second_controller_check_ = memory::take_unique(task);
+    main_loop->logic_tasks_.queue_job(game_cfuncs_state().second_controller_check_.get());
     return true;
 }
 

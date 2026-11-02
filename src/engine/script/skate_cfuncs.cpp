@@ -25,12 +25,23 @@
 #include "engine/gfx/loading_bar_cfuncs.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace commands {
 
 namespace {
-std::array<char, 64> g_level_name;
-std::array<uint32_t, 22> g_debounce_times;
+// NOT ORIGINAL grouping - skate_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
+// (skate_cfuncs_state()).
+struct SkateCfuncsState {
+    std::array<char, 64> level_name_{};
+    std::array<uint32_t, 22> debounce_times_{};
+};
+
+SkateCfuncsState& skate_cfuncs_state()
+{
+    static core::NoDestroy<SkateCfuncsState> state;
+    return state.get();
+}
 
 constexpr uint32_t kTime = 0x906B67BA;               // "time"
 constexpr uint32_t kId = 0x40C698AF;                 // "id"
@@ -56,7 +67,7 @@ uint32_t& last_broadcasted_omnigon() { return g_last_broadcasted_omnigon; }
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
 std::array<char, 128>& node_table_key_text() { return g_node_list_name; }
-std::array<char, 64>& get_level_name() { return g_level_name; }
+std::array<char, 64>& get_level_name() { return skate_cfuncs_state().level_name_; }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
 void* get_viewer() { return modules::get_live_viewer(); }
@@ -66,7 +77,7 @@ inline void dump_scripts_list(bool /*flag*/) {}
 
 } // namespace
 
-std::array<uint32_t, 22>& debounce_times() { return g_debounce_times; }
+std::array<uint32_t, 22>& debounce_times() { return skate_cfuncs_state().debounce_times_; }
 
 // 0x0059EE80
 bool controller_pressed(const pad_input::InputHandler* controller, uint32_t button)

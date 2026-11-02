@@ -21,30 +21,36 @@
 #include "engine/core/checked_index.h"
 #include "engine/script/tokens.h"
 #include "platform/crt.h"
+#include "engine/core/no_destroy.h"
 
 namespace script {
 
 namespace {
-int g_struct_copy_peak{18000};
+// NOT ORIGINAL grouping - param_struct.cpp's state (the original's globals). Made on first use, never destroyed
+// (param_struct_state()).
+struct ParamStructState {
+    int struct_copy_peak_{18000};
+    bool use_permanent_strings_{};
+    int struct_copy_count_{};
+    SymbolTableEntry** name_table_{};
+    SymbolTableEntry* iterator_entry_{};
+    uint32_t iterator_bucket_{};
+};
+
+ParamStructState& param_struct_state()
+{
+    static core::NoDestroy<ParamStructState> state;
+    return state.get();
+}
+
 } // namespace
 memory::PoolPair g_array_pools;
 memory::PoolPair g_component_pools;
-namespace {
-bool g_use_permanent_strings;
-} // namespace
 char* g_permanent_strings_start;
 char* g_permanent_strings_next;
 uint32_t g_permanent_strings_size;
 uint32_t g_permanent_string_count;
-namespace {
-int g_struct_copy_count;
-SymbolTableEntry** g_name_table;
-} // namespace
 memory::PoolPair g_symbol_pools;
-namespace {
-SymbolTableEntry* g_iterator_entry;
-uint32_t g_iterator_bucket;
-} // namespace
 memory::PoolPair g_pair_pools;
 memory::PoolPair g_vector_pools;
 
@@ -54,7 +60,7 @@ constexpr uint32_t kSymbolTableMask = 0xFFF;
 // The table's 0x1000 buckets (the names' low 12 bits).
 std::span<SymbolTableEntry*, kSymbolTableMask + 1> script_symbol_slots()
 {
-    return std::span<SymbolTableEntry*, kSymbolTableMask + 1>(g_name_table, kSymbolTableMask + 1);
+    return std::span<SymbolTableEntry*, kSymbolTableMask + 1>(param_struct_state().name_table_, kSymbolTableMask + 1);
 }
 
 } // namespace
@@ -435,7 +441,6 @@ bool Struct::fetch_vec(const char* name, VectorValue* out, int assert)
 
 } // namespace script
 
-
 // --- owning values: strings, pooled objects, cleaning up and copying ------------------------------------------
 
 namespace script {
@@ -460,7 +465,7 @@ memory::PoolPair& pair_pools() { return g_pair_pools; }
 memory::PoolPair& vector_pools() { return g_vector_pools; }
 
 // The permanent string cache (used while loading the game's scripts): one block, strings shared by checksum.
-bool& use_permanent_strings() { return g_use_permanent_strings; }
+bool& use_permanent_strings() { return param_struct_state().use_permanent_strings_; }
 char*& permanent_strings_start() { return g_permanent_strings_start; }
 char*& permanent_strings_next() { return g_permanent_strings_next; }
 uint32_t& permanent_strings_size() { return g_permanent_strings_size; }
@@ -527,15 +532,26 @@ namespace {
 // indexes past it into the structure pools that follow; the game's scripts use only index 0. Not original: 16 slots,
 // an index outside them ignored (an empty string read back).
 constexpr int kScriptStringSlots = 16;
-std::array<std::array<char, 128>, kScriptStringSlots> g_script_strings;
-std::array<char, 128> g_no_script_string;
+// NOT ORIGINAL grouping - the script strings' slots and the empty one (the original's globals). Made on first use,
+// never destroyed (script_strings()).
+struct ScriptStrings {
+    std::array<std::array<char, 128>, kScriptStringSlots> script_strings_{};
+    std::array<char, 128> no_script_string_{};
+};
+
+ScriptStrings& script_strings()
+{
+    static core::NoDestroy<ScriptStrings> state;
+    return state.get();
+}
+
 char* script_string_slot(int index)
 {
     if (index < 0 || index >= kScriptStringSlots) {
-        core::at(g_no_script_string, 0) = 0;
-        return g_no_script_string.data();
+        core::at(script_strings().no_script_string_, 0) = 0;
+        return script_strings().no_script_string_.data();
     }
-    return core::at(g_script_strings, index).data();
+    return core::at(script_strings().script_strings_, index).data();
 }
 } // namespace
 
@@ -1192,7 +1208,6 @@ void Struct::inline_into(Struct* dest, int depth)
 
 } // namespace script
 
-
 // --- arrays: sizing, elements, copying ------------------------------------------------------------------------
 
 namespace script {
@@ -1209,8 +1224,8 @@ Cell* allocate_elements(uint32_t count)
 }
 
 // 0x006F3610 / 0x0067DA30: how many structures were made by copying, and the most there were (debug counters).
-int& struct_copy_count() { return g_struct_copy_count; }
-int& struct_copy_peak() { return g_struct_copy_peak; }
+int& struct_copy_count() { return param_struct_state().struct_copy_count_; }
+int& struct_copy_peak() { return param_struct_state().struct_copy_peak_; }
 
 } // namespace
 
@@ -1425,8 +1440,8 @@ namespace script {
 namespace {
 
 // The symbol iterator's position: the current entry and its bucket.
-SymbolTableEntry*& iterator_entry() { return g_iterator_entry; }
-uint32_t& iterator_bucket() { return g_iterator_bucket; }
+SymbolTableEntry*& iterator_entry() { return param_struct_state().iterator_entry_; }
+uint32_t& iterator_bucket() { return param_struct_state().iterator_bucket_; }
 
 // A global symbol's value as an integer / float (other types: 0).
 int symbol_integer(SymbolTableEntry* entry)
@@ -1462,7 +1477,7 @@ const char* empty_string() { return ""; }
 // 0x00478C90
 void create_symbol_table()
 {
-    g_name_table = static_cast<SymbolTableEntry**>(memory::alloc_block(0x1000 * sizeof(SymbolTableEntry*)));
+    param_struct_state().name_table_ = static_cast<SymbolTableEntry**>(memory::alloc_block(0x1000 * sizeof(SymbolTableEntry*)));
     std::ranges::fill(script_symbol_slots(), nullptr);
 }
 

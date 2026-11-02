@@ -24,6 +24,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"
+#include "engine/core/no_destroy.h"
 
 namespace level_nodes {
 
@@ -33,7 +34,6 @@ using script::Array;
 using script::Struct;
 
 namespace {
-uint32_t g_node_manager_references;
 
 constexpr uint32_t kName = 0xA1DC81F9;     // name
 constexpr uint32_t kLinks = 0x2E7D5EE7;    // links
@@ -41,7 +41,11 @@ constexpr uint32_t kPosition = 0xB9D31B0A; // position
 constexpr uint32_t kPos = 0x7F261953;      // pos
 
 memory::HeapUnique<NodeManager>& sole() { return g_node_manager; }
-uint32_t& ref_tally() { return g_node_manager_references; }
+uint32_t& ref_tally()
+{
+    static uint32_t node_manager_references{};
+    return node_manager_references;
+}
 
 // NOT ORIGINAL - a node asked for that must exist (the release build's assertion did nothing) and doesn't: logged, the
 // first time for each name. Many callers then use the null as a node and crash (e.g. IsAlive's 0x005A3D10 -> a crash
@@ -64,10 +68,20 @@ void log_missing_node(uint32_t name)
 constexpr uint32_t kClass = 0x12B4E660; // class
 constexpr uint32_t kLink = 0xC953660E;  // link (a class= whose nodes aren't hashed)
 
-// NOT ORIGINAL - the level editor's overlay array (see node_manager.h).
-uint32_t g_editor_array;
-NodeArrayRemovedHook g_removed_hook;
-NodeArrayAddedHook g_added_hook;
+// NOT ORIGINAL grouping - node_manager.cpp's state (the original's globals). Made on first use, never destroyed
+// (node_array_hooks()).
+struct NodeArrayHooks {
+    // NOT ORIGINAL - the level editor's overlay array (see node_manager.h).
+    uint32_t editor_array_{};
+    NodeArrayRemovedHook removed_hook_{};
+    NodeArrayAddedHook added_hook_{};
+};
+
+NodeArrayHooks& node_array_hooks()
+{
+    static core::NoDestroy<NodeArrayHooks> state;
+    return state.get();
+}
 
 // NOT ORIGINAL - the name hash, bigger than the original's (memory::sizes::node_hash_slots): the game's node manager (the one
 // create_node_manager made) keeps its slots here, node indices in 32 bits (a node array may hold more than 32,767), its
@@ -77,18 +91,28 @@ struct BigSlot {
     uint32_t element_list_;
     int32_t list_link_; // -1: empty
 };
-std::vector<BigSlot> g_big_slots;
-BigSlot g_big_walk = {.element_list_ = 0, .list_link_ = -1};
-const NodeManager* g_big_owner;
+// NOT ORIGINAL grouping - the big node arrays: their slots, the walk and its owner (the original's globals). Made on
+// first use, never destroyed (big_node_arrays()).
+struct BigNodeArrays {
+    std::vector<BigSlot> big_slots_{};
+    BigSlot big_walk_ = {.element_list_ = 0, .list_link_ = -1};
+    const NodeManager* big_owner_{};
+};
 
-bool is_big(const NodeManager* m) { return m == g_big_owner && !g_big_slots.empty(); }
+BigNodeArrays& big_node_arrays()
+{
+    static core::NoDestroy<BigNodeArrays> state;
+    return state.get();
+}
+
+bool is_big(const NodeManager* m) { return m == big_node_arrays().big_owner_ && !big_node_arrays().big_slots_.empty(); }
 
 // The slots of a manager, whichever kind.
 class Slots {
 public:
     explicit Slots(NodeManager* m)
-        : small_(m->slots_), big_(is_big(m) ? std::span<BigSlot>(g_big_slots) : std::span<BigSlot>()),
-          skip_bits_(!big_.empty() ? static_cast<uint32_t>(g_big_slots.size()) - 1 : NodeManager::kSlots - 1)
+        : small_(m->slots_), big_(is_big(m) ? std::span<BigSlot>(big_node_arrays().big_slots_) : std::span<BigSlot>()),
+          skip_bits_(!big_.empty() ? static_cast<uint32_t>(big_node_arrays().big_slots_.size()) - 1 : NodeManager::kSlots - 1)
     {}
     [[nodiscard]] uint32_t get_mask() const { return skip_bits_; }
     [[nodiscard]] bool vacant(uint32_t i) const { return elem(i) == -1; }
@@ -118,12 +142,12 @@ private:
 // The walk's place, whichever kind (as the slots).
 struct Walk {
     explicit Walk(NodeManager* m) : big(is_big(m)), small(m->walk_) {}
-    [[nodiscard]] int elem() const { return big ? g_big_walk.list_link_ : small.list_link_; }
-    [[nodiscard]] uint32_t get_array() const { return big ? g_big_walk.element_list_ : small.element_list_; }
+    [[nodiscard]] int elem() const { return big ? big_node_arrays().big_walk_.list_link_ : small.list_link_; }
+    [[nodiscard]] uint32_t get_array() const { return big ? big_node_arrays().big_walk_.element_list_ : small.element_list_; }
     void assign_value(uint32_t array, int node)
     {
         if (big)
-            g_big_walk = {.element_list_ = array, .list_link_ = node};
+            big_node_arrays().big_walk_ = {.element_list_ = array, .list_link_ = node};
         else
             small = {.element_list_ = static_cast<uint16_t>(array), .list_link_ = static_cast<int16_t>(node)};
     }
@@ -134,10 +158,10 @@ struct Walk {
 
 } // namespace
 
-void set_editor_node_array(uint32_t name) { g_editor_array = name; }
-uint32_t editor_node_array() { return g_editor_array; }
-void set_node_array_removed_hook(NodeArrayRemovedHook hook) { g_removed_hook = hook; }
-void set_node_array_added_hook(NodeArrayAddedHook hook) { g_added_hook = hook; }
+void set_editor_node_array(uint32_t name) { node_array_hooks().editor_array_ = name; }
+uint32_t editor_node_array() { return node_array_hooks().editor_array_; }
+void set_node_array_removed_hook(NodeArrayRemovedHook hook) { node_array_hooks().removed_hook_ = hook; }
+void set_node_array_added_hook(NodeArrayAddedHook hook) { node_array_hooks().added_hook_ = hook; }
 
 // 0x0045CE60
 void NodeManager::hash_node(uint32_t array, uint32_t index, Struct* node)
@@ -276,7 +300,7 @@ Array* NodeManager::get_last_node_array()
 {
     // NOT ORIGINAL: the level editor's overlay array (set_editor_node_array) is passed over - callers mean the level's.
     uint32_t i = num_;
-    while (i && g_editor_array && core::at(arrays_, i - 1).label_ == g_editor_array)
+    while (i && node_array_hooks().editor_array_ && core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_)
         --i;
     return i ? core::at(arrays_, i - 1).node_entries_ : nullptr;
 }
@@ -286,7 +310,7 @@ uint32_t NodeManager::get_last_node_array_name()
 {
     // NOT ORIGINAL: as get_last_node_array, the editor's overlay array passed over.
     uint32_t i = num_;
-    while (i && g_editor_array && core::at(arrays_, i - 1).label_ == g_editor_array)
+    while (i && node_array_hooks().editor_array_ && core::at(arrays_, i - 1).label_ == node_array_hooks().editor_array_)
         --i;
     return i ? core::at(arrays_, i - 1).label_ : 0;
 }
@@ -371,8 +395,8 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
         objects::PathManager::sole()->number_paths();
     }
     // NOT ORIGINAL: the level editor's edited copy (see node_manager.h).
-    if (g_added_hook)
-        g_added_hook(name);
+    if (node_array_hooks().added_hook_)
+        node_array_hooks().added_hook_(name);
     return true;
 }
 
@@ -396,8 +420,8 @@ bool NodeManager::remove_node_array(uint32_t name)
         }
     }
     // NOT ORIGINAL: the level editor's overlay array leaves with the level it was added after.
-    if (g_removed_hook)
-        g_removed_hook(name);
+    if (node_array_hooks().removed_hook_)
+        node_array_hooks().removed_hook_(name);
     return true;
 }
 
@@ -432,11 +456,11 @@ uint32_t node_array_checksum(const char* path)
 // NOT ORIGINAL (see BigSlot)
 void use_big_name_hash(NodeManager* manager, uint32_t slots)
 {
-    g_big_owner = manager;
-    std::vector<BigSlot>().swap(g_big_slots);
+    big_node_arrays().big_owner_ = manager;
+    std::vector<BigSlot>().swap(big_node_arrays().big_slots_);
     if (manager && slots)
-        g_big_slots.assign(slots, BigSlot{.element_list_ = 0, .list_link_ = -1});
-    g_big_walk = {.element_list_ = 0, .list_link_ = -1};
+        big_node_arrays().big_slots_.assign(slots, BigSlot{.element_list_ = 0, .list_link_ = -1});
+    big_node_arrays().big_walk_ = {.element_list_ = 0, .list_link_ = -1};
 }
 
 // 0x0045D690
@@ -464,7 +488,7 @@ void release_node_manager()
     if (manager)
         memory::Hub::get_pull()->dealloc(manager);
     // NOT ORIGINAL: its bigger name hash goes with it.
-    if (manager == g_big_owner)
+    if (manager == big_node_arrays().big_owner_)
         use_big_name_hash(nullptr, 0);
     ref_tally() = 0;
 }

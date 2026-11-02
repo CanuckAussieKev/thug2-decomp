@@ -11,6 +11,7 @@
 #include <gsl/assert>
 
 #include "platform/run_log.h"
+#include "engine/core/no_destroy.h"
 
 namespace script {
 
@@ -29,7 +30,11 @@ struct LastBlock {
     const uint8_t* begin = nullptr;
     std::size_t size = 0;
 };
-LastBlock g_last_block;
+LastBlock& last_block()
+{
+    static core::NoDestroy<LastBlock> last_block;
+    return last_block.get();
+}
 // Counted up whenever a block is noted or forgotten.
 uint32_t g_generation;
 
@@ -59,7 +64,7 @@ void note_code_block(std::span<const uint8_t> block)
     while (it != blocks.end() && std::cmp_less(it->first - begin, block.size()))
         it = blocks.erase(it);
     blocks[begin] = block.size();
-    g_last_block = {};
+    last_block() = {};
     ++g_generation;
 }
 
@@ -68,7 +73,7 @@ void forget_code_block(const void* block)
     if (!block)
         return;
     code_blocks().erase(static_cast<const uint8_t*>(block));
-    g_last_block = {};
+    last_block() = {};
     ++g_generation;
 }
 
@@ -76,7 +81,7 @@ Tokens tokens_at(const uint8_t* place)
 {
     if (!place)
         return {};
-    if (!holds(g_last_block.begin, g_last_block.size, place)) {
+    if (!holds(last_block().begin, last_block().size, place)) {
         const CodeBlocks& blocks = code_blocks();
         auto it = blocks.upper_bound(place);
         const bool found = it != blocks.begin() && holds(std::prev(it)->first, std::prev(it)->second, place);
@@ -85,9 +90,9 @@ Tokens tokens_at(const uint8_t* place)
                     static_cast<const void*>(place), static_cast<unsigned>(blocks.size()));
         Expects(found);
         --it;
-        g_last_block = {.begin = it->first, .size = it->second};
+        last_block() = {.begin = it->first, .size = it->second};
     }
-    return Tokens(std::span<const uint8_t>(g_last_block.begin, g_last_block.size)).moved_to(place);
+    return Tokens(std::span<const uint8_t>(last_block().begin, last_block().size)).moved_to(place);
 }
 
 Tokens tokens_at(Tokens near, const uint8_t* place)

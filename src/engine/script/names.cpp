@@ -20,13 +20,25 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace script {
 
 namespace {
-std::array<char, 100> g_checksum_name_buffer;
-char* g_names_start;
-std::size_t g_names_used = 0; // the bytes of the names' block taken
+// NOT ORIGINAL grouping - names.cpp's state (the original's globals). Made on first use, never destroyed
+// (names_state()).
+struct NamesState {
+    std::array<char, 100> checksum_name_buffer_{};
+    char* names_start_{};
+    std::size_t names_used_ = 0; // the bytes of the names' block taken
+};
+
+NamesState& names_state()
+{
+    static core::NoDestroy<NamesState> state;
+    return state.get();
+}
+
 constexpr std::size_t kNamesBytes = 5000000;
 
 struct HashedLabel {
@@ -36,10 +48,14 @@ struct HashedLabel {
 constexpr uint32_t kBucketSize = 10;
 
 constexpr std::size_t kTableEntries = 0x10000 * static_cast<std::size_t>(kBucketSize);
-HashedLabel* g_checksum_name_table;
-std::span<HashedLabel> name_table() { return {g_checksum_name_table, kTableEntries}; }
-char*& names_start() { return g_names_start; }
-std::span<char> names_block() { return {g_names_start, kNamesBytes}; }
+HashedLabel*& checksum_name_table()
+{
+    static HashedLabel* checksum_name_table{};
+    return checksum_name_table;
+}
+std::span<HashedLabel> name_table() { return {checksum_name_table(), kTableEntries}; }
+char*& names_start() { return names_state().names_start_; }
+std::span<char> names_block() { return {names_state().names_start_, kNamesBytes}; }
 
 // The table from a checksum's bucket to its end (a full bucket runs on into the next one).
 std::span<HashedLabel> get_bucket(uint32_t checksum)
@@ -69,9 +85,9 @@ void allocate_checksum_name_lookup_tables()
 {
     if (!checksum_names_enabled())
         return;
-    g_checksum_name_table = static_cast<HashedLabel*>(memory::alloc_block(0x10000 * kBucketSize * sizeof(HashedLabel)));
+    checksum_name_table() = static_cast<HashedLabel*>(memory::alloc_block(0x10000 * kBucketSize * sizeof(HashedLabel)));
     names_start() = static_cast<char*>(memory::alloc_block(kNamesBytes));
-    g_names_used = 0;
+    names_state().names_used_ = 0;
     for (HashedLabel& label : name_table())
         label = {.checksum = 0, .name = nullptr};
     core::at(names_block(), 0) = 0;
@@ -94,11 +110,11 @@ void register_name_hash(uint32_t checksum, const char* name)
     HashedLabel& entry = core::at(bucket, at);
     entry.checksum = checksum;
     const std::string_view text(name);
-    const std::span<char> copy = names_block().subspan(g_names_used, text.size() + 1);
+    const std::span<char> copy = names_block().subspan(names_state().names_used_, text.size() + 1);
     entry.name = copy.data();
     std::ranges::copy(text, copy.begin());
     core::at(copy, text.size()) = 0;
-    g_names_used += text.size() + 1;
+    names_state().names_used_ += text.size() + 1;
 }
 
 // 0x0046D0C0
@@ -119,8 +135,8 @@ const char* find_checksum_name_or_unknown(uint32_t checksum)
 {
     if (const char* name = look_up_hash_name(checksum))
         return name;
-    text::format_to(std::span(g_checksum_name_buffer).first(32), "Unknown(0x%08x)", checksum);
-    return g_checksum_name_buffer.data();
+    text::format_to(std::span(names_state().checksum_name_buffer_).first(32), "Unknown(0x%08x)", checksum);
+    return names_state().checksum_name_buffer_.data();
 }
 
 // 0x0046CD90

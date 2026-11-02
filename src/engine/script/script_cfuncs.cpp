@@ -22,16 +22,27 @@
 #include "engine/gfx/tod_manager.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace commands {
 
 namespace {
 constexpr float kScriptFrameMilliseconds{16.666666f};
-bool g_script_printf_enabled{true};
-bool g_first_time_not_called{true};
-std::array<char, 1004> g_format_text_buffer;
-script::Component g_format_text_value;
-int g_script_warning_level;
+// NOT ORIGINAL grouping - script_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
+// (script_cfuncs_state()).
+struct ScriptCfuncsState {
+    bool script_printf_enabled_{true};
+    bool first_time_not_called_{true};
+    std::array<char, 1004> format_text_buffer_{};
+    script::Component format_text_value_{};
+    int script_warning_level_{};
+};
+
+ScriptCfuncsState& script_cfuncs_state()
+{
+    static core::NoDestroy<ScriptCfuncsState> state;
+    return state.get();
+}
 
 using script::Component;
 using script::SymbolTableEntry;
@@ -74,13 +85,13 @@ constexpr uint32_t kLevelWarn = 0xD6454EFA;     // (a guess: "warn")
 constexpr uint32_t kLevelAssert = 0x4E10B054;   // (a guess: "assert")
 
 // Whether FirstTimeThisIsCalled hasn't been called yet (0x0067D6D5, true at start).
-bool& first_time_not_called() { return g_first_time_not_called; }
+bool& first_time_not_called() { return script_cfuncs_state().first_time_not_called_; }
 
 // Whether the scripts' printf prints (0x0067D6D4).
-bool& script_printf_enabled() { return g_script_printf_enabled; }
+bool& script_printf_enabled() { return script_cfuncs_state().script_printf_enabled_; }
 
 // The value FormatText is writing (0x00696D2C, a component of its own: its flag bit is kept).
-Component& format_text_value() { return g_format_text_value; }
+Component& format_text_value() { return script_cfuncs_state().format_text_value_; }
 
 // IfDebugOn / IfDebugOff's work on the calling script - compiled out of this build (an empty call, 0x005480A0).
 inline void set_script_debug(script::Script* /*script*/) {}
@@ -137,8 +148,8 @@ script::QbValueKind type_from_name(uint32_t name)
 
 } // namespace
 
-std::array<char, 1004>& format_text_buffer() { return g_format_text_buffer; }
-int& script_warning_level() { return g_script_warning_level; }
+std::array<char, 1004>& format_text_buffer() { return script_cfuncs_state().format_text_buffer_; }
+int& script_warning_level() { return script_cfuncs_state().script_warning_level_; }
 
 // 0x0044A480
 int format_text(script::Struct* results, script::Struct* params)

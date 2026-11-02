@@ -27,7 +27,6 @@ namespace commands {
 
 memory::HeapUnique<modules::Hub> g_module_manager;
 namespace {
-bool g_viewer_launched;
 
 using script::Script;
 using script::Struct;
@@ -46,7 +45,11 @@ void pause_skater(objects::GameEntity* skater) { core::down_cast<objects::Rider>
 void unpause_skater(objects::GameEntity* skater) { core::down_cast<objects::Rider>(skater)->unpause(); }
 
 // Whether LaunchViewer has made the viewer (0x007CEBF0).
-bool& viewer_launched() { return g_viewer_launched; }
+bool& viewer_launched()
+{
+    static bool viewer_launched{};
+    return viewer_launched;
+}
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
 render::WeatherSystem* get_weather() { return render::g_weather.get(); }

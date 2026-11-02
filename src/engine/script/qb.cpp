@@ -28,6 +28,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace script {
 
@@ -50,7 +51,6 @@ static_assert(sizeof(StoredRandom) == 0x60, "layout must match the original");
 
 memory::PoolPair g_stored_random_pools;
 namespace {
-int g_pending_symbol_count;
 
 // The table of the .qb files' own checksum names: {checksum, name, next}, the first entry in the bucket.
 struct ScriptChecksumName {
@@ -58,8 +58,11 @@ struct ScriptChecksumName {
     char* name;
     ScriptChecksumName* next;
 };
-ScriptChecksumName* g_script_labels;
-ScriptChecksumName*& script_label_table() { return g_script_labels; }
+ScriptChecksumName*& script_label_table()
+{
+    static ScriptChecksumName* script_labels{};
+    return script_labels;
+}
 // The table's 0x1000 buckets (the checksums' low 12 bits; the first entry of each in place).
 constexpr uint32_t kLabelBuckets = 0x1000;
 std::span<ScriptChecksumName, kLabelBuckets> label_buckets()
@@ -336,7 +339,11 @@ void free_script_checksum_names()
 }
 
 namespace {
-bool g_keep_qb_names;
+bool& keep_qb_names()
+{
+    static bool keep_qb_names{};
+    return keep_qb_names;
+}
 std::unordered_map<uint32_t, std::string>& kept_names()
 {
     static std::unordered_map<uint32_t, std::string> names;
@@ -344,11 +351,11 @@ std::unordered_map<uint32_t, std::string>& kept_names()
 }
 } // namespace
 
-void keep_qb_names(bool keep) { g_keep_qb_names = keep; }
+void keep_qb_names(bool keep) { keep_qb_names() = keep; }
 
 void note_qb_name(uint32_t checksum, const char* name)
 {
-    if (g_keep_qb_names && name && *name)
+    if (keep_qb_names() && name && *name)
         kept_names()[checksum] = name;
 }
 
@@ -523,9 +530,16 @@ struct PendingSymbol {
     SymbolTableEntry* symbol;
     bool owned;
 };
-std::array<PendingSymbol, 500> g_pending_symbols;
-std::array<PendingSymbol, 500>& pending_symbols() { return g_pending_symbols; }
-int& pending_symbol_count() { return g_pending_symbol_count; }
+std::array<PendingSymbol, 500>& pending_symbols()
+{
+    static core::NoDestroy<std::array<PendingSymbol, 500>> pending_symbols;
+    return pending_symbols.get();
+}
+int& pending_symbol_count()
+{
+    static int pending_symbol_count{};
+    return pending_symbol_count;
+}
 
 void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
 {
@@ -549,7 +563,7 @@ void allocate_script_checksum_names(bool debug_heap)
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(debug_heap ? manager->debug_heap_ : manager->script_heap_);
     auto* names = static_cast<uint32_t*>(memory::alloc_block(0x1000 * 12));
-    memory::bits_as<uint32_t*>(g_script_labels) = names;
+    memory::bits_as<uint32_t*>(script_label_table()) = names;
     memory::leave_heap_scope();
     std::ranges::fill(std::span<uint32_t>(names, 0x1000 * 3), 0u);
 }

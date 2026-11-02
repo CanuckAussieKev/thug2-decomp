@@ -29,14 +29,16 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
-
 namespace script {
 
 namespace {
-uint32_t g_loading_file;
 
 // The checksum of the .qb file being loaded (0 outside loading).
-uint32_t& loading_file() { return g_loading_file; }
+uint32_t& loading_file()
+{
+    static uint32_t loading_file{};
+    return loading_file;
+}
 
 // Not rewritten yet: the platform's file extension for pre-compiled scripts.
 const char* precompiled_extension() { return game_config::fetch_platform_suffix(); }

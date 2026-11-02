@@ -14,6 +14,7 @@
 #include "engine/file/packs.h"
 #include "platform/debug_log.h"
 #include "engine/util/bps.h"
+#include "engine/core/no_destroy.h"
 
 namespace script {
 
@@ -58,11 +59,15 @@ struct ScriptPatch {
 };
 
 // (empty offline or before init_script_patches)
-std::vector<ScriptPatch> s_patches;
+std::vector<ScriptPatch>& patches()
+{
+    static core::NoDestroy<std::vector<ScriptPatch>> patches;
+    return patches.get();
+}
 
 void register_patch(const char* filename, const uint8_t* patch, size_t size)
 {
-    s_patches.push_back({.filename = filename, .patch = patch, .patch_size_ = size});
+    patches().push_back({.filename = filename, .patch = patch, .patch_size_ = size});
     debug_log::printf(StageMap::kInfo, "Registered patch for %s\n", filename);
 }
 
@@ -81,7 +86,7 @@ std::span<const uint8_t> load_patched_script(const char* filename)
     const std::span<const uint8_t> file =
         data && size > 0 ? std::span<const uint8_t>(data, static_cast<size_t>(size)) : std::span<const uint8_t>();
     ScriptPatch* entry = nullptr;
-    for (ScriptPatch& p : s_patches)
+    for (ScriptPatch& p : patches())
         if (std::strcmp(p.filename, filename) == 0)
             entry = &p;
     if (!entry)

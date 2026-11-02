@@ -18,7 +18,6 @@
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
 
-
 namespace script {
 
 static_assert(offsetof(ScriptCacheEntry, older) == 0xC && offsetof(ScriptCacheEntry, newer) == 0x10,
@@ -28,17 +27,17 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
               "layout must match the original");
 
 std::unique_ptr<script::ScriptStore> g_script_store;
-namespace {
-uint32_t g_cache_references;
-} // namespace
 memory::PoolPair g_cache_entry_pools;
 
 namespace {
 
 std::unique_ptr<script::ScriptStore>& the_cache() { return g_script_store; }
-uint32_t& cache_references() { return g_cache_references; }
+uint32_t& cache_references()
+{
+    static uint32_t cache_references{};
+    return cache_references;
+}
 memory::PoolPair& entry_pools() { return g_cache_entry_pools; }
-
 
 } // namespace
 
