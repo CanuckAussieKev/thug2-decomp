@@ -20,6 +20,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/view_setup.h"
 namespace render {
 
 namespace {
@@ -37,31 +38,6 @@ ViewportState& viewport_state()
 }
 
 } // namespace
-constexpr std::array<int, 24> kModeMaps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
-// (viewport_table()).
-struct ViewportTable {
-    std::array<OcclusionRequest, 4> occlusion_requests_{};
-    int screen_mode_{};
-    std::array<ViewRegion*, 10> viewports_{};
-    std::span<const int> mode_map_{kModeMaps};
-};
-
-ViewportTable& viewport_table()
-{
-    static core::NoDestroy<ViewportTable> state;
-    return state.get();
-}
-
-} // namespace
-
-std::array<OcclusionRequest, 4>& occlusion_requests() { return viewport_table().occlusion_requests_; }
-int screen_mode_setting() { return viewport_table().screen_mode_; }
-std::array<ViewRegion*, 10>& viewports() { return viewport_table().viewports_; }
-std::span<const int> mode_map() { return viewport_table().mode_map_; }
-void set_mode_map(std::span<const int> value) { viewport_table().mode_map_ = value; }
 
 namespace {
 constexpr float kMinusOne{-1.0f};
@@ -94,10 +70,8 @@ constexpr uint32_t kScaleNumerator = 0x33AA4915;
 constexpr uint32_t kMaxScale = 0xA0A0DB70; // max_scale
 constexpr uint32_t kMinScale = 0x774B6931; // min_scale
 
-ViewRegion*& get_viewport(int index) { return core::at(viewport_table().viewports_, index); }
+ViewRegion*& get_viewport(int index) { return core::at(view_setup().viewports(), index); }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
-
-
 
 int mode_viewport_count(int mode) { return core::at(kModeViewportCounts, mode); }
 std::span<const int> mode_map_of(int mode) { return std::span<const int>(kModeMaps).subspan(4 * static_cast<size_t>(mode)); }
@@ -109,7 +83,7 @@ int map_entry(std::span<const int> map, int i) { return static_cast<size_t>(i) <
 // null when there's none.
 ViewRegion* current_view_slot(int n)
 {
-    const std::span<const int> map = mode_map();
+    const std::span<const int> map = view_setup().mode_map();
     int found = 0;
     for (int i = 0; i < kViewports; ++i) {
         if (map_entry(map, i) < 0)
@@ -217,7 +191,7 @@ void create_viewports()
 // 0x004A0950
 gfx::ViewCam* obtain_active_lens(int view)
 {
-    const int index = map_entry(mode_map(), view);
+    const int index = map_entry(view_setup().mode_map(), view);
     if (index == -1)
         return nullptr;
     return get_viewport(index)->viewer_.get_pull();
@@ -226,7 +200,7 @@ gfx::ViewCam* obtain_active_lens(int view)
 // 0x004A0970
 void choose_camera(int view, gfx::ViewCam* camera)
 {
-    const int index = map_entry(mode_map(), view);
+    const int index = map_entry(view_setup().mode_map(), view);
     if (index == -1)
         return;
     ViewRegion* viewport = get_viewport(index);
@@ -244,7 +218,7 @@ gfx::ViewCam* fetch_live_camera(int n)
 // 0x004A09E0
 gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
 {
-    const int count = mode_viewport_count(viewport_table().screen_mode_);
+    const int count = mode_viewport_count(view_setup().screen_mode_setting());
     gfx::ViewCam* closest = nullptr;
     float best = -1.0f; // (squared)
     for (int i = 0; i < count; ++i) {
@@ -272,9 +246,9 @@ gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
 // 0x004A0AD0
 void set_screen_mode(int mode)
 {
-    auto& table = viewport_table();
-    table.mode_map_ = mode_map_of(mode);
-    table.screen_mode_ = mode;
+    auto& table = view_setup();
+    table.set_mode_map(mode_map_of(mode));
+    table.set_screen_mode(mode);
     modules::set_viewport_count(mode_viewport_count(mode));
     for (int i = 0; i < mode_viewport_count(mode); ++i) {
         gfx::ViewCam* camera = current_view_slot(i)->viewer_.get_pull(); // (no check, as the original)
@@ -294,11 +268,11 @@ void set_screen_mode(int mode)
 void set_screen_field_of_view(float degrees)
 {
     if (degrees == 0.0f)
-        degrees = get_screen_angle();
+        degrees = view_setup().get_screen_angle();
     viewport_state().screen_angle_ = degrees;
     // tan(degrees / 2) / tan(default / 2)
-    set_angle_factor(static_cast<float>(std::tan(static_cast<double>(degrees) * kHalfDegreeRadians) /
-                                        std::tan(static_cast<double>(base_fov_angle()) * kHalfDegreeRadians)));
+    view_setup().set_angle_factor(static_cast<float>(std::tan(static_cast<double>(degrees) * kHalfDegreeRadians) /
+                                        std::tan(static_cast<double>(view_setup().base_fov_angle()) * kHalfDegreeRadians)));
     for (int i = 0; i < modules::viewport_count(); ++i) {
         const ViewRegion* viewport = current_view_slot(i);
         if (viewport && viewport->viewer_.get_pull())
@@ -313,14 +287,14 @@ uint32_t request_occlusion_query(OcclusionRequest* request)
         return 0;
     uint32_t slot = kOcclusionSlots - 1; // (none free: the last, not marked)
     for (uint32_t i = 0; i < kOcclusionSlots; ++i) {
-        if (!core::at(occlusion_slots(), i)) {
-            core::at(occlusion_slots(), i) = 1;
+        if (!core::at(view_setup().occlusion_slots(), i)) {
+            core::at(view_setup().occlusion_slots(), i) = 1;
             slot = i;
             break;
         }
     }
     request->slot = slot;
-    core::at(occlusion_requests(), occlusion_request_count()) = *request;
+    core::at(view_setup().occlusion_requests(), occlusion_request_count()) = *request;
     ++occlusion_request_count();
     return slot;
 }
@@ -329,7 +303,7 @@ uint32_t request_occlusion_query(OcclusionRequest* request)
 void issue_occlusion_queries()
 {
     for (int i = 0; i < kOcclusionRequests; ++i) {
-        OcclusionRequest& request = core::at(occlusion_requests(), i);
+        OcclusionRequest& request = core::at(view_setup().occlusion_requests(), i);
         if (request.slot && request.callback && !request.issued) {
             request.callback(request.data, static_cast<uint8_t>(request.slot));
             request.issued = 1;
@@ -340,7 +314,7 @@ void issue_occlusion_queries()
 // 0x004A0F80
 void pop_occlusion_request()
 {
-    auto& requests = occlusion_requests();
+    auto& requests = view_setup().occlusion_requests();
     for (int i = 0; i < kOcclusionRequests - 1; ++i)
         core::at(requests, i) = core::at(requests, i + 1);
     core::at(requests, kOcclusionRequests - 1).slot = 0;
@@ -352,11 +326,11 @@ bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 {
     float value = 0.0f;
     if (params->fetch_float(kScaleNumerator, &value, 0))
-        set_scale_2d_in_3d_numerator(value);
+        view_setup().set_scale_2d_in_3d_numerator(value);
     if (params->fetch_float(kMaxScale, &value, 0))
-        set_scale_2d_in_3d_max(value);
+        view_setup().set_scale_2d_in_3d_max(value);
     if (params->fetch_float(kMinScale, &value, 0))
-        set_scale_2d_in_3d_min(value);
+        view_setup().set_scale_2d_in_3d_min(value);
     return true;
 }
 
@@ -364,7 +338,7 @@ bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
     script::Struct* results = script->args_.get();
-    auto mode = static_cast<uint32_t>(viewport_table().screen_mode_);
+    auto mode = static_cast<uint32_t>(view_setup().screen_mode_setting());
     results->put_name_key(kScreenMode, mode <= 5 ? core::at(kModeNames, mode) : 0u);
     return true;
 }

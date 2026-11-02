@@ -11,13 +11,12 @@
 #include <span>
 
 #include "engine/gfx/draw_frame.h"
-#include "engine/gfx/settings.h"
 #include "engine/maths/vec4.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
@@ -40,11 +39,6 @@ OcclusionState& occlusion_state()
 }
 
 } // namespace
-OcclusionShared& occlusion_shared()
-{
-    static core::NoDestroy<OcclusionShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -355,14 +349,14 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
     }
     std::array<float, 4> view{};
     xform(view.data(), point, view_matrix_data());
-    occlusion_shared().last_sphere_distance_ = static_cast<float>(-static_cast<double>(core::at(view, 2)) - radius);
+    view_setup().set_last_sphere_distance(static_cast<float>(-static_cast<double>(core::at(view, 2)) - radius));
     return inside_frustum(view, radius);
 }
 
 // 0x004DB6D0
 bool beyond_clip_distance(const void* bounds)
 {
-    if (!distance_clipping())
+    if (!view_setup().distance_clipping())
         return false;
     const std::span<const float, 5> sphere(static_cast<const float*>(bounds), 5);
     const float radius = core::at(sphere, 4);

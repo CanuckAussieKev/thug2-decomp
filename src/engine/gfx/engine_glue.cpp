@@ -30,7 +30,6 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/occlusion.h"
-#include "engine/gfx/settings.h"
 #include "engine/gfx/shadow_base.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/maths/vec4.h"
@@ -45,6 +44,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
@@ -92,7 +92,7 @@ uint32_t& mem_view_toggle()
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t back_buffer_fill()
 {
-    if (fog_setting() && distance_clipping())
+    if (view_setup().fog_setting() && view_setup().distance_clipping())
         return engine_glue_objects().fog_colour_;
     return renderer().render_camera().background_colour_;
 }

@@ -21,13 +21,13 @@
 #include "engine/gfx/pc_fog.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
-#include "engine/gfx/settings.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
 #include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/view_setup.h"
 #include <bit>
 
 namespace render {
@@ -113,7 +113,7 @@ void MeshRef::render()
 {
     if (suppress_draw() || beyond_clip_distance(this))
         return;
-    if (distance_clipping() && fog_setting()) { // (distance fog)
+    if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (distance fog)
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0f);
         renderer().set_fog_end(0.0f);
@@ -189,7 +189,7 @@ void MeshRef::render()
     if (unknown48) { // (the levels of detail's distances)
         const maths::Vec4 sphere = sphere_of(centre, radius);
         sphere_in_view(&sphere, radius);
-        const float distance = last_sphere_distance();
+        const float distance = view_setup().last_sphere_distance();
         for (; level < 8; ++level) {
             if (!core::at(index_buffers_, level)) {
                 if (level > 0)

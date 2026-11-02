@@ -35,7 +35,6 @@ float fetch_view_ratio();
 // 0x004A07A0 / 0x004A07B0: the cameras' default horizontal angle in degrees (0x00701348; set at start-up from the
 // script global camera_fov).
 void set_screen_angle(float angle);
-float get_screen_angle();
 // 0x004A07C0: the factor the horizontal field of view is scaled by.
 float fetch_fov_ratio();
 // 0x004B2330: the motion blur amount (0 = off, up to 255).
@@ -45,9 +44,5 @@ void set_letterbox(bool letterbox);
 
 // 0x0048C170: SetScreenBlur <amount>
 bool cfunc_set_screen_blur(script::Struct* params, script::Script* script);
-
-float base_fov_angle();
-float angle_factor();
-void set_angle_factor(float value);
 
 } // namespace render

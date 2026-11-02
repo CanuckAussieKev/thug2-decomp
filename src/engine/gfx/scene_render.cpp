@@ -23,14 +23,13 @@
 #include "engine/maths/vec4.h"
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
 namespace {
 
-float sphere_depth() { return occlusion_shared().last_sphere_distance_; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
@@ -150,10 +149,10 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 pass.blit(mesh);
             } else {
                 // The near ones now; their depth kept for the far ones after. (Not a number: never drawn.)
-                const float depth = sphere_depth();
+                const float depth = view_setup().sphere_depth();
                 if (depth < kNear || depth == kNear)
                     pass.blit(mesh);
-                mesh->depth = sphere_depth();
+                mesh->depth = view_setup().sphere_depth();
             }
             pass.remember(mesh);
         }
@@ -208,7 +207,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 continue;
             pass.remember(mesh);
             core::at(get_sorted(), sorted).mesh = mesh;
-            core::at(get_sorted(), sorted).depth = sphere_depth();
+            core::at(get_sorted(), sorted).depth = view_setup().sphere_depth();
             ++sorted;
         }
         if (sorted > 0) {

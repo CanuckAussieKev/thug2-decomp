@@ -28,10 +28,10 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/pc_lights.h"
 #include "engine/gfx/viewport.h"
-#include "engine/gfx/settings.h"
 #include "engine/gfx/device.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/format.h"
+#include "engine/gfx/view_setup.h"
 
 namespace commands {
 
@@ -108,7 +108,6 @@ constexpr uint32_t kSkeleton = 0x222756D5;       // "skeleton" (the component ty
 constexpr uint32_t kX = 0x7323E97C;              // "x"
 constexpr uint32_t kY = 0x0424D9EA;              // "y"
 constexpr uint32_t kZ = 0x9D2D8850;              // "z"
-
 
 // Compiled out of this build - jumps to the empty function 0x005480A0 (0x0048C1B0) or calls of it.
 inline void finish_rendering() {}
@@ -393,7 +392,7 @@ bool cfunc_set_clipping_distances(Struct* params, Script*)
 // use is compiled out). False (and nothing) while distance clipping is on.
 bool cfunc_set_fog_distance(Struct* params, Script*)
 {
-    if (render::distance_clipping())
+    if (render::view_setup().distance_clipping())
         return false;
     float distance = 0.0f;
     params->fetch_float("distance", &distance, 0);
@@ -412,7 +411,7 @@ bool cfunc_set_fog_color(Struct* params, Script*)
     params->fetch_int_value("g", &g, 0);
     params->fetch_int_value("b", &b, 0);
     params->fetch_int_value("a", &a, 0);
-    if (render::distance_clipping()) {
+    if (render::view_setup().distance_clipping()) {
         render::set_fog_colour(static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF));
         return false;
     }

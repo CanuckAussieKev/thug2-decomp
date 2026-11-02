@@ -24,10 +24,10 @@
 #include "engine/core/checked_index.h"
 #include "engine/maths/mat4.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/light_sets.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
@@ -557,7 +557,6 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
 }
 
 // 0x004DA0E0
-float last_sphere_distance() { return occlusion_shared().last_sphere_distance_; }
 
 // 0x004DB620
 void set_world_transform(const float* matrix)
@@ -622,7 +621,7 @@ void reset_render_state()
     gfx.set_current_pixel_shader(nullptr);
     gfx.set_pixel_shader_changed(0);
     renderer().render_camera().custom_transforms_ = 0;
-    pc_billboards_shared().billboard_flag_ = 0;
+    view_setup().set_billboard_flag(0);
     gfx.set_vertex_format_locked(0);
     gfx.skipped_passes() = 0;
     gfx.set_submit_locked(0);

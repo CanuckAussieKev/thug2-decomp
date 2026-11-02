@@ -17,6 +17,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
@@ -35,25 +36,6 @@ ScreenState& screen_state()
 }
 
 } // namespace
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (field_of_view()).
-struct FieldOfView {
-    float base_fov_angle_{};
-    float angle_factor_{1.0f};
-};
-
-FieldOfView& field_of_view()
-{
-    static core::NoDestroy<FieldOfView> state;
-    return state.get();
-}
-
-} // namespace
-
-float base_fov_angle() { return field_of_view().base_fov_angle_; }
-float angle_factor() { return field_of_view().angle_factor_; }
-void set_angle_factor(float value) { field_of_view().angle_factor_ = value; }
 
 namespace {
 
@@ -120,10 +102,9 @@ void set_screen_aspect_ratio(float /*aspect*/) { view_ratio_slot() = desired_3d_
 float fetch_view_ratio() { return view_ratio_slot(); }
 
 // 0x004A07A0
-void set_screen_angle(float angle) { field_of_view().base_fov_angle_ = angle; }
+void set_screen_angle(float angle) { view_setup().set_base_fov_angle(angle); }
 
 // 0x004A07B0
-float get_screen_angle() { return field_of_view().base_fov_angle_; }
 
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). Originally from PartyMod Fixes: the view is widened for
 // screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
@@ -134,8 +115,8 @@ float fetch_fov_ratio()
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
     const float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
     view_ratio_slot() = aspect;
-    if (field_of_view().angle_factor_ != 1.0f)
-        return field_of_view().angle_factor_;
+    if (view_setup().angle_factor() != 1.0f)
+        return view_setup().angle_factor();
     return factor;
 }
 

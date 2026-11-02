@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "engine/pad_input/device.h"
-#include "engine/gfx/settings.h"
 #include "engine/gfx/view_cam.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
@@ -23,6 +22,7 @@
 #include "engine/core/no_destroy.h"
 #include "platform/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/view_setup.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
 
@@ -438,9 +438,9 @@ void load_registry_options(const char* key)
         place_at_range(value);
     if (RegQueryValueExA(options, "options", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
         if (value & 1)
-            render::set_fog_setting(true);
+            render::view_setup().set_fog_setting(true);
         if (value & 2)
-            render::set_hq_shadows(1);
+            render::view_setup().set_hq_shadows(1);
         if (value & 4)
             platform_shared().options38_and39_ = static_cast<uint16_t>((platform_shared().options38_and39_ & 0xFF00) | 1); // (its low byte)
         if (value & 8)
@@ -450,7 +450,7 @@ void load_registry_options(const char* key)
         if (value & 0x20)
             render::renderer().set_antialiasing(true);
         if (value & 0x100)
-            render::set_distance_clipping(true);
+            render::view_setup().set_distance_clipping(true);
     }
     if (RegQueryValueExA(options, "distance", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS)
         place_at_range(value);

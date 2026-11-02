@@ -15,6 +15,7 @@
 #include "engine/core/no_destroy.h"
 #include "platform/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/view_setup.h"
 
 namespace os_layer {
 
@@ -70,13 +71,13 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     core::at(platform_input_shared().force_resolutions_, 3) = 0;
     std::memset(os_layer::get_controls().data(), 0xFF, sizeof(os_layer::get_controls()));
     render::renderer().set_antialiasing(false);
-    render::set_hq_shadows(0);
-    render::set_fog_setting(false);
+    render::view_setup().set_hq_shadows(0);
+    render::view_setup().set_fog_setting(false);
     platform_shared().option37_ = 0;
     core::at(platform_input_shared().force_axis_counts_, 0) = 0;
     // (the original clears dwords here across byte-sized settings; each is written by name)
     platform_shared().options38_and39_ = 0;
-    render::set_distance_clipping(false);
+    render::view_setup().set_distance_clipping(false);
     platform_shared().unknown643b_ = 0;
     core::at(platform_input_shared().force_axis_counts_, 1) = 0;
     render::renderer().set_resolution_setting(0);

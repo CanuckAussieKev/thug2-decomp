@@ -67,7 +67,6 @@
 #include "engine/gfx/particle_sets.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/particle_component.h"
-#include "engine/gfx/settings.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/balance_trick.h"
 #include "engine/core/ints.h"
@@ -75,6 +74,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/view_setup.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -358,7 +358,7 @@ int Skate::find_free_rider_heap(bool local)
 void Skate::set_skater_shadow(objects::Rider* skater)
 {
     auto* shadow = core::down_cast<objects::GroundShadowModule>(skater->fetch_module(kShadow));
-    int type = render::hq_shadows() ? 1 : 2;
+    int type = render::view_setup().hq_shadows() ? 1 : 2;
     memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)))
         type = 2;

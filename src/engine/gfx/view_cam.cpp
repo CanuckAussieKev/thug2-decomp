@@ -7,10 +7,10 @@
 
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/screen.h"
-#include "engine/gfx/settings.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/view_setup.h"
 
 namespace gfx {
 
@@ -43,7 +43,7 @@ int draw_distance_setting() { return stored_draw_distance_setting(); }
 void set_draw_distance_setting(int value) { stored_draw_distance_setting() = value; }
 
 // 0x00485BA0
-ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
+ViewCam::ViewCam() : h_fov_(render::view_setup().get_screen_angle())
 {
     refresh_effective_h_fov();
     core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
@@ -54,7 +54,7 @@ ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
     near_dist_ = 12.0f;
     far_clip_ = 12000.0f;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    if (render::distance_clipping()) { // distance clipping (setting 0x007D6444)
+    if (render::view_setup().distance_clipping()) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
         auto distance = static_cast<double>(stored_draw_distance_setting());
         if (stored_draw_distance_setting() < 0)
@@ -79,7 +79,7 @@ void ViewCam::refresh_effective_h_fov()
         std::atan(factor * (std::tan(static_cast<double>(half_angle)) / unknownc0_)) * kHalfRadiansToDegrees;
     corrected_horiz_fov_ = static_cast<float>(angle);
     const auto tan_adjusted = static_cast<float>(std::tan(angle * kDegreesToHalfRadians));
-    const double default_angle = render::get_screen_angle();
+    const double default_angle = render::view_setup().get_screen_angle();
     unknownb4_ = static_cast<float>(tan_adjusted / std::tan(default_angle * kHalf * kRadiansPerDegree));
 }
 

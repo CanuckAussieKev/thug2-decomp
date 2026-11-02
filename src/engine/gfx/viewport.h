@@ -102,10 +102,7 @@ bool cfunc_script_get_screen_mode(script::Struct* params, script::Script* script
 // 0x004A0C20: SetScreenMode <mode name>: an unknown name changes nothing. Always true.
 bool cfunc_set_screen_mode(script::Struct* params, script::Script* script);
 
-std::array<OcclusionRequest, 4>& occlusion_requests();
-int screen_mode_setting();
-std::array<ViewRegion*, 10>& viewports();
-std::span<const int> mode_map();
-void set_mode_map(std::span<const int> value);
+// The split-screen modes' viewport maps: four viewport numbers per mode (-1: none).
+inline constexpr std::array<int, 24> kModeMaps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};
 
 } // namespace render

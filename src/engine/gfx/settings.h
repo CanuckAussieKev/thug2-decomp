@@ -19,11 +19,5 @@ void write_graphics_settings();
 bool& blur_disabled();
 
 // The graphics options (settings.cpp's record; the original's globals).
-uint8_t hq_shadows();
-void set_hq_shadows(uint8_t value);
-bool fog_setting();
-void set_fog_setting(bool value);
-bool distance_clipping();
-void set_distance_clipping(bool value);
 
 } // namespace render

@@ -21,35 +21,9 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
-
-namespace {
-
-// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
-// (occlusion_slot_state()).
-struct OcclusionSlots {
-    std::array<uint8_t, 1024> occlusion_slots_{{1}};
-    float scale_2d_in_3d_numerator_{300.0f};
-    float scale_2d_in_3d_max_{3.0f};
-    float scale_2d_in_3d_min_{};
-};
-
-OcclusionSlots& occlusion_slot_state()
-{
-    static core::NoDestroy<OcclusionSlots> state;
-    return state.get();
-}
-
-} // namespace
-
-std::array<uint8_t, 1024>& occlusion_slots() { return occlusion_slot_state().occlusion_slots_; }
-float scale_2d_in_3d_numerator() { return occlusion_slot_state().scale_2d_in_3d_numerator_; }
-void set_scale_2d_in_3d_numerator(float value) { occlusion_slot_state().scale_2d_in_3d_numerator_ = value; }
-float scale_2d_in_3d_max() { return occlusion_slot_state().scale_2d_in_3d_max_; }
-void set_scale_2d_in_3d_max(float value) { occlusion_slot_state().scale_2d_in_3d_max_ = value; }
-float scale_2d_in_3d_min() { return occlusion_slot_state().scale_2d_in_3d_min_; }
-void set_scale_2d_in_3d_min(float value) { occlusion_slot_state().scale_2d_in_3d_min_ = value; }
 
 namespace {
 uint32_t& stored_occlusion_pixels()
@@ -130,9 +104,9 @@ float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y
     *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * 0.5f * kVirtualScreenHeight);
     if (!(core::at(clip, 2) < 1.0f))
         return -1.0f;
-    const float most = occlusion_slot_state().scale_2d_in_3d_max_;
-    const float least = occlusion_slot_state().scale_2d_in_3d_min_;
-    double factor = core::at(view, 2) == 0.0f ? most : -1.0f / static_cast<double>(core::at(view, 2)) * occlusion_slot_state().scale_2d_in_3d_numerator_;
+    const float most = view_setup().scale_2d_in_3d_max();
+    const float least = view_setup().scale_2d_in_3d_min();
+    double factor = core::at(view, 2) == 0.0f ? most : -1.0f / static_cast<double>(core::at(view, 2)) * view_setup().scale_2d_in_3d_numerator();
     if (factor > most)
         factor = most;
     else if (factor < least)
@@ -180,9 +154,9 @@ uint32_t occlusion_pixels()
     if (renderer().radeon8500())
         return 0;
     DWORD pixels = 0;
-    const HRESULT result = os_layer::get_occlusion_result(core::at(occlusion_requests(), 0).slot, &pixels);
+    const HRESULT result = os_layer::get_occlusion_result(core::at(view_setup().occlusion_requests(), 0).slot, &pixels);
     if (result == S_OK) {
-        core::at(occlusion_slot_state().occlusion_slots_, core::at(occlusion_requests(), 0).slot) = 0;
+        core::at(view_setup().occlusion_slots(), core::at(view_setup().occlusion_requests(), 0).slot) = 0;
         pop_occlusion_request(); // (the requests moved on)
         stored_occlusion_pixels() = pixels;
         return pixels;

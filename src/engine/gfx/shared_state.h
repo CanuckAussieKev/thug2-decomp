@@ -43,28 +43,6 @@ EngineSceneListShared& engine_scene_list_shared();
 
 namespace render {
 
-// NOT ORIGINAL grouping - occlusion.cpp's state shared with the folder's other files (the original's globals). Made on
-// first use, never destroyed (occlusion_shared()).
-struct OcclusionShared {
-    float last_sphere_distance_{};
-};
-OcclusionShared& occlusion_shared();
-
-} // namespace render
-
-namespace render {
-
-// NOT ORIGINAL grouping - pc_billboards.cpp's state shared with the folder's other files (the original's globals). Made
-// on first use, never destroyed (pc_billboards_shared()).
-struct PcBillboardsShared {
-    uint8_t billboard_flag_{};
-};
-PcBillboardsShared& pc_billboards_shared();
-
-} // namespace render
-
-namespace render {
-
 // NOT ORIGINAL grouping - pc_buffers.cpp's state shared with the folder's other files (the original's globals). Made on
 // first use, never destroyed (pc_buffers_shared()).
 struct PcBuffersShared {

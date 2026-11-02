@@ -20,7 +20,6 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
-#include "engine/gfx/settings.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
 #include "engine/core/arena_alloc.h"
@@ -28,9 +27,9 @@
 #include "engine/core/cursor.h"
 #include "engine/core/span_copy.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
+#include "engine/gfx/view_setup.h"
 #include <span>
 #include <bit>
 #include <gsl/pointers>
@@ -56,12 +55,6 @@ BillboardSet& billboard_pool()
 {
     static BillboardSet billboard_pool{};
     return billboard_pool;
-}
-
-PcBillboardsShared& pc_billboards_shared()
-{
-    static core::NoDestroy<PcBillboardsShared> state;
-    return state.get();
 }
 
 namespace {
@@ -142,7 +135,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
 {
     if (mesh->stride < 0x10 || mesh->stride > 0x30)
         return;
-    if (distance_clipping() && fog_setting()) { // (fog: its start a quarter back)
+    if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (fog: its start a quarter back)
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0f);
         renderer().set_fog_end(0.0f);
@@ -558,9 +551,9 @@ void mark_billboards_ready()
 }
 
 // 0x004CD960
-void set_flag_786e_b4() { pc_billboards_shared().billboard_flag_ = 1; }
+void set_flag_786e_b4() { view_setup().set_billboard_flag(1); }
 
 // 0x004CD970
-void clear_flag_786e_b4() { pc_billboards_shared().billboard_flag_ = 0; }
+void clear_flag_786e_b4() { view_setup().set_billboard_flag(0); }
 
 } // namespace render

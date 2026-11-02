@@ -16,8 +16,8 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/sector.h"
 #include "engine/sys/game_config.h"
-#include "engine/gfx/settings.h"
 #include "platform/registry.h"
+#include "engine/gfx/view_setup.h"
 
 namespace commands {
 
@@ -53,7 +53,6 @@ constexpr uint32_t kTime = 0x906B67BA;          // "time"
 constexpr uint32_t kReset = 0xAF6240B2;         // "reset"
 
 // Fog and clipping distances are left alone while distance clipping (the setting) is on.
-
 
 // The world sector named `name` (null if the scene has none of that name).
 render::WorldCell* look_up_sector(uint32_t name)
@@ -217,7 +216,7 @@ bool cfunc_set_dynamic_light_modulation_factor(Struct* params, Script*)
 // 0x004460B0: EnableFog (0x00490DE0), unless distance clipping is on. Always true.
 bool cfunc_enable_fog(Struct*, Script*)
 {
-    if (!render::distance_clipping())
+    if (!render::view_setup().distance_clipping())
         render::engine::enable_fog(true);
     return true;
 }
@@ -225,7 +224,7 @@ bool cfunc_enable_fog(Struct*, Script*)
 // 0x004460D0: DisableFog, unless distance clipping is on. Always true.
 bool cfunc_disable_fog(Struct*, Script*)
 {
-    if (!render::distance_clipping())
+    if (!render::view_setup().distance_clipping())
         render::engine::enable_fog(false);
     return true;
 }
@@ -233,7 +232,7 @@ bool cfunc_disable_fog(Struct*, Script*)
 // 0x004460F0: SetFogExponent exponent=<f> (0x00490E10). False (and nothing) while distance clipping is on.
 bool cfunc_set_fog_exponent(Struct* params, Script*)
 {
-    if (render::distance_clipping())
+    if (render::view_setup().distance_clipping())
         return false;
     float exponent = 0.0f; // (uninitialised in the original)
     params->fetch_float("exponent", &exponent, 0);

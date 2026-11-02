@@ -25,8 +25,8 @@
 #include <bit>
 #include "platform/d3d_matrix.h"
 #include "engine/core/no_destroy.h"
-#include "engine/gfx/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
@@ -313,7 +313,7 @@ void MaterialRef::hand_in()
             fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
             renderer().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
         } else {
-            if (pc_billboards_shared().billboard_flag_) { // (the billboard flag: a static matrix's 2x2 part reset)
+            if (view_setup().billboard_flag()) { // (the billboard flag: a static matrix's 2x2 part reset)
                 auto& m = pc_material_state().billboard_uv_matrix_;
                 core::at(m, 0) = 1.0f;
                 core::at(m, 1) = 0;

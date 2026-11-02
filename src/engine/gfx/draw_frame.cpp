@@ -5,7 +5,6 @@
 #include "platform/d3dx.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/pc_scene.h"
-#include "engine/gfx/settings.h"
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/wireframe.h"
 
@@ -53,6 +52,7 @@
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
@@ -230,7 +230,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.far_z_ = 96000.0f;
     camera.angle = angle;
-    if (distance_clipping()) // distance clipping (setting 0x007D6444: 100-595)
+    if (view_setup().distance_clipping()) // distance clipping (setting 0x007D6444: 100-595)
         camera.far_z_ =
             static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::draw_distance_setting())) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h): the far plane (and with it the
@@ -377,7 +377,7 @@ void draw_screen_blur()
     graphics_options::resolve_scene_target(static_cast<IDirect3DTexture9*>(texture));
     set_render_target(renderer().back_buffer());
     set_depth_stencil_surface(renderer().back_depth());
-    const bool fogged = fog_setting() && distance_clipping();
+    const bool fogged = view_setup().fog_setting() && view_setup().distance_clipping();
     clear_target(fogged ? fog_colour() : renderer().render_camera().background_colour_);
     set_render_state(0x11, 0);
     set_texture(0, texture);
@@ -460,7 +460,7 @@ void draw_viewport(int index)
     // Not original - the automation channel's camera lock (frontend/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
     frontend::test_view::place_camera(static_cast<gfx::ViewCam*>(camera), index);
-    set_drawn_viewport(index); // the viewport being drawn
+    view_setup().set_drawn_viewport(index); // the viewport being drawn
     const double width = renderer().back_buffer_width();
     const double height = static_cast<float>(renderer().back_buffer_height());
     DeviceViewport& vp = renderer().device_viewport();
@@ -547,7 +547,7 @@ void draw_viewport(int index)
         if (!scene->is_sky_)
             return;
         // (with distance clipping and fog both on, there's no sky)
-        if (distance_clipping() && fog_setting())
+        if (view_setup().distance_clipping() && view_setup().fog_setting())
             return;
         const uint32_t min_filter = get_sampler_state(0, 6);
         const uint32_t mip_filter = get_sampler_state(0, 7);

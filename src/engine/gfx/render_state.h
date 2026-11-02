@@ -53,7 +53,6 @@ void set_pixel_shader(void* shader, const MaterialRef* material);
 // 0x004DAAF0: the pixel shader with `count` constants, and constant 4 (0x00786F0C) again.
 void set_pixel_shader_with_constants(void* shader, uint32_t count);
 // 0x004DA0E0: the value 0x007CA978 (a distance the visibility test 0x004DB790 leaves).
-float last_sphere_distance();
 // 0x004DB620: the object's world transform for culling and lighting (its position row kept), or none.
 void set_world_transform(const float* matrix);
 

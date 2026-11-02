@@ -14,7 +14,6 @@
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
-#include "engine/gfx/settings.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
@@ -22,6 +21,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/gfx/view_setup.h"
 
 namespace render {
 
@@ -168,7 +168,7 @@ void begin_screen_effects()
             set_render_target_and_depth(surface, renderer().z_buffer_surface());
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
-    const uint32_t colour = (fog_setting() && distance_clipping()) ? fog_colour() : renderer().render_camera().background_colour_;
+    const uint32_t colour = (view_setup().fog_setting() && view_setup().distance_clipping()) ? fog_colour() : renderer().render_camera().background_colour_;
     renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
     surface->Release();
     effects_state().screen_copy_in_use() = true;

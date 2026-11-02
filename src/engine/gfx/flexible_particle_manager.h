@@ -72,7 +72,4 @@ struct FlexibleParticleManager : memory::HeapObject {
 // (0x0049AEF0, the list head's scalar deleting destructor - the node's body 0x00496D10, freed - is
 // memory::ListNode::destroy.)
 
-float frame_time_scale();
-int drawn_viewport();
-void set_drawn_viewport(int value);
 } // namespace render
