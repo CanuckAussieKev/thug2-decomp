@@ -11,6 +11,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/maths/random.h"
+#include "engine/script/cell.h"
 #include "engine/script/expression.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"

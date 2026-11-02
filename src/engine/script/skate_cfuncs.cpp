@@ -9,6 +9,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/script/cscript.h"

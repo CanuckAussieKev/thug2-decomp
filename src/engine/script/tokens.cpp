@@ -1,9 +1,11 @@
 #include "engine/script/tokens.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <iterator>
 #include <map>
+#include <span>
 #include <utility>
 
 #include <gsl/assert>

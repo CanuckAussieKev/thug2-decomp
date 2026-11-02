@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"

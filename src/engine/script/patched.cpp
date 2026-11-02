@@ -3,6 +3,7 @@
 
 #include "engine/script/patched.h"
 
+#include <cstdint>
 #include <cstring>
 #include <span>
 #include <utility>

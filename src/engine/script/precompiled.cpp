@@ -10,6 +10,8 @@
 #include <gsl/assert>
 
 #include "engine/core/checksums.h"
+#include "engine/script/cell.h"
+#include "engine/script/param_struct.h"
 #include "engine/script/qb.h"
 #include "engine/script/tokens.h"
 #include "formats/byte_stream.h"

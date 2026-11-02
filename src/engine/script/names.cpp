@@ -13,6 +13,8 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/file/packs.h"
+#include "engine/script/cscript.h"
+#include "engine/script/member_code.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/cfuncs_scene.h"
 #include "platform/code_address.h"

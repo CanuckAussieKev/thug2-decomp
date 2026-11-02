@@ -16,6 +16,7 @@
 #include "engine/file/packs.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
+#include "engine/script/param_struct.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/patched.h"
 #include "engine/script/precompiled.h"

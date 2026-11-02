@@ -6,6 +6,7 @@
 // run at once by a nested Update, marked so that its return ends that Update.
 
 #include <cstdint>
+#include <span>
 
 #include "engine/script/cscript.h"
 
@@ -19,6 +20,7 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/tokens.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"

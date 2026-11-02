@@ -6,11 +6,13 @@
 #include "engine/script/trick_cfuncs.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <utility>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"

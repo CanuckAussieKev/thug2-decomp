@@ -2,6 +2,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/param_struct.h"
 
 #include <bit>
 #include <cmath>
@@ -10,6 +11,7 @@
 #include <cstring>
 #include <array>
 #include <gsl/pointers>
+#include <span>
 
 
 namespace script {

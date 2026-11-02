@@ -5,6 +5,7 @@
 
 #include <cstdint>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"

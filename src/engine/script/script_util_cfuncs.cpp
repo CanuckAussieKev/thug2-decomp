@@ -6,11 +6,16 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string_view>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
+#include "engine/core/format.h"
 #include "engine/core/str.h"
 #include "engine/maths/random.h"
+#include "engine/script/cell.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/token_reader.h"

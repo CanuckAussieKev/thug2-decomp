@@ -8,12 +8,14 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/objects/signal.h"
+#include "engine/objects/smtptr.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cache.h"
 #include "engine/script/token_reader.h"

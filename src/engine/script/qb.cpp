@@ -23,6 +23,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/cscript.h"
+#include "engine/script/tokens.h"
 #include "platform/run_log.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"

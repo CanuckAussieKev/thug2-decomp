@@ -6,7 +6,9 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
+#include "engine/script/member_code.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
 #include "editor/level_editor_actions.h"

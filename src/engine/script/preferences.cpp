@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "engine/script/preferences.h"
+#include "engine/script/param_struct.h"
 
 namespace prefs {
 

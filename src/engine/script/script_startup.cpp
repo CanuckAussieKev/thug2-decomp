@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -14,6 +16,9 @@
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/anim_track.h"
+#include "engine/gfx/scene_load.h"
+#include "engine/gfx/spawned_polys.h"
+#include "engine/script/cell.h"
 #include "engine/script/load.h"
 #include "engine/script/names.h"
 #include "engine/script/qb.h"

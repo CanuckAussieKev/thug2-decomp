@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include <cstddef>
 #include <cstdio>
 #include <iterator>
 #include <span>

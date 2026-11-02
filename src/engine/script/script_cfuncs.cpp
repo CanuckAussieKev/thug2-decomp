@@ -7,10 +7,12 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <string_view>
 
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
+#include "engine/core/mem.h"
 #include "engine/core/str.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"

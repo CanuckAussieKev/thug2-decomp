@@ -5,6 +5,7 @@
 #include "engine/script/script_tables.h"
 
 #include "engine/core/stubs.h"
+#include "engine/script/names.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/file/packs.h"

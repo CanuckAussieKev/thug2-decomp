@@ -4,9 +4,11 @@
 #include "engine/script/cfuncs_engine.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/lists/key_map.h"

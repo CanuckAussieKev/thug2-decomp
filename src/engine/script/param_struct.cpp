@@ -8,6 +8,7 @@
 #include <cstring>
 #include <functional>
 #include <utility>
+#include <vector>
 
 #include "engine/core/checksums.h"
 #include "engine/core/pointer_cell.h"

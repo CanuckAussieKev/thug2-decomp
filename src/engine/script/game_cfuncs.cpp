@@ -14,9 +14,11 @@
 #include <cstring>
 #include <array>
 #include <iterator>
+#include <string_view>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/assets/resource_entry.h"
+#include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/file/file_load.h"
 #include "engine/file/packs.h"

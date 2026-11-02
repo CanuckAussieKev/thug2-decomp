@@ -17,6 +17,8 @@
 #include "engine/core/slab_bank.h"
 #include "engine/core/stubs.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/gfx/scene_load.h"
+#include "engine/gfx/spawned_polys.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/script_startup.h"

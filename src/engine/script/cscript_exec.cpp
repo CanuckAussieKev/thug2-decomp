@@ -35,8 +35,10 @@
 // (run_sub_script) pushes the caller's state and runs the callee in the same Update loop, from its first token after
 // the default-parameters line (the call counts as true). `obj:Name args` runs Name on the object called obj.
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -44,6 +46,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cache.h"
+#include "engine/script/cell.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/params.h"
