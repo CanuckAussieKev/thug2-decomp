@@ -644,8 +644,8 @@ bool handles_event(const UiWidget* item, uint32_t type)
     if (!script || !script->signal_routes_)
         return false;
     const objects::SignalRouteTable* table = script->signal_routes_;
-    for (int i = 0; i < table->num_; ++i)
-        if (table->entries_[i].type == type && table->entries_[i].script != objects::kNullScript)
+    for (const objects::SignalRouteTable::TableRow& entry : table->entries())
+        if (entry.type == type && entry.script != objects::kNullScript)
             return true;
     return false;
 }

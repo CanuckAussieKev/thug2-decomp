@@ -43,17 +43,21 @@ const std::string& get_folder()
 void overlay_name(const char* name, std::array<char, 260>& out)
 {
     int length = 0;
-    for (const char* c = name; *c && length < 259; ++c)
-        core::at(out, length++) = *c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
+    for (const char c : std::string_view(name)) {
+        if (length >= 259)
+            break;
+        core::at(out, length++) = c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
     core::at(out, length) = '\0';
     // Without anything up to the last "data\" (the development machine's paths, or the game's own "data\" prefix).
-    const char* rest = out.data();
-    for (const char* found = std::strstr(out.data(), "data\\"); found; found = std::strstr(found + 1, "data\\")) {
-        if (found == out.data() || found[-1] == '\\')
+    const std::string_view whole(out.data());
+    size_t rest = 0;
+    for (size_t found = whole.find("data\\"); found != std::string_view::npos; found = whole.find("data\\", found + 1)) {
+        if (found == 0 || core::at(whole, found - 1) == '\\')
             rest = found + 5;
     }
-    if (rest != out.data())
-        std::memmove(out.data(), rest, std::strlen(rest) + 1);
+    if (rest != 0)
+        std::memmove(out.data(), whole.substr(rest).data(), whole.size() - rest + 1);
 }
 
 int search_folders(bool anteara, bool front_end, std::array<const char*, 4>& folders)

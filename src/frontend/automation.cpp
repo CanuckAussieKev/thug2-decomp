@@ -295,7 +295,7 @@ void remember(const std::string& name)
 uint32_t id_checksum(const std::string& id)
 {
     if (is_hex(id))
-        return static_cast<uint32_t>(std::strtoul(id.c_str() + 2, nullptr, 16));
+        return static_cast<uint32_t>(std::strtoul(std::next(id.c_str(), 2), nullptr, 16));
     return name_hash(id);
 }
 
@@ -751,9 +751,10 @@ bool value_denied(uint32_t type, script::Cell value, int depth)
         script::Array* array = value.array();
         if (!array || depth > 8)
             return false;
-        const script::Cell* elements = array->find_array_value();
-        for (uint32_t i = 0; elements && i < array->extent_; ++i)
-            if (value_denied(array->kind_tag_, elements[i], depth + 1))
+        if (!array->find_array_value())
+            return false;
+        for (const script::Cell& element : array->cells())
+            if (value_denied(array->kind_tag_, element, depth + 1))
                 return true;
         return false;
     }
@@ -781,8 +782,7 @@ bool handlers_denied(const UiWidget* element, bool choose_only)
     if (!script || !script->signal_routes_)
         return false;
     const objects::SignalRouteTable* table = script->signal_routes_;
-    for (int i = 0; i < table->num_; ++i) {
-        const objects::SignalRouteTable::TableRow& entry = table->entries_[i];
+    for (const objects::SignalRouteTable::TableRow& entry : table->entries()) {
         if (entry.script == objects::kNullScript)
             continue;
         if (choose_only && entry.type != kPadChoose && entry.type != kPadStart)
@@ -1365,7 +1365,7 @@ std::string log_tricks(int count, std::string* failed)
     std::vector<void*> clusters;
     const lists::KeyMap& table = manager->object_clusters_;
     for (int bucket = 0; bucket < (1 << table.bits_); ++bucket) {
-        for (const lists::KeyMap::Item* item = &table.buckets_[bucket]; item; item = item->next) {
+        for (const lists::KeyMap::Item* item = &::core::at(table.bucket_run(), bucket); item; item = item->next) {
             if (!item->value)
                 continue;
             objects.push_back(item->key);

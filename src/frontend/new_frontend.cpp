@@ -412,7 +412,7 @@ paint::Art load_image_file(const std::string& name)
         return {};
     auto u32 = [&](size_t at) {
         uint32_t v = 0;
-        std::memcpy(&v, data.data() + at, 4);
+        std::memcpy(&v, std::span<const uint8_t>(data).subspan(at, 4).data(), 4);
         return v;
     };
     const uint32_t width = u32(8);
@@ -422,7 +422,7 @@ paint::Art load_image_file(const std::string& name)
     const uint32_t palette_size = u32(28);
     if (width == 0 || height == 0 || width > 8192 || height > 8192)
         return {};
-    const uint8_t* texels = data.data() + 0x20;
+    std::span<const uint8_t> texels = std::span<const uint8_t>(data).subspan(0x20);
     size_t left = data.size() - 0x20;
     paint::Art art;
     art.width = static_cast<float>(width);
@@ -436,20 +436,22 @@ paint::Art load_image_file(const std::string& name)
         if (left < static_cast<size_t>(row_bytes) * rows)
             return {};
         art.texture = ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height),
-                                                 ui_backend::PixelLayout::kDxt1, texels, row_bytes, rows);
+                                                 ui_backend::PixelLayout::kDxt1, texels.data(), row_bytes, rows);
         return art;
     }
     const uint32_t bits = format == 0 ? 32 : format == 2 ? 16 : format == 0x13 ? 8 : format;
     const bool palettized = format == 0x13 || (format != 0 && format != 2 && format < 0x10);
     if (bits != 32 && !(palettized && bits == 8))
         return {}; // (16-bit and 4-bit images: no loading screen is one)
-    const uint8_t* palette = nullptr;
+    // (the palette: the colours index the rest of the file, as the original's read did - an index past a short
+    // palette reads the texels that follow)
+    std::span<const uint8_t> palette;
     if (palettized) {
         const size_t palette_bytes = palette_size ? palette_size : 0x400;
         if (left < palette_bytes)
             return {};
         palette = texels;
-        texels += palette_bytes;
+        texels = texels.subspan(palette_bytes);
         left -= palette_bytes;
     }
     const size_t count = static_cast<size_t>(width) * height;
@@ -457,19 +459,20 @@ paint::Art load_image_file(const std::string& name)
         return {};
     const bool powers = (width & (width - 1)) == 0 && (height & (height - 1)) == 0;
     std::vector<uint8_t> plain;
-    const uint8_t* rows_data = texels;
+    std::span<const uint8_t> rows_data = texels;
     if (powers) {
         plain.resize(count * (bits / 8));
-        os_layer::unswizzle(plain, std::span<const uint8_t>(texels, plain.size()), static_cast<int>(width),
+        os_layer::unswizzle(plain, texels.first(plain.size()), static_cast<int>(width),
                             static_cast<int>(height), static_cast<int>(bits / 8));
-        rows_data = plain.data();
+        rows_data = plain;
     }
     std::vector<uint8_t> bgra(count * 4);
     for (size_t i = 0; i < count; ++i) {
-        const uint8_t* px = palettized ? palette + rows_data[i] * 4 : rows_data + i * 4;
-        core::at(bgra, i * 4 + 0) = px[0];
-        core::at(bgra, i * 4 + 1) = px[1];
-        core::at(bgra, i * 4 + 2) = px[2];
+        const std::span<const uint8_t> px =
+            palettized ? palette.subspan(size_t{core::at(rows_data, i)} * 4) : rows_data.subspan(i * 4);
+        core::at(bgra, i * 4 + 0) = core::at(px, 0);
+        core::at(bgra, i * 4 + 1) = core::at(px, 1);
+        core::at(bgra, i * 4 + 2) = core::at(px, 2);
         core::at(bgra, i * 4 + 3) = 0xFF; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
     }
     art.texture =
@@ -1253,9 +1256,10 @@ void dump_tree(const UiWidget* element, int depth, int* budget)
                                      get_visible(element) ? "" : " hidden");
         if (type_of(element) == text_type()) {
             const char* text = core::down_cast<const LabelWidget>(element)->chars_;
-            std::snprintf(line.data() + at, sizeof(line) - at, " \"%.80s\"", text ? text : "");
+            const std::span<char> rest = std::span<char>(line).subspan(static_cast<size_t>(at));
+            std::snprintf(rest.data(), rest.size(), " \"%.80s\"", text ? text : "");
         } else if (type_of(element) == sprite_type()) {
-            std::snprintf(line.data() + at, sizeof(line) - at, " texture %08X",
+            std::snprintf(std::span<char>(line).subspan(static_cast<size_t>(at)).data(), line.size() - static_cast<size_t>(at), " texture %08X",
                           core::down_cast<const ImageWidget>(element)->texture_);
         }
         get_log("new front end: debug_restyle %s", line.data());

@@ -226,7 +226,7 @@ private:
         if (literal("null"))
             return true;
         if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) {
-            const char* start = text_.c_str() + look_at_;
+            const char* start = std::next(text_.c_str(), static_cast<std::ptrdiff_t>(look_at_));
             char* end = nullptr;
             out->number = std::strtod(start, &end);
             if (end == start)
@@ -291,7 +291,7 @@ uint32_t parse_colour(const std::string& text, uint32_t fallback)
     for (size_t i = 1; i < 7; ++i)
         if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
             return fallback;
-    return 0xFF000000u | static_cast<uint32_t>(std::strtoul(text.c_str() + 1, nullptr, 16));
+    return 0xFF000000u | static_cast<uint32_t>(std::strtoul(std::next(text.c_str()), nullptr, 16));
 }
 
 bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error)

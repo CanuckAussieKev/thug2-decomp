@@ -259,7 +259,7 @@ bool parse_spot(const std::string& text, Spot* out)
         at = s.find_first_not_of(" \t", at);
         if (at == std::string::npos || count == 4)
             return false;
-        const char* start = s.c_str() + at;
+        const char* start = std::next(s.c_str(), static_cast<std::ptrdiff_t>(at));
         char* end = nullptr;
         const double v = std::strtod(start, &end);
         if (end == start || !std::isfinite(v))

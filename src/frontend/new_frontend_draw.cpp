@@ -101,8 +101,11 @@ bool read_file(const std::string& path, std::vector<uint8_t>* out)
     return ok;
 }
 
-uint16_t be16(const uint8_t* p) { return static_cast<uint16_t>(p[0] << 8 | p[1]); }
-uint32_t be32(const uint8_t* p) { return static_cast<uint32_t>(p[0]) << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
+uint16_t be16(std::span<const uint8_t> p) { return static_cast<uint16_t>(core::at(p, 0) << 8 | core::at(p, 1)); }
+uint32_t be32(std::span<const uint8_t> p)
+{
+    return static_cast<uint32_t>(core::at(p, 0)) << 24 | core::at(p, 1) << 16 | core::at(p, 2) << 8 | core::at(p, 3);
+}
 
 const Baked* font_for(Face face, float css)
 {
@@ -178,12 +181,12 @@ float get_measure(const Style& style, const TickCycle& frame, const char* text)
         return 0.0f;
     const std::string s = style.upper ? get_upper(text) : text;
     const char* p = s.c_str();
-    const char* end = p + s.size();
+    const char* end = std::next(p, static_cast<std::ptrdiff_t>(s.size()));
     float width = 0.0f;
     int count = 0;
     while (p < end) {
         unsigned int c = 0;
-        p += ImTextCharFromUtf8(&c, p, end);
+        p = std::next(p, ImTextCharFromUtf8(&c, p, end));
         if (!c)
             break;
         const ImFontGlyph* g = m.baked->font->FindGlyph(static_cast<ImWchar>(c));
@@ -203,14 +206,14 @@ void draw_text(ImDrawList* dl, const Style& style, const TickCycle& frame, float
         return;
     ImFont* font = m.baked->font;
     const std::string s = style.upper ? get_upper(text) : text;
-    const char* end = s.c_str() + s.size();
+    const char* end = std::next(s.c_str(), static_cast<std::ptrdiff_t>(s.size()));
     const ImU32 colour = get_col(style.colour, style.alpha);
     const float top = baseline - font->Ascent * m.k;
     for (int pass = 0; pass < (m.bold_px_ > 0.0f ? 2 : 1); ++pass) {
         float pen = x + (pass ? m.bold_px_ : 0.0f);
         for (const char* p = s.c_str(); p < end;) {
             unsigned int c = 0;
-            p += ImTextCharFromUtf8(&c, p, end);
+            p = std::next(p, ImTextCharFromUtf8(&c, p, end));
             if (!c)
                 break;
             const ImFontGlyph* g = font->FindGlyph(static_cast<ImWchar>(c));
@@ -1828,36 +1831,37 @@ int level_list_rows(int tab_rows)
     return std::max(1, static_cast<int>((692.0f - level_list_top(tab_rows)) / kLevelRowHeight));
 }
 
-bool read_font_metrics(const uint8_t* data, size_t size, float* ascent, float* descent)
+bool read_font_metrics(const uint8_t* file, size_t size, float* ascent, float* descent)
 {
-    if (!data || size < 12)
+    const std::span<const uint8_t> data(file, file ? size : 0);
+    if (!file || size < 12)
         return false;
     const uint32_t tag = be32(data);
     if (tag != 0x00010000 && tag != 0x74727565 /* true */ && tag != 0x4F54544F /* OTTO */)
         return false;
-    const int tables = be16(data + 4);
-    const uint8_t* head = nullptr;
-    const uint8_t* hhea = nullptr;
+    const int tables = be16(data.subspan(4));
+    std::span<const uint8_t> head;
+    std::span<const uint8_t> hhea;
     for (int i = 0; i < tables; ++i) {
         const size_t entry = 12 + static_cast<size_t>(i) * 16;
         if (entry + 16 > size)
             return false;
-        const uint32_t name = be32(data + entry);
-        const uint32_t offset = be32(data + entry + 8);
+        const uint32_t name = be32(data.subspan(entry));
+        const uint32_t offset = be32(data.subspan(entry + 8));
         if (offset + 54 > size)
             continue;
         if (name == 0x68656164) // head
-            head = data + offset;
+            head = data.subspan(offset);
         else if (name == 0x68686561) // hhea
-            hhea = data + offset;
+            hhea = data.subspan(offset);
     }
-    if (!head || !hhea)
+    if (head.empty() || hhea.empty())
         return false;
-    auto units_per_em = static_cast<float>(be16(head + 18));
+    auto units_per_em = static_cast<float>(be16(head.subspan(18)));
     if (units_per_em <= 0.0f)
         return false;
-    *ascent = static_cast<float>(static_cast<int16_t>(be16(hhea + 4))) / units_per_em;
-    *descent = static_cast<float>(static_cast<int16_t>(be16(hhea + 6))) / units_per_em;
+    *ascent = static_cast<float>(static_cast<int16_t>(be16(hhea.subspan(4)))) / units_per_em;
+    *descent = static_cast<float>(static_cast<int16_t>(be16(hhea.subspan(6)))) / units_per_em;
     return *ascent > 0.0f;
 }
 

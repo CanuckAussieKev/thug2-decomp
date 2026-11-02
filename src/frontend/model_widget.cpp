@@ -445,17 +445,18 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
 // on 16:9, the 4:3 area 0.75; the goals menu's sign, the largest of the others, starts right of the centre).
 // `corners` are in the element's frame scaled (x right, y up, z backward, as the camera's), `place` is the
 // element's place in the camera's frame; a corner is seen at x / (-z * tan(half angle)) of the half-width.
-float widescreen_stretch(const maths::Vec4* corners, int count, const maths::Vec4& place, double tan_half_angle)
+float widescreen_stretch(const maths::Vec4* corner_list, int count, const maths::Vec4& place, double tan_half_angle)
 {
+    const std::span<const maths::Vec4> corners(corner_list, count > 0 ? static_cast<size_t>(count) : 0);
     if (!render::get_front_end_widescreen() || count <= 0 || !(tan_half_angle > 0.0))
         return 1.0f;
     const double layout_half_width = (4.0 / 3.0) / render::desired_3d_aspect_ratio(); // the 4:3 area, in half-widths
     double leftmost = 0.0, rightmost = 0.0;
     for (int i = 0; i < count; ++i) {
-        const double depth = -(static_cast<double>(corners[i].z) + place.z);
+        const double depth = -(static_cast<double>(core::at(corners, i).z) + place.z);
         if (!(depth > 0.0))
             return 1.0f;
-        const double seen = (static_cast<double>(corners[i].x) + place.x) / (depth * tan_half_angle);
+        const double seen = (static_cast<double>(core::at(corners, i).x) + place.x) / (depth * tan_half_angle);
         if (i == 0 || seen < leftmost)
             leftmost = seen;
         if (i == 0 || seen > rightmost)
@@ -469,8 +470,8 @@ float widescreen_stretch(const maths::Vec4* corners, int count, const maths::Vec
     double need_left = 0.0, need_right = 0.0;
     bool left = false, right = false;
     for (int i = 0; i < count; ++i) {
-        const double x = corners[i].x;
-        const double edge = -(static_cast<double>(corners[i].z) + place.z) * tan_half_angle; // the half-width there
+        const double x = core::at(corners, i).x;
+        const double edge = -(static_cast<double>(core::at(corners, i).z) + place.z) * tan_half_angle; // the half-width there
         if (x < 0.0) {
             const double k = (-edge - place.x) / x;
             if (!left || k < need_left)
