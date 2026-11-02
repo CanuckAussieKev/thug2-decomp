@@ -20,7 +20,6 @@
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
 #include "engine/core/checked_index.h"
-#include "engine/net/shared_state.h"
 
 namespace commands {
 

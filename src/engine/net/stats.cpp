@@ -23,7 +23,6 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
 
 namespace net {
 
