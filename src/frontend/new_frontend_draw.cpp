@@ -1556,7 +1556,8 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     std::string art = sel && !sel->art.empty() ? art_by_id(c.extras.catalogue, sel->art) : std::string();
     if (art.empty())
         art = art_by_id(c.extras.catalogue, v.screen_art_);
-    backdrop(c.dl, c.f, art_for(c.extras, art), 0.0f);
+    if (!v.over_game_)
+        backdrop(c.dl, c.f, art_for(c.extras, art), 0.0f);
     const float rule = get_header(c, 40.0f, kColumnInner, v.title.c_str(), !v.main_menu_, nullptr);
     const int n = static_cast<int>(v.rows.size());
     bool big = n <= 7;
@@ -1872,7 +1873,12 @@ void restyled(const mirror::Tracker& tracker, const TickCycle& frame, float wind
         pause_of_items(c, tracker, window_width, window_height, scroll);
         break;
     case mirror::Kind::kMenu:
-        dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround));
+        // (in a level - the pause menu's GAME OPTIONS... - the game stays behind it, dimmed, as the pause menus; the
+        // user's change, 2026-11-02)
+        if (tracker.get_shown().over_game_)
+            pause_ground(c, window_width, window_height);
+        else
+            dl->AddRectFilled(ImVec2(0.0f, 0.0f), ImVec2(window_width, window_height), get_col(kGround));
         menu_of_items(c, tracker, scroll);
         break;
     case mirror::Kind::kKeyboard:
