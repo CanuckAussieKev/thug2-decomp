@@ -392,15 +392,15 @@ void play_movie_file(const char* name)
             input->poll_pads();
             bool skip = false;
             for (int port = 0; port < 4 && !skip; ++port) {
-                sio::InputPort* device = input->get_pad_at_slot(port);
+                const sio::InputPort* device = input->get_pad_at_slot(port);
                 if (!device)
                     continue;
-                const uint8_t* data = device->control_data_.data();
-                if (data[2] << 8 & kStart)
+                const auto& data = device->control_data_;
+                if (core::at(data, 2) << 8 & kStart)
                     core::at(seen_up, port) |= kStart;
                 else if (core::at(seen_up, port) & kStart)
                     skip = true;
-                if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross))
+                if (!skip && button_pressed_again(data.data(), &core::at(seen_up, port), kCross))
                     skip = true;
             }
             if (skip)

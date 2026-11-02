@@ -88,9 +88,9 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
 {
     fault_ = 0;
     // (with '/' turned into '\')
-    char* path = path_buffer().data();
+    auto& path = path_buffer();
     for (size_t i = 0;; ++i) {
-        path[i] = name[i] == '/' ? '\\' : name[i];
+        core::at(path, i) = name[i] == '/' ? '\\' : name[i];
         if (!name[i])
             break;
     }
@@ -119,7 +119,7 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
     default:
         return nullptr;
     }
-    HANDLE handle = CreateFileA(path, access, 0, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr);
+    HANDLE handle = CreateFileA(path.data(), access, 0, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {
         // (the error is always 0 here: this never happens)
         if (fault_ == 0x70)
@@ -128,7 +128,7 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
     }
     FileLoad* file = new_file(handle, this);
     WIN32_FILE_ATTRIBUTE_DATA attributes; // (asked for, not used)
-    GetFileAttributesExA(path, GetFileExInfoStandard, &attributes);
+    GetFileAttributesExA(path.data(), GetFileExInfoStandard, &attributes);
     return file;
 }
 

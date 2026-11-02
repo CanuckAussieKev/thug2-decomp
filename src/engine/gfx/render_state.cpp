@@ -577,13 +577,13 @@ void set_world_transform(const float* matrix)
         g_world_transform = nullptr;
         return;
     }
-    float* world = g_world_transform_copy.data();
-    g_world_transform = world;
+    auto& world = g_world_transform_copy;
+    g_world_transform = world.data();
     for (int row = 0; row < 4; ++row) {
-        world[row * 4 + 0] = matrix[row * 4 + 0];
-        world[row * 4 + 1] = matrix[row * 4 + 1];
-        world[row * 4 + 2] = matrix[row * 4 + 2];
-        world[row * 4 + 3] = row == 3 ? 1.0f : 0.0f;
+        core::at(world, row * 4 + 0) = matrix[row * 4 + 0];
+        core::at(world, row * 4 + 1) = matrix[row * 4 + 1];
+        core::at(world, row * 4 + 2) = matrix[row * 4 + 2];
+        core::at(world, row * 4 + 3) = row == 3 ? 1.0f : 0.0f;
     }
 }
 

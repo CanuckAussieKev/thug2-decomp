@@ -792,11 +792,11 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
     manager->enter_heap_scope(manager->top_down_heap_);
     // (the C runtime's heap, as the original's malloc)
     std::vector<uint32_t> part_pixels(static_cast<size_t>(part_height) * static_cast<size_t>(part_width));
-    uint32_t* part = part_pixels.data();
+    auto& part = part_pixels;
     memory::Hub::get_pull()->leave_heap_scope();
-    read_rect(part, static_cast<uint16_t>(from_x), static_cast<uint16_t>(from_y), static_cast<uint16_t>(part_width),
+    read_rect(part.data(), static_cast<uint16_t>(from_x), static_cast<uint16_t>(from_y), static_cast<uint16_t>(part_width),
               static_cast<uint16_t>(part_height));
-    write_rect(part, static_cast<uint16_t>(into_x), static_cast<uint16_t>(into_y), static_cast<uint16_t>(part_width),
+    write_rect(part.data(), static_cast<uint16_t>(into_x), static_cast<uint16_t>(into_y), static_cast<uint16_t>(part_width),
                static_cast<uint16_t>(part_height));
     if (!keep_edges) { // (what was uncovered filled from the moved part's nearest edge)
         for (int y = 0, sy = -into_y; y < height; ++y, ++sy) {
@@ -810,7 +810,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
                 int column = sx <= 0 ? 0 : sx;
                 if (column >= part_width - 1)
                     column = part_width - 1;
-                const uint32_t pixel = part[row_start + column];
+                const uint32_t pixel = core::at(part, row_start + column);
                 const uint32_t texels_wide = get_texture()->width;
                 if (flag_bits_ & 1 && get_edit(this)->pixels)
                     get_edit(this)->pixels[static_cast<uint16_t>(y) * texels_wide + static_cast<uint16_t>(x)] = pixel;

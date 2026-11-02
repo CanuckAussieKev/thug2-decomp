@@ -483,8 +483,8 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         std::array<char, 0x60> word;
         std::array<char, 0x1F4> line;
     } buffers{};
-    char* word = buffers.word.data();
-    char* line = buffers.line.data();
+    auto& word = buffers.word;
+    auto& line = buffers.line;
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
     UiTree* manager = hub();
@@ -509,7 +509,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         if (element_params)
             element_params = new (element_params) script::Struct;
         element_params->append_structure_if_any(params);
-        element_params->append_word(kText, line);
+        element_params->append_word(kText, line.data());
         ElementPtr made;
         manager->spawn_part(&made, kTextElement, unassigned_id(), element_params);
         made.get_release();
@@ -520,25 +520,25 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     };
     int result = 0;
     do {
-        result = text::next_word(word, cursor);
+        result = text::next_word(word.data(), cursor);
         if (texts && result == 2 && text_index < texts->extent_ - 1) {
             // the next string of the array, a space between
             text = texts->fetch_text(++text_index);
             cursor = text;
             if (previous != 1) {
-                const size_t length = std::strlen(word);
-                word[length] = ' ';
-                word[length + 1] = 0;
+                const size_t length = std::strlen(word.data());
+                core::at(word, length) = ' ';
+                core::at(word, length + 1) = 0;
             }
             result = 0;
         }
         float word_width = 0.0f, word_height = 0.0f;
-        read_string_param(font, word, &word_width, &word_height);
+        read_string_param(font, word.data(), &word_width, &word_height);
         bool new_line = false;
         const bool full = line_width > 0.0f && static_cast<double>(word_width) + line_width > max_width;
-        if (full || previous == 1 || std::strlen(word) + line_length >= 0x60) {
+        if (full || previous == 1 || std::strlen(word.data()) + line_length >= 0x60) {
             // the line so far (without its trailing space) becomes an element
-            char* last = line_length ? &line[line_length - 1] : &word[sizeof(buffers.word) - 1];
+            char* last = line_length ? &core::at(line, line_length - 1) : &core::at(word, sizeof(buffers.word) - 1);
             if (*last == ' ')
                 *last = 0;
             new_line = true;
@@ -546,8 +546,8 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
             line_width = 0.0f;
             make_element();
         }
-        std::memcpy(line + line_length, word, std::strlen(word) + 1);
-        line_length += static_cast<int>(std::strlen(word));
+        std::memcpy(line.data() + line_length, word.data(), std::strlen(word.data()) + 1);
+        line_length += static_cast<int>(std::strlen(word.data()));
         line_width = static_cast<float>(static_cast<double>(word_width) + line_width);
         if (result == 2 && !new_line)
             make_element();

@@ -41,15 +41,15 @@ std::array<char, 256>& name_buffer() { return g_cutscene_name_buffer; }
 // 0x004638B0
 const char* cutscene_name_from_path(const char* path)
 {
-    char* name = name_buffer().data();
+    auto& name = name_buffer();
     const std::string_view text(path);
     if (const size_t slash = text.find_last_of("\\/"); slash != std::string_view::npos) {
         // (copied forwards a byte at a time, as the original)
-        text::copy_unbounded(name, std::string(text.substr(slash + 1)).c_str());
+        text::copy_unbounded(name.data(), std::string(text.substr(slash + 1)).c_str());
     }
-    if (char* extension = std::strstr(name, "."))
+    if (char* extension = std::strstr(name.data(), "."))
         *extension = '\0';
-    return name;
+    return name.data();
 }
 
 // 0x00463910

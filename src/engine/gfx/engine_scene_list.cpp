@@ -177,8 +177,8 @@ std::array<WorldScene*, 16> g_collision_scenes;
 // 0x0048C980
 CollGrid** get_coll_grids_on_line(const maths::Seg* line)
 {
-    auto* scenes = g_collision_scenes.data();
-    auto* grids = g_collision_grids.data();
+    auto& scenes = g_collision_scenes;
+    auto& grids = g_collision_grids;
     maths::BBox box(line->start);
     box.append_spot(line->end);
     uint32_t count = 0;
@@ -193,8 +193,8 @@ CollGrid** get_coll_grids_on_line(const maths::Seg* line)
         if (grid && !(grid->box_.min.x > box.max.x) && !(box.min.x > grid->box_.max.x) &&
             !(grid->box_.min.z > box.max.z) && !(box.min.z > grid->box_.max.z) && !(grid->box_.min.y > box.max.y) &&
             !(box.min.y > grid->box_.max.y)) {
-            scenes[count] = scene;
-            grids[count] = grid;
+            core::at(scenes, count) = scene;
+            core::at(grids, count) = grid;
             if (++count >= 15)
                 break;
         }
@@ -202,9 +202,9 @@ CollGrid** get_coll_grids_on_line(const maths::Seg* line)
     } while (node);
     if (count == 0)
         return nullptr;
-    grids[count] = nullptr;
-    scenes[count] = nullptr;
-    return grids;
+    core::at(grids, count) = nullptr;
+    core::at(scenes, count) = nullptr;
+    return grids.data();
 }
 
 // 0x0048CA80

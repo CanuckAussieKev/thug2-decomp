@@ -411,12 +411,12 @@ TextureSplats* get_texture_splats(TextureImage* texture)
 // 0x004B9C30
 TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/, SplatParams* params)
 {
-    float* start = params->start.data();
-    float* end = params->end.data();
+    auto& start = params->start;
+    auto& end = params->end;
     // the ray's direction (normalised when it has a length; the parts stored are floats) and length
-    const double dz = static_cast<double>(end[2]) - start[2];
-    auto dyf = static_cast<float>(static_cast<double>(end[1]) - start[1]);
-    auto dxf = static_cast<float>(static_cast<double>(end[0]) - start[0]);
+    const double dz = static_cast<double>(core::at(end, 2)) - core::at(start, 2);
+    auto dyf = static_cast<float>(static_cast<double>(core::at(end, 1)) - core::at(start, 1));
+    auto dxf = static_cast<float>(static_cast<double>(core::at(end, 0)) - core::at(start, 0));
     std::array<float, 3> direction = {{dxf, dyf, static_cast<float>(dz)}};
     const double length_squared = static_cast<double>(dxf) * dxf + static_cast<double>(dyf) * dyf + dz * dz;
     auto length = static_cast<float>(std::sqrt(length_squared));
@@ -434,23 +434,23 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
     maths::Mat4 view{}, projection{}, combined{};
     if (params->up) {
         const float* from = params->up;
-        const double az = static_cast<double>(start[2]) - from[2];
-        const double ay = static_cast<double>(start[1]) - from[1];
-        up[0] = static_cast<float>(static_cast<double>(start[0]) - from[0]);
+        const double az = static_cast<double>(core::at(start, 2)) - from[2];
+        const double ay = static_cast<double>(core::at(start, 1)) - from[1];
+        up[0] = static_cast<float>(static_cast<double>(core::at(start, 0)) - from[0]);
         up[1] = static_cast<float>(ay);
         up[2] = static_cast<float>(az);
         up[3] = 1.0f;
         auto height = static_cast<float>(std::sqrt(static_cast<double>(up[0]) * up[0] + ay * ay + az * az));
-        start[0] = static_cast<float>(static_cast<double>(start[0]) - up[0]);
-        start[1] = static_cast<float>(static_cast<double>(start[1]) - ay);
-        start[2] = static_cast<float>(static_cast<double>(start[2]) - az);
-        start[3] = static_cast<float>(static_cast<double>(start[3]) - 1.0f);
-        end[0] = static_cast<float>(static_cast<double>(end[0]) - up[0]);
-        end[1] = static_cast<float>(static_cast<double>(end[1]) - ay);
-        end[2] = static_cast<float>(static_cast<double>(end[2]) - az);
-        end[3] = static_cast<float>(static_cast<double>(end[3]) - 1.0f);
+        core::at(start, 0) = static_cast<float>(static_cast<double>(core::at(start, 0)) - up[0]);
+        core::at(start, 1) = static_cast<float>(static_cast<double>(core::at(start, 1)) - ay);
+        core::at(start, 2) = static_cast<float>(static_cast<double>(core::at(start, 2)) - az);
+        core::at(start, 3) = static_cast<float>(static_cast<double>(core::at(start, 3)) - 1.0f);
+        core::at(end, 0) = static_cast<float>(static_cast<double>(core::at(end, 0)) - up[0]);
+        core::at(end, 1) = static_cast<float>(static_cast<double>(core::at(end, 1)) - ay);
+        core::at(end, 2) = static_cast<float>(static_cast<double>(core::at(end, 2)) - az);
+        core::at(end, 3) = static_cast<float>(static_cast<double>(core::at(end, 3)) - 1.0f);
         up.make_unit();
-        get_look_at(&view, start, end, up.data());
+        get_look_at(&view, start.data(), end.data(), up.data());
         ortho(&projection, params->size, height, 0.1f, length);
     } else {
         if (std::fabs(core::at(direction, 1)) > 0.5f) {
@@ -467,7 +467,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
             up[2] = 0.0f;
         }
         up[3] = 1.0f;
-        get_look_at(&view, start, end, up.data());
+        get_look_at(&view, start.data(), end.data(), up.data());
         ortho(&projection, params->size, params->size, 0.1f, length);
     }
     get_multiply(&combined, &view, &projection);

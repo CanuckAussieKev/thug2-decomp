@@ -354,18 +354,18 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     // (the number's 20 characters, then the result's 100 - one buffer: a cut can land in the number's part)
     constexpr size_t kNumberSize = 20;
     std::array<char, kNumberSize + 100> buffer{};
-    char* number = buffer.data();
+    auto& number = buffer;
     char* result = buffer.data() + kNumberSize;
     copy_text(result, text);
     int max_length = 15;
     params->fetch_int_value(kMaxLength, &max_length, 0);
     int suffix = 1;
     params->fetch_int_value(kSuffix, &suffix, 0);
-    get_sprintf(number, " %d", suffix); // " %d"
-    const int number_length = static_cast<int>(std::strlen(number));
+    get_sprintf(number.data(), " %d", suffix); // " %d"
+    const int number_length = static_cast<int>(std::strlen(number.data()));
     if (number_length + static_cast<int>(text_length) > max_length)
         core::at(buffer, static_cast<int>(kNumberSize) + max_length - number_length) = 0;
-    copy_text(result + std::strlen(result), number);
+    copy_text(result + std::strlen(result), number.data());
     uint32_t name = 0;
     params->read_hash_value(kResultName, &name, 0);
     script->args_->append_word(name, result);

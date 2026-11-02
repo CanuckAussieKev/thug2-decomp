@@ -198,7 +198,7 @@ void PrefixTables::remove_node_array(uint32_t name)
 // 0x0045BE90
 uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
 {
-    uint32_t* names = node_names().data();
+    auto& names = node_names();
     int found = 0;
     for (const PrefixTable* table = first_ptr_; table; table = table->following_) {
         const PrefixNodes* nodes = get_find(table->slot_table_, prefix);
@@ -210,10 +210,10 @@ uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
             continue;
         Array* array = script::fetch_list(table->node_array_);
         for (int i = 0; std::cmp_less(i, n); ++i) // (the buffer's size isn't checked)
-            names[found++] = get_node_name(array->struct_at(indices[i]));
+            core::at(names, found++) = get_node_name(array->struct_at(indices[i]));
     }
     *count = static_cast<uint16_t>(found);
-    return names;
+    return names.data();
 }
 
 // 0x0045C900

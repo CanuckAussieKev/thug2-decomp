@@ -637,10 +637,10 @@ int get_num_soundtracks() { return user_soundtrack_count(); }
 // 0x004B2360
 const char* get_soundtrack_name(int index)
 {
-    char* name = g_soundtrack_name.data();
+    auto& name = g_soundtrack_name;
     const wchar_t* wide = user_soundtrack_name(index); // (null past the last)
     if (wide) {
-        char* out = name;
+        char* out = name.data();
         int length = 0;
         for (; *wide; ++wide) {
             std::array<wchar_t, 2> one = {{*wide, 0}};
@@ -653,15 +653,15 @@ const char* get_soundtrack_name(int index)
         }
         *out = 0;
     } else {
-        std::memcpy(name, "~", 2);
+        std::memcpy(name.data(), "~", 2);
     }
-    const int length = static_cast<int>(std::strlen(name));
+    const int length = static_cast<int>(std::strlen(name.data()));
     for (int i = 0; i < length; ++i) {
-        auto c = static_cast<signed char>(name[i]);
+        auto c = static_cast<signed char>(core::at(name, i));
         if (c >= static_cast<signed char>(0xA1) && c <= static_cast<signed char>(0xAC))
-            name[i] = '~';
+            core::at(name, i) = '~';
     }
-    return name;
+    return name.data();
 }
 
 // 0x00450430

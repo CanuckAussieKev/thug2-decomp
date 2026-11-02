@@ -292,28 +292,28 @@ void MaterialRef::hand_in()
         flags = core::at(pass_flags_, pass);
         auto texture_matrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
         if ((flags & kPassEnvironment) && g_near_camera) {
-            float* matrix = g_environment_matrix_pass.data();
-            matrix[0] = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
-            matrix[5] = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
+            auto& matrix = g_environment_matrix_pass;
+            core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
+            core::at(matrix, 5) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
             change_phase(kLocalViewer, 1);
-            input_port()->SetTransform(texture_matrix, d3d::matrix(matrix));
+            input_port()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
         } else if (flags & kPassUvWibble) {
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
-            float* matrix = g_wibble_matrix_pass.data();
-            fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-            input_port()->SetTransform(texture_matrix, d3d::matrix(matrix));
+            auto& matrix = g_wibble_matrix_pass;
+            fill_wibble_matrix(matrix.data(), core::at(uv_wibble_, pass));
+            input_port()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
         } else {
             if (g_billboard_flag) { // (the billboard flag: a static matrix's 2x2 part reset)
-                float* m = g_billboard_uv_matrix.data();
-                m[0] = 1.0f;
-                m[1] = 0;
-                m[3] = 0;
-                m[4] = 0;
-                m[5] = 1.0f;
-                m[7] = 0;
+                auto& m = g_billboard_uv_matrix;
+                core::at(m, 0) = 1.0f;
+                core::at(m, 1) = 0;
+                core::at(m, 3) = 0;
+                core::at(m, 4) = 0;
+                core::at(m, 5) = 1.0f;
+                core::at(m, 7) = 0;
             }
             DWORD transform_flags = 0, coordinates = 0;
             input_port()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
@@ -355,19 +355,19 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 change_bump_map_matrix(0);
             const uint32_t flags = core::at(pass_flags_, pass);
             if ((flags & kPassEnvironment) && g_near_camera) {
-                float* matrix = g_environment_matrix.data();
-                matrix[0] = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
-                matrix[5] = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
+                auto& matrix = g_environment_matrix;
+                core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
+                core::at(matrix, 5) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
                 change_phase(kLocalViewer, 1);
-                render::set_transform(D3DTS_TEXTURE0, matrix);
+                render::set_transform(D3DTS_TEXTURE0, matrix.data());
                 set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass | D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR);
             } else if (flags & kPassUvWibble) {
                 device_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
-                float* matrix = g_wibble_matrix.data();
-                fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
-                input_port()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix));
+                auto& matrix = g_wibble_matrix;
+                fill_wibble_matrix(matrix.data(), core::at(uv_wibble_, pass));
+                input_port()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
             } else {
                 DWORD transform_flags = 0, coordinates = 0;
                 input_port()->GetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);

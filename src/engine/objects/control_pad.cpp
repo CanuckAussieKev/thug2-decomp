@@ -205,19 +205,19 @@ void PadSnapshot::get_clear()
 // 0x0046BDA0
 void PadSnapshot::tick_frame(const pad_input::Payload* payload)
 {
-    const uint8_t* data = payload->incident_.data(); // (the sticks, then a pressure per button)
-    up_dir_.tick_frame(get_full(data[6] != 0));
-    btn_down_.tick_frame(get_full(data[7] != 0));
-    left_side_.tick_frame(get_full(data[5] != 0));
-    right_side_.tick_frame(get_full(data[4] != 0));
-    button_box_.tick_frame(get_full(data[0xB] != 0));
-    button_round_.tick_frame(get_full(data[9] != 0));
-    pos_x_.tick_frame(get_full(data[0xA] != 0));
-    button_wedge_.tick_frame(get_full(data[8] != 0));
-    shoulder_left_a_.tick_frame(get_full(data[0xC] != 0));
-    shoulder_right_a_.tick_frame(get_full(data[0xD] != 0));
-    shoulder_left_b_.tick_frame(get_full(data[0xE] != 0));
-    shoulder_right_b_.tick_frame(get_full(data[0xF] != 0));
+    const auto& data = payload->incident_; // (the sticks, then a pressure per button)
+    up_dir_.tick_frame(get_full(core::at(data, 6) != 0));
+    btn_down_.tick_frame(get_full(core::at(data, 7) != 0));
+    left_side_.tick_frame(get_full(core::at(data, 5) != 0));
+    right_side_.tick_frame(get_full(core::at(data, 4) != 0));
+    button_box_.tick_frame(get_full(core::at(data, 0xB) != 0));
+    button_round_.tick_frame(get_full(core::at(data, 9) != 0));
+    pos_x_.tick_frame(get_full(core::at(data, 0xA) != 0));
+    button_wedge_.tick_frame(get_full(core::at(data, 8) != 0));
+    shoulder_left_a_.tick_frame(get_full(core::at(data, 0xC) != 0));
+    shoulder_right_a_.tick_frame(get_full(core::at(data, 0xD) != 0));
+    shoulder_left_b_.tick_frame(get_full(core::at(data, 0xE) != 0));
+    shoulder_right_b_.tick_frame(get_full(core::at(data, 0xF) != 0));
     const uint32_t bits = payload->buttons_;
     stick_click_left_.tick_frame(get_full((bits & 0x200) != 0));
     stick_click_right_.tick_frame(get_full((bits & 0x400) != 0));
@@ -225,9 +225,9 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     // (START isn't read here)
 
     for (int i = 0; i < 4; ++i)
-        scale_stick(data[i], &core::at(scaled_stick_, i));
+        scale_stick(core::at(data, i), &core::at(scaled_stick_, i));
     for (int i = 0; i < 4; ++i)
-        core::at(stick_, i) = static_cast<float>(data[0x12 + i] - 0x80);
+        core::at(stick_, i) = static_cast<float>(core::at(data, 0x12 + i) - 0x80);
 
     double x = core::at(stick_, 0), y = core::at(stick_, 1);
     core::at(polar_, 0).length = static_cast<float>(std::sqrt(x * x + y * y));
@@ -243,10 +243,10 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
             static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 2)), -static_cast<double>(core::at(stick_, 3))));
     } else {
         // the d-pad stands in for a centred stick
-        const uint8_t up = data[6] != 0;
-        const uint8_t down = data[7] != 0;
-        const uint8_t left = data[5] != 0;
-        const uint8_t right = data[4] != 0;
+        const uint8_t up = core::at(data, 6) != 0;
+        const uint8_t down = core::at(data, 7) != 0;
+        const uint8_t left = core::at(data, 5) != 0;
+        const uint8_t right = core::at(data, 4) != 0;
         if (up || down || left || right) {
             core::at(polar_, 1).angle = d_pad_angle(up, down, left, right);
             core::at(polar_, 1).length = 127.0f;
@@ -262,7 +262,7 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/rider/thaw_bmx.h. Original behaviour: none.
     if (skater::thaw_bmx::is_switched_on())
-        skater::thaw_bmx::update_pad_sticks(this, data);
+        skater::thaw_bmx::update_pad_sticks(this, data.data());
 }
 
 // 0x0046C270

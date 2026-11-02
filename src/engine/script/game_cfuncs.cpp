@@ -406,12 +406,12 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     const char* password = nullptr;                    // (unset in the original when missing)
     preference->fetch_text("ui_string", &password, 0); // "ui_string"
-    char* stars = password_stars().data();
+    auto& stars = password_stars();
     const size_t length = std::strlen(password);
     for (size_t i = 0; i < length; ++i)
-        stars[i] = '*';
-    stars[length] = '\0';
-    results->append_word("password_string", stars); // "password_string"
+        core::at(stars, i) = '*';
+    core::at(stars, length) = '\0';
+    results->append_word("password_string", stars.data()); // "password_string"
     return true;
 }
 

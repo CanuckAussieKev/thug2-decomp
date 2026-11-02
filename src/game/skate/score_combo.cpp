@@ -396,13 +396,13 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         std::snprintf(trick->shown_.data(), sizeof(trick->shown_), format, "", trick->text_.data());
         // The trick before it (the last one named, not "...") gets the " + " joining them.
         for (int i = log_.num_ - 2; i >= 0; --i) {
-            char* shown = get_trick(i)->shown_.data();
-            const size_t length = std::strlen(shown);
-            if (shown[0] == '.' || !length)
+            auto& shown = get_trick(i)->shown_;
+            const size_t length = std::strlen(shown.data());
+            if (core::at(shown, 0) == '.' || !length)
                 continue;
-            if (shown[length - 1] == ' ')
-                shown[length - 1] = 0;
-            std::memcpy(shown + std::strlen(shown), "\\_+ ", 5); // "\_+ "
+            if (core::at(shown, length - 1) == ' ')
+                core::at(shown, length - 1) = 0;
+            std::memcpy(shown.data() + std::strlen(shown.data()), "\\_+ ", 5); // "\_+ "
             break;
         }
     }

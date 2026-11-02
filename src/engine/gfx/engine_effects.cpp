@@ -401,8 +401,8 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     auto** grids = get_coll_grids_on_line(&line);
     if (!grids || !*grids)
         return false;
-    auto* sectors = g_line_sectors.data();
-    auto* objects = g_line_objects.data();
+    auto& sectors = g_line_sectors;
+    auto& objects = g_line_objects;
     int count = 0;
     for (CollGrid** grid = grids; *grid; ++grid) {
         HitMesh* const* in_box = (*grid)->objects_in_box(&box);
@@ -415,16 +415,16 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
             if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) && !(bounds->min.z > box.max.z) &&
                 !(box.min.z > bounds->max.z) && !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
                 void* sector = render::engine::look_up_sector(object->checksum_);
-                objects[count] = object;
-                sectors[count] = sector;
+                core::at(objects, count) = object;
+                core::at(sectors, count) = sector;
                 ++count;
             }
         }
     }
     if (count <= 0)
         return false;
-    sectors[count] = nullptr;
-    objects[count] = nullptr;
+    core::at(sectors, count) = nullptr;
+    core::at(objects, count) = nullptr;
     bool made = false;
     if (follow && recent->pos.x == from->x && recent->pos.z == from->z) {
         made = false; // (it hasn't moved)
@@ -441,7 +441,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         params.unknown38 = unknown38;
         params.up = recent ? &recent->pos.x : nullptr;
         params.unknown40 = unknown40;
-        TextureSplats* splats = render::create_texture_splat(sectors, objects, &params);
+        TextureSplats* splats = render::create_texture_splat(sectors.data(), objects.data(), &params);
         made = splats != nullptr;
         if (!follow && splats) {
             age_texture_splats(splats, frame_milliseconds());

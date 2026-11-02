@@ -704,24 +704,24 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
 bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, int load_type, int /*unused*/)
 {
     // data\sounds\<path>.snd, in a static buffer (0x0067DB10)
-    char* file_name = g_wave_file_name.data();
+    auto& file_name = g_wave_file_name;
     const size_t length = std::strlen(path);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(file_name + 12, path, length);
-    std::memcpy(file_name + 12 + length, ".snd", 5);
+    std::memcpy(file_name.data() + 12, path, length);
+    std::memcpy(file_name.data() + 12 + length, ".snd", 5);
     auto* wave = static_cast<PcWave*>(memory::alloc(sizeof(PcWave)));
     if (wave) {
         wave->data_size_ = 0;
         wave->data = nullptr;
     }
-    const bool loaded = wave->read_in(file_name, 0x400E0);
+    const bool loaded = wave->read_in(file_name.data(), 0x400E0);
     if (loaded) {
         entry->wave = wave;
         entry->looping = wave->looping;
         entry->not_streamed_ = load_type == 0;
         return true;
     }
-    OutputDebugStringA(file_name);
+    OutputDebugStringA(file_name.data());
     OutputDebugStringA("\n");
     entry->wave = nullptr;
     entry->looping = false;

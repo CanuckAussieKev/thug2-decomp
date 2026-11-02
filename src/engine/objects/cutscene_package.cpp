@@ -392,7 +392,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         auto* part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartA));
         if (!part2)
             part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartB));
-        float* skin = g_skin_colours.data();
+        auto& skin = g_skin_colours;
         core::at(g_skin_colours, 0) = core::at(g_skin_colours, 1) = core::at(g_skin_colours, 2) =
             core::at(g_skin_colours, 3) = 1.0f;
         for (int k = 0; k < 4; ++k) {
@@ -406,14 +406,14 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         util::ByteReader reader(colours, bundle_ptr_->find_entry(entry->name, kTypeColours, 0)->size);
         bundle_format::SkinColours read;
         if (!bundle_format::read_skin_colours(reader, &read)) {
-            debug::printf("cutscene skin colours damaged: %d entries\n", read.count);
+            debug::printf("cutscene skin.data() colours damaged: %d entries\n", read.count);
             read.count = 0;
         }
         SkinColours table{};
         table.start = read.entries;
         table.end = table.start + read.count * bundle_format::kSkinColourSize;
         table.table = g_skin_colour_table.data();
-        table.colours = skin;
+        table.colours = skin.data();
         // which skin this is: the next names along say (none after it: the last)
         bool male = false, has_face = false;
         if (!bundle_ptr_->find_entry(entry->name + 1, kTypeModel, 0)) {

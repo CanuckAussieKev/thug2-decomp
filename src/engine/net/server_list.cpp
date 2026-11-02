@@ -514,13 +514,13 @@ unsigned long __stdcall news_thread(void* argument)
     game_spy::get_msleep(100);
     manager->service_state_ = kStateNews;
     manager->request_started_at_ = frame_clock::get_time();
-    uint8_t* buffer = manager->news_buffer_.data();
-    std::memset(buffer, 0, 0x1900 * 4);
+    auto& buffer = manager->news_buffer_;
+    std::memset(buffer.data(), 0, 0x1900 * 4);
     std::array<char, 256> url{};
     std::sprintf(url.data(), commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
     manager->request_ =
-        game_spy::http_get_ex(url.data(), nullptr, buffer, static_cast<int>(kNewsBufferSize), nullptr,
+        game_spy::http_get_ex(url.data(), nullptr, buffer.data(), static_cast<int>(kNewsBufferSize), nullptr,
                               0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
     ram_stats()->leave_heap_scope();
     return 0;
