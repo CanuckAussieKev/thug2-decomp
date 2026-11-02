@@ -4,6 +4,7 @@
 // each compressed file is unpacked to exactly its size, and each localised patch applies within its archive. The
 // files inside the archives and the loose ones are then handed to the per-format checks by their extension.
 
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -12,6 +13,8 @@
 #include <algorithm>
 #include <bit>
 #include <fstream>
+#include <ios>
+#include <iterator>
 #include <span>
 #include <map>
 #include <memory>

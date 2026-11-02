@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ios>
+#include <iterator>
 #include <span>
 #include <exception>
 #include <filesystem>
