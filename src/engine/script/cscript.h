@@ -9,6 +9,7 @@
 #include "engine/objects/smtptr.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/member_code.h"
+#include "engine/script/tokens.h"
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
 
@@ -195,23 +196,25 @@ public:
     // --- the interpreter (group B: cscript_exec.cpp) ---
     // 0x004750B0: run statements until it waits or ends.
     ScriptOutcome tick_frame();
+    // The statements tick_frame runs, from `pc` (NOT ORIGINAL: a cursor at pc_ over its block of code, moved as the
+    // original moved pc_; pc_ is written back before anything is called).
     // 0x00474B40: one statement: a C function / member function / script call (also `obj:Func`), an
     // assignment `name = value`, or an expression (its truth value). Returns the call's result.
-    bool execute_command();
+    bool execute_command(Tokens& pc);
     // 0x00475050: if / if not (token 0x47): run the condition, skip to the else / endif when false.
-    void run_conditional();
+    void run_conditional(Tokens& pc);
     // 0x00473C60: switch (token 0x3C) to the matching case (or past endswitch).
-    void run_multi_branch();
+    void run_multi_branch(Tokens& pc);
     // 0x00472A70: past the endswitch matching the switch just entered (nested switches skipped).
-    void skip_to_end_of_switch();
+    void skip_to_end_of_switch(Tokens& pc);
     // 0x00473220 / 0x00472AB0 / 0x00472B50: begin, repeat [n], break.
-    void run_loop_open();
-    void run_counted_loop();
-    void run_loop_exit();
+    void run_loop_open(Tokens& pc);
+    void run_counted_loop(Tokens& pc);
+    void run_loop_exit(Tokens& pc);
     // 0x00472950: the rest of the line as stmt_args_.
-    void parse_function_params();
-    // 0x004729E0: the name at pc_ (a name token, or <name> / <...> from the parameters), or 0.
-    uint32_t read_name();
+    void parse_function_params(Tokens& pc);
+    // 0x004729E0: the name at pc (a name token, or <name> / <...> from the parameters), or 0.
+    uint32_t read_name(Tokens& pc);
     // 0x004731A0 / 0x004731E0: a member function on `object` (null: entity_; none: false) - by table entry
     // or by name.
     bool invoke_method_by_name(const MemberFunctionEntry* entry, objects::Entity* object);

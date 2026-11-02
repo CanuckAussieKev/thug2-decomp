@@ -1,6 +1,7 @@
 #include "engine/script/tokens.h"
 
 #include <cstddef>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <utility>
@@ -27,11 +28,13 @@ struct LastBlock {
     std::size_t size = 0;
 };
 LastBlock g_last_block;
+// Counted up whenever a block is noted or forgotten.
+uint32_t g_generation;
 
 // Whether `place` is in the block of `size` bytes at `begin` (its end included).
 bool holds(const uint8_t* begin, std::size_t size, const uint8_t* place)
 {
-    if (!begin || place < begin)
+    if (!begin || std::less<>()(place, begin))
         return false;
     return std::cmp_less_equal(place - begin, size);
 }
@@ -55,6 +58,7 @@ void note_code_block(std::span<const uint8_t> block)
         it = blocks.erase(it);
     blocks[begin] = block.size();
     g_last_block = {};
+    ++g_generation;
 }
 
 void forget_code_block(const void* block)
@@ -63,6 +67,7 @@ void forget_code_block(const void* block)
         return;
     code_blocks().erase(static_cast<const uint8_t*>(block));
     g_last_block = {};
+    ++g_generation;
 }
 
 Tokens tokens_at(const uint8_t* place)
@@ -82,5 +87,19 @@ Tokens tokens_at(const uint8_t* place)
     }
     return Tokens(std::span<const uint8_t>(g_last_block.begin, g_last_block.size)).moved_to(place);
 }
+
+Tokens tokens_at(Tokens near, const uint8_t* place)
+{
+    const std::span<const uint8_t> run = near.run();
+    return holds(run.data(), run.size(), place) ? near.moved_to(place) : tokens_at(place);
+}
+
+std::span<const uint8_t> code_between(Tokens from, Tokens to)
+{
+    Expects(to >= from);
+    return from.rest().first(static_cast<std::size_t>(to - from));
+}
+
+uint32_t code_blocks_generation() { return g_generation; }
 
 } // namespace script

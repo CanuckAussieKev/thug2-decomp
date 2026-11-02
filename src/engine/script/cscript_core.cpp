@@ -3,6 +3,7 @@
 
 #include "engine/script/cscript.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -224,7 +225,7 @@ void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, obj
         return;
     }
     // The first line: the script's default parameters.
-    pc_ = parse_arguments(args_.get(), pc_, nullptr);
+    pc_ = parse_arguments(args_.get(), tokens_at(pc_), nullptr).address();
     if (copy) {
         args_->append_structure_if_any(copy);
         free_struct(copy);
@@ -248,17 +249,18 @@ void Script::bind_script(const char* name, Struct* params, objects::Entity* obje
 // 0x00474720
 void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entity* object)
 {
-    auto size = static_cast<uint32_t>(skip_to_end_of_script(script->code_stream_) - script->code_stream_);
+    const Tokens start = tokens_at(script->code_stream_);
+    const std::span<const uint8_t> source = code_between(start, skip_to_end_of_script(start));
+    const auto size = static_cast<uint32_t>(source.size());
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
-    auto* copy = static_cast<uint8_t*>(memory::alloc_block(size));
+    auto* block = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::Hub::get_pull()->leave_heap_scope();
-    note_code_block(std::span<const uint8_t>(copy, size));
-    const uint8_t* source = script->code_stream_;
-    for (uint32_t i = 0; i < size; ++i)
-        copy[i] = source[i];
-    bind_script(script->own_name_hash_, copy, params, object);
-    code_copy_ = copy; // (after bind_script: its reset_script_state would free it)
+    const std::span<uint8_t> copy(block, size);
+    note_code_block(copy);
+    std::ranges::copy(source, copy.begin());
+    bind_script(script->own_name_hash_, block, params, object);
+    code_copy_ = block; // (after bind_script: its reset_script_state would free it)
 }
 
 // 0x004747F0

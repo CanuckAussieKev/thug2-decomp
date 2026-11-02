@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <cstddef>
 #include <span>
 #include <type_traits>
@@ -58,6 +59,22 @@ public:
     }
     [[nodiscard]] Cursor operator+(std::ptrdiff_t count) const { return Cursor(run_, position_ + count); }
     [[nodiscard]] Cursor operator-(std::ptrdiff_t count) const { return Cursor(run_, position_ - count); }
+    // Unsigned counts and offsets (sizes, lengths read from data) step the same way.
+    template <std::unsigned_integral U>
+    [[nodiscard]] T& operator[](U offset) const
+    {
+        return (*this)[static_cast<std::ptrdiff_t>(offset)];
+    }
+    template <std::unsigned_integral U>
+    Cursor& operator+=(U count)
+    {
+        return *this += static_cast<std::ptrdiff_t>(count);
+    }
+    template <std::unsigned_integral U>
+    [[nodiscard]] Cursor operator+(U count) const
+    {
+        return *this + static_cast<std::ptrdiff_t>(count);
+    }
     [[nodiscard]] std::ptrdiff_t operator-(const Cursor& other) const { return position_ - other.position_; }
     [[nodiscard]] bool operator==(const Cursor& other) const { return position_ == other.position_; }
     [[nodiscard]] auto operator<=>(const Cursor& other) const { return position_ <=> other.position_; }

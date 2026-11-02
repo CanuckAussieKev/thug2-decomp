@@ -1,4 +1,3 @@
-#include "engine/core/within.h"
 #include "engine/script/qb.h"
 #include "formats/byte_stream.h"
 
@@ -36,7 +35,7 @@ StoredScript read_stored_script(const uint8_t* record)
     out.checksum_ = header.u32();
     out.size_ = header.u32();
     out.stored_size_ = header.u32();
-    out.code_ = header.cursor();
+    out.code_ = std::span<const uint8_t>(header.cursor(), out.stored_size_);
     return out;
 }
 
@@ -82,7 +81,7 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
 }
 
 // 0x0046F690
-const uint8_t* step_over_token(const uint8_t* token)
+Tokens step_over_token(Tokens token)
 {
     switch (*token) {
     case 0x01:
@@ -151,7 +150,7 @@ const uint8_t* step_over_token(const uint8_t* token)
     case 0x1F: // pair
         return token + 9;
     case 0x2B: { // a checksum's name: the checksum, then the text
-        const uint8_t* p = token + 5;
+        Tokens p = token + 5;
         while (*p)
             ++p;
         return p + 1;
@@ -171,16 +170,16 @@ const uint8_t* step_over_token(const uint8_t* token)
 }
 
 // 0x0046F7E0
-uint32_t fetch_word32(const uint8_t* p)
+uint32_t fetch_word32(Tokens p)
 {
     return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<uint32_t>(p[3]) << 24);
 }
 
 // 0x0046F800
-uint16_t fetch_word16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
+uint16_t fetch_word16(Tokens p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
 
 // 0x0046F810
-uint8_t* store_word32(uint8_t* p, uint32_t value)
+MutableTokens store_word32(MutableTokens p, uint32_t value)
 {
     p[0] = static_cast<uint8_t>(value);
     p[1] = static_cast<uint8_t>(value >> 8);
@@ -190,7 +189,7 @@ uint8_t* store_word32(uint8_t* p, uint32_t value)
 }
 
 // 0x0046F840
-uint8_t* store_word16(uint8_t* p, uint16_t value)
+MutableTokens store_word16(MutableTokens p, uint16_t value)
 {
     p[0] = static_cast<uint8_t>(value);
     p[1] = static_cast<uint8_t>(value >> 8);
@@ -198,7 +197,7 @@ uint8_t* store_word16(uint8_t* p, uint16_t value)
 }
 
 // 0x0046F850
-const uint8_t* skip_newline_tokens(const uint8_t* token)
+Tokens skip_newline_tokens(Tokens token)
 {
     for (;;) {
         if (*token == 0x01)
@@ -211,7 +210,7 @@ const uint8_t* skip_newline_tokens(const uint8_t* token)
 }
 
 // 0x0046FB30
-const uint8_t* skip_to_end_of_statement(const uint8_t* token)
+Tokens skip_to_end_of_statement(Tokens token)
 {
     int braces = 0, brackets = 0, parentheses = 0;
     for (;;) {
@@ -235,37 +234,43 @@ const uint8_t* skip_to_end_of_statement(const uint8_t* token)
 }
 
 // 0x0046F920
-const uint8_t* skip_to_end_of_script(const uint8_t* token)
+Tokens skip_to_end_of_script(Tokens token)
 {
     while (*token != 0x24)
         token = step_over_token(token);
     token = step_over_token(token);
-    if (*token == 0x02)
+    // (a script whose '$' ends its block - a structure's script body, a private copy - has no line number after it:
+    // the original read the byte past the block)
+    if (token.remaining() > 0 && *token == 0x02)
         return step_over_token(token);
     return token;
 }
 
 // 0x0046F960
-uint32_t calculate_script_checksum(const uint8_t* token)
+uint32_t calculate_script_checksum(Tokens token)
 {
     uint32_t checksum = 0xFFFFFFFF;
     while (*token != 0x24) {
-        const uint8_t* next = step_over_token(token);
-        if (*token != 0x01 && *token != 0x02)
-            checksum = checksums::extend_crc_with_buffer(token, static_cast<int>(next - token), checksum);
+        const Tokens next = step_over_token(token);
+        if (*token != 0x01 && *token != 0x02) {
+            const std::span<const uint8_t> bytes = code_between(token, next);
+            checksum = checksums::extend_crc_with_buffer(bytes.data(), static_cast<int>(bytes.size()), checksum);
+        }
         token = next;
     }
     return checksum;
 }
 
 // 0x0046FF00
-void prepare_script_tokens(uint8_t* token)
+void prepare_script_tokens(std::span<uint8_t> code)
 {
-    token = mutable_within(token, skip_to_end_of_statement(token));
+    // (the code is changed in place: its tokens walked as read-only, each rewritten through a writable cursor at the
+    // same place)
+    Tokens token = skip_to_end_of_statement(Tokens(code));
     while (*token != 0x24) {
         if (*token == 0x16) {
             // A statement starting with a name: a call?
-            uint8_t* name = token;
+            const MutableTokens name(code, token.position());
             token += 5;
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type == kQbvalNativeFunc) {
@@ -280,13 +285,13 @@ void prepare_script_tokens(uint8_t* token)
                     }
                 }
             }
-            token = mutable_within(token, skip_to_end_of_statement(token));
+            token = skip_to_end_of_statement(token);
         } else if (*token == 0x47) {
-            token = mutable_within(token, step_over_token(token));
+            token = step_over_token(token);
             if (*token == 0x39)
                 ++token;
         } else {
-            token = mutable_within(token, skip_to_end_of_statement(token));
+            token = skip_to_end_of_statement(token);
         }
     }
 }

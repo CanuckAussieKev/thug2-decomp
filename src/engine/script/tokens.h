@@ -27,5 +27,11 @@ void forget_code_block(const void* block);
 // The cursor at `place` over the block that holds it (null: an empty cursor). A pointer into no block noted ends the
 // game with a report.
 Tokens tokens_at(const uint8_t* place);
+// The same for a pointer that is most likely in `near`'s block (a loop's start, a jump's target): no look-up then.
+Tokens tokens_at(Tokens near, const uint8_t* place);
+// The code from `from` up to `to` (in the same block).
+std::span<const uint8_t> code_between(Tokens from, Tokens to);
+// Counted up whenever a block is noted or forgotten: a cursor kept since may be over a block that is gone.
+uint32_t code_blocks_generation();
 
 } // namespace script

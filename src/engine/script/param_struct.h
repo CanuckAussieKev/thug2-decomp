@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
@@ -300,7 +301,7 @@ public:
     void append_array_value(uint32_t name, Array* value);
     void append_array_value(const char* name, Array* value);
     // A compiled script, copied to the script heap.
-    void append_script(uint32_t name, const uint8_t* code, uint32_t size);
+    void append_script(uint32_t name, std::span<const uint8_t> code);
     // By type: integer, float, 11 structure pointer, 12 array pointer, 13 checksum (others are ignored).
     void add_component_of_type(uint32_t name, uint32_t type, uint32_t value);
 

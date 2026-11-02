@@ -13,7 +13,9 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
+#include <algorithm>
 #include <array>
+#include <span>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
@@ -739,11 +741,11 @@ void duplicate_component(Component* dest, const Component* source, int reference
         dest->value.set_code(static_cast<uint8_t*>(memory::alloc_block(source->unknown2)));
         dest->unknown2 = source->unknown2;
         memory::leave_heap_scope();
-        note_code_block(std::span<const uint8_t>(dest->value.code(), source->unknown2));
-        const uint8_t* from = source->value.code();
-        uint8_t* to = dest->value.code();
-        for (uint32_t i = 0; i < source->unknown2; ++i)
-            to[i] = from[i];
+        // (`unknown2` bytes of the source's: its block - or the pre-compiled image it is in - holds at least that many)
+        const std::span<uint8_t> to(dest->value.code(), source->unknown2);
+        note_code_block(to);
+        const Tokens from = tokens_at(source->value.code());
+        std::ranges::copy(from.rest().first(to.size()), to.begin());
         break;
     }
     case kQbvalStruct: {
@@ -1096,17 +1098,18 @@ void Struct::put_sub_struct(uint32_t name, Struct* value)
 void Struct::put_sub_struct(const char* name, Struct* value) { put_sub_struct(checksums::hash_from_text(name), value); }
 
 // 0x00478290
-void Struct::append_script(uint32_t name, const uint8_t* code, uint32_t size)
+void Struct::append_script(uint32_t name, std::span<const uint8_t> code)
 {
+    const auto size = static_cast<uint32_t>(code.size());
     gsl::owner<Component*> component = new_typed_component(name, kQbvalScriptBody);
     component->unknown2 = static_cast<uint16_t>(size);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-    auto* copy = static_cast<uint8_t*>(memory::alloc_block(size));
+    auto* block = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::leave_heap_scope();
-    note_code_block(std::span<const uint8_t>(copy, size));
-    for (uint32_t i = 0; i < size; ++i)
-        copy[i] = code[i];
-    component->value.set_code(copy);
+    const std::span<uint8_t> copy(block, size);
+    note_code_block(copy);
+    std::ranges::copy(code, copy.begin());
+    component->value.set_code(block);
     attach_module(component);
 }
 

@@ -22,6 +22,7 @@
 #include "engine/script/cache.h"
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/input_component.h"
@@ -109,12 +110,13 @@ bool script_flagged(uint32_t name)
             return true;
     }
     script::ScriptStore* cache = script::g_script_store.get();
-    const uint8_t* token = cache->fetch_script(name);
-    if (!token)
+    const uint8_t* code = cache->fetch_script(name);
+    if (!code)
         return false;
+    script::Tokens token = script::tokens_at(code);
     token = script::skip_to_end_of_statement(token);
     while (*token != 0x24) { // (end of script)
-        const uint8_t* next = nullptr;
+        script::Tokens next;
         if (*token == 0x16) { // a name: a script called?
             uint32_t called = script::fetch_word32(token + 1);
             next = token + 5;

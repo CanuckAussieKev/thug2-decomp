@@ -269,7 +269,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     script_title_ = name;
     pc_ = code;
     args_ = memory::take_unique<Struct, StructFree>(new_empty_struct());
-    pc_ = parse_arguments(args_.get(), pc_, nullptr);
+    pc_ = parse_arguments(args_.get(), tokens_at(pc_), nullptr).address();
     if (params)
         args_->merge_structure(params);
     entity_.assign_value(object);

@@ -108,8 +108,8 @@ uint8_t* relocate_component(Component* component, uint32_t base)
     case kQbvalScriptBody: {
         // A script component: its tokens, up to and including the '$'.
         relocate(component->value, base);
-        const uint8_t* code = component->value.code();
-        return end + align4(static_cast<uint32_t>(skip_to_end_of_script(code) - code));
+        const Tokens code = tokens_at(component->value.code());
+        return end + align4(static_cast<uint32_t>(code_between(code, skip_to_end_of_script(code)).size()));
     }
     case kQbvalStruct:
         relocate(component->value, base);

@@ -15,6 +15,7 @@
 #include "engine/script/node_prefixes.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "engine/script/script_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
@@ -214,13 +215,13 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
     if (depth > kDeepestLevel)
         return;
     script::ScriptStore* cache = script::g_script_store.get();
-    const uint8_t* token = cache->fetch_script(script);
+    script::Tokens token = script::tokens_at(cache->fetch_script(script));
     gsl::owner<Struct*> params = nullptr;
     if (void* memory = script::spawn_param_bag())
         params = memory::construct_in<script::Struct>(memory);
     token = script::skip_to_end_of_statement(token); // (past the script's first line)
     for (;;) {
-        const uint8_t* call = token;
+        const script::Tokens call = token;
         switch (*token) {
         case kTokenKeyHash:
         case kTokenMemberFunction:
@@ -241,7 +242,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
                 params->get_clear();
                 token = script::parse_arguments(params, token, parent_params);
                 if (name == target)
-                    callback(params, call);
+                    callback(params, call.address());
                 else
                     token = script::skip_to_end_of_statement(token);
                 for_each_script_call(name, target, callback, params, depth + 1);
@@ -253,7 +254,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
                 }
                 params->get_clear();
                 token = script::parse_arguments(params, token, parent_params);
-                callback(params, call);
+                callback(params, call.address());
                 break;
             case script::kQbvalNativeMethod:
                 if (name != target) {
@@ -262,7 +263,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
                 }
                 params->get_clear();
                 token = script::parse_arguments(params, token, parent_params);
-                callback(params, call);
+                callback(params, call.address());
                 if (name == kEndGap) {
                     uint32_t gap_script = 0;
                     if (params->read_hash_value(kGapScript, &gap_script, 0))

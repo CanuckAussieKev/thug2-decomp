@@ -1,6 +1,7 @@
 #include "engine/script/cache.h"
 #include "formats/byte_stream.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -170,15 +171,15 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     manager->enter_heap_scope(manager->script_heap_);
     auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::Hub::get_pull()->leave_heap_scope();
-    note_code_block(std::span<const uint8_t>(code, size));
+    const std::span<uint8_t> script(code, size);
+    note_code_block(script);
     if (stored_size < size) {
         // (not original: bounded by the script's size - lzss::unpack, decode's bytes for valid code)
-        lzss::unpack(stored.code_, stored_size, code, size, nullptr);
+        lzss::unpack(stored.code_.data(), stored_size, code, size, nullptr);
     } else {
-        for (uint32_t i = 0; i < size; ++i)
-            code[i] = stored.code_[i];
+        std::ranges::copy(stored.code_.first(size), script.begin());
     }
-    prepare_script_tokens(code);
+    prepare_script_tokens(script);
     // (a null entry - the pool full - is written through, as in the original)
     entry->code = code;
     entry->usage = 1;

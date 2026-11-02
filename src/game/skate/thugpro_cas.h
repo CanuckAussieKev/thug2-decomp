@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
+
+#include "engine/script/tokens.h"
 
 // NOT ORIGINAL - THUGPRO's own CAS parts and boards, read from the user's THUGPRO install by reference (register:
 // thug2-thugpro-compat/thugpro/README.md "Run time", TP-R10). Nothing of THUGPRO's is
@@ -44,10 +47,9 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
                   std::vector<std::pair<std::string, std::vector<uint8_t>>>* out);
 // The archives' LZSS (a 4 KB window of spaces, written from 4078): `size` bytes out, or fewer if the input runs out.
 std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size);
-// A .qb file's top-level `name = [` arrays: their names and where each array starts (its '[' token). The walk stops
-// at its end token, at `size` bytes, or at a token it can't move past (the file must end in zeros: the tokens are read
-// without bounds, as the game reads them).
-std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t* qb, size_t size);
+// A .qb file's top-level `name = [` arrays: their names and where each array starts (its '[' token). `qb` is the file
+// (`size` bytes) and zeros after it; the walk stops at its end token, at `size` bytes, or at a token it can't move past.
+std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<const uint8_t> qb, size_t size);
 // A game path's key: lower case, '\', its extensions taken off (.xbx, then .skin / .tex / .cas / .col / .img / .png /
 // .mdl / .ske ...), as both a part's path and the game's request for one of its files give it.
 std::string path_key(const char* path);

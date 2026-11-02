@@ -49,6 +49,7 @@
 #include "engine/script/params.h"
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/loading_console.h"
 #include "platform/run_log.h"
@@ -137,34 +138,36 @@ bool Script::invoke_method_by_name(uint32_t name, objects::Entity* object)
     return object_call_member_function(object, name, stmt_args_.get(), this);
 }
 
-// 0x00472950
-void Script::parse_function_params()
+// 0x00472950 (pc_ is kept at the statement as it is read: a C function inside an expression may look at the script)
+void Script::parse_function_params(Tokens& pc)
 {
+    pc_ = pc.address();
     stmt_args_->get_clear();
-    pc_ = parse_arguments(stmt_args_.get(), pc_, args_.get());
+    pc = parse_arguments(stmt_args_.get(), pc, args_.get());
+    pc_ = pc.address();
 }
 
 // 0x004729E0: a name token, `<name>` (the parameter's checksum value) or `<...>` (the unnamed checksum
 // parameter); anything else is 0 and isn't moved past.
-uint32_t Script::read_name()
+uint32_t Script::read_name(Tokens& pc)
 {
     uint32_t name = 0;
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-    switch (*pc_) {
+    switch (*pc) {
     case 0x16:
-        ++pc_;
-        name = fetch_word32(pc_);
-        pc_ += 4;
+        ++pc;
+        name = fetch_word32(pc);
+        pc += 4;
         break;
     case 0x2C:
-        ++pc_;
+        ++pc;
         args_->read_hash_value(0u, &name, 0);
         break;
     case 0x2D: // 2D 16 <name>
-        pc_ += 2;
+        pc += 2;
         {
-            const uint32_t parameter = fetch_word32(pc_);
-            pc_ += 4;
+            const uint32_t parameter = fetch_word32(pc);
+            pc += 4;
             args_->read_hash_value(parameter, &name, 0);
         }
         break;
@@ -185,16 +188,17 @@ uint32_t Script::read_name()
 //     name = value          sets the script parameter `name` (the 4 bytes before the '=' are read as the name)
 //     name args             a script (called: true), a C function, or a member function on the script's object;
 //                           an unknown name is reported (except in the script 0xFB11E6CD) and is false
-// The arguments are parsed into stmt_args_ (they may refer to args_).
-bool Script::execute_command()
+// The arguments are parsed into stmt_args_ (they may refer to args_). pc_ is where the statement ends before anything
+// is called (what is called may move it: a script called, a Goto...).
+bool Script::execute_command(Tokens& pc)
 {
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-    switch (*pc_) {
+    switch (*pc) {
     case 0x44: {
-        ++pc_;
-        const uint32_t name = fetch_word32(pc_);
-        pc_ += 4;
-        parse_function_params();
+        ++pc;
+        const uint32_t name = fetch_word32(pc);
+        pc += 4;
+        parse_function_params(pc);
         if (!entity_.get_pull()) {
             no_object_check();
             return false;
@@ -202,10 +206,10 @@ bool Script::execute_command()
         return object_call_member_function(entity_.get_pull(), name, stmt_args_.get(), this);
     }
     case 0x46: {
-        ++pc_;
-        const MemberFunctionEntry* entry = member_entry_at(pc_);
-        pc_ += 4;
-        parse_function_params();
+        ++pc;
+        const MemberFunctionEntry* entry = member_entry_at(pc);
+        pc += 4;
+        parse_function_params(pc);
         if (!entity_.get_pull()) {
             no_object_check();
             return false;
@@ -213,18 +217,20 @@ bool Script::execute_command()
         return script::invoke_method_by_name(entry, stmt_args_.get(), entity_.get_pull(), this);
     }
     case 0x43: {
-        ++pc_;
-        const NativeFunction function = native_function_at(pc_);
-        pc_ += 4;
-        parse_function_params();
+        ++pc;
+        const NativeFunction function = native_function_at(pc);
+        pc += 4;
+        parse_function_params(pc);
         return function(stmt_args_.get(), this);
     }
     }
 
     uint32_t name = 0;
-    if (*pc_ == 0x0E) {
+    if (*pc == 0x0E) {
         gsl::owner<Component*> value = new_component();
-        pc_ = parse_expression(pc_, args_.get(), value);
+        pc_ = pc.address();
+        pc = parse_expression(pc, args_.get(), value);
+        pc_ = pc.address();
         if (value->kind_tag() != kQbvalName) {
             const bool result = value->value.word() != 0;
             delete_component(value);
@@ -233,26 +239,27 @@ bool Script::execute_command()
         name = value->value.word();
         delete_component(value);
         if (!name)
-            name = read_name();
+            name = read_name(pc);
     } else {
-        name = read_name();
+        name = read_name(pc);
     }
+    pc_ = pc.address();
 
-    if (*pc_ == 0x42) { // name:
+    if (*pc == 0x42) { // name:
         objects::Entity* object = find_object(name);
         if (!object)
             return true; // (pc_ left at the ':')
-        ++pc_;
-        pc_ = resolve_random_jumps(pc_);
-        if (*pc_ == 0x44) {
-            ++pc_;
-            const uint32_t member = fetch_word32(pc_);
-            pc_ += 4;
-            parse_function_params();
+        ++pc;
+        pc = resolve_random_jumps(pc);
+        if (*pc == 0x44) {
+            ++pc;
+            const uint32_t member = fetch_word32(pc);
+            pc += 4;
+            parse_function_params(pc);
             return invoke_method_by_name(member, object);
         }
-        const uint32_t function = read_name();
-        parse_function_params();
+        const uint32_t function = read_name(pc);
+        parse_function_params(pc);
         const SymbolTableEntry* symbol = resolve_symbol(function);
         if (!symbol && script_title_ == kQuietScriptName)
             return false;
@@ -272,16 +279,18 @@ bool Script::execute_command()
         }
     }
 
-    if (*pc_ == 0x07) { // name = value
-        pc_ -= 4;
-        const uint32_t target = fetch_word32(pc_);
-        pc_ += 5;
-        pc_ = resolve_random_jumps(pc_);
+    if (*pc == 0x07) { // name = value
+        pc -= 4;
+        const uint32_t target = fetch_word32(pc);
+        pc += 5;
+        pc = resolve_random_jumps(pc);
         gsl::owner<Component*> value = new_component();
-        if (*pc_ == 0x0E)
-            pc_ = parse_expression(pc_, args_.get(), value);
+        pc_ = pc.address();
+        if (*pc == 0x0E)
+            pc = parse_expression(pc, args_.get(), value);
         else
-            pc_ = parse_value(pc_, args_.get(), value);
+            pc = parse_value(pc, args_.get(), value);
+        pc_ = pc.address();
         if (value->kind_tag() != kQbvalNone) {
             value->name = target;
             args_->attach_module(value);
@@ -291,7 +300,7 @@ bool Script::execute_command()
         return true;
     }
 
-    parse_function_params();
+    parse_function_params(pc);
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol) {
         if (script_title_ != kQuietScriptName)
@@ -330,38 +339,40 @@ bool Script::execute_command()
 
 // 0x00475050: 47 <offset to the else / endif> [39 not] condition. The condition is a statement (a script call
 // in it runs first, and counts as true). If the script is still running and the (negated) result is false, it
-// jumps; else it goes on into the true part.
-void Script::run_conditional()
+// jumps; else it goes on into the true part. (pc_ is left where the statement put it.)
+void Script::run_conditional(Tokens& pc)
 {
-    ++pc_;
-    const uint8_t* target = pc_ + fetch_word16(pc_);
-    pc_ += 2;
+    ++pc;
+    const Tokens target = pc + fetch_word16(pc);
+    pc += 2;
     bool negate = false;
-    if (*pc_ == 0x39) {
-        ++pc_;
+    if (*pc == 0x39) {
+        ++pc;
         negate = true;
     }
-    bool condition = execute_command();
+    bool condition = execute_command(pc);
     if (!pc_)
         return;
     if (negate)
         condition = !condition;
-    if (!condition)
-        pc_ = target;
+    if (!condition) {
+        pc = target;
+        pc_ = target.address();
+    }
 }
 
-// 0x00472A70: pc_ just after a 3C switch: past its 3D endswitch (switches inside skipped whole).
-void Script::skip_to_end_of_switch()
+// 0x00472A70: pc just after a 3C switch: past its 3D endswitch (switches inside skipped whole).
+void Script::skip_to_end_of_switch(Tokens& pc)
 {
-    while (*pc_ != 0x3D) {
-        if (*pc_ == 0x3C) {
-            ++pc_;
-            skip_to_end_of_switch();
+    while (*pc != 0x3D) {
+        if (*pc == 0x3C) {
+            ++pc;
+            skip_to_end_of_switch(pc);
         } else {
-            pc_ = step_over_token(pc_);
+            pc = step_over_token(pc);
         }
     }
-    ++pc_;
+    ++pc;
 }
 
 // 0x00473C60: 3C value ... then cases `3E 49 <offset to the next case> value ...`, `3F 49 <offset>` default
@@ -369,48 +380,48 @@ void Script::skip_to_end_of_switch()
 // component equals it (components_equal). On a match, the case labels right after it (`49 xx xx 3E 49 xx xx
 // value`) are skipped and the case's statements run from there; the 49 jump at the end of a case's statements
 // goes to the endswitch. No match: on to the next case, finally into the default or past the endswitch.
-void Script::run_multi_branch()
+void Script::run_multi_branch(Tokens& pc)
 {
-    ++pc_;
-    parse_function_params();
+    ++pc;
+    parse_function_params(pc);
     gsl::owner<Component*> value = new_component();
     if (const Component* first = stmt_args_->step_to_entry(nullptr))
         duplicate_component(value, first, 0);
     for (;;) {
-        const uint8_t token = *pc_;
+        const uint8_t token = *pc;
         if (token == 0x24) // '$': not moved past - the original loops for ever here (kept)
             continue;
         if (token == 0x3C) { // a switch in a case not taken
-            ++pc_;
-            skip_to_end_of_switch();
+            ++pc;
+            skip_to_end_of_switch(pc);
             continue;
         }
         if (token == 0x3D) {
-            ++pc_;
+            ++pc;
             break;
         }
         if (token == 0x3F) { // default: past 3F 49 xx xx
-            pc_ += 4;
+            pc += 4;
             break;
         }
         if (token != 0x3E) {
-            pc_ = step_over_token(pc_);
+            pc = step_over_token(pc);
             continue;
         }
-        pc_ += 2; // the jump's offset
-        const uint8_t* next = pc_ + fetch_word16(pc_);
-        pc_ += 2;
-        parse_function_params();
+        pc += 2; // the jump's offset
+        const Tokens next = pc + fetch_word16(pc);
+        pc += 2;
+        parse_function_params(pc);
         Component* match = stmt_args_->step_to_entry(nullptr);
         if (!match || !components_equal(value, match)) {
-            pc_ = next;
+            pc = next;
             continue;
         }
-        pc_ = skip_newline_tokens(pc_);
-        while (*pc_ == 0x49 && pc_[3] == 0x3E) {
-            pc_ += 7;
-            parse_function_params();
-            pc_ = skip_newline_tokens(pc_);
+        pc = skip_newline_tokens(pc);
+        while (*pc == 0x49 && pc[3] == 0x3E) {
+            pc += 7;
+            parse_function_params(pc);
+            pc = skip_newline_tokens(pc);
         }
         break;
     }
@@ -421,9 +432,9 @@ void Script::run_multi_branch()
 // inline loop in use) moves the stack to a block of 10 on the script heap - also when the inline loop belongs
 // to a calling level (run_sub_script keeps innermost_repeat_: one stack for every level), whose saved loop pointers are
 // moved with it. Not checked beyond 10.
-void Script::run_loop_open()
+void Script::run_loop_open(Tokens& pc)
 {
-    ++pc_;
+    ++pc;
     if (innermost_repeat_ == &inline_loop_) {
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap_);
@@ -439,7 +450,7 @@ void Script::run_loop_open()
         }
     }
     innermost_repeat_ = &core::at(loop_stack(), innermost_repeat_ ? loop_index(innermost_repeat_) + 1 : 0);
-    innermost_repeat_->tokens_begin_ = pc_;
+    innermost_repeat_->tokens_begin_ = pc.address();
     innermost_repeat_->tokens_end_ = nullptr;
     innermost_repeat_->args_seen_ = false;
     innermost_repeat_->args_expected_ = true;
@@ -459,38 +470,39 @@ RepeatFrame* outer_loop(Script& script, const RepeatFrame* loop)
 // stays after the 21 - it only moves by jumping back or to tokens_end_). No count: back to the start for ever (until
 // a break). A count: counted down, back to the start until it reaches 0 - so `repeat 0` (or a negative count)
 // goes round 2^32 times, as in the original.
-void Script::run_counted_loop()
+void Script::run_counted_loop(Tokens& pc)
 {
     RepeatFrame* loop = innermost_repeat_;
     if (loop->args_expected_) {
-        ++pc_;
+        ++pc;
+        pc_ = pc.address();
         stmt_args_->get_clear();
-        innermost_repeat_->tokens_end_ = parse_arguments(stmt_args_.get(), pc_, args_.get());
+        innermost_repeat_->tokens_end_ = parse_arguments(stmt_args_.get(), pc, args_.get()).address();
         innermost_repeat_->args_seen_ = stmt_args_->fetch_int_value(0u, &innermost_repeat_->headcount_, 0);
         innermost_repeat_->args_expected_ = false;
     }
     loop = innermost_repeat_;
     if (!loop->args_seen_) {
-        pc_ = loop->tokens_begin_;
+        pc = tokens_at(pc, loop->tokens_begin_);
         return;
     }
     --loop->headcount_;
     if (innermost_repeat_->headcount_ != 0) {
-        pc_ = innermost_repeat_->tokens_begin_;
+        pc = tokens_at(pc, innermost_repeat_->tokens_begin_);
         return;
     }
-    pc_ = innermost_repeat_->tokens_end_;
+    pc = tokens_at(pc, innermost_repeat_->tokens_end_);
     innermost_repeat_ = outer_loop(*this, innermost_repeat_);
 }
 
 // 0x00472B50: 22 break: past the repeat of this loop (counting nested begin / repeat), whose arguments are
 // parsed (without the script's parameters) and dropped, then out of the loop.
-void Script::run_loop_exit()
+void Script::run_loop_exit(Tokens& pc)
 {
     int depth = 0;
     bool searching = true;
     do {
-        const uint8_t token = *pc_;
+        const uint8_t token = *pc;
         if (token == 0x20) {
             ++depth;
         } else if (token == 0x21) {
@@ -499,10 +511,11 @@ void Script::run_loop_exit()
             else
                 searching = false;
         }
-        pc_ = step_over_token(pc_);
+        pc = step_over_token(pc);
     } while (searching);
+    pc_ = pc.address();
     stmt_args_->get_clear();
-    pc_ = parse_arguments(stmt_args_.get(), pc_, nullptr);
+    pc = parse_arguments(stmt_args_.get(), pc, nullptr);
     innermost_repeat_ = outer_loop(*this, innermost_repeat_);
 }
 
@@ -510,6 +523,12 @@ void Script::run_loop_exit()
 ScriptOutcome Script::tick_frame()
 {
     flag_bits_ &= ~kScriptRunWaitUpdated;
+    // NOT ORIGINAL - the tokens are read through a cursor over the block of code pc_ is in (tokens.h). pc_ stays the
+    // script's place, written back after each token or statement and before anything is called; what is called may
+    // move it (a script called or returned to, a Goto, an interrupt, a block of code made or freed): the cursor then
+    // follows it - a look-up per script taken up, not per token.
+    Tokens pc = tokens_at(pc_);
+    uint32_t blocks_seen = code_blocks_generation();
     // (NOT ORIGINAL, log only: a script that runs this many steps in one Update never yields - a loop whose wait
     // ends at once, e.g. `while { Obj_WaitAnimFinished }` with no animation playing: the game hangs here, as the
     // original does. Logged once per script, with its name and its object's id, before the hang.)
@@ -541,23 +560,27 @@ ScriptOutcome Script::tick_frame()
                        ? kScriptOutcomeBlocked
                        : kScriptOutcomeSuspended;
         }
-        switch (*pc_) {
+        if (pc.address() != pc_ || blocks_seen != code_blocks_generation()) {
+            pc = tokens_at(pc_);
+            blocks_seen = code_blocks_generation();
+        }
+        switch (*pc) {
         case 0x01: // end of line
         case 0x28:
         case 0x3D: // endswitch
-            ++pc_;
+            ++pc;
             break;
         case 0x02: // end of line + line number
-            pc_ += 5;
+            pc += 5;
             break;
         case 0x20:
-            run_loop_open();
+            run_loop_open(pc);
             break;
         case 0x21:
-            run_counted_loop();
+            run_counted_loop(pc);
             break;
         case 0x22:
-            run_loop_exit();
+            run_loop_exit(pc);
             break;
         case 0x24: // '$'
             if (const uint32_t on_exit = on_exit_script_) {
@@ -566,18 +589,19 @@ ScriptOutcome Script::tick_frame()
             }
             if (return_from_script(nullptr))
                 return kScriptOutcomeEndedByInterrupt;
-            break;
+            continue; // (pc_ is the caller's now, or null)
         case 0x29: // return [args]
             if (const uint32_t on_exit = on_exit_script_) {
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
             }
             // (from wherever the on-exit script left pc_ - see docs/script-runtime.md)
-            ++pc_;
-            parse_function_params();
+            pc = tokens_at(pc, pc_);
+            ++pc;
+            parse_function_params(pc);
             if (return_from_script(stmt_args_.get()))
                 return kScriptOutcomeEndedByInterrupt;
-            break;
+            continue;
         case 0x25:
         case 0x26:
         case 0x3E: // case
@@ -589,22 +613,23 @@ ScriptOutcome Script::tick_frame()
         case 0x40:
         case 0x41:
         case 0x49:
-            pc_ = resolve_random_jumps(pc_);
+            pc = resolve_random_jumps(pc);
             break;
         case 0x3C:
-            run_multi_branch();
+            run_multi_branch(pc);
             break;
         case 0x47:
-            run_conditional();
-            break;
+            run_conditional(pc);
+            continue; // (pc_ set by the statement it ran)
         case 0x48: // else: jump to the endif
-            ++pc_;
-            pc_ += fetch_word16(pc_);
+            ++pc;
+            pc += fetch_word16(pc);
             break;
         default:
-            execute_command();
-            break;
+            execute_command(pc);
+            continue; // (pc_ set by the statement, or by what it called)
         }
+        pc_ = pc.address();
     }
     flag_bits_ &= ~kScriptRunInterrupted;
     current_script_var() = nullptr;

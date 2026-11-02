@@ -2,6 +2,7 @@
 
 #include "engine/script/load.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -17,6 +18,7 @@
 #include "engine/script/patched.h"
 #include "engine/script/precompiled.h"
 #include "engine/script/qb.h"
+#include "engine/script/tokens.h"
 #include "engine/util/lzss.h"
 #include "formats/byte_stream.h"
 #include "engine/sys/game_config.h"
@@ -50,7 +52,7 @@ void get_replace(SymbolTableEntry* existing, int temporary)
 } // namespace
 
 // 0x00472240
-const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, const char* filename)
+Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename)
 {
     SymbolTableEntry* symbol = create_symbol(name);
     symbol->unknown8 = checksums::hash_from_text(filename);
@@ -64,7 +66,7 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
     case 0x1E:
     case 0x1F: {
         gsl::owner<Component*> value = new_component();
-        const uint8_t* end =
+        const Tokens end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
         symbol->type = value->kind_tag();
         symbol->value.set_word(value->value.word());
@@ -90,20 +92,21 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
 }
 
 // 0x0046FE40
-SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
+SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, uint32_t name, uint32_t checksum,
                                        const char* filename)
 {
+    const auto size = static_cast<uint32_t>(code.size());
     SymbolTableEntry* symbol = create_symbol(name);
     symbol->type = kQbvalScriptBody;
     // (not original: room for LZSS's worst case - the original's 20000 bytes overflowed for a script past ~17.7 KB
     // that doesn't compress)
     const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
     auto* buffer = static_cast<uint8_t*>(memory::alloc_block(room));
-    int stored = lzss::pack_up(std::span<const uint8_t>(code, size), std::span<uint8_t>(buffer, room), false);
+    const std::span<uint8_t> packed(buffer, room);
+    int stored = lzss::pack_up(code, packed, false);
     if (stored >= ints::as_signed(size)) {
         // (no smaller: kept as it is)
-        for (uint32_t i = 0; i < size; ++i)
-            buffer[i] = code[i];
+        std::ranges::copy(code, packed.begin());
         stored = static_cast<int>(size);
     }
     // {checksum, size, stored size, the code} (the script cache's StoredScript; the same in pre-compiled images)
@@ -129,13 +132,12 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
     if (use_qb_names)
         allocate_script_checksum_names(false);
 
-    const uint8_t* data = file.data();
     // First the checksums' names.
-    for (const uint8_t* p = data; *p;) {
+    for (Tokens p(file); *p;) {
         if (*p == 0x2B) {
             uint32_t checksum = 0;
             const char* name = nullptr;
-            const uint8_t* next = read_name_token(p, &checksum, &name);
+            const Tokens next = read_name_token(p, &checksum, &name);
             if (use_qb_names)
                 add_script_checksum_name(checksum, name);
             else
@@ -151,7 +153,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
 
     const memory::Hub* manager = memory::Hub::get_pull();
     memory::enter_heap_scope(manager->script_heap_);
-    const uint8_t* p = data;
+    Tokens p(file);
     for (;;) {
         p = skip_newline_tokens(p);
         switch (*p) {
@@ -173,9 +175,9 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
         }
         case 0x23: { // script name ... endscript
             const uint32_t name = fetch_word32(p + 2);
-            const uint8_t* start = p + 6;
+            const Tokens start = p + 6;
             p = skip_to_end_of_script(start);
-            auto size = static_cast<uint32_t>(p - start);
+            const std::span<const uint8_t> code = code_between(start, p);
             const uint32_t checksum = calculate_script_checksum(start);
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
@@ -183,9 +185,9 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
                 if (existing->type == kQbvalScriptBody && checksum == read_stored_script(existing->value.code()).checksum_)
                     break;
                 get_replace(existing, temporary);
-                define_script_symbol(size, start, name, checksum, filename);
+                define_script_symbol(code, name, checksum, filename);
             } else {
-                SymbolTableEntry* symbol = define_script_symbol(size, start, name, checksum, filename);
+                SymbolTableEntry* symbol = define_script_symbol(code, name, checksum, filename);
                 if (temporary)
                     remove_symbol_later(symbol);
             }
@@ -251,7 +253,7 @@ void restart_changed_scripts()
 // 0x0046ED90
 void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
-    if (fetch_word32(data.data()) == 0xB075EF6F)
+    if (fetch_word32(Tokens(data)) == 0xB075EF6F)
         parse_precompiled_qb(filename, data, unused); // (relocated in place)
     else
         read_qb_file(filename, data, unused, use_qb_names, temporary);

@@ -3,8 +3,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 #include "engine/core/slab_bank.h"
 #include "engine/script/cell.h"
+#include "engine/script/tokens.h"
 
 // Compiled scripts (.qb bytecode): reading and skipping tokens, and setting up the script system's pools.
 //
@@ -28,13 +30,13 @@ namespace script {
 class Script;
 
 // The token after `token`.
-const uint8_t* step_over_token(const uint8_t* token);
+Tokens step_over_token(Tokens token);
 // Past any end-of-line tokens.
-const uint8_t* skip_newline_tokens(const uint8_t* token);
+Tokens skip_newline_tokens(Tokens token);
 // Past the end of the statement starting at `token` (its end of line, outside any brackets).
-const uint8_t* skip_to_end_of_statement(const uint8_t* token);
+Tokens skip_to_end_of_statement(Tokens token);
 // Past the script's '$' end token (and a line number after it).
-const uint8_t* skip_to_end_of_script(const uint8_t* token);
+Tokens skip_to_end_of_script(Tokens token);
 
 // A script in the symbol table (a script body symbol's value): the record {u32 checksum, u32 size, u32 stored size,
 // the code - LZSS-compressed when stored < size}, as define_script_symbol makes it and pre-compiled images hold it.
@@ -42,26 +44,26 @@ struct StoredScript {
     uint32_t checksum_ = 0;
     uint32_t size_ = 0;
     uint32_t stored_size_ = 0;
-    const uint8_t* code_ = nullptr; // `stored_size_` bytes
+    std::span<const uint8_t> code_; // `stored_size_` bytes
 };
 constexpr size_t kStoredScriptHeader = 12;
 // The record at `record`, read from its bytes.
 StoredScript read_stored_script(const uint8_t* record);
 // A checksum of the script's tokens (line ends left out), up to its '$'.
-uint32_t calculate_script_checksum(const uint8_t* token);
+uint32_t calculate_script_checksum(Tokens token);
 // Replace the names at the starts of statements that name C functions / member functions with direct
-// references (tokens 0x43 / 0x46, or 0x44 for a member function without a table entry).
-void prepare_script_tokens(uint8_t* token);
+// references (tokens 0x43 / 0x46, or 0x44 for a member function without a table entry) - in the script's `code`.
+void prepare_script_tokens(std::span<uint8_t> code);
 
 // Little-endian values in the token stream; the writers return the position after the value.
-uint32_t fetch_word32(const uint8_t* p);
+uint32_t fetch_word32(Tokens p);
 // What precompiled bytecode holds in place of a name once fixed up (tokens 0x46 / 0x43: the word after the token):
 // a member function's table entry, a C function (token_reader.cpp).
-const MemberFunctionEntry* member_entry_at(const uint8_t* p);
-NativeFunction native_function_at(const uint8_t* p);
-uint16_t fetch_word16(const uint8_t* p);
-uint8_t* store_word32(uint8_t* p, uint32_t value);
-uint8_t* store_word16(uint8_t* p, uint16_t value);
+const MemberFunctionEntry* member_entry_at(Tokens p);
+NativeFunction native_function_at(Tokens p);
+uint16_t fetch_word16(Tokens p);
+MutableTokens store_word32(MutableTokens p, uint32_t value);
+MutableTokens store_word16(MutableTokens p, uint16_t value);
 
 // The names of checksums given in the .qb files themselves (tokens 0x2B): a table of 0x1000 buckets.
 void add_script_checksum_name(uint32_t checksum, const char* name);

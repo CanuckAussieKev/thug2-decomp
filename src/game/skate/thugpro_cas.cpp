@@ -11,7 +11,9 @@
 #include <cstring>
 #include <map>
 #include <set>
+#include <span>
 #include <string>
+#include <utility>
 #include <vector>
 #include <array>
 
@@ -286,20 +288,19 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
     return true;
 }
 
-std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t* qb, size_t size)
+std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<const uint8_t> qb, size_t size)
 {
-    std::vector<std::pair<uint32_t, const uint8_t*>> arrays;
-    const uint8_t* p = qb;
-    const uint8_t* end = qb + size;
-    while (p < end) {
+    std::vector<std::pair<uint32_t, script::Tokens>> arrays;
+    script::Tokens p(qb);
+    while (std::cmp_less(p.position(), size)) {
         p = script::skip_newline_tokens(p);
-        const uint8_t* before = p;
+        const script::Tokens before = p;
         switch (*p) {
         case 0x00:
             return arrays;
         case 0x16: { // name = value
             const uint32_t name = script::fetch_word32(p + 1);
-            const uint8_t* q = script::skip_newline_tokens(p + 5);
+            script::Tokens q = script::skip_newline_tokens(p + 5);
             if (*q != 0x07) {
                 p = script::step_over_token(p);
                 break;
@@ -426,13 +427,13 @@ void load_once()
     struct Target {
         uint32_t name;
         script::Array* ours;
-        const uint8_t* theirs;
+        script::Tokens theirs; // (in `files`' data)
     };
     std::vector<Target> targets;
     for (auto& [name, data] : files) {
         const size_t size = data.size();
         data.resize(size + 16, 0); // (the walk stops at a 0 token)
-        for (auto [array, at] : top_level_arrays(data.data(), size)) {
+        for (auto [array, at] : top_level_arrays(data, size)) {
             script::Array* ours = script::fetch_list(array);
             if (is_part_list(ours))
                 targets.push_back({array, ours, at});

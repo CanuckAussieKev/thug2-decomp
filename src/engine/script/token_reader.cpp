@@ -3,7 +3,9 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
 #include <cstring>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -50,7 +52,7 @@ void change_species(Component* component, uint32_t type)
     component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (type << 1));
 }
 
-const uint8_t* skip_end_of_lines_in(const uint8_t* p)
+Tokens skip_end_of_lines_in(Tokens p)
 {
     for (;;) {
         if (*p == 0x01)
@@ -73,7 +75,7 @@ StoredRandom*& stored_randoms_oldest() { return g_stored_randoms_oldest; }
 int& stored_random_count() { return g_stored_random_count; }
 
 // An expression parameter of a structure / call: merged if it gives a structure, added (unnamed) otherwise.
-const uint8_t* add_expression(const uint8_t* token, Struct* dest, Struct* args)
+Tokens add_expression(Tokens token, Struct* dest, Struct* args)
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
@@ -91,7 +93,7 @@ const uint8_t* add_expression(const uint8_t* token, Struct* dest, Struct* args)
 }
 
 // A `name = (expression)` parameter.
-const uint8_t* add_named_expression(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
+Tokens add_named_expression(Tokens token, uint32_t name, Struct* dest, Struct* args)
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
@@ -154,7 +156,7 @@ StoredRandom* new_stored_random()
 }
 
 // 0x00470C60
-const uint8_t* resolve_random_jumps(const uint8_t* token)
+Tokens resolve_random_jumps(Tokens token)
 {
     for (;;) {
         switch (*token) {
@@ -164,7 +166,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
         case 0x2F:   // Random(@a @b ...): weighted
         case 0x37: { // the same, from the second random stream
             const uint32_t count = fetch_word32(token + 1);
-            const uint8_t* weights = token + 5;
+            const Tokens weights = token + 5;
             int total = 0;
             for (uint32_t i = 0; i < count; ++i)
                 total += static_cast<int16_t>(fetch_word16(weights + 2 * i));
@@ -175,17 +177,17 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                 ++choice;
                 pick -= static_cast<int16_t>(fetch_word16(weights + 2 * choice));
             }
-            const uint8_t* offset = weights + 2 * count + 4 * choice;
+            const Tokens offset = weights + 2 * count + 4 * choice;
             token = offset + fetch_word32(offset) + 4;
             break;
         }
         case 0x40: { // RandomNoRepeat
             const uint32_t count = fetch_word32(token + 1);
-            const uint8_t* table = token + 5 + 2 * count;
-            StoredRandom* stored = look_up_saved_random(table, 0x40, count);
+            const Tokens table = token + 5 + 2 * count;
+            StoredRandom* stored = look_up_saved_random(table.address(), 0x40, count);
             if (!stored) {
                 stored = new_stored_random();
-                stored->lookup_table_ = table;
+                stored->lookup_table_ = table.address();
                 stored->kind_tag_ = 0x40;
                 stored->num_ = static_cast<uint16_t>(count);
                 stored->last_ = static_cast<uint32_t>(maths::rnd(static_cast<int>(count)));
@@ -199,17 +201,17 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
             }
             const uint32_t choice = static_cast<uint16_t>(pick);
             stored->last_ = choice;
-            const uint8_t* offset = table + 4 * choice;
+            const Tokens offset = table + 4 * choice;
             token = offset + fetch_word32(offset) + 4;
             break;
         }
         case 0x41: { // RandomPermute
             const uint32_t count = fetch_word32(token + 1);
-            const uint8_t* table = token + 5 + 2 * count;
-            StoredRandom* stored = look_up_saved_random(table, 0x41, count);
+            const Tokens table = token + 5 + 2 * count;
+            StoredRandom* stored = look_up_saved_random(table.address(), 0x41, count);
             if (!stored) {
                 stored = new_stored_random();
-                stored->lookup_table_ = table;
+                stored->lookup_table_ = table.address();
                 stored->kind_tag_ = 0x41;
                 stored->num_ = static_cast<uint16_t>(count);
                 stored->ordinal_ = 0;
@@ -222,7 +224,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                 stored->shuffle(true);
                 stored->ordinal_ = 0;
             }
-            const uint8_t* offset = table + 4 * core::at(stored->order_, stored->ordinal_);
+            const Tokens offset = table + 4 * core::at(stored->order_, stored->ordinal_);
             token = offset + fetch_word32(offset) + 4;
             break;
         }
@@ -236,7 +238,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
 }
 
 // 0x0046FD60
-const uint8_t* skip_value(const uint8_t* token)
+Tokens skip_value(Tokens token)
 {
     switch (*token) {
     case 0x03:
@@ -271,7 +273,7 @@ const uint8_t* skip_value(const uint8_t* token)
 }
 
 // 0x0046FBD0
-const uint8_t* parse_random_range(const uint8_t* token, Component* out, bool deterministic)
+Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
 {
     float a = get_as_float(fetch_word32(token + 1));
     float b = get_as_float(fetch_word32(token + 5));
@@ -337,9 +339,9 @@ void evaluate_name_token(Component* component)
 }
 
 // 0x004706F0
-const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
+Tokens parse_value(Tokens token, Struct* args, Component* out)
 {
-    const uint8_t* p = token + 1;
+    Tokens p = token + 1;
     switch (*token) {
     case 0x03: {
         gsl::owner<Struct*> structure = script::new_struct();
@@ -373,7 +375,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     case 0x1C: {
         change_species(out, *token == 0x1B ? kQbvalString : kQbvalInlineText);
         const uint32_t length = fetch_word32(p);
-        out->value.set_text(spawn_text(raw::chars(token + 5)));
+        out->value.set_text(spawn_text(raw::chars((token + 5).address())));
         return token + 5 + length;
     }
     case 0x1E: {
@@ -399,16 +401,17 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     }
     case 0x23: { // a script: its name goes in the component's name
         out->name = fetch_word32(token + 2);
-        const uint8_t* start = token + 6;
-        const uint8_t* end = skip_to_end_of_script(start);
+        const Tokens start = token + 6;
+        Tokens end = skip_to_end_of_script(start);
         change_species(out, kQbvalScriptBody);
-        auto size = static_cast<uint32_t>(end - start);
+        const std::span<const uint8_t> script = code_between(start, end);
+        const auto size = static_cast<uint32_t>(script.size());
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
         auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
         memory::leave_heap_scope();
-        note_code_block(std::span<const uint8_t>(code, size));
-        for (uint32_t i = 0; i < size; ++i)
-            code[i] = start[i];
+        const std::span<uint8_t> copy(code, size);
+        note_code_block(copy);
+        std::ranges::copy(script, copy.begin());
         out->value.set_code(code);
         return end;
     }
@@ -438,9 +441,9 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
 }
 
 // 0x00470130
-const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
+Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
 {
-    const uint8_t* p = token + 1;
+    Tokens p = token + 1;
     bool deterministic = false;
     switch (*token) {
     case 0x16:
@@ -468,12 +471,12 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         return token + 9;
     case 0x1B: {
         const uint32_t length = fetch_word32(p);
-        dest->append_word(name, raw::chars(token + 5));
+        dest->append_word(name, raw::chars((token + 5).address()));
         return token + 5 + length;
     }
     case 0x1C: {
         const uint32_t length = fetch_word32(p);
-        dest->append_inline_text(name, raw::chars(token + 5));
+        dest->append_inline_text(name, raw::chars((token + 5).address()));
         return token + 5 + length;
     }
     case 0x03: {
@@ -492,9 +495,9 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
     }
     case 0x23: { // a script, under its own name
         const uint32_t script_name = fetch_word32(token + 2);
-        const uint8_t* start = token + 6;
-        const uint8_t* end = skip_to_end_of_script(start);
-        dest->append_script(script_name, start, static_cast<uint32_t>(end - start));
+        const Tokens start = token + 6;
+        Tokens end = skip_to_end_of_script(start);
+        dest->append_script(script_name, code_between(start, end));
         return end;
     }
     case 0x2D: { // <name>
@@ -544,7 +547,7 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
 }
 
 // 0x00470F30
-const uint8_t* parse_arguments(Struct* dest, const uint8_t* token, Struct* args)
+Tokens parse_arguments(Struct* dest, Tokens token, Struct* args)
 {
     for (;;) {
         token = resolve_random_jumps(token);
@@ -568,7 +571,7 @@ const uint8_t* parse_arguments(Struct* dest, const uint8_t* token, Struct* args)
             break;
         case 0x16: {
             const uint32_t name = fetch_word32(token + 1);
-            const uint8_t* next = resolve_random_jumps(token + 5);
+            Tokens next = resolve_random_jumps(token + 5);
             if (*next != 0x07) {
                 // A bare name: a flag.
                 token = add_parameter(token, 0, dest, args);
@@ -592,9 +595,9 @@ const uint8_t* parse_arguments(Struct* dest, const uint8_t* token, Struct* args)
 }
 
 // 0x00471860
-const uint8_t* parse_structure(Struct* dest, const uint8_t* token, Struct* args)
+Tokens parse_structure(Struct* dest, Tokens token, Struct* args)
 {
-    const uint8_t* p = token + 1;
+    Tokens p = token + 1;
     for (;;) {
         p = skip_end_of_lines_in(p);
         p = resolve_random_jumps(p);
@@ -614,7 +617,7 @@ const uint8_t* parse_structure(Struct* dest, const uint8_t* token, Struct* args)
             break;
         case 0x16: {
             const uint32_t name = fetch_word32(p + 1);
-            const uint8_t* next = resolve_random_jumps(skip_end_of_lines_in(p + 5));
+            Tokens next = resolve_random_jumps(skip_end_of_lines_in(p + 5));
             if (*next != 0x07) {
                 p = add_parameter(p, 0, dest, args);
                 break;
@@ -637,10 +640,10 @@ const uint8_t* parse_structure(Struct* dest, const uint8_t* token, Struct* args)
 }
 
 // 0x00471B00
-const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
+Tokens parse_array(Array* dest, Tokens token, Struct* args)
 {
-    const uint8_t* first = token + 1;
-    const uint8_t* p = resolve_random_jumps(first);
+    const Tokens first = token + 1;
+    Tokens p = resolve_random_jumps(first);
     uint32_t type = 0;
     uint32_t count = 0;
     if (*p == 0x06)
@@ -713,7 +716,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
     memory::leave_heap_scope();
     if (type == 7 || type == 8 || type == 9 || type == 11)
         return token;
-    Cell* element = dest->find_array_value();
+    uint32_t element = 0; // (the next element written)
     p = resolve_random_jumps(first);
     while (*p != 0x06) {
         const uint8_t t = *p;
@@ -727,8 +730,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x03) {
                 gsl::owner<Struct*> structure = script::new_struct();
                 p = parse_structure(structure, p, args);
-                *element = Cell::of(structure);
-                ++element;
+                dest->set_cell(element++, Cell::of(structure));
             }
             break;
         case kQbvalArray:
@@ -738,8 +740,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x05) {
                 gsl::owner<Array*> array = script::new_array();
                 p = parse_array(array, p - 1, args);
-                *element = Cell::of(array);
-                ++element;
+                dest->set_cell(element++, Cell::of(array));
             }
             break;
         case kQbvalInteger:
@@ -747,8 +748,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                *element = Cell::of_word(fetch_word32(p));
-                ++element;
+                dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
                 p += 4;
             }
             break;
@@ -757,12 +757,10 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                *element = Cell::of_real(static_cast<float>(static_cast<int32_t>(fetch_word32(p))));
-                ++element;
+                dest->set_cell(element++, Cell::of_real(static_cast<float>(static_cast<int32_t>(fetch_word32(p)))));
                 p += 4;
             } else if (t == 0x1A) {
-                *element = Cell::of_word(fetch_word32(p));
-                ++element;
+                dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
                 p += 4;
             }
             break;
@@ -771,8 +769,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x16) {
-                *element = Cell::of_word(fetch_word32(p));
-                ++element;
+                dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
                 p += 4;
             }
             break;
@@ -784,8 +781,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == (type == kQbvalString ? 0x1B : 0x1C)) {
                 const uint32_t length = fetch_word32(p);
                 p += 4;
-                *element = Cell::of_text(spawn_text(raw::chars(p)));
-                ++element;
+                dest->set_cell(element++, Cell::of_text(spawn_text(raw::chars(p.address()))));
                 p += length;
             }
             break;
@@ -801,8 +797,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&vector->y, &y, 4);
                 std::memcpy(&vector->z, &z, 4);
                 p += 12;
-                *element = Cell::of(vector);
-                ++element;
+                dest->set_cell(element++, Cell::of(vector));
             }
             break;
         case kQbvalPair:
@@ -816,8 +811,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
                 std::memcpy(&pair->x, &x, 4);
                 std::memcpy(&pair->y, &y, 4);
                 p += 8;
-                *element = Cell::of(pair);
-                ++element;
+                dest->set_cell(element++, Cell::of(pair));
             }
             break;
         default:
@@ -829,13 +823,13 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
 }
 
 // 0x004712B0
-const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* result)
+Tokens parse_expression(Tokens token, Struct* args, Component* result)
 {
     ValueResolver& evaluator = get_evaluator();
     Component& value = get_scratch();
     evaluator.reset_if_dirty();
-    evaluator.set_read_cursor(token);
-    const uint8_t* p = token + 1;
+    evaluator.set_read_cursor(token.address());
+    Tokens p = token + 1;
     int parentheses = 0;
     bool after_dot = false;  // a name after '.' is a member name, not a global value
     bool have_value = false; // (for a negative number to be taken as a subtraction)
@@ -971,7 +965,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                 continue;
             }
             // A negative number right after a value: a subtraction ("a -1" is compiled as "a" "-1").
-            const uint8_t* next = parse_value(p, args, &value);
+            const Tokens next = parse_value(p, args, &value);
             const bool negative = t == 0x17 ? value.value.integer() < 0 : value.value.real() < 0.0f;
             if (!negative || !have_value)
                 break;
@@ -1030,18 +1024,18 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
 
 namespace script {
 
-const uint8_t* read_name_token(const uint8_t* token, uint32_t* checksum, const char** name)
+Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name)
 {
     *checksum = fetch_word32(token + 1);
-    *name = raw::chars(token + 5);
+    *name = raw::chars((token + 5).address());
     return token + 5 + std::strlen(*name) + 1;
 }
 
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
 void construct_evaluator() { g_evaluator.prepare_all(); }
 
-const MemberFunctionEntry* member_entry_at(const uint8_t* p) { return cell::pointer<const MemberFunctionEntry>(fetch_word32(p)); }
-NativeFunction native_function_at(const uint8_t* p)
+const MemberFunctionEntry* member_entry_at(Tokens p) { return cell::pointer<const MemberFunctionEntry>(fetch_word32(p)); }
+NativeFunction native_function_at(Tokens p)
 {
     return function_at<NativeFunction>(cell::pointer<const void>(fetch_word32(p)));
 }
