@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 namespace script {
 class Struct;
@@ -75,13 +76,13 @@ public:
     // 0x00487380: the image loaded from "images\<name>.img.xbx" (with `full_path`: "<name>.img.xbx") - all the file's
     // bytes copied in, however many - and valid.
     void load_image_file(const char* name, bool full_path);
-    // 0x00487420: the image copied from `data` (always kTexelEdge bytes; `size` isn't used). Returns the data after it.
-    const uint8_t* set_image(const uint8_t* data, int size);
-    // 0x00487440: the image, the points and the overlay's name (with its terminator) written to `buffer` (`size`
-    // isn't checked). Returns how many bytes.
-    int write_to(uint8_t* buffer, int size);
-    // 0x004874B0: the same read back. Returns the buffer after it.
-    const uint8_t* read_from(const uint8_t* buffer, int size);
+    // 0x00487420: the image copied from `data` (kTexelEdge bytes). Returns how many bytes it took.
+    std::size_t set_image(std::span<const uint8_t> data);
+    // 0x00487440: the image, the points and the overlay's name (with its terminator) written to `buffer`. Returns how
+    // many bytes.
+    int write_to(std::span<uint8_t> buffer);
+    // 0x004874B0: the same read back. Returns how many bytes it took.
+    std::size_t read_from(std::span<const uint8_t> buffer);
     // 0x00487510: whether there is an image.
     bool is_sound();
     // 0x00487520

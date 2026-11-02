@@ -18,6 +18,7 @@
 #include "engine/gfx/model_appearance.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <span>
 
 namespace commands {
 
@@ -130,11 +131,11 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
     texture->set_pixels(static_cast<void*>(image.data()));
     const int palette_size = static_cast<int>(texture->get_palette_size());
     const uint8_t bits_per_pixel = texture->get_unknown_e();
-    texture->set_palette(static_cast<void*>(image.data() + 0x20), palette_size / (bits_per_pixel >> 3));
+    texture->set_palette(static_cast<void*>(std::span(image).subspan(0x20).data()), palette_size / (bits_per_pixel >> 3));
     const void* pixels = texture->get_pixels();
     const int pixel_size = static_cast<int>(texture->get_pixels_size());
-    std::memcpy(image.data() + 0x20 + palette_size, pixels, pixel_size);
-    static_cast<gfx::FaceSkin*>(face)->set_image(image.data(), pixel_size + palette_size + 0x20);
+    std::memcpy(std::span(image).subspan(0x20 + static_cast<std::size_t>(palette_size)).data(), pixels, static_cast<std::size_t>(pixel_size));
+    static_cast<gfx::FaceSkin*>(face)->set_image(image);
     return true;
 }
 

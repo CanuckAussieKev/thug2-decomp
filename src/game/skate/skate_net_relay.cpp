@@ -12,6 +12,7 @@
 #include <cstring>
 #include <memory>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -699,7 +700,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     objects::Rider* skater = skater_of(player);
     if (!skater)
         return 4;
-    static_cast<gfx::FaceSkin*>(texture)->read_from(data, static_cast<int>(size));
+    static_cast<gfx::FaceSkin*>(texture)->read_from(std::span<const uint8_t>(data, size));
     static_cast<gfx::FaceSkin*>(texture)->mark_usable(true);
     auto* model = skater->fetch_module(kModel);
     core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->replace_face_texture(texture,

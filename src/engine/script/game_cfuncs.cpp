@@ -65,6 +65,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <span>
 
 namespace commands {
 
@@ -797,7 +798,7 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
     gsl::owner<void*> data = game_malloc(static_cast<size_t>(size));
     game_fread(data, 1, static_cast<size_t>(size), file);
     game_fclose(file);
-    face->set_image(static_cast<const uint8_t*>(data), 0);
+    face->set_image({static_cast<const uint8_t*>(data), static_cast<std::size_t>(size)});
     game_free(data);
     face->mark_usable(true);
     script::launch_script(0x808008EA, nullptr, nullptr, false, nullptr);

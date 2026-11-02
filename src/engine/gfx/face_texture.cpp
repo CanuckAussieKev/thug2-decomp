@@ -3,6 +3,7 @@
 
 #include "engine/gfx/face_texture.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -17,7 +18,10 @@
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 #include <gsl/pointers>
+#include <iterator>
+#include <span>
 
 namespace gfx {
 
@@ -93,24 +97,24 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
 
 // A point read from a structure's array of two (false if it isn't there).
-bool read_point(Struct* params, uint32_t name, int* point)
+bool read_point(Struct* params, uint32_t name, std::array<int, 2>& point)
 {
     Array* array = nullptr;
     params->fetch_list(name, &array, 0);
     if (!array)
         return false;
-    point[0] = static_cast<int>(array->fetch_part(0));
-    point[1] = static_cast<int>(array->fetch_part(1));
+    std::get<0>(point) = static_cast<int>(array->fetch_part(0));
+    std::get<1>(point) = static_cast<int>(array->fetch_part(1));
     return true;
 }
 
 // A new integer array of two holding `point`.
-gsl::owner<Array*> new_point_array(const int* point)
+gsl::owner<Array*> new_point_array(const std::array<int, 2>& point)
 {
     gsl::owner<Array*> array = script::new_array();
     array->configure_size_kind(2, script::kQbvalInteger);
-    array->set_element(0, static_cast<uint32_t>(point[0]));
-    array->set_element(1, static_cast<uint32_t>(point[1]));
+    array->set_element(0, static_cast<uint32_t>(std::get<0>(point)));
+    array->set_element(1, static_cast<uint32_t>(std::get<1>(point)));
     return array;
 }
 
@@ -128,8 +132,8 @@ void set_face_overlay(render::BitmapTexture* overlay) { face_overlay() = overlay
 // 0x004869D0
 bool read_face_points(FaceAnchors* points, Struct* params)
 {
-    if (!read_point(params, kLeftEye, points->left_eye_.data()) || !read_point(params, kRightEye, points->right_eye_.data()) ||
-        !read_point(params, kNose, points->nose_slot_.data()) || !read_point(params, kLips, points->mouth_part_.data()))
+    if (!read_point(params, kLeftEye, points->left_eye_) || !read_point(params, kRightEye, points->right_eye_) ||
+        !read_point(params, kNose, points->nose_slot_) || !read_point(params, kLips, points->mouth_part_))
         return false;
     points->has_hsv_ = params->fetch_float(kH, &points->h_, 0);
     points->has_hsv_ = params->fetch_float(kS, &points->s_, 0) && points->has_hsv_;
@@ -144,10 +148,10 @@ bool read_face_points(FaceAnchors* points, Struct* params)
 // 0x00487000
 bool write_face_points(const FaceAnchors* points, Struct* params)
 {
-    gsl::owner<Array*> left_eye = new_point_array(points->left_eye_.data());
-    gsl::owner<Array*> right_eye = new_point_array(points->right_eye_.data());
-    gsl::owner<Array*> nose = new_point_array(points->nose_slot_.data());
-    gsl::owner<Array*> lips = new_point_array(points->mouth_part_.data());
+    gsl::owner<Array*> left_eye = new_point_array(points->left_eye_);
+    gsl::owner<Array*> right_eye = new_point_array(points->right_eye_);
+    gsl::owner<Array*> nose = new_point_array(points->nose_slot_);
+    gsl::owner<Array*> lips = new_point_array(points->mouth_part_);
     params->append_array_ref(kLeftEye, left_eye);
     params->append_array_ref(kRightEye, right_eye);
     params->append_array_ref(kNose, nose);
@@ -264,34 +268,46 @@ void FaceSkin::load_image_file(const char* name, bool full_path)
 }
 
 // 0x00487420
-const uint8_t* FaceSkin::set_image(const uint8_t* data, int /*size*/)
+std::size_t FaceSkin::set_image(std::span<const uint8_t> data)
 {
-    std::memcpy(image_.data(), data, kTexelEdge);
-    return data + kTexelEdge;
+    // (NOT ORIGINAL: a shorter run copies what it has - the original read on past it)
+    const std::size_t copied = std::min<std::size_t>(data.size(), kTexelEdge);
+    core::copy_into(data.first(copied), std::span<uint8_t>(image_).first(copied));
+    return copied;
 }
 
 // 0x00487440
-int FaceSkin::write_to(uint8_t* buffer, int /*size*/)
+int FaceSkin::write_to(std::span<uint8_t> buffer)
 {
-    std::memcpy(buffer, image_.data(), kTexelEdge);
-    std::memcpy(buffer + kTexelEdge, &path_vertices_, sizeof(path_vertices_));
-    const size_t length = std::strlen(overlay_name_.data());
-    std::memcpy(buffer + kTexelEdge + sizeof(path_vertices_), overlay_name_.data(), length + 1);
-    return static_cast<int>(kTexelEdge + sizeof(path_vertices_) + length + 1);
+    const std::size_t length = std::strlen(overlay_name_.data());
+    const std::size_t total = kTexelEdge + sizeof(path_vertices_) + length + 1;
+    const std::span<uint8_t> out = buffer.first(total); // (the caller's room is checked)
+    core::copy_into(std::span<const uint8_t>(image_), out.first(kTexelEdge));
+    std::memcpy(out.subspan(kTexelEdge, sizeof(path_vertices_)).data(), &path_vertices_, sizeof(path_vertices_));
+    std::transform(overlay_name_.begin(), overlay_name_.begin() + static_cast<std::ptrdiff_t>(length + 1),
+                   out.subspan(kTexelEdge + sizeof(path_vertices_)).begin(),
+                   [](char c) { return static_cast<uint8_t>(c); });
+    return static_cast<int>(total);
 }
 
 // 0x004874B0
-const uint8_t* FaceSkin::read_from(const uint8_t* buffer, int /*size*/)
+std::size_t FaceSkin::read_from(std::span<const uint8_t> buffer)
 {
-    std::memcpy(image_.data(), buffer, kTexelEdge);
-    std::memcpy(&path_vertices_, buffer + kTexelEdge, sizeof(path_vertices_));
-    const uint8_t* name = buffer + kTexelEdge + sizeof(path_vertices_);
-    const uint8_t* end = name;
-    while (*end) // (the overlay's name: up to its NUL)
-        ++end;
-    const auto length = static_cast<size_t>(end - name);
-    std::memcpy(overlay_name_.data(), name, length + 1);
-    return end + 1;
+    // (NOT ORIGINAL: a run too short for the image and the points reads nothing; a name too long for the field is
+    // cut to fit - the original read on past the run and wrote past the field)
+    constexpr std::size_t kHead = kTexelEdge + sizeof(path_vertices_);
+    if (buffer.size() < kHead)
+        return 0;
+    core::copy_into(buffer.first(kTexelEdge), std::span<uint8_t>(image_));
+    std::memcpy(&path_vertices_, buffer.subspan(kTexelEdge, sizeof(path_vertices_)).data(), sizeof(path_vertices_));
+    const std::span<const uint8_t> rest = buffer.subspan(kHead);
+    const auto terminator = std::ranges::find(rest, uint8_t{0}); // (the overlay's name: up to its NUL)
+    const auto name_length = static_cast<std::size_t>(std::distance(rest.begin(), terminator));
+    const std::size_t length = std::min(name_length, overlay_name_.size() - 1);
+    std::transform(rest.begin(), rest.begin() + static_cast<std::ptrdiff_t>(length), overlay_name_.begin(),
+                   [](uint8_t c) { return static_cast<char>(c); });
+    core::at(overlay_name_, length) = '\0';
+    return kHead + name_length + 1;
 }
 
 // 0x00487510
