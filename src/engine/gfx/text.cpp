@@ -458,36 +458,34 @@ void GlyphRun::close_sketch()
 
 // 0x004CF0F0. The file's format: formats/font_format.h (a header, the glyphs' character map entries, the page's
 // header, its texels and palette, the glyphs' rectangles).
-TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
+TypefaceData* TypefaceData::read_in(const char* name)
 {
     // Not original - the whole file read first and parsed through font_format's readers (the original read it piece
     // by piece into a 0x808-byte stack buffer: a font of more than 256 glyphs overflowed it); a font cut short, with
     // more than 256 glyphs or no file is not loaded (null); a special glyph past the special map's 0x20 is left
     // unmapped (the original wrote it past the map, as far as the font's next pointer and colours).
+    // (the original could also parse a font already in memory: nothing asks for that)
     std::vector<uint8_t> contents;
-    util::ByteReader reader(name, util::ByteReader::kUnknownSize); // (from memory: the next bytes)
-    if (!from_memory) {
-        std::array<char, 128> path{}; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
-        std::snprintf(path.data(), sizeof(path), "fonts/%s.fnt.xbx", name);
-        file::Hdl file = file::unseal(path.data(), "rb");
-        if (!file) {
-            debug::printf("font %s: no file\n", path.data());
-            return nullptr;
-        }
-        contents.resize(file::get_file_size(file));
-        const int read =
-            contents.empty() ? 0 : file::get_take_in(contents.data(), static_cast<int>(contents.size()), 1, file);
-        file::shut(file);
-        contents.resize(read > 0 ? static_cast<size_t>(read) : 0);
-        reader = util::ByteReader(contents.data(), contents.size());
+    std::array<char, 128> path{}; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
+    std::snprintf(path.data(), sizeof(path), "fonts/%s.fnt.xbx", name);
+    file::Hdl file = file::unseal(path.data(), "rb");
+    if (!file) {
+        debug::printf("font %s: no file\n", path.data());
+        return nullptr;
     }
+    contents.resize(file::get_file_size(file));
+    const int read =
+        contents.empty() ? 0 : file::get_take_in(contents.data(), static_cast<int>(contents.size()), 1, file);
+    file::shut(file);
+    contents.resize(read > 0 ? static_cast<size_t>(read) : 0);
+    util::ByteReader reader(contents.data(), contents.size());
     font_format::Header header;
     std::array<font_format::GlyphEntry, font_format::kMaxGlyphs> entries;
     font_format::Page page;
     if (!font_format::read_header(reader, &header) ||
         !font_format::read_glyph_entries(reader, header.glyph_count, entries) ||
         !font_format::read_page(reader, &page)) {
-        debug::printf("font %s damaged: cut short or %d glyphs\n", from_memory ? "(memory)" : name, header.glyph_count);
+        debug::printf("font %s damaged: cut short or %d glyphs\n", name, header.glyph_count);
         return nullptr;
     }
     // Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled page has 32-bit BGRA texels and no palette; its
@@ -499,7 +497,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     reader.skip(hd_scale != 1 ? static_cast<size_t>(size) * 4 : size + font_format::kPaletteSize);
     std::array<font_format::GlyphRect, font_format::kMaxGlyphs> rects;
     if (!font_format::read_glyph_rects(reader, header.glyph_count, rects)) {
-        debug::printf("font %s damaged: its page or rectangles cut short\n", from_memory ? "(memory)" : name);
+        debug::printf("font %s damaged: its page or rectangles cut short\n", name);
         return nullptr;
     }
     const int count = header.glyph_count;
@@ -553,7 +551,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     const uint32_t width = page.width;
     const uint32_t height = page.height;
     if (hd_scale != 1)
-        hd_ui::note_font(from_memory ? nullptr : name, hd_scale, width, height);
+        hd_ui::note_font(name, hd_scale, width, height);
     IDirect3DTexture9* texture = nullptr;
     const HRESULT created =
         g_d3d_device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);

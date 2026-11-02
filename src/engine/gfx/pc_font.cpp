@@ -39,7 +39,7 @@ PcFont::~PcFont()
 // 0x004B3BD0
 bool PcFont::read_in(const char* name)
 {
-    font = TypefaceData::read_in(name, false);
+    font = TypefaceData::read_in(name);
     return font != nullptr;
 }
 

@@ -306,12 +306,12 @@ void JointClipFrames::build_cache(int format)
 bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
 {
     // The headers read and the sections laid out through anim_format.h. Not original - bounded by the animation's
-    // size (0: not known): one whose sections or keys run past it isn't loaded (the original used whatever its
+    // size: one whose sections or keys run past it isn't loaded (the original used whatever its
     // counts and sizes said).
     anim_format::AnimHeader header;
     anim_format::AnimLayout layout;
     const bool valid = anim_format::lay_out_animation(data, size, &header, &layout) &&
-                       (size == 0 || anim_format::check_bone_keys(header, layout));
+                       anim_format::check_bone_keys(header, layout);
     util::ByteReader words(data, 0xC);
     words.u32();
     flag_bits_ = words.u32();

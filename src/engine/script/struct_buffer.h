@@ -45,15 +45,14 @@ uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, int
 uint32_t measure_buffer_bytes(Struct* structure, uint32_t max_size);
 // 0x0047A0C0: the structure emptied and filled from the buffer's first `size` bytes (structures and arrays made from
 // the script heap); returns the end of what was read. NOT ORIGINAL: the size (the original read on to the end
-// marker); a buffer cut short ends the structure there - kUnknownSize for callers that don't know it.
-constexpr size_t kUnknownSize = ~static_cast<size_t>(0);
-const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer, size_t size = kUnknownSize);
+// marker); a buffer cut short ends the structure there.
+const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer, size_t size);
 // The same for a buffer the caller may change: the end as a pointer into it.
-inline uint8_t* decode_from_bytes(Struct* structure, uint8_t* buffer, size_t size = kUnknownSize)
+inline uint8_t* decode_from_bytes(Struct* structure, uint8_t* buffer, size_t size)
 {
     return mutable_within(buffer, decode_from_bytes(structure, static_cast<const uint8_t*>(buffer), size));
 }
 // 0x0047A440: the array emptied and filled from the buffer; returns the end.
-const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer, size_t size = kUnknownSize);
+const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer, size_t size);
 
 } // namespace script

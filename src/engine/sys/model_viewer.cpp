@@ -7,7 +7,9 @@
 
 #include "engine/sys/model_viewer.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <span>
 #include <cstring>
 
 #include "engine/core/dbg.h"
@@ -380,7 +382,10 @@ int on_remote_script_msg(net::InboundMsgCtx* context)
 {
     const auto name = net::wire::value_at<uint32_t>(context->body_);
     script::StructPtr params = script::make_struct();
-    script::decode_from_bytes(params.get(), context->body_ + 4); // the script reader
+    // (the script reader; a message without room for the name decodes nothing)
+    const std::span<const uint8_t> body(context->body_, context->body_size_);
+    const size_t skip = std::min<size_t>(4, body.size());
+    script::decode_from_bytes(params.get(), body.subspan(skip).data(), body.size() - skip);
     script::launch_script(name, params.get(), nullptr, false, nullptr);
     params.reset();
     return 1;

@@ -106,7 +106,7 @@ struct WorldScene : public memory::HeapObject {
     // their geometry (`*objects`, 0x40 bytes each) relocated to the data after it, a static collision object each
     // (`*statics`, an array new) given its geometry and face-rejection buffer; `box` grown by every geometry with
     // vertices - (-100, -100, -100) - (100, 100, 100) when none has. True.
-    // (Not original: `size` - the file's bytes, util::ByteReader::kUnknownSize if not known - bounds its reader;
+    // (Not original: `size` - the file's bytes - bounds its reader;
     // a damaged file is refused: no objects.)
     bool load_collision_data(uint8_t* data, size_t size, int* count, gsl::owner<StaticCollider*>* statics, uint8_t** objects,
                              maths::BBox* box, int unused);

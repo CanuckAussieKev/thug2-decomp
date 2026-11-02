@@ -27,8 +27,7 @@ bool fits(uintptr_t at, uint64_t length, uintptr_t end) { return at <= end && le
 
 bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, AnimLayout* layout)
 {
-    const bool known = size != 0 && size != util::ByteReader::kUnknownSize;
-    util::ByteReader reader(base, known ? size : util::ByteReader::kUnknownSize);
+    util::ByteReader reader(base, size);
     header->version = reader.u32();
     header->flags = reader.u32();
     header->duration = reader.u32();
@@ -51,7 +50,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
     if (static_cast<int32_t>(header->bone_count) < 0 || rotations < 0 || translations < 0 ||
         static_cast<int16_t>(header->custom_key_count) < 0)
         return false;
-    const uintptr_t end = known ? cell::address(base) + size : ~static_cast<uintptr_t>(0);
+    const uintptr_t end = cell::address(base) + size;
     const uint32_t flags = header->flags;
     const uint64_t bones = header->bone_count;
     *layout = {};
@@ -115,7 +114,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
         }
     }
     layout->custom_keys = align4(p);
-    return !known || layout->custom_keys <= end;
+    return layout->custom_keys <= end;
 }
 
 bool check_bone_keys(const AnimHeader& header, const AnimLayout& layout)

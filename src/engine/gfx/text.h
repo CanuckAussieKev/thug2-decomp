@@ -56,7 +56,7 @@ struct TypefaceData {
     // 0x004CF0F0: load a font - the file "fonts/<name>.fnt.xbx", or (from_memory) the same data at `name` -
     // into a new font (its texture created on the device), put at the head of the font list. Null if the
     // texture can't be created or locked (what was allocated is then left). cdecl.
-    static TypefaceData* read_in(const char* name, bool from_memory);
+    static TypefaceData* read_in(const char* name);
     // 0x004CFA80: take `font` off the font list and free it (not its texture). cdecl.
     static void offload(TypefaceData* font);
 };

@@ -144,11 +144,11 @@ bool RigData::is_descendant(uint32_t bone, uint32_t ancestor)
 // 0x004A39C0
 bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
 {
-    // Read through skeleton_format's reader, bounded by the file's size (0: not known). Not original - a skeleton
+    // Read through skeleton_format's reader, bounded by the file's size. Not original - a skeleton
     // cut short or with more than 64 bones (the arrays' size: the original copied any count into them) is read as
     // having no bones.
     auto skeleton = std::make_unique<skeleton_format::Skeleton>();
-    util::ByteReader reader(buffer, size ? size : util::ByteReader::kUnknownSize);
+    util::ByteReader reader(buffer, size);
     if (!skeleton_format::read_skeleton(reader, skeleton.get())) {
         debug::printf("a damaged skeleton: no bones\n");
         skeleton->count = 0;

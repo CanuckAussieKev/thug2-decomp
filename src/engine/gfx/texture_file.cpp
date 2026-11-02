@@ -205,7 +205,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
 {
     // Read through image_format's reader, bounded by the image's size (not original: the original read on past it;
     // texels cut short are filled with zeros, an image that doesn't fit its texture is refused).
-    util::ByteReader reader(data, data_size ? data_size : util::ByteReader::kUnknownSize);
+    util::ByteReader reader(data, data_size);
     ImageHeader header;
     if (!image_format::read_image_header(reader, &header))
         return nullptr;

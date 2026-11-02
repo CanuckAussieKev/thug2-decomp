@@ -20,9 +20,6 @@ namespace util {
 
 class ByteReader {
 public:
-    // A size not known (the game's older callers hand over a pointer only): reads are not bounded.
-    static constexpr size_t kUnknownSize = ~static_cast<size_t>(0);
-
     ByteReader(const void* data, size_t size) : data_(static_cast<const uint8_t*>(data)), size_(size) {}
     explicit ByteReader(std::span<const uint8_t> bytes) : data_(bytes.data()), size_(bytes.size()) {}
 
@@ -32,8 +29,8 @@ public:
     [[nodiscard]] size_t remaining() const { return size_ - position_; }
     // The next byte to be read.
     [[nodiscard]] const uint8_t* cursor() const { return rest().data(); }
-    // The bytes from the next one to the end (kUnknownSize: as far as the address space goes, nothing bounds it).
-    [[nodiscard]] std::span<const uint8_t> rest() const { return std::span<const uint8_t>(data_, extent()).subspan(position_); }
+    // The bytes from the next one to the end.
+    [[nodiscard]] std::span<const uint8_t> rest() const { return std::span<const uint8_t>(data_, size_).subspan(position_); }
 
     // Move to `position` (fails beyond the end).
     bool seek(size_t position)
@@ -98,7 +95,7 @@ public:
     const char* c_string()
     {
         const auto* start = raw::chars(rest().data());
-        const size_t length = size_ == kUnknownSize ? std::strlen(start) : strnlen_in_bounds(start);
+        const size_t length = strnlen_in_bounds();
         if (length == kNotFound) {
             fail();
             return nullptr;
@@ -123,10 +120,7 @@ public:
 
 private:
     static constexpr size_t kNotFound = ~static_cast<size_t>(0);
-    static constexpr size_t kUnboundedExtent = kNotFound / 2;
 
-    // The bytes there are to read: the size, or - not known - as far as indexing reaches.
-    [[nodiscard]] size_t extent() const { return size_ == kUnknownSize ? kUnboundedExtent : size_; }
     [[nodiscard]] bool has(size_t count) const { return ok_ && count <= size_ - position_; }
     bool fail()
     {
@@ -145,7 +139,7 @@ private:
         const void* end = std::memchr(text, 0, max);
         return end ? static_cast<size_t>(static_cast<const char*>(end) - text) : max;
     }
-    size_t strnlen_in_bounds(const char* /*start*/) const
+    [[nodiscard]] size_t strnlen_in_bounds() const
     {
         const size_t max = size_ - position_;
         const std::span<const uint8_t> bytes = rest();
