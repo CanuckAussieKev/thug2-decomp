@@ -3,7 +3,6 @@
 #include "game/skate/letter_match.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <array>
 

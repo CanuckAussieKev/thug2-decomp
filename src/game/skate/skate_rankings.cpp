@@ -6,9 +6,7 @@
 
 #include "engine/core/str.h"
 
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <array>
 #include <span>
 
@@ -25,7 +23,6 @@
 #include "game/rider/rider.h"
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/format.h"
 
 namespace modules {

@@ -4,7 +4,6 @@
 #include "game/skate/profile_cfuncs.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 #include "engine/core/checked_index.h"
@@ -15,11 +14,9 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/park_editing/goal_editor.h"
-#include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
 

@@ -3,11 +3,9 @@
 #include "game/skate/trick_goals.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "frontend/menu_element.h"
 #include "frontend/screen_element.h"
@@ -28,7 +26,6 @@
 #include "game/skate/skate_module.h"
 #include "game/goals/objective.h"
 #include "engine/objects/control_pad.h"
-#include "game/park_editing/piece_menu.h"
 #include "engine/gfx/tod_manager.h"
 #include "game/goals/create_a_trick.h"
 #include "game/rider/skater_score.h"

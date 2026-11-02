@@ -2,10 +2,7 @@
 
 #include "game/skate/profile_manager.h"
 
-#include <cstddef>
 #include <cstdint>
-#include <memory>
-
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -14,10 +11,8 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/model_appearance.h"
-#include "engine/lists/lookup_table.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {

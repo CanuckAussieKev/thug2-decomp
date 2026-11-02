@@ -1,12 +1,9 @@
 // The skate module (modules::Skate): the singleton and its skater count (skate_module.h).
 
-#include <cstdint>
 #include <memory>
 
 #include "game/skate/skate_module.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-
 namespace modules {
 
 std::unique_ptr<Skate> g_skate_module;

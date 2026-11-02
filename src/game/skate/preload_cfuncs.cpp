@@ -22,7 +22,6 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_cfuncs.h"
 #include "game/skate/skate_module.h"
-#include "platform/code_address.h"
 #include "game/skate/skate_module_calls.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_glue.h"

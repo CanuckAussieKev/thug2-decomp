@@ -3,9 +3,7 @@
 
 #include "game/skate/point_tally.h"
 
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <algorithm>
 #include <array>

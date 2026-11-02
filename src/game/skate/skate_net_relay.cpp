@@ -9,7 +9,6 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <iterator>
 #include <memory>
 #include <array>
@@ -53,7 +52,6 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/objects/compositemgr.h"
-#include "platform/code_address.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/model_component.h"
 #include "formats/byte_stream.h"

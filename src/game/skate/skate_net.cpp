@@ -3,10 +3,7 @@
 #include "game/skate/skate_net.h"
 #include "game/goals/objective.h"
 
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <initializer_list>
 #include <memory>
 #include <utility>
@@ -51,9 +48,7 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/sys/game_config.h"
 #include "engine/sys/mlp.h"
-#include "platform/compiler.h"
 #include "engine/core/ints.h"
-#include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

@@ -6,7 +6,6 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"

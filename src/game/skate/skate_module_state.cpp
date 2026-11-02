@@ -3,12 +3,9 @@
 
 #include "game/skate/skate_module.h"
 #include "engine/net/net_lists.h"
-#include "game/rider/state_history.h"
-
 #include <windows.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 #include <memory>
 
@@ -49,7 +46,6 @@
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/gfx/viewport.h"
 #include "engine/assets/resource_registry.h"
-#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/format.h"

@@ -19,8 +19,6 @@
 #include "engine/objects/anim_movies.h"
 #include "engine/gfx/tod_manager.h"
 #include "engine/gfx/loading_bar.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
