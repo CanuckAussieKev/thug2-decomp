@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <random>
+#include <span>
 
 #include "engine/maths/trig.h"
 #include "engine/core/parse_number.h"

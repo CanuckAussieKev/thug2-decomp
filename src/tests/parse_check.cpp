@@ -9,7 +9,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <random>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <array>
 

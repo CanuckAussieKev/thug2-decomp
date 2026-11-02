@@ -2,11 +2,13 @@
 // snprintf over every conversion the game uses, each flag, width, precision and length modifier, and the edge values
 // (limits, zero, -0, halves at every precision, huge and tiny floats, infinities, NaNs, null texts). Prints each
 // difference (at most 40) and the totals; exit code 1 if any.
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cfloat>
 #include <climits>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <limits>
