@@ -51,6 +51,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "platform/d3d_matrix.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -304,7 +305,7 @@ static_assert(sizeof(ScreenVertex) == 0x1C, "the draw's stride");
 // 0x004DF390
 void draw_screen_blur()
 {
-    if (!g_screen_copy_in_use) // blur available
+    if (!screen_fx_shared().screen_copy_in_use_) // blur available
         return;
     change_fog(false);
     set_render_state(0x15, 0);
@@ -321,7 +322,7 @@ void draw_screen_blur()
         if (core::at(mag_filter, i) != 2)
             set_sampler_state(i, 5, 2);
     }
-    if (g_bloom_on)
+    if (pc_scene_shared().bloom_on_)
         get_bloom();
     set_render_state(4, 0x10001);
     set_render_state(1, 0);
@@ -339,7 +340,7 @@ void draw_screen_blur()
     const uint32_t texels_high = desc.Height;
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
-    const uint32_t amount = g_screen_blur;
+    const uint32_t amount = engine_glue_shared().screen_blur_;
     auto inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
     const double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
     auto inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
@@ -359,7 +360,7 @@ void draw_screen_blur()
     //   quad[0].v = quad[1].v = inset_v + bar;   (sic: a pixel count added to a texture coordinate)
     //   quad[2].y -= bar; quad[3].y -= bar; quad[2].v -= bar; quad[3].v -= bar;
     if (amount) {
-        choose_blend_mode(g_screen_blur_frames > 2 ? 5 : 0);
+        choose_blend_mode(engine_glue_shared().screen_blur_frames_ > 2 ? 5 : 0);
         color = amount << 24 | 0x808080;
         for (ScreenVertex& v : quad)
             v.color = color;
@@ -381,7 +382,7 @@ void draw_screen_blur()
     set_texture_stage_state(0, 1, 2);                                  // colour op: select arg 1
     set_texture_stage_state(0, 2, 2);                                  // colour arg 1: texture
     set_texture_stage_state(0, 4, 1);                                  // alpha op: disable
-    if (g_screen_blur_frames > 2) {
+    if (engine_glue_shared().screen_blur_frames_ > 2) {
         set_render_state(0x11, 1);
         set_texture(0, other);
         draw_primitive_up(5 /* triangle strip */, 2, quad.data(), sizeof(ScreenVertex));

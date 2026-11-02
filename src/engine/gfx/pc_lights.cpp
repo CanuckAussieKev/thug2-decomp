@@ -16,6 +16,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -34,7 +35,11 @@ PcLightsState& pc_lights_state()
 }
 
 } // namespace
-std::array<float, 4 + 8 * (2 + 32)> g_light_constants;
+PcLightsShared& pc_lights_shared()
+{
+    static core::NoDestroy<PcLightsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -42,24 +47,24 @@ constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
-std::array<float, 4 + 8 * (2 + 32)>& ambient_constant() { return g_light_constants; }
+std::array<float, 4 + 8 * (2 + 32)>& ambient_constant() { return pc_lights_shared().light_constants_; }
 std::span<float, 3> light_direction_constant(uint32_t light)
 {
-    return std::span<float>(g_light_constants).subspan(4 + 8 * light).first<3>();
+    return std::span<float>(pc_lights_shared().light_constants_).subspan(4 + 8 * light).first<3>();
 }
 std::span<float, 3> light_color_constant(uint32_t light)
 {
-    return std::span<float>(g_light_constants).subspan(8 + 8 * light).first<3>();
+    return std::span<float>(pc_lights_shared().light_constants_).subspan(8 + 8 * light).first<3>();
 }
 
 // The scene's lights.
-uint32_t& scene_ambient() { return g_active_lighting.ambient; }
-float scene_scale() { return g_ambient_intensity; }
-std::span<maths::Vec4> scene_directions() { return g_active_lighting.directions; } // (0x0067DC9C)
-std::span<uint32_t> scene_colors() { return g_active_lighting.colours; }           // (0x0067DCA0)
-std::span<float> scene_intensities() { return g_intensities; }
-uint32_t light_count() { return g_light_count; }
-uint32_t model_light_count() { return g_model_light_count; }
+uint32_t& scene_ambient() { return light_manager_shared().active_lighting_.ambient; }
+float scene_scale() { return light_manager_shared().ambient_intensity_; }
+std::span<maths::Vec4> scene_directions() { return light_manager_shared().active_lighting_.directions; } // (0x0067DC9C)
+std::span<uint32_t> scene_colors() { return light_manager_shared().active_lighting_.colours; }           // (0x0067DCA0)
+std::span<float> scene_intensities() { return light_manager_shared().intensities_; }
+uint32_t light_count() { return engine_model_lights_shared().light_count_; }
+uint32_t model_light_count() { return light_manager_shared().model_light_count_; }
 
 // A colour's r, g, b bytes times `factor` and 1/128 into three floats.
 void send_color(std::span<float, 3> out, uint32_t rgba, float factor)

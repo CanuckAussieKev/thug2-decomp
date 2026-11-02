@@ -13,17 +13,22 @@
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
-std::array<char, 32> g_glyph_alias_table;
-std::array<FontSlot, 16> g_font_slots;
+EngineFontShared& engine_font_shared()
+{
+    static core::NoDestroy<EngineFontShared> state;
+    return state.get();
+}
 
 namespace {
 
-std::array<FontSlot, 16>& get_slots() { return g_font_slots; }
-lists::KeyMap& font_table() { return g_font_table; }
-std::array<char, 32>& glyph_escape_table() { return g_glyph_alias_table; }
+std::array<FontSlot, 16>& get_slots() { return engine_font_shared().font_slots_; }
+lists::KeyMap& font_table() { return font_shared().font_table_; }
+std::array<char, 32>& glyph_escape_table() { return engine_font_shared().glyph_alias_table_; }
 
 } // namespace
 

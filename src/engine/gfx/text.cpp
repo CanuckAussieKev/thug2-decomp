@@ -35,6 +35,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -57,7 +58,12 @@ TextState& text_state()
 }
 
 } // namespace
-TypefaceData* g_glyph_typeface;
+TextShared& text_shared()
+{
+    static core::NoDestroy<TextShared> state;
+    return state.get();
+}
+
 namespace {
 
 constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
@@ -77,7 +83,7 @@ uint32_t& get_vertex_count() { return text_state().text_vertex_count_; }
 core::Cursor<TextVertex> next_quad() { return core::Cursor<TextVertex>(std::span<TextVertex>(text_state().text_vertex_store_), static_cast<std::ptrdiff_t>(get_vertex_count())); }
 constexpr uint32_t kVertexLimit = 0x400;
 // The font button glyphs come from, and the font whose texture the buffer is drawn with.
-TypefaceData* pad_glyph_typeface() { return g_glyph_typeface; }
+TypefaceData* pad_glyph_typeface() { return text_shared().glyph_typeface_; }
 TypefaceData*& get_texture_font() { return text_state().texture_font_; }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).

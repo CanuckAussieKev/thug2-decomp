@@ -21,7 +21,6 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/settings.h"
-#include "engine/gfx/window2d.h"
 #include "gpu/vertex_buffers.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
@@ -30,6 +29,7 @@
 #include "engine/core/cursor.h"
 #include "engine/core/span_copy.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 #include <span>
 #include <bit>
 #include <gsl/pointers>
@@ -52,7 +52,11 @@ PcBillboardsState& pc_billboards_state()
 
 } // namespace
 BillboardSet g_billboard_pool;
-uint8_t g_billboard_flag;
+PcBillboardsShared& pc_billboards_shared()
+{
+    static core::NoDestroy<PcBillboardsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -537,8 +541,8 @@ void create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
         auto window = memory::make_owned<PcWindow>(0, 0, 640, 480);
-        window->following_ = g_free_windows; // (no check, as the original)
-        g_free_windows = window;
+        window->following_ = window2d_shared().free_windows_; // (no check, as the original)
+        window2d_shared().free_windows_ = window;
     }
 }
 
@@ -550,9 +554,9 @@ void mark_billboards_ready()
 }
 
 // 0x004CD960
-void set_flag_786e_b4() { g_billboard_flag = 1; }
+void set_flag_786e_b4() { pc_billboards_shared().billboard_flag_ = 1; }
 
 // 0x004CD970
-void clear_flag_786e_b4() { g_billboard_flag = 0; }
+void clear_flag_786e_b4() { pc_billboards_shared().billboard_flag_ = 0; }
 
 } // namespace render

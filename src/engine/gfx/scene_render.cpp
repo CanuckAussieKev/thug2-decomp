@@ -23,6 +23,7 @@
 #include "engine/maths/vec4.h"
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -30,7 +31,7 @@ namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 uint8_t& get_z_write() { return g_z_write; }
-float sphere_depth() { return g_last_sphere_distance; }
+float sphere_depth() { return occlusion_shared().last_sphere_distance_; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).

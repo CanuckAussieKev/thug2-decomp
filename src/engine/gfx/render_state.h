@@ -77,8 +77,6 @@ void reset_render_state();
 // 0x004D80D0: the cached state sent to the device (after it is created or reset), with the fixed ones.
 void apply_render_state();
 
-extern uint8_t g_skin_scaling_on;
-extern SkinScaling g_skin_settings;
 extern bool g_shaders_available;
 extern uint32_t g_specular;
 extern uint8_t g_z_write;

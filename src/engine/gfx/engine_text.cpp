@@ -11,14 +11,21 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 #include <gsl/pointers>
 
 namespace render {
 
-GlyphString* g_free_texts;
+EngineTextShared& engine_text_shared()
+{
+    static core::NoDestroy<EngineTextShared> state;
+    return state.get();
+}
+
 namespace {
 
-GlyphString*& free_list() { return g_free_texts; }
+GlyphString*& free_list() { return engine_text_shared().free_texts_; }
 
 // Memory from the front end's heap.
 void* front_end_new(unsigned int size)

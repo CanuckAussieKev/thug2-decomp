@@ -42,6 +42,8 @@
 #include "engine/core/down_cast.h"
 #include "platform/crt.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -52,10 +54,12 @@ std::unique_ptr<WeatherSystem> g_weather;
 
 std::unique_ptr<ScreenEffects> g_screen_effects;
 uint32_t g_fog_colour;
-uint32_t g_screen_blur_frames;
-uint32_t g_screen_blur;
-bool g_screen_shot_name_exact;
-std::array<char, 128> g_pending_screen_shot; // the screenshot asked for by name
+EngineGlueShared& engine_glue_shared()
+{
+    static core::NoDestroy<EngineGlueShared> state;
+    return state.get();
+}
+
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
@@ -72,8 +76,8 @@ bool omit_from_draw() { return g_suppress_draw; }
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
-std::array<char, 128>& pending_screen_shot() { return g_pending_screen_shot; }
-bool& screen_shot_name_exact() { return g_screen_shot_name_exact; }
+std::array<char, 128>& pending_screen_shot() { return engine_glue_shared().pending_screen_shot_; }
+bool& screen_shot_name_exact() { return engine_glue_shared().screen_shot_name_exact_; }
 
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t back_buffer_fill()
@@ -187,10 +191,10 @@ void finish_rendering()
     }
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
-    if (g_screen_blur != 0) {
+    if (engine_glue_shared().screen_blur_ != 0) {
         if (!omit_from_draw())
             input_port()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
-        ++g_screen_blur_frames;
+        ++engine_glue_shared().screen_blur_frames_;
         return;
     }
     if (g_camera.letterbox_active_) {
@@ -202,7 +206,7 @@ void finish_rendering()
     } else if (!omit_from_draw()) {
         clear_device(0, nullptr, D3DCLEAR_ZBUFFER, g_camera.background_colour_, 1.0f, 0);
     }
-    g_screen_blur_frames = 0;
+    engine_glue_shared().screen_blur_frames_ = 0;
 }
 
 // 0x004B28C0

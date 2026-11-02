@@ -20,16 +20,22 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/shared_state.h"
+#include "engine/core/no_destroy.h"
 namespace render {
 
-lists::KeyMap g_font_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)
+FontShared& font_shared()
+{
+    static core::NoDestroy<FontShared> state;
+    return state.get();
+}
 
 namespace {
 
-std::array<FontSlot, 16>& get_slots() { return g_font_slots; }
-lists::KeyMap& font_table() { return g_font_table; }
+std::array<FontSlot, 16>& get_slots() { return engine_font_shared().font_slots_; }
+lists::KeyMap& font_table() { return font_shared().font_table_; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
-std::array<char, 32>& glyph_escape_table() { return g_glyph_alias_table; }
+std::array<char, 32>& glyph_escape_table() { return engine_font_shared().glyph_alias_table_; }
 
 bool& meta_button_map_loaded()
 {
@@ -158,6 +164,6 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
 namespace render {
 
 // 0x00640B40 (a static initialiser): the loaded fonts' table, 16 buckets.
-void construct_font_table() { new (&g_font_table) lists::KeyMap(4); }
+void construct_font_table() { new (&font_shared().font_table_) lists::KeyMap(4); }
 
 } // namespace render

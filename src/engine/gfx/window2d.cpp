@@ -3,13 +3,19 @@
 #include "engine/gfx/window2d.h"
 
 #include "engine/core/dbg.h"
+#include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 namespace render {
 
-ScreenWindow* g_free_windows;
+Window2dShared& window2d_shared()
+{
+    static core::NoDestroy<Window2dShared> state;
+    return state.get();
+}
 
 namespace {
 
-ScreenWindow*& free_windows() { return g_free_windows; }
+ScreenWindow*& free_windows() { return window2d_shared().free_windows_; }
 
 } // namespace
 

@@ -31,15 +31,20 @@
 #include <string>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
-gsl::owner<render::BitmapTexture*> g_loading_screen_picture;
+LoadingScreenShared& loading_screen_shared()
+{
+    static core::NoDestroy<LoadingScreenShared> state;
+    return state.get();
+}
 
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-HANDLE screen_mutex() { return g_screen_mutex; }
+HANDLE screen_mutex() { return loading_bar_shared().screen_mutex_; }
 bool& load_screen_shown() { return g_loading_screen_up; }
 uint32_t& bar_timer() { return g_loading_bar_timer; }
 uint32_t fog_render_flag() { return g_fog_active; } // (the renderer's cached D3DRS_FOGENABLE)
@@ -109,19 +114,19 @@ void apply_bar_style(bool select)
     if (select == select_picture().bar_styled_)
         return;
     if (select) {
-        select_picture().saved_bar_width_ = g_progress_width;
-        std::memcpy(core::at(select_picture().saved_colors_, 0).data(), g_progress_from_color.data(), 4);
-        std::memcpy(core::at(select_picture().saved_colors_, 1).data(), g_progress_to_color.data(), 4);
-        std::memcpy(core::at(select_picture().saved_colors_, 2).data(), g_progress_edge_color.data(), 4);
-        g_progress_width = 300;
-        g_progress_from_color = {0xB9, 0xB5, 0xAC, 0x80};
-        g_progress_to_color = {0xF2, 0xE2, 0x05, 0x80};
-        g_progress_edge_color = {0x3A, 0x3A, 0x38, 0x80};
+        select_picture().saved_bar_width_ = loading_bar_shared().progress_width_;
+        std::memcpy(core::at(select_picture().saved_colors_, 0).data(), loading_bar_shared().progress_from_color_.data(), 4);
+        std::memcpy(core::at(select_picture().saved_colors_, 1).data(), loading_bar_shared().progress_to_color_.data(), 4);
+        std::memcpy(core::at(select_picture().saved_colors_, 2).data(), loading_bar_shared().progress_edge_color_.data(), 4);
+        loading_bar_shared().progress_width_ = 300;
+        loading_bar_shared().progress_from_color_ = {0xB9, 0xB5, 0xAC, 0x80};
+        loading_bar_shared().progress_to_color_ = {0xF2, 0xE2, 0x05, 0x80};
+        loading_bar_shared().progress_edge_color_ = {0x3A, 0x3A, 0x38, 0x80};
     } else {
-        g_progress_width = select_picture().saved_bar_width_;
-        std::memcpy(g_progress_from_color.data(), core::at(select_picture().saved_colors_, 0).data(), 4);
-        std::memcpy(g_progress_to_color.data(), core::at(select_picture().saved_colors_, 1).data(), 4);
-        std::memcpy(g_progress_edge_color.data(), core::at(select_picture().saved_colors_, 2).data(), 4);
+        loading_bar_shared().progress_width_ = select_picture().saved_bar_width_;
+        std::memcpy(loading_bar_shared().progress_from_color_.data(), core::at(select_picture().saved_colors_, 0).data(), 4);
+        std::memcpy(loading_bar_shared().progress_to_color_.data(), core::at(select_picture().saved_colors_, 1).data(), 4);
+        std::memcpy(loading_bar_shared().progress_edge_color_.data(), core::at(select_picture().saved_colors_, 2).data(), 4);
     }
     select_picture().bar_styled_ = select;
     update_loading_bar_colors();
@@ -138,7 +143,7 @@ static_assert(sizeof(PictureVertex) == 0x18, "the original's vertex");
 // 0x004B6CD0
 void draw_loading_screen_picture()
 {
-    if (!g_loading_screen_picture)
+    if (!loading_screen_shared().loading_screen_picture_)
         return;
     get_lock();
     input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
@@ -155,7 +160,7 @@ void draw_loading_screen_picture()
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
     choose_blend_mode(0);
     set_texture(0, nullptr); // (the original passes a third 0, here and below)
-    set_texture(0, image_of(g_loading_screen_picture)->texture); // (and its palette)
+    set_texture(0, image_of(loading_screen_shared().loading_screen_picture_.get())->texture); // (and its palette)
     auto width = static_cast<float>(g_back_buffer_width);
     auto height = static_cast<float>(g_back_buffer_height);
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
@@ -208,9 +213,9 @@ void free_loading_screen_sprite()
 // 0x004B7400
 void show_progress_bar(float seconds)
 {
-    g_elapsed_seconds = 0.0f;                                                  // elapsed
-    g_tick_seconds = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
-    g_total_seconds = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
+    loading_bar_shared().elapsed_seconds_ = 0.0f;                                                  // elapsed
+    loading_bar_shared().tick_seconds_ = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
+    loading_bar_shared().total_seconds_ = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
     update_loading_bar_colors();
     if (!bar_timer())
         bar_timer() = start_timer(29, &draw_loading_screen_frame);
@@ -245,14 +250,14 @@ void show_loading_screen(const char* name, bool keep, bool black)
             apply_bar_style(false);
             input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         } else {
-            if (g_loading_screen_picture) {
+            if (loading_screen_shared().loading_screen_picture_) {
                 if (std::strcmp(picture_name(), name) != 0) {
-                    delete g_loading_screen_picture;
-                    g_loading_screen_picture = nullptr;
+                    memory::destroy_then_clear(loading_screen_shared().loading_screen_picture_);
                     set_picture_name(name);
                 }
             }
-            g_loading_screen_picture = new render::PcTexture;
+            memory::let_go(loading_screen_shared().loading_screen_picture_); // (one of the same name is left, as the original leaves it)
+            loading_screen_shared().loading_screen_picture_ = std::make_unique<render::PcTexture>();
             // the language's picture: French "fr/<name>", German "gr/<name>"
             std::array<char, 0xC8> localised{};
             const char* file = name;
@@ -265,7 +270,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
                 file = localised.data();
             }
             // (no check: a failed allocation calls through null, as the original)
-            const bool loaded = g_loading_screen_picture->load_by_name(file, 1, 1);
+            const bool loaded = loading_screen_shared().loading_screen_picture_->load_by_name(file, 1, 1);
             if (!loaded) {
                 get_unlock();
                 return;

@@ -19,22 +19,25 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
 int g_dynamic_light_count;
 
 std::array<DynamicLightBase*, 256> g_dynamic_lights;
-std::span<float> g_intensities;
-uint32_t g_model_light_count;
-float g_ambient_intensity{1.0f};
-LightingState g_active_lighting{.ambient = 0, .directions = {}, .colours = {}, .ambient_low_ = 0.5f, .ambient_high_ = 0.0f, .light_low_ = {}, .light_high_ = {}};
+LightManagerShared& light_manager_shared()
+{
+    static core::NoDestroy<LightManagerShared> state;
+    return state.get();
+}
+
 namespace {
 
 constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
-LightingState& get_world() { return g_active_lighting; }
+LightingState& get_world() { return light_manager_shared().active_lighting_; }
 std::array<LightingState, 4>& pile_up()
 {
     static core::NoDestroy<std::array<LightingState, 4>> world_light_stack; // (the saved ones: PushLights / PopLights)
@@ -59,12 +62,12 @@ LightManagerState& light_manager_state()
 constexpr float kMinIntensity{0.0f};
 
 int& stack_top() { return light_manager_state().light_stack_top_; }
-uint32_t& light_count() { return g_light_count; }
+uint32_t& light_count() { return engine_model_lights_shared().light_count_; }
 float& get_brightness() { return light_manager_state().light_brightness_; }
 float& light_gain_goal() { return light_manager_state().light_brightness_target_; }
-float& ambient_intensity() { return g_ambient_intensity; }
+float& ambient_intensity() { return light_manager_shared().ambient_intensity_; }
 float min_intensity() { return kMinIntensity; }
-std::span<float>& get_intensities() { return g_intensities; }
+std::span<float>& get_intensities() { return light_manager_shared().intensities_; }
 
 std::array<DynamicLightBase*, 256>& dynamic_lights() { return g_dynamic_lights; }
 int& dynamic_light_count() { return g_dynamic_light_count; }
@@ -124,7 +127,7 @@ void LightingState::free_arrays()
 void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
 {
     debug::printf("Initializing Light Manager...");
-    g_model_light_count = max_model_lights;
+    light_manager_shared().model_light_count_ = max_model_lights;
     light_count() = max_lights;
     LightingState& world = get_world();
     world.directions = {static_cast<maths::Vec4*>(memory::alloc(max_lights * 16)), max_lights};
@@ -395,7 +398,7 @@ double DynamicLightBase::get_falloff(float distance) { return static_cast<double
 namespace render {
 
 // 0x00640B60 (a static initialiser): the world lights' ambient colour (the rest of them is the image's data).
-void set_world_lights_ambient() { g_active_lighting.ambient = 0x80484848; }
+void set_world_lights_ambient() { light_manager_shared().active_lighting_.ambient = 0x80484848; }
 
 // 0x00640B90 (a static initialiser): the four saved light sets.
 void construct_world_light_stack()

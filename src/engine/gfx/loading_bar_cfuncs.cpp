@@ -10,6 +10,7 @@
 #include "engine/gfx/loading_screen.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -64,37 +65,37 @@ void set_loading_bar_time(float seconds)
 // 0x004907A0
 bool cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, core::at(g_bar_position, 0), core::at(g_bar_position, 1));
+    return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, core::at(loading_bar_shared().bar_position_, 0), core::at(loading_bar_shared().bar_position_, 1));
 }
 
 // 0x004907F0
 bool cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_progress_width, g_progress_height);
+    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, loading_bar_shared().progress_width_, loading_bar_shared().progress_height_);
 }
 
 // 0x00490840
 bool cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, core::at(g_bar_border, 0), core::at(g_bar_border, 1));
+    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, core::at(loading_bar_shared().bar_border_, 0), core::at(loading_bar_shared().bar_border_, 1));
 }
 
 // 0x004908E0
 bool cfunc_set_loading_bar_start_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, g_progress_from_color);
+    return change_colour(params, loading_bar_shared().progress_from_color_);
 }
 
 // 0x00490960
 bool cfunc_set_loading_bar_end_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, g_progress_to_color);
+    return change_colour(params, loading_bar_shared().progress_to_color_);
 }
 
 // 0x004909E0
 bool cfunc_set_loading_bar_border_color(script::Struct* params, script::Script* /*script*/)
 {
-    return change_colour(params, g_progress_edge_color);
+    return change_colour(params, loading_bar_shared().progress_edge_color_);
 }
 
 // 0x00490890

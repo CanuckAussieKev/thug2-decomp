@@ -81,6 +81,5 @@ gsl::owner<PcModelLights*> spawn_model_lights();
 
 // The ambient colour (4 floats), then 8 per light: a direction and a colour (the two scene lights the dynamic lights
 // start at and up to 32 dynamic ones).
-extern std::array<float, 4 + 8 * (2 + 32)> g_light_constants;
 
 } // namespace render

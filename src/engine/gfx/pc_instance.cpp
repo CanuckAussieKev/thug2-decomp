@@ -35,6 +35,7 @@
 #include "engine/gfx/model.h"
 #include "platform/d3d_matrix.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -59,7 +60,12 @@ std::span<maths::Mat4> bone_palette()
 {
     return {pc_instance_state().palette_base_, static_cast<std::size_t>(pc_instance_state().bone_count_)};
 }
-Singleton* g_current_instance;
+PcInstanceShared& pc_instance_shared()
+{
+    static core::NoDestroy<PcInstanceShared> state;
+    return state.get();
+}
+
 const maths::Mat4* g_last_bones;
 namespace {
 // NOT ORIGINAL grouping - the instances' table (the original's globals). Made on first use, never destroyed
@@ -128,24 +134,24 @@ void refresh_instance_lighting(Singleton* instance)
 void send_lights()
 {
     D3DLIGHT9& lamp_a = pc_instance_state().device_light0_;
-    lamp_a.Diffuse.r = core::at(g_light_constants, 8);
-    lamp_a.Diffuse.g = core::at(g_light_constants, 9);
-    lamp_a.Diffuse.b = core::at(g_light_constants, 10);
-    lamp_a.Direction.x = core::at(g_light_constants, 4);
-    lamp_a.Direction.y = core::at(g_light_constants, 5);
-    lamp_a.Direction.z = core::at(g_light_constants, 6);
+    lamp_a.Diffuse.r = core::at(pc_lights_shared().light_constants_, 8);
+    lamp_a.Diffuse.g = core::at(pc_lights_shared().light_constants_, 9);
+    lamp_a.Diffuse.b = core::at(pc_lights_shared().light_constants_, 10);
+    lamp_a.Direction.x = core::at(pc_lights_shared().light_constants_, 4);
+    lamp_a.Direction.y = core::at(pc_lights_shared().light_constants_, 5);
+    lamp_a.Direction.z = core::at(pc_lights_shared().light_constants_, 6);
     input_port()->SetLight(0, &lamp_a);
     D3DLIGHT9& lamp_b = pc_instance_state().device_light1_;
-    lamp_b.Diffuse.r = core::at(g_light_constants, 16);
-    lamp_b.Diffuse.g = core::at(g_light_constants, 17);
-    lamp_b.Diffuse.b = core::at(g_light_constants, 18);
-    lamp_b.Direction.x = core::at(g_light_constants, 12);
-    lamp_b.Direction.y = core::at(g_light_constants, 13);
-    lamp_b.Direction.z = core::at(g_light_constants, 14);
+    lamp_b.Diffuse.r = core::at(pc_lights_shared().light_constants_, 16);
+    lamp_b.Diffuse.g = core::at(pc_lights_shared().light_constants_, 17);
+    lamp_b.Diffuse.b = core::at(pc_lights_shared().light_constants_, 18);
+    lamp_b.Direction.x = core::at(pc_lights_shared().light_constants_, 12);
+    lamp_b.Direction.y = core::at(pc_lights_shared().light_constants_, 13);
+    lamp_b.Direction.z = core::at(pc_lights_shared().light_constants_, 14);
     input_port()->SetLight(1, &lamp_b);
-    const uint32_t r = get_channel(core::at(g_light_constants, 0));
-    const uint32_t g = get_channel(core::at(g_light_constants, 1));
-    const uint32_t b = get_channel(core::at(g_light_constants, 2));
+    const uint32_t r = get_channel(core::at(pc_lights_shared().light_constants_, 0));
+    const uint32_t g = get_channel(core::at(pc_lights_shared().light_constants_, 1));
+    const uint32_t b = get_channel(core::at(pc_lights_shared().light_constants_, 2));
     input_port()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 
@@ -210,7 +216,7 @@ void Singleton::render(uint32_t draw_bits)
         input_port()->SetTransform(D3DTS_WORLD, d3d::matrix(transform.data()));
         pc_instance_state().palette_base_ = bones;
         pc_instance_state().bone_count_ = bone_count_;
-        g_current_instance = this;
+        pc_instance_shared().current_instance_ = this;
         if (scene_unlit(scene)) {
             draw_scene(scene, draw_bits | kRenderNoCulling, 0);
         } else {
@@ -229,7 +235,7 @@ void Singleton::render(uint32_t draw_bits)
         set_texture(3, nullptr);
         pc_instance_state().palette_base_ = nullptr;
         pc_instance_state().bone_count_ = 0;
-        g_current_instance = nullptr;
+        pc_instance_shared().current_instance_ = nullptr;
         return;
     }
 

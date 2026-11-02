@@ -38,6 +38,7 @@
 #include "engine/core/format.h"
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unbounded as it builds them)
 
@@ -164,7 +165,7 @@ void render_frame()
 void change_entity_hub(void* manager) { engine_state().scene_objects_ = manager; }
 
 // 0x0048C0B0
-std::array<WorldScene*, 16>& get_collision_scenes() { return g_collision_scenes; }
+std::array<WorldScene*, 16>& get_collision_scenes() { return engine_scene_list_shared().collision_scenes_; }
 
 // 0x0048C0D0
 void toggle_render_mode()

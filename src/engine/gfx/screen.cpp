@@ -11,12 +11,12 @@
 #include "engine/script/params.h"
 #include "platform/sdl_window.h"
 #include "platform/run_log.h"
-#include "engine/gfx/engine_glue.h"
 #include "engine/gfx/device.h"
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -42,7 +42,7 @@ namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
 bool blur_available() { return core::at(g_screen_surfaces, 0) != nullptr; }
-auto& screen_blur() { return g_screen_blur; }
+auto& screen_blur() { return engine_glue_shared().screen_blur_; }
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return screen_state().script_screen_blur_; }
 

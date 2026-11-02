@@ -80,6 +80,4 @@ WorldScene* add_scene(const char* scene_name, const char* add_name);
 // 0x0048CEF0: the scene `name` unloaded and loaded again (its textures, sky or not kept). Whether there was one.
 bool reload_scene(const char* name);
 
-extern std::array<WorldScene*, 16> g_collision_scenes;
-
 } // namespace render

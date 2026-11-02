@@ -103,9 +103,5 @@ struct DynamicLightBase {
 };
 
 extern int g_dynamic_light_count;
-extern float g_ambient_intensity;
-extern LightingState g_active_lighting;
 extern std::array<DynamicLightBase*, 256> g_dynamic_lights;
-extern std::span<float> g_intensities;
-extern uint32_t g_model_light_count;
 } // namespace render

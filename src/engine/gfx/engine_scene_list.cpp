@@ -28,6 +28,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -185,12 +186,16 @@ EngineSceneListState& engine_scene_list_state()
 }
 
 } // namespace
-std::array<WorldScene*, 16> g_collision_scenes;
+EngineSceneListShared& engine_scene_list_shared()
+{
+    static core::NoDestroy<EngineSceneListShared> state;
+    return state.get();
+}
 
 // 0x0048C980
 std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
 {
-    auto& scenes = g_collision_scenes;
+    auto& scenes = engine_scene_list_shared().collision_scenes_;
     auto& grids = engine_scene_list_state().collision_grids_;
     maths::BBox box(line->start);
     box.append_spot(line->end);

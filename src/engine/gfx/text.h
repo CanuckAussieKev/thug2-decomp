@@ -129,6 +129,4 @@ static_assert(offsetof(GlyphRun, text) == 0x1C, "layout must match the original"
 static_assert(offsetof(GlyphRun, angle) == 0x38, "layout must match the original");
 static_assert(offsetof(GlyphRun, fixed_color_) == 0x40, "layout must match the original");
 
-extern TypefaceData* g_glyph_typeface;
-
 } // namespace render

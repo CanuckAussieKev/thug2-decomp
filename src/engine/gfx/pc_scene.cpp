@@ -34,12 +34,18 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
 namespace {} // namespace
 
-uint32_t g_bloom_on;
+PcSceneShared& pc_scene_shared()
+{
+    static core::NoDestroy<PcSceneShared> state;
+    return state.get();
+}
+
 namespace {
 // NOT ORIGINAL grouping - pc_scene.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_scene_state()).
@@ -63,9 +69,6 @@ PcSceneState& pc_scene_state()
 
 } // namespace
 
-uint32_t g_bloom_alpha_first{0x10};
-uint32_t g_bloom_alpha_second{0x10};
-uint32_t g_bloom_cut_off{0x80808080};
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
@@ -161,14 +164,14 @@ void PcScene::post_load(void* arena_word)
 // --- the screen effects ---
 
 // 0x004C63C0
-void PcScreenEffects::set_bloom(int on) { g_bloom_on = on != 0; }
+void PcScreenEffects::set_bloom(int on) { pc_scene_shared().bloom_on_ = on != 0; }
 // 0x004C63E0
-void PcScreenEffects::set_bloom_cut_off(uint32_t colour) { g_bloom_cut_off = colour; }
+void PcScreenEffects::set_bloom_cut_off(uint32_t colour) { pc_scene_shared().bloom_cut_off_ = colour; }
 // 0x004C63F0
 void PcScreenEffects::set_bloom_alphas(int first, int second)
 {
-    g_bloom_alpha_first = static_cast<uint32_t>(first);
-    g_bloom_alpha_second = static_cast<uint32_t>(second);
+    pc_scene_shared().bloom_alpha_first_ = static_cast<uint32_t>(first);
+    pc_scene_shared().bloom_alpha_second_ = static_cast<uint32_t>(second);
 }
 // 0x004C6410
 void PcScreenEffects::set_bloom_colour(uint32_t colour) { pc_scene_state().screen_effect_unknown990_ = colour; }

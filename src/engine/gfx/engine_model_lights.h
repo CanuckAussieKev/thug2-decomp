@@ -69,6 +69,4 @@ public:
 static_assert(offsetof(ModelLights, intensities_) == 0x14 && sizeof(ModelLights) == 0x1C,
               "layout must match the original");
 
-extern uint32_t g_light_count;
-
 } // namespace render

@@ -11,7 +11,6 @@
 
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/engine_effects.h"
-#include "engine/gfx/pc_scene.h"
 #include "engine/gfx/primitive_states.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
@@ -22,10 +21,16 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
-bool g_screen_copy_in_use;
+ScreenFxShared& screen_fx_shared()
+{
+    static core::NoDestroy<ScreenFxShared> state;
+    return state.get();
+}
+
 namespace {
 constexpr bool kBlurSecondPass{true};
 // NOT ORIGINAL grouping - screen_fx.cpp's state (the original's globals). Made on first use, never destroyed
@@ -46,7 +51,7 @@ IDirect3DDevice9* device_copy() { return g_draw_device; } // (the same device)
 IDirect3DTexture9* screen_copy(int index) { return core::at(g_screen_textures, index); }
 IDirect3DTexture9* current_screen_copy() { return screen_copy(g_screen_copy_index); }
 IDirect3DSurface9* z_buffer_surface() { return g_z_buffer_surface; }
-bool& screen_copy_in_use() { return g_screen_copy_in_use; }
+bool& screen_copy_in_use() { return screen_fx_shared().screen_copy_in_use_; }
 void* get_shader(int slot) { return core::at(g_pixel_shaders, slot); }
 
 // Fog on or off (not rewritten yet; the request kept, the device's state following).
@@ -157,7 +162,7 @@ void begin_screen_effects()
 {
     screen_copy_in_use() = false;
     IDirect3DSurface9* surface = nullptr;
-    if (g_screen_blur > 2) { // the motion blur
+    if (engine_glue_shared().screen_blur_ > 2) { // the motion blur
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
         if (!graphics_options::set_scene_target(current_screen_copy())) {
@@ -165,7 +170,7 @@ void begin_screen_effects()
             input_port()->SetDepthStencilSurface(z_buffer_surface());
         }
     } else {
-        if (!g_bloom_on || !g_shaders_available) // no bloom (or no pixel shaders)
+        if (!pc_scene_shared().bloom_on_ || !g_shaders_available) // no bloom (or no pixel shaders)
             return;
         current_screen_copy()->GetSurfaceLevel(0, &surface);
         // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
@@ -216,7 +221,7 @@ void get_bloom()
     IDirect3DTexture9* bright = screen_copy(3);
     set_pixel_shader(get_shader(kPixelShader948), nullptr); // the cut-off
     // Constant 0: the cut-off colour (bytes / 128) and 0.5.
-    const colour::Bytes cutoff = colour::bytes_of(g_bloom_cut_off);
+    const colour::Bytes cutoff = colour::bytes_of(pc_scene_shared().bloom_cut_off_);
     std::array<float, 4> constant = {{static_cast<float>(std::get<0>(cutoff) * (1.0 / 128)),
                                       static_cast<float>(std::get<1>(cutoff) * (1.0 / 128)),
                                       static_cast<float>(std::get<2>(cutoff) * (1.0 / 128)), 0.5f}};
@@ -263,7 +268,7 @@ void get_bloom()
         current_screen_copy()->GetLevelDesc(0, &desc);
         const double half_x = 0.5 / as_unsigned(desc.Width);
         const double half_y = 0.5 / as_unsigned(desc.Height);
-        const uint32_t alpha = pass ? g_bloom_alpha_second : g_bloom_alpha_first;
+        const uint32_t alpha = pass ? pc_scene_shared().bloom_alpha_second_ : pc_scene_shared().bloom_alpha_first_;
         auto half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
         auto width = static_cast<float>(g_back_buffer_width);
         auto height = static_cast<float>(g_back_buffer_height);

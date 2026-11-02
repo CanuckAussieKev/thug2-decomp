@@ -108,14 +108,6 @@ void kill_all_effects();
 
 } // namespace engine
 
-extern VertexStack g_vertex_stack;
-
-extern maths::Vec4 g_glass_burst_velocity;
-extern float g_shatter_velocity_scale;
-extern float g_shatter_speed;
 struct SpawnedPoly;
 class PcShatter;
-extern lists::ObjectSet<SpawnedPoly> g_spawned_polys;
-extern lists::ObjectSet<TextureSplats> g_splat_sets;
-extern lists::ObjectSet<PcShatter> g_shatters;
 } // namespace render

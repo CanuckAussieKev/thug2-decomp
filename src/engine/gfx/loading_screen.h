@@ -27,6 +27,4 @@ void show_loading_screen(const char* name, bool keep, bool black);
 // level_select_loading_screens): drawn cover-fitted, with a plate behind the bar (loading_bar.cpp).
 bool select_picture_up();
 
-extern gsl::owner<BitmapTexture*> g_loading_screen_picture;
-
 } // namespace render

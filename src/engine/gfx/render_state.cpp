@@ -15,9 +15,7 @@
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/graphics_options.h"
-#include "engine/gfx/occlusion.h"
 #include "engine/gfx/pc_billboards.h"
-#include "engine/gfx/pc_lights.h"
 #include "engine/gfx/pixel_shaders.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/view_mode.h"
@@ -26,6 +24,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/maths/mat4.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -581,7 +580,7 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
 }
 
 // 0x004DA0E0
-float last_sphere_distance() { return g_last_sphere_distance; }
+float last_sphere_distance() { return occlusion_shared().last_sphere_distance_; }
 
 // 0x004DB620
 void set_world_transform(const float* matrix)
@@ -633,8 +632,8 @@ void reset_render_state()
     blend_op() = 0xDEADBABE;
     src_blend() = 0xDEADBABE;
     dest_blend() = 0xDEADBABE;
-    core::at(g_pending_screen_shot, 0) = 0;
-    g_screen_shot_name_exact = false;
+    core::at(engine_glue_shared().pending_screen_shot_, 0) = 0;
+    engine_glue_shared().screen_shot_name_exact_ = false;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
     core::at(g_ps_constant_bank, 16) = 0.0f;
     core::at(g_ps_constant_bank, 17) = 0.5f;
@@ -644,7 +643,7 @@ void reset_render_state()
     current_pixel_shader() = nullptr;
     pixel_shader_changed() = 0;
     g_camera.custom_transforms_ = 0;
-    g_billboard_flag = 0;
+    pc_billboards_shared().billboard_flag_ = 0;
     vertex_format_locked() = 0;
     g_skipped_passes = 0;
     g_submit_locked = 0;
@@ -658,12 +657,12 @@ void reset_render_state()
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     });
     for (int i = 0; i < 24; ++i)
-        core::at(g_light_constants, 4 + i) = std::bit_cast<float>(core::at(kLight, i));
+        core::at(pc_lights_shared().light_constants_, 4 + i) = std::bit_cast<float>(core::at(kLight, i));
     constexpr auto kAmbient = std::bit_cast<float>(0x3F1624DDu); // the ambient colour (0.586)
-    core::at(g_light_constants, 0) = kAmbient;
-    core::at(g_light_constants, 1) = kAmbient;
-    core::at(g_light_constants, 2) = kAmbient;
-    core::at(g_light_constants, 3) = 1.0f;
+    core::at(pc_lights_shared().light_constants_, 0) = kAmbient;
+    core::at(pc_lights_shared().light_constants_, 1) = kAmbient;
+    core::at(pc_lights_shared().light_constants_, 2) = kAmbient;
+    core::at(pc_lights_shared().light_constants_, 3) = 1.0f;
     get_fog() = 0;
     fog_color() = 0;
     g_fog_begin_distance = -240.0f; // fog start and end (the original stored their bit patterns)

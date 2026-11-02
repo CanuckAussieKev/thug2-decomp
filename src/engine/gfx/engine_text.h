@@ -108,5 +108,4 @@ gsl::owner<GlyphString*> new_text();
 // 0x0048D5F0: a text hidden, its buffers freed, and put back on the free list.
 void free_text(GlyphString* text);
 
-extern GlyphString* g_free_texts;
 } // namespace render

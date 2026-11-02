@@ -22,6 +22,4 @@ void copy_screen_quarter();
 // added back over the frame.
 void get_bloom();
 
-extern bool g_screen_copy_in_use;
-
 } // namespace render

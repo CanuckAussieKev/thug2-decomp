@@ -91,6 +91,4 @@ void update_shatter(PcShatter* shatter, float step);
 // the table.
 void shatter_geom(PcGeom* geom);
 
-extern lists::ObjectSet<PcShatter> g_shatters;
-
 } // namespace render

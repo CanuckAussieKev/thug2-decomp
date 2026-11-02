@@ -26,6 +26,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
+#include "engine/gfx/shared_state.h"
 #include <bit>
 
 namespace render {
@@ -160,9 +161,9 @@ void MeshRef::render()
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     if (per_vertex_data_ &&
         (unknown9c_ != g_frames_rendered ||
-         unknowna0_ != g_current_instance)) { // (once a frame per instance)
+         unknowna0_ != pc_instance_shared().current_instance_)) { // (once a frame per instance)
         unknown9c_ = g_frames_rendered;
-        unknowna0_ = g_current_instance;
+        unknowna0_ = pc_instance_shared().current_instance_;
         uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
         vb->lock_size_ = vb->size;
         vb->lock_offset_ = 0;

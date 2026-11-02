@@ -12,7 +12,6 @@
 #include <array>
 #include "platform/d3d_forward.h"
 
-
 namespace scene_format {
 class MemoryStream;
 class FileStream;
@@ -118,10 +117,5 @@ public:
     // 0x004C6450 (slot 12): 0x00705728.
     void set_dof_value_d(float value) override;
 };
-
-extern uint32_t g_bloom_on;
-extern uint32_t g_bloom_alpha_first;
-extern uint32_t g_bloom_alpha_second;
-extern uint32_t g_bloom_cut_off;
 
 } // namespace render

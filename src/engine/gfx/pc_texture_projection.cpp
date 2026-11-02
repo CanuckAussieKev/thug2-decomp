@@ -36,6 +36,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/gfx/shared_state.h"
 #include <bit>
 
 namespace render {
@@ -69,7 +70,7 @@ void transform_coord(float* out, const float* v, const maths::Mat4* m)
 void push_vertex(const ProjectedVertex& vertex)
 {
     const auto bytes = std::bit_cast<std::array<uint8_t, sizeof(ProjectedVertex)>>(vertex);
-    g_vertex_stack.stack_on(bytes.data());
+    texture_splats_shared().vertex_stack_.stack_on(bytes.data());
 }
 
 uint32_t opaque(uint32_t colour) { return (colour & 0xFFFFFF) | 0x80000000; }
@@ -240,9 +241,9 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     auto cy = static_cast<float>(e2x * e1z - e2z * e1x);
                     const double cx = e2z * e1y - e2y * e1z;
                     const double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
-                    g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));
-                    g_vertex_stack = VertexStack{}; // (emptied)
-                    g_vertex_stack.vertex_size_ = sizeof(ProjectedVertex);
+                    texture_splats_shared().split_area_limit_ = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));
+                    texture_splats_shared().vertex_stack_ = VertexStack{}; // (emptied)
+                    texture_splats_shared().vertex_stack_.vertex_size_ = sizeof(ProjectedVertex);
                     push_vertex(v0);
                     push_vertex(v1);
                     push_vertex(v2);

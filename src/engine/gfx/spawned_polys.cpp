@@ -18,6 +18,7 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -25,7 +26,7 @@ memory::PoolPair g_spawned_poly_pools;
 
 namespace {
 
-lists::ObjectSet<SpawnedPoly>& spawned_polys() { return g_spawned_polys; }
+lists::ObjectSet<SpawnedPoly>& spawned_polys() { return engine_effects_shared().spawned_polys_; }
 
 // A corner's position and colour.
 void set_corner(PcPrimitive* primitive, int corner, const maths::Vec4& at)

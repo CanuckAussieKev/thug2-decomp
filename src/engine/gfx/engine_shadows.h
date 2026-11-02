@@ -163,7 +163,4 @@ ShadowEdges* find_shadow_edges(const TriMeshSource* key);
 // 0x004A1F30: one user fewer of the edges under `key`; with none left they're freed and taken out of the table.
 void release_shadow_edges(const TriMeshSource* key);
 
-extern std::array<ShadowVolume*, 16> g_shadow_volumes;
-extern lists::ObjectSet<ShadowEdges> g_shadow_edge_table; // 0x00701418: the silhouette edges by model
-
 } // namespace render

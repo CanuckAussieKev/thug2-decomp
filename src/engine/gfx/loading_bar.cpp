@@ -19,22 +19,16 @@
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
-int g_gradient_width;
-void* g_screen_mutex; // the loading screen's lock (a HANDLE), held while it is drawn
-float g_tick_seconds;
-float g_elapsed_seconds;
-float g_total_seconds;
+LoadingBarShared& loading_bar_shared()
+{
+    static core::NoDestroy<LoadingBarShared> state;
+    return state.get();
+}
 
-std::array<int, 2> g_bar_position{{258, 400}};
-int g_progress_width{140};
-int g_progress_height{8};
-std::array<int, 2> g_bar_border{{5, 5}};
-std::array<uint8_t, 4> g_progress_from_color{{0x00, 0x4C, 0x81, 0x80}};
-std::array<uint8_t, 4> g_progress_to_color{{0xAC, 0xD3, 0x73, 0x80}};
-std::array<uint8_t, 4> g_progress_edge_color{{0x28, 0x28, 0x28, 0x80}};
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
@@ -64,16 +58,16 @@ LoadingBarState& loading_bar_state()
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
-const std::array<uint8_t, 4>& start_color() { return g_progress_from_color; }
-const std::array<uint8_t, 4>& end_color() { return g_progress_to_color; }
-const std::array<uint8_t, 4>& border_color() { return g_progress_edge_color; }
-int& progress_bar_pixels() { return g_progress_width; }
+const std::array<uint8_t, 4>& start_color() { return loading_bar_shared().progress_from_color_; }
+const std::array<uint8_t, 4>& end_color() { return loading_bar_shared().progress_to_color_; }
+const std::array<uint8_t, 4>& border_color() { return loading_bar_shared().progress_edge_color_; }
+int& progress_bar_pixels() { return loading_bar_shared().progress_width_; }
 int& get_screen_width() { return g_back_buffer_width; }
 float& horiz_screen_ratio() { return g_display_factor_x; }
 
 Rgb& gradient_start() { return loading_bar_state().gradient_start_; }
 Rgb& gradient_end() { return loading_bar_state().gradient_end_; }
-int& gradient_width() { return g_gradient_width; }
+int& gradient_width() { return loading_bar_shared().gradient_width_; }
 uint32_t& border_argb() { return loading_bar_state().border_argb_; }
 
 std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table()
@@ -83,13 +77,13 @@ std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table()
 }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
-float& tick_seconds() { return g_tick_seconds; }
-float& elapsed_seconds() { return g_elapsed_seconds; }
-float& get_total_seconds() { return g_total_seconds; }
+float& tick_seconds() { return loading_bar_shared().tick_seconds_; }
+float& elapsed_seconds() { return loading_bar_shared().elapsed_seconds_; }
+float& get_total_seconds() { return loading_bar_shared().total_seconds_; }
 int& get_screen_height() { return g_back_buffer_height; }
 uint32_t& bar_timer() { return g_loading_bar_timer; }     // the timer's id (timeSetEvent)
 bool& load_screen_shown() { return g_loading_screen_up; } // shown (0x004B78B0): the main loop doesn't draw
-HANDLE& screen_mutex() { return g_screen_mutex; } // held while the loading screen is drawn
+HANDLE& screen_mutex() { return loading_bar_shared().screen_mutex_; } // held while the loading screen is drawn
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 struct BarVertex {
@@ -205,6 +199,6 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
 namespace render {
 
 // 0x00640D10 (a static initialiser): the loading screen's lock, a mutex nobody owns.
-void create_screen_mutex() { g_screen_mutex = CreateMutexA(nullptr, FALSE, nullptr); }
+void create_screen_mutex() { loading_bar_shared().screen_mutex_ = CreateMutexA(nullptr, FALSE, nullptr); }
 
 } // namespace render

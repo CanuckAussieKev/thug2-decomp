@@ -109,6 +109,4 @@ TextureSplats* get_texture_splats(TextureImage* texture);
 class HitMesh;
 TextureSplats* create_texture_splat(void** sectors, HitMesh* const* objects, SplatParams* params);
 
-extern float g_split_area_limit;
-
 } // namespace render

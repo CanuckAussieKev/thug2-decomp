@@ -12,6 +12,7 @@
 #include "engine/gfx/text.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/shared_state.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -19,8 +20,8 @@ namespace render {
 namespace {
 
 // The button glyph font (0x00780FDC) and the texts' free list (0x006FA804).
-TypefaceData*& pad_glyph_typeface() { return g_glyph_typeface; }
-GlyphString*& free_texts() { return g_free_texts; }
+TypefaceData*& pad_glyph_typeface() { return text_shared().glyph_typeface_; }
+GlyphString*& free_texts() { return engine_text_shared().free_texts_; }
 
 } // namespace
 

@@ -102,7 +102,6 @@ void mark_billboards_ready();
 void set_flag_786e_b4();
 void clear_flag_786e_b4();
 
-extern uint8_t g_billboard_flag;
 extern BillboardSet g_billboard_pool;
 
 } // namespace render

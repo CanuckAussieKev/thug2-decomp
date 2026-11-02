@@ -34,6 +34,5 @@ enum PixelShaderSlot : uint8_t {
 extern std::array<void*, kPixelShaderCount> g_pixel_shaders;
 
 // The vertex-format ids, in address order (0x00775B64 + 4 * index; a mesh's type t is index 6 - t).
-extern std::array<uint32_t, 6> g_vertex_shaders;
 
 } // namespace render

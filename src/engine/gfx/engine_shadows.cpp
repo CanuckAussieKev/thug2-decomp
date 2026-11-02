@@ -18,14 +18,15 @@
 #include "engine/core/checked_index.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"
+#include "engine/gfx/shared_state.h"
 #include <gsl/pointers>
 
 namespace render {
 
 namespace {
 
-std::array<ShadowVolume*, 16>& shadow_volumes() { return g_shadow_volumes; }
-lists::ObjectSet<ShadowEdges>& edge_table() { return g_shadow_edge_table; }
+std::array<ShadowVolume*, 16>& shadow_volumes() { return engine_shadow_edges_shared().shadow_volumes_; }
+lists::ObjectSet<ShadowEdges>& edge_table() { return engine_shadow_edges_shared().shadow_edge_table_; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).

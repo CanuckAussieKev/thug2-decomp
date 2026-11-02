@@ -35,14 +35,16 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
-maths::Vec4 g_glass_burst_velocity;
-float g_shatter_speed;
-lists::ObjectSet<TextureSplats> g_splat_sets;
-lists::ObjectSet<SpawnedPoly> g_spawned_polys;
-float g_shatter_velocity_scale{1.0f};
+EngineEffectsShared& engine_effects_shared()
+{
+    static core::NoDestroy<EngineEffectsShared> state;
+    return state.get();
+}
+
 namespace {
 
 // NOT ORIGINAL grouping - engine_effects.cpp's state (the original's globals). Made on first use, never destroyed
@@ -107,9 +109,9 @@ FlashesAndSplats& flashes_and_splats()
 }
 
 lists::ObjectSet<Flash>& flashes() { return flashes_and_splats().flashes_; }
-lists::ObjectSet<TextureSplats>& splat_sets() { return g_splat_sets; }
+lists::ObjectSet<TextureSplats>& splat_sets() { return engine_effects_shared().splat_sets_; }
 lists::ObjectSet<RecentSplat>& recent_splats() { return flashes_and_splats().recent_splats_; }
-lists::ObjectSet<PcShatter>& shatters() { return g_shatters; }
+lists::ObjectSet<PcShatter>& shatters() { return shatter_shared().shatters_; }
 
 bool get_paused() { return objects::g_simulation_halted; }
 
@@ -243,11 +245,11 @@ void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vec
                              float speed, float velocity_scale, float lifetime, float floor, float bounce,
                              float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f)
 {
-    g_glass_burst_velocity = *velocity;
+    engine_effects_shared().glass_burst_velocity_ = *velocity;
     fog_and_shatter().shatter_vector_210e_ = *vector_210e;
-    g_split_area_limit = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
-    g_shatter_speed = speed == 0.0f ? 0.0f : speed;
-    g_shatter_velocity_scale = velocity_scale == 0.0f ? 1.0f : velocity_scale;
+    texture_splats_shared().split_area_limit_ = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
+    engine_effects_shared().shatter_speed_ = speed == 0.0f ? 0.0f : speed;
+    engine_effects_shared().shatter_velocity_scale_ = velocity_scale == 0.0f ? 1.0f : velocity_scale;
     fog_and_shatter().glass_life_span_ = lifetime == 0.0f ? 4.0f : lifetime;
     fog_and_shatter().shatter_floor_ = floor == 0.0f ? -10000.0f : floor;
     fog_and_shatter().glass_restitution_ = bounce == 0.0f ? 0.8f : bounce;
@@ -571,7 +573,7 @@ void init_effects()
     // (the tables are made once, before the first call: lists::ObjectSet)
     compiled_out();
     compiled_out();
-    auto& stack = g_vertex_stack;
+    auto& stack = texture_splats_shared().vertex_stack_;
     stack.used = 0;
     stack.vertex_size_ = 0;
     std::memset(stack.data.data(), 3, sizeof(stack.data));

@@ -203,6 +203,5 @@ static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x3
 
 // The bone matrices of the instance being drawn by the vertex shader (its bones counted; empty between instances).
 std::span<maths::Mat4> bone_palette();
-extern Singleton* g_current_instance;
 
 } // namespace render

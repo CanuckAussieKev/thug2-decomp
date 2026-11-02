@@ -17,6 +17,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
@@ -39,7 +40,11 @@ OcclusionState& occlusion_state()
 }
 
 } // namespace
-float g_last_sphere_distance;
+OcclusionShared& occlusion_shared()
+{
+    static core::NoDestroy<OcclusionShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -350,7 +355,7 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
     }
     std::array<float, 4> view{};
     xform(view.data(), point, view_matrix());
-    g_last_sphere_distance = static_cast<float>(-static_cast<double>(core::at(view, 2)) - radius);
+    occlusion_shared().last_sphere_distance_ = static_cast<float>(-static_cast<double>(core::at(view, 2)) - radius);
     return inside_frustum(view, radius);
 }
 

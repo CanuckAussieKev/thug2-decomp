@@ -15,10 +15,15 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
-uint32_t g_light_count;
+EngineModelLightsShared& engine_model_lights_shared()
+{
+    static core::NoDestroy<EngineModelLightsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -36,12 +41,12 @@ EngineModelLightsState& engine_model_lights_state()
 }
 
 // The light manager's: how many lights, the ambient ranges below / above the middle brightness, each light's.
-uint32_t light_count() { return g_light_count; }
+uint32_t light_count() { return engine_model_lights_shared().light_count_; }
 // (the world lights' fields: ambient_low_ 0x0067DCA4, ambient_high_, light_low_, light_high_)
-float dark_range() { return g_active_lighting.ambient_low_; }
-float bright_range() { return g_active_lighting.ambient_high_; }
-std::span<float> dark_ranges() { return g_active_lighting.light_low_; }
-std::span<float> bright_ranges() { return g_active_lighting.light_high_; }
+float dark_range() { return light_manager_shared().active_lighting_.ambient_low_; }
+float bright_range() { return light_manager_shared().active_lighting_.ambient_high_; }
+std::span<float> dark_ranges() { return light_manager_shared().active_lighting_.light_low_; }
+std::span<float> bright_ranges() { return light_manager_shared().active_lighting_.light_high_; }
 
 void get_stub(const char* message) { debug::printf_text(message); }
 

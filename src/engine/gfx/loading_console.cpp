@@ -2,7 +2,6 @@
 
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/gfx/loading_bar.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/loading_screen.h"
 
@@ -36,6 +35,7 @@
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace gfx::loading_console {
 
@@ -140,15 +140,15 @@ LoadingConsoleState& loading_console_state()
 }
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
-HANDLE screen_mutex() { return render::g_screen_mutex; }
+HANDLE screen_mutex() { return render::loading_bar_shared().screen_mutex_; }
 IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 bool load_screen_shown() { return render::g_loading_screen_up != 0; } // the main loop draws nothing then
 uint32_t bar_timer() { return render::g_loading_bar_timer; }          // the loading bar's timer (0x004B7400)
-bool screen_picture() { return render::g_loading_screen_picture != nullptr; } // the loading screen's picture is up
+bool screen_picture() { return render::loading_screen_shared().loading_screen_picture_ != nullptr; } // the loading screen's picture is up
 void* movie_shown() { return render::g_current_movie; }               // a Bink movie playing (gfx/movie.cpp)
 int get_screen_width() { return render::g_back_buffer_width; }
 int get_screen_height() { return render::g_back_buffer_height; }
-int progress_bar_pixels() { return render::g_gradient_width; } // the loading bar's width in pixels
+int progress_bar_pixels() { return render::loading_bar_shared().gradient_width_; } // the loading bar's width in pixels
 
 double get_now()
 {

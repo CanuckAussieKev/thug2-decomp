@@ -72,6 +72,4 @@ inline maths::Vec4 sphere_of(const std::array<float, 3>& centre, float radius)
     return {.x = std::get<0>(centre), .y = std::get<1>(centre), .z = std::get<2>(centre), .w = radius};
 }
 
-extern float g_last_sphere_distance;
-
 } // namespace render

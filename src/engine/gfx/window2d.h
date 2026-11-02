@@ -38,6 +38,4 @@ ScreenWindow* allocate_window_2d(int x, int y, int width, int height);
 // 0x004A1670: a window back onto the free list.
 void free_window_2d(ScreenWindow* window);
 
-extern ScreenWindow* g_free_windows;
-
 } // namespace render

@@ -17,17 +17,21 @@
 #include "engine/render/coll_tri.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_mesh.h"
+#include "engine/core/no_destroy.h"
+#include "engine/gfx/shared_state.h"
 
 namespace render {
 
-std::array<ShadowVolume*, 16> g_shadow_volumes;
-lists::ObjectSet<ShadowEdges> g_shadow_edge_table;
+EngineShadowEdgesShared& engine_shadow_edges_shared()
+{
+    static core::NoDestroy<EngineShadowEdgesShared> state;
+    return state.get();
+}
 
 namespace {
 
-
-std::array<ShadowVolume*, 16>& shadow_volumes() { return g_shadow_volumes; }
-lists::ObjectSet<ShadowEdges>& edge_table() { return g_shadow_edge_table; }
+std::array<ShadowVolume*, 16>& shadow_volumes() { return engine_shadow_edges_shared().shadow_volumes_; }
+lists::ObjectSet<ShadowEdges>& edge_table() { return engine_shadow_edges_shared().shadow_edge_table_; }
 
 // Into the first free slot of the volumes drawn (none: not drawn).
 void add_shadow_volume(ShadowVolume* volume)
