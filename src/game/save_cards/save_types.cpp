@@ -192,13 +192,17 @@ int type_version(uint32_t type)
 }
 
 namespace {
-std::array<char, 0x68> g_save_file_name; // (the cutscene list's flag follows)
+std::array<char, 0x68>& save_file_name()
+{
+    static std::array<char, 0x68> save_file_name{}; // (the cutscene list's flag follows)
+    return save_file_name;
+}
 } // namespace
 
 // 0x005A62A0
 const char* get_type_file_name(uint32_t type, const char* name)
 {
-    const char* buffer = g_save_file_name.data();
+    const char* buffer = save_file_name().data();
     const char* extension = nullptr;
     switch (type) {
     case kSaveCat:
@@ -226,7 +230,7 @@ const char* get_type_file_name(uint32_t type, const char* name)
         break;
     }
     if (extension) // (no limit in the original: a longer name ran on into other globals)
-        text::format_to(g_save_file_name, "Save/%s.%s", name, extension);
+        text::format_to(save_file_name(), "Save/%s.%s", name, extension);
     return buffer;
 }
 

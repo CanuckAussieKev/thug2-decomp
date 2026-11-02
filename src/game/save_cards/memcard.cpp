@@ -13,6 +13,7 @@
 #include "game/save_cards/save_types.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace save_cards {
 
@@ -20,16 +21,26 @@ Hub* g_the_card;
 
 namespace {
 
-std::array<char, 128> g_path_buffer;
-int g_memcard_references;
-std::array<char, 320> g_filename_buffer;
+// NOT ORIGINAL grouping - memcard.cpp's state (the original's globals). Made on first use, never destroyed
+// (memcard_state()).
+struct MemcardState {
+    std::array<char, 128> path_buffer_{};
+    int memcard_references_{};
+    std::array<char, 320> filename_buffer_{};
+};
+
+MemcardState& memcard_state()
+{
+    static core::NoDestroy<MemcardState> state;
+    return state.get();
+}
 
 // The shared path buffers.
-std::array<char, 128>& path_buffer() { return g_path_buffer; }
-std::array<char, 320>& filename_buffer() { return g_filename_buffer; }
+std::array<char, 128>& path_buffer() { return memcard_state().path_buffer_; }
+std::array<char, 320>& filename_buffer() { return memcard_state().filename_buffer_; }
 
 Hub*& sole() { return g_the_card; }
-int& ref_tally() { return g_memcard_references; }
+int& ref_tally() { return memcard_state().memcard_references_; }
 
 // A new (zeroed) file object: its own one-item list, no handle yet.
 FileLoad* new_file(HANDLE handle, SaveCard* card)

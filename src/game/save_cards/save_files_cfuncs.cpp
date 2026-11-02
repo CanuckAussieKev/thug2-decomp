@@ -351,7 +351,11 @@ constexpr uint32_t kFileName = 0xC3F4169A; // "FileName"
 
 // The first bytes of a listed file are read here (0x007CEC58): the header (save_file_format.h) and the start of the
 // summary (0x007CEC6C).
-std::array<uint8_t, kListedFileBytes> g_listed_file;
+std::array<uint8_t, kListedFileBytes>& listed_file()
+{
+    static std::array<uint8_t, kListedFileBytes> listed_file{};
+    return listed_file;
+}
 
 // The i-th file of a list (its nodes from the head's next; each file is its own node).
 FileLoad* list_entry(memory::ListNode* head, int index)
@@ -478,8 +482,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             mark_corrupt(entry, kDamagedFile);
         } else {
             opened->seek_to(0, 0);
-            opened->get_take_in(g_listed_file.data(), static_cast<int>(kListedFileBytes));
-            util::ByteReader reader(g_listed_file.data(), sizeof(g_listed_file));
+            opened->get_take_in(listed_file().data(), static_cast<int>(kListedFileBytes));
+            util::ByteReader reader(listed_file().data(), sizeof(listed_file()));
             SaveFileHeader listed_header;
             read_save_file_header(reader, &listed_header);
             const uint8_t* listed_summary = reader.cursor();
