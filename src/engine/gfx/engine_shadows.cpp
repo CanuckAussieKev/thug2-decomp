@@ -18,8 +18,6 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/lists/key_map.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -31,9 +29,9 @@ lists::KeyMap& edge_table() { return g_shadow_edge_table; }
 
 // The engine's model calls not rewritten yet: the shadow caster added for a render target (0x0048C870), a model
 // deleted (0x0048C3C0), a file name with its extension (0x00487A70).
-void add_shadow_caster(uint8_t* texture, RenderModel* model, int unused)
+void add_shadow_caster(const BitmapTexture* texture, RenderModel* model)
 {
-    render::add_shadow_caster(texture, model, cell::pointer<WorldScene>(unused));
+    render::add_shadow_caster(texture, model, nullptr); // (the original's 0: the main scene)
 }
 void delete_model(RenderModel* model) { delete model; }
 void add_extension(const char* name, const char* extension, char* out)
@@ -74,8 +72,8 @@ maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& dir
 FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance) : ShadowBase(1)
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    bitmap_ = static_cast<uint8_t*>(create_render_target(0x100, 0x100, 0x10, 0x10));
-    add_shadow_caster(bitmap_, model, 0);
+    bitmap_ = static_cast<BitmapTexture*>(create_render_target(0x100, 0x100, 0x10, 0x10));
+    add_shadow_caster(bitmap_, model);
     reach_ = distance;
     direction_ = direction;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
@@ -91,7 +89,7 @@ FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance
 FullShadow::~FullShadow()
 {
     remove_texture_shadow_caster(bitmap_);
-    delete raw::as<BitmapTexture>(bitmap_);
+    delete bitmap_;
     view_camera_.reset();
 }
 

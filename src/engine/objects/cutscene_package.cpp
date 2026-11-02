@@ -199,7 +199,7 @@ bool CinematicEntry::read_in(script::Struct* params)
                 loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
                 CinematicTable* data = content_;
                 data->unknown3474_ = 1;
-                data->unknown3488_ = *raw::as<uint32_t>(&data->clock_);
+                data->loop_start_ = data->clock_;
                 data->unknown348c_ = static_cast<float>(static_cast<double>(loop) + data->clock_);
                 audio::pause_music(1);
             }

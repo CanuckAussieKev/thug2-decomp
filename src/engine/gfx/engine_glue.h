@@ -20,6 +20,7 @@ struct SkinScaling;
 
 struct PcScene;
 struct WorldScene;
+class BitmapTexture;
 class TextureSet;
 
 class WeatherSystem;
@@ -77,9 +78,9 @@ gsl::owner<TexturedQuad*> create_textured_quad();
 void* create_render_target(int width, int height, uint8_t depth, int unused);
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer
 // with its flag 1 of +0x08) added for `model`, aimed from the camera along its matrix's third row, and removed.
-void add_texture_shadow_caster(const uint8_t* texture, void* model, uint32_t unused);
-void aim_texture_shadow_caster(const uint8_t* texture, gfx::ViewCam* camera);
-void remove_texture_shadow_caster(const uint8_t* texture);
+void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* unused);
+void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camera);
+void remove_texture_shadow_caster(const BitmapTexture* texture);
 
 extern bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
 

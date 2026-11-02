@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "engine/lists/object_set.h"
 
 namespace lists {
 class KeyMap;
@@ -19,6 +20,7 @@ void* generated_pixel_shader(const void* material);
 // 0x004DDC00: the shader a material draws with, into *shader: a fixed one for one pass, else generated.
 void material_pixel_shader(const void* material, void** shader);
 
-extern lists::KeyMap* g_shadow_casters;
+struct ShadowCaster;
+extern lists::ObjectSet<ShadowCaster> g_shadow_casters;
 
 } // namespace render

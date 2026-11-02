@@ -27,7 +27,6 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/model.h"
 #include "platform/d3d_matrix.h"
@@ -75,7 +74,7 @@ uint32_t& mesh_flags_ref(MeshRef* mesh) { return mesh->flags; }
 
 const maths::Vec4* get_position(const Singleton* instance)
 {
-    return raw::as<const maths::Vec4>((instance->transform).data() + 12);
+    return &core::at(instance->transform.row, 3);
 }
 
 // A colour channel (0-1) as a byte, as the original's _ftol (truncated through 64 bits).
@@ -247,7 +246,8 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
     if (!instance->active)
         return;
     set_world_transform((instance->transform).data());
-    const auto* centre = raw::as<const maths::Vec4>(instance->scene->centre.data());
+    const maths::Vec4 sphere = sphere_of(instance->scene->centre, instance->scene->radius);
+    const maths::Vec4* centre = &sphere;
     if ((flags & 8) ||
         (sphere_in_view(centre, instance->scene->radius) && !sphere_occluded(centre, instance->scene->radius, 1))) {
         if (instance->bones) {
@@ -284,7 +284,8 @@ void draw_instance_batch(uint32_t flags, int viewport)
             float radius = instance->scene->radius;
             if (instance->bones && bones_on_device(instance->scene) == 0 && radius < 72.0f)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
-            if (!sphere_occluded(raw::as<const maths::Vec4>(instance->scene->centre.data()), radius, 1))
+            const maths::Vec4 sphere = sphere_of(instance->scene->centre, instance->scene->radius);
+            if (!sphere_occluded(&sphere, radius, 1))
                 get_visible()[count++] = instance;
         }
         if (count > 0) {

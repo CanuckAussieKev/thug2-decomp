@@ -314,7 +314,7 @@ void CinematicTable::refresh_viewer(void* camera)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->cinematic_low_heap_);
     static_cast<gfx::JointClipFrames*>(object_anims_)
-        ->fire_events(std::bit_cast<float>(unknown3478_), clock_, camera, 0);
+        ->fire_events(previous_clock_, clock_, camera, 0);
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

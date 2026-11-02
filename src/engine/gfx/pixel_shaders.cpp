@@ -23,10 +23,11 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/shadow_base.h"
 
 namespace render {
 
-lists::KeyMap* g_shadow_casters;
+lists::ObjectSet<ShadowCaster> g_shadow_casters;
 namespace {
 bool g_pixel_shaders_made;
 } // namespace
@@ -140,8 +141,7 @@ void compile_pixel_shaders()
                 get_release(errors);
         }
     }
-    void* table = memory::alloc(sizeof(lists::KeyMap));
-    g_shadow_casters = table ? memory::construct_in<lists::KeyMap>(table, 8) : nullptr; // the shadow casters
+    // (the shadow casters' table was made here: lists::ObjectSet, made with the program)
 }
 
 // 0x004DD2C0

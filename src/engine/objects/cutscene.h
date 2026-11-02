@@ -206,11 +206,11 @@ public:
     float unknown3470_{1.0f}; // +0x3470 (1 at first)
     uint8_t unknown3474_{0};
     std::array<uint8_t, 3> unknown3475_{};
-    uint32_t unknown3478_{}; // +0x3478
+    float previous_clock_{0.0f}; // +0x3478: the clock before this frame's step (events fire between the two)
     float clock_{0.0f};      // +0x347C: seconds into the cutscene
     float unknown3480_{0.0f};  // +0x3480
     float camera_start_{0.0f}; // +0x3484
-    uint32_t unknown3488_{};
+    float loop_start_{0.0f}; // where a looping cutscene goes back to (LoopLength)
     float unknown348c_{0.0f};   // +0x348C: where a fixed-step cutscene loops (0: never)
     uint64_t paused_vblanks_{}; // +0x3490
     uint64_t vblanks_{0};       // +0x3498: counted by update_vblanks

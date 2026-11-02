@@ -36,6 +36,10 @@ public:
     [[nodiscard]] bool empty() const { return objects_.empty(); }
     [[nodiscard]] size_t size() const { return objects_.size(); }
 
+    // The objects in order, for a walk that changes no membership (a range-for).
+    [[nodiscard]] auto begin() const { return objects_.begin(); }
+    [[nodiscard]] auto end() const { return objects_.end(); }
+
     // `visit(object)` for each object; a visit may take its own object out of the set (the original's walks fetched
     // the next item before dropping the current one).
     template <typename Visit>

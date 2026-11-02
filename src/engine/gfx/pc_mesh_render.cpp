@@ -24,6 +24,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <bit>
 
 namespace render {
 
@@ -118,13 +119,13 @@ void MeshRef::render()
     if (g_suppress_draw || beyond_clip_distance(this))
         return;
     if (g_distance_clipping && g_fog_setting) { // (distance fog)
-        float end = g_camera.far_z_;
+        const float end = g_camera.far_z_;
         g_fog_begin_distance = 0.0f;
         g_fog_end = 0.0f;
         auto start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
         toggle_fog(true);
-        input_port()->SetRenderState(D3DRS_FOGSTART, *raw::as<DWORD>(&start));
-        input_port()->SetRenderState(D3DRS_FOGEND, *raw::as<DWORD>(&end));
+        input_port()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
+        input_port()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
         input_port()->SetRenderState(D3DRS_FOGCOLOR, g_fog_colour);
     }
     if (!core::at(index_counts_, 0))
@@ -189,7 +190,8 @@ void MeshRef::render()
     input_port()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arena_offset_, stride);
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
-        sphere_in_view(raw::as<const maths::Vec4>(centre.data()), radius);
+        const maths::Vec4 sphere = sphere_of(centre, radius);
+        sphere_in_view(&sphere, radius);
         const float distance = last_sphere_distance();
         for (; level < 8; ++level) {
             if (!core::at(index_buffers_, level)) {

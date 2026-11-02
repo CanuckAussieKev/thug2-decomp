@@ -4,6 +4,7 @@
 #include <array>
 
 #include "engine/maths/vec4.h"
+#include <utility>
 
 // Occlusion polygons and view culling (Nx engine, PC). Levels place four-cornered occlusion polygons; each frame
 // up to eight of them become occluders - five planes (the polygon's own and one through the eye and each edge) -
@@ -64,6 +65,12 @@ bool sphere_in_view(const maths::Vec4* centre, float radius);
 // 0x004DB6D0: with distance clipping on (0x007D643A), whether a bounding sphere (centre +4, radius +0x10) is
 // wholly beyond the far clip distance.
 bool beyond_clip_distance(const void* bounds);
+// A mesh's or scene's bounding sphere as those tests take it: its centre's three floats, the radius after them
+// (where the original's Vec4 view of the centre found it as w).
+inline maths::Vec4 sphere_of(const std::array<float, 3>& centre, float radius)
+{
+    return {std::get<0>(centre), std::get<1>(centre), std::get<2>(centre), radius};
+}
 
 extern float g_last_sphere_distance;
 

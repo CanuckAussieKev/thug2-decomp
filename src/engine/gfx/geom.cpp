@@ -27,8 +27,8 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "gpu/vertex_view.h"
 
 namespace render {
 
@@ -555,13 +555,14 @@ void PcGeom::change_scale(const maths::Vec4* new_scale)
         maths::Vec4 centre = {0.0f, 0.0f, 0.0f, 1.0f};
         mesh_position(mesh, &centre);
         VertexBuffer* buffer = get_vertex_buffer(mesh, 0);
-        uint8_t* vertex = get_lock(buffer, 0);
-        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride) {
-            auto* p = raw::as<float>(vertex);
+        const gpu::VertexWriter vertices(get_lock(buffer, 0), mesh->stride);
+        for (uint32_t v = 0; v < mesh->vertex_count_; ++v) {
+            auto p = vertices.view().point<maths::Vec4>(v);
             for (int k = 0; k < 3; ++k) {
-                const double c = (&centre.x)[k];
-                p[k] = static_cast<float>((static_cast<double>(p[k]) - c) * (&new_scale->x)[k] + c);
+                const double c = centre[k];
+                p[k] = static_cast<float>((static_cast<double>(p[k]) - c) * (*new_scale)[k] + c);
             }
+            vertices.set_point(v, 0, p);
         }
         get_unlock(get_vertex_buffer(mesh, 0));
     }
@@ -626,11 +627,9 @@ void PcGeom::get_vertices(maths::Vec4* out)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = meshes[i];
-        uint8_t* vertex = get_lock(get_vertex_buffer(mesh, 0), kReadOnly);
-        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride, ++out) {
-            auto* p = raw::as<float>(vertex);
-            *out = {p[0], p[1], p[2], 1.0f};
-        }
+        const gpu::VertexView vertices(get_lock(get_vertex_buffer(mesh, 0), kReadOnly), mesh->stride);
+        for (uint32_t v = 0; v < mesh->vertex_count_; ++v, ++out)
+            *out = vertices.point<maths::Vec4>(v);
         get_unlock(get_vertex_buffer(mesh, 0));
     }
 }

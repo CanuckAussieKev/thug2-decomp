@@ -22,6 +22,7 @@ namespace render {
 
 class CollGrid;
 struct WorldScene;
+class BitmapTexture;
 class TextureSet;
 
 // The list's head (lists::Foremost<WorldScene>; the node's destructor body is 0x0048C4B0).
@@ -45,7 +46,7 @@ WorldScene* get_sky_scene();
 // cleared. True.
 bool unload_all_scenes();
 // 0x0048C870: a texture's shadow caster added for `model` (0x004B2C30) - in `scene`, or (null) the main scene.
-void add_shadow_caster(const uint8_t* texture, void* model, WorldScene* scene);
+void add_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* scene);
 // 0x0048C8F0: the static collision objects of every scene but the skies listed (timed: the time is read before and
 // after, and not used).
 void print_coll_statics();

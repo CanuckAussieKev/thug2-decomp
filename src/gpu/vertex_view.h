@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
+#include <utility>
 
 // NOT ORIGINAL - a vertex buffer's bytes (the copy kept in memory, or a mesh file's vertex block) read and written
 // by attribute: `stride` bytes per vertex, each attribute a run of floats at its offset in the vertex (the position
@@ -26,6 +27,13 @@ public:
     }
     [[nodiscard]] std::array<float, 3> float3(size_t index, size_t offset = 0) const { return floats<3>(index, offset); }
     [[nodiscard]] std::array<float, 2> float2(size_t index, size_t offset = 0) const { return floats<2>(index, offset); }
+    // A position-like float3 as a record of the caller's with x, y, z (and w: `w`).
+    template <typename Point>
+    [[nodiscard]] Point point(size_t index, size_t offset = 0, float w = 1.0f) const
+    {
+        const std::array<float, 3> p = float3(index, offset);
+        return {std::get<0>(p), std::get<1>(p), std::get<2>(p), w};
+    }
     // The 32-bit word at `offset` in vertex `index` (a packed colour).
     [[nodiscard]] uint32_t word(size_t index, size_t offset) const { return value<uint32_t>(index, offset); }
     // The value of type T (a plain number or record) at `offset` in vertex `index`.
@@ -59,6 +67,12 @@ public:
         set_floats<3>(index, offset, {x, y, z});
     }
     void set_word(size_t index, size_t offset, uint32_t value) const { set_value(index, offset, value); }
+    // A record's x, y, z as the float3 at `offset`.
+    template <typename Point>
+    void set_point(size_t index, size_t offset, const Point& p) const
+    {
+        set_float3(index, offset, p.x, p.y, p.z);
+    }
     // `value` (a plain number or record) at `offset` in vertex `index`.
     template <typename T>
     void set_value(size_t index, size_t offset, const T& value) const

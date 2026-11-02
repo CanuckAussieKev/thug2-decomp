@@ -22,7 +22,6 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/bitmap_texture.h"
 #include <bit>
@@ -134,7 +133,7 @@ void set_border_color(const MaterialRef* material, uint32_t pass, uint32_t stage
 
 void change_bump_map_matrix(uint32_t stage)
 {
-    device_stage_state(stage, D3DTSS_BUMPENVMAT00, *raw::as<uint32_t>(&g_heading_matrix));
+    device_stage_state(stage, D3DTSS_BUMPENVMAT00, std::bit_cast<uint32_t>(core::at(g_heading_matrix.row, 0).x));
     device_stage_state(stage, D3DTSS_BUMPENVMAT01, std::bit_cast<uint32_t>(core::at(g_heading_matrix.row, 0).z));
     device_stage_state(stage, D3DTSS_BUMPENVMAT10, std::bit_cast<uint32_t>(core::at(g_heading_matrix.row, 2).x));
     device_stage_state(stage, D3DTSS_BUMPENVMAT11, std::bit_cast<uint32_t>(core::at(g_heading_matrix.row, 2).z));

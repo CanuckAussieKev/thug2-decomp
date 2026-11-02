@@ -39,8 +39,6 @@
 #include "engine/objects/particle_component.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
 
@@ -86,14 +84,8 @@ long save_surface_to_file(const char* file, IDirect3DSurface9* surface)
     return d3dx::save_surface_to_jpg(file, surface);
 }
 
-// A shadow caster's key: the texture's (+0x10, through one more pointer with flag 1 of +0x08).
-uint8_t* caster_key(const uint8_t* texture)
-{
-    uint8_t* key = *raw::field_at<uint8_t* const>(texture, 0x10);
-    if (texture[8] & 1)
-        key = *raw::as<uint8_t*>(key);
-    return key;
-}
+// A shadow caster's key: the texture's image (its own, or its edit's: image_of).
+TextureRef* caster_key(const BitmapTexture* texture) { return image_of(texture); }
 
 } // namespace
 
@@ -255,26 +247,26 @@ void* create_render_target(int width, int height, uint8_t depth, int unused)
 }
 
 // 0x004B2C30
-void add_texture_shadow_caster(const uint8_t* texture, void* model, uint32_t /*unused*/)
+void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* /*unused*/)
 {
     add_shadow_caster(caster_key(texture), model, 0);
 }
 
 // 0x004B2C50
-void aim_texture_shadow_caster(const uint8_t* texture, gfx::ViewCam* camera)
+void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camera)
 {
     const maths::Vec4& pos = *camera->fetch_location();
     std::array<float, 3> position = {{pos.x, pos.y, pos.z}};
     const maths::Mat4& m = *camera->fetch_mat();
     // the point it looks at: the position plus the matrix's third row
     std::array<float, 3> target = {{core::at(m.row, 2).x + core::at(position, 0), core::at(m.row, 2).y + core::at(position, 1), core::at(m.row, 2).z + core::at(position, 2)}};
-    aim_shadow_caster(cell::of(caster_key(texture)), position.data(), target.data());
+    aim_shadow_caster(caster_key(texture), position.data(), target.data());
 }
 
 // 0x004B2D10
-void remove_texture_shadow_caster(const uint8_t* texture)
+void remove_texture_shadow_caster(const BitmapTexture* texture)
 {
-    remove_shadow_caster(cell::of(caster_key(texture)));
+    remove_shadow_caster(caster_key(texture));
 }
 
 } // namespace render

@@ -73,7 +73,8 @@ struct Lap {
             return true;
         if (!(mesh->viewports & viewport_bit_))
             return false;
-        auto* centre = raw::as<const maths::Vec4>(mesh->centre.data()); // (the sphere: centre and radius)
+        const maths::Vec4 sphere = sphere_of(mesh->centre, mesh->radius);
+        const maths::Vec4* centre = &sphere;
         const float radius = mesh->radius;
         if (!sphere_in_view(centre, radius))
             return false;

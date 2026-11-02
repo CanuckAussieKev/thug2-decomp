@@ -28,9 +28,11 @@
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include <bit>
+#include "gpu/vertex_view.h"
+#include "engine/gfx/pc_scene.h"
 
 namespace render {
 
@@ -45,10 +47,7 @@ std::array<TextureImage, 17> g_grass_texture_animation; // (17 textures)
 constexpr uint32_t kAnimatedGrass = 0x8000000; // pass 0's flag: animated rather than layered
 constexpr int kMaxLayers = 5;
 
-void* look_up_texture(void* dictionary, uint32_t checksum)
-{
-    return static_cast<TextureSet*>(dictionary)->fetch_skin(checksum);
-}
+BitmapTexture* look_up_texture(TextureSet* dictionary, uint32_t checksum) { return dictionary->fetch_skin(checksum); }
 
 } // namespace
 
@@ -88,11 +87,11 @@ void set_up_animated_grass_material(MaterialRef* m)
 // 0x004D0B60
 bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 {
-    void* dictionary = get_sky_scene()->texture_set_; // the sky's
-    auto* entry = static_cast<uint8_t*>(look_up_texture(dictionary, 0x96D0BF08));
+    TextureSet* dictionary = get_sky_scene()->texture_set_; // the sky's
+    const BitmapTexture* entry = look_up_texture(dictionary, 0x96D0BF08);
     if (!entry)
         return false;
-    g_grass_texture1 = *image_of(raw::as<BitmapTexture>(entry)); // (a copy of the record, as the original)
+    g_grass_texture1 = *image_of(entry); // (a copy of the record, as the original)
     if ((mesh->stride - mesh->uv_offset_) / 8 == 1) { // (one texture coordinate set: room made for a second)
         VertexBuffer* wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
         uint8_t* from = nullptr;
@@ -115,15 +114,16 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     mesh->pixel_shader_ = core::at(g_pixel_shaders, kPixelShader924);
     uint8_t* vertices = nullptr;
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
+    const gpu::VertexWriter grass(vertices, mesh->stride);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
-        auto* v = raw::field_at<float>(vertices, mesh->stride * i);
-        auto* uv = raw::field_at<float>(vertices, mesh->stride * i + mesh->uv_offset_);
-        const float x = v[0];
-        const float z = v[2];
-        uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_uv_scale);
-        uv[1] = static_cast<float>(static_cast<double>(z) * g_grass_uv_scale);
-        uv[2] = static_cast<float>(static_cast<double>(x) * g_grass_detail_uv_scale);
-        uv[3] = static_cast<float>(static_cast<double>(z) * g_grass_detail_uv_scale);
+        const auto v = grass.view().point<maths::Vec4>(i);
+        const float x = v.x;
+        const float z = v.z;
+        grass.set_floats<4>(i, mesh->uv_offset_,
+                            {static_cast<float>(static_cast<double>(x) * g_grass_uv_scale),
+                             static_cast<float>(static_cast<double>(z) * g_grass_uv_scale),
+                             static_cast<float>(static_cast<double>(x) * g_grass_detail_uv_scale),
+                             static_cast<float>(static_cast<double>(z) * g_grass_detail_uv_scale)});
     }
     return true;
 }
@@ -141,7 +141,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         return false;
     if (layers > kMaxLayers)
         layers = kMaxLayers;
-    auto step = static_cast<float>(*raw::as<const float>(&m->unknown14) / static_cast<double>(layers));
+    auto step = static_cast<float>(std::bit_cast<float>(m->unknown14) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
         memory::Hub::get_pull()->enter_heap_scope(memory::bottom_up_heap());
         MeshRef* copy = mesh->replicate(false);
@@ -150,7 +150,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         std::array<char, 64> name{};
         std::snprintf(name.data(), sizeof(name), "Grass-Grass_Layer%d", layer);
         const uint32_t checksum = checksums::generate_crc_from_buffer(name.data(), static_cast<int>(std::strlen(name.data())));
-        auto* scene = *raw::field_at<SceneRef*>(geom->scene, 0x280);
+        const SceneRef* scene = geom->scene->meshes;
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->material = material;
         material_pixel_shader(material, &copy->pixel_shader_);
@@ -161,15 +161,17 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         material->sort_key_ = height;
         uint8_t* vertices = nullptr;
         copy->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked)
+        const gpu::VertexWriter layer_vertices(vertices, copy->stride);
         const double lift = static_cast<double>(layer + 1) * step;
         for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
-            auto* v = raw::field_at<float>(vertices, copy->stride * i);
-            v[1] = static_cast<float>(lift + v[1]);
-            auto* uv = raw::field_at<float>(vertices, copy->stride * i + copy->uv_offset_);
-            const float x = v[0];
-            const float z = v[2];
-            uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale);
-            uv[1] = static_cast<float>(static_cast<double>(z) * g_grass_copy_uv_scale);
+            auto v = layer_vertices.view().point<maths::Vec4>(i);
+            v.y = static_cast<float>(lift + v.y);
+            layer_vertices.set_point(i, 0, v);
+            const float x = v.x;
+            const float z = v.z;
+            layer_vertices.set_floats<2>(i, copy->uv_offset_,
+                                         {static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale),
+                                          static_cast<float>(static_cast<double>(z) * g_grass_copy_uv_scale)});
         }
         geom->append_mesh(copy);
     }

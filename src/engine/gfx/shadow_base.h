@@ -4,13 +4,15 @@
 #include <array>
 
 // Shadows (Nx engine, PC): a shadow caster renders its model into a texture from a light's point of view (in
-// the table at 0x007CA970, keyed by its target's address); the meshes around it are drawn again with that texture projected on them.
+// the table at 0x007CA970, found by its target); the meshes around it are drawn again with that texture projected on them.
 // Also the stencil shadow volumes of a scene's meshes.
 namespace render {
 
+struct TextureRef;
+
 // A shadow caster (the table's values).
 struct ShadowCaster {
-    uint8_t* target; // the render target: +0x10 its texture, +0x18 its surface
+    TextureRef* target; // the render target (its texture and surface)
     void* model;     // what casts the shadow
     uint32_t unknown8;
     std::array<float, 16> view;             // from the light
@@ -37,11 +39,11 @@ void render_shadow_textures();
 // 0x004DBF50: each caster's shadow onto the meshes in view (`meshes`, `count`).
 void draw_shadows(const void* unused, void* const* meshes, int count);
 // 0x004DDC90: a new caster drawing `model` into `target` (its key), with identity view and projection.
-void add_shadow_caster(uint8_t* target, void* model, uint32_t unknown);
+void add_shadow_caster(TextureRef* target, void* model, uint32_t unknown);
 // 0x004DB0A0: remove the caster with this key (freed).
-void remove_shadow_caster(uint32_t key);
+void remove_shadow_caster(const TextureRef* key);
 // 0x004DB100: aim the caster with this key from `position` at `target`.
-void aim_shadow_caster(uint32_t key, const float* position, const float* target);
+void aim_shadow_caster(const TextureRef* key, const float* position, const float* target);
 
 // NOT ORIGINAL (ours, for THAW's BMX - game/rider/thaw_bmx.h): asked for each caster's model as render_shadow_textures
 // draws it; a model returned is drawn into the same shadow texture after it (the rider's shadow with his bike in it).

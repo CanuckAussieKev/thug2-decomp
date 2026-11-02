@@ -120,7 +120,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
 // 0x004656E0
 void CinematicTable::update_time(int /*unused*/)
 {
-    unknown3478_ = *raw::as<uint32_t>(&clock_);
+    previous_clock_ = clock_;
     if (script::fetch_int_value(kFixedTime) != 0) {
         clock_ = static_cast<float>(g_cutscene_fixed_frame * static_cast<double>(kFrame));
     } else if (unknown3474_) {
@@ -128,8 +128,8 @@ void CinematicTable::update_time(int /*unused*/)
         const double time = static_cast<double>(unknown3470_) * kStep + clock_;
         clock_ = static_cast<float>(time);
         if (unknown348c_ > 0.0f && !(time < unknown348c_) && !std::isnan(time)) {
-            clock_ = *raw::as<float>(&unknown3488_);
-            unknown3478_ = 0;
+            clock_ = loop_start_;
+            previous_clock_ = 0.0f;
             script::launch_script(kEndScript, nullptr, nullptr, false, nullptr);
             script::launch_script(kEndScript2, nullptr, nullptr, false, nullptr);
         }
@@ -310,7 +310,7 @@ void CinematicTable::restart_objects()
     if (flag_34b_0_)
         return;
     clock_ = 0.0f;
-    unknown3478_ = 0;
+    previous_clock_ = 0.0f;
     destroy_objects();
     add_objects(call_args_);
 }

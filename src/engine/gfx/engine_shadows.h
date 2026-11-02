@@ -24,6 +24,7 @@ class ViewCam;
 namespace render {
 
 class RenderModel;
+class BitmapTexture;
 
 // The base (8 bytes, vtable 0x00649E78).
 class ShadowBase : public memory::HeapObject {
@@ -71,7 +72,7 @@ public:
     void set_light_direction(const maths::Vec4* direction) override;
 
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
-    uint8_t* bitmap_;                           // +0x0C the render target
+    BitmapTexture* bitmap_;                     // +0x0C the render target
     maths::Vec4 direction_{};                   // +0x10 the light's
     float reach_;                               // +0x20
 };

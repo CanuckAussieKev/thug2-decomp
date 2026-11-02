@@ -829,7 +829,7 @@ void FootMovement::settle_onto_floor()
         static_cast<MovingSurfaceModule*>(ride_)->start_riding(feeler); // (what it stands on)
         // (the terrain byte, passed as the dword there)
         static_cast<RiderPoseState*>(skater_state_)
-            ->set_surface_kind(static_cast<uint8_t>(*raw::as<const uint32_t>(&feeler->hit_.terrain)));
+            ->set_surface_kind(feeler->hit_.terrain);
         release_hit(feeler);
         return;
     }

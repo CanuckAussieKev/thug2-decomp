@@ -129,11 +129,11 @@ bool unload_all_scenes()
 }
 
 // 0x0048C870
-void add_shadow_caster(const uint8_t* texture, void* model, WorldScene* scene)
+void add_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* scene)
 {
     if (!scene)
         scene = get_main_scene();
-    add_texture_shadow_caster(texture, model, cell::of(scene));
+    add_texture_shadow_caster(texture, model, scene);
 }
 
 // 0x0048C8F0

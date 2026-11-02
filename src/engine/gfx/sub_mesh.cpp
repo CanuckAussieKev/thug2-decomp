@@ -16,8 +16,8 @@
 
 #include "engine/core/mem.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "gpu/vertex_view.h"
 
 namespace render {
 
@@ -105,12 +105,13 @@ void MeshRef::move_to(const maths::Vec4* position)
     transform[14] = position->z;
     transform[15] = position->w;
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
-        uint8_t* vertex = get_lock(core::at(vertex_buffers_, b), 0);
-        for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
-            auto* p = raw::as<float>(vertex);
-            p[0] = dx + p[0];
-            p[1] = dy + p[1];
-            p[2] = dz + p[2];
+        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride);
+        for (uint32_t v = 0; v < vertex_count_; ++v) {
+            auto p = vertices.view().point<maths::Vec4>(v);
+            p.x = dx + p.x;
+            p.y = dy + p.y;
+            p.z = dz + p.z;
+            vertices.set_point(v, 0, p);
         }
         get_unlock(core::at(vertex_buffers_, b));
     }
@@ -134,16 +135,17 @@ void MeshRef::turn_y(int turns)
         get_identity(transform);
     }
     for (int b = 0; std::cmp_less(b, vertex_buffer_count_); ++b) {
-        uint8_t* vertex = get_lock(core::at(vertex_buffers_, b), 0);
+        const gpu::VertexWriter vertices(get_lock(core::at(vertex_buffers_, b), 0), stride);
         // (the transform's position re-read for every vertex, as the original does)
         switch (turns) {
         case 1:
-            for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
-                auto* p = raw::as<float>(vertex);
-                const double x = static_cast<double>(p[0]) - transform[12];
-                const double z = static_cast<double>(p[2]) - transform[14];
-                p[0] = static_cast<float>(z + transform[12]);
-                p[2] = static_cast<float>(transform[14] - x);
+            for (uint32_t v = 0; v < vertex_count_; ++v) {
+                auto p = vertices.view().point<maths::Vec4>(v);
+                const double x = static_cast<double>(p.x) - transform[12];
+                const double z = static_cast<double>(p.z) - transform[14];
+                p.x = static_cast<float>(z + transform[12]);
+                p.z = static_cast<float>(transform[14] - x);
+                vertices.set_point(v, 0, p);
             }
             {
                 core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - transform[12]);
@@ -155,11 +157,12 @@ void MeshRef::turn_y(int turns)
             }
             break;
         case 2:
-            for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
-                auto* p = raw::as<float>(vertex);
-                const double z = static_cast<double>(p[2]) - transform[14];
-                p[0] = static_cast<float>(transform[12] - (static_cast<double>(p[0]) - transform[12]));
-                p[2] = static_cast<float>(transform[14] - z);
+            for (uint32_t v = 0; v < vertex_count_; ++v) {
+                auto p = vertices.view().point<maths::Vec4>(v);
+                const double z = static_cast<double>(p.z) - transform[14];
+                p.x = static_cast<float>(transform[12] - (static_cast<double>(p.x) - transform[12]));
+                p.z = static_cast<float>(transform[14] - z);
+                vertices.set_point(v, 0, p);
             }
             core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - transform[12]);
             core::at(centre, 2) = static_cast<float>(static_cast<double>(core::at(centre, 2)) - transform[14]);
@@ -167,12 +170,13 @@ void MeshRef::turn_y(int turns)
             core::at(centre, 2) = static_cast<float>(static_cast<double>(transform[14]) - core::at(centre, 2));
             break;
         case 3:
-            for (uint32_t v = 0; v < vertex_count_; ++v, vertex += stride) {
-                auto* p = raw::as<float>(vertex);
-                const double x = static_cast<double>(p[0]) - transform[12];
-                const double z = static_cast<double>(p[2]) - transform[14];
-                p[0] = static_cast<float>(transform[12] - z);
-                p[2] = static_cast<float>(x + transform[14]);
+            for (uint32_t v = 0; v < vertex_count_; ++v) {
+                auto p = vertices.view().point<maths::Vec4>(v);
+                const double x = static_cast<double>(p.x) - transform[12];
+                const double z = static_cast<double>(p.z) - transform[14];
+                p.x = static_cast<float>(transform[12] - z);
+                p.z = static_cast<float>(x + transform[14]);
+                vertices.set_point(v, 0, p);
             }
             {
                 core::at(centre, 0) = static_cast<float>(static_cast<double>(core::at(centre, 0)) - transform[12]);
@@ -261,16 +265,17 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     // The quad's plane from its first triangle.
     VertexBuffer* buffer = core::at(vertex_buffers_, 0);
     uint8_t* data = get_lock(buffer, 0x10);
+    const gpu::VertexWriter vertices(data, stride);
     IdxStore* indices = core::at(index_buffers_, 0);
-    const auto* p0 = raw::field_at<const float>(data, indices->indices[0] * stride);
-    const auto* p1 = raw::field_at<const float>(data, indices->indices[1] * stride);
-    const auto* p2 = raw::field_at<const float>(data, indices->indices[2] * stride);
-    auto e2x = static_cast<float>(static_cast<double>(p2[0]) - p0[0]);
-    auto e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
-    auto e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
-    auto e1x = static_cast<float>(static_cast<double>(p1[0]) - p0[0]);
-    const double e1y = static_cast<double>(p1[1]) - p0[1];
-    const double e1z = static_cast<double>(p1[2]) - p0[2];
+    const auto p0 = vertices.view().point<maths::Vec4>(indices->indices[0]);
+    const auto p1 = vertices.view().point<maths::Vec4>(indices->indices[1]);
+    const auto p2 = vertices.view().point<maths::Vec4>(indices->indices[2]);
+    auto e2x = static_cast<float>(static_cast<double>(p2.x) - p0.x);
+    auto e2y = static_cast<float>(static_cast<double>(p2.y) - p0.y);
+    auto e2z = static_cast<float>(static_cast<double>(p2.z) - p0.z);
+    auto e1x = static_cast<float>(static_cast<double>(p1.x) - p0.x);
+    const double e1y = static_cast<double>(p1.y) - p0.y;
+    const double e1z = static_cast<double>(p1.z) - p0.z;
     auto nx = static_cast<float>(e1y * e2z - e1z * e2y);
     auto ny = static_cast<float>(e1z * e2x - static_cast<double>(e2z) * e1x);
     const double nz_exact = static_cast<double>(e2y) * e1x - e1y * e2x;
@@ -335,13 +340,14 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     }
     // The quad's four vertices into those axes about the pivot.
     for (int v = 0; v < 4; ++v) {
-        auto* p = raw::field_at<float>(data, v * stride);
-        const double dx = static_cast<double>(p[0]) - pivot->x;
-        const double dy = static_cast<double>(p[1]) - pivot->y;
-        const double dz = static_cast<double>(p[2]) - pivot->z;
-        p[0] = static_cast<float>((dx * core::at(r0, 0) + dz * core::at(r0, 2)) + dy * core::at(r0, 1));
-        p[1] = static_cast<float>((dx * r1x + dz * r1z) + dy * r1y);
-        p[2] = static_cast<float>((dx * nx + dz * nz) + dy * ny);
+        auto p = vertices.view().point<maths::Vec4>(v);
+        const double dx = static_cast<double>(p.x) - pivot->x;
+        const double dy = static_cast<double>(p.y) - pivot->y;
+        const double dz = static_cast<double>(p.z) - pivot->z;
+        p.x = static_cast<float>((dx * core::at(r0, 0) + dz * core::at(r0, 2)) + dy * core::at(r0, 1));
+        p.y = static_cast<float>((dx * r1x + dz * r1z) + dy * r1y);
+        p.z = static_cast<float>((dx * nx + dz * nz) + dy * ny);
+        vertices.set_point(v, 0, p);
     }
     flags |= 0x10;
     get_unlock(buffer);

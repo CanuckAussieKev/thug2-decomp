@@ -30,9 +30,9 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/glow.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "platform/d3d_matrix.h"
+#include "engine/gfx/bitmap_texture.h"
 
 namespace render {
 
@@ -42,7 +42,7 @@ bool g_two_sided_stencil;
 std::array<float, 4> g_shadow_viewport{{256.0f, 256.0f, 256.0f, 256.0f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-lists::KeyMap* get_casters() { return g_shadow_casters; }
+lists::ObjectSet<ShadowCaster>& get_casters() { return g_shadow_casters; }
 float* view_matrix() { return g_view_matrix.data(); }
 float* projection_matrix() { return g_projection_matrix.data(); }
 const float* world_matrix() { return g_world_matrix.data(); }
@@ -127,32 +127,10 @@ void get_identity(float* m)
         m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
 }
 
-// The caster with this key (the table's own inlined lookup: the first item with the key and a value).
-ShadowCaster* find_caster(uint32_t key)
+// The caster drawing into `key` (the table's own inlined lookup), or null.
+ShadowCaster* find_caster(const TextureRef* key)
 {
-    const lists::KeyMap* table = get_casters();
-    const lists::KeyMap::Item* item = table->buckets_ + (key & ((1u << table->bits_) - 1));
-    for (; item; item = item->next) {
-        if (item->key == key && item->value)
-            return static_cast<ShadowCaster*>(item->value);
-    }
-    return nullptr;
-}
-
-// Iterate the casters: the first (or next) one, or null at the end (an empty slot's null ends it too).
-ShadowCaster* next_caster()
-{
-    lists::KeyMap* table = get_casters();
-    if (!table->step_iterator() || !table->iter_item_)
-        return nullptr;
-    return static_cast<ShadowCaster*>(table->iter_item_->value);
-}
-ShadowCaster* first_caster()
-{
-    lists::KeyMap* table = get_casters();
-    table->iter_bucket_ = -1;
-    table->iter_item_ = nullptr;
-    return next_caster();
+    return get_casters().find_if([key](const ShadowCaster* caster) { return caster->target == key; });
 }
 
 } // namespace
@@ -247,7 +225,7 @@ void draw_shadow_volumes(const void* scene, int /*viewport*/)
         const uint32_t flags = mesh->flags;
         if (!(flags & 0x40) || !(flags & 0x200))
             continue;
-        if (!sphere_in_view(raw::as<const maths::Vec4>(mesh->centre.data()), mesh->radius))
+        if (const maths::Vec4 sphere = sphere_of(mesh->centre, mesh->radius); !sphere_in_view(&sphere, mesh->radius))
             continue;
         if (!two_sided_stencil()) {
             // One side's faces, then the other's.
@@ -286,10 +264,10 @@ void render_shadow_textures()
         get_fog() = 0;
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
-    for (ShadowCaster* caster = first_caster(); caster; caster = next_caster()) {
+    for (ShadowCaster* caster : get_casters()) {
         if (!caster->model)
             continue;
-        input_port()->SetRenderTarget(0, *raw::field_at<IDirect3DSurface9*>(caster->target, 0x18));
+        input_port()->SetRenderTarget(0, caster->target->surface);
         input_port()->SetDepthStencilSurface(nullptr);
         input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         std::memcpy(view_matrix(), caster->view.data(), sizeof(caster->view));
@@ -355,7 +333,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
         get_fog() = 0;
         render::set_render_state(D3DRS_FOGENABLE, FALSE);
     }
-    for (ShadowCaster* caster = first_caster(); caster; caster = next_caster()) {
+    for (ShadowCaster* caster : get_casters()) {
         std::array<float, 16> saved_view{};
         std::array<float, 16> saved_projection{};
         std::memcpy(saved_view.data(), view_matrix(), sizeof(saved_view));
@@ -379,7 +357,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
         set_texture(2, nullptr);
         set_texture(3, nullptr);
         set_texture(1, nullptr);
-        set_texture(0, *raw::field_at<void*>(caster->target, 0x10));
+        set_texture(0, caster->target->texture);
         change_phase(kAddressMode0, 0x20002); // border
         if (g_border_addressing_supported)
             input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
@@ -402,7 +380,7 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
             auto* mesh = static_cast<const MeshRef*>(meshes[i]);
             if (mesh->flags & 2)
                 continue;
-            if (!sphere_in_view(raw::as<const maths::Vec4>(mesh->centre.data()), mesh->radius))
+            if (const maths::Vec4 sphere = sphere_of(mesh->centre, mesh->radius); !sphere_in_view(&sphere, mesh->radius))
                 continue;
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
             project_shadow_vertices(mesh->positions, mesh->position_count_, to_texture.data());
@@ -439,17 +417,17 @@ void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
 }
 
 // 0x004DB0A0
-void remove_shadow_caster(uint32_t key)
+void remove_shadow_caster(const TextureRef* key)
 {
     ShadowCaster* caster = find_caster(key);
     if (!caster)
         return;
-    get_casters()->erase_entry(key);
+    get_casters().erase(caster);
     memory::Hub::sole()->dealloc(caster);
 }
 
 // 0x004DB100
-void aim_shadow_caster(uint32_t key, const float* position, const float* target)
+void aim_shadow_caster(const TextureRef* key, const float* position, const float* target)
 {
     ShadowCaster* caster = find_caster(key);
     if (!caster)
@@ -466,7 +444,7 @@ void aim_shadow_caster(uint32_t key, const float* position, const float* target)
 }
 
 // 0x004DDC90
-void add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
+void add_shadow_caster(TextureRef* target, void* model, uint32_t unknown)
 {
     auto* caster = static_cast<ShadowCaster*>(memory::alloc(sizeof(ShadowCaster)));
     caster->unknown8 = unknown;
@@ -474,8 +452,7 @@ void add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
     caster->target = target;
     get_identity(caster->view.data());
     get_identity(caster->projection.data());
-    auto key = cell::of(target);
-    get_casters()->store_entry(key, caster);
+    get_casters().insert(caster);
 }
 
 // NOT ORIGINAL

@@ -23,7 +23,6 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
@@ -185,14 +184,14 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
 {
     const bool fixed = script::fetch_int_value(kFixedTime) != 0;
     if (!flag_34b_0_) {
-        unknown3478_ = *raw::as<uint32_t>(&clock_);
+        previous_clock_ = clock_;
         clock_ = static_cast<float>(frame_clock::get_frame_seconds() + clock_);
     } else {
         if (!can_skip_) { // (the first update: started)
             can_skip_ = true;
             get_run(kStartScript);
             static_cast<gfx::ViewCam*>(camera)->change_h_fov(script::fetch_float(kFieldOfView));
-            unknown3478_ = 0;
+            previous_clock_ = 0.0f;
             paused_vblanks_ = frame_clock::fetch_retrace_count();
             fixed_frame() = 0;
         }
