@@ -4,10 +4,12 @@
 
 #include "engine/gfx/engine_scene.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <new>
 
 #include "engine/core/dbg.h"
@@ -164,21 +166,22 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl
     // fixed up and read whatever the offsets said). Valid files are laid out as before.
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
-    const bool valid = collision_format::lay_out_collision(data, size, &header, &layout) &&
-                       collision_format::check_collision_objects(data, header, layout);
+    const std::span<uint8_t> file(data, size);
+    const bool valid = collision_format::lay_out_collision(file, &header, &layout) &&
+                       collision_format::check_collision_objects(file, header, layout);
     if (!valid) {
         debug::printf("a damaged collision file: not loaded\n");
         header.object_count = 0;
     }
     *count = header.object_count;
-    *objects = data + collision_format::kHeaderSize;
+    *objects = file.subspan(std::min(collision_format::kHeaderSize, size)).data();
     uint8_t* buffer = collision_format::face_buffers(layout);
     bool any_vertices = false;
     // the static objects: an array new (the count before them)
     *statics = new StaticCollider[static_cast<unsigned int>(header.object_count)];
     for (int i = 0; i < header.object_count; ++i) {
-        collision_format::relocate_object(*objects, i, layout);
-        auto* geometry = collision_format::object_record<TriMeshSource>(*objects, i);
+        collision_format::relocate_object(file, i, layout);
+        auto* geometry = collision_format::object_record<TriMeshSource>(file, i);
         geometry->set_up_all_faces();
         // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object): an array of exactly this type
         StaticCollider* object = &(*statics)[i];

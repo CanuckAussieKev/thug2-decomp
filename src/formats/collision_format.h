@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <algorithm>
 #include <cstdint>
+#include <span>
 
 #include "formats/byte_stream.h"
 #include "engine/core/pointer_cell.h"
@@ -58,26 +60,33 @@ struct CollisionLayout {
 // The large faces' buffers (the static colliders' own bytes) as laid out.
 inline uint8_t* face_buffers(const CollisionLayout& layout) { return cell::at_address<uint8_t>(layout.face_buffers); }
 
-// The header read and the sections laid out from `base`. `size`: the file's bytes, or 0 /
-// util::ByteReader::kUnknownSize when not known (then nothing past the header is checked). False if the header or a
+// The header read and the sections laid out from the file's bytes (loaded 16-byte aligned). False if the header or a
 // section isn't within the file.
-bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header, CollisionLayout* layout);
+bool lay_out_collision(std::span<const uint8_t> file, CollisionHeader* header, CollisionLayout* layout);
 
 // Every object's arrays and its tree (before the fix-up: offsets) within their sections. False at the first that
-// isn't. (Not checked when the size isn't known.)
-bool check_collision_objects(const uint8_t* base, const CollisionHeader& header, const CollisionLayout& layout);
+// isn't.
+bool check_collision_objects(std::span<const uint8_t> file, const CollisionHeader& header, const CollisionLayout& layout);
 
 // The fix-up of object `index`'s record in place (the objects start at the file's +0x20): its array offsets (faces
 // +0x0C, vertices +0x30, tree +0x34, vertex bytes +0x38) made addresses in their sections, and its tree's links -
 // a split node's children (the offset in bytes from the first node, its two flag bits kept) and a leaf's face list
 // (the offset in u16s into the face lists) - made addresses too, the less child's subtree first.
-void relocate_object(uint8_t* objects, int index, const CollisionLayout& layout);
-// Object `index`'s record as the game's own type for it (of the record's size and layout), used in place.
+void relocate_object(std::span<uint8_t> file, int index, const CollisionLayout& layout);
+// Object `index`'s record (the file's objects start at +0x20) as the game's own type for it (of the record's size and
+// layout), used in place.
 template <typename Record>
-Record* object_record(uint8_t* objects, int index)
+Record* object_record(std::span<uint8_t> file, int index)
 {
     static_assert(sizeof(Record) == kObjectSize, "the collision file's object record");
-    return raw::field_at<Record>(objects, static_cast<size_t>(index) * kObjectSize);
+    return raw::as<Record>(file.subspan(kHeaderSize + (static_cast<size_t>(index) * kObjectSize), kObjectSize).data());
+}
+
+// The place the first object's record is (whether or not the file holds one: the original took it so).
+template <typename Record>
+Record* first_object_record(std::span<uint8_t> file)
+{
+    return raw::as<Record>(file.subspan(std::min(kHeaderSize, file.size())).data());
 }
 
 // A BSP node's link word once fixed up (x86's 32 bits hold an address): a leaf's face list, a split node's children
@@ -100,7 +109,8 @@ inline uint32_t tree_link_moved(uint32_t link, const void* from, const void* to)
 // indices) or, for "small" objects, of 8 bytes (u16 flags, u16 terrain, three u8 indices and a pad byte).
 class FaceTable {
 public:
-    FaceTable(uint8_t* bytes, bool small_faces) : bytes_(bytes), stride_(small_faces ? 8 : 10), small_(small_faces) {}
+    // `bytes`: the faces' records (as many as the object has).
+    FaceTable(std::span<uint8_t> bytes, bool small_faces) : bytes_(bytes), stride_(small_faces ? 8 : 10), small_(small_faces) {}
 
     [[nodiscard]] uint16_t flags(int face) const { return word(face, 0); }
     [[nodiscard]] uint16_t terrain(int face) const { return word(face, 2); }
@@ -109,25 +119,25 @@ public:
     // Corner `corner` (0-2)'s vertex index.
     [[nodiscard]] uint32_t vertex(int face, int corner) const
     {
-        return small_ ? at(face, 4 + corner)[0] : word(face, 4 + (2 * corner));
+        return small_ ? byte(face, 4 + corner) : word(face, 4 + (2 * corner));
     }
     void set_vertex(int face, int corner, uint32_t index)
     {
         if (small_)
-            at(face, 4 + corner)[0] = static_cast<uint8_t>(index);
+            byte(face, 4 + corner) = static_cast<uint8_t>(index);
         else
             set_word(face, 4 + (2 * corner), static_cast<uint16_t>(index));
     }
     // A small face's rejection byte (its last; the large faces keep theirs in a buffer of their own).
-    [[nodiscard]] uint8_t small_rejection(int face) const { return at(face, 7)[0]; }
+    [[nodiscard]] uint8_t small_rejection(int face) const { return byte(face, 7); }
     [[nodiscard]] int stride() const { return stride_; }
 
 private:
-    [[nodiscard]] uint8_t* at(int face, int offset) const;
+    [[nodiscard]] uint8_t& byte(int face, int offset) const;
     [[nodiscard]] uint16_t word(int face, int offset) const;
     void set_word(int face, int offset, uint16_t value) const;
 
-    uint8_t* bytes_;
+    std::span<uint8_t> bytes_;
     int stride_;
     bool small_;
 };

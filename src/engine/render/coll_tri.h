@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
@@ -132,7 +133,10 @@ struct TriMeshSource {
     }
 
     // The faces (collision_format::FaceTable: flags, terrain, vertex indices).
-    [[nodiscard]] collision_format::FaceTable face_table() const { return {faces_, small_faces_}; }
+    [[nodiscard]] collision_format::FaceTable face_table() const
+    {
+        return {std::span<uint8_t>(faces_, static_cast<size_t>(tri_count_) * (small_faces_ ? 8 : 10)), small_faces_};
+    }
     [[nodiscard]] uint32_t face_vertex(int face, int corner) const { return face_table().vertex(face, corner); }
     [[nodiscard]] uint16_t face_flags(int face) const { return face_table().flags(face); }
     [[nodiscard]] uint16_t face_terrain(int face) const { return face_table().terrain(face); }

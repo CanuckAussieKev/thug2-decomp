@@ -5,7 +5,9 @@
 
 #include "engine/core/str.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <span>
 #include <cstring>
 #include <new>
 
@@ -48,17 +50,18 @@ bool SubMesh::add_collision(uint8_t* data, size_t size)
     // trees not within it) is refused: no collision objects.
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
-    uint8_t* objects = data + collision_format::kHeaderSize;
-    hit_shape_ = collision_format::object_record<TriMeshSource>(objects, 0);
-    if (!collision_format::lay_out_collision(data, size, &header, &layout) ||
-        !collision_format::check_collision_objects(data, header, layout)) {
+    const std::span<uint8_t> file(data, size);
+    // (the first object's record, as the original sets it, whether the file is whole or not)
+    hit_shape_ = collision_format::first_object_record<TriMeshSource>(file);
+    if (!collision_format::lay_out_collision(file, &header, &layout) ||
+        !collision_format::check_collision_objects(file, header, layout)) {
         collision_count_ = 0;
         return true;
     }
     collision_count_ = header.object_count;
     for (int i = 0; i < header.object_count; ++i) {
-        collision_format::relocate_object(objects, i, layout);
-        auto* object = collision_format::object_record<TriMeshSource>(objects, i);
+        collision_format::relocate_object(file, i, layout);
+        auto* object = collision_format::object_record<TriMeshSource>(file, i);
         object->set_up_all_faces();
         box_.append_spot(object->bounds_.min);
         box_.append_spot(object->bounds_.max);

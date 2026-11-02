@@ -9,7 +9,10 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <algorithm>
+#include <bit>
 #include <fstream>
+#include <span>
 #include <map>
 #include <memory>
 #include <string>
@@ -34,7 +37,7 @@
 #include "formats/check/format_check_files.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
+#include "engine/core/cursor.h"
 #include "engine/core/checked_index.h"
 
 namespace format_check_files {
@@ -66,16 +69,30 @@ std::string lower(std::string text)
 
 // The original's walk of an archive in place (ArchiveFile's constructor before stage 5): the count at +8, the first
 // file at +12, each next one past its 16-byte header, its name and its data padded to 4.
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
-struct ReferenceRow {
-    int size;
-    int compressed_size;
-    int16_t name_size;
-    uint16_t use_count;
-    uint32_t checksum;
-};
-// NOLINTEND(readability-identifier-naming)
-static_assert(sizeof(ReferenceRow) == 16);
+constexpr size_t kReferenceRowSize = 16; // size, compressed size, name size (i16), use count (u16), checksum
+
+// A little-endian word of `bytes` at `offset` (checked against the extent).
+uint32_t word_at(std::span<const uint8_t> bytes, size_t offset)
+{
+    return core::at(bytes, offset) | core::at(bytes, offset + 1) << 8 | core::at(bytes, offset + 2) << 16 |
+           static_cast<uint32_t>(core::at(bytes, offset + 3)) << 24;
+}
+
+// The `length` bytes at `offset`, or as many as there are.
+std::span<const uint8_t> window_at(std::span<const uint8_t> bytes, size_t offset, size_t length)
+{
+    const std::span<const uint8_t> rest = bytes.subspan(offset);
+    return rest.first(std::min(length, rest.size()));
+}
+
+// The zero-terminated text at `offset`.
+std::string text_at(std::span<const uint8_t> bytes, size_t offset)
+{
+    std::string text;
+    for (; core::at(bytes, offset) != 0; ++offset)
+        text.push_back(static_cast<char>(core::at(bytes, offset)));
+    return text;
+}
 
 // NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
 struct WalkedFile {
@@ -90,51 +107,56 @@ struct WalkedFile {
 std::vector<WalkedFile> reference_walk(const std::vector<uint8_t>& archive)
 {
     std::vector<WalkedFile> files;
-    const int count = *raw::field_at<const int>(archive.data(), 8);
+    const std::span<const uint8_t> bytes(archive);
+    const int count = static_cast<int>(word_at(bytes, 8));
     size_t offset = 12;
-    for (int i = 0; i < count && offset + sizeof(ReferenceRow) <= archive.size(); ++i) {
-        const auto* row = raw::field_at<const ReferenceRow>(archive.data(), offset);
-        const int stored = row->compressed_size ? row->compressed_size : row->size;
-        files.push_back(
-            {offset, row->size, row->compressed_size, row->checksum, raw::chars(row + 1)});
-        offset += static_cast<size_t>(((stored + 3) & ~3) + row->name_size + static_cast<int>(sizeof(ReferenceRow)));
+    for (int i = 0; i < count && offset + kReferenceRowSize <= archive.size(); ++i) {
+        const int size = static_cast<int>(word_at(bytes, offset));
+        const int compressed_size = static_cast<int>(word_at(bytes, offset + 4));
+        const int name_size = static_cast<int16_t>(word_at(bytes, offset + 8) & 0xFFFF);
+        const uint32_t checksum = word_at(bytes, offset + 12);
+        const int stored = compressed_size ? compressed_size : size;
+        files.push_back({offset, size, compressed_size, checksum, text_at(bytes, offset + kReferenceRowSize)});
+        offset += static_cast<size_t>(((stored + 3) & ~3) + name_size + static_cast<int>(kReferenceRowSize));
     }
     return files;
 }
 
 // The original decoder (lzss::decode, 0x004014F0) as the reference: unbounded, given room here.
-uint8_t* reference_decode(const uint8_t* in, uint8_t* out, int size)
+size_t reference_decode(std::span<const uint8_t> in, std::span<uint8_t> out, int size)
 {
     std::array<uint8_t, 4096> window{};
     std::memset(window.data(), ' ', 4096 - 18);
     int r = 4096 - 18;
     unsigned int flags = 0;
+    size_t read = 0;
+    size_t written = 0;
     for (;;) {
         flags >>= 1;
         if ((flags & 0x100) == 0) {
             if (size == 0)
-                return out;
-            flags = *in++ | 0xFF00;
+                return written;
+            flags = core::at(in, read++) | 0xFF00;
             --size;
         }
         if (flags & 1) {
             if (size == 0)
-                return out;
+                return written;
             --size;
-            const uint8_t c = *in++;
-            *out++ = c;
+            const uint8_t c = core::at(in, read++);
+            core::at(out, written++) = c;
             core::at(window, r) = c;
             r = (r + 1) & 4095;
         } else {
             if (size == 0)
-                return out;
-            const int position = in[0] | ((in[1] & 0xF0) << 4);
-            const int last = (in[1] & 0x0F) + 2;
-            in += 2;
+                return written;
+            const int position = core::at(in, read) | ((core::at(in, read + 1) & 0xF0) << 4);
+            const int last = (core::at(in, read + 1) & 0x0F) + 2;
+            read += 2;
             size -= 2;
             for (int k = 0; k <= last; ++k) {
                 const uint8_t c = core::at(window, (position + k) & 4095);
-                *out++ = c;
+                core::at(out, written++) = c;
                 core::at(window, r) = c;
                 r = (r + 1) & 4095;
             }
@@ -214,8 +236,10 @@ void check_archive(const std::string& name, const std::vector<uint8_t>& archive,
             check(ok && written == unpacked.size(), what + ": unpacks to its size");
             // the original decoder, given room, writes the same bytes
             std::vector<uint8_t> original(unpacked.size() + 64);
-            const uint8_t* end = reference_decode(record.data, original.data(), record.compressed_size);
-            check(ints::as_unsigned(end - original.data()) == written &&
+            const size_t end = reference_decode(
+                std::span<const uint8_t>(record.data, static_cast<size_t>(record.compressed_size)), original,
+                record.compressed_size);
+            check(end == written &&
                       std::memcmp(original.data(), unpacked.data(), written) == 0,
                   what + ": the same bytes as the original decoder");
             // a capacity one short fails
@@ -280,12 +304,14 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
     const bool ok = bundle_format::read_bundle_table(reader, table.data(), 450, &count);
     check(ok, name + ": bundle table");
     // the original's in-place reading: the count at +4, the entries from +8
-    const auto* words = raw::as<const uint32_t>(data);
-    check(size >= 8 && words[0] == 1 && words[1] == ints::as_unsigned(count), name + ": version 1, the count");
+    const std::span<const uint8_t> bytes(data, size);
+    check(size >= 8 && word_at(bytes, 0) == 1 && word_at(bytes, 4) == ints::as_unsigned(count),
+          name + ": version 1, the count");
     for (int i = 0; ok && i < count; ++i) {
-        const uint32_t* row = words + 2 + i * 4;
+        const size_t row = 8 + static_cast<size_t>(i) * 16;
         const bundle_format::Entry& entry = core::at(table, static_cast<size_t>(i));
-        check(row[0] == entry.offset && row[1] == entry.size && row[2] == entry.name && row[3] == entry.type,
+        check(word_at(bytes, row) == entry.offset && word_at(bytes, row + 4) == entry.size &&
+                  word_at(bytes, row + 8) == entry.name && word_at(bytes, row + 12) == entry.type,
               name + ": entry " + std::to_string(i) + " as in place");
         check(entry.offset >= bundle_format::kHeaderSize + static_cast<size_t>(count) * bundle_format::kEntrySize,
               name + ": entry " + std::to_string(i) + " past the table");
@@ -295,14 +321,15 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
         const bundle_format::Entry& entry = core::at(table, static_cast<size_t>(i));
         if (entry.type != 0x2CD4107Du)
             continue;
-        util::ByteReader colours(data + entry.offset, entry.size);
+        util::ByteReader colours(window_at(bytes, entry.offset, entry.size));
         bundle_format::SkinColours read;
         check(bundle_format::read_skin_colours(colours, &read) &&
-                  read.count == *raw::field_at<const int>(data, entry.offset + 4) &&
-                  read.entries == data + entry.offset + 8,
+                  read.count == ints::as_signed(word_at(bytes, entry.offset + 4)) &&
+                  read.entries == bytes.subspan(entry.offset + 8).data(),
               name + ": entry " + std::to_string(i) + "'s skin colours");
         g_skin_colour_tables += 1;
-        util::ByteReader cut_colours(data + entry.offset, 8 + read.count * bundle_format::kSkinColourSize - 1);
+        util::ByteReader cut_colours(
+            window_at(bytes, entry.offset, static_cast<size_t>(8 + read.count * bundle_format::kSkinColourSize - 1)));
         check(!bundle_format::read_skin_colours(cut_colours, &read), name + ": skin colours cut short");
     }
     // cut short: refused
@@ -328,9 +355,9 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
         return;
     }
     // the original memory loader's walk in place: the count at +4, eight words a texture, each level {size, texels}
-    const auto* p = raw::as<const uint32_t>(data);
-    check(ints::as_signed(p[1]) == header.count, name + ": the count as in place");
-    p += 2;
+    const std::span<const uint8_t> bytes(data, size);
+    check(ints::as_signed(word_at(bytes, 4)) == header.count, name + ": the count as in place");
+    size_t at = 8;
     for (int i = 0; i < header.count; ++i) {
         texture_format::TextureHeader texture;
         if (!texture_format::read_texture_header(reader, &texture)) {
@@ -338,17 +365,18 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
             return;
         }
         const std::string what = name + ": texture " + std::to_string(i);
-        check(p[0] == texture.checksum && p[1] == texture.width && p[2] == texture.height && p[3] == texture.levels &&
-                  p[4] == texture.depth && p[5] == texture.palette_depth && p[6] == texture.compression &&
-                  p[7] == texture.palette_size,
+        check(word_at(bytes, at) == texture.checksum && word_at(bytes, at + 4) == texture.width &&
+                  word_at(bytes, at + 8) == texture.height && word_at(bytes, at + 12) == texture.levels &&
+                  word_at(bytes, at + 16) == texture.depth && word_at(bytes, at + 20) == texture.palette_depth &&
+                  word_at(bytes, at + 24) == texture.compression && word_at(bytes, at + 28) == texture.palette_size,
               what + ": header as in place");
-        p += 8;
+        at += 32;
         // (the memory loader skips no palette: dictionaries with one are only read by the file loader)
         if (!reader.skip(texture.palette_size)) {
             check(false, what + ": palette");
             return;
         }
-        p = raw::field_at<const uint32_t>(p, texture.palette_size);
+        at += texture.palette_size;
         for (uint32_t level = 0; level < texture.levels; ++level) {
             const uint8_t* texels = nullptr;
             uint32_t level_bytes = 0;
@@ -356,8 +384,9 @@ void check_texture_dictionary(const std::string& name, const uint8_t* data, size
                 check(false, what + ": level " + std::to_string(level));
                 return;
             }
-            check(*p == level_bytes && raw::bytes(p + 1) == texels, what + ": level as in place");
-            p = raw::field_at<const uint32_t>(p + 1, level_bytes);
+            check(word_at(bytes, at) == level_bytes && bytes.subspan(at + 4).data() == texels,
+                  what + ": level as in place");
+            at += 4 + static_cast<size_t>(level_bytes);
             if (level_bytes != texture_format::level_size(texture, level)) {
                 if (g_level_size_mismatches++ < 5)
                     std::printf("  note %s level %u: %u bytes, %ux%u depth %u compression %u expects %u\n",
@@ -438,13 +467,14 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     std::memcpy(base, data, size);
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
-    if (!collision_format::lay_out_collision(base, size, &header, &layout)) {
+    const std::span<const uint8_t> image(base, size);
+    if (!collision_format::lay_out_collision(image, &header, &layout)) {
         check(false, name + ": collision layout");
         return;
     }
     check(header.version == 10, name + ": version 10");
     // the original's (WorldScene::load_collision_data) arithmetic
-    auto word = [base](int offset) { return *raw::as<const int>(base + offset); };
+    auto word = [image](size_t offset) { return static_cast<int>(word_at(image, offset)); };
     auto align = [](uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); };
     const uintptr_t objects = cell::address(base) + 0x20;
     const uintptr_t vertices = align(objects + static_cast<uintptr_t>(word(4)) * 0x40, 16);
@@ -453,18 +483,18 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     auto nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
     const uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
     const uintptr_t nodes = faces + faces_size + 4;
-    const uintptr_t face_lists = nodes + *cell::pointer<const uint32_t>(faces + faces_size);
+    const uintptr_t face_lists = nodes + word_at(image, faces + faces_size - cell::address(base));
     check(layout.objects == objects && layout.vertices == vertices && layout.vertex_bytes == vertex_bytes &&
               layout.faces == faces && layout.face_buffers == faces + nodes_at && layout.nodes == nodes &&
               layout.face_lists == face_lists,
           name + ": the sections as the original's arithmetic");
-    check(collision_format::check_collision_objects(base, header, layout), name + ": every object within its sections");
+    check(collision_format::check_collision_objects(image, header, layout), name + ": every object within its sections");
     g_collision_objects += header.object_count;
     // a size short of the tree's: refused
     collision_format::CollisionHeader again;
     collision_format::CollisionLayout cut;
     const size_t short_size = static_cast<size_t>(layout.nodes - cell::address(base)) - 1;
-    check(!collision_format::lay_out_collision(base, short_size, &again, &cut), name + ": cut short");
+    check(!collision_format::lay_out_collision(image.first(short_size), &again, &cut), name + ": cut short");
 }
 
 // --- skeletons (.ske) ----------------------------------------------------------------------------------------------
@@ -482,17 +512,18 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
     g_bones += skeleton->count;
     check(reader.remaining() == 0, name + ": the bones end at the file's end");
     // the original's reading in place: the flags at +4, the count at +8, then the three name arrays and the poses
-    const auto* words = raw::as<const uint32_t>(data);
-    const int count = static_cast<int>(words[2]);
-    bool same = words[1] == skeleton->flags && count == skeleton->count;
+    const std::span<const uint8_t> bytes(data, size);
+    auto word = [bytes](int index) { return word_at(bytes, static_cast<size_t>(index) * 4); };
+    const int count = static_cast<int>(word(2));
+    bool same = word(1) == skeleton->flags && count == skeleton->count;
     for (int i = 0; same && i < count; ++i) {
-        same = words[3 + i] == core::at(skeleton->names, i) && words[3 + count + i] == core::at(skeleton->parents, i) &&
-               words[3 + 2 * count + i] == core::at(skeleton->mirrors, i);
-        const auto* bind = raw::as<const float>(words + 3 + 3 * count) + i * 8;
+        same = word(3 + i) == core::at(skeleton->names, i) && word(3 + count + i) == core::at(skeleton->parents, i) &&
+               word(3 + 2 * count + i) == core::at(skeleton->mirrors, i);
+        const size_t bind = static_cast<size_t>(3 + 3 * count) * 4 + static_cast<size_t>(i) * 32;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        same = same && std::memcmp(bind, core::at(skeleton->poses, i).rotation.data(), 16) == 0 &&
+        same = same && std::memcmp(bytes.subspan(bind, 16).data(), core::at(skeleton->poses, i).rotation.data(), 16) == 0 &&
                // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-               std::memcmp(bind + 4, core::at(skeleton->poses, i).translation.data(), 16) == 0;
+               std::memcmp(bytes.subspan(bind + 16, 16).data(), core::at(skeleton->poses, i).translation.data(), 16) == 0;
     }
     check(same, name + ": as read in place");
     // every parent and mirror is one of the bones (the game looks them up: 0 when not found)
@@ -528,100 +559,100 @@ struct ReferenceScene {
 
 bool reference_scene(const uint8_t* data, size_t limit, ReferenceScene* out)
 {
-    const uint8_t* p = data + 0xC;
-    const uint8_t* end = data + limit;
+    core::Cursor<const uint8_t> p(std::span<const uint8_t>(data, limit), 0xC);
+    const auto end = static_cast<std::ptrdiff_t>(limit);
+    auto skip = [&p](size_t bytes) { p += static_cast<std::ptrdiff_t>(bytes); };
     auto word = [&p](size_t bytes) {
         uint32_t v = 0;
-        std::memcpy(&v, p, bytes);
-        p += bytes;
+        for (size_t k = 0; k < bytes; ++k)
+            v |= static_cast<uint32_t>(p[static_cast<std::ptrdiff_t>(k)]) << (8 * k);
+        p += static_cast<std::ptrdiff_t>(bytes);
         return v;
     };
     const uint32_t materials = word(4);
-    for (uint32_t m = 0; m < materials && p < end; ++m) {
-        p += 8;
+    for (uint32_t m = 0; m < materials && p.position() < end; ++m) {
+        skip(8);
         const uint32_t passes = word(4);
-        p += 4 + 1 + 4 + 1 + 1 + 4;
+        skip(4 + 1 + 4 + 1 + 1 + 4);
         if (word(1))
-            p += 8;
-        float specular = 0.0f;
-        std::memcpy(&specular, p, 4);
-        p += 4;
+            skip(8);
+        const auto specular = std::bit_cast<float>(word(4));
         if (specular > 0.0f)
-            p += 12;
-        for (uint32_t pass = 0; pass < passes && p < end; ++pass) {
-            p += 4;
+            skip(12);
+        for (uint32_t pass = 0; pass < passes && p.position() < end; ++pass) {
+            skip(4);
             const uint32_t flags = word(4);
-            p += 1 + 12 + 8 + 8 + 8 + 4;
+            skip(1 + 12 + 8 + 8 + 8 + 4);
             if (flags & 1)
-                p += 0x20;
+                skip(0x20);
             if (pass == 0 && (flags & 2)) {
                 const uint32_t anims = word(4);
-                for (uint32_t a = 0; a < anims && p < end; ++a) {
+                for (uint32_t a = 0; a < anims && p.position() < end; ++a) {
                     const uint32_t keys = word(4);
-                    p += 4 + static_cast<size_t>(keys) * 8;
+                    skip(4 + static_cast<size_t>(keys) * 8);
                 }
             }
             if (flags & 0x800) {
                 const int keys = static_cast<int>(word(4));
-                p += 12 + static_cast<size_t>(keys) * 8;
+                skip(12 + static_cast<size_t>(keys) * 8);
             }
-            p += 16; // (four words with a texture, sixteen bytes skipped without)
+            skip(16); // (four words with a texture, sixteen bytes skipped without)
         }
         ++out->materials;
     }
     const uint32_t sectors = word(4);
-    for (uint32_t s = 0; s < sectors && p < end; ++s) {
-        p += 8;
+    for (uint32_t s = 0; s < sectors && p.position() < end; ++s) {
+        skip(8);
         const uint32_t flags = word(4);
         const uint32_t meshes = word(4);
-        p += 24 + 16;
+        skip(24 + 16);
         if (flags & 0x800000)
-            p += 4 + 12 + 12 + 12;
-        for (uint32_t i = 0; i < meshes && p < end; ++i) {
-            p += 12 + 4 + 12 + 12 + 4 + 4;
+            skip(4 + 12 + 12 + 12);
+        for (uint32_t i = 0; i < meshes && p.position() < end; ++i) {
+            skip(12 + 4 + 12 + 12 + 4 + 4);
             const uint32_t lists = word(4);
-            for (uint32_t j = 0; j < lists && p < end; ++j)
-                p += static_cast<size_t>(word(4)) * 2;
+            for (uint32_t j = 0; j < lists && p.position() < end; ++j)
+                skip(static_cast<size_t>(word(4)) * 2);
             for (int k = 0; k < 8; ++k) {
                 const uint32_t count = word(2);
                 out->indices += count;
-                p += count * 2;
+                skip(count * 2);
             }
-            p += 1;
+            skip(1);
             const uint32_t vertex_count = word(2);
             const uint32_t buffers = word(1);
-            for (uint32_t v = 0; v < buffers && p < end; ++v) {
+            for (uint32_t v = 0; v < buffers && p.position() < end; ++v) {
                 const uint32_t scaled = word(1);
                 const uint32_t size = word(4);
                 if (v == 0)
                     out->vertex_bytes += size;
-                p += size;
+                skip(size);
                 if (scaled)
-                    p += static_cast<size_t>(static_cast<int>(word(4))) * 0x84;
+                    skip(static_cast<size_t>(static_cast<int>(word(4))) * 0x84);
             }
-            p += 4 + 4 + 3;
+            skip(4 + 4 + 3);
             if (word(1))
-                p += vertex_count;
+                skip(vertex_count);
             const int levels = static_cast<int>(word(4));
             if (levels > 1)
-                p += static_cast<size_t>(levels) * 4;
+                skip(static_cast<size_t>(levels) * 4);
             if (word(4) == 1) {
-                p += 4;
-                p += word(4);
+                skip(4);
+                skip(word(4));
             }
             ++out->meshes;
         }
         ++out->sectors;
     }
-    if (p >= end)
+    if (p.position() >= end)
         return false;
     const int nodes = static_cast<int>(word(4));
     if (nodes > 0) {
-        p += static_cast<size_t>(nodes) * 0x50;
+        skip(static_cast<size_t>(nodes) * 0x50);
         out->hierarchy = static_cast<uint32_t>(nodes);
     }
-    out->end = static_cast<size_t>(p - data);
-    return p <= end;
+    out->end = static_cast<size_t>(p.position());
+    return p.position() <= end;
 }
 
 void check_scene(const std::string& name, const uint8_t* data, size_t size)
@@ -716,10 +747,11 @@ void check_skin(const std::string& name, const uint8_t* data, size_t size)
     }
     g_scenes.breaks += static_cast<int>(skin.break_count);
     // the original's reading in place: version, bone count from version 2, break count, the breaks
-    const auto* words = raw::as<const uint32_t>(data);
-    const size_t at = words[0] >= 2 ? 2 : 1;
-    const uint32_t breaks = words[at];
-    check(breaks == skin.break_count && std::memcmp(words + at + 1, skin.breaks.data(), skin.breaks.size()) == 0 &&
+    const std::span<const uint8_t> bytes(data, size);
+    const size_t at = word_at(bytes, 0) >= 2 ? 2 : 1;
+    const uint32_t breaks = word_at(bytes, at * 4);
+    check(breaks == skin.break_count &&
+              std::memcmp(bytes.subspan((at + 1) * 4, skin.breaks.size()).data(), skin.breaks.data(), skin.breaks.size()) == 0 &&
               in.position() == (at + 1) * 4 + breaks * 12,
           name + ": as read in place");
     check(in.position() == size, name + ": the breaks end at the file's end");
@@ -772,13 +804,19 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     }
     // the original's reading in place: the count at +8, the map from +0x14, the page header after it, the
     // rectangles after the texels and palette
-    const uint8_t* p = data + 0x14 + header.glyph_count * 6;
-    const uint32_t width = p[4] | p[5] << 8;
-    const uint32_t height = p[6] | p[7] << 8;
-    const uint8_t* rect = p + 0x10 + ((width * height + 3) & ~3u) + 0x400 + 4;
-    bool same = width == page.width && height == page.height && data[4] == header.format;
-    for (int i = 0; same && i < header.glyph_count; ++i)
-        same = std::memcmp(rect + 8 * i, &core::at(rects, i), 8) == 0 && std::memcmp(data + 0x14 + 6 * i + 2, core::at(entries, i).codes.data(), 4) == 0;
+    const std::span<const uint8_t> bytes(data, size);
+    bool same = hd; // (an upscaled page isn't read in place)
+    if (!hd) {
+        const size_t page_header = 0x14 + static_cast<size_t>(header.glyph_count) * 6;
+        const uint32_t width = core::at(bytes, page_header + 4) | core::at(bytes, page_header + 5) << 8;
+        const uint32_t height = core::at(bytes, page_header + 6) | core::at(bytes, page_header + 7) << 8;
+        const size_t rect = page_header + 0x10 + ((width * height + 3) & ~3u) + 0x400 + 4;
+        same = width == page.width && height == page.height && core::at(bytes, 4) == header.format;
+        for (int i = 0; same && i < header.glyph_count; ++i)
+            same = std::memcmp(bytes.subspan(rect + 8 * static_cast<size_t>(i), 8).data(), &core::at(rects, i), 8) == 0 &&
+                   std::memcmp(bytes.subspan(0x14 + 6 * static_cast<size_t>(i) + 2, 4).data(),
+                               core::at(entries, i).codes.data(), 4) == 0;
+    }
     check(hd || same, name + ": as read in place");
     util::ByteReader cut(data, size - 1);
     font_format::read_header(cut, &header);
@@ -818,24 +856,26 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
     if (wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes)
         ++wave_stats().short_data;
     // the original's reading (fread chunk by chunk while 8 header bytes come)
+    const std::span<const uint8_t> bytes(data, size);
     size_t at = 12;
     const uint8_t* samples = nullptr;
     uint32_t sample_bytes = 0;
     std::array<uint8_t, wave_format::kFormatSize> format = {};
     bool looping = false;
     while (at + 8 <= size) {
-        uint32_t id = 0, chunk = 0;
-        std::memcpy(&id, data + at, 4);
-        std::memcpy(&chunk, data + at + 4, 4);
+        const uint32_t id = word_at(bytes, at);
+        const uint32_t chunk = word_at(bytes, at + 4);
         at += 8;
         if (id == wave_format::kFormatId) {
-            std::memcpy(format.data(), data + at, chunk < sizeof(format) ? chunk : sizeof(format));
+            const std::span<const uint8_t> field = window_at(bytes, at, chunk < sizeof(format) ? chunk : sizeof(format));
+            std::memcpy(format.data(), field.data(), field.size());
         } else if (id == wave_format::kDataId) {
-            samples = data + at;
+            samples = bytes.subspan(at).data();
             sample_bytes = chunk;
         } else if (id == wave_format::kSamplerId) {
             std::array<uint32_t, 9> sampler = {};
-            std::memcpy(sampler.data(), data + at, chunk < 0x24 ? chunk : 0x24);
+            const std::span<const uint8_t> field = window_at(bytes, at, chunk < 0x24 ? chunk : 0x24);
+            std::memcpy(sampler.data(), field.data(), field.size());
             if (core::at(sampler, 7) > 0)
                 looping = true;
         }
@@ -856,12 +896,12 @@ struct AnimStats {
 } g_anims;
 // NOLINTEND(readability-identifier-naming)
 
-uint8_t* reference_aligned(uint8_t* p)
+// Offsets in the animation's image (the game's files are 16-byte aligned: an offset's alignment is the address's).
+std::ptrdiff_t reference_aligned(std::ptrdiff_t offset) { return offset + ((4 - (offset & 3)) & 3); }
+std::ptrdiff_t reference_past_bone_bits(std::span<const uint8_t> image, std::ptrdiff_t offset)
 {
-    const uintptr_t misaligned = cell::address(p) & 3;
-    return misaligned ? p + (4 - misaligned) : p;
+    return offset + ((static_cast<int32_t>(word_at(image, static_cast<size_t>(offset))) - 1) / 32) * 4 + 8;
 }
-uint8_t* reference_past_bone_bits(uint8_t* p) { return p + ((*raw::as<int32_t>(p) - 1) / 32) * 4 + 8; }
 
 void check_animation(const std::string& name, const uint8_t* data, size_t size)
 {
@@ -872,7 +912,8 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
     std::memcpy(base, data, size);
     anim_format::AnimHeader header;
     anim_format::AnimLayout layout;
-    const uint32_t flags = raw::as<const uint32_t>(base)[1];
+    const std::span<const uint8_t> image(base, size);
+    const uint32_t flags = size >= 8 ? word_at(image, 4) : 0;
     if (!(flags & anim_format::kFloatKeys) && !(flags & anim_format::kCompressed)) {
         ++g_anims.neither; // (the frame data loads nothing of it)
         return;
@@ -882,46 +923,47 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
         return;
     }
     // the original's arithmetic (JointClipFrames::set_up_float_keys / set_up_compressed)
-    uint8_t* keys = base + 0xC;
-    const auto* words = raw::as<const uint32_t>(keys);
-    const int bones = static_cast<int>(words[0]);
-    const uint8_t* events = nullptr;
+    const std::ptrdiff_t keys = 0xC;
+    const uintptr_t address = cell::address(base);
+    auto word = [image, keys](size_t index) { return word_at(image, static_cast<size_t>(keys) + index * 4); };
+    const int bones = static_cast<int>(word(0));
+    std::ptrdiff_t events = 0;
     if (flags & anim_format::kFloatKeys) {
         ++g_anims.float_keys;
-        uint8_t* p = keys + 0x10;
+        std::ptrdiff_t p = keys + 0x10;
         if (flags & 0x1000000)
             p += bones * 4;
         if (flags & 0x80000)
-            p = reference_past_bone_bits(p);
-        const uint8_t* counts = p;
+            p = reference_past_bone_bits(image, p);
+        const std::ptrdiff_t counts = p;
         p = reference_aligned(p + bones * ((flags & 0x400000) ? 4 : 2));
         const int key_size = (flags & 0x8000000) || (flags & 0x1000000) ? 16 : 8;
-        const uint8_t* rotation = p;
-        uint8_t* translation = p + static_cast<int16_t>(words[1]) * key_size;
-        p = translation + static_cast<int16_t>(words[2]) * key_size;
+        const std::ptrdiff_t rotation = p;
+        const std::ptrdiff_t translation = p + static_cast<int16_t>(word(1)) * key_size;
+        p = translation + static_cast<int16_t>(word(2)) * key_size;
         events = reference_aligned(p);
-        check(layout.key_counts == cell::address(counts) &&
-                  layout.rotation_keys == cell::address(rotation) &&
-                  layout.translation_keys == cell::address(translation),
+        check(layout.key_counts == address + static_cast<uintptr_t>(counts) &&
+                  layout.rotation_keys == address + static_cast<uintptr_t>(rotation) &&
+                  layout.translation_keys == address + static_cast<uintptr_t>(translation),
               name + ": float keys as the original's arithmetic");
     } else {
         ++g_anims.compressed;
-        uint8_t* p = keys + 0x18 + bones * 2;
+        std::ptrdiff_t p = keys + 0x18 + bones * 2;
         p = reference_aligned(p + bones * 2);
         if (flags & 0x2000)
             p += 0x600;
         if (flags & 0x80000)
-            p = reference_past_bone_bits(p);
+            p = reference_past_bone_bits(image, p);
         p = reference_aligned(p);
         if (!(flags & 0x8000000) && !(flags & 0x1000000)) {
-            check(layout.rotation_keys == cell::address(p) &&
-                      layout.translation_keys == cell::address(p + words[4]),
+            check(layout.rotation_keys == address + static_cast<uintptr_t>(p) &&
+                      layout.translation_keys == address + static_cast<uintptr_t>(p) + word(4),
                   name + ": compressed keys as the original's arithmetic");
-            p += words[4] + words[5];
+            p += static_cast<std::ptrdiff_t>(word(4) + word(5));
         }
         events = reference_aligned(p);
     }
-    check(layout.custom_keys == cell::address(events),
+    check(layout.custom_keys == address + static_cast<uintptr_t>(events),
           name + ": custom keys as the original's arithmetic");
     check(anim_format::check_bone_keys(header, layout), name + ": the bones' keys within the totals");
     util::ByteReader reader(cell::pointer<const uint8_t>(layout.custom_keys), layout.end - layout.custom_keys);
@@ -961,7 +1003,8 @@ void check_stream_index(const std::filesystem::path& data)
         check(stream_index_format::read_entry(reader, &entry), "pcm.dat: entry " + std::to_string(i));
         outside += !stream_index_format::within(entry, wad_size);
         // the original's reading in place: the entries from +4, 12 bytes each
-        check(std::memcmp(file.data() + 4 + i * 12, &entry, 12) == 0, "pcm.dat: entry as in place");
+        check(std::memcmp(std::span<const uint8_t>(file).subspan(4 + static_cast<size_t>(i) * 12, 12).data(), &entry, 12) == 0,
+              "pcm.dat: entry as in place");
     }
     check(outside == 0, "pcm.dat: every stream within pcm.wad");
     check(reader.remaining() == 0, "pcm.dat: the entries end at the file's end");
