@@ -10,7 +10,7 @@
 // or 6): most functions check that first ("NoSound()").
 //
 // NOT ORIGINAL: thug2-decomp.ini [features] mute_audio=1 silences everything (effects, music, streams, movies) from
-// the first frame - the audio session and the volume paths, engine/sound/mute_audio.h; the workspaces' test games run so.
+// the first frame - the audio session and the volume paths, platform/mute_audio.h; the workspaces' test games run so.
 
 #include <cstddef>
 #include <cstdint>

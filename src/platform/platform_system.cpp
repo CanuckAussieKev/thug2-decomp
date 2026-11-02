@@ -9,7 +9,7 @@
 #include <cstring>
 #include <array>
 
-#include "engine/sound/mute_audio.h"
+#include "platform/mute_audio.h"
 #include "engine/gfx/device.h"
 #include "engine/audio/music_player.h"
 #include "engine/core/bits_as.h"
@@ -128,7 +128,7 @@ void init_direct_sound(HWND window)
     if (direct_sound())
         direct_sound()->SetCooperativeLevel(window, DSSCL_PRIORITY);
     // NOT ORIGINAL: [features] mute_audio=1 - the process's audio session muted before anything plays
-    // (engine/sound/mute_audio.h)
+    // (platform/mute_audio.h)
     if (sound::audio_muted())
         sound::set_audio_session_muted(true);
 }

@@ -16,7 +16,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
-#include "engine/core/pointer_cell.h"
+#include "platform/all_ones.h"
 
 namespace goals {
 
@@ -63,10 +63,11 @@ constexpr uint32_t kModeInfo = 0xCA5F7FFB;           // mode_info
 constexpr uint32_t kDefinition = 0x97CFD027;         // definition
 constexpr uint32_t kFreeskate = 0x34861A16;          // freeskate
 
-WinRule* const kHeadMarker = cell::pointer<WinRule>(-1);
+WinRule* const kHeadMarker = platform::all_ones_pointer<WinRule>();
 
-// (the getters' local when an asserted integer isn't there: the original's is the pushed `this`)
-int unset(const void* mode) { return static_cast<int>(cell::address(mode)); }
+// (the getters' local when an asserted integer isn't there: the original's is the pushed `this`'s address - 0 here,
+// as round 3c's argument-slot defaults)
+int unset(const void* /*mode*/) { return 0; }
 
 MatchRules*& the_game_mode() { return g_game_mode; }
 uint32_t& ref_tally() { return g_game_mode_references; }

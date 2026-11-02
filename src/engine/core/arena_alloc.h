@@ -4,8 +4,7 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
+#include "platform/all_ones.h"
 
 // The lowest layer of the memory manager: regions of memory, the allocators that carve them up from either
 // end, and the header in front of every allocated block.
@@ -97,7 +96,7 @@ public:
 struct ListNode {
     // What a list's head keeps as its item: -1 (some heads are filled with 0xFF bytes rather than made: the value,
     // not just the marker, is what they compare).
-    static void* head_marker() noexcept { return cell::pointer<void>(0xFFFFFFFFu); }
+    static void* head_marker() noexcept { return platform::all_ones_pointer(); }
 
     void* data;
     int priority;

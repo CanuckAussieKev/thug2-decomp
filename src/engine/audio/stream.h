@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <array>
 
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include "platform/all_ones.h"
 
 // NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Win32's own name
 struct _OVERLAPPED;
@@ -59,7 +59,7 @@ struct WadStream {
     // The status word status_index_ picks (E_PENDING 0x8000000A: still going).
     [[nodiscard]] uint32_t get_standing() const { return core::at(cur_standing_, status_index_); }
 
-    Hdl file_ref_{cell::pointer<void>(0xFFFFFFFFu)}; // +0x00 INVALID_HANDLE_VALUE when closed
+    Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t unknown04_{0};                   // +0x04
     _OVERLAPPED* async_ctl_{}; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
     bool reading_{};           // +0x0C
@@ -133,7 +133,7 @@ struct BinkStream {
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
     void set_channel_volumes(float, float, float, float, float) {}
 
-    Hdl file_ref_{cell::pointer<void>(0xFFFFFFFFu)}; // +0x00 INVALID_HANDLE_VALUE: none
+    Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE: none
     uint32_t unknown04_{0};                   // +0x04
     _OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0)
     int wad_entry_{-1};      // +0x0C the pcm.wad entry open (0x0069CADC), -1: none

@@ -2,7 +2,7 @@
 
 #include "engine/gfx/viewport.h"
 #include "engine/sound/sfx.h"
-#include "engine/sound/mute_audio.h"
+#include "platform/mute_audio.h"
 
 #include <cmath>
 #include <cstddef>

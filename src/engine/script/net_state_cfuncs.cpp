@@ -35,7 +35,6 @@
 #include "game/skate/game_mode.h"
 #include "engine/assets/resource_registry.h"
 #include "game/rider/core_physics.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -522,7 +521,7 @@ bool cfunc_game_is_over(script::Struct*, script::Script*) { return online_hub_ha
 namespace {
 bool& trying_to_join() { return g_trying_to_join; }
 // gethostbyname through the game's import (0x005BEABA).
-void* get_host_by_name(const char* name) { return crt::get_host_by_name(name); }
+uint32_t host_first_address(const char* name) { return crt::host_first_address(name); }
 } // namespace
 
 // 0x005A28A0: TryJoinInternetGame: the server chosen in the list (0x0067EFB8, unless -1) looked for; a join is being
@@ -545,12 +544,7 @@ bool cfunc_try_join_server_ip(script::Struct* params, script::Script*)
     params->fetch_text("string", &address, true); // "string"
     uint32_t ip = get_inet_addr(address);
     if (ip == 0xFFFFFFFF) {
-        auto* host = static_cast<uint8_t*>(get_host_by_name(address));
-        ip = 0xFFFFFFFF;
-        if (host) {
-            const uint8_t* first = **raw::field_at<uint8_t**>(host, 0xC); // h_addr_list[0]
-            ip = first[0] | first[1] << 8 | first[2] << 16 | static_cast<uint32_t>(first[3]) << 24;
-        }
+        ip = host_first_address(address); // (its h_addr_list[0], or none)
     }
     if (ip != 0xFFFFFFFF) {
         trying_to_join() = true;

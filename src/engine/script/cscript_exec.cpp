@@ -52,7 +52,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/loading_console.h"
 #include "platform/run_log.h"
-#include "engine/core/pointer_cell.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -203,7 +202,7 @@ bool Script::execute_command()
     }
     case 0x46: {
         ++pc_;
-        auto* entry = cell::pointer<MemberFunctionEntry>(fetch_word32(pc_));
+        const MemberFunctionEntry* entry = member_entry_at(pc_);
         pc_ += 4;
         parse_function_params();
         if (!entity_.get_pull()) {
@@ -214,7 +213,7 @@ bool Script::execute_command()
     }
     case 0x43: {
         ++pc_;
-        auto function = function_at<Function>(fetch_word32(pc_));
+        const NativeFunction function = native_function_at(pc_);
         pc_ += 4;
         parse_function_params();
         return function(stmt_args_, this);

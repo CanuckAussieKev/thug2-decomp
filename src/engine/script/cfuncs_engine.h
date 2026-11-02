@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+namespace render {
+struct WorldScene;
+}
 namespace script {
 class Struct;
 class Script;
@@ -75,9 +78,9 @@ bool cfunc_get_bone_position(script::Struct* params, script::Script* script);   
 // 0x004472D0: a spawned polygon's details given back to their pool pair (0x00700500).
 void free_spawned_poly_details(void* details);
 // 0x00447710: a scene's sector vertex colours (of `lightGroup`, if not 0) moved towards `target` by `factor`.
-void compress_scene_vertex_colours(uint8_t* scene, float target, float factor, uint32_t light_group);
+void compress_scene_vertex_colours(render::WorldScene* scene, float target, float factor, uint32_t light_group);
 // 0x00447A60: a scene's sector vertex colours scaled by a pseudo-random amount (by position) of up to `amount`.
-void nudge_scene_vertex_colours(uint8_t* scene, float amount);
+void nudge_scene_vertex_colours(render::WorldScene* scene, float amount);
 
 bool cfunc_spawn_poly(script::Struct* params, script::Script* script);          // 0x00447330
 bool cfunc_compress_vc(script::Struct* params, script::Script* script);         // 0x00447980

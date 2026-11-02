@@ -24,9 +24,9 @@
 #include "game/park_editing/piece_menu.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "platform/all_ones.h"
 
 namespace objects {
 
@@ -388,7 +388,7 @@ void EventWaitBoard::add_listener(uint32_t type, script::Script* script)
     if (!list) {
         list = static_cast<ScriptList*>(ScriptList::operator new(sizeof(ScriptList)));
         if (list) {
-            list->payload_ = cell::pointer<script::Script>(-1);
+            list->payload_ = platform::all_ones_pointer<script::Script>();
             list->rank_ = 0;
             list->following_ = list;
             list->preceding_ = list;

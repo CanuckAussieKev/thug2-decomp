@@ -673,7 +673,7 @@ add_executable(thug2 WIN32
     src/engine/sound/sfx.cpp
     src/engine/sound/sound_cfuncs.cpp
     src/engine/sound/sfx_voices.cpp
-    src/engine/sound/mute_audio.cpp
+    src/platform/mute_audio.cpp
     src/engine/sound/surface_kind.cpp
     src/engine/gfx/anim_blend.cpp
     src/engine/gfx/anim_timeline.cpp

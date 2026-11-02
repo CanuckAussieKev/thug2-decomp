@@ -30,6 +30,8 @@ F library_function(const char* dll, const char* name)
 uint32_t get_inet_addr(const char* address); // inet_addr
 const char* get_inet_ntoa(uint32_t address); // inet_ntoa (the address in network order)
 void* get_host_by_name(const char* name);    // gethostbyname (a hostent*)
+// gethostbyname's first IPv4 address, its bytes in network order as a word (0xFFFFFFFF: none).
+uint32_t host_first_address(const char* name);
 
 // --- The C runtime: its heap, files and exit ---
 // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants

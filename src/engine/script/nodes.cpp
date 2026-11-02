@@ -18,9 +18,8 @@
 #include "engine/script/script_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "platform/code_address.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/cscript.h"
 
 namespace level_nodes {
 
@@ -39,8 +38,6 @@ constexpr uint32_t kOrientation = 0xC97F3AA9; // orientation
 constexpr uint32_t kScr = 0xA6D2D890;         // scr (SetEventHandler's script)
 constexpr uint32_t kEndGap = 0xE5399FB2;      // EndGap
 constexpr uint32_t kGapScript = 0x7C9E51AB;   // gapscript
-// SetEventHandler (the C function, as tokens 0x43 hold it: the game's address)
-const uint32_t kSetEventHandler = cell::address(code_address(&commands::cfunc_set_event_handler));
 constexpr int kDeepestLevel = 5;
 
 // Script tokens (qb.h).
@@ -231,7 +228,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or
             // member function that is `target` handed to the callback; EndGap's gapscript= is followed too.
             const uint32_t name = *token == kTokenMemberFunctionEntry
-                                      ? *cell::pointer<const uint32_t>(script::fetch_word32(token + 1))
+                                      ? script::member_entry_at(token + 1)->callsign_
                                       : script::fetch_word32(token + 1);
             token += 5;
             if (*token == kTokenEquals)
@@ -279,11 +276,9 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
         }
         case kTokenCFunction: {
             // A C function already looked up: SetEventHandler's scr= is followed.
-            const uint32_t function = script::fetch_word32(token + 1);
+            const script::NativeFunction function = script::native_function_at(token + 1);
             token += 5;
-            // (the game's Function table holds the game's address; a table of ours would hold our function)
-            if (function != kSetEventHandler &&
-                function != cell::of(code_address(&commands::cfunc_set_event_handler))) {
+            if (function != &commands::cfunc_set_event_handler) {
                 token = script::skip_to_end_of_statement(token);
                 break;
             }

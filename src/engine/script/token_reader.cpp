@@ -19,6 +19,7 @@
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/pointer_cell.h"
 
 
 namespace script {
@@ -1028,5 +1029,11 @@ namespace script {
 
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
 void construct_evaluator() { g_evaluator.prepare_all(); }
+
+const MemberFunctionEntry* member_entry_at(const uint8_t* p) { return cell::pointer<const MemberFunctionEntry>(fetch_word32(p)); }
+NativeFunction native_function_at(const uint8_t* p)
+{
+    return function_at<NativeFunction>(cell::pointer<const void>(fetch_word32(p)));
+}
 
 } // namespace script

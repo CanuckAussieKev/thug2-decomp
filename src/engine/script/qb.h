@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include "engine/core/slab_bank.h"
+#include "engine/script/cell.h"
 
 // Compiled scripts (.qb bytecode): reading and skipping tokens, and setting up the script system's pools.
 //
@@ -54,6 +55,10 @@ void prepare_script_tokens(uint8_t* token);
 
 // Little-endian values in the token stream; the writers return the position after the value.
 uint32_t fetch_word32(const uint8_t* p);
+// What precompiled bytecode holds in place of a name once fixed up (tokens 0x46 / 0x43: the word after the token):
+// a member function's table entry, a C function (token_reader.cpp).
+const MemberFunctionEntry* member_entry_at(const uint8_t* p);
+NativeFunction native_function_at(const uint8_t* p);
 uint16_t fetch_word16(const uint8_t* p);
 uint8_t* store_word32(uint8_t* p, uint32_t value);
 uint8_t* store_word16(uint8_t* p, uint16_t value);

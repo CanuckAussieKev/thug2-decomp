@@ -12,7 +12,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/movie.h"
 #include "engine/audio/music_player.h"
-#include "engine/sound/mute_audio.h"
+#include "platform/mute_audio.h"
 #include "platform/winmain.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"

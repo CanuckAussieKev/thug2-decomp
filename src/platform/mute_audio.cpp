@@ -1,6 +1,6 @@
 // NOT ORIGINAL: [features] mute_audio - see mute_audio.h.
 
-#include "engine/sound/mute_audio.h"
+#include "platform/mute_audio.h"
 
 #include <windows.h>
 #include <audiopolicy.h>

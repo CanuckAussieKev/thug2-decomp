@@ -12,6 +12,7 @@
 #include <cstring>
 #include <process.h>
 #include <array>
+#include "engine/core/raw_view.h"
 
 namespace crt {
 
@@ -43,6 +44,14 @@ const char* get_inet_ntoa(uint32_t address)
     return inet_ntoa(in);
 }
 void* get_host_by_name(const char* name) { return gethostbyname(name); }
+uint32_t host_first_address(const char* name)
+{
+    const hostent* host = gethostbyname(name);
+    if (!host)
+        return 0xFFFFFFFF;
+    const uint8_t* first = raw::bytes(*host->h_addr_list); // (Winsock's char* address bytes)
+    return first[0] | first[1] << 8 | first[2] << 16 | static_cast<uint32_t>(first[3]) << 24;
+}
 
 void c_exit() { _cexit(); }
 unsigned get_instant() { return linked_time(nullptr); }

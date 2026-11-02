@@ -20,9 +20,10 @@
 #include "engine/gfx/spawned_polys.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/engine_scene.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
+#include <vector>
+#include <utility>
 
 namespace commands {
 
@@ -60,45 +61,13 @@ constexpr uint32_t kHeading = 0xFD4BC03E;      // "heading"
 constexpr uint32_t kPitch = 0xD8604126;        // "pitch"
 constexpr uint32_t kMetrics = 0xDD755518;      // "Metrics"
 
-// A spawned polygon's settings (0xB8 bytes, from the pool pair 0x00700500; constructed by 0x00491990: zeroed,
-// blend mode 0x54628ED7). The fields not named are set elsewhere (0x00492450).
-struct SpawnedPolyDetails {
-    script::VectorValue pos; // +0x00
-    std::array<uint8_t, 0x48> unknown10;
-    std::array<float, 2> start_dims_;         // +0x58
-    std::array<float, 2> end_dims_;           // +0x60
-    std::array<std::array<uint8_t, 4>, 4> start_colours_; // +0x68 (r, g, b, a per corner)
-    std::array<std::array<uint8_t, 4>, 4> end_colours_;   // +0x78
-    std::array<uint8_t, 0x10> unknown88;
-    uint32_t flags; // +0x98
-    uint32_t unknown9c_;
-    float lifetime; // +0xA0
-    void* texture;  // +0xA4
-    uint32_t unknowna8_;
-    uint32_t blend_mode_; // +0xAC
-    float align_h_;       // +0xB0 (-1 left, 0 centre, 1 right)
-    float align_v_;       // +0xB4 (-1 top, 0 centre, 1 bottom)
-};
-static_assert(sizeof(SpawnedPolyDetails) == 0xB8, "layout must match the original");
 
 memory::PoolPair& spawned_poly_pools() { return render::g_spawned_poly_pools; }
 
-// The loaded scenes' list (0x006FA7EC): nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1.
-struct SceneNode {
-    uint8_t* scene;
-    int priority;
-    SceneNode* next;
-};
-static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-SceneNode* first_scene_node() { return raw::as<SceneNode>(render::first_scene_node()); }
-SceneNode* next_scene_node(SceneNode* node)
-{
-    SceneNode* next = node->next;
-    return next->scene == cell::pointer<uint8_t>(-1) ? nullptr : next;
-}
+// The loaded scenes' list (0x006FA7EC, ended by a node whose scene is -1): walked by the engine's helpers.
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
-bool is_sky_backdrop(const uint8_t* scene) { return raw::as<const render::WorldScene>(scene)->is_sky_; }
-uint8_t* first_sky_scene() { return raw::bytes(render::get_sky_scene()); }
+bool is_sky_backdrop(const render::WorldScene* scene) { return scene->is_sky_; }
+render::WorldScene* first_sky_scene() { return render::get_sky_scene(); }
 
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
 // 0x0048DF80, 0x0048E150 into a buffer, 0x0048DFA0 back from one).
@@ -110,10 +79,20 @@ void get_positions(void* geometry, script::VectorValue* out)
 {
     as_geom(geometry)->get_vertices(out); // (x, y, z, w each)
 }
-void get_colours(void* geometry, uint32_t* out) { static_cast<render::Geom*>(geometry)->fetch_tints(out); }
-void set_colours(void* geometry, uint32_t* colours)
+void get_colours(void* geometry, colour::Bytes* out)
 {
-    as_geom(geometry)->change_colors(colours);
+    static_assert(sizeof(colour::Bytes) == sizeof(uint32_t));
+    std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
+    static_cast<render::Geom*>(geometry)->fetch_tints(words.data());
+    for (size_t i = 0; i < words.size(); ++i)
+        out[i] = colour::bytes_of(core::at(words, i));
+}
+void set_colours(void* geometry, const colour::Bytes* colours)
+{
+    std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
+    for (size_t i = 0; i < words.size(); ++i)
+        core::at(words, i) = colour::packed_of(colours[i]);
+    as_geom(geometry)->change_colors(words.data());
 }
 
 // The CRT's _ftol (0x006236FC): truncation towards zero; callers keep the low bits.
@@ -131,22 +110,22 @@ uint8_t channel_byte(double value)
 
 // A scene's sectors (its hash table at +0xD0) - those with geometry, of the light group if one is given.
 template <typename Fn>
-void for_each_sector_geometry(uint8_t* scene, uint32_t light_group, Fn fn)
+void for_each_sector_geometry(render::WorldScene* scene, uint32_t light_group, Fn fn)
 {
-    lists::KeyMap* sectors = raw::as<render::WorldScene>(scene)->sectors_;
+    lists::KeyMap* sectors = scene->sectors_;
     if (!sectors)
         return;
     sectors->iter_bucket_ = -1;
     sectors->iter_item_ = nullptr;
     if (!sectors->step_iterator() || !sectors->iter_item_)
         return;
-    for (auto* sector = static_cast<uint8_t*>(sectors->iter_item_->value); sector;) {
+    for (auto* sector = static_cast<render::WorldCell*>(sectors->iter_item_->value); sector;) {
         void* geometry = sector_geometry(sector);
-        if (geometry && (!light_group || light_group == raw::as<render::WorldCell>(sector)->light_group_))
+        if (geometry && (!light_group || light_group == sector->light_group_))
             fn(geometry);
         if (!sectors->step_iterator() || !sectors->iter_item_)
             break;
-        sector = static_cast<uint8_t*>(sectors->iter_item_->value);
+        sector = static_cast<render::WorldCell*>(sectors->iter_item_->value);
     }
 }
 
@@ -161,9 +140,9 @@ void free_spawned_poly_details(void* details) { spawned_poly_pools().dealloc(det
 // Always true.
 bool cfunc_spawn_poly(Struct* params, Script*)
 {
-    auto* details = spawned_poly_pools().allocate<SpawnedPolyDetails>();
+    auto* details = spawned_poly_pools().allocate<render::SpawnedPoly>();
     if (details)
-        details = raw::as<SpawnedPolyDetails>(new (details) render::SpawnedPoly);
+        details = memory::construct_in<render::SpawnedPoly>(details);
     // (a failed allocation writes through null below, as in the original)
     params->fetch_vec(kPos, &details->pos, 1);
     script::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -234,7 +213,7 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     params->read_hash_value(kTexture, &texture, 0);
     details->texture = texture ? render::g_particle_texture_dict->fetch_skin(texture) // the texture dictionary
                                : nullptr;
-    render::engine::spawn_poly(raw::as<render::SpawnedPoly>(details),
+    render::engine::spawn_poly(details,
                                &vector1, &vector2);
     return true;
 }
@@ -242,24 +221,25 @@ bool cfunc_spawn_poly(Struct* params, Script*)
 // 0x00447710: the vertex colours of a scene's sectors (of `lightGroup`, if given) moved towards `target`: each
 // channel c becomes (c - target) * factor + target, limited to 0..255 (alpha kept). Nothing when target and factor
 // are both 0.
-void compress_scene_vertex_colours(uint8_t* scene, float target, float factor, uint32_t light_group)
+void compress_scene_vertex_colours(render::WorldScene* scene, float target, float factor, uint32_t light_group)
 {
     for_each_sector_geometry(scene, light_group, [&](void* geometry) {
         const int count = get_vertex_count(geometry);
         if (!count)
             return;
         // (the original runs an empty constructor over the array: 0x005902E0)
-        auto* colours = static_cast<uint8_t*>(memory::alloc(static_cast<unsigned int>(count) * 4));
-        get_colours(geometry, raw::as<uint32_t>(colours));
+        auto* colours = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
+        get_colours(geometry, colours);
         if (target != 0.0f || factor != 0.0f) {
             for (int i = 0; i < count; ++i) {
-                uint8_t* colour = colours + 4 * i;
+                colour::Bytes& colour = colours[i];
                 // x87: in double, rounded only by the truncation
                 for (int channel = 0; channel < 3; ++channel)
-                    colour[channel] = channel_byte((static_cast<double>(colour[channel]) - target) * factor + target);
+                    core::at(colour, channel) =
+                        channel_byte((static_cast<double>(core::at(colour, channel)) - target) * factor + target);
             }
         }
-        set_colours(geometry, raw::as<uint32_t>(colours));
+        set_colours(geometry, colours);
         memory::dealloc(colours);
     });
 }
@@ -275,13 +255,13 @@ bool cfunc_compress_vc(Struct* params, Script*)
     auto factor = static_cast<float>((100.0 - percent) * static_cast<double>(0.01f)); // (x87: rounded once)
     uint32_t light_group = 0;
     params->read_hash_value(kLightGroup, &light_group, 0);
-    for (SceneNode* node = first_scene_node(); node;) {
-        SceneNode* next = next_scene_node(node);
-        if (!is_sky_backdrop(node->scene))
-            compress_scene_vertex_colours(node->scene, target, factor, light_group);
+    for (memory::ListNode* node = render::first_scene_node(); node;) {
+        memory::ListNode* next = render::next_scene_node(node);
+        if (!is_sky_backdrop(render::scene_of_node(node)))
+            compress_scene_vertex_colours(render::scene_of_node(node), target, factor, light_group);
         node = next;
     }
-    if (uint8_t* sky = first_sky_scene())
+    if (render::WorldScene* sky = first_sky_scene())
         compress_scene_vertex_colours(sky, target, factor, light_group);
     return true;
 }
@@ -289,7 +269,7 @@ bool cfunc_compress_vc(Struct* params, Script*)
 // 0x00447A60: the vertex colours of a scene's sectors scaled by a pseudo-random amount per vertex: a 15-bit hash
 // of the position (in 1/16ths) h gives the scale 1 - amount + 2 * amount * h / 32768 (colours limited to 0..255,
 // alpha kept).
-void nudge_scene_vertex_colours(uint8_t* scene, float amount)
+void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
 {
     for_each_sector_geometry(scene, 0, [&](void* geometry) {
         const int count = get_vertex_count(geometry);
@@ -297,25 +277,25 @@ void nudge_scene_vertex_colours(uint8_t* scene, float amount)
             return;
         // (the original runs an empty constructor over both arrays: 0x005902E0)
         auto* positions = static_cast<script::VectorValue*>(memory::alloc(static_cast<unsigned int>(count) * 16));
-        auto* colours = static_cast<uint8_t*>(memory::alloc(static_cast<unsigned int>(count) * 4));
+        auto* colours = static_cast<colour::Bytes*>(memory::alloc(static_cast<unsigned int>(count) * 4));
         get_positions(geometry, positions);
-        get_colours(geometry, raw::as<uint32_t>(colours));
+        get_colours(geometry, colours);
         for (int i = 0; i < count; ++i) {
             const script::VectorValue& position = positions[i];
-            uint8_t* colour = colours + 4 * i;
+            colour::Bytes& colour = colours[i];
             auto hash = static_cast<uint32_t>(ftol(static_cast<double>(position.x) * 16.0)) *
                         static_cast<uint32_t>(ftol(static_cast<double>(position.y) * 16.0));
             hash = (hash ^ static_cast<uint32_t>(ftol(static_cast<double>(position.z) * 16.0))) & 0x7FFF;
             // x87: the scale rounded to a float; red and green products rounded to floats, blue's kept in double
             auto scale = static_cast<float>(static_cast<double>(hash) * (1.0 / 32768.0) * amount * 2.0 + 1.0 - amount);
-            auto red = static_cast<float>(colour[0] * static_cast<double>(scale));
-            auto green = static_cast<float>(colour[1] * static_cast<double>(scale));
-            const double blue = colour[2] * static_cast<double>(scale);
-            colour[0] = channel_byte(red);
-            colour[1] = channel_byte(green);
-            colour[2] = channel_byte(blue);
+            auto red = static_cast<float>(std::get<0>(colour) * static_cast<double>(scale));
+            auto green = static_cast<float>(std::get<1>(colour) * static_cast<double>(scale));
+            const double blue = std::get<2>(colour) * static_cast<double>(scale);
+            std::get<0>(colour) = channel_byte(red);
+            std::get<1>(colour) = channel_byte(green);
+            std::get<2>(colour) = channel_byte(blue);
         }
-        set_colours(geometry, raw::as<uint32_t>(colours));
+        set_colours(geometry, colours);
         memory::dealloc(positions);
         memory::dealloc(colours);
     });
@@ -327,9 +307,9 @@ bool cfunc_nudge_vc(Struct* params, Script*)
     float percent = 0.0f;
     params->fetch_float(kPercent, &percent, 1);
     percent = percent * 0.01f;
-    for (SceneNode* node = first_scene_node(); node;) {
-        SceneNode* next = next_scene_node(node);
-        nudge_scene_vertex_colours(node->scene, percent);
+    for (memory::ListNode* node = render::first_scene_node(); node;) {
+        memory::ListNode* next = render::next_scene_node(node);
+        nudge_scene_vertex_colours(render::scene_of_node(node), percent);
         node = next;
     }
     return true;

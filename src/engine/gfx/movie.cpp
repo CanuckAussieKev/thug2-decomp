@@ -30,7 +30,7 @@
 #include "engine/pad_input/device.h"
 #include "engine/sys/mlp.h"
 #include "platform/platform.h"
-#include "engine/sound/mute_audio.h"
+#include "platform/mute_audio.h"
 #include "platform/run_log.h"
 #include "platform/winmain.h"
 #include "platform/crt.h"
