@@ -26,6 +26,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/format.h"
 
 namespace lists {
 
@@ -313,14 +314,14 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
         core::at(shown, 0) = ' ';
         core::at(shown, 1) = 0;
     } else if (multiplier == 0.0f) {
-        std::snprintf(shown.data(), sizeof(shown), "%s", text::format_with_separators(points)); // "%s"
+        text::format_to(shown, "%s", text::format_with_separators(points)); // "%s"
     } else {
         const int whole = ftol(multiplier);
         if (static_cast<double>(whole) == multiplier)
-            std::snprintf(shown.data(), sizeof(shown), "%s X %d", text::format_with_separators(points), whole); // "%s X %d"
+            text::format_to(shown, "%s X %d", text::format_with_separators(points), whole); // "%s X %d"
         else
-            std::snprintf(shown.data(), sizeof(shown), "%s X %.1f", text::format_with_separators(points),
-                          static_cast<double>(multiplier)); // "%s X %.1f"
+            text::format_to(shown, "%s X %.1f", text::format_with_separators(points),
+                            static_cast<double>(multiplier)); // "%s X %.1f"
     }
     text->change_caption(shown.data()); // (no check: as the original)
     script::launch_script(kUpdateScorepot, nullptr, nullptr, false, nullptr);
@@ -354,9 +355,9 @@ void PointTally::set_grand_total(int total)
     std::array<char, 0x40> shown{};
     if (get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing) {
         const uint32_t seconds = static_cast<uint32_t>(sum_) / 1000;
-        std::snprintf(shown.data(), sizeof(shown), "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
+        text::format_to(shown, "%d:%.2d", seconds / 60, seconds % 60); // "%d:%.2d"
     } else {
-        std::snprintf(shown.data(), sizeof(shown), "%d", sum_); // "%d"
+        text::format_to(shown, "%d", sum_); // "%d"
     }
     frontend::set_score_text(shown.data(), skater->get_skater_number());
 }

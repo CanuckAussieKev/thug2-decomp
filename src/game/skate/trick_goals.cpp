@@ -38,8 +38,9 @@
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat into its fixed buffers, kept)
 
 namespace goals {
 
@@ -574,10 +575,10 @@ void FallingTricksGoal::add_tricks(int count)
             if (t.spin) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
-                    std::sprintf(text.data(), "Perfect ");
+                    text::format_to(text, "Perfect ");
                 // (written over "Perfect ": the original's too)
                 THUG2_MSVC_WARNING(suppress : 4996)
-                std::sprintf(text.data(), "\\c5%i\\c0 ", t.spin * 180);
+                text::format_to(text, "\\c5%i\\c0 ", t.spin * 180);
             }
             std::strcat(text.data(), trick_text);
             t.key_combo_ = key_combo;
@@ -1158,9 +1159,9 @@ void TrickBeatGoal::add_tricks(int count)
             if (t.spin) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
-                    std::sprintf(text.data(), "Perfect ");
+                    text::format_to(text, "Perfect ");
                 THUG2_MSVC_WARNING(suppress : 4996)
-                std::sprintf(text.data(), "\\c5%i\\c0 ", t.spin * 180); // (over "Perfect ", as in the original)
+                text::format_to(text, "\\c5%i\\c0 ", t.spin * 180); // (over "Perfect ", as in the original)
             }
             std::strcat(text.data(), trick_text);
             t.key_combo_ = key_combo;

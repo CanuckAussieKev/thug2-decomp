@@ -24,6 +24,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/format.h"
 
 namespace modules {
 
@@ -105,7 +106,7 @@ void add_score_line(Format format, uint32_t id, bool team_score, bool font_first
 {
     const script::StructPtr params = script::make_struct();
     std::array<char, 0x40> text{};
-    format(text.data(), sizeof(text));
+    format(std::span<char>(text));
     params->append_word(kText, text.data());
     if (font_first)
         params->put_name_key(kFont, kDialog);
@@ -119,19 +120,19 @@ void add_score_line(Format format, uint32_t id, bool team_score, bool font_first
 }
 
 // A score as shown: a time (minutes:seconds) in king of the hill, else the number.
-void format_score(char* out, size_t size, uint32_t score, int colour, bool coloured)
+void format_score(std::span<char> out, uint32_t score, int colour, bool coloured)
 {
     if (is_crown_rule_active()) {
         const uint32_t seconds = score / 1000;
         if (coloured)
-            std::snprintf(out, size, "\\c%d%.2d:%.2d", colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
+            text::format_to(out, "\\c%d%.2d:%.2d", colour, seconds / 60, seconds % 60); // "\c%d%.2d:%.2d"
         else
-            std::snprintf(out, size, "%.2d:%.2d", seconds / 60, seconds % 60); // "%.2d:%.2d"
+            text::format_to(out, "%.2d:%.2d", seconds / 60, seconds % 60); // "%.2d:%.2d"
     } else {
         if (coloured)
-            std::snprintf(out, size, "\\c%d%d", colour, score); // "\c%d%d"
+            text::format_to(out, "\\c%d%d", colour, score); // "\c%d%d"
         else
-            std::snprintf(out, size, "%d", score); // "%d"
+            text::format_to(out, "%d", score); // "%d"
     }
 }
 
@@ -160,11 +161,11 @@ void fill_elimination_ranking()
     for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
         online::ScoreEntry* next = RankingList::get_after(entry);
         std::array<char, 0x40> text{};
-        std::snprintf(text.data(), sizeof(text), "\\c%d%s", entry->shade_, entry->text_.data()); // "\c%d%s"
+        text::format_to(text, "\\c%d%s", entry->shade_, entry->text_.data()); // "\c%d%s"
         add_player_line(text.data(), false);
         add_score_line(
-            [&](char* score, size_t size) {
-                std::snprintf(score, size, "%d", entry->team_score_); // "%d"
+            [&](std::span<char> score) {
+                text::format_to(score, "%d", entry->team_score_); // "%d"
             },
             id, false);
         delete_entry(entry);
@@ -203,11 +204,11 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             entry->unknown44_ = static_cast<uint32_t>(team);
             entry->team_score_ = net->get_squad_points(team);
             std::array<char, 0x40> name{};
-            std::snprintf(name.data(), sizeof(name), "team_%d_name", team + 1); // "team_%d_name"
+            text::format_to(name, "team_%d_name", team + 1);             // "team_%d_name"
             const char* total = script::fetch_text("total_str");         // "total_str"
             const char* team_name = script::fetch_text(name.data());
-            std::snprintf(entry->text_.data(), sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_), "\\c%d%s %s",
-                          entry->shade_, team_name, total); // "\c%d%s %s" (unbounded there)
+            // (unbounded in the original: a text past the name's 32 bytes ran on into the entry's other fields)
+            text::format_to(entry->text_, "\\c%d%s %s", entry->shade_, team_name, total); // "\c%d%s %s"
             entry->priority = net->get_squad_points(team);
             lists::append_vertex(list.head_, entry);
         }
@@ -221,19 +222,18 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
                     continue;
                 uint32_t score = score_of(info);
                 std::array<char, 0x40> text{};
-                std::snprintf(
-                    text.data(), sizeof(text),
-                    (static_cast<uint8_t>(info->is_own_player()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
-                    entry->shade_, info->label_.data());
+                // "\c%d> %s" (the own player's) / "\c%d%s"
+                text::format_to(text, "\\c%d%s%s", entry->shade_,
+                                static_cast<uint8_t>(info->is_own_player()) ? "> " : "", info->label_.data());
                 add_player_line(text.data(), false);
-                add_score_line([&](char* shown, size_t size) { format_score(shown, size, score, 0, false); },
-                               kFirstLine + line, false, true);
+                add_score_line([&](std::span<char> shown) { format_score(shown, score, 0, false); }, kFirstLine + line,
+                               false, true);
                 ++line;
             }
             add_player_line(entry->text_.data(), true);
             add_score_line(
-                [&](char* total, size_t size) {
-                    format_score(total, size, static_cast<uint32_t>(entry->priority), entry->shade_, true);
+                [&](std::span<char> total) {
+                    format_score(total, static_cast<uint32_t>(entry->priority), entry->shade_, true);
                 },
                 kFirstLine + line, true);
             delete_entry(entry);
@@ -255,9 +255,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             online::ScoreEntry* next = RankingList::get_after(entry);
             add_player_line(entry->text_.data(), false);
             add_score_line(
-                [&](char* shown, size_t size) {
-                    format_score(shown, size, static_cast<uint32_t>(entry->priority), 0, false);
-                },
+                [&](std::span<char> shown) { format_score(shown, static_cast<uint32_t>(entry->priority), 0, false); },
                 id, false);
             delete_entry(entry);
             entry = next;

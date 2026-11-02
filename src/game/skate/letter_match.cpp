@@ -17,6 +17,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace modules {
 
@@ -81,7 +82,7 @@ void LetterMatch::prepare_all()
     points_target_ = 0;
     skater_ = 0;
     last_skater_ = 0;
-    std::snprintf(panel_.data(), sizeof(panel_), "%s", "unknown"); // "unknown"
+    text::format_to(panel_, "%s", "unknown"); // "unknown"
     for (int& letters : letters_)
         letters = 0;
     restart_ = maths::rnd(horse_restarts());
@@ -173,8 +174,8 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
     case kPanelString2: {
         const int player = which == kPanelString1 ? 0 : 1;
         const text::Chars word = get_letter_string(player);
-        std::snprintf(text.data(), sizeof(text), "%s: %s", get_skater(static_cast<uint32_t>(player))->fetch_shown_name(),
-                      word.c_str()); // "%s: %s"
+        text::format_to(text, "%s: %s", get_skater(static_cast<uint32_t>(player))->fetch_shown_name(),
+                        word.c_str()); // "%s: %s"
         break;
     }
     case kHorsePostRun:
@@ -185,21 +186,21 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
         const bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
         const char* article = script::fetch_text(vowel ? kIsAn : kIsA);
         const text::Chars name = fetch_text(kPlayerName);
-        std::snprintf(text.data(), sizeof(text), "%s %s", name.c_str(), article); // "%s %s"
+        text::format_to(text, "%s %s", name.c_str(), article); // "%s %s"
         break;
     }
     case kHorsePreRun:
         if (points_target_ > 0) {
             const char* points = text::format_with_separators(points_target_);
-            std::snprintf(text.data(), sizeof(text), "%s %s", script::fetch_text(kTargetScoreText), points); // "%s %s"
+            text::format_to(text, "%s %s", script::fetch_text(kTargetScoreText), points); // "%s %s"
         } else
-            std::snprintf(text.data(), sizeof(text), script::fetch_text(kSetScore));
+            text::format_data_to(text, script::fetch_text(kSetScore)); // (the text is the format, as in the original)
         break;
     case kFinalWord:
-        std::snprintf(text.data(), sizeof(text), "%s", word_.data());
+        text::format_to(text, "%s", word_.data());
         break;
     case kPlayerName:
-        std::snprintf(text.data(), sizeof(text), "%s", get_skater(skater->ident_)->fetch_shown_name());
+        text::format_to(text, "%s", get_skater(skater->ident_)->fetch_shown_name());
         break;
     default:
         break;
@@ -210,7 +211,7 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
 // 0x00560720
 void LetterMatch::end_run()
 {
-    std::snprintf(panel_.data(), sizeof(panel_), "%s", "unknown"); // "unknown"
+    text::format_to(panel_, "%s", "unknown"); // "unknown"
     last_skater_ = skater_;
     void* score = get_skater(static_cast<uint32_t>(skater_))->get_points_total();
     const int total = static_cast<modules::PointTally*>(score)->get_total_score();
@@ -218,7 +219,7 @@ void LetterMatch::end_run()
     if (total > points_target_) {
         points_target_ = total;
         const char* points = text::format_with_separators(total);
-        std::snprintf(panel_.data(), sizeof(panel_), "%s %s", script::fetch_text(kSetScoreIs), points); // "%s %s"
+        text::format_to(panel_, "%s %s", script::fetch_text(kSetScoreIs), points); // "%s %s"
         cur_standing_ = core::at(statuses(), kBeatScore);
         return;
     }
@@ -227,12 +228,12 @@ void LetterMatch::end_run()
         ++core::at(letters_, skater_);
         choose_next_spawn();
         if (is_over()) {
-            std::snprintf(panel_.data(), sizeof(panel_), "You are a %s!", word_.data()); // "You are a %s!"
+            text::format_to(panel_, "You are a %s!", word_.data()); // "You are a %s!"
             cur_standing_ = core::at(statuses(), kMatchEnded);
             return;
         }
         std::array<char, 2> letter = {{get_upper(core::at(word_, core::at(letters_, skater_) - 1)), 0}};
-        std::snprintf(panel_.data(), sizeof(panel_), "%s %s", script::fetch_text(kGetsTheLetter), letter.data()); // "%s %s"
+        text::format_to(panel_, "%s %s", script::fetch_text(kGetsTheLetter), letter.data()); // "%s %s"
         cur_standing_ = core::at(statuses(), kGotLetter);
         return;
     }

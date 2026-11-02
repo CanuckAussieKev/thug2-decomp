@@ -51,6 +51,7 @@
 #include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/format.h"
 
 namespace modules {
 
@@ -397,7 +398,7 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
         const char* name = nullptr;
         if (params->fetch_text(0u, &name, 1)) {
             std::array<char, 0x80> script{};
-            std::snprintf(script.data(), sizeof(script), "load_%s", name); // "load_%s"
+            text::format_to(script, "load_%s", name); // "load_%s"
             level = checksums::hash_from_text(script.data());
         }
     }

@@ -56,8 +56,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
 namespace modules {
 
@@ -393,7 +393,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
             if (core::at(data, 0) == local_team) {
                 get_run(one ? kOneLeftYou : kFiveLeftYou);
             } else {
-                std::sprintf(text.data(), "team_%d_name", core::at(data, 0) + 1);
+                text::format_to(text, "team_%d_name", core::at(data, 0) + 1);
                 params->append_word(kName, script::fetch_text(text.data()));
                 get_run(one ? kOneLeftOtherTeam : kFiveLeftOtherTeam, params);
             }
@@ -482,7 +482,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         for (int j = 0; std::cmp_less(j, core::at(counts, i)); ++j)
             array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(reader.u8()));
         std::array<char, 32> name{};
-        std::sprintf(name.data(), "Skater%d", i);
+        text::format_to(name, "Skater%d", i);
         params->append_array_value(checksums::hash_from_text(name.data()),
                                    array); // (the array isn't freed: the original's too)
     }
@@ -573,7 +573,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         if (player_skater(local) && local->team_ == best) {
             get_run(kLeaderYourTeam, nullptr, player_skater(local));
         } else {
-            std::sprintf(text.data(), "team_%d_name", best + 1);
+            text::format_to(text, "team_%d_name", best + 1);
             const script::StructPtr params = script::make_struct();
             params->get_clear();
             params->append_word(kString0, kSymbolString, script::fetch_text(text.data()));

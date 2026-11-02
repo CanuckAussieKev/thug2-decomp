@@ -34,6 +34,7 @@
 #include "game/rider/adjust_physics.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/str.h"
+#include "engine/core/format.h"
 
 namespace modules {
 
@@ -387,14 +388,9 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     trick->rotation_deg_ = 0;
     if (!unnamed) {
         escape_spaces(trick->text_, text);
-        const char* format = nullptr;
-        if (flags & kTrickColour3)
-            format = "\\c3%s%s\\c0 "; // "\c3%s%s\c0 "
-        else if (flags & kTrickSpecial)
-            format = "\\c2%s%s\\c0 "; // "\c2%s%s\c0 "
-        else
-            format = "%s%s "; // "%s%s "
-        std::snprintf(trick->shown_.data(), sizeof(trick->shown_), format, "", trick->text_.data());
+        // "\c3%s%s\c0 " / "\c2%s%s\c0 " / "%s%s " with "" and the text: the colour around the text, then a space
+        const char* colour = (flags & kTrickColour3) ? "\\c3" : (flags & kTrickSpecial) ? "\\c2" : "";
+        text::format_to(trick->shown_, "%s%s%s ", colour, trick->text_.data(), *colour ? "\\c0" : "");
         // The trick before it (the last one named, not "...") gets the " + " joining them.
         for (int i = log_.num_ - 2; i >= 0; --i) {
             auto& shown = get_trick(i)->shown_;
@@ -531,25 +527,16 @@ void PointTally::change_spin_degrees(int degrees)
     const int shown_degrees = half_turns * 180;
     const bool joined = log_.num_ - 1 > spin_trick_;
     auto flags = static_cast<uint8_t>(trick->flag_bits_);
-    if (!renamed) {
-        const char* format = nullptr;
-        if (flags & kTrickColour3)
-            format = (joined ? R"(\c3%s\_%d\_%s\c0\_+ )" : R"(\c3%s\_%d\_%s\c0)"); // "\c3%s\_%d\_%s\c0[\_+ ]"
-        else if (flags & kTrickSpecial)
-            format = (joined ? R"(\c2%s\_%d\_%s\c0\_+ )" : R"(\c2%s\_%d\_%s\c0)"); // "\c2%s\_%d\_%s\c0[\_+ ]"
-        else
-            format = (joined ? R"(%s\_%d\_%s\_+ )" : "%s\\_%d\\_%s"); // "%s\_%d\_%s[\_+ ]"
-        std::snprintf(trick->shown_.data(), sizeof(trick->shown_), format, side, shown_degrees, trick->text_.data());
-    } else {
-        const char* format = nullptr;
-        if (flags & kTrickColour3)
-            format = (joined ? R"(\c3%s\_%s\c0\_+ )" : R"(\c3%s\_%s\c0)"); // "\c3%s\_%s\c0[\_+ ]"
-        else if (flags & kTrickSpecial)
-            format = (joined ? R"(\c2%s\_%s\c0\_+ )" : R"(\c2%s\_%s\c0)"); // "\c2%s\_%s\c0[\_+ ]"
-        else
-            format = (joined ? "%s\\_%s\\_+ " : "%s\\_%s"); // "%s\_%s[\_+ ]"
-        std::snprintf(trick->shown_.data(), sizeof(trick->shown_), format, side, trick->text_.data());
-    }
+    // The original's formats: "\c3%s\_%d\_%s\c0[\_+ ]", "\c2%s\_%d\_%s\c0[\_+ ]", "%s\_%d\_%s[\_+ ]" (renamed: without
+    // the "%d\_") - the colour around the text, then the join to the next trick.
+    const char* colour = (flags & kTrickColour3) ? "\\c3" : (flags & kTrickSpecial) ? "\\c2" : "";
+    const char* colour_end = *colour ? "\\c0" : "";
+    const char* join = joined ? "\\_+ " : "";
+    if (!renamed)
+        text::format_to(trick->shown_, "%s%s\\_%d\\_%s%s%s", colour, side, shown_degrees, trick->text_.data(),
+                        colour_end, join);
+    else
+        text::format_to(trick->shown_, "%s%s\\_%s%s%s", colour, side, trick->text_.data(), colour_end, join);
     dispatch_trick_sequence(false);
     get_trick(spin_trick_)->twist_rate_ = half_turns;
     bank_combo_score();
