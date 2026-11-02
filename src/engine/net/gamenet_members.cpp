@@ -10,7 +10,6 @@
 #include <cstdio>
 #include <array>
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 #include "engine/core/checksums.h"
 #include "platform/gamespy.h"
@@ -56,6 +55,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace online {
 
@@ -199,9 +199,9 @@ void Hub::set_max_players_preference(int count)
 {
     std::array<char, 32> num_name{};
     std::array<char, 32> ui_string{};
-    std::sprintf(num_name.data(), "num_%d", count);
+    text::format_to(num_name, "num_%d", count);
     const uint32_t checksum = checksums::hash_from_text(num_name.data());
-    std::sprintf(ui_string.data(), "%d %s", count, script::fetch_text(kStrPlayers));
+    text::format_to(ui_string, "%d %s", count, script::fetch_text(kStrPlayers));
     set_count_preference(this, kNumPlayers, ui_string.data(), checksum);
 }
 
@@ -210,14 +210,15 @@ void Hub::set_max_observers_preference(int count)
 {
     std::array<char, 32> num_name{};
     std::array<char, 32> ui_string{};
-    std::sprintf(num_name.data(), "num_%d", count);
+    text::format_to(num_name, "num_%d", count);
     const uint32_t checksum = checksums::hash_from_text(num_name.data());
     if (count == 0)
-        std::sprintf(ui_string.data(), script::fetch_text(kStrNoObservers)); // (the text is the format, as in the original)
+        text::format_data_to(ui_string,
+                             script::fetch_text(kStrNoObservers)); // (the text is the format, as in the original)
     else if (count == 1)
-        std::sprintf(ui_string.data(), "1 %s", script::fetch_text(kStrObserver));
+        text::format_to(ui_string, "1 %s", script::fetch_text(kStrObserver));
     else
-        std::sprintf(ui_string.data(), "%d %s", count, script::fetch_text(kStrObservers));
+        text::format_to(ui_string, "%d %s", count, script::fetch_text(kStrObservers));
     set_count_preference(this, kNumObservers, ui_string.data(), checksum);
 }
 

@@ -26,6 +26,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "engine/core/format.h"
 
 namespace net {
 
@@ -67,7 +68,7 @@ bool retrieve_top_stats(script::Struct* params, script::Script*)
     // Originally from PartyMod Fixes: gamestats.<OnlineDomain> in place of gamestats.gamespy.com (0x0064D670; PartyMod's DWord at
     // 0x0054DD14)
     const char* host = gamestats_host() ? gamestats_host() : "gamestats.gamespy.com";
-    std::snprintf(request.url.data(), sizeof(request.url), "http://%s/thug2pc/%s", host, stats_file(current));
+    text::format_to(request.url, "http://%s/thug2pc/%s", host, stats_file(current));
     request.error_script_ = 0x1C049404;
     request.fail_script_ = 0x1C049404;
     request.progress_script_ = 0x74E0CD35;

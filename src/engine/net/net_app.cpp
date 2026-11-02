@@ -30,6 +30,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"
+#include "engine/core/format.h"
 
 namespace net {
 
@@ -337,7 +338,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
     start.stream_id = alloc_stream_key(conn);
     start.msg_id = msg_id;
     start.checksum = checksums::generate_crc_from_buffer(data, size);
-    std::snprintf(start.desc.data(), sizeof(start.desc), "%s", desc);
+    text::format_to(start.desc, "%s", desc);
     const int first = size > kStreamPieceSize ? kStreamPieceSize : size;
     std::array<uint8_t, wire::kStreamStartMaxSize> start_bytes{};
     util::ByteWriter start_writer(start_bytes.data(), sizeof(start_bytes));

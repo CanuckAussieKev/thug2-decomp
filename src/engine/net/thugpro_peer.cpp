@@ -51,6 +51,8 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
+#include "engine/core/field_reader.h"
 
 namespace script {
 class Struct;
@@ -291,7 +293,7 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
             if (!(options & (1 << (n - 1))))
                 continue;
             std::array<char, 96> name{};
-            std::snprintf(name.data(), sizeof(name), "%s_LEVEL_CHANGE_0%d", level_prefix, n);
+            text::format_to(name, "%s_LEVEL_CHANGE_0%d", level_prefix, n);
             effects.launch_script(checksums::hash_from_text(name.data()), true);
         }
     }
@@ -695,8 +697,9 @@ bool handle_chat_command(const char* text)
     std::array<char, 16> command = {};
     std::array<char, 24> first = {};
     std::array<char, 8> second = {};
-    const int words = sscanf_s(text, "/%15s %23s %7s", command.data(), static_cast<unsigned>(sizeof(command)), first.data(),
-                               static_cast<unsigned>(sizeof(first)), second.data(), static_cast<unsigned>(sizeof(second)));
+    text::FieldReader fields(text); // "/%15s %23s %7s"
+    (void)(fields.match('/') && fields.read_word(command) && fields.read_word(first) && fields.read_word(second));
+    const int words = fields.scanned();
     if (words < 1)
         return false;
     Hub* manager = net_session_slot();
@@ -704,13 +707,13 @@ bool handle_chat_command(const char* text)
     std::array<char, 160> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {
         const HostListing& info = g_session.info;
-        std::snprintf(line.data(), sizeof(line),
-                      "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
-                      "%02X",
-                      get_machine_id(), client ? (g_session.have ? "the host's" : "no host options yet") : "ours",
-                      client ? info.time_of_day_ : host_server_info().time_of_day_,
-                      client ? info.weather : g_host.weather, client ? get_level_options(info) : g_host.level_options_,
-                      client ? get_pro_sets(info) : g_host.pro_sets_);
+        text::format_to(
+            line,
+            "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
+            "%02X",
+            get_machine_id(), client ? (g_session.have ? "the host's" : "no host options yet") : "ours",
+            client ? info.time_of_day_ : host_server_info().time_of_day_, client ? info.weather : g_host.weather,
+            client ? get_level_options(info) : g_host.level_options_, client ? get_pro_sets(info) : g_host.pro_sets_);
         get_say(line.data());
         return true;
     }
@@ -742,8 +745,8 @@ bool handle_chat_command(const char* text)
             effects.set_weather(state);
             get_broadcast(kMsgUpdateWeather, state);
         }
-        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 %s %s%s", command.data(), first.data(),
-                      is_host_of_net_game(manager) ? " (sent to the players)" : "");
+        text::format_to(line, "\\c4thugpro:\\c0 %s %s%s", command.data(), first.data(),
+                        is_host_of_net_game(manager) ? " (sent to the players)" : "");
         get_say(line.data());
         return true;
     }
@@ -761,17 +764,17 @@ bool handle_chat_command(const char* text)
         g_host.level_options_ = static_cast<uint8_t>(on ? g_host.level_options_ | bit : g_host.level_options_ & ~bit);
         const char* prefix = current_level_prefix();
         std::array<char, 96> name{};
-        std::snprintf(name.data(), sizeof(name), "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
+        text::format_to(name, "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
         const bool ran = prefix && effects.launch_script(checksums::hash_from_text(name.data()), on);
-        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
-                      ran ? "" : " (this level has no such option)");
+        text::format_to(line, "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",
+                        ran ? "" : " (this level has no such option)");
     } else {
         g_host.pro_sets_ = static_cast<uint8_t>(on ? g_host.pro_sets_ | bit : g_host.pro_sets_ & ~bit);
         const bool here = pro_set_level(load);
         if (here)
             apply_pro_set(n - 1, on, load, effects);
-        std::snprintf(line.data(), sizeof(line), "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",
-                      here ? "" : " (only THPS4's levels and New York have them)");
+        text::format_to(line, "\\c4thugpro:\\c0 pro set %d %s%s", n, on ? "on" : "off",
+                        here ? "" : " (only THPS4's levels and New York have them)");
     }
     get_say(line.data());
     return true;

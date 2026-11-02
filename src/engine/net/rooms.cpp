@@ -47,8 +47,9 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy, kept)
 
 namespace online {
 
@@ -169,7 +170,7 @@ void update_rank(LobbyPlayer* player, const char* value)
 void console_message(const char* nick, uint32_t text_name, bool by_name)
 {
     std::array<char, 1024> line{};
-    std::sprintf(line.data(), "%s %s", nick, script::fetch_text(text_name));
+    text::format_to(line, "%s %s", nick, script::fetch_text(text_name));
     const script::StructPtr params = script::make_struct();
     if (by_name) {
         params->append_word("text", line.data());
@@ -473,9 +474,9 @@ void RoomManager::join_room_callback(void* peer, int success, int result, int ro
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
     std::array<char, 64> key{};
     std::array<char, 64> value{};
-    std::sprintf(key.data(), "b_rating");
+    text::format_to(key, "b_rating");
     const int* rating = &manager->rating_service_->get_personal_stats()->skill_points_;
-    std::sprintf(value.data(), "%d", *rating);
+    text::format_to(value, "%d", *rating);
     std::array<const char*, 1> keys = {{key.data()}};
     std::array<const char*, 1> values = {{value.data()}};
     const char* our_nick = game_spy::peer_get_nick(peer);                     // (our nick)

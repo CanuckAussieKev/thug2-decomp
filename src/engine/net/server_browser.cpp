@@ -36,8 +36,9 @@
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strncpy, kept)
 
 namespace online {
 
@@ -109,7 +110,7 @@ void info_line(uint32_t title, F value)
 {
     std::array<char, 128> text{};
     const script::StructPtr params = script::make_struct();
-    std::sprintf(text.data(), "%s:", script::fetch_text(title));
+    text::format_to(text, "%s:", script::fetch_text(title));
     params->append_word(kName, text.data());
     if (const char* shown = value(text.data()))
         params->append_word(kValue, shown);
@@ -189,45 +190,45 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
         info_line(kFcfs, no_value);
     info_line(kTitlePing, [server](char* text) {
         if (server->ping_ == kNoPing)
-            std::sprintf(text, "...");
+            crt::get_sprintf(text, "...");
         else
-            std::sprintf(text, "%d", server->ping_);
+            crt::get_sprintf(text, "%d", server->ping_);
         return text;
     });
     info_line(kTitleMode, [server](char* text) {
-        std::sprintf(text, "%s", server->mode_sel_.data());
+        crt::get_sprintf(text, "%s", server->mode_sel_.data());
         return text;
     });
     const char* skill = nullptr;
     script::Array* skills = script::fetch_list(kSkillLevelInfo);
     skills->struct_at(server->skill_level_)->fetch_text(kName, &skill, 0);
     info_line(kTitleSkill, [skill](char* text) {
-        std::sprintf(text, "%s", skill);
+        crt::get_sprintf(text, "%s", skill);
         return text;
     });
     info_line(kTitleLevel, [server](char* text) {
-        std::sprintf(text, "%s", server->level_.data());
+        crt::get_sprintf(text, "%s", server->level_.data());
         return text;
     });
     if (manager->in_internet_mode()) {
         info_line(kTitleRanked, [server](char* text) {
-            std::sprintf(text, "%s", script::fetch_text(server->ranked_ ? kYes : kNo));
+            crt::get_sprintf(text, "%s", script::fetch_text(server->ranked_ ? kYes : kNo));
             return text;
         });
     }
     std::array<char, 128> value{};
     script::StructPtr title = script::make_struct();
-    std::sprintf(value.data(), ": %d/%d", server->num_players_, server->max_players_);
+    text::format_to(value, ": %d/%d", server->num_players_, server->max_players_);
     title->append_word(kText, value.data());
     get_run(kUpdatePlayerTitle, title.get());
     title.reset();
     for (int i = 0; i < server->num_players_; ++i) {
         const int rank = rank_of(server->get_entrant_rank(i));
         const script::StructPtr player = script::make_struct();
-        std::sprintf(value.data(), "%d:", i + 1);
+        text::format_to(value, "%d:", i + 1);
         player->put_int(kRank, rank);
         player->append_word(kName, value.data());
-        std::sprintf(value.data(), "%s", server->get_entrant_name(i));
+        text::format_to(value, "%s", server->get_entrant_name(i));
         player->append_word(kValue, value.data());
         get_run(kInfoAddPlayerText, player.get());
     }
@@ -319,11 +320,11 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
-    std::snprintf(server->label_.data(), sizeof(server->label_), "%s", reply->name.data());
+    text::format_to(server->label_, "%s", reply->name.data());
     server->remote_ip_ = context->sender_conn_->remote_ip_;
     server->ping_ = static_cast<int>(frame_clock::get_time() - reply->time);
-    std::snprintf(server->level_.data(), sizeof(server->level_), "%s", reply->level.data());
-    std::snprintf(server->mode_sel_.data(), sizeof(server->mode_sel_), "%s", reply->mode.data());
+    text::format_to(server->level_, "%s", reply->level.data());
+    text::format_to(server->mode_sel_, "%s", reply->mode.data());
     server->max_players_ = int{reply->max_players};
     server->num_players_ = int{reply->num_players};
     server->max_observers_ = int{reply->max_observers};

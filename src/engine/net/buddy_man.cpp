@@ -54,6 +54,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace online {
 
@@ -210,7 +211,7 @@ Buddy* alloc_friend_entry()
         buddy->pending_ = false;
         buddy->cur_standing_ = 0;
         core::at(buddy->location_, 0) = '\0';
-        std::snprintf(buddy->status_text_.data(), sizeof(buddy->status_text_), "%s", "Offline");
+        text::format_to(buddy->status_text_, "%s", "Offline");
     }
     return buddy;
 }
@@ -247,7 +248,7 @@ void parse_location(Buddy* buddy, char* location, bool checked)
 FriendNote::FriendNote()
 {
     init_node(&list_link_);
-    std::snprintf(nick_.data(), sizeof(nick_), "%s", "Proskater");
+    text::format_to(nick_, "%s", "Proskater");
     core::at(text_, 0) = '\0';
 }
 
@@ -456,7 +457,7 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     script::StructPtr params = script::make_struct();
     // (the original uses the nick as sprintf's format: a '%' in a nick would be expanded)
     std::array<char, 1024> nick{};
-    std::snprintf(nick.data(), sizeof(nick), "%s", buddy->nick_.data());
+    text::format_to(nick, "%s", buddy->nick_.data());
     params->append_word("name", buddy->nick_.data());
     params->append_word("status", buddy->status_text_.data());
     params->append_word("location", buddy->location_.data());
@@ -584,7 +585,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
     buddy->account_ = status.profile;
     buddy->cur_standing_ = status.status;
     text_tools::dup_from(buddy->status_text_.data(), status.status_string_.data());
-    std::snprintf(buddy->nick_.data(), sizeof(buddy->nick_), "%s", "ProSkater");
+    text::format_to(buddy->nick_, "%s", "ProSkater");
     if (buddy->cur_standing_ == kStatusPlaying) {
         if (!is_thug2_location(status.location_string_.data())) {
             unlink_list_node(buddy);
@@ -719,7 +720,7 @@ bool set_unique_id(script::Struct*, script::Script*)
     prefs::Preferences* prefs = net_session_slot()->get_online_settings();
     script::StructPtr params = script::make_struct();
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "%d", static_cast<int>(now));
+    text::format_to(text, "%d", static_cast<int>(now));
     params->append_word("ui_string", text.data());
     prefs->change_setting(get_checksums("unique_id"), params.get());
     params.reset();
@@ -740,7 +741,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     params->fetch_int_value("join_private_ip", &private_ip, 1);
     params->fetch_int_value("join_port", &port, 1);
     std::array<char, 1024> status{};
-    std::snprintf(status.data(), sizeof(status), "10thug211:%d:%d:%d:%s", ip, private_ip, port, location);
+    text::format_to(status, "10thug211:%d:%d:%d:%s", ip, private_ip, port, location);
     bool same_address = false;
     if (static_cast<uint32_t>(ip) == peer_public_ip(lobby_peer(manager->lobby_service_.get()))) {
         ip = private_ip;

@@ -39,6 +39,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace online {
 
@@ -476,9 +477,9 @@ void RankingsManager::start_game()
         const char* name = detail::player_name(player);
         new_player(game_, id, name);
         std::array<char, 64> key{};
-        std::snprintf(key.data(), sizeof(key), "%s", "player");
+        text::format_to(key, "%s", "player");
         set_player_string(game_, key.data(), name, id);
-        std::snprintf(key.data(), sizeof(key), "%s", "pid");
+        text::format_to(key, "%s", "pid");
         const int profile = player->profile_id_;
         set_player_int(game_, key.data(), profile, id);
         if (profile > 0) {
@@ -534,7 +535,7 @@ void RankingsManager::remove_player(int id)
 void RankingsManager::set_player_auth(int player, const char* auth)
 {
     std::array<char, 64> key{};
-    std::snprintf(key.data(), sizeof(key), "%s", "auth");
+    text::format_to(key, "%s", "auth");
     set_player_string(game_, key.data(), auth, player);
 }
 
@@ -652,8 +653,8 @@ unsigned long __stdcall RankingsManager::log_in_thread(void* param)
     (void)param;
     // The game name: the online identity's (OnlineGameName; the original pushes "thps6pc", which online_identity
     // used to write over). The key: what online_identity leaves in the stats key's data (OnlineGameKey).
-    std::snprintf(gcd_game_name(), 0x100, "%s", net::get_game_name());
-    std::snprintf(get_gcd_secret_key(), 0x100, "%s", stats_key());
+    text::format_to(std::span(gcd_game_name(), 0x100), "%s", net::get_game_name());
+    text::format_to(std::span(get_gcd_secret_key(), 0x100), "%s", stats_key());
     switch (init_stats_connection(kStatsPort)) {
     case 0: // connected
         stats->cur_phase_ = kAuthDone;

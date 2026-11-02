@@ -32,7 +32,7 @@ gsl::owner<char*> get_host_name(const char* format, const char* domain)
     const size_t size = std::strlen(format) + std::strlen(domain) + 1; // (enough)
     gsl::owner<void*> block = crt::alloc_block(size); // (the C runtime's: the library frees it)
     auto name = memory::adopt<char*>(block);
-    std::snprintf(name, size, format, domain);
+    text::format_data_to(std::span(name, size), format, domain);
     debug_log::printf(debug_log::StageMap::kTrace, "ALLOC'D STRING %s\n", name);
     return name;
 }

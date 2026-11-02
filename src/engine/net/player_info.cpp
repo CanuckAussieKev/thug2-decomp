@@ -40,8 +40,8 @@
 #include "engine/core/checked_index.h"
 #include "game/rider/rider.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 
@@ -115,7 +115,7 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_bits_ = 0;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    std::sprintf(label_.data(), "<No Name>"); // (0x0064CCE8)
+    text::format_to(label_, "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kMaxPlayers; ++i) {
         core::at(sent_.value68_, i) = 0xFFFFFFFF;
         core::at(sent_.state_, i) = 0xFF;

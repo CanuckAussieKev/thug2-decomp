@@ -38,8 +38,9 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat, kept)
 
 namespace online {
 
@@ -190,7 +191,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 continue;
             if (p->flag_bits_ & kPlayerLocal) {
                 std::array<char, 64> marked{};
-                std::sprintf(marked.data(), "> %s", core::at(teams, p->team_)->text_.data());
+                text::format_to(marked, "> %s", core::at(teams, p->team_)->text_.data());
                 std::strcpy(core::at(teams, p->team_)->text_.data(), marked.data());
             }
             if (p->flag_bits_ & kPlayerKing)
@@ -216,7 +217,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 continue;
             ScoreEntry* entry = new_entry();
             if (p->flag_bits_ & kPlayerLocal)
-                std::sprintf(entry->text_.data(), "> %s", p->label_.data());
+                text::format_to(entry->text_, "> %s", p->label_.data());
             else
                 std::strcpy(entry->text_.data(), p->label_.data());
             entry->king_ = (p->flag_bits_ >> 7) & 1;
@@ -247,7 +248,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         std::array<char, 64> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
         core::at(prefix, 0) = '\0';
         if (entry->king_) {
-            std::sprintf(prefix.data(), script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
+            text::format_data_to(prefix,
+                                 script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
         } else if (entry->has_flag_) {
             if (entry->flag_bits_ & 1)
                 std::strcat(prefix.data(), "\\s0");
@@ -265,20 +267,20 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
 
         std::array<char, 128> text{}; // (64 in the original: the longest king of the hill lines overran it)
         if (!not_lobby) {
-            std::sprintf(text.data(), "\\c%d%s", entry->shade_, entry->text_.data());
+            text::format_to(text, "\\c%d%s", entry->shade_, entry->text_.data());
         } else if (hill_mode) {
             const int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
             if (seconds < 3600)
-                std::sprintf(text.data(), R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade_, entry->text_.data(), entry->shade_,
-                             seconds / 60, seconds % 60);
+                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix.data(), entry->shade_, entry->text_.data(),
+                                entry->shade_, seconds / 60, seconds % 60);
             else
-                std::sprintf(text.data(), R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade_, entry->text_.data(),
-                             entry->shade_, seconds / 3600, seconds % 3600 / 60, seconds % 60);
+                text::format_to(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix.data(), entry->shade_,
+                                entry->text_.data(), entry->shade_, seconds / 3600, seconds % 3600 / 60, seconds % 60);
         } else if (scavenger_hunt && !entry->local_) {
-            std::sprintf(text.data(), "%s\\c%d %s", prefix.data(), entry->shade_, entry->text_.data());
+            text::format_to(text, "%s\\c%d %s", prefix.data(), entry->shade_, entry->text_.data());
         } else {
-            std::sprintf(text.data(), "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade_, entry->text_.data(), entry->shade_,
-                         entry->priority);
+            text::format_to(text, "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade_, entry->text_.data(),
+                            entry->shade_, entry->priority);
         }
         const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
         script::StructPtr params = script::make_struct();

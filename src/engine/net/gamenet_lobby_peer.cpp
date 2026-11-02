@@ -44,8 +44,9 @@
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
 #include "engine/core/mem.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's own)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's own)
 
 namespace online {
 
@@ -248,8 +249,8 @@ void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, voi
     const char* name = nullptr;
     manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &name, 1);
     std::array<char, 1024> location{};
-    std::sprintf(location.data(), "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
-                 lobby->room_name_.data());
+    text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
+                    lobby->room_name_.data());
     if (buddy->authenticated_) // (logged in to the presence)
         static_cast<FriendsManager*>(buddy)->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting),
                                                              location.data());
@@ -263,7 +264,7 @@ void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick
     if (type == kNickInUse) {
         const char* id = net_session_slot()->get_online_settings()->get_preference_string(kNetworkId, kUiString);
         debug::printf("Nick Error. Nick %s In Use\n", nick);
-        std::sprintf(retry.data(), "a%d_%s", frame_clock::get_time(), id);
+        text::format_to(retry, "a%d_%s", frame_clock::get_time(), id);
         game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry.data())); // retried with that nick
     } else if (type == kNickInvalid) {
         debug::printf("Nick Error. Nick %s is Invalid\n", nick);

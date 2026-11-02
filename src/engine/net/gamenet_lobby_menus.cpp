@@ -25,8 +25,9 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strncpy: the original's own)
+THUG2_MSVC_WARNING(disable : 4996) // (strncpy: the original's own)
 
 namespace online {
 
@@ -130,7 +131,7 @@ void RoomManager::room_message_callback(void*, int, const char* nick, const char
 {
     push_internet_heap();
     std::array<char, 1024> text{};
-    std::sprintf(text.data(), "%s: %s", nick, message);
+    text::format_to(text, "%s: %s", nick, message);
     script::StructPtr params = script::make_struct();
     params->append_word(kText, text.data());
     get_run(kCreateConsoleMessage, params.get());
@@ -147,7 +148,7 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
         return true;
     if (params->has_bare_flag(kSystemMessage)) {
         std::array<char, 1024> text{};
-        std::sprintf(text.data(), "<System> %s", message);
+        text::format_to(text, "<System> %s", message);
         script::StructPtr console = script::make_struct();
         console->append_word(kText, text.data());
         get_run(kCreateConsoleMessage, console.get());
@@ -167,10 +168,10 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
     push_internet_heap();
     std::array<char, 64> text{};
     if (room->full_)
-        std::sprintf(text.data(), "%s - %d/%d (%s)", room->label_.data(), room->num_players_, room->max_players_,
-                     script::fetch_text(kNetLobbyFull));
+        text::format_to(text, "%s - %d/%d (%s)", room->label_.data(), room->num_players_, room->max_players_,
+                        script::fetch_text(kNetLobbyFull));
     else
-        std::sprintf(text.data(), "%s - %d/%d", room->label_.data(), room->num_players_, room->max_players_);
+        text::format_to(text, "%s - %d/%d", room->label_.data(), room->num_players_, room->max_players_);
     script::StructPtr params = script::make_struct();
     params->append_word(kText, text.data());
     const bool available = !room->full_ && !room->out_of_range_;

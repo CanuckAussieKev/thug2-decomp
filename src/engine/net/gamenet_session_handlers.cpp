@@ -52,8 +52,8 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 
@@ -166,8 +166,8 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     info.logged_in = manager->in_internet_mode() && manager->presence_service_->authenticated_;
     copy_name(info.name.data(), name.data());
     // (NOT ORIGINAL: cut to their fields, terminated - the original's sprintf ran on into the next field)
-    std::snprintf(info.level.data(), kServerInfoTextSize, "%s", manager->get_map_name(true));
-    std::snprintf(info.mode.data(), kServerInfoTextSize, "%s", manager->get_game_type_name());
+    text::format_to(std::span(info.level).first(kServerInfoTextSize), "%s", manager->get_map_name(true));
+    text::format_to(std::span(info.mode).first(kServerInfoTextSize), "%s", manager->get_game_type_name());
     // The players' names (not observers, unless 0x005434C0), then the new players' not among them yet.
     std::array<uint8_t, 8> ids = {};
     int id_count = 0;

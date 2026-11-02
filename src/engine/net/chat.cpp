@@ -36,6 +36,7 @@
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace online {
 
@@ -145,7 +146,7 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
 
     // The server doesn't send our own line back to us, so show it here.
     std::array<char, 256> line{};
-    std::snprintf(line.data(), sizeof(line), "%s : %s", packet.name.data(), packet.text.data());
+    text::format_to(line, "%s : %s", packet.name.data(), packet.text.data());
     show_local_chat_line(line.data());
 }
 
@@ -186,7 +187,7 @@ int on_chat_msg(net::InboundMsgCtx* context)
         thugpro::ChatLine chat{};
         if (!thugpro::decode_chat(context->body_, context->body_size_, true, &chat))
             return 1;
-        std::snprintf(line.data(), sizeof(line), "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name.data(), chat.text.data());
+        text::format_to(line, "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name.data(), chat.text.data());
     } else {
         // The original sprintfs the name and the text with no bounds (a name without its NUL runs on into the text)
         // into 256 bytes on the stack; here the name stops at its 16 bytes, the text at the message's end, the line
@@ -194,8 +195,8 @@ int on_chat_msg(net::InboundMsgCtx* context)
         util::ByteReader reader(message, context->body_size_);
         Chat chat;
         read_chat(reader, &chat);
-        std::snprintf(line.data(), sizeof(line), "\\c%i%s\\c0 : %s", static_cast<int8_t>(chat.color) + 2, chat.name.data(),
-                      chat.text.data());
+        text::format_to(line, "\\c%i%s\\c0 : %s", static_cast<int8_t>(chat.color) + 2, chat.name.data(),
+                        chat.text.data());
     }
     gsl::owner<ParamBag*> params = new_script_struct();
     append_word(params, kText, line.data());
@@ -261,10 +262,10 @@ bool handle_chat_command(Hub* manager, const char* text)
                 std::get<2>(camera.backward), std::get<0>(camera.up), std::get<1>(camera.up), std::get<2>(camera.up));
         std::array<char, 128> line{};
         if (skater)
-            std::snprintf(line.data(), sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
-                          skater->at_point_.x, skater->at_point_.y, skater->at_point_.z);
+            text::format_to(line, "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
+                            skater->at_point_.x, skater->at_point_.y, skater->at_point_.z);
         else
-            std::snprintf(line.data(), sizeof(line), "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
+            text::format_to(line, "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
         show_local_chat_line(line.data());
         return true;
     }

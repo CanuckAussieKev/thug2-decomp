@@ -49,8 +49,9 @@
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strncpy, kept)
+THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
 
 namespace online {
 
@@ -200,8 +201,8 @@ HostListing::HostListing() : ListNode(), id_(next_server_id())
 {
     make_node(this);
     participants_.make_head();
-    std::sprintf(level_.data(), "None");
-    std::sprintf(mode_sel_.data(), "None");
+    text::format_to(level_, "None");
+    text::format_to(mode_sel_, "None");
 }
 
 // 0x00546640
@@ -310,10 +311,10 @@ void Hub::update_hosting_status()
         RoomManager* lobby = current_lobby(this);
         if (lobby->remote_) {
             const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote_); // (the peer's private address)
-            std::sprintf(location.data(), "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
-                         server_name, lobby->room_name_.data());
+            text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
+                            server_name, lobby->room_name_.data());
         } else {
-            std::sprintf(location.data(), "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name_.data());
+            text::format_to(location, "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name_.data());
         }
         presence_service_->change_standing(2, script::fetch_text(kHostingStatus), location.data());
     }
@@ -517,8 +518,9 @@ unsigned long __stdcall news_thread(void* argument)
     auto& buffer = manager->news_buffer_;
     std::memset(buffer.data(), 0, 0x1900 * 4);
     std::array<char, 256> url{};
-    std::sprintf(url.data(), commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
-                                                     : "http://www.thug2online.com/motd.dat");
+    text::format_to(url, "%s",
+                    commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
+                                                   : "http://www.thug2online.com/motd.dat");
     manager->request_ =
         game_spy::http_get_ex(url.data(), nullptr, buffer.data(), static_cast<int>(kNewsBufferSize), nullptr,
                               0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)

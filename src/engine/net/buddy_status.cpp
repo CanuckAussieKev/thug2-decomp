@@ -20,8 +20,8 @@
 #include "platform/winmain.h"
 #include "platform/code_address.h"
 #include "platform/compiler.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 
@@ -92,7 +92,7 @@ void FriendsManager::send_buddy_message(int profile, const char* text)
         ->fetch_setting(checksums::hash_from_text("network_id"))
         ->fetch_text(kUiString, &nick, 1);
     std::array<char, 128> message{};
-    std::sprintf(message.data(), "%s\n%s", nick, text);
+    text::format_to(message, "%s\n%s", nick, text);
     game_spy::gp_send_buddy_message(this, profile, message.data()); // (gpSendBuddyMessage)
 }
 

@@ -36,8 +36,8 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
+#include "platform/crt.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 
@@ -82,7 +82,7 @@ PlayerRecord* get_local(Hub* manager) { return find_own_player_record(manager); 
 uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 
 // "team_<team + 1>_name" (the original's sprintf).
-void get_team_key(char* key, int team) { std::sprintf(key, "team_%d_name", team + 1); }
+void get_team_key(char* key, int team) { crt::get_sprintf(key, "team_%d_name", team + 1); }
 const char* get_team_name(const char* key) { return script::fetch_text(key); }
 
 // Every player carrying `team`'s flag (its lowest) carries none.

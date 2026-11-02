@@ -38,8 +38,8 @@
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
 namespace online {
 
@@ -75,7 +75,7 @@ void show_connection_metrics(net::Conn* conn, int index)
     const int received = conn->receive_metrics_.get_throughput();
     const int resends = conn->get_highest_resend_count();
     std::array<char, 1024> line{};
-    std::sprintf(line.data(), "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
+    text::format_to(line, "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
     const script::StructPtr params = script::make_struct();
     params->append_word(kText, line.data());
     get_run(kUpdateNetMetrics, params.get());
@@ -132,9 +132,9 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
     switch (state) {
     case 0: // connecting / dialing
         if (net->get_net_link_kind() == 3)
-            std::sprintf(line.data(), "%s", script::fetch_text(kConnecting));
+            text::format_to(line, "%s", script::fetch_text(kConnecting));
         else
-            std::sprintf(line.data(), "%s %s", script::fetch_text(kDialing), net->get_dialup_number());
+            text::format_to(line, "%s %s", script::fetch_text(kDialing), net->get_dialup_number());
         params->append_word(kText, script::kQbvalString, line.data());
         get_run(kStateDialog, params);
         break;
@@ -144,9 +144,9 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         break;
     case 2: // logged in (with the speed on a modem)
         if (net->get_net_link_kind() == 1)
-            std::sprintf(line2.data(), "%s %d bps", script::fetch_text(kAuthDone), net->get_dialup_speed());
+            text::format_to(line2, "%s %d bps", script::fetch_text(kAuthDone), net->get_dialup_speed());
         else
-            std::sprintf(line2.data(), "%s", script::fetch_text(kAuthDone));
+            text::format_to(line2, "%s", script::fetch_text(kAuthDone));
         params->append_word(kText, script::kQbvalString, line2.data());
         get_run(kFinalStateDialog, params);
         break;
@@ -160,7 +160,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         get_run(kFinalStateDialog, params);
         break;
     case 7: // redial in five seconds
-        std::sprintf(line.data(), "%s", script::fetch_text(kRedialPause));
+        text::format_to(line, "%s", script::fetch_text(kRedialPause));
         params->append_word(kText, script::kQbvalString, line.data());
         get_run(kStateDialog, params);
         g_modem_dialog_end = frame_clock::get_time() + 5000;

@@ -28,6 +28,7 @@
 #include "engine/core/span_copy.h"
 #include "platform/sockets.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace net {
 
@@ -139,7 +140,7 @@ bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out)
 void AppHost::raise_fault()
 {
     std::array<char, 0x400> message{};
-    std::snprintf(message.data(), sizeof(message), "%s: Error %d\n", label_.data(), WSAGetLastError());
+    text::format_to(message, "%s: Error %d\n", label_.data(), WSAGetLastError());
     OutputDebugStringA(message.data());
 }
 
