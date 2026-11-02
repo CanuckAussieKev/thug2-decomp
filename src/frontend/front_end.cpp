@@ -216,7 +216,7 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
     if (device_index == 0 && event == 0 && get_keyboard_on_screen()) {
         // The PC keyboard's arrows: the first one typed (the keys are left for the others to read).
         std::array<char, 256> keys{};
-        const int count = sio::get_keyboard_chars(keys.data());
+        const int count = sio::get_keyboard_chars(keys);
         for (int i = 0; i < count; ++i) {
             const char key = core::at(keys, i);
             if (key == kKeyLeft) {
@@ -385,7 +385,7 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
 {
     const FrontEnd* front_end = task->content_;
     std::array<char, 256> keys{};
-    const int count = sio::get_keyboard_chars(keys.data());
+    const int count = sio::get_keyboard_chars(keys);
     for (int i = 0; i < count; ++i) {
         const char key = core::at(keys, i);
         // Printable (and the high half), Enter and Backspace.
@@ -472,7 +472,7 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
     // The PC keyboard, while the on-screen keyboard is up.
     std::array<char, 256> keys{};
     uint32_t event = 0;
-    const int count = sio::get_keyboard_chars(keys.data());
+    const int count = sio::get_keyboard_chars(keys);
     for (int i = 0; i < count; ++i) {
         const char key = core::at(keys, i);
         if (key == kKeyEscape) {

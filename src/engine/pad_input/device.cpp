@@ -259,11 +259,11 @@ void read_keyboard()
 }
 
 // 0x005BDD30
-int get_keyboard_chars(char* out)
+int get_keyboard_chars(std::span<char> out)
 {
     uint32_t i = 0;
     for (; i < keyboard_char_count(); ++i)
-        out[i] = static_cast<char>(core::at(keyboard_chars(), i));
+        core::at(out, i) = static_cast<char>(core::at(keyboard_chars(), i));
     return static_cast<int>(keyboard_char_count());
 }
 
@@ -501,7 +501,7 @@ const char* get_button_key_name(int button)
         size_t length = std::strlen(name_buffer().data());
         if (length > sizeof(key_name_result()) - 1 - used)
             length = sizeof(key_name_result()) - 1 - used;
-        std::memcpy(key_name_result().data() + used, name_buffer().data(), length);
+        std::memcpy(std::span<char>(key_name_result()).subspan(used).data(), name_buffer().data(), length);
         core::at(key_name_result(), used + length) = '\0';
     }
     if (menu_keys && (button == 0x14 || button == 0x13)) {
@@ -671,7 +671,7 @@ void InputPort::pull_data(int)
 
     PadSnapshot pad;
     read_pad_state(port_no_, &pad);
-    const uint8_t* p = pad.pressure.data();
+    const auto& p = pad.pressure;
     const uint16_t buttons = pad.buttons;
     const bool keyboard_menu = keyboard_control_ && menu_mode; // (the keyboard drives the menus: some buttons ignored)
     is_usable_ = 1;
@@ -682,10 +682,10 @@ void InputPort::pull_data(int)
     uint8_t first = keyboard_menu ? 0xFF : static_cast<uint8_t>(~(((buttons & 0xFF) >> 1) & 8));
     first ^= (buttons >> 5) & 7;
     core::at(control_data_, 2) = first;
-    uint8_t second = static_cast<uint8_t>(~(p[1] >= 0x20 ? 0x20 : 0)) ^ (p[3] >= 0x20 ? 0x10 : 0);
+    uint8_t second = static_cast<uint8_t>(~(core::at(p, 1) >= 0x20 ? 0x20 : 0)) ^ (core::at(p, 3) >= 0x20 ? 0x10 : 0);
     if (!keyboard_menu)
-        second ^= p[0] >= 0x20 ? 0x40 : 0;
-    second ^= p[2] >= 0x20 ? 0x80 : 0;
+        second ^= core::at(p, 0) >= 0x20 ? 0x40 : 0;
+    second ^= core::at(p, 2) >= 0x20 ? 0x80 : 0;
     const uint8_t buttons_so_far = second;
     const park_editing::ParkBuilderMode* editor = park_editing::g_park_editor.get();
     if (editor && editor->cur_phase_ == park_editing::ParkBuilderMode::kStateEdit) {
@@ -697,20 +697,20 @@ void InputPort::pull_data(int)
             editor_element = found.get_pull() != nullptr;
             found.get_release();
         }
-        second ^= if_above(p[7], 0x20, editor_element ? 2 : 4);
-        second ^= if_above(p[6], 0x20, 1);
+        second ^= if_above(core::at(p, 7), 0x20, editor_element ? 2 : 4);
+        second ^= if_above(core::at(p, 6), 0x20, 1);
     } else {
-        second = buttons_so_far ^ if_above(p[6], 0x80, 1) ^ if_above(p[7], 0x80, 2) ^ if_above(p[6], 0x20, 4) ^
-                 if_above(p[7], 0x20, 8);
+        second = buttons_so_far ^ if_above(core::at(p, 6), 0x80, 1) ^ if_above(core::at(p, 7), 0x80, 2) ^ if_above(core::at(p, 6), 0x20, 4) ^
+                 if_above(core::at(p, 7), 0x20, 8);
     }
     core::at(control_data_, 3) = second;
     // Pressures (dead zone 0x20).
-    core::at(control_data_, 12) = pressure_or_zero(p[3]);
-    core::at(control_data_, 13) = pressure_or_zero(p[1]);
-    core::at(control_data_, 14) = keyboard_menu ? 0 : pressure_or_zero(p[0]);
-    core::at(control_data_, 15) = pressure_or_zero(p[2]);
-    core::at(control_data_, 16) = pressure_or_zero(p[6]);
-    core::at(control_data_, 17) = pressure_or_zero(p[7]);
+    core::at(control_data_, 12) = pressure_or_zero(core::at(p, 3));
+    core::at(control_data_, 13) = pressure_or_zero(core::at(p, 1));
+    core::at(control_data_, 14) = keyboard_menu ? 0 : pressure_or_zero(core::at(p, 0));
+    core::at(control_data_, 15) = pressure_or_zero(core::at(p, 2));
+    core::at(control_data_, 16) = pressure_or_zero(core::at(p, 6));
+    core::at(control_data_, 17) = pressure_or_zero(core::at(p, 7));
     core::at(control_data_, 18) = 0;
     core::at(control_data_, 19) = 0;
     core::at(control_data_, 20) = 0;
@@ -729,9 +729,9 @@ void InputPort::pull_data(int)
     core::at(control_data_, 5) = get_stick(0x7FFF - core::at(pad.sticks, 3));
     core::at(control_data_, 6) = get_stick(core::at(pad.sticks, 0) + 0x7FFF);
     core::at(control_data_, 7) = get_stick(0x7FFF - core::at(pad.sticks, 1));
-    if (p[4] > 0x20)
+    if (core::at(p, 4) > 0x20)
         core::at(control_data_, 20) = 1;
-    if (p[5] > 0x20)
+    if (core::at(p, 5) > 0x20)
         core::at(control_data_, 20) |= 2;
     held_down_ = ((core::at(control_data_, 2) << 8 | core::at(control_data_, 3)) ^ 0xFFFF) != 0;
 
@@ -739,7 +739,7 @@ void InputPort::pull_data(int)
     bool enter_typed = false;
     if (typing) {
         std::array<char, 256> typed{};
-        const int count = get_keyboard_chars(typed.data());
+        const int count = get_keyboard_chars(typed);
         for (int i = 0; i < count; ++i) {
             if (core::at(typed, i) == 0x19) {
                 enter_typed = true;
@@ -747,7 +747,7 @@ void InputPort::pull_data(int)
             }
         }
     }
-    keyboard_control_ = (buttons & 0x10) || p[0] >= 0x20 || enter_typed || (playing && get_key_down(0x1C));
+    keyboard_control_ = (buttons & 0x10) || core::at(p, 0) >= 0x20 || enter_typed || (playing && get_key_down(0x1C));
 }
 
 // --- the manager -------------------------------------------------------------------------------------------

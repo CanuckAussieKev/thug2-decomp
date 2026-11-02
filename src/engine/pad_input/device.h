@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <memory>
 
 #include "engine/core/arena_alloc.h"
@@ -114,7 +115,7 @@ void set_actuators(int port, int left, int right);
 // typed characters are queued elsewhere (key_input).
 void read_keyboard();
 // 0x005BDD30 (also reached by a jump at 0x005BCC40): the typed characters, one byte each; returns how many.
-int get_keyboard_chars(char* out);
+int get_keyboard_chars(std::span<char> out);
 // 0x005BDE20 (also through 0x005BCC50): forget them.
 void clear_keyboard_chars();
 

@@ -275,7 +275,7 @@ bool handle_chat_command(Hub* manager, const char* text)
 void keyboard_task(tasks::Task<Hub>* /*task*/)
 {
     std::array<char, 256> keys{};
-    if (sio::get_keyboard_chars(keys.data()) <= 0)
+    if (sio::get_keyboard_chars(keys) <= 0)
         return;
     const char key = core::at(keys, 0);
     if (key == kKeyEnter) {
