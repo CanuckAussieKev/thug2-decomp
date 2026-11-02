@@ -198,8 +198,8 @@ void BodyDynamicsModule::set_spheres(script::Array* spheres)
     spheres_ = reallocate(spheres_, sphere_count_ * sizeof(Sphere));
     for (uint32_t i = 0; i < sphere_count_; ++i) {
         script::Struct* settings = spheres->struct_at(i);
-        settings->fetch_vec(0u, &spheres_[i].center, 1);
-        settings->fetch_float(0xC48391A5, &spheres_[i].radius, 1); // radius
+        settings->fetch_vec(0u, &core::at(sphere_run(), i).center, 1);
+        settings->fetch_float(0xC48391A5, &core::at(sphere_run(), i).radius, 1); // radius
     }
 }
 
@@ -321,8 +321,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         springs_ = reallocate(springs_, spring_count_ * sizeof(Spring));
         // (each built by the vector constructor iterator 0x00401020 with 0x005902E0 - which does nothing)
         for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
-            springs_[i].point = point_of(springs->vector_at(static_cast<uint32_t>(i)));
-            springs_[i].active = true;
+            core::at(spring_run(), i).point = point_of(springs->vector_at(static_cast<uint32_t>(i)));
+            core::at(spring_run(), i).active = true;
         }
     }
 
@@ -425,7 +425,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             p.y = static_cast<float>((m(0, 1) * x + m(1, 1) * y) + m(2, 1) * z);
         }
         for (int i = sphere_count_; i != 0;) {
-            maths::Vec4& p = spheres_[--i].center;
+            maths::Vec4& p = core::at(sphere_run(), --i).center;
             const double x = p.x;
             const double y = p.y;
             const double z = p.z;
@@ -445,7 +445,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
         for (int i = sphere_count_; i != 0;) {
-            const maths::Vec4& p = spheres_[--i].center;
+            const maths::Vec4& p = core::at(sphere_run(), --i).center;
             center = {center.x + p.x, center.y + p.y, center.z + p.z, center.w + p.w};
         }
         const double share = 1.0 / static_cast<double>(contact_count_ + sphere_count_);
@@ -461,9 +461,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     for (int i = contact_count_; i != 0;)
         recentre(core::at(contact_run(), --i));
     for (int i = sphere_count_; i != 0;)
-        recentre(spheres_[--i].center);
+        recentre(core::at(sphere_run(), --i).center);
     for (int i = spring_count_; i != 0;)
-        recentre(springs_[--i].point);
+        recentre(core::at(spring_run(), --i).point);
 
     // mass_over_moment, else the default scaled down by the size of a big shape.
     if (!params->fetch_float(0x967CD3AE, &mass_over_moment_, 0)) {
@@ -478,7 +478,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
                 extent = length;
         }
         for (int i = sphere_count_; i != 0;) {
-            const Sphere& s = spheres_[--i];
+            const Sphere& s = core::at(sphere_run(), --i);
             const double x = s.center.x;
             const double y = s.center.y;
             const double z = s.center.z;
@@ -507,7 +507,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
             radius_ = static_cast<float>(length_squared);
     }
     for (int i = sphere_count_; i != 0;) {
-        const Sphere& s = spheres_[--i];
+        const Sphere& s = core::at(sphere_run(), --i);
         const double x = s.center.x;
         const double y = s.center.y;
         const double z = s.center.z;

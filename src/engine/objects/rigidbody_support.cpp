@@ -130,7 +130,7 @@ void BodyDynamicsModule::seal()
     audio_module_ = core::down_cast<AudioEmitterModule>(entity_->fetch_module(kSound));
     const maths::Mat4& m = basis_frame_;
     for (int i = 0; std::cmp_less(i, spring_count_); ++i) {
-        Spring& spring = springs_[i];
+        Spring& spring = core::at(spring_run(), i);
         const maths::Vec4& p = spring.point;
         const double x =
             (get_wide(p.y) * get_m(m, 0x10) + get_wide(p.x) * get_m(m, 0x00)) + get_wide(p.z) * get_m(m, 0x20);
@@ -171,7 +171,7 @@ void BodyDynamicsModule::update_world_points()
         out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
     }
     for (int i = sphere_count_ - 1; i >= 0; --i) {
-        const maths::Vec4& p = spheres_[i].center;
+        const maths::Vec4& p = core::at(sphere_run(), i).center;
         maths::Vec4& out = core::at(world_sphere_centers(), i);
         const double x =
             (get_wide(p.y) * get_m(m, 0x10) + get_wide(p.z) * get_m(m, 0x20)) + get_wide(p.x) * get_m(m, 0x00);
@@ -182,7 +182,7 @@ void BodyDynamicsModule::update_world_points()
         out = {get_narrow(x), get_narrow(y), get_narrow(z), p.w};
     }
     for (int i = spring_count_ - 1; i >= 0; --i) {
-        const Spring& spring = springs_[i];
+        const Spring& spring = core::at(spring_run(), i);
         if (!spring.active)
             continue;
         const maths::Vec4& p = spring.point;

@@ -308,7 +308,7 @@ void add_overlay(const overlays::Painter& painter)
     if (rails && !rails->on_object_ && rails->nodes_) {
         int drawn = 0;
         for (int i = 0; i < rails->num_; ++i) {
-            const objects::GrindPoint& node = rails->nodes_[i];
+            const objects::GrindPoint& node = core::at(rails->node_run(), i);
             if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
                 !(node.flag_bits_ & objects::kRailFlagActive))
                 continue;

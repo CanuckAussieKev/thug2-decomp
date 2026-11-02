@@ -813,8 +813,8 @@ objects::GrindPoint* rail_node_named(uint32_t name)
     if (!rails || !rails->nodes_)
         return nullptr;
     for (int i = 0; i < rails->num_; ++i) {
-        if (rails->nodes_[i].label_ == name)
-            return &rails->nodes_[i];
+        if (core::at(rails->node_run(), i).label_ == name)
+            return &core::at(rails->node_run(), i);
     }
     return nullptr;
 }
@@ -1602,7 +1602,7 @@ void refresh_flat(objects::GrindRailHub* rails)
         return;
     static const uint32_t kFlag = name_hash("ed_grind_flat");
     for (int i = 0; i < rails->num_; ++i) {
-        const objects::GrindPoint* node = &rails->nodes_[i];
+        const objects::GrindPoint* node = &core::at(rails->node_run(), i);
         if ((node->flag_bits_ & objects::kRailFlagClimbing) || !node->succ_)
             continue;
         auto extras = extras_state().find(node->label_);
@@ -1726,7 +1726,7 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
         g_level_speed_cache.count = rails->num_;
         g_level_speed_cache.found.clear();
         for (int i = 0; i < rails->num_; ++i) {
-            const objects::GrindPoint* node = &rails->nodes_[i];
+            const objects::GrindPoint* node = &core::at(rails->node_run(), i);
             script::Struct* params = node->succ_ ? look_up_node_params(node->label_) : nullptr;
             uint32_t script = 0;
             if (!params || !params->read_hash_value(kTriggerScriptKey, &script, 0) || !script)
@@ -1862,8 +1862,8 @@ bool move_added_point(uint32_t name, V3 pos)
             rail->at_point_ = {pos.x, pos.y, pos.z, 1.0f};
             const objects::GrindRailHub* rails = get_rails();
             for (int i = 0; i < rails->num_; ++i) {
-                if (&rails->nodes_[i] == rail || rails->nodes_[i].succ_ == rail)
-                    cuboid(&rails->nodes_[i]);
+                if (&core::at(rails->node_run(), i) == rail || core::at(rails->node_run(), i).succ_ == rail)
+                    cuboid(&core::at(rails->node_run(), i));
             }
             scenery::rails_rebuilt(); // (the node layer reads the places again)
         }

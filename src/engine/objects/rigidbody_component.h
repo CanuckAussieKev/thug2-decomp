@@ -230,6 +230,8 @@ public:
     maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)
     // NOT ORIGINAL: the shape's points, as many as contact_count_.
     [[nodiscard]] std::span<maths::Vec4> contact_run() const { return {contacts_, contact_count_}; }
+    [[nodiscard]] std::span<Sphere> sphere_run() const { return {spheres_, sphere_count_}; }
+    [[nodiscard]] std::span<Spring> spring_run() const { return {springs_, spring_count_}; }
     maths::Capsule capsule_;           // +0x64
     DirectedFriction* steer_friction_{}; // +0x88 one per contact (directed_friction=)
     uint16_t contact_count_{};           // +0x8C

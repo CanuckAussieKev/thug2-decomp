@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <span>
 #include <cstdint>
 #include <array>
 
@@ -122,6 +123,9 @@ public:
     // 0x0057C3F0: the node `name` moved to `pos`: its segment's box again, and (the original's) a check of the node's
     // own previous link at its own index count times (found: the previous node's box - never).
     void move_node(uint32_t name, const maths::Vec4* pos);
+
+    // NOT ORIGINAL - the nodes as a span of their count.
+    [[nodiscard]] std::span<GrindPoint> node_run() const { return {nodes_, static_cast<size_t>(num_)}; }
 
     maths::Mat4 frame_xform_{}; // +0x00
     GrindPoint* nodes_{nullptr};         // +0x40

@@ -151,7 +151,7 @@ void GrindRailHub::move_node(uint32_t name, const maths::Vec4* pos)
     if (node->last_value_) {
         // (the original tests the found node's own link each time, not each node's)
         for (int i = 0; i < num_; ++i) {
-            GrindPoint* each = &nodes_[index];
+            GrindPoint* each = &core::at(node_run(), index);
             if (each->succ_ == node)
                 box_of(&each->at_point_, &node->at_point_, &each->lower_limit_, &each->upper_limit_);
         }
@@ -311,8 +311,8 @@ GrindPoint* GrindRailHub::find_node(uint32_t name)
     if (!nodes_)
         return nullptr;
     for (int i = 0; i < num_; ++i) {
-        if (nodes_[i].label_ == name)
-            return &nodes_[i];
+        if (core::at(node_run(), i).label_ == name)
+            return &core::at(node_run(), i);
     }
     return nullptr;
 }
@@ -406,7 +406,7 @@ maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* 
 // 0x0057D090
 void GrindRailHub::append_vertex(uint32_t name, script::Struct* params)
 {
-    GrindPoint* node = &nodes_[adding_];
+    GrindPoint* node = &core::at(node_run(), adding_);
     uint32_t node_class = 0; // (the original's are uninitialised: read only if the node has them)
     params->read_hash_value(kClass, &node_class, 0);
     const bool climbing = node_class == kClimbingNode;
@@ -463,7 +463,7 @@ void GrindRailHub::remove_overlaps()
     debug::printf("Starting overlapping rail removal\n");
     int removed = 0;
     for (int i = 0; i < num_; ++i) {
-        GrindPoint* a = &nodes_[i];
+        GrindPoint* a = &core::at(node_run(), i);
         const GrindPoint* a_next = a->succ_;
         if (!a_next)
             continue;
@@ -492,7 +492,7 @@ void GrindRailHub::remove_overlaps()
         for (int j = i + 1; j < num_; ++j) {
             if (!(a->flag_bits_ & kRailFlagActive))
                 break;
-            GrindPoint* b = &nodes_[j];
+            GrindPoint* b = &core::at(node_run(), j);
             const GrindPoint* b_next = b->succ_;
             if (!b_next)
                 continue;
@@ -582,8 +582,8 @@ void GrindRailHub::change_live(uint32_t name, int active, bool entire_rail)
 bool GrindRailHub::is_operative(uint32_t name)
 {
     for (int index = 0; index < num_; ++index) {
-        if (nodes_[index].label_ == name)
-            return (nodes_[index].flag_bits_ & kRailFlagActive) != 0;
+        if (core::at(node_run(), index).label_ == name)
+            return (core::at(node_run(), index).flag_bits_ & kRailFlagActive) != 0;
     }
     return false;
 }
@@ -594,7 +594,7 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
 {
     auto radius_squared = static_cast<float>(static_cast<double>(radius) * radius);
     for (int index = num_; index != 0;) {
-        GrindPoint* node = &nodes_[--index];
+        GrindPoint* node = &core::at(node_run(), --index);
         if (!(node->flag_bits_ & kRailFlagLadder) || !(node->flag_bits_ & kRailFlagActive))
             continue;
         if (std::fabs(static_cast<double>(node->at_point_.x) - pos->x) > radius ||
@@ -646,7 +646,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
     max.z = static_cast<float>(max.z + snap);
     auto snap_squared = static_cast<float>(snap * snap);
     for (int index = 0; index < num_; ++index) {
-        GrindPoint* node = &nodes_[index];
+        GrindPoint* node = &core::at(node_run(), index);
         if (!(node->flag_bits_ & kRailFlagLadder) || !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
             continue;
         // (the tests as the original's: NaN passes them)
@@ -708,7 +708,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
     max.z = static_cast<float>(static_cast<double>(max.z) + margin);
     auto margin_squared = static_cast<float>(static_cast<double>(margin) * margin);
     for (int index = 0; index < num_; ++index) {
-        GrindPoint* node = &nodes_[index];
+        GrindPoint* node = &core::at(node_run(), index);
         if ((node->flag_bits_ & kRailFlagLadder) || (node->flag_bits_ & kRailFlagNoClimbing) ||
             !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
             continue;
@@ -760,7 +760,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
 bool GrindRailHub::find_joining_rail(const GrindPoint* from, uint32_t exclude_flags, GrindPoint** found)
 {
     for (int index = 0; index < num_; ++index) {
-        GrindPoint* node = &nodes_[index];
+        GrindPoint* node = &core::at(node_run(), index);
         // (the tests as the original's: NaN passes them)
         if (std::fabs(static_cast<double>(node->at_point_.x) - from->at_point_.x) > 1.0 ||
             std::fabs(static_cast<double>(node->at_point_.y) - from->at_point_.y) > 1.0 ||
@@ -862,7 +862,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
     }
     // The links: each node's Links (by name, through the table).
     for (int i = 0; i < num_; ++i) {
-        GrindPoint* node = &nodes_[i];
+        GrindPoint* node = &core::at(node_run(), i);
         script::Struct* params = level_nodes::fetch_vertex(node->label_, true);
         script::Array* links = nullptr;
         params->fetch_list(kLinks, &links, 0);
@@ -872,10 +872,10 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
         for (int l = 0; l < link_count; ++l) {
             const uint32_t link = links->fetch_part(l);
             uint32_t slot = link & mask;
-            GrindPoint* other = &nodes_[entry(slot)];
+            GrindPoint* other = &core::at(node_run(), entry(slot));
             while (other->label_ != link) {
                 slot = (slot + 1) & mask;
-                other = &nodes_[entry(slot)];
+                other = &core::at(node_run(), entry(slot));
             }
             if (!node->succ_ || (other->flag_bits_ & kRailFlagDefaultLine)) {
                 node->succ_ = other;
@@ -909,7 +909,7 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
     max.z = static_cast<float>(static_cast<double>(max.z) + snap);
     maths::Vec4 best_point;
     for (int index = 0; index < num_; ++index) {
-        GrindPoint* node = &nodes_[index];
+        GrindPoint* node = &core::at(node_run(), index);
         if ((node->flag_bits_ & kRailFlagClimbing) || node == exclude || !(node->flag_bits_ & kRailFlagActive))
             continue;
         // (the tests as the original's: NaN passes them)

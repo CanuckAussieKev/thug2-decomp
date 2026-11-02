@@ -193,7 +193,7 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
     float best = 14.0f;
     bool found = false;
     for (int i = 0; i < rails->num_; ++i) {
-        const objects::GrindPoint& node = rails->nodes_[i];
+        const objects::GrindPoint& node = core::at(rails->node_run(), i);
         if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
             !(node.flag_bits_ & objects::kRailFlagActive))
             continue;

@@ -80,7 +80,7 @@ bool BodyDynamicsModule::find_contacts()
 
     for (int j = sphere_count_ - 1; j >= 0; --j) {
         const maths::Vec4& centre = core::at(world_sphere_centers(), j);
-        const Sphere& sphere = spheres_[j];
+        const Sphere& sphere = core::at(sphere_run(), j);
         const maths::Vec4 at = {
             get_narrow(get_wide(centre.x) + at_point_.x), get_narrow(get_wide(centre.y) + at_point_.y),
             get_narrow(get_wide(at_point_.z) + centre.z), get_narrow(get_wide(centre.w) + at_point_.w)};
