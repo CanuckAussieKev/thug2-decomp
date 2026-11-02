@@ -144,8 +144,8 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     if (bit_mark(this, PoseFlag::kSkitching)) {
         const objects::RideTracker* tracker = get_tracker(this);
-        if (tracker && tracker->entity_.owner_object_) {
-            void* skitched = tracker->entity_.owner_object_;
+        if (tracker && tracker->entity_.get_pull()) {
+            void* skitched = tracker->entity_.get_pull();
             const float match = script::fetch_float(kSkitchSpeedMatch);
             const maths::Vec4& theirs = static_cast<objects::GameEntity*>(skitched)->vel_;
             entity_->vel_ = {match * theirs.x, match * theirs.y, match * theirs.z, match * theirs.w};
@@ -155,7 +155,7 @@ void SkaterPhysicsModule::do_ground_physics()
     }
     // Carried by what the skater rides on (not while skitching - that's the ride).
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&entity_->at_point_)) {
+        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point_)) {
             stop_riding(this);
         } else if (!bit_mark(this, PoseFlag::kSkitching)) {
             objects::GameEntity* o = object_of(this);

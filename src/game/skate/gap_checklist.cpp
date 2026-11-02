@@ -18,8 +18,6 @@
 #include "game/skate/skate_module.h"
 #include "platform/code_address.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 
 namespace goals {
 
@@ -58,7 +56,7 @@ GapTally*& building() { return g_building_gap_checklist; }
 // The list's nodes: the head's data is -1.
 GapEntry* gap_of(memory::ListNode* node)
 {
-    return node->data == memory::ListNode::head_marker() ? nullptr : raw::as<GapEntry>(node);
+    return node->data == memory::ListNode::head_marker() ? nullptr : static_cast<GapEntry*>(node->data);
 }
 GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
 

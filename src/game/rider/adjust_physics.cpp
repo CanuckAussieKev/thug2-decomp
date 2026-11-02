@@ -15,7 +15,6 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/thaw_bmx.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
@@ -114,17 +113,17 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (!flags->flag(PoseFlag::kSkitching).on && !flags->flag(PoseFlag::kAcidDrop).on && ride_->ride_) {
         const RideTracker* ride = ride_->ride_;
         bool leave = true;
-        if (ride->entity_.owner_object_) {
+        if (ride->entity_.get_pull()) {
             const int state = flags->cur_phase_;
             if (state == 0 || state == 1) {
                 render::ProbeRay& feeler = core->feeler_;
-                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity_.owner_object_)
+                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity_.get_pull())
                     leave = false;
             } else {
                 leave = false;
             }
             if (leave)
-                object->vel_ += ride_->ride_->entity_.owner_object_->vel_;
+                object->vel_ += ride_->ride_->entity_.get_pull()->vel_;
         }
         if (leave)
             ride_->stop_riding();

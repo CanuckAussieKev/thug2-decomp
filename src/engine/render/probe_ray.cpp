@@ -49,7 +49,7 @@ ProbeRay::ProbeRay() : callback_(nullptr), hit_cache_(nullptr)
 {
     entity_.preceding_ = nullptr;
     entity_.following_ = nullptr;
-    entity_.owner_object_ = nullptr;
+    entity_.target_ = nullptr;
     reset_hit(hit_);
 }
 
@@ -58,7 +58,7 @@ ProbeRay::ProbeRay(const maths::Vec4* start, const maths::Vec4* end) : callback_
 {
     entity_.preceding_ = nullptr;
     entity_.following_ = nullptr;
-    entity_.owner_object_ = nullptr;
+    entity_.target_ = nullptr;
     line_.start = *start;
     line_.end = *end;
     reset_hit(hit_);

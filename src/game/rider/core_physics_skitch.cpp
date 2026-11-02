@@ -107,7 +107,7 @@ void SkaterPhysicsModule::get_skitch()
 {
     const objects::RideTracker* rider = ride_->ride_;
     objects::PadSnapshot* pad = &input_->pad_primary_;
-    objects::GameEntity* car = rider ? rider->entity_.owner_object_ : nullptr;
+    objects::GameEntity* car = rider ? rider->entity_.get_pull() : nullptr;
     if (!car) {
         skater_object(this)->post_own_event(kOffMeterBottom, nullptr);
         return;

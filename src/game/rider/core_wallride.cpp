@@ -91,7 +91,7 @@ void SkaterPhysicsModule::step_wall_ride()
     // What the skater rides on carries it (its turn too).
     maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&entity_->at_point_)) {
+        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point_)) {
             stop_riding(this);
         } else {
             carried = get_tracker(this)->carried_;

@@ -120,7 +120,7 @@ bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script
 void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 {
     for (int i = 7; i >= 0; --i) {
-        if (get_pushers()[i].owner_object_ == object) {
+        if (get_pushers()[i].get_pull() == object) {
             pusher_reach()[i] = reach;
             return;
         }
@@ -300,7 +300,7 @@ int mute_until(int delay)
 void BodyDynamicsModule::feel_pushers()
 {
     for (int i = 7; i >= 0; --i) {
-        const GameEntity* pusher = get_pushers()[i].owner_object_;
+        const GameEntity* pusher = get_pushers()[i].get_pull();
         if (!pusher)
             continue;
         const float reach = pusher_reach()[i];

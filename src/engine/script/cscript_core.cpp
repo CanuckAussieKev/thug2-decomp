@@ -18,6 +18,7 @@
 #include "engine/script/token_reader.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/objects/entity.h"
 
 namespace script {
 
@@ -45,7 +46,7 @@ Script* Script::make_new()
 {
     entity_.preceding_ = nullptr;
     entity_.following_ = nullptr;
-    entity_.owner_object_ = nullptr;
+    entity_.target_ = nullptr;
     new (&shared_base_) objects::SharedBase;
     // Then all of it is zeroed - shared_base_'s vptr too (an original quirk, kept: nothing calls through it).
     // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy

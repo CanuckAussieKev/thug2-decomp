@@ -143,7 +143,7 @@ void SkaterPhysicsModule::start_riding_hit_object()
     objects::MovingSurfaceModule* ride = ride_;
     if (!static_cast<objects::MovingSurfaceModule*>(ride)->start_riding(&feeler_))
         return;
-    const objects::GameEntity* ride_object = ride_->ride_->entity_.owner_object_;
+    const objects::GameEntity* ride_object = ride_->ride_->entity_.get_pull();
     const maths::Vec4& ride_velocity = ride_object->vel_;
     maths::Vec4& velocity = entity_->vel_;
     velocity.x -= ride_velocity.x;

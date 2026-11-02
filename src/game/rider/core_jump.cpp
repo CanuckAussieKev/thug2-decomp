@@ -115,8 +115,8 @@ void SkaterPhysicsModule::trigger_rail_script(const int* events)
     last_rail_script_ = name;
     const objects::Entity* ride_object = nullptr;
     if (const objects::RideTracker* tracker = get_tracker(this)) {
-        if (tracker->entity_.owner_object_)
-            ride_object = tracker->entity_.owner_object_;
+        if (tracker->entity_.get_pull())
+            ride_object = tracker->entity_.get_pull();
         else
             stop_riding(this);
     }
@@ -216,14 +216,14 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
 // 0x00509920
 void SkaterPhysicsModule::begin_skitch()
 {
-    auto* object = skitch_target_.owner_object_;
+    auto* object = skitch_target_.get_pull();
     if (!object)
         return;
     ride_->ride_on(object);
     set_flag(this, PoseFlag::kSkitching, 1);
     skitch_moving_ = 1;
     get_skitch();
-    if (objects::Entity* skitched = skitch_target_.owner_object_)
+    if (objects::Entity* skitched = skitch_target_.get_pull())
         skitched->post_own_event(0x35224F25, nullptr);
 }
 
@@ -234,14 +234,14 @@ void SkaterPhysicsModule::end_skitch()
         return;
     set_flag(this, PoseFlag::kSkitching, 0);
     auto& skitched = skitch_target_;
-    if (skitched.owner_object_) {
-        static_cast<objects::Entity*>(skitched.owner_object_)->post_own_event(0x2739B86D, nullptr);
+    if (skitched.get_pull()) {
+        static_cast<objects::Entity*>(skitched.get_pull())->post_own_event(0x2739B86D, nullptr);
         skitched.get_release();
-        skitched.owner_object_ = nullptr;
+        skitched.target_ = nullptr;
     }
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* tracker = ride->ride_) {
-        ride->last_object_ = tracker->entity_.owner_object_; // (what it rode last)
+        ride->last_object_ = tracker->entity_.get_pull(); // (what it rode last)
         tracker->entity_.get_release();
         memory::Hub::get_pull()->dealloc(tracker);
         ride->ride_ = nullptr;
@@ -274,7 +274,7 @@ void SkaterPhysicsModule::step_wallplant()
     objects::RideTracker* tracker = get_tracker(this);
     if (!tracker)
         return;
-    if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&entity_->at_point_)) {
+    if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point_)) {
         stop_riding(this);
         return;
     }

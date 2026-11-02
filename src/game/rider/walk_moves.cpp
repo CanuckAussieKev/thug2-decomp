@@ -45,7 +45,6 @@
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
 #include "game/rider/tagging.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {
@@ -393,7 +392,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
     if (!tracker)
         return;
     ride->last_object_ = tracker->entity_.get_pull();
-    raw::as<SharedRef<SharedBase>>(&tracker->entity_)->get_release();
+    tracker->entity_.get_release();
     memory::Hub::get_pull()->dealloc(tracker);
     ride->ride_ = nullptr;
     ride->stop_time_ = get_now();

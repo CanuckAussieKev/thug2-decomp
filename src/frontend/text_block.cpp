@@ -20,7 +20,6 @@
 #include "frontend/screen_element.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -150,12 +149,12 @@ void ParagraphWidget::change_caption(const char** texts, int count)
     set_focus_sent(0);
     {
         ElementPtr child;
-        child.assign_value(eldest_.owner_object_);
+        child.assign_value(eldest_.get_pull());
         while (child) {
             ElementPtr next;
-            next.assign_value(child->following_.owner_object_);
+            next.assign_value(child->following_.get_pull());
             manager->dismantle_part(child->ident_, 1, 0, nullptr);
-            child.assign_value(next.owner_object_);
+            child.assign_value(next.get_pull());
         }
     }
     memory::Hub* memory = memory::Hub::get_pull();
@@ -241,11 +240,11 @@ bool ParagraphWidget::fetch_caption(char* out, int size)
     *out = 0;
     int total = 0;
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     while (child) {
         ElementPtr next;
-        next.assign_value(child->following_.owner_object_);
-        const char* text = as_text(child.owner_object_)->chars_;
+        next.assign_value(child->following_.get_pull());
+        const char* text = as_text(child.get_pull())->chars_;
         total += static_cast<int>(std::strlen(text));
         if (next)
             ++total;
@@ -254,7 +253,7 @@ bool ParagraphWidget::fetch_caption(char* out, int size)
         append_text(out, text);
         if (next)
             append_text(out, get_space());
-        child.assign_value(next.owner_object_);
+        child.assign_value(next.get_pull());
     }
     return true;
 }
@@ -264,14 +263,14 @@ int ParagraphWidget::fetch_magnitude()
 {
     int total = 0;
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     while (child) {
         ElementPtr next;
-        next.assign_value(child->following_.owner_object_);
-        total += static_cast<int>(std::strlen(as_text(child.owner_object_)->chars_));
+        next.assign_value(child->following_.get_pull());
+        total += static_cast<int>(std::strlen(as_text(child.get_pull())->chars_));
         if (next)
             ++total;
-        child.assign_value(next.owner_object_);
+        child.assign_value(next.get_pull());
     }
     return total;
 }
@@ -323,9 +322,9 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
 void ParagraphWidget::update_lines()
 {
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     while (child) {
-        LabelWidget* line = as_text(child.owner_object_);
+        LabelWidget* line = as_text(child.get_pull());
         if (blur_)
             line->enable_blur();
         else
@@ -343,7 +342,7 @@ void ParagraphWidget::update_lines()
         line->shadow_y_ = shadow_y_;
         std::memcpy(line->shadow_rgba_.data(), shadow_rgba_.data(), 4);
         line->override_rgba_ = override_rgba_;
-        child.assign_value(child->following_.owner_object_);
+        child.assign_value(child->following_.get_pull());
     }
 }
 
@@ -418,7 +417,7 @@ void ParagraphWidget::blend_towards(Struct* params)
         int ms = 0;
         const SmearEffect::Settings* target = blur_->set_from_params(params, &ms);
         ElementPtr child;
-        child.assign_value(eldest_.owner_object_);
+        child.assign_value(eldest_.get_pull());
         while (child) {
             // each line's blur displaced towards the block's middle by how far its middle is from it
             SmearEffect::Settings settings = *target;
@@ -428,8 +427,8 @@ void ParagraphWidget::blend_towards(Struct* params)
             const double offset = static_cast<double>(level_y_) * get_half() - y;
             core::at(settings.max_displacement_, 1) =
                 static_cast<float>(offset * core::at(target->bottom_scales_, 1) - offset + core::at(settings.max_displacement_, 1));
-            as_text(child.owner_object_)->blur_->set_target(&settings, ms);
-            child.assign_value(child->following_.owner_object_);
+            as_text(child.get_pull())->blur_->set_target(&settings, ms);
+            child.assign_value(child->following_.get_pull());
         }
     }
     UiWidget::blend_towards(params);
@@ -443,7 +442,7 @@ void ParagraphWidget::tick_frame()
     auto y = static_cast<float>((static_cast<double>(level_y_) - lines_height_) *
                                 (static_cast<double>(inner_align_v_) + get_one()) * get_half());
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     for (int i = 0; i < rows_filled_; ++i) {
         child->change_alignment(inner_align_h_, -1.0f);
         uint32_t rgba = 0;
@@ -452,7 +451,7 @@ void ParagraphWidget::tick_frame()
         auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span_ * get_half());
         child->change_location(x, y, 0);
         y = static_cast<float>(static_cast<double>(child->level_y_) * internal_scale_ * line_spacing_ + y);
-        child.assign_value(child->following_.owner_object_);
+        child.assign_value(child->following_.get_pull());
     }
     update_lines();
 }

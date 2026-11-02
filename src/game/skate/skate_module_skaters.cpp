@@ -829,7 +829,7 @@ gfx::ViewCam* screen_camera(int index) { return render::obtain_active_lens(index
 frontend::UiWidget* find_element(uint32_t id)
 {
     frontend::ElementPtr found;
-    return frontend::UiTree::sole()->fetch_part(&found, id, 0)->owner_object_;
+    return frontend::UiTree::sole()->fetch_part(&found, id, 0)->get_pull();
 }
 
 } // namespace

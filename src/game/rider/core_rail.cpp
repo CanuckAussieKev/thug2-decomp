@@ -345,16 +345,16 @@ void SkaterPhysicsModule::step_grind_move()
 void SkaterPhysicsModule::ride_moving_rail()
 {
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.owner_object_) {
+        if (!tracker->entity_.get_pull()) {
             stop_riding(this);
         } else {
-            void* rails = static_cast<objects::GameEntity*>(get_tracker(this)->entity_.owner_object_)
+            void* rails = static_cast<objects::GameEntity*>(get_tracker(this)->entity_.get_pull())
                               ->fetch_module(kRailManagerType);
             maths::Mat4 matrix;
             static_cast<objects::GrindPathLinkModule*>(rails)->update_rail_matrix(&matrix);
             tracker = get_tracker(this);
             if (tracker) {
-                if (!tracker->entity_.owner_object_ || !tracker->tick_frame(&entity_->at_point_)) {
+                if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point_)) {
                     stop_riding(this);
                 } else {
                     entity_->at_point_ += get_tracker(this)->carried_;

@@ -25,7 +25,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -183,17 +182,17 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
         break;
     }
     element->change_serial(id);
-    enrol_subject(element.owner_object_);
-    element.owner_object_->change_traits(params);
-    element.owner_object_->blend_towards(params);
+    enrol_subject(element.get_pull());
+    element.get_pull()->change_traits(params);
+    element.get_pull()->blend_towards(params);
     int priority = 0;
     if (params->fetch_int_value(kPriority, &priority, 0))
         push_priority(id, static_cast<uint32_t>(priority));
     if (heap_pushed)
         memory->leave_heap_scope();
     out->preceding_ = out->following_ = nullptr;
-    out->owner_object_ = nullptr;
-    out->assign_value(element.owner_object_);
+    out->target_ = nullptr;
+    out->assign_value(element.get_pull());
     return out;
 }
 
@@ -254,10 +253,10 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
     params->read_sub_struct(kCallbackParams, &callback_params, 0);
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
     if (symbol && symbol->type == script::kQbvalNativeMethod) {
-        element.owner_object_->invoke_method_by_name(name, script_params, script);
+        element.get_pull()->invoke_method_by_name(name, script_params, script);
     } else if (Script* spawned = script::spawn_script(name, script_params, callback, callback_params, 0, 0, false,
                                                       false, false, false)) {
-        spawned->entity_.assign_value(element.owner_object_);
+        spawned->entity_.assign_value(element.get_pull());
         spawned->tick_frame();
     }
     return true;
@@ -269,7 +268,7 @@ bool cfunc_set_screen_element_props(script::Struct* params, script::Script*)
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     if (element)
-        element.owner_object_->change_traits(params);
+        element.get_pull()->change_traits(params);
     return true;
 }
 
@@ -278,7 +277,7 @@ bool cfunc_do_screen_element_morph(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    element.owner_object_->blend_towards(params);
+    element.get_pull()->blend_towards(params);
     return true;
 }
 
@@ -314,13 +313,13 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
     uint32_t id = 0;
     if (manager->resolve_id(params, kId, &id)) {
         ElementPtr found;
-        element.assign_value(manager->fetch_part(&found, id, 0)->owner_object_);
+        element.assign_value(manager->fetch_part(&found, id, 0)->get_pull());
     }
     if (!element) {
         params->has_bare_flag(kDontAssert);
         return false;
     }
-    element.owner_object_->get_properties(script->args_);
+    element.get_pull()->get_properties(script->args_);
     if (element->kind_tag_ == kElement3d) {
         auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
         script->args_->push_float(kAngleX, core::at(e3d->angle_, 0));
@@ -349,7 +348,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
     uint32_t id = 0;
     if (manager->resolve_id(params, kId, &id)) {
         ElementPtr found;
-        element.assign_value(manager->fetch_part(&found, id, 1)->owner_object_);
+        element.assign_value(manager->fetch_part(&found, id, 1)->get_pull());
     }
     const int count = element->child_total();
     if (count == 0)
@@ -374,10 +373,10 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
     if (element->kind_tag_ == kTextBlockElement) {
         const bool last_line = params->has_bare_flag(kLastLine);
         const bool enforce = params->has_bare_flag(kEnforceMaxWidth);
-        return text_block_concatenate(element.owner_object_, text, enforce, last_line);
+        return text_block_concatenate(element.get_pull(), text, enforce, last_line);
     }
     if (element->kind_tag_ == kTextElement)
-        return text_concatenate(element.owner_object_, text);
+        return text_concatenate(element.get_pull(), text);
     return false;
 }
 
@@ -387,9 +386,9 @@ bool cfunc_text_element_backspace(script::Struct* params, script::Script*)
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     if (element->kind_tag_ == kTextBlockElement)
-        return text_block_backspace(element.owner_object_);
+        return text_block_backspace(element.get_pull());
     if (element->kind_tag_ == kTextElement)
-        return text_backspace(element.owner_object_);
+        return text_backspace(element.get_pull());
     return false;
 }
 
@@ -400,10 +399,10 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     if (element->kind_tag_ == kTextBlockElement) {
-        if (text_block_string(element.owner_object_, text.data(), sizeof(text)))
+        if (text_block_string(element.get_pull(), text.data(), sizeof(text)))
             script->args_->append_word(kString, text.data());
     } else if (element->kind_tag_ == kTextElement) {
-        if (const char* string = core::down_cast<LabelWidget>(element.owner_object_)->chars_)
+        if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars_)
             script->args_->append_word(kString, string);
     }
     return false;
@@ -416,9 +415,9 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
     hub()->resolve_element(&element, params, kId, 1);
     int length = 0;
     if (element->kind_tag_ == kTextBlockElement)
-        length = text_block_length(element.owner_object_);
+        length = text_block_length(element.get_pull());
     else if (element->kind_tag_ == kTextElement)
-        length = get_text_length(element.owner_object_);
+        length = get_text_length(element.get_pull());
     else
         return false;
     script->args_->put_int(kLength, length);
@@ -441,7 +440,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    auto* menu = core::down_cast<MenuBase>(element.owner_object_);
+    auto* menu = core::down_cast<MenuBase>(element.get_pull());
     const int selected = menu->selected_index_;
     if (selected == -1)
         return false;

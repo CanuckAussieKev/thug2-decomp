@@ -166,7 +166,7 @@ void MenuBase::get_step(int direction)
         UiWidget* item = nullptr;
         {
             ElementPtr found;
-            item = get_look_up(hub(), &found, chosen_item_id_, 0)->owner_object_;
+            item = get_look_up(hub(), &found, chosen_item_id_, 0)->get_pull();
         }
         if (item)
             item->read_int_tag(kTagGridIndex, &grid_index);
@@ -184,9 +184,9 @@ void MenuBase::arrange()
     const bool regular = regular_space_ > regular_space_minimum();
     {
         ElementPtr item;
-        item.assign_value(eldest_.owner_object_);
+        item.assign_value(eldest_.get_pull());
         if (regular) {
-            for (; item; item.assign_value(item->following_.owner_object_)) {
+            for (; item; item.assign_value(item->following_.get_pull())) {
                 const double across = vertical_ ? static_cast<double>(item->span_) * item->shown_.scale_x_
                                                 : static_cast<double>(item->level_y_) * item->shown_.scale_y_;
                 total = static_cast<float>(static_cast<double>(total) + regular_space_);
@@ -194,7 +194,7 @@ void MenuBase::arrange()
                     largest = static_cast<float>(across);
             }
         } else {
-            for (; item; item.assign_value(item->following_.owner_object_)) {
+            for (; item; item.assign_value(item->following_.get_pull())) {
                 double across = 0.0, along = 0.0;
                 if (vertical_) {
                     across = static_cast<double>(item->span_) * margin_factor_;
@@ -234,10 +234,10 @@ void MenuBase::arrange()
                                                   (static_cast<double>(inner_align_h_) + 1.0) * 0.5);
     {
         ElementPtr item;
-        item.assign_value(eldest_.owner_object_);
+        item.assign_value(eldest_.get_pull());
         if (regular) {
             offset = static_cast<float>(static_cast<double>(regular_space_) * 0.5 + offset);
-            for (; item; item.assign_value(item->following_.owner_object_)) {
+            for (; item; item.assign_value(item->following_.get_pull())) {
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
                     item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span_ * 0.5),
@@ -250,7 +250,7 @@ void MenuBase::arrange()
                 offset = static_cast<float>(static_cast<double>(offset) + regular_space_);
             }
         } else {
-            for (; item; item.assign_value(item->following_.owner_object_)) {
+            for (; item; item.assign_value(item->following_.get_pull())) {
                 // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
                 const double half =
                     (vertical_ ? static_cast<double>(item->level_y_) : static_cast<double>(item->span_)) *
@@ -331,13 +331,13 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         if (event->payload_ && event->payload_->fetch_int_value(kGridIndex, &grid, 0)) {
             grid_index_ = grid;
             ElementPtr item;
-            item.assign_value(eldest_.owner_object_);
+            item.assign_value(eldest_.get_pull());
             int found = -1;
             for (int i = 0; item; ++i) {
                 int x = -1;
                 if (item->read_int_tag(kTagGridX, &x) && x <= grid)
                     found = i;
-                item.assign_value(item->following_.owner_object_);
+                item.assign_value(item->following_.get_pull());
             }
             if (found != -1) {
                 selected_index_ = found;
@@ -347,14 +347,14 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         uint32_t child_id = 0;
         if (event->payload_ && event->payload_->read_hash_value(kChildId, &child_id, 0)) {
             ElementPtr item;
-            item.assign_value(eldest_.owner_object_);
+            item.assign_value(eldest_.get_pull());
             for (int i = 0; item; ++i) {
                 if (child_id == item->ident_) {
                     chosen_item_id_ = child_id;
                     selected_index_ = i;
                     break;
                 }
-                item.assign_value(item->following_.owner_object_);
+                item.assign_value(item->following_.get_pull());
             }
         }
         focused_ = true;

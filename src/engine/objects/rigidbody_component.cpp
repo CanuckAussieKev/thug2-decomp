@@ -27,7 +27,6 @@
 #include "engine/render/coll_cache.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -656,7 +655,7 @@ void add_rigid_body_pusher(GameEntity* object)
 {
     auto* pushers = g_rigid_body_pushers.data();
     for (int i = 7; i >= 0; --i) {
-        if (pushers[i].owner_object_)
+        if (pushers[i].get_pull())
             continue;
         pushers[i].assign_value(object);
         core::at(g_rigid_body_pusher_reach, i) = 0.0f; // (its extra reach: set_rigid_body_pusher_reach)

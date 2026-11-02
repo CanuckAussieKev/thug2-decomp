@@ -36,7 +36,6 @@
 #include "engine/gfx/device.h"
 #include "engine/pad_input/device.h"
 #include "frontend/menu_element.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -82,9 +81,9 @@ const objects::Entity* as_object(const UiWidget* element) { return static_cast<c
 uint32_t current_flags(const UiWidget* element) { return as_object(element)->object_flags_; }
 uint32_t kind_tag(const UiWidget* element) { return as_object(element)->kind_tag_; }
 uint32_t ident_no(const UiWidget* element) { return as_object(element)->ident_; }
-UiWidget* current_parent(const UiWidget* element) { return element->container_.owner_object_; }
-UiWidget* first_child(const UiWidget* element) { return element->eldest_.owner_object_; }
-UiWidget* next_sibling(const UiWidget* element) { return element->following_.owner_object_; }
+UiWidget* current_parent(const UiWidget* element) { return element->container_.get_pull(); }
+UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
+UiWidget* next_sibling(const UiWidget* element) { return element->following_.get_pull(); }
 float get_alpha(const UiWidget* element) { return element->summed_.alpha; }
 float bearing(const UiWidget* element) { return element->summed_.angle; }
 

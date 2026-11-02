@@ -9,9 +9,9 @@ namespace objects {
 // 0x00463820 (each pointer is taken out of the list of the object it points at, which is this one)
 void SharedRefList::clear()
 {
-    for (SharedRef<SharedBase>* pointer = head_; pointer;) {
-        SharedRef<SharedBase>* next = pointer->following_;
-        if (pointer->owner_object_) {
+    for (SharedLink* pointer = head_; pointer;) {
+        SharedLink* next = pointer->following_;
+        if (pointer->target_) {
             if (pointer->preceding_)
                 pointer->preceding_->following_ = next;
             else
@@ -20,15 +20,15 @@ void SharedRefList::clear()
                 pointer->following_->preceding_ = pointer->preceding_;
             pointer->preceding_ = nullptr;
             pointer->following_ = nullptr;
-            pointer->owner_object_ = nullptr;
+            pointer->target_ = nullptr;
         }
-        pointer->owner_object_ = nullptr;
+        pointer->target_ = nullptr;
         pointer = next;
     }
 }
 
 // 0x004637C0
-void SharedRefList::attach(SharedRef<SharedBase>* pointer)
+void SharedRefList::attach(SharedLink* pointer)
 {
     pointer->following_ = head_;
     if (head_)
@@ -37,7 +37,7 @@ void SharedRefList::attach(SharedRef<SharedBase>* pointer)
 }
 
 // 0x004637E0
-void SharedRefList::detach(SharedRef<SharedBase>* pointer)
+void SharedRefList::detach(SharedLink* pointer)
 {
     if (pointer->preceding_)
         pointer->preceding_->following_ = pointer->following_;

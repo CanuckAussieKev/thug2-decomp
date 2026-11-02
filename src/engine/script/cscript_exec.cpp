@@ -312,7 +312,7 @@ bool Script::execute_command()
         return symbol->value.function()(stmt_args_, this);
     case kQbvalNativeMethod: {
         auto* entry = symbol->value.method();
-        objects::Entity* object = entity_.owner_object_;
+        objects::Entity* object = entity_.get_pull();
         if (entry) {
             if (object)
                 return script::invoke_method_by_name(entry, stmt_args_, object, this);
@@ -517,7 +517,7 @@ ScriptOutcome Script::tick_frame()
             if (!seen) {
                 if (tally < 16)
                     core::at(s_logged, tally++) = script_title_;
-                const objects::Entity* object = entity_.owner_object_;
+                const objects::Entity* object = entity_.get_pull();
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
                 get_log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
                         "yields (the game hangs here)",

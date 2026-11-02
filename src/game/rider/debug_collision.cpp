@@ -164,7 +164,7 @@ void log_hit(const void* feeler, uint32_t caller)
     const bool static_hit = ray->hit_.hit;
     const render::HitMesh* coll_object = ray->hit_.object;
     const uint32_t sector = ray->hit_.object_checksum_;
-    const void* object = ray->entity_.owner_object_;
+    const void* object = ray->entity_.get_pull();
     const uint32_t object_id = ray->entity_key_;
 
     const objects::Rider* skater_feeler = skater_of_feeler(feeler);

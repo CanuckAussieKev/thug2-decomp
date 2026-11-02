@@ -115,8 +115,8 @@ void trigger_rail_node(SkaterPhysicsModule* component, const int* events)
     const objects::Entity* ride_object = nullptr;
     objects::MovingSurfaceModule* ride = component->ride_;
     if (auto* tracker = ride->ride_) {
-        if (tracker->entity_.owner_object_)
-            ride_object = tracker->entity_.owner_object_;
+        if (tracker->entity_.get_pull())
+            ride_object = tracker->entity_.get_pull();
         else
             static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding();
     }
@@ -616,7 +616,7 @@ void SkaterPhysicsModule::try_grind(bool always)
             start_grind(&point, node, object_rails, false, false);
             ride_->ride_on(rails->entity_);
             ride_->update_contact_point();
-            entity_->vel_ -= get_tracker(this)->entity_.owner_object_->vel_;
+            entity_->vel_ -= get_tracker(this)->entity_.get_pull()->vel_;
             return;
         }
     }

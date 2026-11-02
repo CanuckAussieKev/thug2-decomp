@@ -67,7 +67,7 @@ void begin_drop_in(objects::FootMovement* walk, const float* velocity)
 } // namespace
 
 // 0x0051F4C0
-script::Struct* Component::platform_structure(script::Struct* params)
+script::Struct* platform_structure(script::Struct* params)
 {
     script::Struct* found = nullptr;
     const int xbox = ps2_controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)

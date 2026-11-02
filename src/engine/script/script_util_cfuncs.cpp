@@ -21,6 +21,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/objects/entity.h"
 
 
 namespace commands {

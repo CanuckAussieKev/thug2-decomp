@@ -30,7 +30,6 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace skater::collision_events {
@@ -131,7 +130,7 @@ Face face_of(const render::ProbeRay& feeler)
     face.hit = feeler.hit_.hit;
     if (!face.hit)
         return face;
-    face.object = feeler.entity_.owner_object_ != nullptr;
+    face.object = feeler.entity_.get_pull() != nullptr;
     face.checksum = face.object ? feeler.entity_key_ : feeler.hit_.object_checksum_;
     face.index = static_cast<int>(feeler.hit_.face);
     face.flags = feeler.hit_.face_flags_;

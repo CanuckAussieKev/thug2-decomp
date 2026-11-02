@@ -24,8 +24,6 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/flip_and_rotate.h"
 #include "game/rider/stats_manager.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -1091,7 +1089,7 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
         auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
         if (!is_trick_entry(trick))
             continue;
-        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
+        script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(0x68B74085u, &alternate, 0);
         if (check_trigger(trigger, 1, mask, false) || check_trigger(alternate, 1, mask, false))
@@ -1119,7 +1117,7 @@ void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
         auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
         if (!is_trick_entry(trick))
             continue;
-        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
+        script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(0x68B74085u, &alternate, 0);
         if (!check_trigger(trigger, 4, mask, false) && !check_trigger(alternate, 4, mask, false))

@@ -8,6 +8,7 @@
 #include "engine/sound/sfx.h"
 #include <gsl/pointers>
 #include <array>
+#include "engine/sound/surface_kind.h"
 
 namespace script {
 class Script;
@@ -78,7 +79,7 @@ public:
     std::array<uint8_t, 3> pad61{};
     maths::Vec4 last_pos_{}; // +0x64 the skater's position last frame
     int cur_phase_{kStateAir}; // +0x74 the skater's state (0 ground, 1 air, 4 rail)
-    std::array<uint8_t, 0x84> sound_{}; // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
+    surface_kind::SoundInfo sound_{}; // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
     // (in sound_: +0xE0 the sound's checksum, +0xE4 / +0xE8 its pitch at full / no speed)
     uint8_t have_sound_{0};    // +0xFC
     uint8_t sound_changed_{1}; // +0xFD choose the sound again

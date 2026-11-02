@@ -43,7 +43,6 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace online {
@@ -60,7 +59,7 @@ constexpr uint32_t kOn = 0xF649D637;         // on
 objects::Entity* find_root_window()
 {
     frontend::ElementPtr found;
-    return frontend::UiTree::sole()->fetch_part(&found, kRootWindow, 0)->owner_object_;
+    return frontend::UiTree::sole()->fetch_part(&found, kRootWindow, 0)->get_pull();
 }
 constexpr uint8_t kMsgDisconnect = 0x0B; // (the client leaves the server)
 

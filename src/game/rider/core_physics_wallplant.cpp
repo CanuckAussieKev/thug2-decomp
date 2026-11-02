@@ -26,8 +26,8 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/objects/ride_tracker.h"
 
 namespace skater {
 
@@ -287,7 +287,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     auto* feeler = &feeler_;
     if (feeler->hit_object_alive()) {
         const bool riding = ride_->is_riding();
-        if (!riding || *raw::as<void*>(ride_->ride_) != feeler->get_hit_object()) {
+        if (!riding || ride_->ride_->entity_.get_pull() != feeler->get_hit_object()) {
             ride_->stop_riding();
             ride_->ride_on(feeler->get_hit_object());
         }

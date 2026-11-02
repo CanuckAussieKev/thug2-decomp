@@ -512,13 +512,13 @@ void SkaterPhysicsModule::do_air_physics()
     maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
     {
         objects::MovingSurfaceModule* ride = ride_;
-        auto* rider = raw::as<uint32_t>(ride->ride_);
+        objects::RideTracker* rider = ride->ride_;
         const objects::GameEntity* object = object_of(this);
         if (rider) {
-            if (*rider == 0)
+            if (!rider->entity_) // (what it rides: gone)
                 // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
                 stop_riding(ride);
-            else if (!raw::as<objects::RideTracker>(rider)->tick_frame(&object->at_point_))
+            else if (!rider->tick_frame(&object->at_point_))
                 stop_riding(ride);
             else if (!bit_mark(this, PoseFlag::kAcidDrop) || drop_object_hit_)
                 carried = ride_->ride_->carried_;
@@ -599,8 +599,8 @@ void SkaterPhysicsModule::do_air_physics()
     bool riding = false;
     {
         objects::MovingSurfaceModule* ride = ride_;
-        auto* rider = raw::as<uint32_t>(ride->ride_);
-        if (rider && *rider)
+        const objects::RideTracker* rider = ride->ride_;
+        if (rider && rider->entity_)
             riding = true;
         else if (rider)
             stop_riding(ride);

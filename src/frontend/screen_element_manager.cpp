@@ -22,7 +22,6 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -105,13 +104,13 @@ void UiTree::drop_entity_registration(objects::Entity* object)
 {
     ElementPtr element;
     element.assign_value(as_element(object));
-    if (element && tree_root_.owner_object_ == element.owner_object_) {
+    if (element && tree_root_.get_pull() == element.get_pull()) {
         tree_root_.get_release();
         for (const memory::ListNode* node = entities_.next; node->data != memory::ListNode::head_marker();
              node = node->next) {
             ElementPtr candidate;
             candidate.assign_value(static_cast<UiWidget*>(node->data));
-            if (!candidate->container_ && candidate.owner_object_ != element.owner_object_) {
+            if (!candidate->container_ && candidate.get_pull() != element.get_pull()) {
                 tree_root_.get_assign(&candidate);
                 break;
             }
@@ -127,7 +126,7 @@ ElementPtr* UiTree::fetch_part(ElementPtr* out, uint32_t id, int)
 {
     objects::Entity* object = objects::get_tracker()->look_up_object(id);
     out->preceding_ = out->following_ = nullptr;
-    out->owner_object_ = nullptr;
+    out->target_ = nullptr;
     if (object)
         out->assign_value(as_element(object));
     return out;
@@ -138,46 +137,46 @@ void UiTree::change_root(uint32_t id)
 {
     ElementPtr element;
     fetch_part(&element, id, 1);
-    tree_root_.assign_value(element.owner_object_);
+    tree_root_.assign_value(element.get_pull());
 }
 
 // 0x004ABBE0
 void UiTree::change_owner(ElementPtr* parent, ElementPtr* child, int unused)
 {
     ElementPtr old_parent;
-    old_parent.assign_value(child->owner_object_->container_.owner_object_);
-    if (UiWidget* new_parent = parent->owner_object_) {
-        if (tree_root_.owner_object_ == child->owner_object_ || !tree_root_) {
+    old_parent.assign_value(child->get_pull()->container_.get_pull());
+    if (UiWidget* new_parent = parent->get_pull()) {
+        if (tree_root_.get_pull() == child->get_pull() || !tree_root_) {
             tree_root_.assign_value(new_parent);
             while (tree_root_->container_)
-                tree_root_.assign_value(tree_root_->container_.owner_object_);
+                tree_root_.assign_value(tree_root_->container_.get_pull());
         }
     }
     remove_focus_entries(child, false, false);
-    child->owner_object_->change_owner(parent, unused);
+    child->get_pull()->change_owner(parent, unused);
 }
 
 // 0x004AC400
 void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
 {
-    element->owner_object_->set_focus_sent(0);
+    element->get_pull()->set_focus_sent(0);
     ElementPtr child;
-    child.assign_value(element->owner_object_->eldest_.owner_object_);
+    child.assign_value(element->get_pull()->eldest_.get_pull());
     while (child) {
         ElementPtr next;
-        next.assign_value(child->following_.owner_object_);
+        next.assign_value(child->following_.get_pull());
         destroy_tree(0, &child, script);
-        child.assign_value(next.owner_object_);
+        child.assign_value(next.get_pull());
     }
     if (keep == 0) {
-        if (script && element->owner_object_)
-            script->object_destroyed(element->owner_object_);
+        if (script && element->get_pull())
+            script->object_destroyed(element->get_pull());
         {
             ElementPtr none;
             change_owner(&none, element, 1);
         }
-        drop_entity_registration(element->owner_object_);
-        delete element->owner_object_;
+        drop_entity_registration(element->get_pull());
+        delete element->get_pull();
     }
 }
 
@@ -188,15 +187,15 @@ void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* 
     fetch_part(&element, id, 1);
     if (recurse) {
         remove_focus_entries(&element, false, false);
-        if (UiWidget* parent = element->container_.owner_object_)
+        if (UiWidget* parent = element->container_.get_pull())
             parent->set_focus_sent(0);
         destroy_tree(keep, &element, script);
     } else {
         remove_focus_entries(&element, false, false);
-        if (script && element.owner_object_)
-            script->object_destroyed(element.owner_object_);
-        drop_entity_registration(element.owner_object_);
-        delete element.owner_object_;
+        if (script && element.get_pull())
+            script->object_destroyed(element.get_pull());
+        drop_entity_registration(element.get_pull());
+        delete element.get_pull();
     }
 }
 
@@ -204,16 +203,16 @@ void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* 
 ElementPtr* UiTree::find_by_local_id(ElementPtr* out, const ElementPtr* parent, uint32_t local_id)
 {
     ElementPtr child;
-    child.assign_value(parent->owner_object_->eldest_.owner_object_);
+    child.assign_value(parent->get_pull()->eldest_.get_pull());
     while (child) {
         uint32_t tag = 0;
         if (child->read_hash_tag(kTagLocalId, &tag) && tag == local_id)
             break;
-        child.assign_value(child->following_.owner_object_);
+        child.assign_value(child->following_.get_pull());
     }
     out->preceding_ = out->following_ = nullptr;
-    out->owner_object_ = nullptr;
-    out->assign_value(child.owner_object_);
+    out->target_ = nullptr;
+    out->assign_value(child.get_pull());
     return out;
 }
 
@@ -232,7 +231,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
                 fetch_part(&found, id, 0);
             else
                 find_by_local_id(&found, &resolving_, id);
-            resolving_.assign_value(found.owner_object_);
+            resolving_.assign_value(found.get_pull());
             found.get_release();
             if (!resolving_)
                 return false;
@@ -251,7 +250,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
         if (resolving_) {
             ElementPtr found;
             find_by_local_id(&found, &resolving_, id);
-            resolving_.assign_value(found.owner_object_);
+            resolving_.assign_value(found.get_pull());
             found.get_release();
             if (!resolving_)
                 return false;
@@ -286,7 +285,7 @@ ElementPtr* UiTree::resolve_element(ElementPtr* out, script::Struct* params, uin
     if (resolve_id(params, name, &id))
         return fetch_part(out, id, assert);
     out->preceding_ = out->following_ = nullptr;
-    out->owner_object_ = nullptr;
+    out->target_ = nullptr;
     return out;
 }
 
@@ -314,7 +313,7 @@ void UiTree::lock_tree(int lock)
     if (!tree_root_)
         return;
     std::array<UiWidget*, 32> stack{};
-    core::at(stack, 0) = tree_root_.owner_object_;
+    core::at(stack, 0) = tree_root_.get_pull();
     int count = 1;
     while (count) {
         UiWidget* element = core::at(stack, --count);
@@ -323,9 +322,9 @@ void UiTree::lock_tree(int lock)
         else if (static_cast<int>(element->alias_count_) > 0)
             --element->alias_count_;
         if (element->following_)
-            core::at(stack, count++) = element->following_.owner_object_;
+            core::at(stack, count++) = element->following_.get_pull();
         if (element->eldest_)
-            core::at(stack, count++) = element->eldest_.owner_object_;
+            core::at(stack, count++) = element->eldest_.get_pull();
     }
 }
 
@@ -354,7 +353,7 @@ void UiTree::add_focus_entry(ElementPtr* element, int list)
     FocusEntry* last = nullptr;
     for (int i = 0; i < 2; ++i) {
         for (FocusEntry* entry = core::at(focus_lists_, i); entry; entry = entry->next) {
-            if (entry->element.owner_object_ == element->owner_object_ && list == i) {
+            if (entry->element.get_pull() == element->get_pull() && list == i) {
                 entry->marked = false;
                 return;
             }
@@ -367,8 +366,8 @@ void UiTree::add_focus_entry(ElementPtr* element, int list)
             return;
     }
     FocusEntry* entry = &core::at(focus_entries_, free);
-    entry->element.assign_value(element->owner_object_);
-    entry->id = element->owner_object_->ident_;
+    entry->element.assign_value(element->get_pull());
+    entry->id = element->get_pull()->ident_;
     entry->next = nullptr;
     entry->marked = false;
     if (last)
@@ -387,12 +386,12 @@ void UiTree::remove_focus_entries(ElementPtr* element, bool from_parent, bool ma
         while (entry) {
             FocusEntry* next = entry->next;
             ElementPtr walk;
-            walk.assign_value(entry->element.owner_object_);
+            walk.assign_value(entry->element.get_pull());
             if (from_parent && walk)
-                walk.assign_value(walk->container_.owner_object_);
+                walk.assign_value(walk->container_.get_pull());
             bool matched = false;
-            for (; walk; walk.assign_value(walk->container_.owner_object_)) {
-                if (walk.owner_object_ == element->owner_object_) {
+            for (; walk; walk.assign_value(walk->container_.get_pull())) {
+                if (walk.get_pull() == element->get_pull()) {
                     matched = true;
                     break;
                 }
@@ -424,9 +423,9 @@ void UiTree::clear_marks(ElementPtr* element)
             if (!entry->marked)
                 continue;
             ElementPtr walk;
-            walk.assign_value(entry->element.owner_object_);
-            for (; walk; walk.assign_value(walk->container_.owner_object_)) {
-                if (walk.owner_object_ == element->owner_object_) {
+            walk.assign_value(entry->element.get_pull());
+            for (; walk; walk.assign_value(walk->container_.get_pull())) {
+                if (walk.get_pull() == element->get_pull()) {
                     entry->marked = false;
                     break;
                 }
@@ -588,7 +587,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
     entry.active = true;
     ElementPtr element;
     fetch_part(&element, id, 1);
-    entry.element.assign_value(element.owner_object_);
+    entry.element.assign_value(element.get_pull());
     entry.priority = priority;
     if (num_priorities_ > 0) {
         // the top one shown: the new one hidden unless it is the new top, then the old top is
@@ -597,9 +596,9 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
             params = new (params) script::Struct;
         params->put_name_key(0u, kHide);
         if (priority > highest)
-            core::at(priorities_, highest_slot).element.owner_object_->change_traits(params);
+            core::at(priorities_, highest_slot).element.get_pull()->change_traits(params);
         else
-            element.owner_object_->change_traits(params);
+            element.get_pull()->change_traits(params);
         if (params) {
             params->get_clear();
             script::delete_struct(params);
@@ -623,7 +622,7 @@ void UiTree::update_priorities()
         const UiWidget* element = nullptr;
         {
             ElementPtr found;
-            element = fetch_part(&found, entry.id, 0)->owner_object_;
+            element = fetch_part(&found, entry.id, 0)->get_pull();
         }
         if (element) {
             if (entry.priority > highest) {
@@ -637,7 +636,7 @@ void UiTree::update_priorities()
     }
     if (num_priorities_ <= 0)
         return;
-    set_flag_property(core::at(priorities_, top).element.owner_object_, kUnHide);
+    set_flag_property(core::at(priorities_, top).element.get_pull(), kUnHide);
 }
 
 // --- the singleton --------------------------------------------------------------------------------------------
@@ -679,7 +678,7 @@ void set_score_text(const char* text, int player)
     ElementPtr element;
     UiTree::sole()->fetch_part(&element, kScoreElementHash + player, 0);
     if (element)
-        core::down_cast<LabelWidget>(element.owner_object_)->change_caption(text);
+        core::down_cast<LabelWidget>(element.get_pull())->change_caption(text);
 }
 
 } // namespace frontend

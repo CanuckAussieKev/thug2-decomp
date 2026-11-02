@@ -172,10 +172,10 @@ FlexibleParticleComponent::FlexibleParticleComponent()
 {
     system_.preceding_ = nullptr;
     system_.following_ = nullptr;
-    system_.owner_object_ = nullptr;
+    system_.target_ = nullptr;
     kind_tag_ = FlexibleParticleComponent::kType;
     system_.get_release(); // (the original lets go of the null it was just given)
-    system_.owner_object_ = nullptr;
+    system_.target_ = nullptr;
 }
 
 // 0x0041DA80 (0x0041E240 the deleting one)
@@ -450,7 +450,7 @@ int FlexibleParticleComponent::destroy_particles(uint32_t, script::Struct*, scri
     if (system_.get_pull()) {
         destroy_system_now(label_);
         system_.get_release();
-        system_.owner_object_ = nullptr;
+        system_.target_ = nullptr;
     }
     get_kill(entity_);
     return 1;

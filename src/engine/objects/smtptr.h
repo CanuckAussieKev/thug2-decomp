@@ -4,26 +4,33 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
-#include "engine/core/raw_view.h"
 
 namespace objects {
 
-template <typename T>
-class SharedRef;
 class SharedBase;
+
+// A smart pointer's link (every SharedRef<T> is one): the object it points at, as its shared base, and its
+// neighbours in that object's list of smart pointers. The original's code saw each SharedRef<T> as a
+// SharedRef<SharedBase> to link it; here they share this base.
+class SharedLink {
+public:
+    SharedBase* target_ = nullptr; // +0x00
+    SharedLink* preceding_ = nullptr;
+    SharedLink* following_ = nullptr;
+};
 
 // The list of the smart pointers to an object (one word), so they can be cleared when it dies instead of dangling.
 // SharedBase's second word (after the vptr).
 class SharedRefList {
 public:
     // 0x004637C0: onto the front of the list (the pointer's own `prev` isn't touched).
-    void attach(SharedRef<SharedBase>* pointer);
+    void attach(SharedLink* pointer);
     // 0x004637E0: out of the list; its links are cleared.
-    void detach(SharedRef<SharedBase>* pointer);
+    void detach(SharedLink* pointer);
     // 0x00463820: every smart pointer cleared (each is taken out of the list and nulled).
     void clear();
 
-    SharedRef<SharedBase>* head_ = nullptr;
+    SharedLink* head_ = nullptr;
 };
 
 // The base of objects that smart pointers point at (vtable 0x006478E4): after the vptr, the list of the smart
@@ -49,8 +56,8 @@ public:
 
     // Clear every smart pointer to it / attach / detach one (SharedRefList's).
     void clear_smart_pointers() { smart_pointers_.clear(); }
-    void attach_shared_ref(SharedRef<SharedBase>* pointer) { smart_pointers_.attach(pointer); }
-    void detach_shared_ref(SharedRef<SharedBase>* pointer) { smart_pointers_.detach(pointer); }
+    void attach_shared_ref(SharedLink* pointer) { smart_pointers_.attach(pointer); }
+    void detach_shared_ref(SharedLink* pointer) { smart_pointers_.detach(pointer); }
 
     SharedRefList smart_pointers_; // +0x04
 };
@@ -58,32 +65,32 @@ static_assert(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) =
 
 // A pointer the object knows about (12 bytes).
 template <typename T>
-class SharedRef {
+class SharedRef : public SharedLink {
 public:
     SharedRef() = default;
     SharedRef(const SharedRef&) = delete;
     ~SharedRef()
     {
-        if (owner_object_)
-            get_object()->detach_shared_ref(get_generic());
+        if (target_)
+            target_->detach_shared_ref(this);
     }
     SharedRef& operator=(const SharedRef& other)
     {
         if (this == &other)
             return *this;
-        if (owner_object_)
-            get_object()->detach_shared_ref(get_generic());
-        owner_object_ = other.owner_object_;
-        if (owner_object_)
-            get_object()->attach_shared_ref(get_generic());
+        if (target_)
+            target_->detach_shared_ref(this);
+        target_ = other.target_;
+        if (target_)
+            target_->attach_shared_ref(this);
         return *this;
     }
     // 0x00416DD0 (as SharedRef<SharedBase>): let go of the object.
     void get_release()
     {
-        if (owner_object_) {
-            get_object()->detach_shared_ref(get_generic());
-            owner_object_ = nullptr;
+        if (target_) {
+            target_->detach_shared_ref(this);
+            target_ = nullptr;
         }
     }
 
@@ -92,7 +99,7 @@ public:
     {
         following_ = nullptr;
         preceding_ = nullptr;
-        owner_object_ = nullptr;
+        target_ = nullptr;
         return this;
     }
     // In-place constructors (return this): from a pointer, from another smart pointer (the screen elements'
@@ -101,20 +108,20 @@ public:
     {
         preceding_ = nullptr;
         following_ = nullptr;
-        owner_object_ = object;
+        target_ = object;
         if (object)
-            get_object()->attach_shared_ref(get_generic());
+            target_->attach_shared_ref(this);
         return this;
     }
-    SharedRef* construct_copy(const SharedRef* other) { return construct_from(other->owner_object_); }
+    SharedRef* construct_copy(const SharedRef* other) { return construct_from(other->get_pull()); }
     // Assignment as a function (returns this; the screen elements' instance is 0x004A8F60). Unlike operator=,
     // the old object is let go first, so a pointer assigned to itself ends up null.
     SharedRef* get_assign(const SharedRef* other)
     {
         get_release();
-        owner_object_ = other->owner_object_;
-        if (owner_object_)
-            get_object()->attach_shared_ref(get_generic());
+        target_ = other->target_;
+        if (target_)
+            target_->attach_shared_ref(this);
         return this;
     }
 
@@ -128,24 +135,16 @@ public:
     void assign_value(T* object)
     {
         get_release();
-        owner_object_ = object;
+        target_ = object;
         if (object)
-            get_object()->attach_shared_ref(get_generic());
+            target_->attach_shared_ref(this);
     }
 
-    [[nodiscard]] T* get_pull() const { return owner_object_; }
+    [[nodiscard]] T* get_pull() const { return static_cast<T*>(target_); }
     // 0x00442670 (the screen elements' instance, written out in the unoptimised lens flare code).
-    [[nodiscard]] bool is_null() const { return owner_object_ == nullptr; }
-    T* operator->() const { return owner_object_; }
-    explicit operator bool() const { return owner_object_ != nullptr; }
-
-    T* owner_object_ = nullptr;
-    SharedRef* preceding_ = nullptr;
-    SharedRef* following_ = nullptr;
-
-private:
-    [[nodiscard]] SharedBase* get_object() const { return raw::as<SharedBase>(owner_object_); }
-    SharedRef<SharedBase>* get_generic() { return raw::as<SharedRef<SharedBase>>(this); }
+    [[nodiscard]] bool is_null() const { return target_ == nullptr; }
+    T* operator->() const { return get_pull(); }
+    explicit operator bool() const { return target_ != nullptr; }
 };
 static_assert(sizeof(SharedRef<SharedBase>) == 12, "a smart pointer is 12 bytes");
 

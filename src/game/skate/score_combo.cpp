@@ -230,7 +230,7 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     meter_offset_.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
     meter_offset_.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -45.0);
-    auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest_.owner_object_);
+    auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest_.get_pull());
     const bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
     double x = 0.0;
     double y = 0.0;
@@ -323,7 +323,7 @@ void PointTally::tick_frame()
         size = 1.0f;
     else if (size < 0.0f)
         size = 0.0f;
-    frontend::UiWidget* element = bar.owner_object_; // (no check: as the original)
+    frontend::UiWidget* element = bar.get_pull(); // (no check: as the original)
     element->change_scale(size, element->shown_.scale_y_, false, 0);
     std::array<uint8_t, 4> rgba{};
     std::memcpy(rgba.data(), core::at(bar_colors_, 0).data(), 4);

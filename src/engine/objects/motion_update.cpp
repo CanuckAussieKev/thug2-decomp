@@ -20,7 +20,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -282,7 +281,7 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
     GameEntity* nearest = nullptr;
     float nearest_distance = 0.0f; // (only read once there is a nearest)
     for (; count > 0; --count, ++slot) {
-        auto* other = core::down_cast<GameEntity>(slot->owner_object_);
+        auto* other = core::down_cast<GameEntity>(slot->get_pull());
         if (!other || other == entity_)
             continue;
         const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);

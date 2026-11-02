@@ -37,7 +37,6 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/ride_tracker.h"
@@ -93,7 +92,7 @@ SkaterPhysicsModule::SkaterPhysicsModule()
     // (the feelers made first by their constructors; the cache, below, by its own - in declaration order)
     skitch_target_.preceding_ = nullptr;
     skitch_target_.following_ = nullptr;
-    skitch_target_.owner_object_ = nullptr;
+    skitch_target_.target_ = nullptr;
     // (+0x3F0: its constructor 0x005902E0 only returns it.)
     kind_tag_ = kSkaterCorePhysics;
     // Not original - a component made where an old one was starts off THAW's bike (game/rider/thaw_bmx.h).
@@ -128,7 +127,7 @@ void SkaterPhysicsModule::get_reset()
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
     if (objects::RideTracker* rider = ride->ride_) {
-        ride->last_object_ = rider->entity_.owner_object_;
+        ride->last_object_ = rider->entity_.get_pull();
         rider->entity_.get_release();
         memory::Hub::get_pull()->dealloc(rider);
         ride->ride_ = nullptr;

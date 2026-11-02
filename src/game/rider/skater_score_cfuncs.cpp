@@ -123,7 +123,7 @@ bool cfunc_reset_score_pot(script::Struct* params, script::Script*)
 bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script* script)
 {
     script::Struct* results = script->args_;
-    auto* object = core::down_cast<objects::GameEntity>(script->entity_.owner_object_);
+    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
     int team = -1;
     uint32_t player = 0xFFFFFFFF;
     float nearest = 1000000.0f;

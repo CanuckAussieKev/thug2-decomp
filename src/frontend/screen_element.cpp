@@ -23,7 +23,6 @@
 #include "engine/core/stubs.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/weather.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace frontend {
@@ -217,7 +216,7 @@ bool UiWidget::input_suppressed() const
 {
     if (object_flags_ & kBlockEvents)
         return true;
-    return container_.owner_object_ && container_.owner_object_->input_suppressed();
+    return container_.get_pull() && container_.get_pull()->input_suppressed();
 }
 
 // 0x004A8F20
@@ -225,7 +224,7 @@ bool UiWidget::has_priority() const
 {
     if (object_flags_ & kPriority)
         return true;
-    return container_.owner_object_ && container_.owner_object_->has_priority();
+    return container_.get_pull() && container_.get_pull()->has_priority();
 }
 
 // 0x004A8F40
@@ -233,7 +232,7 @@ bool UiWidget::is_concealed() const
 {
     if (object_flags_ & kHidden)
         return true;
-    return container_.owner_object_ && container_.owner_object_->is_concealed();
+    return container_.get_pull() && container_.get_pull()->is_concealed();
 }
 
 // 0x004A8680
@@ -415,12 +414,12 @@ void UiWidget::change_draw_depth(float z)
         z_priority_ = z;
     }
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     if (child) {
         auto next = static_cast<float>(static_cast<double>(z) + 1.0);
         while (child) {
             child->change_draw_depth(next);
-            child.assign_value(child->following_.owner_object_);
+            child.assign_value(child->following_.get_pull());
         }
     }
 }
@@ -431,10 +430,10 @@ void UiWidget::set_children_priority(int priority)
     object_flags_ |= kPriority;
     rank_ = priority;
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     while (child) {
         child->set_children_priority(priority);
-        child.assign_value(child->following_.owner_object_);
+        child.assign_value(child->following_.get_pull());
     }
 }
 
@@ -452,13 +451,13 @@ UiWidget* UiWidget::fetch_pane() const
     UiWidget* element = nullptr;
     {
         ElementPtr parent;
-        element = get_parent(&parent)->owner_object_;
+        element = get_parent(&parent)->get_pull();
     }
     while (element) {
         if (element->kind_tag_ == kWindowElement)
             return element;
         ElementPtr parent;
-        element = element->get_parent(&parent)->owner_object_;
+        element = element->get_parent(&parent)->get_pull();
     }
     return nullptr;
 }
@@ -466,11 +465,11 @@ UiWidget* UiWidget::fetch_pane() const
 // 0x004A95E0
 UiWidget* UiWidget::fetch_youngest() const
 {
-    UiWidget* child = eldest_.owner_object_;
+    UiWidget* child = eldest_.get_pull();
     if (!child)
         return nullptr;
-    while (child->following_.owner_object_)
-        child = child->following_.owner_object_;
+    while (child->following_.get_pull())
+        child = child->following_.get_pull();
     return child;
 }
 
@@ -479,9 +478,9 @@ int UiWidget::child_total() const
 {
     int count = 0;
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     while (child) {
-        child.assign_value(child->following_.owner_object_);
+        child.assign_value(child->following_.get_pull());
         ++count;
     }
     return count;
@@ -491,7 +490,7 @@ int UiWidget::child_total() const
 ElementPtr* UiWidget::fetch_offspring(ElementPtr* out, uint32_t id, int* index)
 {
     ElementPtr child;
-    child.assign_value(eldest_.owner_object_);
+    child.assign_value(eldest_.get_pull());
     for (int i = 0; child; ++i) {
         if (id == 0) {
             if (*index == i)
@@ -501,12 +500,12 @@ ElementPtr* UiWidget::fetch_offspring(ElementPtr* out, uint32_t id, int* index)
                 *index = i;
             break;
         }
-        child.assign_value(child->following_.owner_object_);
+        child.assign_value(child->following_.get_pull());
     }
     out->preceding_ = nullptr;
     out->following_ = nullptr;
-    out->owner_object_ = nullptr;
-    out->assign_value(child.owner_object_);
+    out->target_ = nullptr;
+    out->assign_value(child.get_pull());
     return out;
 }
 
@@ -514,14 +513,14 @@ ElementPtr* UiWidget::fetch_offspring(ElementPtr* out, uint32_t id, int* index)
 UiWidget* UiWidget::find_child_with_id(uint32_t id, int* index)
 {
     ElementPtr child;
-    return fetch_offspring(&child, id, index)->owner_object_;
+    return fetch_offspring(&child, id, index)->get_pull();
 }
 
 // 0x004AA6D0
 UiWidget* UiWidget::find_child_at_slot(int index)
 {
     ElementPtr child;
-    return fetch_offspring(&child, 0, &index)->owner_object_;
+    return fetch_offspring(&child, 0, &index)->get_pull();
 }
 
 // 0x004AA8E0
@@ -530,41 +529,41 @@ void UiWidget::change_owner(const ElementPtr* parent, int)
     if (container_) {
         // out of the old parent's children
         ElementPtr child;
-        child.assign_value(container_->eldest_.owner_object_);
-        while (child && child.owner_object_ != this)
-            child.assign_value(child->following_.owner_object_);
+        child.assign_value(container_->eldest_.get_pull());
+        while (child && child.get_pull() != this)
+            child.assign_value(child->following_.get_pull());
         if (child) {
             if (preceding_)
-                preceding_->following_.assign_value(following_.owner_object_);
+                preceding_->following_.assign_value(following_.get_pull());
             else
-                container_->eldest_.assign_value(following_.owner_object_);
+                container_->eldest_.assign_value(following_.get_pull());
             if (following_)
-                following_->preceding_.assign_value(preceding_.owner_object_);
+                following_->preceding_.assign_value(preceding_.get_pull());
         }
     }
-    container_.assign_value(parent->owner_object_);
+    container_.assign_value(parent->get_pull());
     if (container_) {
         // last among the new parent's children
         ElementPtr last;
-        last.assign_value(container_->eldest_.owner_object_);
+        last.assign_value(container_->eldest_.get_pull());
         ElementPtr* slot = nullptr;
         if (last) {
             while (last->following_)
-                last.assign_value(last->following_.owner_object_);
+                last.assign_value(last->following_.get_pull());
             slot = &last->following_;
         } else {
             slot = &container_->eldest_;
         }
         slot->assign_value(this);
-        preceding_.assign_value(last.owner_object_);
+        preceding_.assign_value(last.get_pull());
     } else {
         preceding_.get_release();
     }
     following_.get_release();
-    if (const UiWidget* new_parent = parent->owner_object_) {
+    if (const UiWidget* new_parent = parent->get_pull()) {
         if (new_parent->has_priority())
             set_children_priority(new_parent->rank_);
-        change_draw_depth(static_cast<float>(static_cast<double>(parent->owner_object_->z_priority_) + 1.0));
+        change_draw_depth(static_cast<float>(static_cast<double>(parent->get_pull()->z_priority_) + 1.0));
     } else {
         change_draw_depth(0.0f);
     }
@@ -658,7 +657,7 @@ void UiWidget::update_layout()
         }
         changed = true;
     }
-    const UiWidget* parent = container_.owner_object_;
+    const UiWidget* parent = container_.get_pull();
     if (parent && (parent->object_flags_ & kChildrenDirty))
         changed = true;
     object_flags_ &= ~kChildrenDirty;
@@ -666,12 +665,12 @@ void UiWidget::update_layout()
         if (parent && !(object_flags_ & kPos3d)) {
             summed_.scale_x_ = static_cast<float>(static_cast<double>(parent->summed_.scale_x_) * shown_.scale_x_);
             summed_.scale_y_ = static_cast<float>(static_cast<double>(parent->summed_.scale_y_) * shown_.scale_y_);
-            parent = container_.owner_object_;
+            parent = container_.get_pull();
             summed_.angle = static_cast<float>(static_cast<double>(shown_.angle) + parent->summed_.angle);
             const double c = std::cos(static_cast<double>(parent->summed_.angle));
             const double s = std::sin(static_cast<double>(parent->summed_.angle));
             get_rotated(parent, shown_.x, shown_.y, c, s, &summed_.x, &summed_.y);
-            parent = container_.owner_object_;
+            parent = container_.get_pull();
             summed_.alpha = static_cast<float>(static_cast<double>(parent->summed_.alpha) * shown_.alpha);
             get_rotated(parent, shown_.left, shown_.top, c, s, &summed_.left, &summed_.top);
         } else {
@@ -683,7 +682,7 @@ void UiWidget::update_layout()
     object_flags_ &= ~kVisibleNow;
     if (object_flags_ & kPauseAsked)
         object_flags_ |= kPaused;
-    for (UiWidget* child = eldest_.owner_object_; child; child = child->following_.owner_object_)
+    for (UiWidget* child = eldest_.get_pull(); child; child = child->following_.get_pull())
         child->update_layout();
     if (static_cast<int>(alias_count_) > 0)
         --alias_count_;
@@ -864,7 +863,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
         // the parent's focus flag dropped (its event sent) while the element goes, and set again after
         void* manager = hub();
         ElementPtr parent;
-        parent.assign_value(container_.owner_object_);
+        parent.assign_value(container_.get_pull());
         if (parent->object_flags_ & kFocusSent) {
             parent->object_flags_ &= ~kFocusSent;
             launch_event(kFocusClearedEvent, parent->ident_);

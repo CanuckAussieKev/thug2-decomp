@@ -156,7 +156,7 @@ void ViewRegion::remove_flagged_camera()
         return;
     delete viewer_.get_pull(); // (its destructor clears the pointer)
     viewer_.get_release();
-    viewer_.owner_object_ = nullptr;
+    viewer_.target_ = nullptr;
     flag_bits_ &= ~1u;
 }
 

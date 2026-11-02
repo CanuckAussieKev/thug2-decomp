@@ -27,7 +27,6 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/park_editing/park_editor.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -146,15 +145,11 @@ bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
 // 0x00500020
 bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any_time)
 {
-    struct RailNode {
-        std::array<uint8_t, 0x40> unknown;
-        const RailNode* previous; // +0x40
-        const RailNode* next;     // +0x44
-    };
+    using RailNode = objects::GrindPoint; // (its succ_ the next node, last_value_ the previous)
     const auto* node = static_cast<const RailNode*>(rail);
     objects::RiderPoseState* flags = state_;
-    const auto* last = raw::as<const RailNode>(rail_node_);
-    auto same_rail = [&] { return last == node || last == node->previous || last == node->next; };
+    const RailNode* last = rail_node_;
+    auto same_rail = [&] { return last == node || last == node->last_value_ || last == node->succ_; };
     // In the air after a grind: not the same rail (or its neighbours) again.
     if (flags->cur_phase_ == 1 && flags->flag(PoseFlag::kFromAcidDrop).on && flags->flag(PoseFlag::kJumpedOffRail).on &&
         same_rail())
@@ -166,7 +161,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
     } else if (!same_rail()) {
         // Another rail. In a created park, only if its ends are all more than 6 from the last one's (pieces' rails
         // meet end to end).
-        if (park_editing::g_park_editor->cur_phase_ == kOff || !last->previous || !node->previous) {
+        if (park_editing::g_park_editor->cur_phase_ == kOff || !last->last_value_ || !node->last_value_) {
             new_rail = true;
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)
@@ -175,12 +170,12 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
                 const maths::Vec4 b = rail_node_position(rail_manager_, to);
                 return b - a;
             };
-            const maths::Vec4 d1 = between(node, raw::as<const RailNode>(rail_node_));
-            const maths::Vec4 d2 = between(node->previous, raw::as<const RailNode>(rail_node_));
-            const RailNode* last_previous = raw::as<const RailNode>(rail_node_)->previous;
+            const maths::Vec4 d1 = between(node, rail_node_);
+            const maths::Vec4 d2 = between(node->last_value_, rail_node_);
+            const RailNode* last_previous = rail_node_->last_value_;
             const maths::Vec4 d3 = between(node, last_previous);
-            last_previous = raw::as<const RailNode>(rail_node_)->previous;
-            const maths::Vec4 d4 = between(node->previous, last_previous);
+            last_previous = rail_node_->last_value_;
+            const maths::Vec4 d4 = between(node->last_value_, last_previous);
             new_rail = std::fabs(length_unrounded(d1)) > kRailEndDistance &&
                        std::fabs(length_unrounded(d2)) > kRailEndDistance &&
                        std::fabs(length_unrounded(d3)) > kRailEndDistance &&

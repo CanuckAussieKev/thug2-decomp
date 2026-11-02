@@ -25,7 +25,6 @@
 #include "game/rider/skater_sound.h"
 #include "game/rider/tagging.h"
 #include "game/rider/walk_physics.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -59,7 +58,7 @@ constexpr int kLip = 3;
 constexpr int kRail = 4;
 
 objects::RiderPoseState* state_of(SkaterPhysicsModule* component) { return component->state_; }
-uint8_t* sound_of(SkaterPhysicsModule* component) { return raw::bytes(component->sound_); }
+objects::RiderSfxPlayer* sound_of(SkaterPhysicsModule* component) { return component->sound_; }
 objects::MoveExecutor* trick_of(SkaterPhysicsModule* component) { return component->trick_; }
 
 } // namespace
@@ -97,7 +96,7 @@ int SkaterPhysicsModule::is_sides_swapped()
 void SkaterPhysicsModule::set_surface_kind(uint32_t terrain)
 {
     state_of(this)->set_surface_kind(static_cast<uint8_t>(terrain));
-    sound_of(this)[0x1C] = static_cast<uint8_t>(terrain);
+    sound_of(this)->surface_type_ = static_cast<uint8_t>(terrain);
 }
 
 // 0x004FC500 (0x00500DB0 the deleting one)
@@ -170,10 +169,10 @@ void SkaterPhysicsModule::clear_flags()
             continue;
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
         if (flag == 7)
-            sound_of(this)[0x1E] = 1;
+            sound_of(this)->sliding_ = 1;
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
         if (flag == 7)
-            sound_of(this)[0x1E] = 0;
+            sound_of(this)->sliding_ = 0;
     }
 }
 
@@ -197,7 +196,7 @@ void SkaterPhysicsModule::set_physics_state(int state)
         trick_of(this)->set_trick_objects(true);
     if (state_of(this)->cur_phase_ == kRail && state != kRail) {
         set_timed_flag(this, PoseFlag::kSlide, 0);
-        sound_of(this)[0x1E] = 0;
+        sound_of(this)->sliding_ = 0;
     }
     old = state_of(this)->cur_phase_;
     if (old == kAir) {

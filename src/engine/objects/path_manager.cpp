@@ -38,7 +38,7 @@ int element_total(const void* elements) { return static_cast<const int*>(element
 void release_slot(SharedRef<Entity>* slot)
 {
     slot->get_release();
-    slot->owner_object_ = nullptr;
+    slot->target_ = nullptr;
 }
 
 } // namespace
@@ -78,7 +78,7 @@ void ObjectGroup::release_all()
 void ObjectGroup::drop_out(Entity* object)
 {
     for (int i = 0; i < extent_; ++i) {
-        if (slots_[i].owner_object_ == object)
+        if (slots_[i].get_pull() == object)
             release_slot(&slots_[i]);
     }
 }
@@ -87,7 +87,7 @@ void ObjectGroup::drop_out(Entity* object)
 void ObjectGroup::append_one(Entity* object)
 {
     for (int i = 0; i < extent_; ++i) {
-        if (!slots_[i].owner_object_) {
+        if (!slots_[i].get_pull()) {
             slots_[i].assign_value(object);
             return;
         }

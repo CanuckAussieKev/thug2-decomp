@@ -36,7 +36,6 @@
 #include "game/rider/skater_score.h"
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -289,7 +288,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         {
             frontend::ElementPtr found;
             frontend::fetch_part(&found, id);
-            element = found.owner_object_;
+            element = found.get_pull();
         }
         if (element)
             element->change_traits(params.get());

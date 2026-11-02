@@ -38,7 +38,6 @@
 #include "game/skate/point_tally.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -526,7 +525,7 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
         auto* trick = tricks->struct_at(i);
         if (!trick_has_script(this, trick))
             continue;
-        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
+        script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
         if (!trigger_done(this, trigger, 8, -5, false) && !trigger_done(this, alt_trigger, 8, -5, false))
@@ -587,7 +586,7 @@ bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
         auto* trick = tricks->struct_at(i);
         if (!trick_has_script(this, trick))
             continue;
-        script::Struct* trigger = raw::as<skater::Component>(this)->platform_structure(trick);
+        script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
         if (trigger_done(this, trigger, 2, -5, false) || trigger_done(this, alt_trigger, 2, -5, false)) {

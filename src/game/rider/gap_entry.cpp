@@ -40,7 +40,6 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/balance_trick.h"
 #include "engine/objects/vehicle_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -99,7 +98,7 @@ uint32_t& trick_frame(TrickNameEntry* trick) { return trick->frame_; }
 template <typename T>
 T* entry_of(memory::ListNode* node)
 {
-    return node->is_head() ? nullptr : raw::as<T>(node);
+    return node->is_head() ? nullptr : static_cast<T*>(node->data); // (each entry's node holds it)
 }
 template <typename T>
 T* get_first(memory::ListNode& head)
@@ -109,7 +108,7 @@ T* get_first(memory::ListNode& head)
 template <typename T>
 T* get_next(T* entry)
 {
-    return entry_of<T>(raw::as<memory::ListNode>(entry)->next);
+    return entry_of<T>(entry->list_link_.next);
 }
 // An entry deleted (its scalar deleting destructor).
 template <typename Entry>

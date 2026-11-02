@@ -16,7 +16,6 @@
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace frontend {
@@ -76,14 +75,14 @@ void WindowedList::find_menu()
 {
     {
         ElementPtr child;
-        child.assign_value(eldest_.owner_object_);
+        child.assign_value(eldest_.get_pull());
         while (child) {
             if (child->kind_tag_ == v_menu_type() && vertical_)
                 // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-                menu_ = child.owner_object_;
+                menu_ = child.get_pull();
             else if (child->kind_tag_ == h_menu_type() && !vertical_)
-                menu_ = child.owner_object_;
-            child.assign_value(child->following_.owner_object_);
+                menu_ = child.get_pull();
+            child.assign_value(child->following_.get_pull());
         }
     }
     float space = -1.0f;
@@ -99,15 +98,15 @@ void WindowedList::find_menu()
 // 0x004AE450 (the item's justification is read into the original's argument slots - no effect)
 void WindowedList::item_place(ElementPtr* item, float* x, float* y, float* w, float* h)
 {
-    item->owner_object_->fetch_location(x, y);
+    item->get_pull()->fetch_location(x, y);
     *x = static_cast<float>(static_cast<double>(menu_->shown_.scale_x_) * *x);
     *y = static_cast<float>(static_cast<double>(menu_->shown_.scale_y_) * *y);
-    *w = static_cast<float>(static_cast<double>(menu_->shown_.scale_x_) * item->owner_object_->span_ *
-                            item->owner_object_->shown_.scale_x_);
-    *h = static_cast<float>(static_cast<double>(menu_->shown_.scale_y_) * item->owner_object_->level_y_ *
-                            item->owner_object_->shown_.scale_y_);
+    *w = static_cast<float>(static_cast<double>(menu_->shown_.scale_x_) * item->get_pull()->span_ *
+                            item->get_pull()->shown_.scale_x_);
+    *h = static_cast<float>(static_cast<double>(menu_->shown_.scale_y_) * item->get_pull()->level_y_ *
+                            item->get_pull()->shown_.scale_y_);
     float align_h = 0.0f, align_v = 0.0f;
-    item->owner_object_->fetch_alignment(&align_h, &align_v);
+    item->get_pull()->fetch_alignment(&align_h, &align_v);
     *x = static_cast<float>(*x - (static_cast<double>(align_h) + 1.0) * *w * 0.5);
     *y = static_cast<float>(*y - (static_cast<double>(align_v) + 1.0) * *h * 0.5);
 }
@@ -193,7 +192,7 @@ void WindowedList::listener_receive(objects::Signal* event)
         if (!self->menu_)
             self->find_menu();
         ElementPtr item;
-        item.assign_value(self->menu_->eldest_.owner_object_);
+        item.assign_value(self->menu_->eldest_.get_pull());
         while (item) {
             if (item->ident_ == event->aim_point_) {
                 self->chosen_item_id_ = item->ident_;
@@ -201,7 +200,7 @@ void WindowedList::listener_receive(objects::Signal* event)
                 set_event_consumed(event, self->ident_, 0);
                 break;
             }
-            item.assign_value(item->following_.owner_object_);
+            item.assign_value(item->following_.get_pull());
         }
     }
 }
@@ -269,7 +268,7 @@ void WindowedList::tick_frame()
     // the items in the window shown, the others hidden
     index = 0;
     ElementPtr item;
-    item.assign_value(menu_->eldest_.owner_object_);
+    item.assign_value(menu_->eldest_.get_pull());
     while (item) {
         if (vertical_)
             item_place(&item, &other1, &place, &other2, &length);
@@ -282,7 +281,7 @@ void WindowedList::tick_frame()
         const bool inside = !(place < window_start_) && !(static_cast<double>(window_length_) + window_start_ <
                                                           static_cast<double>(place) + length);
         item->change_opacity(inside ? 1.0f : 0.0f, 1);
-        item.assign_value(item->following_.owner_object_);
+        item.assign_value(item->following_.get_pull());
         ++index;
     }
     rearrange_ = false;

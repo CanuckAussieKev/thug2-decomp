@@ -95,7 +95,7 @@ bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script*)
 // about Y by the skew angle if there is one. False without an object.
 bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 {
-    auto* object = core::down_cast<objects::GameEntity>(script->entity_.owner_object_);
+    auto* object = core::down_cast<objects::GameEntity>(script->entity_.get_pull());
     if (!object)
         return false;
     maths::Vec4 velocity = object->vel_;
@@ -160,7 +160,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     core::at(voice, 0) = 0; // (left as the stack had it in the original when the voice is not found)
     std::array<char, 128> stream{};
     std::array<char, 128> first_name{};
-    auto* skater = core::down_cast<objects::Rider>(script->entity_.owner_object_);
+    auto* skater = core::down_cast<objects::Rider>(script->entity_.get_pull());
     const char* type = nullptr;
     params->fetch_text(kType, &type, 1);
     int count = 10;
@@ -216,7 +216,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         Struct* struct_memory = script::spawn_param_bag();
         Struct* stream_params = struct_memory ? new (struct_memory) script::Struct : nullptr;
         stream_params->put_name_key(kStreamChecksum, checksums::hash_from_text(stream.data()));
-        script::launch_script(kSkaterPlayBailStream, stream_params, script->entity_.owner_object_, false, nullptr);
+        script::launch_script(kSkaterPlayBailStream, stream_params, script->entity_.get_pull(), false, nullptr);
         if (stream_params) {
             // (delete inlined: the structure pool pair's Free)
             stream_params->get_clear();

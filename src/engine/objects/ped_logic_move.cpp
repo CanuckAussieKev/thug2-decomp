@@ -287,7 +287,7 @@ bool PedestrianBrainModule::avoid_peds()
     if (count <= 0)
         return false;
     for (; count; --count, ++slot) {
-        auto* other = core::down_cast<GameEntity>(slot->owner_object_);
+        auto* other = core::down_cast<GameEntity>(slot->get_pull());
         if (!other || other == entity_)
             continue;
         const double max_y = script::fetch_float(kMaxYDistance);
