@@ -14,8 +14,6 @@
 #include "engine/objects/walk_hang.h"
 #include "platform/stopwatch.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx {
@@ -317,7 +315,7 @@ bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
     util::ByteReader words(data, 0xC);
     words.u32();
     flag_bits_ = words.u32();
-    unknown00_ = words.u32();
+    duration_ = words.f32();
     bool loaded = false;
     if (!valid)
         flag_bits_ &= ~(kCompressedB | kCompressed | kCacheOnLoad); // (nothing to read or cache)

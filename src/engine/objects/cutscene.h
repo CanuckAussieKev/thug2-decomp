@@ -17,6 +17,14 @@ namespace script {
 class Array;
 class Struct;
 } // namespace script
+namespace gfx {
+class FaceSkin;
+class JointClipFrames;
+class ModelLook;
+} // namespace gfx
+namespace render {
+struct FrameSource;
+} // namespace render
 #include "engine/file/asset_bundle.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/node_objects.h"
@@ -38,10 +46,20 @@ void anim_source_free(void* item);
 void quat_to_matrix(float* quat, const float* translation, float* matrix);
 // The skater appearance's face (its +0x54). No address of its own: the original reads it through the getter folded at
 // 0x00576E60 (modules::Viewer::get_viewer_entity).
-void* appearance_face(void* appearance);
+gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance);
 // A model's fader (its +0x2C). No address of its own: the original reads it through the getter folded at 0x00532EB0
 // (online::Hub::get_matchmaking_client).
 void* model_fader(void* model);
+// What a cutscene is told about the skater it shows (the original's three words: an object camera's or a skater
+// camera's context, 0x00466490 / 0x004678A0): the first profile's appearance and its details structure (the profile's
+// +0x5C), and whether it's a skater cutscene (its own heaps, music and camera; the original kept the word and read its
+// low byte).
+struct CutsceneSkater {
+    gfx::ModelLook* appearance{nullptr};
+    script::Struct* details{nullptr};
+    bool skater{false};
+};
+
 // 0x00464340 (code Ghidra missed; nothing calls it): an identity rotation (0, 0, 0, 1).
 struct IdentityQuat {
     void assign_value();
@@ -90,9 +108,9 @@ public:
     // models' settings) and the first one's position (lent_pos_: every one of them is put there).
     void destroy_objects();
     // 0x00463F20: an asset loaded (0x00408060) and listed with the cutscene's.
-    void load_asset(uint32_t name, uint32_t a2, uint32_t a3);
+    void load_asset(uint32_t name, void* data, uint32_t size);
     // 0x00463F70: the same for an animation, also kept in the animation list (with what 0x0048CF50 finds for it).
-    void load_animation(uint32_t name, uint32_t a2, uint32_t a3);
+    void load_animation(uint32_t name, void* data, uint32_t size);
     // 0x00464000: a composite object for the cutscene (type 0xCDEB9229) made from `params` by scripts 0x1F29C5A5
     // and 0x2E20EA32.
     gsl::owner<GameEntity*> create_object(script::Struct* params);
@@ -120,7 +138,7 @@ public:
     // An animation it loaded (12 bytes).
     struct AnimationEntry {
         uint32_t name;
-        void* source; // +0x04: an animation source (0x214 bytes, made when an object uses it)
+        gsl::owner<render::FrameSource*> source; // +0x04: an animation source (0x214 bytes, made when an object uses it)
         void* data;   // +0x08
     };
     // An object of the cutscene (0x20 bytes).
@@ -142,7 +160,7 @@ public:
     // 0x004656E0: the cutscene's clock (from the frame counter when 0x0C00425A is set, a fixed step when +0x3474,
     // else the vblanks); with +0x34B0, past the camera animation's end the next camera / object animation parts
     // and every object's next animation part.
-    void update_time(int unused);
+    void update_time();
     // 0x00465AB0: a cutscene object's model shown; a stand-in fades out the level object it replaces and moves it
     // along. The sound component (0x208353AC) gets the object's matrix.
     void update_stand_in(GameEntity* object);
@@ -159,7 +177,7 @@ public:
     bool finish_loading(int unused);
     // 0x004678A0: the cutscene file `path` loaded (asynchronously: `a2` passed on) with the settings {appearance,
     // profile, skater cutscene}; its music and heaps set up first. True.
-    bool read_in(const char* path, int a2, int unused, const uint32_t* settings);
+    bool read_in(const char* path, int a2, int unused, const CutsceneSkater* settings);
     // 0x00467B50: whether the file has loaded (a skater cutscene's finished loading the first time it has).
     bool is_loaded();
     // 0x00467BA0: a frame of the cutscene: the clock, skipping, the camera, subtitles, poses and transforms (and
@@ -177,13 +195,13 @@ public:
     bool ready_flag_{};                             // +0x0C
     std::array<uint8_t, 3> unknownd_{};
     int camera_parts_{0};          // +0x10: the camera animation's parts (after the first)
-    gsl::owner<void*> camera_source_{nullptr}; // +0x14: its animation source
+    gsl::owner<render::FrameSource*> camera_source_{nullptr}; // +0x14: its animation source
     int object_parts_{0};          // +0x18: the object animation's parts
-    gsl::owner<void*> object_source_{nullptr}; // +0x1C
-    void* object_anims_{};  // +0x20
-    void* camera_anim_{};   // +0x24
-    void* anim_list_{};     // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
-    std::array<uint8_t, 0x10> lent_2c_{}; // +0x2C: given back to the objects' models
+    gsl::owner<render::FrameSource*> object_source_{nullptr}; // +0x1C
+    gfx::JointClipFrames* object_anims_{};  // +0x20
+    gfx::JointClipFrames* camera_anim_{};   // +0x24
+    gfx::JointClipFrames* anim_list_{};     // +0x28: the object animations (their bones the objects' names)
+    maths::Vec4 lent_sphere_{}; // +0x2C: the bounding sphere given back to the objects' models
     uint8_t lent_3c_{};       // +0x3C
     uint8_t lent_3d_{};       // +0x3D
     std::array<uint8_t, 2> unknown3e_{};
@@ -216,8 +234,8 @@ public:
     uint64_t paused_vblanks_{}; // +0x3490
     uint64_t vblanks_{0};       // +0x3498: counted by update_vblanks
     uint64_t prev_retraces_{0}; // +0x34A0: the timer's count at the last update_vblanks
-    void* unknown34a8_{nullptr}; // +0x34A8: the skater's appearance
-    void* unknown34ac_{nullptr}; // +0x34AC: the skater's profile structure
+    gfx::ModelLook* skater_appearance_{nullptr}; // +0x34A8: the skater's appearance
+    script::Struct* skater_details_{nullptr};    // +0x34AC: the skater's profile structure
     uint8_t flag_34b_0_{};    // +0x34B0: a skater cutscene with its own heaps, music, camera (kept as given)
     std::array<uint8_t, 3> unknown34b1_{};
     uint32_t label_{};          // +0x34B4: the cutscene's name checksum
@@ -236,7 +254,7 @@ public:
     CinematicEntry& operator=(const CinematicEntry&) = delete;
     // 0x00466490: the movie's constructor, then the cutscene's: no data, a parameters structure, the three settings
     // (the third's low byte: whether it owns its data).
-    explicit CinematicEntry(const uint32_t* settings);
+    explicit CinematicEntry(const CutsceneSkater* settings);
     // 0x00466560 (0x00467F30 the deleting one): the parameters freed; when it owns its data, the data's asset unloaded
     // (0x00407B90 / 0x00407B20) and 0x0048E970 / 0x0048E990 given back the three values; then the movie's.
     ~CinematicEntry() override;
@@ -277,17 +295,14 @@ public:
     float music_volume_{}; // +0x44: the volumes before the cutscene (given back at its end)
     float stream_volume0_{}; // +0x48
     float stream_volume1_{}; // +0x4C
-    std::array<uint32_t, 3> settings_{}; // +0x50
-    uint8_t owns_data_;    // +0x5C (the third setting's low byte, as it is)
+    CutsceneSkater skater_{}; // +0x50
+    uint8_t owns_data_;    // +0x5C (the skater flag, as it is)
     bool flag_5d_{false};  // +0x5D
     std::array<uint8_t, 2> unknown5e_{};
     int unknown60_{-1}; // +0x60
 };
 
 static_assert(sizeof(CinematicTable::ObjectEntry) == 0x20, "layout must match the original");
-static_assert(offsetof(CinematicEntry, args_) == 0x40 && offsetof(CinematicEntry, settings_) == 0x50 &&
-                  offsetof(CinematicEntry, owns_data_) == 0x5C,
-              "layout must match the original");
 static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEntry, flag_5d_) == 0x5D &&
                   offsetof(CinematicEntry, unknown60_) == 0x60,
               "layout must match the original");

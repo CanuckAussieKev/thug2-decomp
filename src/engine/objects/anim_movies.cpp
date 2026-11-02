@@ -28,7 +28,6 @@
 #include "engine/gfx/viewport.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -103,7 +102,7 @@ void cross_into(float* out, const float* a, const float* b)
 // Play: the asset's length (its first word) from 0, or backwards from a frame before its end to 0.
 void play_on(AnimTimeline* t, void* anim, int loop_type, bool backwards)
 {
-    const float length = *static_cast<float*>(anim);
+    const float length = static_cast<gfx::JointClipFrames*>(anim)->duration_;
     if (backwards)
         play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0f, loop_type, 0.0f,
                   1.0f);

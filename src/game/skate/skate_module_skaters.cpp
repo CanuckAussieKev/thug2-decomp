@@ -68,7 +68,6 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/balance_trick.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
@@ -160,8 +159,7 @@ void unlink_skater_node(memory::ListNode* node)
 
 memory::ListNode* Skate::skater_node(uint32_t index)
 {
-    return raw::as<goals::GoalListHead>(&riders_)->get_node_at(
-        static_cast<int>(index)); // (lists::Foremost's fetch_entry)
+    return lists::node_at(riders_.list_link_, static_cast<int>(index)); // (lists::Foremost's fetch_entry)
 }
 
 // 0x005665C0
@@ -244,7 +242,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     if (local) {
         objects::RiderIdentity* source = objects::g_profile_roster->fetch_account(
             static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) ? viewport : 0);
-        raw::as<gfx::ModelLook>(profile)->copy_from(raw::as<gfx::ModelLook>(source));
+        profile->appearance()->copy_from(source->appearance());
         script::launch_script(kShowPanelStuff, nullptr, nullptr, false, nullptr);
         objects::Rider* skater = get_home_rider();
         if (skater) {

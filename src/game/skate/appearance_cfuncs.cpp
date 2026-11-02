@@ -19,8 +19,6 @@
 #include "engine/gfx/model_appearance.h"
 #include "game/skate/cas_options.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -107,23 +105,7 @@ bool refresh_skater(script::Struct* params, uint32_t build_script)
 // returned), 0x00487570 set; 0x00487380 its texture (a file, maybe with its path), 0x00487590 the overlay's;
 // 0x00487520 marked valid or not; 0x00487510 whether valid. 0x00487000 / 0x004869D0 (cdecl): the points written
 // to / read from a structure (false: something missing).
-void* face_of(objects::RiderIdentity* profile) { return objects::appearance_face(profile); }
-FacePoints* get_face_vertex_count(void* face, FacePoints* out)
-{
-    return raw::as<FacePoints>(static_cast<gfx::FaceSkin*>(face)->get_points(raw::as<gfx::FaceAnchors>(out)));
-}
-void set_face_vertex_count(void* face, FacePoints* points)
-{
-    static_cast<gfx::FaceSkin*>(face)->set_points(raw::as<const gfx::FaceAnchors>(points));
-}
-bool write_face_points(FacePoints* points, script::Struct* to)
-{
-    return gfx::write_face_points(raw::as<const gfx::FaceAnchors>(points), to);
-}
-bool read_face_points(FacePoints* points, script::Struct* from)
-{
-    return gfx::read_face_points(raw::as<gfx::FaceAnchors>(points), from);
-}
+gfx::FaceSkin* face_of(objects::RiderIdentity* profile) { return profile->appearance()->face_skin_; }
 
 } // namespace
 
@@ -143,7 +125,7 @@ bool cfunc_set_player_appearance(script::Struct* params, script::Script*)
 // out).
 bool cfunc_get_player_face_points(script::Struct* params, script::Script* script)
 {
-    void* face = face_of(rider_identity_from_params(params));
+    gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     script::Struct* points = nullptr;
     bool made = false;
     if (!script->args_->read_sub_struct(kCurrentFacePoints, &points, 0)) {
@@ -151,9 +133,9 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
         points = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         made = true;
     }
-    FacePoints scratch{};
-    FacePoints copy = *get_face_vertex_count(face, &scratch);
-    if (!write_face_points(&copy, points))
+    gfx::FaceAnchors scratch{};
+    const gfx::FaceAnchors copy = *face->get_points(&scratch);
+    if (!gfx::write_face_points(&copy, points))
         script::dump_to_log(params);
     if (made) {
         script->args_->put_sub_struct(kCurrentFacePoints, points);
@@ -169,14 +151,14 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
 // the parameters themselves). A failed read prints the parameters (compiled out); the points are set anyway.
 bool cfunc_set_player_face_points(script::Struct* params, script::Script*)
 {
-    void* face = face_of(rider_identity_from_params(params));
+    gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     script::Struct* from = nullptr;
     if (!params->read_sub_struct("face_points", &from, 0))
         from = params;
-    FacePoints points{};
-    if (!read_face_points(&points, from))
+    gfx::FaceAnchors points{};
+    if (!gfx::read_face_points(&points, from))
         script::dump_to_log(params);
-    set_face_vertex_count(face, &points);
+    face->set_points(&points);
     return true;
 }
 
@@ -187,7 +169,7 @@ bool cfunc_set_player_face_texture(script::Struct* params, script::Script*)
     const char* texture = nullptr; // (uninitialised in the original when missing)
     params->fetch_text(kTexture, &texture, 1);
     const bool full_path = params->has_bare_flag(kPathIsComplete);
-    static_cast<gfx::FaceSkin*>(face_of(profile))->load_image_file(texture, full_path);
+    face_of(profile)->load_image_file(texture, full_path);
     return true;
 }
 
@@ -197,22 +179,22 @@ bool cfunc_set_player_face_overlay_texture(script::Struct* params, script::Scrip
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
     params->fetch_text(kTexture, &texture, 1);
-    static_cast<gfx::FaceSkin*>(face_of(profile))->set_overlay_name(texture);
+    face_of(profile)->set_overlay_name(texture);
     return true;
 }
 
 // 0x005AE880: ClearPlayerFaceTexture player=<n> - the face marked not valid.
 bool cfunc_clear_player_face_texture(script::Struct* params, script::Script*)
 {
-    static_cast<gfx::FaceSkin*>(face_of(rider_identity_from_params(params)))->mark_usable(false);
+    face_of(rider_identity_from_params(params))->mark_usable(false);
     return true;
 }
 
 // 0x005AE8C0: PlayerFaceIsValid player=<n> (false without a face).
 bool cfunc_player_face_is_valid(script::Struct* params, script::Script*)
 {
-    void* face = face_of(rider_identity_from_params(params));
-    return face && static_cast<gfx::FaceSkin*>(face)->is_sound();
+    gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
+    return face && face->is_sound();
 }
 
 // 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0: RefreshSkaterColors / Scale / Visibility / UV profile=<n>
@@ -338,8 +320,7 @@ bool cfunc_get_player_appearance_part(script::Struct* params, script::Script* sc
 bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
-    if (cell::address(profile) + 0x4C == 0) // (the original's check of the structure's address)
-        return false;
+    // (the original checked the appearance structure's address - the profile's +0x4C - for null: never true)
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     copy->append_structure_if_any(appearance_structure(profile));

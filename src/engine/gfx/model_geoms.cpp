@@ -30,8 +30,6 @@
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_mesh.h"
 
@@ -316,7 +314,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
 }
 
 // 0x004938E0
-bool RenderModel::add_geom(void* geom, uint32_t name, bool default_heap)
+bool RenderModel::add_geom(Geom* geom, uint32_t name, bool default_heap)
 {
     flag_bits_ &= ~kModelSphereValid;
     ModelGeom* entry = new_entry(default_heap);
@@ -400,43 +398,40 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
 }
 
 // 0x004939E0
-int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f,
-                                   uint32_t* out)
+int RenderModel::test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, const maths::Mat4* world,
+                                   const BoneLineTest& test)
 {
     int hit = 0;
-    uint32_t hit_extra = 0;
+    float hit_extra = 0.0f;
     float nearest = 0.01f;
-    uint32_t extra = e; // (the original's argument slot: each test's extra result lands there, kept between geoms)
+    float extra = test.scale; // (the original's argument slot: each test's extra result lands there, kept between geoms)
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
         float distance = nearest;
-        const int result = static_cast<int>(volumes->segment_hits_bone(
-            cell::pointer<const maths::Seg>(a), cell::pointer<gfx::Rig>(b),
-            cell::pointer<const maths::Mat4>(c), d, std::bit_cast<float>(e), std::bit_cast<float>(f), &distance,
-            raw::as<float>(&extra)));
+        const int result = static_cast<int>(volumes->segment_hits_bone(line, skeleton, world, test.bone, test.scale,
+                                                                         test.extra_radius_, &distance, &extra));
         if (!hit || distance < nearest) {
             nearest = distance;
             hit_extra = extra;
             hit = result;
         }
     }
-    if (out)
-        *out = hit_extra;
+    if (test.hit_t_)
+        *test.hit_t_ = hit_extra;
     return hit;
 }
 
 // 0x00493AB0
-float RenderModel::get_bone_volume(uint32_t a, uint32_t b, uint32_t bone)
+float RenderModel::get_bone_volume(gfx::Rig* skeleton, const maths::Mat4* world, uint32_t bone)
 {
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
         float value = 0.0f;
-        if (volumes->get_bone_volume(
-                cell::pointer<gfx::Rig>(a), cell::pointer<const maths::Mat4>(b), bone, &value))
+        if (volumes->get_bone_volume(skeleton, world, bone, &value))
             return value;
     }
     return 0.0f;
@@ -512,7 +507,7 @@ bool RenderModel::set_color_from_script(script::Struct* params, float h, float s
     const bool all = name == kAllGeoms;
     uint32_t material = 0; // (uninitialised in the original; kept from one geom and pass to the next)
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
-        void* geom = get_geom(node);
+        Geom* geom = get_geom(node);
         int pass = 0;
         if (!is_geom_multicolor(geom)) {
             if (name == table_row(node)->name || all) {
@@ -553,7 +548,7 @@ bool RenderModel::clear_color_from_script(script::Struct* params)
     const bool all = name == kAllGeoms;
     uint32_t material = 0; // (as set_color_from_script)
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
-        void* geom = get_geom(node);
+        Geom* geom = get_geom(node);
         int pass = 0;
         if (!is_geom_multicolor(geom)) {
             if (name == table_row(node)->name || all) {
@@ -599,18 +594,14 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     memory::Hub::get_pull()->leave_heap_scope();
     // The profile's skin colour (0x004869D0 reads it, 0x004869A0 makes it current) and the overlay (0x004869C0)
     // applied to the image (0x00486F70) with the face's colour parameters.
-    std::array<uint8_t, 0x30> color{};
-    gfx::read_face_points(raw::as<gfx::FaceAnchors>(color.data()), script::read_sub_struct(kSkinColor));
-    gfx::change_face_anchors(raw::as<const gfx::FaceAnchors>(color.data()));
+    gfx::FaceAnchors color{};
+    gfx::read_face_points(&color, script::read_sub_struct(kSkinColor));
+    gfx::change_face_anchors(&color);
     gfx::set_face_overlay(static_cast<BitmapTexture*>(overlay));
-    std::array<uint8_t, 0x38> parameters{};
-    auto get_parameters = [face_texture](uint8_t* out) {
-        return raw::bytes(face_texture->get_points(raw::as<gfx::FaceAnchors>(out)));
-    };
-    const uint8_t generate_palette = get_parameters(parameters.data())[0x20]; // (the byte as it is - not made 0 / 1)
-    gfx::massage_face_texture(static_cast<BitmapTexture*>(image),
-                              raw::as<const gfx::FaceAnchors>(get_parameters(parameters.data())), generate_palette,
-                              false, 0x80808080);
+    gfx::FaceAnchors parameters{}; // (the face's points read twice, as the original)
+    const uint8_t generate_palette = face_texture->get_points(&parameters)->has_hsv_ ? 1 : 0;
+    gfx::massage_face_texture(static_cast<BitmapTexture*>(image), face_texture->get_points(&parameters),
+                              generate_palette, false, 0x80808080);
     const bool replaced = replace_texture_with(name, source, texture_hash(image));
     detach_texture(image);
     detach_texture(overlay);

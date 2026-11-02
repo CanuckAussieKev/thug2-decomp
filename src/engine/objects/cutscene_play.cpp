@@ -22,7 +22,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/pointer_cell.h"
 #include <gsl/pointers>
 
 namespace audio {
@@ -113,15 +112,15 @@ bool CinematicTable::finish_loading(int /*unused*/)
 }
 
 // 0x004678A0
-bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const uint32_t* settings)
+bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const CutsceneSkater* settings)
 {
     if (settings) {
-        unknown34a8_ = cell::pointer<void>(settings[0]);
-        unknown34ac_ = cell::pointer<void>(settings[1]);
-        flag_34b_0_ = static_cast<uint8_t>(settings[2]);
+        skater_appearance_ = settings->appearance;
+        skater_details_ = settings->details;
+        flag_34b_0_ = static_cast<uint8_t>(settings->skater);
     } else {
-        unknown34a8_ = nullptr;
-        unknown34ac_ = nullptr;
+        skater_appearance_ = nullptr;
+        skater_details_ = nullptr;
         flag_34b_0_ = 0;
     }
     if (flag_34b_0_)
@@ -137,7 +136,7 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const uin
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
         std::array<char, 256> stream{};
         std::snprintf(stream.data(), sizeof(stream), "%s_%s", name,
-                      skater_model_name(static_cast<script::Struct*>(unknown34ac_)));
+                      skater_model_name(skater_details_));
         if (!audio::prime_music_track(checksums::hash_from_text(stream.data()))) {
             audio::stop_music();
             std::snprintf(stream.data(), sizeof(stream), "%s", name);
@@ -198,7 +197,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         }
         const int rate = game_config::g_frame_rate;
         audio::sync_music_to_time(vblank_seconds(frame_clock::fetch_retrace_count() - paused_vblanks_, rate));
-        update_time(static_cast<int>(cell::of(camera)));
+        update_time();
         check_skip();
         refresh_viewer(camera);
         update_subtitles();

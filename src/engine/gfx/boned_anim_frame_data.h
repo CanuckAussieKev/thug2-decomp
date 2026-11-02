@@ -146,7 +146,7 @@ public:
     bool get_frames(maths::QuatRotation* rotations, maths::Vec4* translations, uint8_t* arg2, float time, int arg4,
                     void* arg5);
 
-    uint32_t unknown00_{0};
+    float duration_{0.0f}; // +0x00: seconds (the file's third word)
     uint32_t flag_bits_{};                    // +0x04
     int bone_count_{0};                       // +0x08
     uint8_t* key_table_{nullptr};             // +0x0C (flag 0x2000: the animation's own quaternion table)

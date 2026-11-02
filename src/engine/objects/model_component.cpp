@@ -30,7 +30,6 @@
 #include "engine/objects/control_pad.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -56,15 +55,12 @@ bool model_replace_texture(render::RenderModel* model, uint32_t mesh, const char
 {
     return model->replace_texture_with(mesh, src, cell::of(dest));
 }
-void** model_geom(render::RenderModel* model, int index) { return static_cast<void**>(model->fetch_geom(index)); }
+render::Geom* model_geom(render::RenderModel* model, int index) { return model->fetch_geom(index); }
 void* model_bone_volumes(render::RenderModel* model) { return model->get_bone_volumes(); }
-int model_test_collision(render::RenderModel* model, maths::Vec4* line, void* skeleton, maths::Mat4* matrix, uint32_t a,
-                         uint32_t b, uint32_t c, uint32_t d)
+int model_test_collision(render::RenderModel* model, const maths::Seg* line, gfx::Rig* skeleton,
+                         const maths::Mat4* matrix, const render::BoneLineTest& test)
 {
-    // (the original's seven stack arguments: the line, skeleton and matrix pointers, then a, b, c and d - the extra
-    // result's pointer)
-    return model->test_bone_volumes(cell::of(line), cell::of(skeleton),
-                                    cell::of(matrix), a, b, c, cell::pointer<uint32_t>(d));
+    return model->test_bone_volumes(line, skeleton, matrix, test);
 }
 void* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
@@ -81,7 +77,7 @@ void lights_lerp_brightness(void* lights, float brightness, float rate)
 void set_global_brightness(float brightness) { render::set_world_brightness(brightness); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
+gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -243,9 +239,9 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
 }
 
 // 0x00421960
-int MeshInstanceModule::test_collision(maths::Vec4* line, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
+int MeshInstanceModule::test_collision(const maths::Seg* line, const render::BoneLineTest& test)
 {
-    void* skeleton = skeleton_of(bone_rig_); // (read before the check: the original's crashes without one)
+    gfx::Rig* skeleton = skeleton_of(bone_rig_); // (read before the check: the original's crashes without one)
     const void* volumes = model_bone_volumes(mesh_instance_);
     if (!bone_rig_)
         return 0;
@@ -255,7 +251,7 @@ int MeshInstanceModule::test_collision(maths::Vec4* line, uint32_t a, uint32_t b
     }
     maths::Mat4 matrix;
     get_draw_matrix(&matrix);
-    return model_test_collision(mesh_instance_, line, skeleton, &matrix, a, b, c, d);
+    return model_test_collision(mesh_instance_, line, skeleton, &matrix, test);
 }
 
 // 0x00420070
@@ -330,8 +326,8 @@ void MeshInstanceModule::change_tint(uint32_t color)
 {
     if (!sector_model_)
         return;
-    void** geom = model_geom(mesh_instance_, 0);
-    raw::as<render::Geom>(geom)->change_tint(color);
+    render::Geom* geom = model_geom(mesh_instance_, 0);
+    geom->change_tint(color);
 }
 
 // 0x00420730

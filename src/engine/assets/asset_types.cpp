@@ -29,7 +29,6 @@
 #include "engine/script/qb.h"
 #include "engine/script/script_startup.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
@@ -328,7 +327,7 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
     auto cutscene = memory::make_owned<objects::CinematicTable>();
     std::array<char, 256> file{};
     platform_name(name, file.data());
-    if (!cutscene->read_in(file.data(), 1, async, static_cast<const uint32_t*>(params)))
+    if (!cutscene->read_in(file.data(), 1, async, static_cast<const objects::CutsceneSkater*>(params)))
         return -1;
     change_contents(cutscene);
     memory::pop_mem_profile();

@@ -85,7 +85,7 @@ public:
     // 0x0057AA70: the movie's vtable +0x18 (no such movie: false).
     bool movie_flag18(uint32_t name);
     // 0x0057AF60: the movie's 0x00469180 (no such movie: 0).
-    uint32_t movie_value(uint32_t name);
+    script::Struct* movie_value(uint32_t name);
     // The playing movie's vtable +0x24 (0x0057B070; none: true), +0x2C (0x0057B0E0), +0x30 (0x0057B120), +0x34
     // (0x0057B160) - those three with no null check.
     bool playing_flag24();

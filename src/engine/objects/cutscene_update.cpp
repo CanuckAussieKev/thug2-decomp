@@ -31,8 +31,6 @@
 #include "engine/objects/skeleton_component.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -65,8 +63,8 @@ constexpr float kPartEnd = 0.03343333676457405f; // (0x0064791C)
 // 64-bit number, over the rate).
 float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(static_cast<double>(vblanks) / rate); }
 
-gsl::owner<void*> new_anim_source() { return new render::FrameSource; }
-void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
+gsl::owner<render::FrameSource*> new_anim_source() { return new render::FrameSource; }
+void delete_source(gsl::owner<render::FrameSource*> source) { delete source; }
 void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
 // The model's fader (cutscene.h) fading to `target` by 0.02 a frame.
 void* fader_of(void* model) { return model_fader(model); }
@@ -75,7 +73,6 @@ void fade_model(void* model, float target)
     void* fader = fader_of(model);
     static_cast<render::ModelLights*>(fader)->move_brightness(target, 0.02f);
 }
-uint8_t* get_bytes(void* object) { return static_cast<uint8_t*>(object); }
 // An object's two matrices (its orientation and display matrix) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)
 {
@@ -118,7 +115,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
 }
 
 // 0x004656E0
-void CinematicTable::update_time(int /*unused*/)
+void CinematicTable::update_time() // (the original was passed the camera, not read)
 {
     previous_clock_ = clock_;
     if (script::fetch_int_value(kFixedTime) != 0) {
@@ -141,7 +138,7 @@ void CinematicTable::update_time(int /*unused*/)
     if (!flag_34b_0_)
         return;
     // the camera and object animations come in parts: the next part when this one's over
-    const float length = *static_cast<float*>(camera_anim_);
+    const float length = camera_anim_->duration_;
     if (!(clock_ >= static_cast<double>(kPartEnd) + length)) { // (unordered too)
         camera_start_ = static_cast<float>(clock_ / (static_cast<double>(length) + kFrame) * kFrame);
         return;
@@ -154,8 +151,8 @@ void CinematicTable::update_time(int /*unused*/)
         if (camera_source_)
             delete_source(camera_source_);
         camera_source_ = new_anim_source();
-        static_cast<render::FrameSource*>(camera_source_)->set_done(true);
-        camera_anim_ = static_cast<render::FrameSource*>(camera_source_)->play_clip(name);
+        camera_source_->set_done(true);
+        camera_anim_ = static_cast<gfx::JointClipFrames*>(camera_source_->play_clip(name));
         static_cast<gfx::JointClipFrames*>(camera_anim_)->arm_events();
     }
     if (object_part_ < object_parts_) {
@@ -164,8 +161,8 @@ void CinematicTable::update_time(int /*unused*/)
         if (object_source_)
             delete_source(object_source_);
         object_source_ = new_anim_source();
-        anim_list_ = static_cast<render::FrameSource*>(object_source_)->play_clip(name);
-        static_cast<gfx::JointClipFrames*>(anim_list_)->arm_events();
+        anim_list_ = static_cast<gfx::JointClipFrames*>(object_source_->play_clip(name));
+        anim_list_->arm_events();
     }
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);
@@ -184,8 +181,8 @@ void CinematicTable::update_time(int /*unused*/)
         }
         if (entry.animation) {
             entry.animation->source = new_anim_source();
-            static_cast<render::FrameSource*>(entry.animation->source)->play_clip(anim);
-            static_cast<render::FrameSource*>(entry.animation->source)->set_done(true);
+            entry.animation->source->play_clip(anim);
+            entry.animation->source->set_done(true);
         }
     }
 }
@@ -230,13 +227,12 @@ void CinematicTable::update_object_transforms()
 {
     if (!object_source_)
         return;
-    static_cast<gfx::JointClipFrames*>(anim_list_)
-        ->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot.data(),
-                             static_cast<float>(clock_ - static_cast<double>(camera_start_)),
-                             static_cast<int>(cell::of(object_source_)));
+    anim_list_->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot.data(),
+                                   static_cast<float>(clock_ - static_cast<double>(camera_start_)),
+                                   0); // (the original passed the animation source's address: not read)
     // the animated objects of the level (not the cutscene's own)
-    for (int j = 0; j < *raw::field_at<int>(get_bytes(anim_list_), 8); ++j) {
-        const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
+    for (int j = 0; j < anim_list_->bone_count_; ++j) {
+        const uint32_t name = anim_list_->fetch_joint_name(j);
         bool own = false;
         for (int k = object_count_ - 1; k >= 0; --k) {
             if (core::at(entities_, k).name == name)
@@ -316,13 +312,13 @@ void CinematicTable::restart_objects()
 }
 
 // 0x00466490
-CinematicEntry::CinematicEntry(const uint32_t* settings)
+CinematicEntry::CinematicEntry(const CutsceneSkater* settings)
 {
     script::Struct* block = script::spawn_param_bag();
     args_ = block ? memory::construct_in<script::Struct>(block) : nullptr;
-    std::memcpy(settings_.data(), settings, 12);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    owns_data_ = static_cast<uint8_t>(core::at(settings_, 2) & 0xFF);
+    skater_ = *settings;
+    owns_data_ = static_cast<uint8_t>(skater_.skater);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 

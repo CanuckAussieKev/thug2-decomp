@@ -9,7 +9,6 @@
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/model_internal.h"
 #include "engine/gfx/pc_lights.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/bone_volumes.h"
@@ -243,7 +242,7 @@ bool RenderModel::conceal(uint8_t hide)
 }
 
 // 0x00493CD0
-void* RenderModel::get_geom_by_name(uint32_t name)
+Geom* RenderModel::get_geom_by_name(uint32_t name)
 {
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         if (name == table_row(node)->name)
@@ -253,7 +252,7 @@ void* RenderModel::get_geom_by_name(uint32_t name)
 }
 
 // 0x00494640
-void* RenderModel::fetch_geom(int index)
+Geom* RenderModel::fetch_geom(int index)
 {
     int i = 0;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next, ++i) {
@@ -304,7 +303,7 @@ bool RenderModel::choose_uv_shift(uint32_t material, int pass, float u, float v)
 {
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
-        any |= as_geom(get_geom(node))->set_material_uv_wibble_offsets(material, pass, u, v);
+        any |= get_geom(node)->set_material_uv_wibble_offsets(material, pass, u, v);
     return any;
 }
 
@@ -313,7 +312,7 @@ bool RenderModel::choose_uv_matrix(uint32_t material, int pass, const maths::Mat
 {
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
-        any |= as_geom(get_geom(node))->choose_uv_matrix(material, pass, matrix);
+        any |= get_geom(node)->choose_uv_matrix(material, pass, matrix);
     return any;
 }
 
@@ -322,7 +321,7 @@ bool RenderModel::create_uv_anim_params(uint32_t material, int pass)
 {
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
-        any |= as_geom(get_geom(node))->create_uv_anim_params(material, pass);
+        any |= get_geom(node)->create_uv_anim_params(material, pass);
     return any;
 }
 

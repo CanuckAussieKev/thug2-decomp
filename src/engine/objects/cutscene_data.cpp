@@ -30,8 +30,6 @@
 #include "engine/sys/startup_init.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -77,10 +75,10 @@ void model_set(void* model, maths::Mat4* palette)
 
 // The asset manager (0x006918DC).
 assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
-// (from memory, a2 the data and a3 its size: not permanent, copied)
-void load_asset_file(uint32_t name, uint32_t a2, uint32_t a3)
+// (from memory: not permanent, copied)
+void load_asset_file(uint32_t name, void* data, uint32_t size)
 {
-    asset_manager()->read_resource_from_stream(name, 5, 0, cell::pointer<void>(a2), a3, false, true, nullptr, 0);
+    asset_manager()->read_resource_from_stream(name, 5, 0, data, size, false, true, nullptr, 0);
 }
 
 } // namespace
@@ -219,8 +217,7 @@ void CinematicTable::destroy_objects()
             const uint32_t id = core::down_cast<MeshInstanceModule>(stand_in)->get_linked_entity_name();
             auto* original = core::down_cast<GameEntity>(find_object(id));
             void* model = model_of(original->fetch_module(kModelModuleName));
-            static_cast<render::RenderModel*>(model)->change_bound_sphere(
-                raw::as<const maths::Vec4>(lent_2c_.data()));
+            static_cast<render::RenderModel*>(model)->change_bound_sphere(&lent_sphere_);
             static_cast<render::RenderModel*>(model)->conceal(lent_3c_);
             static_cast<render::RenderModel*>(model)->allow_resizing(lent_3d_);
             maths::Mat4* mine = model_get(model);
@@ -236,25 +233,25 @@ void CinematicTable::destroy_objects()
 }
 
 // 0x00463F20
-void CinematicTable::load_asset(uint32_t name, uint32_t a2, uint32_t a3)
+void CinematicTable::load_asset(uint32_t name, void* data, uint32_t size)
 {
-    load_asset_file(name, a2, a3);
+    load_asset_file(name, data, size);
     core::at(assets_, asset_count_) = name;
     ++asset_count_;
 }
 
 // 0x00463F70
-void CinematicTable::load_animation(uint32_t name, uint32_t a2, uint32_t a3)
+void CinematicTable::load_animation(uint32_t name, void* data, uint32_t size)
 {
     AnimationEntry& entry = core::at(animations_, animation_count_);
-    load_asset_file(name, a2, a3);
+    load_asset_file(name, data, size);
     core::at(assets_, asset_count_) = name;
     ++asset_count_;
-    void* data = render::get_anim_data(name, 1);
+    void* anim = render::get_anim_data(name, 1);
     entry.source = nullptr;
     entry.name = name;
     if (!entry.data)
-        entry.data = data;
+        entry.data = anim;
     ++animation_count_;
 }
 
@@ -303,10 +300,9 @@ void CinematicTable::refresh_viewer(void* camera)
     std::array<float, 4> rotation = {{0.0f, 0.0f, 0.0f, 1.0f}};
     std::array<float, 4> translation{};
     bool flag = false;
-    static_cast<gfx::JointClipFrames*>(camera_anim_)
-        ->get_float_key_pose(rotation.data(), translation.data(), &flag,
-                             static_cast<float>(clock_ - static_cast<double>(camera_start_)),
-                             static_cast<int>(cell::of(camera_source_)));
+    camera_anim_->get_float_key_pose(rotation.data(), translation.data(), &flag,
+                                     static_cast<float>(clock_ - static_cast<double>(camera_start_)),
+                                     0); // (the original passed the animation source's address: not read)
     std::memcpy(position, translation.data(), 16);
     std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
     quat_to_matrix(rotation.data(), origin.data(), matrix);
@@ -314,7 +310,7 @@ void CinematicTable::refresh_viewer(void* camera)
         return;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->cinematic_low_heap_);
-    static_cast<gfx::JointClipFrames*>(object_anims_)
+    object_anims_
         ->fire_events(previous_clock_, clock_, camera, 0);
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -333,7 +329,7 @@ void CinematicTable::update_object_poses()
             continue;
         // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
         gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(component)->bone_rig_;
-        auto* source = static_cast<render::FrameSource*>(entry.animation->source);
+        render::FrameSource* source = entry.animation->source;
         void* animation = entry.animation->data;
         skeleton->set_lod(0.0f);
         auto* rig = skeleton;

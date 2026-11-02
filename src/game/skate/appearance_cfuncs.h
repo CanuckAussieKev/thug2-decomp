@@ -15,11 +15,6 @@ class Script;
 // return whether the script's `if` should be taken (true where nothing is asked).
 namespace commands {
 
-// A face's points (0x38 bytes; the face texture's 0x00487550 gives a copy, 0x00487570 sets them).
-struct FacePoints {
-    std::array<uint32_t, 14> words_;
-};
-
 bool cfunc_set_player_appearance(script::Struct* params, script::Script* script);             // 0x005AE550
 bool cfunc_get_player_face_points(script::Struct* params, script::Script* script);            // 0x005AE5B0
 bool cfunc_set_player_face_points(script::Struct* params, script::Script* script);            // 0x005AE710

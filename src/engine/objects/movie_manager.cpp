@@ -18,14 +18,13 @@
 #include "engine/objects/node_objects.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "platform/stopwatch.h"
 #include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -329,20 +328,13 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     const bool kept_camera = keep_camera_;
     gsl::owner<Movie*> movie = nullptr;
     keep_camera_ = false;
-    // An object camera animation / skater camera's context: the skater's info (0x00564FC0) and its +0x5C.
-    struct CameraContext {
-        uint8_t* skater_info_;
-        uint8_t* skater_info_5c_;
-        bool skater;
-    };
+    // An object camera animation / skater camera's context: the skater's profile (0x00564FC0): its appearance and
+    // its details (+0x5C).
     auto skater_context = [](bool skater) {
-        auto* info = raw::bytes(modules::g_skate_module->fetch_account(0));
-        return CameraContext{info, info + 0x5C, skater};
+        RiderIdentity* profile = modules::g_skate_module->fetch_account(0);
+        return CutsceneSkater{profile->appearance(), profile->details_params(), skater};
     };
-    auto new_object_camera = [](CameraContext* context) -> Movie* {
-        // (the constructor reads the context as its three settings' words)
-        return new CinematicEntry(raw::as<const uint32_t>(context));
-    };
+    auto new_object_camera = [](const CutsceneSkater* context) -> Movie* { return new CinematicEntry(context); };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
         const assets::Resource* asset = assets::g_asset_manager->obtain_loaded_item(name, 0);
         if (!asset)
@@ -353,7 +345,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
         if (kind == 5) {
             movie = new ObjectAnimMovie;
         } else if (kind == 9) {
-            CameraContext context = skater_context(false);
+            const CutsceneSkater context = skater_context(false);
             movie = new_object_camera(&context);
         }
     } else if (type == kCutscene) {
@@ -367,7 +359,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
             clear_movies();
             keep_camera_ = false;
         }
-        CameraContext context = skater_context(true);
+        const CutsceneSkater context = skater_context(true);
         movie = new_object_camera(&context);
     }
     get_details(movie)->set_value20(name); // its name
@@ -410,14 +402,14 @@ bool VideoHub::tick_frame()
 }
 
 // 0x0057AF60
-uint32_t VideoHub::movie_value(uint32_t name)
+script::Struct* VideoHub::movie_value(uint32_t name)
 {
     if (!total_of())
-        return 0;
+        return nullptr;
     Movie* movie = name ? find_movie(name) : get_movie(0);
     if (!movie)
-        return 0;
-    return cell::of(get_details(movie)->get_settings());
+        return nullptr;
+    return get_details(movie)->get_settings();
 }
 
 // 0x0057AFC0

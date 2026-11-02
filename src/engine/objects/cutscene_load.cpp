@@ -27,8 +27,6 @@
 #include "engine/gfx/scene_load.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -84,7 +82,7 @@ uint32_t stand_in_id(ObjectModule* model) { return core::down_cast<MeshInstanceM
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
 void* model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr_; }
-void* appearance_face(void* appearance) { return static_cast<gfx::ModelLook*>(appearance)->face_skin_; }
+gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance) { return appearance->face_skin_; }
 
 namespace {
 
@@ -98,15 +96,12 @@ GameEntity* level_object_of(GameEntity* object)
 {
     return core::down_cast<GameEntity>(find_object(stand_in_id(object->fetch_module(kModelModuleName))));
 }
-void model_set_offset(void* model, const float* offset)
+void model_set_offset(void* model, const maths::Vec4* sphere)
 {
-    static_cast<render::RenderModel*>(model)->change_bound_sphere(raw::as<const maths::Vec4>(offset));
+    static_cast<render::RenderModel*>(model)->change_bound_sphere(sphere);
 }
 // The skater's appearance (+0x34A8) and its parts.
-void* appearance_part(void* appearance, uint32_t part)
-{
-    return static_cast<gfx::ModelLook*>(appearance)->get_part_option(part);
-}
+void* appearance_part(gfx::ModelLook* appearance, uint32_t part) { return appearance->get_part_option(part); }
 
 } // namespace
 
@@ -199,11 +194,11 @@ void CinematicTable::add_objects(script::Struct* params)
                 anim = 0;
             }
             if (skater) {
-                auto* face = static_cast<gfx::FaceSkin*>(appearance_face(unknown34a8_));
+                gfx::FaceSkin* face = appearance_face(skater_appearance_);
                 if (face && face->is_sound())
                     ++model_file;
                 int male = 0;
-                static_cast<script::Struct*>(unknown34ac_)->fetch_int_value(kMale, &male, 1);
+                skater_details_->fetch_int_value(kMale, &male, 1);
                 if (male == 0)
                     model_file += 2;
                 params2->put_int(kMaleParam, male);
@@ -216,12 +211,12 @@ void CinematicTable::add_objects(script::Struct* params)
         }
         if (add && skater) {
             // the skater's object isn't made when a part of its appearance is hidden
-            void* part = appearance_part(unknown34a8_, kPartA);
+            void* part = appearance_part(skater_appearance_, kPartA);
             if (!part)
-                part = appearance_part(unknown34a8_, kPartB);
+                part = appearance_part(skater_appearance_, kPartB);
             bool hidden = part && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
             if (!hidden) {
-                part = appearance_part(unknown34a8_, kPartC);
+                part = appearance_part(skater_appearance_, kPartC);
                 hidden = part && static_cast<script::Struct*>(part)->has_bare_flag(kHidden);
             }
             if (hidden) {
@@ -238,8 +233,8 @@ void CinematicTable::add_objects(script::Struct* params)
             entry.object = create_object(params2);
             ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             if (stand_in) {
-                std::array<float, 4> offset = {{0.0f, 0.0f, 0.0f, 150.0f}};
-                model_set_offset(model_of(stand_in), offset.data());
+                const maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 150.0f};
+                model_set_offset(model_of(stand_in), &offset);
                 if (stands_in(stand_in)) {
                     // the level object's model lends its settings (saved once) and is hidden
                     auto* level = core::down_cast<GameEntity>(find_object(stand_in_id(stand_in)));
@@ -247,17 +242,15 @@ void CinematicTable::add_objects(script::Struct* params)
                     void* model2 = model_of(level_model);
                     if (!lent_saved_) {
                         maths::Vec4 saved{};
-                        const auto* settings = (static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
-                                &saved))->data();
-                        std::memcpy(lent_2c_.data(), settings, 16);
+                        lent_sphere_ = *static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(&saved);
                         const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
                         lent_3c_ = flags >> 2 & 1;
                         lent_3d_ = flags >> 3 & 1;
                         lent_pos_ = level->at_point_;
                         lent_saved_ = true;
                     }
-                    std::array<float, 4> offset2 = {{0.0f, 0.0f, 0.0f, 150.0f}};
-                    model_set_offset(model2, offset2.data());
+                    const maths::Vec4 offset2 = {0.0f, 0.0f, 0.0f, 150.0f};
+                    model_set_offset(model2, &offset2);
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);
                     maths::Mat4* mine = static_cast<render::RenderModel*>(model2)->fetch_skinning_palette();
@@ -283,8 +276,8 @@ void CinematicTable::add_objects(script::Struct* params)
                     AnimationEntry* animation = &core::at(animations_, j);
                     entry.animation = animation;
                     animation->source = new render::FrameSource;
-                    static_cast<render::FrameSource*>(animation->source)->play_clip(anim);
-                    static_cast<render::FrameSource*>(animation->source)->set_done(true);
+                    animation->source->play_clip(anim);
+                    animation->source->set_done(true);
                     break;
                 }
             }
@@ -330,9 +323,8 @@ void CinematicTable::add_objects(script::Struct* params)
             if (parent->active)
                 apply_skater_look(entry);
         }
-        void* anims = anim_list_;
-        for (int j = 0; j < *raw::field_at<int>(static_cast<uint8_t*>(anims), 8); ++j) {
-            if (entry.name == static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j)) {
+        for (int j = 0; j < anim_list_->bone_count_; ++j) {
+            if (entry.name == anim_list_->fetch_joint_name(j)) {
                 entry.anim_index_ = j;
                 break;
             }
@@ -366,12 +358,12 @@ void CinematicTable::copy_skeleton(ObjectEntry& from, ObjectEntry& to)
 void CinematicTable::apply_skater_look(ObjectEntry& entry)
 {
     ObjectModule* component = entry.object->fetch_module(kModelModuleName);
-    core::down_cast<MeshInstanceModule>(component)->set_up_mesh_from_profile(unknown34a8_, false, 0, 0x8FB01036);
+    core::down_cast<MeshInstanceModule>(component)->set_up_mesh_from_profile(skater_appearance_, false, 0, 0x8FB01036);
     uint32_t part_name = kPartA;
-    auto* part = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
+    auto* part = static_cast<script::Struct*>(skater_appearance_->get_part(kPartA));
     if (!part) {
         part_name = kPartB;
-        part = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartB));
+        part = static_cast<script::Struct*>(skater_appearance_->get_part(kPartB));
         if (!part)
             return;
     }
@@ -380,7 +372,7 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     uint32_t hue_name = 0x6E94F918, saturation_name = 0xE4F130F4, value_name = 0x949BC47B;
     part->fetch_int_value(0x97DBDDE6, &use_other, 0);
     if (use_other) {
-        part = static_cast<script::Struct*>(appearance_part(unknown34a8_, part_name));
+        part = static_cast<script::Struct*>(appearance_part(skater_appearance_, part_name));
         hue_name = 0xC6CC7F7F;
         saturation_name = 0x4CA9B693;
         value_name = 0x3CC3421C;

@@ -18,6 +18,7 @@
 #include "engine/gfx/model_builder.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/rig.h"
+#include "engine/gfx/sector.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
@@ -30,7 +31,6 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -80,21 +80,21 @@ gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects:
 gsl::owner<render::RenderModel*> spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
 void delete_model(render::RenderModel* model) { delete model; }
 render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
-void* clone_model_geom(void* geom, render::RenderModel* to)
+render::Geom* clone_model_geom(render::Geom* geom, render::RenderModel* to)
 {
-    return static_cast<render::Geom*>(geom)->clone_for_model(1, to);
+    return geom->clone_for_model(1, to);
 }
-void* clone_sector_geom(void* geom) { return static_cast<render::Geom*>(geom)->replicate(1, nullptr); }
-void activate_geom(void* geom)
+render::Geom* clone_sector_geom(render::Geom* geom) { return geom->replicate(1, nullptr); }
+void activate_geom(render::Geom* geom)
 {
-    static_cast<render::Geom*>(geom)->change_live(true); // (through the jump 0x0048DE60)
+    geom->change_live(true); // (through the jump 0x0048DE60)
 }
-void add_geom(render::RenderModel* model, void* geom, uint32_t name) { model->add_geom(geom, name, true); }
+void add_geom(render::RenderModel* model, render::Geom* geom, uint32_t name) { model->add_geom(geom, name, true); }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any).
 bool fetch_magnification(maths::Vec4* scale, script::Struct* params) { return gfx::scale_from_args(scale, params); }
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
-void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-void* sector_geom(void* sector) { return *raw::field_at<void*>(static_cast<uint8_t*>(sector), 0x14); }
+render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
+render::Geom* sector_geom(const render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle_); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 // The model's lights' brightness (0x0048E660).
@@ -213,11 +213,11 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
                                                   uint32_t build_script)
 {
     render::RenderModel* model = mesh_instance_;
-    void* skeleton = nullptr;
+    gfx::Rig* skeleton = nullptr;
     if (ObjectModule* component = entity_->fetch_module(kSkeleton))
         skeleton = skeleton_of(component);
     gfx::ModelAssembler builder(via_resource_store, tex_dict_offset); // (destroyed at the end)
-    builder.get_build(static_cast<gfx::ModelLook*>(profile), model, static_cast<gfx::Rig*>(skeleton),
+    builder.get_build(static_cast<gfx::ModelLook*>(profile), model, skeleton,
                       build_script ? build_script : kDefaultBuildScript);
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
         tick_frame();
@@ -233,13 +233,13 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
 // 0x0041FFA0
 void MeshInstanceModule::init_from_sector(uint32_t name)
 {
-    void* sector = look_up_sector(name);
+    const render::WorldCell* sector = look_up_sector(name);
     if (!sector)
         return;
-    void* geom = sector_geom(sector);
+    render::Geom* geom = sector_geom(sector);
     if (!geom)
         return;
-    void* clone = clone_sector_geom(geom);
+    render::Geom* clone = clone_sector_geom(geom);
     activate_geom(clone);
     add_geom(mesh_instance_, clone, 0);
     sector_model_ = true;
@@ -313,10 +313,10 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             uint32_t mesh_label = 0;
             script::Array* geoms = nullptr;
             if (params->read_hash_value(kGeom, &mesh_label, 0)) {
-                void* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
+                render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
                 if (!geom)
                     return; // (nothing after it either)
-                void* clone = clone_model_geom(geom, mesh_instance_);
+                render::Geom* clone = clone_model_geom(geom, mesh_instance_);
                 activate_geom(clone);
                 add_geom(mesh_instance_, clone, mesh_label);
             } else if (params->fetch_list(kGeoms, &geoms, 0)) {
@@ -324,16 +324,16 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                     mesh_label = geoms->fetch_part(i);
                     if (!mesh_label)
                         continue;
-                    void* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
+                    render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
                     if (!geom)
                         return;
-                    void* clone = clone_model_geom(geom, mesh_instance_);
+                    render::Geom* clone = clone_model_geom(geom, mesh_instance_);
                     activate_geom(clone);
                     add_geom(mesh_instance_, clone, mesh_label);
                 }
             } else {
                 for (int i = 0; i < source->mesh_instance_->fetch_geom_total(); ++i) {
-                    void* clone = clone_model_geom(source->mesh_instance_->fetch_geom(i), mesh_instance_);
+                    render::Geom* clone = clone_model_geom(source->mesh_instance_->fetch_geom(i), mesh_instance_);
                     activate_geom(clone);
                     add_geom(mesh_instance_, clone, source->mesh_instance_->fetch_part_label(i));
                 }
@@ -358,7 +358,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                 mesh_instance_->add_asset_geom(name, 0, false, true);
             } else if (params->read_hash_value(kModel, &name, 0)) {
                 // A level sector's geometry as the model.
-                void* clone = clone_sector_geom(sector_geom(look_up_sector(name)));
+                render::Geom* clone = clone_sector_geom(sector_geom(look_up_sector(name)));
                 activate_geom(clone);
                 add_geom(mesh_instance_, clone, 0);
             }

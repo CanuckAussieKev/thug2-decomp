@@ -21,7 +21,6 @@
 #include "engine/gfx/engine_geom.h"
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <cstring>
@@ -492,10 +491,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->read_hash_value(kCollisionArg, &arg, false);
             script::Struct* line_params = nullptr;
             if (params->read_sub_struct(kLine, &line_params, false)) {
-                std::array<maths::Vec4, 2> line{};
-                line_params->fetch_vec(kStart, &core::at(line, 0), 1);
-                line_params->fetch_vec(kEnd, &core::at(line, 1), 1);
-                const int hit = test_collision(line.data(), arg, 0, 0, 0);
+                maths::Seg line{maths::Vec4{}, maths::Vec4{}};
+                line_params->fetch_vec(kStart, &line.start, 1);
+                line_params->fetch_vec(kEnd, &line.end, 1);
+                const int hit = test_collision(&line, render::BoneLineTest{.bone = arg});
                 if (hit)
                     script->args_->put_name_key(kCollisionResult, static_cast<uint32_t>(hit));
             }
@@ -503,11 +502,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         // (the line test goes on into the bone's volume)
         uint32_t bone = 0;
         params->read_hash_value(kBone, &bone, 1);
-        const void* skeleton = skeleton_of(bone_rig_);
+        gfx::Rig* skeleton = skeleton_of(bone_rig_);
         maths::Mat4 matrix;
         get_draw_matrix(&matrix);
-        auto volume = static_cast<float>(mesh_instance_->get_bone_volume(cell::of(skeleton),
-                                                                         cell::of(&matrix), bone));
+        auto volume = static_cast<float>(mesh_instance_->get_bone_volume(skeleton, &matrix, bone));
         script->args_->push_float(kBoneVolume, volume);
         break;
     }

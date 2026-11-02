@@ -40,8 +40,6 @@
 #include "engine/objects/cutscene.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/render_state.h"
 
@@ -97,23 +95,13 @@ void discard_loaded_item(uint32_t name)
     assets::Resource* asset = get_assets()->obtain_loaded_item(name, 1);
     get_assets()->discard_loaded_item(asset);
 }
-void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }
-gsl::owner<void*> new_anim_source() { return new render::FrameSource; }
+void delete_source(gsl::owner<render::FrameSource*> source) { delete source; }
+gsl::owner<render::FrameSource*> new_anim_source() { return new render::FrameSource; }
 void get_run(uint32_t script, script::Struct* params = nullptr, Entity* object = nullptr)
 {
     script::launch_script(script, params, object, false, nullptr);
 }
 
-// The asset manager's load parameters (0x00409E90 constructs them).
-struct LoadParams {
-    uint8_t flag0;
-    std::array<uint8_t, 3> pad1;
-    int texture_set_;     // +0x04
-    void* extra;          // +0x08
-    uint32_t extra_size_; // +0x0C
-    uint8_t is_model_;    // +0x10
-    uint8_t flag11;
-};
 // The textures' load parameters (filled in place).
 struct TextureParams {
     uint8_t flag0;
@@ -185,7 +173,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             gfx::hide_models_for_cutscene();
             get_run(0xE1CE826A, args_);
             content_ =
-                static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, 0, 0, false, false, false, settings_.data(), 0));
+                static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, 0, 0, false, false, false, &skater_, 0));
             float start = 0.0f;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
@@ -310,15 +298,15 @@ void CinematicTable::load_from_bundle()
             break;
         case kTypeCameraAnim: {
             const uint32_t name = hash_of_name("_CAM", static_cast<int>(entry->name)); // (the game's 0x00647914)
-            load_asset(name, cell::of(data), entry->size);
+            load_asset(name, data, entry->size);
             ++camera_parts_;
             if (!camera_source_) {
                 camera_source_ = new_anim_source();
-                static_cast<render::FrameSource*>(camera_source_)->set_done(true);
+                camera_source_->set_done(true);
             }
             if (!camera_anim_) {
-                camera_anim_ = static_cast<render::FrameSource*>(camera_source_)->play_clip(name);
-                static_cast<gfx::JointClipFrames*>(camera_anim_)->arm_events();
+                camera_anim_ = static_cast<gfx::JointClipFrames*>(camera_source_->play_clip(name));
+                camera_anim_->arm_events();
             }
             if (!object_anims_)
                 object_anims_ = camera_anim_;
@@ -326,15 +314,15 @@ void CinematicTable::load_from_bundle()
         }
         case kTypeObjectAnim: {
             const uint32_t name = hash_of_name("_OBA", static_cast<int>(entry->name)); // (the game's 0x0064790C)
-            load_asset(name, cell::of(data), entry->size);
+            load_asset(name, data, entry->size);
             ++object_parts_;
             if (!object_source_) {
                 object_source_ = new_anim_source();
-                static_cast<render::FrameSource*>(object_source_)->set_done(true);
+                object_source_->set_done(true);
             }
             if (!anim_list_) {
-                anim_list_ = static_cast<render::FrameSource*>(object_source_)->play_clip(name);
-                static_cast<gfx::JointClipFrames*>(anim_list_)->arm_events();
+                anim_list_ = static_cast<gfx::JointClipFrames*>(object_source_->play_clip(name));
+                anim_list_->arm_events();
             }
             break;
         }
@@ -350,7 +338,7 @@ void CinematicTable::load_from_bundle()
             objects_from_table(call_args_, static_cast<const uint32_t*>(data));
             break;
         case kTypeAnim:
-            load_animation(entry->name, cell::of(data), entry->size);
+            load_animation(entry->name, data, entry->size);
             break;
         case kTypeModel:
         case kTypeSkin:
@@ -367,7 +355,7 @@ void CinematicTable::load_from_bundle()
         bundle_ptr_->free_asset(entry->name, entry->type);
     }
     if (!call_args_->fetch_float(kEndTime, &end_time_, 0))
-        end_time_ = *static_cast<float*>(flag_34b_0_ ? camera_anim_ : anim_list_);
+        end_time_ = (flag_34b_0_ ? camera_anim_ : anim_list_)->duration_;
 }
 
 // A model in the bundle (with its textures, a skinned model's colours): loaded unless it's a skin variant that
@@ -375,20 +363,20 @@ void CinematicTable::load_from_bundle()
 void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, void* data)
 {
     const uint32_t model_name = entry->name + kTypeModel; // (the original prints name + type, compiled out)
-    LoadParams params{};
-    raw::as<assets::SkinParams>(&params)->get_clear(); // (the skinned model's load parameters, 0x14 bytes)
+    assets::SkinParams params{};
+    params.get_clear(); // (the skinned model's load parameters, 0x00409E90)
     void* texture_data = bundle_ptr_->find_asset(entry->name, kTypeTextures, 1);
     const file::AssetBundle::TableRow* textures = bundle_ptr_->find_entry(entry->name, kTypeTextures, 1);
     const uint32_t texture_size = textures->size;
     const uint32_t textures_name = textures->type + textures->name;
     const uint8_t is_model = entry->type == kTypeModel;
-    params.extra = nullptr;
-    params.extra_size_ = 0;
-    params.is_model_ = is_model;
+    params.cas_data_ = nullptr;
+    params.cas_size_ = 0;
+    params.has_cas_ = is_model;
     params.flag0 = 0;
-    params.texture_set_ = entry->type == kTypeSkin ? 0 : index + 200;
+    params.value = entry->type == kTypeSkin ? 0 : index + 200;
     TextureParams texture_params{};
-    texture_params.texture_set_ = params.texture_set_;
+    texture_params.texture_set_ = params.value;
     void* assets = get_assets();
     texture_params.flag0 = 0;
     texture_params.flag9 = 0;
@@ -396,12 +384,12 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
     bool load = static_cast<int>(entry->size) >= 0x96;
     if (const auto* colours = static_cast<const uint8_t*>(bundle_ptr_->find_asset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
-        auto* part1 = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
+        auto* part1 = static_cast<script::Struct*>(skater_appearance_->get_part(kPartA));
         if (!part1)
-            part1 = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartB));
-        auto* part2 = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part_option(kPartA));
+            part1 = static_cast<script::Struct*>(skater_appearance_->get_part(kPartB));
+        auto* part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartA));
         if (!part2)
-            part2 = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part_option(kPartB));
+            part2 = static_cast<script::Struct*>(skater_appearance_->get_part_option(kPartB));
         float* skin = g_skin_colours.data();
         skin[0] = skin[1] = skin[2] = skin[3] = 1.0f;
         for (int k = 0; k < 4; ++k) {
@@ -437,18 +425,18 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             male = true;
             has_face = false;
         }
-        auto* face = static_cast<gfx::FaceSkin*>(appearance_face(unknown34a8_));
+        gfx::FaceSkin* face = appearance_face(skater_appearance_);
         const int skater_face = face && face->is_sound() ? 1 : 0;
         int skater_male = 0;
-        static_cast<script::Struct*>(unknown34ac_)->fetch_int_value(0x3F813177, &skater_male, 1);
+        skater_details_->fetch_int_value(0x3F813177, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;
         if (load)
             render::set_screen_clip(&table);
     }
     if (load) {
-        params.extra = bundle_ptr_->find_asset(entry->name, kTypeExtra, 0);
-        if (params.extra)
-            params.extra_size_ = bundle_ptr_->find_entry(entry->name, kTypeExtra, 1)->size;
+        params.cas_data_ = bundle_ptr_->find_asset(entry->name, kTypeExtra, 0);
+        if (params.cas_data_)
+            params.cas_size_ = bundle_ptr_->find_entry(entry->name, kTypeExtra, 1)->size;
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(
             textures_name, 3, 0, texture_data, texture_size, false, true, &texture_params, 0);
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(model_name, 7, textures_name, data,

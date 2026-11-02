@@ -16,7 +16,6 @@
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -256,7 +255,7 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's
     // own component of that name)
-    auto part_of = [&](uint32_t name) { return raw::as<gfx::ModelLook>(profile)->get_part_option(name); };
+    auto part_of = [&](uint32_t name) { return profile->appearance()->get_part_option(name); };
     Struct* head = part_of(kSkaterMHead);
     if (!head) {
         head = part_of(kSkaterFHead);

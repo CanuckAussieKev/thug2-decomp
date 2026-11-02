@@ -12,6 +12,7 @@
 namespace render {
 class ProbeRay;
 class RenderModel;
+struct BoneLineTest;
 } // namespace render
 namespace script {
 class Script;
@@ -113,7 +114,7 @@ public:
     // display offset.
     void get_draw_matrix(maths::Mat4* out);
     // 0x00421960: a line against the model (the skeleton's bones): the hit, 0 without a skeleton or bone volumes.
-    int test_collision(maths::Vec4* start, uint32_t bone, uint32_t a, uint32_t b, uint32_t c);
+    int test_collision(const maths::Seg* line, const render::BoneLineTest& test);
 
     // 0x00420090: colour value `index` (1 to the count) - nothing without a model or outside.
     void set_color_value(int index, float value);

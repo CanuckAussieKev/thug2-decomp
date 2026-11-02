@@ -26,6 +26,7 @@ namespace render {
 
 struct HierarchyNode;
 
+class Geom;
 class PcMesh;
 class TextureSet;
 class ModelLights;
@@ -34,9 +35,19 @@ struct ModelGeom;
 // A node of a model's geom list (a ring with a head of its own: std::list<ModelGeom*>).
 using ModelGeomNode = lists::PointerRing<ModelGeom>::Node;
 
+// A line's test against a model's bone volumes (0x004939E0's last four arguments): the bone, the bones' scale and
+// the extra radius (the original passed the floats' bits), and where the nearest hit's position along the line goes
+// (when given - the scale when no test wrote one, as the original's argument slot held it).
+struct BoneLineTest {
+    uint32_t bone{0};
+    float scale{0.0f};
+    float extra_radius_{0.0f};
+    float* hit_t_{nullptr};
+};
+
 // One of a model's geoms (0x18 bytes; what a node of the model's geom list holds).
 struct ModelGeom {
-    void* geom;             // +0x00: the engine's geom (CGeom; on PC a PcGeom)
+    gsl::owner<Geom*> geom; // +0x00: the engine's geom (CGeom; on PC a PcGeom)
     TextureSet* textures;   // +0x04: the mesh's texture dictionary (null for a geom added as it is)
     uint32_t name;          // +0x08: the geom's name (a checksum; 0: none)
     PcMesh* scene;          // +0x0C: the mesh loaded from a model file (the model's own; null otherwise)
@@ -131,12 +142,13 @@ public:
     bool add_file_geom(const char* file_name, uint32_t name, bool via_resource_store, int tex_dict_offset,
                        bool force_tex_dict, bool multicolor, bool default_heap, bool by_name);
     // 0x004938E0: an existing geom added as it is (named `name`). True when added (false: no node).
-    bool add_geom(void* geom, uint32_t name, bool default_heap);
+    bool add_geom(Geom* geom, uint32_t name, bool default_heap);
     // 0x004939E0: a line tested against the bone volumes of each geom that has some (0x0048B580) - the hit nearest
-    // (within 0.01 of nothing: the first, then nearer ones); its extra result into *out (when given). The hit.
-    int test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t* out);
+    // (within 0.01 of nothing: the first, then nearer ones); where along the line into *test.hit_t_ (when given). The hit.
+    int test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, const maths::Mat4* world,
+                          const BoneLineTest& test);
     // 0x00493AB0: the first geom whose bone volumes give a value for the bone (0x0048BC40), that value; else 0.
-    float get_bone_volume(uint32_t a, uint32_t b, uint32_t bone);
+    float get_bone_volume(gfx::Rig* skeleton, const maths::Mat4* world, uint32_t bone);
     // 0x00493B30 / 0x00493B90 / 0x00494B30: the strip-break flags of the geoms' scenes (+0xB0) together; each geom's
     // strips broken by a mask; by the scenes' own flags (always true).
     uint32_t get_strip_break_flags();
@@ -153,8 +165,8 @@ public:
     bool change_live(uint8_t active);
     // 0x00493CD0 / 0x00494640 / 0x00494680 / 0x004946C0: the geom named `name`, geom `index`, its name and its
     // textures (null / 0 past the end).
-    void* get_geom_by_name(uint32_t name);
-    void* fetch_geom(int index);
+    Geom* get_geom_by_name(uint32_t name);
+    Geom* fetch_geom(int index);
     uint32_t fetch_part_label(int index);
     TextureSet* get_geom_textures(int index);
     // 0x00493D10: texture `source` (".png" added when missing) replaced by `dest` (cut at ".png") in the textures of
