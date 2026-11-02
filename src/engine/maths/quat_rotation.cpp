@@ -8,7 +8,6 @@
 #include <cmath>
 
 #include "engine/maths/mat4.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace maths {

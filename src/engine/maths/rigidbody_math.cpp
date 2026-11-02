@@ -8,8 +8,6 @@
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/raw_view.h"
-
 namespace maths {
 
 namespace {
