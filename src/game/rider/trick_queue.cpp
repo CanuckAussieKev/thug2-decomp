@@ -296,7 +296,7 @@ void MoveExecutor::reset_trick_objects()
 }
 
 // 0x00523310
-uint32_t MoveExecutor::end_trick_objects(uint32_t* out, uint32_t max_bytes)
+uint32_t MoveExecutor::end_trick_objects(std::span<uint32_t> out, uint32_t max_bytes)
 {
     HitClusterLog& list = trick_objects_;
     const uint32_t result = list.copy_cluster_names(out, max_bytes);

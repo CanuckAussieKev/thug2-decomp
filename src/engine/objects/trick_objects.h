@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 
 #include <gsl/pointers>
 #include <array>
@@ -46,7 +47,7 @@ struct HitClusterLog {
     bool append_one(uint32_t object_name);
     // 0x00588AA0: the listed clusters that still exist (in the manager's table of objects' clusters, with a name)
     // copied to `out` in order, until `max_bytes` bytes are written. Returns the bytes written.
-    uint32_t copy_cluster_names(uint32_t* out, uint32_t max_bytes);
+    uint32_t copy_cluster_names(std::span<uint32_t> out, uint32_t max_bytes);
 };
 
 // A trick object (0x18 bytes): a node in its cluster's list (data itself; the node keeps the original's size) with the
@@ -163,14 +164,14 @@ struct TrickSpotHub : memory::HeapObject {
     // player holds, then each held cluster's index in the table's order (a byte: past 255 they wrap - the format
     // THUG2's and THUGPRO's receivers read). "Building graffiti state message %d" printed for each player. Returns
     // the bytes written.
-    int write_graffiti_state(uint8_t* buffer);
+    int write_graffiti_state(std::span<uint8_t> buffer);
 
     // 0x005886C0: a trick (or combo) by `player` (a skater's object id) scoring `score` on the `count` trick objects
     // named in `objects`: their clusters' best scores for each player and the goal manager told (0x00558770); in
     // graffiti a cluster changes hands when the player's score - in team graffiti with team scoring, the player's
     // team's summed scores - beats the score that holds it; a previous holder's flag in `stolen` (8 bytes, by object
     // id) set. `objects` is compacted to those whose cluster changed (or was first taken); returns how many.
-    uint32_t log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player, uint32_t score);
+    uint32_t log_trick_objects(std::span<uint32_t> objects, std::span<uint8_t> stolen, int player, uint32_t score);
 };
 
 // The graffiti messages' group (their formats: wire/skater_messages.h - sent by score_trick_objects and
@@ -191,10 +192,10 @@ struct ClusterAtIndex {
     bool found;
 };
 struct GraffitiStateWriter {
-    int player;
-    int count;
-    uint8_t* buffer;
-    TrickSpotHub* manager;
+    int player = 0;
+    int count = 0;
+    std::span<uint8_t> buffer;
+    TrickSpotHub* manager = nullptr;
 };
 // 0x00588300: a cluster held by the player asked for released (no holder, no scores) and its name listed.
 // 0x00588350: a cluster nobody holds listed (at most 32).
@@ -215,7 +216,7 @@ void list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list);
 // still-empty descriptor (the original's slip); the changed objects streamed to every player (0x3B, "TrickObj
 // Buffer") and to every observer (0x5B); the skate module told (0x0056BB70 with 0); done if the scoring skater's
 // connection is local. Then (and without `send`) each object's cluster coloured for the player.
-void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send);
+void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects, bool send);
 // 0x00589180: the trick object manager (0x007CE500), made first if there's none and `create` (0x3C bytes, Calloc mode
 // 1 - null if that fails); either way one more count of it (0x007CE504; release_trick_object_manager gives it back).
 TrickSpotHub* acquire_trick_object_manager(bool create);

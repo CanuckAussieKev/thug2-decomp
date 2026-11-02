@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <vector>
 #include <array>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "platform/winmain.h"
@@ -1378,7 +1379,7 @@ std::string log_tricks(int count, std::string* failed)
     objects.push_back(0xEEEEEEEE); // (past the list: must be left alone)
     std::array<uint8_t, 0x100> stolen = {};
     const uint32_t changed =
-        manager->log_trick_objects(static_cast<uint32_t>(asked), objects.data(), stolen.data(), 0, 1000000);
+        manager->log_trick_objects(std::span<uint32_t>(objects).first(asked), stolen, 0, 1000000);
     if (::core::at(objects, asked) != 0xEEEEEEEE) {
         *failed = "the word past the list was changed";
         return "";

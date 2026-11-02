@@ -7,6 +7,7 @@
 #include "engine/objects/trick_objects.h"
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
 namespace skater {
 class SkaterPhysicsModule;
@@ -265,7 +266,7 @@ public:
     void reset_trick_objects();
     void set_trick_objects(bool on);
     void pass_to_trick_objects(uint32_t value);
-    uint32_t end_trick_objects(uint32_t* out, uint32_t max_bytes);
+    uint32_t end_trick_objects(std::span<uint32_t> out, uint32_t max_bytes);
 
     // 0x00523560 (slot 12; trick_member_functions.cpp): its script member functions - Released / Held (a button,
     // or buttons=), GetSpazzFactor, GetSpin / GetActualSpin / ResetSpin, the trick arrays (SetQueueTricks,

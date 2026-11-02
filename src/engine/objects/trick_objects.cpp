@@ -20,7 +20,9 @@
 #include <memory>
 #include <new>
 #include <gsl/pointers>
+#include <algorithm>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -118,15 +120,16 @@ bool HitClusterLog::get_clear()
 }
 
 // 0x005886C0
-uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player, uint32_t score)
+uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<uint8_t> stolen, int player, uint32_t score)
 {
+    auto count = static_cast<uint32_t>(objects.size());
     debug::printf("RequestLogTrick called\n");
     if (count > kMaxLoggedClusters) // (ours: the original's mask overran here)
         count = kMaxLoggedClusters;
     if (count)
         std::memset(s_dirty_clusters.data(), 0, count);
     for (uint32_t i = 0; i < count; ++i) {
-        auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(objects[i]));
+        auto* cluster = static_cast<TrickObjectCluster*>(object_clusters_.fetch_entry(core::at(objects, i)));
         if (!cluster)
             continue;
         goals::get_objective_board()->kill_cluster(cluster->label_, static_cast<int>(score));
@@ -167,7 +170,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
         if (!cluster->owned_ || changed)
             core::at(s_dirty_clusters, i) = 1;
         if (cluster->owned_ && changed)
-            stolen[cluster->owner_] = 1;
+            core::at(stolen, cluster->owner_) = 1;
         if (changed)
             cluster->owner_ = player;
         cluster->record_points_ = total;
@@ -177,7 +180,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
     uint32_t kept = 0;
     for (uint32_t i = 0; i < count; ++i) {
         if (core::at(s_dirty_clusters, i))
-            objects[kept++] = objects[i];
+            core::at(objects, kept++) = core::at(objects, i);
     }
     return kept;
 }
@@ -319,20 +322,20 @@ void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer
         return;
     ClusterIndexSearch search = {cluster->label_, 0, false};
     writer->manager->clusters_.run_hook<&find_cluster_index>(&search);
-    writer->buffer[writer->count + 8] = search.index; // (a byte: past 255 clusters it wraps, as THUG2's and THUGPRO's)
+    core::at(writer->buffer, writer->count + 8) = search.index; // (a byte: past 255 clusters it wraps, as THUG2's and THUGPRO's)
     ++writer->count;
-    ++writer->buffer[writer->player];
+    ++core::at(writer->buffer, writer->player);
 }
 
 // 0x00588520
-int TrickSpotHub::write_graffiti_state(uint8_t* buffer)
+int TrickSpotHub::write_graffiti_state(std::span<uint8_t> buffer)
 {
     GraffitiStateWriter writer = {0, 0, buffer, this};
     for (int player = 0; player < 8; ++player) {
-        buffer[player] = 0;
+        core::at(buffer, player) = 0;
         writer.player = player;
         clusters_.run_hook<&write_held_cluster>(&writer);
-        debug::printf("Building graffiti state message %d\n", buffer[player]);
+        debug::printf("Building graffiti state message %d\n", core::at(buffer, player));
     }
     return writer.count + 8;
 }
@@ -370,7 +373,7 @@ bool HitClusterLog::append_one(uint32_t object_name)
 }
 
 // 0x00588AA0
-uint32_t HitClusterLog::copy_cluster_names(uint32_t* out, uint32_t max_bytes)
+uint32_t HitClusterLog::copy_cluster_names(std::span<uint32_t> out, uint32_t max_bytes)
 {
     const uint32_t listed = ints::as_unsigned(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
     const TrickSpotHub* manager = g_trick_spot_hub.get();
@@ -378,7 +381,7 @@ uint32_t HitClusterLog::copy_cluster_names(uint32_t* out, uint32_t max_bytes)
     for (uint32_t i = 0; i < listed; ++i) {
         auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters_.fetch_entry(core::at(items_, i)));
         if (cluster && cluster->label_) {
-            *out++ = core::at(items_, i);
+            core::at(out, bytes / 4) = core::at(items_, i);
             bytes += 4;
         }
         if (bytes >= max_bytes)
@@ -589,8 +592,9 @@ bool TrickSpotHub::release_player_clusters(int player)
 }
 
 // 0x005892C0
-void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
+void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects, bool send)
 {
+    auto count = static_cast<uint32_t>(objects.size());
     online::Hub* net = net_session_slot();
     void* skate = static_cast<void*>(modules::g_skate_module.get());
     net::NetMessageInfo desc;
@@ -604,7 +608,8 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
                 conn = info->conn_;
         }
         std::array<uint8_t, 8> stolen = {};
-        count = g_trick_spot_hub->log_trick_objects(count, objects, stolen.data(), player, score);
+        count = g_trick_spot_hub->log_trick_objects(objects, stolen, player, score);
+        objects = objects.first(count);
         if (count == 0)
             return;
         for (int victim = 0; victim < 8; ++victim) {
@@ -636,7 +641,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
         all->score = score;
         all->count = count;
         all->game_id = net->get_game_id();
-        std::memcpy(all->objects.data(), objects, count * 4);
+        std::ranges::copy(objects.first(count), all->objects.begin());
         std::array<uint8_t, online::kTrickObjectsHeaderSize + sizeof(all->objects)> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_trick_objects(writer, *all);
@@ -666,7 +671,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
             return;
     }
     for (uint32_t i = 0; i < count; ++i) {
-        auto* cluster = static_cast<TrickObjectCluster*>(g_trick_spot_hub->object_clusters_.fetch_entry(objects[i]));
+        auto* cluster = static_cast<TrickObjectCluster*>(g_trick_spot_hub->object_clusters_.fetch_entry(core::at(objects, i)));
         if (cluster)
             cluster->set_graffiti_color(player == -1 ? -1 : player + 1);
     }
@@ -679,7 +684,7 @@ void TrickSpotHub::give_free_clusters(int player)
     list.count = 0;
     clusters_.run_hook<&list_free_cluster>(&list);
     if (list.count)
-        score_trick_objects(player, 1000, list.count, list.names.data(), true);
+        score_trick_objects(player, 1000, std::span<uint32_t>(list.names).first(list.count), true);
 }
 
 // 0x005896D0

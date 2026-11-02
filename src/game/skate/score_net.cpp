@@ -7,7 +7,9 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <algorithm>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/net/net_app.h"
@@ -51,7 +53,7 @@ void PointTally::note_tagged_prop_ask(int score)
     message.score = static_cast<uint32_t>(score);
     message.game_id = net->get_game_id();
     auto* trick = core::down_cast<objects::MoveExecutor>(rider_for_slot(rider_no_)->fetch_module(kTrick));
-    const uint32_t bytes = trick->end_trick_objects(message.objects.data(),
+    const uint32_t bytes = trick->end_trick_objects(message.objects,
                                                     sizeof(message.objects));
     message.count = bytes >> 2;
     debug::printf("Client -> server %d tricks\n", bytes >> 2); // "Client -> server %d tricks\n"
@@ -69,8 +71,9 @@ void PointTally::note_tagged_prop_ask(int score)
 }
 
 // 0x00561CB0
-void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint32_t* objects, bool send)
+void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send)
 {
+    auto count = static_cast<uint32_t>(objects.size());
     online::Hub* net = net_session_slot();
     void* skate = skate_calls::get_skate();
     PlayerSearch search;
@@ -82,7 +85,8 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
                 conn = info->conn_;
         }
         std::array<uint8_t, 8> stolen = {};
-        count = get_trick_objects()->log_trick_objects(count, objects, stolen.data(), skater_id, static_cast<uint32_t>(score));
+        count = get_trick_objects()->log_trick_objects(objects, stolen, skater_id, static_cast<uint32_t>(score));
+        objects = objects.first(count);
         if (!count)
             return;
         for (int victim = 0; victim < 8; ++victim) {
@@ -114,12 +118,13 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         // buffer)
         if (count > online::kMaxTrickObjects)
             count = online::kMaxTrickObjects;
+        objects = objects.first(count);
         auto all = std::make_unique<online::TrickObjectsMessage>();
         all->player = skater_id;
         all->score = static_cast<uint32_t>(score);
         all->count = count;
         all->game_id = net->get_game_id();
-        std::memcpy(all->objects.data(), objects, count * 4);
+        std::ranges::copy(objects, all->objects.begin());
         std::array<uint8_t, online::kTrickObjectsHeaderSize + sizeof(all->objects)> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_trick_objects(writer, *all);
@@ -150,8 +155,8 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
     const int owner = static_cast<uint8_t>(get_game_mode()->is_squad_match())
                           ? as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater_id)))->team_
                           : skater_id;
-    for (uint32_t i = 0; i < count; ++i)
-        get_trick_objects()->set_object_graffiti_color(objects[i], owner);
+    for (const uint32_t name : objects)
+        get_trick_objects()->set_object_graffiti_color(name, owner);
 }
 
 // 0x005626F0
@@ -164,8 +169,7 @@ int PointTally::on_score_msg(net::InboundMsgCtx* context)
         return 4;
     auto* score = static_cast<objects::Rider*>(context->content_)->get_points_total();
     if (message->one == 1 && message->game_id == net_session_slot()->get_game_id())
-        score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects.data(),
-                                false);
+        score->note_tagged_prop(message->player, static_cast<int>(message->score), std::span<uint32_t>(message->objects.data(), message->count), false);
     return 1;
 }
 

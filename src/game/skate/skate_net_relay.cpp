@@ -277,8 +277,7 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
     if (!online::read_trick_objects(reader, message.get()))
         return 4;
     if (message->one == 1 && message->game_id == net->get_game_id())
-        score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects.data(),
-                                true);
+        score->note_tagged_prop(message->player, static_cast<int>(message->score), std::span<uint32_t>(message->objects.data(), message->count), true);
     return 1;
 }
 

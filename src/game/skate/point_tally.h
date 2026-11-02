@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/lists/dynamic_table.h"
 #include "engine/lists/lookup_table.h"
@@ -237,7 +238,7 @@ public:
     // 0x00561CB0: `count` trick objects scored on by skater `skaterId` (`score` points; on the server, `send`):
     // logged, the players whose clusters were taken told, the objects sent to every player and observer; each
     // object's cluster coloured for the skater (or the skater's team).
-    void note_tagged_prop(int skater_id, int score, uint32_t count, uint32_t* objects, bool send);
+    void note_tagged_prop(int skater_id, int score, std::span<uint32_t> objects, bool send);
     // 0x005626F0 (cdecl, the net handler): a trick objects message for this game logged by the skater's score.
     static int on_score_msg(net::InboundMsgCtx* context);
 
