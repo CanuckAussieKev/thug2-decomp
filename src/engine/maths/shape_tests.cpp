@@ -1,4 +1,5 @@
 #include "engine/maths/shape_tests.h"
+#include "engine/maths/vec4.h"
 
 #include <cmath>
 #include <cstdint>

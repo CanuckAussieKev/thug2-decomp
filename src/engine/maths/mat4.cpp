@@ -10,6 +10,7 @@
 #include "engine/maths/maths.h"
 #include "engine/maths/trig.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 
 namespace maths {
 

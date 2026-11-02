@@ -1,5 +1,6 @@
 #include "engine/maths/rotation_blend.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/mat4.h"
 
 #include <cstddef>
 #include <new>
