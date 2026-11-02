@@ -79,6 +79,16 @@ struct TriMeshSource {
     uint32_t unknown3c_{};    // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
                             // triangle object keeps a copy)
 
+    // NOT ORIGINAL - the stored vertices as runs of floats / 16-bit words (three each, num_vertices_ vertices).
+    [[nodiscard]] std::span<float> float_vertices() const
+    {
+        return {static_cast<float*>(vertices_), static_cast<size_t>(num_vertices_) * 3};
+    }
+    [[nodiscard]] std::span<uint16_t> packed_vertices() const
+    {
+        return {static_cast<uint16_t*>(vertices_), static_cast<size_t>(num_vertices_) * 3};
+    }
+
     // 0x0040B230: vertex `index` (w = 0).
     [[nodiscard]] maths::Vec4 read_stored_vertex(int index) const;
     // 0x0040B2D0: the same into `out`.
@@ -86,9 +96,9 @@ struct TriMeshSource {
     // 0x00414EE0: vertex `index` set (compressed: in sixteenths from the box's minimum, toward zero).
     void write_stored_vertex(int index, const maths::Vec4* position);
     // 0x00414F90 (0x00415C00 jumps to it): every vertex into `out` (w = 0).
-    void get_stored_vertex_array(maths::Vec4* out) const;
+    void get_stored_vertex_array(std::span<maths::Vec4> out) const;
     // 0x00415C10: every vertex set from `positions`, the box made from them first.
-    void choose_raw_verts(const maths::Vec4* positions);
+    void choose_raw_verts(std::span<const maths::Vec4> positions);
     // 0x00414D80: face `face`'s normal ((v1 - v0) x (v2 - v0), normalised unless zero; w = 0).
     [[nodiscard]] maths::Vec4 get_triangle_normal(int face) const;
     // 0x00415B70: every field copied (the arrays shared). Returns this.

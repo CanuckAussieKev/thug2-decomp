@@ -344,7 +344,7 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
         const render::TriMeshSource* collision = get_hit_shape(source_geometry);
         const int collision_count = collision_vertex_count(collision);
         auto* raw = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(collision_count) << 4));
-        collision->get_stored_vertex_array(raw);
+        collision->get_stored_vertex_array({raw, static_cast<size_t>(collision_count)});
         for (int v = 0; v < collision_count; ++v) {
             Vec4 vertex = raw[v];
             bool found = false;

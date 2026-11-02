@@ -45,27 +45,30 @@ float get_component(const maths::Vec4* v, int axis) { return (*v)[axis]; }
 maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
 {
     if (compressed_) {
-        const uint16_t* v = static_cast<const uint16_t*>(vertices_) + 3 * index;
-        return {static_cast<float>(v[0]) * 0.0625f + bounds_.min.x,
-                static_cast<float>(v[1]) * 0.0625f + bounds_.min.y,
-                static_cast<float>(v[2]) * 0.0625f + bounds_.min.z, 0.0f};
+        const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
+        return {static_cast<float>(core::at(v, 0)) * 0.0625f + bounds_.min.x,
+                static_cast<float>(core::at(v, 1)) * 0.0625f + bounds_.min.y,
+                static_cast<float>(core::at(v, 2)) * 0.0625f + bounds_.min.z, 0.0f};
     }
-    const float* v = static_cast<const float*>(vertices_) + 3 * index;
-    return {v[0], v[1], v[2], 0.0f};
+    const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
+    return {core::at(v, 0), core::at(v, 1), core::at(v, 2), 0.0f};
 }
 
 // 0x0040B2D0 (the uncompressed vertex copied as raw words)
 void TriMeshSource::read_stored_vertex(int index, maths::Vec4* out) const
 {
     if (compressed_) {
-        const uint16_t* v = static_cast<const uint16_t*>(vertices_) + 3 * index;
-        out->x = static_cast<float>(v[0]) * 0.0625f + bounds_.min.x;
-        out->y = static_cast<float>(v[1]) * 0.0625f + bounds_.min.y;
-        out->z = static_cast<float>(v[2]) * 0.0625f + bounds_.min.z;
+        const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
+        out->x = static_cast<float>(core::at(v, 0)) * 0.0625f + bounds_.min.x;
+        out->y = static_cast<float>(core::at(v, 1)) * 0.0625f + bounds_.min.y;
+        out->z = static_cast<float>(core::at(v, 2)) * 0.0625f + bounds_.min.z;
         out->w = 0.0f;
         return;
     }
-    std::memcpy(out, static_cast<const float*>(vertices_) + 3 * index, 12);
+    const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
+    out->x = core::at(v, 0);
+    out->y = core::at(v, 1);
+    out->z = core::at(v, 2);
     out->w = 0.0f;
 }
 
@@ -76,32 +79,35 @@ void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position)
         const double x = static_cast<double>(position->x) - bounds_.min.x;
         auto y = static_cast<float>(static_cast<double>(position->y) - bounds_.min.y);
         auto z = static_cast<float>(static_cast<double>(position->z) - bounds_.min.z);
-        uint16_t* v = static_cast<uint16_t*>(vertices_) + 3 * index;
-        v[0] = static_cast<uint16_t>(truncate(x * kSixteen));
-        v[1] = static_cast<uint16_t>(truncate(static_cast<double>(y) * kSixteen));
-        v[2] = static_cast<uint16_t>(truncate(static_cast<double>(z) * kSixteen));
+        const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
+        core::at(v, 0) = static_cast<uint16_t>(truncate(x * kSixteen));
+        core::at(v, 1) = static_cast<uint16_t>(truncate(static_cast<double>(y) * kSixteen));
+        core::at(v, 2) = static_cast<uint16_t>(truncate(static_cast<double>(z) * kSixteen));
         return;
     }
-    std::memcpy(static_cast<float*>(vertices_) + 3 * index, position, 12);
+    const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
+    core::at(v, 0) = position->x;
+    core::at(v, 1) = position->y;
+    core::at(v, 2) = position->z;
 }
 
 // 0x00414F90
-void TriMeshSource::get_stored_vertex_array(maths::Vec4* out) const
+void TriMeshSource::get_stored_vertex_array(std::span<maths::Vec4> out) const
 {
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
-        out[i] = read_stored_vertex(i);
+        core::at(out, i) = read_stored_vertex(i);
 }
 
 // 0x00415C10
-void TriMeshSource::choose_raw_verts(const maths::Vec4* positions)
+void TriMeshSource::choose_raw_verts(std::span<const maths::Vec4> positions)
 {
     maths::BBox* box = &bounds_;
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
-        box->append_spot(positions[i]);
+        box->append_spot(core::at(positions, i));
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
-        write_stored_vertex(i, &positions[i]);
+        write_stored_vertex(i, &core::at(positions, i));
 }
 
 // 0x00414D80 (one of the edge's z kept unrounded for the normal's x, as the original's x87 code does)
@@ -205,11 +211,14 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
     if (bsp_)
         bsp_->get_slide(delta);
     if (!compressed_) {
-        auto* v = static_cast<float*>(vertices_);
-        for (int i = 0; std::cmp_less(i, num_vertices_); ++i, v += 3) {
-            v[0] = static_cast<float>(static_cast<double>(v[0]) + delta->x);
-            v[1] = static_cast<float>(static_cast<double>(v[1]) + delta->y);
-            v[2] = static_cast<float>(static_cast<double>(delta->z) + v[2]);
+        const std::span<float> v = float_vertices();
+        for (size_t k = 0; k < v.size(); k += 3) {
+            float& x = core::at(v, k);
+            float& y = core::at(v, k + 1);
+            float& z = core::at(v, k + 2);
+            x = static_cast<float>(static_cast<double>(x) + delta->x);
+            y = static_cast<float>(static_cast<double>(y) + delta->y);
+            z = static_cast<float>(static_cast<double>(delta->z) + z);
         }
     }
     auto moved = [delta](const maths::Vec4& p) {
@@ -233,24 +242,26 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     if (bsp_)
         bsp_->rotate_y(centre, quarter_turns, false);
     maths::Vec4* positions = nullptr;
+    std::span<maths::Vec4> position_run;
     if (compressed_) {
         memory::enter_heap_scope(memory::top_down_heap());
         positions = static_cast<maths::Vec4*>(memory::alloc(num_vertices_ * sizeof(maths::Vec4)));
         memory::leave_heap_scope();
-        get_stored_vertex_array(positions);
+        position_run = {positions, num_vertices_};
+        get_stored_vertex_array(position_run);
     }
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
         if (positions) {
-            positions[i].turn_quarter_about_y(quarter_turns);
+            core::at(position_run, i).turn_quarter_about_y(quarter_turns);
             continue;
         }
         maths::Vec4 v;
         read_stored_vertex(i, &v);
         v.turn_quarter_about_y(quarter_turns);
-        float* stored = static_cast<float*>(vertices_) + 3 * i;
-        stored[0] = v.x;
-        stored[1] = v.y;
-        stored[2] = v.z;
+        const std::span<float, 3> stored = float_vertices().subspan(3 * static_cast<size_t>(i)).first<3>();
+        core::at(stored, 0) = v.x;
+        core::at(stored, 1) = v.y;
+        core::at(stored, 2) = v.z;
     }
     maths::Vec4 min = bounds_.min;
     maths::Vec4 max = bounds_.max;
@@ -263,7 +274,7 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     box->append_spot(max);
     if (positions) {
         for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
-            write_stored_vertex(i, &positions[i]);
+            write_stored_vertex(i, &core::at(position_run, i));
         memory::Hub::get_pull()->dealloc(positions);
     }
     get_slide(centre);
@@ -278,23 +289,32 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
     if (bsp_)
         bsp_->scale_tool(centre, scale, false);
     maths::Vec4* positions = nullptr;
+    std::span<maths::Vec4> position_run;
     if (compressed_) {
         memory::enter_heap_scope(memory::top_down_heap());
         positions = static_cast<maths::Vec4*>(memory::alloc(num_vertices_ * sizeof(maths::Vec4)));
         memory::leave_heap_scope();
-        get_stored_vertex_array(positions);
+        position_run = {positions, num_vertices_};
+        get_stored_vertex_array(position_run);
     }
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i) {
-        float* v = positions ? &positions[i].x : static_cast<float*>(vertices_) + 3 * i;
-        v[0] *= scale->x;
-        v[1] *= scale->y;
-        v[2] *= scale->z;
+        if (positions) {
+            maths::Vec4& p = core::at(position_run, i);
+            p.x *= scale->x;
+            p.y *= scale->y;
+            p.z *= scale->z;
+        } else {
+            const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(i)).first<3>();
+            core::at(v, 0) *= scale->x;
+            core::at(v, 1) *= scale->y;
+            core::at(v, 2) *= scale->z;
+        }
     }
     bounds_.min = {bounds_.min.x * scale->x, bounds_.min.y * scale->y, bounds_.min.z * scale->z, bounds_.min.w};
     bounds_.max = {bounds_.max.x * scale->x, bounds_.max.y * scale->y, bounds_.max.z * scale->z, bounds_.max.w};
     if (positions) {
         for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
-            write_stored_vertex(i, &positions[i]);
+            write_stored_vertex(i, &core::at(position_run, i));
         memory::Hub::get_pull()->dealloc(positions);
     }
     get_slide(centre);
