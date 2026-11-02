@@ -21,8 +21,9 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
+THUG2_MSVC_WARNING(disable : 4996) // (wcscpy: the original's own, into its fixed buffers)
 
 namespace os_layer {
 
@@ -452,7 +453,7 @@ void load_registry_options(const char* key)
     // Each port's keys and joystick controls (the ones not there stay as they are).
     for (int port = 0; port < kPorts; ++port) {
         for (int i = 0; i < kBindings; ++i) {
-            std::sprintf(text.data(), "k%i_%i", port, i);
+            text::format_to(text, "k%i_%i", port, i);
             size = 4;
             if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)
@@ -461,7 +462,7 @@ void load_registry_options(const char* key)
     }
     for (int port = 0; port < kPorts; ++port) {
         for (int i = 0; i < kBindings; ++i) {
-            std::sprintf(text.data(), "gp%i_%i", port, i);
+            text::format_to(text, "gp%i_%i", port, i);
             size = 4;
             if (RegQueryValueExA(options, text.data(), nullptr, &type, raw::bytes(&value), &size) ==
                 ERROR_SUCCESS)

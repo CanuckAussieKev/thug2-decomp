@@ -54,6 +54,7 @@
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace sys::screenshot {
 
@@ -110,7 +111,7 @@ std::string get_name_of(uint32_t checksum)
     if (const char* name = script::look_up_hash_name(checksum))
         return name;
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+    text::format_to(text, "0x%08X", checksum);
     return text.data();
 }
 std::string active_ruleset_label()
@@ -124,10 +125,10 @@ objects::GameEntity* local_skater()
     return skate_module() ? skate_module()->get_home_rider() : nullptr;
 }
 
-std::string vec(std::span<const float, 3> v, const char* format = "(%.1f, %.1f, %.1f)")
+std::string vec(std::span<const float, 3> v, int places = 1)
 {
     std::array<char, 96> text{};
-    std::snprintf(text.data(), sizeof(text), format, core::at(v, 0), core::at(v, 1), core::at(v, 2));
+    text::format_to(text, "(%.*f, %.*f, %.*f)", places, core::at(v, 0), places, core::at(v, 1), places, core::at(v, 2));
     return text.data();
 }
 
@@ -149,9 +150,8 @@ std::string file_time(const char* path)
     if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t))
         return {};
     std::array<char, 64> text{};
-    std::snprintf(text.data(), sizeof(text), "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", t.wYear, t.wMonth, t.wDay, t.wHour,
-                  t.wMinute, t.wSecond,
-                  (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow);
+    text::format_to(text, "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute,
+                    t.wSecond, (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow);
     return text.data();
 }
 
@@ -166,13 +166,13 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     shot.fields.push_back({"file", png});
     shot.fields.push_back({"folder", folder});
     shot.fields.push_back({"taken", taken});
-    std::snprintf(text.data(), sizeof(text), "%d x %d (%s)", frame.width, frame.height, format_name(frame.format));
+    text::format_to(text, "%d x %d (%s)", frame.width, frame.height, format_name(frame.format));
     shot.fields.push_back({"image", text.data()});
     int w = 0, h = 0;
     if (SDL_Window* window = sys::sdl_window())
         SDL_GetWindowSize(window, &w, &h);
     if (w > 0 && h > 0) {
-        std::snprintf(text.data(), sizeof(text), "%d x %d", w, h);
+        text::format_to(text, "%d x %d", w, h);
         shot.fields.push_back({"window", text.data()});
     } else {
         shot.fields.push_back({"window", ""});
@@ -221,7 +221,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
             const maths::Vec4& at = core::at(s->basis_frame_.row, 2);
             const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
-            std::snprintf(text.data(), sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
+            text::format_to(text, "%.1f degrees (0 = +z, 90 = +x)", heading);
             skater.fields.push_back({"heading", text.data()});
         }
     }
@@ -230,7 +230,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     Section camera{"camera", {}};
     if (g_view.noted && frame_loop::frames_run() - g_view.frame < 10) {
         camera.fields.push_back({"position", vec(g_view.pos)});
-        camera.fields.push_back({"looking along", vec(g_view.forward, "(%.3f, %.3f, %.3f)")});
+        camera.fields.push_back({"looking along", vec(g_view.forward, 3)});
     }
     sections.push_back(camera);
 
@@ -386,8 +386,8 @@ void get_take()
         return;
     }
     std::array<char, 64> taken{};
-    std::snprintf(taken.data(), sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
-                  stamp.minute, stamp.second);
+    text::format_to(taken, "%04d-%02d-%02d %02d:%02d:%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
+                    stamp.minute, stamp.second);
     auto job = std::make_shared<Job>();
     // The mouse, in the image's pixels (the window may be scaled to the back buffer): marked on the picture and noted.
     std::string mouse;
@@ -401,7 +401,7 @@ void get_take()
         job->mouse_x_ = static_cast<int>(static_cast<long long>(mx) * frame.width / w);
         job->mouse_y_ = static_cast<int>(static_cast<long long>(my) * frame.height / h);
         std::array<char, 96> at{};
-        std::snprintf(at.data(), sizeof(at), "(%d, %d) in the image (marked with a cross)", job->mouse_x_, job->mouse_y_);
+        text::format_to(at, "(%d, %d) in the image (marked with a cross)", job->mouse_x_, job->mouse_y_);
         mouse = at.data();
     } else {
         mouse = "not over the window";
@@ -488,8 +488,8 @@ void take_series_frame()
         std::tm local = {};
         localtime_s(&local, &now);
         std::array<char, 64> taken{};
-        std::snprintf(taken.data(), sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + 1900, local.tm_mon + 1,
-                      local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
+        text::format_to(taken, "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + 1900, local.tm_mon + 1, local.tm_mday,
+                        local.tm_hour, local.tm_min, local.tm_sec);
         std::vector<Section> sections = gather_sections(frame, series_frame_name(1), series->folder, taken.data());
         sections.front().title = "series";
         sections.front().fields.push_back(
@@ -502,8 +502,8 @@ void take_series_frame()
     ++series->in_flight_;
     const int number = ++series->taken;
     std::array<char, 96> line{};
-    std::snprintf(line.data(), sizeof(line), "%5d  %10u  %10llu  %10u\n", number, frame_loop::frames_run(),
-                  static_cast<unsigned long long>(frame_clock::fetch_retrace_count()), frame_clock::get_time());
+    text::format_to(line, "%5d  %10u  %10llu  %10u\n", number, frame_loop::frames_run(),
+                    static_cast<unsigned long long>(frame_clock::fetch_retrace_count()), frame_clock::get_time());
     series->times += line.data();
     std::thread(write_series_frame, series, std::move(frame), number).detach();
 }

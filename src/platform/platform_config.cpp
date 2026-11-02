@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include "engine/core/format.h"
 
 namespace build_info {
 
@@ -27,7 +28,7 @@ void prepare_all()
     // up to the last backslash
     if (const size_t slash = std::string_view(s_executable_directory.data()).rfind('\\'); slash != std::string_view::npos)
         core::at(s_executable_directory, slash + 1) = '\0';
-    std::snprintf(s_file.data(), sizeof(s_file), "%s%s", s_executable_directory.data(), kFileName);
+    text::format_to(s_file, "%s%s", s_executable_directory.data(), kFileName);
 }
 
 const char* executable_directory() { return s_executable_directory.data(); }

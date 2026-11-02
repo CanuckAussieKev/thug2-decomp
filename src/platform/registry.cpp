@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <array>
+#include "engine/core/format.h"
 
 namespace sys {
 
@@ -40,7 +41,7 @@ void write_default_setting(const char* name, uint32_t value)
         return;
     }
     std::array<char, 256> path = {};
-    std::snprintf(path.data(), sizeof(path), "%s\\%s", kSettingsKey.data(), name); // (the original's sprintf is unbounded)
+    text::format_to(path, "%s\\%s", kSettingsKey.data(), name); // (the original's sprintf is unbounded)
     if (RegCreateKeyExA(HKEY_CURRENT_USER, path.data(), 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
     RegSetValueExA(key, name, 0, REG_DWORD, raw::bytes(&value), sizeof(value));

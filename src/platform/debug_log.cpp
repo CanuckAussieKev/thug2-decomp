@@ -11,6 +11,7 @@
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace debug_log {
 
@@ -36,7 +37,7 @@ bool console_on() { return s_to_console; }
 void write_message(const char* message)
 {
     std::array<char, 1024> text{};
-    std::snprintf(text.data(), sizeof(text), "%s", message);
+    text::format_to(text, "%s", message);
     size_t length = std::strlen(text.data());
     while (length > 0 && (core::at(text, length - 1) == '\n' || core::at(text, length - 1) == '\r'))
         core::at(text, --length) = '\0';

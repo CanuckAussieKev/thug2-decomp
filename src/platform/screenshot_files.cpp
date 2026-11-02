@@ -20,6 +20,7 @@ THUG2_MSVC_WARNING(push, 0)
 #define STB_IMAGE_WRITE_STATIC
 #define STBI_WRITE_NO_STDIO
 #include "stb_image_write.h"
+#include "engine/core/format.h"
 THUG2_MSVC_WARNING(pop)
 
 namespace sys::screenshot {
@@ -46,23 +47,21 @@ int parse_key(const std::string& text, int fallback, const std::function<int(con
 std::string file_stem(const Stamp& s)
 {
     std::array<char, 64> text{};
-    std::snprintf(text.data(), sizeof(text), "thug2_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute,
-                  s.second);
+    text::format_to(text, "thug2_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute, s.second);
     return text.data();
 }
 
 std::string series_folder_name(const Stamp& s)
 {
     std::array<char, 64> text{};
-    std::snprintf(text.data(), sizeof(text), "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute,
-                  s.second);
+    text::format_to(text, "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute, s.second);
     return text.data();
 }
 
 std::string series_frame_name(int number)
 {
     std::array<char, 32> text{};
-    std::snprintf(text.data(), sizeof(text), "frame_%04d.png", number);
+    text::format_to(text, "frame_%04d.png", number);
     return text.data();
 }
 

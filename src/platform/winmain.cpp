@@ -46,6 +46,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -346,7 +347,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     for (int device = 0; device < 3; ++device) {
         for (int i = 0; i < 24; ++i) {
             std::array<char, 8> name = {};
-            std::snprintf(name.data(), sizeof(name), "%s%d", core::at(kBindingPrefixes, device), i);
+            text::format_to(name, "%s%d", core::at(kBindingPrefixes, device), i);
             write_default_setting(name.data(), core::at(core::at(kDefaultBindings, device), i));
         }
     }

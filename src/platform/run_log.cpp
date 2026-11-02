@@ -17,6 +17,7 @@
 #include "platform/crash.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace {
 FILE* g_log = nullptr;
@@ -32,7 +33,7 @@ std::atomic<unsigned> g_tail_count{0};
 const char* keep_tail(const char* line)
 {
     const unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
-    std::snprintf(core::at(g_tail, slot).data(), kTailWidth, "%s", line);
+    text::format_to(core::at(g_tail, slot), "%s", line);
     return core::at(g_tail, slot).data();
 }
 
@@ -58,7 +59,7 @@ int config_int(const char* section, const char* key, int fallback)
 bool config_set_int(const char* section, const char* key, int value)
 {
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "%d", value);
+    text::format_to(text, "%d", value);
     return WritePrivateProfileStringA(section, key, text.data(), game_folder_path("thug2-decomp.ini").c_str()) != 0;
 }
 
