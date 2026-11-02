@@ -89,7 +89,7 @@ bool Objective::invoke_hook_script(uint32_t name)
     uint32_t script = name;
     if (!args_->read_hash_value(name, &script, 0))
         return false;
-    script::launch_script(script, args_, nullptr, false, nullptr);
+    script::launch_script(script, args_.get(), nullptr, false, nullptr);
     return true;
 }
 
@@ -130,7 +130,7 @@ void Objective::uninitialize(bool children, int depth)
         disengage(true, true);
     uint32_t script = 0;
     if (args_->read_hash_value(kUninit, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     flag_bits_ &= ~kFlagInitialized;
     if (!children)
         return;
@@ -146,7 +146,7 @@ bool Objective::lose()
         return false;
     uint32_t script = 0;
     if (args_->read_hash_value(kFail, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     disengage(true, true);
     return true;
 }
@@ -232,7 +232,7 @@ void Objective::expire()
 {
     uint32_t script = 0;
     if (args_->read_hash_value(kExpireScript, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     if (flag_bits_ & kFlagDeactivateOnExpire)
         disengage(false, true);
 }
@@ -359,7 +359,7 @@ bool Objective::did_trick_string()
 uint32_t Objective::get_top_objective_key()
 {
     void* manager = objective_board();
-    Objective* goal = this;
+    const Objective* goal = this;
     while (goal->parents_ && goal->parents_->objective_key_)
         goal = get_goal(manager, goal->parents_->objective_key_, 1);
     uint32_t id = 0;

@@ -244,7 +244,7 @@ int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clock_offs
 // The movable contact's ride let go (its object kept at +0x6C, the time at +0x70).
 void let_go_of_ride(objects::MovingSurfaceModule* contact)
 {
-    auto* tracker = contact->ride_;
+    auto* tracker = contact->ride_.get();
     if (!tracker)
         return;
     contact->last_object_ = tracker->entity_.get_pull(); // (the object last ridden)
@@ -809,7 +809,7 @@ void objects::FootMovement::place_on_hang()
 
     // riding something: let go of it once it's gone; when it turned, the facing across the rail again
     const objects::MovingSurfaceModule* contact = ride_;
-    auto* tracker = contact->ride_;
+    auto* tracker = contact->ride_.get();
     if (!tracker)
         return;
     if (!tracker->entity_.get_pull()) {
@@ -1065,7 +1065,7 @@ void objects::FootMovement::update_hang()
 {
     // carried by what it rides on
     const objects::MovingSurfaceModule* contact = ride_;
-    if (auto* tracker = contact->ride_) {
+    if (auto* tracker = contact->ride_.get()) {
         if (!tracker->entity_.get_pull() || !tracker->tick_frame(&pos_)) {
             stop_riding(this);
         } else {
@@ -1544,8 +1544,10 @@ void objects::FootMovement::update_ladder()
 void objects::MovingSurfaceModule::ride_on(GameEntity* object)
 {
     let_go_of_ride(this);
-    void* memory = memory::alloc(sizeof(RideTracker));
-    ride_ = memory ? memory::construct_in<RideTracker>(memory, object) : nullptr;
+    // (the original wrote over the pointer without freeing what it held - let_go_of_ride has cleared it)
+    memory::let_go(ride_);
+    if (void* memory = memory::alloc(sizeof(RideTracker)))
+        ride_ = memory::take_unique<RideTracker, memory::HeapDestroy>(memory::construct_in<RideTracker>(memory, object));
 }
 
 namespace objects {

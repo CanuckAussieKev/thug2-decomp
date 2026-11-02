@@ -157,7 +157,8 @@ void Hub::release_app(AppHost* app)
     node.next = &node;
     node.prev = &node;
     app->tear_down_state(); // (through 0x00456B30)
-    delete app;             // (checked for null only now)
+    gsl::owner<decltype(app)> owned = memory::owned_element(app); // (the manager's list's)
+    delete owned; // (checked for null only now)
     --num_apps_;
 }
 

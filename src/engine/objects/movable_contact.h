@@ -7,6 +7,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include "engine/core/mem.h"
 
 namespace render {
 class ProbeRay;
@@ -64,7 +65,7 @@ public:
     // less the object's, through the object's inverted orientation.
     void update_contact_point();
 
-    gsl::owner<RideTracker*> ride_{nullptr};  // +0x18
+    memory::HeapUnique<RideTracker> ride_; // +0x18
     maths::Vec4 contact_point_{}; // +0x1C in the object's frame
     std::array<uint8_t, 0x40> unknown2c_{};   // +0x2C
     GameEntity* last_object_{};   // +0x6C the object last ridden

@@ -158,9 +158,9 @@ Objective::Objective(script::Struct* params)
     seconds_remaining_ = 0;
     unknown68_ = -1;
     unknown64_ = -1;
-    args_ = script::new_struct();
+    args_ = script::make_struct();
     args_->append_structure_if_any(params);
-    ped_ = new_goal_ped(args_);
+    ped_ = new_goal_ped(args_.get());
     goal_flags_ = script::new_struct();
     num_flags_ = 0;
     num_flags_set_ = 0;
@@ -190,12 +190,12 @@ Objective::~Objective()
 {
     uint32_t script = 0;
     if (args_->read_hash_value(kDestroy, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     if (ped_) {
         destroy_goal_ped_body(ped_);
         memory::dealloc(ped_);
     }
-    script::free_struct(args_);
+    memory::destroy_then_clear(args_);
     script::free_struct(goal_flags_);
     for (GoalEdge* link = sub_nodes_; link;) {
         GoalEdge* next = link->succ_;
@@ -218,7 +218,7 @@ void Objective::merge_skill_tier_args()
         return;
     const int level = get_skill_tier(objective_board(), false);
     args_->append_structure_if_any(levels->struct_at(static_cast<uint32_t>(level)));
-    alloc_objective_bits(args_);
+    alloc_objective_bits(args_.get());
 }
 
 // 0x00557270
@@ -232,11 +232,11 @@ void Objective::prepare_all()
         const int level = get_skill_tier(objective_board(), false);
         args_->append_structure_if_any(
             levels->struct_at(static_cast<uint32_t>(level)));
-        alloc_objective_bits(args_);
+        alloc_objective_bits(args_.get());
     }
     uint32_t script = 0;
     if (args_->read_hash_value(kInit, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     swap_move_caption();
     flag_bits_ |= kFlagInitialized;
     int unlimited = 0;
@@ -289,7 +289,7 @@ bool Objective::activate()
     args_->remove_flag(kChainActiveFlag);
     uint32_t script = 0;
     if (args_->read_hash_value(kActivate, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     if (!net->in_net_game())
         flag_bits_ |= kFlagSeen;
     change_live();
@@ -311,11 +311,11 @@ bool Objective::disengage(bool, bool reset_tree)
     clear_child_wins();
     uint32_t script = 0;
     if (args_->read_hash_value(kDeactivate, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     if (!args_->has_bare_flag(kQuickStart))
         args_->remove_flag(kTrialRunFlag);
     if (!args_->has_bare_flag(kJustWonGoal) && !args_->has_bare_flag(kQuickStart)) {
-        script::launch_script(kReadySkaterForEarlyEnd, args_, nullptr, false, nullptr);
+        script::launch_script(kReadySkaterForEarlyEnd, args_.get(), nullptr, false, nullptr);
         if (reset_tree && parents_ && parents_->objective_key_) {
             uninitialize(false, 0);
             void* manager = objective_board();
@@ -392,7 +392,7 @@ bool Objective::get_win()
         args_->remove_flag(kNewRecord);
     uint32_t script = 0;
     if (args_->read_hash_value(kSuccess, &script, 0))
-        script::launch_script(script, args_, nullptr, false, nullptr);
+        script::launch_script(script, args_.get(), nullptr, false, nullptr);
     const bool testing = args_->has_bare_flag(kTrialRunFlag);
     if (is_operative())
         disengage(false, true);
@@ -544,7 +544,7 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
             if (counted && !args_->has_bare_flag(kNoFlagSound))
                 script::launch_script(kGoalGotFlagSound, nullptr, nullptr, false, nullptr);
             if (args_->has_bare_flag(kUseHudCounter))
-                script::launch_script(kGoalUpdateCounter, args_, nullptr, false, nullptr);
+                script::launch_script(kGoalUpdateCounter, args_.get(), nullptr, false, nullptr);
             args_->put_int(kNumFlagsSet, num_flags_set_);
         }
         changed = true;
@@ -559,7 +559,7 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
         complete_objective(goals, id);
     } else if (!sub && args_->has_bare_flag(kGaps) && !args_->has_bare_flag(kNoGapMessages)) {
         const script::StructPtr params = script::make_struct();
-        params->append_structure_if_any(args_);
+        params->append_structure_if_any(args_.get());
         script::launch_script(kGoalGapsGotGap, params.get(), nullptr, false, nullptr);
     }
     return changed;

@@ -86,7 +86,7 @@ public:
     uint32_t trick_{}; // +0x18 the balance trick being balanced (0: none)
     bool started_{};   // +0x1C StartBalanceTrick
     std::array<uint8_t, 3> pad1d_{};
-    script::Struct* call_args_{nullptr};     // +0x20 DoBalanceTrick's BalanceParams (a copy)
+    gsl::owner<script::Struct*> call_args_{nullptr}; // +0x20 DoBalanceTrick's BalanceParams (a copy)
     Balance manual_;                         // +0x24 manual / nose manual
     Balance grind_;                          // +0x7C grind / slide
     Balance lip_;                            // +0xD4

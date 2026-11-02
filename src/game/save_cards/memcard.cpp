@@ -213,7 +213,8 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = memory::construct_in<Hub>(memory);
+            auto made = memory::construct_in<Hub>(memory); // (its block's: release_manager frees it)
+            sole() = made;
             ++ref_tally();
             return sole();
         }

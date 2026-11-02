@@ -105,7 +105,7 @@ void SkaterPhysicsModule::try_start_skitch()
 // 0x00501DB0
 void SkaterPhysicsModule::get_skitch()
 {
-    const objects::RideTracker* rider = ride_->ride_;
+    const objects::RideTracker* rider = ride_->ride_.get();
     objects::PadSnapshot* pad = &input_->pad_primary_;
     objects::GameEntity* car = rider ? rider->entity_.get_pull() : nullptr;
     if (!car) {

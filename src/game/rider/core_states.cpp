@@ -143,7 +143,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     if (grind_from) {
         // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
         objects::MovingSurfaceModule* ride = ride_;
-        if (objects::RideTracker* tracker = ride->ride_) {
+        if (objects::RideTracker* tracker = ride->ride_.get()) {
             ride->last_object_ = tracker->entity_.get_pull();
             tracker->entity_.get_release();
             memory::Hub::get_pull()->dealloc(tracker);

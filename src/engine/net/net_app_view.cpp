@@ -366,8 +366,8 @@ AppHost::~AppHost()
         if (banned)
             banned->destroy_banned(1);
     }
-    for (const tasks::SchedulerTask* task : {send_task_, receive_task_, process_task_, metrics_task_})
-        delete task;
+    for (std::unique_ptr<tasks::SchedulerTask>* task : {&send_task_, &receive_task_, &process_task_, &metrics_task_})
+        memory::destroy_then_clear(*task);
     banned_.uncouple();
     circuits_.uncouple();
     list1414_.uncouple();

@@ -352,7 +352,7 @@ public:
     {
         if (!script::script_exists(script))
             return false;
-        script::Struct* params = new_params();
+        gsl::owner<script::Struct*> params = new_params();
         params->put_name_key(0u, on ? kOn : kOff);
         script::launch_script(script, params, nullptr, false, nullptr);
         delete_params(params);
@@ -372,11 +372,7 @@ public:
     }
 
 private:
-    static script::Struct* new_params()
-    {
-        gsl::owner<script::Struct*> params = script::spawn_param_bag();
-        return params ? memory::construct_in<script::Struct>(params) : nullptr;
-    }
+    static gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
     static void delete_params(script::Struct* params)
     {
         if (!params)
@@ -397,7 +393,7 @@ private:
             script::spawn_script(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false, false);
         if (!script)
             return;
-        script::Struct* params = new_params();
+        gsl::owner<script::Struct*> params = new_params();
         if (text)
             params->append_word(key, text);
         else

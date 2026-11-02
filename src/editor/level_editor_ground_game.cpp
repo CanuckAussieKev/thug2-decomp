@@ -203,7 +203,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     std::vector<uint8_t> data(static_cast<size_t>(count) * first->stride);
     write_vertices(mesh, layout, first->stride, spec.colour, data.data());
     for (int b = 0; std::cmp_less(b, first->vertex_buffer_count_); ++b) {
-        render::VertexBuffer* buffer = new_vertex_buffer(static_cast<uint32_t>(data.size()));
+        gsl::owner<render::VertexBuffer*> buffer = new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
         if (!buffer || !buffer->data) {
             *why = "no vertex buffer";
             return false;

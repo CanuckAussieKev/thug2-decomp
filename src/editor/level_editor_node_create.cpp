@@ -555,7 +555,7 @@ void on_array_removed(uint32_t name)
     get_forget();
 }
 
-script::Struct* get_build(const Spec& spec)
+gsl::owner<script::Struct*> get_build(const Spec& spec)
 {
     gsl::owner<script::Struct*> node = script::spawn_param_bag();
     if (!node)
@@ -664,10 +664,10 @@ bool get_sync()
         script::note_qb_name(name, nodes::kOverlayArrayName);
         if (script::SymbolTableEntry* old = script::find_symbol(name))
             script::clean_up_and_remove_symbol(old);
-        g_array = script::alloc_script_array();
-        if (!g_array)
+        gsl::owner<script::Array*> made = script::new_array(); // (the symbol's, below)
+        if (!made)
             return false;
-        new (g_array) script::Array;
+        g_array = made;
         script::SymbolTableEntry* symbol = script::create_symbol(name);
         symbol->type = script::kQbvalArray;
         symbol->value.set_array(g_array);
@@ -858,7 +858,7 @@ bool fabricate(const Spec& spec, int index, std::string* message)
         *message = "A node named " + spec.name + " is there already";
         return false;
     }
-    script::Struct* node = get_build(spec);
+    gsl::owner<script::Struct*> node = get_build(spec);
     if (!node) {
         *message = "Couldn't make the node";
         return false;
@@ -896,7 +896,7 @@ int create_all(const LinkChain& specs, std::string* message)
             get_log("level editor: the layout's node %s is there already - skipped", spec.name.c_str());
             continue;
         }
-        if (script::Struct* node = get_build(spec)) {
+        if (gsl::owner<script::Struct*> node = get_build(spec)) {
             g_list.push_back(spec);
             g_structs.push_back(node);
             made.emplace_back(spec, node);

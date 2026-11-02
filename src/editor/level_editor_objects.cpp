@@ -90,7 +90,8 @@ bool add_copy_node(script::Struct* node)
     if (index < 0) {
         if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays))
             return false;
-        g_copy_nodes = script::new_array();
+        gsl::owner<script::Array*> made = script::new_array(); // (the node manager's, below)
+        g_copy_nodes = made;
         g_copy_node_list.clear();
         index = static_cast<int>(manager->num_);
         core::at(manager->arrays_, index).label_ = name;

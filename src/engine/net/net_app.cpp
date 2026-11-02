@@ -200,9 +200,9 @@ AppHost::AppHost(int flags)
     flag_bits_ = 0;
     circuits_.make_head();
     banned_.make_head();
-    metrics_task_ = new_task(kMetricsTaskPriority, &AppHost::network_metrics, this);
-    receive_task_ = new_task(kReceiveTaskPriority, &AppHost::receive_network_data, this);
-    process_task_ = new_task(kProcessTaskPriority, &AppHost::pump_incoming_traffic, this);
+    metrics_task_ = memory::take_unique<tasks::SchedulerTask>(new_task(kMetricsTaskPriority, &AppHost::network_metrics, this));
+    receive_task_ = memory::take_unique<tasks::SchedulerTask>(new_task(kReceiveTaskPriority, &AppHost::receive_network_data, this));
+    process_task_ = memory::take_unique<tasks::SchedulerTask>(new_task(kProcessTaskPriority, &AppHost::pump_incoming_traffic, this));
     core::at(unknown1f00_, 0) = core::at(unknown1f00_, 1) = 0; // the double 0.0
     flag_bits_ = static_cast<uint32_t>(flags);
     clock_ = 0;

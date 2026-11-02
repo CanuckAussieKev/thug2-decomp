@@ -18,6 +18,7 @@
 #include "platform/debug_log.h"
 #include <gsl/pointers>
 #include "engine/core/mem.h"
+#include "platform/crt.h"
 
 namespace net {
 
@@ -29,8 +30,8 @@ const char* s_gamestats_host = nullptr;
 gsl::owner<char*> get_host_name(const char* format, const char* domain)
 {
     const size_t size = std::strlen(format) + std::strlen(domain) + 1; // (enough)
-    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
-    auto name = memory::adopt<char*>(std::malloc(size));
+    gsl::owner<void*> block = crt::alloc_block(size); // (the C runtime's: the library frees it)
+    auto name = memory::adopt<char*>(block);
     std::snprintf(name, size, format, domain);
     debug_log::printf(debug_log::StageMap::kTrace, "ALLOC'D STRING %s\n", name);
     return name;

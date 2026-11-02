@@ -75,7 +75,8 @@ HitMeshGroup::~HitMeshGroup()
         if (node->data != kHeadData && node) {
             while (node) {
                 memory::ListNode* next = node->next->data == kHeadData ? nullptr : node->next;
-                delete static_cast<HitMesh*>(node->data);
+                gsl::owner<HitMesh*> mesh = memory::adopt<HitMesh*>(node->data); // (the list's)
+                delete mesh;
                 memory::ListNode::destroy(node); // (0x00411880)
                 node = next;
             }

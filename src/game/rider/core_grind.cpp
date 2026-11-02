@@ -113,7 +113,7 @@ void trigger_rail_node(SkaterPhysicsModule* component, const int* events)
 {
     const objects::Entity* ride_object = nullptr;
     objects::MovingSurfaceModule* ride = component->ride_;
-    if (auto* tracker = ride->ride_) {
+    if (auto* tracker = ride->ride_.get()) {
         if (tracker->entity_.get_pull())
             ride_object = tracker->entity_.get_pull();
         else

@@ -26,6 +26,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/mem.h"
 
 namespace goals {
 
@@ -248,12 +249,13 @@ Objective* GoalManager::get_active_net_goal()
 void GoalManager::tick_frame()
 {
     for (int i = 0; i < goals_.num_; ++i) {
-        gsl::owner<Objective*> goal = goals_.get_by_index(i);
+        Objective* goal = goals_.get_by_index(i);
         if (goal->is_operative())
             goal->tick_frame();
         if (goal->state02()) {
             goals_.drop_out(goal->get_objective_key());
-            delete goal;
+            gsl::owner<Objective*> owned = memory::owned_element(goal); // (the table's)
+            delete owned;
         }
     }
     update_time_display();

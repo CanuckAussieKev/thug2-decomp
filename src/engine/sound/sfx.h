@@ -131,7 +131,7 @@ static_assert(sizeof(PlaybackProps) == 0x2C, "layout must match the original");
 struct PlayingSound {
     uint32_t unique_id_;  // +0x00
     uint32_t checksum;    // +0x04
-    gsl::owner<SoundWaveSlot*> entry; // +0x08
+    SoundWaveSlot* entry; // +0x08 (the wave table's)
     PlaybackProps props;  // +0x0C
     uint32_t unknown38;   // +0x38: the next time (frame_clock::GetTime) a distant positional sound is checked
 };

@@ -535,7 +535,7 @@ Viewer::Viewer()
         static_cast<void>(inet_addr(net->fetch_own_address())); // (unused)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
         const int address = static_cast<int>(inet_addr(net->fetch_own_address()));
-        net_handler_.reset(net->make_server_app(0, "THUG2 Viewer", 4, 10000, address, 0x10));
+        net_handler_ = memory::take_unique<net::AppHost>(net->make_server_app(0, "THUG2 Viewer", 4, 10000, address, 0x10));
     }
     const int controller = script::fetch_int_value(kViewerPadKey);
 

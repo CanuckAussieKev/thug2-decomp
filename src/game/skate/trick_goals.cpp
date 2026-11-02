@@ -287,11 +287,11 @@ bool integer_or_flag(script::Struct* params, uint32_t name)
 } // namespace
 
 // 0x0056F1A0
-bool FallingTricksGoal::is_combo() { return integer_or_flag(args_, kCombo); }
+bool FallingTricksGoal::is_combo() { return integer_or_flag(args_.get(), kCombo); }
 // 0x0056F1F0
-bool FallingTricksGoal::is_single_combo() { return integer_or_flag(args_, kSingleCombo); }
+bool FallingTricksGoal::is_single_combo() { return integer_or_flag(args_.get(), kSingleCombo); }
 // 0x0056F240
-bool FallingTricksGoal::is_trick_tris() { return integer_or_flag(args_, kTrickTris); }
+bool FallingTricksGoal::is_trick_tris() { return integer_or_flag(args_.get(), kTrickTris); }
 
 // 0x0056F2C0
 bool FallingTricksGoal::disengage(bool unused, bool reset_tree)
@@ -310,7 +310,7 @@ void FallingTricksGoal::prepare_all()
     args_->put_int(kCurrentTrickTime, combo_time);
     args_->put_int(kTricksDoneCount, 0);
     // The first trick comes 200 ms in (at once for a single combo).
-    stopwatch_ = integer_or_flag(args_, kSingleCombo) ? 0 : combo_time - 200;
+    stopwatch_ = integer_or_flag(args_.get(), kSingleCombo) ? 0 : combo_time - 200;
     for (int i = 0; i < kMaxTricks; ++i) {
         StackedTrickEntry& t = core::at(tricks_, i);
         t.free = true;
@@ -352,7 +352,7 @@ void FallingTricksGoal::update_alphas()
 // 0x0056F500
 void FallingTricksGoal::expire()
 {
-    if (integer_or_flag(args_, kSingleCombo) || is_trick_tris()) {
+    if (integer_or_flag(args_.get(), kSingleCombo) || is_trick_tris()) {
         lose();
         return;
     }
@@ -450,7 +450,7 @@ void FallingTricksGoal::add_tricks(int count)
     int max_tricks = 0;
     args_->fetch_int_value(kMaxTricksName, &max_tricks, 1);
     const int total = trick_total_ + count;
-    const bool combo = integer_or_flag(args_, kCombo) || is_single_combo();
+    const bool combo = integer_or_flag(args_.get(), kCombo) || is_single_combo();
     if (total > max_tricks) {
         const uint32_t id = get_goal_id(this);
         fail_objective(objective_board(), id);
@@ -630,7 +630,7 @@ void FallingTricksGoal::add_tricks(int count)
         if (!key_combo_text)
             params->put_name_key(0u, kNoKeyCombo);
         auto stack_full = [&]() {
-            return !integer_or_flag(args_, kTrickTris) && !integer_or_flag(args_, kSingleCombo) &&
+            return !integer_or_flag(args_.get(), kTrickTris) && !integer_or_flag(args_.get(), kSingleCombo) &&
                    static_cast<double>(max_tricks) * three_quarters() < static_cast<double>(trick_total_);
         };
         const uint32_t add_script = stack_full() ? kAddRedTrick : kPushTrickScript;
@@ -683,7 +683,7 @@ void FallingTricksGoal::check_combos()
             }
         }
         core::at(group_used_, group) = false;
-        if (integer_or_flag(args_, kSingleCombo)) {
+        if (integer_or_flag(args_.get(), kSingleCombo)) {
             void* manager = objective_board();
             complete_objective(manager, get_goal_id(this));
         }
@@ -776,7 +776,7 @@ void FallingTricksGoal::check_tricks()
             return;
         args_->put_int(kNoAlphaCheck, 0);
     }
-    const bool combo = integer_or_flag(args_, kSingleCombo) || is_combo();
+    const bool combo = integer_or_flag(args_.get(), kSingleCombo) || is_combo();
     modules::PointTally* score = get_score_of(local_skater());
     if (combo) {
         check_combos();

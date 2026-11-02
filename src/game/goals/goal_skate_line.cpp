@@ -55,7 +55,7 @@ void SkateLineGoal::next_cluster()
     if (cluster->fetch_int_value(kTime, &time, 1))
         set_seconds_remaining(time);
     const script::StructPtr params = script::make_struct();
-    params->append_structure_if_any(args_);
+    params->append_structure_if_any(args_.get());
     params->append_structure_if_any(cluster);
     params->put_int(kGoalObjectsIndex, num_flags_set_);
     if (num_flags_set_ == 1)

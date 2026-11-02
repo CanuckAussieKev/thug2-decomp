@@ -211,7 +211,7 @@ void build_scene_file_path(char* out, const char* name, uint32_t)
 }
 
 // 0x0048C3D0
-PcMesh* load_model_file(const char* file_name, TextureSet* textures, int, bool)
+gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures, int, bool)
 {
     std::array<char, 0x200> base{};
     const bool skinned = split_skin_name(file_name, base.data());

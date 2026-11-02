@@ -134,7 +134,7 @@ inline void assign_feeler(void* to, const void* from)
     static_cast<render::ProbeRay*>(to)->get_assign(*static_cast<const render::ProbeRay*>(from));
 }
 // The ride tracker (+0x152C's +0x18) and what its smart pointer points at; 0x00427C70: stop riding.
-inline objects::RideTracker*& get_tracker(SkaterPhysicsModule* component) { return component->ride_->ride_; }
+inline objects::RideTracker* get_tracker(SkaterPhysicsModule* component) { return component->ride_->ride_.get(); }
 inline void stop_riding(SkaterPhysicsModule* component) { component->ride_->stop_riding(); }
 
 inline void destroy_feeler(void* feeler) { static_cast<render::ProbeRay*>(feeler)->destruct(); }

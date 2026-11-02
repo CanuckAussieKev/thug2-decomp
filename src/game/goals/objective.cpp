@@ -52,7 +52,7 @@ void Objective::clear_child_wins()
 }
 
 // 0x00553E90
-script::Struct* Objective::fetch_args() { return args_; }
+script::Struct* Objective::fetch_args() { return args_.get(); }
 
 // 0x00553EA0
 void Objective::reset_timer()
@@ -259,7 +259,7 @@ void Objective::picked_up_countable()
     ++collected;
     args_->put_int(kNumberCollected, collected);
     if (args_->has_bare_flag(kUseHudCounter))
-        script::launch_script(kGoalUpdateCounter, args_, nullptr, false, nullptr);
+        script::launch_script(kGoalUpdateCounter, args_.get(), nullptr, false, nullptr);
 }
 
 // 0x00554390

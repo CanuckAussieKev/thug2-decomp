@@ -79,8 +79,9 @@ Struct* new_result_structure()
 {
     set_result_type(kQbvalStruct);
     gsl::owner<Struct*> structure = script::new_struct();
-    get_result().value.set_structure(structure);
-    return structure;
+    get_result().value.set_structure(structure); // (the result's now)
+    Struct* const made = structure;
+    return made;
 }
 
 bool is_structure(uint32_t type) { return type == kQbvalStruct || type == kQbvalStructRef; }

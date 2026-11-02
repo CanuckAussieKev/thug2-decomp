@@ -111,7 +111,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     // wallriding (+0x78)) that isn't what the feeler hit: off it, with its velocity.
     objects::RiderPoseState* flags = core->state_;
     if (!flags->flag(PoseFlag::kSkitching).on && !flags->flag(PoseFlag::kAcidDrop).on && ride_->ride_) {
-        const RideTracker* ride = ride_->ride_;
+        const RideTracker* ride = ride_->ride_.get();
         bool leave = true;
         if (ride->entity_.get_pull()) {
             const int state = flags->cur_phase_;

@@ -41,7 +41,7 @@ Conn* server_connection(AppHost* app)
 // Shared with Server (net_server.cpp).
 void construct_app_task(AppHost* app)
 {
-    app->send_task_ = new tasks::Task<AppHost>(&AppHost::flush_outgoing_traffic, app, kAppTaskPriority);
+    app->send_task_ = std::make_unique<tasks::Task<AppHost>>(&AppHost::flush_outgoing_traffic, app, kAppTaskPriority);
 }
 
 // 0x0045A250

@@ -1118,10 +1118,10 @@ void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
         break;
     }
     case 11:
-        append_struct_ref(name, Cell::of_word(value).structure());
+        append_struct_ref(name, memory::owned_element(Cell::of_word(value).structure())); // (handed over in the word)
         break;
     case kQbvalArray:
-        append_array_ref(name, Cell::of_word(value).array());
+        append_array_ref(name, memory::owned_element(Cell::of_word(value).array())); // (handed over in the word)
         break;
     case kQbvalName:
         put_name_key(name, value);

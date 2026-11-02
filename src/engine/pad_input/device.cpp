@@ -780,7 +780,8 @@ Hub::~Hub()
     lists::Hunt<InputPort> search;
     for (const InputPort* device = search.head_element(&devs_); device;) {
         const InputPort* next = search.following_item();
-        delete device;
+        gsl::owner<const InputPort*> owned = memory::owned_element(device); // (the list's)
+        delete owned;
         device = next;
     }
     task_.reset();

@@ -1284,7 +1284,8 @@ gsl::owner<render::HitMovingBox*> make_box(uint32_t name)
 void free_box(render::HitMovingBox* box)
 {
     render::unregister_movable(box);
-    delete box; // (out of the collision caches too)
+    gsl::owner<decltype(box)> owned = memory::owned_element(box); // (the editor's)
+    delete owned; // (out of the collision caches too)
 }
 
 void place_box(Cuboid* b, V3 pos, float yaw, V3 size)

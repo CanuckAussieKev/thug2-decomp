@@ -509,7 +509,7 @@ void SkaterPhysicsModule::do_air_physics()
     maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
     {
         objects::MovingSurfaceModule* ride = ride_;
-        objects::RideTracker* rider = ride->ride_;
+        objects::RideTracker* rider = ride->ride_.get();
         const objects::GameEntity* object = object_of(this);
         if (rider) {
             if (!rider->entity_) // (what it rides: gone)
@@ -596,7 +596,7 @@ void SkaterPhysicsModule::do_air_physics()
     bool riding = false;
     {
         objects::MovingSurfaceModule* ride = ride_;
-        const objects::RideTracker* rider = ride->ride_;
+        const objects::RideTracker* rider = ride->ride_.get();
         if (rider && rider->entity_)
             riding = true;
         else if (rider)

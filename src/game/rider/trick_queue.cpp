@@ -162,14 +162,14 @@ MoveExecutor::MoveExecutor()
 // 0x005234F0 (0x005243F0 the deleting one)
 MoveExecutor::~MoveExecutor()
 {
-    if (script::Struct* mappings = trick_lists_)
-        free_struct(mappings);
+    if (trick_lists_)
+        free_struct(trick_lists_);
 }
 
 // 0x00522410
 void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 {
-    script::Struct*& mappings = trick_lists_;
+    gsl::owner<script::Struct*>& mappings = trick_lists_;
     if (!mappings)
         mappings = script::new_struct();
     mappings->get_clear();

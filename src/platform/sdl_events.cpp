@@ -8,12 +8,13 @@
 #include <SDL2/SDL.h>
 
 #include "engine/gfx/movie.h"
+#include <gsl/pointers>
 
 namespace os_layer {
 
 namespace {
 
-std::vector<EventHandler>* s_handlers = nullptr; // (made by init_events, never freed)
+gsl::owner<std::vector<EventHandler>*> s_handlers = nullptr; // (made by init_events, never freed)
 
 bool& quit_requested() { return render::g_quit_requested; }
 

@@ -240,7 +240,7 @@ void SkaterPhysicsModule::end_skitch()
         skitched.target_ = nullptr;
     }
     objects::MovingSurfaceModule* ride = ride_;
-    if (objects::RideTracker* tracker = ride->ride_) {
+    if (objects::RideTracker* tracker = ride->ride_.get()) {
         ride->last_object_ = tracker->entity_.get_pull(); // (what it rode last)
         tracker->entity_.get_release();
         memory::Hub::get_pull()->dealloc(tracker);

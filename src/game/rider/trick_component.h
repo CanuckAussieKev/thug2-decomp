@@ -302,7 +302,7 @@ public:
     std::array<uint32_t, 2> ignored_{};   // +0xA1C
     bool starting_special_{}; // +0xA24 the trick being started is special
     std::array<uint8_t, 3> pada25_{};
-    script::Struct* trick_lists_{nullptr}; // +0xA28
+    gsl::owner<script::Struct*> trick_lists_{nullptr}; // +0xA28
     int queue_first_{};           // +0xA2C
     int queue_last_{};            // +0xA30
     std::array<QueuedTrick, 100> queue_{};    // +0xA34

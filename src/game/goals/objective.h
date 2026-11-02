@@ -17,6 +17,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include <gsl/pointers>
+#include "engine/script/param_struct.h"
 
 namespace script {
 class Array;
@@ -71,7 +72,7 @@ public:
     memory::ListNode list_link_{};
     gsl::owner<ObjectiveNpc*> ped_;          // +0x14: the goal's pro (0x14 bytes)
     uint32_t inherited_{};       // +0x18: passed to the children (2: single_timer, 4: retry_stage)
-    script::Struct* args_;       // +0x1C
+    script::StructPtr args_;     // +0x1C
     gsl::owner<script::Struct*> goal_flags_; // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
     int run_ending_;             // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
     GoalEdge* sub_nodes_;        // +0x28

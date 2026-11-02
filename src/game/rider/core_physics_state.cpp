@@ -126,7 +126,7 @@ void SkaterPhysicsModule::get_reset()
     set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy_);
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
     objects::MovingSurfaceModule* ride = ride_;
-    if (objects::RideTracker* rider = ride->ride_) {
+    if (objects::RideTracker* rider = ride->ride_.get()) {
         ride->last_object_ = rider->entity_.get_pull();
         rider->entity_.get_release();
         memory::Hub::get_pull()->dealloc(rider);

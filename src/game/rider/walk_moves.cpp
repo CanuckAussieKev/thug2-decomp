@@ -327,7 +327,7 @@ void FootMovement::update_anim_speed()
 void FootMovement::update_ride()
 {
     objects::MovingSurfaceModule* ride = ride_;
-    auto* tracker = ride->ride_;
+    auto* tracker = ride->ride_.get();
     if (!tracker)
         return;
     maths::Vec4& position = pos_;
@@ -335,7 +335,7 @@ void FootMovement::update_ride()
         static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
         return;
     }
-    tracker = ride->ride_;
+    tracker = ride->ride_.get();
     position.x = append_one(tracker->carried_.x, position.x);
     position.y = append_one(tracker->carried_.y, position.y);
     position.z = append_one(tracker->carried_.z, position.z);
@@ -355,7 +355,7 @@ void FootMovement::update_ride()
 void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
 {
     objects::MovingSurfaceModule* ride = ride_;
-    auto* tracker = ride->ride_;
+    auto* tracker = ride->ride_.get();
     maths::Vec4& carried = jump_base_vel_;
     if (tracker && tracker->entity_.get_pull()) {
         carried = tracker->entity_.get_pull()->vel_; // its velocity
@@ -387,7 +387,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
     }
     // The ride let go.
     ride = ride_;
-    tracker = ride->ride_;
+    tracker = ride->ride_.get();
     if (!tracker)
         return;
     ride->last_object_ = tracker->entity_.get_pull();
@@ -649,17 +649,17 @@ void FootMovement::update_anim_wait()
 {
     // Carried by what it rides on: the offset moved, the facing turned (kept level).
     objects::MovingSurfaceModule* ride = ride_;
-    if (auto* tracker = ride->ride_) {
+    if (auto* tracker = ride->ride_.get()) {
         if (!tracker->entity_.get_pull() || !tracker->tick_frame(&pos_)) {
             static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
         } else {
-            tracker = ride->ride_;
+            tracker = ride->ride_.get();
             maths::Vec4& carried = climb_offset_;
             carried.x += tracker->carried_.x;
             carried.y += tracker->carried_.y;
             carried.z += tracker->carried_.z;
             carried.w += tracker->carried_.w;
-            tracker = ride->ride_;
+            tracker = ride->ride_.get();
             if (tracker->turned_) {
                 maths::Vec4& facing = transition_facing_;
                 maths::Vec4 turned{};
@@ -753,7 +753,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         static_cast<MovingSurfaceModule*>(ride)->start_riding(feeler); // (what it landed on)
         maths::Vec4& velocity = vel_;
         ride = ride_;
-        if (auto* tracker = ride->ride_) {
+        if (auto* tracker = ride->ride_.get()) {
             if (!tracker->entity_.get_pull()) {
                 static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
             } else {
@@ -1232,7 +1232,7 @@ bool FootMovement::update_contacts()
         if (feeler->hit_object_alive()) {
             objects::MovingSurfaceModule* ride = ride_;
             bool ridden = false;
-            if (auto* tracker = ride->ride_) {
+            if (auto* tracker = ride->ride_.get()) {
                 if (!tracker->entity_.get_pull())
                     static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
                 else

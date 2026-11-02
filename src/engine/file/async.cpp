@@ -582,7 +582,8 @@ void platform_init()
             slab_bank()[i]->prepare_all();
             continue;
         }
-        slab_bank()[i] = new PcAsyncFileHandle;
+        auto handle = memory::make_owned<PcAsyncFileHandle>(); // (the pool's, for the game's life)
+        slab_bank()[i] = handle;
     }
     CreateThread(nullptr, 0x4000, async_io_thread, nullptr, 0, nullptr);
 

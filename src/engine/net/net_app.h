@@ -11,6 +11,7 @@
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
 #include <gsl/pointers>
+#include <memory>
 
 // NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 struct sockaddr;
@@ -121,10 +122,10 @@ struct AppHost {
 
     // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (made by AppHost::make_new and,
     // the send task, by the Server's and the Client's constructors).
-    tasks::SchedulerTask* send_task() { return send_task_; }
-    tasks::SchedulerTask* receive_task() { return receive_task_; }
-    tasks::SchedulerTask* process_task() { return process_task_; }
-    tasks::SchedulerTask* metrics_task() { return metrics_task_; }
+    tasks::SchedulerTask* send_task() { return send_task_.get(); }
+    tasks::SchedulerTask* receive_task() { return receive_task_.get(); }
+    tasks::SchedulerTask* process_task() { return process_task_.get(); }
+    tasks::SchedulerTask* metrics_task() { return metrics_task_.get(); }
     // 0x00456AF0
     Hub* net_session_slot() { return supervisor_; }
     // 0x00456B60
@@ -267,10 +268,10 @@ struct AppHost {
     Hub* supervisor_{};             // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
-    gsl::owner<tasks::SchedulerTask*> process_task_; // +0x1444
-    gsl::owner<tasks::SchedulerTask*> send_task_{};  // +0x1448
-    gsl::owner<tasks::SchedulerTask*> receive_task_; // +0x144C
-    gsl::owner<tasks::SchedulerTask*> metrics_task_; // +0x1450
+    std::unique_ptr<tasks::SchedulerTask> process_task_; // +0x1444
+    std::unique_ptr<tasks::SchedulerTask> send_task_;    // +0x1448
+    std::unique_ptr<tasks::SchedulerTask> receive_task_; // +0x144C
+    std::unique_ptr<tasks::SchedulerTask> metrics_task_; // +0x1450
     int open_links_{};                   // +0x1454 (zeroed by Init)
     int peer_cap_{};                     // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
     std::array<uint8_t, 0x514> scrambled_{};         // +0x145C a secure packet being sent

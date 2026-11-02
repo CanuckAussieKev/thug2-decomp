@@ -33,7 +33,7 @@ public:
     int num_;
     int slot_bytes_;
     int taken_count_;
-    gsl::owner<FreeSlot*> free_list_;
+    FreeSlot* free_list_; // (slots in the bank's own blocks)
     std::array<char, 64> label_{};
     int peak_used_;
 };

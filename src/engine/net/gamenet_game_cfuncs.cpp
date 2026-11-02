@@ -219,9 +219,11 @@ bool cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
         return false;
     if (local->flag_bits_ & kPlayerSurveying) {
         manager->spectate_player(local);
-        delete local->observer_task_; // the observer task
+        gsl::owner<decltype(local->observer_task_)> observer = memory::owned_element(local->observer_task_);
+        delete observer; // the observer task (the player's)
         local->observer_task_ = nullptr;
-        delete manager->spectator_pad_listener_;
+        gsl::owner<decltype(manager->spectator_pad_listener_)> listener = memory::owned_element(manager->spectator_pad_listener_);
+        delete listener; // (the manager's)
         manager->spectator_pad_listener_ = nullptr;
         local->flag_bits_ &= ~kPlayerSurveying;
     }

@@ -38,7 +38,7 @@ gsl::owner<ObjectModule*> MovingSurfaceModule::fabricate() { return new MovingSu
 MovingSurfaceModule::MovingSurfaceModule() { kind_tag_ = kType; }
 
 // 0x004276C0 (0x004276D0 the deleting one)
-MovingSurfaceModule::~MovingSurfaceModule() = default;
+MovingSurfaceModule::~MovingSurfaceModule() { memory::let_go(ride_); } // (a ride it's on is left, as the original)
 
 // 0x00427700
 GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::Vec4* hit)
@@ -114,13 +114,10 @@ maths::Vec4* MovingSurfaceModule::get_contact_point(maths::Vec4* out)
 // 0x00427C70
 void MovingSurfaceModule::stop_riding()
 {
-    RideTracker* ride = ride_;
-    if (!ride)
+    if (!ride_)
         return;
-    last_object_ = ride->entity_.get_pull();
-    ride->~RideTracker(); // (its smart pointer lets go)
-    memory::Hub::get_pull()->dealloc(ride);
-    ride_ = nullptr;
+    last_object_ = ride_->entity_.get_pull();
+    memory::destroy_then_clear(ride_); // (destroyed - its smart pointer lets go - and given back)
     stop_time_ = frame_clock::game_clock_elapsed() + g_clock_offset;
 }
 
@@ -160,7 +157,8 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
         ride_ = nullptr;
         return true;
     }
-    ride_ = memory::construct_in<RideTracker>(memory, feeler->get_hit_object());
+    ride_ = memory::take_unique<RideTracker, memory::HeapDestroy>(
+        memory::construct_in<RideTracker>(memory, feeler->get_hit_object()));
     return true;
 }
 

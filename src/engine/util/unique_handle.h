@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <windows.h>
+#include <gsl/pointers>
 
 // NOT ORIGINAL - owning wrappers for the C runtime's and Win32's handles: closed when they go.
 //
@@ -13,7 +14,7 @@
 namespace util {
 
 struct FileCloser {
-    void operator()(std::FILE* file) const noexcept { std::fclose(file); }
+    void operator()(gsl::owner<std::FILE*> file) const noexcept { std::fclose(file); }
 };
 // A FILE* from fopen / fopen_s / _fsopen.
 using UniqueFile = std::unique_ptr<std::FILE, FileCloser>;
