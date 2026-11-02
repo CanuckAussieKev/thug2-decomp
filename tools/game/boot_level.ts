@@ -7,10 +7,10 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
+import { helpFromHeader, isMain, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { resolveInstall } from "thug2-level-converter-core/lib/install.ts";
 import { requireNs } from "thug2-level-converter-core/lib/neverscript.ts";
-import { decodeCp1252, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { decodeCp1252 } from "thug2-level-converter-core/lib/text.ts";
 
 // subprocess.run(..., text=True)'s text: cp1252, universal newlines
 const textOutput = (data: Buffer): string => decodeCp1252(data).replace(/\r\n?/g, "\n");

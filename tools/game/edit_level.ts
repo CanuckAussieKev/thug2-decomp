@@ -21,11 +21,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { readManifest, STAGINGS } from "thug2-level-converter-core/level_port/ported_levels.ts";
 import { Name, QbFile, Struct } from "thug2-level-converter-core/level_port/qb.ts";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
+import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { GAME_EXE_NAMES, GAME_PROCESS_NAMES, LAUNCH_EXE_NAME } from "thug2-level-converter-core/lib/decomp.ts";
 import { getCloseMatches } from "thug2-level-converter-core/lib/difflib.ts";
 import { findInstall } from "thug2-level-converter-core/lib/install.ts";
-import { isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 import { ensureWorkspaceMuted } from "./workspace_ini.ts";
 
 const USAGE = `usage: edit_level.ts [-h] [--game GAME] [--list] [level]
@@ -72,7 +71,7 @@ export function findLaunchExe(folder: string, exists: (p: string) => boolean = f
     return exists(exe) ? exe : null;
 }
 
-// The game folder's exe to start, or the reason there is none (for pyExit).
+// The game folder's exe to start, or the reason there is none (for exitWith).
 export function launchExeOrError(given: string, game: string): { exe: string } | { error: string } {
     if (!findExe(game))
         return { error: `no game exe (the reference build or THUG2.exe) in ${given} (nor in its Game folder)` };
@@ -144,7 +143,7 @@ export function readLevels(game: string): { levels: Level[]; source: string } {
     const overlayQb = path.join(game, OVERLAY, "scripts", "game", "Levels.qb");
     const ownQb = path.join(game, "Data", "scripts", "game", "Levels.qb");
     const source = fs.existsSync(overlayQb) ? overlayQb : ownQb;
-    if (!fs.existsSync(source)) pyExit(`no Levels.qb in ${game} (looked for ${overlayQb} and ${ownQb})`);
+    if (!fs.existsSync(source)) exitWith(`no Levels.qb in ${game} (looked for ${overlayQb} and ${ownQb})`);
     const ported = new Map<string, string>();
     for (const staging of STAGINGS) {
         for (const entry of readManifest(path.join(game, staging, "levels.json"))?.levels ?? []) {
@@ -214,7 +213,7 @@ function main(): number {
     }
     const game = resolveGameFolder(values.game);
     const found = launchExeOrError(values.game, game);
-    if ("error" in found) pyExit(found.error);
+    if ("error" in found) exitWith(found.error);
     const { exe } = found;
     const { levels, source } = readLevels(game);
     const wanted = positionals[0];
@@ -231,13 +230,13 @@ function main(): number {
             wanted.replace(/^load_/i, "").toLowerCase(),
             levels.filter((l) => l.installed).map((l) => l.load.toLowerCase()),
         );
-        pyExit(`no level ${wanted} in ${game}${close.length ? ` - did you mean ${close.join(", ")}?` : ""} (--list)`);
+        exitWith(`no level ${wanted} in ${game}${close.length ? ` - did you mean ${close.join(", ")}?` : ""} (--list)`);
     }
-    if (!level.installed) pyExit(`${level.load}: its scene file isn't installed - the game can't load it`);
+    if (!level.installed) exitWith(`${level.load}: its scene file isn't installed - the game can't load it`);
     const here = path.resolve(game).toLowerCase();
     const running = runningGames().filter((p) => p === null || path.dirname(path.resolve(p)).toLowerCase() === here);
     if (running.length) {
-        pyExit(
+        exitWith(
             `THUG2 IS ALREADY RUNNING FROM ${game}${running.includes(null) ? " (or a copy whose folder can't be read)" : ""} - ` +
                 "not started (the user may be playing); close it first",
         );

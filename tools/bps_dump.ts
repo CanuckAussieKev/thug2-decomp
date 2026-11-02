@@ -5,7 +5,8 @@
 //   node tools/bps_dump.ts <patch.bps>
 
 import * as fs from "node:fs";
-import { isMain, print, pyBytesRepr, runMain } from "thug2-level-converter-core/lib/py.ts";
+import { isMain, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
+import { bytesText } from "thug2-level-converter-core/lib/text.ts";
 
 // Python's f"{n:0<width>x}" (a negative number: "-" then the zero-padded digits, the sign counted in the width)
 const hex = (n: number, width: number): string =>
@@ -40,7 +41,7 @@ export function dumpBps(p: Buffer): void {
     const tail = p.subarray(p.length - 12);
     if (tail.length < 12) throw new RangeError("unpack requires a buffer of 12 bytes");
     const [srcCrc, tgtCrc] = [tail.readUInt32LE(0), tail.readUInt32LE(4)];
-    print(`source size=${ss} target size=${ts} meta=${pyBytesRepr(meta)}`);
+    print(`source size=${ss} target size=${ts} meta=${bytesText(meta)}`);
     print(`source crc32=${hex(srcCrc, 8)} target crc32=${hex(tgtCrc, 8)}`);
     let out = 0;
     let sr = 0;

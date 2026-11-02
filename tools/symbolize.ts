@@ -12,16 +12,9 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseCli } from "thug2-level-converter-core/lib/cli.ts";
-import {
-    isMain,
-    print,
-    pyExit,
-    pyIntHex,
-    pySplitlines,
-    readTextPy,
-    runMain,
-} from "thug2-level-converter-core/lib/py.ts";
+import { exitWith, isMain, parseCli, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
+import { parseHexInt } from "thug2-level-converter-core/lib/numbers.ts";
+import { readText, splitLines } from "thug2-level-converter-core/lib/text.ts";
 
 const USAGE = "usage: symbolize.ts [--pdb-dir PDB_DIR] [items ...]";
 
@@ -37,17 +30,17 @@ export const REPORT_START =
     /^(?:EXCEPTION |RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|INVALID PARAMETER|PURE VIRTUAL CALL|ABORT|BUFFER OVERRUN|GAME CRT MESSAGE)/gm;
 
 export function offsetsFromLog(file: string): number[] {
-    const text = readTextPy(file, "replace");
+    const text = readText(file, "replace");
     // (the last report of any kind - src/platform/crash.h; read_dump.ts's output too)
     const starts = [...text.matchAll(REPORT_START)];
     const start = starts.length ? starts[starts.length - 1]!.index! : -1;
-    if (start < 0) pyExit(`no EXCEPTION (or other crash) report in ${file}`);
+    if (start < 0) exitWith(`no EXCEPTION (or other crash) report in ${file}`);
     let report = text.slice(start);
     // the report: its first line and the indented lines after it
     const first = report.indexOf("\n") + 1;
     const end = /\n(?! )/.exec(report.slice(first));
     if (end) report = report.slice(0, first + end.index);
-    print(pySplitlines(report)[0]);
+    print(splitLines(report)[0]);
     return [...report.matchAll(MODULE_OFFSET)].map((m) => Number.parseInt(m[1]!, 16));
 }
 
@@ -126,7 +119,7 @@ function main(): number {
     const offsets: number[] = [];
     for (const item of items) {
         if (fs.statSync(item, { throwIfNoEntry: false })?.isFile()) offsets.push(...offsetsFromLog(item));
-        else offsets.push(pyIntHex(item.replace(/^(?:thug2-decomp|thug2_standalone)\.exe\+/i, ""))); // as read_dump prints it
+        else offsets.push(parseHexInt(item.replace(/^(?:thug2-decomp|thug2_standalone)\.exe\+/i, ""))); // as read_dump prints it
     }
 
     const dll = path.resolve(values["pdb-dir"], EXE);
@@ -152,10 +145,10 @@ function main(): number {
         .split("\n")
         .filter((l) => l !== "");
     for (const l of lines) {
-        if (l.startsWith("!")) pyExit(l.slice(1));
+        if (l.startsWith("!")) exitWith(l.slice(1));
         print(l);
     }
-    if (r.status !== 0) pyExit(`dbghelp failed: ${(r.stderr ?? "").trim()}`);
+    if (r.status !== 0) exitWith(`dbghelp failed: ${(r.stderr ?? "").trim()}`);
     return 0;
 }
 

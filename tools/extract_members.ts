@@ -35,10 +35,11 @@ import * as path from "node:path";
 import { parseArgs } from "node:util";
 import * as prx from "thug2-level-converter-core/level_port/prx.ts";
 import { checksum } from "thug2-level-converter-core/level_port/qb.ts";
+import { exitWith, isMain, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { REFERENCE_EXE } from "thug2-level-converter-core/lib/decomp.ts";
 import { resolveInstall } from "thug2-level-converter-core/lib/install.ts";
-import { decodeLatin1, hex8, isMain, print, pyExit, runMain } from "thug2-level-converter-core/lib/py.ts";
 import { unpackNumbers } from "thug2-level-converter-core/lib/struct.ts";
+import { decodeLatin1, hex8 } from "thug2-level-converter-core/lib/text.ts";
 
 const REGISTER_TABLE = 0x46f060;
 const REGISTER_NAMES_CALL = 0x5a5f62; // call publish_method_table
@@ -386,7 +387,7 @@ function main(): number {
             out: { type: "string", default: path.join("out", "thug2_members.ts") },
         },
     });
-    if (!fs.existsSync(values.exe)) pyExit(`${values.exe} not found`);
+    if (!fs.existsSync(values.exe)) exitWith(`${values.exe} not found`);
     const exe = new Exe(fs.readFileSync(values.exe));
     const names = scriptNames(resolveInstall(values.thug2, "thug2"));
     const m = extract(exe, names);

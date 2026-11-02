@@ -15,7 +15,7 @@ import {
     writeCol,
 } from "thug2-level-converter-core/level_port/thug2_col.ts";
 import { readScene, type Scene, type Sector, writeScene } from "thug2-level-converter-core/level_port/thug2_scene.ts";
-import { Float } from "thug2-level-converter-core/lib/py.ts";
+import { Float } from "thug2-level-converter-core/lib/numbers.ts";
 import { pack } from "thug2-level-converter-core/lib/struct.ts";
 import {
     anglesOfRows,

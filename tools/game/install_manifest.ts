@@ -14,18 +14,11 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
-import { helpFromHeader } from "thug2-level-converter-core/lib/cli.ts";
+import { exitWith, helpFromHeader, isMain, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { DECOMP, GAME_EXE_NAMES, LOCAL } from "thug2-level-converter-core/lib/decomp.ts";
 import { findInstall } from "thug2-level-converter-core/lib/install.ts";
-import {
-    formatFixed,
-    isMain,
-    print,
-    pyExit,
-    pyJsonDumps,
-    pyParseInt,
-    runMain,
-} from "thug2-level-converter-core/lib/py.ts";
+import { jsonText } from "thug2-level-converter-core/lib/json.ts";
+import { formatFixed, parseIntStrict } from "thug2-level-converter-core/lib/numbers.ts";
 
 // (the decomp's notes/data/install_manifest.json - the private notes repo, lib/decomp.ts; on its own, --manifest / --out)
 const DEFAULT_MANIFEST = DECOMP ? path.join(DECOMP, "notes", "data", "install_manifest.json") : "";
@@ -136,7 +129,7 @@ function make(game: string, out: string): number {
         ["manifest", new Map(sorted.map(([p, f]) => [p, new Map<string, unknown>(Object.entries(f))]))],
     ]);
     fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
-    fs.writeFileSync(out, `${pyJsonDumps(manifest, 0)}\n`, "utf-8");
+    fs.writeFileSync(out, `${jsonText(manifest, 0)}\n`, "utf-8");
     print(
         `${out}: ${manifest.get("files")} files, ${formatFixed((manifest.get("bytes") as number) / 1e6, 1)} MB; ` +
             `reference exe ${manifest.get("exe_sha256") ?? "None"}`,
@@ -245,14 +238,14 @@ function main(): number {
         );
         return 2;
     }
-    if (!(fs.statSync(game, { throwIfNoEntry: false })?.isDirectory() ?? false)) pyExit(`not a folder: ${game}`);
+    if (!(fs.statSync(game, { throwIfNoEntry: false })?.isDirectory() ?? false)) exitWith(`not a folder: ${game}`);
     const manifest = (action === "make" ? values.out : values.manifest) ?? DEFAULT_MANIFEST;
     if (!manifest)
-        pyExit(
+        exitWith(
             `no decomp checkout around this repository (its notes/data/install_manifest.json): pass --${action === "make" ? "out" : "manifest"}`,
         );
     if (action === "make") return make(game, manifest);
-    return check(game, manifest, values.list === undefined ? 40 : pyParseInt(values.list));
+    return check(game, manifest, values.list === undefined ? 40 : parseIntStrict(values.list));
 }
 
 if (isMain(import.meta.url)) helpFromHeader(import.meta.url);

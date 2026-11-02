@@ -1,18 +1,18 @@
-// NOT ORIGINAL - tests of the small tools' Python-compatibility helpers (thug2-level-converter-core/lib/files.ts, py.ts's pyBytesRepr)
+// NOT ORIGINAL - tests of the small tools' Python-compatibility helpers (thug2-level-converter-core/lib/files.ts, text.ts's bytesText)
 // against values Python 3.14 gave (no game data).
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { csvRow, readCsv, readCsvDicts } from "thug2-level-converter-core/lib/files.ts";
-import { pyBytesRepr } from "thug2-level-converter-core/lib/py.ts";
+import { bytesText } from "thug2-level-converter-core/lib/text.ts";
 
-test("pyBytesRepr is repr(bytes)", () => {
+test("bytesText is repr(bytes)", () => {
     assert.equal(
-        pyBytesRepr(Buffer.from('it\'s "x"\n\t\\\x00\xff\x7f', "latin1")),
+        bytesText(Buffer.from('it\'s "x"\n\t\\\x00\xff\x7f', "latin1")),
         "b'it\\'s \"x\"\\n\\t\\\\\\x00\\xff\\x7f'",
     );
-    assert.equal(pyBytesRepr(Buffer.from("it's")), 'b"it\'s"');
-    assert.equal(pyBytesRepr(Buffer.alloc(0)), "b''");
+    assert.equal(bytesText(Buffer.from("it's")), 'b"it\'s"');
+    assert.equal(bytesText(Buffer.alloc(0)), "b''");
 });
 
 test("csvRow is csv.writer's row", () => {

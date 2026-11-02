@@ -5,8 +5,9 @@
 //   node tools/extract_cfuncs.ts <reference build exe> data/derived/cfuncs.csv
 
 import * as fs from "node:fs";
-import { decodeLatin1, isMain, print, pyTuple, runMain, writeTextPy } from "thug2-level-converter-core/lib/py.ts";
+import { isMain, print, runMain } from "thug2-level-converter-core/lib/cli.ts";
 import { unpackNumbers } from "thug2-level-converter-core/lib/struct.ts";
+import { asTuple, decodeLatin1, writeText } from "thug2-level-converter-core/lib/text.ts";
 
 const TABLE = 0x67f3a0;
 const ENTRIES = 0x4e6;
@@ -49,10 +50,10 @@ function main(): number {
         const base = off(TABLE) + i * 8;
         const np = d.readUInt32LE(base);
         const fp = d.readUInt32LE(base + 4);
-        rows.push(pyTuple([fp, cstr(np)]));
+        rows.push(asTuple([fp, cstr(np)]));
     }
     // (text mode, as the Python wrote it: "\r\n" line ends)
-    writeTextPy(
+    writeText(
         csvPath,
         `address,script_name\n${rows.map(([fp, n]) => `0x${fp.toString(16).padStart(8, "0")},${n}\n`).join("")}`,
     );
@@ -65,7 +66,7 @@ function main(): number {
         "shared by several names:",
         common
             .filter(([, k]) => k > 1)
-            .map(([a]) => pyTuple([`0x${a.toString(16)}`, rows.filter(([f]) => f === a).map(([, n]) => n)])),
+            .map(([a]) => asTuple([`0x${a.toString(16)}`, rows.filter(([f]) => f === a).map(([, n]) => n)])),
     );
     print("sample:", rows.slice(0, 8));
     return 0;
