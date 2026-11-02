@@ -4,13 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
-#include <span>
-
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/slab_bank.h"
-#include "engine/core/raw_view.h"
-
 namespace lists {
 
 static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10 && offsetof(KeyMap, flag_) == 0x14,
