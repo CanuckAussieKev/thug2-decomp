@@ -22,6 +22,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "game/park_editing/shared_state.h"
 
 namespace park_editing {
 
@@ -68,7 +69,6 @@ objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset
 {
     return pad_of(input)->button_at_offset(offset);
 }
-
 
 int rail_pool_used()
 {
@@ -278,7 +278,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
                 p->level_y_ =
                     static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point_));
                 p->has_post_ = params->has_bare_flag(kAddPost);
-                const Vec4& zero = g_rail_origin;
+                const Vec4& zero = copy_buffer_shared().rail_origin_;
                 p->draw_segment(&zero, &zero, 0.0f);
                 p->draw_post(&zero, &zero, 0.0f);
                 ParkBuilderMode::get_release();

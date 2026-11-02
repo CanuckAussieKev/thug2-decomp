@@ -21,13 +21,20 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "game/park_editing/shared_state.h"
 #include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace park_editing {
 
-std::array<char, 24> g_created_goal_name;
+EditedGoalIoShared& edited_goal_io_shared()
+{
+    static core::NoDestroy<EditedGoalIoShared> state;
+    return state.get();
+}
+
 namespace {
 std::array<char, 100>& goal_io_name_buffer()
 {
@@ -44,7 +51,7 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
     return crt::get_sprintf(out, format, args...);
 }
 
-std::array<char, 24>& created_goal_name() { return g_created_goal_name; } // the shared CreatedGoal<n> buffer
+std::array<char, 24>& created_goal_name() { return edited_goal_io_shared().created_goal_name_; } // the shared CreatedGoal<n> buffer
 
 gsl::owner<script::Array*> new_array_of(uint32_t size, uint32_t type)
 {

@@ -1309,8 +1309,6 @@ bool cfunc_get_park_editor_max_players_possible(script::Struct* params, script::
 inline constexpr float kParkCellSizeX{120.0f};
 inline constexpr float kParkCellSizeY{48.0f};
 inline constexpr float kParkCellSizeZ{120.0f};
-extern maths::Vec4 g_rail_origin;
-extern memory::PoolPair g_rail_pools;
 extern memory::PoolPair g_clipboard_pools;
 extern memory::PoolPair g_clipboard_entry_pools;
 extern memory::PoolPair g_node_pools;

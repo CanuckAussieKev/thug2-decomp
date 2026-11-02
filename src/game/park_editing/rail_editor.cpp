@@ -28,6 +28,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "game/park_editing/shared_state.h"
 
 namespace park_editing {
 
@@ -38,7 +39,7 @@ memory::PoolPair& point_pools()
     static core::NoDestroy<memory::PoolPair> rail_point_pools;
     return rail_point_pools.get();
 }
-memory::PoolPair& rail_pools() { return g_rail_pools; }
+memory::PoolPair& rail_pools() { return copy_buffer_shared().rail_pools_; }
 bool& get_update_super_sectors() { return g_rail_editor_flag; }
 
 void remove_scene_sector(render::WorldCell*& sector)

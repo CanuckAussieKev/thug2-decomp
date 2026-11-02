@@ -10,11 +10,17 @@
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "game/park_editing/shared_state.h"
 
 namespace park_editing {
 
-maths::Vec4 g_rail_origin;
-memory::PoolPair g_rail_pools;
+CopyBufferShared& copy_buffer_shared()
+{
+    static core::NoDestroy<CopyBufferShared> state;
+    return state.get();
+}
+
 memory::PoolPair g_clipboard_entry_pools;
 
 namespace {
@@ -69,8 +75,8 @@ void hide_rail(void* rail)
     static_cast<EditedRail*>(rail)->delete_segments();
 }
 void destroy_rail(void* rail) { static_cast<EditedRail*>(rail)->get_clear(); }
-memory::PoolPair& rail_pools() { return g_rail_pools; }
-const maths::Vec4* rail_origin() { return &g_rail_origin; } // (zero)
+memory::PoolPair& rail_pools() { return copy_buffer_shared().rail_pools_; }
+const maths::Vec4* rail_origin() { return &copy_buffer_shared().rail_origin_; } // (zero)
 
 // A preview metapiece taken out of the park.
 void destroy_preview(ClipboardEntry* entry)

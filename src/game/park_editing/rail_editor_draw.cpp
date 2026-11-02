@@ -25,6 +25,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/shared_state.h"
 
 namespace park_editing {
 
@@ -70,7 +71,7 @@ int& flash_counter()
     return rail_flash_counter;
 }
 // A zero vector (0x007CCD30): drawing in place (no move).
-const Vec4& get_zero() { return g_rail_origin; }
+const Vec4& get_zero() { return copy_buffer_shared().rail_origin_; }
 
 // The visibility mask for a flashing frame: shown in the first half of every `rate` frames.
 uint32_t flash_mask(int rate)

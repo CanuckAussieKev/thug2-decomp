@@ -30,6 +30,7 @@
 #include "platform/crt.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "game/park_editing/shared_state.h"
 
 namespace park_editing {
 
@@ -59,7 +60,7 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 // The game's _stricmp (0x00626EFB).
 int compare_no_case(const char* a, const char* b) { return crt::stricmp(a, b); }
 
-std::array<char, 24>& created_goal_name() { return g_created_goal_name; }
+std::array<char, 24>& created_goal_name() { return edited_goal_io_shared().created_goal_name_; }
 uint32_t created_goal_id(int index)
 {
     get_sprintf(created_goal_name().data(), "CreatedGoal%d", index);
@@ -77,7 +78,6 @@ objects::EditorViewModule* view_cam(objects::ObjectModule* camera)
 {
     return core::down_cast<objects::EditorViewModule>(camera);
 }
-
 
 // Whether `x`, `z` lies outside x0..x1, z0..z1 (not a number: inside, as the original's comparisons).
 bool get_outside(float x, float z, float x0, float z0, float x1, float z1)

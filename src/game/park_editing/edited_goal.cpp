@@ -20,12 +20,18 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "game/park_editing/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
 namespace park_editing {
 
-std::array<char, 104> g_goal_name_buffer;
+EditedGoalShared& edited_goal_shared()
+{
+    static core::NoDestroy<EditedGoalShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -40,7 +46,7 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 }
 
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).
-std::array<char, 104>& name_buffer() { return g_goal_name_buffer; }
+std::array<char, 104>& name_buffer() { return edited_goal_shared().goal_name_buffer_; }
 
 uint32_t current_level() { return modules::Skate::sole()->level_; }
 

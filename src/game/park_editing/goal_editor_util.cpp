@@ -12,6 +12,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "game/park_editing/goal_editor.h"
+#include "game/park_editing/shared_state.h"
 
 namespace park_editing {
 
@@ -225,7 +226,7 @@ void init_edited_goal(EditedGoal* goal)
 void run_marker_object_script(int index)
 {
     script::Struct params;
-    char* name = g_goal_name_buffer.data();
+    char* name = edited_goal_shared().goal_name_buffer_.data();
     get_sprintf(name, "GoalEditorMarkerObject%d", index);
     params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name));
     script::launch_script(0xDCF3A25E, &params, nullptr, false, nullptr);
