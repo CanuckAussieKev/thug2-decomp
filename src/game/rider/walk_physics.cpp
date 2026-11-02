@@ -9,12 +9,10 @@
 #include <cstring>
 #include <array>
 
-#include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/rail_manager.h"
-#include "engine/objects/smtptr.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -39,10 +37,8 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "platform/crt.h"
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_score.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

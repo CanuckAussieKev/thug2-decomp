@@ -47,7 +47,6 @@
 // render::ProbeRay::get_hit_shape (0x004172F0, src/engine/render/probe_ray.cpp) calls note_feeler_query after each query; nothing
 // else changes.
 
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>

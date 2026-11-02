@@ -8,8 +8,6 @@
 #include <array>
 #include <span>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/entity.h"
@@ -23,7 +21,6 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_score.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

@@ -19,7 +19,6 @@
 #include "game/rider/walk_physics.h"
 #include "engine/maths/trig.h"
 #include "platform/stopwatch.h"
-#include "platform/crt.h"
 #include "engine/objects/input_component.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/checked_index.h"

@@ -25,7 +25,6 @@
 #include "game/rider/gap_entry.h"
 #include "game/rider/stats_manager.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {

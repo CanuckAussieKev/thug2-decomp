@@ -32,7 +32,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/game_objects.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"

@@ -23,7 +23,6 @@
 #include "game/rider/trick_component.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

@@ -11,9 +11,6 @@
 #include <span>
 #include <string_view>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
-#include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
@@ -37,8 +34,6 @@
 #include "engine/objects/input_component.h"
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

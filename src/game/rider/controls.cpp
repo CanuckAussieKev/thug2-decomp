@@ -4,12 +4,8 @@
 #include "game/rider/controls.h"
 
 #include <cstdint>
-#include <cstring>
-#include <array>
-
 #include "engine/maths/vec4.h"
 #include "engine/objects/control_pad.h"
-#include "engine/render/probe_ray.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/trigger_component.h"
 #include "engine/script/param_struct.h"
@@ -20,8 +16,6 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/checked_index.h"
-
 namespace skater {
 
 bool ps2_controls() { return sio::the_input_settings().ps2_controls_ != 0; }

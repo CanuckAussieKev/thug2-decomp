@@ -7,8 +7,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <array>
-
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
@@ -25,7 +23,6 @@
 #include "game/rider/walk_physics.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

@@ -3,18 +3,14 @@
 #include "game/rider/floating_name.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
-#include "engine/objects/smtptr.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"

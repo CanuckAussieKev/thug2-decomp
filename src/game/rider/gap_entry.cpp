@@ -4,13 +4,11 @@
 #include "engine/lists/chain_start.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <gsl/pointers>
 #include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/text_store.h"
 #include "engine/maths/vec4.h"
@@ -28,7 +26,6 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "game/park_editing/park_editor.h"
-#include "platform/code_address.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"

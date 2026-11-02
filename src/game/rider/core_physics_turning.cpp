@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/maths.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
@@ -22,7 +21,6 @@
 #include "game/rider/balance_trick.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "platform/code_address.h"
 #include "engine/net/gamenet_manager.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/movable_contact.h"

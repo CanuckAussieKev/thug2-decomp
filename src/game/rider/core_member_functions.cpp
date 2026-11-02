@@ -22,8 +22,6 @@
 #include "game/rider/skater_state.h"
 #include "game/skate/point_tally.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <bit>

@@ -19,7 +19,6 @@
 #include "engine/objects/camera_util.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "game/rider/core_physics_fields.h"
 #include "game/rider/rider.h"
 #include "game/rider/skater_camera_component.h"
 #include "platform/stopwatch.h"

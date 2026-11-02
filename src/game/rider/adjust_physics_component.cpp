@@ -7,8 +7,6 @@
 #include <gsl/pointers>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/model_component.h"
@@ -17,11 +15,8 @@
 #include "platform/game_clock.h"
 #include "game/rider/core_physics.h"
 #include "engine/objects/control_pad.h"
-#include "engine/objects/car_physics.h"
-#include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
-#include "engine/objects/camera_lookaround.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/objects/shadow_component.h"

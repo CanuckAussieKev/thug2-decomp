@@ -13,10 +13,8 @@
 // On the bike the d-pad is the camera (THAW turns the stick's d-pad off: bike_start's SetAnalogStickActiveForMenus 0),
 // so nothing here reads the d-pad as the stick; on the keyboard the movement keys push the stick all the way.
 
-#include <bit>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <initializer_list>
 #include <array>
 
@@ -33,7 +31,6 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/rider.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/platform_config.h"
 #include "platform/game_clock.h"
 #include "game/skate/point_tally.h"
 #include "platform/run_log.h"
@@ -43,7 +40,6 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/balance_trick.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

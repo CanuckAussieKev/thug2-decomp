@@ -8,8 +8,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -22,7 +20,6 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/state_history.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {

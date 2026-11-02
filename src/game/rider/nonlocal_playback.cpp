@@ -4,7 +4,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "engine/maths/mat4.h"

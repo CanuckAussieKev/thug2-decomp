@@ -6,8 +6,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -26,7 +24,6 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/model_component.h"
 #include "game/rider/rider.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {

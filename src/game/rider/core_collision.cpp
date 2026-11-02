@@ -2,8 +2,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <array>
-
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"

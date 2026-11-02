@@ -6,8 +6,6 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/vec4.h"
 #include "engine/script/cscript.h"

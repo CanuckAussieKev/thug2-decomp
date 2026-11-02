@@ -14,7 +14,6 @@
 #include <gsl/pointers>
 
 #include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"
@@ -23,7 +22,6 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/param_struct.h"
-#include "game/rider/core_physics_fields.h"
 #include "game/rider/rider.h"
 #include "game/rider/walk_camera.h"
 #include "platform/stopwatch.h"

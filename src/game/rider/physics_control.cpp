@@ -6,8 +6,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -24,8 +22,6 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {

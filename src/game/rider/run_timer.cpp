@@ -7,8 +7,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
@@ -20,8 +18,6 @@
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
 #include "game/rider/walk_physics.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {

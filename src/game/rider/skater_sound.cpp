@@ -6,8 +6,6 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/surface_kind.h"

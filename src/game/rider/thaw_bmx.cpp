@@ -4,7 +4,6 @@
 #include "platform/keyboard.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <unordered_map>
 
@@ -30,8 +29,6 @@
 #include "platform/screenshot_files.h"
 #include "platform/run_log.h"
 #include "game/rider/core_physics.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace skater::thaw_bmx {

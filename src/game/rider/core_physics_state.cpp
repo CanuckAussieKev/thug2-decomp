@@ -5,7 +5,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <new>
 
 #include "engine/core/dbg.h"

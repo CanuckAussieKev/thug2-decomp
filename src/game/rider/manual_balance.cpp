@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <new>
 
-#include "engine/core/manager.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/random.h"
 #include "engine/net/gamenet_manager.h"

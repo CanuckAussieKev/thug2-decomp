@@ -8,8 +8,6 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/control_pad.h"

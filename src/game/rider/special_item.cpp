@@ -6,7 +6,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"

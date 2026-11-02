@@ -35,7 +35,6 @@
 #include "game/rider/balance_trick.h"
 #include "engine/gfx/model.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
