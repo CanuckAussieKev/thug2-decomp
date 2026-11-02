@@ -720,12 +720,24 @@ void Menu::get_show(Screen screen)
         clamp_scroll(true);
 }
 
+void Menu::cut_to(Screen screen)
+{
+    wipe_ = -1.0f;
+    switched_ = true;
+    get_show(screen);
+}
+
 void Menu::get_go(Screen screen)
 {
     pile_.push_back(screen);
     uint32_t colour = kHouseYellow;
     if (screen == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections.size()))
         colour = core::at(catalogue_->sections, section_).colour;
+    if (over_pause() && screen != Screen::kLevels) {
+        // (over a level the game stays behind the screens, dimmed: no wipe - only the level select, all art, has one)
+        cut_to(screen);
+        return;
+    }
     wipe_ = 0.0f;
     switched_ = false;
     wipe_colour_ = colour;
@@ -735,6 +747,12 @@ void Menu::stack_off()
 {
     if (pile_.size() > 1)
         pile_.pop_back();
+    if (over_pause()) {
+        // (back toward the pause menu: the game is behind every screen over it - no wipe, as the pause menus; the
+        // user's change, 2026-11-02)
+        cut_to(pile_.back());
+        return;
+    }
     wipe_ = 0.0f;
     switched_ = false;
     wipe_colour_ = kHouseYellow;

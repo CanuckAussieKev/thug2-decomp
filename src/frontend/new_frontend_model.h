@@ -267,6 +267,7 @@ private:
     void get_go(Screen screen);
     void stack_off();
     void get_show(Screen screen); // (the wipe's half-way)
+    void cut_to(Screen screen);   // (a change of screen without the wipe: over a level)
     [[nodiscard]] int list_count() const;
     ActStep move_to(int index);
     ActStep move_by(int step);
