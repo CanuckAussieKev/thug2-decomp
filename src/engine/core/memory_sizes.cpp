@@ -25,7 +25,11 @@ constexpr uint32_t kOriginalScriptRegion = 0x434770;
 constexpr uint32_t kOriginalMainBlock = 0x4000000; // 64 MB
 constexpr int kMostItems = 4000000;                // (an ini value above this is taken as this)
 
-bool g_use_original = false;
+bool& use_original()
+{
+    static bool use_original{false};
+    return use_original;
+}
 
 int total_of(const char* key, int fallback) { return std::clamp(config_int("memory", key, fallback), 1, kMostItems); }
 
@@ -61,7 +65,7 @@ const Pools& get_thugpro() { return kThugpro; }
 
 const Pools& at_hand()
 {
-    if (g_use_original)
+    if (use_original())
         return kOriginal;
     static const Pools kCurrent = get_take_in();
     return kCurrent;
@@ -86,7 +90,7 @@ uint32_t script_region_size()
 
 uint32_t script_heap_extra()
 {
-    if (g_use_original)
+    if (use_original())
         return 0;
     static const uint32_t kExtra = [] {
         if (config_int("memory", "original_sizes", 0) != 0)
@@ -106,7 +110,7 @@ uint32_t main_block_size()
 
 uint32_t node_hash_slots()
 {
-    if (g_use_original)
+    if (use_original())
         return kOriginalNodeHashSlots;
     static const uint32_t kSlots = [] {
         if (config_int("memory", "original_sizes", 0) != 0)
@@ -120,7 +124,7 @@ uint32_t node_hash_slots()
     return kSlots;
 }
 
-UseOriginal::UseOriginal() : was_(g_use_original) { g_use_original = true; }
-UseOriginal::~UseOriginal() { g_use_original = was_; }
+UseOriginal::UseOriginal() : was_(use_original()) { use_original() = true; }
+UseOriginal::~UseOriginal() { use_original() = was_; }
 
 } // namespace memory::sizes

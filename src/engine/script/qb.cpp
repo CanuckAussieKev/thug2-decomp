@@ -80,7 +80,7 @@ char* copy_string(const char* string)
 // Create a pool of `count` items of `item_size` as the current pool of `pools`.
 void create_pool(memory::PoolPair& pools, int item_size, int count, const char* name)
 {
-    if (!memory::g_manager_ready)
+    if (!memory::manager_ready_flag())
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(sizeof(memory::SlabBank), 1, nullptr);
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;

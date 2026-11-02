@@ -609,7 +609,7 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
     params->fetch_float(kVelX, &x, 1);
     params->fetch_float(kVelY, &y, 1);
     params->fetch_float(kVelZ, &z, 1);
-    if (!memory::g_manager_ready)
+    if (!memory::manager_ready_flag())
         memory::ensure_manager();
     auto* velocity = static_cast<maths::Vec4*>(memory::Hub::get_pull()->carve(sizeof(maths::Vec4), 1, nullptr));
     velocity->x = x;

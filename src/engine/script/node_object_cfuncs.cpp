@@ -153,7 +153,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
                     geom = static_cast<render::Geom*>(sector->geom_handle_);
                 const int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
                 if (count) {
-                    if (!memory::g_manager_ready) // (the memory manager set up, if it isn't)
+                    if (!memory::manager_ready_flag()) // (the memory manager set up, if it isn't)
                         memory::ensure_manager();
                     auto* vertices =
                         static_cast<maths::Vec4*>(mem_manager()->carve(count * sizeof(maths::Vec4), 1, nullptr));

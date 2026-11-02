@@ -14,13 +14,18 @@ namespace memory {
 
 namespace {
 
-int g_heap_busy;
-ChunkPrefix* g_forced_free_block;
-
 // Set while a heap is falling back on others or resizing a block, so a fallback heap doesn't fall back in turn.
-int& heap_busy() { return g_heap_busy; }
+int& heap_busy()
+{
+    static int heap_busy{};
+    return heap_busy;
+}
 // For debugging: when set (never, in the shipped game), Allocate only takes this free block.
-ChunkPrefix*& forced_free_block() { return g_forced_free_block; }
+ChunkPrefix*& forced_free_block()
+{
+    static ChunkPrefix* forced_free_block{};
+    return forced_free_block;
+}
 
 void count_up(int& value, int& max, int amount)
 {

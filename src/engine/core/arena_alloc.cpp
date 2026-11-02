@@ -15,7 +15,11 @@ namespace memory {
 // --- the heaps' memory and the block headers -----------------------------------------------------------
 
 namespace {
-std::span<uint8_t> g_heap_memory;
+std::span<uint8_t>& heap_memory_span()
+{
+    static std::span<uint8_t> heap_memory{};
+    return heap_memory;
+}
 
 // How far `to` is from `from`, in bytes.
 std::ptrdiff_t byte_distance(const void* from, const void* to)
@@ -34,15 +38,15 @@ uint32_t offset_in(std::span<uint8_t> memory, const void* place)
 // The header's 16 bytes at `offset` in the heaps' memory, checked to be inside it.
 void* header_place(uint32_t offset)
 {
-    const std::span<uint8_t> memory = g_heap_memory;
+    const std::span<uint8_t> memory = heap_memory_span();
     Expects(static_cast<std::size_t>(offset) + kBlockHeaderSize <= memory.size());
     return &core::at(memory, offset);
 }
 } // namespace
 
-std::span<uint8_t> heap_memory() { return g_heap_memory; }
-void set_heap_memory(std::span<uint8_t> memory) { g_heap_memory = memory; }
-uint32_t heap_offset(const void* place) { return offset_in(g_heap_memory, place); }
+std::span<uint8_t> heap_memory() { return heap_memory_span(); }
+void set_heap_memory(std::span<uint8_t> memory) { heap_memory_span() = memory; }
+uint32_t heap_offset(const void* place) { return offset_in(heap_memory_span(), place); }
 
 ChunkPrefix* ChunkPrefix::get_of(void* block)
 {
@@ -56,7 +60,7 @@ gsl::owner<ChunkPrefix*> ChunkPrefix::make_at(uint32_t offset)
     return memory::construct_in<ChunkPrefix>(header_place(offset));
 }
 
-void* ChunkPrefix::gate_off() { return g_heap_memory.subspan(block_offset()).data(); }
+void* ChunkPrefix::gate_off() { return heap_memory_span().subspan(block_offset()).data(); }
 
 // 0x005BA080
 void* mark_block_in_use(void* block)

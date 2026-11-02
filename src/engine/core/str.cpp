@@ -59,13 +59,17 @@ const char* find_caseless(const char* haystack, const char* needle)
 }
 
 namespace {
-std::array<char, 16> g_separated_number;
+std::array<char, 16>& separated_number()
+{
+    static std::array<char, 16> separated_number{};
+    return separated_number;
+}
 } // namespace
 
 // 0x00402200
 const char* format_with_separators(int value)
 {
-    core::Cursor<char> out{std::span<char>(g_separated_number)}; // shared with the original code
+    core::Cursor<char> out{std::span<char>(separated_number())}; // shared with the original code
     if (value < 0) {
         *out++ = '-';
         value = static_cast<int>(0u - static_cast<unsigned>(value)); // INT_MIN stays negative, as in the original
@@ -99,7 +103,7 @@ const char* format_with_separators(int value)
             *out++ = separator;
     }
     *out = '\0';
-    return g_separated_number.data();
+    return separated_number().data();
 }
 
 // 0x00402120

@@ -38,7 +38,6 @@ namespace objects {
 
 namespace {
 
-
 constexpr uint32_t kSkaterCamera = 0x5E43A604;   // skatercamera (the component type)
 constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
 constexpr uint32_t kSkaterState = 0x43686585;    // SkaterState (a component)
@@ -236,7 +235,7 @@ void RiderChaseView::save_state(WalkCameraState* state)
 RiderChaseView::RiderChaseView()
 {
     kind_tag_ = kSkaterCamera;
-    if (!memory::g_manager_ready)
+    if (!memory::manager_ready_flag())
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(0x98, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)
@@ -336,6 +335,5 @@ gsl::owner<ObjectModule*> RiderStateReset::fabricate() { return new RiderStateRe
 RiderStateReset::RiderStateReset() { kind_tag_ = kCleanupState; }
 
 } // namespace objects
-
 
 namespace objects {} // namespace objects

@@ -72,7 +72,7 @@ constexpr uint32_t kFirstLink = 0x3EA1D93A;
 constexpr uint32_t kNotLastLink = 0x5F78A252;
 constexpr uint32_t kHidden = 0x5B6634D4;
 
-bool manager_ready() { return memory::g_manager_ready; }
+bool manager_ready() { return memory::manager_ready_flag(); }
 void* carve(uint32_t size)
 {
     if (!manager_ready())

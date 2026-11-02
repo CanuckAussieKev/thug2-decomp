@@ -240,7 +240,7 @@ void KinematicsModule::update_rotations()
 void KinematicsModule::start_rotation(script::Struct* params, const maths::Mat4* target)
 {
     if (!turn_ptr_) {
-        if (!memory::g_manager_ready) // (the memory manager not set up yet)
+        if (!memory::manager_ready_flag()) // (the memory manager not set up yet)
             memory::ensure_manager();
         // (its constructor, 0x005902E0, does nothing)
         turn_ptr_ = static_cast<maths::ArcRotationBlender*>(memory::Hub::get_pull()->carve(0x98, 1, nullptr));

@@ -186,7 +186,7 @@ void HiddenModels::conceal()
     }
     if (!count)
         return;
-    if (!memory::g_manager_ready)
+    if (!memory::manager_ready_flag())
         memory::ensure_manager();
     ids_ptr_ = static_cast<uint32_t*>(memory::Hub::get_pull()->carve(count * 4, 1, nullptr));
     num_ = 0;

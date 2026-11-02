@@ -146,7 +146,7 @@ bool MovingSurfaceModule::start_riding(render::ProbeRay* feeler)
             return false; // (already riding it)
         stop_riding();
     }
-    if (!memory::g_manager_ready) // (the memory manager not set up yet)
+    if (!memory::manager_ready_flag()) // (the memory manager not set up yet)
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(sizeof(RideTracker), 1, nullptr);
     if (!memory) {

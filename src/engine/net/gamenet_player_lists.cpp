@@ -707,7 +707,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
         record->rejoin_group_ = host_->frame_count_;
     if (!(flags & 4) || (flags & 8)) {
         // The appearance, through a buffer.
-        if (!memory::g_manager_ready)
+        if (!memory::manager_ready_flag())
             memory::ensure_manager();
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(0x1000, 1, nullptr));
         info->account_->emit_into_buffer(buffer, 0x1000, 0);

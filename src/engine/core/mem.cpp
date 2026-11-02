@@ -8,7 +8,7 @@ namespace memory {
 
 namespace {
 
-bool& system_ready() { return g_manager_ready; }
+bool& system_ready() { return manager_ready_flag(); }
 
 void ensure_system_ready()
 {

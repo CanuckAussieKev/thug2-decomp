@@ -14,6 +14,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <memory>
 #include <span>
 
@@ -30,12 +31,35 @@ void delete_region(std::unique_ptr<Zone>& region) { memory::destroy_then_clear(r
 
 MemSource* current_heap(Hub* manager) { return *manager->ongoing_; }
 
-// The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
-Hub* g_memory_manager;
-} // namespace
-bool g_manager_ready; // the memory manager is set up
+// NOT ORIGINAL grouping - the memory manager, whether it is set up, the static storage it and its main region and heaps
+// are made in, the block the main region is in and the program's segments. Made on first use, never destroyed
+// (manager_state()).
+struct ManagerState {
+    // The one memory manager (made by the exe's static initialisers: standalone start-up order, step 6).
+    Hub* memory_manager_{};
+    bool manager_ready_{}; // the memory manager is set up
+    // Where the manager and its main region and heaps live (static storage in the game, as words).
+    std::array<uint32_t, (sizeof(Hub) + 3) / 4> manager_storage_{};
+    std::array<uint32_t, (sizeof(Zone) + 3) / 4> main_region_storage_{};
+    std::array<uint32_t, (sizeof(Arena) + 3) / 4> top_down_storage_{};
+    std::array<uint32_t, (sizeof(Arena) + 3) / 4> bottom_up_storage_{};
+    std::span<uint8_t> heap_block_{}; // the block the main region is in (the original kept its start, end and limit)
+    uintptr_t data_end_{};
+    uintptr_t data_start_{};
+    uintptr_t text_seg_base_{};
+};
 
-Hub* Hub::get_pull() { return g_memory_manager; }
+ManagerState& manager_state()
+{
+    static core::NoDestroy<ManagerState> state;
+    return state.get();
+}
+
+} // namespace
+
+bool& manager_ready_flag() { return manager_state().manager_ready_; }
+
+Hub* Hub::get_pull() { return manager_state().memory_manager_; }
 
 // 0x005BAFC0
 void* Hub::carve(uint32_t size, int halt_if_exhausted, MemSource* heap)
@@ -444,18 +468,8 @@ void* regrow(void* memory, unsigned int size)
 namespace memory {
 
 namespace {
-// Where the manager and its main region and heaps live (static storage in the game, as words).
-std::array<uint32_t, (sizeof(Hub) + 3) / 4> g_manager_storage;
-std::array<uint32_t, (sizeof(Zone) + 3) / 4> g_main_region_storage;
-std::array<uint32_t, (sizeof(Arena) + 3) / 4> g_top_down_storage;
-std::array<uint32_t, (sizeof(Arena) + 3) / 4> g_bottom_up_storage;
 
-void* const kManagerStorage = g_manager_storage.data();
-void* const kMainRegionStorage = g_main_region_storage.data();
-void* const kTopDownStorage = g_top_down_storage.data();
-void* const kBottomUpStorage = g_bottom_up_storage.data();
-
-bool& manager_ready() { return g_manager_ready; }
+bool& manager_ready() { return manager_ready_flag(); }
 
 // The game CRT's malloc (the main block comes from it).
 gsl::owner<void*> get_crt_malloc(size_t size) { return crt::alloc_block(size); }
@@ -464,14 +478,7 @@ gsl::owner<MemoryArena*> new_alloc_region(uint32_t size) { return new MemoryAren
 
 } // namespace
 
-Hub*& Hub::sole() { return g_memory_manager; }
-
-namespace {
-std::span<uint8_t> g_heap_block; // the block the main region is in (the original kept its start, end and limit)
-uintptr_t g_data_end;
-uintptr_t g_data_start;
-uintptr_t g_text_seg_base;
-} // namespace
+Hub*& Hub::sole() { return manager_state().memory_manager_; }
 
 // 0x005BBC00
 Hub::Hub()
@@ -487,18 +494,18 @@ Hub::Hub()
     // pool sizes as THUGPRO's), so every heap in it keeps the room it had.
     // Original behaviour: 64 MB (0x4000000).
     const uint32_t block_size = sizes::main_block_size();
-    g_heap_block = std::span<uint8_t>(static_cast<uint8_t*>(get_crt_malloc(block_size)), block_size);
+    manager_state().heap_block_ = std::span<uint8_t>(static_cast<uint8_t*>(get_crt_malloc(block_size)), block_size);
     // The region: the block's start rounded up and its end rounded down to 16 bytes.
-    void* aligned = g_heap_block.data();
+    void* aligned = manager_state().heap_block_.data();
     size_t space = block_size;
     std::align(16, 0, aligned, space);
-    const std::span<uint8_t> main_memory = g_heap_block.subspan(block_size - space, space & ~size_t{15});
+    const std::span<uint8_t> main_memory = manager_state().heap_block_.subspan(block_size - space, space & ~size_t{15});
     set_heap_memory(main_memory);
-    void* region = get_clear(sizeof(Zone), kMainRegionStorage);
+    void* region = get_clear(sizeof(Zone), manager_state().main_region_storage_.data());
     primary_zone_ = region ? memory::construct_in<Zone>(region, main_memory) : nullptr;
-    void* top = get_clear(sizeof(Arena), kTopDownStorage);
+    void* top = get_clear(sizeof(Arena), manager_state().top_down_storage_.data());
     top_down_heap_ = top ? memory::construct_in<Arena>(top, primary_zone_, MemSource::kGrowDown, static_cast<const char*>("Top Down")) : nullptr;
-    void* bottom = get_clear(sizeof(Arena), kBottomUpStorage);
+    void* bottom = get_clear(sizeof(Arena), manager_state().bottom_up_storage_.data());
     bottom_up_heap_ =
         bottom ? memory::construct_in<Arena>(bottom, primary_zone_, MemSource::kGrowUp, static_cast<const char*>("BottomUp")) : nullptr;
     core::at(heaps_, 1) = bottom_up_heap_;
@@ -507,9 +514,9 @@ Hub::Hub()
     heap_count_ = 2;
 
     // (the code and data bounds are never set in this build: all zero)
-    auto code_start = g_text_seg_base;
-    auto data_start = g_data_start;
-    auto data_end = g_data_end;
+    auto code_start = manager_state().text_seg_base_;
+    auto data_start = manager_state().data_start_;
+    auto data_end = manager_state().data_end_;
     const uint32_t data_k = static_cast<uint32_t>(data_end - data_start) >> 10;
     const uint32_t code_k = static_cast<uint32_t>(data_start - code_start) >> 10;
     // (the bounds are addresses kept as numbers: %08X prints what the original's %p did)
@@ -659,7 +666,7 @@ void set_up_manager()
 {
     if (Hub::get_pull())
         return;
-    void* memory = get_clear(sizeof(Hub), kManagerStorage);
+    void* memory = get_clear(sizeof(Hub), manager_state().manager_storage_.data());
     Hub* manager = memory ? memory::construct_in<Hub>(memory) : nullptr;
     Hub::sole() = manager;
     manager->enter_heap_scope(manager->bottom_up_heap_);

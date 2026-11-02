@@ -125,5 +125,6 @@ int ensure_manager();
 // 0x005BC340
 void shut_down_manager();
 
-extern bool g_manager_ready;
+// NOT ORIGINAL - whether the memory manager is set up.
+bool& manager_ready_flag();
 } // namespace memory

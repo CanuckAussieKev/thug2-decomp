@@ -713,7 +713,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         player->flag_bits_ |= kPlayerPending | kPlayerObserver;
     if (context->sender_conn_->is_host_local()) {
         // The host's own player: its profile copied through a buffer.
-        if (!memory::g_manager_ready)
+        if (!memory::manager_ready_flag())
             memory::ensure_manager();
         auto* buffer = static_cast<uint8_t*>(memory::Hub::get_pull()->carve(kAppearanceSize, true, nullptr));
         auto* profile = static_cast<modules::Skate*>(skate)->fetch_account(

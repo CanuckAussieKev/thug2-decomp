@@ -8,20 +8,31 @@
 #include "engine/file/file_load.h"
 #include <string_view>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace memory {
 
 namespace {
 
-// The buffer (0x007CE7B8, up to 0x007CEBA8), the write position (0x007CE7B0) and the file it's flushed to
-// (0x007CEBB8 - nothing in this build ever opens it, so it stays null).
-std::array<char, 0x3F0> g_dump_buffer;
-size_t g_text_dump_used; // (the write position as a count of bytes in the buffer)
-file::Hdl g_dump_file;
+// NOT ORIGINAL grouping - the text dump's buffer, how much of it is used and its file. Made on first use, never
+// destroyed (dump_state()).
+struct DumpState {
+    // The buffer (0x007CE7B8, up to 0x007CEBA8), the write position (0x007CE7B0) and the file it's flushed to
+    // (0x007CEBB8 - nothing in this build ever opens it, so it stays null).
+    std::array<char, 0x3F0> dump_buffer_{};
+    size_t text_dump_used_{}; // (the write position as a count of bytes in the buffer)
+    file::Hdl dump_file_{};
+};
 
-std::array<char, 0x3F0>& dump_buffer() { return g_dump_buffer; }
-size_t& dump_write_cursor() { return g_text_dump_used; }
-file::Hdl dump_file() { return g_dump_file; }
+DumpState& dump_state()
+{
+    static core::NoDestroy<DumpState> state;
+    return state.get();
+}
+
+std::array<char, 0x3F0>& dump_buffer() { return dump_state().dump_buffer_; }
+size_t& dump_write_cursor() { return dump_state().text_dump_used_; }
+file::Hdl dump_file() { return dump_state().dump_file_; }
 
 } // namespace
 

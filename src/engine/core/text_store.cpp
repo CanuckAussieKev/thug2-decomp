@@ -12,9 +12,11 @@ namespace text {
 
 namespace {
 
-int g_live_strings;
-
-int& live_strings() { return g_live_strings; }
+int& live_strings()
+{
+    static int live_strings{};
+    return live_strings;
+}
 
 } // namespace
 
