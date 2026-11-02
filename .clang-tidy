@@ -18,9 +18,9 @@ Checks:
   # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
-  # The engine still walks its vertex streams, texel rows, text buffers and packed records by pointer: 1,938 places
-  # over src/ (round 3l of stage 9, down from 2,276, 2,599, 3,658 and 5,043 before; the check alone; the boundary layer
-  # and the script token streams at 0). They go to std::span,
+  # The engine still walks its vertex streams, texel rows, text buffers and packed records by pointer: 1,501 places
+  # over src/ (round 3m of stage 9, down from 1,938, 2,276, 2,599, 3,658 and 5,043 before; the check alone; the
+  # boundary layer and the script token streams at 0). They go to std::span,
   # core::Cursor (a span and a position, checked) and indices subsystem by subsystem; the check is switched on at 0.
   - '-cppcoreguidelines-pro-bounds-pointer-arithmetic'
   # The tables mirror the original's data positionally (script commands, member tables, key maps).
