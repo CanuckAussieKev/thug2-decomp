@@ -287,4 +287,19 @@ void append_format(std::string& out, FormatFor<Args...> format, Args... args)
     out += format_runtime(format.view(), packed);
 }
 
+// A format that comes from data (a script's text, a text the original used as its own format): not checked when
+// compiled - format_runtime_to's rules (a conversion with no argument, or one of another kind, prints as for 0 / "").
+template <typename... Args>
+size_t format_data_to(std::span<char> out, std::string_view format, Args... args)
+{
+    const std::array<FormatArg, sizeof...(Args)> packed{format_detail::make_arg(args)...};
+    return format_runtime_to(out, format, packed);
+}
+template <typename... Args>
+std::string format_data(std::string_view format, Args... args)
+{
+    const std::array<FormatArg, sizeof...(Args)> packed{format_detail::make_arg(args)...};
+    return format_runtime(format, packed);
+}
+
 } // namespace text

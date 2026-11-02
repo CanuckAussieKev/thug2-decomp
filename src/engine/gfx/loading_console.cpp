@@ -394,7 +394,12 @@ void screen_shown(bool freeze, bool blank)
         set_log_listener(&on_log_line);
         g_active = true;
     }
-    get_note(freeze ? "loading screen (frozen frame)" : blank ? "loading screen (blank)" : "loading screen");
+    if (freeze)
+        get_note("loading screen (frozen frame)");
+    else if (blank)
+        get_note("loading screen (blank)");
+    else
+        get_note("loading screen");
     g_blank = blank;
     g_timer_draws = !freeze;
     if (!freeze && !g_timer)

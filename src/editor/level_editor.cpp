@@ -27,6 +27,7 @@
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
+#include "engine/core/format.h"
 #include "editor/level_editor_arcs.h"
 #include "editor/level_editor_budget.h"
 #include "editor/level_editor_camera.h"
@@ -387,9 +388,9 @@ perform::Resume resume_now();
 void apply_resume(const perform::Resume& resume);
 
 template <typename... Args>
-void note_action(const char* format, Args... args)
+void note_action(text::FormatFor<Args...> format, Args... args)
 {
-    std::snprintf(g_last_action.data(), sizeof(g_last_action), format, args...);
+    text::format_to(g_last_action, format, args...);
 }
 
 // A change not saved yet (undo / redo steps, layouts restored).

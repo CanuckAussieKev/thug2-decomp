@@ -203,7 +203,8 @@ void authenticate_user(int local_id, uint32_t ip, const char* challenge, const c
                                        instance);
 }
 
-void get_sprintf(char* out, const char* format, uint32_t a, uint32_t b, int c, const char* d, const char* e)
+void get_sprintf(char* out, text::FormatFor<uint32_t, uint32_t, int, const char*, const char*> format, uint32_t a,
+                 uint32_t b, int c, const char* d, const char* e)
 {
     crt::get_sprintf(out, format, a, b, c, d, e);
 }
@@ -492,7 +493,7 @@ void Hub::retry_entry_with_key(const char* password)
 
 const std::array<char, 10> kUiStringText{{"ui_string"}};
 const std::array<char, 19> kNetReasonGeneral{{"net_reason_general"}};
-const std::array<char, 27> kPresenceLocationFormat{{"10thug211:%d:%d:%d:%s (%s)"}};
+constexpr std::array<char, 27> kPresenceLocationFormat{{"10thug211:%d:%d:%d:%s (%s)"}};
 const std::array<char, 13> kMatchAppName{{"Match Skate6"}};
 const std::array<char, 7> kSkateAppName{{"Skate6"}};
 

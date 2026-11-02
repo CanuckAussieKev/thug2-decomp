@@ -21,7 +21,7 @@ constexpr uint32_t kSkate = 0x54166ACD, kCombo = 0x4EC3CFB5, kCone = 0x25904450;
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
-int get_sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
     return crt::get_sprintf(out, format, args...);
 }

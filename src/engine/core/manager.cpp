@@ -513,8 +513,9 @@ Hub::Hub()
     auto data_end = g_data_end;
     const uint32_t data_k = static_cast<uint32_t>(data_end - data_start) >> 10;
     const uint32_t code_k = static_cast<uint32_t>(data_start - code_start) >> 10;
-    debug::printf("code [%p - %p] (%dK) + data [%p - %p] (%dK) = %dK \n", code_start, data_start, code_k, data_start,
-                  data_end, data_k, data_k + code_k);
+    // (the bounds are addresses kept as numbers: %08X prints what the original's %p did)
+    debug::printf("code [%08X - %08X] (%dK) + data [%08X - %08X] (%dK) = %dK \n", code_start, data_start, code_k,
+                  data_start, data_end, data_k, data_k + code_k);
 
     context_depth_ = 0;
     online_zone_ = nullptr;

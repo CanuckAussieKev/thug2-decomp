@@ -32,7 +32,7 @@ constexpr float kDropHeight = 10000.0f; // 0x0064B308
 constexpr uint32_t kStructureArray = 10, kChecksumArray = 13, kIntegerArray = 1;
 
 template <typename... Args>
-int get_sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
     return crt::get_sprintf(out, format, args...);
 }
@@ -286,7 +286,7 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
         out->put_int(0xCD66C8AE, points_held_);
         if (for_goal_manager == 1) {
             const char* format = script::fetch_text(kind_tag_ == kGoalTypeHighCombo ? 0x3693BFE4 : 0xD6EFB1B5);
-            get_sprintf(text.data(), format, points_held_);
+            crt::sprintf_from_data(text.data(), format, points_held_); // (the script's text is the format)
             out->append_word(0xDA441D9A, text.data());
         }
         break;

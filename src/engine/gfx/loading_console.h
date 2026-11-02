@@ -7,6 +7,8 @@
 #include <vector>
 #include <array>
 
+#include "engine/core/format.h"
+
 // NOT ORIGINAL - the loading console (ours, added at the user's request: "a console that shows what is currently
 // loading, so we can differentiate between a hang and something still loading"; not the game's and not PartyMod's).
 //
@@ -76,13 +78,13 @@ constexpr size_t kRingLines = 64;
 
 // A line for the panel (printf-style; cut to kLineWidth characters). Nothing while not Active.
 template <typename... Args>
-void get_note(const char* format, Args... args)
+void get_note(text::FormatFor<Args...> format, Args... args)
 {
     if (!live_now())
         return;
-    std::array<char, kLineWidth> text{};
-    std::snprintf(text.data(), sizeof(text), format, args...);
-    note_text(text.data());
+    std::array<char, kLineWidth> line{};
+    text::format_to(line, format, args...);
+    note_text(line.data());
 }
 // "name.ext" of "folder\\sub/name.ext".
 const char* get_file_name(const char* path);

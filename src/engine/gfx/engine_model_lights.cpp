@@ -31,7 +31,7 @@ float bright_range() { return g_active_lighting.ambient_high_; }
 std::span<float> dark_ranges() { return g_active_lighting.light_low_; }
 std::span<float> bright_ranges() { return g_active_lighting.light_high_; }
 
-void get_stub(const char* message) { debug::printf(message); }
+void get_stub(const char* message) { debug::printf_text(message); }
 
 // 2b - 1 times a range, plus 1 (the bright range above 0.5 - or NaN -, the dark one at and below).
 float get_scaled(float brightness, float dark, float bright)

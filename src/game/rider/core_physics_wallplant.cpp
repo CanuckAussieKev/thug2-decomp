@@ -71,7 +71,7 @@ constexpr float kProbe = 6.0f;                             // (0x40C00000)
 constexpr float kWalkReach = 36.0f;                        // (0x42100000)
 constexpr float kMinFlatSpeed = 0.0001f;                   // 0x006453D4
 constexpr float kFromWall = 0.1f;                          // (0x3DCCCCCD)
-const char* const kLateWallplantText = "late wallplant\n"; // "late wallplant\n"
+constexpr const char* kLateWallplantText = "late wallplant\n"; // "late wallplant\n"
 
 objects::GameEntity* skater_object(SkaterPhysicsModule* component)
 {

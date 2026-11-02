@@ -33,7 +33,7 @@ constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
-int get_sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
     return crt::get_sprintf(out, format, args...);
 }

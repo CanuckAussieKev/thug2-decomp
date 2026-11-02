@@ -23,6 +23,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 #include "engine/gfx/shadow_base.h"
 
 namespace render {
@@ -87,11 +88,21 @@ struct ShaderText {
     std::array<char, 1024> buffer{};
     int length = 0;
     template <typename... Args>
-    void append_one(const char* format, Args... args)
+    void append_one(text::FormatFor<Args...> format, Args... args)
     {
-        length += std::snprintf(std::span(buffer).subspan(length).data(), sizeof(buffer) - length, format, args...);
+        length +=
+            static_cast<int>(text::format_to(std::span(buffer).subspan(static_cast<size_t>(length)), format, args...));
     }
 };
+
+// "+mul_x2 r1.a, v0.a, t<pass>.a" (saturated in blend mode 5): the vertex alpha times the pass's texture alpha.
+void append_alpha_modulate(ShaderText& text, bool saturate, uint32_t pass)
+{
+    if (saturate)
+        text.append_one("+mul_x2_sat r1.a, v0.a, t%d.a\n", pass);
+    else
+        text.append_one("+mul_x2 r1.a, v0.a, t%d.a\n", pass);
+}
 
 } // namespace
 
@@ -199,15 +210,14 @@ void* generated_pixel_shader(const void* material)
             text.append_one("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {
                 if (!(alpha_flags & bit))
-                    text.append_one(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n" : "+mul_x2 r1.a, v0.a, t%d.a\n",
-                                    pass);
+                    append_alpha_modulate(text, mode == 5, pass);
                 else
                     text.append_one("+mov r1.a, t%d\n", pass);
             }
         } else if (!(alpha_flags & bit)) {
             text.append_one("mov r1.rgb, t%d\n", pass);
             if (!brighten)
-                text.append_one(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n" : "+mul_x2 r1.a, v0.a, t%d.a\n", pass);
+                append_alpha_modulate(text, mode == 5, pass);
         } else {
             reg = pass; // the texture itself
         }

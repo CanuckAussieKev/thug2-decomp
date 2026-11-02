@@ -216,21 +216,24 @@ void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint3
 // 0x004620A0
 void SignalTrace::echo_out(bool only_new, int /*count*/)
 {
-    const char* const line = "========================================================\n"; // "=====...\n"
+    constexpr const char* kLine = "========================================================\n"; // "=====...\n"
     int index = 0;
     int count = ordinal_;
     if (has_looped_) {
         index = ordinal_;
         count = kLogSize;
     }
-    debug::printf(line);
-    debug::printf(only_new ? "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n" : "PRINTING EVENT LOG\n\n");
+    debug::printf(kLine);
+    if (only_new)
+        debug::printf("PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n");
+    else
+        debug::printf("PRINTING EVENT LOG\n\n");
     // Each entry from the oldest (their printing is compiled out of this build).
     for (; count > 0; --count) {
         if (++index == kLogSize)
             index = 0;
     }
-    debug::printf(line);
+    debug::printf(kLine);
     added_since_sweep_ = 0;
 }
 

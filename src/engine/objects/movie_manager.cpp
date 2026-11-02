@@ -217,7 +217,8 @@ void VideoHub::end_movie(Movie* movie)
     uncouple(&movie->list_link_);
     delete_movie(memory::owned_element(movie)); // (the list's)
     const uint64_t frame = frame_clock::get_draw_frame();
-    debug::printf("Details have been removed %ld\n", static_cast<uint32_t>(frame), static_cast<uint32_t>(frame >> 32));
+    // (the original passed the 64-bit frame to this %ld: only its low word was printed)
+    debug::printf("Details have been removed %ld\n", static_cast<uint32_t>(frame));
     if (end_script)
         script::launch_script(end_script, params, nullptr, false, nullptr);
     if (params) {

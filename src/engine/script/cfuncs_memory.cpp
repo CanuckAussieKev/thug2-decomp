@@ -187,7 +187,7 @@ void dump_pool_usage(bool to_dump_file, bool print)
         if (to_dump_file)
             memory::dump_text(line.data());
         if (print)
-            debug::printf(line.data()); // (the line as the format, as in the original)
+            debug::printf_text(line.data()); // (the line as the format, as in the original)
     };
     // (the texts are the exe's)
     auto text = [&](const char* message) {
@@ -227,34 +227,34 @@ void dump_pool_usage(bool to_dump_file, bool print)
 // null). Always true.
 bool cfunc_dump_heaps(Struct* params, Script*)
 {
-    auto format = [](const char* text) { return text; }; // (the exe's texts)
     dump_heaps_begin();
     memory::Hub* manager = hub();
-    debug::printf(format("Current Heap: %s\n\n"), manager->current_heap_name()); // "Current Heap: %s\n"
+    debug::printf("Current Heap: %s\n\n", manager->current_heap_name()); // "Current Heap: %s\n"
     const bool bytes = params && params->has_bare_flag(kDumpHeapsBytes);
-    debug::printf(format(
-        bytes
-            ? "Name                       Used    Frag    Free    Min Blocks\n"
-            : "Name                       Used  Frag  Free   Min  Blocks\n")); // "Name                       Used ..." (two layouts)
-    debug::printf(format(
-        bytes ? "------------------------- ------ ------- ------- ------ ------\n"
-              : "------------------------- ----- ----- ---- ------ ------\n")); // "------------------------- -----..."
+    // (two layouts of the heading)
+    if (bytes) {
+        debug::printf("Name                       Used    Frag    Free    Min Blocks\n");
+        debug::printf("------------------------- ------ ------- ------- ------ ------\n");
+    } else {
+        debug::printf("Name                       Used  Frag  Free   Min  Blocks\n");
+        debug::printf("------------------------- ----- ----- ---- ------ ------\n");
+    }
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region_;
         const int minimum = region->min_available_; // (read before free_byte_count)
         const int blocks = heap->used_blocks_;
         const int available = region->free_byte_count();
         if (bytes)
-            debug::printf(format("%23s: %8d %7d %7d %7d  %5d \n"), heap->label_, heap->used_size_, heap->free_size_,
-                          available, minimum,
+            debug::printf("%23s: %8d %7d %7d %7d  %5d \n", heap->label_, heap->used_size_, heap->free_size_, available,
+                          minimum,
                           blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
         else
-            debug::printf(format("%23s: %5dK %4dK %4dK %4dK  %5d \n"), heap->label_, heap->used_size_ / 1024,
+            debug::printf("%23s: %5dK %4dK %4dK %4dK  %5d \n", heap->label_, heap->used_size_ / 1024,
                           heap->free_size_ / 1024, available / 1024, minimum / 1024,
                           blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
     }
     const int sound_free = free_sound_memory();
-    debug::printf(format("\nSound mem free %d K  (%d bytes)\n"), free_sound_memory() / 1024,
+    debug::printf("\nSound mem free %d K  (%d bytes)\n", free_sound_memory() / 1024,
                   sound_free); // "\nSound mem free %d K  (%d bytes)\n"
     dump_pool_usage(false, true);
     return true;

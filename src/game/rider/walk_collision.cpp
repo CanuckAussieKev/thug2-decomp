@@ -69,14 +69,14 @@ constexpr float kAdjustClearance = 0.1f;   // the bad critical point's adjustmen
 constexpr float kGrindClearance = 36.0f;   // 0x0064B9CC: a wall this close (squared) to the rail's point is fine
 
 // The game's own messages (debug::Printf): "M:%s:%i: %s", the source file's name, and the texts.
-const char* const kMessageFormat = "M:%s:%i: %s\n";
+constexpr const char* kMessageFormat = "M:%s:%i: %s\n";
 const char* const kSourceFile = "mponents\\WalkComponent.cpp";
-const char* const kSlapMessage = "walking sticker slap...........\n";
+constexpr const char* kSlapMessage = "walking sticker slap...........\n";
 const char* const kUberFrigMessage = "applying uber frig";
 const char* const kBadPointMessage = "adjusting position due to bad critical point";
-const char* const kAdjustmentFormat = "D:%s:%i: required_pos_adjustment = %g, %g, %g\n";
-const char* const kOffsetFormat = "D:%s:%i: m_critical_point_offset = %g, %g, %g\n";
-const char* const kTrackingFormat = "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n";
+constexpr const char* kAdjustmentFormat = "D:%s:%i: required_pos_adjustment = %g, %g, %g\n";
+constexpr const char* kOffsetFormat = "D:%s:%i: m_critical_point_offset = %g, %g, %g\n";
+constexpr const char* kTrackingFormat = "Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n";
 
 double get_frame_length(FootMovement* walk) { return walk->frame_length_; }
 

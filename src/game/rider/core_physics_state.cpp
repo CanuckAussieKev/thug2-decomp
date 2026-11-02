@@ -62,7 +62,7 @@ constexpr uint32_t kGrindTrickList = 0x2AB3341D;       // GrindTrickList
 constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78;  // Trick_Motoskateboard_Grind (a script)
 
 // The free revert's message: the game's own format, file name and text.
-const char* const kMessageFormat = "M:%s:%i: %s\n";                         // "M:%s:%i: %s\n"
+constexpr const char* kMessageFormat = "M:%s:%i: %s\n";                     // "M:%s:%i: %s\n"
 const char* const kSourceFile = "mponents\\SkaterCorePhysicsComponent.cpp"; // (the component's source file)
 const char* const kFreeRevertText = "You earned a free revert!!!!";         // "You earned a free revert!!!!"
 

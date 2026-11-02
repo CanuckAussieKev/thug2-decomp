@@ -22,7 +22,7 @@ namespace objects::vehicle {
 inline const float kGravity = std::bit_cast<float>(0x43C13333u); // 0x006466A4: 386.4 (inches a second squared)
 
 // The debug messages' format and file.
-inline const char* const kDebugFormat = "M:%s:%i: %s\n";                 // "M:%s:%i: %s\n"
+inline constexpr const char* kDebugFormat = "M:%s:%i: %s\n";             // "M:%s:%i: %s\n"
 inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp"; // "omponents\vehiclecomponent.cpp"
 
 // The trigger component's 0x00434BF0 / 0x00434CE0: a feeler / a rect feeler reported for

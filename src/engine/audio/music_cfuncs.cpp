@@ -44,7 +44,7 @@ constexpr uint32_t kVolume = 0x46653221;       // "volume"
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
-int get_sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
     return crt::get_sprintf(out, format, args...);
 }

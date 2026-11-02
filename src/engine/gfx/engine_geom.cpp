@@ -28,7 +28,7 @@ maths::Mat4 g_transform_box;
 uint32_t g_transform_guard;
 
 // The stubs' messages ("STUB: ...\n").
-void get_stub(const char* message) { debug::printf(message); }
+void get_stub(const char* message) { debug::printf_text(message); }
 
 // A function-local static of the original's: its guard's bit 1 set the first time (the box constructed then).
 template <typename T>

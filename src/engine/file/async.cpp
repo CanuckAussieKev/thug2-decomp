@@ -349,12 +349,12 @@ namespace {
 
 bool stub_bool(const char* message)
 {
-    debug::printf(message);
+    debug::printf_text(message);
     return false;
 }
 int stub_int(const char* message)
 {
-    debug::printf(message);
+    debug::printf_text(message);
     return 0;
 }
 

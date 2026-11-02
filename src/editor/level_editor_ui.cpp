@@ -27,6 +27,7 @@
 #include "editor/level_editor_checks.h"
 #include "editor/level_editor_notes.h"
 #include "editor/level_editor_ux9.h"
+#include "engine/core/format.h"
 #include "editor/level_editor_clusters.h"
 #include "editor/level_editor_faces.h"
 #include "editor/level_editor_node_edit.h"
@@ -133,10 +134,10 @@ void update_scale()
 // --- small pieces ---
 
 template <typename... Args>
-void get_mono(const char* format, Args... args)
+void get_mono(text::FormatFor<Args...> format, Args... args)
 {
     ImGui::PushFont(g_mono);
-    ImGui::Text(format, args...);
+    ImGui::TextUnformatted(text::format(format, args...).c_str());
     ImGui::PopFont();
 }
 

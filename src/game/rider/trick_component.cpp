@@ -604,7 +604,7 @@ void MoveExecutor::dump_event_buffer()
             break;
         }
         if (text)
-            debug::printf(text);
+            debug::printf_text(text);
         debug::printf(" Event=");
         switch (e.type) {
         case 0:

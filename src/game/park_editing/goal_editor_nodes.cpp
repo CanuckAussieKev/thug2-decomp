@@ -19,7 +19,7 @@ namespace park_editing {
 namespace {
 
 template <typename... Args>
-int get_sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
     return crt::get_sprintf(out, format, args...);
 }

@@ -5,8 +5,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <climits>
+#include <cstring>
 #include <ctime>
+#include <string>
 
+#include "engine/core/format.h"
 #include "platform/code_address.h"
 #include "platform/compiler.h"
 #include <gsl/pointers>
@@ -72,17 +75,29 @@ unsigned get_instant();
 double game_atof(const char* text);
 inline double get_atof(const char* text) { return game_atof(text); }
 
-// sprintf: the compiler's - the same as the game's for integer and string conversions. Not for floats: the game's C runtime prints those differently (-0 as 0, halves rounded up in
-// the last digit, digits past the 17th as zeros, 1.#INF00 / 1.#QNAN0), and no call here formats one.
+// sprintf: the linked C runtime's text (text::format, the same byte for byte) - the same as the game's for integer and
+// string conversions. Not for floats: the game's C runtime prints those differently (-0 as 0, halves rounded up in
+// the last digit, digits past the 17th as zeros, 1.#INF00 / 1.#QNAN0), and no call here formats one. The text is
+// written whole, with no limit, as sprintf wrote it; the format is checked against the arguments when it's compiled.
 template <typename... Args>
-int linked_sprintf(char* out, const char* format, Args... args)
+int linked_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
-    return std::snprintf(out, static_cast<size_t>(INT_MAX), format, args...); // (unbounded, as sprintf)
+    const std::string made = text::format(format, args...);
+    std::memcpy(out, made.c_str(), made.size() + 1); // (unbounded, as sprintf)
+    return static_cast<int>(made.size());
 }
 template <typename... Args>
-int get_sprintf(char* out, const char* format, Args... args)
+int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 {
     return linked_sprintf(out, format, args...);
+}
+// sprintf with a format that comes from data (a script's text): checked only when it runs (text::format_data).
+template <typename... Args>
+int sprintf_from_data(char* out, const char* format, Args... args)
+{
+    const std::string made = text::format_data(format ? format : "", args...);
+    std::memcpy(out, made.c_str(), made.size() + 1); // (unbounded, as sprintf)
+    return static_cast<int>(made.size());
 }
 
 // --- The game's C runtime's behaviour, as ours ---

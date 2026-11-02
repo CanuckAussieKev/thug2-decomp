@@ -8,6 +8,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <array>
+#include <string>
+
+#include "engine/core/format.h"
 
 namespace debug_log {
 
@@ -22,17 +25,18 @@ bool console_on();
 // A formatted message into thug2-decomp.log ("pc: <message>", its line ends taken off).
 void write_message(const char* message);
 
+// (the format checked against the arguments when it's compiled: text::format)
 template <typename... Args>
-void printf(StageMap level, const char* format, Args... args)
+void printf(StageMap level, text::FormatFor<Args...> format, Args... args)
 {
     if (!wants(level))
         return;
     if (console_on())
-        std::printf(format, args...);
+        std::fputs(text::format(format, args...).c_str(), stdout);
     // Into thug2-decomp.log, one line per message (Log adds the line end the messages carry).
-    std::array<char, 1024> text{};
-    std::snprintf(text.data(), sizeof(text), format, args...);
-    write_message(text.data());
+    std::array<char, 1024> line{};
+    text::format_to(line, format, args...);
+    write_message(line.data());
 }
 
 } // namespace debug_log

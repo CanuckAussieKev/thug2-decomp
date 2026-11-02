@@ -164,7 +164,8 @@ void emit(Sink& sink, const Spec& spec, std::string_view prefix, std::string_vie
 void put_integer(Sink& sink, const Spec& spec, const FormatArg* arg)
 {
     const unsigned bits = static_cast<unsigned>(spec.size) * kBitsPerByte;
-    const uint64_t mask = spec.size >= sizeof(uint64_t) ? std::numeric_limits<uint64_t>::max() : (uint64_t{1} << bits) - 1;
+    const uint64_t mask =
+        spec.size >= sizeof(uint64_t) ? std::numeric_limits<uint64_t>::max() : (uint64_t{1} << bits) - 1;
     const uint64_t value = integer_bits(arg) & mask;
     const bool is_signed = spec.conversion == 'd' || spec.conversion == 'i';
     const bool negative = is_signed && ((value >> (bits - 1)) & 1) != 0;
@@ -179,7 +180,8 @@ void put_integer(Sink& sink, const Spec& spec, const FormatArg* arg)
     const auto converted = std::to_chars(digits.data(), std::next(digits.data(), digits.size()), magnitude, base);
     auto digit_count = static_cast<size_t>(converted.ptr - digits.data());
     if (spec.conversion == 'X')
-        std::transform(digits.begin(), std::next(digits.begin(), static_cast<std::ptrdiff_t>(digit_count)), digits.begin(),
+        std::transform(digits.begin(), std::next(digits.begin(), static_cast<std::ptrdiff_t>(digit_count)),
+                       digits.begin(),
                        [](char c) { return c >= 'a' && c <= 'f' ? static_cast<char>(c - 'a' + 'A') : c; });
     if (magnitude == 0 && spec.precision == 0)
         digit_count = 0; // (no digits for a zero of precision 0)
