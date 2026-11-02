@@ -115,7 +115,7 @@ bool prefetch_complete(const StreamSlot& slot)
 std::array<StreamSlot, 3> g_stream_slots;
 } // namespace
 
-StreamSlot* stream_slots() { return g_stream_slots.data(); }
+std::array<StreamSlot, 3>& stream_slots() { return g_stream_slots; }
 
 namespace {
 StreamSlot g_music_slot;
@@ -193,7 +193,7 @@ unsigned long __stdcall stream_thread(void*)
         if (WaitForSingleObject(stream_lock(), INFINITE) != WAIT_TIMEOUT) {
             update_slot(music_slot());
             for (int i = 0; i < kStreamSlots; ++i)
-                update_slot(stream_slots()[i]);
+                update_slot(core::at(stream_slots(), i));
             ReleaseMutex(stream_lock());
         }
         Sleep(5);
@@ -223,7 +223,7 @@ _OVERLAPPED* new_overlapped()
             continue;
         bool used = false;
         for (int i = 0; i < kStreamSlots && !used; ++i)
-            used = uses_overlapped(stream_slots()[i], overlapped);
+            used = uses_overlapped(core::at(stream_slots(), i), overlapped);
         if (used)
             continue;
         std::memset(overlapped, 0, sizeof(*overlapped));
@@ -235,7 +235,7 @@ _OVERLAPPED* new_overlapped()
 void init_platform()
 {
     std::memset(&music_slot(), 0, sizeof(StreamSlot));
-    std::memset(stream_slots(), 0, kStreamSlots * sizeof(StreamSlot));
+    std::memset(stream_slots().data(), 0, kStreamSlots * sizeof(StreamSlot));
     user_soundtrack_count();
     get_wad_file() = CreateFileA(R"(data\streams\pcm\pcm.wad)", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                  FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
@@ -333,7 +333,7 @@ int stream_status(int slot)
     const int first = slot == -1 ? 0 : slot;
     const int end = slot == -1 ? kStreamSlots : slot + 1;
     for (int i = first; i < end; ++i)
-        if (!stream_slots()[i].get_playing())
+        if (!core::at(stream_slots(), i).get_playing())
             return 1;
     return 2;
 }
@@ -342,7 +342,7 @@ int stream_status(int slot)
 bool music_preload_done() { return prefetch_complete(music_slot()); }
 
 // 0x004531D0
-bool stream_preload_done(int slot) { return prefetch_complete(stream_slots()[slot]); }
+bool stream_preload_done(int slot) { return prefetch_complete(core::at(stream_slots(), slot)); }
 
 // 0x004532C0
 void pause_streams(bool pause, int which)
@@ -357,7 +357,7 @@ void pause_streams(bool pause, int which)
         return;
     }
     for (int i = 0; i < kStreamSlots; ++i) {
-        StreamSlot& slot = stream_slots()[i];
+        StreamSlot& slot = core::at(stream_slots(), i);
         if (!slot.get_playing())
             continue;
         if (slot.wad)
@@ -375,8 +375,8 @@ int update_streams()
     if (get_over(music_slot()))
         music_slot().dealloc();
     for (int i = 0; i < kStreamSlots; ++i)
-        if (get_over(stream_slots()[i]))
-            stream_slots()[i].dealloc();
+        if (get_over(core::at(stream_slots(), i)))
+            core::at(stream_slots(), i).dealloc();
     ReleaseMutex(stream_lock());
     return 0;
 }

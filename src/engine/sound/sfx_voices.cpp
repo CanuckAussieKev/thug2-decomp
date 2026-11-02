@@ -50,10 +50,10 @@ constexpr int kMaxPositional = 128;
 constexpr uint32_t kDebugA = 0x6D2E270E;
 constexpr uint32_t kDebugB = 0xD7BB618D;
 
-PlayingSound* get_playing() { return g_playing_sounds.data(); }
+std::array<PlayingSound, 48>& get_playing() { return g_playing_sounds; }
 PositionalSound*& positional_head() { return g_positional_head; }
 int& positional_count() { return g_positional_count; }
-SoundWaveSlot* permanent_waves() { return g_permanent_waves.data(); }
+std::array<SoundWaveSlot, 256>& permanent_waves() { return g_permanent_waves; }
 int& permanent_count() { return g_permanent_count; }
 float& default_dropoff() { return g_default_dropoff; }
 bool quiet_misses() { return game_config::g_from_cd; }
@@ -138,7 +138,7 @@ void stop_positional_voice(AudioMixer* manager, const PositionalSound* entry)
     if (no_sound() || entry->unique_id_ == 0)
         return;
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (get_playing()[i].unique_id_ != entry->unique_id_)
+        if (core::at(get_playing(), i).unique_id_ != entry->unique_id_)
             continue;
         if (is_voice_playing(i) && !no_sound()) {
             const int index = manager->get_playing_index(entry->unique_id_);
@@ -202,7 +202,7 @@ PlaybackProps* AudioMixer::get_positional_props(objects::AudioEmitterModule* obj
             int index = 0;
             if (!is_sound_playing(entry->unique_id_, &index))
                 return nullptr;
-            return &get_playing()[index].props;
+            return &core::at(get_playing(), index).props;
         }
     }
     return nullptr;
@@ -213,7 +213,7 @@ bool AudioMixer::is_unique_id_free(uint32_t id)
 {
     if (!no_sound() && id != 0) {
         for (int i = 0; i < kMaxPlaying; ++i) {
-            if (get_playing()[i].unique_id_ == id) {
+            if (core::at(get_playing(), i).unique_id_ == id) {
                 if (is_voice_playing(i))
                     return false;
                 break;
@@ -279,7 +279,7 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, float pitc
     const int voice = play_voice(entry, volume, pitch);
     if (voice == -1)
         return 0;
-    PlayingSound& sound = get_playing()[voice];
+    PlayingSound& sound = core::at(get_playing(), voice);
     sound.checksum = id;
     sound.unique_id_ = fetch_distinct_id(id);
     sound.entry = entry;
@@ -473,7 +473,7 @@ void AudioMixer::tick_positional_sounds()
             entry->in_use_ = 0;
             uncouple(entry);
         } else {
-            PlayingSound* sound = &get_playing()[index];
+            PlayingSound* sound = &core::at(get_playing(), index);
             note_sound_update(entry->object, &sound->props);
             if (!update_positional_sound(entry->object, sound, time)) {
                 entry->in_use_ = 0;
@@ -634,12 +634,12 @@ void free_permanent_waves()
 {
     stop_all_voices();
     for (int i = 0; i < permanent_count(); ++i) {
-        if (PcWave* wave = permanent_waves()[i].wave) {
+        if (PcWave* wave = core::at(permanent_waves(), i).wave) {
             if (wave->data)
                 memory::Hub::get_pull()->dealloc(wave->data);
             memory::Hub::get_pull()->dealloc(wave);
         }
-        permanent_waves()[i].wave = nullptr;
+        core::at(permanent_waves(), i).wave = nullptr;
     }
     permanent_count() = 0;
 }

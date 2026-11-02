@@ -38,7 +38,7 @@ struct PadInputSample {
 
 // The per-button debounce times (0x007CE758, 22 entries, indexed like the button table 0x0067D6D8): a button
 // doesn't count as pressed until the game clock (ms) reaches its time.
-uint32_t* debounce_times();
+std::array<uint32_t, 22>& debounce_times();
 
 // 0x0059EE80: whether `button` (a checksum: up, down, left, right, the diagonals, x, triangle, square,
 // circle, l1, l2, r1, r2, black, white, z) is held on `controller` (its input state at +0x18) and isn't being

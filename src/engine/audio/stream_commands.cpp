@@ -39,7 +39,7 @@ bool& streams_paused_before() { return g_streams_paused_before; }
 // Set: no new streams play (nothing in the game sets it).
 bool streams_blocked() { return g_streams_blocked; }
 
-Stream* get_streams() { return g_streams.data(); }
+std::array<Stream, 3>& get_streams() { return g_streams; }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id.
 std::array<objects::AudioStreamModule*, 3>& get_owners() { return g_stream_owners; }
@@ -182,8 +182,8 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
 {
     if (!streams_on())
         return -1;
-    uint32_t oldest = get_streams()[0].begin_frame_;
-    int lowest = get_streams()[0].priority;
+    uint32_t oldest = core::at(get_streams(), 0).begin_frame_;
+    int lowest = core::at(get_streams(), 0).priority;
     int channel = 0;
     const uint32_t id = free_stream_id(name);
     int free = -1;
@@ -192,7 +192,7 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
             free = i;
             break;
         }
-        const Stream& stream = get_streams()[i];
+        const Stream& stream = core::at(get_streams(), i);
         if (stream.priority < lowest || (stream.priority == lowest && stream.begin_frame_ < oldest)) {
             lowest = stream.priority;
             oldest = stream.begin_frame_;
@@ -214,7 +214,7 @@ int start_stream(uint32_t checksum, const void* volume, float pitch, int option,
     if (!started)
         return -1;
     read_debug_flag();
-    Stream& stream = get_streams()[channel];
+    Stream& stream = core::at(get_streams(), channel);
     stream.name = name;
     stream.id = id;
     stream.channel = channel;
@@ -235,7 +235,7 @@ uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int opt
     const int channel = start_stream(checksum, volume, pitch, option, priority, id, false);
     if (channel == -1)
         return 0;
-    Stream& stream = get_streams()[channel];
+    Stream& stream = core::at(get_streams(), channel);
     set_up_stream(stream, checksum, option);
     core::at(stream.names, 0).frame_amp_ = fetch_stream_amp_curve(checksum);
     last_stream() = channel;
@@ -253,7 +253,7 @@ uint32_t prime_stream(uint32_t checksum, int priority)
     uint32_t id = 0;
     const int channel = start_stream(checksum, &volume, 0.0f, 0, priority, checksum, true);
     if (channel != -1) {
-        Stream& stream = get_streams()[channel];
+        Stream& stream = core::at(get_streams(), channel);
         set_up_stream(stream, checksum, 0);
         core::at(stream.names, 0).frame_amp_ = fetch_stream_amp_curve(checksum);
         id = stream.id;
@@ -270,8 +270,8 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner)
     int found = -1;
     if (owner) {
         for (int i = 0; i < kStreams; ++i) {
-            if (core::at(get_owners(), i) == owner && get_streams()[i].name == stream &&
-                channel_status(get_streams()[i].channel) != 1) {
+            if (core::at(get_owners(), i) == owner && core::at(get_streams(), i).name == stream &&
+                channel_status(core::at(get_streams(), i).channel) != 1) {
                 found = i;
                 break;
             }
@@ -283,7 +283,7 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner)
         if (found < 0)
             return false;
     }
-    Stream& playing = get_streams()[found];
+    Stream& playing = core::at(get_streams(), found);
     const int n = playing.name_count_++;
     core::at(playing.names, n).checksum = name;
     core::at(playing.names, n).frame_amp_ = fetch_stream_amp_curve(name);
@@ -335,21 +335,21 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t c
         owner_id(component, last) = playing;
         if (volume != 100.0f) {
             for (int i = 0; i < kStreams; ++i) {
-                if (get_streams()[i].id == playing) {
-                    get_streams()[i].dropoff = dropoff;
-                    get_streams()[i].volume =
-                        static_cast<float>(static_cast<double>(get_streams()[i].volume) * volume * 0.01f);
+                if (core::at(get_streams(), i).id == playing) {
+                    core::at(get_streams(), i).dropoff = dropoff;
+                    core::at(get_streams(), i).volume =
+                        static_cast<float>(static_cast<double>(core::at(get_streams(), i).volume) * volume * 0.01f);
                 }
             }
         }
         for (int i = 0; i < kStreams; ++i) {
-            if (get_streams()[i].id != playing)
+            if (core::at(get_streams(), i).id != playing)
                 continue;
             if (use_pos_info) {
-                get_streams()[i].use_pos_info_ = 1;
-                get_streams()[i].falloff_curve_ = falloff_curve;
+                core::at(get_streams(), i).use_pos_info_ = 1;
+                core::at(get_streams(), i).falloff_curve_ = falloff_curve;
             } else {
-                get_streams()[i].use_pos_info_ = 0;
+                core::at(get_streams(), i).use_pos_info_ = 0;
             }
         }
     }

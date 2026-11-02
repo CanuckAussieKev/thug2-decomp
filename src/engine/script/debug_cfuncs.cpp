@@ -67,7 +67,7 @@ void print_bytes(const void* data, int count)
 
 } // namespace
 
-uint32_t* level_specific_qb_files() { return g_level_qb_files.data(); }
+std::array<uint32_t, 15>& level_specific_qb_files() { return g_level_qb_files; }
 
 // 0x004489B0: DisplayFreeMem: for every heap of the memory manager, run UpdateDisplayFreeMemory with id=<the
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.
@@ -131,7 +131,7 @@ bool cfunc_load_qb(script::Struct* params, script::Script*)
         load_qb_file(name, false);
         return true;
     }
-    uint32_t* files = level_specific_qb_files();
+    uint32_t* files = level_specific_qb_files().data();
     for (int i = 0; i < kLevelSpecificQbFiles; ++i) {
         if (!files[i]) {
             files[i] = checksums::hash_from_text(name);
@@ -149,7 +149,7 @@ bool cfunc_unload_qb(script::Struct* params, script::Script*)
     params->fetch_text(0u, &name, 0);
     const uint32_t checksum = checksums::hash_from_text(name);
     unload_qb_file(checksum);
-    uint32_t* files = level_specific_qb_files();
+    uint32_t* files = level_specific_qb_files().data();
     for (int i = 0; i < kLevelSpecificQbFiles; ++i) {
         if (files[i] == checksum)
             files[i] = 0;

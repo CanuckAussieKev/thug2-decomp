@@ -56,8 +56,8 @@ int glyph_for_button_tag(uint32_t button) { return pad_input::glyph_for_button_t
 uint32_t& last_broadcasted_omnigon() { return g_last_broadcasted_omnigon; }
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
-char* node_table_key_text() { return g_node_list_name.data(); }
-char* get_level_name() { return g_level_name.data(); }
+std::array<char, 128>& node_table_key_text() { return g_node_list_name; }
+std::array<char, 64>& get_level_name() { return g_level_name; }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
 void* get_viewer() { return modules::get_live_viewer(); }
@@ -67,7 +67,7 @@ inline void dump_scripts_list(bool /*flag*/) {}
 
 } // namespace
 
-uint32_t* debounce_times() { return g_debounce_times.data(); }
+std::array<uint32_t, 22>& debounce_times() { return g_debounce_times; }
 
 // 0x0059EE80
 bool controller_pressed(const pad_input::InputHandler* controller, uint32_t button)
@@ -80,7 +80,7 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
     // (the pressures of the d-pad and the buttons, by their places in the controller's data)
     const PadInputSample input{data};
     const int index = glyph_for_button_tag(button);
-    if (debounce_times()[index] > frame_clock::get_time())
+    if (core::at(debounce_times(), index) > frame_clock::get_time())
         return false;
     switch (button) {
     case 0xBC6B118F:
@@ -137,7 +137,7 @@ bool cfunc_controller_debounce(script::Struct* params, script::Script*)
         const int index = glyph_for_button_tag(button);
         // x87: the unsigned clock + time * 1000, truncated through 64 bits
         const double until = static_cast<double>(frame_clock::get_time()) + static_cast<double>(time) * 1000.0;
-        debounce_times()[index] = static_cast<uint32_t>(static_cast<int64_t>(until));
+        core::at(debounce_times(), index) = static_cast<uint32_t>(static_cast<int64_t>(until));
     }
     return true;
 }
@@ -190,7 +190,7 @@ bool cfunc_load_node_array(script::Struct* params, script::Script*)
     script::kill_all_child_scripts();
     const char* name = nullptr;
     params->fetch_text(0u, &name, 0);
-    text::copy_unbounded(node_table_key_text(), name); // (no length limit, as the original)
+    text::copy_unbounded(node_table_key_text().data(), name); // (no length limit, as the original)
     script::load_qb_file(name, 0);
     level_nodes::get_last_node_array();
     memory::pop_mem_profile();
@@ -350,7 +350,7 @@ bool cfunc_set_level_name(script::Struct* params, script::Script*)
     const char* name = nullptr;
     params->fetch_text(0u, &name, 1);
     THUG2_MSVC_WARNING(suppress : 4996) // (unbounded, and the name is the format: as in the original)
-    std::sprintf(get_level_name(), name);
+    std::sprintf(get_level_name().data(), name);
     return true;
 }
 

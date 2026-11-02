@@ -203,7 +203,7 @@ struct StreamSlot {
 static_assert(sizeof(StreamSlot) == 0x14, "layout must match the original");
 
 constexpr int kStreamSlots = 3;
-StreamSlot* stream_slots(); // 0x006EDFB8
+std::array<StreamSlot, 3>& stream_slots(); // 0x006EDFB8
 StreamSlot& music_slot();   // 0x006EDFF4
 
 // The thread that services the streams (created by Init).

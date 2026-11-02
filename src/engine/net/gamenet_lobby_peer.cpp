@@ -87,7 +87,7 @@ constexpr uint32_t kNewPlayerObserver = 0x04;
 
 Hub* net_session_slot() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
-QueuedPacket* get_queue() { return g_queued_packets.data(); }
+std::array<QueuedPacket, 200>& get_queue() { return g_queued_packets; }
 int& queued_count() { return g_queued_count; }
 RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }
 
@@ -112,7 +112,7 @@ void game_free(gsl::owner<void*> memory) { crt::dealloc(memory); }
 void clear_queue()
 {
     for (int i = 0; i < queued_count(); ++i)
-        game_free(memory::owned_element(get_queue()[i].data));
+        game_free(memory::owned_element(core::at(get_queue(), i).data));
     queued_count() = 0;
 }
 
@@ -176,7 +176,7 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
         type = kPacketNatNegotiation;
     else
         return;
-    QueuedPacket& packet = get_queue()[queued_count()];
+    QueuedPacket& packet = core::at(get_queue(), queued_count());
     packet.data = static_cast<char*>(game_malloc(length + 1));
     std::memcpy(packet.data, data, length);
     packet.data[length] = '\0';
@@ -318,7 +318,7 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
     const uint32_t now = frame_clock::get_time();
     push_internet_heap();
     for (int i = 0; i < queued_count(); ++i) {
-        QueuedPacket& packet = get_queue()[i];
+        QueuedPacket& packet = core::at(get_queue(), i);
         if (packet.type == kPacketQuery)
             game_spy::peer_parse_query(lobby->remote_, static_cast<char*>(packet.data), packet.length,
                                        static_cast<void*>(packet.from.data()));

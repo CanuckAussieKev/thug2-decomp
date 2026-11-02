@@ -58,11 +58,11 @@ int get_sprintf(char* out, const char* format, Args... args)
 // The game's _stricmp (0x00626EFB).
 int compare_no_case(const char* a, const char* b) { return crt::stricmp(a, b); }
 
-char* created_goal_name() { return g_created_goal_name.data(); }
+std::array<char, 24>& created_goal_name() { return g_created_goal_name; }
 uint32_t created_goal_id(int index)
 {
-    get_sprintf(created_goal_name(), "CreatedGoal%d", index);
-    return checksums::hash_from_text(created_goal_name());
+    get_sprintf(created_goal_name().data(), "CreatedGoal%d", index);
+    return checksums::hash_from_text(created_goal_name().data());
 }
 
 // The current level, the park editor's gameplay level counting as the park editor's.
@@ -506,8 +506,8 @@ uint32_t ObjectiveAuthoring::write_level_goals_to_buffer(uint32_t level, uint8_t
 bool ObjectiveAuthoring::new_editor_goal(script::Struct* /*params*/, script::Script* script)
 {
     begin_fresh_objective();
-    get_sprintf(created_goal_name(), "CreatedGoal%d", active_node_->level_goal_number_);
-    script->args_->put_name_key("goal_id", checksums::hash_from_text(created_goal_name()));
+    get_sprintf(created_goal_name().data(), "CreatedGoal%d", active_node_->level_goal_number_);
+    script->args_->put_name_key("goal_id", checksums::hash_from_text(created_goal_name().data()));
     return true;
 }
 

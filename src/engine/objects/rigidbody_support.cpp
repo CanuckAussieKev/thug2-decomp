@@ -52,8 +52,8 @@ bool& draw_shape() { return g_rigid_body_draw_shape; }
 bool& draw_details() { return g_rigid_body_draw_details; }
 
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
-SharedRef<GameEntity>* get_pushers() { return g_rigid_body_pushers.data(); }
-float* pusher_reach() { return g_rigid_body_pusher_reach.data(); }
+std::array<SharedRef<GameEntity>, 8>& get_pushers() { return g_rigid_body_pushers; }
+std::array<float, 8>& pusher_reach() { return g_rigid_body_pusher_reach; }
 
 // The matrix's element at byte offset `offset` from its start (the original's: row offset / 16, column 4 bytes each).
 double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset / 16)[(offset % 16) / 4]; }
@@ -117,8 +117,8 @@ bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script
 void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 {
     for (int i = 7; i >= 0; --i) {
-        if (get_pushers()[i].get_pull() == object) {
-            pusher_reach()[i] = reach;
+        if (core::at(get_pushers(), i).get_pull() == object) {
+            core::at(pusher_reach(), i) = reach;
             return;
         }
     }
@@ -297,10 +297,10 @@ int mute_until(int delay)
 void BodyDynamicsModule::feel_pushers()
 {
     for (int i = 7; i >= 0; --i) {
-        const GameEntity* pusher = get_pushers()[i].get_pull();
+        const GameEntity* pusher = core::at(get_pushers(), i).get_pull();
         if (!pusher)
             continue;
-        const float reach = pusher_reach()[i];
+        const float reach = core::at(pusher_reach(), i);
         const maths::Vec4& at = pusher->at_point_;
         const double outer = get_wide(reach) + skater_radius_;
         const double dz = get_wide(at_point_.z) - at.z;

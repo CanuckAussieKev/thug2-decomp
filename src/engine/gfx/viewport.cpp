@@ -86,7 +86,7 @@ ViewRegion* current_view_slot(int n)
     return nullptr;
 }
 
-uint8_t* occlusion_slots() { return g_occlusion_slots.data(); }
+std::array<uint8_t, 1024>& occlusion_slots() { return g_occlusion_slots; }
 std::array<OcclusionRequest, 4>& occlusion_requests() { return g_occlusion_requests; }
 uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
 
@@ -279,8 +279,8 @@ uint32_t request_occlusion_query(OcclusionRequest* request)
         return 0;
     uint32_t slot = kOcclusionSlots - 1; // (none free: the last, not marked)
     for (uint32_t i = 0; i < kOcclusionSlots; ++i) {
-        if (!occlusion_slots()[i]) {
-            occlusion_slots()[i] = 1;
+        if (!core::at(occlusion_slots(), i)) {
+            core::at(occlusion_slots(), i) = 1;
             slot = i;
             break;
         }

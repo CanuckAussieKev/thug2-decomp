@@ -210,7 +210,7 @@ void sync_music_to_time(float seconds)
 bool change_stream_loudness(const StreamGain* volume, int slot_index)
 {
     WaitForSingleObject(stream_lock(), INFINITE);
-    StreamSlot& slot = stream_slots()[slot_index];
+    StreamSlot& slot = core::at(stream_slots(), slot_index);
     if (slot.get_playing()) {
         create_sound_manager();
         switch (volume->type) {
@@ -263,7 +263,7 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
     if (stream_status(slot_index) != 1)
         return false;
     WaitForSingleObject(stream_lock(), INFINITE);
-    StreamSlot& slot = stream_slots()[slot_index];
+    StreamSlot& slot = core::at(stream_slots(), slot_index);
     slot.fabricate(1, true, plays);
     if (preload)
         set_started(slot, false);
@@ -286,22 +286,22 @@ bool play_stream(uint32_t checksum, int slot, int unused)
     core::at(last_streams(), slot) = checksum;
     if (!load_stream(checksum, slot, nullptr, 0, unused, false, 1))
         return false;
-    set_started(stream_slots()[slot], false);
+    set_started(core::at(stream_slots(), slot), false);
     return true;
 }
 
 // 0x00454270
 bool start_preloaded_stream(int slot, const StreamGain* volume)
 {
-    if (!stream_slots()[slot].get_playing())
+    if (!core::at(stream_slots(), slot).get_playing())
         return false;
-    set_started(stream_slots()[slot], true);
+    set_started(core::at(stream_slots(), slot), true);
     change_stream_loudness(volume, slot);
     return true;
 }
 
 // 0x00453B30
-void halt_stream(int slot, int) { halt(stream_slots()[slot]); }
+void halt_stream(int slot, int) { halt(core::at(stream_slots(), slot)); }
 
 // 0x00453BD0
 void halt_streams()

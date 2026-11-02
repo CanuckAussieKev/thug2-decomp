@@ -133,7 +133,7 @@ script::QbValueKind type_from_name(uint32_t name)
 
 } // namespace
 
-char* format_text_buffer() { return g_format_text_buffer.data(); }
+std::array<char, 1004>& format_text_buffer() { return g_format_text_buffer; }
 int& script_warning_level() { return g_script_warning_level; }
 
 // 0x0044A480
@@ -149,7 +149,7 @@ int format_text(script::Struct* results, script::Struct* params)
         debug::printf("Expected text format parameters to contain a format string\n");
         return 0;
     }
-    char* out = format_text_buffer();
+    char* out = format_text_buffer().data();
     const char* p = format;
     while (*p) {
         if (*p == '\\' && p[1] == '%') {
@@ -231,9 +231,9 @@ int format_text(script::Struct* results, script::Struct* params)
     }
     *out = '\0';
     if (text_name)
-        results->append_word(text_name, format_text_buffer());
+        results->append_word(text_name, format_text_buffer().data());
     if (name_key_hash)
-        results->put_name_key(name_key_hash, checksums::hash_from_text(format_text_buffer()));
+        results->put_name_key(name_key_hash, checksums::hash_from_text(format_text_buffer().data()));
     return result;
 }
 

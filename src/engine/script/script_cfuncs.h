@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 namespace script {
@@ -58,6 +59,6 @@ int& script_warning_level();
 // else 1 (2 if a name was written).
 int format_text(script::Struct* results, script::Struct* params);
 // FormatText's text buffer (0x00696940; its end, 0x00696D2C, isn't checked).
-char* format_text_buffer();
+std::array<char, 1004>& format_text_buffer();
 
 } // namespace commands

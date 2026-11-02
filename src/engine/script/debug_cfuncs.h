@@ -30,7 +30,7 @@ bool cfunc_inside(script::Struct* params, script::Script* script);           // 
 bool cfunc_reset_engine(script::Struct* params, script::Script* script);     // 0x00449960
 
 // The .qb files loaded with LoadQB's LevelSpecific flag (0x00696900, 15 name checksums; 0 = a free slot).
-uint32_t* level_specific_qb_files();
+std::array<uint32_t, 15>& level_specific_qb_files();
 constexpr int kLevelSpecificQbFiles = 15;
 
 extern std::array<uint32_t, 15> g_level_qb_files;

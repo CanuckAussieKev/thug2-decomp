@@ -110,7 +110,7 @@ inline void compiled_out_debug_call() {}
 // A .qb file's scripts unloaded and the global 0xC472ECC5 cleared (0x005A59B0).
 void unload_qb_file(uint32_t file) { script::unload_qb_file(file); }
 // The level's .qb files to unload with it (0x00696900, 15).
-uint32_t* level_qb_files() { return g_level_qb_files.data(); }
+std::array<uint32_t, 15>& level_qb_files() { return g_level_qb_files; }
 constexpr int kLevelQbFiles = 15;
 
 // The object's part of a manager walk's command (what 0x005A0120 is given).
@@ -173,8 +173,8 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     if (const script::SymbolTableEntry* qb = script::find_symbol(kQbSymbol))
         unload_qb_file(qb->unknown8);
     for (int i = 0; i < kLevelQbFiles; ++i) {
-        unload_qb_file(level_qb_files()[i]);
-        level_qb_files()[i] = 0;
+        unload_qb_file(core::at(level_qb_files(), i));
+        core::at(level_qb_files(), i) = 0;
     }
     debug::printf(
         "Starting to unload Geometry from the engine .....\n"); // "Starting to unload Geometry from the engine .....\n"

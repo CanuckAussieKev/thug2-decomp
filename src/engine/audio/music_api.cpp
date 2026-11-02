@@ -61,7 +61,7 @@ std::array<objects::AudioStreamModule*, 3>& get_owners() { return g_stream_owner
 // The user soundtrack (see music_player.cpp).
 int& user_soundtrack() { return g_user_soundtrack; }
 bool custom_soundtrack_active() { return g_custom_playlist_on; }
-int* user_order() { return g_user_order.data(); }
+std::array<int, 600>& user_order() { return g_user_order; }
 uint32_t& user_track() { return g_user_track; }
 uint32_t& user_position() { return g_user_position; }
 bool shuffle_user() { return g_shuffle_user; }
@@ -129,7 +129,7 @@ bool play_track_by_name(const char* name, float volume)
             shuffle_user_soundtrack();
             user_position() = 0;
         }
-        user_track() = user_order()[user_position()];
+        user_track() = core::at(user_order(), user_position());
     } else if (++user_track() >= num_user_tracks(user_soundtrack())) {
         user_track() = 0;
     }

@@ -38,7 +38,7 @@ std::array<float, 16> g_wibble_matrix{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
 std::array<float, 16> g_environment_matrix{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-float* pass_constants() { return g_ps_constant_bank.data(); } // the pixel shader's colours, 16 bytes a pass
+std::array<float, 20>& pass_constants() { return g_ps_constant_bank; } // the pixel shader's colours, 16 bytes a pass
 uint8_t& constants_changed() { return g_pixel_shader_changed; }
 
 void device_stage_state(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t value)
@@ -275,7 +275,7 @@ void MaterialRef::hand_in()
         if (g_skipped_passes & (1u << (pass & 31)))
             continue;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (!constants_changed() && std::memcmp(core::at(pass_color_, pass).data(), pass_constants() + 4 * pass, 16) != 0)
+        if (!constants_changed() && std::memcmp(core::at(pass_color_, pass).data(), pass_constants().data() + 4 * pass, 16) != 0)
             constants_changed() = true;
         const TextureImage* texture = core::at(textures, pass);
         if (!texture) {
@@ -325,7 +325,7 @@ void MaterialRef::hand_in()
         }
     }
     if (constants_changed())
-        std::memcpy(pass_constants(), pass_color_.data(), pass_count_ * 16);
+        std::memcpy(pass_constants().data(), pass_color_.data(), pass_count_ * 16);
 }
 
 // 0x004D23E0
@@ -393,7 +393,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         }
     }
     if (constants_changed())
-        std::memcpy(pass_constants(), pass_color_.data(), pass_count_ * 16);
+        std::memcpy(pass_constants().data(), pass_color_.data(), pass_count_ * 16);
 
     // the stages' colour and alpha operations
     if (static_cast<int8_t>(core::at(pass_flags_, pass) & 0xFF) < 0)

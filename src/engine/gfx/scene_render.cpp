@@ -1,5 +1,6 @@
 // Drawing a scene's meshes: see scene_render.h.
 
+#include "engine/core/checked_index.h"
 #include "engine/gfx/scene_render.h"
 
 #include <windows.h>
@@ -37,7 +38,7 @@ struct DepthOrderedMesh {
     uint32_t unused;
 };
 std::array<DepthOrderedMesh, 1000> g_sorted_meshes;
-DepthOrderedMesh* get_sorted() { return g_sorted_meshes.data(); }
+std::array<DepthOrderedMesh, 1000>& get_sorted() { return g_sorted_meshes; }
 
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t mesh_traits(const MeshRef* mesh) { return mesh->flags; }
@@ -196,14 +197,14 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             if (!pass.get_visible(mesh))
                 continue;
             pass.remember(mesh);
-            get_sorted()[sorted].mesh = mesh;
-            get_sorted()[sorted].depth = sphere_depth();
+            core::at(get_sorted(), sorted).mesh = mesh;
+            core::at(get_sorted(), sorted).depth = sphere_depth();
             ++sorted;
         }
         if (sorted > 0) {
-            get_qsort(get_sorted(), sorted, sizeof(DepthOrderedMesh), &compare_distances);
+            get_qsort(get_sorted().data(), sorted, sizeof(DepthOrderedMesh), &compare_distances);
             for (int s = 0; s < sorted; ++s)
-                pass.blit(get_sorted()[s].mesh);
+                pass.blit(core::at(get_sorted(), s).mesh);
         }
         // Then the rest.
         for (; i < scene->mesh_count_; ++i) {
