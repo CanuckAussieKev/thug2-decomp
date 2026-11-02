@@ -62,8 +62,9 @@ int& interleave4_count() { return g_suspend_interleave4_count; }
 
 void set_no_lod(float* distances)
 {
+    const std::span<float, 4> run(distances, 4);
     for (int i = 0; i < 4; ++i)
-        distances[i] = std::bit_cast<float>(core::at(kNoLodBits, i)); // (the bit patterns, as the original stored them)
+        core::at(run, i) = std::bit_cast<float>(core::at(kNoLodBits, i)); // (the bit patterns, as the original stored them)
 }
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its

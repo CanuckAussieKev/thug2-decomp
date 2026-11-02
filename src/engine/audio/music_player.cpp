@@ -204,20 +204,21 @@ void queue_track(const char* name, int list, const char* title)
     Playlist& playlist = core::at(get_playlists(), list);
     if (playlist.count >= 80)
         return;
-    char* track = core::at(playlist.tracks, playlist.count).data();
+    auto& slot_text = core::at(playlist.tracks, playlist.count);
+    char* track = slot_text.data();
     THUG2_MSVC_WARNING(suppress : 4996) // (the slot is 40 bytes; names are shorter)
     std::strcpy(track, name);
     for (size_t i = 0; i < std::strlen(track); ++i) {
-        auto c = static_cast<signed char>(track[i]);
+        auto c = static_cast<signed char>(core::at(slot_text, i));
         if (c >= 'a' && c <= 'z')
-            track[i] = static_cast<char>(c - 0x20);
+            core::at(slot_text, i) = static_cast<char>(c - 0x20);
     }
     if (list == 0) {
         char* slot = get_title(playlist.count);
         if (title) {
             THUG2_MSVC_WARNING(suppress : 4996) // (terminated by hand, as in the original)
             std::strncpy(slot, title, 100);
-            slot[99] = 0;
+            core::at(std::span<char>(slot, 100), 99) = 0;
         } else {
             std::memcpy(slot, "No title provided", 18); // "No title provided"
         }
@@ -300,12 +301,12 @@ const char* track_label_at(int track, int list)
         return first;
     }
     const char* name = core::at(core::at(get_playlists(), list).tracks, track).data();
-    const char* file = name;
-    const int length = static_cast<int>(std::strlen(name));
-    for (int i = 0; i < length; ++i)
-        if (name[i] == '\\' || name[i] == '/')
-            file = name + i + 1;
-    return file;
+    const std::string_view full(name);
+    size_t file_at = 0;
+    for (size_t i = 0; i < full.size(); ++i)
+        if (core::at(full, i) == '\\' || core::at(full, i) == '/')
+            file_at = i + 1;
+    return std::next(name, static_cast<std::ptrdiff_t>(file_at));
 }
 
 // 0x004515A0
@@ -640,18 +641,17 @@ const char* get_soundtrack_name(int index)
     auto& name = g_soundtrack_name;
     const wchar_t* wide = user_soundtrack_name(index); // (null past the last)
     if (wide) {
-        char* out = name.data();
         int length = 0;
-        for (; *wide; ++wide) {
-            std::array<wchar_t, 2> one = {{*wide, 0}};
+        for (const wchar_t unit : std::wstring_view(wide)) {
+            std::array<wchar_t, 2> one = {{unit, 0}};
             std::array<char, 12> converted{};
             wsprintfA(converted.data(), "%ls", one.data());
             if (length < 99) {
-                *out++ = core::at(converted, 0) ? core::at(converted, 0) : '~';
+                core::at(name, length) = core::at(converted, 0) ? core::at(converted, 0) : '~';
                 ++length;
             }
         }
-        *out = 0;
+        core::at(name, length) = 0;
     } else {
         std::memcpy(name.data(), "~", 2);
     }

@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <new>
 
+#include "engine/core/checked_index.h"
+
 namespace util {
 
 // 0x00401050
@@ -12,8 +14,8 @@ PackedBitBuffer::PackedBitBuffer() = default;
 // 0x00401070
 void PackedBitBuffer::change_intake_contents(void* data, int size)
 {
-    cursor_ = static_cast<uint32_t*>(data);
-    outset_ = static_cast<uint32_t*>(data);
+    words_ = std::span<uint32_t>(static_cast<uint32_t*>(data), (static_cast<size_t>(size) + 3) / 4);
+    next_word_ = 0;
     extent_ = size;
     free_bits_in_word_ = 0;
     bits_used_ = 0;
@@ -22,8 +24,8 @@ void PackedBitBuffer::change_intake_contents(void* data, int size)
 // 0x00401090
 void PackedBitBuffer::bind_output_buffer(void* data, int size)
 {
-    cursor_ = static_cast<uint32_t*>(data);
-    outset_ = static_cast<uint32_t*>(data);
+    words_ = std::span<uint32_t>(static_cast<uint32_t*>(data), (static_cast<size_t>(size) + 3) / 4);
+    next_word_ = 0;
     extent_ = size;
     free_bits_in_word_ = 32;
     bits_used_ = 0;
@@ -36,7 +38,7 @@ int PackedBitBuffer::get_byte_count() const { return (bits_used_ + 7) >> 3; }
 void PackedBitBuffer::drain()
 {
     if (free_bits_in_word_ != 32) {
-        *cursor_++ = octets_;
+        core::at(words_, next_word_++) = octets_;
         octets_ = 0;
         free_bits_in_word_ = 32;
     }
@@ -50,7 +52,7 @@ void PackedBitBuffer::write_bits(uint32_t value, int count)
         // Fill the rest of the current word, write it out, and continue with the remaining bits.
         const int used = 32 - free_bits_in_word_;
         octets_ = (octets_ & ((1u << used) - 1)) | (value << used);
-        *cursor_++ = octets_;
+        core::at(words_, next_word_++) = octets_;
         // Arithmetic shift (SAR in the original): a value with its top bit set carries ones into the next word.
         value = static_cast<uint32_t>(static_cast<int32_t>(value) >> free_bits_in_word_);
         count -= free_bits_in_word_;
@@ -61,7 +63,7 @@ void PackedBitBuffer::write_bits(uint32_t value, int count)
     free_bits_in_word_ -= count;
     octets_ = (octets_ & ((1u << used) - 1)) | (value << used);
     if (free_bits_in_word_ == 0) {
-        *cursor_++ = octets_;
+        core::at(words_, next_word_++) = octets_;
         octets_ = 0;
         free_bits_in_word_ = 32;
     }
@@ -72,7 +74,7 @@ uint32_t PackedBitBuffer::read_bits(int count)
 {
     bits_used_ += count;
     if (free_bits_in_word_ == 0) {
-        octets_ = *cursor_++;
+        octets_ = core::at(words_, next_word_++);
         free_bits_in_word_ = 32;
     }
 
@@ -88,7 +90,7 @@ uint32_t PackedBitBuffer::read_bits(int count)
 
     // The value straddles two words: low bits from this one, the rest from the next.
     const uint32_t low = octets_;
-    const uint32_t next = *cursor_++;
+    const uint32_t next = core::at(words_, next_word_++);
     const int rest = count - available;
     octets_ = next >> rest;
     free_bits_in_word_ = 32 - rest;

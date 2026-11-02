@@ -199,7 +199,7 @@ void* alloc_load_params(uint32_t /*size*/)
     for (int i = 0; i < 4; ++i) {
         if (!(params_in_use() & (1u << i))) {
             params_in_use() |= 1u << i;
-            return params_pool().data() + 0x60 * i;
+            return std::span(params_pool()).subspan(0x60 * static_cast<size_t>(i)).data();
         }
     }
     return nullptr;
@@ -209,7 +209,7 @@ void* alloc_load_params(uint32_t /*size*/)
 void free_load_params(void* params)
 {
     for (int i = 0; i < 4; ++i) {
-        if (params_pool().data() + 0x60 * i == params) {
+        if (std::span(params_pool()).subspan(0x60 * static_cast<size_t>(i)).data() == params) {
             params_in_use() &= ~(1u << i);
             return;
         }

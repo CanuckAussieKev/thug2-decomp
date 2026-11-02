@@ -349,12 +349,13 @@ bool AudioMixer::ingest_sound(const char* path, uint16_t flags, int load_type, i
     if (no_sound())
         return false;
     // the name without its folders
-    const char* name = path;
-    const int length = static_cast<int>(std::strlen(path));
-    for (int i = 0; i < length; ++i) {
-        if (path[i] == '\\' || path[i] == '/')
-            name = path + i + 1;
+    const std::string_view full(path);
+    size_t name_at = 0;
+    for (size_t i = 0; i < full.size(); ++i) {
+        if (core::at(full, i) == '\\' || core::at(full, i) == '/')
+            name_at = i + 1;
     }
+    const char* name = std::next(path, static_cast<std::ptrdiff_t>(name_at));
     const uint32_t checksum = checksums::hash_from_text(name);
     if (fetch_wave_slot(checksum))
         return false;

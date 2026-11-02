@@ -5,6 +5,8 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/raw_view.h"
+#include <span>
+#include "engine/core/checked_index.h"
 
 namespace text {
 
@@ -81,12 +83,12 @@ void Chars::copy_range(const char* text, int first, int last)
         return;
     }
 
-    if (text[first] == '\0') {
+    if (*std::next(text, first) == '\0') {
         // Empty string: a fresh 1-byte allocation. (The original records a capacity of 2 here.)
         if (octets_)
             memory::dealloc(octets_);
         octets_ = static_cast<char*>(memory::alloc(1));
-        octets_[0] = '\0';
+        *octets_ = '\0';
         capacity_ = 2;
         return;
     }
@@ -103,9 +105,10 @@ void Chars::copy_range(const char* text, int first, int last)
         octets_ = static_cast<char*>(memory::alloc(needed));
     }
     int out = 0;
+    const std::span<char> chars(octets_, static_cast<size_t>(capacity_));
     for (int i = first; i <= last; ++i)
-        octets_[out++] = text[i];
-    octets_[out] = '\0';
+        core::at(chars, out++) = *std::next(text, i);
+    core::at(chars, out) = '\0';
 }
 
 } // namespace text

@@ -163,7 +163,7 @@ void HostEnd::poll_input_sinks()
         set_buttons(content_, data_in_->buttons_);
         std::memcpy(content_.incident_.data(), data_in_->incident_.data(), sizeof(content_.incident_));
         handlers_.work_on(nullptr);
-        ++data_in_;
+        data_in_ = std::next(data_in_);
         return;
     }
     const sio::InputPort* device = dev_;
@@ -205,7 +205,7 @@ void HostEnd::poll_input_sinks()
         data_out_->buttons_ = content_.ongoing_;
         data_out_->is_usable_ = 1;
         std::memcpy(data_out_->incident_.data(), content_.incident_.data(), sizeof(content_.incident_));
-        ++data_out_;
+        data_out_ = std::next(data_out_);
     }
     if (dev_) {
         core::at(device_buttons(), dev_->ordinal_) = content_.buttons_;

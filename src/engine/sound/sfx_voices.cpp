@@ -707,8 +707,8 @@ bool load_wave(const char* path, uint32_t /*checksum*/, SoundWaveSlot* entry, in
     auto& file_name = g_wave_file_name;
     const size_t length = std::strlen(path);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
-    std::memcpy(file_name.data() + 12, path, length);
-    std::memcpy(file_name.data() + 12 + length, ".snd", 5);
+    std::memcpy(std::span(file_name).subspan(12).data(), path, length);
+    std::memcpy(std::span(file_name).subspan(12 + length).data(), ".snd", 5);
     auto* wave = static_cast<PcWave*>(memory::alloc(sizeof(PcWave)));
     if (wave) {
         wave->data_size_ = 0;
@@ -878,7 +878,7 @@ int play_voice(const SoundWaveSlot* entry, VolumeRef* volume, float pitch)
             DS_OK) {
             std::memcpy(first, wave->data, first_bytes);
             if (second)
-                std::memcpy(second, wave->data + first_bytes, second_bytes);
+                std::memcpy(second, std::span<const uint8_t>(wave->data, wave->desc_bytes_).subspan(first_bytes).data(), second_bytes);
             created->Unlock(first, first_bytes, second, second_bytes);
         }
         voice.wave = wave;

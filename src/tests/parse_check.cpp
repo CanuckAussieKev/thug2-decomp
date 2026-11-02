@@ -64,9 +64,10 @@ int main(int argc, char** argv)
         "2.4703282292062327e-324", "+.e5", "0e0", "00.00e00"};
     for (const std::string& text : fixed)
         check(text);
-    const int count = argc > 1 ? text::to_int(argv[1]) : 200000;
+    const std::span<char*> arguments(argv, static_cast<size_t>(argc));
+    const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;
     // the same texts every run unless another seed is given
-    const auto seed = static_cast<std::mt19937::result_type>(argc > 2 ? text::to_int(argv[2]) : 12345);
+    const auto seed = static_cast<std::mt19937::result_type>(argc > 2 ? text::to_int(core::at(arguments, 2)) : 12345);
     std::mt19937 random(seed);
     const auto alphabet = std::to_array(" \t+-0123456789012345678901234567890123456789..eEexXpPabcfinINFNAN");
     std::uniform_int_distribution<int> length(0, 24);

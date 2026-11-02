@@ -18,6 +18,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include <string_view>
 
 namespace assets {
 
@@ -47,7 +48,7 @@ const std::array<ExtensionType, 13>& get_extensions() { return g_extensions; }
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 {
-    for (const lists::KeyMap::Item* item = &table->buckets_[((1u << table->bits_) - 1) & checksum]; item;
+    for (const lists::KeyMap::Item* item = &core::at(table->bucket_run(), ((1u << table->bits_) - 1) & checksum); item;
          item = item->next) {
         if (item->key == checksum && item->value)
             return static_cast<Resource*>(item->value);
@@ -434,14 +435,15 @@ bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)
 // 0x004079C0
 int ResourceRegistry::get_type_from_extension(const char* name)
 {
-    const char* dot = name + std::strlen(name);
-    while (dot > name && *dot != '.')
-        --dot;
-    if (*dot != '.')
+    const size_t dot = std::string_view(name).rfind('.');
+    if (dot == std::string_view::npos)
         return 0;
-    for (const ExtensionType* entry = get_extensions().data(); entry->extension; ++entry) {
-        if (_stricmp(entry->extension, dot + 1) == 0)
-            return entry->type;
+    // (the table ends with an entry without an extension; the original would have read on past it without one)
+    for (const ExtensionType& entry : get_extensions()) {
+        if (!entry.extension)
+            break;
+        if (_stricmp(entry.extension, std::next(name, static_cast<std::ptrdiff_t>(dot + 1))) == 0)
+            return entry.type;
     }
     return 0;
 }

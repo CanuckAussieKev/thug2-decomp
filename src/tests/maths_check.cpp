@@ -65,14 +65,16 @@ float atan2_less_quarter_turn(float y, float x)
     return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)) - 1.5707963705062866f);
 }
 // pc_material.cpp
-uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* to)
+uint32_t blend_key_colors(int num, int den, const uint8_t* from_bytes, const uint8_t* to_bytes)
 {
+    const std::span<const uint8_t, 4> from(from_bytes, 4);
+    const std::span<const uint8_t, 4> to(to_bytes, 4);
     static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     const double f = static_cast<double>(num) / den;
     const double rest = 1.0 - f;
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
-        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(to[core::at(kOrder, k)] * f + from[core::at(kOrder, k)] * rest));
+        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(core::at(to, core::at(kOrder, k)) * f + core::at(from, core::at(kOrder, k)) * rest));
         color = k ? (color << 8 | value) : value;
     }
     return color;
@@ -179,14 +181,15 @@ struct Skin {
 };
 // One formula for both: the original's two loaders differ only in which sums and products their x87 code
 // rounded to float.
-void skin(const Skin& v, float* out)
+void skin(const Skin& v, float* out_floats)
 {
+    const std::span<float, 3> out(out_floats, 3);
     const float ax = core::at(v.p, 0) + core::at(v.e0, 0) * core::at(v.a, 0), ay = core::at(v.p, 1) + core::at(v.e0, 2) * core::at(v.a, 1), az = core::at(v.p, 2) + core::at(v.e0, 1) * core::at(v.a, 2);
     const float bx = core::at(v.q, 0) + core::at(v.e1, 0) * core::at(v.b, 0), by = core::at(v.q, 1) + core::at(v.e1, 2) * core::at(v.b, 1), bz = core::at(v.q, 2) + core::at(v.e1, 1) * core::at(v.b, 2);
     const float cx = core::at(v.r, 0) + core::at(v.e2, 0) * core::at(v.c, 0), cy = core::at(v.r, 1) + core::at(v.e2, 2) * core::at(v.c, 1), cz = core::at(v.r, 2) + core::at(v.e2, 1) * core::at(v.c, 2);
-    out[0] = ax * core::at(v.s, 0) + bx * core::at(v.s, 1) + cx * core::at(v.s, 2);
-    out[1] = ay * core::at(v.s, 0) + by * core::at(v.s, 1) + cy * core::at(v.s, 2);
-    out[2] = az * core::at(v.s, 0) + bz * core::at(v.s, 1) + cz * core::at(v.s, 2);
+    core::at(out, 0) = ax * core::at(v.s, 0) + bx * core::at(v.s, 1) + cx * core::at(v.s, 2);
+    core::at(out, 1) = ay * core::at(v.s, 0) + by * core::at(v.s, 1) + cy * core::at(v.s, 2);
+    core::at(out, 2) = az * core::at(v.s, 0) + bz * core::at(v.s, 1) + cz * core::at(v.s, 2);
 }
 
 } // namespace fresh
@@ -570,8 +573,10 @@ float atan2_less_quarter_turn(float y, float x)
         fstp result }
     return result;
 }
-uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* to)
+uint32_t blend_key_colors(int num, int den, const uint8_t* from_bytes, const uint8_t* to_bytes)
 {
+    const std::span<const uint8_t, 4> from(from_bytes, 4);
+    const std::span<const uint8_t, 4> to(to_bytes, 4);
     static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     uint32_t color = 0;
     double scratch = 0;
@@ -584,8 +589,8 @@ uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* 
     }
     for (int k = 0; k < 4; ++k)
     {
-        int a = to[core::at(kOrder, k)];
-        int b = from[core::at(kOrder, k)];
+        int a = core::at(to, core::at(kOrder, k));
+        int b = core::at(from, core::at(kOrder, k));
         int64_t value = 0;
         __asm {
             fild a
@@ -916,8 +921,9 @@ void versine_sine(float angle, double* out_t, float* out_s)
     *out_t = t;
     *out_s = s;
 }
-void skin_memory(const fresh::Skin& v, float* out)
+void skin_memory(const fresh::Skin& v, float* out_floats)
 {
+    const std::span<float, 3> out(out_floats, 3);
     float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1), e1_8 = core::at(v.e1, 2);
     float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2);
     // NOLINTNEXTLINE(readability-identifier-naming): ax / bx / cx are register names in the inline assembly
@@ -1030,12 +1036,13 @@ void skin_memory(const fresh::Skin& v, float* out)
         fstp out_y
         fstp st(0)
     }
-    out[0] = out_x;
-    out[1] = out_y;
-    out[2] = out_z;
+    core::at(out, 0) = out_x;
+    core::at(out, 1) = out_y;
+    core::at(out, 2) = out_z;
 }
-void skin_file(const fresh::Skin& v, float* out)
+void skin_file(const fresh::Skin& v, float* out_floats)
 {
+    const std::span<float, 3> out(out_floats, 3);
     float e0_0 = core::at(v.e0, 0), e0_4 = core::at(v.e0, 1), e0_8 = core::at(v.e0, 2), e0_c = core::at(v.e0, 3), e1_0 = core::at(v.e1, 0), e1_4 = core::at(v.e1, 1),
           e1_8 = core::at(v.e1, 2), e1_c = core::at(v.e1, 3);
     float e2_0 = core::at(v.e2, 0), e2_4 = core::at(v.e2, 1), e2_8 = core::at(v.e2, 2), e2_c = core::at(v.e2, 3);
@@ -1171,9 +1178,9 @@ void skin_file(const fresh::Skin& v, float* out)
         fstp out_x
         fstp out_y
     }
-    out[0] = out_x;
-    out[1] = out_y;
-    out[2] = out_z;
+    core::at(out, 0) = out_x;
+    core::at(out, 1) = out_y;
+    core::at(out, 2) = out_z;
 }
 
 } // namespace ref
@@ -1459,7 +1466,8 @@ void run(int count, std::mt19937_64& random)
 int main(int argc, char** argv)
 {
 #ifdef THUG2_X87_REFERENCE
-    const int count = argc > 1 ? text::to_int(argv[1]) : 200000;
+    const std::span<char*> arguments(argv, static_cast<size_t>(argc));
+    const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;
     // NOLINTNEXTLINE(bugprone-random-generator-seed): the original's seed / a test's fixed sequence
     std::mt19937_64 random(20261101);
     std::printf("x87 at 53 bits (the default control word)\n");

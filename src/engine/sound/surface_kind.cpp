@@ -24,6 +24,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <string_view>
 
 namespace surface_kind {
 
@@ -201,13 +202,14 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
         return false;
     // (copied unchecked, as the original)
     int length = 0;
-    while ((core::at(info->name, length) = sound[length]) != '\0')
-        ++length;
+    for (const char c : std::string_view(sound))
+        core::at(info->name, length++) = c;
+    core::at(info->name, length) = '\0';
     // the checksum of the name without its folders
     const char* base = info->name.data();
     for (int i = 0; i < length; ++i) {
         if (core::at(info->name, i) == '\\' || core::at(info->name, i) == '/')
-            base = info->name.data() + i + 1;
+            base = std::next(info->name.data(), i + 1);
     }
     info->checksum = checksums::hash_from_text(base);
     sound_action->fetch_float(kMaxPitch, &info->max_pitch_, 0);

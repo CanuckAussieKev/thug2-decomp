@@ -282,7 +282,7 @@ uint8_t* StaticCollider::take_buffer(uint8_t* block, const TriMeshSource* geomet
     if (geometry->small_faces_)
         return block;
     octets_ = block;
-    return block + geometry->tri_count_;
+    return std::span<uint8_t>(block, geometry->tri_count_).subspan(geometry->tri_count_).data();
 }
 
 // 0x004182D0

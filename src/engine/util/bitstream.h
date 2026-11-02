@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 
 namespace util {
 
@@ -27,8 +28,8 @@ public:
     // any negative value comes back as -1.)
     int32_t read_signed_bits(int count);
 
-    uint32_t* cursor_{nullptr}; // next word to read/write
-    uint32_t* outset_{nullptr}; // start of the data
+    std::span<uint32_t> words_;  // the data as words (the last one may be a partial one's room)
+    size_t next_word_{0};        // the next word to read/write
     uint32_t octets_{0};        // bits waiting to be written / not yet read
     int free_bits_in_word_{32}; // writing: free bits in octets_ (32 = empty); reading: unread bits (0 = empty)
     int extent_{0};             // size of the data in bytes
