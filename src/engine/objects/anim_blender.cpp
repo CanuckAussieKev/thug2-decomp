@@ -4,7 +4,6 @@
 
 #include <bit>
 #include <cstdint>
-#include <cstring>
 #include <gsl/pointers>
 #include <array>
 #include <span>
@@ -24,7 +23,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/lists/chain_start.h"
 #include "game/rider/thaw_bmx.h"
-#include "platform/code_address.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"

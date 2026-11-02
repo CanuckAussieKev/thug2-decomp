@@ -13,9 +13,7 @@
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -34,7 +32,6 @@
 #include "wire/skater_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"

@@ -7,8 +7,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/render/coll_rect.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/entity.h"
@@ -21,7 +19,6 @@
 #include "engine/objects/trigger_events.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

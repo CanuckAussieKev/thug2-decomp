@@ -3,7 +3,6 @@
 #include "engine/objects/fam.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <gsl/pointers>
 #include <array>
 
@@ -11,8 +10,6 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/audio/music_api.h"
 #include "engine/audio/stream_commands.h"
@@ -25,7 +22,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/format.h"
 

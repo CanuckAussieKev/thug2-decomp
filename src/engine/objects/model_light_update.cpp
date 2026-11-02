@@ -7,8 +7,6 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/model_component.h"

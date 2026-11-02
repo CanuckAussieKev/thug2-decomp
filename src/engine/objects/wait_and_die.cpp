@@ -4,7 +4,6 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"

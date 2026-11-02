@@ -1,7 +1,5 @@
 // Smart pointers: each object keeps a list of the smart pointers to it.
 
-#include <cstdint>
-
 #include "engine/objects/smtptr.h"
 
 namespace objects {

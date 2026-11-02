@@ -14,13 +14,10 @@
 #include <array>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/motion_path.h"
-#include "engine/objects/smtptr.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"

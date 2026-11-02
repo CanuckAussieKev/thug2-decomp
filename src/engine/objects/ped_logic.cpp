@@ -12,8 +12,6 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/motion.h"
 #include "engine/objects/motion_path.h"

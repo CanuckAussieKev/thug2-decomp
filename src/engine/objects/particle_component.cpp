@@ -9,10 +9,7 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/gfx/particle_sets.h"
-#include "engine/gfx/pc_particles.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/net/gamenet_manager.h"

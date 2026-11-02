@@ -27,7 +27,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/compositemgr.h"
-#include "game/park_editing/piece_menu.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"

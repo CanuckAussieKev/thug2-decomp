@@ -19,9 +19,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/gfx/viewport.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/car_physics.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>

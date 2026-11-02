@@ -14,7 +14,6 @@
 #include "engine/render/coll_obj.h"
 #include "engine/net/buddy_status.h"
 #include "engine/objects/compositemgr.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"

@@ -11,7 +11,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <array>
 #include <span>
 
 #include "engine/core/dbg.h"

@@ -4,7 +4,6 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/text_store.h"
 #include "engine/gfx/model.h"
@@ -21,7 +20,6 @@
 #include "engine/objects/motion.h"
 #include "engine/objects/motion_path.h"
 #include "engine/objects/object_proximity.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
 #include "engine/objects/suspend_component.h"
@@ -32,7 +30,6 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/path_follower.h"
 #include <gsl/pointers>
-#include <array>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

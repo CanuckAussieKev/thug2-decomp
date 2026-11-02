@@ -7,11 +7,8 @@
 
 #include <bit>
 #include <cstdint>
-#include <cstring>
 #include <gsl/pointers>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"

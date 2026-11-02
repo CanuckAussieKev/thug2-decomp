@@ -8,7 +8,6 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
-#include "engine/objects/smtptr.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {

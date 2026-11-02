@@ -28,7 +28,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/model_light_update.h"
 #include "engine/objects/motion.h"
-#include "engine/objects/motion_path.h"
 #include "engine/objects/movable_contact.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/object_proximity.h"
@@ -84,8 +83,6 @@
 #include "engine/objects/vehicle_wheel.h"
 #include "engine/objects/walk_hang.h"
 #include "engine/objects/compositemgr.h"
-#include "platform/code_address.h"
-
 namespace objects {
 
 namespace {

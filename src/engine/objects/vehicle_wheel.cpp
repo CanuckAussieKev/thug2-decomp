@@ -9,8 +9,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/pointer_cell.h"
-
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 10> g_vehicle_wheel_member_functions{{

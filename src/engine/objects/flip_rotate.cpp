@@ -5,17 +5,13 @@
 #include "engine/gfx/rig.h"
 
 #include <cstdint>
-#include <cstring>
 #include <array>
 
-#include "engine/core/manager.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/vehicle_component.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
-#include "engine/core/stubs.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/flip_and_rotate.h"

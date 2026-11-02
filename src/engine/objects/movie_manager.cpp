@@ -3,12 +3,9 @@
 #include "engine/objects/movie_manager.h"
 
 #include <cstdint>
-#include <initializer_list>
-
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/viewport.h"
@@ -22,9 +19,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
 #include "engine/objects/entity.h"
-#include "engine/core/stubs.h"
 #include "engine/core/arena_alloc.h"
 #include <gsl/pointers>
 

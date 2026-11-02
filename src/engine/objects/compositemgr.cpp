@@ -18,15 +18,12 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
-#include "platform/code_address.h"
 #include "engine/objects/entity_hub.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/objects/cutscene_list_cfuncs.h"
 #include "engine/sys/startup_init.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/lists/pointer_ring.h"
 

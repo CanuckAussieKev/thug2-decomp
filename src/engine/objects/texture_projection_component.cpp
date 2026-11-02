@@ -4,14 +4,12 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/engine_texture_projection.h"
 #include "engine/gfx/pc_texture_projection.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"

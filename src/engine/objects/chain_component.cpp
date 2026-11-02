@@ -1,7 +1,6 @@
 // The chain component (GameObjects::ChainComponent, chain_component.h): ropes of links hung from an object's bones.
 
 #include "engine/objects/chain_component.h"
-#include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/pc_primitive.h"
 #include "engine/gfx/rig.h"
 
@@ -25,7 +24,6 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

@@ -3,7 +3,6 @@
 #include "engine/objects/node_components.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <gsl/pointers>
 #include <array>

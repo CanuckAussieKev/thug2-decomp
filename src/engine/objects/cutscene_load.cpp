@@ -1,9 +1,6 @@
 // Cutscenes: the data's constructor and the objects a cutscene adds (0x004645A0-0x00465502). See cutscene.h.
 
 #include <cstdint>
-#include <cstring>
-#include <array>
-
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/frame_source.h"
@@ -14,7 +11,6 @@
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 #include "engine/assets/resource_registry.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/net/buddy_status.h"
@@ -23,7 +19,6 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/gfx/scene_load.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/skeleton_component.h"

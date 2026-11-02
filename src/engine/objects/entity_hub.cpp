@@ -6,7 +6,6 @@
 #include <memory>
 #include <cstdint>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/lists/chain_start.h"
@@ -16,8 +15,6 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/entity.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
-
 namespace objects {
 
 uint32_t g_tracker_references;

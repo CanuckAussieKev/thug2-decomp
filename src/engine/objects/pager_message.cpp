@@ -18,9 +18,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
-
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 6> g_pager_message_member_functions{{

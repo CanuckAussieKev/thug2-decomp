@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/render/probe_ray.h"
 #include "engine/script/cscript.h"
@@ -21,7 +19,6 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/suspend_component.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {

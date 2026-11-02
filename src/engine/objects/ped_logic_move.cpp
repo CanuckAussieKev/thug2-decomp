@@ -13,7 +13,6 @@
 #include "engine/objects/smtptr.h"
 #include "game/rider/rider.h"
 #include "platform/d3dx.h"
-#include "engine/core/manager.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"

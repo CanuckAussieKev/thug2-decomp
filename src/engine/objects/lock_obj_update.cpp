@@ -7,21 +7,15 @@
 #include <cstdint>
 #include <gsl/pointers>
 
-#include "engine/core/manager.h"
 #include "platform/d3dx.h"
-#include "engine/core/mem.h"
 #include "engine/gfx/rig.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/lock_obj.h"
 #include "engine/objects/model_component.h"
-#include "engine/objects/entity_hub.h"
 #include "platform/stopwatch.h"
-#include "engine/objects/car_physics.h"
-#include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/camera_lookaround.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

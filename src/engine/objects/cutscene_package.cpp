@@ -36,7 +36,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
 #include "engine/gfx/loading_console.h"
-#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/cutscene.h"
 #include <gsl/pointers>

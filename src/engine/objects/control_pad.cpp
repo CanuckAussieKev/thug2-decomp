@@ -5,7 +5,6 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "engine/core/checksums.h"

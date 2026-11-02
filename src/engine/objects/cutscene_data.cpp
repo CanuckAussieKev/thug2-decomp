@@ -1,6 +1,5 @@
 // Cutscenes: the cutscene's objects, assets, lights, camera and poses (0x00463AA0-0x0046449B). See cutscene.h.
 
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -26,7 +25,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/compositemgr.h"
-#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
 #include "engine/objects/skeleton_component.h"

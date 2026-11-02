@@ -8,7 +8,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "engine/gfx/engine_geom.h"

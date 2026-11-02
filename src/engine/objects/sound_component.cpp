@@ -3,11 +3,9 @@
 #include "engine/objects/sound_component.h"
 
 #include <cstdint>
-#include <cstring>
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/viewport.h"

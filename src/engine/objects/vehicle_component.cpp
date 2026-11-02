@@ -21,8 +21,6 @@
 #include <vector>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/debug_lines.h"
 #include "engine/maths/mat4.h"
@@ -36,7 +34,6 @@
 #include "game/rider/rider.h"
 #include "platform/stopwatch.h"
 #include "game/park_editing/park_editor.h"
-#include "platform/code_address.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/entity.h"

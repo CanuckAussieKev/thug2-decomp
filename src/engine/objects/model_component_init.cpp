@@ -22,7 +22,6 @@
 #include "engine/objects/anim_blender.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/model_component.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checksums.h"
 #include "engine/core/str.h"

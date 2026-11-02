@@ -5,8 +5,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <span>
-
 #include "engine/maths/shape_tests.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_sphere.h"

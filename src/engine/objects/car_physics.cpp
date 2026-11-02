@@ -13,8 +13,6 @@
 #include <array>
 #include <span>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/vec4.h"
@@ -27,7 +25,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "platform/crt.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/rig.h"

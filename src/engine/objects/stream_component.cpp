@@ -6,8 +6,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/emitter_object.h"
 #include "engine/objects/proximity.h"
@@ -22,8 +20,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
-
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 5> g_stream_component_member_functions{{

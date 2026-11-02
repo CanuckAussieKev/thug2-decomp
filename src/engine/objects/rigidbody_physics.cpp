@@ -19,7 +19,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "platform/stopwatch.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace objects {

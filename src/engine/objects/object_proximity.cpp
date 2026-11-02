@@ -5,11 +5,9 @@
 
 #include <bit>
 #include <cstdint>
-#include <cstring>
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -19,8 +17,6 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "game/rider/rider.h"
 
 namespace objects {

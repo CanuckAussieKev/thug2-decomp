@@ -4,7 +4,6 @@
 #include "engine/objects/walk_hang.h"
 
 #include <array>
-#include <bit>
 #include <cmath>
 #include <cstdint>
 
@@ -31,7 +30,6 @@
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"
-#include "platform/code_address.h"
 #include "engine/objects/trigger_events.h"
 #include "engine/objects/wait_and_die.h"
 #include "game/rider/skater_state.h"

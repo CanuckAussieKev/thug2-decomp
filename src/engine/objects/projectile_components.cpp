@@ -10,8 +10,6 @@
 #include <gsl/pointers>
 #include <array>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/net/buddy_status.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
@@ -36,7 +34,6 @@
 #include "game/rider/core_physics.h"
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {
