@@ -127,7 +127,7 @@ struct RowAnim {
 enum class Screen : uint8_t {
     kMain,    // the root in the front end
     kOptions, // thug2-decomp.ini's settings (new_frontend_options.h) and the game's GAME OPTIONS
-    kLevels,  // the level select (Free Skate, the pause menu's Change level, the Level Editor's level)
+    kLevels,  // the level select (Free Skate, the pause menu's Change level, the Level Editor's level, a network game's)
     kFreeze,  // the root in a level
 };
 constexpr int kScreens = 4;
@@ -148,7 +148,10 @@ enum class ActionKind : uint8_t {
     kOption,      // option: an index into Options::get_specs(), value: its choice
     kSkate,       // load; levels: what the level select was opened for
 };
-enum class LevelsFor : uint8_t { kFreeSkate, kFreeze, kEdit };
+// What the level select was opened for: Free Skate, the pause menu's change of level, the Level Editor's level, or a
+// network game's level (the game's own level select made for the host options' Level or a network lobby's CHANGE
+// LEVEL - ours over it, the choice handed to that select's own scripts).
+enum class LevelsFor : uint8_t { kFreeSkate, kFreeze, kEdit, kNet };
 struct ActStep {
     ActionKind kind = ActionKind::kNone;
     std::string load;
@@ -264,6 +267,7 @@ private:
     void get_go(Screen screen);
     void stack_off();
     void get_show(Screen screen); // (the wipe's half-way)
+    void cut_to(Screen screen);   // (a change of screen without the wipe: over a level)
     [[nodiscard]] int list_count() const;
     ActStep move_to(int index);
     ActStep move_by(int step);

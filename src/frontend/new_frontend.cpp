@@ -532,24 +532,25 @@ bool respect_locks() { return GetPrivateProfileIntA("frontend", "respect_locks",
 // Whether a level is unlocked, as the game's level select decides it outside a career (level_select_menu_add_item,
 // gamemenu_levelselect.qb): every level when all_levels_unlocked is 1 (the cheat); else its seen_flag when it has one
 // (level_select_should_use_seen_flags - free skate and single session use the seen flags), else its flag; no flag:
-// open. Every level when respect_locks is off.
-bool get_unlocked(const StageMap& level)
+// open. Every level when respect_locks is off - except for a network game (`game_rules`): its level select keeps the
+// game's rules always, as the game's own does.
+bool get_unlocked(const StageMap& level, bool game_rules)
 {
-    if (!respect_locks() || script_integer("all_levels_unlocked") == 1)
+    if ((!game_rules && !respect_locks()) || script_integer("all_levels_unlocked") == 1)
         return true;
     const int flag = script_integer(level.seen_flag_.empty() ? level.flag : level.seen_flag_);
     objects::RiderStoryProgress* career = get_career();
     return flag < 0 || !career || career->get_global_flag(flag);
 }
 
-std::vector<SectionView> get_views()
+std::vector<SectionView> get_views(bool game_rules = false)
 {
     std::vector<SectionView> views;
     for (const Section& section : s_catalogue.sections) {
         SectionView view;
         for (size_t i = 0; i < section.levels.size(); ++i) {
             const StageMap& level = core::at(section.levels, i);
-            const bool unlocked = get_unlocked(level);
+            const bool unlocked = get_unlocked(level, game_rules);
             // (the game's select drops hide_when_locked outside a career when it uses the seen flags: listed, locked)
             if (!unlocked && level.hide_when_locked_ && level.seen_flag_.empty())
                 continue;
@@ -694,7 +695,7 @@ void apply_option(int option, int choice)
         else if (std::strcmp(spec.key, "level_editor") == 0)
             level_editor::is_switched_on() = on;
         else if (std::strcmp(spec.key, "respect_locks") == 0)
-            menu_state().set_views(get_views());
+            menu_state().set_views(get_views(menu_state().levels_purpose() == LevelsFor::kNet));
     } else if (std::cmp_less(option, s_restart_pending.size())) {
         core::at(s_restart_pending, option) = core::at(s_start_values, option) != value;
     }
@@ -918,6 +919,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
     static const uint32_t kLeft = name_hash("left_arrow"), kRight = name_hash("right_arrow");
     static const uint32_t kUp = name_hash("up_arrow");
     static const uint32_t kHueArrow = name_hash("hue_up_arrow");
+    static const uint32_t kStar = name_hash("star"), kCircle = name_hash("circle");
     static const auto kColourArrows = std::to_array<uint32_t>({name_hash("hue_up_arrow"), name_hash("saturation_up_arrow"),
                                              name_hash("value_up_arrow"), name_hash("alpha_up_arrow")});
     for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
@@ -943,6 +945,18 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                                      : id == core::at(kColourArrows, 2) ? 3
                                      : id == core::at(kColourArrows, 3) ? 4
                                                               : 0;
+            }
+            if (item->stat_index_ >= 0 && (texture == kStar || texture == kCircle)) {
+                // A stat's star (build_stat_slider: ten of them; stats_menu_update_row lights the first `value` in
+                // stats_menu_star_highlight [85 85 0], the rest stats_menu_star_lowlight [10 10 10] - the story's earned
+                // but unspent ones lit at alpha 0.3)
+                item->stat_value_ = std::max(item->stat_value_, 0);
+                item->stat_cap_ = std::max(item->stat_cap_, 0);
+                if (core::at(e->aim_point_.rgba, 0) >= 40) {
+                    ++item->stat_cap_;
+                    if (e->aim_point_.alpha > 0.6f)
+                        ++item->stat_value_;
+                }
             }
             if (texture == kCheckbox && get_visible(e)) {
                 item->checkbox = 0;
@@ -1097,6 +1111,119 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
                 read.extra_texts_.push_back(text);
         }
     }
+    return read;
+}
+
+// --- the stats screen (EDIT STATS, the story's STATS) ---
+
+// The stat a stats screen's row stands for (stats_menu_add_item: its id stats_menu_names_<n>); -1 for any other element.
+int stat_row_index(uint32_t id)
+{
+    static const std::array<uint32_t, 16> kIds = [] {
+        std::array<uint32_t, 16> ids{};
+        for (size_t i = 0; i < ids.size(); ++i) {
+            std::array<char, 32> name{};
+            std::snprintf(name.data(), name.size(), "stats_menu_names_%u", static_cast<unsigned>(i));
+            core::at(ids, i) = name_hash(name.data());
+        }
+        return ids;
+    }();
+    for (size_t i = 0; i < kIds.size(); ++i)
+        if (core::at(kIds, i) == id)
+            return static_cast<int>(i);
+    return -1;
+}
+
+bool has_stat_rows(const UiWidget* menu)
+{
+    for (const UiWidget* child = menu ? first_child(menu) : nullptr; child; child = get_next(child))
+        if (stat_row_index(id_of_element(child)) >= 0)
+            return true;
+    return false;
+}
+
+// Whether the stats screen is up: its menu takes the pad (classic_stats_vmenu, the story's sub_vmenu / sub_vmenu2), or
+// the story's stat is being changed (stats_menu_build_change_menu: its change_stat_sub_anchor takes the pad - no stats
+// menu does then).
+bool stats_screen_up(const UiWidget* menu)
+{
+    return has_stat_rows(menu) || game_screens::get_find(name_hash("change_stat_sub_anchor")) != nullptr;
+}
+
+// The stats screen read: every stat row of its menus (the story's two columns both), what the stars show, the row
+// selected (the one with the pad, or the one being changed), the screen's other words. The game's scripts do the rest:
+// Left / Right reach its own handlers (stats_change_menu_left / right, the story's column change), Back its pad_back.
+mirror::MenuRead read_stats(UiWidget* active)
+{
+    mirror::MenuRead read;
+    read.found = true;
+    read.stats_screen_ = true;
+    read.in_level_ = !in_front_end();
+    const UiWidget* editing = game_screens::get_find(name_hash("change_stat_sub_anchor"));
+    read.stats_editing_ = editing != nullptr;
+    const UiWidget* editing_row = editing ? editing->container_.get_pull() : nullptr;
+    static const uint32_t kColumn1 = name_hash("sub_vmenu"), kColumn2 = name_hash("sub_vmenu2");
+    std::vector<const UiWidget*> menus;
+    if (has_stat_rows(active) && id_of_element(active) != kColumn1 && id_of_element(active) != kColumn2) {
+        menus.push_back(active);
+    } else {
+        for (const uint32_t column : {kColumn1, kColumn2})
+            if (const UiWidget* m = game_screens::get_find(column); m && has_stat_rows(m))
+                menus.push_back(m);
+    }
+    if (menus.empty())
+        return read;
+    read.menu_id_ = id_of_element(menus.front());
+    read.menu_key_ = menus.front();
+    int budget = 4096;
+    int selected_stat = -1;
+    for (size_t column = 0; column < menus.size(); ++column) {
+        const UiWidget* menu = core::at(menus, column);
+        const bool takes_pad = menu == active && !editing;
+        const int selected = takes_pad ? mouse_menus::selected_index(menu) : -1;
+        int index = 0;
+        for (const UiWidget* child = first_child(menu); child && index < 32; child = get_next(child), ++index) {
+            const int stat = stat_row_index(id_of_element(child));
+            if (stat < 0)
+                continue;
+            mirror::ItemRead item;
+            item.id = id_of_element(child);
+            item.focusable = mouse_menus::item_focusable(child);
+            item.stat_index_ = stat;
+            item.stat_column_ = static_cast<int>(column);
+            item.stat_child_ = takes_pad ? index : -1;
+            collect_texts(child, &item.texts, {}, &budget, false);
+            int value_budget = 256;
+            if (const UiWidget* first = first_child(child))
+                read_value_sprites(first, &item, &value_budget);
+            if ((takes_pad && index == selected) || child == editing_row)
+                selected_stat = stat;
+            read.items.push_back(std::move(item));
+        }
+    }
+    std::ranges::stable_sort(read.items, {}, &mirror::ItemRead::stat_index_);
+    for (size_t i = 0; i < read.items.size(); ++i)
+        if (core::at(read.items, i).stat_index_ == selected_stat)
+            read.stats_selected_ = static_cast<int>(i);
+    // The other words: the screen's texts (the points left, the description, the story's goals) - the stats menus and the
+    // helper text left out.
+    if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
+        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars_ && get_visible(title))
+            read.title = core::down_cast<LabelWidget>(title)->chars_;
+    const UiWidget* root = root_element();
+    const UiWidget* screen = menus.front();
+    for (int guard = 0; screen && guard < 64; ++guard) {
+        const UiWidget* parent = screen->container_.get_pull();
+        if (!parent || parent == root)
+            break;
+        screen = parent;
+    }
+    std::vector<const UiWidget*> skip(menus.begin(), menus.end());
+    for (const char* id : {"helper_text_anchor", "title_text"})
+        if (const UiWidget* e = game_screens::get_find(name_hash(id)))
+            skip.push_back(e);
+    if (screen)
+        collect_texts(screen, &read.extra_texts_, skip, &budget, true);
     return read;
 }
 
@@ -1300,6 +1427,31 @@ bool dialog_up()
     return in_dialog;
 }
 
+// --- a network game's level select ---
+// The game's own level select made for a network game (gamemenu_levelselect.qb's create_level_select_menu): from the
+// host options' Level item in the front end (create_network_host_options_menu sets in_server_options to 1; a choice
+// is level_select_menu_exit, which sets the network preference "level" - select_host_option - and makes the host
+// options again; Back is network_level_select_pad_back), or from a network lobby's CHANGE LEVEL (the host's pause menu,
+// in_server_options 0: a choice is level_select_change_level - in a network game ChangeLevel for everyone, with
+// show_warning; Back is level_select_menu_exit, the pause menu again). Its levels are the same lists as free skate's
+// (level_select_get_section_list: only the edited levels' section left out - never in our data), its locks the
+// seen flags (level_select_should_use_seen_flags: not a career). Ours takes it while it is up with nothing over it:
+// level_select_anchor and its level_menu there, neither the created park's menu nor the pre-made parks' list (the
+// game's own, for CREATED PARK), no dialog. The original select stays under ours, hidden, until its own scripts take
+// it down.
+bool net_level_select_up()
+{
+    if (!s_catalogue_ok || s_catalogue.sections.empty() || !current_load_state() || loading_screen_up())
+        return false;
+    if (!game_screens::get_find(name_hash("level_select_anchor")) || !game_screens::get_find(name_hash("level_menu")))
+        return false;
+    if (game_screens::get_find(name_hash("created_park_menu")) || game_screens::get_find(name_hash("premade_park_menu")))
+        return false;
+    if (script_integer("in_server_options") != 1 && !game_screens::net_session())
+        return false;
+    return !dialog_up();
+}
+
 mirror::Policy mirror_policy()
 {
     mirror::Policy policy;
@@ -1328,15 +1480,23 @@ mirror::View mirror_now()
     if (!current_load_state() || loading_screen_up() || (game_screens::net_session() && !policy.online) ||
         level_editor::live_now())
         return {};
+    // (a network game's level select: ours, never restyled as a list)
+    if (net_level_select_up())
+        return {};
     bool in_dialog = false;
     UiWidget* menu = active_menu(&in_dialog);
-    // (none takes the pad yet, paused or in the front end: the menu being made - restyled from its first frame, never
-    // drawn as the game makes it while it animates in; half a second at most for each menu - one that still doesn't
-    // take the pad belongs to a screen worked some other way, left as the game made it)
+    // (none takes the pad yet, paused, in the front end or with a menu's anchor up: the menu being made - restyled from
+    // its first frame, never drawn as the game makes it while it animates in; half a second at most for each menu - one
+    // that still doesn't take the pad belongs to a screen worked some other way, left as the game made it. The anchors
+    // - current_menu_anchor, dialog_box_anchor, the game's own "a menu is up" (FrontEnd::tick_frame) - cover the menus
+    // made while the game runs on: a network game's pause menu (handle_start_pressed doesn't pause in a network game)
+    // and the screens it opens, which were drawn as the game made them until they took the pad - the user's report of
+    // 2026-11-02, the original pause menu for the first frames)
     static const UiWidget* s_coming = nullptr;
     static int s_coming_frames = 0;
     constexpr int kComingAtMost = 30;
-    if (!menu && (get_paused() || in_front_end())) {
+    if (!menu && (get_paused() || in_front_end() || game_screens::get_find(name_hash("current_menu_anchor")) ||
+                  game_screens::get_find(name_hash("dialog_box_anchor")))) {
         UiWidget* coming = active_menu(&in_dialog, true);
         s_coming_frames = coming && coming == s_coming ? s_coming_frames + 1 : 1;
         s_coming = coming;
@@ -1344,6 +1504,15 @@ mirror::View mirror_now()
             menu = coming;
     } else {
         s_coming = nullptr;
+    }
+    if (!in_dialog && stats_screen_up(menu)) {
+        // (the stats screen - its menus, or the story's stat being changed with none of them taking the pad)
+        const mirror::View stats = mirror::get_build(read_stats(menu), policy);
+        if (s_mirror_logged != "stats") {
+            s_mirror_logged = "stats";
+            get_log("new front end: restyled - the stats screen \"%s\", %zu stats", stats.title.c_str(), stats.rows.size());
+        }
+        return stats;
     }
     if (!menu)
         return {};
@@ -1418,6 +1587,8 @@ bool step_to(modules::FrontEnd* front_end, int row)
     if (!menu || row < 0 || std::cmp_greater_equal(row, v.rows.size()))
         return false;
     const int target = core::at(v.rows, row).index;
+    if (target < 0)
+        return false; // (a row of a menu not taking the pad: the story's other stats column)
     StepContext context{front_end, v.horizontal};
     mouse_menus::step_selection(target, mouse_menus::child_count(menu), mouse_menus::menu_wraps(menu), read_selection,
                                 send_step, &context);
@@ -1448,6 +1619,49 @@ void choose_key(modules::FrontEnd* front_end, int row, int col)
     }
 }
 
+// The stats screen's row `row` selected with the game's own pad events: in the menu taking the pad, stepped there; in the
+// story's other column, Left / Right toward it first (its column change keeps the row's place - the next steps reach
+// the row). Nothing while a stat is being changed. Returns whether the row is selected now.
+bool step_to_stat(modules::FrontEnd* front_end, int row)
+{
+    const mirror::View& v = s_mirror.get_shown();
+    if (row < 0 || std::cmp_greater_equal(row, v.rows.size()))
+        return false;
+    if (row == v.selected)
+        return true;
+    if (v.stats_editing_)
+        return false;
+    const mirror::Row& r = core::at(v.rows, row);
+    if (r.index >= 0)
+        return step_to(front_end, row);
+    if (v.selected >= 0)
+        mouse_menus::send_menu_pad_event(front_end, r.stat_column_ < core::at(v.rows, v.selected).stat_column_
+                                                        ? modules::FrontEnd::kPadLeft
+                                                        : modules::FrontEnd::kPadRight);
+    return false;
+}
+
+// A click on the stats screen: a row's name selects it (the story's selected row: chosen - a stat to change, or done);
+// its blocks select it and step its value - under the value Left, past it Right (the story's row is chosen first: its
+// Left / Right change the stat only while it is being changed).
+void stats_click(modules::FrontEnd* front_end, const paint::Hit& hit)
+{
+    const mirror::View& v = s_mirror.get_shown();
+    const bool story = v.stat_columns_ > 1;
+    if (hit.kind == paint::Hit::Kind::kItem) {
+        const bool was_selected = hit.index == v.selected;
+        if (step_to_stat(front_end, hit.index) && was_selected && story)
+            mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
+        return;
+    }
+    if (hit.kind != paint::Hit::Kind::kChoice || !step_to_stat(front_end, hit.index / 16))
+        return;
+    if (story && !v.stats_editing_)
+        mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
+    mouse_menus::send_menu_pad_event(front_end, hit.index % 16 == 0 ? modules::FrontEnd::kPadLeft
+                                                                    : modules::FrontEnd::kPadRight);
+}
+
 void mirror_mouse(modules::FrontEnd* front_end)
 {
     std::vector<SDL_Event> events;
@@ -1467,9 +1681,20 @@ void mirror_mouse(modules::FrontEnd* front_end)
         return nullptr;
     };
     const bool skaters = s_mirror.get_shown().kind == mirror::Kind::kSkaters;
+    const bool stats = s_mirror.get_shown().kind == mirror::Kind::kStats;
     for (const SDL_Event& e : events) {
         switch (e.type) {
         case SDL_MOUSEMOTION:
+            if (stats) {
+                if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y))) {
+                    const int row = hit->kind == paint::Hit::Kind::kItem     ? hit->index
+                                    : hit->kind == paint::Hit::Kind::kChoice ? hit->index / 16
+                                                                             : -1;
+                    if (row >= 0 && row != s_mirror.get_shown().selected)
+                        step_to_stat(front_end, row);
+                }
+                break;
+            }
             // (the skater select: each step loads a skater - only a click selects there)
             if (!skaters)
                 if (const paint::Hit* hit = hit_at(static_cast<float>(e.motion.x), static_cast<float>(e.motion.y)))
@@ -1485,6 +1710,8 @@ void mirror_mouse(modules::FrontEnd* front_end)
                     break;
                 if (hit->kind == paint::Hit::Kind::kBack) {
                     mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadBack);
+                } else if (stats) {
+                    stats_click(front_end, *hit);
                 } else if (hit->kind == paint::Hit::Kind::kStageMap &&
                            s_mirror.get_shown().kind == mirror::Kind::kKeyboard) {
                     choose_key(front_end, hit->index / 64, hit->index % 64);
@@ -1541,6 +1768,12 @@ void mirror_mouse(modules::FrontEnd* front_end)
 Cover s_cover;
 mirror::Tracker s_cover_tracker;
 float s_cover_scroll = 0.0f;
+// A dialog box in the front end (QUIT?, the warnings): the restyled screen it came up over, drawn under it (dimmed by the
+// dialog's own ground) - the front end's 3D scene (the skate shop, the skater standing) is never seen through a dialog
+// (the user's report, 2026-11-02: Quit showed the skate shop).
+mirror::Tracker s_dialog_under;
+bool s_dialog_under_on = false;
+float s_dialog_under_scroll = 0.0f;
 bool s_mirror_would_restyle = false; // (this frame's decision: the menu up is one to restyle)
 // The original's elements held hidden though nothing is restyled yet: frames left while a menu that would be (or is
 // still being built - View::unsettled) went; frames a menu has stayed unsettled (shown as the game made it after
@@ -1562,6 +1795,64 @@ void start_cover(Cover::Over over, const char* why)
             over == Cover::Over::kOurs ? "ours" : "the restyled screen");
     s_cover.kickoff(over);
     hide_root(true);
+}
+
+// Each frame (tick_frame and before_screen_layout): the game's level select made for a network game asks for ours -
+// once each time it comes up (again after the created park's menu over it went); hidden from that frame on.
+void watch_net_level_select()
+{
+    static bool s_was_up = false;
+    const bool up = net_level_select_up();
+    const bool came_up = up && !s_was_up;
+    s_was_up = up;
+    if (!up && s_open_screen == Screen::kLevels && s_open_levels == LevelsFor::kNet) {
+        s_open_screen = Screen::kMain; // (it went before ours could come up)
+        s_open_back = 0;
+    }
+    if (!came_up || s_state == State::kShown || s_state == State::kLaunching || s_open_screen != Screen::kMain)
+        return;
+    const bool server_options = script_integer("in_server_options") == 1;
+    s_open_screen = Screen::kLevels;
+    s_open_levels = LevelsFor::kNet;
+    s_open_back = name_hash(server_options ? "network_level_select_pad_back" : "level_select_menu_exit");
+    get_log("new front end: the game's level select for a network game (%s) - ours over it",
+            server_options ? "the host options" : "a network game's change of level");
+    hide_root(true);
+}
+
+// A level chosen on ours over a network game's level select: what that select's item does with it
+// (level_select_valid_choice's level_callback_script, given the item's level_info - its level and text). CREATED
+// PARK opens the game's own created park menu over the select (Play Park / Load Park / Pre-Made Parks, the player
+// count checked there), ours back once it goes.
+void choose_net_level(const std::string& load)
+{
+    int section = -1, index = -1;
+    const StageMap* level = s_catalogue.get_find(load, &section, &index)
+                                ? &core::at(core::at(s_catalogue.sections, section).levels, index)
+                                : nullptr;
+    change_phase(State::kAway);
+    s_shown_back = 0;
+    if (!level || !net_level_select_up()) {
+        get_log("new front end: %s - the game's level select for it is gone; nothing chosen", load.c_str());
+        return;
+    }
+    if (_stricmp(level->level_num_name_.c_str(), "LevelNum_Sk5ed") == 0) {
+        get_log("new front end: the network game's level - the created park: the game's own menu for it");
+        start_cover(Cover::Over::kOurs, "the created park's menu");
+        script::spawn_script(name_hash("level_select_created_park_menu"), nullptr, 0, nullptr, 0, 0, false, false,
+                             false, false);
+        return;
+    }
+    const bool server_options = script_integer("in_server_options") == 1;
+    const char* script = server_options ? "level_select_menu_exit" : "level_select_change_level";
+    get_log("new front end: the network game's level - %s (%s)", load.c_str(), script);
+    gsl::owner<script::Struct*> params = script::new_struct();
+    params->put_name_key(name_hash("level"), name_hash(load.c_str()));
+    params->append_word(name_hash("text"), level->name.c_str());
+    script::spawn_script(name_hash(script), params, 0, nullptr, 0, 0, false, false, false, false);
+    params->get_clear();
+    script::delete_struct(params);
+    start_cover(Cover::Over::kOurs, "a level chosen for the network game");
 }
 
 // Once a frame while ours isn't drawn (before_screen_layout): the restyled screen up or down, the original's elements
@@ -1599,6 +1890,20 @@ void update_mirror(float dt, bool allowed)
     }
     if (up || s_hold_frames > 0)
         hide_root(true);
+    // (the screen under a dialog: the restyled one it replaced; kept while the dialog - or the cover drawing it - is up)
+    const bool dialog_now = up && s_mirror.get_shown().kind == mirror::Kind::kDialog;
+    if (dialog_now && was_up && before.get_shown().kind != mirror::Kind::kDialog) {
+        s_dialog_under = before;
+        s_dialog_under_scroll = s_mirror_scroll;
+        s_dialog_under_on = true;
+    } else if (dialog_now && !was_up && s_cover.get_drawn() == Cover::Over::kRestyled &&
+               s_cover_tracker.get_shown().kind != mirror::Kind::kDialog) {
+        s_dialog_under = s_cover_tracker;
+        s_dialog_under_scroll = s_cover_scroll;
+        s_dialog_under_on = true;
+    } else if ((up && !dialog_now) || (!up && s_cover.get_drawn() != Cover::Over::kRestyled)) {
+        s_dialog_under_on = false;
+    }
 }
 
 // Once a frame while a cover is on (and ours isn't up): off once the screen the hand-off went to is ready. When it ends
@@ -1648,7 +1953,7 @@ void get_show(Anchor anchor)
         get_log("new front end: the restyled screen gone (ours up)");
     s_mirror.get_reset();
     s_mirror_hits.clear();
-    menu_state().get_reset(&s_catalogue, get_views(), s_saved.last_level_, stack, levels);
+    menu_state().get_reset(&s_catalogue, get_views(levels == LevelsFor::kNet), s_saved.last_level_, stack, levels);
     load_option_values();
     s_skater_name = root == Screen::kFreeze ? std::string() : get_skater_name();
     s_hits.clear();
@@ -1680,6 +1985,9 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             change_phase(State::kAway);
             s_shown_back = 0;
             script::spawn_script(name_hash(script), nullptr, 0, nullptr, 0, 0, false, false, false, false);
+            // (ours stays drawn until the game's options screen is up: no frame of the root menu behind - the user's
+            // report, 2026-11-02)
+            start_cover(Cover::Over::kOurs, "the game options");
             return;
         }
     }
@@ -1689,6 +1997,10 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
         return;
     case ActionKind::kSkate: {
         std::string why;
+        if (action.levels == LevelsFor::kNet) {
+            choose_net_level(action.load);
+            return;
+        }
         if (action.levels == LevelsFor::kFreeze) {
             // (the pause menu's change of level, as its level select does it)
             get_log("new front end: change level to %s", action.load.c_str());
@@ -2154,6 +2466,7 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     }
 
+    watch_net_level_select();
     Anchor anchor = game_screens::at_hand(front_end);
     // The menu the pad reaches now: a dialog box over an anchor, or another menu over the pause menu (a sub-screen that
     // keeps pause_vmenu - VIEW GOALS, the level select...), and ours isn't over it (the dialog / screen is restyled, or
@@ -2210,6 +2523,8 @@ void tick_frame(modules::FrontEnd* front_end)
         // gave for Back when its menu went - the skate shop's)
         get_log("new front end: back from our screen%s", s_shown_back ? " - its back script" : "");
         change_phase(State::kAway);
+        if (menu_state().levels_purpose() == LevelsFor::kNet) // (the game's select under ours until its script goes)
+            start_cover(Cover::Over::kOurs, "back from a network game's level select");
         if (s_shown_back)
             script::spawn_script(s_shown_back, nullptr, 0, nullptr, 0, 0, false, false, false, false);
         s_shown_back = 0;
@@ -2283,6 +2598,7 @@ void before_screen_layout()
     s_front_end_was = front_end;
     if (s_state == State::kLaunching)
         return; // (a level starting: the original's elements as the launch left them)
+    watch_net_level_select();
     if (s_state == State::kIdle || s_state == State::kAway) {
         update_mirror(dt, true);
         update_cover(dt);
@@ -2300,8 +2616,9 @@ void before_screen_layout()
     }
     // Decided here, before the screen elements are laid out for this frame's drawing: whatever the scripts made since
     // the last frame (the pause menu, a dialog, the main menu) is hidden before it is ever drawn.
+    const bool net_levels_asked = s_open_screen == Screen::kLevels && s_open_levels == LevelsFor::kNet;
     if (s_state == State::kShown || s_mirror.get_up() || s_cover.get_on() || s_hold_frames > 0 ||
-        s_awaiting_front_end) {
+        s_awaiting_front_end || net_levels_asked) {
         hide_root(true);
         keep_root_hidden(); // (a script that scaled root_window back since - create_pause_menu's unhide_root_window)
     } else if (s_root_hidden) {
@@ -2473,6 +2790,16 @@ void blit()
         if (!showing() && (s_mirror.get_up() || s_cover.get_drawn() == Cover::Over::kRestyled)) {
             // (an original screen restyled - phase 3; or, under a cover, the one last up)
             const paint::Extras pause = restyle_extras();
+            const mirror::Tracker& drawn = s_mirror.get_up() ? s_mirror : s_cover_tracker;
+            if (drawn.get_shown().kind == mirror::Kind::kDialog && !drawn.get_shown().over_game_) {
+                // (a dialog in the front end: over the screen it came from, else over the front end's ground and art -
+                // never over the 3D scene)
+                if (s_dialog_under_on)
+                    paint::restyled(s_dialog_under, frame, static_cast<float>(w), static_cast<float>(h), nullptr,
+                                    &s_dialog_under_scroll, &pause);
+                else
+                    paint::get_waiting(frame, static_cast<float>(w), static_cast<float>(h), pause, "career");
+            }
             if (s_mirror.get_up())
                 paint::restyled(s_mirror, frame, static_cast<float>(w), static_cast<float>(h), &s_mirror_hits,
                                 &s_mirror_scroll, &pause);

@@ -29,8 +29,10 @@ enum class Kind : uint8_t {
     kMenu, // a front end roundbar menu (the main menu, Career, STORY / CLASSIC MODE OPTIONS, Create, the skate shop's
            // menu...): its items, in our words, art and notes where the style table has them (menu_item_style)
     kKeyboard, // the on-screen keyboard (a vertical menu of horizontal rows of keys): the text typed, the keys
+    kStats,    // the skater's stats (EDIT STATS / STATS: classic_stats_vmenu, the story's sub_vmenu + sub_vmenu2): each
+               // stat's value as the game's stars show it, the points left; Left / Right are the game's own
 };
-const char* kind_name(Kind kind); // "dialog", "skaters", "list", "pause", "menu", "keyboard" ("" for None)
+const char* kind_name(Kind kind); // "dialog", "skaters", "list", "pause", "menu", "keyboard", "stats" ("" for None)
 
 // One child of the menu as read.
 struct ItemRead {
@@ -48,6 +50,12 @@ struct ItemRead {
     bool slider_hue_ = false;
     int slider_kind_ = 0; // which slider: 1 hue, 2 saturation, 3 value, 4 alpha (CAGR), 0 any other bar
     std::string display;  // (the skater select: the profile's display name)
+    // A stat row (stats_menu_add_item: its id stats_menu_names_<n>): n, the stars lit at full strength (the value), the
+    // stars lit at all (the story's: up to what its goals have earned - the ones not yet spent dimmed), its menu
+    // (0 the first column, 1 the story's second) and its child index there (-1: not in the menu taking the pad now).
+    int stat_index_ = -1;
+    int stat_value_ = -1, stat_cap_ = -1;
+    int stat_column_ = 0, stat_child_ = -1;
 };
 
 // What the glue read: the menu that takes the pad events now (the deepest focused one) and what is around it.
@@ -77,6 +85,12 @@ struct MenuRead {
     std::vector<std::vector<std::string>> keys;
     int key_row_ = -1, key_col_ = -1;
     std::string entry;
+    // The stats screen: its rows in the stats' order (items with stat_index_), the one selected (an index into items),
+    // whether a stat is being changed (the story's change_stat_sub_anchor: Left / Right change, Back done), the
+    // screen's other words (the points left, the description, the story's goals).
+    bool stats_screen_ = false;
+    bool stats_editing_ = false;
+    int stats_selected_ = -1;
 };
 
 // What decides whether a list is restyled (the glue fills it from the game).
@@ -121,6 +135,9 @@ struct Row {
     float track_at_ = 0.0f;
     // (Kind::Menu: the style table's - our id for the art, the line under the list, a note after the label)
     std::string art, blurb, tag;
+    // (Kind::Stats: the value 0-10, the stars earned (>= value; the story's), the column - index is -1 for a row of
+    // the column not taking the pad)
+    int stat_value_ = -1, stat_cap_ = -1, stat_column_ = 0;
 };
 
 struct View {
@@ -151,6 +168,10 @@ struct View {
     // (kind None: a menu with nothing to show yet - no items, none with words or none to choose: the original may still
     // be building it, so its elements stay hidden a few frames before it is left as it is - kFramesUnsettled)
     bool unsettled = false;
+    // (Kind::Stats: the points left to spend - -1 not shown -, a stat being changed (the story's), the columns)
+    int points = -1;
+    bool stats_editing_ = false;
+    int stat_columns_ = 1;
 };
 
 // The colour a HSV the game stores (hue degrees, saturation / value percent) shows on the skater: the game's HSV -> RGB
@@ -171,7 +192,8 @@ void set_button_namer(ButtonNamer namer);
 View get_build(const MenuRead& read, const Policy& policy);
 
 // The view held over a few frames: a screen comes up once it has been there kFramesToShow frames in a row (no flicker
-// while the original builds its screens one element at a time) and goes once it has been gone kFramesToHide in a row;
+// while the original builds its screens one element at a time; the pause menu, made in one go, at once) and goes once
+// it has been gone kFramesToHide in a row;
 // the rows' selection animations.
 constexpr int kFramesToShow = 2;
 constexpr int kFramesToHide = 3;

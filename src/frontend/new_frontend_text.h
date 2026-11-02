@@ -18,10 +18,12 @@ inline constexpr const char* kTitleOptions = "Options";
 inline constexpr const char* kTitleFreeSkate = "Free skate";
 inline constexpr const char* kTitleChangeLevel = "Change level";
 inline constexpr const char* kTitleEditLevel = "Level editor";
+inline constexpr const char* kTitleNetLevel = "Net game level";
 inline constexpr const char* kTitlePaused = "Paused";
 inline constexpr const char* kTitleMenu = "Menu"; // (a restyled list without a title)
 inline constexpr const char* kTitleSkaters = "Select skater";
 inline constexpr const char* kTitleKeyboard = "Enter text"; // (the on-screen keyboard without a title)
+inline constexpr const char* kTitleStats = "Stats"; // (the stats screen without a title of its own)
 inline constexpr const char* kBack = "Back";                // (the header's back arrow)
 
 // --- the main menu: label, helper line, the art's kicker -----------------------------------------------------------
@@ -113,11 +115,18 @@ inline constexpr const char* kKeyDownRight = "Down-Right";
 inline constexpr const char* kHintGroup = "LB RB Group";
 inline constexpr const char* kHintSkater = "Left Right Skater";
 inline constexpr const char* kHintLoadSkater = "E Load skater";
+// (the stats screen)
+inline constexpr const char* kHintStat = "Up Down Stat";
+inline constexpr const char* kHintColumn = "Left Right Column";
+inline constexpr const char* kHintEditStat = "A Change";
+inline constexpr const char* kHintDone = "B Done";
+inline constexpr const char* kPointsLeft = "Points left";
 inline constexpr const char* kPleaseWait = "Please wait";
 
 // --- the level select ---------------------------------------------------------------------------------------------
 inline constexpr const char* kSkate = "Skate";
 inline constexpr const char* kEdit = "Edit";
+inline constexpr const char* kSelect = "Select"; // (a network game's level: chosen, not skated yet)
 inline constexpr const char* kLocked = "Locked";
 inline constexpr const char* kNoLevels = "No levels here.";
 

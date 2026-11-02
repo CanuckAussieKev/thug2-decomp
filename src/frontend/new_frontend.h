@@ -28,7 +28,11 @@ struct FrontEnd;
 // (Main / Pause) it leaves at once on Back. The level select's Skate starts the level in free skate
 // (MenuSystem::begin_level::ReadIn) or changes level from the pause menu; Free Skate shows every level ([frontend]
 // respect_locks=1: the game's own level select rules - seen flags outside a career, all_levels_unlocked); Career keeps
-// the game's own rules. The automation channel's `fe` commands (frontend/automation.h) drive ours.
+// the game's own rules. A network game's level select is ours too: when the game makes its own for one (the host
+// options' Level in the front end, a network lobby's CHANGE LEVEL), ours comes up over it from its first frame - the
+// same levels, the game's locks always - and a choice does what that select's item does (the network game's level
+// preference set and the host options made again, or the lobby's change of level; CREATED PARK: the game's own park
+// menu); Back is that select's Back. The automation channel's `fe` commands (frontend/automation.h) drive ours.
 // The levels are data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts, written by
 // make_menu_level.ts from the overlay's sectioned level select - the same sections, lists and load scripts). Without
 // it Free Skate goes on to the original's level select. The last level played: thug2-decomp-frontend.txt next to the ini (the level the game last
@@ -50,15 +54,19 @@ struct FrontEnd;
 //
 // The game's screens restyled (new_frontend_mirror.h), read from the screen tree each frame: the front end's roundbar
 // menus and the pause menu in our design, every dialog box (create_snazzy_dialog_box: QUIT?, confirmations, warnings,
-// errors), the skater select (the 3D skater left in view; the skaters as a strip, the stats as a table), the on-screen
-// keyboard (its keys, the text typed; a click picks a key) and every list - values as text (Music Level 5, Songs
+// errors - in the front end drawn over the screen they came up over, never over its 3D scene), the skater select (the 3D skater left in view; the skaters as a strip, the stats as a table), the on-screen
+// keyboard (its keys, the text typed; a click picks a key), the stats screen (EDIT STATS / the story's STATS: each stat
+// as the skater select's table, read from the game's stars, the points left; Left / Right are the game's, a click on
+// a stat's blocks steps it) and every list - values as text (Music Level 5, Songs
 // Random), checkboxes On / Off, button tags as the game spells them, a column beside the list paired with its rows (the
 // grab tricks' names), long lists scrolled, horizontal menus stepped with Left / Right; the create modes' editors'
 // lists drawn lighter over their view (the skater, the park). Left as the game draws them: the screens whose meaning
 // is a picture (GAMMA, SCREEN SETUP), the park editor's piece browser (a tool's own UI, not a menu), and online when
 // [frontend] restyle_online=0 (on by default - online is tested by the user by hand, never by a tool).
 // [frontend] restyle_dialogs= / restyle_skater_select= / restyle_menus= (1 each) switch them off one by one;
-// debug_restyle=1 logs the element tree of each screen left as it is. The game keeps the keyboard and the controllers
+// debug_restyle=1 logs the element tree of each screen left as it is. A menu being made (shown, not yet taking the pad
+// while it animates in) is restyled from its first frame - paused, in the front end, or with a menu's anchor up (a
+// network game's pause menu, made while the game runs on). The game keeps the keyboard and the controllers
 // (its scripts, its selection - ours reads them each frame); the mouse is ours there (owns_mouse). Whenever ours hides
 // the game's elements, a script scaling root_window back is undone the same frame: the game's is never drawn under ours.
 namespace frontend::new_frontend {
