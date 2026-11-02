@@ -167,7 +167,8 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
                                          core::at(bind.translation, 3)};
         core::at(bind_translation_run(), i) = translation;
         maths::Mat4 matrix{};
-        objects::quat_to_matrix(rotation.data(), &translation.x, &core::at(matrix.row, 0).x);
+        objects::quat_to_matrix(rotation, std::span<const float, 4>(translation.data(), 4),
+                                std::span<float, 16>(matrix.data(), 16));
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
             maths::Mat4 parent{};

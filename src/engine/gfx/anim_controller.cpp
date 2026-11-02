@@ -115,8 +115,8 @@ void* logged_source_frame_of(void* source, uint32_t set, uint32_t anim)
 void release_frame_index(void* frame, int index) { static_cast<JointClipFrames*>(frame)->release_cache_index(index); }
 void frame_pose(void* frame, Stance* pose, float time, int index, void* source)
 {
-    static_cast<JointClipFrames*>(frame)->get_frames(pose->rotations.data(), pose->translations.data(),
-                                                     pose->valid.data(), time, index, source);
+    static_cast<JointClipFrames*>(frame)->get_frames(pose->rotations, pose->translations, pose->valid, time, index,
+                                                     source);
 }
 // The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
 void set_bones(void* source, const Rig* skeleton)

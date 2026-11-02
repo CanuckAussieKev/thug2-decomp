@@ -228,7 +228,7 @@ void CinematicTable::update_object_transforms()
 {
     if (!object_source_)
         return;
-    anim_list_->get_float_key_pose(get_rotations().data(), get_translations().data(), g_cutscene_camera_slot.data(),
+    anim_list_->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot.data(),
                                    static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                    0); // (the original passed the animation source's address: not read)
     // the animated objects of the level (not the cutscene's own)
@@ -246,9 +246,9 @@ void CinematicTable::update_object_transforms()
             continue;
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
         maths::Mat4 matrix{};
-        quat_to_matrix(get_rotations().data() + 4 * j, origin.data(), matrix.data());
+        quat_to_matrix(gfx::quad_at(get_rotations(), j), origin, std::span<float, 16>(matrix.data(), 16));
         set_matrices(object, matrix.data());
-        std::memcpy(&object->at_point_, get_translations().data() + 4 * j, 16);
+        std::memcpy(&object->at_point_, gfx::quad_at(get_translations(), j).data(), 16);
     }
     for (int i = 0; i < object_count_; ++i) {
         const ObjectEntry& entry = core::at(entities_, i);
@@ -289,9 +289,10 @@ void CinematicTable::update_object_transforms()
         } else if (entry.anim_index_ != -1) {
             std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
             maths::Mat4 matrix{};
-            quat_to_matrix(get_rotations().data() + 4 * entry.anim_index_, origin.data(), matrix.data());
+            quat_to_matrix(gfx::quad_at(get_rotations(), static_cast<size_t>(entry.anim_index_)), origin,
+                           std::span<float, 16>(matrix.data(), 16));
             set_matrices(object, matrix.data());
-            std::memcpy(&object->at_point_, get_translations().data() + 4 * entry.anim_index_, 16);
+            std::memcpy(&object->at_point_, gfx::quad_at(get_translations(), static_cast<size_t>(entry.anim_index_)).data(), 16);
             update_stand_in(object);
         }
         if (script::fetch_int_value(kDebugBoxes)) {

@@ -13,7 +13,11 @@
 
 #include <gsl/pointers>
 #include <array>
+#include <span>
 #include "formats/anim_format.h"
+#include "engine/core/checked_index.h"
+#include "engine/maths/quat_rotation.h"
+#include "engine/maths/vec4.h"
 #include "engine/gfx/frame_source.h"
 
 namespace maths {
@@ -22,6 +26,12 @@ class Vec4;
 } // namespace maths
 
 namespace gfx {
+
+// The four floats of element `index` in a run of per-bone quadruples (rotations, translations).
+inline std::span<float, 4> quad_at(std::span<float> floats, size_t index)
+{
+    return std::span<float, 4>(floats.subspan(index * 4, 4));
+}
 
 struct AnimCacheEntry;
 
@@ -59,22 +69,22 @@ void expand_quat_key_with_w(FloatKey* out, const ShortKey* in);
 
 // 0x004838D0 / 0x00483990 (cdecl): the quaternion (w from x, y, z) / the translation (w 1) of a short key, or of a
 // float key's x, y, z when `floats`.
-void get_quat(const void* key, float* out, bool floats);
-void get_trans(const void* key, float* out, bool floats);
+void get_quat(const void* key, std::span<float, 4> out, bool floats);
+void get_trans(const void* key, std::span<float, 4> out, bool floats);
 // 0x00483A00 / 0x00483AE0 (cdecl): the same for short keys only (all three 0: the identity).
-void get_short_quat(const ShortKey* key, float* out);
-void get_short_trans(const ShortKey* key, float* out);
+void get_short_quat(const ShortKey* key, std::span<float, 4> out);
+void get_short_trans(const ShortKey* key, std::span<float, 4> out);
 // 0x00483B30 / 0x00483C40 / 0x00483E10 / 0x00484080 (cdecl): the value a fraction `t` of the way from key `a` to key
 // `b` (exactly 0 or 1: that key's own) - quaternions slerped (0x0047D470), translations lerped (0x0043D990).
-void interpolate_quat(float* out, const void* a, const void* b, float t, bool floats);
-void interpolate_trans(float* out, const void* a, const void* b, float t, bool floats);
-void interpolate_short_quat(float* out, const ShortKey* a, const ShortKey* b, float t);
-void interpolate_short_trans(float* out, const ShortKey* a, const ShortKey* b, float t);
+void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, float t, bool floats);
+void interpolate_trans(std::span<float, 4> out, const void* a, const void* b, float t, bool floats);
+void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t);
+void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const ShortKey* b, float t);
 // 0x00483F10 (cdecl): between two float quaternion keys, linearly, normalised (a length of 0 taken as 0.00001);
 // pointing apart, `a` is first overwritten with -`b` (as the original - not -`a`).
-void interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, float t);
+void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey* b, float t);
 // 0x00484170 (cdecl): between two float translation keys, linearly (w 1).
-void interpolate_float_trans(float* out, const FloatKey* a, const FloatKey* b, float t);
+void interpolate_float_trans(std::span<float, 4> out, const FloatKey* a, const FloatKey* b, float t);
 
 // A frame source (made by 0x0048BFC0 for an animation controller; the fields used here): where each bone's key
 // decompression got to, and which bones the skeleton's level of detail leaves out.
@@ -92,12 +102,12 @@ public:
     // 0x004844C0: each bone's rotation and translation at `time` (seconds) from float keys (a key list's last key
     // alone; between two; a bone where neither fits keeps the previous bone's pair). True. `unused` / `unused2` are
     // the callers' (valid flags, a cache index) - not read.
-    bool get_float_key_pose(float* rotations, float* translations, void* unused, float time, int unused2);
+    bool get_float_key_pose(std::span<float> rotations, std::span<float> translations, void* unused, float time, int unused2);
     // 0x00484760: the same from compressed keys - through the frame cache's entry when it has one (its search
     // cursor `cursor`; backwards when the cache says time went back), else decompressing from the bone's last
     // position in `source`; bones the source's mask or the partial-animation bits leave out are marked invalid in
     // `valid`. True.
-    bool fetch_pose(float* rotations, float* translations, uint8_t* valid, float time, int cursor, FrameSource* source);
+    bool fetch_pose(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations, std::span<uint8_t> valid, float time, int cursor, FrameSource* source);
     // 0x00482AF0: empty.
     JointClipFrames();
     // 0x00482B30: its events deleted and their array freed; out of the frame cache (0x006F92B0) if it's in it.
@@ -143,7 +153,7 @@ public:
     // flags 0x9000000: their other way). A bone without keys around the time reuses the bone before's pair (the
     // original's: its pointers aren't reset). Compressed frames are cached first (unless flag 0x1000) and sampled by
     // 0x00484760 (a tail jump with all the arguments). True.
-    bool get_frames(maths::QuatRotation* rotations, maths::Vec4* translations, uint8_t* arg2, float time, int arg4,
+    bool get_frames(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations, std::span<uint8_t> arg2, float time, int arg4,
                     void* arg5);
 
     float duration_{0.0f}; // +0x00: seconds (the file's third word)

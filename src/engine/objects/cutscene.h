@@ -43,7 +43,7 @@ void anim_source_free(void* item);
 
 // 0x00463AA0: a matrix from a rotation (quaternion: its x, y and z negated in place - the original's) and a
 // translation (w 1).
-void quat_to_matrix(float* quat, const float* translation, float* matrix);
+void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, 16> matrix);
 // The skater appearance's face (its +0x54). No address of its own: the original reads it through the getter folded at
 // 0x00576E60 (modules::Viewer::get_viewer_entity).
 gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance);
@@ -307,7 +307,7 @@ static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEn
                   offsetof(CinematicEntry, unknown60_) == 0x60,
               "layout must match the original");
 
-extern std::array<uint8_t, 5> g_cutscene_camera_slot;
+extern std::array<uint8_t, 64> g_cutscene_camera_slot;
 extern bool g_cutscene_playing;
 extern int g_cutscene_fixed_frame;
 extern std::array<float, 512> g_cutscene_rotations;

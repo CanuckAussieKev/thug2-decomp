@@ -329,14 +329,14 @@ bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
 }
 
 // 0x00485730
-bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* translations, uint8_t* arg2, float time,
-                                 int arg4, void* arg5)
+bool JointClipFrames::get_frames(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations,
+                                 std::span<uint8_t> arg2, float time, int arg4, void* arg5)
 {
     const uint32_t flags = flag_bits_;
     if (flags & kCompressed) {
         if (!(flags & kNoAutoCache) && !cache_slot_)
             build_cache(cache_format(cache_manager()));
-        return fetch_pose(&rotations->x, &translations->x, arg2, time, arg4,
+        return fetch_pose(rotations, translations, arg2, time, arg4,
                           static_cast<FrameSource*>(arg5));
     }
     const float frame = time * kFramesPerSecond;
@@ -359,15 +359,13 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
             trans_count = key_counts_[i * 2 + 1];
         }
         find_keys(rot_keys, rot_count, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
-        interpolate_quat(&rotations->x, rot_from, rot_to, rot_fraction,
+        interpolate_quat(std::span<float, 4>(core::at(rotations, i).data(), 4), rot_from, rot_to, rot_fraction,
                          (flag_bits_ & kOtherInterpolation) != 0);
         find_keys(trans_keys, trans_count, frame, translation_key_time, trans_from, trans_to, trans_fraction);
-        interpolate_trans(&translations->x, trans_from, trans_to, trans_fraction,
+        interpolate_trans(std::span<float, 4>(core::at(translations, i).data(), 4), trans_from, trans_to, trans_fraction,
                           (flag_bits_ & kOtherInterpolation) != 0);
         rot_keys += rot_count * 8;
-        rotations++;
         trans_keys += trans_count * 8;
-        translations++;
     }
     return true;
 }

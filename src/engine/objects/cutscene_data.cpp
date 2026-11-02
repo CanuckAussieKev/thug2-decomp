@@ -36,7 +36,7 @@
 
 namespace objects {
 
-std::array<uint8_t, 5> g_cutscene_camera_slot;
+std::array<uint8_t, 64> g_cutscene_camera_slot; // (5 bytes in the original, which wrote a pose's per-bone flags past them)
 std::array<float, 512> g_cutscene_rotations;
 std::array<float, 512> g_cutscene_translations;
 namespace {
@@ -84,34 +84,34 @@ void load_asset_file(uint32_t name, void* data, uint32_t size)
 } // namespace
 
 // 0x00463AA0 (x87: the squares and w * z unrounded)
-void quat_to_matrix(float* quat, const float* translation, float* matrix)
+void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, 16> matrix)
 {
-    quat[0] = -quat[0];
-    quat[1] = -quat[1];
-    quat[2] = -quat[2];
-    const double xx = static_cast<double>(quat[0]) * quat[0];
-    const double yy = static_cast<double>(quat[1]) * quat[1];
-    const double zz = static_cast<double>(quat[2]) * quat[2];
-    const double zy = static_cast<double>(quat[2]) * quat[1];
-    const double zx = static_cast<double>(quat[2]) * quat[0];
-    const double yx = static_cast<double>(quat[1]) * quat[0];
-    auto wx = static_cast<float>(static_cast<double>(quat[3]) * quat[0]);
-    auto wy = static_cast<float>(static_cast<double>(quat[3]) * quat[1]);
-    const double wz = static_cast<double>(quat[3]) * quat[2];
-    matrix[0] = static_cast<float>(1.0f - (zz + yy) * 2.0);
-    matrix[1] = static_cast<float>((wz + yx) * 2.0);
-    matrix[2] = static_cast<float>((zx - wy) * 2.0);
-    matrix[3] = 0.0f;
-    matrix[4] = static_cast<float>((yx - wz) * 2.0);
-    matrix[5] = static_cast<float>(1.0f - (zz + xx) * 2.0);
-    matrix[6] = static_cast<float>((wx + zy) * 2.0);
-    matrix[7] = 0.0f;
-    matrix[8] = static_cast<float>((wy + zx) * 2.0);
-    matrix[9] = static_cast<float>((zy - wx) * 2.0);
-    matrix[10] = static_cast<float>(1.0f - (yy + xx) * 2.0);
-    matrix[11] = 0.0f;
-    std::memcpy(matrix + 12, translation, 16);
-    matrix[15] = 1.0f;
+    core::at(quat, 0) = -core::at(quat, 0);
+    core::at(quat, 1) = -core::at(quat, 1);
+    core::at(quat, 2) = -core::at(quat, 2);
+    const double xx = static_cast<double>(core::at(quat, 0)) * core::at(quat, 0);
+    const double yy = static_cast<double>(core::at(quat, 1)) * core::at(quat, 1);
+    const double zz = static_cast<double>(core::at(quat, 2)) * core::at(quat, 2);
+    const double zy = static_cast<double>(core::at(quat, 2)) * core::at(quat, 1);
+    const double zx = static_cast<double>(core::at(quat, 2)) * core::at(quat, 0);
+    const double yx = static_cast<double>(core::at(quat, 1)) * core::at(quat, 0);
+    auto wx = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 0));
+    auto wy = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 1));
+    const double wz = static_cast<double>(core::at(quat, 3)) * core::at(quat, 2);
+    core::at(matrix, 0) = static_cast<float>(1.0f - (zz + yy) * 2.0);
+    core::at(matrix, 1) = static_cast<float>((wz + yx) * 2.0);
+    core::at(matrix, 2) = static_cast<float>((zx - wy) * 2.0);
+    core::at(matrix, 3) = 0.0f;
+    core::at(matrix, 4) = static_cast<float>((yx - wz) * 2.0);
+    core::at(matrix, 5) = static_cast<float>(1.0f - (zz + xx) * 2.0);
+    core::at(matrix, 6) = static_cast<float>((wx + zy) * 2.0);
+    core::at(matrix, 7) = 0.0f;
+    core::at(matrix, 8) = static_cast<float>((wy + zx) * 2.0);
+    core::at(matrix, 9) = static_cast<float>((zy - wx) * 2.0);
+    core::at(matrix, 10) = static_cast<float>(1.0f - (yy + xx) * 2.0);
+    core::at(matrix, 11) = 0.0f;
+    std::memcpy(matrix.subspan(12, 4).data(), translation.data(), 16);
+    core::at(matrix, 15) = 1.0f;
 }
 
 // 0x00464340
@@ -301,12 +301,12 @@ void CinematicTable::refresh_viewer(void* camera)
     std::array<float, 4> rotation = {{0.0f, 0.0f, 0.0f, 1.0f}};
     std::array<float, 4> translation{};
     bool flag = false;
-    camera_anim_->get_float_key_pose(rotation.data(), translation.data(), &flag,
+    camera_anim_->get_float_key_pose(rotation, translation, &flag,
                                      static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                      0); // (the original passed the animation source's address: not read)
     std::memcpy(position, translation.data(), 16);
     std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    quat_to_matrix(rotation.data(), origin.data(), matrix);
+    quat_to_matrix(rotation, origin, std::span<float, 16>(matrix, 16));
     if (skipped_)
         return;
     memory::Hub* manager = memory::Hub::get_pull();
@@ -319,8 +319,6 @@ void CinematicTable::refresh_viewer(void* camera)
 // 0x00464360
 void CinematicTable::update_object_poses()
 {
-    maths::QuatRotation* rotations = g_object_pose_rotations.data();
-    maths::Vec4* translations = g_object_pose_translations.data();
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);
         if (!entry.animation)
@@ -338,14 +336,14 @@ void CinematicTable::update_object_poses()
         source->bone_masks_ = data ? data->lod_masks_.data() : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
         auto count = static_cast<uint32_t>(rig->get_num_bones());
-        std::memcpy(translations, rig->payload_->bind_translations_, count * 16);
+        std::memcpy(g_object_pose_translations.data(), rig->payload_->bind_translations_, count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
-            rotations, translations,
-            g_cutscene_camera_slot.data(), static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
-        skeleton->tick_frame(rotations, translations);
+            g_object_pose_rotations, g_object_pose_translations, g_cutscene_camera_slot,
+            static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
+        skeleton->tick_frame(g_object_pose_rotations.data(), g_object_pose_translations.data());
     }
 }
 
