@@ -70,7 +70,7 @@ void set_no_lod(float* distances)
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 render::RenderModel* model_of(ObjectModule* component)
 {
-    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
 }
 void change_model_enabled(render::RenderModel* model, bool active)
 {

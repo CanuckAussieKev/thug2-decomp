@@ -69,7 +69,7 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
     auto* node = messages_.first();
     while (messages_.size > keep) {
         if (PagerMessage* message = node->value) {
-            script::free_struct(message->params);
+            script::free_struct(memory::owned_element(message->params)); // (the message's)
             dealloc(message);
             node->value = nullptr;
         }
@@ -94,7 +94,8 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     auto* message = static_cast<PagerMessage*>(memory::alloc(sizeof(PagerMessage)));
     if (message)
         message->params = nullptr;
-    message->params = script::new_struct();
+    gsl::owner<script::Struct*> made = script::new_struct(); // (the message's: freed with it)
+    message->params = made;
     message->params->merge_structure(params);
     message->read = false;
     messages_.push_back(message);

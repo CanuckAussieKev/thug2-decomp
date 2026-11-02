@@ -41,7 +41,7 @@ constexpr uint32_t kSkaterCamera = 0xF5012F52;
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 
-void delete_movie(Movie* movie) { delete movie; }
+void delete_movie(gsl::owner<Movie*> movie) { delete movie; }
 bool has_camera(Movie* movie) { return movie->has_camera(); }
 void halt(Movie* movie) { movie->stop(); }
 // The movie details' (node_objects.h) part of a movie: the movie itself.
@@ -163,12 +163,14 @@ void VideoHub::keep_camera(Movie* movie)
 VideoHub::VideoHub() { movies_.make_head(); }
 
 // 0x0057A530
-gsl::owner<gfx::ViewCam*> VideoHub::obtain_active_lens()
+gfx::ViewCam* VideoHub::obtain_active_lens()
 {
     if (total_of()) {
         Movie* playing = movie_at(&movies_, 0);
-        if (playing && has_camera(playing))
-            return playing->viewer_;
+        if (playing && has_camera(playing)) {
+            gfx::ViewCam* const lens = playing->viewer_; // (the movie's)
+            return lens;
+        }
     }
     return keep_camera_ ? &viewer_ : nullptr;
 }
@@ -197,7 +199,10 @@ void VideoHub::clear_movies()
 {
     if (movies_.prev != &movies_)
         keep_camera(total_of() ? movie_at(&movies_, 0) : nullptr);
-    lists::delete_each<Movie>(&movies_, [](Movie* movie) { delete movie; }); // (0x0057A2F0)
+    lists::delete_each<Movie>(&movies_, [](Movie* movie) { // (0x0057A2F0)
+        gsl::owner<Movie*> owned = memory::owned_element(movie); // (the list's)
+        delete owned;
+    });
 }
 
 // 0x0057A6B0
@@ -210,7 +215,7 @@ void VideoHub::end_movie(Movie* movie)
         keep_camera(movie);
     halt(movie);
     uncouple(&movie->list_link_);
-    delete_movie(movie);
+    delete_movie(memory::owned_element(movie)); // (the list's)
     const uint64_t frame = frame_clock::get_draw_frame();
     debug::printf("Details have been removed %ld\n", static_cast<uint32_t>(frame), static_cast<uint32_t>(frame >> 32));
     if (end_script)
@@ -318,7 +323,7 @@ bool VideoHub::kill_movie(uint32_t name)
         return true;
     }
     uncouple(&movie->list_link_);
-    delete_movie(movie);
+    delete_movie(memory::owned_element(movie)); // (the list's)
     return true;
 }
 
@@ -364,7 +369,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     }
     get_details(movie)->set_value20(name); // its name
     if (!movie->read_in(params)) {
-        delete_movie(movie);
+        delete_movie(memory::owned_element(movie)); // (the new one: never listed)
         keep_camera_ = kept_camera;
         return false;
     }
@@ -402,7 +407,7 @@ bool VideoHub::tick_frame()
 }
 
 // 0x0057AF60
-script::Struct* VideoHub::movie_value(uint32_t name)
+gsl::owner<script::Struct*> VideoHub::movie_value(uint32_t name)
 {
     if (!total_of())
         return nullptr;

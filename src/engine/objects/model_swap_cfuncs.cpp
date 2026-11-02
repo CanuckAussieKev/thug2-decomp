@@ -137,8 +137,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     }
 
     // the renderable models swapped
-    render::RenderModel* nx_a = model_a->mesh_instance_;
-    render::RenderModel* nx_b = model_b->mesh_instance_;
+    render::RenderModel* nx_a = model_a->mesh_instance_.get();
+    render::RenderModel* nx_b = model_b->mesh_instance_.get();
     maths::Mat4* value_a = model_get(nx_a);
     model_set(nx_a, model_get(nx_b));
     model_set(nx_b, value_a);
@@ -154,8 +154,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
 
     if (skater) {
         // (each component's model as it is now)
-        follow_position(model_a->mesh_instance_, &a->at_point_);
-        follow_position(model_b->mesh_instance_, &b->at_point_);
+        follow_position(model_a->mesh_instance_.get(), &a->at_point_);
+        follow_position(model_b->mesh_instance_.get(), &b->at_point_);
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
             if (get_swaps()[i].used && get_swaps()[i].value == 0) {

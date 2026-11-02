@@ -65,7 +65,7 @@ float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(sta
 
 gsl::owner<render::FrameSource*> new_anim_source() { return new render::FrameSource; }
 void delete_source(gsl::owner<render::FrameSource*> source) { delete source; }
-void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
+void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get(); }
 // The model's fader (cutscene.h) fading to `target` by 0.02 a frame.
 void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)
@@ -168,7 +168,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
         ObjectEntry& entry = core::at(entities_, i);
         ++entry.part;
         if (entry.animation && entry.animation->source) {
-            delete_source(entry.animation->source);
+            delete_source(memory::owned_element(entry.animation->source)); // (the table's)
             entry.animation->source = nullptr;
         }
         const uint32_t anim = entry.name + entry.part * 10;
@@ -180,7 +180,8 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
             }
         }
         if (entry.animation) {
-            entry.animation->source = new_anim_source();
+            gsl::owner<render::FrameSource*> made = new_anim_source(); // (the table's)
+            entry.animation->source = made;
             entry.animation->source->play_clip(anim);
             entry.animation->source->set_done(true);
         }

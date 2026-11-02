@@ -189,7 +189,7 @@ void VideoEntry::configure_from_data(script::Struct* params)
 }
 
 // 0x00469180
-script::Struct* VideoEntry::get_settings()
+gsl::owner<script::Struct*> VideoEntry::get_settings()
 {
     gsl::owner<script::Struct*> settings = script::spawn_param_bag();
     if (settings)

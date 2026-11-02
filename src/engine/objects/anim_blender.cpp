@@ -94,8 +94,10 @@ AnimBlenderComponent::AnimBlenderComponent()
 AnimBlenderComponent::~AnimBlenderComponent()
 {
     lists::delete_each<Channel>(&lanes_, [](Channel* channel) { channel->teardown(1); }); // (0x0057A2F0)
-    for (const auto* node = observers_.first(); node != observers_.head; node = node->next)
-        delete node->value;
+    for (const auto* node = observers_.first(); node != observers_.head; node = node->next) {
+        gsl::owner<decltype(node->value)> observer = memory::owned_element(node->value); // (the list's)
+        delete observer;
+    }
     // the list emptied (std::list::erase(begin, end), 0x004ECC30) - twice, as the original
     for (int pass = 0; pass < 2; ++pass)
         observers_.erase(observers_.first(), observers_.head);
@@ -413,7 +415,7 @@ bool AnimBlenderComponent::all_channels_flag29()
 // 0x00419CA0
 bool AnimBlenderComponent::model_ready()
 {
-    const render::RenderModel* thing = core::down_cast<MeshInstanceModule>(mesh_instance_)->mesh_instance_;
+    const render::RenderModel* thing = core::down_cast<MeshInstanceModule>(mesh_instance_)->mesh_instance_.get();
     if (!thing)
         return false;
     const uint8_t flags = thing->flag_bits_;

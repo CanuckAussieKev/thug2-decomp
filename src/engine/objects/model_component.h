@@ -8,6 +8,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include <memory>
 
 namespace render {
 class ProbeRay;
@@ -146,7 +147,7 @@ public:
     bool flip_{};                   // +0x1F4 EnableDisplayFlip
     std::array<uint8_t, 3> pad1f5_{};
     maths::Vec4 shift_{};                // +0x1F8 added to the display position (w 1)
-    gsl::owner<render::RenderModel*> mesh_instance_; // +0x208
+    std::unique_ptr<render::RenderModel> mesh_instance_; // +0x208
     ObjectModule* bone_rig_{};           // +0x20C its object's skeleton component (Finalize)
     ObjectModule* anim_blender_ptr_{};   // +0x210
     ObjectModule* suspend_{};            // +0x214

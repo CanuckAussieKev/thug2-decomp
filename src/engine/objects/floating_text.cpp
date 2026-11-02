@@ -129,7 +129,7 @@ void FloatingTextComponent::seal() { mesh_instance_ = entity_->fetch_module(kMod
 void FloatingTextComponent::tick_frame()
 {
     auto* model =
-        static_cast<render::RenderModel*>(core::down_cast<objects::MeshInstanceModule>(mesh_instance_)->mesh_instance_);
+        static_cast<render::RenderModel*>(core::down_cast<objects::MeshInstanceModule>(mesh_instance_)->mesh_instance_.get());
     if (!model || !(model->flag_bits_ & 2) || (model->flag_bits_ & 4))
         return;
     if (!core::at(text_, 0))

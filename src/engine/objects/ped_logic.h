@@ -133,7 +133,7 @@ public:
     // 0x004EFD50: a new structure (StateParams) with a jump's parameters: straight up (jumpSpeed from JumpHeight and
     // ped_skater_jump_gravity) or to the next node (heading, jumpSpeed, jump_time; land_height); the spin (SpinAngle or
     // random half turns, SpinDirection) and the spine transfer's turn (should_flip). The caller deletes it.
-    script::Struct* leap_node_params(script::Struct* params, bool to_node);
+    gsl::owner<script::Struct*> leap_node_params(script::Struct* params, bool to_node);
     // 0x004F2570: the next waypoint reached: the path moved on (the vert flags, the crouch for a jump, the node after
     // chosen), the reached node's actions and, for a skating ped's node, its SkateAction (not after a vert grab).
     void reach_waypoint();

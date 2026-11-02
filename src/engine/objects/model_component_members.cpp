@@ -167,10 +167,10 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjUpdateBrightness:
-        update_lights_brightness(model_lights(mesh_instance_));
+        update_lights_brightness(model_lights(mesh_instance_.get()));
         break;
     case kObjGetModelName:
-        script->args_->put_name_key(kFilename, model_file_checksum(mesh_instance_));
+        script->args_->put_name_key(kFilename, model_file_checksum(mesh_instance_.get()));
         break;
     case kObjUpdateModel:
         tick_frame();
@@ -186,24 +186,24 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjEnableScaling:
-        if (mesh_instance_)
-            allow_resizing(mesh_instance_, true);
+        if (mesh_instance_.get())
+            allow_resizing(mesh_instance_.get(), true);
         break;
     case kObjDisableScaling:
-        if (mesh_instance_)
-            allow_resizing(mesh_instance_, false);
+        if (mesh_instance_.get())
+            allow_resizing(mesh_instance_.get(), false);
         break;
     case kObjApplyScaling:
-        if (mesh_instance_) {
+        if (mesh_instance_.get()) {
             maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
             if (fetch_magnification(&scale, params)) {
-                change_scale(mesh_instance_, &scale);
-                allow_resizing(mesh_instance_, true);
+                change_scale(mesh_instance_.get(), &scale);
+                allow_resizing(mesh_instance_.get(), true);
             }
         }
         break;
     case kObjGetScaling:
-        if (mesh_instance_) {
+        if (mesh_instance_.get()) {
             const maths::Vec4 scale = mesh_instance_->size_factor_; // (0x0041A680: its +0x1C)
             script->args_->put_vec3(kScaling, script::VectorValue{scale.x, scale.y, scale.z, scale.w});
         }
@@ -214,15 +214,15 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kG, &g, 0);
         params->fetch_int_value(kB, &b, 0);
         std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
-        change_ambient_tint(model_lights(mesh_instance_), rgba.data());
-        enable_ambient(model_lights(mesh_instance_), true);
+        change_ambient_tint(model_lights(mesh_instance_.get()), rgba.data());
+        enable_ambient(model_lights(mesh_instance_.get()), true);
         break;
     }
     case kObjEnableAmbientLight:
-        enable_ambient(model_lights(mesh_instance_), true);
+        enable_ambient(model_lights(mesh_instance_.get()), true);
         break;
     case kObjDisableAmbientLight:
-        enable_ambient(model_lights(mesh_instance_), false);
+        enable_ambient(model_lights(mesh_instance_.get()), false);
         break;
     case kObjSetLightDiffuseColor: {
         int index = 0, r = 0, g = 0, b = 0; // (unset when not given)
@@ -231,15 +231,15 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kG, &g, 0);
         params->fetch_int_value(kB, &b, 0);
         std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
-        change_diffuse_hue(model_lights(mesh_instance_), index, rgba.data());
-        enable_diffuse(model_lights(mesh_instance_), index, true);
+        change_diffuse_hue(model_lights(mesh_instance_.get()), index, rgba.data());
+        enable_diffuse(model_lights(mesh_instance_.get()), index, true);
         break;
     }
     case kObjEnableDiffuseLight:
     case kObjDisableDiffuseLight: {
         int index = 0; // (unset when not given)
         params->fetch_int_value(kIndex, &index, 0);
-        enable_diffuse(model_lights(mesh_instance_), index, name == kObjEnableDiffuseLight);
+        enable_diffuse(model_lights(mesh_instance_.get()), index, name == kObjEnableDiffuseLight);
         break;
     }
     case kObjSetLightDirection: {
@@ -255,7 +255,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
                 direction.rotate_about_y(heading * kRadiansPerDegree);
             }
         }
-        set_light_direction(model_lights(mesh_instance_), index, &direction);
+        set_light_direction(model_lights(mesh_instance_.get()), index, &direction);
         break;
     }
     case kCancelRotateDisplay: {
@@ -334,14 +334,14 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjSetBoundingSphere: {
         float radius = 0.0f;
         params->fetch_float(0u, &radius, 1);
-        if (mesh_instance_) {
+        if (mesh_instance_.get()) {
             const maths::Vec4 sphere = {0.0f, 0.0f, 0.0f, radius};
             mesh_instance_->change_bound_sphere(&sphere);
         }
         break;
     }
     case kObjRestoreBoundingSphere:
-        if (mesh_instance_)
+        if (mesh_instance_.get())
             mesh_instance_->change_bound_sphere(&enclosing_ball_);
         break;
     case kClearGeom: {
@@ -352,7 +352,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjClearGeoms:
-        if (mesh_instance_)
+        if (mesh_instance_.get())
             mesh_instance_->drop_geoms();
         break;
     case kAddGeom: {
@@ -361,7 +361,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->read_hash_value(0u, &geom, 1);
         const char* file = nullptr;
         params->fetch_text(kModel, &file, true);
-        load_asset(mesh_instance_, checksums::hash_from_text(file), geom, false);
+        load_asset(mesh_instance_.get(), checksums::hash_from_text(file), geom, false);
         break;
     }
     case kObjSetUvOffset: {
@@ -401,11 +401,11 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kObjClearColor:
-        if (mesh_instance_)
+        if (mesh_instance_.get())
             mesh_instance_->clear_geom_color(kAll);
         break;
     case kObjSetColor:
-        if (mesh_instance_) {
+        if (mesh_instance_.get()) {
             int h = 0, s = 0, v = 0;
             if (params->fetch_int_value(kH, &h, false) && params->fetch_int_value(kS, &s, false) &&
                 params->fetch_int_value(kV, &v, false)) {
@@ -416,7 +416,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         }
         break;
     case kObjSetColorRgb:
-        if (mesh_instance_) {
+        if (mesh_instance_.get()) {
             int r = 0, g = 0, b = 0;
             if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
                 params->fetch_int_value(kB, &b, false))
@@ -425,12 +425,12 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         }
         break;
     case kObjHasModelLights:
-        return model_lights(mesh_instance_) ? 1 : 0;
+        return model_lights(mesh_instance_.get()) ? 1 : 0;
     case kObjInitModel:
         set_up_mesh(params);
         break;
     case kObjInitModelFromProfile:
-        if (mesh_instance_) {
+        if (mesh_instance_.get()) {
             int tex_dict_offset = 0;
             params->fetch_int_value(kTexDictOffset, &tex_dict_offset, 0);
             int via_resource_store = 0;
@@ -457,7 +457,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
                 entry->fetch_text(kDest, &dest, true);
                 uint32_t in = kAll;
                 entry->read_hash_value(kIn, &in, 0);
-                if (mesh_instance_ && mesh_instance_->swap_texture(in, src, dest))
+                if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest))
                     result = true;
             }
         } else {
@@ -467,7 +467,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             params->fetch_text(kDest, &dest, true);
             uint32_t in = kAll;
             params->read_hash_value(kIn, &in, 0);
-            if (mesh_instance_ && mesh_instance_->swap_texture(in, src, dest))
+            if (mesh_instance_.get() && mesh_instance_->swap_texture(in, src, dest))
                 result = true;
         }
         break;
@@ -480,7 +480,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->read_hash_value(kDest, &dest, 1);
         uint32_t in = kAll;
         params->read_hash_value(kIn, &in, 0);
-        result = mesh_instance_ && mesh_instance_->replace_texture_with(in, src, dest);
+        result = mesh_instance_.get() && mesh_instance_->replace_texture_with(in, src, dest);
         break;
     }
     case kObjTestModelCollision:

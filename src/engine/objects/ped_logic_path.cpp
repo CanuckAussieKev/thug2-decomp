@@ -248,7 +248,7 @@ void PedestrianBrainModule::run_waypoint_actions(script::Struct* node)
 }
 
 // 0x004EFD50
-script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, bool to_node)
+gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Struct* params, bool to_node)
 {
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     vert_rotation_ = 0.0f;
@@ -521,7 +521,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     const KinematicsModule* motion = get_motion(entity_);
     gsl::owner<script::Struct*> params = get_state_params(node);
-    script::Struct* jump = leap_node_params(node, vert);
+    gsl::owner<script::Struct*> jump = leap_node_params(node, vert);
     params->append_structure_if_any(jump);
     script::free_struct(jump);
     if (vert) {

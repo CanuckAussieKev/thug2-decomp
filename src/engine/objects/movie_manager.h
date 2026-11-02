@@ -65,7 +65,7 @@ public:
     // 0xE92ECAFE state) copied to viewer_, kept until the next render frame.
     void keep_camera(Movie* movie);
     // 0x0057A530: the camera to show: the playing movie's (if it has one), else the kept one, else null.
-    gsl::owner<gfx::ViewCam*> obtain_active_lens();
+    gfx::ViewCam* obtain_active_lens();
     // 0x0057A180: the game's camera this manager's own (0x004A0970).
     void use_kept_camera();
 
@@ -85,7 +85,7 @@ public:
     // 0x0057AA70: the movie's vtable +0x18 (no such movie: false).
     bool movie_flag18(uint32_t name);
     // 0x0057AF60: the movie's 0x00469180 (no such movie: 0).
-    script::Struct* movie_value(uint32_t name);
+    gsl::owner<script::Struct*> movie_value(uint32_t name);
     // The playing movie's vtable +0x24 (0x0057B070; none: true), +0x2C (0x0057B0E0), +0x30 (0x0057B120), +0x34
     // (0x0057B160) - those three with no null check.
     bool playing_flag24();

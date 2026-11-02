@@ -164,7 +164,7 @@ void count_one(objects::Entity* object, void* data)
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
             const render::RenderModel* model =
-                component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_ : nullptr;
+                component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get() : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                     "(flags %02X)",
                     caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
@@ -184,7 +184,7 @@ void* model_geometry(objects::GameEntity* object, int index)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     render::RenderModel* model =
-        component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_ : nullptr;
+        component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get() : nullptr;
     return model ? model->fetch_geom(index) : nullptr;
 }
 
@@ -225,7 +225,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     if (!component)
         return false;
-    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
     if (!model)
         return false;
     // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its

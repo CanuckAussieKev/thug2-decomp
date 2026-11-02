@@ -12,6 +12,7 @@
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/bone_volumes.h"
 #include <gsl/pointers>
+#include "engine/core/mem.h"
 
 namespace render {
 
@@ -204,17 +205,17 @@ bool RenderModel::break_own_strips()
 // 0x00493BD0
 bool RenderModel::create_lights()
 {
-    lights_ptr_ = new_lights();
+    memory::let_go(lights_ptr_); // (any it had isn't freed, as the original)
+    lights_ptr_ = memory::take_unique<ModelLights>(new_lights());
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
-        set_geom_lights(get_geom(node), lights_ptr_);
+        set_geom_lights(get_geom(node), lights_ptr_.get());
     return true;
 }
 
 // 0x00493C10
 bool RenderModel::destroy_lights()
 {
-    discard_lights(lights_ptr_);
-    lights_ptr_ = nullptr;
+    memory::destroy_then_clear(lights_ptr_);
     for (ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next)
         set_geom_lights(get_geom(node), nullptr);
     return true;

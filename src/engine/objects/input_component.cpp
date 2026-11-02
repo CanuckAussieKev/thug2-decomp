@@ -134,7 +134,8 @@ PadInputModule::~PadInputModule()
             continue;
         if (handler->is_on_task_list())
             handler->drop_out();
-        delete handler;
+        gsl::owner<decltype(handler)> owned = memory::owned_element(handler); // (the list's)
+        delete owned;
     }
 }
 

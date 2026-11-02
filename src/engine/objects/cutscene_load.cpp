@@ -75,13 +75,13 @@ gsl::owner<script::Struct*> make_struct()
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
-void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_; }
+void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get(); }
 bool stands_in(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->level_object_; }
 uint32_t stand_in_id(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->get_linked_entity_name(); }
 } // namespace
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
-void* model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr_; }
+void* model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr_.get(); }
 gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance) { return appearance->face_skin_; }
 
 namespace {
@@ -230,7 +230,8 @@ void CinematicTable::add_objects(script::Struct* params)
                 params2->put_int(kSkeletonParam, 0);
             }
             ObjectEntry& entry = core::at(entities_, object_count_);
-            entry.object = create_object(params2);
+            auto made = create_object(params2); // (the entry's: the cutscene's end deletes it)
+            entry.object = made;
             ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             if (stand_in) {
                 const maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 150.0f};
@@ -275,7 +276,8 @@ void CinematicTable::add_objects(script::Struct* params)
                         continue;
                     AnimationEntry* animation = &core::at(animations_, j);
                     entry.animation = animation;
-                    animation->source = new render::FrameSource;
+                    auto frames = memory::make_owned<render::FrameSource>(); // (the table's)
+                    animation->source = frames;
                     animation->source->play_clip(anim);
                     animation->source->set_done(true);
                     break;

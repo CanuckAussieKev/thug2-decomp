@@ -62,7 +62,7 @@ render::BlobShadow* as_blob(render::ShadowBase* shadow) { return core::down_cast
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
 render::RenderModel* model_of(ObjectModule* component)
 {
-    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
 }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
 void set_model_shadow(render::RenderModel* model, bool on) { model->activate_shadow(on); }
@@ -122,7 +122,7 @@ void GroundShadowModule::refresh_shadow()
         const maths::Vec4 above = object->at_point_ + core::at(object->basis_frame_.row, 1) * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
-                (model->lights_ptr_)) {
+                (model->lights_ptr_.get())) {
             const maths::Vec4* v = lights->read_light_aim(0);
             const maths::Vec4 unused = *v * -1.0f;
             (void)unused;

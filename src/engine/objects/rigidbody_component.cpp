@@ -60,7 +60,7 @@ constexpr float kShapeScale = 0.03333333507180214f;       // 0x00646430
 void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat->fetch_mat(matrix); }
 
 // A structure copied into a new one (from the script pools), and one deleted.
-script::Struct* copy_of(script::Struct* source)
+gsl::owner<script::Struct*> copy_of(script::Struct* source)
 {
     gsl::owner<script::Struct*> copy = script::spawn_param_bag();
     if (copy)

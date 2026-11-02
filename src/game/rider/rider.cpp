@@ -501,10 +501,10 @@ void Rider::update_shadow_light()
     }
     // The model's light, reversed; kept at least 0.65 below the horizon.
     if (fetch_module(kModelModuleName) &&
-        core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_) {
+        core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_.get()) {
         // (the model's +0x2C - read through the folded getter 0x00532EB0 - and its virtual slot 5 - through the jump
         // 0x00456B30)
-        void* lights = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_->lights_ptr_;
+        void* lights = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_->lights_ptr_.get();
         if (lights) {
             const auto* v =
                 (static_cast<render::ModelLights*>(lights)->read_light_aim(0))->data();

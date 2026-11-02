@@ -136,8 +136,8 @@ void RiderRemoteSync::update_ground_lighting()
     if (pose_->cur_phase_ != kStateRail && feeler.is_hit_triangle_collision()) {
         // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
         // folded getter 0x00532EB0; else the global).
-        const render::RenderModel* model = mesh_set_->mesh_instance_;
-        void* light = model->lights_ptr_;
+        const render::RenderModel* model = mesh_set_->mesh_instance_.get();
+        void* light = model->lights_ptr_.get();
         if (light)
             static_cast<render::ModelLights*>(light)->move_brightness(static_cast<float>(feeler.get_hit_vertex_value()),
                                                                       kLightTime);

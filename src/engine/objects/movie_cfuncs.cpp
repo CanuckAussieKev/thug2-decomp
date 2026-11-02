@@ -152,7 +152,7 @@ bool cfunc_get_skater_cam_anim_params(script::Struct* params, script::Script* sc
     objects::Entity* skater = named_skater(params);
     if (!skater || !is_host_local(skater))
         return false;
-    script::Struct* anim_params = camera_movies()->movie_value(name);
+    gsl::owner<script::Struct*> anim_params = camera_movies()->movie_value(name);
     if (!anim_params)
         return false;
     script->args_->append_structure_if_any(anim_params);

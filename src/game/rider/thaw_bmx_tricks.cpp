@@ -520,9 +520,9 @@ void* shadow_companion(void* caster_model)
     objects::ObjectModule* bike_model = bike ? bike->fetch_module(kModel) : nullptr;
     if (!rider_model || !bike_model)
         return nullptr;
-    render::RenderModel* bike_renderer = core::down_cast<objects::MeshInstanceModule>(bike_model)->mesh_instance_;
+    render::RenderModel* bike_renderer = core::down_cast<objects::MeshInstanceModule>(bike_model)->mesh_instance_.get();
     return bike::shadow_companion_of(caster_model,
-                                     core::down_cast<objects::MeshInstanceModule>(rider_model)->mesh_instance_,
+                                     core::down_cast<objects::MeshInstanceModule>(rider_model)->mesh_instance_.get(),
                                      bike_renderer, bike_renderer ? bike_renderer->flag_bits_ : 0);
 }
 

@@ -10,6 +10,7 @@
 #include "engine/objects/signal.h"
 #include "platform/all_ones.h"
 #include <gsl/pointers>
+#include <memory>
 
 // The object tracker (GameObjects::EventWaitBoard, 0xB21C bytes, the singleton 0x006F0FC0 with its use count 0x006F0FC4):
 // - the game objects by id (+0x08) and their aliases (+0x0C) - find_object / ObjectExists / AssignAlias;
@@ -105,7 +106,7 @@ public:
     bool has_looped_;         // +0x7004 the ring is full
     std::array<std::array<char, 0x40>, 0x100> names_; // +0x7005 the event names (no check that there are at most 256)
     std::array<uint8_t, 3> unknownb005_;
-    gsl::owner<lists::KeyMap*> names_ptr_; // +0xB008 name checksum -> names_ entry (made on the first add_row)
+    lists::KeyMap* names_ptr_; // +0xB008 (the trace's: teardown frees it) name checksum -> names_ entry (made on the first add_row)
     int layer_;                // +0xB00C how many launches are under way
     int added_since_sweep_;    // +0xB010 entries since the last Print
 };
@@ -181,8 +182,8 @@ public:
 };
 
 // The tracker (null until made).
-extern EventWaitBoard* g_tracker;
-inline EventWaitBoard*& get_tracker() { return g_tracker; }
+extern std::unique_ptr<EventWaitBoard> g_tracker;
+inline EventWaitBoard* get_tracker() { return g_tracker.get(); }
 // 0x00463730: make the tracker if there's none and `create`; count a use either way. Returns it.
 EventWaitBoard* create_tracker(bool create);
 

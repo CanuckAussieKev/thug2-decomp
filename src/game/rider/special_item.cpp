@@ -59,7 +59,7 @@ void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 render::RenderModel* get_model_data(GameEntity* object)
 {
     auto* model = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
-    return model ? model->mesh_instance_ : nullptr;
+    return model ? model->mesh_instance_.get() : nullptr;
 }
 
 // A message to the server, in a network game.

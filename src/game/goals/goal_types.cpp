@@ -247,7 +247,7 @@ bool ShootVideoObjective::target_in_view()
     if (!target)
         return false;
     auto* object = core::down_cast<objects::GameEntity>(target);
-    void* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel))->mesh_instance_;
+    void* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel))->mesh_instance_.get();
     // The model's bounding sphere (0x00492F30) in the world.
     maths::Vec4 sphere;
     const maths::Vec4* bounds = static_cast<render::RenderModel*>(model)->fetch_bound_sphere(&sphere);

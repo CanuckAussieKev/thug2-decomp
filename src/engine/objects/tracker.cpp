@@ -31,7 +31,7 @@
 
 namespace objects {
 
-objects::EventWaitBoard* g_tracker;
+std::unique_ptr<objects::EventWaitBoard> g_tracker;
 memory::PoolPair g_script_list_pools;
 
 namespace {
@@ -182,7 +182,8 @@ void ScriptList::operator delete(void* list) { script_list_pools().dealloc(list)
 void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint32_t script, uint32_t how, int kind)
 {
     if (!names_ptr_) {
-        names_ptr_ = new_hash_table(8);
+        auto table = new_hash_table(8);
+        names_ptr_ = table;
         script::Array* names = script::fetch_list(kEventNames);
         for (int i = 0; i < ints::as_signed(names->extent_); ++i) {
             char* name = core::at(names_, i).data();
@@ -242,7 +243,7 @@ void SignalTrace::echo_out(bool only_new, int /*count*/)
 }
 
 // 0x00462CB0
-void SignalTrace::teardown() { delete_hash_table(names_ptr_); }
+void SignalTrace::teardown() { delete_hash_table(memory::owned_element(names_ptr_)); }
 
 // --- the tracker -----------------------------------------------------------------------------------------
 
@@ -598,12 +599,10 @@ void EventWaitBoard::log_frame() { log_.add_row(0, 0, 0, 0, 0, SignalTrace::kFra
 // 0x00463730
 EventWaitBoard* create_tracker(bool create)
 {
-    EventWaitBoard*& tracker = get_tracker();
-    if (!tracker && create) {
-        tracker = new EventWaitBoard;
-    }
+    if (!g_tracker && create)
+        g_tracker = std::make_unique<EventWaitBoard>(); // (null when the heap is full)
     ++g_tracker_references;
-    return tracker;
+    return g_tracker.get();
 }
 
 // --- the script commands ---------------------------------------------------------------------------------

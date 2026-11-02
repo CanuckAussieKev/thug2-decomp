@@ -159,7 +159,7 @@ public:
     // 0x00413490 (slot 12): a copy owning its geometry flag, with a clone of each child.
     gsl::owner<HitMeshGroup*> replicate(int argument) override;
     // 0x00411BE0: `child` onto the end of the list.
-    void attach_child(HitMesh* child);
+    void attach_child(gsl::owner<HitMesh*> child);
 
     // 0x00411D90 (slot 1): whether every child is (stops asking at the first that isn't).
     bool is_triangle_hit() override;

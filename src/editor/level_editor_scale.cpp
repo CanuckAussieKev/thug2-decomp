@@ -524,7 +524,7 @@ std::vector<ObjectEntry> g_objects;
 render::RenderModel* model_of(objects::GameEntity* object)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    return component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_
+    return component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get()
                      : nullptr;
 }
 

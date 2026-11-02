@@ -45,7 +45,7 @@ constexpr uint32_t kName = 0xA1DC81F9;            // Name
 // The model component's model (+0x208).
 render::RenderModel* model_of(ObjectModule* model)
 {
-    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_;
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_.get();
 }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).

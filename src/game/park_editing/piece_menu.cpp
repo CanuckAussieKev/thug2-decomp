@@ -48,7 +48,7 @@ void launch_script(uint32_t name, script::Struct* params = nullptr)
 
 // The object tracker (0x006F0FC0): whether there's an object `id` (0x00462120), and an event sent to it
 // (0x00462F00).
-void* get_tracker() { return static_cast<void*>(objects::g_tracker); }
+void* get_tracker() { return static_cast<void*>(objects::get_tracker()); }
 bool object_exists(void* tracker, uint32_t id)
 {
     return static_cast<objects::EventWaitBoard*>(tracker)->look_up_object(id) != nullptr;

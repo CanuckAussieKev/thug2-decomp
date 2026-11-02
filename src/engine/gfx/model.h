@@ -8,6 +8,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/lists/pointer_ring.h"
 #include <gsl/pointers>
+#include <memory>
 
 namespace script {
 class Struct;
@@ -220,7 +221,7 @@ public:
     lists::PointerRing<ModelGeom> geom_ring_{}; // +0x10: the geoms (a std::list) and their count
     uint32_t visible_geoms_{};   // +0x18: a bit per geom (in list order, modulo 32)
     maths::Vec4 size_factor_{};  // +0x1C
-    gsl::owner<ModelLights*> lights_ptr_;    // +0x2C
+    std::unique_ptr<ModelLights> lights_ptr_; // +0x2C
     uint32_t source_path_;       // +0x30: the first geom's (a checksum; "none" when made)
     maths::Vec4 enclosing_ball_{}; // +0x34 (with kModelSphereValid)
     uint8_t flag_bits_;          // +0x44

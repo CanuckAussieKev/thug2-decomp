@@ -87,7 +87,7 @@ uint32_t get_channel(float value)
 // scene's.
 void refresh_instance_lighting(Singleton* instance)
 {
-    ModelLights* lights = instance->model ? instance->model->lights_ptr_ : nullptr;
+    ModelLights* lights = instance->model ? instance->model->lights_ptr_.get() : nullptr;
     if (!lights) {
         reset_lights();
         return;

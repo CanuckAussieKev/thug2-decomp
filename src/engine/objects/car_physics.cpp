@@ -130,7 +130,7 @@ void AutomobileDynamicsModule::seal()
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     if (!skeleton)
         return;
-    mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance_;
+    mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance_.get();
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_;
     const render::HierarchyNode* bones = model_bones(mesh_instance_);
     maths::Mat4 a = bones[2].matrix;

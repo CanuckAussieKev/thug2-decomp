@@ -25,6 +25,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/mem.h"
 
 namespace objects {
 
@@ -237,7 +238,7 @@ GameEntity::~GameEntity()
 {
     composite_flags_ |= kCompositeFlagDestroying;
     while (attached_modules_) {
-        gsl::owner<ObjectModule*> component = attached_modules_;
+        gsl::owner<ObjectModule*> component = memory::owned_element(attached_modules_); // (the list's)
         attached_modules_ = component->following_;
         unregister_component(component);
         delete component;

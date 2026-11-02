@@ -8,6 +8,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include <memory>
 
 namespace script {
 class Script;
@@ -272,7 +273,7 @@ public:
     // 0x00423520: kMotionPathRandom (the path follower takes a random link).
     [[nodiscard]] bool picks_random_link() const;
     // 0x00423510: the path follower (+0x1EC; null while not on a path).
-    [[nodiscard]] PathFollower* get_path_follower() const { return path_follower_; }
+    [[nodiscard]] PathFollower* get_path_follower() const { return path_follower_.get(); }
     // 0x00423530: the speed along a path (kMotionFlagOnPath): stopping - from the speed when it began, the stop's
     // distance covered (the frame's travel added) eased linearly to the minimum stop speed, 0 at its end; else
     // accelerating (or decelerating) towards the path velocity, by the frame's share, never past it (0 acceleration:
@@ -355,7 +356,7 @@ public:
     float step_seconds_{};                       // +0x1E0 this frame's length (seconds, slow motion included)
     uint32_t own_node_name_{};                   // +0x1E4 its own node (Name)
     uint32_t list_link_{};                       // +0x1E8 the node it's at
-    gsl::owner<PathFollower*> path_follower_{nullptr}; // +0x1EC
+    std::unique_ptr<PathFollower> path_follower_; // +0x1EC
     FollowTrail* trail_{};                       // +0x1F0 obj_follow_leader's
     bool leave_y_unaffected_{};                  // +0x1F4 obj_follow_leader's LeaveYUnaffected
     std::array<uint8_t, 3> pad1f5_{};

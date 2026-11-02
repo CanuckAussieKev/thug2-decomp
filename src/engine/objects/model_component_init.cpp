@@ -78,8 +78,8 @@ gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects:
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
 gsl::owner<render::RenderModel*> spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
-void delete_model(render::RenderModel* model) { delete model; }
-render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
+void delete_model(gsl::owner<render::RenderModel*> model) { delete model; }
+render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr_.get(); }
 render::Geom* clone_model_geom(render::Geom* geom, render::RenderModel* to)
 {
     return geom->clone_for_model(1, to);
@@ -113,7 +113,7 @@ MeshInstanceModule::MeshInstanceModule()
 {
     kind_tag_ = kType;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    mesh_instance_ = spawn_render_model(1);
+    mesh_instance_ = memory::take_unique<render::RenderModel>(spawn_render_model(1));
     pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
     for (ModelSpinAxis& axis : twist_rate_) {
         for (ModelSpin& spin : axis.spins_)
@@ -128,7 +128,7 @@ MeshInstanceModule::MeshInstanceModule()
 }
 
 // 0x00420000 (0x00420270 the deleting one)
-MeshInstanceModule::~MeshInstanceModule() { delete_model(mesh_instance_); }
+MeshInstanceModule::~MeshInstanceModule() { memory::destroy_then_clear(mesh_instance_); }
 
 // 0x004204B0
 void MeshInstanceModule::seal()
@@ -142,15 +142,15 @@ void MeshInstanceModule::seal()
 void MeshInstanceModule::configure_from_data(script::Struct* params)
 {
     if (params->has_bare_flag(kUseModelLights)) {
-        if (!model_lights(mesh_instance_)) {
+        if (!model_lights(mesh_instance_.get())) {
             mesh_instance_->create_lights();
-            render::ModelLights* lights = model_lights(mesh_instance_);
+            render::ModelLights* lights = model_lights(mesh_instance_.get());
             lights->bind_position_source(&entity_->at_point_);
             int count = 1;
             params->fetch_int_value(kMaxSceneLights, &count, 0);
             lights->dynamic_radius_ = static_cast<uint32_t>(count); // (0x00407700)
         }
-    } else if (model_lights(mesh_instance_)) {
+    } else if (model_lights(mesh_instance_.get())) {
         mesh_instance_->destroy_lights();
     }
     if (ObjectModule* skeleton = entity_->fetch_module(kSkeleton))
@@ -169,15 +169,15 @@ void MeshInstanceModule::tick_frame()
         // A level object: its sector's model follows.
         GameEntity* object = entity_;
         auto* source = core::down_cast<GameEntity>(find_object(linked_entity_label_));
-        render::RenderModel* model = core::down_cast<MeshInstanceModule>(source->fetch_module(kModel))->mesh_instance_;
+        render::RenderModel* model = core::down_cast<MeshInstanceModule>(source->fetch_module(kModel))->mesh_instance_.get();
         ObjectModule* skeleton = object->fetch_module(kSkeleton);
         get_draw_matrix(&matrix);
         model->render(&matrix, false, skeleton_of(skeleton));
         model->copy_bones(skeleton_of(skeleton));
         return;
     }
-    const uint8_t model_flags = mesh_instance_ ? mesh_instance_->flag_bits_ : 0;
-    if (!mesh_instance_ || !(model_flags & 2) || (model_flags & 4))
+    const uint8_t model_flags = mesh_instance_.get() ? mesh_instance_->flag_bits_ : 0;
+    if (!mesh_instance_.get() || !(model_flags & 2) || (model_flags & 4))
         return; // (not active, or hidden)
     get_draw_matrix(&matrix);
     gfx::Rig* skeleton = bone_rig_ ? skeleton_of(bone_rig_) : nullptr;
@@ -191,18 +191,20 @@ void MeshInstanceModule::tick_frame()
 void MeshInstanceModule::jump_to()
 {
     tick_frame();
-    if (mesh_instance_ && model_lights(mesh_instance_))
-        update_lights_brightness(model_lights(mesh_instance_));
+    if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+        update_lights_brightness(model_lights(mesh_instance_.get()));
 }
 
 // 0x00421360
 void MeshInstanceModule::change_mesh(render::RenderModel* model)
 {
-    mesh_instance_ = model;
+    // (the model it had isn't deleted: the caller has it - the model swap hands it to the other component)
+    memory::let_go(mesh_instance_);
+    mesh_instance_.reset(model);
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
         tick_frame();
-        if (mesh_instance_ && model_lights(mesh_instance_))
-            update_lights_brightness(model_lights(mesh_instance_));
+        if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+            update_lights_brightness(model_lights(mesh_instance_.get()));
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *model->fetch_bound_sphere(&sphere);
@@ -212,7 +214,7 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
 void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resource_store, int tex_dict_offset,
                                                   uint32_t build_script)
 {
-    render::RenderModel* model = mesh_instance_;
+    render::RenderModel* model = mesh_instance_.get();
     gfx::Rig* skeleton = nullptr;
     if (ObjectModule* component = entity_->fetch_module(kSkeleton))
         skeleton = skeleton_of(component);
@@ -221,8 +223,8 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
                       build_script ? build_script : kDefaultBuildScript);
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
         tick_frame();
-        if (mesh_instance_ && model_lights(mesh_instance_))
-            update_lights_brightness(model_lights(mesh_instance_));
+        if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+            update_lights_brightness(model_lights(mesh_instance_.get()));
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *model->fetch_bound_sphere(&sphere);
@@ -241,7 +243,7 @@ void MeshInstanceModule::init_from_sector(uint32_t name)
         return;
     render::Geom* clone = clone_sector_geom(geom);
     activate_geom(clone);
-    add_geom(mesh_instance_, clone, 0);
+    add_geom(mesh_instance_.get(), clone, 0);
     sector_model_ = true;
 }
 
@@ -265,7 +267,7 @@ void MeshInstanceModule::init_bone_volumes()
         ++volumes->users_; // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
-        gsl::owner<void*> made = memory::alloc(0x0C);
+        gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(0x0C));
         if (made)
             made = new (made) gfx::BoneVolumes(0);
         static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total_));
@@ -316,9 +318,9 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                 render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
                 if (!geom)
                     return; // (nothing after it either)
-                render::Geom* clone = clone_model_geom(geom, mesh_instance_);
+                render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
                 activate_geom(clone);
-                add_geom(mesh_instance_, clone, mesh_label);
+                add_geom(mesh_instance_.get(), clone, mesh_label);
             } else if (params->fetch_list(kGeoms, &geoms, 0)) {
                 for (uint32_t i = 0; i < geoms->extent_; ++i) {
                     mesh_label = geoms->fetch_part(i);
@@ -327,15 +329,15 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                     render::Geom* geom = source->mesh_instance_->get_geom_by_name(mesh_label);
                     if (!geom)
                         return;
-                    render::Geom* clone = clone_model_geom(geom, mesh_instance_);
+                    render::Geom* clone = clone_model_geom(geom, mesh_instance_.get());
                     activate_geom(clone);
-                    add_geom(mesh_instance_, clone, mesh_label);
+                    add_geom(mesh_instance_.get(), clone, mesh_label);
                 }
             } else {
                 for (int i = 0; i < source->mesh_instance_->fetch_geom_total(); ++i) {
-                    render::Geom* clone = clone_model_geom(source->mesh_instance_->fetch_geom(i), mesh_instance_);
+                    render::Geom* clone = clone_model_geom(source->mesh_instance_->fetch_geom(i), mesh_instance_.get());
                     activate_geom(clone);
-                    add_geom(mesh_instance_, clone, source->mesh_instance_->fetch_part_label(i));
+                    add_geom(mesh_instance_.get(), clone, source->mesh_instance_->fetch_part_label(i));
                 }
             }
         } else {
@@ -360,14 +362,14 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                 // A level sector's geometry as the model.
                 render::Geom* clone = clone_sector_geom(sector_geom(look_up_sector(name)));
                 activate_geom(clone);
-                add_geom(mesh_instance_, clone, 0);
+                add_geom(mesh_instance_.get(), clone, 0);
             }
         }
     }
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
         tick_frame();
-        if (mesh_instance_ && model_lights(mesh_instance_))
-            update_lights_brightness(model_lights(mesh_instance_));
+        if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
+            update_lights_brightness(model_lights(mesh_instance_.get()));
     }
     maths::Vec4 sphere;
     enclosing_ball_ = *mesh_instance_->fetch_bound_sphere(&sphere);

@@ -61,7 +61,7 @@ int model_test_collision(render::RenderModel* model, const maths::Seg* line, gfx
 {
     return model->test_bone_volumes(line, skeleton, matrix, test);
 }
-void* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
+void* model_lights(render::RenderModel* model) { return model->lights_ptr_.get(); }
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
 // or lerped towards (0x0048E830); without model lights, the global brightness (0x0048EDB0).
 void lights_update_brightness(void* lights) { static_cast<render::ModelLights*>(lights)->get_update_brightness(); }
@@ -241,7 +241,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
 int MeshInstanceModule::test_collision(const maths::Seg* line, const render::BoneLineTest& test)
 {
     gfx::Rig* skeleton = skeleton_of(bone_rig_); // (read before the check: the original's crashes without one)
-    const void* volumes = model_bone_volumes(mesh_instance_);
+    const void* volumes = model_bone_volumes(mesh_instance_.get());
     if (!bone_rig_)
         return 0;
     if (!volumes) {
@@ -250,37 +250,37 @@ int MeshInstanceModule::test_collision(const maths::Seg* line, const render::Bon
     }
     maths::Mat4 matrix;
     get_draw_matrix(&matrix);
-    return model_test_collision(mesh_instance_, line, skeleton, &matrix, test);
+    return model_test_collision(mesh_instance_.get(), line, skeleton, &matrix, test);
 }
 
 // 0x00420070
 void MeshInstanceModule::conceal(bool hide)
 {
-    if (mesh_instance_)
-        model_hide(mesh_instance_, hide);
+    if (mesh_instance_.get())
+        model_hide(mesh_instance_.get(), hide);
 }
 
 // 0x00420090
 void MeshInstanceModule::set_color_value(int index, float value)
 {
-    if (mesh_instance_ && index >= 1 && index <= color_value_count_)
+    if (mesh_instance_.get() && index >= 1 && index <= color_value_count_)
         core::at(color_values_, index - 1) = value;
 }
 
 // 0x004200C0
-void MeshInstanceModule::get_update_brightness() { lights_update_brightness(model_lights(mesh_instance_)); }
+void MeshInstanceModule::get_update_brightness() { lights_update_brightness(model_lights(mesh_instance_.get())); }
 
 // 0x004200E0
 void MeshInstanceModule::rebuild_from_profile(void* profile, uint32_t build_script)
 {
-    if (mesh_instance_)
+    if (mesh_instance_.get())
         set_up_mesh_from_profile(profile, true, 0, build_script);
 }
 
 // 0x00420110
 bool MeshInstanceModule::swap_texture(uint32_t mesh, const char* src, uint32_t dest)
 {
-    return mesh_instance_ && model_replace_texture(mesh_instance_, mesh, src, dest);
+    return mesh_instance_.get() && model_replace_texture(mesh_instance_.get(), mesh, src, dest);
 }
 
 // 0x004202A0
@@ -296,8 +296,8 @@ bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
         online::write_hide_geom(writer, sent);
         send_to_server(entity_, online::kMsgHideGeom, sizeof(data), data.data());
     }
-    if (mesh_instance_)
-        model_hide_geom(mesh_instance_, name, hide);
+    if (mesh_instance_.get())
+        model_hide_geom(mesh_instance_.get(), name, hide);
     return true;
 }
 
@@ -306,7 +306,7 @@ void MeshInstanceModule::apply_brightness(render::ProbeRay* feeler, bool lerp, f
 {
     if (!feeler->is_hit_triangle_collision())
         return;
-    void* lights = model_lights(mesh_instance_);
+    void* lights = model_lights(mesh_instance_.get());
     const double value = feeler->get_hit_vertex_value();
     if (!lights) {
         set_global_brightness(static_cast<float>(value));
@@ -325,7 +325,7 @@ void MeshInstanceModule::change_tint(uint32_t color)
 {
     if (!sector_model_)
         return;
-    render::Geom* geom = model_geom(mesh_instance_, 0);
+    render::Geom* geom = model_geom(mesh_instance_.get(), 0);
     geom->change_tint(color);
 }
 

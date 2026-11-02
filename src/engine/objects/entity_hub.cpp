@@ -170,7 +170,8 @@ void MiscHub::flush_dead_objects()
         node->next->prev = node->prev;
         node->next = node;
         node->prev = node;
-        delete static_cast<Entity*>(node->data);
+        gsl::owner<Entity*> entity = memory::adopt<Entity*>(node->data); // (the list's)
+        delete entity;
         node = next;
     } while (node);
 }
@@ -226,8 +227,7 @@ void release_tracker()
         --references;
         return;
     }
-    delete get_tracker();
-    get_tracker() = nullptr;
+    memory::destroy_then_clear(g_tracker);
     references = 0;
 }
 

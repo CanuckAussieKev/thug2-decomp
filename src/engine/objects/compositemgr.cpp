@@ -237,7 +237,8 @@ GameEntity* EntityHub::spawn_entity_from_node(script::Array* components, script:
     build_modules_from_list(object, components, node_data);
     if (finalize)
         seal(object);
-    return object;
+    GameEntity* const made = object; // (the manager's lists hold it)
+    return made;
 }
 
 // 0x0045F4A0
@@ -327,7 +328,8 @@ void destroy_coim_heap()
         if (node != head) {
             do {
                 if (node->value) {
-                    delete node->value;
+                    gsl::owner<decltype(node->value)> owned = memory::owned_element(node->value); // (the table's)
+                    delete owned;
                     node->value = nullptr;
                 }
                 MaterializeNode* next = node->next;

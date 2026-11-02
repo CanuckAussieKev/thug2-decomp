@@ -153,7 +153,7 @@ RenderModel::RenderModel()
 RenderModel::~RenderModel()
 {
     if (lights_ptr_)
-        discard_lights(lights_ptr_);
+        memory::destroy_then_clear(lights_ptr_);
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         if (const gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_)
             gfx::release_bone_volumes(volumes->num_); // (the table keeps them by their bone count)
@@ -228,7 +228,7 @@ bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multic
     entry->name = name;
     visible_geoms_ |= geom_bit(geom_total_);
     if (lights_ptr_)
-        set_geom_lights(entry->geom, lights_ptr_);
+        set_geom_lights(entry->geom, lights_ptr_.get());
     ++geom_total_;
     if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
@@ -305,7 +305,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     entry->name = name;
     visible_geoms_ |= geom_bit(geom_total_);
     if (lights_ptr_)
-        set_geom_lights(entry->geom, lights_ptr_);
+        set_geom_lights(entry->geom, lights_ptr_.get());
     ++geom_total_;
     if (display_mode_ != 0 && allows_display_mode(0))
         display_mode_ = 0;
@@ -329,7 +329,7 @@ bool RenderModel::add_geom(Geom* geom, uint32_t name, bool default_heap)
     visible_geoms_ |= geom_bit(geom_total_);
     entry->textures = nullptr;
     if (lights_ptr_)
-        set_geom_lights(entry->geom, lights_ptr_);
+        set_geom_lights(entry->geom, lights_ptr_.get());
     entry->bone_volumes_ = nullptr;
     entry->scene = nullptr;
     entry->asset_name_ = 0;

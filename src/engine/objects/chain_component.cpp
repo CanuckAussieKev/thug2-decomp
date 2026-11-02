@@ -129,7 +129,8 @@ ChainLink::ChainLink() = default;
 void ChainLink::destroy_body()
 {
     if (line_ptr_) {
-        delete line_ptr_;
+        gsl::owner<render::PcPrimitive*> line = memory::owned_element(line_ptr_);
+        delete line;
         line_ptr_ = nullptr;
     }
 }

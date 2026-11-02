@@ -354,7 +354,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
          component = component->next_of_type_) {
         if (component->entity_->kind_tag_ != kCarType)
             continue;
-        render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+        render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
         bool added = false;
         for (int i = 0; i < model->fetch_geom_total(); ++i) {
             const render::TextureSet* textures = model->get_geom_textures(i);

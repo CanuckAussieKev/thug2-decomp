@@ -145,6 +145,12 @@ void destroy_then_clear(Owned& owned) noexcept
         (void)owned.release();
     }
 }
+// NOT ORIGINAL - an owner made to let go of what it holds without freeing it (the original handed it on or left it).
+template <typename Owned>
+void let_go(Owned& owned) noexcept
+{
+    (void)owned.release();
+}
 // A zeroed block from the current heap with an `Object` constructed in it (null when the heap is full: nothing is
 // constructed then).
 template <typename Object, typename... Args>

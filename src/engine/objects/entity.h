@@ -175,7 +175,7 @@ public:
     uint32_t ident_ = kUnassignedId;       // +0x14 kUnassignedId until registered
     uint32_t kind_tag_ = kNoObjectType;    // +0x18
     uint32_t visited_mask_ = 0;            // +0x1C ObjectHubBase::for_each's bits (one per walk in progress)
-    script::Struct* tag_table_ = nullptr;  // +0x20 made on demand (front-end heap)
+    gsl::owner<script::Struct*> tag_table_ = nullptr; // +0x20 made on demand (front-end heap)
     uint32_t flag_bits_{};                 // +0x24 the script flags (Obj_SetFlag...; never initialised here)
     // +0x28 in the manager's list (or its dead list; lists::Elem<Entity>: data = the object, priority = the list's
     // sort key, the highest first)
@@ -321,7 +321,7 @@ public:
     void hold_off(bool suspend);
     // 0x0045DA30: `component` added at the end of the list, its object set, and registered with the composite
     // object manager.
-    void attach_module(ObjectModule* component);
+    void attach_module(gsl::owner<ObjectModule*> component);
     // 0x0045DA90: create_component_from_structure for each structure in `components`, with `extra`.
     void build_modules_from_list(script::Array* components, script::Struct* extra);
     // 0x0045DAD0: name= (the id), the position and orientation (0x0045C050 / 0x0045C0B0), `permanent` (locked).

@@ -98,14 +98,14 @@ const maths::BBox* geometry_bounding_box(void* geometry)
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
 const maths::BBox* model_bounding_box(objects::ObjectModule* component)
 {
-    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
     void* geometry = model->get_geom_by_name(0);
     return geometry_bounding_box(geometry);
 }
 // The same, or null when the model has no geometry yet (the widescreen rule asks every frame, for every element).
 const maths::BBox* model_bounding_box_if_any(objects::ObjectModule* component)
 {
-    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
     if (!model)
         return nullptr;
     void* geometry = model->get_geom_by_name(0);

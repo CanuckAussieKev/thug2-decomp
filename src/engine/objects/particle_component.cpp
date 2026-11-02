@@ -510,9 +510,8 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     result->push_float(0xC218CF77u, own->lifetime_);
     std::array<script::Array*, 3> colours{};
     for (script::Array*& array : colours) {
-        array = script::alloc_script_array();
-        if (array)
-            array = new (array) script::Array;
+        gsl::owner<script::Array*> made = script::new_array();
+        array = made;
     }
     std::array<std::array<uint8_t, 4>, 3> colour{};
     std::memcpy(colour.data(), own->shade_.data(), sizeof(colour));

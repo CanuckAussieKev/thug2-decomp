@@ -215,7 +215,7 @@ inline bool is_static_collider(const void* object)
 // 0x00414990 (cdecl): a movable collision object made from `count` geometries (consecutive in memory): type 1 a box
 // around them all, type 4 a movable triangle object (several: a multi-object of them); null for other types or
 // no geometry. `owner` is set (set_owner) and the object registered with it (0x004177B0).
-HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, objects::GameEntity* owner);
+gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, objects::GameEntity* owner);
 
 // 0x00414D60: the geometry's debug rendering (compiled out: returns).
 void draw_geometry_diagnostic(const TriMeshSource* geometry, const maths::Mat4* transform, int a, int b, int c);

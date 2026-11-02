@@ -138,7 +138,7 @@ void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // getter 0x005480F0: +0x18) and the skeleton's bone matrices (0x005480C0: +0x04).
 render::RenderModel* model_of(ObjectModule* component)
 {
-    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_;
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
 }
 int get_bone_count(render::RenderModel* model)
 {

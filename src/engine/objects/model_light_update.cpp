@@ -115,7 +115,7 @@ void MeshLightingModule::tick_frame()
         return;
     }
     if (gap_time_ && counter_++ < gap_time_) {
-        static_cast<render::ModelLights*>(model_nx::model_lights(mesh_instance_->mesh_instance_))
+        static_cast<render::ModelLights*>(model_nx::model_lights(mesh_instance_->mesh_instance_.get()))
             ->move_brightness(brightness_, kLerpRate);
         return;
     }

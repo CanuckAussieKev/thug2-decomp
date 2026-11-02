@@ -325,7 +325,7 @@ double objects::FootMovement::run_speed()
 // 0x0043DC00
 double objects::FootMovement::hang_height_offset()
 {
-    const render::RenderModel* model = model_->mesh_instance_;
+    const render::RenderModel* model = model_->mesh_instance_.get();
     if (!(model->flag_bits_ & 8)) // (kModelScaled)
         return 0.0;
     const float fraction = model->size_factor_.y;

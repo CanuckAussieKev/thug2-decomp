@@ -243,9 +243,9 @@ public:
     uint32_t bounce_script_{0};             // +0xC8 BounceScript
     uint32_t settle_script_{0};             // +0xCC SettleScript
     uint32_t script_d0_{0};                 // +0xD0 (0xCCB84047): run when the contacts can't be resolved
-    script::Struct* callback_params_ptr_{}; // +0xD4 CallbackParams (a copy)
-    script::Struct* collide_sound_ptr_{};   // +0xD8 the sound type's CollideSound (a copy)
-    script::Struct* bounce_sfx_{};          // +0xDC ... BounceSound
+    gsl::owner<script::Struct*> callback_params_ptr_{}; // +0xD4 CallbackParams (a copy)
+    gsl::owner<script::Struct*> collide_sound_ptr_{}; // +0xD8 the sound type's CollideSound (a copy)
+    gsl::owner<script::Struct*> bounce_sfx_{};        // +0xDC ... BounceSound
     int impact_quiet_ms_{1000};             // +0xE0 (1000)
     int global_collide_mute_delay_{100};    // +0xE4 (100)
     float bounce_callback_threshold_{20.0f}; // +0xE8 BounceVelocityCallbackThreshold (20)

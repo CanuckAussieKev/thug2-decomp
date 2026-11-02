@@ -105,7 +105,7 @@ gsl::owner<HitMeshGroup*> HitMeshGroup::replicate(int argument)
 }
 
 // 0x00411BE0
-void HitMeshGroup::attach_child(HitMesh* child)
+void HitMeshGroup::attach_child(gsl::owner<HitMesh*> child)
 {
     memory::ListNode* node = memory::ListNode::create(child);
     memory::ListNode* head = sub_nodes_;

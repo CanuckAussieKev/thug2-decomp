@@ -48,7 +48,11 @@ TextureProjectionComponent::TextureProjectionComponent()
 TextureProjectionComponent::~TextureProjectionComponent()
 {
     lists::delete_each<render::TextureProjection>(&projections_,
-                                                  [](render::TextureProjection* projection) { delete projection; });
+                                                  [](render::TextureProjection* projection) {
+                                                      gsl::owner<render::TextureProjection*> owned =
+                                                          memory::owned_element(projection); // (the list's)
+                                                      delete owned;
+                                                  });
     projections_.uncouple();
 }
 

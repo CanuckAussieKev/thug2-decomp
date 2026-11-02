@@ -52,7 +52,7 @@ Struct* new_struct_copy(Struct* source)
 void free_params(SignalRouteTable::TableRow& entry)
 {
     if (entry.params) {
-        free_struct(entry.params);
+        free_struct(memory::owned_element(entry.params)); // (the row's copy)
         entry.params = nullptr;
     }
 }
@@ -92,7 +92,7 @@ int event_controller(Signal* event)
 void Signal::teardown()
 {
     if ((flag_bits_ & kFlagOwnsData) && payload_)
-        free_struct(payload_);
+        free_struct(memory::owned_element(payload_)); // (kFlagOwnsData: the event's)
 }
 
 // 0x0045FAC0
@@ -119,7 +119,7 @@ SignalRouteTable::~SignalRouteTable()
         return;
     for (int i = 0; i < num_; ++i) {
         if (Struct* params = entries_[i].params)
-            free_struct(params);
+            free_struct(memory::owned_element(params)); // (the row's copy)
     }
     memory::Hub::get_pull()->dealloc(entries_);
 }
@@ -193,7 +193,7 @@ void SignalRouteTable::append_listener(Script* script, uint32_t type, uint32_t s
             if (entries_[i].type == type) {
                 entry = &entries_[i];
                 if (entry->params)
-                    free_struct(entry->params); // (the pointer is overwritten below)
+                    free_struct(memory::owned_element(entry->params)); // (the row's copy; the pointer is overwritten below)
                 tell_tracker = entry->script == kNullScript;
                 break;
             }
@@ -332,7 +332,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
             return;
         for (int i = 0; i < num_; ++i) {
             if (Struct* params = entries_[i].params)
-                free_struct(params);
+                free_struct(memory::owned_element(params)); // (the row's copy)
         }
         memory::Hub::get_pull()->dealloc(entries_);
         entries_ = nullptr;

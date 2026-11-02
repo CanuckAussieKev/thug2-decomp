@@ -59,8 +59,7 @@ KinematicsModule::KinematicsModule()
 KinematicsModule::~KinematicsModule()
 {
     if (path_follower_) {
-        delete path_follower_;
-        path_follower_ = nullptr;
+        memory::destroy_then_clear(path_follower_);
     }
     if (turn_ptr_) {
         memory::Hub::get_pull()->dealloc(turn_ptr_); // (no destructor run)
@@ -114,7 +113,7 @@ void KinematicsModule::init_path_follower(GameEntity* owner)
 {
     if (path_follower_)
         return;
-    path_follower_ = new PathFollower(owner);
+    path_follower_ = std::make_unique<PathFollower>(owner);
 }
 
 // --- the vtable ---

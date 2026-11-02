@@ -42,6 +42,7 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/gfx/render_state.h"
+#include "engine/core/mem.h"
 
 namespace objects {
 
@@ -250,7 +251,7 @@ CinematicTable::~CinematicTable()
     object_source_ = nullptr;
     for (int i = 0; i < animation_count_; ++i) {
         if (core::at(animations_, i).source)
-            delete_source(core::at(animations_, i).source);
+            delete_source(memory::owned_element(core::at(animations_, i).source)); // (the table's)
         core::at(animations_, i).data = nullptr; // (the source's pointer left as it is, as the original)
     }
     destroy_objects();
@@ -269,7 +270,7 @@ CinematicTable::~CinematicTable()
         }
     }
     if (call_args_) {
-        free_struct(call_args_);
+        free_struct(memory::owned_element(call_args_)); // (the package's)
         call_args_ = nullptr;
     }
 }

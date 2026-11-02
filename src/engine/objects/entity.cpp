@@ -530,8 +530,10 @@ void get_unlock(Entity* object, void* /*data*/) { object->object_flags_ &= ~kObj
 // 0x00460AA0
 void dispose_when_free(Entity* object, void* /*data*/)
 {
-    if (!(object->object_flags_ & kObjectFlagLocked))
-        delete object;
+    if (!(object->object_flags_ & kObjectFlagLocked)) {
+        gsl::owner<decltype(object)> owned = memory::owned_element(object); // (the manager's)
+        delete owned;
+    }
 }
 
 } // namespace objects

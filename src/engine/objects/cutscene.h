@@ -138,7 +138,7 @@ public:
     // An animation it loaded (12 bytes).
     struct AnimationEntry {
         uint32_t name;
-        gsl::owner<render::FrameSource*> source; // +0x04: an animation source (0x214 bytes, made when an object uses it)
+        render::FrameSource* source; // +0x04: an animation source (0x214 bytes, made when an object uses it)
         void* data;   // +0x08
     };
     // An object of the cutscene (0x20 bytes).
