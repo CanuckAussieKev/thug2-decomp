@@ -6,6 +6,9 @@
 #include "platform/compiler.h"
 
 #include <cctype>
+#include "engine/core/checked_index.h"
+#include <string_view>
+#include <span>
 #include <cstdio>
 #include <cstring>
 #include <array>
@@ -16,11 +19,16 @@ namespace game_spy {
 void fix_nick(char* new_nick, const char* old_nick)
 {
     static const auto kValid = std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]\\`_^{|}-");
-    if (std::isdigit(static_cast<unsigned char>(*old_nick)) || *old_nick == '-')
-        *new_nick++ = '_';
-    for (char c = 0; (c = *old_nick++) != '\0';)
-        *new_nick++ = std::strchr(kValid.data(), c) ? c : '_';
-    *new_nick = '\0';
+    const std::string_view old_text(old_nick);
+    // (the new nick is at most one longer, and ends with its NUL: the caller's buffer holds that, as the original's did)
+    const std::span<char> out(new_nick, old_text.size() + 2);
+    size_t at = 0;
+    const char first = old_text.empty() ? '\0' : old_text.front();
+    if (std::isdigit(static_cast<unsigned char>(first)) || first == '-')
+        core::at(out, at++) = '_';
+    for (const char c : old_text)
+        core::at(out, at++) = std::strchr(kValid.data(), c) ? c : '_';
+    core::at(out, at) = '\0';
 }
 
 } // namespace game_spy
@@ -86,9 +94,9 @@ std::array<char, 128> s_master_server;
 void set_master_server(const char* game_name)
 {
     uint32_t hash = 0;
-    for (const char* c = game_name; *c; ++c)
+    for (const char c : std::string_view(game_name))
         hash =
-            static_cast<uint32_t>(static_cast<int>(hash) * -1664117991 + std::tolower(static_cast<unsigned char>(*c)));
+            static_cast<uint32_t>(static_cast<int>(hash) * -1664117991 + std::tolower(static_cast<unsigned char>(c)));
     std::snprintf(s_master_server.data(), sizeof(s_master_server), "%s.ms%d.%s", game_name, static_cast<int>(hash % 20),
                   s_domain.data());
     SBOverrideMasterServer = s_master_server.data();

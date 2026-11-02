@@ -4,6 +4,7 @@
 #include "gpu/vertex_buffers.h"
 
 #include <windows.h>
+#include <span>
 
 #include <d3d9.h>
 
@@ -100,7 +101,7 @@ void VertexBuffer::unlist() { render::unlist(vertex_buffers(), this); }
 // 0x004D4090
 long VertexBuffer::get_lock(uint32_t offset, uint32_t bytes, uint8_t** out, uint32_t flags_for_lock)
 {
-    *out = data + offset;
+    *out = data ? std::span<uint8_t>(data, size).subspan(offset).data() : data;
     lock_offset_ = offset;
     lock_size_ = bytes ? bytes : size;
     lock_flags_ = flags_for_lock;

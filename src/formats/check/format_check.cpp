@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -332,7 +333,8 @@ void check_park_map(const ArrayValue& array, const std::string& what)
     util::ByteWriter writer(again.data(), again.size());
     write_park_map_header(writer, header);
     check(std::memcmp(again.data(), map.data(), kParkMapHeaderSize) == 0, what + ": park map header encoded again");
-    std::memcpy(again.data() + kParkMapHeaderSize, map.data() + kParkMapHeaderSize, kParkMapFloorCells);
+    std::memcpy(std::span(again).subspan(kParkMapHeaderSize).data(), std::span(map).subspan(kParkMapHeaderSize).data(),
+                kParkMapFloorCells);
     reader.seek(kParkMapRecordsStart);
     writer.seek(kParkMapRecordsStart);
     const bool current = header.version == kParkMapVersion;
@@ -348,7 +350,7 @@ void check_park_map(const ArrayValue& array, const std::string& what)
             write_park_map_gap(writer, gap);
         } else {
             // (no writer for the old layout: its bytes copied)
-            writer.bytes(map.data() + writer.position(), kOldParkMapGapSize);
+            writer.bytes(std::span(map).subspan(writer.position()).data(), kOldParkMapGapSize);
         }
     }
     check(reader.ok() && writer.ok() && reader.position() == header.extent && writer.position() == header.extent,
@@ -411,7 +413,7 @@ void check_save_file(const std::filesystem::path& path)
     auto size = static_cast<size_t>(header.size);
     check(save_cards::save_file_checksum(file.data(), size) == header.checksum, name + ": file CRC");
     check(header.summary_size <= save_cards::kMaxSummarySize, name + ": summary size");
-    const uint8_t* summary = file.data() + save_cards::kSaveFileHeaderSize;
+    const uint8_t* summary = std::span(file).subspan(save_cards::kSaveFileHeaderSize).data();
     check(checksums::generate_crc_from_buffer(summary, header.summary_size) == header.summary_crc,
           name + ": summary CRC");
 
@@ -537,7 +539,7 @@ void check_wire_messages()
         int32_t id = 77;
         std::memcpy(reference_piece.data(), &id, 4);
         if (piece_size)
-            std::memcpy(reference_piece.data() + 4, piece.data(), piece_size);
+            std::memcpy(std::span(reference_piece).subspan(4).data(), piece.data(), piece_size);
         check(piece_writer.position() == piece_size + 4 &&
                   std::memcmp(piece_bytes.data(), reference_piece.data(), piece_size + 4) == 0,
               "stream piece " + std::to_string(piece_size) + ": as the original's struct");
@@ -675,7 +677,7 @@ void check_server_info()
               std::strcmp(core::at(back->players, 1).data(), "fifteen_chars__") == 0,
           "server info: decoded and encoded again");
     // a name filling its field without a terminator: cut there when read
-    std::memset(bytes.data() + 8, 'n', 16);
+    std::memset(std::span(bytes).subspan(8).data(), 'n', 16);
     util::ByteReader unterminated(bytes.data(), sizeof(bytes));
     online::read_server_info(unterminated, back.get());
     check(std::strlen(back->name.data()) == 16 && std::strcmp(back->level.data(), "Barcelona") == 0,
@@ -719,7 +721,7 @@ void check_session_messages()
     check(reader.ok() && reader.remaining() == 0 && std::memcmp(again.data(), bytes.data(), sizeof(bytes)) == 0,
           "session brief: decoded and encoded again");
     uint32_t mode = 0;
-    std::memcpy(&mode, bytes.data() + online::kSessionBriefGameTypeAt, 4);
+    std::memcpy(&mode, std::span(bytes).subspan(online::kSessionBriefGameTypeAt).data(), 4);
     check(mode == brief.game_type, "session brief: the guards' game type offset");
 
     ReferenceStartGame start_ref = {};
@@ -811,7 +813,7 @@ int run_checks(int argc, char** argv)
     check_skate_messages();
     g_failures += format_check_net::run();
     for (int i = 1; i < argc; ++i) {
-        const std::filesystem::path path(argv[i]);
+        const std::filesystem::path path(core::at(std::span(argv, static_cast<size_t>(argc)), i));
         if (std::filesystem::is_directory(path / "pre")) { // a Data folder: its archives and files
             g_failures += format_check_files::run(path);
         } else if (std::filesystem::is_directory(path)) {

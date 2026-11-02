@@ -17,6 +17,7 @@
 #include <mutex>
 #include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -130,6 +131,14 @@ std::string vec(std::span<const float, 3> v, const char* format = "(%.1f, %.1f, 
     return text.data();
 }
 
+// The file name at the end of a path.
+std::string_view file_name_of(const char* path)
+{
+    const std::string_view full(path);
+    const size_t slash = full.rfind('\\');
+    return slash == std::string_view::npos ? full : full.substr(slash + 1);
+}
+
 std::string file_time(const char* path)
 {
     WIN32_FILE_ATTRIBUTE_DATA data = {};
@@ -173,8 +182,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     Section build{"build", {}};
     std::array<char, MAX_PATH> exe = {""};
     GetModuleFileNameA(nullptr, exe.data(), MAX_PATH);
-    const char* exe_name = std::strrchr(exe.data(), '\\') ? std::strrchr(exe.data(), '\\') + 1 : exe.data();
-    build.fields.push_back({"exe", exe_name});
+    build.fields.push_back({"exe", std::string(file_name_of(exe.data()))});
     build.fields.push_back({"exe file", file_time(exe.data())});
     HMODULE dll = nullptr;
     std::array<char, MAX_PATH> dll_path = {""};
@@ -183,7 +191,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
         GetModuleFileNameA(dll, dll_path.data(), MAX_PATH);
     build.fields.push_back(
         {"dll",
-         core::at(dll_path, 0) ? std::string(std::strrchr(dll_path.data(), '\\') ? std::strrchr(dll_path.data(), '\\') + 1 : dll_path.data()) : ""});
+         core::at(dll_path, 0) ? std::string(file_name_of(dll_path.data())) : ""});
     build.fields.push_back({"dll file", core::at(dll_path, 0) ? file_time(dll_path.data()) : ""});
     build.fields.push_back({"dll commit", THUG2_BUILD_COMMIT});
     sections.push_back(build);

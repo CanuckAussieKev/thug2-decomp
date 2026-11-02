@@ -19,6 +19,8 @@
 #include <crtdbg.h>
 #include <rtcapi.h>
 #include <array>
+#include <span>
+#include <string_view>
 #endif
 
 #include "platform/run_log.h"
@@ -72,8 +74,11 @@ bool module_of(uintptr_t address, std::array<char, MAX_PATH>& name, uintptr_t* o
         !module)
         return false;
     GetModuleFileNameA(module, name.data(), MAX_PATH);
-    if (const char* slash = strrchr(name.data(), '\\'))
-        memmove(name.data(), slash + 1, strlen(slash));
+    const std::string_view full(name.data());
+    if (const size_t slash = full.rfind('\\'); slash != std::string_view::npos) {
+        const std::string_view file = full.substr(slash + 1);
+        memmove(name.data(), file.data(), file.size() + 1);
+    }
     *offset = address - cell::address(module);
     return true;
 }
@@ -95,11 +100,11 @@ bool after_call(uintptr_t address)
 {
     if (!readable(address - 7, 7, true))
         return false;
-    const auto* p = cell::pointer<const uint8_t>(address);
-    if (p[-5] == 0xE8)
+    const std::span<const uint8_t, 7> before(cell::pointer<const uint8_t>(address - 7), 7); // (the 7 bytes before)
+    if (core::at(before, 2) == 0xE8)
         return true;
     for (const int length : {2, 3, 4, 6, 7}) {
-        if (p[-length] == 0xFF && ((p[-length + 1] >> 3) & 7) == 2)
+        if (core::at(before, 7 - length) == 0xFF && ((core::at(before, 8 - length) >> 3) & 7) == 2)
             return true;
     }
     return false;
@@ -167,9 +172,10 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
     for (uintptr_t slot = c->Esp; slot < c->Esp + 0x80; slot += 0x20) {
         if (!readable(slot, 0x20, false))
             break;
-        const auto* w = cell::pointer<const uint32_t>(slot);
-        get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0],
-                w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
+        const std::span<const uint32_t, 8> w(cell::pointer<const uint32_t>(slot), 8);
+        get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp),
+                core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3), core::at(w, 4), core::at(w, 5),
+                core::at(w, 6), core::at(w, 7));
     }
     crash_log_stack_scan(c->Esp);
 }

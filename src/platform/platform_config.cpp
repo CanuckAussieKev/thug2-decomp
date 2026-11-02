@@ -4,6 +4,8 @@
 #include "platform/platform_config.h"
 
 #include <windows.h>
+#include "engine/core/checked_index.h"
+#include <string_view>
 
 #include <cstdio>
 #include <cstring>
@@ -23,8 +25,8 @@ void prepare_all()
 {
     GetModuleFileNameA(nullptr, s_executable_directory.data(), kPathLength);
     // up to the last backslash
-    if (char* exe = std::strrchr(s_executable_directory.data(), '\\'))
-        exe[1] = '\0';
+    if (const size_t slash = std::string_view(s_executable_directory.data()).rfind('\\'); slash != std::string_view::npos)
+        core::at(s_executable_directory, slash + 1) = '\0';
     std::snprintf(s_file.data(), sizeof(s_file), "%s%s", s_executable_directory.data(), kFileName);
 }
 

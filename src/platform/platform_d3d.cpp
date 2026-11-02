@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <span>
+#include "engine/core/checked_index.h"
 #include <unordered_map>
 
 #include "engine/gfx/device.h"
@@ -45,8 +46,11 @@ std::unordered_map<uint32_t, IDirect3DQuery9*>& ended_queries()
 // 0x005F45E0
 void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint32_t* palette)
 {
+    const std::span<uint32_t> pixels(out, static_cast<size_t>(count));
+    const std::span<const uint8_t> texels(indices, static_cast<size_t>(count));
+    const std::span<const uint32_t, 256> colours(palette, 256);
     for (int i = 0; i < count; ++i)
-        out[i] = palette[indices[i]];
+        core::at(pixels, i) = core::at(colours, core::at(texels, i));
 }
 
 // 0x005F4620
@@ -81,13 +85,15 @@ HRESULT create_quad_index_buffer(uint32_t quads)
     input_port()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
                                     &quad_indices(), nullptr);
     quad_indices()->Lock(0, 0, raw::as<void*>(&index), 0);
-    for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, index += 6) {
-        index[0] = static_cast<uint16_t>(first);
-        index[1] = static_cast<uint16_t>(first + 1);
-        index[2] = static_cast<uint16_t>(first + 2);
-        index[3] = static_cast<uint16_t>(first + 2);
-        index[4] = static_cast<uint16_t>(first + 3);
-        index[5] = static_cast<uint16_t>(first);
+    const std::span<uint16_t> indices(index, static_cast<size_t>(quads) * 6);
+    size_t at = 0;
+    for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, at += 6) {
+        core::at(indices, at) = static_cast<uint16_t>(first);
+        core::at(indices, at + 1) = static_cast<uint16_t>(first + 1);
+        core::at(indices, at + 2) = static_cast<uint16_t>(first + 2);
+        core::at(indices, at + 3) = static_cast<uint16_t>(first + 2);
+        core::at(indices, at + 4) = static_cast<uint16_t>(first + 3);
+        core::at(indices, at + 5) = static_cast<uint16_t>(first);
     }
     return quad_indices()->Unlock();
 }

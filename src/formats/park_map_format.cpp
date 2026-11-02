@@ -6,6 +6,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
 #include <array>
+#include <span>
 
 namespace park_editing {
 
@@ -82,7 +83,7 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
         e.reach_left = static_cast<uint8_t>(core::at(bytes, 6 + end) >> 4);
         e.reach_right = static_cast<uint8_t>(core::at(bytes, 6 + end) & 0xF);
     }
-    util::ByteReader fields(bytes.data() + 0xA, kParkMapGapSize - 0xA);
+    util::ByteReader fields(std::span<const uint8_t>(bytes).subspan(0xA));
     fields.fixed_string(gap->text.data(), sizeof(gap->text), kParkMapGapTextSize);
     gap->points = fields.u16();
     gap->cancel_flags = current ? fields.u32() : 0;

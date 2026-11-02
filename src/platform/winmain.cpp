@@ -14,7 +14,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <array>
+#include <optional>
+#include <span>
+#include <string>
+#include <string_view>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -54,34 +59,41 @@ std::array<char, 256> g_command_line_server_name; // "-connect"'s value
 
 // A value: after any spaces, up to the next space - or, if it starts with a quote, up to the closing quote - at
 // most `capacity` characters, then terminated.
-void copy_value(const char* from, char* to, unsigned capacity)
+void copy_value(std::string_view from, std::span<char> to, unsigned capacity)
 {
-    while (*from == ' ')
-        ++from;
+    size_t at = 0;
+    auto peek = [&]() { return at < from.size() ? core::at(from, at) : '\0'; };
+    while (peek() == ' ')
+        ++at;
     char end = ' ';
-    if (*from == '"') {
+    if (peek() == '"') {
         end = '"';
-        ++from;
+        ++at;
     }
     unsigned length = 0;
     for (;;) {
-        const char c = *from++;
+        const char c = peek();
+        ++at;
         if (c == '\0' || c == end)
             break;
-        to[length++] = c;
+        core::at(to, length++) = c;
         if (length >= capacity)
             break;
     }
-    to[length] = '\0';
+    core::at(to, length) = '\0';
 }
 
-// A number: after any spaces, as atol reads it.
-long get_number(const char* from)
+// A number: after any spaces, as atol reads it. (`from` is the end of the NUL-terminated command line.)
+long get_number(std::string_view from)
 {
-    while (*from == ' ')
-        ++from;
-    return text::to_int(from);
+    size_t at = 0;
+    while (at < from.size() && core::at(from, at) == ' ')
+        ++at;
+    return text::to_int(std::string(from.substr(at)).c_str());
 }
+
+// `text` without its first `count` characters (an option's own name): empty at the line's end.
+std::string_view after(std::string_view text, size_t count) { return text.substr(std::min(count, text.size())); }
 
 // --- WinMain's callees -------------------------------------------------------------------------------------------
 
@@ -185,55 +197,60 @@ void read_network_params(const char* command_line)
     std::array<char, 1024> upper{};
     strncpy_s(upper.data(), upper.size(), command_line, _TRUNCATE);
     _strupr_s(upper.data(), upper.size());
-    auto find = [&](const char* option) -> const char* {
-        const char* at = std::strstr(upper.data(), option);
-        return at ? command_line + (at - upper.data()) : nullptr;
+    const std::string_view line(command_line);
+    const std::string_view upper_line(upper.data());
+    // The command line from the option on, or none.
+    auto find = [&](std::string_view option) -> std::optional<std::string_view> {
+        const size_t at = upper_line.find(option);
+        if (at == std::string_view::npos)
+            return std::nullopt;
+        return line.substr(at);
     };
 
     if (find("-HOST "))
         g_internet_game_host = true; // hosting a game
-    if (const char* at = find("-HOSTNAME"))
-        copy_value(at + 9, commands::g_hosted_game_name.data(), 15); // the hosted game's name
-    if (const char* at = find("-EMAIL"))
-        copy_value(at + 6, online::g_command_line_email.data(), 255);
-    if (const char* at = find("-PPASS"))
-        copy_value(at + 6, online::g_command_line_password.data(), 15);
+    if (const auto at = find("-HOSTNAME"))
+        copy_value(after(*at, 9), commands::g_hosted_game_name, 15); // the hosted game's name
+    if (const auto at = find("-EMAIL"))
+        copy_value(after(*at, 6), online::g_command_line_email, 255);
+    if (const auto at = find("-PPASS"))
+        copy_value(after(*at, 6), online::g_command_line_password, 15);
     if (!g_internet_game_host) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
         // character after it is skipped, normally a space.)
-        if (const char* at = find("-CONNECT")) {
-            char* server = g_command_line_server_name.data();
-            copy_value(at + 9, server, 255);
+        if (const auto at = find("-CONNECT")) {
+            const char* server = g_command_line_server_name.data();
+            copy_value(after(*at, 9), g_command_line_server_name, 255);
             uint32_t address = inet_addr(server);
             if (address == INADDR_NONE) {
                 if (const hostent* host = gethostbyname(server))
-                    std::memcpy(&address, host->h_addr_list[0], sizeof(address));
+                    std::memcpy(&address, *host->h_addr_list, sizeof(address));
             }
             online::g_command_line_server = address;
             g_joining_internet_game = true; // joining a game
         }
     }
     // (The numbers are compared unsigned: a negative one counts as too big.)
-    if (const char* at = find("-MAXPLAYERS")) {
-        auto players = static_cast<uint32_t>(get_number(at + 11));
+    if (const auto at = find("-MAXPLAYERS")) {
+        auto players = static_cast<uint32_t>(get_number(after(*at, 11)));
         memory::bits_as<uint32_t>(online::g_net_max_players) = players < 2 ? 2 : players > 8 ? 8 : players;
     }
-    if (const char* at = find("-GROUP"))
-        online::g_lobby_group_id = get_number(at + 6);
-    if (const char* at = find("-NTEAMS")) {
-        auto teams = static_cast<uint32_t>(get_number(at + 7));
+    if (const auto at = find("-GROUP"))
+        online::g_lobby_group_id = get_number(after(*at, 6));
+    if (const auto at = find("-NTEAMS")) {
+        auto teams = static_cast<uint32_t>(get_number(after(*at, 7)));
         online::g_network_team_mode = teams > 4 ? 0 : teams;
     }
-    if (const char* at = find("-SKILLLEVEL")) {
-        auto skill = static_cast<uint32_t>(get_number(at + 11));
+    if (const auto at = find("-SKILLLEVEL")) {
+        auto skill = static_cast<uint32_t>(get_number(after(*at, 11)));
         memory::bits_as<uint32_t>(online::g_net_skill_level) = skill > 4 ? 4 : skill;
     }
-    if (const char* at = find("-NAME"))
-        copy_value(at + 5, commands::g_network_id.data(), 15); // the player's name
-    if (const char* at = find("-PASSWORD")) {
+    if (const auto at = find("-NAME"))
+        copy_value(after(*at, 5), commands::g_network_id, 15); // the player's name
+    if (const auto at = find("-PASSWORD")) {
         char* password = commands::g_network_password.data();
-        copy_value(at + 9, password, 9);
+        copy_value(after(*at, 9), commands::g_network_password, 9);
         if (g_joining_internet_game) {
             // Joining: it's the server's password (moved to where the join looks for it).
             std::memcpy(online::g_pending_password.data(), password, std::strlen(password) + 1); // (strcpy)
@@ -309,15 +326,16 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     std::array<char*, 21> argv{};
     int argc = 1;
     core::at(argv, 0) = command_line;
-    char* p = command_line;
+    const std::span<char> line(command_line, std::strlen(command_line) + 1);
+    size_t at = 0;
     for (;;) {
-        while (*p != '\0' && *p != ' ')
-            ++p;
-        while (*p == ' ')
-            *p++ = '\0';
-        if (*p == '\0')
+        while (core::at(line, at) != '\0' && core::at(line, at) != ' ')
+            ++at;
+        while (core::at(line, at) == ' ')
+            core::at(line, at++) = '\0';
+        if (core::at(line, at) == '\0')
             break;
-        core::at(argv, argc++) = p;
+        core::at(argv, argc++) = line.subspan(at).data();
         if (argc >= 20)
             break;
     }

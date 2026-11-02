@@ -49,7 +49,7 @@ int set_option(SOCKET socket, int level, int name, const void* value, int size)
 const char* first_address_text(const hostent* host)
 {
     in_addr address{};
-    std::memcpy(&address, host->h_addr_list[0], sizeof(address));
+    std::memcpy(&address, *host->h_addr_list, sizeof(address));
     return inet_ntoa(address);
 }
 

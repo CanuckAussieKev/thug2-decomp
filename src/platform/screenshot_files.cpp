@@ -6,10 +6,14 @@
 #include "engine/core/parse_number.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string_view>
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(push, 0)
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -70,7 +74,9 @@ std::string candidate_name(const std::string& stem, int n)
 std::string sidecar_name(const std::string& png_name)
 {
     std::string base = png_name;
-    if (base.size() >= 4 && _stricmp(base.c_str() + base.size() - 4, ".png") == 0)
+    if (base.size() >= 4 &&
+        std::ranges::equal(std::string_view(base).substr(base.size() - 4), std::string_view(".png"),
+                           [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == b; }))
         base.resize(base.size() - 4);
     return base + ".txt";
 }
@@ -129,8 +135,8 @@ void mark_cursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y,
     auto put = [&](int px, int py, uint8_t value) {
         if (px < 0 || py < 0 || px >= width || py >= height)
             return;
-        uint8_t* p = rgb->data() + (static_cast<size_t>(py) * width + px) * 3;
-        p[0] = p[1] = p[2] = value;
+        const size_t at = (static_cast<size_t>(py) * width + px) * 3;
+        core::at(*rgb, at) = core::at(*rgb, at + 1) = core::at(*rgb, at + 2) = value;
     };
     const int gap = size / 3;
     // (the black edge first, two pixels wider, then the white line over it)
@@ -158,35 +164,33 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
     if (frame.bytes.size() < need)
         return false;
     rgb->resize(static_cast<size_t>(frame.width) * frame.height * 3);
-    uint8_t* out = rgb->data();
+    const auto columns = static_cast<size_t>(frame.width);
+    size_t out = 0; // (the next byte of the RGB pixels)
+    auto put = [&](uint8_t r, uint8_t g, uint8_t b) {
+        core::at(*rgb, out) = r;
+        core::at(*rgb, out + 1) = g;
+        core::at(*rgb, out + 2) = b;
+        out += 3;
+    };
     for (int y = 0; y < frame.height; ++y) {
-        const uint8_t* row = frame.bytes.data() + static_cast<size_t>(frame.pitch) * y;
+        const std::span<const uint8_t> row =
+            std::span<const uint8_t>(frame.bytes).subspan(static_cast<size_t>(frame.pitch) * y);
         switch (frame.format) {
         case PixelFormat::kX8r8g8b8:
         case PixelFormat::kA8r8g8b8:
-            for (int x = 0; x < frame.width; ++x, row += 4) {
-                out[0] = row[2];
-                out[1] = row[1];
-                out[2] = row[0];
-                out += 3;
-            }
+            for (size_t x = 0; x < columns; ++x)
+                put(core::at(row, x * 4 + 2), core::at(row, x * 4 + 1), core::at(row, x * 4));
             break;
         case PixelFormat::kR5g6b5:
-            for (int x = 0; x < frame.width; ++x, row += 2) {
-                const unsigned v = row[0] | (row[1] << 8);
-                out[0] = widen5(v >> 11);
-                out[1] = widen6((v >> 5) & 0x3F);
-                out[2] = widen5(v & 0x1F);
-                out += 3;
+            for (size_t x = 0; x < columns; ++x) {
+                const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
+                put(widen5(v >> 11), widen6((v >> 5) & 0x3F), widen5(v & 0x1F));
             }
             break;
         case PixelFormat::kX1r5g5b5:
-            for (int x = 0; x < frame.width; ++x, row += 2) {
-                const unsigned v = row[0] | (row[1] << 8);
-                out[0] = widen5((v >> 10) & 0x1F);
-                out[1] = widen5((v >> 5) & 0x1F);
-                out[2] = widen5(v & 0x1F);
-                out += 3;
+            for (size_t x = 0; x < columns; ++x) {
+                const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
+                put(widen5((v >> 10) & 0x1F), widen5((v >> 5) & 0x1F), widen5(v & 0x1F));
             }
             break;
         default:
@@ -201,8 +205,8 @@ namespace {
 void append_bytes(void* context, void* data, int size)
 {
     auto* out = static_cast<std::vector<uint8_t>*>(context);
-    const auto* bytes = static_cast<const uint8_t*>(data);
-    out->insert(out->end(), bytes, bytes + size);
+    const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data), static_cast<size_t>(size));
+    out->insert(out->end(), bytes.begin(), bytes.end());
 }
 
 } // namespace

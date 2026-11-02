@@ -608,7 +608,8 @@ public:
     static void start_game_task(tasks::Task<Hub>* task);
 
     // Fields.
-    net::AppHost*& client_slot(int index) { return (&client_app_)[index]; }
+    // Client `index` (0 or 1): the game's own, or the second.
+    net::AppHost*& client_slot(int index) { return index == 0 ? client_app_ : client1_; }
 
     uint8_t flag_bits_{0}; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     std::array<uint8_t, 3> unknown1_{};

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <functional>
 #include <memory>
 #include <string>
@@ -226,7 +227,7 @@ void check_graffiti_messages()
     std::vector<uint8_t> big(online::kTrickObjectsHeaderSize + 4 * (online::kMaxTrickObjects + 1), 0);
     core::at(big, 0) = 1;
     uint32_t too_many = online::kMaxTrickObjects + 1;
-    std::memcpy(big.data() + 0x14, &too_many, 4);
+    std::memcpy(std::span(big).subspan(0x14).data(), &too_many, 4);
     util::ByteReader big_reader(big.data(), big.size());
     check(!online::read_trick_objects(big_reader, message.get()), "trick objects 0x3B: more than the buffer refused");
 
@@ -762,26 +763,26 @@ void check_news()
     std::array<uint8_t, 8 + 12> file = {};
     const auto text = std::to_array("Hello!"); // 7 with its NUL: 8 as a word
     int32_t size = 12;
-    std::memcpy(file.data() + 4, &size, 4);
-    std::memcpy(file.data() + 8, text.data(), sizeof(text));
+    std::memcpy(std::span(file).subspan(4).data(), &size, 4);
+    std::memcpy(std::span(file).subspan(8).data(), text.data(), sizeof(text));
     core::at(file, 16) = 0xAB; // (the data after it)
     {
         util::ByteReader reader(file.data(), sizeof(file));
         online::News news;
         check(online::read_news(reader, &news) && news.size == 12 && std::strcmp(news.motd, "Hello!") == 0 &&
-                  news.motd_size == 8 && news.data[news.motd_size] == 0xAB && reader.remaining() == 0,
+                  news.motd_size == 8 && core::at(std::span<const uint8_t>(news.data, sizeof(file)), news.motd_size) == 0xAB && reader.remaining() == 0,
               "news: read");
     }
     {
         size = 13; // past the end
-        std::memcpy(file.data() + 4, &size, 4);
+        std::memcpy(std::span(file).subspan(4).data(), &size, 4);
         util::ByteReader reader(file.data(), sizeof(file));
         online::News news;
         check(!online::read_news(reader, &news), "news: a size past the end refused");
     }
     {
         size = 4; // the text has no NUL within it
-        std::memcpy(file.data() + 4, &size, 4);
+        std::memcpy(std::span(file).subspan(4).data(), &size, 4);
         util::ByteReader reader(file.data(), sizeof(file));
         online::News news;
         check(!online::read_news(reader, &news), "news: a text without its NUL refused");

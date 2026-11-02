@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <span>
 #include <cstdint>
 #include <array>
 #include "engine/core/raw_view.h"
@@ -35,7 +36,7 @@ T value_at(const uint8_t* body, size_t offset = 0)
 {
     static_assert(std::is_trivially_copyable_v<T>);
     T value{};
-    std::memcpy(&value, body + offset, sizeof(value));
+    std::memcpy(&value, std::span<const uint8_t>(body, offset + sizeof(value)).last(sizeof(value)).data(), sizeof(value));
     return value;
 }
 
