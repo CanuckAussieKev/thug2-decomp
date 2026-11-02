@@ -1359,13 +1359,18 @@ mirror::View mirror_now()
         return {};
     bool in_dialog = false;
     UiWidget* menu = active_menu(&in_dialog);
-    // (none takes the pad yet, paused or in the front end: the menu being made - restyled from its first frame, never
-    // drawn as the game makes it while it animates in; half a second at most for each menu - one that still doesn't
-    // take the pad belongs to a screen worked some other way, left as the game made it)
+    // (none takes the pad yet, paused, in the front end or with a menu's anchor up: the menu being made - restyled from
+    // its first frame, never drawn as the game makes it while it animates in; half a second at most for each menu - one
+    // that still doesn't take the pad belongs to a screen worked some other way, left as the game made it. The anchors
+    // - current_menu_anchor, dialog_box_anchor, the game's own "a menu is up" (FrontEnd::tick_frame) - cover the menus
+    // made while the game runs on: a network game's pause menu (handle_start_pressed doesn't pause in a network game)
+    // and the screens it opens, which were drawn as the game made them until they took the pad - the user's report of
+    // 2026-11-02, the original pause menu for the first frames)
     static const UiWidget* s_coming = nullptr;
     static int s_coming_frames = 0;
     constexpr int kComingAtMost = 30;
-    if (!menu && (get_paused() || in_front_end())) {
+    if (!menu && (get_paused() || in_front_end() || game_screens::get_find(name_hash("current_menu_anchor")) ||
+                  game_screens::get_find(name_hash("dialog_box_anchor")))) {
         UiWidget* coming = active_menu(&in_dialog, true);
         s_coming_frames = coming && coming == s_coming ? s_coming_frames + 1 : 1;
         s_coming = coming;

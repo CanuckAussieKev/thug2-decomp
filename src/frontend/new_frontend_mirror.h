@@ -171,7 +171,8 @@ void set_button_namer(ButtonNamer namer);
 View get_build(const MenuRead& read, const Policy& policy);
 
 // The view held over a few frames: a screen comes up once it has been there kFramesToShow frames in a row (no flicker
-// while the original builds its screens one element at a time) and goes once it has been gone kFramesToHide in a row;
+// while the original builds its screens one element at a time; the pause menu, made in one go, at once) and goes once
+// it has been gone kFramesToHide in a row;
 // the rows' selection animations.
 constexpr int kFramesToShow = 2;
 constexpr int kFramesToHide = 3;

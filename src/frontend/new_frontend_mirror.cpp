@@ -573,7 +573,9 @@ bool Tracker::tick_frame(const View& now, float dt)
         if (!up_dir_) {
             seen_ = now.kind == pending_kind_ ? seen_ + 1 : 1;
             pending_kind_ = now.kind;
-            if (seen_ >= kFramesToShow) {
+            // (the pause menu is made in one go - create_pause_menu adds every item before the frame is drawn: up at
+            // once, so its first frame isn't one with neither the original nor ours)
+            if (seen_ >= (now.kind == Kind::kFreeze ? 1 : kFramesToShow)) {
                 up_dir_ = true;
                 rows_.clear();
             }

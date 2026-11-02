@@ -62,7 +62,9 @@ struct FrontEnd;
 // is a picture (GAMMA, SCREEN SETUP), the park editor's piece browser (a tool's own UI, not a menu), and online when
 // [frontend] restyle_online=0 (on by default - online is tested by the user by hand, never by a tool).
 // [frontend] restyle_dialogs= / restyle_skater_select= / restyle_menus= (1 each) switch them off one by one;
-// debug_restyle=1 logs the element tree of each screen left as it is. The game keeps the keyboard and the controllers
+// debug_restyle=1 logs the element tree of each screen left as it is. A menu being made (shown, not yet taking the pad
+// while it animates in) is restyled from its first frame - paused, in the front end, or with a menu's anchor up (a
+// network game's pause menu, made while the game runs on). The game keeps the keyboard and the controllers
 // (its scripts, its selection - ours reads them each frame); the mouse is ours there (owns_mouse). Whenever ours hides
 // the game's elements, a script scaling root_window back is undone the same frame: the game's is never drawn under ours.
 namespace frontend::new_frontend {
