@@ -45,12 +45,11 @@ everything above it uses the game's own types and may change them freely.
 `formats/` and `wire/` depend only on the standard library and `engine/core`'s leaf headers (`ints.h`,
 `checksums.h`, `pointer_cell.h`, `raw_view.h`); they build and are checked without the game.
 
-**What is left of the original's layouts above the boundary** is spelled with named helpers, never a cast:
-`cell::` (`engine/core/pointer_cell.h`) where a pointer still travels in a 32-bit integer (the script values' cells,
-callbacks' user words), `raw::` (`engine/core/raw_view.h`) where an in-memory structure is still read through another
-type or at a byte offset. Each use is a place still to be given its real type or member; their number only goes down -
-`npm test` checks it (`tools/layering.ts`: no file over its count in `tools/layering_budget.json`, which `--update`
-only lowers; at zero the helpers are forbidden above the boundary). The QB bytecode readers (`engine/script/qb.cpp`,
+**The original's layouts stay in the boundary**: the named helpers that read memory through another type or keep a
+pointer in an integer - `cell::` (`engine/core/pointer_cell.h`), `raw::` (`engine/core/raw_view.h`),
+`memory::bits_as`, `function_at` - are used only there. Above it every field has its member and every pointer its
+type; data from outside is decoded where it arrives. `npm test` forbids the helpers above the boundary
+(`tools/layering.ts`). The QB bytecode readers (`engine/script/qb.cpp`,
 `token_reader.cpp`, `precompiled.cpp`) count as boundary until the script runtime is replaced.
 `.clang-tidy` keeps `reinterpret_cast` and integer-to-pointer casts out of `src/` entirely.
 

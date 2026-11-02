@@ -102,8 +102,8 @@ keep a check carry a `NOLINT` with their reason:
   `raw::bytes` / `raw::chars` / `raw::owner_of<T>` (`engine/core/raw_view.h`: one of the original's in-memory
   layouts read through another type or at a byte offset), `memory::bits_as<T>` (a field's bits as another type of
   its size), `code_address` / `function_at<F>` / `crt::library_function<F>` (`platform/`: code addresses).
-  New code uses none of them: a field gets its member, a pointer its type (`npm test` fails when a file outside the
-  boundary has more than `tools/layering_budget.json` allows). A script value is a `script::Cell`, read by its
+  Code outside the boundary uses none of them: a field gets its member, a pointer its type (`npm test` fails on any
+  use outside the boundary - `tools/layering.ts`). A script value is a `script::Cell`, read by its
   holder's kind (`value.structure()`, `value.word()`...); a missing script parameter's default is written out (the
   original's reads of an argument's stack slot are 0 for a name, on for a flag, 0 for a number). Byte layouts that stay (file records used
   in place, vertex buffers) are read through the boundary's accessors instead: `collision_format::FaceTable`
