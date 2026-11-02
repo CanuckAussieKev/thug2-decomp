@@ -5,7 +5,7 @@
 #include <initializer_list>
 #include "platform/code_address.h"
 #include "engine/gfx/engine_texture.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "platform/compiler.h"
 #include <cstring>
 #include <utility>
@@ -60,8 +60,6 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

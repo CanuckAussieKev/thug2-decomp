@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "engine/core/manager.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/movable_contact.h"
@@ -25,7 +25,6 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/walk_physics.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace skater {

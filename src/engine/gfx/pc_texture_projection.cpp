@@ -3,7 +3,7 @@
 
 #include "engine/gfx/pc_texture_projection.h"
 #include "engine/gfx/geom.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 

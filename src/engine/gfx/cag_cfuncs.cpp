@@ -58,8 +58,8 @@ constexpr std::array<uint32_t, 4> kHeadBoneGroups = {{
 
 // The texture dictionaries (0x00700F1C the game's, 0x00700F20 the skater's) and a texture by checksum (0x0049F540),
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
-void* get_textures() { return raw::as<void>(render::g_game_texture_dict); }
-void* skater_textures() { return raw::as<void>(render::g_particle_texture_dict); }
+render::TextureSet* get_textures() { return render::g_game_texture_dict; }
+render::TextureSet* skater_textures() { return render::g_particle_texture_dict; }
 render::BitmapTexture* find_texture(void* dictionary, uint32_t name)
 {
     return static_cast<render::TextureSet*>(dictionary)->fetch_skin(name);

@@ -2,7 +2,7 @@
 // where it keeps values in registers, float where it stores them).
 
 #include "engine/gfx/engine_effects.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <bit>
 #include <cstdint>
@@ -31,8 +31,6 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_texture.h"

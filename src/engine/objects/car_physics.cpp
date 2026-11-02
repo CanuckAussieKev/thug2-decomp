@@ -4,7 +4,7 @@
 
 #include "engine/objects/path_follower.h"
 #include "engine/objects/car_physics.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/gfx/model.h"
 
 #include <cmath>
@@ -30,8 +30,6 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/gfx/rig.h"
 #include "engine/objects/motion.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/scene_load.h"

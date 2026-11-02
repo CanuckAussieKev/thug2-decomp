@@ -8,7 +8,7 @@
 #include <gsl/pointers>
 
 #include "engine/core/manager.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/rig.h"
 #include "engine/maths/mat4.h"

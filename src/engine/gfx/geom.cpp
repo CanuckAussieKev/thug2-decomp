@@ -4,7 +4,7 @@
 #include "engine/gfx/geom.h"
 #include "engine/core/down_cast.h"
 #include "engine/gfx/pc_mesh.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

@@ -9,7 +9,7 @@
 #include <array>
 
 #include "engine/core/manager.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/gfx/pc_instance.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/sub_mesh.h"

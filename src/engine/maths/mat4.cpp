@@ -1,5 +1,5 @@
 #include "engine/maths/mat4.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <initializer_list>

@@ -10,7 +10,7 @@
 #include <cstring>
 
 #include "engine/gfx/view_cam.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/rotation_blend.h"
 #include "engine/maths/vec4.h"

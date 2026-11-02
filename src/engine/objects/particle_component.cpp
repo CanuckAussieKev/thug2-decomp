@@ -2,7 +2,7 @@
 // The Nx particle systems themselves have no source yet: their methods are called as the game's.
 
 #include "engine/objects/particle_component.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cstdint>
 #include <cstring>
@@ -28,7 +28,6 @@
 #include "engine/objects/model_component.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

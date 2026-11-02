@@ -1,7 +1,7 @@
 // Script commands (CFunctions) of the skater: board logos, velocity, bail streams (see skater_misc_cfuncs.h).
 
 #include "game/rider/skater_misc_cfuncs.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

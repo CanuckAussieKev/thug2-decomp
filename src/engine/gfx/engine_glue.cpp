@@ -1,7 +1,7 @@
 // The engine's platform calls: see engine_glue.h.
 
 #include "engine/gfx/engine.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/gfx/pc_gamma.h"
 #include "engine/gfx/engine_glue.h"
 

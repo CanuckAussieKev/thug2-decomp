@@ -3,7 +3,7 @@
 
 #include "engine/objects/path_follower.h"
 #include "engine/objects/avoid.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "game/rider/rider.h"
 #include "game/skate/skate_module.h"
 
@@ -29,8 +29,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

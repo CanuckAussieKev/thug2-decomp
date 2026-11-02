@@ -2,7 +2,7 @@
 // 0x00524420-0x00524C1E (0x00524420 isn't a Ghidra function).
 
 #include "game/rider/vehicle_camera.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -25,8 +25,6 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_component.h"
 #include "engine/objects/vehicle_component.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

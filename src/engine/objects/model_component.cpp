@@ -4,7 +4,7 @@
 // worked in double.
 
 #include "engine/objects/model_component.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -88,7 +88,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-void* net_session_slot() { return raw::as<void>(online::g_online_hub); }
+online::Hub* net_session_slot() { return online::g_online_hub; }
 void* find_player_slot_by_obj(uint32_t id)
 {
     return static_cast<online::Hub*>(net_session_slot())->find_player_slot_by_obj(static_cast<uint16_t>(id));

@@ -3,7 +3,7 @@
 
 #include "engine/core/within.h"
 #include "engine/gfx/occlusion.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

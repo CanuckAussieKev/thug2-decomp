@@ -2,7 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "engine/gfx/draw_frame.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/settings.h"
@@ -50,7 +50,6 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "platform/d3d_matrix.h"
@@ -87,7 +86,7 @@ void change_fog(bool on) { engine::enable_fog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
-void* input_port() { return raw::as<void>(g_d3d_device); }
+void* input_port() { return g_d3d_device; }
 
 void set_transform(int type, const maths::Mat4* m)
 {
@@ -391,8 +390,8 @@ void draw_screen_blur()
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
     graphics_options::resolve_scene_target(static_cast<IDirect3DTexture9*>(texture));
-    set_render_target(raw::as<void>(g_back_buffer));
-    set_depth_stencil_surface(raw::as<void>(g_back_depth));
+    set_render_target(g_back_buffer);
+    set_depth_stencil_surface(g_back_depth);
     const bool fog_colour = g_fog_setting && g_distance_clipping;
     clear_target(fog_colour ? g_fog_colour : g_camera.background_colour_);
     set_render_state(0x11, 0);

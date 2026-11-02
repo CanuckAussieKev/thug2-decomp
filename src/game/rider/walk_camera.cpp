@@ -2,7 +2,7 @@
 // 0x00524C20-0x00525E3F (and 0x00525F70).
 
 #include "game/rider/walk_camera.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

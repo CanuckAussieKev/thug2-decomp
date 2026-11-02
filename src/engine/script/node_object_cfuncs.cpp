@@ -2,7 +2,7 @@
 // and the level's node objects made and killed by their class (see game_cfuncs.h).
 
 #include "engine/script/game_cfuncs.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/script/trick_cfuncs.h"
 
 #include <cmath>

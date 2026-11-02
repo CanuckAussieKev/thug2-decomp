@@ -1,7 +1,7 @@
 // The level editor's view modes (engine/gfx/view_mode.h). NOT ORIGINAL.
 
 #include "engine/gfx/view_mode.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 

@@ -27,18 +27,18 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/device.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/render/coll_grid.h"
 
 namespace render {
 
 namespace {
-// The rain / snow grid's rows (SWeatherRow, one more than the grid is deep: at most 302) and, right after them, the
-// columns' height indices (a 16-bit offset into them).
-// (the grid, then the rows' spans and their columns - no fixed bound: all the bytes up to the next thing the original
-// refers to, 0x00775B58)
-std::array<uint8_t, 0x11828> g_weather_grid;
+// The rain / snow grid's rows (SWeatherRow, one more than the grid is deep: at most 302) and the columns' height
+// indices (a 16-bit offset into them). The original kept the indices right after the rows in one block (0x00764330,
+// all the bytes up to 0x00775B58); here each has its own, the indices the whole block's size.
+std::array<WeatherRow, 302> g_weather_rows;
+std::array<uint8_t, 0x11828> g_weather_columns;
 
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
@@ -446,15 +446,16 @@ void PcWeather::render_splashes(float x, float z)
 void PcWeather::tick_grid()
 {
     active_ = false;
-    auto* box = raw::as<const float>(get_first_coll_grid()); // (the scene's collision's box)
-    if (!box)
+    const CollGrid* grid_of_scene = get_first_coll_grid(); // (the scene's collision's box)
+    if (!grid_of_scene)
         return;
+    const maths::BBox& box = grid_of_scene->box_;
     auto cell = [](float value) {
         const int v = ftol(value);
         return v / 128; // (towards zero, as the original's shift with its correction)
     };
-    int min_x = cell(box[0]) - 1, max_x = cell(box[4]) + 1;
-    int min_z = cell(box[2]) - 1, max_z = cell(box[6]) + 1;
+    int min_x = cell(box.min.x) - 1, max_x = cell(box.max.x) + 1;
+    int min_z = cell(box.min.z) - 1, max_z = cell(box.max.z) + 1;
     if (max_x - min_x > 350) {
         const int trim = (max_x - min_x - 350) / 2;
         min_x += trim;
@@ -521,8 +522,8 @@ void PcWeather::tick_grid()
         }
     }
     // The rows' ground spans (one row past the last, as the original) and their height indices.
-    rows = raw::as<WeatherRow>(g_weather_grid.data());
-    columns = raw::bytes(rows + depth);
+    rows = g_weather_rows.data();
+    columns = g_weather_columns.data();
     uint32_t offset = 0;
     for (int r = 0; r <= depth; ++r) {
         uint16_t first = 0, last = static_cast<uint16_t>(width - 1);
@@ -554,14 +555,10 @@ void PcWeather::tick_grid()
     drops_ = 0;
     next = 0x19B;
     splash_texture_ = nullptr;
-    auto* dictionary = raw::as<void>(g_particle_texture_dict);
-    auto* splash = raw::bytes(static_cast<TextureSet*>(dictionary)->fetch_skin(0x45C7EB0F));
-    if (splash)
-        splash_texture_ =
-            image_of(raw::as<BitmapTexture>(splash));
-    auto* snow = raw::bytes(g_particle_texture_dict->fetch_skin(0xC97C5A4C));
-    if (snow)
-        snow_texture_ = image_of(raw::as<BitmapTexture>(snow));
+    if (const BitmapTexture* splash = g_particle_texture_dict->fetch_skin(0x45C7EB0F))
+        splash_texture_ = image_of(splash);
+    if (const BitmapTexture* snow = g_particle_texture_dict->fetch_skin(0xC97C5A4C))
+        snow_texture_ = image_of(snow);
     active_ = true;
     std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));
     next_splash_ = 0;

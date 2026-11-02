@@ -11,7 +11,7 @@
 #include <array>
 
 #include "engine/gfx/device.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"

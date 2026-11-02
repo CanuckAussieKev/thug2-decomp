@@ -1,7 +1,7 @@
 // Shadows: see shadow_base.h.
 
 #include "engine/gfx/shadow_base.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 

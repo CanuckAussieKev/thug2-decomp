@@ -7,7 +7,7 @@
 #include <array>
 
 #include "engine/core/manager.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
@@ -25,7 +25,6 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/skate/skate_module.h"
 #include "engine/objects/trigger_events.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

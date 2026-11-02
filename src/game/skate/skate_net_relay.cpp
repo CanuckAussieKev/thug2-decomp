@@ -59,7 +59,6 @@
 #include "wire/skater_messages.h"
 #include "wire/play_messages.h"
 #include "engine/gfx/tod_manager.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -680,7 +679,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
 {
     const online::Hub* net = net_link();
     void* memory = memory::alloc_zeroed(0x449C);
-    void* texture = memory ? raw::as<void>(memory::construct_in<gfx::FaceSkin>(memory)) : nullptr;
+    void* texture = memory ? memory::construct_in<gfx::FaceSkin>(memory) : nullptr;
     auto* data = context->body_;
     uint32_t size = context->body_size_;
     PlayerRecord* player = nullptr;

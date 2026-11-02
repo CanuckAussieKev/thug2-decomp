@@ -41,8 +41,6 @@
 #include "engine/core/stubs.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -423,7 +421,7 @@ bool BlendChannel::blend_pose(int index)
 bool BlendChannel::blend_first_pose() { return blend_pose(0); }
 
 // 0x0047EAA0
-void BlendChannel::fetch_pose(int index, void* pose, float* weight)
+void BlendChannel::fetch_pose(int index, Stance* pose, float* weight)
 {
     AnimTrack* timeline = nullptr;
     memory::ListNode* node = timelines_.next;
@@ -470,8 +468,8 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
 // 0x0047DD80
 void BlendChannel::toggle_flipped()
 {
-    net::AppHost* app = net_session_slot()->fetch_patron(0);
-    const uint32_t unused = *raw::field_at<uint32_t>(app, 8);
+    const net::AppHost* app = net_session_slot()->fetch_patron(0);
+    const uint32_t unused = app->clock_;
     set_flipped(get_owner(this)->ident_, !((flag_bits_ >> 29) & 1), unused, true);
 }
 
@@ -721,7 +719,7 @@ void BlendChannel::init_buffers(int blends, int subsets)
         if (poses) {
             for (int i = 0; i < count; ++i) {
                 for (auto& rotation : poses[i].rotations)
-                    raw::as<objects::IdentityQuat>(rotation.data())->assign_value();
+                    rotation = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (0x00590300: the identity)
             }
         }
         return poses;
@@ -932,9 +930,9 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case 0x1DF59A54: { // the info of timeline Index (0xD2D6A582; the playing one without it) to the script
         int index = 0;
         if (!params->fetch_int_value(kIndex, &index, 0)) {
-            memory::ListNode* node = timelines_.next;
+            const memory::ListNode* node = timelines_.next;
             if (!is_head(node) && node)
-                add_timeline_info(raw::as<AnimTimeline>(node), script->args_);
+                add_timeline_info(static_cast<AnimTimeline*>(node->data), script->args_);
             return 1;
         }
         for (AnimTrack* timeline = masked(timelines_.next); timeline; timeline = masked(elem(timeline)->next)) {

@@ -9,6 +9,8 @@
 #include <array>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/maths/quat_rotation.h"
+#include "engine/maths/vec4.h"
 
 namespace objects {
 class AnimBlenderComponent;
@@ -24,13 +26,12 @@ namespace gfx {
 
 struct AnimTimeline;
 
-// A pose (0x840 bytes): a rotation (quaternion) and a translation per bone, and whether each bone has one.
+// A pose: a rotation (quaternion) and a translation per bone, and whether each bone has one.
 struct Stance {
-    std::array<std::array<float, 4>, 64> rotations;    // +0x000
-    std::array<std::array<float, 4>, 64> translations; // +0x400
-    std::array<uint8_t, 64> valid;         // +0x800
+    std::array<maths::QuatRotation, 64> rotations;
+    std::array<maths::Vec4, 64> translations;
+    std::array<uint8_t, 64> valid;
 };
-static_assert(sizeof(Stance) == 0x840 && offsetof(Stance, valid) == 0x800, "layout must match the original");
 
 // 0x0047D470: the rotation a fraction `t` of the way from `from` to `to` (the shorter way: `to` is negated first
 // when the two point apart), normalised. As the original, `to` is overwritten with the result too.
@@ -104,7 +105,7 @@ public:
     bool blend_first_pose();
     // 0x0047EAA0: timeline `index`'s weight into `weight` and (when above 0 or NaN) its pose into `pose` (a missing
     // timeline crashes, as the original).
-    void fetch_pose(int index, void* pose, float* weight);
+    void fetch_pose(int index, Stance* pose, float* weight);
 
     // 0x0047DC40: the flip flag (bit 29 of +0x54) set to `flip` - with `send` (channel 0 of this machine's player's
     // skater) the server told (message 0x2C); the flag it had. `unused` isn't.

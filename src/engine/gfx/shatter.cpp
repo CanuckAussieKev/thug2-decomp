@@ -2,7 +2,7 @@
 
 #include "engine/gfx/shatter.h"
 #include "engine/gfx/geom.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 
@@ -26,8 +26,6 @@
 #include "gpu/vertex_view.h"
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {

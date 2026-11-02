@@ -208,11 +208,11 @@ void AnimTrack::detach_anim_driver(AnimDriver* controller)
 }
 
 // 0x00481920
-bool AnimTrack::get_poses(void* pose)
+bool AnimTrack::get_poses(Stance* pose)
 {
     for (int i = 0; i < controller_count_; ++i) {
         AnimDriver* controller = core::at(controller_list_, i);
-        controller->fetch_pose(static_cast<uint8_t*>(pose));
+        controller->fetch_pose(pose);
     }
     return true;
 }

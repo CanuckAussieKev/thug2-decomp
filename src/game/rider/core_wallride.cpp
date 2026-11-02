@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/maths/mat4.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/ride_tracker.h"

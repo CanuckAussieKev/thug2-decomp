@@ -2,7 +2,7 @@
 // function, not decompiled); the x87 code is followed where it keeps values unrounded.
 
 #include "engine/gfx/rig.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cstdint>
 #include <cstring>
@@ -470,7 +470,7 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, const
 }
 
 // 0x004A4240
-void Rig::tick_frame(const std::array<float, 4>* rotations, const std::array<float, 4>* translations)
+void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* translations)
 {
     const uint32_t lod_bit = 1u << (lod_ & 31);
     for (int i = 0; i < bone_total_; ++i) {
@@ -482,7 +482,7 @@ void Rig::tick_frame(const std::array<float, 4>* rotations, const std::array<flo
             matrix = *bone.parent;
             continue;
         }
-        quat_to_bone_matrix(&matrix, raw::as<const maths::Vec4>(translations[i].data()), rotations[i].data(), false, false);
+        quat_to_bone_matrix(&matrix, &translations[i], rotations[i].data(), false, false);
         if (bone.flags & Joint::kScaled) {
             matrix.scale_tool(bone.scale);
             if (zero_scale(bone.scale)) {

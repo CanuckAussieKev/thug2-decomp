@@ -6,7 +6,7 @@
 #include <cstring>
 
 #include "engine/assets/resource_registry.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/engine_model_lights.h"

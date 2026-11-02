@@ -5,7 +5,7 @@
 #include <gsl/pointers>
 
 #include "engine/objects/collision_component.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/engine.h"
 
@@ -27,7 +27,6 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/gfx/scene_load.h"

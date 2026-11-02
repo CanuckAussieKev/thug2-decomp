@@ -20,7 +20,6 @@
 #include "platform/run_log.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -54,11 +53,9 @@ struct Vertex {
 };
 static_assert(sizeof(Vertex) == 0x1C, "the original's vertex");
 
-struct Vector4 {
-    float x, y, z, w;
-};
-// 0x004882D0 (a Vector member, thiscall, not rewritten yet): rotate about z by `angle` radians (x87 fsin/fcos).
-void spin_around_z(Vector4& v, float angle) { raw::as<maths::Vec4>(&v)->rotate_about_z(angle); }
+using Vector4 = maths::Vec4;
+// 0x004882D0 (a Vector member): rotate about z by `angle` radians.
+void spin_around_z(Vector4& v, float angle) { v.rotate_about_z(angle); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, as a 64-bit integer.
 int64_t get_truncated(double value) { return static_cast<int64_t>(value); }

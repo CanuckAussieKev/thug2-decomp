@@ -27,6 +27,10 @@ public:
     // 2 / the squared length (0 for a zero or not-a-number quaternion). Returns out.
     Mat4* fetch_mat(Mat4* out) const;
 
+    // The four components as an array of floats (for the APIs that take one), as Vec4::data().
+    float* data() { return &x; }
+    [[nodiscard]] const float* data() const { return &x; }
+
     float x, y, z, w;
 };
 

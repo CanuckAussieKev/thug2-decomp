@@ -3,7 +3,7 @@
 // events, the camera and the controls (Update), the state, and the logic task's work.
 
 #include "game/park_editing/park_editor.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

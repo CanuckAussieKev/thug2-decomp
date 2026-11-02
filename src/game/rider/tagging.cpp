@@ -44,7 +44,6 @@
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
 #include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -66,7 +65,7 @@ constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
 
 
 // --- textures (the texture dictionary 0x00700F20) ---
-void* texture_bank() { return raw::as<void>(render::g_particle_texture_dict); }
+render::TextureSet* texture_bank() { return render::g_particle_texture_dict; }
 void* ingest_skin(const char* name, bool a, bool b, bool c)
 {
     return static_cast<render::TextureSet*>(texture_bank())->ingest_skin(name, a, b, c);

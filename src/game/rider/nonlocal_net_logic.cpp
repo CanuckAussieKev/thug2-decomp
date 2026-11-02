@@ -3,7 +3,7 @@
 // precision) until the original stores them as floats.
 
 #include "game/rider/nonlocal_net_logic.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -34,7 +34,6 @@
 #include "game/rider/state_history.h"
 #include "engine/objects/model_component.h"
 #include "engine/gfx/model.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

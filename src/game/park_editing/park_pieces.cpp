@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "game/park_editing/park.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"

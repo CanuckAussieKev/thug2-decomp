@@ -55,7 +55,7 @@ public:
     // 0x004818B0: `controller` (if it's one of them) deleted and the rest moved down.
     void detach_anim_driver(AnimDriver* controller);
     // 0x00481920: each controller's pose (slot 1) into `pose` (no null check). True.
-    bool get_poses(void* pose);
+    bool get_poses(Stance* pose);
     // 0x00481980 / 0x00481990: whether it isn't off / is fading.
     bool is_operative();
     bool is_fading();

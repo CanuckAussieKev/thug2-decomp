@@ -14,7 +14,6 @@
 #include "engine/objects/walk_hang.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx {
@@ -26,8 +25,13 @@ constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
 // a + (b - a) * t (Walk::Lerp).
 void lerp_vector(float* out, const float* a, const float* b, float t)
 {
-    walk::get_lerp(raw::as<maths::Vec4>(out), raw::as<const maths::Vec4>(a),
-                   raw::as<const maths::Vec4>(b), t);
+    maths::Vec4 from{};
+    maths::Vec4 to{};
+    maths::Vec4 between{};
+    std::memcpy(&from, a, sizeof(from));
+    std::memcpy(&to, b, sizeof(to));
+    walk::get_lerp(&between, &from, &to, t);
+    std::memcpy(out, &between, sizeof(between));
 }
 
 void copy4(float* to, const float* from) { std::memcpy(to, from, 16); }

@@ -1,7 +1,7 @@
 // Script commands (CFunctions) for maths, 0x00448AE0-0x00448EF0 (see math_cfuncs.h).
 
 #include "engine/script/math_cfuncs.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

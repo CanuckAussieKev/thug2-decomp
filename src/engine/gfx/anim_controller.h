@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/gfx/anim_blend.h"
 
 namespace objects {
 class GameEntity;
@@ -87,7 +88,7 @@ public:
     AnimDriver& operator=(const AnimDriver&) = delete;
 
     // Slot 1: the controller's part of the pose (64 rotations at +0, 64 translations at +0x400). False in the base.
-    virtual bool fetch_pose(uint8_t* /*pose*/) { return false; }
+    virtual bool fetch_pose(Stance* /*pose*/) { return false; }
     // Slot 3: a script member function: 0 false / 1 handled / 2 not its own (the base's: 0x0051ADC0, every name not
     // its own).
     virtual int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
@@ -120,7 +121,7 @@ public:
     // 0x004A4590: the frame's index let go, the frame source freed, then the base's.
     ~StandardAnimController() override;
     // 0x004A4F70 (slot 1)
-    bool fetch_pose(uint8_t* pose) override;
+    bool fetch_pose(Stance* pose) override;
     // 0x004A4670 (slot 3): PlayAnim (0xAF2FAE19: AnimName, StartTime, EndTime, RepeatMode, BlendPeriod, Speed),
     // 0xC68365EB (a new frame source for Anim), 0x92267217 (0x00485270 with the global 0x006F92B0's +0xD4),
     // stale_cache (refetches, then 2).
@@ -151,7 +152,7 @@ public:
     // 0x004A4820
     ~WeightedAnimController() override;
     // 0x004A5660 (slot 1): nothing (false) without a frame or with a weight of 0 or less.
-    bool fetch_pose(uint8_t* pose) override;
+    bool fetch_pose(Stance* pose) override;
     // 0x004A4890 (slot 3): 0xAF2FAE19 / 0x5E3F0F17 (the animation 0xD697A799 or AnimName, the weight
     // 0xC6AE16AC), 0xC68365EB, stale_cache.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
@@ -173,7 +174,7 @@ public:
     // 0x004A4A80
     ~WobbleDriver() override;
     // 0x004A5110 (slot 1)
-    bool fetch_pose(uint8_t* pose) override;
+    bool fetch_pose(Stance* pose) override;
     // 0x004A4AF0 (slot 3): PlayAnim, 0xD0209498 (the target as a fraction 0xD747FA0 of the timeline, 0..1),
     // SetWobbleDetails (all five or nothing), stale_cache.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
@@ -203,9 +204,9 @@ public:
     // 0x004A4D20
     ~StanceDriver() override;
     // 0x004A4D30 (slot 1): its pose copied out.
-    bool fetch_pose(uint8_t* pose) override;
+    bool fetch_pose(Stance* pose) override;
 
-    std::array<uint8_t, 0x840> stance_{}; // +0x14 (64 rotations, then the rest)
+    Stance stance_{}; // +0x14
 };
 
 // The partial animation controller (type "partialAnim", vtable 0x00649FB0, 0x24 bytes): a second animation on a
@@ -219,7 +220,7 @@ public:
     // 0x004A4D50
     ~PartialClipDriver() override;
     // 0x004A5430 (slot 1)
-    bool fetch_pose(uint8_t* pose) override;
+    bool fetch_pose(Stance* pose) override;
     // 0x004A54A0 (slot 3): 0x6AAEB76F (a step of 0x06C9F278 frames), 0xBD4EDD44 (Speed), GetPartialAnimParams,
     // 0xF5E2B871 (reverses), stale_cache.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;

@@ -2,7 +2,7 @@
 // values in registers, floats where it stores them.
 
 #include "engine/gfx/pc_billboards.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 

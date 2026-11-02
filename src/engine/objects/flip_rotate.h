@@ -28,7 +28,7 @@ public:
     // rotation turned half round (the quaternion product with (0, 0, 1, 0), then scaled to length 1); flipped,
     // each bone takes its mirror bone's (the skeleton's 0x004A2C60, none: its own) rotation and translation with
     // the rotation's x and w and the translation's x negated. True.
-    bool fetch_pose(uint8_t* pose) override;
+    bool fetch_pose(gfx::Stance* pose) override;
 
     bool mirrored_{false};    // +0x14
     bool has_pivoted_{false}; // +0x15

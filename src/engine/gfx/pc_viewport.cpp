@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "engine/gfx/pc_viewport.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 

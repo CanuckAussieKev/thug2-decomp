@@ -4,7 +4,7 @@
 // in double here (and rounded to float where it stores them), in the original's order of operations.
 
 #include "engine/objects/path_follower.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>
@@ -15,7 +15,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/maths/random.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

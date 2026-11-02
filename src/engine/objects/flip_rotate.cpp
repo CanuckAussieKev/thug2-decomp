@@ -18,9 +18,9 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/flip_and_rotate.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <algorithm>
 
 namespace objects {
 
@@ -46,7 +46,7 @@ void FlipRotateComponent::configure_from_data(script::Struct* params)
 }
 
 // 0x004E2D20
-bool FlipRotateComponent::fetch_pose(uint8_t* pose)
+bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
 {
     // The controller's skeleton and object (the base controller's; not rewritten yet).
     gfx::Rig* skeleton = fetch_rig();
@@ -56,37 +56,35 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
     if (flip_and_rotate && core::down_cast<RiderSpinAndFlip>(flip_and_rotate)->deck_turned_) {
         const int bone = skeleton->fetch_bone_slot(0x98971FAF);
         if (bone != -1) {
-            auto* rotation = raw::field_at<float>(pose, 0x10 * bone);
+            maths::QuatRotation& rotation = core::at(pose->rotations, bone);
             const maths::Vec4 turn = {0.0f, 0.0f, 1.0f, 0.0f};
+            const maths::Vec4 as_vector = {rotation.x, rotation.y, rotation.z, rotation.w};
             maths::Vec4 product{};
-            const auto* result = (quat_product(&product, &turn,
-                             raw::as<const maths::Vec4>(rotation)))->data();
-            std::memcpy(rotation, result, 16);
-            raw::as<maths::QuatRotation>(rotation)->make_unit(1.0f); // (to length 1)
+            const maths::Vec4* result = quat_product(&product, &turn, &as_vector);
+            rotation = {.x = result->x, .y = result->y, .z = result->z, .w = result->w};
+            rotation.make_unit(1.0f); // (to length 1)
         }
     }
     if (!mirrored_)
         return true;
     // The pose as it was (rotations past the bone count: no turn), then each bone from its mirror image.
-    std::array<std::array<float, 4>, 64> rotations{};
-    std::array<std::array<float, 4>, 64> translations{};
-    for (auto& r : rotations) {
-        core::at(r, 0) = core::at(r, 1) = core::at(r, 2) = 0.0f;
-        core::at(r, 3) = 1.0f;
-    }
+    std::array<maths::QuatRotation, 64> rotations{};
+    std::array<maths::Vec4, 64> translations{};
+    for (auto& r : rotations)
+        r = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const int count = skeleton->get_num_bones();
-    std::memcpy(rotations.data(), pose, 0x10 * (count > 0 ? count : 0));
-    std::memcpy(translations.data(), pose + 0x400, 0x10 * (count > 0 ? count : 0));
+    std::copy_n(pose->rotations.begin(), count > 0 ? count : 0, rotations.begin());
+    std::copy_n(pose->translations.begin(), count > 0 ? count : 0, translations.begin());
     for (int i = 0; i < count; ++i) {
         const int mirror = static_cast<gfx::RigData*>(bones)->fetch_mirror_slot(i);
         const int from = mirror == -1 ? i : mirror;
-        auto* rotation = raw::field_at<float>(pose, 0x10 * i);
-        auto* translation = raw::field_at<float>(pose, 0x400 + 0x10 * i);
-        std::memcpy(rotation, rotations.data()[from].data(), 16);
-        std::memcpy(translation, translations.data()[from].data(), 16);
-        rotation[0] = -rotation[0];
-        rotation[3] = -rotation[3];
-        translation[0] = -translation[0];
+        maths::QuatRotation& rotation = core::at(pose->rotations, i);
+        maths::Vec4& translation = core::at(pose->translations, i);
+        rotation = core::at(rotations, from);
+        translation = core::at(translations, from);
+        rotation.x = -rotation.x;
+        rotation.w = -rotation.w;
+        translation.x = -translation.x;
     }
     return true;
 }

@@ -110,11 +110,10 @@ void* logged_source_frame_of(void* source, uint32_t set, uint32_t anim)
     return frame;
 }
 void release_frame_index(void* frame, int index) { static_cast<JointClipFrames*>(frame)->release_cache_index(index); }
-void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
+void frame_pose(void* frame, Stance* pose, float time, int index, void* source)
 {
-    static_cast<JointClipFrames*>(frame)->get_frames(raw::as<maths::QuatRotation>(pose),
-                                                     raw::field_at<maths::Vec4>(pose, 0x400), pose + 0x800, time,
-                                                     index, source);
+    static_cast<JointClipFrames*>(frame)->get_frames(pose->rotations.data(), pose->translations.data(),
+                                                     pose->valid.data(), time, index, source);
 }
 // The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
 void set_bones(void* source, const Rig* skeleton)
@@ -190,7 +189,7 @@ StandardAnimController::~StandardAnimController()
 }
 
 // 0x004A4F70
-bool StandardAnimController::fetch_pose(uint8_t* pose)
+bool StandardAnimController::fetch_pose(Stance* pose)
 {
     if (frame_index_ == -1) {
         if (*raw::field_at<int>(static_cast<uint8_t*>(frame_source_), 0x24))
@@ -281,7 +280,7 @@ WeightedAnimController::~WeightedAnimController()
 }
 
 // 0x004A5660
-bool WeightedAnimController::fetch_pose(uint8_t* pose)
+bool WeightedAnimController::fetch_pose(Stance* pose)
 {
     if (!frame_source_ || !blend_source_ || weight_ <= 0.0f)
         return false;
@@ -294,8 +293,7 @@ bool WeightedAnimController::fetch_pose(uint8_t* pose)
     set_bones(blend_source_, skeleton());
     set_bone_count(blend_source_, skeleton());
     static_cast<JointClipFrames*>(frame_source_)
-        ->apply_additive_if_compressed(raw::as<maths::QuatRotation>(pose),
-                                       raw::field_at<maths::Vec4>(pose, 0x400), pose + 0x800, weight_,
+        ->apply_additive_if_compressed(pose->rotations.data(), pose->translations.data(), pose->valid.data(), weight_,
                                        static_cast<const render::FrameSource*>(blend_source_));
     source_frame(blend_source_, true);
     return true;
@@ -367,7 +365,7 @@ WobbleDriver::~WobbleDriver()
 }
 
 // 0x004A5110
-bool WobbleDriver::fetch_pose(uint8_t* pose)
+bool WobbleDriver::fetch_pose(Stance* pose)
 {
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));
@@ -466,22 +464,17 @@ void WobbleDriver::tick_frame()
 // 0x004A5730
 StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 {
-    auto* rotations = raw::as<float>(stance_.data());
-    for (int i = 0; i < 64; ++i) {
-        rotations[i * 4 + 0] = 0.0f;
-        rotations[i * 4 + 1] = 0.0f;
-        rotations[i * 4 + 2] = 0.0f;
-        rotations[i * 4 + 3] = 1.0f;
-    }
+    for (maths::QuatRotation& rotation : stance_.rotations)
+        rotation = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x004A4D20
 StanceDriver::~StanceDriver() = default;
 
 // 0x004A4D30
-bool StanceDriver::fetch_pose(uint8_t* pose)
+bool StanceDriver::fetch_pose(Stance* pose)
 {
-    std::memcpy(pose, stance_.data(), sizeof(stance_));
+    *pose = stance_;
     return true;
 }
 
@@ -515,7 +508,7 @@ PartialClipDriver::~PartialClipDriver()
 }
 
 // 0x004A5430
-bool PartialClipDriver::fetch_pose(uint8_t* pose)
+bool PartialClipDriver::fetch_pose(Stance* pose)
 {
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));

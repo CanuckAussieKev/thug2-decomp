@@ -81,7 +81,7 @@ inline void update_lights_brightness(void* lights)
 
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
-inline void* net_session_slot() { return raw::as<void>(online::g_online_hub); }
+inline online::Hub* net_session_slot() { return online::g_online_hub; }
 inline void* find_player_slot_by_obj(void* manager, uint32_t id)
 {
     return static_cast<online::Hub*>(manager)->find_player_slot_by_obj(static_cast<uint16_t>(id));

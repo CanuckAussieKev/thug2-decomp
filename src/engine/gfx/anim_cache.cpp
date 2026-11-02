@@ -14,7 +14,6 @@
 #include "engine/core/slab_bank.h"
 #include "platform/stopwatch.h"
 #include "engine/script/script_startup.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx {
@@ -94,8 +93,14 @@ void vacant(AnimCacheEntry* entry)
 // whose Allocate failed keeps its old, smaller block with the new size: its copy runs into what follows).
 void copy_forwards(uint8_t* to, const uint8_t* from, uint32_t size)
 {
-    __movsd(raw::as<unsigned long>(to), raw::as<const unsigned long>(from), size / 4);
-    __movsb(to + (size & ~3u), from + (size & ~3u), size & 3);
+    const uint32_t words = size & ~3u;
+    for (uint32_t i = 0; i < words; i += 4) { // (each word read before it is written, as MOVSD)
+        uint32_t word = 0;
+        std::memcpy(&word, from + i, sizeof(word));
+        std::memcpy(to + i, &word, sizeof(word));
+    }
+    for (uint32_t i = words; i < size; ++i)
+        to[i] = from[i];
 }
 
 void free_data(AnimCacheEntry* entry)

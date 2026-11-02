@@ -2,7 +2,7 @@
 // flexible_particle.h. From the disassembly of 0x0041D6E0-0x0041E25E.
 
 #include "engine/objects/flexible_particle.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/gfx/flexible_particle_manager.h"
 #include "engine/gfx/particle_system.h"
 

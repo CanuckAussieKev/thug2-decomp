@@ -1,7 +1,7 @@
 // The model viewer's object (0x005897B0-0x0058AFB7). See viewer_object.h.
 
 #include "engine/sys/viewer_object.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <bit>
 #include <cstdint>
@@ -37,7 +37,6 @@
 #include "engine/script/cfuncs_scene.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

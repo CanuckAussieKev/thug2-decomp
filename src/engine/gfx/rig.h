@@ -8,6 +8,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/quat_rotation.h"
 #include "engine/core/checked_index.h"
 
 namespace script {
@@ -126,7 +127,7 @@ public:
     // 0x004A4240: the matrices from the pose's rotations and translations: each bone's local matrix (scaled
     // when flagged) times its parent's (or its parent's when collapsed at this LOD), then times its inverse bind
     // matrix (rows scaled when flagged local), the rows' w cleared; then collapse_zero_scaled_bones.
-    void tick_frame(const std::array<float, 4>* rotations, const std::array<float, 4>* translations);
+    void tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* translations);
     // 0x004A44E0
     void tick_frame(const Stance* pose);
     // 0x004A4000: with kCollapseZeroScaled: the bones scaled to nothing (x, y, z all 0) put at the first scaled

@@ -1,7 +1,7 @@
 // The pixel shaders: see pixel_shaders.h.
 
 #include "engine/gfx/pixel_shaders.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 
@@ -22,8 +22,6 @@
 #include "engine/gfx/device.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {

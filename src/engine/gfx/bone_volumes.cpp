@@ -1,7 +1,7 @@
 // Bone volumes: see bone_volumes.h. From the disassembly of 0x0048B330-0x0048BF0D.
 
 #include "engine/gfx/bone_volumes.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

@@ -566,7 +566,7 @@ void balance_displays_off(void* score)
 
 // An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
 
-void* get_elements() { return raw::as<void>(render::g_game_texture_dict); }
+render::TextureSet* get_elements() { return render::g_game_texture_dict; }
 
 } // namespace
 

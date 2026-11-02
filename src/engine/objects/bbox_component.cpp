@@ -3,7 +3,7 @@
 // stores are rounded to float, the ones it keeps on the FPU stack are worked in double.
 
 #include "engine/objects/bbox_component.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

@@ -1,7 +1,7 @@
 // Script commands (CFunctions) for nodes and composite objects, 0x00449280-0x00449F80 (see object_cfuncs.h).
 
 #include "engine/objects/object_cfuncs.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cstdint>
 #include <new>

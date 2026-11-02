@@ -16,7 +16,6 @@
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/model_appearance.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace commands {
@@ -47,7 +46,7 @@ constexpr uint32_t kHsv = 0xFB0E4249;        // "hsv"
 constexpr uint32_t kRgb = 0xDECB67C7;        // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
-void* texture_bank() { return raw::as<void>(render::g_game_texture_dict); }
+render::TextureSet* texture_bank() { return render::g_game_texture_dict; }
 render::BitmapTexture* find_texture(uint32_t name)
 {
     return static_cast<render::TextureSet*>(texture_bank())->fetch_skin(name);

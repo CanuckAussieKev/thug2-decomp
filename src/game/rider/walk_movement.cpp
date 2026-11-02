@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "engine/maths/shape_tests.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 #include "engine/maths/vec4.h"
 #include "engine/maths/mat4.h"
 #include "engine/render/coll_cache.h"

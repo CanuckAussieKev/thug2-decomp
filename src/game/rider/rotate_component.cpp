@@ -1,7 +1,7 @@
 // The skater's rotate component (GameObjects::RiderTurning): see rotate_component.h.
 
 #include "game/rider/rotate_component.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cmath>
 #include <cstdint>

@@ -14,7 +14,6 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/raw_view.h"
 
 namespace commands {
 
@@ -35,8 +34,8 @@ constexpr uint32_t kNew = 0x941CBBBA;             // "new"
 constexpr uint32_t kSetsPaletteFlag = 0xC164842A; // (name unknown) brightness / HSV: an integer, 1 = the flag on
 
 // The texture dictionaries (Nx): the level's / scripts' (0x00700F1C) and the particles' (0x00700F20).
-void* get_textures() { return raw::as<void>(render::g_game_texture_dict); }
-void* particle_textures() { return raw::as<void>(render::g_particle_texture_dict); }
+render::TextureSet* get_textures() { return render::g_game_texture_dict; }
+render::TextureSet* particle_textures() { return render::g_particle_texture_dict; }
 
 // A dictionary's calls (no source yet).
 render::BitmapTexture* read_texture_file(void* dictionary, const char* file, bool flag1, bool allocate_vram, bool flag3)

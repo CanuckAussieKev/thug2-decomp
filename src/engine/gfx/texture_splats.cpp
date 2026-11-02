@@ -3,7 +3,7 @@
 
 #include "engine/gfx/texture_splats.h"
 #include "engine/gfx/geom.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <windows.h>
 

@@ -40,6 +40,11 @@ namespace objects {
 std::array<uint8_t, 5> g_cutscene_camera_slot;
 std::array<float, 512> g_cutscene_rotations;
 std::array<float, 512> g_cutscene_translations;
+namespace {
+// The objects' poses (the original used the two arrays above for them too, as floats).
+std::array<maths::QuatRotation, 128> g_object_pose_rotations;
+std::array<maths::Vec4, 128> g_object_pose_translations;
+} // namespace
 
 namespace {
 
@@ -316,8 +321,8 @@ void CinematicTable::refresh_viewer(void* camera)
 // 0x00464360
 void CinematicTable::update_object_poses()
 {
-    float* rotations = g_cutscene_rotations.data();
-    float* translations = g_cutscene_translations.data();
+    maths::QuatRotation* rotations = g_object_pose_rotations.data();
+    maths::Vec4* translations = g_object_pose_translations.data();
     for (int i = 0; i < object_count_; ++i) {
         ObjectEntry& entry = core::at(entities_, i);
         if (!entry.animation)
@@ -334,17 +339,15 @@ void CinematicTable::update_object_poses()
         gfx::RigData* data = rig->payload_;
         source->bone_masks_ = data ? data->lod_masks_.data() : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
-        const auto* base_pose = raw::bytes(rig->payload_->bind_translations_);
         auto count = static_cast<uint32_t>(rig->get_num_bones());
-        std::memcpy(translations, base_pose, count * 16);
+        std::memcpy(translations, rig->payload_->bind_translations_, count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
-            raw::as<maths::QuatRotation>(rotations), raw::as<maths::Vec4>(translations),
+            rotations, translations,
             g_cutscene_camera_slot.data(), static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
-        skeleton->tick_frame(raw::as<const std::array<float, 4>>(rotations),
-                                                          raw::as<const std::array<float, 4>>(translations));
+        skeleton->tick_frame(rotations, translations);
     }
 }
 

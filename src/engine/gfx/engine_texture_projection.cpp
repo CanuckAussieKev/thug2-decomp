@@ -2,7 +2,7 @@
 // the original keeps on the FPU stays a double here, what it stores is rounded to a float there.
 
 #include "engine/gfx/engine_texture_projection.h"
-#include "engine/gfx/d3dx.h"
+#include "platform/d3dx.h"
 
 #include <cstdint>
 #include <cstring>
@@ -23,7 +23,6 @@
 #include "engine/objects/texture_projection_component.h"
 #include "engine/gfx/pc_texture_projection.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
