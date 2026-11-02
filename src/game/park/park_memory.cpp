@@ -42,14 +42,6 @@ constexpr uint32_t kValueResult = 0x083FDB95;
 constexpr uint32_t kTopDownLevel = 0xCD3682C1; // the level whose park heap is in the top-down heap
 constexpr int kFloorPieceMem = 40000;
 
-// A park piece as these functions see it (the park editor's piece class, not decompiled yet).
-struct PieceView {
-    std::array<uint8_t, 0xC> unknown0;
-    uint32_t flags; // +0x0C bit 2: its DMA pieces were counted; bit 8: they don't count
-    std::array<uint8_t, 0x28> unknown10;
-    uint32_t type; // +0x38 the piece type's checksum
-};
-
 // The script's object pools (CPoolable pairs): components, vectors, arrays.
 memory::PoolPair& component_pools() { return script::g_component_pools; }
 memory::PoolPair& vector_pools() { return script::g_vector_pools; }
@@ -148,12 +140,12 @@ void remove_dma(uint32_t segment_kind)
 }
 
 // 0x0059E190
-void add_piece_dma(const void* piece)
+void add_piece_dma(const PieceGroup* meta)
 {
-    auto* view = static_cast<const PieceView*>(piece);
-    if (view->flags & 0x100)
+    // (the original read the metapiece's +0x0C flags and +0x38 name through a view of its own)
+    if (meta->flag_bits_ & PieceGroup::kFence)
         return;
-    const uint32_t type = view->type;
+    const uint32_t type = meta->name_key_;
     script::Struct* table = script::read_sub_struct(kPieceDmaTable);
     int pieces = 1;
     table->fetch_int_value(type, &pieces, 0);
@@ -161,11 +153,10 @@ void add_piece_dma(const void* piece)
 }
 
 // 0x0059E1E0
-void remove_piece_dma(const void* piece)
+void remove_piece_dma(const PieceGroup* meta)
 {
-    auto* view = static_cast<const PieceView*>(piece);
-    if (!(view->flags & 0x100) && (view->flags & 0x4))
-        remove_dma(view->type);
+    if (!(meta->flag_bits_ & PieceGroup::kFence) && (meta->flag_bits_ & PieceGroup::kInPark))
+        remove_dma(meta->name_key_);
 }
 
 // 0x0059E210

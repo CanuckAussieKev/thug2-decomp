@@ -16,6 +16,8 @@ struct PoolPair;
 // Sizes and pads come from the script (ParkEditorMemoryValue).
 namespace park_editing {
 
+class PieceGroup;
+
 // The figures (0x007CE618, 0x6C bytes, copied out by get_memory_stats).
 struct MemoryStats {
     int park_bytes_in_use_;     // +0x00 the park heap's used size
@@ -65,10 +67,10 @@ memory::Arena* get_main_heap();
 void clear_stats();
 // 0x0059E170: the piece counts are counted again at the next get_memory_stats.
 void set_counts_dirty();
-// 0x0059E190 / 0x0059E1E0 / 0x0059E130: a piece's DMA pieces (its type's integer in the global structure
-// 0x9547DA8D, 1 if missing) added / taken away (pieces with flag bit 8 don't count; taking away needs bit 2).
-void add_piece_dma(const void* piece);
-void remove_piece_dma(const void* piece);
+// 0x0059E190 / 0x0059E1E0 / 0x0059E130: a metapiece's DMA pieces (its name's integer in the global structure
+// 0x9547DA8D, 1 if missing) added / taken away (a kFence metapiece's don't count; taking away needs kInPark).
+void add_piece_dma(const PieceGroup* meta);
+void remove_piece_dma(const PieceGroup* meta);
 void remove_dma(uint32_t segment_kind);
 // 0x0059E210 / 0x0059E290 / 0x0059E310: the item pools of CMapListNode (12 bytes, 0x007CE5F0), CClipboardEntry
 // (0x18, 0x007CE5C4) and CClipboard (0x18, 0x007CE5B4), made in the current pool slot.
