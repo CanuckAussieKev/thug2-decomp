@@ -13,6 +13,7 @@
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::new_frontend::mirror {
 
@@ -357,19 +358,20 @@ View get_build(const MenuRead& read, const Policy& policy)
                 bool show = true;
                 if (item.slider_kind_ == 1)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    std::snprintf(number.data(), sizeof(number), "%d", static_cast<int>(item.slider_at_ * 360.0f + 0.5f));
+                    text::format_to(number, "%d", static_cast<int>(item.slider_at_ * 360.0f + 0.5f));
                 else if (item.slider_kind_ == 2)
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    std::snprintf(number.data(), sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * kSatMax + 0.5f));
+                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * kSatMax + 0.5f));
                 else if (item.slider_kind_ == 3) {
                     const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
-                    std::snprintf(number.data(), sizeof(number), "%d%%",
-                                  // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                                  static_cast<int>(low + item.slider_at_ * (kValMax - low) + 0.5f));
+                    text::format_to(
+                        number, "%d%%",
+                        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
+                        static_cast<int>(low + item.slider_at_ * (kValMax - low) + 0.5f));
                 } else {
                     show = ints::as_signed(i) == read.selected_index_;
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    std::snprintf(number.data(), sizeof(number), "%d%%", static_cast<int>(item.slider_at_ * 100.0f + 0.5f));
+                    text::format_to(number, "%d%%", static_cast<int>(item.slider_at_ * 100.0f + 0.5f));
                 }
                 if (show)
                     row.value += (row.value.empty() ? "" : "  ") + std::string(number.data());

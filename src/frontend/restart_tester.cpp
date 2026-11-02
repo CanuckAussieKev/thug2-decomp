@@ -24,6 +24,7 @@
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::restart_tester {
 
@@ -84,7 +85,7 @@ std::vector<Relaunch> level_restarts()
         const char* label = nullptr;
         node->fetch_text(restart_name, &label, 0);
         std::array<char, 16> hex{};
-        std::snprintf(hex.data(), sizeof(hex), "#%08X", name);
+        text::format_to(hex, "#%08X", name);
         r.text = text ? text : (label && *label ? std::string(label) + " (" + hex.data() + ")" : std::string(hex.data()));
         node->fetch_vec(pos, &r.pos, 0);
         script::Array* types = nullptr;
@@ -157,8 +158,8 @@ void get_next()
                 r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
                 visited_state().size() == restarts.size() ? " - all restarts visited" : "");
         std::array<char, 160> text{};
-        std::snprintf(text.data(), sizeof(text), "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
-                      static_cast<unsigned>(restarts.size()), r.text.c_str());
+        text::format_to(text, "Restart %u / %u: %s", static_cast<unsigned>(visited_state().size()),
+                        static_cast<unsigned>(restarts.size()), r.text.c_str());
         get_message(text.data());
         if (visited_state().size() == restarts.size())
             get_message("All restarts visited", "restart_tester_done", 95.0f);

@@ -82,6 +82,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::new_frontend {
 
@@ -1129,7 +1130,7 @@ int stat_row_index(uint32_t id)
         std::array<uint32_t, 16> ids{};
         for (size_t i = 0; i < ids.size(); ++i) {
             std::array<char, 32> name{};
-            std::snprintf(name.data(), name.size(), "stats_menu_names_%u", static_cast<unsigned>(i));
+            text::format_to(name, "stats_menu_names_%u", static_cast<unsigned>(i));
             core::at(ids, i) = name_hash(name.data());
         }
         return ids;
@@ -1251,16 +1252,16 @@ void dump_tree(const UiWidget* element, int depth, int* budget)
     for (; element && --*budget > 0; element = get_next(element)) {
         std::array<char, 512> line{};
         const char* type = current_type_name(type_of(element));
-        const int at = std::snprintf(line.data(), sizeof(line), "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?",
-                                     id_of_element(element), element->aim_point_.x, element->aim_point_.y,
-                                     get_visible(element) ? "" : " hidden");
+        const size_t at =
+            text::format_to(line, "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?", id_of_element(element),
+                            element->aim_point_.x, element->aim_point_.y, get_visible(element) ? "" : " hidden");
         if (type_of(element) == text_type()) {
             const char* text = core::down_cast<const LabelWidget>(element)->chars_;
-            const std::span<char> rest = std::span<char>(line).subspan(static_cast<size_t>(at));
-            std::snprintf(rest.data(), rest.size(), " \"%.80s\"", text ? text : "");
+            const std::span<char> rest = std::span<char>(line).subspan(at);
+            text::format_to(rest, " \"%.80s\"", text ? text : "");
         } else if (type_of(element) == sprite_type()) {
-            std::snprintf(std::span<char>(line).subspan(static_cast<size_t>(at)).data(), line.size() - static_cast<size_t>(at), " texture %08X",
-                          core::down_cast<const ImageWidget>(element)->texture_);
+            text::format_to(std::span<char>(line).subspan(at), " texture %08X",
+                            core::down_cast<const ImageWidget>(element)->texture_);
         }
         get_log("new front end: debug_restyle %s", line.data());
         if (depth < 8)
@@ -1294,8 +1295,8 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
     int budget = 600;
     const UiWidget* one = screen;
     std::array<char, 160> line{};
-    std::snprintf(line.data(), sizeof(line), "%s %08X",
-                  current_type_name(type_of(one)) ? current_type_name(type_of(one)) : "?", id_of_element(one));
+    text::format_to(line, "%s %08X", current_type_name(type_of(one)) ? current_type_name(type_of(one)) : "?",
+                    id_of_element(one));
     get_log("new front end: debug_restyle %s", line.data());
     dump_tree(first_child(screen), 1, &budget);
 }
@@ -1553,7 +1554,7 @@ mirror::View mirror_now()
     mirror::View view = mirror::get_build(keyboard ? read_keyboard(keyboard, menu) : read_menu(menu, in_dialog), now);
     // (each menu's decision logged once)
     std::array<char, 96> key{};
-    std::snprintf(key.data(), sizeof(key), "%08X %s %s", id_of_element(menu), mirror::kind_name(view.kind), view.why.c_str());
+    text::format_to(key, "%08X %s %s", id_of_element(menu), mirror::kind_name(view.kind), view.why.c_str());
     if (s_mirror_logged != key.data()) {
         s_mirror_logged = key.data();
         if (view.kind != mirror::Kind::kNone)

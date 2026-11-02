@@ -21,6 +21,7 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::new_frontend::paint {
 
@@ -404,7 +405,7 @@ void backdrop(ImDrawList* dl, const TickCycle& f, const Art& art, float pan)
 std::string pad2(int n)
 {
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "%02d", n);
+    text::format_to(text, "%02d", n);
     return text.data();
 }
 
@@ -688,9 +689,9 @@ std::string get_clock(float seconds)
     const int total = static_cast<int>(seconds);
     std::array<char, 32> text{};
     if (total >= 3600)
-        std::snprintf(text.data(), sizeof(text), "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60);
+        text::format_to(text, "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60);
     else
-        std::snprintf(text.data(), sizeof(text), "%02d:%02d", total / 60, total % 60);
+        text::format_to(text, "%02d:%02d", total / 60, total % 60);
     return text.data();
 }
 
@@ -986,10 +987,9 @@ void levels_screen(Ctx& c, int* visible_rows)
     if (level && level->art_variants_.size() > 1 && grow < 0.999f) {
         std::array<char, 64> text{};
         if (level->variant >= 0 && std::cmp_less(level->variant, level->art_labels_.size()))
-            std::snprintf(text.data(), sizeof(text), "Q  %s  E", core::at(level->art_labels_, level->variant).c_str());
+            text::format_to(text, "Q  %s  E", core::at(level->art_labels_, level->variant).c_str());
         else
-            std::snprintf(text.data(), sizeof(text), "Q  %d / %d  E", level->variant + 1,
-                          static_cast<int>(level->art_variants_.size()));
+            text::format_to(text, "Q  %d / %d  E", level->variant + 1, static_cast<int>(level->art_variants_.size()));
         Style note = mono12(kMuted);
         note.alpha = 1.0f - grow;
         const float nw = get_measure(note, c.f, text.data()) / c.f.scale;
@@ -1037,11 +1037,11 @@ void levels_screen(Ctx& c, int* visible_rows)
         std::vector<std::string> cols;
         std::array<char, 64> text{};
         if (rec.gaps_total_ > 0) {
-            std::snprintf(text.data(), sizeof(text), "%s %d/%d", text_tools::kGaps, rec.gaps_got_, rec.gaps_total_);
+            text::format_to(text, "%s %d/%d", text_tools::kGaps, rec.gaps_got_, rec.gaps_total_);
             cols.emplace_back(text.data());
         }
         if (rec.goals >= 0) {
-            std::snprintf(text.data(), sizeof(text), "%s %d", text_tools::kGoals, rec.goals);
+            text::format_to(text, "%s %d", text_tools::kGoals, rec.goals);
             cols.emplace_back(text.data());
         }
         if (!cols.empty()) {
@@ -1565,9 +1565,9 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         d.css = 12.0f;
         std::array<char, 48> numbers{};
         // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-        std::snprintf(numbers.data(), sizeof(numbers), "H %d  S %d  V %d", static_cast<int>(v.hue + 0.5f),
-                      // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                      static_cast<int>(v.sat + 0.5f), static_cast<int>(v.val + 0.5f));
+        text::format_to(numbers, "H %d  S %d  V %d", static_cast<int>(v.hue + 0.5f),
+                        // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
+                        static_cast<int>(v.sat + 0.5f), static_cast<int>(v.val + 0.5f));
         draw_text(c.dl, d, c.f, c.f.get_x(left + 76.0f), datum(d, c.f, c.f.get_y(swatch_top + 8.0f), 1.3f), numbers.data());
         bottom = swatch_top - 12.0f;
     }
@@ -1908,7 +1908,7 @@ bool build_fonts(const FontFiles& files, float scale)
         config.OversampleH = big ? 1 : 2;
         config.OversampleV = 1;
         config.PixelSnapH = big;
-        std::snprintf(std::data(config.Name), sizeof(config.Name), "fe %d %.0f", static_cast<int>(core::at(kBakes, i).face), core::at(kBakes, i).css);
+        text::format_to(config.Name, "fe %d %.0f", static_cast<int>(core::at(kBakes, i).face), core::at(kBakes, i).css);
         // (stb_truetype's size is ascent - descent: the em asked for times that)
         const float pixel_height = em * (face.ascent - face.descent);
         ImFont* font =

@@ -66,6 +66,7 @@ namespace {
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/mem.h"
+#include "engine/core/format.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516; // "focus"
@@ -322,7 +323,7 @@ std::string json_string(const std::string& text)
             out += c;
         } else if (u < 0x20 || u >= 0x7F) {
             std::array<char, 8> escaped{};
-            std::snprintf(escaped.data(), sizeof(escaped), "\\u%04x", u);
+            text::format_to(escaped, "\\u%04x", u);
             out += escaped.data();
         } else {
             out += c;
@@ -581,7 +582,7 @@ std::string get_name_of(uint32_t checksum)
     if (found != get_names().end())
         return found->second;
     std::array<char, 16> text{};
-    std::snprintf(text.data(), sizeof(text), "0x%08X", checksum);
+    text::format_to(text, "0x%08X", checksum);
     return text.data();
 }
 
@@ -633,7 +634,7 @@ std::string describe(const OrderCode& command)
         std::string text = command.op == Op::kJumpTo ? "teleport" : "camera";
         for (const float number : command.numbers) {
             std::array<char, 32> value{};
-            std::snprintf(value.data(), sizeof(value), " %g", static_cast<double>(number));
+            text::format_to(value, " %g", static_cast<double>(number));
             text += value.data();
         }
         if (command.op == Op::kJumpTo && command.target == "board")
@@ -888,7 +889,7 @@ std::string start_trace(int frames)
     util::UniqueFile file(_fsopen(path.c_str(), "w", _SH_DENYWR));
     if (!file)
         return "can't write " + path;
-    std::fprintf(
+    text::print_to(
         file.get(),
         "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
     std::fflush(file.get());
@@ -920,13 +921,13 @@ void trace_frame()
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
         const unsigned ground_flags = core ? core->floor_feeler_.hit_.face_flags_ : 0;
         const unsigned ground_object = core ? core->floor_feeler_.hit_.object_checksum_ : 0;
-        std::fprintf(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
-                     frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
-                     static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),
-                     static_cast<double>(skater->vel_.x), static_cast<double>(skater->vel_.y),
-                     static_cast<double>(skater->vel_.z), static_cast<double>(::core::at(skater->basis_frame_.row, 1).y), where,
-                     physics, bailing, trick, pot, static_cast<double>(multiplier), landed, ground_flags,
-                     ground_object);
+        text::print_to(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
+                       frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
+                       static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),
+                       static_cast<double>(skater->vel_.x), static_cast<double>(skater->vel_.y),
+                       static_cast<double>(skater->vel_.z),
+                       static_cast<double>(::core::at(skater->basis_frame_.row, 1).y), where, physics, bailing, trick,
+                       pot, static_cast<double>(multiplier), landed, ground_flags, ground_object);
         std::fflush(trace.file.get());
     }
     if (--trace.left <= 0)
@@ -1385,8 +1386,8 @@ std::string log_tricks(int count, std::string* failed)
         return "";
     }
     std::array<char, 160> result{};
-    std::snprintf(result.data(), sizeof(result), "ok (%u trick objects of %u clusters in the level logged, %u changed hands)",
-                  static_cast<unsigned>(asked), static_cast<unsigned>(clusters.size()), changed);
+    text::format_to(result, "ok (%u trick objects of %u clusters in the level logged, %u changed hands)",
+                    static_cast<unsigned>(asked), static_cast<unsigned>(clusters.size()), changed);
     return result.data();
 }
 
@@ -1477,9 +1478,9 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
             return true;
         }
         std::array<char, 96> result{};
-        std::snprintf(result.data(), sizeof(result), "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
+        text::format_to(result, "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
         if (FILE* trace_file = trace_state().file.get()) { // (a trace marks each teleport: the rides it holds)
-            std::fprintf(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
+            text::print_to(trace_file, "# %s -> %s\n", runner.text.c_str(), result.data());
             std::fflush(trace_file);
         }
         get_finish(runner, result.data());

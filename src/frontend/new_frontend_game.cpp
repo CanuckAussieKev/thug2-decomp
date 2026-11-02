@@ -23,6 +23,7 @@
 #include "engine/pad_input/device.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace frontend::new_frontend::game_screens {
 
@@ -75,7 +76,7 @@ std::string active_ruleset_label()
         if (name_hash(known) == name)
             return known;
     std::array<char, 16> hex{};
-    std::snprintf(hex.data(), sizeof(hex), "0x%08X", name);
+    text::format_to(hex, "0x%08X", name);
     return hex.data();
 }
 

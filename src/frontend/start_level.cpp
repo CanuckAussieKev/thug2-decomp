@@ -31,6 +31,7 @@
 #include "platform/winmain.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace frontend::begin_level {
 
@@ -91,7 +92,7 @@ bool scene_installed(const std::string& name)
     if (!info || info->has_entry_named("scnpre") || !info->fetch_text("level", &scene, 0) || !scene)
         return true;
     std::array<char, 160> path{};
-    std::snprintf(path.data(), sizeof(path), "levels\\%s\\%s.scn.xbx", scene, scene);
+    text::format_to(path, "levels\\%s\\%s.scn.xbx", scene, scene);
     return file::is_present(path.data());
 }
 
