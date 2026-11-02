@@ -435,7 +435,8 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         ++combo_tricks_;
         bool add_one = true;
         if (multiplier_ != 0.0f && !not_counted) {
-            const int times = core::at(seen->landed_, kind + 4);
+            // (the original read the kind + 4th word from landed_: ongoing_'s word for the kind)
+            const int times = core::at(seen->ongoing_, kind);
             if (times >= degrade_start) {
                 add_one = false;
                 const double added = 1.0 - (times - degrade_start + 1) * 0.5;
