@@ -194,7 +194,7 @@ void take_baseline()
     g_base.main = g_base.script = 0.0;
     if (manager) {
         region_use(manager->primary_zone_, &size, &g_base.main);
-        region_use(manager->script_region_, &size, &g_base.script);
+        region_use(manager->script_region_.get(), &size, &g_base.script);
     }
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, count = 0;
@@ -287,7 +287,7 @@ std::vector<Meter> get_meters()
     }
     if (const memory::Hub* manager = memory::Hub::get_pull()) {
         double size = 0.0, used = 0.0;
-        if (region_use(manager->script_region_, &size, &used)) {
+        if (region_use(manager->script_region_.get(), &size, &used)) {
             Meter m;
             m.name = "Script heap";
             m.used = used;

@@ -245,7 +245,7 @@ static_assert(sizeof(SceneLoadParams) == 0x48 && sizeof(SceneCollisionLoadParams
 struct SceneAsset final : Resource {
     // 0x00409220 (vtable 0x00645700)
     SceneAsset();
-    gsl::owner<SceneLoadParams*> args_{nullptr};
+    SceneLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
     // 0x004093D0
     // (0x0049B8C0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kScene; }
@@ -265,7 +265,7 @@ struct SceneAsset final : Resource {
 struct SceneCollisionAsset final : Resource {
     // 0x004095F0 (vtable 0x00645778)
     SceneCollisionAsset();
-    gsl::owner<SceneCollisionLoadParams*> args_{nullptr};
+    SceneCollisionLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
     // 0x00409750
     // (0x0049BB70, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kSceneCollision; }
@@ -344,7 +344,7 @@ struct SkinResource final : Resource {
 struct SkinCollisionAsset final : Resource {
     // 0x0040A210 (vtable 0x00645928)
     SkinCollisionAsset();
-    gsl::owner<SkinCollisionLoadParams*> args_{nullptr};
+    SkinCollisionLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
     // 0x0040A290 / 0x0040A280
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
@@ -361,7 +361,7 @@ struct SkinCollisionAsset final : Resource {
 struct TexDictAsset final : Resource {
     // 0x0040A580 (vtable 0x006459A8)
     TexDictAsset();
-    gsl::owner<TexDictLoadParams*> args_{nullptr};
+    TexDictLoadParams* args_{nullptr}; // (a record of the load-parameter pool while it loads)
     // 0x0040A710
     // (0x0049C0F0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kResTexDict; }

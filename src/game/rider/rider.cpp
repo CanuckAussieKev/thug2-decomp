@@ -907,7 +907,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     model_component_ = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
     memory::Hub::get_pull()->enter_heap_scope(core::at(memory::Hub::get_pull()->skater_geom_heaps_, skater_number_));
-    auto* assets = assets::g_asset_manager;
+    auto* assets = assets::asset_manager();
     const bool flag = assets->get_permanent_by_default();
     assets->set_permanent_by_default(false);
     model_component_->set_up_mesh_from_profile(profile, false, skater_number_, 0);

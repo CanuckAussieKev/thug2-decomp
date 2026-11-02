@@ -21,7 +21,7 @@
 
 namespace assets {
 
-assets::ResourceRegistry* g_asset_manager;
+std::unique_ptr<assets::ResourceRegistry> g_asset_manager;
 namespace {
 int g_ass_man_references;
 } // namespace
@@ -271,7 +271,8 @@ void ResourceRegistry::discard_loaded_item(Resource* asset)
     }
     remove_from_list(list, asset);
     asset->offload();
-    delete asset;
+    gsl::owner<Resource*> owned = memory::owned_element(asset); // (the table's)
+    delete owned;
     assets_->erase_entry(checksum);
 }
 
@@ -448,16 +449,14 @@ int ResourceRegistry::get_type_from_extension(const char* name)
 // 0x004088E0
 ResourceRegistry* create_asset_manager(bool create)
 {
-    gsl::owner<ResourceRegistry*> manager = asset_manager();
+    ResourceRegistry* manager = asset_manager();
     if (!manager && create) {
-        manager = new ResourceRegistry;
+        g_asset_manager = std::make_unique<ResourceRegistry>(); // (null when the heap is full)
+        manager = g_asset_manager.get();
         if (manager) {
-            asset_manager() = manager;
             ++ref_tally();
             return manager;
         }
-        asset_manager() = nullptr;
-        manager = nullptr;
     }
     ++ref_tally();
     return manager;
@@ -470,8 +469,7 @@ void release_asset_manager()
         --ref_tally();
         return;
     }
-    delete asset_manager();
-    asset_manager() = nullptr;
+    memory::destroy_then_clear(g_asset_manager);
     ref_tally() = 0;
 }
 

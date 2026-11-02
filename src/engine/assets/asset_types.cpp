@@ -87,7 +87,7 @@ void* scene_collision(void* scene) { return static_cast<render::WorldScene*>(sce
 void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unload_collision(); }
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
 bool split_skin_name(const char* name, char* base) { return render::engine::split_skin_name(name, base); }
-void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, uint32_t cas_size,
+gsl::owner<void*> make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, uint32_t cas_size,
                          render::TextureSet* textures, int value, uint8_t has_cas, uint8_t flag)
 {
     return render::engine::load_model_from_memory(checksum, static_cast<const uint8_t*>(buffer), static_cast<int>(size),
@@ -96,7 +96,8 @@ void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* c
 void unload_skinned_model(void* model, int flag)
 {
     (void)flag; // 0x0048C080 is a jump to the engine's virtual delete (its second argument isn't read)
-    delete static_cast<render::SubMesh*>(model);
+    gsl::owner<render::SubMesh*> mesh = memory::adopt<render::SubMesh*>(model);
+    delete mesh;
 }
 // Skin collision: its file name, added to a model, removed.
 void skin_collision_file_name(char* out, const char* name) { render::skin_collision_file_name(out, name); }
@@ -337,7 +338,8 @@ int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/
 int CutsceneResource::offload()
 {
     if (void* cutscene = get_data()) {
-        delete static_cast<objects::CinematicTable*>(cutscene);
+        gsl::owner<objects::CinematicTable*> table = memory::adopt<objects::CinematicTable*>(cutscene);
+        delete table;
         change_contents(nullptr);
     }
     return 0;
@@ -445,8 +447,9 @@ void* NodeTableResource::build_node_table(uint32_t name, int count)
     symbol->value.set_array(array);
     symbol->type = script::kQbvalArray;
     array_name_ = name;
-    nodes_ = array;
-    return array;
+    script::Array* const table = array; // (the symbol's now)
+    nodes_ = table;
+    return table;
 }
 
 // --- scene ----------------------------------------------------------------------------------------------------
@@ -457,7 +460,8 @@ const char* SceneAsset::fetch_title() const { return "Scene"; }
 // 0x004092D0
 void SceneAsset::set_up_params(void* params, void* structure)
 {
-    args_ = memory::construct_in<SceneLoadParams>(alloc_load_params(sizeof(SceneLoadParams)));
+    auto made = memory::construct_in<SceneLoadParams>(alloc_load_params(sizeof(SceneLoadParams)));
+    args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->textures = 0;
     args_->flags = {{1, 0, 0, 0}};
     if (params)
@@ -531,7 +535,8 @@ const char* SceneCollisionAsset::fetch_title() const { return "SceneColl"; }
 // 0x00409690
 void SceneCollisionAsset::set_up_params(void* params, void* structure)
 {
-    args_ = memory::construct_in<SceneCollisionLoadParams>(alloc_load_params(sizeof(SceneCollisionLoadParams)));
+    auto made = memory::construct_in<SceneCollisionLoadParams>(alloc_load_params(sizeof(SceneCollisionLoadParams)));
+    args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->checksum = 0;
     args_->flag = 0;
     if (params)
@@ -650,7 +655,8 @@ bool RigResource::finish_loading(void* buffer, uint32_t size)
 int RigResource::offload()
 {
     if (void* skeleton = get_data()) {
-        delete static_cast<gfx::RigData*>(skeleton);
+        gsl::owner<gfx::RigData*> rig = memory::adopt<gfx::RigData*>(skeleton);
+        delete rig;
         change_contents(nullptr);
         free_buffer();
     }
@@ -760,9 +766,9 @@ bool SkinResource::finish_loading(void* buffer, uint32_t size)
 {
     auto* textures = static_cast<render::TextureSet*>(group_data(this));
     const SkinParams* p = args_;
-    change_contents(
-        make_skinned_model(checksum_, buffer, size, p->cas_data_, p->cas_size_, textures, p->value, p->has_cas_,
-                           p->flag0));
+    gsl::owner<void*> model = make_skinned_model(checksum_, buffer, size, p->cas_data_, p->cas_size_, textures,
+                                                 p->value, p->has_cas_, p->flag0);
+    change_contents(model); // (the resource's: offload deletes it)
     if (args_->on_heap_ && octets_)
         free_buffer();
     free_load_params(args_);
@@ -844,7 +850,8 @@ gsl::owner<SkinCollisionLoadParams*> skin_collision_params(void* params, void* s
 int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading();
-    args_ = skin_collision_params(params, structure);
+    gsl::owner<SkinCollisionLoadParams*> made = skin_collision_params(params, structure);
+    args_ = made; // (a record of the load-parameter pool, given back once loaded)
     if (copy) {
         memory::push_mem_profile("SkinColl from data stream");
         data = copy_data(this, data, size);
@@ -858,7 +865,8 @@ int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, v
 int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
-    args_ = skin_collision_params(params, structure);
+    gsl::owner<SkinCollisionLoadParams*> made = skin_collision_params(params, structure);
+    args_ = made; // (a record of the load-parameter pool, given back once loaded)
     copy_string(args_->name.data(), name);
     std::array<char, 256> file{};
     skin_collision_file_name(file.data(), name);
@@ -902,7 +910,8 @@ const char* TexDictAsset::fetch_title() const { return "TexDict"; }
 // 0x0040A620
 void TexDictAsset::set_up_params(void* params, void* structure)
 {
-    args_ = memory::construct_in<TexDictLoadParams>(alloc_load_params(sizeof(TexDictLoadParams)));
+    auto made = memory::construct_in<TexDictLoadParams>(alloc_load_params(sizeof(TexDictLoadParams)));
+    args_ = made; // (a record of the load-parameter pool, given back once loaded)
     args_->flag = 1;
     args_->value = 0;
     args_->flag8 = 0;

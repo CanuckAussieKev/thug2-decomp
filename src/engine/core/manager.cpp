@@ -25,7 +25,7 @@ void* heap_allocate(MemSource* heap, uint32_t size, int halt_if_exhausted)
     return heap->carve(size, halt_if_exhausted != 0);
 }
 
-void delete_region(Zone* region) { delete region; }
+void delete_region(std::unique_ptr<Zone>& region) { memory::destroy_then_clear(region); }
 
 MemSource* current_heap(Hub* manager) { return *manager->ongoing_; }
 
@@ -135,7 +135,8 @@ void Hub::delete_heap(MemSource* heap)
             break;
         }
     }
-    delete heap;
+    gsl::owner<MemSource*> owned = memory::owned_element(heap); // (the registry's)
+    delete owned;
 }
 
 // 0x005BAF00
@@ -530,49 +531,50 @@ Hub::Hub()
 }
 
 // 0x005BB4E0
-gsl::owner<Arena*> Hub::add_heap(Zone* region, int direction, const char* name)
+Arena* Hub::add_heap(Zone* region, int direction, const char* name)
 {
     auto heap = memory::make_owned<Arena>(region, direction, name);
     core::at(heaps_, heap_count_++) = heap;
-    return heap;
+    Arena* const registered = heap;
+    return registered;
 }
 
 // 0x005BBE80
 void Hub::init_standard_heaps()
 {
-    front_end_region_ = new_alloc_region(game_config::g_config_bootstrap ? 1000000 : 1100000);
-    debug::printf("allocated mp_frontend_region at %p\n", front_end_region_);
-    network_heap_ = add_heap(front_end_region_, MemSource::kGrowDown, "Network");
+    front_end_region_ = memory::take_unique<Zone>(new_alloc_region(game_config::g_config_bootstrap ? 1000000 : 1100000));
+    debug::printf("allocated mp_frontend_region at %p\n", front_end_region_.get());
+    network_heap_ = add_heap(front_end_region_.get(), MemSource::kGrowDown, "Network");
     debug::printf("Setup TOP_DOWN mp_network_heap at %p\n", network_heap_);
-    front_end_heap_ = add_heap(front_end_region_, MemSource::kGrowUp, "FrontEnd");
+    front_end_heap_ = add_heap(front_end_region_.get(), MemSource::kGrowUp, "FrontEnd");
     debug::printf("Setup mp_frontend_heap at %p\n", front_end_heap_);
 
     // Not original - grown by what the bigger script pools take more (engine/core/memory_sizes.h: pool sizes as
     // THUGPRO's; the room left for scripts stays the original's).
     // Original behaviour: 0x434770 bytes.
-    script_region_ = new_alloc_region(sizes::script_region_size());
-    debug::printf("allocated mp_script_region at %p\n", script_region_);
-    script_heap_ = add_heap(script_region_, MemSource::kGrowUp, "Script");
+    script_region_ = memory::take_unique<Zone>(new_alloc_region(sizes::script_region_size()));
+    debug::printf("allocated mp_script_region at %p\n", script_region_.get());
+    script_heap_ = add_heap(script_region_.get(), MemSource::kGrowUp, "Script");
     debug::printf("Setup mp_script_heap at %p\n", script_heap_);
 
-    skater_info_region_ = new_alloc_region(82000);
-    debug::printf("allocated mp_skater_info_region at %p\n", skater_info_region_);
-    skater_info_heap_ = add_heap(skater_info_region_, MemSource::kGrowUp, "skt_info");
+    skater_info_region_ = memory::take_unique<Zone>(new_alloc_region(82000));
+    debug::printf("allocated mp_skater_info_region at %p\n", skater_info_region_.get());
+    skater_info_heap_ = add_heap(skater_info_region_.get(), MemSource::kGrowUp, "skt_info");
     debug::printf("Setup mp_skater_info_heap at %p\n", skater_info_heap_);
 
-    theme_region_ = new_alloc_region(0x3C00);
-    debug::printf("allocated mp_theme_region at %p\n", theme_region_);
-    theme_heap_ = add_heap(theme_region_, MemSource::kGrowUp, "theme");
+    theme_region_ = memory::take_unique<Zone>(new_alloc_region(0x3C00));
+    debug::printf("allocated mp_theme_region at %p\n", theme_region_.get());
+    theme_heap_ = add_heap(theme_region_.get(), MemSource::kGrowUp, "theme");
     debug::printf("Setup mp_theme_heap at %p\n", theme_heap_);
 
-    core::at(skater_regions_, 0) = new_alloc_region(0x1AFA4);
-    debug::printf("allocated mp_skater_region at %p\n", core::at(skater_regions_, 0));
-    core::at(skater_heaps_, 0) = add_heap(core::at(skater_regions_, 0), MemSource::kGrowUp, "skater");
+    core::at(skater_regions_, 0) = memory::take_unique<Zone>(new_alloc_region(0x1AFA4));
+    debug::printf("allocated mp_skater_region at %p\n", core::at(skater_regions_, 0).get());
+    core::at(skater_heaps_, 0) = add_heap(core::at(skater_regions_, 0).get(), MemSource::kGrowUp, "skater");
     debug::printf("Setup mp_skater_heap at %p\n", core::at(skater_heaps_, 0));
 
-    core::at(skater_geom_regions_, 0) = new_alloc_region(0x73F78);
-    debug::printf("allocated mp_skater_geom_region at %p\n", core::at(skater_geom_regions_, 0));
-    core::at(skater_geom_heaps_, 0) = add_heap(core::at(skater_geom_regions_, 0), MemSource::kGrowUp, "skater_geom");
+    core::at(skater_geom_regions_, 0) = memory::take_unique<Zone>(new_alloc_region(0x73F78));
+    debug::printf("allocated mp_skater_geom_region at %p\n", core::at(skater_geom_regions_, 0).get());
+    core::at(skater_geom_heaps_, 0) = add_heap(core::at(skater_geom_regions_, 0).get(), MemSource::kGrowUp, "skater_geom");
     debug::printf("Setup mp_skater_geom_heap at %p\n", core::at(skater_geom_heaps_, 0));
 
     for (int i = 1; i < kSkaterSlots; ++i) {
@@ -592,8 +594,8 @@ void Hub::create_net_scratch_zone()
         return;
     Hub* manager = get_pull();
     manager->enter_heap_scope(manager->bottom_up_heap_);
-    network_extras_zone_ = new_alloc_region(160000);
-    net_misc_heap_ = add_heap(network_extras_zone_, MemSource::kGrowUp, "NetMisc");
+    network_extras_zone_ = memory::take_unique<Zone>(new_alloc_region(160000));
+    net_misc_heap_ = add_heap(network_extras_zone_.get(), MemSource::kGrowUp, "NetMisc");
     get_pull()->leave_heap_scope();
 }
 
@@ -604,9 +606,9 @@ void Hub::init_internet_heaps()
         return;
     Hub* manager = get_pull();
     manager->enter_heap_scope(manager->bottom_up_heap_);
-    online_zone_ = new_alloc_region(450000);
-    internet_top_down_heap_ = add_heap(online_zone_, MemSource::kGrowDown, "InternetTopDown");
-    internet_bottom_up_heap_ = add_heap(online_zone_, MemSource::kGrowUp, "InternetBottomUp");
+    online_zone_ = memory::take_unique<Zone>(new_alloc_region(450000));
+    internet_top_down_heap_ = add_heap(online_zone_.get(), MemSource::kGrowDown, "InternetTopDown");
+    internet_bottom_up_heap_ = add_heap(online_zone_.get(), MemSource::kGrowUp, "InternetBottomUp");
     get_pull()->leave_heap_scope();
 }
 
@@ -615,9 +617,9 @@ void Hub::init_cutscene_heaps(uint32_t size)
 {
     if (cinematic_zone_)
         return;
-    cinematic_zone_ = new_alloc_region(size);
-    cinematic_low_heap_ = add_heap(cinematic_zone_, MemSource::kGrowUp, "CutsceneBottomUp");
-    cinematic_high_heap_ = add_heap(cinematic_zone_, MemSource::kGrowDown, "CutsceneTopDown");
+    cinematic_zone_ = memory::take_unique<Zone>(new_alloc_region(size));
+    cinematic_low_heap_ = add_heap(cinematic_zone_.get(), MemSource::kGrowUp, "CutsceneBottomUp");
+    cinematic_high_heap_ = add_heap(cinematic_zone_.get(), MemSource::kGrowDown, "CutsceneTopDown");
 }
 
 // 0x005BB820
@@ -627,13 +629,13 @@ void Hub::init_extra_skater_heaps(int count)
     if (count > kSkaterSlots)
         count = kSkaterSlots;
     for (int i = 1; i < count; ++i) {
-        core::at(skater_regions_, i) = new_alloc_region(0x1AFA4);
-        debug::printf("EXTRA: allocated mp_skater_region at %p\n", core::at(skater_regions_, i));
-        core::at(skater_heaps_, i) = add_heap(core::at(skater_regions_, i), MemSource::kGrowUp, "skaterX");
+        core::at(skater_regions_, i) = memory::take_unique<Zone>(new_alloc_region(0x1AFA4));
+        debug::printf("EXTRA: allocated mp_skater_region at %p\n", core::at(skater_regions_, i).get());
+        core::at(skater_heaps_, i) = add_heap(core::at(skater_regions_, i).get(), MemSource::kGrowUp, "skaterX");
         debug::printf("EXTRA: Setup mp_skater_heap at %p\n", core::at(skater_heaps_, i));
-        core::at(skater_geom_regions_, i) = new_alloc_region(0x73F78);
-        debug::printf("EXTRA: allocated mp_skater_geom_region at %p\n", core::at(skater_geom_regions_, i));
-        core::at(skater_geom_heaps_, i) = add_heap(core::at(skater_geom_regions_, i), MemSource::kGrowUp, "skaterGeomX");
+        core::at(skater_geom_regions_, i) = memory::take_unique<Zone>(new_alloc_region(0x73F78));
+        debug::printf("EXTRA: allocated mp_skater_geom_region at %p\n", core::at(skater_geom_regions_, i).get());
+        core::at(skater_geom_heaps_, i) = add_heap(core::at(skater_geom_regions_, i).get(), MemSource::kGrowUp, "skaterGeomX");
         debug::printf("EXTRA: Setup mp_skater_geom_heap at %p\n", core::at(skater_geom_heaps_, i));
     }
     debug::printf("END Init Skater Heaps\n");
@@ -652,8 +654,8 @@ void Hub::create_labeled_zone(uint32_t name, uint32_t size, const char* text, in
     // (no free slot: crashes here, as in the original)
     named->name = name;
     std::memcpy(named->text.data(), text, std::strlen(text) + 1); // (unbounded, as in the original)
-    named->region = new_alloc_region(size);
-    named->heap = add_heap(named->region, MemSource::kGrowUp, named->text.data());
+    named->region = memory::take_unique<Zone>(new_alloc_region(size));
+    named->heap = add_heap(named->region.get(), MemSource::kGrowUp, named->text.data());
     named->used = true;
 }
 

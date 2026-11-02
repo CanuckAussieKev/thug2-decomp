@@ -117,8 +117,8 @@ static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, ass
 ResourceRegistry* create_asset_manager(bool create);
 // 0x00407980: drops a reference; the last deletes it.
 void release_asset_manager();
-extern ResourceRegistry* g_asset_manager;
-inline ResourceRegistry*& asset_manager() { return g_asset_manager; }
+extern std::unique_ptr<ResourceRegistry> g_asset_manager;
+inline ResourceRegistry* asset_manager() { return g_asset_manager.get(); }
 
 extern memory::HeapUnique<frame_loop::Hub> g_main_loop_manager;
 

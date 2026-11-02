@@ -48,7 +48,7 @@ constexpr uint32_t kJawRotation = 0xC0BA0665;          // jawRotation
 constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
 constexpr int kDefaultPriority = 0x66;
 
-assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
+assets::ResourceRegistry* asset_manager() { return assets::asset_manager(); }
 
 void delete_params(script::Struct* params)
 {

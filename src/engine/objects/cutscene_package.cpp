@@ -83,7 +83,7 @@ constexpr uint32_t kTypeExtra = 0xFFC529F4;
 constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE;
 constexpr std::array<uint32_t, 4> kColourNames = {{0xA28FAB7F, 0xB90F08D0, 0x1DBCFAE8, 0x0442D3C1}};
 
-assets::ResourceRegistry* get_assets() { return assets::g_asset_manager; }
+assets::ResourceRegistry* get_assets() { return assets::asset_manager(); }
 // The asset manager's load (0x00408060: not permanent, copied), unload (0x00407B90 + 0x00407B20) and find.
 void* load_asset_data(uint32_t name, int type, uint32_t textures, void* data, uint32_t size, void* params)
 {

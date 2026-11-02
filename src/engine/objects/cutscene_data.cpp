@@ -74,7 +74,7 @@ void model_set(void* model, maths::Mat4* palette)
 }
 
 // The asset manager (0x006918DC).
-assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
+assets::ResourceRegistry* asset_manager() { return assets::asset_manager(); }
 // (from memory: not permanent, copied)
 void load_asset_file(uint32_t name, void* data, uint32_t size)
 {

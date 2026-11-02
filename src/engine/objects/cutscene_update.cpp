@@ -331,7 +331,7 @@ CinematicEntry::~CinematicEntry()
     }
     if (owns_data_) {
         if (content_) {
-            auto* assets = assets::g_asset_manager;
+            auto* assets = assets::asset_manager();
             assets::Resource* asset = assets->obtain_loaded_item(asset_, 1);
             assets->discard_loaded_item(asset);
             content_ = nullptr;

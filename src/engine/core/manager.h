@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include <gsl/pointers>
@@ -15,8 +16,8 @@ class Hub {
 public:
     // A heap created at run time by name (cfunc_mem_init_heap and friends).
     struct LabeledZone {
-        gsl::owner<Zone*> region;
-        gsl::owner<Arena*> heap;
+        std::unique_ptr<Zone> region;
+        Arena* heap; // (the heap registry's)
         uint32_t name;   // checksum
         std::array<char, 0x80> text; // the name
         bool used;
@@ -33,8 +34,8 @@ public:
     Hub();
     // The rest of the standard heaps (front end, network, script, skater info, theme, skater, named texture heaps).
     void init_standard_heaps();
-    // A new heap in `region`, registered.
-    gsl::owner<Arena*> add_heap(Zone* region, int direction, const char* name);
+    // A new heap in `region`, registered (heaps_ owns the heaps it registers: delete_heap frees one).
+    Arena* add_heap(Zone* region, int direction, const char* name);
     void create_net_scratch_zone();
     void init_internet_heaps();
     void init_cutscene_heaps(uint32_t size);
@@ -78,7 +79,7 @@ public:
     // The three that are constructed in place (not freed): the main heaps and region.
     void destroy_main_heaps();
 
-    std::array<MemSource*, kMaxHeaps> heaps_{};
+    std::array<MemSource*, kMaxHeaps> heaps_{}; // the registered heaps (made by add_heap: these own them)
     int heap_count_;
     MemSource** ongoing_{nullptr}; // the top of alloc_source_stack_
     std::array<MemSource*, 16> alloc_source_stack_{};
@@ -86,33 +87,33 @@ public:
     Zone* primary_zone_;
     Arena* top_down_heap_;
     Arena* bottom_up_heap_;
-    gsl::owner<Zone*> front_end_region_{};
-    gsl::owner<Arena*> front_end_heap_{};
-    gsl::owner<Zone*> script_region_{};
-    gsl::owner<Arena*> script_heap_{};
-    Zone* multiplayer_zone_{};
-    gsl::owner<Arena*> network_heap_{};
-    gsl::owner<Zone*> network_extras_zone_;
-    gsl::owner<Arena*> net_misc_heap_{};
-    gsl::owner<Zone*> online_zone_;
-    gsl::owner<Arena*> internet_top_down_heap_{};
-    gsl::owner<Arena*> internet_bottom_up_heap_{};
-    gsl::owner<Zone*> cinematic_zone_;
-    gsl::owner<Arena*> cinematic_high_heap_;
-    gsl::owner<Arena*> cinematic_low_heap_;
+    std::unique_ptr<Zone> front_end_region_;
+    Arena* front_end_heap_{}; // (the heap registry heaps_ owns it)
+    std::unique_ptr<Zone> script_region_;
+    Arena* script_heap_{}; // (the heap registry heaps_ owns it)
+    std::unique_ptr<Zone> multiplayer_zone_; // (never made: always null)
+    Arena* network_heap_{}; // (the heap registry heaps_ owns it)
+    std::unique_ptr<Zone> network_extras_zone_;
+    Arena* net_misc_heap_{}; // (the heap registry heaps_ owns it)
+    std::unique_ptr<Zone> online_zone_;
+    Arena* internet_top_down_heap_{}; // (the heap registry heaps_ owns it)
+    Arena* internet_bottom_up_heap_{}; // (the heap registry heaps_ owns it)
+    std::unique_ptr<Zone> cinematic_zone_;
+    Arena* cinematic_high_heap_{}; // (the heap registry heaps_ owns it)
+    Arena* cinematic_low_heap_{}; // (the heap registry heaps_ owns it)
     Zone* dev_tools_zone_{};
     Arena* debug_heap_{};
     Zone* unused_zone_{};    // (never made: its heap, below, is always null)
     Arena* unused_heap_{};   // (the screen elements' heap 0x03C84A59 names it)
-    std::array<Zone*, kSkaterSlots> skater_regions_{};
+    std::array<std::unique_ptr<Zone>, kSkaterSlots> skater_regions_;
     std::array<Arena*, kSkaterSlots> skater_heaps_{};
-    std::array<Zone*, kSkaterSlots> skater_geom_regions_{};
+    std::array<std::unique_ptr<Zone>, kSkaterSlots> skater_geom_regions_;
     std::array<Arena*, kSkaterSlots> skater_geom_heaps_{};
     std::array<LabeledZone, kMaxNamedHeaps> named_heaps_{};
-    gsl::owner<Zone*> skater_info_region_{};
-    gsl::owner<Arena*> skater_info_heap_{};
-    gsl::owner<Zone*> theme_region_{};
-    gsl::owner<Arena*> theme_heap_{};
+    std::unique_ptr<Zone> skater_info_region_;
+    Arena* skater_info_heap_{}; // (the heap registry heaps_ owns it)
+    std::unique_ptr<Zone> theme_region_;
+    Arena* theme_heap_{}; // (the heap registry heaps_ owns it)
     uint32_t unknown5e0_{0};
     uint32_t unknown5e4_{0};
 };
